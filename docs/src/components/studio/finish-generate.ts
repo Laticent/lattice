@@ -547,7 +547,14 @@ const OPAQUE_OVERRIDE_SLOTS = ['--fin-wash', '--fin-texture', '--fin-edge'] as c
  *  override — the full-bleed wash/edge AND the texture, all recomputed opaque. */
 function opaqueOverrideDecls(r: FinishRecipe): string[] {
 	const opaque = recipeSlots(r, 'opaque');
-	return opaque.filter((d) => OPAQUE_OVERRIDE_SLOTS.some((s) => d.startsWith(`${s}:`)));
+	const out = opaque.filter((d) => OPAQUE_OVERRIDE_SLOTS.some((s) => d.startsWith(`${s}:`)));
+	// A BAKED clearance mask must flip to its hard-edged opaque mirror in THIS finish's OWN
+	// export rules. base.finish.css also flips `--fin-backdrop-mask`, but only at
+	// `section.finish` (0,1,1) — LOWER than this finish's `section.finish.finish-<slug>`
+	// (0,2,1) rich setter, so that flip loses and the feathered mask grays in the vector PDF.
+	// Emitting the flip here (same 0,2,1 selector, later in source) is the one that wins.
+	if (r.backdrop?.clearance) out.push('--fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none)');
+	return out;
 }
 
 /** Sanitize arbitrary text to a safe class slug fragment (`[a-z0-9-]`), or 'custom'. */

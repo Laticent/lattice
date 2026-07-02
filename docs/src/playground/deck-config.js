@@ -160,7 +160,14 @@ function splitFrontMatter(source) {
     const head = /^([A-Za-z_][\w-]*):[ \t]*$/.exec(line);
     if (head && i + 1 < lines.length && /^\s+\S/.test(lines[i + 1])) {
       const block = [];
-      while (i + 1 < lines.length && /^\s+\S/.test(lines[i + 1])) { block.push(lines[i + 1]); i++; }
+      // Capture indented children; a BLANK line inside the block doesn't end it (an author
+      // may space layers apart) — only a non-blank line at/left of column 0 does. Matches the
+      // Studio writer (front-matter.ts parseFm), so the two can't disagree and shred a
+      // `finish-override:` block's later layers into stray top-level scalars.
+      while (i + 1 < lines.length && (/^\s+\S/.test(lines[i + 1]) || (lines[i + 1].trim() === '' && /^\s+\S/.test(lines[i + 2] || '')))) {
+        block.push(lines[i + 1]);
+        i++;
+      }
       entries.push([head[1], { block }]);
       continue;
     }

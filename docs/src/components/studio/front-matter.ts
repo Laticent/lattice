@@ -105,6 +105,19 @@ export function parseFinishOverride(source: string): Record<string, Record<strin
 	let layerIndent = -1;
 	for (const raw of block[1]) {
 		const indent = (raw.match(/^(\s*)/)?.[1] ?? '').length;
+		// An INLINE flow map on the layer line — `backdrop: { strength: 0.4, clearance: off }`
+		// (valid YAML, and the shorthand the docs show). Parse its comma-separated pairs.
+		const inline = raw.match(/^\s*([A-Za-z][\w-]*):\s*\{(.*)\}\s*(?:#.*)?$/);
+		if (inline) {
+			const m: Record<string, string> = {};
+			for (const pair of inline[2].split(',')) {
+				const kv2 = pair.match(/^\s*([A-Za-z][\w-]*)\s*:\s*(.*?)\s*$/);
+				if (kv2 && kv2[2] !== '') m[kv2[1]] = unquote(kv2[2]);
+			}
+			if (Object.keys(m).length) out[inline[1]] = m;
+			cur = null; // an inline layer closes any open expanded layer
+			continue;
+		}
 		const header = raw.match(/^\s*([A-Za-z][\w-]*):[ \t]*$/); // a layer header (no value)
 		if (header) { cur = {}; out[header[1]] = cur; layerIndent = indent; continue; }
 		const kv = raw.match(/^\s*([A-Za-z][\w-]*):\s*(.+)$/);

@@ -262,6 +262,18 @@ describe('writeFrontMatter', () => {
     assert.doesNotMatch(out, /^backdrop:/m);
   });
 
+  test('a finish-override: block with a BLANK line between layers is not shredded on write', async () => {
+    const { writeFrontMatter } = await import(MOD);
+    // An author may space layers apart for readability; the scanner must not stop at the
+    // blank and tear the later layer out to a top-level scalar (matches front-matter.ts).
+    const src = '---\nmarp: true\nfinish: finish-recede\nfinish-override:\n  backdrop:\n    strength: 0.4\n\n  texture:\n    intensity: 4\n---\n\n# D\n';
+    const out = writeFrontMatter(src, 'paginate', true);
+    assert.match(out, /\n {2}backdrop:\n {4}strength: 0\.4\n/);
+    assert.match(out, /\n {2}texture:\n {4}intensity: 4\n/); // the later layer survives
+    assert.doesNotMatch(out, /^texture:/m); // NOT torn out to top level
+    assert.doesNotMatch(out, /^intensity:/m);
+  });
+
   test('a bespoke finish/mode counts as "configured"; the baselines do not', async () => {
     const { readFrontMatter } = await import(MOD);
     assert.equal(readFrontMatter('---\nmarp: true\nfinish: atrium\n---\n\n# Deck\n').configured, true);

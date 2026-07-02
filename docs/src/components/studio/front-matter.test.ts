@@ -29,6 +29,16 @@ describe('front-matter', () => {
 		expect(parseFinishOverride('---\nfinish-override:\n  backdrop:\n---\n\n# D')).toEqual({});
 	});
 
+	it('parseFinishOverride also accepts the inline flow-map form (the docs shorthand)', () => {
+		const src = '---\nfinish-override:\n  backdrop: { strength: 0.4, clearance: off }\n  wash: { intensity: 5 }  # note\n---\n\n# D';
+		expect(parseFinishOverride(src)).toEqual({ backdrop: { strength: '0.4', clearance: 'off' }, wash: { intensity: '5' } });
+		// mixed inline + expanded layers coexist
+		const mixed = '---\nfinish-override:\n  backdrop: { clearance: on }\n  texture:\n    intensity: 4\n---\n\n# D';
+		expect(parseFinishOverride(mixed)).toEqual({ backdrop: { clearance: 'on' }, texture: { intensity: '4' } });
+		// an empty inline map yields nothing
+		expect(parseFinishOverride('---\nfinish-override:\n  backdrop: {}\n---\n\n# D')).toEqual({});
+	});
+
 	it('creates a block on the first directive', () => {
 		const out = setFrontMatter(BODY, 'size', 'square');
 		expect(out.startsWith('---\nsize: square\n---\n\n')).toBe(true);

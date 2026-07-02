@@ -26,6 +26,7 @@ section.finish.finish-recede {
   --fin-wash:none;
   --fin-texture:repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px);
   --fin-edge:radial-gradient(78% 78% at 50% 50%, var(--bg) 62%, color-mix(in srgb, var(--ink, var(--accent)) 8%, var(--bg)) 100%);
+  --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
   }
 }
 :where(.lattice-exporting) section.finish.finish-recede,
@@ -33,6 +34,7 @@ section.finish.finish-recede.lattice-exporting {
   --fin-wash:none;
   --fin-texture:repeating-linear-gradient(0deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px), repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, var(--bg)) 0 1px, transparent 1px 34px);
   --fin-edge:radial-gradient(78% 78% at 50% 50%, var(--bg) 62%, color-mix(in srgb, var(--ink, var(--accent)) 8%, var(--bg)) 100%);
+  --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
 }
 </style>
 

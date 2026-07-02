@@ -175,6 +175,19 @@ describe('finish-generate', () => {
 		expect(generateFinishCss('x', coerceRecipe({ backdrop: { strength: 1 } }))).not.toMatch(/--fin-backdrop/);
 	});
 
+	it('re-points the baked clearance mask to its opaque mirror in BOTH generated export rules', () => {
+		// PDF-safety: the finish's own `section.finish.finish-<slug>` (0,2,1) rich setter would
+		// beat base.finish.css's (0,1,1) `section.finish` flip, so the feathered mask would gray
+		// in the vector PDF. generateFinishCss must emit the flip at its OWN specificity.
+		const css = generateFinishCss('x', coerceRecipe({ backdrop: { clearance: true } }));
+		const print = css.slice(css.indexOf('@media print'), css.indexOf(':where('));
+		expect(print).toMatch(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque,\s*none\)/); // @media print
+		const exporting = css.slice(css.indexOf(':where('));
+		expect(exporting).toMatch(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque,\s*none\)/); // .lattice-exporting
+		// no baked clearance → no backdrop-mask flip in the export rules
+		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop-mask:/);
+	});
+
 	it('mergeFinishOverride deep-merges a finish-override partial over the recipe', () => {
 		const base = coerceRecipe({ backdrop: { strength: 0.5, clearance: true }, wash: { type: 'grid', intensity: 8 } });
 		// override ONE backdrop axis — the other baked axis (clearance) survives the merge
