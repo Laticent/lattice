@@ -40,12 +40,28 @@ describe('embedSrc', () => {
 		assert.equal(embedSrc('https://www.tiktok.com/t/ZP8GrtdJH/'), null); // short link → resolveTikTokSrc
 	});
 
+	test('Instagram (reel / p / tv / reels) → the frameable /p/{code}/embed/ iframe SYNC (shortcode in URL)', async () => {
+		const { embedSrc } = await load();
+		// Every post type normalizes to the universal /p/{code}/embed/ path (the URL
+		// Instagram's own embed.js builds). The shortcode is in the URL → no fetch.
+		for (const u of [
+			'https://www.instagram.com/reel/DaStLQkuN3Q',
+			'https://www.instagram.com/reel/DaStLQkuN3Q/',
+			'https://www.instagram.com/reels/DaStLQkuN3Q/',
+			'https://www.instagram.com/p/DaStLQkuN3Q/',
+			'https://www.instagram.com/tv/DaStLQkuN3Q/',
+			'https://www.instagram.com/reel/DaStLQkuN3Q/?igsh=abc123',
+		]) {
+			assert.equal(embedSrc(u), 'https://www.instagram.com/p/DaStLQkuN3Q/embed/');
+		}
+	});
+
 	test('non-embeddable providers and junk → null (fall back to the plain link)', async () => {
 		const { embedSrc } = await load();
-		// `embedSrc` is the SYNC path (id in the URL) — TikTok is async (below), so it
-		// isn't here; Instagram + junk are genuinely non-embeddable.
-		assert.equal(embedSrc('https://www.instagram.com/reel/CxYzAbCdEfg/'), null);
+		// `embedSrc` is the SYNC path (id/shortcode in the URL) — TikTok SHORT links are
+		// async (below); these are genuinely non-embeddable.
 		assert.equal(embedSrc('https://example.com/watch?v=notreal'), null);
+		assert.equal(embedSrc('https://www.instagram.com/someuser/'), null); // a profile, not a post
 		assert.equal(embedSrc(''), null);
 		assert.equal(embedSrc(null), null);
 	});
@@ -59,17 +75,22 @@ describe('embedSrc', () => {
 		assert.ok(out === null || out.startsWith('https://www.youtube-nocookie.com/embed/'));
 		assert.match(embedSrc('https://www.youtube.com/watch?v=aqz-KE-bpKQ'), /^https:\/\/www\.youtube-nocookie\.com\/embed\/[\w-]{11}\?/);
 		assert.match(embedSrc('https://vimeo.com/76979871'), /^https:\/\/player\.vimeo\.com\/video\/\d+\?/);
+		// Instagram: the src is Instagram's OWN origin + a constrained shortcode ([\w-]+),
+		// never the input's origin — even when a hostile href carries a look-alike substring.
+		assert.match(embedSrc('https://www.instagram.com/reel/DaStLQkuN3Q/'), /^https:\/\/www\.instagram\.com\/p\/[\w-]+\/embed\/$/);
+		const ig = embedSrc('https://evil.example/#instagram.com/reel/DaStLQkuN3Q');
+		assert.ok(ig === null || ig.startsWith('https://www.instagram.com/p/'));
 	});
 });
 
 describe('isEmbeddable', () => {
-	test('YouTube / Vimeo / TikTok (any form) → true; Instagram / junk → false', async () => {
+	test('YouTube / Vimeo / TikTok / Instagram (any form) → true; junk → false', async () => {
 		const { isEmbeddable } = await load();
 		assert.equal(isEmbeddable('https://youtu.be/aqz-KE-bpKQ'), true);
 		assert.equal(isEmbeddable('https://vimeo.com/76979871'), true);
 		assert.equal(isEmbeddable('https://www.tiktok.com/t/ZP8GrtdJH/'), true); // short link — resolved async
 		assert.equal(isEmbeddable('https://www.tiktok.com/@x/video/6718335390845095173'), true);
-		assert.equal(isEmbeddable('https://www.instagram.com/reel/Cx/'), false);
+		assert.equal(isEmbeddable('https://www.instagram.com/reel/DaStLQkuN3Q/'), true); // sync — shortcode in URL
 		assert.equal(isEmbeddable('https://example.com/x'), false);
 		assert.equal(isEmbeddable(''), false);
 	});

@@ -24,7 +24,7 @@
 
 // Allow-listed providers → a privacy embed URL built from the video id only.
 // Add a provider here (with its id parser + embed template) to support it; anything
-// not listed falls through to the poster's plain link (TikTok/Instagram today).
+// not listed falls through to the poster's plain link.
 //
 // NO `playsinline`: on iPhone Safari a `playsinline` YouTube embed is locked to a
 // small inline player with a stripped control set (play/pause only) and NO
@@ -52,12 +52,25 @@ const EMBED = [
 		id: (u) => (u.match(/tiktok\.com\/(?:@[\w.-]+\/video\/|embed\/(?:v2\/)?|player\/v1\/)(\d+)/) || [])[1],
 		src: (id) => `https://www.tiktok.com/player/v1/${id}?autoplay=1`,
 	},
-	// Instagram has NO public iframe player (only its `instgrm.Embeds` widget, which
-	// we won't load into the parent — privacy + #24), so it stays a poster + link.
+	{
+		// Instagram's `/{p,reel,tv}/{shortcode}/embed/` page IS frameable (no
+		// `X-Frame-Options`, no `frame-ancestors` in its CSP) and carries the shortcode
+		// IN THE URL — so it embeds SYNCHRONOUSLY, no resolve fetch, immune to the ITP
+		// wall that blocks TikTok short links on iPhone. We normalize every post type to
+		// the universal `/p/{code}/embed/` path (the same URL Instagram's own embed.js
+		// builds for reels/IGTV/video posts). The shortcode is `[\w-]+`, so it can't
+		// break out of the path (same rebuild-from-id safety as the other providers).
+		// This is the self-contained `/embed/` IFRAME — NOT the `instgrm.Embeds` widget
+		// script (which we still won't load into the parent: privacy + #24).
+		key: 'instagram',
+		id: (u) => (u.match(/instagram\.com\/(?:reels?|p|tv)\/([\w-]+)/) || [])[1],
+		src: (id) => `https://www.instagram.com/p/${id}/embed/`,
+	},
 ];
 
-// A YouTube/Vimeo href → a safe player src, or null (SYNC — id is in the URL).
-// Exported for tests. TikTok is async (resolveTikTokSrc); Instagram → null.
+// A YouTube/Vimeo/Instagram/canonical-TikTok href → a safe player src, or null
+// (SYNC — the id/shortcode is in the URL). Exported for tests. TikTok SHORT links
+// are the one async case (resolveTikTokSrc); everything else resolves here.
 export function embedSrc(href) {
 	if (!href) return null;
 	for (const p of EMBED) {
