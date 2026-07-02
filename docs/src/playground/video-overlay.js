@@ -77,7 +77,17 @@ export function isEmbeddable(href) {
  * @returns {Promise<string|null>}
  */
 export async function resolveTikTokSrc(href, fetchImpl) {
-	const doFetch = fetchImpl || ((u) => fetch(u));
+	const doFetch =
+		fetchImpl ||
+		((u) => {
+			// Bound the wait so a hung/blocked request can't leave the lightbox stuck
+			// on "Loading…" forever — a timeout rejects → the in-lightbox link fallback.
+			const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+			const t = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
+			return fetch(u, ctrl ? { signal: ctrl.signal } : undefined).finally(() => {
+				if (t) clearTimeout(t);
+			});
+		});
 	try {
 		const r = await doFetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(String(href)));
 		if (!r || !r.ok) return null;
@@ -177,15 +187,39 @@ function play(poster) {
 			shell.appendChild(btn); // keep close on top of the player
 		};
 
+		// Fallback shown IN the lightbox if we can't build a player (e.g. TikTok
+		// oEmbed blocked in this browser). NOT an async `window.open` — iOS
+		// popup-blocks a window.open outside the tap gesture, which reads as
+		// "nothing happened". A real <a> the user taps IS a gesture → never blocked.
+		const mountFallbackLink = () => {
+			if (!modal || modal.root !== root) return;
+			shell.textContent = '';
+			shell.style.background = 'rgba(6,10,18,.96)';
+			shell.style.padding = '24px';
+			shell.style.gap = '12px';
+			const msg = document.createElement('div');
+			msg.textContent = "Couldn't load the player here.";
+			msg.style.cssText = 'color:rgba(255,255,255,.72);font:500 14px system-ui,sans-serif;text-align:center;';
+			const a = document.createElement('a');
+			a.href = href || '#';
+			a.target = '_blank';
+			a.rel = 'noreferrer noopener';
+			a.textContent = 'Open on TikTok ↗';
+			a.style.cssText = 'color:#fff;font:600 15px system-ui,sans-serif;text-decoration:underline;';
+			shell.appendChild(msg);
+			shell.appendChild(a);
+			shell.appendChild(btn);
+		};
+
 		if (direct) {
 			mountPlayer(direct);
 		} else {
 			// TikTok: resolve the (short or canonical) link to its player src via oEmbed,
-			// then swap in the iframe. On failure, close + fall back to opening the link.
+			// then swap in the iframe; on failure show the in-lightbox tap-through.
 			resolveTikTokSrc(href).then((src) => {
 				if (!modal || modal.root !== root) return;
 				if (src) mountPlayer(src);
-				else { close(); try { (window.top || window).open(href, '_blank', 'noopener,noreferrer'); } catch (_o) { /* popup blocked */ } }
+				else mountFallbackLink();
 			});
 		}
 		return true;
