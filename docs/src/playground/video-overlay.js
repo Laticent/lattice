@@ -43,20 +43,16 @@ const EMBED = [
 		id: (u) => (u.match(/vimeo\.com\/(?:video\/)?(\d+)/) || [])[1],
 		src: (id) => `https://player.vimeo.com/video/${id}?autoplay=1`,
 	},
-	{
-		// TikTok's official iframe player (numeric video id from /@user/video/{id}).
-		// UNVERIFIED on a real device from the sandbox — confirm the player loads on
-		// iOS before relying on it; the poster-link fallback covers it if it doesn't.
-		key: 'tiktok',
-		id: (u) => (u.match(/tiktok\.com\/(?:@[\w.-]+\/video\/|v\/|embed\/(?:v2\/)?)(\d+)/) || [])[1],
-		src: (id) => `https://www.tiktok.com/player/v1/${id}?autoplay=1`,
-	},
-	// Instagram has NO public iframe player — embedding needs their instgrm.Embeds JS
-	// widget, which we won't load into the parent (third-party script + privacy). It
-	// stays a poster + link (embedSrc returns null → the guard opens the tab).
+	// TikTok is handled ASYNC (resolveTikTokSrc, below) — its share button hands out
+	// `/t/{code}` short links whose numeric id is only known after a redirect, so we
+	// resolve it via TikTok's oEmbed (CORS-open) at play time, then embed the official
+	// `player/v1/{id}` iframe. Instagram has NO public iframe player (only its
+	// `instgrm.Embeds` widget, which we won't load into the parent — privacy + #24),
+	// so it stays a poster + link.
 ];
 
-// Pure: an author href → a safe, embeddable player src, or null. Exported for tests.
+// A YouTube/Vimeo href → a safe player src, or null (SYNC — id is in the URL).
+// Exported for tests. TikTok is async (resolveTikTokSrc); Instagram → null.
 export function embedSrc(href) {
 	if (!href) return null;
 	for (const p of EMBED) {
@@ -64,6 +60,34 @@ export function embedSrc(href) {
 		if (id) return p.src(id);
 	}
 	return null;
+}
+
+const isTikTok = (href) => /(?:^|\/\/|\.)tiktok\.com\//i.test(String(href || ''));
+
+/** True if a tap on this href should open the player (sync YT/Vimeo, or async TikTok). */
+export function isEmbeddable(href) {
+	return Boolean(embedSrc(href)) || isTikTok(href);
+}
+
+/**
+ * Resolve a TikTok URL (short `/t/{code}` OR canonical `/@user/video/{id}`) to its
+ * official iframe player src, via TikTok's CORS-open oEmbed. The player src is built
+ * from the parsed NUMERIC id only (never the response HTML) — no injection surface.
+ * `fetchImpl` is injectable for tests. Returns null on any failure (→ link fallback).
+ * @returns {Promise<string|null>}
+ */
+export async function resolveTikTokSrc(href, fetchImpl) {
+	const doFetch = fetchImpl || ((u) => fetch(u));
+	try {
+		const r = await doFetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(String(href)));
+		if (!r || !r.ok) return null;
+		const j = await r.json();
+		const html = String((j && j.html) || '');
+		const id = (html.match(/data-video-id="(\d+)"/) || html.match(/\/video\/(\d+)/) || [])[1];
+		return id ? `https://www.tiktok.com/player/v1/${id}?autoplay=1` : null;
+	} catch (_e) {
+		return null;
+	}
 }
 
 // ── The player is a MODULE-LEVEL SINGLETON — one lightbox at a time across every
@@ -82,7 +106,8 @@ function close() {
 }
 
 // Called (from a preview iframe's link guard) with the tapped poster anchor.
-// Returns true if a player was mounted, false if the provider isn't embeddable.
+// Returns true if we're handling it (a player mounted, or an async TikTok resolve
+// is in flight), false if the provider isn't embeddable (→ the guard opens a tab).
 //
 // A CENTERED LIGHTBOX, not a tiny player pinned over the poster: on mobile the
 // poster's rect is small, so a pinned player gave the controls at a size too small
@@ -90,8 +115,9 @@ function close() {
 // viewport-relative even under a transformed ancestor) gives full-size controls.
 function play(poster) {
 	try {
-		const src = embedSrc(poster && poster.getAttribute && poster.getAttribute('href'));
-		if (!src) return false;
+		const href = poster && poster.getAttribute ? poster.getAttribute('href') : null;
+		const direct = embedSrc(href); // YouTube/Vimeo: id is in the URL (sync)
+		if (!direct && !isTikTok(href)) return false; // not embeddable → guard opens the tab
 		const prevFocus = document.activeElement;
 		close();
 
@@ -107,15 +133,10 @@ function play(poster) {
 		const shell = document.createElement('div');
 		shell.style.cssText =
 			'position:relative;width:min(92vw,960px);aspect-ratio:16/9;max-height:86vh;' +
-			'border-radius:12px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.6);background:#000;';
-		const player = document.createElement('iframe');
-		player.src = src;
-		player.title = 'Video player';
-		player.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
-		player.setAttribute('allowfullscreen', '');
-		player.setAttribute('webkitallowfullscreen', ''); // legacy iOS Safari fullscreen
-		player.referrerPolicy = 'strict-origin-when-cross-origin';
-		player.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;display:block;';
+			'border-radius:12px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.6);background:#000;' +
+			// Centered "Loading…" shown until the player <iframe> is added (TikTok resolve).
+			"display:grid;place-items:center;color:rgba(255,255,255,.7);font:500 14px system-ui,sans-serif;";
+		shell.textContent = 'Loading…';
 		const btn = document.createElement('button');
 		btn.type = 'button';
 		btn.setAttribute('aria-label', 'Close video');
@@ -125,7 +146,6 @@ function play(poster) {
 			'position:absolute;top:8px;right:8px;z-index:1;width:34px;height:34px;border:0;border-radius:50%;cursor:pointer;' +
 			'background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:34px;padding:0;';
 		btn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-		shell.appendChild(player);
 		shell.appendChild(btn);
 		root.appendChild(shell);
 		// Backdrop tap closes; a tap on the player/shell does not (it drives playback).
@@ -139,6 +159,35 @@ function play(poster) {
 		document.body.appendChild(root);
 		requestAnimationFrame(() => { if (modal && modal.root === root) root.style.opacity = '1'; });
 		try { btn.focus(); } catch (_e) { /* focus best-effort */ }
+
+		// Swap the "Loading…" shell for the real player <iframe> once we have a src.
+		const mountPlayer = (src) => {
+			if (!modal || modal.root !== root) return; // closed / replaced meanwhile
+			shell.textContent = '';
+			shell.style.color = ''; // drop the loading text color
+			const player = document.createElement('iframe');
+			player.src = src;
+			player.title = 'Video player';
+			player.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+			player.setAttribute('allowfullscreen', '');
+			player.setAttribute('webkitallowfullscreen', ''); // legacy iOS Safari fullscreen
+			player.referrerPolicy = 'strict-origin-when-cross-origin';
+			player.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;display:block;';
+			shell.appendChild(player);
+			shell.appendChild(btn); // keep close on top of the player
+		};
+
+		if (direct) {
+			mountPlayer(direct);
+		} else {
+			// TikTok: resolve the (short or canonical) link to its player src via oEmbed,
+			// then swap in the iframe. On failure, close + fall back to opening the link.
+			resolveTikTokSrc(href).then((src) => {
+				if (!modal || modal.root !== root) return;
+				if (src) mountPlayer(src);
+				else { close(); try { (window.top || window).open(href, '_blank', 'noopener,noreferrer'); } catch (_o) { /* popup blocked */ } }
+			});
+		}
 		return true;
 	} catch (_e) {
 		return false;

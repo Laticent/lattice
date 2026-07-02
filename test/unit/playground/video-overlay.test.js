@@ -31,17 +31,10 @@ describe('embedSrc', () => {
 		assert.equal(embedSrc('https://vimeo.com/76979871'), 'https://player.vimeo.com/video/76979871?autoplay=1');
 	});
 
-	test('TikTok → official iframe player by numeric id', async () => {
-		const { embedSrc } = await load();
-		assert.equal(
-			embedSrc('https://www.tiktok.com/@scout2015/video/6718335390845095173'),
-			'https://www.tiktok.com/player/v1/6718335390845095173?autoplay=1',
-		);
-	});
-
 	test('non-embeddable providers and junk → null (fall back to the plain link)', async () => {
 		const { embedSrc } = await load();
-		// Instagram has no public iframe player → stays a poster + link.
+		// `embedSrc` is the SYNC path (id in the URL) — TikTok is async (below), so it
+		// isn't here; Instagram + junk are genuinely non-embeddable.
 		assert.equal(embedSrc('https://www.instagram.com/reel/CxYzAbCdEfg/'), null);
 		assert.equal(embedSrc('https://example.com/watch?v=notreal'), null);
 		assert.equal(embedSrc(''), null);
@@ -57,5 +50,43 @@ describe('embedSrc', () => {
 		assert.ok(out === null || out.startsWith('https://www.youtube-nocookie.com/embed/'));
 		assert.match(embedSrc('https://www.youtube.com/watch?v=aqz-KE-bpKQ'), /^https:\/\/www\.youtube-nocookie\.com\/embed\/[\w-]{11}\?/);
 		assert.match(embedSrc('https://vimeo.com/76979871'), /^https:\/\/player\.vimeo\.com\/video\/\d+\?/);
+	});
+});
+
+describe('isEmbeddable', () => {
+	test('YouTube / Vimeo / TikTok (any form) → true; Instagram / junk → false', async () => {
+		const { isEmbeddable } = await load();
+		assert.equal(isEmbeddable('https://youtu.be/aqz-KE-bpKQ'), true);
+		assert.equal(isEmbeddable('https://vimeo.com/76979871'), true);
+		assert.equal(isEmbeddable('https://www.tiktok.com/t/ZP8GrtdJH/'), true); // short link — resolved async
+		assert.equal(isEmbeddable('https://www.tiktok.com/@x/video/6718335390845095173'), true);
+		assert.equal(isEmbeddable('https://www.instagram.com/reel/Cx/'), false);
+		assert.equal(isEmbeddable('https://example.com/x'), false);
+		assert.equal(isEmbeddable(''), false);
+	});
+});
+
+describe('resolveTikTokSrc (injected fetch — no network)', () => {
+	const oembed = (html) => async () => ({ ok: true, json: async () => ({ html }) });
+
+	test('resolves a SHORT link to the official player, built from the parsed id only', async () => {
+		const { resolveTikTokSrc } = await load();
+		// The real oEmbed shape: the id lives in `data-video-id` on the blockquote.
+		const html = '<blockquote class="tiktok-embed" cite="https://www.tiktok.com/@boloscout/video/7656898689901939990" data-video-id="7656898689901939990">…</blockquote>';
+		const src = await resolveTikTokSrc('https://www.tiktok.com/t/ZP8GrtdJH/', oembed(html));
+		assert.equal(src, 'https://www.tiktok.com/player/v1/7656898689901939990?autoplay=1');
+	});
+
+	test('falls back to the /video/{id} in the html if data-video-id is absent', async () => {
+		const { resolveTikTokSrc } = await load();
+		const src = await resolveTikTokSrc('https://www.tiktok.com/t/x/', oembed('<a href="https://www.tiktok.com/@u/video/123">x</a>'));
+		assert.equal(src, 'https://www.tiktok.com/player/v1/123?autoplay=1');
+	});
+
+	test('a failed / non-ok / id-less response resolves to null (→ the link fallback)', async () => {
+		const { resolveTikTokSrc } = await load();
+		assert.equal(await resolveTikTokSrc('https://www.tiktok.com/t/x/', async () => { throw new Error('cors'); }), null);
+		assert.equal(await resolveTikTokSrc('https://www.tiktok.com/t/x/', async () => ({ ok: false })), null);
+		assert.equal(await resolveTikTokSrc('https://www.tiktok.com/t/x/', oembed('<blockquote>no id here</blockquote>')), null);
 	});
 });

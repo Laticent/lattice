@@ -48,9 +48,12 @@ in patch versions.
   - **Now also in the Studio preview, plus TikTok.** The player is a shared
     singleton wired into the Studio's single-slide renderer (which also gains the
     preview link guard, fixing external-link taps blanking that frame on iOS).
-    TikTok joins YouTube/Vimeo via its official iframe player; Instagram stays a
-    poster + link (no public iframe player). Lightbox polish: dialog semantics,
-    fade-in, background-scroll lock, and focus handling.
+    **TikTok** now plays too — resolved at play time via TikTok's CORS-open oEmbed
+    (which handles both `/t/…` share short-links and canonical URLs), then embedded
+    as its official `player/v1/{id}` iframe. Instagram stays a poster + link (no
+    public iframe player). Lightbox polish: dialog semantics, fade-in,
+    background-scroll lock, focus handling, and a "Loading…" state for the async
+    TikTok resolve.
 - **PDF export: `--raster` and `--embed-source` flags (lattice-emulator, #690).**
   `--raster` prints the PDF as one full-bleed 2× JPEG per page (from the same
   screenshots the PPTX path takes) for maximum viewer compatibility — selectable text is
