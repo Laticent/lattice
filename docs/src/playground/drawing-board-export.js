@@ -323,7 +323,49 @@ async function sectionsOf(frame) {
 	const { buildFontEmbedCss, ensureFontsLoaded } = await import('./font-embed.js');
 	const fontEmbedCSS = await buildFontEmbedCss();
 	await ensureFontsLoaded(doc, fontEmbedCSS);
+	await flattenChartSvgs(frame, sections);
 	return { sections, fontEmbedCSS };
+}
+
+// Bake every stylesheet-styled chart <svg> into a self-styled twin before the
+// rasterizer runs. html-to-image inlines computed styles onto HTMLElements
+// only — nested SVGElements keep just their attributes/classes, so in the
+// serialized clone a chart loses ALL its CSS: fills fall to SVG-default BLACK,
+// the CSS-sized root (viewBox, no width/height attrs) rescales, and label
+// font-sizes vanish — the black-pentagon / giant-label PDFs found on-device.
+// Fix by REUSE (HARD RULE #15): flattenSvgStyles (standalone-svg.js — the same
+// kernel behind "download chart as SVG") walks the LIVE rendered svg, inlines
+// the browser's already-computed paint/text props (incl. gradient stops via a
+// probe), and returns a styled clone; we swap it in place and pin the root's
+// layout box. The capture frame is a throwaway srcdoc, so the swap needs no
+// restore, and one pass here covers the PDF (both lanes) AND PPTX rasterizers.
+// SVGs that carry their own <style> (Mermaid, function-plot) are self-styled —
+// the block survives cloneNode — so they're skipped. Any per-svg failure leaves
+// that svg as-is: better one unstyled chart than a lost export.
+async function flattenChartSvgs(frame, sections) {
+	const win = frame.contentWindow;
+	if (!win) return;
+	const { flattenSvgStyles } = await import('./standalone-svg.generated.js');
+	for (const sec of sections) {
+		for (const svg of Array.from(sec.querySelectorAll('svg'))) {
+			if (svg.querySelector('style')) continue; // self-styled (Mermaid, function-plot)
+			try {
+				// Used layout size (unaffected by the FIT transform) — the flattened
+				// clone keeps paint/text only, so pin its box explicitly or the
+				// viewBox would rescale it in the style-less serialization.
+				const cs = win.getComputedStyle(svg);
+				const w = parseFloat(cs.width);
+				const h = parseFloat(cs.height);
+				if (!w || !h) continue;
+				const flat = flattenSvgStyles(svg, win);
+				flat.setAttribute('width', String(w));
+				flat.setAttribute('height', String(h));
+				flat.style.width = `${w}px`;
+				flat.style.height = `${h}px`;
+				svg.replaceWith(flat);
+			} catch (_e) { /* leave this svg vector-unstyled rather than fail the export */ }
+		}
+	}
 }
 
 // The slide's true box (px) from its own layout, NOT a hardcoded 1280×720 — a
