@@ -33,11 +33,12 @@ import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
 import { getNote, setNote } from './slide-notes';
 import { listFindings } from './studio-lint';
-import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { useBreakpoint } from './use-breakpoint';
 import { WorkspaceSheet } from './WorkspaceSheet';
+import { isEvictionProneBrowser } from './workspace-backup';
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
@@ -588,6 +589,25 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		resumePendingAuth().then((ok) => {
 			if (ok) notify('OpenRouter connected — the Architect can now edit your deck.');
 		});
+	}, [notify]);
+	// Storage durability — two quiet moves on boot. (1) Ask the browser to mark
+	// this origin's storage persistent (best-effort; silently denied where
+	// unsupported). (2) The EARNED backup nudge: only when real unbacked-up work
+	// exists, at most once per 14 days (shouldNudgeBackup) — ownership framing,
+	// a plain toast, never a modal. Tiers + copy:
+	// engineering/decisions/2026-07-02-workspace-backup.md.
+	React.useEffect(() => {
+		try {
+			navigator.storage?.persist?.().catch(() => {});
+		} catch {
+			/* no Storage API here */
+		}
+		const now = Date.now();
+		if (shouldNudgeBackup(now)) {
+			markBackupNudged(now);
+			const edited = loadDeckList().filter((d) => loadSource(d.id) != null).length;
+			notify(`${edited} decks live only in this browser — a backup takes 10 s: Workspace → General.${isEvictionProneBrowser() ? ' (Safari clears unused site data after a week.)' : ''}`);
+		}
 	}, [notify]);
 	// Run one architect instruction. Applies real edits when a model is connected;
 	// degrades honestly (points at Workspace) when it is not.

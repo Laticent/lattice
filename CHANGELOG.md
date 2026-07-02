@@ -27,6 +27,16 @@ in patch versions.
 
 ### Added
 
+- **Studio: back up and restore your whole workspace.** Workspace → General
+  gains **Backup & restore**: one `lattice-workspace.zip` holding every deck
+  (with readable `.md` copies), version history, chats, settings, and your
+  saved themes/components/finishes — restore merges and never overwrites (a
+  deck that changed since the backup comes back beside it as "(restored)").
+  Your OpenRouter connection is deliberately never in the file. A quiet
+  "Last backup" line and a rare, earned reminder round it out; Safari tabs
+  get one extra sentence about WebKit's 7-day storage rule. See
+  `engineering/decisions/2026-07-02-workspace-backup.md`.
+
 - **The docs site is an installable PWA with an offline cache.** A web-app
   manifest + generated brand icons (`tools/make-pwa-icons.js`) make
   lattice.style installable (app icon, standalone window), and a runtime-caching

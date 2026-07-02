@@ -47,7 +47,7 @@ export function metaFor(source: string): string {
 	return `${n} slide${n === 1 ? '' : 's'}`;
 }
 
-type IndexEntry = { id: string; title: string; builtin: boolean };
+export type IndexEntry = { id: string; title: string; builtin: boolean };
 
 // One-time flag: have we offered the welcome deck to a pre-existing user whose
 // saved index predates it? Set once the migration runs, so a user who then
@@ -243,6 +243,131 @@ export const SETTINGS_EVENT = 'lattice:settings';
 export function saveSettings(partial: Partial<StudioSettings>): void {
 	write(SETTINGS_LS, { ...loadSettings(), ...partial });
 	if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SETTINGS_EVENT));
+}
+
+// ── Workspace export / import (the backup feature's store half) ─────────────
+// The knowledge of WHICH keys make up a Studio workspace stays in this module;
+// workspace-backup.ts only packs/unpacks what these two functions hand it.
+// Excluded on purpose: the OpenRouter key + PKCE verifier (secrets never enter
+// a backup file that may be emailed or synced) and site-chrome palette prefs.
+
+const LAST_BACKUP_LS = 'lattice-studio-last-backup'; // epoch ms of the last download
+const BACKUP_NUDGE_LS = 'lattice-studio-backup-nudge-at'; // epoch ms of the last nudge shown
+
+export type StudioExport = {
+	index: IndexEntry[];
+	/** EDITED sources only, by deck id — built-ins that were never touched
+	 *  restore from their canonical source, so a backup can't pin stale copies. */
+	sources: Record<string, string>;
+	checkpoints: Record<string, Checkpoint[]>;
+	chats: Record<string, ChatMessage[]>;
+	settings: StudioSettings;
+	instructions: string;
+};
+
+/** Snapshot everything user-authored in the Studio's localStorage. */
+export function exportStudioState(): StudioExport {
+	const index = loadIndex();
+	const sources: Record<string, string> = {};
+	const checkpoints: Record<string, Checkpoint[]> = {};
+	const chats: Record<string, ChatMessage[]> = {};
+	for (const e of index) {
+		const src = loadSource(e.id);
+		if (src != null) sources[e.id] = src;
+		const cps = loadCheckpoints(e.id);
+		if (cps.length) checkpoints[e.id] = cps;
+		const chat = loadChat(e.id);
+		if (chat.length) chats[e.id] = chat;
+	}
+	return { index, sources, checkpoints, chats, settings: loadSettings(), instructions: loadInstructions() };
+}
+
+export type ImportSummary = { added: number; restoredCopies: number; skipped: number };
+
+/**
+ * Merge a backup into the current workspace (never destructive):
+ *   · a deck id we don't have → added as-is (source, checkpoints, chat ride along);
+ *   · a deck id we DO have with the same source (or none) → skipped, but its
+ *     checkpoints/chat fill in wherever ours are empty;
+ *   · a deck id we have with a DIFFERENT source → imported as a NEW deck titled
+ *     "<title> (restored)" so nothing on this device is overwritten.
+ * Settings + instructions are restored from the backup (they're the user's own
+ * values either way). `ts` is passed in so the store stays free of Date.now.
+ */
+export function importStudioState(data: StudioExport, ts: number): ImportSummary {
+	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0 };
+	const index = loadIndex();
+	const have = new Map(index.map((e) => [e.id, e]));
+	let n = 0;
+	for (const entry of data.index) {
+		const incomingSrc = data.sources[entry.id];
+		const existing = have.get(entry.id);
+		if (!existing) {
+			index.push(entry);
+			if (incomingSrc != null) saveSource(entry.id, incomingSrc);
+			if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
+			summary.added++;
+			continue;
+		}
+		const currentSrc = loadSource(entry.id);
+		if (incomingSrc == null || incomingSrc === currentSrc) {
+			// Same deck — take the backup's history wherever ours is missing.
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
+			summary.skipped++;
+			continue;
+		}
+		if (currentSrc == null) {
+			// The id exists (a built-in seeded into every fresh index) but carries no
+			// local edits — there is nothing to protect, so the backup's source
+			// restores IN PLACE. This is the whole-point case: a fresh browser after
+			// storage loss, where every built-in id is present but untouched.
+			saveSource(entry.id, incomingSrc);
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
+			summary.added++;
+			continue;
+		}
+		// Truly diverged (both sides carry edits) — restore beside, never over.
+		const newId = `deck-${ts.toString(36)}-r${(n++).toString(36)}`;
+		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false });
+		saveSource(newId, incomingSrc);
+		if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
+		summary.restoredCopies++;
+	}
+	saveIndex(index);
+	saveSettings(data.settings);
+	saveInstructions(data.instructions);
+	return summary;
+}
+
+/** Epoch ms of the last backup download, or null if never. */
+export function lastBackupAt(): number | null {
+	const v = read<number>(LAST_BACKUP_LS);
+	return typeof v === 'number' ? v : null;
+}
+export function markBackupTaken(ts: number): void {
+	write(LAST_BACKUP_LS, ts);
+}
+
+/**
+ * Should the once-in-a-while backup nudge show? Earned only: real unbacked-up
+ * work exists (3+ decks carrying edits, no backup ever or older than 30 days)
+ * and we haven't nudged in 14 days. Callers pass `now` (no Date.now here).
+ */
+export function shouldNudgeBackup(now: number): boolean {
+	const edited = loadIndex().filter((e) => loadSource(e.id) != null).length;
+	if (edited < 3) return false;
+	const backedUp = lastBackupAt();
+	if (backedUp != null && now - backedUp < 30 * 86_400_000) return false;
+	const nudged = read<number>(BACKUP_NUDGE_LS);
+	if (typeof nudged === 'number' && now - nudged < 14 * 86_400_000) return false;
+	return true;
+}
+export function markBackupNudged(now: number): void {
+	write(BACKUP_NUDGE_LS, now);
 }
 
 // Standing instructions — a free-text voice prefix the AI honors on every

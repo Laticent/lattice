@@ -1,4 +1,4 @@
-import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, MessageSquareText, MousePointer2, Plug, SlidersHorizontal, Sparkles, Wallet, Zap } from 'lucide-react';
+import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MousePointer2, Plug, SlidersHorizontal, Sparkles, Upload, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -9,7 +9,8 @@ import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, set
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
 import { languageFor, STUDIO_LANGUAGES } from './studio-language';
-import { type HandleStyle, loadInstructions, loadSettings, type PdfPages, saveInstructions, saveSettings } from './studio-store';
+import { type HandleStyle, lastBackupAt, loadInstructions, loadSettings, markBackupTaken, type PdfPages, saveInstructions, saveSettings } from './studio-store';
+import { downloadBlob, isEvictionProneBrowser, packWorkspace, restoreWorkspace, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup';
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
@@ -101,12 +102,50 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [storeInCloud, setStoreInCloud] = React.useState(false);
 	const [connecting, setConnecting] = React.useState(false);
 	const [spend, setSpend] = React.useState(() => architectSpend());
+	// Backup & restore (General tab): the passive tier of the durability story —
+	// a last-backup line + storage readout that are simply always there.
+	const [backupAt, setBackupAt] = React.useState<number | null>(() => lastBackupAt());
+	const [storageLine, setStorageLine] = React.useState('');
+	const [busy, setBusy] = React.useState<'backup' | 'restore' | null>(null);
+	const restoreInput = React.useRef<HTMLInputElement>(null);
 	React.useEffect(() => {
 		if (open) {
 			setSpend(architectSpend());
 			setPulse((p) => p + 1);
+			setBackupAt(lastBackupAt());
+			storageSummary().then(setStorageLine).catch(() => {});
 		}
 	}, [open]);
+
+	const downloadBackup = async () => {
+		setBusy('backup');
+		try {
+			const now = Date.now();
+			downloadBlob(WORKSPACE_ZIP_NAME, await packWorkspace(now));
+			markBackupTaken(now);
+			setBackupAt(now);
+			notify('Backup downloaded — your whole workspace, yours to keep.');
+		} catch (e) {
+			notify(`Backup failed: ${(e as Error)?.message || 'unknown error'}`);
+		} finally {
+			setBusy(null);
+		}
+	};
+	const restoreBackup = async (file: File) => {
+		setBusy('restore');
+		try {
+			const s = await restoreWorkspace(file, Date.now());
+			const decks = s.added + s.restoredCopies;
+			const assets = s.themes + s.components + s.finishes;
+			notify(`Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''} in. Reloading…`);
+			// The restore touches decks, settings, and the Library across several
+			// stores; a reload is the one honest way to re-derive every view of them.
+			setTimeout(() => window.location.reload(), 1100);
+		} catch (e) {
+			notify(`Restore failed: ${(e as Error)?.message || 'not a workspace backup'}`);
+			setBusy(null);
+		}
+	};
 
 	const cloudActive = ai.generation === 'openrouter';
 	const onDeviceActive = ON_DEVICE_TIERS.has(ai.generation);
@@ -234,6 +273,31 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								<button type="button" onClick={() => { setStoreInCloud(true); notify('Cloud sync is not enabled in this build — decks stay on this device.'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
 									<span className="text-[13px] font-semibold text-[var(--text-heading)]">Cloud workspace</span><span className="ml-auto text-[11px] text-muted-foreground">synced — coming soon</span>
 								</button>
+							</div>
+
+							{/* Backup & restore — ownership framing, never alarm. The one place a
+							    browser-specific sentence appears is a Safari TAB (the storage-
+							    eviction case); the installed app and other browsers don't get it. */}
+							<div className="mt-6">
+								<GroupLabel icon={<LifeBuoy className="size-3.5" />}>Backup &amp; restore</GroupLabel>
+								<p className="mb-3 text-xs text-muted-foreground">
+									Your decks live in this browser — private to this device. A backup keeps them yours even if the browser clears its data.
+									{isEvictionProneBrowser() ? ' Safari clears unused site data after a week — a backup makes that a non-event.' : ''}
+								</p>
+								<div className="grid grid-cols-2 gap-2.5">
+									<button type="button" onClick={downloadBackup} disabled={busy != null} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-60">
+										<Download className="size-4" />{busy === 'backup' ? 'Packing…' : 'Download backup'}
+									</button>
+									<button type="button" onClick={() => restoreInput.current?.click()} disabled={busy != null} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-[13px] font-semibold text-[var(--text-heading)] disabled:opacity-60">
+										<Upload className="size-4" />{busy === 'restore' ? 'Restoring…' : 'Restore backup'}
+									</button>
+									<input ref={restoreInput} type="file" accept=".zip" aria-label="Restore a workspace backup" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) restoreBackup(f); }} />
+								</div>
+								<p className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+									<SlidersHorizontal className="size-3" />
+									Last backup: {backupAt ? new Date(backupAt).toLocaleDateString() : 'never'}{storageLine ? ` · ${storageLine}` : ''}
+								</p>
+								<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">One zip: every deck (readable .md copies included), version history, chats, settings, and your saved themes/components/finishes. Restoring never overwrites — a deck that changed since the backup comes back beside the current one as “(restored)”. Your OpenRouter connection is never in the file.</p>
 							</div>
 						</div>
 					)}
