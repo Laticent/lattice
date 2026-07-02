@@ -60,6 +60,12 @@ in patch versions.
     prevention wall that limits TikTok `/t/…` short links. Built from the parsed
     shortcode only (never the raw href), via the universal `/p/{code}/embed/` path.
     Any non-post Instagram URL (a bare profile) still falls back to the plain link.
+  - **The lightbox now sizes to the provider's native shape.** YouTube/Vimeo keep
+    the 16:9 box; **TikTok and Instagram reels get a tall phone-shaped box** instead
+    of being letterboxed into 16:9. Instagram's `/embed/` is a *card* (header +
+    video + caption) whose height varies per post, so it's **auto-fit** to the height
+    the card reports via `postMessage` (origin-checked to `instagram.com`), falling
+    back to the fixed portrait box if that signal doesn't arrive.
 - **PDF export: `--raster` and `--embed-source` flags (lattice-emulator, #690).**
   `--raster` prints the PDF as one full-bleed 2× JPEG per page (from the same
   screenshots the PPTX path takes) for maximum viewer compatibility — selectable text is

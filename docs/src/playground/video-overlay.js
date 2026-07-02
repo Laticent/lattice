@@ -81,10 +81,22 @@ export function embedSrc(href) {
 }
 
 const isTikTok = (href) => /(?:^|\/\/|\.)tiktok\.com\//i.test(String(href || ''));
+const isInstagram = (href) => /(?:^|\/\/|\.)instagram\.com\//i.test(String(href || ''));
 
 /** True if a tap on this href should open the player (sync YT/Vimeo, or async TikTok). */
 export function isEmbeddable(href) {
 	return Boolean(embedSrc(href)) || isTikTok(href);
+}
+
+/**
+ * The provider's native player shape → how the lightbox sizes itself. YouTube/Vimeo
+ * are 16:9 (`landscape`); TikTok and Instagram reels are vertical phone video
+ * (`portrait`), so forcing them into a 16:9 box letterboxes/crops them. Exported for
+ * tests. Instagram is additionally auto-fit to its self-reported card height (below).
+ * @returns {'portrait'|'landscape'}
+ */
+export function providerShape(href) {
+	return isTikTok(href) || isInstagram(href) ? 'portrait' : 'landscape';
 }
 
 /**
@@ -135,6 +147,7 @@ let modal = null; // the mounted { root, onKey, prevOverflow, prevFocus } or nul
 function close() {
 	if (!modal) return;
 	document.removeEventListener('keydown', modal.onKey, true);
+	if (modal.onMessage) window.removeEventListener('message', modal.onMessage, false); // IG auto-fit
 	document.documentElement.style.overflow = modal.prevOverflow; // restore page scroll
 	modal.root.remove();
 	try { modal.prevFocus && modal.prevFocus.focus && modal.prevFocus.focus(); } catch (_e) { /* focus best-effort */ }
@@ -167,8 +180,15 @@ function play(poster) {
 			'display:flex;align-items:center;justify-content:center;padding:4vmin;' +
 			'opacity:0;transition:opacity .18s ease;'; // fade-in (set to 1 after mount)
 		const shell = document.createElement('div');
+		// Size to the provider's native shape — a 16:9 box for YouTube/Vimeo, a tall
+		// phone-shaped box for portrait video (TikTok, Instagram reels) so it isn't
+		// letterboxed/cropped. Instagram is further auto-fit to its reported card height.
+		const portrait = providerShape(href) === 'portrait';
 		shell.style.cssText =
-			'position:relative;width:min(92vw,960px);aspect-ratio:16/9;max-height:86vh;' +
+			'position:relative;' +
+			(portrait
+				? 'width:min(92vw,420px);height:min(86vh,760px);'
+				: 'width:min(92vw,960px);aspect-ratio:16/9;max-height:86vh;') +
 			'border-radius:12px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.6);background:#000;' +
 			// Centered "Loading…" shown until the player <iframe> is added (TikTok resolve).
 			"display:grid;place-items:center;color:rgba(255,255,255,.7);font:500 14px system-ui,sans-serif;";
@@ -190,7 +210,28 @@ function play(poster) {
 		const onKey = (e) => { if (e.key === 'Escape') close(); };
 		const prevOverflow = document.documentElement.style.overflow;
 		document.documentElement.style.overflow = 'hidden'; // lock background scroll
-		modal = { root, onKey, prevOverflow, prevFocus };
+
+		// AUTO-FIT Instagram: its /embed/ page is a CARD (header + video + caption), whose
+		// height varies per post, and it reports its own rendered height to the parent via
+		// postMessage ({type:'MEASURE', details:{height}}). Size the shell to that height
+		// (capped at 86vh) so the card fits with no letterbox. If the message never arrives
+		// (or isn't Instagram), the fixed portrait box above stands. Origin-checked — we
+		// only trust a height from instagram.com, never arbitrary cross-frame chatter.
+		let onMessage = null;
+		if (isInstagram(href)) {
+			onMessage = (e) => {
+				try {
+					if (!modal || modal.root !== root) return;
+					if (!/(^|\.)instagram\.com$/i.test(new URL(e.origin).hostname)) return;
+					const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+					const h = d && d.type === 'MEASURE' && d.details && Number(d.details.height);
+					if (h && h > 0) shell.style.height = Math.min(Math.round(h), Math.round(window.innerHeight * 0.86)) + 'px';
+				} catch (_e) { /* ignore malformed / non-JSON messages */ }
+			};
+			window.addEventListener('message', onMessage, false);
+		}
+
+		modal = { root, onKey, prevOverflow, prevFocus, onMessage };
 		document.addEventListener('keydown', onKey, true);
 		document.body.appendChild(root);
 		requestAnimationFrame(() => { if (modal && modal.root === root) root.style.opacity = '1'; });

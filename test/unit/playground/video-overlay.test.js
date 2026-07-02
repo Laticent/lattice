@@ -96,6 +96,19 @@ describe('isEmbeddable', () => {
 	});
 });
 
+describe('providerShape', () => {
+	test('YouTube / Vimeo → landscape; TikTok / Instagram (vertical) → portrait; junk → landscape', async () => {
+		const { providerShape } = await load();
+		assert.equal(providerShape('https://youtu.be/aqz-KE-bpKQ'), 'landscape');
+		assert.equal(providerShape('https://vimeo.com/76979871'), 'landscape');
+		assert.equal(providerShape('https://www.tiktok.com/t/ZP8GrtdJH/'), 'portrait');
+		assert.equal(providerShape('https://www.tiktok.com/@x/video/6718335390845095173'), 'portrait');
+		assert.equal(providerShape('https://www.instagram.com/reel/DaStLQkuN3Q/'), 'portrait');
+		assert.equal(providerShape('https://example.com/x'), 'landscape'); // default
+		assert.equal(providerShape(''), 'landscape');
+	});
+});
+
 describe('resolveTikTokSrc (injected fetch — no network)', () => {
 	const oembed = (html) => async () => ({ ok: true, json: async () => ({ html }) });
 
