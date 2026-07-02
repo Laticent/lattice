@@ -4,9 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ArchitectStatus } from './architect';
 import { WorkspaceSheet } from './WorkspaceSheet';
 
-// G6 — the Workspace AI-model + Spend tabs against a CONNECTED (mocked) OpenRouter
-// account. No live model is ever touched: listStudioModels/setStudioModel and the
-// account figures are all mock spies (the Architect-test pattern — CI spends $0).
+// G6 — the Workspace AI tab (Model + Spend sections) against a CONNECTED (mocked)
+// OpenRouter account. No live model is ever touched: listStudioModels/setStudioModel and
+// the account figures are all mock spies (the Architect-test pattern — CI spends $0).
 
 const CATALOG = [
 	{ id: 'anthropic/claude-sonnet-4', name: 'Anthropic: Claude Sonnet 4', promptPerM: 3, completionPerM: 15, contextLength: 1_000_000, maxOutput: null, vision: true },
@@ -154,15 +154,18 @@ describe('WorkspaceSheet — G6 on-device tier', () => {
 
 describe('WorkspaceSheet — spend (layered budget)', () => {
 	it('shows the four labeled layers: wallet balance, this key, this session, your cap', async () => {
-		const { user, sheet } = openSheet();
-		await user.click(sheet.getByRole('tab', { name: 'Spend' }));
+		const { sheet } = openSheet();
+		// Spend is a section of the default AI tab now — no tab click needed.
 		// 1 · Wallet — the real /credits balance as the hero (8.07 = 10 − 1.93).
 		expect(await sheet.findByText('Wallet · OpenRouter')).toBeInTheDocument();
 		expect(sheet.getByText('$8.07')).toBeInTheDocument();
 		expect(sheet.getByText(/left of \$10\.00/)).toBeInTheDocument();
-		// 2 · This key — the per-key limit (server-enforced) with remaining.
+		// 2 · This key — the per-key limit (server-enforced) with remaining. Scope the
+		// remaining figure to this row: the Model section's cloud card shows the same
+		// "$3.50 left" glance, so an unscoped query would now match both.
 		expect(sheet.getByText('This key · Lattice Studio')).toBeInTheDocument();
-		expect(sheet.getByText(/\$3\.50 left/)).toBeInTheDocument();
+		const keyRow = within(sheet.getByText('This key · Lattice Studio').closest('div') as HTMLElement);
+		expect(keyRow.getByText(/\$3\.50 left/)).toBeInTheDocument();
 		expect(sheet.getByText(/resets monthly/)).toBeInTheDocument();
 		// 3 · This session — the live local tally + tokens.
 		expect(sheet.getByText('This session')).toBeInTheDocument();
@@ -170,14 +173,15 @@ describe('WorkspaceSheet — spend (layered budget)', () => {
 		expect(sheet.getByText(/9\.8K tokens/)).toBeInTheDocument();
 		// 4 · Your cap — the client defense-in-depth control.
 		expect(sheet.getByText('Your cap')).toBeInTheDocument();
-		// Active model price is shown (no silent billing).
-		expect(sheet.getByText(/\$3\.00\/M in · \$15\.00\/M out/)).toBeInTheDocument();
+		// Active model price is shown (no silent billing). Scope to the Spend "Active
+		// model" row — the Model section's picker summary carries the same price string.
+		const priceRow = within(sheet.getByText(/Active model ·/).closest('div') as HTMLElement);
+		expect(priceRow.getByText(/\$3\.00\/M in · \$15\.00\/M out/)).toBeInTheDocument();
 	});
 
 	it('with no per-key limit, links to the OpenRouter dashboard to set a hard cap', async () => {
 		statusSpy.mockReturnValue({ ...connectedStatus, limit: null, remaining: null });
-		const { user, sheet } = openSheet();
-		await user.click(sheet.getByRole('tab', { name: 'Spend' }));
+		const { sheet } = openSheet();
 		const link = await sheet.findByRole('link', { name: /Set a hard cap/ });
 		expect(link).toHaveAttribute('href', 'https://openrouter.ai/settings/keys');
 	});

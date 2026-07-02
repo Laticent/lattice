@@ -14,13 +14,17 @@ import { type HandleStyle, loadInstructions, loadSettings, type PdfPages, saveIn
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
 // Workspace Settings — "your setup", distinct from the deck Inspector's "this deck".
-// General holds the non-AI workspace prefs (placement-handle style + where decks live);
-// the rest are AI-scoped. The AI-model tab is a single GENERATION switch (Cloud /
-// On-device) that picks the ACTIVE tier — connection ≠ active (Studio Policy B): the
-// cloud stays connected but dormant while you run on-device, and one tap resumes it. The
-// Spend tab shows the authoritative OpenRouter account balance beside the live session
-// tally; Instructions carries the AI output language + standing voice + generation prefs.
-const TABS = ['General', 'AI model', 'Spend', 'Instructions'] as const;
+// Two tabs: General holds the non-AI workspace prefs (placement-handle style + where
+// decks live); AI holds everything about the model, in three stacked sections:
+//   · Model — the GENERATION switch (Cloud / On-device) that picks the ACTIVE tier.
+//     Connection ≠ active (Studio Policy B): the cloud stays connected but dormant while
+//     you run on-device, and one tap resumes it.
+//   · Spend — the authoritative OpenRouter account balance beside the live session tally
+//     and your client-side cap.
+//   · Instructions — the AI output language, standing voice, and generation prefs.
+// Spend + Instructions used to be their own tabs; they're facets of the AI model, so they
+// live as sections under AI rather than as sibling tabs.
+const TABS = ['General', 'AI'] as const;
 type Tab = (typeof TABS)[number];
 type GenView = 'cloud' | 'ondevice';
 
@@ -28,6 +32,13 @@ const ON_DEVICE_TIERS = new Set(['prompt-api', 'webllm', 'universal']);
 
 function GroupLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
 	return <div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{icon}{children}</div>;
+}
+
+// A secondary section inside the AI tab (Spend, Instructions) — each sits below the Model
+// section behind a hairline divider + top space, so the long scroll reads as distinct
+// regions rather than one undifferentiated column.
+function AiSection({ children }: { children: React.ReactNode }) {
+	return <div className="mt-6 border-t border-border pt-5">{children}</div>;
 }
 
 // The two on-canvas placement-handle styles the General tab offers (mirrors the finish
@@ -72,7 +83,7 @@ function HandlePreview({ kind }: { kind: HandleStyle }) {
 }
 
 export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; onOpenChange: (v: boolean) => void; notify: (msg: string) => void }) {
-	const [tab, setTab] = React.useState<Tab>('AI model');
+	const [tab, setTab] = React.useState<Tab>('AI');
 	const [dedup, setDedup] = React.useState(true);
 	React.useEffect(() => { setDedup(readDedupEnabled()); }, []);
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
@@ -140,7 +151,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 			<SheetContent side="right" className="w-full gap-0 sm:max-w-[440px]">
 				<SheetHeader className="border-b border-border">
 					<SheetTitle className="flex items-center gap-2 text-[17px]"><Cloud className="size-5 text-[var(--accent)]" />Workspace <span className="font-mono text-[10px] font-normal uppercase tracking-wider text-[var(--accent)]">your setup</span></SheetTitle>
-					<SheetDescription className="sr-only">Your workspace setup — generation tier, spend, standing instructions, and storage.</SheetDescription>
+					<SheetDescription className="sr-only">Your workspace setup — placement handles and deck storage under General; the AI model, spend, and standing instructions under AI.</SheetDescription>
 				</SheetHeader>
 				<div className="overflow-y-auto p-5">
 					<div className="mb-4 flex flex-wrap gap-1.5" role="tablist" aria-label="Workspace settings">
@@ -227,9 +238,10 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 						</div>
 					)}
 
-					{tab === 'AI model' && (
+					{tab === 'AI' && (
 						<div>
-							<GroupLabel icon={<Sparkles className="size-3.5" />}>Generation</GroupLabel>
+							{/* ── MODEL — the active-generation tier ─────────────────── */}
+							<GroupLabel icon={<Sparkles className="size-3.5" />}>Model</GroupLabel>
 							{/* The active-tier SWITCH — picking a side sets which tier generates. */}
 							<div className="flex gap-1 rounded-lg border border-border p-0.5" role="tablist" aria-label="Active generation tier">
 								{([['cloud', 'Cloud', <Cloud key="c" className="size-3.5" />, pickCloud], ['ondevice', 'On-device', <Cpu key="d" className="size-3.5" />, pickOnDevice]] as const).map(([key, label, icon, onPick]) => (
@@ -270,125 +282,123 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									)}
 								</div>
 							)}
-						</div>
-					)}
 
-					{tab === 'Spend' && (
-						<div>
-							<GroupLabel icon={<Wallet className="size-3.5" />}>Spend</GroupLabel>
+							{/* ── SPEND — a facet of the model, not its own tab ──────── */}
+							<AiSection>
+								<GroupLabel icon={<Wallet className="size-3.5" />}>Spend</GroupLabel>
 
-							{/* 1 · WALLET — the real account money (/credits). Authoritative. */}
-							{ai.wallet ? (
-								<div className="rounded-2xl border border-border bg-[var(--accent-soft)] p-3.5">
-									<div className="flex items-baseline justify-between"><span className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Wallet · OpenRouter</span><span className="text-[24px] font-extrabold text-[var(--text-heading)]">{fmtUSD(ai.wallet.balance)}</span></div>
-									<div className="flex items-baseline justify-between"><span className="text-[11px] text-muted-foreground">your real balance</span><span className="text-[11px] text-muted-foreground">left of {fmtUSD(ai.wallet.credits)}</span></div>
-									<div className="mt-2 h-[6px] overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]"><span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${pct(ai.wallet.usage, ai.wallet.credits)}%` }} /></div>
-									<div className="mt-1.5 font-mono text-[11px] text-muted-foreground">{fmtUSD(ai.wallet.usage)} used all-time</div>
-								</div>
-							) : (
-								<div className="rounded-2xl border border-border bg-card p-3.5">
-									<p className="text-[13px] font-semibold text-[var(--text-heading)]">{ai.openRouterReady ? 'Wallet balance unavailable' : 'No model connected'}</p>
-									<p className="mt-1 text-[11px] text-muted-foreground">{ai.openRouterReady ? "This key can't read your account balance." : 'Connect OpenRouter (AI model tab) to see your real balance — or run On-device, free.'}</p>
-								</div>
-							)}
-
-							{/* 2 · THIS KEY — the per-key server-enforced cap (set in the OR dashboard). */}
-							{ai.openRouterReady && (
-								<div className="mt-2 flex items-start gap-2.5 border-t border-border pt-2.5">
-									<span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]"><KeyRound className="size-3.5" /></span>
-									<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">This key · Lattice Studio</span>{ai.limit != null ? <span className="block text-[11px] text-muted-foreground">server-enforced{ai.limitReset ? ` · resets ${ai.limitReset}` : ''}</span> : <a href={ai.keySettingsUrl ?? '#'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--accent)]">Set a hard cap <ExternalLink className="size-3" /></a>}</span>
-									{ai.limit != null && <span className="text-right"><span className="block font-mono text-[12.5px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : '—'}</span><span className="block text-[11px] text-muted-foreground">of {fmtUSD(ai.limit)}</span></span>}
-								</div>
-							)}
-
-							{/* 3 · THIS SESSION — live local tally from each reply's usage.cost. */}
-							<div className="mt-1 flex items-start gap-2.5 border-t border-border pt-2.5">
-								<span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]"><Download className="size-3.5" /></span>
-								<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">This session</span><span className="block font-mono text-[11px] text-muted-foreground">{spend.sessionTokens ? `${fmtTokens(spend.sessionTokens)} tokens` : 'no spend yet'}</span></span>
-								<span className="font-mono text-[12.5px] text-muted-foreground">{fmtUSD(spend.session)}</span>
-							</div>
-
-							{/* 4 · YOUR CAP — client defense-in-depth + the binding-constraint gauge. */}
-							<div className="mt-2 rounded-xl border border-border p-3">
-								<div className="flex items-center gap-2">
-									<label htmlFor="ws-cap" className="text-[12.5px] font-semibold text-[var(--text-heading)]">Your cap</label>
-									<span className="text-[12.5px] text-muted-foreground">$</span>
-									<input id="ws-cap" type="number" min={0} step={0.5} defaultValue={spend.cap || ''} placeholder="none" onBlur={(e) => { setBudget(Number(e.target.value) || null, spend.mode as 'alert' | 'stop'); setSpend(architectSpend()); }} className="w-[64px] rounded-md border border-border bg-background px-2 py-1 text-[12.5px] text-foreground outline-none focus:border-[var(--accent)]" />
-									<select aria-label="Budget enforcement mode" value={spend.mode} onChange={(e) => { setBudget(spend.cap || null, e.target.value as 'alert' | 'stop'); setSpend(architectSpend()); }} className="ml-auto rounded-md border border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)] outline-none focus:border-[var(--accent)]">
-										<option value="alert">Warn 80%</option>
-										<option value="stop">Hard stop</option>
-									</select>
-								</div>
-								{spend.cap > 0 && (
-									<div className="mt-2.5 h-[6px] overflow-hidden rounded-full bg-border"><span className={cn('block h-full rounded-full', spend.status.level === 'over' ? 'bg-[var(--fail,#b3261e)]' : spend.status.level === 'warn' ? 'bg-[var(--warn,#9a6a00)]' : 'bg-primary')} style={{ width: `${Math.min(100, pct(spend.session, spend.cap))}%` }} /></div>
+								{/* 1 · WALLET — the real account money (/credits). Authoritative. */}
+								{ai.wallet ? (
+									<div className="rounded-2xl border border-border bg-[var(--accent-soft)] p-3.5">
+										<div className="flex items-baseline justify-between"><span className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Wallet · OpenRouter</span><span className="text-[24px] font-extrabold text-[var(--text-heading)]">{fmtUSD(ai.wallet.balance)}</span></div>
+										<div className="flex items-baseline justify-between"><span className="text-[11px] text-muted-foreground">your real balance</span><span className="text-[11px] text-muted-foreground">left of {fmtUSD(ai.wallet.credits)}</span></div>
+										<div className="mt-2 h-[6px] overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]"><span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${pct(ai.wallet.usage, ai.wallet.credits)}%` }} /></div>
+										<div className="mt-1.5 font-mono text-[11px] text-muted-foreground">{fmtUSD(ai.wallet.usage)} used all-time</div>
+									</div>
+								) : (
+									<div className="rounded-2xl border border-border bg-card p-3.5">
+										<p className="text-[13px] font-semibold text-[var(--text-heading)]">{ai.openRouterReady ? 'Wallet balance unavailable' : 'No model connected'}</p>
+										<p className="mt-1 text-[11px] text-muted-foreground">{ai.openRouterReady ? "This key can't read your account balance." : 'Connect OpenRouter (Model section above) to see your real balance — or run On-device, free.'}</p>
+									</div>
 								)}
-								<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{spend.cap > 0 ? `${spend.mode === 'stop' ? 'AI edits stop' : 'Warns'} at your $${spend.cap.toFixed(2)} cap — the tightest of wallet / key / cap binds. Hard stop refuses a send whose estimate would breach it.` : 'No cap — metered per request. On-device tiers are always free.'}{spend.status.message ? ` ${spend.status.message}.` : ''}</p>
-							</div>
 
-							{/* Active model price + cost levers. */}
-							{ai.openRouterReady && (
-								<div className="mt-2 flex items-start gap-2.5 border-t border-border pt-2.5">
-									<span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]"><Sparkles className="size-3.5" /></span>
-									<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Active model{ai.modelName ? ` · ${ai.modelName}` : ''}</span><span className="block font-mono text-[11px] text-muted-foreground">{ai.price && ai.price.promptPerM != null ? `${fmtPrice(ai.price.promptPerM)}/M in · ${fmtPrice(ai.price.completionPerM)}/M out` : 'price loads with the catalog'}</span></span>
+								{/* 2 · THIS KEY — the per-key server-enforced cap (set in the OR dashboard). */}
+								{ai.openRouterReady && (
+									<div className="mt-2 flex items-start gap-2.5 border-t border-border pt-2.5">
+										<span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]"><KeyRound className="size-3.5" /></span>
+										<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">This key · Lattice Studio</span>{ai.limit != null ? <span className="block text-[11px] text-muted-foreground">server-enforced{ai.limitReset ? ` · resets ${ai.limitReset}` : ''}</span> : <a href={ai.keySettingsUrl ?? '#'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--accent)]">Set a hard cap <ExternalLink className="size-3" /></a>}</span>
+										{ai.limit != null && <span className="text-right"><span className="block font-mono text-[12.5px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : '—'}</span><span className="block text-[11px] text-muted-foreground">of {fmtUSD(ai.limit)}</span></span>}
+									</div>
+								)}
+
+								{/* 3 · THIS SESSION — live local tally from each reply's usage.cost. */}
+								<div className="mt-1 flex items-start gap-2.5 border-t border-border pt-2.5">
+									<span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]"><Download className="size-3.5" /></span>
+									<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">This session</span><span className="block font-mono text-[11px] text-muted-foreground">{spend.sessionTokens ? `${fmtTokens(spend.sessionTokens)} tokens` : 'no spend yet'}</span></span>
+									<span className="font-mono text-[12.5px] text-muted-foreground">{fmtUSD(spend.session)}</span>
 								</div>
-							)}
-							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Iterating a draft? <button type="button" onClick={() => { setTab('AI model'); pickOnDevice(); }} className="font-semibold text-[var(--accent)] underline-offset-2 hover:underline">Switch to On-device</button> — free &amp; private.</p>
-						</div>
-					)}
 
-					{tab === 'Instructions' && (
-						<div>
-							<GroupLabel icon={<Languages className="size-3.5" />}>Output language</GroupLabel>
-							<p className="mb-2 text-xs text-muted-foreground">The language the AI writes deck content in — slides, refine, and chat. Component and theme names stay in English.</p>
-							<Select
-								value={language}
-								onValueChange={(v) => {
-									setLanguage(v);
-									saveSettings({ language: v });
-									notify(`The AI now writes deck content in ${languageFor(v).label}.`);
-								}}
-							>
-								<SelectTrigger className="w-full" aria-label="Output language">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{STUDIO_LANGUAGES.map((l) => (
-										<SelectItem key={l.code} value={l.code}>
-											{l.label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+								{/* 4 · YOUR CAP — client defense-in-depth + the binding-constraint gauge. */}
+								<div className="mt-2 rounded-xl border border-border p-3">
+									<div className="flex items-center gap-2">
+										<label htmlFor="ws-cap" className="text-[12.5px] font-semibold text-[var(--text-heading)]">Your cap</label>
+										<span className="text-[12.5px] text-muted-foreground">$</span>
+										<input id="ws-cap" type="number" min={0} step={0.5} defaultValue={spend.cap || ''} placeholder="none" onBlur={(e) => { setBudget(Number(e.target.value) || null, spend.mode as 'alert' | 'stop'); setSpend(architectSpend()); }} className="w-[64px] rounded-md border border-border bg-background px-2 py-1 text-[12.5px] text-foreground outline-none focus:border-[var(--accent)]" />
+										<select aria-label="Budget enforcement mode" value={spend.mode} onChange={(e) => { setBudget(spend.cap || null, e.target.value as 'alert' | 'stop'); setSpend(architectSpend()); }} className="ml-auto rounded-md border border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)] outline-none focus:border-[var(--accent)]">
+											<option value="alert">Warn 80%</option>
+											<option value="stop">Hard stop</option>
+										</select>
+									</div>
+									{spend.cap > 0 && (
+										<div className="mt-2.5 h-[6px] overflow-hidden rounded-full bg-border"><span className={cn('block h-full rounded-full', spend.status.level === 'over' ? 'bg-[var(--fail,#b3261e)]' : spend.status.level === 'warn' ? 'bg-[var(--warn,#9a6a00)]' : 'bg-primary')} style={{ width: `${Math.min(100, pct(spend.session, spend.cap))}%` }} /></div>
+									)}
+									<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{spend.cap > 0 ? `${spend.mode === 'stop' ? 'AI edits stop' : 'Warns'} at your $${spend.cap.toFixed(2)} cap — the tightest of wallet / key / cap binds. Hard stop refuses a send whose estimate would breach it.` : 'No cap — metered per request. On-device tiers are always free.'}{spend.status.message ? ` ${spend.status.message}.` : ''}</p>
+								</div>
 
-							<div className="mt-5">
-								<GroupLabel icon={<MessageSquareText className="size-3.5" />}>Standing instructions</GroupLabel>
-								<p className="mb-2 text-xs text-muted-foreground">A standing voice note, sent with every generation. Leave blank for none.</p>
-								<textarea
-									value={instructions}
-									onChange={(e) => {
-										setInstructions(e.target.value);
-										saveInstructions(e.target.value);
+								{/* Active model price + cost levers. */}
+								{ai.openRouterReady && (
+									<div className="mt-2 flex items-start gap-2.5 border-t border-border pt-2.5">
+										<span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]"><Sparkles className="size-3.5" /></span>
+										<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Active model{ai.modelName ? ` · ${ai.modelName}` : ''}</span><span className="block font-mono text-[11px] text-muted-foreground">{ai.price && ai.price.promptPerM != null ? `${fmtPrice(ai.price.promptPerM)}/M in · ${fmtPrice(ai.price.completionPerM)}/M out` : 'price loads with the catalog'}</span></span>
+									</div>
+								)}
+								<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Iterating a draft? <button type="button" onClick={pickOnDevice} className="font-semibold text-[var(--accent)] underline-offset-2 hover:underline">Switch to On-device</button> — free &amp; private.</p>
+							</AiSection>
+
+							{/* ── INSTRUCTIONS — output language, standing voice, gen prefs ── */}
+							<AiSection>
+								<GroupLabel icon={<Languages className="size-3.5" />}>Output language</GroupLabel>
+								<p className="mb-2 text-xs text-muted-foreground">The language the AI writes deck content in — slides, refine, and chat. Component and theme names stay in English.</p>
+								<Select
+									value={language}
+									onValueChange={(v) => {
+										setLanguage(v);
+										saveSettings({ language: v });
+										notify(`The AI now writes deck content in ${languageFor(v).label}.`);
 									}}
-									rows={5}
-									placeholder="e.g. Confident, board-ready voice. Lead each slide with the number. Avoid hedging."
-									aria-label="Standing instructions"
-									className="w-full resize-none rounded-xl border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:border-[var(--accent)]"
-								/>
-								<div className="mt-1 text-right font-mono text-[11px] text-muted-foreground">{instructions.length} chars · saved</div>
-							</div>
+								>
+									<SelectTrigger className="w-full" aria-label="Output language">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{STUDIO_LANGUAGES.map((l) => (
+											<SelectItem key={l.code} value={l.code}>
+												{l.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 
-							<div className="mt-5">
-								<GroupLabel icon={<Sparkles className="size-3.5" />}>Component generation</GroupLabel>
-								<label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-									<button type="button" role="switch" aria-checked={dedup} aria-label="Suggest similar components" onClick={() => { const next = !dedup; setDedup(next); writeDedupEnabled(next); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', dedup ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
-										<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', dedup ? 'translate-x-[18px]' : 'translate-x-0.5')} />
-									</button>
-									<span className="min-w-0">
-										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Suggest similar components</span>
-										<span className="block text-[11px] text-muted-foreground">Before generating, surface near-duplicate components so you can reuse instead of adding another.</span>
-									</span>
-								</label>
-							</div>
+								<div className="mt-5">
+									<GroupLabel icon={<MessageSquareText className="size-3.5" />}>Standing instructions</GroupLabel>
+									<p className="mb-2 text-xs text-muted-foreground">A standing voice note, sent with every generation. Leave blank for none.</p>
+									<textarea
+										value={instructions}
+										onChange={(e) => {
+											setInstructions(e.target.value);
+											saveInstructions(e.target.value);
+										}}
+										rows={5}
+										placeholder="e.g. Confident, board-ready voice. Lead each slide with the number. Avoid hedging."
+										aria-label="Standing instructions"
+										className="w-full resize-none rounded-xl border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:border-[var(--accent)]"
+									/>
+									<div className="mt-1 text-right font-mono text-[11px] text-muted-foreground">{instructions.length} chars · saved</div>
+								</div>
+
+								<div className="mt-5">
+									<GroupLabel icon={<Sparkles className="size-3.5" />}>Component generation</GroupLabel>
+									<label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+										<button type="button" role="switch" aria-checked={dedup} aria-label="Suggest similar components" onClick={() => { const next = !dedup; setDedup(next); writeDedupEnabled(next); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', dedup ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
+											<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', dedup ? 'translate-x-[18px]' : 'translate-x-0.5')} />
+										</button>
+										<span className="min-w-0">
+											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Suggest similar components</span>
+											<span className="block text-[11px] text-muted-foreground">Before generating, surface near-duplicate components so you can reuse instead of adding another.</span>
+										</span>
+									</label>
+								</div>
+							</AiSection>
 						</div>
 					)}
 

@@ -599,7 +599,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			try {
 				const out = await runArchitect(source, instruction);
 				if (out.status === 'offline') {
-					notify('Connect a model in Workspace → AI model, then this applies automatically.');
+					notify('Connect a model in Workspace → AI, then this applies automatically.');
 					setWorkspaceOpen(true);
 				} else if (out.status === 'blocked') {
 					notify(out.note);
@@ -638,7 +638,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			try {
 				const out = await refineSelection(action, sel.text);
 				if (out.status === 'offline') {
-					notify('Connect a model in Workspace → AI model to refine a selection.');
+					notify('Connect a model in Workspace → AI to refine a selection.');
 					setWorkspaceOpen(true);
 				} else if (out.status === 'blocked') {
 					notify(out.note);
@@ -691,7 +691,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			try {
 				const out = await requestFindingFix(source, finding, components);
 				if (out.status === 'offline') {
-					notify('Connect a model in Workspace → AI model to fix a finding.');
+					notify('Connect a model in Workspace → AI to fix a finding.');
 					setWorkspaceOpen(true);
 				} else if (out.status === 'blocked') {
 					notify(out.note);

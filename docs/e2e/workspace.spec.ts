@@ -1,8 +1,8 @@
 import { expect, gotoStudio, readStorage, test } from './studio-fixture';
 
 // The Workspace sheet. Standing instructions are the fully-offline persistence
-// oracle (they write localStorage live); the AI-model tab shows the honest
-// "no model" floor when nothing is connected.
+// oracle (they write localStorage live); the AI tab's Model section shows the
+// honest "no model" floor when nothing is connected.
 
 test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
@@ -11,7 +11,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('standing instructions persist to localStorage as you type', async ({ page }) => {
-	await page.getByRole('tab', { name: 'Instructions' }).click();
+	// Instructions is now a section of the AI tab (folded in from its own tab).
+	await page.getByRole('tab', { name: 'AI' }).click();
 	const box = page.getByRole('textbox', { name: 'Standing instructions' });
 	await box.fill('Always lead with the number.');
 
@@ -20,8 +21,8 @@ test('standing instructions persist to localStorage as you type', async ({ page 
 	);
 });
 
-test('the AI-model tab is honest about running with no model', async ({ page }) => {
-	await page.getByRole('tab', { name: 'AI model' }).click();
+test('the AI tab is honest about running with no model', async ({ page }) => {
+	await page.getByRole('tab', { name: 'AI' }).click();
 	await expect(page.getByText(/No tier active yet|connect a cloud model/)).toBeVisible();
 });
 
