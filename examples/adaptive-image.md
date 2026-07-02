@@ -15,7 +15,12 @@ You hand it any rectangle. It reads the asset's shape, weighs the deck it's on, 
 
 ---
 
-<!-- _class: statement -->
+<!-- _class: divider -->
+<!-- _paginate: false -->
+<!-- _header: '' -->
+<!-- _footer: '' -->
+
+`The premise`
 
 ## Every other layout controls its content's shape. Image is the one exception — so it adapts to yours.
 
