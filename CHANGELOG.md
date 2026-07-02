@@ -73,29 +73,40 @@ in patch versions.
 
 ### Changed
 
-- **Breaking: Lattice is relicensed from MIT to AGPL-3.0-only, with a
-  Contributor License Agreement.** The full GNU Affero GPL v3 text replaces
-  MIT in `LICENSE`; `package.json` now declares `AGPL-3.0-only`. Modified
-  versions that are distributed or offered as a network service must publish
-  their source under the same license; contact SlideWright for commercial
-  terms. Contributions now require a one-time CLA signature (`CLA.md`,
-  enforced by the `cla.yml` workflow via CLA Assistant Lite, with signatures
-  recorded on a `cla-signatures` branch) so SlideWright can dual-license —
-  see `CONTRIBUTING.md` (new). Versions published before this change remain
+- **Breaking: Lattice is relicensed from MIT to AGPL-3.0-only.** The full
+  GNU Affero GPL v3 text replaces MIT in `LICENSE`; `package.json` now
+  declares `AGPL-3.0-only`. Modified versions that are distributed or offered
+  as a network service must publish their source under the same license;
+  contact SlideWright for commercial terms. `CONTRIBUTING.md` (new) covers
+  the contribution terms. Versions published before this change remain
   MIT. The README, docs-site copy (landing/features/comparison/introduction,
   footers), and the LFM spec's governance section now say AGPL instead of MIT
-  (the spec prose itself stays CC-BY-4.0). A red-team pass hardened the CLA
-  workflow (SHA-pinned action, least-privilege token, exact bot allowlist,
-  per-PR concurrency), stamped the dist JS/CSS bundles with SPDX + copyright
-  banners, and rewrote the license-adjacent marketing copy to promise only
-  what the AGPL actually permits (everyday rendering is obligation-free;
-  redistributing or serving the engine is what triggers copyleft). The
-  licensor is now identified (Sharmarke Aden dba SlideWright, with governing
-  law and assignability in the CLA), commercial-license inquiries have a
+  (the spec prose itself stays CC-BY-4.0). A red-team pass stamped the dist
+  JS/CSS bundles with SPDX + copyright banners and rewrote the
+  license-adjacent marketing copy to promise only what the AGPL actually
+  permits (everyday rendering is obligation-free; redistributing or serving
+  the engine is what triggers copyleft). The licensor is identified
+  (Sharmarke Aden dba SlideWright), commercial-license inquiries have a
   contact address, `LICENSE-EXCEPTIONS` (new) grants the Lattice Output
   Exception so the engine CSS/JS embedded in exported HTML decks never
   encumbers a deck author, and `TRADEMARKS.md` (new) reserves the Lattice /
   SlideWright names — forks must rename.
+
+- **The Contributor License Agreement is retired — contributors own their
+  work.** Introduced alongside the relicense and removed before a single
+  signature was collected: the CLA's core grant (letting SlideWright
+  relicense contributions under commercial terms) was one-sided, and that is
+  not this project's model. Contributions are accepted plainly under
+  AGPL-3.0 (inbound = outbound) with no additional rights granted to anyone;
+  `CLA.md` and the `cla.yml` enforcement workflow are deleted and
+  `CONTRIBUTING.md` is rewritten around the chosen model — a sole-authored
+  core with an author-owned periphery: issues and small DCO-signed fixes
+  welcome; substantive engine work by arrangement (paid if it ships in
+  anything commercially licensed); themes/plugins/tools belong entirely to
+  their authors to license and sell anywhere; and a symmetry pledge that any
+  engine capability a commercial SlideWright product monetizes lands in the
+  AGPL engine within six months. Analysis and decision:
+  `engineering/decisions/2026-07-02-contribution-model.md`.
 
 ### Fixed
 
