@@ -19,8 +19,6 @@ import { expect, test } from '@playwright/test';
 test.use({ serviceWorkers: 'allow' });
 
 const DIST = fileURLToPath(new URL('../dist', import.meta.url));
-const PORT = 4331;
-const ORIGIN = `http://127.0.0.1:${PORT}`;
 
 const MIME: Record<string, string> = {
 	'.html': 'text/html; charset=utf-8',
@@ -37,10 +35,10 @@ const MIME: Record<string, string> = {
 };
 
 /** Minimal static server over the built site — just enough for the worker to install. */
-function serveDist(): Promise<Server> {
+function serveDist(): Promise<{ server: Server; origin: string }> {
 	const server = createServer(async (req, res) => {
 		try {
-			const pathname = decodeURIComponent(new URL(req.url ?? '/', ORIGIN).pathname);
+			const pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
 			const rel = normalize(pathname).replace(/^([/\\.])+/, '');
 			let file = join(DIST, rel);
 			if (pathname.endsWith('/')) file = join(file, 'index.html');
@@ -57,7 +55,16 @@ function serveDist(): Promise<Server> {
 			res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
 		}
 	});
-	return new Promise((resolve) => server.listen(PORT, '127.0.0.1', () => resolve(server)));
+	// Ephemeral port: no collision with the shared preview server or a future
+	// second server-spawning spec; reject (not hang) if listen itself fails.
+	return new Promise((resolve, reject) => {
+		server.once('error', reject);
+		server.listen(0, '127.0.0.1', () => {
+			const address = server.address();
+			if (typeof address === 'string' || address === null) return reject(new Error('no port assigned'));
+			resolve({ server, origin: `http://127.0.0.1:${address.port}` });
+		});
+	});
 }
 
 test('manifest is linked from both page shells and parses', async ({ page, request }) => {
@@ -66,6 +73,9 @@ test('manifest is linked from both page shells and parses', async ({ page, reque
 	await expect(page.locator('head link[rel="manifest"]')).toHaveAttribute('href', '/site.webmanifest');
 	// Starlight docs route (via the ThemeProvider override).
 	await page.goto('/overview/');
+	await expect(page.locator('head link[rel="manifest"]')).toHaveAttribute('href', '/site.webmanifest');
+	// Own-head route (carries <PwaHead> directly, not via <ResourceHints>).
+	await page.goto('/features/');
 	await expect(page.locator('head link[rel="manifest"]')).toHaveAttribute('href', '/site.webmanifest');
 
 	const manifest = await (await request.get('/site.webmanifest')).json();
@@ -77,9 +87,9 @@ test('manifest is linked from both page shells and parses', async ({ page, reque
 });
 
 test('service worker activates and serves navigation offline', async ({ page }) => {
-	const server = await serveDist();
+	const { server, origin } = await serveDist();
 	try {
-		await page.goto(`${ORIGIN}/`);
+		await page.goto(`${origin}/`);
 		await page.evaluate(() => navigator.serviceWorker.ready);
 		// clients.claim() races the assertion — poll until this page is controlled.
 		await expect
@@ -109,7 +119,7 @@ test('service worker activates and serves navigation offline', async ({ page }) 
 		await page.reload();
 		await expect(page).toHaveTitle(/Lattice/);
 		// Unvisited page → the branded offline fallback.
-		await page.goto(`${ORIGIN}/never-visited-while-online/`);
+		await page.goto(`${origin}/never-visited-while-online/`);
 		await expect(page.getByRole('heading', { name: "You're offline" })).toBeVisible();
 	} finally {
 		server.closeAllConnections();

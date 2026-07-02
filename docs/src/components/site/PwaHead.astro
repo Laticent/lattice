@@ -1,7 +1,11 @@
 ---
-// PWA head tags + service-worker registration, emitted in <head> on EVERY
-// page: standalone routes get it via <ResourceHints>, Starlight docs pages
-// via the <ThemeProvider> override (which Starlight renders in <head>).
+// PWA head tags + service-worker registration, emitted in <head> on every
+// page: standalone routes get it via <ResourceHints> (or directly, where a
+// page builds its own head — features.astro), Starlight docs pages via the
+// <ThemeProvider> override (which Starlight renders in <head>). The one
+// deliberate exception is proto/css3d-pie.astro, whose header forbids site
+// imports ("self-contained, delete-to-revert") — a worker registered from
+// any other page controls the origin regardless.
 //
 //   • site.webmanifest → installability (app icon, standalone window).
 //   • apple-touch-icon → iOS ignores manifest icons; it wants this link.
@@ -9,7 +13,9 @@
 //                        the strategy; engineering/decisions/2026-07-02-docs-pwa.md
 //                        for why it's hand-rolled).
 //
-// The worker registers only on production builds. In dev the same block
+// The worker registers on any production BUILD — lattice.style and the
+// Cloudflare PR previews alike (scope is per-origin, so previews stay
+// isolated from prod and from each other). In dev the same block
 // actively UNREGISTERS instead: `astro preview` (where the worker is real)
 // and `astro dev` share the localhost:4321 origin, so a worker left behind
 // by a preview session would otherwise keep serving stale-while-revalidate

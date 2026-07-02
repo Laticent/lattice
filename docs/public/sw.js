@@ -9,9 +9,14 @@
  * Strategies (GET only; anything else passes straight through):
  *   • Navigations (HTML)      network-first, cache fallback, then /offline/.
  *     Fresh content always wins when online — a deploy needs no SW version bump.
+ *     Query-stringed navigations are served but never cached: Cache Storage
+ *     ignores Cache-Control, and the OpenRouter OAuth callback (?code=…) — or
+ *     any future secret-bearing URL — must not be persisted to disk.
  *   • Same-origin assets      stale-while-revalidate (CSS/JS/images/JSON/fonts).
  *     Heavy downloadables (.pdf/.pptx/.zip) are never cached — they'd blow the
  *     storage quota for artifacts the browser download manager already handles.
+ *     That skip applies to BOTH branches: /gallery.pdf opens as a top-level
+ *     navigation, not a subresource.
  *   • Google Fonts            stylesheet SWR; .woff2 cache-first (immutable).
  *   • Any other cross-origin  untouched (OpenRouter API calls, GitHub, …).
  *
@@ -43,45 +48,76 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
-		caches
-			.keys()
-			.then((keys) => Promise.all(keys.filter((k) => !ALL_CACHES.includes(k)).map((k) => caches.delete(k))))
-			.then(() => self.clients.claim()),
+		Promise.all([
+			caches
+				.keys()
+				.then((keys) => Promise.all(keys.filter((k) => !ALL_CACHES.includes(k)).map((k) => caches.delete(k)))),
+			// Re-stash the offline fallback: install runs once per worker VERSION,
+			// but storage pressure can evict the entry in between. Best-effort —
+			// an activate while offline must not reject the whole event.
+			caches
+				.open(PAGES)
+				.then((cache) => cache.add(OFFLINE_URL))
+				.catch(() => {}),
+		]).then(() => self.clients.claim()),
 	);
 });
 
-/** Cache a successful, non-opaque response and FIFO-trim the cache to its cap. */
+/**
+ * Cache a successful, non-opaque response and FIFO-trim the cache to its cap.
+ * Redirected navigations never land here: their redirect arrives as an
+ * opaqueredirect (ok === false), which the guard skips — the browser replays
+ * the redirect itself, so an unreplayable response can't enter the cache.
+ */
 async function put(cacheName, request, response) {
 	if (!response?.ok) return;
 	const cache = await caches.open(cacheName);
 	await cache.put(request, response);
 	const keys = await cache.keys();
-	const excess = keys.length - (CAP[cacheName] || 100);
-	for (let i = 0; i < excess; i++) await cache.delete(keys[i]);
+	let excess = keys.length - (CAP[cacheName] || 100);
+	for (const key of keys) {
+		if (excess <= 0) break;
+		// The offline fallback is exempt: it is the FIRST-inserted pages entry,
+		// so a plain FIFO trim would evict it exactly for the heavy users most
+		// likely to hit an unvisited page offline.
+		if (new URL(key.url).pathname === OFFLINE_URL) continue;
+		await cache.delete(key);
+		excess--;
+	}
 }
 
 /** Network-first: fresh page when online, cached copy (or offline page) when not. */
 async function networkFirst(event) {
 	try {
 		const response = await fetch(event.request);
-		event.waitUntil(put(PAGES, event.request, response.clone()));
+		// Never persist a query-stringed URL (see the header: OAuth ?code=…).
+		if (!new URL(event.request.url).search) {
+			event.waitUntil(put(PAGES, event.request, response.clone()));
+		}
 		return response;
 	} catch {
-		const cached = await caches.match(event.request);
+		// ignoreSearch: a query-stringed URL was deliberately not cached, but
+		// its base page may be — /studio/?code=… offline still gets /studio/.
+		const cached = await caches.match(event.request, { ignoreSearch: true });
 		return cached || caches.match(OFFLINE_URL);
 	}
 }
 
-/** Stale-while-revalidate: cached copy now, refreshed copy for next time. */
-async function staleWhileRevalidate(event, cacheName) {
-	const cached = await caches.match(event.request);
-	const refresh = fetch(event.request)
-		.then((response) => {
-			event.waitUntil(put(cacheName, event.request, response.clone()));
-			return response;
-		})
-		.catch(() => cached);
-	return cached || refresh;
+/**
+ * Stale-while-revalidate: cached copy now, refreshed copy for next time.
+ * Deliberately NOT async: the revalidation must be handed to event.waitUntil()
+ * while the fetch event is still being dispatched — on a cache hit respondWith
+ * settles immediately, and a waitUntil() called after that throws
+ * InvalidStateError, leaving the cache write without lifetime protection.
+ */
+function staleWhileRevalidate(event, cacheName) {
+	const refresh = fetch(event.request);
+	event.waitUntil(
+		refresh.then((response) => put(cacheName, event.request, response.clone())).catch(() => {}),
+	);
+	// Double miss (nothing cached AND network down) rejects respondWith — a
+	// deliberate network error, the same outcome as having no worker at all.
+	return caches.match(event.request).then((cached) => cached || refresh);
 }
 
 /** Cache-first: for immutable bytes (gstatic .woff2 files never change in place). */
@@ -103,6 +139,9 @@ self.addEventListener('fetch', (event) => {
 	if (!url.protocol.startsWith('http')) return;
 
 	if (request.mode === 'navigate') {
+		// Downloadables opened as top-level navigations (the gallery-PDF link)
+		// must bypass the pages cache too, not just the asset branch.
+		if (SKIP_EXTENSIONS.test(url.pathname)) return;
 		event.respondWith(networkFirst(event));
 		return;
 	}
