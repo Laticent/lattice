@@ -26,6 +26,10 @@ import { jsPDF } from 'jspdf';
 let pdf = null;
 let page = null;
 let chain = Promise.resolve();
+// One reusable scratch canvas (slides in a deck share one geometry) — churning
+// a fresh multi-MB OffscreenCanvas per slide is avoidable allocator pressure
+// on the memory-capped mobile browsers this worker exists to protect.
+let scratch = null;
 
 async function handle(m) {
 	if (m.type === 'init') {
@@ -36,8 +40,13 @@ async function handle(m) {
 	}
 	if (m.type === 'slide') {
 		const bmp = m.bitmap;
-		const canvas = new OffscreenCanvas(bmp.width, bmp.height);
-		canvas.getContext('2d').drawImage(bmp, 0, 0);
+		if (!scratch || scratch.width !== bmp.width || scratch.height !== bmp.height) {
+			scratch = new OffscreenCanvas(bmp.width, bmp.height);
+		}
+		const canvas = scratch;
+		const ctx = canvas.getContext('2d');
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.drawImage(bmp, 0, 0);
 		bmp.close();
 		const blob = await canvas.convertToBlob({ type: 'image/png' });
 		const png = new Uint8Array(await blob.arrayBuffer());

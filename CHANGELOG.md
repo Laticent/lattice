@@ -148,9 +148,13 @@ in patch versions.
   build, worker lane vs the old in-thread lane): total main-thread blocked time
   48.7s → 7.8s (−84%), longest single freeze 1384ms → 376ms, wall time 64s →
   54s — the progress line now paints and the page stays responsive throughout.
-  Browsers without OffscreenCanvas/module workers (and any worker failure) fall
-  back to the original in-thread build automatically. Export bytes-shape is
-  unchanged (2× PNG, one image per page).
+  The transfer window is bounded (at most 2 slides in flight), so a long deck
+  can't pin hundreds of MB of queued bitmaps — the mid-deck crash on memory-capped
+  mobile browsers (observed on-device at ~45 of 61 slides; measured 26 queued
+  bitmaps ≈ 382 MB unbounded → 2 ≈ 29 MB bounded, same wall time). Browsers
+  without OffscreenCanvas/module workers (and any worker failure) fall back to
+  the original in-thread build automatically. Export bytes-shape is unchanged
+  (2× PNG, one image per page).
 - **The bare `statement` slide class is retired from shipped content — it was
   never a registered component.** `statement` names a component *bucket*
   (`big-number` · `content` · `quote` · `split-panel`) and the `image statement`

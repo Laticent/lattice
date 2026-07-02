@@ -509,23 +509,48 @@ function canUsePdfWorker() {
 
 // Worker lane: returns the PDF bytes as a Blob. Any worker-side failure rejects
 // so the caller can fall back to the legacy lane.
+// At most this many slides may sit transferred-but-unprocessed in the worker's
+// message queue. Each one is a full UNCOMPRESSED page bitmap (~15 MB at 2× HD),
+// so an unbounded queue grows with however far the worker's encode falls behind
+// the main thread's clone+draw — on a ~60-slide deck that's hundreds of MB,
+// which blows iOS Safari's per-tab memory ceiling and crashes the export
+// mid-deck. A window of 2 keeps the pipeline overlapped (main draws slide N+1
+// while the worker encodes slide N) with bounded memory; 1 would serialize the
+// lanes and give back part of the speed win.
+const PDF_WORKER_MAX_IN_FLIGHT = 2;
+
 async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta) {
 	const worker = new Worker(new URL('./pdf-export-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
+		let acked = 0;
+		let wake = null;
 		const done = new Promise((resolve, reject) => {
 			worker.onmessage = (e) => {
 				const m = e.data;
-				if (m.type === 'progress' && onStatus) onStatus('Rendering slide ' + (m.index + 1) + ' of ' + total + '…', { current: m.index + 1, total });
-				else if (m.type === 'done') resolve(new Blob([m.bytes], { type: 'application/pdf' }));
+				if (m.type === 'progress') {
+					acked = m.index + 1;
+					if (wake) { wake(); wake = null; }
+					if (onStatus) onStatus('Rendering slide ' + (m.index + 1) + ' of ' + total + '…', { current: m.index + 1, total });
+				} else if (m.type === 'done') resolve(new Blob([m.bytes], { type: 'application/pdf' }));
 				else if (m.type === 'error') reject(new Error(m.message));
 			};
 			worker.onerror = (e) => reject(new Error(e.message || 'PDF worker failed'));
 		});
+		// A worker error can land while the loop is between awaits; pre-attach a
+		// no-op handler so the browser never flags an unhandled rejection (the
+		// real `await done` below still observes the original rejection).
+		done.catch(() => {});
 		const { w: boxW, h: boxH } = slideGeom(sections[0]);
 		const { pageW, pageH } = pdfPageGeom(boxW, boxH);
 		worker.postMessage({ type: 'init', pageW, pageH, total, props: pdfProps(name, meta, total) });
 		for (let i = 0; i < total; i++) {
+			// Backpressure: wait for the worker's ack before growing the in-flight
+			// window. Raced against `done` so a worker-side error breaks the wait
+			// (rejects) instead of deadlocking the loop.
+			while (i - acked >= PDF_WORKER_MAX_IN_FLIGHT) {
+				await Promise.race([done, new Promise((r) => { wake = r; })]);
+			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
 			const bitmap = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS);
 			worker.postMessage({ type: 'slide', index: i, bitmap }, [bitmap]);
