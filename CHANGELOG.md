@@ -110,6 +110,15 @@ in patch versions.
 
 ### Fixed
 
+- **The bare `statement` slide class is retired from shipped content — it was
+  never a registered component.** `statement` names a component *bucket*
+  (`big-number` · `content` · `quote` · `split-panel`) and the `image statement`
+  composition, but no CSS targets a bare `section.statement`, so slides using it
+  rendered as an unstyled heading on empty canvas. The two live usages are
+  fixed: `examples/adaptive-image.md` slide 2 becomes a `divider` (PDF
+  re-rendered — which also gives that deck the #690 raster-twin treatment), and
+  the Studio's "add slide" template (`deck-ops.ts` `NEW_SLIDE`) now inserts
+  `content`, the generic prose slide, so new Studio slides are styled.
 - **PDF export: SVG images are rasterized at export time by default (#690).**
   Chromium prints SVG `<img>`/`background-image` placements into the vector PDF
   as shading-pattern/transparency-group constructs that iOS Quartz viewers

@@ -9,7 +9,7 @@ import { splitSlides } from './lint';
 // follow the edit.
 
 /** Default body for a freshly-added slide. */
-export const NEW_SLIDE = '<!-- _class: statement -->\n\n## New slide\n\nReplace this with your point.';
+export const NEW_SLIDE = '<!-- _class: content -->\n\n## New slide\n\nReplace this with your point.';
 
 function bodySlides(source: string): string[] {
 	return splitSlides(stripFrontMatter(source));
