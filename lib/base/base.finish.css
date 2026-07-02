@@ -100,8 +100,11 @@ section.finish > .backdrop {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  /* STRENGTH — one uniform dial over the whole finish (default 1 = unchanged). */
-  opacity: var(--backdrop-strength, 1);
+  /* STRENGTH — one uniform dial over the whole finish. Cascade: a deck's
+   * `--backdrop-strength` (front-matter override) wins; else the finish's BAKED
+   * default `--fin-backdrop-strength` (generateFinishCss, a 5th finish layer); else
+   * 1 (unchanged). So backdrop is a finish design element the deck can override. */
+  opacity: var(--backdrop-strength, var(--fin-backdrop-strength, 1));
   background-image: var(--fin-texture, none), var(--fin-wash, none);
   background-size: var(--fin-size, auto);
   background-position: var(--fin-position, top left);
@@ -185,7 +188,10 @@ section.finish > .backdrop > .backdrop-mask {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: var(--backdrop-mask, none);
+  /* Cascade mirrors strength: a deck's `--backdrop-mask` (front-matter override,
+   * `backdrop-clear` class) wins; else the finish's BAKED `--fin-backdrop-mask`
+   * (generateFinishCss); else none. */
+  background: var(--backdrop-mask, var(--fin-backdrop-mask, none));
 }
 
 /* CLEARANCE (`backdrop: { clearance: on }`) — recede the finish behind the content
@@ -196,9 +202,18 @@ section.finish > .backdrop > .backdrop-mask {
  * (`var(--bg)` only), no `mask-image`. RICH feathers the reveal edge; the OPAQUE
  * mirror is a single HARD stop (a feathered alpha area-fade grays in the vector PDF).
  * Set at `section.finish.backdrop-clear` specificity so the opaque flip must match it. */
+/* The clearance mask SHAPE — defined once, referenced by BOTH the deck-level
+ * `backdrop-clear` override AND a finish's baked clearance (generateFinishCss emits
+ * `--fin-backdrop-mask: var(--backdrop-clear-mask)`), so the gradient lives in one place. */
+section.finish {
+  --backdrop-clear-mask: radial-gradient(ellipse 90% 84% at 50% 45%, var(--bg) 44%, transparent 88%);
+  --backdrop-clear-mask-opaque: radial-gradient(ellipse 84% 78% at 50% 45%, var(--bg) 64%, transparent 64%);
+}
+/* Deck-level clearance OVERRIDE — forces the mask on (wins over a finish's baked value
+ * through the compositor's var fallback above). */
 section.finish.backdrop-clear {
-  --backdrop-mask: radial-gradient(ellipse 90% 84% at 50% 45%, var(--bg) 44%, transparent 88%);
-  --backdrop-mask-opaque: radial-gradient(ellipse 84% 78% at 50% 45%, var(--bg) 64%, transparent 64%);
+  --backdrop-mask: var(--backdrop-clear-mask);
+  --backdrop-mask-opaque: var(--backdrop-clear-mask-opaque);
 }
 
 /* Keep slide content above the backdrop layer (the backdrop is z0, its internal
@@ -711,6 +726,8 @@ section.finish-gallery {
     --fin-texture: var(--fin-texture-opaque, none);
     --fin-mark: var(--fin-mark-opaque, none);
     --fin-edge: var(--fin-edge-opaque, none);
+    /* a finish's BAKED clearance mask flips to its hard-edged mirror too */
+    --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
   }
   /* The clearance mask flips to its HARD-edged mirror (feather → gray in PDF). Matches
    * the `section.finish.backdrop-clear` setter's specificity so this later rule wins. */
@@ -730,6 +747,7 @@ section.finish.lattice-exporting {
   --fin-texture: var(--fin-texture-opaque, none);
   --fin-mark: var(--fin-mark-opaque, none);
   --fin-edge: var(--fin-edge-opaque, none);
+  --fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none);
 }
 /* Clearance mask → HARD-edged mirror for the Studio raster export. `:where()` keeps
  * the ancestor at zero specificity, so these match the `section.finish.backdrop-clear`

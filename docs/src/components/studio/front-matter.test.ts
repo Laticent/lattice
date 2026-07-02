@@ -1,44 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { frontMatterBlock, getBackdropAxis, getFrontMatter, mergeClassTokens, setBackdropAxis, setFrontMatter, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, setFrontMatter, stripFrontMatter } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
 
 describe('front-matter', () => {
-	it('round-trips a nested backdrop: block — a flat edit does NOT flatten it', () => {
-		const src = '---\ntheme: indaco\nfinish: finish-shu\nbackdrop:\n  strength: 0.6\n  clearance: on\n---\n\n# Deck';
-		expect(getBackdropAxis(src, 'strength')).toBe('0.6');
-		expect(getBackdropAxis(src, 'clearance')).toBe('on');
-		// editing a FLAT key preserves the nested block (regression: it used to flatten)
+	it('round-trips a nested finish-override: block — a flat edit does NOT flatten it', () => {
+		const src = '---\ntheme: indaco\nfinish: finish-shu\nfinish-override:\n  backdrop:\n    strength: 0.4\n    clearance: off\n---\n\n# Deck';
+		// editing a FLAT key preserves the two-level nested block VERBATIM (regression: a
+		// naive flat parser would flatten `backdrop:`/`strength:` into stray scalars)
 		const out = setFrontMatter(src, 'paginate', 'true');
-		expect(out).toMatch(/\nbackdrop:\n {2}strength: 0\.6\n {2}clearance: on\n/);
+		expect(out).toMatch(/\nfinish-override:\n {2}backdrop:\n {4}strength: 0\.4\n {4}clearance: off\n/);
 		expect(getFrontMatter(out, 'paginate')).toBe('true');
 		expect(getFrontMatter(out, 'strength')).toBeUndefined(); // never a flat key
+		expect(getFrontMatter(out, 'backdrop')).toBeUndefined();
 	});
 
-	it('drops an invalid FLAT `backdrop:` scalar so stamping never duplicates the key', () => {
-		// `backdrop` is exclusively the nested key; a hand-typed flat `backdrop: on` is
-		// invalid and must not survive to produce two `backdrop:` lines.
-		const src = '---\nfinish: finish-shu\nbackdrop: on\n---\n\n# D';
-		const out = setBackdropAxis(src, 'strength', '0.5');
-		expect((out.match(/^backdrop:/gm) || []).length).toBe(1);
-		expect(getBackdropAxis(out, 'strength')).toBe('0.5');
+	it('parseFinishOverride reads the two-level map (layer → { attr: value })', () => {
+		const src = '---\nfinish: finish-shu\nfinish-override:\n  backdrop:\n    strength: 0.4\n    clearance: off  # tune it down\n  wash:\n    intensity: 5\n---\n\n# D';
+		expect(parseFinishOverride(src)).toEqual({ backdrop: { strength: '0.4', clearance: 'off' }, wash: { intensity: '5' } });
+		// inline comments on a value are stripped; quotes unwrapped
+		expect(parseFinishOverride('---\nfinish-override:\n  mark:\n    glyph: "AB"\n---\n\n# D')).toEqual({ mark: { glyph: 'AB' } });
 	});
 
-	it('setBackdropAxis stamps + clears nested axes; drops the block when empty', () => {
-		const base = '---\nfinish: finish-shu\n---\n\n# D';
-		const withStrength = setBackdropAxis(base, 'strength', '0.6');
-		expect(withStrength).toMatch(/\nbackdrop:\n {2}strength: 0\.6\n/);
-		const withBoth = setBackdropAxis(withStrength, 'clearance', 'on');
-		expect(getBackdropAxis(withBoth, 'strength')).toBe('0.6');
-		expect(getBackdropAxis(withBoth, 'clearance')).toBe('on');
-		// clearing one axis leaves the other
-		const cleared = setBackdropAxis(withBoth, 'strength', null);
-		expect(getBackdropAxis(cleared, 'strength')).toBeUndefined();
-		expect(getBackdropAxis(cleared, 'clearance')).toBe('on');
-		// clearing the last axis drops the whole backdrop block
-		const none = setBackdropAxis(cleared, 'clearance', null);
-		expect(none).not.toMatch(/backdrop:/);
-		expect(getFrontMatter(none, 'finish')).toBe('finish-shu'); // flat keys survive
+	it('parseFinishOverride returns {} when the block is absent or empty', () => {
+		expect(parseFinishOverride('---\nfinish: finish-shu\n---\n\n# D')).toEqual({});
+		expect(parseFinishOverride(BODY)).toEqual({});
+		// a layer header with no attrs is dropped (no phantom empty layer)
+		expect(parseFinishOverride('---\nfinish-override:\n  backdrop:\n---\n\n# D')).toEqual({});
 	});
 
 	it('creates a block on the first directive', () => {

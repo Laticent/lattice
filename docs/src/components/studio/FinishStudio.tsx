@@ -82,11 +82,13 @@ export function FinishStudio({
 	// "Export preview" — show the OPAQUE export face the PDF/PPTX bakes, not just the
 	// rich on-screen face, so the designer sees the flatter look before they ship it.
 	const [exporting, setExporting] = React.useState(false);
-	// BAKED backdrop restraint — a design element OF the finish (2026-07-01 decision doc,
-	// revised): `strength` (0–1) + `clearance` are saved on the recipe and stamped into a
-	// deck's `backdrop:` front matter on Apply, where the deck author tunes them. The
-	// designer previews the finish AT its baked restraint (WYSIWYG). Read from / written
-	// to `recipe.backdrop`; a full/absent value carries no baked axis.
+	// The BAKED backdrop layer — the finish's FIFTH layer (2026-07-01 decision doc,
+	// revised): `strength` (0–1) + `clearance` live on the recipe and are EMITTED into the
+	// generated CSS as `--fin-backdrop-*` (generateFinishCss → backdropSlots), exactly like
+	// wash / texture / mark / edge. The specimen previews the finish AT its baked backdrop
+	// (WYSIWYG) straight from `previewCss` — no separate injection. A deck author later
+	// overrides it through `finish-override:` (StudioShell). A full/absent value = no baked
+	// axis.
 	const strength = recipe.backdrop?.strength == null ? 100 : Math.round(recipe.backdrop.strength * 100);
 	const clearance = !!recipe.backdrop?.clearance;
 	const setStrength = (pct: number) => patch({ backdrop: { ...recipe.backdrop, strength: pct >= 100 ? undefined : pct / 100 } });
@@ -99,17 +101,9 @@ export function FinishStudio({
 	// The generated CSS drives BOTH the live preview (targets finish-preview) and the
 	// export/save (targets the named slug). Recompute as the recipe changes.
 	const slug = safeFinishSlug(name) === 'custom' && !name.trim() ? 'custom' : safeFinishSlug(name);
+	// The generated CSS bakes ALL five layers (wash / texture / mark / edge + backdrop), so
+	// the specimen is WYSIWYG straight from it — the backdrop needs no separate injection.
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
-	// The preview CSS + the baked backdrop restraint applied to the specimen so the
-	// designer is WYSIWYG: `--backdrop-strength` dims the whole finish, and the clearance
-	// mask (the RICH/screen face, mirroring base.finish.css `section.finish.backdrop-clear`)
-	// recedes it behind the content. Both design-time; the SAVED render reads the recipe.
-	const previewBackdropCss = React.useMemo(() => {
-		let css = previewCss;
-		if (strength < 100) css += `\nsection.finish > .backdrop { --backdrop-strength: ${(strength / 100).toFixed(2)}; }`;
-		if (clearance) css += `\nsection.finish > .backdrop > .backdrop-mask { background: radial-gradient(ellipse 90% 84% at 50% 45%, var(--bg) 44%, transparent 88%); }`;
-		return css;
-	}, [previewCss, strength, clearance]);
 	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(slug);
 
 	// Mutators — each layer's controls write back through coerceRecipe so state can
@@ -262,30 +256,13 @@ export function FinishStudio({
 							</div>
 						</div>
 					</div>
-					{/* BAKED backdrop restraint — saved WITH the finish and stamped into a deck's
-					    `backdrop:` on Apply, where the author tunes it. The specimen previews it. */}
-					<Tuned label="Backdrop strength" value={`${strength}%`}>
-						<div className="flex items-center gap-2.5">
-							<Slider aria-label="Backdrop strength" min={10} max={100} value={strength} onValueChange={setStrength} />
-							{strength < 100 && (
-								<button type="button" onClick={() => setStrength(100)} className="shrink-0 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground hover:text-[var(--accent)]">Reset</button>
-							)}
-						</div>
-					</Tuned>
-					<label className="flex items-center justify-between gap-3 py-0.5">
-						<span className="flex flex-col">
-							<span className="text-[12.5px] font-semibold text-[var(--text-heading)]">Clear behind content</span>
-							<span className="text-[11px] text-muted-foreground">Recede the finish behind the text; it reads at the margins</span>
-						</span>
-						<input type="checkbox" aria-label="Clear behind content" checked={clearance} onChange={(e) => setClearance(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
-					</label>
 					<div className="relative">
 						<DeckPreview
 							options={options}
 							sample={specimen(exporting)}
 							mermaid={false}
 							modeOverride={mode}
-							extraCss={previewBackdropCss}
+							extraCss={previewCss}
 							debounceMs={140}
 							className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]"
 							aria-label="Finish specimen"
@@ -296,7 +273,7 @@ export function FinishStudio({
 						<p className="text-[11.5px] leading-relaxed text-[var(--accent)]">Showing the export face — finishes render slightly flatter in baked PDF/PPTX exports.</p>
 					)}
 					<p className="text-[12px] leading-relaxed text-muted-foreground">
-						A finish is a stack of four palette-blind layers. Start from a preset, tune the layers, then <strong className="text-[var(--text-heading)]">Save</strong> it to your library or <strong className="text-[var(--text-heading)]">Export</strong> the CSS.
+						A finish is a stack of five palette-blind layers. Start from a preset, tune the layers, then <strong className="text-[var(--text-heading)]">Save</strong> it to your library or <strong className="text-[var(--text-heading)]">Export</strong> the CSS.
 					</p>
 				</div>
 
@@ -393,13 +370,34 @@ export function FinishStudio({
 					</LayerGroup>
 
 					{/* Edge */}
-					<LayerGroup label="Edge" hint="z4 · frame" last>
+					<LayerGroup label="Edge" hint="z4 · frame">
 						<LayerSelect aria-label="Edge type" value={recipe.edge.type} options={EDGE_TYPES} labels={EDGE_LABEL} onChange={(v) => patch({ edge: { ...recipe.edge, type: v as FinishRecipe['edge']['type'] } })} />
 						{recipe.edge.type !== 'none' && recipe.edge.type !== 'margin-rule' && (
 							<Tuned label="Intensity" value={`${recipe.edge.intensity}%`}>
 								<Slider aria-label="Edge intensity" min={3} max={20} value={recipe.edge.intensity} onValueChange={(v) => patch({ edge: { ...recipe.edge, intensity: v } })} />
 							</Tuned>
 						)}
+					</LayerGroup>
+
+					{/* Backdrop — the 5th layer: restraint on the whole finish (baked; a deck tunes
+					    it via `finish-override:`). Strength dims all four layers; clearance recedes
+					    them behind the content box. */}
+					<LayerGroup label="Backdrop" hint="restraint · dims & recedes the finish" last>
+						<Tuned label="Strength" value={`${strength}%`}>
+							<div className="flex items-center gap-2.5">
+								<Slider aria-label="Backdrop strength" min={10} max={100} value={strength} onValueChange={setStrength} />
+								{strength < 100 && (
+									<button type="button" onClick={() => setStrength(100)} className="shrink-0 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground hover:text-[var(--accent)]">Reset</button>
+								)}
+							</div>
+						</Tuned>
+						<label className="flex items-center justify-between gap-3 py-0.5">
+							<span className="flex flex-col">
+								<span className="text-[12.5px] font-semibold text-[var(--text-heading)]">Clear behind content</span>
+								<span className="text-[11px] text-muted-foreground">Recede the finish behind the text; it reads at the margins</span>
+							</span>
+							<input type="checkbox" aria-label="Clear behind content" checked={clearance} onChange={(e) => setClearance(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
+						</label>
 					</LayerGroup>
 				</aside>
 			</div>

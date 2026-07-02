@@ -7,6 +7,7 @@ import {
 	generateFinishCss,
 	generateSwatch,
 	MARK_TYPES,
+	mergeFinishOverride,
 	PRESET_RECIPES,
 	safeFinishSlug,
 	sanitizeGlyph,
@@ -157,8 +158,40 @@ describe('finish-generate', () => {
 		expect('backdrop' in coerceRecipe({ wash: { type: 'grid' } })).toBe(false);
 		// clearance alone (no strength) is kept
 		expect(coerceRecipe({ backdrop: { clearance: true } }).backdrop).toEqual({ clearance: true });
-		// backdrop is NEVER emitted into the generated CSS (it's a front-matter stamp, not a layer)
-		expect(generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5, clearance: true } }))).not.toMatch(/backdrop/i);
+	});
+
+	it('BAKES the backdrop layer into the generated CSS as deck-overridable --fin-backdrop-* tokens', () => {
+		const css = generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5, clearance: true } }));
+		expect(css).toMatch(/--fin-backdrop-strength:\s*0\.50/); // baked strength
+		expect(css).toMatch(/--fin-backdrop-mask:\s*var\(--backdrop-clear-mask\)/); // clearance references the shared shape
+		expect(css).toMatch(/--fin-backdrop-mask-opaque:\s*var\(--backdrop-clear-mask-opaque\)/); // hard mirror for export
+		// only the baked axes appear
+		const strengthOnly = generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5 } }));
+		expect(strengthOnly).toMatch(/--fin-backdrop-strength/);
+		expect(strengthOnly).not.toMatch(/--fin-backdrop-mask/);
+		// a plain finish (no baked backdrop) emits none
+		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop/);
+		// full strength (=1) is the default → not baked
+		expect(generateFinishCss('x', coerceRecipe({ backdrop: { strength: 1 } }))).not.toMatch(/--fin-backdrop/);
+	});
+
+	it('mergeFinishOverride deep-merges a finish-override partial over the recipe', () => {
+		const base = coerceRecipe({ backdrop: { strength: 0.5, clearance: true }, wash: { type: 'grid', intensity: 8 } });
+		// override ONE backdrop axis — the other baked axis (clearance) survives the merge
+		const dimmed = mergeFinishOverride(base, { backdrop: { strength: '0.3' } });
+		expect(dimmed.backdrop).toEqual({ strength: 0.3, clearance: true });
+		expect(dimmed.wash.intensity).toBe(8); // untouched layer preserved
+		// override RESETS an axis to its default → the axis turns back off (dropped)
+		const noClear = mergeFinishOverride(base, { backdrop: { clearance: 'off' } });
+		expect(noClear.backdrop).toEqual({ strength: 0.5 });
+		const full = mergeFinishOverride(base, { backdrop: { strength: '1' } });
+		expect(full.backdrop).toEqual({ clearance: true }); // strength 1 = default → dropped
+		// a NON-backdrop layer overrides too (the whole recipe is overridable)
+		expect(mergeFinishOverride(base, { wash: { intensity: '3' } }).wash.intensity).toBe(3);
+		// an empty override is a no-op
+		expect(mergeFinishOverride(base, {})).toEqual(base);
+		// regenerating with the merged recipe reflects the override in the baked tokens
+		expect(generateFinishCss('x', mergeFinishOverride(base, { backdrop: { clearance: 'off' } }))).not.toMatch(/--fin-backdrop-mask/);
 	});
 
 	it('generateSwatch returns a usable background string for every preset', () => {

@@ -21,9 +21,9 @@ import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } f
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { Editor, type EditorHandle } from './Editor';
 import { activeFinishLabel, FinishMenuItems, type SavedFinishMenuEntry } from './FinishPicker';
-import { generateSwatch as finishSwatch } from './finish-generate';
+import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, setBackdropAxis, setFrontMatter, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, setFrontMatter, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { Library } from './Library';
@@ -309,22 +309,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const headerFooter = getFrontMatter(source, 'header') != null;
 	// …and WRITE to it (the editor + every export update in lock-step).
 	const finish = getFrontMatter(source, 'finish') || 'none';
-	const setFinish = (value: string) => {
-		// A saved finish carries a BAKED backdrop (strength / clearance) — stamp those
-		// axes into the deck's `backdrop:` front matter as its starting restraint, where
-		// the author then tunes them (front matter / Deck-setup drawer). Only the axes the
-		// finish bakes are set (re-applying resets THOSE to the finish's defaults); axes it
-		// doesn't bake — and a built-in / `none` pick — leave the deck's backdrop untouched.
-		// (`backdrop:` is a finish design element — 2026-07-01 decision doc.)
-		const saved = savedFinishes.find((f) => value === `finish-${f.name}` || value === f.name);
-		const bd = saved?.recipe?.backdrop;
-		setSource((s) => {
-			let out = setFrontMatter(s, 'finish', value === 'none' ? null : value);
-			if (bd?.strength != null) out = setBackdropAxis(out, 'strength', String(bd.strength));
-			if (bd?.clearance) out = setBackdropAxis(out, 'clearance', 'on');
-			return out;
-		});
-	};
+	// A finish's backdrop is BAKED into its CSS (a 5th finish layer, generateFinishCss →
+	// `--fin-backdrop-*`), so applying a finish just sets `finish:` — nothing is stamped.
+	// The deck author OVERRIDES any baked layer — backdrop strength/clearance included —
+	// through the single `finish-override:` front-matter map, which deep-merges into the
+	// finish's recipe and regenerates its CSS (see `finishExtraCss`).
+	const setFinish = (value: string) => setSource((s) => setFrontMatter(s, 'finish', value === 'none' ? null : value));
 	// The `mode:` axis (rendering mode — boardroom / sketch), a sibling of finish.
 	// (The key can't be `style:` — that's Marp's built-in inline-CSS directive.)
 	// Named `renderMode` locally to avoid clashing with the light/dark `mode` below.
@@ -389,8 +379,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// renders on its own (the engine now implies the `finish` compositor class from the
 	// per-slide `finish-<slug>`; deck-wide still also stamps the class via previewFm).
 	// Built-ins flow through the engine's `finish:` register, untouched.
+	// The deck's `finish-override:` map (a partial recipe the author tunes over the applied
+	// finish's baked layers — backdrop strength/clearance and any other layer). Empty when
+	// absent. Only the DECK-WIDE active finish honors it; per-slide finishes render baked.
+	const finishOverride = React.useMemo(() => parseFinishOverride(source), [source]);
 	const finishExtraCss = React.useMemo(() => {
 		if (!savedFinishes.length) return undefined;
+		const hasOverride = Object.keys(finishOverride).length > 0;
 		const used = savedFinishes.filter((f) => {
 			const token = `finish-${f.name}`;
 			// the `finish-<slug>` class token as a whole word (front-matter value or a
@@ -398,8 +393,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			const esc = token.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 			return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
 		});
-		return used.map((f) => f.css).filter(Boolean).join('\n\n') || undefined;
-	}, [savedFinishes, source, finish]);
+		return used
+			.map((f) => {
+				// The active deck-wide finish REGENERATES with the override deep-merged into its
+				// recipe (backdrop + any layer); every other used finish renders its baked CSS.
+				const isActive = finish === `finish-${f.name}` || finish === f.name;
+				return isActive && hasOverride ? generateFinishCss(f.name, mergeFinishOverride(f.recipe, finishOverride)) : f.css;
+			})
+			.filter(Boolean)
+			.join('\n\n') || undefined;
+	}, [savedFinishes, source, finish, finishOverride]);
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
