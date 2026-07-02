@@ -184,7 +184,12 @@ function syncAgent(gap) {
 // returns false/undefined and we fall through to the open-a-tab behavior. Clicks
 // reach the iframe fine on iOS (it's touch-move gestures that don't), so this hook
 // is enough — no parent hit-surface needed.
-function linkGuardAgent() {
+//
+// Exported so the OTHER preview builders (presenter-window.js, single-slide-render.ts,
+// drawing-board-practice.js) that assemble their own srcdoc can inject the same
+// guard — it fixes the external-link-tap-blanks-the-frame bug on ALL of them, and
+// carries the video-playback bridge to each.
+export function linkGuardAgent() {
 	return [
 		'(function(){',
 		'  document.addEventListener("click",function(e){',

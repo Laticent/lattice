@@ -24,7 +24,9 @@
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
 import { applyDebug } from '../playground/debug-overlay.js';
+import { linkGuardAgent } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
+import { installVideoBridge } from '../playground/video-overlay.js';
 import { ensureEngine } from './load-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
 import { createThemeFetcher } from './theme-fetch';
@@ -137,7 +139,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			'</style></head><body>' +
 			html;
 		if (mermaid) s += '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>';
-		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt></body></html>';
+		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';
+		// Preview-only link guard: an external link tap (a video poster, a contact/qr
+		// URL) must not navigate — and blank — this scaled srcdoc frame on iOS. Also
+		// carries the video-playback bridge (window.__videoPlay) for the Studio.
+		s += '<scr' + 'ipt>' + linkGuardAgent() + '</scr' + 'ipt>';
+		s += '</body></html>';
 		return s;
 	}
 
@@ -243,6 +250,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				fr.onload = () => {
 					scaleFrame(host);
 					applyDebug(fr, { force: null });
+					// Parent-hosted video playback: tap a video poster in a Studio preview
+					// to play the clip in a centered lightbox (the link guard bridges to it).
+					installVideoBridge(fr.contentWindow);
 				};
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
 				scaleFrame(host);

@@ -31,9 +31,17 @@ describe('embedSrc', () => {
 		assert.equal(embedSrc('https://vimeo.com/76979871'), 'https://player.vimeo.com/video/76979871?autoplay=1');
 	});
 
+	test('TikTok → official iframe player by numeric id', async () => {
+		const { embedSrc } = await load();
+		assert.equal(
+			embedSrc('https://www.tiktok.com/@scout2015/video/6718335390845095173'),
+			'https://www.tiktok.com/player/v1/6718335390845095173?autoplay=1',
+		);
+	});
+
 	test('non-embeddable providers and junk → null (fall back to the plain link)', async () => {
 		const { embedSrc } = await load();
-		assert.equal(embedSrc('https://www.tiktok.com/@x/video/6718335390845095173'), null);
+		// Instagram has no public iframe player → stays a poster + link.
 		assert.equal(embedSrc('https://www.instagram.com/reel/CxYzAbCdEfg/'), null);
 		assert.equal(embedSrc('https://example.com/watch?v=notreal'), null);
 		assert.equal(embedSrc(''), null);
