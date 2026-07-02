@@ -37,8 +37,8 @@ in patch versions.
   a live-preview enhancement. See
   `engineering/decisions/2026-07-02-video-overlay-playback.md`.
 - **PDF export: `--raster` and `--embed-source` flags (lattice-emulator, #690).**
-  `--raster` prints the PDF as one full-bleed 2× JPEG per page (the same raster
-  the PPTX path uses) for maximum viewer compatibility — selectable text is
+  `--raster` prints the PDF as one full-bleed 2× JPEG per page (from the same
+  screenshots the PPTX path takes) for maximum viewer compatibility — selectable text is
   lost, so it stays opt-in; speaker notes, `--present`, and `--embed-source`
   still apply to the assembled document. `--embed-source` attaches the deck's
   Markdown source to the PDF as an embedded file (visible in any attachments
@@ -103,10 +103,11 @@ in patch versions.
   Chromium prints SVG `<img>`/`background-image` placements into the vector PDF
   as shading-pattern/transparency-group constructs that iOS Quartz viewers
   partially render or drop outright. Each unique SVG now becomes a 2× PNG twin
-  (a plain image XObject) swapped in before printing; text, layout, and inline
-  `<svg>` (Mermaid, charts, logo marks) stay vector and selectable. Opt out
-  with `--keep-vector-images`. See `engineering/gotchas.md` → "SVG images in
-  the exported PDF partially render or vanish in iOS Quartz viewers".
+  (a plain image XObject) swapped in before printing, with each `<img>` pinned
+  to its laid-out box so layout is unchanged; text and inline `<svg>` (Mermaid,
+  charts, logo marks) stay vector and selectable. Opt out with
+  `--keep-vector-images`. See `engineering/gotchas.md` → "SVG images in the
+  exported PDF partially render or vanish in iOS Quartz viewers".
 - **Tapping an external link in the live preview no longer blanks it on iOS.** A
   slide can carry a real `<a href="https://…">` (the `video` poster links to the
   clip; `contact`/`qr`/`closing` carry live URLs) — genuine, clickable links in the

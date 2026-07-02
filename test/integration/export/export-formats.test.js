@@ -244,6 +244,59 @@ describe('export-formats', () => {
     assert.equal(extracted, fs.readFileSync(src, 'utf8'), 'attachment must be byte-identical to the source');
   });
 
+  test('SVG swap is layout-neutral and robust: <img> box pinned, gradient scrims survive, malformed URLs skipped', { timeout: TIMEOUT }, () => {
+    // Three checker-found failure modes pinned by one render:
+    //  (a) an intrinsically-sized <img> must NOT re-lay-out at the twin's 2×
+    //      natural size — pass 3 pins the element to its laid-out box;
+    //  (b) a layered `linear-gradient(...), url(x.svg)` declaration must keep
+    //      the gradient scrim — only the url() token is replaced;
+    //  (c) one malformed background-image URL must not kill the export —
+    //      URL resolution is guarded per token.
+    const dir = tmpDir();
+    fs.writeFileSync(
+      path.join(dir, 'small-red.svg'),
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60"><rect width="100" height="60" fill="#ff0000"/></svg>',
+    );
+    const src = path.join(dir, 'robust.md');
+    fs.writeFileSync(src, [
+      '---', 'html: true', 'paginate: false', '---', '',
+      '<!-- _class: content -->', '',
+      '## Intrinsic pin', '',
+      '![red](small-red.svg)', '',
+      '---', '',
+      '<!-- _class: content -->', '',
+      '## Scrim and bad URL', '',
+      `<div style="width:200px;height:150px;background-image:linear-gradient(rgba(0,0,255,0.5),rgba(0,0,255,0.5)),url('small-red.svg')"></div>`, '',
+      `<div style="width:10px;height:10px;background-image:url('http://[bad/x.svg')"></div>`, '',
+    ].join('\n'));
+    const out = path.join(dir, 'robust.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    // (c) the malformed URL must not abort the render.
+    assert.equal(r.status, 0, `emulator failed (malformed URL should be skipped, not fatal): ${r.stderr}`);
+    assert.ok(pdfImageRows(out).length >= 2, 'both SVG placements should have been swapped for raster twins');
+
+    // Rasterize at 96 dpi → 1 raster px per CSS px on the 1280×720 page.
+    execFileSync('pdftoppm', ['-r', '96', out, path.join(dir, 'page')]);
+    const isRed  = (d, i) => d[i] > 215 && d[i + 1] < 40 && d[i + 2] < 40;
+    const isBlend = (d, i) => Math.abs(d[i] - 128) < 45 && d[i + 1] < 40 && Math.abs(d[i + 2] - 128) < 45;
+    const count = (ppm, pred) => {
+      const { w, h, data } = readPPM(ppm);
+      let n = 0;
+      for (let p = 0; p < w * h; p++) if (pred(data, p * 3)) n++;
+      return n;
+    };
+    // (a) the 100×60 image must cover ~6000 px, not ~24000 (the 2× twin's box).
+    const red1 = count(path.join(dir, 'page-1.ppm'), isRed);
+    assert.ok(red1 > 4000 && red1 < 12000, `intrinsically-sized <img> should keep its 100×60 box (~6000 red px), got ${red1}`);
+    // (b) the scrim must still blend the red tile (→ ~purple, ~0 pure red).
+    const red2 = count(path.join(dir, 'page-2.ppm'), isRed);
+    const blend2 = count(path.join(dir, 'page-2.ppm'), isBlend);
+    assert.ok(red2 < 1000, `gradient scrim should survive the swap (pure-red pixels ≈ 0), got ${red2}`);
+    assert.ok(blend2 > 15000, `scrim-over-image blend should cover the 200×150 box, got ${blend2}`);
+  });
+
   test('renders one PNG per slide at the 2× raster size', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.png');

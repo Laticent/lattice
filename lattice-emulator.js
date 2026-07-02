@@ -153,10 +153,11 @@ OPTIONS
                           Can also be enabled per-deck with a 'present: true'
                           front-matter key.
       --raster            Print the PDF as one full-bleed slide image per page
-                          (2x JPEG, the same raster the PPTX path uses) instead of
-                          vector pages. Maximum viewer compatibility; selectable
-                          text is lost. Speaker notes, --present, and
-                          --embed-source still apply. PDF only.
+                          (2x JPEG, from the same screenshots the PPTX path
+                          takes) instead of vector pages. Maximum viewer
+                          compatibility; selectable text is lost. Speaker
+                          notes, --present, and --embed-source still apply.
+                          PDF only.
       --embed-source      Attach the deck's Markdown source to the PDF as an
                           embedded file (visible in any viewer's attachments
                           panel), so the deck can be re-rendered from the PDF
@@ -170,8 +171,9 @@ OPTIONS
                           cropped SVG placements (#690). Inline SVG (Mermaid,
                           charts, logo marks) always stays vector.
 
-  Both --flag value and --flag=value syntax accepted. Positional args still
-  work; named flags take precedence when both are supplied.
+  Value-taking options accept both --flag value and --flag=value syntax; the
+  boolean switches above take no value. Positional args still work; named
+  flags take precedence when both are supplied.
 
 SPEAKER NOTES
   A non-directive HTML comment on a slide is that slide's speaker note
@@ -1886,7 +1888,11 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
   // Pass 1 — collect: every SVG image URL (absolutized) with the largest
   // placement box it occupies, measured from the real layout.
   const refs = await g(() => page.evaluate(() => {
-    const isSvgUrl = (u) => /^data:image\/svg\+xml/i.test(u) || /\.svg(?:[?#]|$)/i.test(u);
+    // Fragment views (sprite.svg#view) are skipped: a raster twin would swap
+    // the fragment's view for the whole sprite sheet. A data: URL can't carry
+    // a raw `#` (it would have terminated the URL), so only fetchable URLs
+    // get the fragment test.
+    const isSvgUrl = (u) => /^data:image\/svg\+xml/i.test(u) || (!u.includes('#') && /\.svg(?:\?.*)?$/i.test(u));
     const out = {};
     const add = (url, rect) => {
       if (!url || !isSvgUrl(url)) return;
@@ -1896,8 +1902,12 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
     };
     for (const img of document.images) add(img.currentSrc || img.src, img.getBoundingClientRect());
     for (const el of document.querySelectorAll('[style*="background-image"]')) {
-      const m = (el.style.backgroundImage || '').match(/url\(["']?([^"')]+)["']?\)/i);
-      if (m) add(new URL(m[1], document.baseURI).href, el.getBoundingClientRect());
+      // Walk EVERY url() token — a declaration can layer a gradient scrim over
+      // the image — and never let one malformed URL abort the collect: the
+      // deck must not be lost to a portability fix.
+      for (const m of (el.style.backgroundImage || '').matchAll(/url\(["']?([^"')]+)["']?\)/gi)) {
+        try { add(new URL(m[1], document.baseURI).href, el.getBoundingClientRect()); } catch (_e) { /* skip this token */ }
+      }
     }
     return out;
   }), 'collect svg images');
@@ -1917,14 +1927,22 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
           ? `data:image/svg+xml;base64,${fs.readFileSync(fileURLToPath(url)).toString('base64')}`
           : url;
         await g(() => scratch.setContent(
-          `<!DOCTYPE html><html><body style="margin:0"><img id="t" src="${src}" style="display:block"></body></html>`,
-          { waitUntil: 'networkidle0', timeout: 30000 },
-        ), 'load svg');
-        const nat = await g(() => scratch.evaluate(async () => {
+          '<!DOCTYPE html><html><body style="margin:0"><img id="t" style="display:block"></body></html>',
+        ), 'svg scratch doc');
+        // Assign src via evaluate (never string-interpolated into markup) and
+        // wait for the actual load result — a failed load throws to the catch
+        // below, leaving that reference vector instead of swapping in a blank.
+        const nat = await g(() => scratch.evaluate(async (s) => {
           const i = document.getElementById('t');
-          try { await i.decode(); } catch (_e) { /* use whatever loaded */ }
-          return { w: i.naturalWidth, h: i.naturalHeight };
-        }), 'measure svg');
+          const loaded = await new Promise((resolve) => {
+            i.onload = () => resolve(true);
+            i.onerror = () => resolve(false);
+            i.src = s;
+          });
+          try { await i.decode(); } catch (_e) { /* naturalWidth fallback below */ }
+          return { ok: loaded, w: i.naturalWidth, h: i.naturalHeight };
+        }, src), 'load svg');
+        if (!nat.ok) throw new Error('image failed to load');
         // Intrinsic aspect from the SVG itself; a viewBox-less SVG reports 0,
         // so fall back to its placement box (then the slide) for the ratio.
         const disp = refs[url];
@@ -1962,19 +1980,35 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
   }
   if (!Object.keys(map).length) return 0;
 
-  // Pass 3 — swap in place. Same-aspect twins at the same placement boxes, so
-  // layout (and the overflow measurements above) are unaffected.
+  // Pass 3 — swap in place, layout-neutrally. An <img> is pinned to its
+  // laid-out box FIRST (the twin's intrinsic size is 2x the placement, so an
+  // intrinsically-sized image would otherwise re-lay-out at double size — and
+  // this runs after the overflow/autosplit measurements, which must stay
+  // true). Background declarations replace only the matched url() tokens, so
+  // layered gradient scrims survive.
   const swapped = await g(() => page.evaluate((twins) => {
     let n = 0;
     for (const img of document.images) {
       const key = img.currentSrc || img.src;
-      if (twins[key]) { img.src = twins[key]; n++; }
+      if (!twins[key]) continue;
+      const r = img.getBoundingClientRect();
+      if (r.width && r.height) {
+        img.style.width = `${r.width}px`;
+        img.style.height = `${r.height}px`;
+      }
+      img.src = twins[key];
+      n++;
     }
     for (const el of document.querySelectorAll('[style*="background-image"]')) {
-      const m = (el.style.backgroundImage || '').match(/url\(["']?([^"')]+)["']?\)/i);
-      if (!m) continue;
-      const abs = new URL(m[1], document.baseURI).href;
-      if (twins[abs]) { el.style.backgroundImage = `url("${twins[abs]}")`; n++; }
+      const bg = el.style.backgroundImage || '';
+      const next = bg.replace(/url\(["']?([^"')]+)["']?\)/gi, (token, u) => {
+        try {
+          const abs = new URL(u, document.baseURI).href;
+          if (twins[abs]) { n++; return `url("${twins[abs]}")`; }
+        } catch (_e) { /* leave this token as-is */ }
+        return token;
+      });
+      if (next !== bg) el.style.backgroundImage = next;
     }
     return n;
   }, map), 'swap svg images');
