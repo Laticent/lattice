@@ -27,10 +27,16 @@ test('the AI-model tab is honest about running with no model', async ({ page }) 
 
 test('the General tab switches the placement-handle style and persists it', async ({ page }) => {
 	await page.getByRole('tab', { name: 'General' }).click();
-	// Default is the familiar knob; pick precision (reticle) and confirm it persists.
-	await page.getByRole('radio', { name: /Precision/ }).check();
+	// The choice cards wrap an sr-only radio (a 1px clipped box), so check()'s
+	// click point can land over ANOTHER card's chrome and be intercepted — the
+	// deterministic red the first nightly with this test surfaced. Click the
+	// visible card title exactly as a user does (the label toggles the radio),
+	// and assert the radio state plus the persisted setting.
+	await page.getByText('Precision', { exact: true }).click();
+	await expect(page.getByRole('radio', { name: /Precision/ })).toBeChecked();
 	await expect.poll(() => readStorage(page, 'lattice-studio-settings')).toContain('reticle');
 	// Switch back to familiar (knob).
-	await page.getByRole('radio', { name: /Familiar/ }).check();
+	await page.getByText('Familiar', { exact: true }).click();
+	await expect(page.getByRole('radio', { name: /Familiar/ })).toBeChecked();
 	await expect.poll(() => readStorage(page, 'lattice-studio-settings')).toContain('knob');
 });
