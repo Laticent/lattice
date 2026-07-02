@@ -124,7 +124,9 @@ function fitAgent(gap, clamp) {
 		// the iframe relayout lands re-fits against the stale width (tiny slides
 		// over background). One rAF puts the measurement after layout; a second
 		// fit on a timeout is the WebKit belt.
-		'  window.__latticeFitResume=function(){fitSuspended=false;requestAnimationFrame(fit);setTimeout(fit,120);};',
+		// The follow-ups go through the GATE so a new drag started within ~120ms
+		// of a release can't sneak one full mid-drag fit past the suspension.
+		'  window.__latticeFitResume=function(){fitSuspended=false;requestAnimationFrame(gatedFit);setTimeout(gatedFit,120);};',
 		'  window.addEventListener("resize",gatedFit);',
 		'  if(typeof ResizeObserver!=="undefined"){',
 		'    var ro=new ResizeObserver(function(){gatedFit();});',

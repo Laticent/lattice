@@ -46,7 +46,14 @@ let scaleSuspended = false;
 const scaleTargets = new Map<HTMLElement, () => void>();
 export function suspendScaleObservers(on: boolean): void {
 	scaleSuspended = on;
-	if (!on) for (const refit of scaleTargets.values()) refit();
+	if (on) return;
+	for (const [host, refit] of scaleTargets) {
+		// Prune unmounted hosts on resume: the module-level Map would otherwise
+		// root every detached preview subtree forever (Studio's mobile pane
+		// swaps, Compose↔Fabricate) and refit dead iframes each resume.
+		if (host.isConnected) refit();
+		else scaleTargets.delete(host);
+	}
 }
 
 export type Geom = { width: number; height: number };
@@ -255,6 +262,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					if (typeof ResizeObserver !== 'undefined') {
 						// The callback honors the module-level drag gate above; the host is
 						// registered so a resume can re-fit it once, authoritatively.
+						// Sweep dead hosts on each registration so no-drag sessions
+						// (where the resume-time prune never runs) stay bounded too.
+						for (const h of scaleTargets.keys()) if (!h.isConnected) scaleTargets.delete(h);
 						scaleTargets.set(host, () => scaleFrame(host));
 						new ResizeObserver(() => {
 							if (!scaleSuspended) scaleFrame(host);

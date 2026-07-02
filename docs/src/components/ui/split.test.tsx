@@ -215,6 +215,12 @@ describe("persistence", () => {
 describe("drag lifecycle (logic only — no real capture/layout in jsdom)", () => {
 	it("pointerdown marks dragging; lostpointercapture settles, persists, cleans up", () => {
 		const onSettle = vi.fn()
+		// A no-movement release inside 300ms is a TAP (the synthesized double-tap
+		// reset path), not a drag — advance the clock so this reads as a real
+		// (held) drag and the release commits + settles.
+		const now = vi.spyOn(performance, "now")
+		let t = 1000
+		now.mockImplementation(() => (t += 400))
 		render(<Harness onSettle={onSettle} />)
 		const sep = separator()
 		fireEvent.pointerDown(sep, { pointerId: 1, clientX: 500, button: 0 })
@@ -225,6 +231,22 @@ describe("drag lifecycle (logic only — no real capture/layout in jsdom)", () =
 		expect(onSettle).toHaveBeenCalledTimes(1)
 		expect(onSettle).toHaveBeenCalledWith(0.45)
 		expect(localStorage.getItem(KEY)).toBe('{"v":1,"a":0.45}')
+		now.mockRestore()
+	})
+
+	it("two quick no-movement taps on the handle reset the split (touch's double-tap)", () => {
+		render(<Harness />)
+		const sep = separator()
+		// Move off the default first so the reset is observable.
+		fireEvent.keyDown(sep, { key: "ArrowRight" })
+		expect(localStorage.getItem(KEY)).not.toBeNull()
+		// Tap 1 + tap 2, no movement, well within the 350ms window.
+		fireEvent.pointerDown(sep, { pointerId: 2, clientX: 500, button: 0 })
+		fireEvent.lostPointerCapture(sep, { pointerId: 2 })
+		fireEvent.pointerDown(sep, { pointerId: 3, clientX: 500, button: 0 })
+		fireEvent.lostPointerCapture(sep, { pointerId: 3 })
+		expect(localStorage.getItem(KEY)).toBeNull()
+		expect(sep).toHaveAttribute("aria-valuenow", "45")
 	})
 
 	it("Esc cancels an active drag without committing anything", () => {

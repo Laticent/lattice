@@ -182,6 +182,10 @@ interface DragState {
 	 * iframe re-lays-out every frame against a fit-suspended deck (stale-scaled
 	 * slides over background), and iOS WebKit compounds it. */
 	deferred: boolean
+	/** performance.now() at pointerdown — tap detection for the synthesized
+	 * double-tap reset (native dblclick never fires under touch-action:none +
+	 * pointer capture on touch, so touch would otherwise have no reset path). */
+	downAt: number
 	onWindowKeyDown: (e: KeyboardEvent) => void
 	onVisibilityChange: () => void
 }
@@ -223,6 +227,8 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 	const handleRef = React.useRef<HTMLDivElement | null>(null)
 	const railRefs = React.useRef<Record<SplitSide, HTMLButtonElement | null>>({ a: null, b: null })
 	const dragRef = React.useRef<DragState | null>(null)
+	// Last no-movement release on the handle — the synthesized double-tap reset.
+	const lastTapAtRef = React.useRef(0)
 
 	const setContainerEl = React.useCallback((el: HTMLElement | null) => {
 		containerRef.current = el
@@ -266,9 +272,17 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 		[storageKey],
 	)
 
+	// collapse/expand can be invoked mid-drag (Enter on the focused separator, a
+	// ⌘K command, a header glyph) — tear the drag down first so a captured
+	// pointer can't keep ghost-writing over a collapsed layout. Ref-routed to
+	// break the definition cycle (endDrag itself calls collapse on armed release).
+	const endDragRef = React.useRef<(commit: boolean) => void>(() => {})
+
 	const collapse = React.useCallback(
 		(side: SplitSide) => {
 			if (!activeRef.current || collapsedRef.current === side) return
+			if (dragRef.current) endDragRef.current(false)
+			const prev = collapsedRef.current
 			collapsedRef.current = side
 			setCollapsed(side)
 			try {
@@ -281,7 +295,14 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 			if (handleRef.current && document.activeElement === handleRef.current) {
 				railRefs.current[side]?.focus()
 			}
-			afterLayout(() => optsRef.current.onCollapse?.(side))
+			afterLayout(() => {
+				optsRef.current.onCollapse?.(side)
+				// Collapsing one side while the OTHER was collapsed implicitly
+				// reveals it — a swap. Without this, work deferred while that side
+				// was hidden (the Playground's paused preview renders) never runs
+				// and a stale pane is presented as current.
+				if (prev && prev !== side) optsRef.current.onExpand?.(prev)
+			})
 		},
 		[collapsedKey],
 	)
@@ -289,6 +310,7 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 	const expand = React.useCallback(
 		(side: SplitSide) => {
 			if (!activeRef.current || collapsedRef.current !== side) return
+			if (dragRef.current) endDragRef.current(false)
 			collapsedRef.current = null
 			setCollapsed(null)
 			try {
@@ -352,6 +374,19 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 				// Esc / teardown: restore the drag-start ratio. React state never
 				// changed mid-drag, so only the imperative vars need rewinding.
 				writeVars(containerRef.current, drag.startRatio)
+			} else if (
+				Math.abs(drag.lastRatio - drag.startRatio) * drag.pairWidth < 8 &&
+				performance.now() - drag.downAt < 300
+			) {
+				// A TAP, not a drag. Two taps within 350ms = the synthesized
+				// double-tap reset (mouse also has native dblclick → reset, which
+				// is idempotent with this path).
+				if (performance.now() - lastTapAtRef.current < 350) {
+					lastTapAtRef.current = 0
+					reset()
+				} else {
+					lastTapAtRef.current = performance.now()
+				}
 			} else if (drag.armed) {
 				// Release while armed collapses that side; the ratio stays at its
 				// pre-drag value so restore returns to the pre-collapse split.
@@ -362,8 +397,9 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 			}
 			setDragging(false)
 		},
-		[collapse, commitRatio],
+		[collapse, commitRatio, reset],
 	)
+	endDragRef.current = endDrag
 
 	const onHandlePointerDown = React.useCallback(
 		(e: React.PointerEvent<HTMLDivElement>) => {
@@ -384,6 +420,7 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 				frame: null,
 				pendingX: null,
 				deferred: e.pointerType === "touch" || e.pointerType === "pen",
+				downAt: performance.now(),
 				// Esc cancels the drag ONLY — installed at drag start, removed at
 				// drag end, so it can't collide with overlay/CodeMirror Esc users.
 				onWindowKeyDown: (ke: KeyboardEvent) => {
@@ -478,6 +515,9 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 
 	const onHandleKeyDown = React.useCallback(
 		(e: React.KeyboardEvent<HTMLDivElement>) => {
+			// No keyboard mutations mid-drag (Esc is the drag's own window-level
+			// canceler): Enter here would otherwise collapse under a captured pointer.
+			if (dragRef.current) return
 			if (e.key === "Enter") {
 				// Deterministic: Enter always collapses the editor (side 'a'), or
 				// restores whichever side is collapsed — a screen-reader user never

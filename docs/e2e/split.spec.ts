@@ -242,6 +242,28 @@ test('a component pick auto-expands a collapsed preview and really renders', asy
 	await expect(statusLine(page)).toHaveText(/Rendered \d+ slide/, { timeout: 30_000 });
 });
 
+test('switching the collapsed side runs the deferred render — no stale preview', async ({ page }) => {
+	await gotoPlayground(page);
+
+	// The flagship flow the maker-checker flagged: collapse the preview to
+	// write (renders defer), edit, then collapse the EDITOR to review — a swap.
+	// The implicitly revealed preview must run the deferred render; presenting
+	// the pre-edit deck as current (with the editor inert) was the bug.
+	await page.getByRole('button', { name: 'Collapse preview' }).click();
+	await expect(statusLine(page)).toHaveText(/Preview collapsed/);
+
+	await page.locator('.cm-content').click();
+	await page.keyboard.type(' EDITED-WHILE-COLLAPSED');
+	await expect(statusLine(page)).toHaveText(/render deferred/);
+
+	await page.getByRole('button', { name: 'Collapse editor' }).click();
+	await expect(splitContainer(page)).toHaveAttribute('data-split-collapsed', 'a');
+	// The swap-revealed preview re-renders the edited deck — the status flips
+	// from the deferred notice to a fresh render report.
+	await expect(statusLine(page)).toHaveText(/Rendered \d+ slide/, { timeout: 30_000 });
+	await expect(page.locator('#pg-pane-preview')).not.toHaveAttribute('inert');
+});
+
 // The Studio's desktop grid is the one configuration the Playground can't
 // cover: Architect (232px) + editor (min 240px) + handle (1px) + preview
 // (min 280px) + Inspector (300px) = 1053px — the decision doc's worst-case

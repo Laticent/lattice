@@ -1,11 +1,41 @@
 ---
-status: proposed
-summary: The Playground and Studio ship fixed editor|preview splits — users can't widen the editor for long lines, widen the preview for review, or collapse either pane. We ran a five-way design competition (inversion catalog first, five theses each iterated five times, a red team per design, a three-lens judge panel, then synthesis + an independent checker) for "full freedom to resize and fully collapse" both panes. Unanimous winner is the Craftsman Split — a hand-rolled, CSS-var-driven grid divider (no new dependency; react-resizable-panels can't host Studio's conditional 4-track grid) with pointer-captured drag, drag-past-minimum collapse to an always-visible labeled rail, ARIA window-splitter keyboard support, sanitize-on-read persistence, and explicit iframe-shield + __latticeFit re-fit choreography against the preview-iframe trap catalog. Required red-team fixes are folded in and the best runner-up ideas grafted (DeckPreview `active` for the collapsed Studio preview, ⌘K commands + a header collapse affordance, the 760px preview-cap lift, border ownership, container-aware pane headers). Status proposed: implementation awaits direction confirmation.
+status: shipped
+summary: The Playground and Studio ship fixed editor|preview splits — users can't widen the editor for long lines, widen the preview for review, or collapse either pane. We ran a five-way design competition (inversion catalog first, five theses each iterated five times, a red team per design, a three-lens judge panel, then synthesis + an independent checker) for "full freedom to resize and fully collapse" both panes. Unanimous winner is the Craftsman Split — a hand-rolled, CSS-var-driven grid divider (no new dependency; react-resizable-panels can't host Studio's conditional 4-track grid) with pointer-captured drag, drag-past-minimum collapse to an always-visible labeled rail, ARIA window-splitter keyboard support, sanitize-on-read persistence, and explicit iframe-shield + __latticeFit re-fit choreography against the preview-iframe trap catalog. Required red-team fixes are folded in and the best runner-up ideas grafted (DeckPreview `active` for the collapsed Studio preview, ⌘K commands + a header collapse affordance, the 760px preview-cap lift, border ownership, container-aware pane headers). Shipped in PR #717 with three fixes real-surface verification found beyond the spec — a z-order hit-test bug (the preview iframe swallowed divider grabs), the coarse-pointer commit-on-release clause (driven in by a real-iPad jank report), and a React 19 hydration trap that silently dropped all attribute-level persistence restore. See "Shipped deviations".
 ---
 
 # Resizable & collapsible editor/preview panes — Playground + Studio
 
-*2026-07-02* · Status: **proposed** — pending user direction confirmation.
+*2026-07-02* · Status: **shipped** (PR #717).
+
+## Shipped deviations
+
+Implementation-time corrections to the spec below, recorded rather than
+silently absorbed:
+
+- **Restore-by-dragging the rail inward (§1) did not ship** — rails are
+  single-click/tap buttons (plus keyboard). Follow-up if demand appears.
+- **The touch reset is a synthesized double-tap** on the handle (§4 promised
+  it; native dblclick never fires under `touch-action:none` + pointer capture).
+- **Touch/pen drags are DEFERRED** (ghost divider line via a paint-only
+  transform; tracks commit once on release) per §8's coarse-pointer clause —
+  the live-track path is mouse-only. A real-iPad jank report drove this in;
+  the FIT resume is rAF-deferred with a 120ms WebKit belt.
+- **Persisted state applies POST-MOUNT, not in the hydration render** — React
+  19 production hydration silently drops attribute-level mismatches (inline
+  vars, aria-valuenow, data-split-collapsed, inert), so an initializer-time
+  restore updates the vDOM but never the DOM. Pre-restore the hook emits no
+  inline vars so the pre-paint seed carries first paint. Regression net:
+  `docs/e2e/split.spec.ts`.
+- **Playground rails are a flat 28px** (the ≥44px coarse-pointer hit extension
+  is a logged follow-up); Studio rails are 46px as specced.
+- **The seed hosts are each page's own head script** (`playground.astro` /
+  `studio.astro`) — ThemeProvider.astro is docs-zone-only.
+- **The Studio grid matrix is asserted by e2e** (a real 1100px both-panels-open
+  no-overflow test), not a track-string unit matrix.
+- **Device-pass addition**: verify CodeMirror autocomplete/lint tooltip
+  placement in a narrowed Studio editor on Safari — `container-type:inline-size`
+  does not re-root `position:fixed` descendants in Chromium (verified live),
+  but Safari/Firefox are unverified from the sandbox.
 
 ## Context & problem
 

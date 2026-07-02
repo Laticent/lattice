@@ -36,7 +36,7 @@ describe('buildSrcdoc', () => {
 		// mid-drag; resume runs the one authoritative fit).
 		assert.match(doc, /window\.__latticeFit=gatedFit/);
 		assert.match(doc, /window\.__latticeFitSuspend=function\(\)\{fitSuspended=true;\}/);
-		assert.match(doc, /window\.__latticeFitResume=function\(\)\{fitSuspended=false;requestAnimationFrame\(fit\);setTimeout\(fit,120\);\}/);
+		assert.match(doc, /window\.__latticeFitResume=function\(\)\{fitSuspended=false;requestAnimationFrame\(gatedFit\);setTimeout\(gatedFit,120\);\}/);
 		assert.match(doc, /lattice\.style\.visibility="visible"/);
 		// Engine wiring + the deck's geometry globals.
 		assert.match(doc, /window\.__SLIDE_W=1280;window\.__SLIDE_H=720;/);
