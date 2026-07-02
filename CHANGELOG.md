@@ -139,6 +139,27 @@ in patch versions.
 
 ### Fixed
 
+- **Studio/Drawing Board PDF export no longer freezes the page on a large deck.**
+  The one-click image PDF's CPU-heavy stages — the per-slide PNG deflate
+  (`canvas.toDataURL`), jsPDF's per-image re-encode, and the final document
+  serialization — now run in a dedicated worker
+  (`docs/src/playground/pdf-export-worker.js`); the main thread only clones and
+  draws each slide and transfers the bitmap. Measured on a 36-slide deck (same
+  build, worker lane vs the old in-thread lane): total main-thread blocked time
+  48.7s → 7.8s (−84%), longest single freeze 1384ms → 376ms, wall time 64s →
+  54s — the progress line now paints and the page stays responsive throughout.
+  The transfer window is bounded (at most 2 slides in flight), so a long deck
+  can't pin hundreds of MB of queued bitmaps — the mid-deck crash on memory-capped
+  mobile browsers (observed on-device at ~45 of 61 slides; measured 26 queued
+  bitmaps ≈ 382 MB unbounded → 2 ≈ 29 MB bounded, same wall time). Browsers
+  without OffscreenCanvas/module workers (and any worker failure) fall back to
+  the original in-thread build automatically. Pages stay 2× PNG (lossless) by
+  default; a new **Workspace › General "PDF export pages"** preference offers
+  **Fast (JPEG q95)** — measured ~2× quicker end-to-end and several-times-smaller
+  files, because jsPDF embeds JPEG by direct byte copy instead of re-encoding
+  PNG (~1s/page, the pipeline's dominant cost). The fidelity-vs-speed call is
+  the user's: lossless remains the default, and the choice applies to Share →
+  PDF only (PowerPoint and Print are unaffected).
 - **The bare `statement` slide class is retired from shipped content — it was
   never a registered component.** `statement` names a component *bucket*
   (`big-number` · `content` · `quote` · `split-panel`) and the `image statement`

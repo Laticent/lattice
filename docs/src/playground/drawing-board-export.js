@@ -364,11 +364,11 @@ export function forceSectionVisibleForCapture(section) {
 	};
 }
 
-// Rasterize one rendered slide to a PNG data URL at its native box. `fontEmbedCSS`
-// (the vendored, data-URI'd faces) is handed to html-to-image so the clone embeds
-// every font itself rather than chasing the cross-origin Google-Fonts @import.
-async function rasterizeSection(section, fontEmbedCSS) {
-	const { toPng } = await import('html-to-image');
+// Apply every capture-time fixup a slide needs (spectrum-ribbon repaint, opaque
+// finish face, lazy-render gates forced open), run `capture(width, height,
+// pixelRatio)`, and restore — shared by the PNG (PPTX) and canvas (PDF worker)
+// rasterizers so the fixups can never drift apart.
+async function withCaptureFixups(section, capture) {
 	// The spectrum ribbon is a `border-top` whose `border-image-source` is a
 	// linear-gradient. html-to-image inlines that computed border-image and
 	// MIS-RENDERS it — filling the gradient across the whole element instead of
@@ -427,16 +427,7 @@ async function rasterizeSection(section, fontEmbedCSS) {
 	// HD keeps the 2× retina capture it always had.
 	const pixelRatio = w > 2048 ? 1 : 2;
 	try {
-		return await toPng(section, {
-			width: w,
-			height: h,
-			pixelRatio,
-			cacheBust: true,
-			fontEmbedCSS,
-			// transform:none undoes the live FIT scale; no backgroundColor (see header).
-			style: { transform: 'none', margin: '0', boxShadow: 'none', outline: 'none', borderRadius: '0' },
-			filter: (n) => !(n.classList?.contains('db-active')),
-		});
+		return await capture(w, h, pixelRatio);
 	} finally {
 		section.style.borderImageSource = prev.borderImageSource;
 		section.style.borderTopColor = prev.borderTopColor;
@@ -449,54 +440,207 @@ async function rasterizeSection(section, fontEmbedCSS) {
 	}
 }
 
+// The html-to-image options shared by both capture flavors. transform:none
+// undoes the live FIT scale; no backgroundColor (see header).
+function captureOptions(w, h, pixelRatio, fontEmbedCSS) {
+	return {
+		width: w,
+		height: h,
+		pixelRatio,
+		cacheBust: true,
+		fontEmbedCSS,
+		style: { transform: 'none', margin: '0', boxShadow: 'none', outline: 'none', borderRadius: '0' },
+		filter: (n) => !(n.classList?.contains('db-active')),
+	};
+}
+
+// Rasterize one rendered slide to a PNG data URL at its native box. `fontEmbedCSS`
+// (the vendored, data-URI'd faces) is handed to html-to-image so the clone embeds
+// every font itself rather than chasing the cross-origin Google-Fonts @import.
+// The data-URL flavor — PPTX and chart export consume it directly. The PDF path
+// uses rasterizeSectionToBitmap below so the PNG encode never runs on this thread.
+async function rasterizeSection(section, fontEmbedCSS) {
+	const { toPng } = await import('html-to-image');
+	return withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS)));
+}
+
+// Rasterize one rendered slide to a transferable ImageBitmap. Same clone + draw
+// as rasterizeSection (that part needs the DOM and stays here), but it stops at
+// the canvas: the expensive PNG deflate (canvas.toDataURL) and jsPDF's re-encode
+// move to the export worker, which receives the bitmap zero-copy.
+async function rasterizeSectionToBitmap(section, fontEmbedCSS) {
+	const { toCanvas } = await import('html-to-image');
+	return withCaptureFixups(section, async (w, h, pixelRatio) => {
+		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
+		return await createImageBitmap(canvas);
+	});
+}
+
 // ── PDF (one-click image PDF) ─────────────────────────────────────────────────
 // `render` is the engine result for the deck ({ html, css, mode, geom, runtimeUrl,
 // fontCss }) — see the controller's `__dbExportRender`. We rasterize a dedicated
 // capture host built from it, never the live preview.
-// Build the jsPDF document (every slide rasterized + embedded) and RETURN it,
-// without saving. The shared core of exportPdf (which saves) and renderPdfBlob
-// (which hands the bytes to a caller — e.g. the Library's theme-zip showcase).
-async function buildPdfDoc(render, name, onStatus, meta) {
+//
+// Two lanes to the same bytes-shape:
+//   - WORKER (default): the main thread only clones + draws each slide
+//     (rasterizeSectionToBitmap) and transfers the bitmap; the PNG deflate,
+//     jsPDF page embedding, and the final serialization all run in
+//     pdf-export-worker.js. On a large deck the old single-lane path froze the
+//     page for the whole export (each slide's toDataURL + addImage re-encode is
+//     synchronous, and output() at the end is one long block); this keeps the
+//     UI painting and the progress line live.
+//   - LEGACY (fallback): the original all-main-thread jsPDF build, kept for
+//     browsers without OffscreenCanvas/module workers and as the safety net if
+//     the worker fails for any reason.
+
+function pdfPageGeom(boxW, boxH) {
+	const PAGE_H = 720;
+	return { pageW: Math.round((boxW * PAGE_H) / boxH), pageH: PAGE_H };
+}
+
+function pdfProps(name, meta, slideCount) {
+	const { eng, summary, keywords } = provenance(meta, slideCount);
+	return { title: (name || 'deck').trim(), subject: summary, author: 'Lattice Drawing Board', keywords, creator: `Lattice · ${eng}` };
+}
+
+function canUsePdfWorker() {
+	return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap !== 'undefined';
+}
+
+// Worker lane: returns the PDF bytes as a Blob. Any worker-side failure rejects
+// so the caller can fall back to the legacy lane.
+// At most this many slides may sit transferred-but-unprocessed in the worker's
+// message queue. Each one is a full UNCOMPRESSED page bitmap (~15 MB at 2× HD),
+// so an unbounded queue grows with however far the worker's encode falls behind
+// the main thread's clone+draw — on a ~60-slide deck that's hundreds of MB,
+// which blows iOS Safari's per-tab memory ceiling and crashes the export
+// mid-deck. A window of 2 keeps the pipeline overlapped (main draws slide N+1
+// while the worker encodes slide N) with bounded memory; 1 would serialize the
+// lanes and give back part of the speed win.
+const PDF_WORKER_MAX_IN_FLIGHT = 2;
+
+async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat) {
+	const worker = new Worker(new URL('./pdf-export-worker.js', import.meta.url), { type: 'module' });
+	try {
+		const total = sections.length;
+		let acked = 0;
+		let wake = null;
+		const done = new Promise((resolve, reject) => {
+			worker.onmessage = (e) => {
+				const m = e.data;
+				if (m.type === 'progress') {
+					acked = m.index + 1;
+					if (wake) { wake(); wake = null; }
+					if (onStatus) onStatus('Rendering slide ' + (m.index + 1) + ' of ' + total + '…', { current: m.index + 1, total });
+				} else if (m.type === 'done') resolve(new Blob([m.bytes], { type: 'application/pdf' }));
+				else if (m.type === 'error') reject(new Error(m.message));
+			};
+			worker.onerror = (e) => reject(new Error(e.message || 'PDF worker failed'));
+		});
+		// A worker error can land while the loop is between awaits; pre-attach a
+		// no-op handler so the browser never flags an unhandled rejection (the
+		// real `await done` below still observes the original rejection).
+		done.catch(() => {});
+		const { w: boxW, h: boxH } = slideGeom(sections[0]);
+		const { pageW, pageH } = pdfPageGeom(boxW, boxH);
+		worker.postMessage({ type: 'init', pageW, pageH, total, pageFormat, props: pdfProps(name, meta, total) });
+		for (let i = 0; i < total; i++) {
+			// Backpressure: wait for the worker's ack before growing the in-flight
+			// window. Raced against `done` so a worker-side error breaks the wait
+			// (rejects) instead of deadlocking the loop.
+			while (i - acked >= PDF_WORKER_MAX_IN_FLIGHT) {
+				await Promise.race([done, new Promise((r) => { wake = r; })]);
+			}
+			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
+			const bitmap = await rasterizeSectionToBitmap(sections[i], fontEmbedCSS);
+			worker.postMessage({ type: 'slide', index: i, bitmap }, [bitmap]);
+			// Yield a macrotask between slides so the clone/draw work (which must stay
+			// on this thread) never runs back-to-back without a paint.
+			await new Promise((r) => setTimeout(r));
+		}
+		worker.postMessage({ type: 'finish' });
+		return await done;
+	} finally {
+		worker.terminate();
+	}
+}
+
+// The legacy lane's JPEG flavor: same clone + draw, composited over a white
+// underlay (JPEG has no alpha; a bare encode composites stray transparency onto
+// BLACK), encoded on this thread. NOT html-to-image's toJpeg — its
+// `backgroundColor` option overrides the slide's own background (see the header
+// warning), so we composite ourselves, exactly like the worker lane does.
+async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat) {
+	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS);
+	const { toCanvas } = await import('html-to-image');
+	return withCaptureFixups(section, async (w, h, pixelRatio) => {
+		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS));
+		const out = document.createElement('canvas');
+		out.width = canvas.width;
+		out.height = canvas.height;
+		const ctx = out.getContext('2d');
+		ctx.fillStyle = '#fff';
+		ctx.fillRect(0, 0, out.width, out.height);
+		ctx.drawImage(canvas, 0, 0);
+		return out.toDataURL('image/jpeg', 0.95);
+	});
+}
+
+// Legacy lane: the original all-main-thread jsPDF build.
+async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat) {
+	const { jsPDF } = await import('jspdf');
+	const { w: boxW, h: boxH } = slideGeom(sections[0]);
+	const { pageW, pageH } = pdfPageGeom(boxW, boxH);
+	const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [pageW, pageH], compress: true });
+	pdf.setProperties(pdfProps(name, meta, sections.length));
+	for (let i = 0; i < sections.length; i++) {
+		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
+		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat);
+		if (i > 0) pdf.addPage([pageW, pageH], 'landscape');
+		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, pageW, pageH);
+		// Yield a macrotask between slides so the browser can PAINT the progress
+		// line and service input — the per-slide rasterize + PNG-deflate are
+		// synchronous, and without this break a multi-slide export blocks the main
+		// thread in one long freeze. The bytes are identical; only the pacing changes.
+		await new Promise((r) => setTimeout(r));
+	}
+	return pdf.output('blob');
+}
+
+// The shared core of exportPdf (which downloads) and renderPdfBlob (which hands
+// the bytes to a caller — e.g. the Library's theme-zip showcase).
+async function buildPdfBlob(render, name, onStatus, meta, opts) {
+	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
-		const { jsPDF } = await import('jspdf');
-		const { w: boxW, h: boxH } = slideGeom(sections[0]);
-		const PAGE_H = 720;
-		const pageH = PAGE_H;
-		const pageW = Math.round((boxW * PAGE_H) / boxH);
-		const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [pageW, pageH], compress: true });
-		const { eng, summary, keywords } = provenance(meta, sections.length);
-		pdf.setProperties({ title: (name || 'deck').trim(), subject: summary, author: 'Lattice Drawing Board', keywords, creator: `Lattice · ${eng}` });
-		for (let i = 0; i < sections.length; i++) {
-			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-			const png = await rasterizeSection(sections[i], fontEmbedCSS);
-			if (i > 0) pdf.addPage([pageW, pageH], 'landscape');
-			pdf.addImage(png, 'PNG', 0, 0, pageW, pageH);
-			// Yield a macrotask between slides so the browser can PAINT the progress
-			// line and service input — the per-slide rasterize + PNG-deflate are
-			// synchronous, and without this break a multi-slide export blocks the main
-			// thread in one long freeze. The bytes are identical; only the pacing changes.
-			await new Promise((r) => setTimeout(r));
+		if (canUsePdfWorker()) {
+			try {
+				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat);
+			} catch (e) {
+				// The deck must never be lost to the fast lane — rebuild on-thread.
+				console.warn('[lattice-export] PDF worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
+			}
 		}
-		return pdf;
+		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat);
 	} finally {
 		dispose();
 	}
 }
 
 /** Render a deck to PDF bytes (Blob) without downloading — for embedding (zips). */
-export async function renderPdfBlob(render, name, onStatus, meta) {
+export async function renderPdfBlob(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Rendering PDF…');
-	const pdf = await buildPdfDoc(render, name, onStatus, meta);
-	return pdf.output('blob');
+	return buildPdfBlob(render, name, onStatus, meta, opts);
 }
 
-export async function exportPdf(render, name, onStatus, meta) {
+/** `opts.pageFormat`: 'png' (default, lossless) or 'jpeg' (faster, smaller —
+ *  the Studio Workspace › General preference rides in here). */
+export async function exportPdf(render, name, onStatus, meta, opts) {
 	if (onStatus) onStatus('Preparing PDF…');
-	const pdf = await buildPdfDoc(render, name, onStatus, meta);
+	const blob = await buildPdfBlob(render, name, onStatus, meta, opts);
 	if (onStatus) onStatus('Saving PDF…');
-	pdf.save(safeName(name) + '.pdf');
+	download(blob, safeName(name) + '.pdf');
 }
 
 // ── PPTX (image-slides) ───────────────────────────────────────────────────────

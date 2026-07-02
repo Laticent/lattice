@@ -33,8 +33,33 @@ test('a drafted deck exports to a PDF artifact', async ({ page }) => {
 	// so a fabricated toast or a stray download can't pass alone.
 	const download = page.waitForEvent('download', { timeout: 60_000 });
 	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).click();
-	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
+	const d = await download;
+	expect(d.suggestedFilename()).toMatch(/\.pdf$/);
 	await expect(toastText(page)).toContainText('PDF ready.');
+	// The default workspace setting is LOSSLESS: page images embed as PNG
+	// (Flate), never JPEG (DCT) — the fast format is strictly opt-in below.
+	const fs = await import('node:fs');
+	const bytes = fs.readFileSync((await d.path()) as string).toString('latin1');
+	expect(bytes.includes('/DCTDecode')).toBe(false);
+});
+
+test('the Workspace "Fast (JPEG)" preference switches the PDF page images to DCT', async ({ page }) => {
+	// Flip the persisted workspace setting exactly the way the General tab
+	// writes it, then assert on the ARTIFACT: the exported PDF's page images
+	// are JPEG (DCTDecode) instead of PNG (Flate).
+	await page.evaluate(() => {
+		const KEY = 'lattice-studio-settings';
+		const cur = JSON.parse(window.localStorage.getItem(KEY) || '{}');
+		window.localStorage.setItem(KEY, JSON.stringify({ ...cur, pdfPages: 'jpeg' }));
+	});
+	const download = page.waitForEvent('download', { timeout: 60_000 });
+	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).click();
+	const d = await download;
+	expect(d.suggestedFilename()).toMatch(/\.pdf$/);
+	await expect(toastText(page)).toContainText('PDF ready.');
+	const fs = await import('node:fs');
+	const bytes = fs.readFileSync((await d.path()) as string).toString('latin1');
+	expect(bytes.includes('/DCTDecode')).toBe(true);
 });
 
 test('a drafted deck exports its Markdown source', async ({ page }) => {

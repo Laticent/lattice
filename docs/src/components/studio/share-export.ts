@@ -167,11 +167,13 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true });
 }
 
-/** One-click image PDF (2× raster, one slide per page). */
+/** One-click image PDF (2× raster, one slide per page). The page-image format
+ *  (PNG lossless / JPEG fast) is the Workspace › General preference. */
 export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
-	await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' });
+	const { loadSettings } = await import('./studio-store');
+	await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages });
 }
 
 /** PowerPoint (image-slides, full-bleed). */

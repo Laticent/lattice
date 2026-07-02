@@ -220,8 +220,14 @@ export function saveChat(deckId: string, messages: ChatMessage[]): void {
 // default, most obviously grabbable); 'reticle' is a precise, see-through crosshair for
 // designers. A workspace preference, so the whole team's Studio reads the same way.
 export type HandleStyle = 'knob' | 'reticle';
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; onboarded: boolean; handleStyle: HandleStyle };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, onboarded: false, handleStyle: 'knob' };
+// `pdfPages` — the page-image format Share → PDF embeds. 'png' (default) is
+// pixel-lossless; 'jpeg' (q95) exports about twice as fast and several times
+// smaller, at the price of JPEG's edge artifacts (visually clean, never
+// mathematically lossless). A fidelity-vs-speed call that belongs to the USER,
+// so it lives here as a workspace preference rather than a hardcoded default.
+export type PdfPages = 'png' | 'jpeg';
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; onboarded: boolean; handleStyle: HandleStyle; pdfPages: PdfPages };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, onboarded: false, handleStyle: 'knob', pdfPages: 'png' };
 
 export function loadSettings(): StudioSettings {
 	const saved = read<Partial<StudioSettings>>(SETTINGS_LS) ?? {};
