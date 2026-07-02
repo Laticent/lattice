@@ -153,8 +153,13 @@ in patch versions.
   mobile browsers (observed on-device at ~45 of 61 slides; measured 26 queued
   bitmaps ≈ 382 MB unbounded → 2 ≈ 29 MB bounded, same wall time). Browsers
   without OffscreenCanvas/module workers (and any worker failure) fall back to
-  the original in-thread build automatically. Export bytes-shape is unchanged
-  (2× PNG, one image per page).
+  the original in-thread build automatically. Pages stay 2× PNG (lossless) by
+  default; a new **Workspace › General "PDF export pages"** preference offers
+  **Fast (JPEG q95)** — measured ~2× quicker end-to-end and several-times-smaller
+  files, because jsPDF embeds JPEG by direct byte copy instead of re-encoding
+  PNG (~1s/page, the pipeline's dominant cost). The fidelity-vs-speed call is
+  the user's: lossless remains the default, and the choice applies to Share →
+  PDF only (PowerPoint and Print are unaffected).
 - **The bare `statement` slide class is retired from shipped content — it was
   never a registered component.** `statement` names a component *bucket*
   (`big-number` · `content` · `quote` · `split-panel`) and the `image statement`

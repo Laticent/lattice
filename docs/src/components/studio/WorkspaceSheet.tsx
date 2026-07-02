@@ -9,7 +9,7 @@ import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, set
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
 import { languageFor, STUDIO_LANGUAGES } from './studio-language';
-import { type HandleStyle, loadInstructions, loadSettings, saveInstructions, saveSettings } from './studio-store';
+import { type HandleStyle, loadInstructions, loadSettings, type PdfPages, saveInstructions, saveSettings } from './studio-store';
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
@@ -35,6 +35,15 @@ function GroupLabel({ icon, children }: { icon: React.ReactNode; children: React
 const HANDLE_CHOICES: { value: HandleStyle; title: string; blurb: string }[] = [
 	{ value: 'knob', title: 'Familiar', blurb: 'A grab-handle knob — obviously draggable' },
 	{ value: 'reticle', title: 'Precision', blurb: 'A see-through crosshair for exact placement' },
+];
+
+// The two Share → PDF page-image formats the General tab offers. PNG is the
+// lossless default; JPEG is the informed speed/size trade-off (about 2× faster
+// export and several-times-smaller files, with JPEG's edge artifacts) — a call
+// that belongs to the user, so it's a preference, not a hardcoded default.
+const PDF_PAGE_CHOICES: { value: PdfPages; title: string; blurb: string }[] = [
+	{ value: 'png', title: 'Lossless', blurb: 'PNG pages — pixel-perfect, the default' },
+	{ value: 'jpeg', title: 'Fast', blurb: 'JPEG pages — ~2× faster export, much smaller file' },
 ];
 
 // A miniature of each handle style for the picker card (accent-toned).
@@ -76,6 +85,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [language, setLanguage] = React.useState(() => loadSettings().language);
 	// How the Fabricate finish designer draws its on-canvas placement handles.
 	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
+	// Share → PDF page-image format (lossless PNG / fast JPEG).
+	const [pdfPages, setPdfPages] = React.useState<PdfPages>(() => loadSettings().pdfPages);
 	const [storeInCloud, setStoreInCloud] = React.useState(false);
 	const [connecting, setConnecting] = React.useState(false);
 	const [spend, setSpend] = React.useState(() => architectSpend());
@@ -168,6 +179,41 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								})}
 							</div>
 							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to every finish handle; changes take effect live in the designer.</p>
+
+							<div className="mt-6">
+								<GroupLabel icon={<Download className="size-3.5" />}>PDF export pages</GroupLabel>
+								<p className="mb-3 text-xs text-muted-foreground">How Share → PDF embeds each slide's page image. Lossless is pixel-perfect; Fast accepts slight JPEG compression (rarely visible) for a much quicker export and a far smaller file — handy for long decks and phones.</p>
+								<div className="grid grid-cols-2 gap-2.5">
+									{PDF_PAGE_CHOICES.map((c) => {
+										const active = pdfPages === c.value;
+										return (
+											<label
+												key={c.value}
+												className={cn('flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-center transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)]', active ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]' : 'border-border bg-background hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+											>
+												<input
+													type="radio"
+													name="pdf-pages"
+													value={c.value}
+													checked={active}
+													onChange={() => { setPdfPages(c.value); saveSettings({ pdfPages: c.value }); notify(`PDF pages: ${c.title.toLowerCase()} (${c.value.toUpperCase()}).`); }}
+													className="sr-only"
+												/>
+												<span className="grid size-8 place-items-center">
+													{c.value === 'png'
+														? <span className="grid size-6 place-items-center rounded-md border-[1.5px] font-mono text-[9px] font-bold" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>1:1</span>
+														: <Zap className="size-5" style={{ color: 'var(--accent)' }} />}
+												</span>
+												<span className="flex flex-col gap-0.5">
+													<span className="text-[13px] font-semibold text-[var(--text-heading)]">{c.title}</span>
+													<span className="text-[11px] leading-snug text-muted-foreground">{c.blurb}</span>
+												</span>
+											</label>
+										);
+									})}
+								</div>
+								<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to Share → PDF in this Studio; PowerPoint and Print are unaffected.</p>
+							</div>
 
 							<div className="mt-5">
 								<GroupLabel icon={<FolderTree className="size-3.5" />}>Where decks live</GroupLabel>
