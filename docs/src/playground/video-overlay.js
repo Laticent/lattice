@@ -43,12 +43,17 @@ const EMBED = [
 		id: (u) => (u.match(/vimeo\.com\/(?:video\/)?(\d+)/) || [])[1],
 		src: (id) => `https://player.vimeo.com/video/${id}?autoplay=1`,
 	},
-	// TikTok is handled ASYNC (resolveTikTokSrc, below) — its share button hands out
-	// `/t/{code}` short links whose numeric id is only known after a redirect, so we
-	// resolve it via TikTok's oEmbed (CORS-open) at play time, then embed the official
-	// `player/v1/{id}` iframe. Instagram has NO public iframe player (only its
-	// `instgrm.Embeds` widget, which we won't load into the parent — privacy + #24),
-	// so it stays a poster + link.
+	{
+		// TikTok CANONICAL links carry the numeric id in the URL (`/@user/video/{id}`,
+		// `/embed/{id}`, `/player/v1/{id}`), so they embed SYNCHRONOUSLY — no fetch, as
+		// reliable as YouTube. Only `/t/{code}` SHORT links (no id in the URL) fall
+		// through to the async oEmbed resolve (resolveTikTokSrc, below).
+		key: 'tiktok',
+		id: (u) => (u.match(/tiktok\.com\/(?:@[\w.-]+\/video\/|embed\/(?:v2\/)?|player\/v1\/)(\d+)/) || [])[1],
+		src: (id) => `https://www.tiktok.com/player/v1/${id}?autoplay=1`,
+	},
+	// Instagram has NO public iframe player (only its `instgrm.Embeds` widget, which
+	// we won't load into the parent — privacy + #24), so it stays a poster + link.
 ];
 
 // A YouTube/Vimeo href → a safe player src, or null (SYNC — id is in the URL).

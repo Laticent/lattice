@@ -31,6 +31,15 @@ describe('embedSrc', () => {
 		assert.equal(embedSrc('https://vimeo.com/76979871'), 'https://player.vimeo.com/video/76979871?autoplay=1');
 	});
 
+	test('TikTok CANONICAL link → player embed SYNC (id in URL); a short link → null (async path)', async () => {
+		const { embedSrc } = await load();
+		assert.equal(
+			embedSrc('https://www.tiktok.com/@scout2015/video/6718335390845095173'),
+			'https://www.tiktok.com/player/v1/6718335390845095173?autoplay=1',
+		);
+		assert.equal(embedSrc('https://www.tiktok.com/t/ZP8GrtdJH/'), null); // short link → resolveTikTokSrc
+	});
+
 	test('non-embeddable providers and junk → null (fall back to the plain link)', async () => {
 		const { embedSrc } = await load();
 		// `embedSrc` is the SYNC path (id in the URL) — TikTok is async (below), so it
