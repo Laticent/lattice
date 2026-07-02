@@ -64,6 +64,32 @@ in patch versions.
   mechanism instead of a dead end. Closes the last open item from the
   website-positioning decision doc (§8.3).
 
+### Changed
+
+- **Breaking: Lattice is relicensed from MIT to AGPL-3.0-only, with a
+  Contributor License Agreement.** The full GNU Affero GPL v3 text replaces
+  MIT in `LICENSE`; `package.json` now declares `AGPL-3.0-only`. Modified
+  versions that are distributed or offered as a network service must publish
+  their source under the same license; contact SlideWright for commercial
+  terms. Contributions now require a one-time CLA signature (`CLA.md`,
+  enforced by the `cla.yml` workflow via CLA Assistant Lite, with signatures
+  recorded on a `cla-signatures` branch) so SlideWright can dual-license —
+  see `CONTRIBUTING.md` (new). Versions published before this change remain
+  MIT. The README, docs-site copy (landing/features/comparison/introduction,
+  footers), and the LFM spec's governance section now say AGPL instead of MIT
+  (the spec prose itself stays CC-BY-4.0). A red-team pass hardened the CLA
+  workflow (SHA-pinned action, least-privilege token, exact bot allowlist,
+  per-PR concurrency), stamped the dist JS/CSS bundles with SPDX + copyright
+  banners, and rewrote the license-adjacent marketing copy to promise only
+  what the AGPL actually permits (everyday rendering is obligation-free;
+  redistributing or serving the engine is what triggers copyleft). The
+  licensor is now identified (Sharmarke Aden dba SlideWright, with governing
+  law and assignability in the CLA), commercial-license inquiries have a
+  contact address, `LICENSE-EXCEPTIONS` (new) grants the Lattice Output
+  Exception so the engine CSS/JS embedded in exported HTML decks never
+  encumbers a deck author, and `TRADEMARKS.md` (new) reserves the Lattice /
+  SlideWright names — forks must rename.
+
 ### Fixed
 
 - **Tapping an external link in the live preview no longer blanks it on iOS.** A

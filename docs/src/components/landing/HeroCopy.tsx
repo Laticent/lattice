@@ -39,7 +39,8 @@ export function HeroCopy({
 				</Button>
 			</div>
 			<p className="m-0 mt-4 text-[13px] text-muted-foreground">
-				No install to try it. Runs on your laptop or in CI. Fully offline. MIT-licensed.
+				No install to try it. Runs on your laptop or in CI. Fully offline. Open source{' '}
+				<span className="whitespace-nowrap">(AGPL-3.0)</span>.
 			</p>
 			<p className="m-0 mt-2 text-[13px] text-muted-foreground">
 				Or skim a finished deck first —{' '}

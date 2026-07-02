@@ -1,0 +1,36 @@
+LATTICE OUTPUT EXCEPTION, version 1.0
+Copyright (c) 2025-2026 Sharmarke Aden, doing business as SlideWright
+
+This is an additional permission under section 7 of the GNU Affero
+General Public License, version 3 ("AGPL-3.0"), granted by the
+copyright holder of Lattice to every recipient of Lattice.
+
+Background. When Lattice renders a deck, its export pipeline embeds
+engine assets into the exported artifact: the engine and theme CSS in
+exported HTML decks, and the preview/runtime JavaScript inlined into
+fluid HTML exports. Without this exception, conveying such a deck (for
+example, posting it on a web server) could be read as conveying a
+covered work, imposing AGPL conditions on the deck's author.
+
+Grant. As a special exception, you may convey the engine assets that
+Lattice's export pipeline embeds into a rendered deck — the CSS
+bundles, theme CSS, and runtime JavaScript, as embedded by Lattice
+itself — as part of that rendered deck, under terms of your choice,
+without the AGPL-3.0 applying to the rendered deck as a whole and
+without any obligation to offer Corresponding Source for those
+embedded assets.
+
+Limits. This exception applies only to engine assets that Lattice's
+own export pipeline embeds into a rendered deck. It does not extend
+to: (a) the Lattice engine itself or any of its source or object form
+distributed other than inside a rendered deck; (b) the embedded assets
+extracted or separated from a rendered deck for reuse; or (c) any
+modified version of the engine or of the embedded assets beyond the
+mechanical embedding the export pipeline performs. The content of your
+deck — your text, images, and data — was never covered by the AGPL in
+the first place and needs no exception.
+
+If you convey a rendered deck, you may (but need not) retain this
+notice in it. Removing this exception from a copy of Lattice is
+permitted by AGPL-3.0 section 7, but copies distributed by SlideWright
+carry it.
