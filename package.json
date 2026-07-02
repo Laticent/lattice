@@ -23,7 +23,7 @@
     "url": "https://github.com/slidewright/lattice/issues"
   },
   "license": "AGPL-3.0-only",
-  "author": "SlideWright",
+  "author": "Sharmarke Aden (SlideWright) <sharmarke.aden@gmail.com>",
   "main": "dist/lattice-emulator.js",
   "bin": {
     "lattice": "dist/lattice-emulator.js"
@@ -54,6 +54,8 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
+    "LICENSE-EXCEPTIONS",
+    "TRADEMARKS.md",
     "!**/*.pdf",
     "!**/*.gallery.md",
     "!dist/fonts/noto-color-emoji.ttf"

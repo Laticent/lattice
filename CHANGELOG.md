@@ -72,7 +72,13 @@ in patch versions.
   per-PR concurrency), stamped the dist JS/CSS bundles with SPDX + copyright
   banners, and rewrote the license-adjacent marketing copy to promise only
   what the AGPL actually permits (everyday rendering is obligation-free;
-  redistributing or serving the engine is what triggers copyleft).
+  redistributing or serving the engine is what triggers copyleft). The
+  licensor is now identified (Sharmarke Aden dba SlideWright, with governing
+  law and assignability in the CLA), commercial-license inquiries have a
+  contact address, `LICENSE-EXCEPTIONS` (new) grants the Lattice Output
+  Exception so the engine CSS/JS embedded in exported HTML decks never
+  encumbers a deck author, and `TRADEMARKS.md` (new) reserves the Lattice /
+  SlideWright names — forks must rename.
 
 ### Fixed
 

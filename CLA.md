@@ -3,10 +3,13 @@
 Version 1.0 — July 2026
 
 Thank you for your interest in contributing to Lattice and other SlideWright
-projects ("we," "us," "SlideWright"). This Contributor License Agreement
-("Agreement") documents the rights granted by contributors to SlideWright. It
-protects you, SlideWright, and the users of the software; it does not change
-your right to use your own contributions for any other purpose.
+projects ("we," "us," "SlideWright"). In this Agreement, **"SlideWright"
+means Sharmarke Aden, an individual doing business as SlideWright (Bellevue,
+Washington, USA), and any successor entity to which this Agreement is
+assigned.** This Contributor License Agreement ("Agreement") documents the
+rights granted by contributors to SlideWright. It protects you, SlideWright,
+and the users of the software; it does not change your right to use your own
+contributions for any other purpose.
 
 By signing this Agreement (see **How to sign** below), you accept and agree to
 the following terms for your present and future Contributions submitted to
@@ -87,6 +90,13 @@ You retain full ownership of the copyright in your Contributions. This
 Agreement grants licenses; it is not a copyright assignment. Nothing in this
 Agreement limits your right to use, license, or distribute your own
 Contributions however you wish.
+
+## 7. Assignment and governing law
+
+SlideWright may assign this Agreement, together with the licenses granted
+under it, to a successor entity that carries on the SlideWright projects.
+This Agreement is governed by the laws of the State of Washington, USA,
+without regard to its conflict-of-law rules.
 
 ## How to sign
 

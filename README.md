@@ -340,16 +340,22 @@ See [CHANGELOG.md](CHANGELOG.md) for the per-version detail.
 ## License
 
 GNU Affero General Public License v3.0 (`AGPL-3.0-only`). See [LICENSE](LICENSE).
-Copyright © 2025–2026 SlideWright.
+Copyright © 2025–2026 Sharmarke Aden, doing business as SlideWright.
 
 Lattice is free and open source, and everyday use carries no copyleft
 obligations: rendering decks on your laptop or in CI is not distribution, and
-the PDFs and PPTX files it produces are yours outright. The AGPL's conditions
-attach to the engine itself — if you redistribute it, serve it to browsers
-(shipping the JS/CSS bundles in a web app counts), or run a modified version
-as a network service, your engine source must be available under the same
-license. To embed Lattice in a closed-source product under different terms,
-contact SlideWright about a commercial license.
+every deck you render is yours outright — PDFs and PPTX are uncovered output,
+and the [Lattice Output Exception](LICENSE-EXCEPTIONS) waives the AGPL for
+the engine CSS/JS that exported HTML decks embed, so publishing a deck on a
+web server imposes nothing on you. The AGPL's conditions attach to the engine
+itself — if you redistribute it, serve it to browsers (shipping the JS/CSS
+bundles in a web app counts), or run a modified version as a network service,
+your engine source must be available under the same license. To embed Lattice
+in a closed-source product under different terms, contact SlideWright about a
+commercial license: <sharmarke.aden@gmail.com>.
+
+The "Lattice" and "SlideWright" names and logos are trademarks — the license
+does not grant them; forks must rename. See [TRADEMARKS.md](TRADEMARKS.md).
 
 Contributing requires a one-time signature of the
 [Contributor License Agreement](CLA.md) — see [CONTRIBUTING.md](CONTRIBUTING.md).
