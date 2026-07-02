@@ -551,7 +551,11 @@ function SplitHandle({ className, children, ...props }: React.ComponentProps<"di
 		<div
 			data-slot="split-handle"
 			className={cn(
-				"group/split-handle relative flex cursor-col-resize touch-none items-center justify-center border-l border-border outline-none select-none",
+				// z-10: the grab overlay must hit-test ABOVE pane content — the
+				// Playground's preview iframe is z-index:1 and would otherwise swallow
+				// every grab except on the editor side (found on the real surface:
+				// elementFromPoint at the divider returned the IFRAME).
+				"group/split-handle relative z-10 flex cursor-col-resize touch-none items-center justify-center border-l border-border outline-none select-none",
 				"transition-colors duration-150",
 				"hover:border-l-[color:color-mix(in_srgb,var(--accent)_45%,var(--border))]",
 				"focus-visible:border-l-[color:var(--accent)]",
