@@ -27,6 +27,16 @@ in patch versions.
 
 ### Added
 
+- **Tap a video poster in the Playground preview to play the clip in place.** The
+  `video` component's poster now plays the embedded YouTube/Vimeo clip **over the
+  preview** instead of opening a new tab — via a parent-hosted player overlay
+  (`docs/src/playground/video-overlay.js`), never an iframe inside the slide (which
+  HARD RULE #22 bars and the iOS scaled-iframe traps break). The player is built
+  from an allow-listed provider template + the parsed video id only (never the raw
+  href). Export is unchanged — the static poster still renders in PDF/PPTX; this is
+  a live-preview enhancement. See
+  `engineering/decisions/2026-07-02-video-overlay-playback.md`.
+
 - **Studio E2E — journeys + persona scenarios, with a live-OpenRouter AI tier
   (`docs/e2e/journeys/`, `docs/e2e/scenarios/`, #694).** Two new layers on top
   of the feature-level suite (#691), each asserted on a goal-level oracle

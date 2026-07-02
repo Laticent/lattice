@@ -176,6 +176,14 @@ function syncAgent(gap) {
 // link is untouched. Injected into every filmstrip srcdoc (Playground + Drawing
 // Board); the Drawing Board's SYNC slide-select still fires (we don't stop
 // propagation), so tapping a linked slide both opens the tab and selects the slide.
+//
+// VIDEO PLAYBACK BRIDGE: a `.video-poster` tap first offers itself to a PARENT-
+// hosted player (video-overlay.js sets `window.__videoPlay`). If the parent mounts
+// a player (embeddable provider) it returns true → we suppress navigation and the
+// clip plays IN PLACE. If there's no overlay, or the provider isn't embeddable, it
+// returns false/undefined and we fall through to the open-a-tab behavior. Clicks
+// reach the iframe fine on iOS (it's touch-move gestures that don't), so this hook
+// is enough — no parent hit-surface needed.
 function linkGuardAgent() {
 	return [
 		'(function(){',
@@ -184,6 +192,9 @@ function linkGuardAgent() {
 		'    if(!a)return;',
 		'    var href=a.getAttribute("href")||"";',
 		'    if(!/^https?:/i.test(href))return;',
+		'    if(a.classList.contains("video-poster")&&typeof window.__videoPlay==="function"){',
+		'      try{if(window.__videoPlay(a)){e.preventDefault();return;}}catch(_p){}',
+		'    }',
 		'    e.preventDefault();',
 		'    try{(window.top||window).open(href,"_blank","noopener,noreferrer");}catch(_e){}',
 		'  },true);',
