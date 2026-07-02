@@ -22,19 +22,26 @@
 // it returns true if it mounted a player (→ the guard suppresses navigation), false
 // for a non-embeddable provider (→ the guard falls back to opening a tab).
 
-// Allow-listed providers → a privacy/inline embed URL built from the video id only.
+// Allow-listed providers → a privacy embed URL built from the video id only.
 // Add a provider here (with its id parser + embed template) to support it; anything
 // not listed falls through to the poster's plain link (TikTok/Instagram today).
+//
+// NO `playsinline`: on iPhone Safari a `playsinline` YouTube embed is locked to a
+// small inline player with a stripped control set (play/pause only) and NO
+// fullscreen — iOS reserves the scrubber/volume/fullscreen for its NATIVE video
+// player. Omitting `playsinline` lets iOS hand playback to that native player on
+// play — full controls + fullscreen — still in-page (not a new tab). Desktop is
+// unaffected (it plays inline in the lightbox with full controls either way).
 const EMBED = [
 	{
 		key: 'youtube',
 		id: (u) => (u.match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/) || [])[1],
-		src: (id) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0`,
+		src: (id) => `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`,
 	},
 	{
 		key: 'vimeo',
 		id: (u) => (u.match(/vimeo\.com\/(?:video\/)?(\d+)/) || [])[1],
-		src: (id) => `https://player.vimeo.com/video/${id}?autoplay=1&playsinline=1`,
+		src: (id) => `https://player.vimeo.com/video/${id}?autoplay=1`,
 	},
 ];
 

@@ -14,7 +14,7 @@ async function load() {
 }
 
 describe('embedSrc', () => {
-	test('YouTube (watch / youtu.be / shorts) → nocookie inline-autoplay embed by id', async () => {
+	test('YouTube (watch / youtu.be / shorts) → nocookie autoplay embed by id (no playsinline → native iOS controls)', async () => {
 		const { embedSrc } = await load();
 		for (const u of [
 			'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
@@ -22,13 +22,13 @@ describe('embedSrc', () => {
 			'https://www.youtube.com/shorts/aqz-KE-bpKQ',
 			'https://www.youtube.com/watch?list=x&v=aqz-KE-bpKQ',
 		]) {
-			assert.equal(embedSrc(u), 'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ?autoplay=1&playsinline=1&rel=0');
+			assert.equal(embedSrc(u), 'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ?autoplay=1&rel=0');
 		}
 	});
 
 	test('Vimeo → player embed by numeric id', async () => {
 		const { embedSrc } = await load();
-		assert.equal(embedSrc('https://vimeo.com/76979871'), 'https://player.vimeo.com/video/76979871?autoplay=1&playsinline=1');
+		assert.equal(embedSrc('https://vimeo.com/76979871'), 'https://player.vimeo.com/video/76979871?autoplay=1');
 	});
 
 	test('non-embeddable providers and junk → null (fall back to the plain link)', async () => {

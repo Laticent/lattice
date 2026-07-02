@@ -48,7 +48,7 @@ This is the **debug-overlay / chart-interact pattern** (`2026-07-01-debug-boundi
 ## 5. Scope + rollout
 
 - **v1 prototype:** YouTube + Vimeo, **Playground only**. Non-embeddable providers (TikTok/Instagram — JS-widget embeds) keep the poster's plain link.
-- **iOS gate:** deploy the Cloudflare preview, confirm on a real iPhone that the tap plays inline (`playsinline=1` is essential or iOS forces fullscreen; the tap is the autoplay gesture). Cannot be verified from the headless sandbox (HARD RULE #23).
+- **iOS gate:** deploy the Cloudflare preview, confirm on a real iPhone. On-device iteration found the control set matters: a `playsinline` embed is locked by iOS Safari to a small inline player with play/pause only and NO fullscreen (iOS reserves scrubber/volume/fullscreen for its native video player). So we **omit `playsinline`** — on play, iPhone hands off to the native fullscreen video player with the full control set, still in-page. Desktop is unaffected (inline, full controls). Cannot be verified from the headless sandbox (HARD RULE #23).
 - **Then:** extend to Present + Studio previews; consider provider coverage (TikTok/Instagram via their embed widgets) and richer positioning (track-on-scroll instead of dismiss-on-scroll).
 
 ## 6. Decision
