@@ -54,6 +54,20 @@ in patch versions.
   mechanism instead of a dead end. Closes the last open item from the
   website-positioning decision doc (§8.3).
 
+### Changed
+
+- **Breaking: Lattice is relicensed from MIT to AGPL-3.0-only, with a
+  Contributor License Agreement.** The full GNU Affero GPL v3 text replaces
+  MIT in `LICENSE`; `package.json` now declares `AGPL-3.0-only`. Modified
+  versions that are distributed or offered as a network service must publish
+  their source under the same license; contact SlideWright for commercial
+  terms. Contributions now require a one-time CLA signature (`CLA.md`,
+  enforced by the `cla.yml` workflow via CLA Assistant Lite, with signatures
+  recorded on a `cla-signatures` branch) so SlideWright can dual-license —
+  see `CONTRIBUTING.md` (new). Versions published before this change remain
+  MIT. The README, docs-site landing/features/comparison copy, and footers
+  now say AGPL instead of MIT.
+
 ### Fixed
 
 - **Tapping an external link in the live preview no longer blanks it on iOS.** A

@@ -339,4 +339,14 @@ See [CHANGELOG.md](CHANGELOG.md) for the per-version detail.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+GNU Affero General Public License v3.0 (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+
+Lattice is free and open source. If you modify it and distribute it — or run a
+modified version as a network service — the AGPL requires you to make your
+modified source available under the same license. To embed Lattice in a
+closed-source product under different terms, contact SlideWright about a
+commercial license.
+
+Contributing requires a one-time signature of the
+[Contributor License Agreement](CLA.md) — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Versions published before the license change remain available under MIT.

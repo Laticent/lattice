@@ -22,7 +22,7 @@
   "bugs": {
     "url": "https://github.com/slidewright/lattice/issues"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "author": "SlideWright",
   "main": "dist/lattice-emulator.js",
   "bin": {
