@@ -123,12 +123,17 @@ in patch versions.
 
 ### Changed
 
-- **Workspace settings rebalanced — the General tab now holds the non-AI prefs.** Deck
-  storage (this-device / cloud) moves out of its own thin tab into **General**, beside the
-  placement-handle style; the standalone **Storage** tab is retired. The Workspace sheet
-  is now `General · AI model · Spend · Instructions` — one clear home for general setup
-  instead of leaning entirely on the AI-side tabs. (Output language stays in Instructions
-  — it only affects AI-written content.)
+- **Workspace settings collapsed to two tabs — `General · AI`.** The sheet now splits
+  cleanly by concern. **General** holds the non-AI workspace prefs — placement-handle
+  style + where decks live (deck storage moved out of its own thin tab; the standalone
+  **Storage** tab is retired). **AI** folds the former **AI model**, **Spend**, and
+  **Instructions** tabs into one tab with three stacked sections — **Model** (the
+  Cloud / On-device generation switch + connect), **Spend** (wallet balance, per-key cap,
+  session tally, your cap), and **Instructions** (output language, standing voice,
+  component-generation prefs) — because spend and instructions are facets of the AI model,
+  not separate settings. The trade-off is a longer AI scroll, mitigated by hairline
+  section dividers. Replaces the earlier `General · AI model · Spend · Instructions`
+  four-tab layout.
 
 - **Breaking: Lattice is relicensed from MIT to AGPL-3.0-only.** The full
   GNU Affero GPL v3 text replaces MIT in `LICENSE`; `package.json` now

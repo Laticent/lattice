@@ -37,6 +37,6 @@ test('offline chat degrades honestly and points to Workspace', async ({ page }) 
 	await expect(page.getByText('Tighten slide two.')).toBeVisible();
 	// …and the reply is the honest degradation — distinct from the empty-thread
 	// placeholder, so this can only pass if the send path ran (never a fabricated
-	// edit). "…AI model and I can answer…" is the reply-only wording.
-	await expect(page.getByText(/AI model and I can answer/)).toBeVisible();
+	// edit). "…Workspace → AI and I can answer…" is the reply-only wording.
+	await expect(page.getByText(/Workspace → AI and I can answer/)).toBeVisible();
 });
