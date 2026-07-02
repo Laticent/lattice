@@ -340,13 +340,19 @@ See [CHANGELOG.md](CHANGELOG.md) for the per-version detail.
 ## License
 
 GNU Affero General Public License v3.0 (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+Copyright © 2025–2026 SlideWright.
 
-Lattice is free and open source. If you modify it and distribute it — or run a
-modified version as a network service — the AGPL requires you to make your
-modified source available under the same license. To embed Lattice in a
-closed-source product under different terms, contact SlideWright about a
-commercial license.
+Lattice is free and open source, and everyday use carries no copyleft
+obligations: rendering decks on your laptop or in CI is not distribution, and
+the PDFs and PPTX files it produces are yours outright. The AGPL's conditions
+attach to the engine itself — if you redistribute it, serve it to browsers
+(shipping the JS/CSS bundles in a web app counts), or run a modified version
+as a network service, your engine source must be available under the same
+license. To embed Lattice in a closed-source product under different terms,
+contact SlideWright about a commercial license.
 
 Contributing requires a one-time signature of the
 [Contributor License Agreement](CLA.md) — see [CONTRIBUTING.md](CONTRIBUTING.md).
-Versions published before the license change remain available under MIT.
+Nothing was published to a package registry under MIT; the git history up to
+the relicense commit remains MIT-licensed, and that grant is irrevocable for
+that historical code.

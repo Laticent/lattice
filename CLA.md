@@ -96,4 +96,11 @@ comment with instructions; reply on the pull request with:
 > I have read the CLA Document and I hereby sign the CLA
 
 Your signature is recorded once and covers all your future Contributions to
-projects owned or managed by SlideWright, as defined in section 1.
+projects owned or managed by SlideWright, as defined in section 1. Your
+signature attaches to the version of this Agreement stated at the top of this
+document as of the date you sign; a material change to the Agreement bumps
+that version and applies only to Contributions submitted after you accept it.
+
+An entity signs the same way: an authorized representative posts the sign-off
+comment and states in that same comment that they sign on behalf of the
+entity, naming it (per the representation in section 4.1).

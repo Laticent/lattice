@@ -67,7 +67,12 @@ in patch versions.
   see `CONTRIBUTING.md` (new). Versions published before this change remain
   MIT. The README, docs-site copy (landing/features/comparison/introduction,
   footers), and the LFM spec's governance section now say AGPL instead of MIT
-  (the spec prose itself stays CC-BY-4.0).
+  (the spec prose itself stays CC-BY-4.0). A red-team pass hardened the CLA
+  workflow (SHA-pinned action, least-privilege token, exact bot allowlist,
+  per-PR concurrency), stamped the dist JS/CSS bundles with SPDX + copyright
+  banners, and rewrote the license-adjacent marketing copy to promise only
+  what the AGPL actually permits (everyday rendering is obligation-free;
+  redistributing or serving the engine is what triggers copyleft).
 
 ### Fixed
 

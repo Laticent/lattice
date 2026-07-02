@@ -2,6 +2,8 @@
  * Do not edit by hand. Re-run `npm run css:build` after touching
  * any source file in lib/_*.css or lib/components/<name>/styles.css.
  * CI gate: `npm run css:check`.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Copyright (c) 2025-2026 SlideWright
  */
 
 /* === lib/_theme.css === */
