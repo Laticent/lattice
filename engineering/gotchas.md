@@ -2096,7 +2096,8 @@ never turn "passed in headless" into "works on iOS."
   key lands in Safari's `localStorage` — invisible to the installed app. Not
   fixable site-side; it's platform storage partitioning.
 - **Fix:** connect from inside the surface you'll actually use. Related iOS
-  limits (7-day idle eviction of the worker + caches, fixed `theme_color`):
+  limits (the 7-day storage eviction — Safari tabs only, installed apps are
+  exempt — and the fixed `theme_color`):
   `engineering/decisions/2026-07-02-docs-pwa.md` § iOS caveats.
 
 ### `build:check` fails: "builds a live preview frame … not a sanctioned preview builder" (HARD RULE #22)
