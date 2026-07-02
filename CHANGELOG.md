@@ -66,10 +66,22 @@ in patch versions.
     preview link guard, fixing external-link taps blanking that frame on iOS).
     **TikTok** now plays too — resolved at play time via TikTok's CORS-open oEmbed
     (which handles both `/t/…` share short-links and canonical URLs), then embedded
-    as its official `player/v1/{id}` iframe. Instagram stays a poster + link (no
-    public iframe player). Lightbox polish: dialog semantics, fade-in,
-    background-scroll lock, focus handling, and a "Loading…" state for the async
-    TikTok resolve.
+    as its official `player/v1/{id}` iframe. Lightbox polish: dialog semantics,
+    fade-in, background-scroll lock, focus handling, and a "Loading…" state for the
+    async TikTok resolve.
+  - **Instagram plays too — reels, video posts, and IGTV.** Instagram's
+    `/{p,reel,tv}/{shortcode}/embed/` page is frameable (no `X-Frame-Options` /
+    `frame-ancestors`) and carries the shortcode in the URL, so it embeds
+    **synchronously** — no resolve fetch, so it's immune to the iPhone tracking-
+    prevention wall that limits TikTok `/t/…` short links. Built from the parsed
+    shortcode only (never the raw href), via the universal `/p/{code}/embed/` path.
+    Any non-post Instagram URL (a bare profile) still falls back to the plain link.
+  - **The lightbox now sizes to the provider's native shape.** YouTube/Vimeo keep
+    the 16:9 box; **TikTok and Instagram reels get a tall phone-shaped box** instead
+    of being letterboxed into 16:9. Instagram's `/embed/` is a *card* (header +
+    video + caption) whose height varies per post, so it's **auto-fit** to the height
+    the card reports via `postMessage` (origin-checked to `instagram.com`), falling
+    back to the fixed portrait box if that signal doesn't arrive.
 - **PDF export: `--raster` and `--embed-source` flags (lattice-emulator, #690).**
   `--raster` prints the PDF as one full-bleed 2× JPEG per page (from the same
   screenshots the PPTX path takes) for maximum viewer compatibility — selectable text is
