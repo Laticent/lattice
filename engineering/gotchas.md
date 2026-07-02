@@ -625,6 +625,61 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **Applies to:** any embedder reusing one iframe via `document.write`. The
   landing's live showcase (`index.astro`) already uses `srcdoc` for this reason.
 
+### The preview `<iframe>` — trap catalog (read this first: surfaces × workarounds)
+
+Every live preview is a **same-origin, un-sandboxed `srcdoc` iframe** — load-bearing
+for export fidelity + the untrusted-content security boundary (why:
+`engineering/decisions/2026-07-02-preview-iframe-vs-shadow-dom.md`). It charges a
+recurring "tax": a class of **iOS-Safari / WebKit-only** bugs that **headless
+Chromium — every CI gate — cannot reproduce** (it handles `foreignObject`, delivers
+iframe touch, and re-resolves `cqi` under `zoom`; real iOS does none of these). So
+"CI green" is NOT verification of preview behavior on a device (HARD RULE #23). This
+is the index; each row points to its detailed entry below.
+
+**The preview builders** (`SANCTIONED_PREVIEW_BUILDERS`, `tools/check-ownership.js`):
+`deck-preview.js` (Playground + Drawing Board filmstrip — scales each `<section>`),
+`single-slide-render.ts` (Studio — scales the iframe ELEMENT), `presenter-window.js`
+(Present), `drawing-board-practice.js` / `drawing-board-focus.js` (rehearsal/focus).
+Non-browser render paths (the emulator/PDF export, VS Code marp preview) have their
+own traps, flagged where relevant.
+
+**A. Scaling & layout — the fixed-1280×720-box tax**
+
+| Trap | Surfaces | Workaround |
+|---|---|---|
+| Section collapses (`container-type:size` won't size from contents) → cqi/cqh layouts render tiny + jump | all scaled | `slideBox` pins `width/height` before FIT scales (§ "Playground math … renders tiny") |
+| **`cqi`/`cqh` COLLAPSE under CSS `zoom` on iOS** (poster → fragment, text → one word/line) | any scaled | **NEVER `zoom` — keep `transform: scale()`** (§ "Preview slides collapse … CSS `zoom`"; decision doc `2026-07-02-preview-scale-zoom.md`, REJECTED) |
+| `:root` cqi tokens don't relocate onto `section` on mobile WebKit → spacing collapses | engine playground | delegate CSS packing to marp-core (§ "collapses on mobile WebKit") |
+| Scaled `foreignObject` breaks CSS counters / cqi / mask (WebKit) → "00", overlaps, dropped marks | any `inlineSVG` path | render `inlineSVG:false` plain sections (§ "renders broken in mobile Safari/WebKit") |
+| 4K decks render oversized / cropped | docs-site, VS Code | `GEOM` globals + fixed-box FIT scale (§ "4K decks oversized"; "Mermaid HD in 4K") |
+
+**B. Interaction — touch / tap / scroll (iOS Safari)**
+
+| Trap | Surfaces | Workaround |
+|---|---|---|
+| iOS won't deliver a touch **INTO** a transform-scaled iframe | any scaled | **parent-hosted capture surface** + `elementsFromPoint` mapping (undo scale with math, not event delivery) — `debug-overlay.js`; decision `2026-07-01-debug-bounding-boxes.md` |
+| `position:fixed` doesn't track an iframe's **internal** scroll on iOS → overlay strands | filmstrip | `position:absolute` at **document coordinates** (`getBoundingClientRect + scrollY`) so it scrolls with content |
+| Tapping an in-slide external `<a href>` **navigates the frame → blank** (frame-blocked site) | filmstrip (Playground + Drawing Board) | preview-only **link guard** (`linkGuardAgent`) opens `http(s)` taps in a real top-level tab (§ "Tapping an in-slide link blanks") |
+| Preview won't scroll after opening a modal sheet on iOS | Playground | make preview-side sheets **non-modal** (§ "won't scroll after … settings sheet") |
+
+**C. Document / realm / content — the #22 boundary**
+
+| Trap | Surfaces | Workaround |
+|---|---|---|
+| **Live iframe embeds (video playback, arbitrary HTML) are stripped** | all | `sanitizeSlideHtml` `FORBID_TAGS` (`iframe`/`object`/`embed`) + the DSL gate — **BY DESIGN** (HARD RULE #22). To EVER play video: first-party **post-sanitize** injection (like the FIT agent / QR SVG, never author markdown) + a **provider allow-list** (nocookie URLs) + an **unscaled** Present surface (a live embed inside the scaled filmstrip re-hits trap B). |
+| `@font-face` `@import` order in the srcdoc drops the vendored sketch faces | Drawing Board | register the vendored faces in the iframe directly (§ "shows hand-body decks in a system sans") |
+| Reusing one iframe via `document.write` strands window state | any embedder | use `iframe.srcdoc` (a fresh browsing context per write) |
+| A new preview builder that skips `sanitizeSlideHtml` | all | run it before injecting (gate: § "not a sanctioned preview builder") |
+
+**D. Staleness / loading** — previews 404 the engine CSS/runtime, or serve a STALE
+200 bundle: re-stage/rebuild (§§ "previews 404 on the engine"; "serves a STALE
+engine bundle"). A committed golden mismatch → check staleness FIRST (§ that entry).
+
+**The meta-lesson:** the sandbox's engine (headless Chromium) is precisely the one
+engine that can't surface most of the above. Drive the **real** surface on the
+**real** device; when iOS can't be reached from here, say so and mark it UNVERIFIED —
+never turn "passed in headless" into "works on iOS."
+
 ### Playground renders broken in mobile Safari/WebKit (counters "00", chart text overlaps, marks drop)
 
 - **Symptom:** On the live docs playground (`/lattice/playground/`) in mobile
