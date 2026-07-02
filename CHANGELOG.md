@@ -90,11 +90,16 @@ in patch versions.
     video + caption) whose height varies per post, so it's **auto-fit** to the height
     the card reports via `postMessage` (origin-checked to `instagram.com`), falling
     back to the fixed portrait box if that signal doesn't arrive.
-  - **Fixed the iOS first-tap "shutter."** On iPhone the first poster tap could flash
-    the player open and immediately dismiss it (the synthesized "ghost click" iOS fires
-    ~300ms after the opening tap landed on the just-mounted backdrop). The backdrop now
-    ignores closes within 400ms of opening, so the player stays up; the close button and
-    Escape are unaffected.
+  - **Fixed the iOS first-tap glitch — the Playground jumping to Edit.** On iPhone,
+    tapping a video poster opened the player but the mobile single-pane view silently
+    flipped to the **Edit** tab behind it. Root cause: the Edit/Preview tabs were Radix
+    in *automatic* mode, which activates a tab the instant its trigger receives **focus**
+    — and opening the player moved focus onto the Edit trigger. The tabs are now
+    *manual*-activation (switch only on a real tap/Enter), so focus movement can't change
+    panes. Also hardened the lightbox backdrop against the iOS "ghost click" (a
+    synthesized click ~300ms after the opening tap): backdrop closes within 400ms of
+    opening are ignored, so the opening gesture can't dismiss the player; the close button
+    and Escape are unaffected.
 - **PDF export: `--raster` and `--embed-source` flags (lattice-emulator, #690).**
   `--raster` prints the PDF as one full-bleed 2× JPEG per page (from the same
   screenshots the PPTX path takes) for maximum viewer compatibility — selectable text is

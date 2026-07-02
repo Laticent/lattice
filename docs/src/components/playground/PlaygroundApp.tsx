@@ -435,7 +435,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					</div>
 				</div>
 				<div className="pg-bar-actions">
-					<Tabs value={pane} onValueChange={(v) => onTab(v as 'edit' | 'preview')} className="pg-mobile-tabs">
+					{/* activationMode="manual": switch panes ONLY on a real tap/Enter, never on
+					    focus. Radix's default "automatic" activates a tab the instant its
+					    trigger is FOCUSED — so when opening the video player moved focus and it
+					    landed on the Edit trigger, the mobile view silently flipped to Edit
+					    behind the just-opened lightbox (the iOS "tap play → jumps to Edit" bug).
+					    Manual mode also fits tabs whose switch drives an expensive re-render. */}
+					<Tabs value={pane} onValueChange={(v) => onTab(v as 'edit' | 'preview')} activationMode="manual" className="pg-mobile-tabs">
 						<TabsList>
 							<TabsTrigger value="edit">Edit</TabsTrigger>
 							<TabsTrigger value="preview">Preview</TabsTrigger>
