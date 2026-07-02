@@ -376,8 +376,8 @@ commercial license: <sharmarke.aden@gmail.com>.
 The "Lattice" and "SlideWright" names and logos are trademarks — the license
 does not grant them; forks must rename. See [TRADEMARKS.md](TRADEMARKS.md).
 
-Contributing requires a one-time signature of the
-[Contributor License Agreement](CLA.md) — see [CONTRIBUTING.md](CONTRIBUTING.md).
+There is no CLA: contributors keep full ownership of their work, which is
+accepted under the project license — see [CONTRIBUTING.md](CONTRIBUTING.md).
 Nothing was published to a package registry under MIT; the git history up to
 the relicense commit remains MIT-licensed, and that grant is irrevocable for
 that historical code.

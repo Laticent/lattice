@@ -2,15 +2,21 @@
 
 Thanks for contributing! Two things to know up front.
 
-## 1. Contributor License Agreement (required)
+## 1. You own your work — there is no CLA
 
-All contributions require signing the [SlideWright CLA](CLA.md). It lets
-SlideWright keep Lattice available under the AGPL while retaining the ability
-to offer commercial licenses; you keep full ownership of your work.
+Lattice does not ask contributors to sign a Contributor License Agreement.
+You keep full ownership of anything you contribute. By submitting a pull
+request you agree your contribution is licensed under the project's license
+(AGPL-3.0-only, the inbound = outbound default) — nothing more is granted to
+anyone.
 
-Signing is a one-time comment: when you open your first pull request, the CLA
-bot posts instructions — reply with the sign-off phrase and you're done for
-all future contributions.
+One honest note while the long-term contribution model is being finalized
+(a plugin/marketplace direction is under design — see
+`engineering/decisions/`): please **open an issue before starting a large
+core feature**. Small fixes and improvements are always welcome; for big
+engine work we'd rather talk first — possibly about paying for it — than
+have effort go to waste. This keeps your time respected and the project's
+options open.
 
 ## 2. Development setup
 
@@ -33,5 +39,6 @@ a `--no-verify` to skip.
 
 ## License
 
-Lattice is licensed under the [GNU AGPL v3.0](LICENSE). By contributing, you
-agree your contributions are provided under the terms of the CLA above.
+Lattice is licensed under the [GNU AGPL v3.0](LICENSE), with the
+[Lattice Output Exception](LICENSE-EXCEPTIONS). Contributions are accepted
+under the same license.
