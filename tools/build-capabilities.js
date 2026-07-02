@@ -50,7 +50,7 @@ const FRAMEWORKS = [
   ['Rendering', 'The owned lattice-engine renders every shipping path (the emulator CLI + the docs playground).', '`node lattice-emulator.js deck.md deck.pdf` (set `CHROME_PATH`)'],
   ['Browser automation', 'puppeteer with the cached Chromium (screenshots, export, DOM checks).', '`tools/screenshot.js` · custom scripts from repo root'],
   ['Bundling', 'esbuild — every `dist/` JS bundle and docs-site core is an esbuild build.', '`npm run build` (orchestrates all generators behind the ownership gate)'],
-  ['Docs site', 'Astro + Starlight + React 19 + Tailwind v4 + shadcn/ui (new-york) + CodeMirror — a SEPARATE npm package under docs/. shadcn maps onto the 14-palette Lattice theme via the token bridge (`docs/src/styles/tailwind.css`); React islands are tested with Vitest + Testing Library.', '`cd docs && npm run dev` (runs the sync steps + astro; see CLAUDE.md § Cloud sandbox)'],
+  ['Docs site', 'Astro + Starlight + React 19 + Tailwind v4 + shadcn/ui (new-york) + CodeMirror — a SEPARATE npm package under docs/. shadcn maps onto the 14-palette Lattice theme via the token bridge (`docs/src/styles/tailwind.css`); React islands are tested with Vitest + Testing Library. House additions to `docs/src/components/ui/` beyond stock shadcn: `split.tsx` — the pane splitter (pointer-captured drag, rail collapse, ARIA window-splitter, persisted ratio) shared by the Playground and Studio; don\'t hand-roll another.', '`cd docs && npm run dev` (runs the sync steps + astro; see CLAUDE.md § Cloud sandbox)'],
 ];
 
 // ── npm scripts (mandatory descriptions) ─────────────────────────────────
