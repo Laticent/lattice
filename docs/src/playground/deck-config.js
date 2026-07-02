@@ -88,6 +88,9 @@ const FIELD_DEFAULTS = {
   // one object entry so the flat emitter can't flatten it). See lib/core/
   // resolve-backdrop.js + engineering/decisions/2026-07-01-finish-restraint-controls.md.
   'backdrop.strength': '',
+  // `backdrop.clearance` is a nested toggle: 'on' recedes the finish behind the
+  // content box (default off/omitted). Like strength, an axis of the `backdrop:` map.
+  'backdrop.clearance': '',
 };
 const MANAGED = Object.keys(FIELD_DEFAULTS);
 
@@ -119,12 +122,12 @@ const EMIT_ORDER = ['marp', 'theme', 'mode', 'finish', 'backdrop', 'split', 'aut
 //             with no deck chrome and no theme, which the studio itself owns).
 export const CONFIG_PROFILES = Object.freeze({
   author: null,
-  noTheme: ['mode', 'finish', 'backdrop.strength', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
+  noTheme: ['mode', 'finish', 'backdrop.strength', 'backdrop.clearance', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
   // `autosplit` is a deck-AUTHORING concern (does my over-capacity content
   // divide?), not a theme/component PREVIEW register — so it's deliberately out
   // of the preview profile (a fixed specimen never overflows). It rides the full
   // author set + the Playground (noTheme) only.
-  preview: ['mode', 'finish', 'backdrop.strength', 'size', 'paginate', 'form'],
+  preview: ['mode', 'finish', 'backdrop.strength', 'backdrop.clearance', 'size', 'paginate', 'form'],
 });
 
 const TRUEY = /^(true|yes|on|1)$/i;
@@ -192,11 +195,15 @@ export function readFrontMatter(source) {
   const bdRaw = map.backdrop && map.backdrop.strength;
   const bdNum = bdRaw == null || bdRaw === '' ? NaN : Number.parseFloat(bdRaw);
   const backdropStrength = Number.isFinite(bdNum) ? String(Math.min(1, Math.max(0, bdNum))) : '';
+  // `backdrop.clearance`: 'on' when the nested axis is truthy, '' (off) otherwise.
+  const clRaw = map.backdrop && map.backdrop.clearance;
+  const backdropClearance = TRUEY.test(String(clRaw || '').trim()) ? 'on' : '';
   return {
     theme: map.theme || '',
     mode: map.mode || '',
     finish: map.finish || '',
     'backdrop.strength': backdropStrength,
+    'backdrop.clearance': backdropClearance,
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
     // `autosplit` is binary — surfaced as a boolean (like paginate) for the switch.
     autosplit: TRUEY.test(map.autosplit || ''),
@@ -217,8 +224,8 @@ export function readFrontMatter(source) {
     // trigger's "configured" cue. `theme` is excluded: with full sync nearly
     // every deck has one, so it isn't a signal of bespoke setup.
     configured: present && (
-      MANAGED.some((k) => k !== 'theme' && k !== 'backdrop.strength' && map[k] != null && map[k] !== '' && !isDefault(k, map[k]))
-      || backdropStrength !== ''
+      MANAGED.some((k) => k !== 'theme' && !k.startsWith('backdrop.') && map[k] != null && map[k] !== '' && !isDefault(k, map[k]))
+      || backdropStrength !== '' || backdropClearance !== ''
     ),
   };
 }
@@ -244,6 +251,8 @@ function isDefault(key, value) {
   if (key === 'split') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'headings'; }
   // backdrop.strength: 1 (full) is the default — the omitted value; so is empty/invalid.
   if (key === 'backdrop.strength') { const n = Number.parseFloat(value); return !Number.isFinite(n) || Math.min(1, Math.max(0, n)) === 1; }
+  // backdrop.clearance: off (any non-truthy) is the omitted default; only `on` is written.
+  if (key === 'backdrop.clearance') return !TRUEY.test(String(value).trim());
   return (value == null ? '' : String(value)) === FIELD_DEFAULTS[key];
 }
 
@@ -274,6 +283,8 @@ function normalize(key, value) {
     const c = Math.min(1, Math.max(0, n));
     return c === 1 ? null : String(c);
   }
+  // backdrop.clearance: on writes `on`; off/empty omits the axis (default off).
+  if (key === 'backdrop.clearance') return value === true || TRUEY.test(v) ? 'on' : null;
   if (v === '' || v === FIELD_DEFAULTS[key]) return null;
   return v;
 }
@@ -539,6 +550,13 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     if (show('backdrop.strength')) {
       host.append(sliderRow('backdrop.strength', 'Finish strength',
         'Dim the finish so it sits back behind the content', fm['backdrop.strength']));
+    }
+
+    // Backdrop clearance — recede the finish behind the content box so the words
+    // sit on clean canvas; the finish reads as a frame at the margins. Opt-in.
+    if (show('backdrop.clearance')) {
+      host.append(switchRow('backdrop.clearance', 'Clear behind content',
+        'Recede the finish behind the text so it reads only at the margins', fm['backdrop.clearance'] === 'on'));
     }
 
     // Slide splitting — how the body divides into slides. 'headings' (the

@@ -276,6 +276,25 @@ describe('writeFrontMatter', () => {
     assert.ok(both.indexOf('backdrop:') < both.indexOf('header: Board'), both);
   });
 
+  test('backdrop.clearance writes the nested toggle (on), defaults-out (off), and coexists with strength', async () => {
+    const { writeFrontMatter, readFrontMatter } = await import(MOD);
+    const on = writeFrontMatter(CLEAN, 'backdrop.clearance', true);
+    assert.match(on, /\nbackdrop:\n {2}clearance: on\n/);
+    assert.equal(readFrontMatter(on)['backdrop.clearance'], 'on');
+    assert.equal(readFrontMatter(on).configured, true);
+    // off / false → omitted (default), no backdrop block
+    assert.equal(writeFrontMatter(CLEAN, 'backdrop.clearance', false), CLEAN);
+    // composes with strength in ONE backdrop block
+    const both = writeFrontMatter(writeFrontMatter(CLEAN, 'backdrop.strength', '0.5'), 'backdrop.clearance', true);
+    assert.match(both, /\nbackdrop:\n/);
+    assert.match(both, /strength: 0\.5/);
+    assert.match(both, /clearance: on/);
+    // clearing clearance leaves strength intact
+    const justStrength = writeFrontMatter(both, 'backdrop.clearance', false);
+    assert.match(justStrength, /strength: 0\.5/);
+    assert.doesNotMatch(justStrength, /clearance:/);
+  });
+
   test('a bespoke finish/mode counts as "configured"; the baselines do not', async () => {
     const { readFrontMatter } = await import(MOD);
     assert.equal(readFrontMatter('---\nmarp: true\nfinish: atrium\n---\n\n# Deck\n').configured, true);

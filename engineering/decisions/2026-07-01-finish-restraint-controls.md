@@ -206,16 +206,22 @@ wrapper resolves or neutralizes the blockers:
 
 ## 9. Implementation slices (each its own PR, HARD #17)
 
-1. **Backdrop wrapper migration (engine).** Emit `.backdrop` in all three paths
+1. ✅ **Backdrop wrapper migration (engine).** Emit `.backdrop` in all three paths
    (materialize on a finish/backdrop); move the compositor onto it; keep presets
    setting `--fin-*` on the section. Visual regression over all presets. *Frees
    `section::after` — verify/repair the vignette edges (F5).* **Export sign-off.**
-2. **Nested-block reader + strength.** The one-level nested reader for `backdrop:`,
+   *(shipped #674)*
+2. ✅ **Nested-block reader + strength.** The one-level nested reader for `backdrop:`,
    shared across the render paths + `deck-config` + lint; then `opacity:
    var(--backdrop-strength,1)` + the `backdrop.strength` axis + Deck-setup slider +
-   the editor's nested autocomplete.
-3. **Clearance.** `.backdrop-mask` zone gradient (rich+opaque) + `backdrop.clearance`
-   axis + drawer toggle + autocomplete. Opt-in.
+   the editor's nested autocomplete. *(shipped #674)*
+3. ✅ **Clearance.** `.backdrop-mask` zone gradient (rich+opaque) + `backdrop.clearance`
+   axis + drawer toggle + autocomplete. Opt-in. *(shipped: `backdrop-clear` class →
+   `section.finish.backdrop-clear` sets `--backdrop-mask` to a `var(--bg)` central
+   ellipse, feathered on screen / hard-edged in the opaque flip; parsed by
+   `backdropClasses`, propagated as a deck class across all three paths, with the
+   Deck-setup toggle + autocomplete + a `backdrop-clearance-value` lint check.
+   Validated in both faces.)*
 4. **Spotlight.** `.backdrop-mask` window gradient + `backdrop.spotlight` axis
    (joystick+slider), face-parity gate, joystick disambiguation (F12).
 5. **Docs + demo deck** (`examples/`), CHANGELOG, gate wiring, vocabulary pass.

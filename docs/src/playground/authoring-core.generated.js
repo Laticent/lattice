@@ -911,6 +911,18 @@ ${indent}   - ${body.trim()}`;
               fix: "Set backdrop.strength between 0 (hidden) and 1 (full)."
             });
           }
+        } else if (axis === "clearance") {
+          if (val && !/^(on|off|true|false|yes|no)$/i.test(val)) {
+            out.push({
+              slide: 0,
+              rule: "backdrop-clearance-value",
+              severity: "warning",
+              classToken: val,
+              line: line.trim(),
+              message: `backdrop.clearance is a toggle \u2014 expected on/off (got '${val}')`,
+              fix: "Set backdrop.clearance to `on` to recede the finish behind the content, or omit it (off)."
+            });
+          }
         }
       }
       return out;

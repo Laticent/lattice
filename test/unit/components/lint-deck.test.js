@@ -195,6 +195,15 @@ describe('deck linter', () => {
     assert.equal(ok.filter((x) => /backdrop/.test(x.rule)).length, 0);
   });
 
+  test('warns on a non-toggle backdrop.clearance; accepts on/off', () => {
+    const bad = lintText('---\ntheme: indaco\nfinish: atrium\nbackdrop:\n  clearance: sorta\n---\n\n## H.\n', { vocab });
+    const cl = bad.find((x) => x.rule === 'backdrop-clearance-value');
+    assert.ok(cl, 'clearance: sorta should warn (not a toggle)');
+    assert.equal(cl.classToken, 'sorta');
+    const ok = lintText('---\ntheme: indaco\nfinish: atrium\nbackdrop:\n  clearance: on\n---\n\n## H.\n', { vocab });
+    assert.equal(ok.filter((x) => /backdrop/.test(x.rule)).length, 0);
+  });
+
   test('every committed deck is completely lint-clean (no errors, no warnings)', () => {
     // The deck tree is clean and the gate is --strict, so warnings count too.
     // Locks in the fixes for the baseline gallery (cards-stack inline-title),

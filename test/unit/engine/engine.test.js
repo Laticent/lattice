@@ -496,6 +496,14 @@ describe('backdrop layer', () => {
     assert.ok(it === -1 || bd < it, 'the .backdrop is a sibling BEFORE .image-text, not buried inside it');
   });
 
+  test('backdrop.clearance: on stamps `backdrop-clear` on every finish section', () => {
+    const on = makeEngine().render('---\nfinish: atrium\nbackdrop:\n  clearance: on\n---\n\n# A\n', 'lattice').html;
+    assert.match(on, /<section\b[^>]*\bbackdrop-clear\b/, 'the clearance class is propagated');
+    // Default (no backdrop map) → no clearance class.
+    const off = makeEngine().render('---\nfinish: atrium\n---\n\n# A\n', 'lattice').html;
+    assert.doesNotMatch(off, /\bbackdrop-clear\b/);
+  });
+
   test('backdrop.strength stamps the inline --backdrop-strength var; default omits it', () => {
     const dim = makeEngine().render('---\nfinish: atrium\nbackdrop:\n  strength: 0.4\n---\n\n# A\n', 'lattice').html;
     assert.match(dim, /<div class="backdrop" style="--backdrop-strength:0\.4"/);

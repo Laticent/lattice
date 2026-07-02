@@ -13,6 +13,8 @@ const {
   readFrontMatterBackdrop,
   backdropStrength,
   backdropStyleDecls,
+  backdropClearance,
+  backdropClasses,
 } = require('../../../lib/core/resolve-backdrop');
 
 const fm = (body) => `---\n${body}\n---\n\n# Slide\n`;
@@ -53,6 +55,22 @@ describe('resolve-backdrop', () => {
     assert.equal(backdropStyleDecls(fm('backdrop:\n  strength: 0.35')), '--backdrop-strength:0.35');
     assert.equal(backdropStyleDecls(fm('backdrop:\n  strength: 1')), ''); // 1 is the default → nothing
     assert.equal(backdropStyleDecls(fm('finish: atrium')), ''); // no backdrop → nothing
+  });
+
+  test('clearance parses on/off and emits a `backdrop-clear` class (opt-in)', () => {
+    assert.equal(backdropClearance({ clearance: 'on' }), true);
+    assert.equal(backdropClearance({ clearance: 'true' }), true);
+    assert.equal(backdropClearance({ clearance: 'yes' }), true);
+    assert.equal(backdropClearance({ clearance: 'off' }), false);
+    assert.equal(backdropClearance({ clearance: '' }), false);
+    assert.equal(backdropClearance({}), false); // default off
+    // The class-based axis maps to `backdrop-clear`; strength stays inline (not a class).
+    assert.deepEqual(backdropClasses(fm('backdrop:\n  clearance: on')), ['backdrop-clear']);
+    assert.deepEqual(backdropClasses(fm('backdrop:\n  clearance: off')), []);
+    assert.deepEqual(backdropClasses(fm('backdrop:\n  strength: 0.5')), []); // strength is not a class
+    assert.deepEqual(backdropClasses(fm('finish: atrium')), []); // no backdrop map
+    // clearance does NOT bleed into the inline strength decls
+    assert.equal(backdropStyleDecls(fm('backdrop:\n  clearance: on')), '');
   });
 
   test('quoted values are unwrapped', () => {

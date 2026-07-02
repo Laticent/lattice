@@ -188,6 +188,19 @@ section.finish > .backdrop > .backdrop-mask {
   background: var(--backdrop-mask, none);
 }
 
+/* CLEARANCE (`backdrop: { clearance: on }`) — recede the finish behind the content
+ * box. The mask paints `var(--bg)` over the central content area and is transparent
+ * toward the margins, so the finish reads only as a frame — the words sit on clean
+ * canvas. Approximate geometry (a safe central ellipse, biased up toward the
+ * masthead), not measured — see the decision doc's open question. Palette-blind
+ * (`var(--bg)` only), no `mask-image`. RICH feathers the reveal edge; the OPAQUE
+ * mirror is a single HARD stop (a feathered alpha area-fade grays in the vector PDF).
+ * Set at `section.finish.backdrop-clear` specificity so the opaque flip must match it. */
+section.finish.backdrop-clear {
+  --backdrop-mask: radial-gradient(ellipse 90% 84% at 50% 45%, var(--bg) 44%, transparent 88%);
+  --backdrop-mask-opaque: radial-gradient(ellipse 84% 78% at 50% 45%, var(--bg) 64%, transparent 64%);
+}
+
 /* Keep slide content above the backdrop layer (the backdrop is z0, its internal
  * pseudos/mask are contained in its stacking context). Excludes `.backdrop`
  * itself, which must stay behind at z0. */
@@ -699,6 +712,11 @@ section.finish-gallery {
     --fin-mark: var(--fin-mark-opaque, none);
     --fin-edge: var(--fin-edge-opaque, none);
   }
+  /* The clearance mask flips to its HARD-edged mirror (feather → gray in PDF). Matches
+   * the `section.finish.backdrop-clear` setter's specificity so this later rule wins. */
+  section.finish.backdrop-clear {
+    --backdrop-mask: var(--backdrop-mask-opaque, none);
+  }
 }
 /* The export class matches BOTH an ANCESTOR (the Studio capture root carries it)
  * AND the section ITSELF. The latter is load-bearing for the html-to-image raster:
@@ -712,6 +730,13 @@ section.finish.lattice-exporting {
   --fin-texture: var(--fin-texture-opaque, none);
   --fin-mark: var(--fin-mark-opaque, none);
   --fin-edge: var(--fin-edge-opaque, none);
+}
+/* Clearance mask → HARD-edged mirror for the Studio raster export. `:where()` keeps
+ * the ancestor at zero specificity, so these match the `section.finish.backdrop-clear`
+ * setter (0,2,1) and win by source order. */
+:where(.lattice-exporting) section.finish.backdrop-clear,
+section.finish.backdrop-clear.lattice-exporting {
+  --backdrop-mask: var(--backdrop-mask-opaque, none);
 }
 
 /* ── Per-slide opt-out ────────────────────────────────────────────────

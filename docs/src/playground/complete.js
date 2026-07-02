@@ -132,13 +132,14 @@ function finishSource(finishes) {
 	};
 }
 
-// Completes the axes of the nested `backdrop:` front-matter map. Offers only the
-// SHIPPED axis (`strength`); `clearance`/`spotlight` join when those slices land.
+// Completes the axes of the nested `backdrop:` front-matter map. Offers the SHIPPED
+// axes (`strength`, `clearance`); `spotlight` joins when that slice lands.
 // Gated on the enclosing block header actually being `backdrop:` (scans upward
 // for the nearest less-indented line) so it never fires under an unrelated map.
 function backdropAxisSource() {
 	const options = [
 		{ label: 'strength', type: 'property', detail: 'backdrop', info: 'Dim the whole finish (0–1; 1 = full)' },
+		{ label: 'clearance', type: 'property', detail: 'backdrop', info: 'Recede the finish behind the content box (on / off)' },
 	];
 	return (context) => {
 		const doc = context.state.doc;

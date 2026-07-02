@@ -170,6 +170,15 @@ in patch versions.
 
 ### Added
 
+- **`backdrop: { clearance: on }` — recede a finish behind the content.** A new opt-in
+  axis on the backdrop layer clears the finish behind the central content box so the
+  words sit on clean canvas while the finish reads as a frame at the margins. It's a
+  palette-blind `var(--bg)` overlay on the `.backdrop-mask` (no `mask-image`), feathered
+  on screen and a HARD edge in export (a feathered alpha area-fade grays in the vector
+  PDF) — validated in both faces. Deck-wide, composes with `backdrop.strength`, opt-in
+  (default off), and inert without a finish. Wired across all three render paths, with a
+  Deck-setup drawer toggle, editor autocomplete, and a lint check on the value. Slice 3
+  of the backdrop-layer work (`engineering/decisions/2026-07-01-finish-restraint-controls.md`).
 - **The Fabricate finish designer previews at backdrop strength.** A "Preview strength"
   control dials the specimen's `--backdrop-strength` (the same lever the deck-wide
   `backdrop: strength:` axis pulls), so you can design and judge a finish at the restraint
