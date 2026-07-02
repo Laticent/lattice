@@ -815,15 +815,14 @@ version-controlled" in the intro description (inherited, not introduced).
 Shipped in the follow-up PR on this branch. Where the implementation
 deviates from the doc, the deviation and its reason:
 
-1. **The "Can't install anything?" card ships without the email field.**
-   §5.5/§8.3 made a one-field email capture the card's prerequisite. The
-   site is static (GitHub Pages / Cloudflare Pages) with no backend, and
-   standing up a capture service is a product decision — a vendor, a
-   privacy note, and a list owner — not an overnight copy change. The card
-   ships with the playground CTA and the desktop-app forward pointer only,
-   and makes no follow-me promise it can't keep (the specific failure the
-   red team vetoed was promising a follow mechanism that doesn't work).
-   §8.3 stays open as the tracked gap.
+1. **The "Can't install anything?" card email field — now shipped.**
+   §5.5/§8.3 made a one-field email capture the card's prerequisite.
+   Closed by the follow-up `feat/buttondown-capture` PR: the maintainer
+   created a Buttondown list (`latticestyle`), and the card now carries a
+   zero-JS form that POSTs to it. Buttondown is the vendor decision (static
+   site, no backend, exportable list). The live subscription round-trip is
+   verifiable only by subscribing on the deployed preview — not exercised
+   from the sandbox (no test data POSTed to a third-party API).
 2. **`/gallery.pdf` is a build-time staged copy, not a committed
    `examples/gallery.pdf`.** The gallery's source of truth stays the
    baseline fixture (HARD RULE #8); `docs/scripts/sync-portal.mjs` stages

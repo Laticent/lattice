@@ -47,6 +47,13 @@ in patch versions.
   budget cap. Injection path + guardrails:
   `engineering/decisions/2026-07-02-studio-e2e-scenarios.md`.
 
+- **The landing "Can't install anything?" card captures an email for the
+  SlideWright waitlist.** A zero-JS Buttondown form (`WaitlistForm` in
+  `landing/sections.tsx`) POSTs to the `latticestyle` list and opens the
+  confirmation in a new tab, so browser-only visitors have a real follow
+  mechanism instead of a dead end. Closes the last open item from the
+  website-positioning decision doc (§8.3).
+
 ### Fixed
 
 - **Tapping an external link in the live preview no longer blanks it on iOS.** A

@@ -292,25 +292,92 @@ export function ByomSection({ featuresHref }: { featuresHref: string }) {
 	);
 }
 
-// ── Next-step cards (whole card is a link) ──────────────────────────────────
-export function NextSteps({ links }: { links: { href: string; title: string; body: string; cta: string }[] }) {
+// ── Waitlist form (SlideWright desktop app) ─────────────────────────────────
+// A plain HTML form that POSTs to Buttondown — no client JS. `target="_blank"`
+// opens Buttondown's confirmation page in a new tab, so the landing page stays
+// put. The hidden `embed=1` field is Buttondown's embeddable-form marker. The
+// list lives at buttondown.com/latticestyle; endpoint per docs.buttondown.com.
+export function WaitlistForm() {
+	return (
+		<form
+			action="https://buttondown.com/api/emails/embed-subscribe/latticestyle"
+			method="post"
+			target="_blank"
+			rel="noopener"
+			className="mt-4 border-t border-border pt-4"
+		>
+			<p className="m-0 mb-2 text-[13.5px] text-foreground">
+				Or get <span className="font-semibold text-[var(--text-heading)]">SlideWright</span>, the desktop app, when it lands.
+			</p>
+			<div className="flex gap-2">
+				<label htmlFor="bd-email" className="sr-only">
+					Email address
+				</label>
+				<input
+					id="bd-email"
+					type="email"
+					name="email"
+					required
+					autoComplete="email"
+					placeholder="you@example.com"
+					className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-[14px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+				/>
+				<input type="hidden" name="embed" value="1" />
+				<button
+					type="submit"
+					className="flex-none rounded-md bg-primary px-3.5 py-2 text-[13.5px] font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+					style={{ color: 'var(--on-accent)' }}
+				>
+					Notify me
+				</button>
+			</div>
+		</form>
+	);
+}
+
+// ── Next-step cards ─────────────────────────────────────────────────────────
+// Most cards are a single whole-card link. A card flagged `form` instead holds
+// an inline CTA link plus the waitlist form — a form can't nest inside the
+// card's <a>, so that card renders as a <div>.
+type NextStep = { href: string; title: string; body: string; cta: string; form?: boolean };
+
+export function NextSteps({ links }: { links: NextStep[] }) {
 	return (
 		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
-			{links.map((l) => (
-				<a
-					key={l.href + l.title}
-					href={l.href}
-					className="group block rounded-xl border border-border bg-card p-[26px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
-				>
-					<h3 className="mb-2 font-[var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
-						{l.title}
-					</h3>
-					<p className="m-0 mb-3.5 text-[15px] text-foreground">{l.body}</p>
-					<span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary">
-						{l.cta} <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-					</span>
-				</a>
-			))}
+			{links.map((l) =>
+				l.form ? (
+					<div
+						key={l.href + l.title}
+						className="flex flex-col rounded-xl border border-border bg-card p-[26px] text-card-foreground shadow-sm"
+					>
+						<h3 className="mb-2 font-[var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
+							{l.title}
+						</h3>
+						<p className="m-0 mb-3.5 text-[15px] text-foreground">{l.body}</p>
+						<a
+							href={l.href}
+							className="group inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary hover:underline"
+						>
+							{l.cta} <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+						</a>
+						<WaitlistForm />
+					</div>
+				) : (
+					<a
+						key={l.href + l.title}
+						href={l.href}
+						className="group block rounded-xl border border-border bg-card p-[26px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
+					>
+						<h3 className="mb-2 font-[var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
+							{l.title}
+						</h3>
+						<p className="m-0 mb-3.5 text-[15px] text-foreground">{l.body}</p>
+						<span className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary">
+							{l.cta} <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+						</span>
+					</a>
+				),
+			)}
 		</div>
 	);
 }
