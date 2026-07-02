@@ -27,6 +27,7 @@ import {
 	type Placement,
 	PRESET_RECIPES,
 	placementXY,
+	SPOT_RADIUS,
 	safeFinishSlug,
 	TEXTURE_TYPES,
 	WASH_SPREAD,
@@ -82,13 +83,22 @@ export function FinishStudio({
 	// "Export preview" — show the OPAQUE export face the PDF/PPTX bakes, not just the
 	// rich on-screen face, so the designer sees the flatter look before they ship it.
 	const [exporting, setExporting] = React.useState(false);
-	// Preview-only backdrop RESTRAINT (%). The deck-wide `backdrop: strength:` axis dims
-	// a finish via `--backdrop-strength` (opacity on the `.backdrop` compositor); this
-	// dials the SAME token on the specimen so a finish can be designed and judged at the
-	// restraint it'll be shown with. Preview-scoped: the finish stays a pure recipe —
-	// strength is a per-deck control, not baked into the saved finish (the finish/backdrop
-	// axes are deliberately separate; see 2026-07-01-finish-restraint-controls.md).
-	const [strength, setStrength] = React.useState(100);
+	// The BAKED backdrop layer — the finish's FIFTH layer (2026-07-01 decision doc,
+	// revised): `strength` (0–1) + `clearance` live on the recipe and are EMITTED into the
+	// generated CSS as `--fin-backdrop-*` (generateFinishCss → backdropSlots), exactly like
+	// wash / texture / mark / edge. The specimen previews the finish AT its baked backdrop
+	// (WYSIWYG) straight from `previewCss` — no separate injection. A deck author later
+	// overrides it through `finish-override:` (StudioShell). A full/absent value = no baked
+	// axis.
+	const strength = recipe.backdrop?.strength == null ? 100 : Math.round(recipe.backdrop.strength * 100);
+	const clearance = !!recipe.backdrop?.clearance;
+	// The mask is ONE shape — clearance (clear the center) OR spotlight (reveal one window),
+	// never both. Toggling one clears the other. Spotlight defaults to a considered window.
+	const spot = recipe.backdrop?.spotlight;
+	const setStrength = (pct: number) => patch({ backdrop: { ...recipe.backdrop, strength: pct >= 100 ? undefined : pct / 100 } });
+	const setClearance = (on: boolean) => patch({ backdrop: { ...recipe.backdrop, clearance: on || undefined, spotlight: on ? undefined : recipe.backdrop?.spotlight } });
+	const setSpotlight = (on: boolean) =>
+		patch({ backdrop: { ...recipe.backdrop, clearance: on ? undefined : recipe.backdrop?.clearance, spotlight: on ? (recipe.backdrop?.spotlight ?? { x: 70, y: 36, radius: SPOT_RADIUS.default }) : undefined } });
 	const [prompt, setPrompt] = React.useState('');
 	const [gen, setGen] = React.useState<'idle' | 'working'>('idle');
 	const [saving, setSaving] = React.useState(false);
@@ -97,16 +107,9 @@ export function FinishStudio({
 	// The generated CSS drives BOTH the live preview (targets finish-preview) and the
 	// export/save (targets the named slug). Recompute as the recipe changes.
 	const slug = safeFinishSlug(name) === 'custom' && !name.trim() ? 'custom' : safeFinishSlug(name);
+	// The generated CSS bakes ALL five layers (wash / texture / mark / edge + backdrop), so
+	// the specimen is WYSIWYG straight from it — the backdrop needs no separate injection.
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
-	// The preview CSS plus (when restrained) the `--backdrop-strength` token on the
-	// specimen's backdrop — the exact lever the deck-wide `backdrop: strength:` pulls.
-	const previewBackdropCss = React.useMemo(
-		() =>
-			strength >= 100
-				? previewCss
-				: `${previewCss}\n/* preview backdrop restraint (design-time only) */\nsection.finish > .backdrop { --backdrop-strength: ${(strength / 100).toFixed(2)}; }`,
-		[previewCss, strength],
-	);
 	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(slug);
 
 	// Mutators — each layer's controls write back through coerceRecipe so state can
@@ -128,13 +131,20 @@ export function FinishStudio({
 	const nudgeWash = (dx: number, dy: number) => setRecipe((r) => coerceRecipe({ ...r, wash: { ...r.wash, x: clampPct((r.wash.x ?? 50) + dx * STEP_POS), y: clampPct((r.wash.y ?? 50) + dy * STEP_POS) } }));
 	const setMarkXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, mark: { ...r.mark, x: clampPct(x), y: clampPct(y) } }));
 	const setWashXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, wash: { ...r.wash, x: clampPct(x), y: clampPct(y) } }));
+	// Spotlight window writers — reuse the placement grammar (joystick nudge / absolute
+	// drag / numeric), plus a radius slider. Keep the existing radius when only x/y move.
+	const spotAt = (r: FinishRecipe) => r.backdrop?.spotlight ?? { x: 70, y: 36, radius: SPOT_RADIUS.default };
+	const nudgeSpot = (dx: number, dy: number) => setRecipe((r) => coerceRecipe({ ...r, backdrop: { ...r.backdrop, spotlight: { ...spotAt(r), x: clampPct(spotAt(r).x + dx * STEP_POS), y: clampPct(spotAt(r).y + dy * STEP_POS) } } }));
+	const setSpotXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, backdrop: { ...r.backdrop, spotlight: { ...spotAt(r), x: clampPct(x), y: clampPct(y) } } }));
+	const setSpotRadius = (radius: number) => setRecipe((r) => coerceRecipe({ ...r, backdrop: { ...r.backdrop, spotlight: { ...spotAt(r), radius } } }));
 
 	// Drag-on-canvas handles over the live preview — one per placeable element that's
 	// actually rendering (a mark needs a glyph to show; a hotspot needs a single-source
 	// wash). Reads x/y for position; dragging writes absolute x/y.
 	const canvasHandles: CanvasHandleSpec[] = [];
 	if (markPlaceable && recipe.mark.glyph?.trim()) canvasHandles.push({ key: 'mark', label: 'Mark', x: recipe.mark.x ?? 50, y: recipe.mark.y ?? 50, tone: 'accent', onMove: setMarkXY });
-	if (washPlaceable) canvasHandles.push({ key: 'wash', label: 'Wash hotspot', x: recipe.wash.x ?? 50, y: recipe.wash.y ?? 50, tone: 'ink', onMove: setWashXY });
+	if (washPlaceable) canvasHandles.push({ key: 'wash', label: 'Wash', x: recipe.wash.x ?? 50, y: recipe.wash.y ?? 50, tone: 'ink', onMove: setWashXY });
+	if (spot) canvasHandles.push({ key: 'spotlight', label: 'Spotlight', x: spot.x, y: spot.y, tone: 'accent', onMove: setSpotXY });
 
 	const exportCss = () => {
 		const cls = `finish finish-${slug}`;
@@ -259,23 +269,13 @@ export function FinishStudio({
 							</div>
 						</div>
 					</div>
-					{/* Preview restraint — judge the finish at the backdrop strength it'll be
-					    shown with (the deck-wide `backdrop: strength:` axis). Design-time only. */}
-					<Tuned label="Preview strength" value={`${strength}%`}>
-						<div className="flex items-center gap-2.5">
-							<Slider aria-label="Preview backdrop strength" min={10} max={100} value={strength} onValueChange={setStrength} />
-							{strength < 100 && (
-								<button type="button" onClick={() => setStrength(100)} className="shrink-0 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground hover:text-[var(--accent)]">Reset</button>
-							)}
-						</div>
-					</Tuned>
 					<div className="relative">
 						<DeckPreview
 							options={options}
 							sample={specimen(exporting)}
 							mermaid={false}
 							modeOverride={mode}
-							extraCss={previewBackdropCss}
+							extraCss={previewCss}
 							debounceMs={140}
 							className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]"
 							aria-label="Finish specimen"
@@ -286,7 +286,7 @@ export function FinishStudio({
 						<p className="text-[11.5px] leading-relaxed text-[var(--accent)]">Showing the export face — finishes render slightly flatter in baked PDF/PPTX exports.</p>
 					)}
 					<p className="text-[12px] leading-relaxed text-muted-foreground">
-						A finish is a stack of four palette-blind layers. Start from a preset, tune the layers, then <strong className="text-[var(--text-heading)]">Save</strong> it to your library or <strong className="text-[var(--text-heading)]">Export</strong> the CSS.
+						A finish is a stack of five palette-blind layers. Start from a preset, tune the layers, then <strong className="text-[var(--text-heading)]">Save</strong> it to your library or <strong className="text-[var(--text-heading)]">Export</strong> the CSS.
 					</p>
 				</div>
 
@@ -383,12 +383,54 @@ export function FinishStudio({
 					</LayerGroup>
 
 					{/* Edge */}
-					<LayerGroup label="Edge" hint="z4 · frame" last>
+					<LayerGroup label="Edge" hint="z4 · frame">
 						<LayerSelect aria-label="Edge type" value={recipe.edge.type} options={EDGE_TYPES} labels={EDGE_LABEL} onChange={(v) => patch({ edge: { ...recipe.edge, type: v as FinishRecipe['edge']['type'] } })} />
 						{recipe.edge.type !== 'none' && recipe.edge.type !== 'margin-rule' && (
 							<Tuned label="Intensity" value={`${recipe.edge.intensity}%`}>
 								<Slider aria-label="Edge intensity" min={3} max={20} value={recipe.edge.intensity} onValueChange={(v) => patch({ edge: { ...recipe.edge, intensity: v } })} />
 							</Tuned>
+						)}
+					</LayerGroup>
+
+					{/* Backdrop — the 5th layer: restraint on the whole finish (baked; a deck tunes
+					    it via `finish-override:`). Strength dims all four layers; clearance recedes
+					    them behind the content box. */}
+					<LayerGroup label="Backdrop" hint="restraint · dims & recedes the finish" last>
+						<Tuned label="Strength" value={`${strength}%`}>
+							<div className="flex items-center gap-2.5">
+								<Slider aria-label="Backdrop strength" min={10} max={100} value={strength} onValueChange={setStrength} />
+								{strength < 100 && (
+									<button type="button" onClick={() => setStrength(100)} className="shrink-0 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground hover:text-[var(--accent)]">Reset</button>
+								)}
+							</div>
+						</Tuned>
+						<label className="flex items-center justify-between gap-3 py-0.5">
+							<span className="flex flex-col">
+								<span className="text-[12.5px] font-semibold text-[var(--text-heading)]">Clear behind content</span>
+								<span className="text-[11px] text-muted-foreground">Recede the finish behind the text; it reads at the margins</span>
+							</span>
+							<input type="checkbox" aria-label="Clear behind content" checked={clearance} onChange={(e) => setClearance(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
+						</label>
+						{/* Spotlight — the inverse mask: reveal the finish in ONE window, hide the rest.
+						    Shares the mask with clearance (mutually exclusive). Joystick / drag / numeric
+						    place the window; the slider sizes it. */}
+						<label className="flex items-center justify-between gap-3 py-0.5">
+							<span className="flex flex-col">
+								<span className="text-[12.5px] font-semibold text-[var(--text-heading)]">Spotlight one area</span>
+								<span className="text-[11px] text-muted-foreground">Show the finish in a single window; hide it everywhere else</span>
+							</span>
+							<input type="checkbox" aria-label="Spotlight one area" checked={!!spot} onChange={(e) => setSpotlight(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
+						</label>
+						{spot && (
+							<PlaceControl
+								joystickLabel="Move spotlight"
+								x={spot.x}
+								y={spot.y}
+								onNudge={nudgeSpot}
+								onSetX={(x) => setSpotXY(x, spot.y)}
+								onSetY={(y) => setSpotXY(spot.x, y)}
+								size={{ label: 'Radius', value: spot.radius, min: SPOT_RADIUS.min, max: SPOT_RADIUS.max, suffix: '%', onChange: setSpotRadius }}
+							/>
 						)}
 					</LayerGroup>
 				</aside>
@@ -566,12 +608,17 @@ function CanvasHandles({ handles }: { handles: CanvasHandleSpec[] }) {
 						draggingRef.current = null;
 					}}
 					className={cn(
-						'pointer-events-auto absolute grid size-6 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none place-items-center rounded-full border-2 bg-card/80 shadow-[0_2px_8px_rgba(8,18,38,.35)] backdrop-blur-sm active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
-						h.tone === 'accent' ? 'border-[var(--accent)]' : 'border-[color-mix(in_srgb,var(--ink,var(--accent))_70%,var(--border))]',
+						// A LABELED pill IS the handle marker (centered on the effect's x/y), so multiple
+						// on-canvas handles — wash / mark / spotlight — are told apart by name at a glance
+						// instead of reading as identical dots. Tone-colored border + text for a second cue.
+						'pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none whitespace-nowrap rounded-full border-2 bg-card/85 px-2 py-0.5 text-[10.5px] font-semibold leading-none shadow-[0_2px_8px_rgba(8,18,38,.35)] backdrop-blur-sm active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+						h.tone === 'accent'
+							? 'border-[var(--accent)] text-[var(--accent)]'
+							: 'border-[color-mix(in_srgb,var(--ink,var(--accent))_70%,var(--border))] text-[var(--text-heading)]',
 					)}
 					style={{ left: `${h.x}%`, top: `${h.y}%` }}
 				>
-					<span className={cn('size-1.5 rounded-full', h.tone === 'accent' ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--ink,var(--accent))_70%,var(--border))]')} />
+					{h.label}
 				</button>
 			))}
 		</div>

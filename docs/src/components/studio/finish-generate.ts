@@ -63,6 +63,16 @@ export type FinishRecipe = {
 	texture: { type: TextureType; intensity: number; scale: number };
 	mark: { type: MarkType; placement: Placement; glyph?: string; x?: number; y?: number; scale?: number; angle?: number };
 	edge: { type: EdgeType; intensity: number };
+	// The BAKED backdrop layer — the finish's FIFTH layer (strength 0–1 + clearance),
+	// a design element of the finish just like wash / texture / mark / edge. Tuned in
+	// the Fabricate designer and emitted into the generated CSS as `--fin-backdrop-*`
+	// tokens (see `backdropSlots`). The deck author OVERRIDES it — and any other layer —
+	// through the single `finish-override:` front-matter map (a partial recipe
+	// deep-merged into this one, then the CSS regenerated; see `mergeFinishOverride`).
+	// Absent = no baked backdrop restraint. `clearance` and `spotlight` are two SHAPES of
+	// the one `.backdrop-mask` overlay (clearance clears the center; spotlight reveals one
+	// window, hiding the rest), so they're alternatives — spotlight wins if both are set.
+	backdrop?: { strength?: number; clearance?: boolean; spotlight?: { x: number; y: number; radius: number } };
 };
 
 export const DEFAULT_RECIPE: FinishRecipe = {
@@ -174,6 +184,7 @@ const optInt = (v: unknown, lo: number, hi: number): number | undefined =>
 export const MARK_SCALE = { min: 30, max: 200, default: 100 } as const; // % of base ghost size
 export const MARK_ANGLE = { min: -30, max: 30, default: 0 } as const; // degrees
 export const WASH_SPREAD = { min: 50, max: 160, default: 100 } as const; // % of default radius
+export const SPOT_RADIUS = { min: 18, max: 70, default: 38 } as const; // spotlight window radius, % of slide
 
 // A coarse placement keyword → the glyph-center (x%, y%) it stands for. Lets a preset
 // or AI reply that only names a corner resolve to real coordinates the joystick/drag
@@ -237,6 +248,48 @@ export function coerceRecipe(input: unknown): FinishRecipe {
 			angle: optInt(m.angle, MARK_ANGLE.min, MARK_ANGLE.max) ?? MARK_ANGLE.default,
 		},
 		edge: { type: oneOf(EDGE_TYPES, e.type, 'none'), intensity: clampInt(e.intensity, 3, 20, 6) },
+		...coerceBackdrop(o.backdrop),
+	};
+}
+
+// The baked backdrop layer, coerced to `{ strength?: 0–1, clearance?: true }` or
+// dropped entirely when nothing non-default is set (so a plain finish carries no
+// `backdrop` key). A default value drops the axis, so a `finish-override:` that resets
+// an axis (`strength: 1`, `clearance: off`) merges to nothing baked = the axis is off.
+function coerceBackdrop(input: unknown): { backdrop?: FinishRecipe['backdrop'] } {
+	const b = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+	const out: NonNullable<FinishRecipe['backdrop']> = {};
+	const s = Number.parseFloat(String(b.strength));
+	if (Number.isFinite(s) && Math.min(1, Math.max(0, s)) !== 1) out.strength = Math.min(1, Math.max(0, s));
+	if (b.clearance === true || /^(on|true|yes)$/i.test(String(b.clearance ?? ''))) out.clearance = true;
+	const spot = coerceSpotlight(b.spotlight);
+	if (spot) out.spotlight = spot;
+	return Object.keys(out).length ? { backdrop: out } : {};
+}
+
+// The spotlight window, coerced to `{ x, y, radius }` (all clamped) or undefined. Accepts
+// either an object (`{ x, y, radius }`, the stored recipe form) OR the front-matter TRIPLE
+// grammar `x y radius` (e.g. `spotlight: 84 30 40`, space/comma separated). Only finite
+// numbers survive — a crafted string can't reach the generated CSS (HARD RULE #22).
+function coerceSpotlight(v: unknown): { x: number; y: number; radius: number } | undefined {
+	let x: number, y: number, r: number;
+	if (typeof v === 'string') {
+		if (!v.trim()) return undefined;
+		const p = v.trim().split(/[\s,]+/).map(Number);
+		[x, y, r] = [p[0], p[1], p[2]];
+	} else if (v && typeof v === 'object') {
+		const o = v as Record<string, unknown>;
+		x = Number(o.x);
+		y = Number(o.y);
+		r = Number(o.radius ?? o.r);
+	} else {
+		return undefined;
+	}
+	if (![x, y, r].every(Number.isFinite)) return undefined;
+	return {
+		x: Math.max(0, Math.min(100, Math.round(x))),
+		y: Math.max(0, Math.min(100, Math.round(y))),
+		radius: Math.max(SPOT_RADIUS.min, Math.min(SPOT_RADIUS.max, Math.round(r))),
 	};
 }
 
@@ -525,7 +578,14 @@ const OPAQUE_OVERRIDE_SLOTS = ['--fin-wash', '--fin-texture', '--fin-edge'] as c
  *  override — the full-bleed wash/edge AND the texture, all recomputed opaque. */
 function opaqueOverrideDecls(r: FinishRecipe): string[] {
 	const opaque = recipeSlots(r, 'opaque');
-	return opaque.filter((d) => OPAQUE_OVERRIDE_SLOTS.some((s) => d.startsWith(`${s}:`)));
+	const out = opaque.filter((d) => OPAQUE_OVERRIDE_SLOTS.some((s) => d.startsWith(`${s}:`)));
+	// A BAKED clearance mask must flip to its hard-edged opaque mirror in THIS finish's OWN
+	// export rules. base.finish.css also flips `--fin-backdrop-mask`, but only at
+	// `section.finish` (0,1,1) — LOWER than this finish's `section.finish.finish-<slug>`
+	// (0,2,1) rich setter, so that flip loses and the feathered mask grays in the vector PDF.
+	// Emitting the flip here (same 0,2,1 selector, later in source) is the one that wins.
+	if (r.backdrop?.clearance || r.backdrop?.spotlight) out.push('--fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none)');
+	return out;
 }
 
 /** Sanitize arbitrary text to a safe class slug fragment (`[a-z0-9-]`), or 'custom'. */
@@ -547,12 +607,56 @@ export function safeFinishSlug(name: string): string {
  * so a crafted name can't escape the selector. Pass a recipe straight from the
  * controls or from `coerceRecipe(aiReply)`.
  */
+// The BAKED backdrop layer — the finish's 5th layer (strength + clearance), emitted as
+// `--fin-backdrop-*` tokens the compositor reads (see base.finish.css). The deck author
+// overrides these NOT with a rival CSS var but by regenerating the whole finish: a
+// `finish-override:` partial recipe is deep-merged in and the CSS re-emitted (see
+// `mergeFinishOverride`), so the override flows through this same slot. Strength is
+// face-independent; the clearance mask ships a rich default + a hard opaque mirror (the
+// base opaque flip swaps it), both referencing the shared `--backdrop-clear-mask` shape
+// so the gradient lives once. Values interpolate as clamped numbers / fixed tokens only
+// — no user string (HARD RULE #22).
+function backdropSlots(r: FinishRecipe): string[] {
+	const out: string[] = [];
+	const s = r.backdrop?.strength;
+	if (s != null && s < 1) out.push(`--fin-backdrop-strength: ${Math.min(1, Math.max(0, s)).toFixed(2)}`);
+	// The `.backdrop-mask` overlay carries ONE shape. Spotlight (reveal one window) wins
+	// over clearance (clear the center) if a finish somehow bakes both — the UI keeps them
+	// mutually exclusive. Both ship a rich feather + a hard opaque mirror (the opaque flip
+	// in generateFinishCss + base.finish.css swaps to `-opaque` in export).
+	const spot = r.backdrop?.spotlight;
+	if (spot) {
+		out.push(`--fin-backdrop-mask: ${spotlightMask(spot, 'rich')}`);
+		out.push(`--fin-backdrop-mask-opaque: ${spotlightMask(spot, 'opaque')}`);
+	} else if (r.backdrop?.clearance) {
+		out.push('--fin-backdrop-mask: var(--backdrop-clear-mask)');
+		out.push('--fin-backdrop-mask-opaque: var(--backdrop-clear-mask-opaque)');
+	}
+	return out;
+}
+
+// The SPOTLIGHT mask — a `var(--bg)` overlay that REVEALS the finish in one window and
+// hides it everywhere else (the inverse of clearance). Palette-blind (`var(--bg)` only),
+// no `mask-image`. RICH feathers the reveal edge; OPAQUE is a single HARD stop (a
+// feathered alpha area-fade grays in the vector PDF). x/y/radius are clamped integers, so
+// nothing but numbers reaches the CSS (HARD RULE #22).
+function spotlightMask(spot: { x: number; y: number; radius: number }, face: 'rich' | 'opaque'): string {
+	const x = spot.x.toFixed(0);
+	const y = spot.y.toFixed(0);
+	const rr = spot.radius.toFixed(0);
+	// transparent = finish shown (the window), var(--bg) = finish hidden (everywhere else).
+	return face === 'opaque'
+		? `radial-gradient(ellipse ${rr}% ${rr}% at ${x}% ${y}%, transparent 70%, var(--bg) 70%)`
+		: `radial-gradient(ellipse ${rr}% ${rr}% at ${x}% ${y}%, transparent 42%, var(--bg) 96%)`;
+}
+
 export function generateFinishCss(slug: string, recipe: FinishRecipe): string {
 	const safe = safeFinishSlug(slug);
 	const r = coerceRecipe(recipe);
 	const sel = `section.finish.finish-${safe}`;
-	// RICH (screen default) — the full slot stack, full-bleed fades to transparent.
-	const rich = `${sel} {\n  ${recipeSlots(r, 'rich').join(';\n  ')};\n}`;
+	// RICH (screen default) — the full slot stack + the BAKED backdrop layer, full-bleed
+	// fades to transparent.
+	const rich = `${sel} {\n  ${[...recipeSlots(r, 'rich'), ...backdropSlots(r)].join(';\n  ')};\n}`;
 	// OPAQUE (export fallback) — re-point only the full-bleed slots to their opaque
 	// values, in BOTH export guards (@media print = CLI vector PDF; .lattice-exporting
 	// = Studio html-to-image raster). The body is identical between the two so they
@@ -564,6 +668,33 @@ export function generateFinishCss(slug: string, recipe: FinishRecipe): string {
 	// which clones only the section (not its ancestors). See base.finish.css.
 	const exporting = `:where(.lattice-exporting) ${sel},\n${sel}.lattice-exporting {\n  ${opaqueBody};\n}`;
 	return `${rich}\n${print}\n${exporting}`;
+}
+
+/**
+ * Apply a deck's `finish-override:` map to a finish's recipe. The override is a PARTIAL
+ * recipe (from `parseFinishOverride`), nested by layer to mirror the recipe's shape:
+ *
+ *   finish-override:
+ *     backdrop: { strength: 0.4, clearance: off }
+ *     wash:     { intensity: 5 }
+ *
+ * Each present layer's fields are shallow-merged over the finish's (a two-level deep
+ * merge — the recipe is exactly two levels), then `coerceRecipe` normalizes the result:
+ * clamps numbers, resolves keywords, and DROPS reset-to-default axes (`strength: 1`,
+ * `clearance: off`) so an override can turn a baked axis back off. Regenerate with
+ * `generateFinishCss(slug, merged)`. Raw string values are fine — coercion parses them.
+ * This is the ONE override mechanism: it reaches every layer, including ones a CSS
+ * variable can't express (e.g. a wash `type` swap), which is why the deck overrides by
+ * regenerating the finish rather than by racing a rival custom property.
+ */
+export function mergeFinishOverride(recipe: FinishRecipe, override: Record<string, Record<string, string>>): FinishRecipe {
+	const merged: Record<string, unknown> = { ...recipe };
+	const base = recipe as unknown as Record<string, unknown>;
+	for (const layer of Object.keys(override || {})) {
+		const b = base[layer];
+		merged[layer] = b && typeof b === 'object' ? { ...(b as object), ...override[layer] } : override[layer];
+	}
+	return coerceRecipe(merged);
 }
 
 /** A small preview-chip background for a recipe — its most salient layer, bumped

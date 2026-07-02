@@ -8,6 +8,33 @@ summary: A finish can OVERPOWER content — too intense, or covering the area be
 **Status:** proposed 2026-07-01. Design-before-code for a structural change;
 prototype-validated. Implementation staged into slices (§9), each its own PR.
 
+> **Revision 2026-07-02 (FINAL) — backdrop is the finish's FIFTH LAYER; the deck
+> overrides it via `finish-override:`.** This SUPERSEDES both the original "controls
+> live on the layer, not on any preset" framing (§1/§3/§5) AND the intermediate
+> "Apply stamps `backdrop:` front matter" note that preceded it. The shipped model
+> (#695):
+>
+> - **Baked.** A fabricated finish's backdrop (`strength` + `clearance`) is a design
+>   element OF the finish, tuned in the Fabricate designer as a fifth layer group and
+>   **emitted into the finish's generated CSS** as `--fin-backdrop-*` tokens
+>   (`docs/src/components/studio/finish-generate.ts` `backdropSlots`), exactly like
+>   wash / texture / mark / edge. The clearance mask references a shared
+>   `--backdrop-clear-mask` shape defined once in `base.finish.css` (rich + hard
+>   `-opaque` mirror, swapped by the export flip).
+> - **Overridden.** The deck author overrides ANY baked layer — backdrop included —
+>   through ONE nested `finish-override:` front-matter map that mirrors the recipe
+>   shape. It is a *partial recipe* deep-merged onto the applied finish's recipe
+>   (`mergeFinishOverride`), and the finish CSS is **regenerated** — so an override
+>   reaches layers a rival CSS variable can't express (a wash-type swap), and resetting
+>   an axis to its default turns a baked axis back off. Studio-side (preview + embed);
+>   the bare CLI renders the already-merged embedded CSS.
+> - **Retired.** The top-level `backdrop:` front-matter map (§5), its render-path
+>   stamping (`lib/core/resolve-backdrop.js` — deleted), its Deck-setup slider/toggle,
+>   and its `backdrop-strength-range` / `unknown-backdrop-axis` lint are GONE. A
+>   leftover top-level `backdrop:` earns one `retired-backdrop-key` migration warning.
+>   The `.backdrop` wrapper + compositor (§3) and the mask (§4) survive unchanged —
+>   they host the baked `--fin-backdrop-*`.
+
 ## 1. The problem
 
 A finish is a stack of palette-blind gradient layers painted *behind* slide
@@ -206,24 +233,43 @@ wrapper resolves or neutralizes the blockers:
 
 ## 9. Implementation slices (each its own PR, HARD #17)
 
-1. **Backdrop wrapper migration (engine).** Emit `.backdrop` in all three paths
+1. ✅ **Backdrop wrapper migration (engine).** Emit `.backdrop` in all three paths
    (materialize on a finish/backdrop); move the compositor onto it; keep presets
    setting `--fin-*` on the section. Visual regression over all presets. *Frees
    `section::after` — verify/repair the vignette edges (F5).* **Export sign-off.**
-2. **Nested-block reader + strength.** The one-level nested reader for `backdrop:`,
-   shared across the render paths + `deck-config` + lint; then `opacity:
-   var(--backdrop-strength,1)` + the `backdrop.strength` axis + Deck-setup slider +
-   the editor's nested autocomplete.
-3. **Clearance.** `.backdrop-mask` zone gradient (rich+opaque) + `backdrop.clearance`
-   axis + drawer toggle + autocomplete. Opt-in.
-4. **Spotlight.** `.backdrop-mask` window gradient + `backdrop.spotlight` axis
-   (joystick+slider), face-parity gate, joystick disambiguation (F12).
-5. **Docs + demo deck** (`examples/`), CHANGELOG, gate wiring, vocabulary pass.
+   *(shipped #674)*
+2. ✅ **Nested-block reader + strength.** *(shipped #674; the deck-level `backdrop:`
+   reader + `--backdrop-strength` stamp + Deck-setup slider were later RETIRED by #695
+   — see the FINAL revision. Strength is now a baked `--fin-backdrop-strength` token.)*
+3. ✅ **Clearance.** `.backdrop-mask` zone gradient (rich+opaque). *(the mechanism
+   shipped, but the deck-level `backdrop-clear` class + `backdrop.clearance` axis were
+   RETIRED by #695; clearance is now a baked `--fin-backdrop-mask` referencing the
+   shared `--backdrop-clear-mask` shape, overridable via `finish-override:`. Validated
+   in both faces.)*
+3b. ✅ **Baked layer + `finish-override:` (#695).** Backdrop becomes the finish's fifth
+   layer (`backdropSlots` → `--fin-backdrop-*`), tuned in Fabricate; the deck overrides
+   any baked layer through the single `finish-override:` partial-recipe-merge-and-
+   regenerate map (`mergeFinishOverride`). Retires the top-level `backdrop:` path
+   (`resolve-backdrop.js` deleted, Deck-setup control + backdrop-axis lint gone,
+   `retired-backdrop-key` migration warning added). **Export sign-off.**
+4. ✅ **Spotlight (#695).** `.backdrop-mask` REVEAL-window gradient — the inverse of
+   clearance (transparent in the window = finish shown, `var(--bg)` outside = hidden),
+   baked as `backdrop.spotlight { x, y, radius }` (`backdropSlots`) with a rich feather +
+   hard opaque mirror, both faces validated in the CLI PDF. Tuned in Fabricate by the
+   shipped `PlaceControl` (joystick + drag + numeric x/y + a radius slider); mutually
+   exclusive with clearance (one mask). Overridden via `finish-override:` with the resolved
+   TRIPLE grammar `spotlight: x y radius` (§10). Front-matter values are clamped integers
+   only (HARD RULE #22). *(Live joystick interaction rides the added `fabricate.spec.ts`
+   e2e in CI; the render + coercion are unit-tested and PDF-verified.)*
+5. ✅ **Docs + demo deck** (`examples/finish-override.md` — clearance + spotlight slides),
+   CHANGELOG, vocabulary pass.
 
 ## 10. Open questions
 
-- **`backdrop.spotlight` grammar** — a space-separated triple `x% y% radius%` (e.g.
-  `backdrop.spotlight: 84 30 40`) vs a named window (`top-right`). Resolve in slice 4.
+- ~~**`backdrop.spotlight` grammar**~~ — RESOLVED (#695): the space-separated TRIPLE
+  `spotlight: x y radius` (e.g. `84 30 40`), under `finish-override.backdrop`. The window
+  is now a *baked* recipe field `{ x, y, radius }` placed by the Fabricate joystick; the
+  triple is the deck-override serialization. `coerceSpotlight` accepts both.
 - **Strength scope** — deck-wide only, or also a per-slide hook?
 - **Clearance shape** — derive from the actual content box geometry (measured) or a
   fixed safe-margin approximation? Start with the approximation; measure later if

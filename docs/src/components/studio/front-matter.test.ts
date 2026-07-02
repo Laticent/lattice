@@ -1,9 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, setFrontMatter, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, setFrontMatter, stripFrontMatter } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
 
 describe('front-matter', () => {
+	it('round-trips a nested finish-override: block — a flat edit does NOT flatten it', () => {
+		const src = '---\ntheme: indaco\nfinish: finish-shu\nfinish-override:\n  backdrop:\n    strength: 0.4\n    clearance: off\n---\n\n# Deck';
+		// editing a FLAT key preserves the two-level nested block VERBATIM (regression: a
+		// naive flat parser would flatten `backdrop:`/`strength:` into stray scalars)
+		const out = setFrontMatter(src, 'paginate', 'true');
+		expect(out).toMatch(/\nfinish-override:\n {2}backdrop:\n {4}strength: 0\.4\n {4}clearance: off\n/);
+		expect(getFrontMatter(out, 'paginate')).toBe('true');
+		expect(getFrontMatter(out, 'strength')).toBeUndefined(); // never a flat key
+		expect(getFrontMatter(out, 'backdrop')).toBeUndefined();
+	});
+
+	it('parseFinishOverride reads the two-level map (layer → { attr: value })', () => {
+		const src = '---\nfinish: finish-shu\nfinish-override:\n  backdrop:\n    strength: 0.4\n    clearance: off  # tune it down\n  wash:\n    intensity: 5\n---\n\n# D';
+		expect(parseFinishOverride(src)).toEqual({ backdrop: { strength: '0.4', clearance: 'off' }, wash: { intensity: '5' } });
+		// inline comments on a value are stripped; quotes unwrapped
+		expect(parseFinishOverride('---\nfinish-override:\n  mark:\n    glyph: "AB"\n---\n\n# D')).toEqual({ mark: { glyph: 'AB' } });
+	});
+
+	it('parseFinishOverride returns {} when the block is absent or empty', () => {
+		expect(parseFinishOverride('---\nfinish: finish-shu\n---\n\n# D')).toEqual({});
+		expect(parseFinishOverride(BODY)).toEqual({});
+		// a layer header with no attrs is dropped (no phantom empty layer)
+		expect(parseFinishOverride('---\nfinish-override:\n  backdrop:\n---\n\n# D')).toEqual({});
+	});
+
+	it('parseFinishOverride also accepts the inline flow-map form (the docs shorthand)', () => {
+		const src = '---\nfinish-override:\n  backdrop: { strength: 0.4, clearance: off }\n  wash: { intensity: 5 }  # note\n---\n\n# D';
+		expect(parseFinishOverride(src)).toEqual({ backdrop: { strength: '0.4', clearance: 'off' }, wash: { intensity: '5' } });
+		// mixed inline + expanded layers coexist
+		const mixed = '---\nfinish-override:\n  backdrop: { clearance: on }\n  texture:\n    intensity: 4\n---\n\n# D';
+		expect(parseFinishOverride(mixed)).toEqual({ backdrop: { clearance: 'on' }, texture: { intensity: '4' } });
+		// an empty inline map yields nothing
+		expect(parseFinishOverride('---\nfinish-override:\n  backdrop: {}\n---\n\n# D')).toEqual({});
+	});
+
+	it('parseFinishOverride carries a spotlight TRIPLE as a raw string (coerced downstream)', () => {
+		const expanded = '---\nfinish-override:\n  backdrop:\n    spotlight: 84 30 40\n---\n\n# D';
+		expect(parseFinishOverride(expanded)).toEqual({ backdrop: { spotlight: '84 30 40' } });
+		const inline = '---\nfinish-override:\n  backdrop: { spotlight: 84 30 40 }\n---\n\n# D';
+		expect(parseFinishOverride(inline)).toEqual({ backdrop: { spotlight: '84 30 40' } });
+	});
+
 	it('creates a block on the first directive', () => {
 		const out = setFrontMatter(BODY, 'size', 'square');
 		expect(out.startsWith('---\nsize: square\n---\n\n')).toBe(true);

@@ -496,11 +496,14 @@ describe('backdrop layer', () => {
     assert.ok(it === -1 || bd < it, 'the .backdrop is a sibling BEFORE .image-text, not buried inside it');
   });
 
-  test('backdrop.strength stamps the inline --backdrop-strength var; default omits it', () => {
-    const dim = makeEngine().render('---\nfinish: atrium\nbackdrop:\n  strength: 0.4\n---\n\n# A\n', 'lattice').html;
-    assert.match(dim, /<div class="backdrop" style="--backdrop-strength:0\.4"/);
-    const plain = makeEngine().render('---\nfinish: atrium\n---\n\n# A\n', 'lattice').html;
-    assert.doesNotMatch(plain, /--backdrop-strength/);
+  test('backdrop restraint is BAKED into the finish CSS — the wrapper carries no deck-level stamp', () => {
+    // Retired: a top-level `backdrop:` map (strength / clearance) no longer stamps an
+    // inline var or a `backdrop-clear` class. Backdrop is a baked finish layer now
+    // (--fin-backdrop-*), tuned by the deck through the Studio `finish-override:` map.
+    const html = makeEngine().render('---\nfinish: atrium\nbackdrop:\n  strength: 0.4\n  clearance: on\n---\n\n# A\n', 'lattice').html;
+    assert.match(html, /<div class="backdrop" aria-hidden/, 'the wrapper is injected without an inline style');
+    assert.doesNotMatch(html, /--backdrop-strength/, 'no deck-level strength var is stamped');
+    assert.doesNotMatch(html, /\bbackdrop-clear\b/, 'no deck-level clearance class is stamped');
   });
 
   test('a PER-SLIDE finish class renders on its own — implies `finish` + injects .backdrop (no deck-wide finish:)', () => {

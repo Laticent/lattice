@@ -182,16 +182,15 @@ describe('deck linter', () => {
     assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-finish').length, 0);
   });
 
-  test('warns on an out-of-range backdrop.strength and an unknown backdrop axis; accepts valid ones', () => {
-    const bad = lintText('---\ntheme: indaco\nfinish: atrium\nbackdrop:\n  strength: 5\n  wobble: on\n---\n\n## H.\n', { vocab });
-    const range = bad.find((x) => x.rule === 'backdrop-strength-range');
-    const axis = bad.find((x) => x.rule === 'unknown-backdrop-axis');
-    assert.ok(range, 'strength: 5 should warn (out of 0–1)');
-    assert.equal(range.classToken, '5');
-    assert.ok(axis, 'wobble should warn as an unknown axis');
-    assert.equal(axis.classToken, 'wobble');
-    // a valid strength + a following flat key (dedent) → clean
-    const ok = lintText('---\ntheme: indaco\nfinish: atrium\nbackdrop:\n  strength: 0.4\npaginate: true\n---\n\n## H.\n', { vocab });
+  test('warns that a top-level `backdrop:` block is retired (migrate to finish-override:)', () => {
+    // Retired: backdrop is a baked finish layer now; a top-level `backdrop:` map silently
+    // no-ops, so it earns one migration warning (not per-axis validation).
+    const bad = lintText('---\ntheme: indaco\nfinish: atrium\nbackdrop:\n  strength: 0.4\n  clearance: on\n---\n\n## H.\n', { vocab });
+    const retired = bad.filter((x) => x.rule === 'retired-backdrop-key');
+    assert.equal(retired.length, 1, 'exactly one migration warning for the block');
+    assert.equal(retired[0].classToken, 'backdrop');
+    // a `backdrop:` NESTED under finish-override: is the supported form → no warning
+    const ok = lintText('---\ntheme: indaco\nfinish: atrium\nfinish-override:\n  backdrop:\n    strength: 0.4\n---\n\n## H.\n', { vocab });
     assert.equal(ok.filter((x) => /backdrop/.test(x.rule)).length, 0);
   });
 

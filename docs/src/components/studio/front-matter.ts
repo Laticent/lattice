@@ -24,16 +24,53 @@ export function stripFrontMatter(source: string): string {
 	return m ? src.slice(m[0].length) : src;
 }
 
-/** Parse the leading block into an ordered list of [key, value] pairs. */
-function parsePairs(source: string): [string, string][] {
+/**
+ * Parse the leading block into its ordered flat [key, value] pairs PLUS any NESTED
+ * blocks — a bare `key:` header followed by more-indented `child: value` lines (e.g.
+ * `finish-override:`, the deck author's finish tuning). Nested blocks are captured as
+ * their raw child lines and re-emitted VERBATIM, so an unrelated edit (setting `size:`,
+ * stamping a class) round-trips the block untouched instead of flattening it into stray
+ * scalars that would corrupt the source. A bare header with no indented children is
+ * just an empty flat scalar. `finish:` etc. stay flat.
+ */
+function parseFm(source: string): { pairs: [string, string][]; blocks: [string, string[]][] } {
 	const m = FM_RE.exec(String(source ?? ''));
-	if (!m) return [];
+	if (!m) return { pairs: [], blocks: [] };
 	const pairs: [string, string][] = [];
-	for (const line of m[1].split(/\r?\n/)) {
-		const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line.trim());
+	const blocks: [string, string[]][] = [];
+	const lines = m[1].split(/\r?\n/);
+	for (let i = 0; i < lines.length; i++) {
+		const head = lines[i].match(/^(\s*)([A-Za-z][\w-]*):[ \t]*$/); // bare `key:` — no value
+		if (head) {
+			const base = head[1].length;
+			const child: string[] = [];
+			while (i + 1 < lines.length) {
+				const next = lines[i + 1];
+				if (!next.trim()) { i++; continue; } // blank lines don't end the block
+				if ((next.match(/^(\s*)/)?.[1] ?? '').length <= base) break; // dedent → block ends
+				child.push(next); // captured verbatim (indentation + any inline comment)
+				i++;
+			}
+			if (child.length) { blocks.push([head[2], child]); continue; }
+			pairs.push([head[2], '']); // a bare header with no children is an empty scalar
+			continue;
+		}
+		const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(lines[i].trim());
 		if (kv) pairs.push([kv[1], unquote(kv[2])]);
 	}
-	return pairs;
+	return { pairs, blocks };
+}
+
+/** Re-emit a front-matter block from flat pairs + nested blocks (verbatim child lines),
+ *  or the bare body when nothing remains. Nested blocks trail the flat keys. */
+function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: string): string {
+	const lines = pairs.map(([k, v]) => `${k}: ${quoteIfNeeded(v)}`);
+	for (const [k, child] of blocks) {
+		lines.push(`${k}:`);
+		for (const c of child) lines.push(c);
+	}
+	if (!lines.length) return body;
+	return `---\n${lines.join('\n')}\n---\n\n${body.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
 }
 
 function unquote(v: string): string {
@@ -45,10 +82,53 @@ function quoteIfNeeded(v: string): string {
 	return /^[\w:.\-/]+$/.test(v) ? v : `"${v.replace(/"/g, '\\"')}"`;
 }
 
-/** Read a single directive's value, or undefined if absent. */
+/** Read a single flat directive's value, or undefined if absent. */
 export function getFrontMatter(source: string, key: string): string | undefined {
-	const hit = parsePairs(source).find(([k]) => k === key);
+	const hit = parseFm(source).pairs.find(([k]) => k === key);
 	return hit?.[1];
+}
+
+/**
+ * Parse the deck's `finish-override:` block into a PARTIAL recipe — a map of layer →
+ * `{ attr: rawStringValue }`, nested one level under each layer key to mirror the recipe
+ * shape (`backdrop: { strength: 0.4, clearance: off }`, `wash: { intensity: 5 }`, …).
+ * Values stay raw strings; `mergeFinishOverride` deep-merges them onto the finish's
+ * recipe and `coerceRecipe` parses/clamps them. Returns {} when the block is absent.
+ * Only layer keys that carry indented children become entries — a bare `finish-override:`
+ * (or a stray scalar under it) yields nothing.
+ */
+export function parseFinishOverride(source: string): Record<string, Record<string, string>> {
+	const block = parseFm(source).blocks.find(([k]) => k === 'finish-override');
+	if (!block) return {};
+	const out: Record<string, Record<string, string>> = {};
+	let cur: Record<string, string> | null = null;
+	let layerIndent = -1;
+	for (const raw of block[1]) {
+		const indent = (raw.match(/^(\s*)/)?.[1] ?? '').length;
+		// An INLINE flow map on the layer line — `backdrop: { strength: 0.4, clearance: off }`
+		// (valid YAML, and the shorthand the docs show). Parse its comma-separated pairs. NOTE:
+		// commas are the flow-map's OWN separators, so a single value can't contain one — a
+		// multi-number value like the spotlight triple must be SPACE-separated (`spotlight:
+		// 84 30 40`); a comma'd `84, 30, 40` is ambiguous YAML and coerces away (fails safe).
+		const inline = raw.match(/^\s*([A-Za-z][\w-]*):\s*\{(.*)\}\s*(?:#.*)?$/);
+		if (inline) {
+			const m: Record<string, string> = {};
+			for (const pair of inline[2].split(',')) {
+				const kv2 = pair.match(/^\s*([A-Za-z][\w-]*)\s*:\s*(.*?)\s*$/);
+				if (kv2 && kv2[2] !== '') m[kv2[1]] = unquote(kv2[2]);
+			}
+			if (Object.keys(m).length) out[inline[1]] = m;
+			cur = null; // an inline layer closes any open expanded layer
+			continue;
+		}
+		const header = raw.match(/^\s*([A-Za-z][\w-]*):[ \t]*$/); // a layer header (no value)
+		if (header) { cur = {}; out[header[1]] = cur; layerIndent = indent; continue; }
+		const kv = raw.match(/^\s*([A-Za-z][\w-]*):\s*(.+)$/);
+		if (kv && cur && indent > layerIndent) cur[kv[1]] = unquote(kv[2].replace(/\s+#.*$/, ''));
+	}
+	// Drop any layer header that carried no attrs (an empty `backdrop:` under the override).
+	for (const k of Object.keys(out)) if (!Object.keys(out[k]).length) delete out[k];
+	return out;
 }
 
 /**
@@ -78,12 +158,9 @@ export function mergeClassTokens(source: string, tokens: string): string {
  */
 export function setFrontMatter(source: string, key: string, value: string | null): string {
 	const body = stripFrontMatter(source);
-	const pairs = parsePairs(source).filter(([k]) => k !== key);
+	const { pairs: all, blocks } = parseFm(source);
+	const pairs = all.filter(([k]) => k !== key);
 	if (value !== null) pairs.push([key, value]);
-	if (!pairs.length) return body;
-	const block = pairs.map(([k, v]) => `${k}: ${quoteIfNeeded(v)}`).join('\n');
-	// Single blank line between the block and the body. Collapse only leading blank
-	// LINES (not all whitespace) so meaningful indentation on the body's first line
-	// survives.
-	return `---\n${block}\n---\n\n${body.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
+	// Nested blocks (e.g. `finish-override:`) round-trip untouched when a flat key changes.
+	return emitFm(pairs, blocks, body);
 }

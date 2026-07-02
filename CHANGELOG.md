@@ -44,6 +44,10 @@ in patch versions.
   Markdown source to the PDF as an embedded file (visible in any attachments
   panel, extractable with `pdfdetach`), so the artifact alone round-trips back
   to an editable deck.
+- **The Fabricate finish designer's on-canvas placement handles are now LABELED.** The
+  drag dots over the specimen (wash hotspot, mark, spotlight) were identical circles —
+  you couldn't tell which was which. Each is now a named, tone-colored pill (`Wash` /
+  `Mark` / `Spotlight`) centered on its point, so multiple handles read at a glance.
 - **Studio E2E — journeys + persona scenarios, with a live-OpenRouter AI tier
   (`docs/e2e/journeys/`, `docs/e2e/scenarios/`, #694).** Two new layers on top
   of the feature-level suite (#691), each asserted on a goal-level oracle
@@ -181,12 +185,39 @@ in patch versions.
 
 ### Added
 
-- **The Fabricate finish designer previews at backdrop strength.** A "Preview strength"
-  control dials the specimen's `--backdrop-strength` (the same lever the deck-wide
-  `backdrop: strength:` axis pulls), so you can design and judge a finish at the restraint
-  it'll be shown with — instead of always at full intensity. Design-time only: the finish
-  stays a pure recipe (strength is a per-deck control, not baked into the saved finish —
-  the finish and backdrop axes are deliberately separate).
+- **Backdrop is the finish's FIFTH layer — baked in Fabricate, overridden with one
+  `finish-override:` map.** A finish now carries a *backdrop* alongside wash / texture /
+  mark / edge, with three composable restraints: **strength** (dim the whole finish),
+  **clearance** (recede it behind the content box so the words sit on clean canvas while
+  the finish frames the margins), and **spotlight** (the inverse mask — reveal the finish
+  in one joystick-placed window and hide it everywhere else). You tune them in the
+  Fabricate designer (a fifth layer group, previewed WYSIWYG), and they're emitted into
+  the finish's generated CSS as `--fin-backdrop-*` tokens — the mask is a palette-blind
+  `var(--bg)` overlay on `.backdrop-mask`, feathered on screen and a HARD edge in export
+  (a feathered alpha area-fade grays in the vector PDF), validated in both faces.
+  Clearance and spotlight are two shapes of the ONE mask, so they're mutually exclusive;
+  strength composes with either. The deck author overrides **any** baked layer — backdrop
+  included — through a single nested front-matter map that mirrors the recipe:
+
+  ```yaml
+  finish: finish-shu
+  finish-override:
+    backdrop: { strength: 0.4, clearance: off }
+    wash:     { intensity: 5 }
+  ```
+
+  `finish-override:` is deep-merged onto the finish's recipe and the CSS regenerated (so
+  an override reaches layers a CSS variable can't express, e.g. a wash-type swap), then
+  injected into the Studio preview and embedded into every export. Resetting an axis to
+  its default (`strength: 1`, `clearance: off`) turns a baked axis back off. Studio-side —
+  the bare CLI renders the already-merged embedded CSS.
+  (`engineering/decisions/2026-07-01-finish-restraint-controls.md`.)
+
+  **Breaking (unreleased):** this replaces the top-level `backdrop:` front-matter map
+  (strength / clearance) that earlier `## Unreleased` work introduced — its render-path
+  stamping, its Deck-setup slider/toggle, and its `backdrop-strength-range` /
+  `unknown-backdrop-axis` lint are retired. A leftover top-level `backdrop:` block now
+  earns one `retired-backdrop-key` migration warning pointing to `finish-override:`.
 
 - **The gallery deck now exercises every component — all 55, in a 115-slide
   tour** (was 87 slides covering 31). Four new narrative modules: the
@@ -252,18 +283,15 @@ in patch versions.
   not just when it's the deck-wide value. `finish-none` (the per-slide opt-out) and the
   `finish-preview` specimen are not variants, so they don't activate. (Finishes are now
   applied independently to slides, matching how `_class` modifiers work.)
-- **Restrain an overpowering finish — the backdrop layer + a `backdrop.strength` dial (#669).**
+- **Restrain an overpowering finish — the backdrop layer (#669).**
   A finish now composites onto a dedicated `.backdrop` wrapper behind content (injected across
-  all three render paths), so it can be tuned as one layer. First control: deck-wide
-  `backdrop:` front matter with a `strength` axis (0–1) that dims the whole finish uniformly —
-  `finish:` is unchanged (still the scalar preset selector), and a plain deck is byte-identical.
-  Export-safe (a plain `opacity` on the wrapper, verified in the vector PDF). Also frees
-  `section::after` for the paginator (the mark/edge moved onto the wrapper's pseudos), fixing
-  the contended vignette edges on halo/ledger/nimbus/gallery. The strength dial is surfaced in
-  the **Deck-setup drawer** (a slider), completed by the **editor autocomplete** (the `backdrop:`
-  key + its axes), and validated by the **deck linter** (`backdrop-strength-range` /
-  `unknown-backdrop-axis`). The `clearance` (content-safe zone) + `spotlight` (reveal window) axes
-  follow. See `engineering/decisions/2026-07-01-finish-restraint-controls.md`.
+  all three render paths), so it can be tuned as one layer. Export-safe (a plain `opacity` on
+  the wrapper, verified in the vector PDF). Also frees `section::after` for the paginator (the
+  mark/edge moved onto the wrapper's pseudos), fixing the contended vignette edges on
+  halo/ledger/nimbus/gallery. The layer's controls — strength + clearance — shipped (later in
+  this same `## Unreleased`) as a **baked finish layer** tuned in Fabricate and overridden per
+  deck via `finish-override:`, superseding this entry's original deck-level `backdrop:` front
+  matter / Deck-setup dial. See `engineering/decisions/2026-07-01-finish-restraint-controls.md`.
 
 - **Ground one AI generation in several reference docs at once (#656).** The reference-doc
   picker is now multi-select — toggle any number of saved docs (up to a cap) into the grounding

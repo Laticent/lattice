@@ -7,6 +7,7 @@ import {
 	generateFinishCss,
 	generateSwatch,
 	MARK_TYPES,
+	mergeFinishOverride,
 	PRESET_RECIPES,
 	safeFinishSlug,
 	sanitizeGlyph,
@@ -146,6 +147,95 @@ describe('finish-generate', () => {
 		expect(() => coerceRecipe(null)).not.toThrow();
 		expect(() => coerceRecipe('nonsense')).not.toThrow();
 		expect(() => coerceRecipe(42)).not.toThrow();
+	});
+
+	it('coerceRecipe carries a BAKED backdrop (strength/clearance), dropping defaults', () => {
+		// a real baked backdrop round-trips (clamped)
+		expect(coerceRecipe({ backdrop: { strength: 0.6, clearance: 'on' } }).backdrop).toEqual({ strength: 0.6, clearance: true });
+		expect(coerceRecipe({ backdrop: { strength: 1.8 } }).backdrop).toBeUndefined(); // clamps to 1 = full = default → dropped
+		expect(coerceRecipe({ backdrop: { strength: 1, clearance: false } }).backdrop).toBeUndefined(); // all-default → no key
+		// a plain finish (no backdrop) carries no backdrop key
+		expect('backdrop' in coerceRecipe({ wash: { type: 'grid' } })).toBe(false);
+		// clearance alone (no strength) is kept
+		expect(coerceRecipe({ backdrop: { clearance: true } }).backdrop).toEqual({ clearance: true });
+	});
+
+	it('coerces a SPOTLIGHT window from the triple string OR an object; clamps; drops garbage', () => {
+		// the front-matter TRIPLE grammar `x y radius`
+		expect(coerceRecipe({ backdrop: { spotlight: '84 30 40' } }).backdrop).toEqual({ spotlight: { x: 84, y: 30, radius: 40 } });
+		// comma-separated is fine too; radius clamps into range
+		expect(coerceRecipe({ backdrop: { spotlight: '50, 50, 200' } }).backdrop).toEqual({ spotlight: { x: 50, y: 50, radius: 70 } });
+		// object form (the stored recipe)
+		expect(coerceRecipe({ backdrop: { spotlight: { x: 70, y: 36, radius: 38 } } }).backdrop).toEqual({ spotlight: { x: 70, y: 36, radius: 38 } });
+		// a crafted / short / non-numeric value is dropped entirely (HARD RULE #22)
+		expect(coerceRecipe({ backdrop: { spotlight: '40 30 20; }' } }).backdrop).toBeUndefined();
+		expect(coerceRecipe({ backdrop: { spotlight: '50 50' } }).backdrop).toBeUndefined();
+		expect(coerceRecipe({ backdrop: { spotlight: '' } }).backdrop).toBeUndefined();
+	});
+
+	it('BAKES the backdrop layer into the generated CSS as deck-overridable --fin-backdrop-* tokens', () => {
+		const css = generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5, clearance: true } }));
+		expect(css).toMatch(/--fin-backdrop-strength:\s*0\.50/); // baked strength
+		expect(css).toMatch(/--fin-backdrop-mask:\s*var\(--backdrop-clear-mask\)/); // clearance references the shared shape
+		expect(css).toMatch(/--fin-backdrop-mask-opaque:\s*var\(--backdrop-clear-mask-opaque\)/); // hard mirror for export
+		// only the baked axes appear
+		const strengthOnly = generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5 } }));
+		expect(strengthOnly).toMatch(/--fin-backdrop-strength/);
+		expect(strengthOnly).not.toMatch(/--fin-backdrop-mask/);
+		// a plain finish (no baked backdrop) emits none
+		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop/);
+		// full strength (=1) is the default → not baked
+		expect(generateFinishCss('x', coerceRecipe({ backdrop: { strength: 1 } }))).not.toMatch(/--fin-backdrop/);
+	});
+
+	it('re-points the baked clearance mask to its opaque mirror in BOTH generated export rules', () => {
+		// PDF-safety: the finish's own `section.finish.finish-<slug>` (0,2,1) rich setter would
+		// beat base.finish.css's (0,1,1) `section.finish` flip, so the feathered mask would gray
+		// in the vector PDF. generateFinishCss must emit the flip at its OWN specificity.
+		const css = generateFinishCss('x', coerceRecipe({ backdrop: { clearance: true } }));
+		const print = css.slice(css.indexOf('@media print'), css.indexOf(':where('));
+		expect(print).toMatch(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque,\s*none\)/); // @media print
+		const exporting = css.slice(css.indexOf(':where('));
+		expect(exporting).toMatch(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque,\s*none\)/); // .lattice-exporting
+		// no baked clearance → no backdrop-mask flip in the export rules
+		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop-mask:/);
+	});
+
+	it('BAKES a spotlight window mask (rich feather + opaque hard mirror), taking precedence over clearance', () => {
+		const css = generateFinishCss('x', coerceRecipe({ backdrop: { clearance: true, spotlight: { x: 70, y: 35, radius: 38 } } }));
+		// the reveal window is emitted with clamped coords, NOT the clearance shared shape
+		expect(css).toMatch(/--fin-backdrop-mask:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 42%, var\(--bg\) 96%\)/);
+		expect(css).toMatch(/--fin-backdrop-mask-opaque:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 70%, var\(--bg\) 70%\)/);
+		expect(css).not.toMatch(/--backdrop-clear-mask/); // spotlight won — clearance shape not used
+		// the export rules flip the spotlight mask to its hard mirror in BOTH guards
+		expect((css.match(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque, none\)/g) || []).length).toBe(2);
+	});
+
+	it('mergeFinishOverride swaps a baked clearance for a deck spotlight (triple string)', () => {
+		const base = coerceRecipe({ backdrop: { clearance: true } });
+		const merged = mergeFinishOverride(base, { backdrop: { spotlight: '20 80 30' } });
+		expect(merged.backdrop?.spotlight).toEqual({ x: 20, y: 80, radius: 30 });
+		// spotlight wins in the regenerated CSS
+		expect(generateFinishCss('x', merged)).toMatch(/ellipse 30% 30% at 20% 80%/);
+	});
+
+	it('mergeFinishOverride deep-merges a finish-override partial over the recipe', () => {
+		const base = coerceRecipe({ backdrop: { strength: 0.5, clearance: true }, wash: { type: 'grid', intensity: 8 } });
+		// override ONE backdrop axis — the other baked axis (clearance) survives the merge
+		const dimmed = mergeFinishOverride(base, { backdrop: { strength: '0.3' } });
+		expect(dimmed.backdrop).toEqual({ strength: 0.3, clearance: true });
+		expect(dimmed.wash.intensity).toBe(8); // untouched layer preserved
+		// override RESETS an axis to its default → the axis turns back off (dropped)
+		const noClear = mergeFinishOverride(base, { backdrop: { clearance: 'off' } });
+		expect(noClear.backdrop).toEqual({ strength: 0.5 });
+		const full = mergeFinishOverride(base, { backdrop: { strength: '1' } });
+		expect(full.backdrop).toEqual({ clearance: true }); // strength 1 = default → dropped
+		// a NON-backdrop layer overrides too (the whole recipe is overridable)
+		expect(mergeFinishOverride(base, { wash: { intensity: '3' } }).wash.intensity).toBe(3);
+		// an empty override is a no-op
+		expect(mergeFinishOverride(base, {})).toEqual(base);
+		// regenerating with the merged recipe reflects the override in the baked tokens
+		expect(generateFinishCss('x', mergeFinishOverride(base, { backdrop: { clearance: 'off' } }))).not.toMatch(/--fin-backdrop-mask/);
 	});
 
 	it('generateSwatch returns a usable background string for every preset', () => {
