@@ -28,10 +28,23 @@ export default defineConfig({
 	testDir: './e2e',
 	// One slow surface (engine paint inside a srcdoc iframe) sets the timeout floor.
 	timeout: 60_000,
-	// No committed pixel baselines yet (font-swap/runner variance would flake them
-	// in CI — see the perf-gating doc); the @visual specs attach screenshots as
-	// review artifacts instead. Pixel-diff baselines are a documented follow-up.
-	expect: { timeout: 15_000 },
+	expect: {
+		timeout: 15_000,
+		// Committed pixel baselines for the @visual specs (the 2026-06-28 doc's
+		// deferred follow-up, now implemented). Determinism comes from three pins:
+		// the @playwright/test version IS the browser (rasterizer) pin; the
+		// stylePath pins fonts to DejaVu with the webfont fetches blocked (see
+		// e2e/visual.css + visual.spec.ts); animations/caret are neutralized here.
+		// The small maxDiffPixelRatio absorbs sub-pixel AA noise only. Re-bless
+		// deliberately with `npm run test:e2e:bless` — in the SAME PR as an
+		// intentional look change, like the slide golden-diff baselines.
+		toHaveScreenshot: {
+			maxDiffPixelRatio: 0.01,
+			stylePath: './e2e/visual.css',
+			animations: 'disabled',
+			caret: 'hide',
+		},
+	},
 	fullyParallel: true,
 	forbidOnly: isCI,
 	// The E2E suite is nightly (not the PR critical path), so a single retry to

@@ -27,6 +27,22 @@ in patch versions.
 
 ### Added
 
+- **Studio E2E: committed pixel baselines at all three viewports.** The
+  `@visual` specs now compare against committed `toHaveScreenshot` baselines
+  (`docs/e2e/visual.spec.ts-snapshots/`) instead of only attaching screenshots
+  — the follow-up the experience-gating decision doc (2026-06-28, §"Baseline
+  maintenance") deferred until the font environment was pinned. Determinism:
+  the `@playwright/test` version pins the browser/rasterizer; the spec blocks
+  the Google Fonts fetches and a `stylePath` (`docs/e2e/visual.css`) pins the
+  site chrome to DejaVu (identical bytes on the sandbox and the CI runner) —
+  the engine render inside the preview iframe keeps its vendored slide fonts,
+  untouched. `maxDiffPixelRatio: 0.01` absorbs sub-pixel AA noise only.
+  Re-bless deliberately with `npm run test:e2e:bless`, in the same PR as an
+  intentional look change — like the slide golden-diff baselines. Verified: six
+  consecutive green verification runs locally against the production build;
+  the first CI nightly is the runner-parity check (re-bless from its artifact
+  if the runner disagrees).
+
 - **Choose your placement-handle style — a new Workspace › General tab.** The finish
   designer's on-canvas handles (wash hotspot, mark, spotlight) now come in two styles,
   picked per workspace: **Familiar** — a raised grab-knob that reads as obviously
