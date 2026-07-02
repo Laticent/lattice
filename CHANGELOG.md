@@ -90,6 +90,11 @@ in patch versions.
     video + caption) whose height varies per post, so it's **auto-fit** to the height
     the card reports via `postMessage` (origin-checked to `instagram.com`), falling
     back to the fixed portrait box if that signal doesn't arrive.
+  - **Fixed the iOS first-tap "shutter."** On iPhone the first poster tap could flash
+    the player open and immediately dismiss it (the synthesized "ghost click" iOS fires
+    ~300ms after the opening tap landed on the just-mounted backdrop). The backdrop now
+    ignores closes within 400ms of opening, so the player stays up; the close button and
+    Escape are unaffected.
 - **PDF export: `--raster` and `--embed-source` flags (lattice-emulator, #690).**
   `--raster` prints the PDF as one full-bleed 2× JPEG per page (from the same
   screenshots the PPTX path takes) for maximum viewer compatibility — selectable text is

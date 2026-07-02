@@ -205,7 +205,17 @@ function play(poster) {
 		shell.appendChild(btn);
 		root.appendChild(shell);
 		// Backdrop tap closes; a tap on the player/shell does not (it drives playback).
-		root.addEventListener('click', (e) => { if (e.target === root) close(); });
+		// GHOST-CLICK GUARD (iOS): the tap that OPENS the modal is followed ~300ms later
+		// by a synthesized `click` at the same coordinates — which now land on the
+		// just-mounted backdrop, instantly dismissing it (the "shutter" + "kicked back to
+		// edit" bug on the first tap). Ignore backdrop closes fired within 400ms of open;
+		// the close button + Escape are separate handlers and stay live immediately.
+		const openedAt = Date.now();
+		root.addEventListener('click', (e) => {
+			if (e.target !== root) return;
+			if (Date.now() - openedAt < 400) return; // the opening gesture's ghost click
+			close();
+		});
 
 		const onKey = (e) => { if (e.key === 'Escape') close(); };
 		const prevOverflow = document.documentElement.style.overflow;
