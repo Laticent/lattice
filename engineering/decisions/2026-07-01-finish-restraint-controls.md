@@ -8,17 +8,32 @@ summary: A finish can OVERPOWER content — too intense, or covering the area be
 **Status:** proposed 2026-07-01. Design-before-code for a structural change;
 prototype-validated. Implementation staged into slices (§9), each its own PR.
 
-> **Revision 2026-07-02 — backdrop is ALSO a finish design element.** §1/§3 below
-> frame the controls as living purely on the *layer*, "not on any preset." In
-> practice a *fabricated* finish now **bakes** its own backdrop defaults (`strength`
-> + `clearance`) as part of its design: you set them in the Fabricate designer, they
-> save on the recipe (`recipe.backdrop`), and **Apply stamps them into the deck's
-> `backdrop:` front matter**, where the deck author tunes them. So the finish carries
-> a considered *default* restraint; the deck-level `backdrop:` axes (this doc) remain
-> the *tuning* surface — the two compose, they don't conflict. The baked value never
-> reaches the generated finish CSS (it's a front-matter stamp, not a layer), so the
-> render model here is unchanged. (Built-in presets stay bare — only saved finishes
-> bake a backdrop.) Landed with the clearance slice (#695).
+> **Revision 2026-07-02 (FINAL) — backdrop is the finish's FIFTH LAYER; the deck
+> overrides it via `finish-override:`.** This SUPERSEDES both the original "controls
+> live on the layer, not on any preset" framing (§1/§3/§5) AND the intermediate
+> "Apply stamps `backdrop:` front matter" note that preceded it. The shipped model
+> (#695):
+>
+> - **Baked.** A fabricated finish's backdrop (`strength` + `clearance`) is a design
+>   element OF the finish, tuned in the Fabricate designer as a fifth layer group and
+>   **emitted into the finish's generated CSS** as `--fin-backdrop-*` tokens
+>   (`docs/src/components/studio/finish-generate.ts` `backdropSlots`), exactly like
+>   wash / texture / mark / edge. The clearance mask references a shared
+>   `--backdrop-clear-mask` shape defined once in `base.finish.css` (rich + hard
+>   `-opaque` mirror, swapped by the export flip).
+> - **Overridden.** The deck author overrides ANY baked layer — backdrop included —
+>   through ONE nested `finish-override:` front-matter map that mirrors the recipe
+>   shape. It is a *partial recipe* deep-merged onto the applied finish's recipe
+>   (`mergeFinishOverride`), and the finish CSS is **regenerated** — so an override
+>   reaches layers a rival CSS variable can't express (a wash-type swap), and resetting
+>   an axis to its default turns a baked axis back off. Studio-side (preview + embed);
+>   the bare CLI renders the already-merged embedded CSS.
+> - **Retired.** The top-level `backdrop:` front-matter map (§5), its render-path
+>   stamping (`lib/core/resolve-backdrop.js` — deleted), its Deck-setup slider/toggle,
+>   and its `backdrop-strength-range` / `unknown-backdrop-axis` lint are GONE. A
+>   leftover top-level `backdrop:` earns one `retired-backdrop-key` migration warning.
+>   The `.backdrop` wrapper + compositor (§3) and the mask (§4) survive unchanged —
+>   they host the baked `--fin-backdrop-*`.
 
 ## 1. The problem
 
@@ -223,20 +238,23 @@ wrapper resolves or neutralizes the blockers:
    setting `--fin-*` on the section. Visual regression over all presets. *Frees
    `section::after` — verify/repair the vignette edges (F5).* **Export sign-off.**
    *(shipped #674)*
-2. ✅ **Nested-block reader + strength.** The one-level nested reader for `backdrop:`,
-   shared across the render paths + `deck-config` + lint; then `opacity:
-   var(--backdrop-strength,1)` + the `backdrop.strength` axis + Deck-setup slider +
-   the editor's nested autocomplete. *(shipped #674)*
-3. ✅ **Clearance.** `.backdrop-mask` zone gradient (rich+opaque) + `backdrop.clearance`
-   axis + drawer toggle + autocomplete. Opt-in. *(shipped: `backdrop-clear` class →
-   `section.finish.backdrop-clear` sets `--backdrop-mask` to a `var(--bg)` central
-   ellipse, feathered on screen / hard-edged in the opaque flip; parsed by
-   `backdropClasses`, propagated as a deck class across all three paths, with the
-   Deck-setup toggle + autocomplete + a `backdrop-clearance-value` lint check.
-   Validated in both faces.)*
-4. **Spotlight.** `.backdrop-mask` window gradient + `backdrop.spotlight` axis
-   (joystick+slider), face-parity gate, joystick disambiguation (F12).
-5. **Docs + demo deck** (`examples/`), CHANGELOG, gate wiring, vocabulary pass.
+2. ✅ **Nested-block reader + strength.** *(shipped #674; the deck-level `backdrop:`
+   reader + `--backdrop-strength` stamp + Deck-setup slider were later RETIRED by #695
+   — see the FINAL revision. Strength is now a baked `--fin-backdrop-strength` token.)*
+3. ✅ **Clearance.** `.backdrop-mask` zone gradient (rich+opaque). *(the mechanism
+   shipped, but the deck-level `backdrop-clear` class + `backdrop.clearance` axis were
+   RETIRED by #695; clearance is now a baked `--fin-backdrop-mask` referencing the
+   shared `--backdrop-clear-mask` shape, overridable via `finish-override:`. Validated
+   in both faces.)*
+3b. ✅ **Baked layer + `finish-override:` (#695).** Backdrop becomes the finish's fifth
+   layer (`backdropSlots` → `--fin-backdrop-*`), tuned in Fabricate; the deck overrides
+   any baked layer through the single `finish-override:` partial-recipe-merge-and-
+   regenerate map (`mergeFinishOverride`). Retires the top-level `backdrop:` path
+   (`resolve-backdrop.js` deleted, Deck-setup control + backdrop-axis lint gone,
+   `retired-backdrop-key` migration warning added). **Export sign-off.**
+4. **Spotlight.** `.backdrop-mask` window gradient — a further baked backdrop axis +
+   its `finish-override:` knob, face-parity gate, joystick disambiguation (F12).
+5. ✅ **Docs + demo deck** (`examples/finish-override.md`), CHANGELOG, vocabulary pass.
 
 ## 10. Open questions
 

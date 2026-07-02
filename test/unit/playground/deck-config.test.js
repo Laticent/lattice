@@ -248,51 +248,18 @@ describe('writeFrontMatter', () => {
     assert.ok(block.indexOf('finish: atrium') < block.indexOf('size: 4K'), block);
   });
 
-  test('backdrop.strength writes the NESTED block, clamps, defaults-out at 1, and survives other writes', async () => {
-    const { writeFrontMatter, readFrontMatter } = await import(MOD);
-    // writes as a nested backdrop: map (not a flat key)
-    const dim = writeFrontMatter(CLEAN, 'backdrop.strength', '0.4');
-    assert.match(dim, /\nbackdrop:\n {2}strength: 0\.4\n/);
-    assert.equal(readFrontMatter(dim)['backdrop.strength'], '0.4');
-    assert.equal(readFrontMatter(dim).configured, true);
-    // clamps to 0–1: a below-range value pins to 0 (still written, ≠ default)
-    assert.match(writeFrontMatter(CLEAN, 'backdrop.strength', '-0.5'), /\nbackdrop:\n {2}strength: 0\n/);
-    // an above-range value clamps to 1 = full = the default → no block
-    assert.equal(writeFrontMatter(CLEAN, 'backdrop.strength', '1.8'), CLEAN);
-    // 1 (full) is the default, as is empty → no backdrop block
-    assert.equal(writeFrontMatter(CLEAN, 'backdrop.strength', '1'), CLEAN);
-    assert.equal(writeFrontMatter(CLEAN, 'backdrop.strength', ''), CLEAN);
-    // survives an unrelated write — NOT flattened into stray scalars
-    const withPag = writeFrontMatter(dim, 'paginate', true);
-    assert.match(withPag, /\nbackdrop:\n {2}strength: 0\.4\n/);
-    assert.match(withPag, /\npaginate: true\n/);
-    // clearing it (→ 1) removes only the backdrop block
-    const cleared = writeFrontMatter(withPag, 'backdrop.strength', '1');
-    assert.doesNotMatch(cleared, /backdrop:/);
-    assert.match(cleared, /\npaginate: true\n/);
-    // coexists with a scalar finish:, in order (finish then backdrop)
-    const both = writeFrontMatter('---\nmarp: true\nfinish: atrium\nbackdrop:\n  strength: 0.3\n---\n\n# D\n', 'header', 'Board');
-    assert.ok(both.indexOf('finish: atrium') < both.indexOf('backdrop:'), both);
-    assert.ok(both.indexOf('backdrop:') < both.indexOf('header: Board'), both);
-  });
-
-  test('backdrop.clearance writes the nested toggle (on), defaults-out (off), and coexists with strength', async () => {
-    const { writeFrontMatter, readFrontMatter } = await import(MOD);
-    const on = writeFrontMatter(CLEAN, 'backdrop.clearance', true);
-    assert.match(on, /\nbackdrop:\n {2}clearance: on\n/);
-    assert.equal(readFrontMatter(on)['backdrop.clearance'], 'on');
-    assert.equal(readFrontMatter(on).configured, true);
-    // off / false → omitted (default), no backdrop block
-    assert.equal(writeFrontMatter(CLEAN, 'backdrop.clearance', false), CLEAN);
-    // composes with strength in ONE backdrop block
-    const both = writeFrontMatter(writeFrontMatter(CLEAN, 'backdrop.strength', '0.5'), 'backdrop.clearance', true);
-    assert.match(both, /\nbackdrop:\n/);
-    assert.match(both, /strength: 0\.5/);
-    assert.match(both, /clearance: on/);
-    // clearing clearance leaves strength intact
-    const justStrength = writeFrontMatter(both, 'backdrop.clearance', false);
-    assert.match(justStrength, /strength: 0\.5/);
-    assert.doesNotMatch(justStrength, /clearance:/);
+  test('a nested block (finish-override:) round-trips VERBATIM through an unrelated flat write', async () => {
+    const { writeFrontMatter } = await import(MOD);
+    // backdrop is a baked finish layer now; the deck author tunes it (and any layer) under
+    // `finish-override:`. Deck-setup never manages that block — but a flat edit here must
+    // PRESERVE it verbatim, never flatten its two-level nesting into stray scalars.
+    const src = '---\nmarp: true\nfinish: finish-recede\nfinish-override:\n  backdrop:\n    strength: 0.4\n    clearance: off\n---\n\n# D\n';
+    const out = writeFrontMatter(src, 'paginate', true);
+    assert.match(out, /\nfinish-override:\n {2}backdrop:\n {4}strength: 0\.4\n {4}clearance: off\n/);
+    assert.match(out, /\npaginate: true\n/);
+    // no stray flattened scalars leaked out of the block
+    assert.doesNotMatch(out, /^strength:/m);
+    assert.doesNotMatch(out, /^backdrop:/m);
   });
 
   test('a bespoke finish/mode counts as "configured"; the baselines do not', async () => {
@@ -503,14 +470,10 @@ describe('createConfigPanel (DOM)', () => {
     assert.ok(get().includes('finish: atrium'));
   });
 
-  test('the Finish strength slider renders and writes the nested backdrop.strength', async () => {
-    const { panel, host, get } = await mountProfile(CLEAN, ['backdrop.strength']);
+  test('no backdrop control renders — backdrop is a baked finish layer, not a Deck-setup field', async () => {
+    const { panel, host } = await mountProfile(CLEAN, null); // full author set
     panel.render();
-    const range = host.querySelector('input[aria-label="Finish strength"]');
-    assert.ok(range, 'a range slider renders for the strength axis');
-    assert.equal(range.value, '1', 'defaults to full (1) on a clean deck');
-    range.value = '0.35';
-    range.dispatchEvent(new dom.window.Event('input'));
-    assert.match(get(), /\nbackdrop:\n {2}strength: 0\.35\n/);
+    assert.equal(host.querySelector('input[aria-label="Finish strength"]'), null, 'no strength slider');
+    assert.equal(host.querySelector('input[aria-label="Clear behind content"]'), null, 'no clearance toggle');
   });
 });

@@ -18,7 +18,7 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'footer', info: 'Running footer text on every slide.' },
 	{ key: 'mode', info: 'Rendering mode — boardroom / sketch / sketch-clean.' },
 	{ key: 'finish', info: 'Finish backdrop — e.g. atrium, halo, gallery.' },
-	{ key: 'backdrop', info: 'Backdrop controls — a nested map (strength: 0–1).' },
+	{ key: 'finish-override', info: 'Override the applied finish — a nested map (backdrop: { strength, clearance }, wash, …).' },
 	{ key: 'split', info: 'Slide-splitting strategy — e.g. headings.' },
 	{ key: 'autosplit', info: 'Auto-split overflowing slides — true / false.' },
 	{ key: 'class', info: 'Default _class applied to every slide.' },

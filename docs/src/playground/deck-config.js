@@ -82,15 +82,6 @@ const FIELD_DEFAULTS = {
   validate: 'on',
   math: '', // '' / 'katex' = the default KaTeX renderer; 'mathjax' switches
   lang: '',
-  // `backdrop.strength` is an axis of the NESTED `backdrop:` map (not a flat key):
-  // the deck-wide finish dimmer (0–1; 1 = full = the omitted default). It reads/
-  // writes the `backdrop:` block specially (splitFrontMatter captures that block as
-  // one object entry so the flat emitter can't flatten it). See lib/core/
-  // resolve-backdrop.js + engineering/decisions/2026-07-01-finish-restraint-controls.md.
-  'backdrop.strength': '',
-  // `backdrop.clearance` is a nested toggle: 'on' recedes the finish behind the
-  // content box (default off/omitted). Like strength, an axis of the `backdrop:` map.
-  'backdrop.clearance': '',
 };
 const MANAGED = Object.keys(FIELD_DEFAULTS);
 
@@ -110,7 +101,7 @@ const MODE_LABELS = {
 
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'mode', 'finish', 'backdrop', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'mode', 'finish', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
 //   author  — every field (the Drawing Board: full set, theme three-way synced).
@@ -122,12 +113,12 @@ const EMIT_ORDER = ['marp', 'theme', 'mode', 'finish', 'backdrop', 'split', 'aut
 //             with no deck chrome and no theme, which the studio itself owns).
 export const CONFIG_PROFILES = Object.freeze({
   author: null,
-  noTheme: ['mode', 'finish', 'backdrop.strength', 'backdrop.clearance', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
+  noTheme: ['mode', 'finish', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
   // `autosplit` is a deck-AUTHORING concern (does my over-capacity content
   // divide?), not a theme/component PREVIEW register — so it's deliberately out
   // of the preview profile (a fixed specimen never overflows). It rides the full
   // author set + the Playground (noTheme) only.
-  preview: ['mode', 'finish', 'backdrop.strength', 'backdrop.clearance', 'size', 'paginate', 'form'],
+  preview: ['mode', 'finish', 'size', 'paginate', 'form'],
 });
 
 const TRUEY = /^(true|yes|on|1)$/i;
@@ -161,17 +152,16 @@ function splitFrontMatter(source) {
   const lines = m[1].split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    // The one NESTED key: `backdrop:` (a bare map header) — capture its indented
-    // children as a single object entry so the flat emitter can't flatten it into
-    // stray `backdrop:` + `strength:` scalars. See resolve-backdrop.js.
-    if (line.trim() === 'backdrop:') {
-      const child = {};
-      while (i + 1 < lines.length && /^\s+\S/.test(lines[i + 1])) {
-        const sub = /^\s+([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(lines[i + 1]);
-        if (sub) child[sub[1]] = sub[2].trim();
-        i++;
-      }
-      entries.push(['backdrop', child]);
+    // A NESTED block: a bare `key:` header (column 0, no value) whose following lines are
+    // indented — e.g. `finish-override:`. Capture its raw child lines verbatim as one
+    // entry `[key, { block: [...] }]`, so a flat Deck-setup edit re-emits the block
+    // untouched instead of flattening it into stray scalars. (The retired `backdrop:`
+    // block, if any leftover, rides the same preserve path.)
+    const head = /^([A-Za-z_][\w-]*):[ \t]*$/.exec(line);
+    if (head && i + 1 < lines.length && /^\s+\S/.test(lines[i + 1])) {
+      const block = [];
+      while (i + 1 < lines.length && /^\s+\S/.test(lines[i + 1])) { block.push(lines[i + 1]); i++; }
+      entries.push([head[1], { block }]);
       continue;
     }
     const kv = /^([A-Za-z_][\w-]*)\s*:\s*(.*)$/.exec(line.trim());
@@ -188,22 +178,13 @@ function splitFrontMatter(source) {
 export function readFrontMatter(source) {
   const { entries, present } = splitFrontMatter(source);
   const map = {};
-  for (const [k, v] of entries) map[k] = k === 'backdrop' ? v : stripQuotes(v);
-  // `backdrop.strength`: the axis of the nested block, clamped 0–1; '' when
-  // absent or at the default (1). The form surfaces it as a `backdrop.strength`
-  // field; it never round-trips as a flat key.
-  const bdRaw = map.backdrop && map.backdrop.strength;
-  const bdNum = bdRaw == null || bdRaw === '' ? NaN : Number.parseFloat(bdRaw);
-  const backdropStrength = Number.isFinite(bdNum) ? String(Math.min(1, Math.max(0, bdNum))) : '';
-  // `backdrop.clearance`: 'on' when the nested axis is truthy, '' (off) otherwise.
-  const clRaw = map.backdrop && map.backdrop.clearance;
-  const backdropClearance = TRUEY.test(String(clRaw || '').trim()) ? 'on' : '';
+  // Nested-block entries (`{ block: [...] }`, e.g. finish-override:) are preserved
+  // verbatim, not form-managed — keep them out of the scalar map's stringly view.
+  for (const [k, v] of entries) if (!(v && v.block)) map[k] = stripQuotes(v);
   return {
     theme: map.theme || '',
     mode: map.mode || '',
     finish: map.finish || '',
-    'backdrop.strength': backdropStrength,
-    'backdrop.clearance': backdropClearance,
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
     // `autosplit` is binary — surfaced as a boolean (like paginate) for the switch.
     autosplit: TRUEY.test(map.autosplit || ''),
@@ -223,10 +204,8 @@ export function readFrontMatter(source) {
     // Whether the deck carries any NON-THEME managed front matter — drives the
     // trigger's "configured" cue. `theme` is excluded: with full sync nearly
     // every deck has one, so it isn't a signal of bespoke setup.
-    configured: present && (
-      MANAGED.some((k) => k !== 'theme' && !k.startsWith('backdrop.') && map[k] != null && map[k] !== '' && !isDefault(k, map[k]))
-      || backdropStrength !== '' || backdropClearance !== ''
-    ),
+    configured: present &&
+      MANAGED.some((k) => k !== 'theme' && map[k] != null && map[k] !== '' && !isDefault(k, map[k])),
   };
 }
 
@@ -249,10 +228,6 @@ function isDefault(key, value) {
   // 'headings' is the default — same render as omitting split, so it's dropped
   // from the block; only the explicit 'rule' opt-out is written.
   if (key === 'split') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'headings'; }
-  // backdrop.strength: 1 (full) is the default — the omitted value; so is empty/invalid.
-  if (key === 'backdrop.strength') { const n = Number.parseFloat(value); return !Number.isFinite(n) || Math.min(1, Math.max(0, n)) === 1; }
-  // backdrop.clearance: off (any non-truthy) is the omitted default; only `on` is written.
-  if (key === 'backdrop.clearance') return !TRUEY.test(String(value).trim());
   return (value == null ? '' : String(value)) === FIELD_DEFAULTS[key];
 }
 
@@ -276,15 +251,6 @@ function normalize(key, value) {
   // boardroom = style (mode) baseline → omit.
   if (key === 'mode') { const s = v.toLowerCase(); return s === '' || s === 'boardroom' ? null : s; }
   if (key === 'split') { return v.toLowerCase() === 'rule' ? 'rule' : null; }
-  // backdrop.strength: clamp 0–1; 1 (full) / empty / invalid → omit the axis.
-  if (key === 'backdrop.strength') {
-    const n = Number.parseFloat(v);
-    if (!Number.isFinite(n)) return null;
-    const c = Math.min(1, Math.max(0, n));
-    return c === 1 ? null : String(c);
-  }
-  // backdrop.clearance: on writes `on`; off/empty omits the axis (default off).
-  if (key === 'backdrop.clearance') return value === true || TRUEY.test(v) ? 'on' : null;
   if (v === '' || v === FIELD_DEFAULTS[key]) return null;
   return v;
 }
@@ -310,13 +276,11 @@ export function writeFrontMatter(source, key, value) {
   // Partition the existing block: managed keys → bare canonical values we own;
   // everything else → preserved verbatim in original order. `marp` is re-derived.
   const managed = new Map();
-  const preserved = [];
-  let backdrop = {}; // the nested `backdrop:` map, edited via the `backdrop.*` keys
+  const preserved = []; // [k, rawScalar] OR [k, { block: [...] }] — emitted verbatim
   for (const [k, raw] of entries) {
     if (k === 'marp') continue;
-    if (k === 'backdrop') {
-      // raw is the captured child object; keep only real axis values.
-      for (const [ax, av] of Object.entries(raw || {})) if (av != null && av !== '') backdrop[ax] = av;
+    if (raw && raw.block) {
+      preserved.push([k, raw]); // a nested block (finish-override:, …) — never form-managed
     } else if (MANAGED.includes(k)) {
       const n = normalize(k, k === 'paginate' ? raw : stripQuotes(raw));
       if (n != null) managed.set(k, n);
@@ -325,42 +289,29 @@ export function writeFrontMatter(source, key, value) {
     }
   }
 
-  // Apply the incoming change (null = clear → at default). A `backdrop.<axis>` key
-  // edits the nested map; everything else is a flat managed key.
-  if (key.startsWith('backdrop.')) {
-    const axis = key.slice('backdrop.'.length);
-    const norm = normalize(key, value);
-    if (norm == null) delete backdrop[axis];
-    else backdrop[axis] = norm;
-  } else {
-    const norm = normalize(key, value);
-    if (norm == null) managed.delete(key);
-    else managed.set(key, norm);
-  }
+  // Apply the incoming change (null = clear → at default). Every managed field is flat.
+  const norm = normalize(key, value);
+  if (norm == null) managed.delete(key);
+  else managed.set(key, norm);
 
-  const backdropAxes = Object.entries(backdrop).filter(([, v]) => v != null && v !== '');
-  if (managed.size === 0 && preserved.length === 0 && backdropAxes.length === 0) {
+  if (managed.size === 0 && preserved.length === 0) {
     // Nothing configured → drop the block; collapse the gap it left behind.
     return present ? body.replace(/^\n+/, '') : source;
   }
 
+  // Emit a preserved entry: a nested block re-emits its header + verbatim child lines;
+  // a flat unmanaged scalar re-emits at its slot.
+  const emitPreserved = (pk, pv) => (pv && pv.block ? [`${pk}:`, ...pv.block] : [`${pk}: ${pv}`]);
   const presAt = (k) => preserved.find(([pk]) => pk === k);
   const lines = ['marp: true']; // leads the block so an exported .md renders
   for (const k of EMIT_ORDER) {
     if (k === 'marp') continue;
-    if (k === 'backdrop') {
-      if (backdropAxes.length) {
-        lines.push('backdrop:');
-        for (const [ax, v] of backdropAxes) lines.push(`  ${ax}: ${v}`);
-      }
-      continue;
-    }
     if (managed.has(k)) lines.push(`${k}: ${quoteIfNeeded(managed.get(k))}`);
     const p = presAt(k);
-    if (p) lines.push(`${p[0]}: ${p[1]}`); // e.g. a hand-typed theme, at its slot
+    if (p) lines.push(...emitPreserved(p[0], p[1])); // e.g. a hand-typed theme, at its slot
   }
   for (const [pk, pv] of preserved) {
-    if (!EMIT_ORDER.includes(pk)) lines.push(`${pk}: ${pv}`); // trailing unknowns
+    if (!EMIT_ORDER.includes(pk)) lines.push(...emitPreserved(pk, pv)); // trailing unknowns
   }
   return `---\n${lines.join('\n')}\n---\n\n${body.replace(/^\n+/, '')}`;
 }
@@ -459,27 +410,6 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     return row;
   }
 
-  // A slider row (backdrop strength) — label/hint left, a range input + live %
-  // readout right. 0–1 dial (1 = full = the omitted default); writes on input.
-  function sliderRow(key, label, hint, value) {
-    const row = el('div', 'db-pref-row');
-    const wrap = el('div', 'db-pref-slider');
-    const range = document.createElement('input');
-    range.type = 'range';
-    range.min = '0';
-    range.max = '1';
-    range.step = '0.05';
-    range.value = value === '' || value == null ? '1' : String(value);
-    range.className = 'db-pref-range';
-    range.setAttribute('aria-label', label);
-    const pct = (v) => `${Math.round(Number.parseFloat(v) * 100)}%`;
-    const out = el('span', 'db-pref-slider-value', pct(range.value));
-    range.addEventListener('input', () => { out.textContent = pct(range.value); apply(key, range.value); });
-    wrap.append(range, out);
-    row.append(text(label, hint), wrap);
-    return row;
-  }
-
   // A stacked text field (header, footer, class, lang) — label/hint above a
   // full-width input, since these run long. Writes debounced as you type so the
   // live preview tracks the edit without thrashing the editor on every keystroke.
@@ -545,19 +475,9 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
         finishes.map((f) => [f, FINISH_LABELS[f] || titleCase(f)]), current));
     }
 
-    // Backdrop strength — dims the whole finish (0–100%). A control ON the backdrop
-    // layer, orthogonal to which finish is chosen; 100% is full (the default).
-    if (show('backdrop.strength')) {
-      host.append(sliderRow('backdrop.strength', 'Finish strength',
-        'Dim the finish so it sits back behind the content', fm['backdrop.strength']));
-    }
-
-    // Backdrop clearance — recede the finish behind the content box so the words
-    // sit on clean canvas; the finish reads as a frame at the margins. Opt-in.
-    if (show('backdrop.clearance')) {
-      host.append(switchRow('backdrop.clearance', 'Clear behind content',
-        'Recede the finish behind the text so it reads only at the margins', fm['backdrop.clearance'] === 'on'));
-    }
+    // Backdrop is a BAKED layer of the finish now (strength / clearance), tuned in the
+    // Fabricate designer and overridden per-deck through the `finish-override:` map — no
+    // longer a Deck-setup control (the retired top-level `backdrop:` block).
 
     // Slide splitting — how the body divides into slides. 'headings' (the
     // default) starts a slide at each ## (the first # is the lead) so the deck

@@ -40,8 +40,8 @@ describe('makeStudioCompletion', () => {
 		expect(labels(r)).toContain('paginate');
 	});
 
-	it('completes the backdrop + mode keys in the --- block', () => {
-		expect(labels(complete('---\nbackd', 9))).toContain('backdrop');
+	it('completes the finish-override + mode keys in the --- block', () => {
+		expect(labels(complete('---\nfinish-o', 11))).toContain('finish-override');
 		expect(labels(complete('---\nmod', 7))).toContain('mode');
 	});
 
