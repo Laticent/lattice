@@ -106,7 +106,10 @@ export function parseFinishOverride(source: string): Record<string, Record<strin
 	for (const raw of block[1]) {
 		const indent = (raw.match(/^(\s*)/)?.[1] ?? '').length;
 		// An INLINE flow map on the layer line — `backdrop: { strength: 0.4, clearance: off }`
-		// (valid YAML, and the shorthand the docs show). Parse its comma-separated pairs.
+		// (valid YAML, and the shorthand the docs show). Parse its comma-separated pairs. NOTE:
+		// commas are the flow-map's OWN separators, so a single value can't contain one — a
+		// multi-number value like the spotlight triple must be SPACE-separated (`spotlight:
+		// 84 30 40`); a comma'd `84, 30, 40` is ambiguous YAML and coerces away (fails safe).
 		const inline = raw.match(/^\s*([A-Za-z][\w-]*):\s*\{(.*)\}\s*(?:#.*)?$/);
 		if (inline) {
 			const m: Record<string, string> = {};
