@@ -1,0 +1,36 @@
+/*
+ * Screenshot neutralizer — applied by toHaveScreenshot via the config's
+ * `stylePath` (decision doc 2026-06-28, §"Baseline maintenance"). It removes
+ * the two nondeterminism sources that made pixel baselines flake-prone:
+ *
+ * 1. WEBFONTS. The site chrome loads Playfair/Outfit/JetBrains Mono from
+ *    Google Fonts at runtime — a network race (font-swap reflow), and the
+ *    cloud sandbox's proxy blocks Chromium's font fetches outright, so a
+ *    sandbox-blessed baseline could never match CI. The visual spec blocks
+ *    those requests, and this sheet pins every family to DejaVu (identical
+ *    bytes on the sandbox and the ubuntu-latest runner; Chromium's bundled
+ *    FreeType rasterizes it, so the same pinned browser build → the same
+ *    pixels). The engine render inside the preview iframe is untouched — its
+ *    slide fonts are vendored same-origin woff2, already deterministic.
+ *
+ * 2. MOTION/CHROME NOISE: scrollbars appear on subpixel overflow differences;
+ *    animations/carets are handled by toHaveScreenshot's own `animations` /
+ *    `caret` options, configured in playwright.config.ts.
+ */
+
+* {
+	font-family: 'DejaVu Sans', sans-serif !important;
+}
+pre,
+pre *,
+code,
+code *,
+kbd,
+samp,
+.cm-editor,
+.cm-editor * {
+	font-family: 'DejaVu Sans Mono', monospace !important;
+}
+::-webkit-scrollbar {
+	display: none !important;
+}
