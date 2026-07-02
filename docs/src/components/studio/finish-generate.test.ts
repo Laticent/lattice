@@ -160,6 +160,19 @@ describe('finish-generate', () => {
 		expect(coerceRecipe({ backdrop: { clearance: true } }).backdrop).toEqual({ clearance: true });
 	});
 
+	it('coerces a SPOTLIGHT window from the triple string OR an object; clamps; drops garbage', () => {
+		// the front-matter TRIPLE grammar `x y radius`
+		expect(coerceRecipe({ backdrop: { spotlight: '84 30 40' } }).backdrop).toEqual({ spotlight: { x: 84, y: 30, radius: 40 } });
+		// comma-separated is fine too; radius clamps into range
+		expect(coerceRecipe({ backdrop: { spotlight: '50, 50, 200' } }).backdrop).toEqual({ spotlight: { x: 50, y: 50, radius: 70 } });
+		// object form (the stored recipe)
+		expect(coerceRecipe({ backdrop: { spotlight: { x: 70, y: 36, radius: 38 } } }).backdrop).toEqual({ spotlight: { x: 70, y: 36, radius: 38 } });
+		// a crafted / short / non-numeric value is dropped entirely (HARD RULE #22)
+		expect(coerceRecipe({ backdrop: { spotlight: '40 30 20; }' } }).backdrop).toBeUndefined();
+		expect(coerceRecipe({ backdrop: { spotlight: '50 50' } }).backdrop).toBeUndefined();
+		expect(coerceRecipe({ backdrop: { spotlight: '' } }).backdrop).toBeUndefined();
+	});
+
 	it('BAKES the backdrop layer into the generated CSS as deck-overridable --fin-backdrop-* tokens', () => {
 		const css = generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5, clearance: true } }));
 		expect(css).toMatch(/--fin-backdrop-strength:\s*0\.50/); // baked strength
@@ -186,6 +199,24 @@ describe('finish-generate', () => {
 		expect(exporting).toMatch(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque,\s*none\)/); // .lattice-exporting
 		// no baked clearance → no backdrop-mask flip in the export rules
 		expect(generateFinishCss('x', coerceRecipe({ wash: { type: 'grid' } }))).not.toMatch(/--fin-backdrop-mask:/);
+	});
+
+	it('BAKES a spotlight window mask (rich feather + opaque hard mirror), taking precedence over clearance', () => {
+		const css = generateFinishCss('x', coerceRecipe({ backdrop: { clearance: true, spotlight: { x: 70, y: 35, radius: 38 } } }));
+		// the reveal window is emitted with clamped coords, NOT the clearance shared shape
+		expect(css).toMatch(/--fin-backdrop-mask:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 42%, var\(--bg\) 96%\)/);
+		expect(css).toMatch(/--fin-backdrop-mask-opaque:\s*radial-gradient\(ellipse 38% 38% at 70% 35%, transparent 70%, var\(--bg\) 70%\)/);
+		expect(css).not.toMatch(/--backdrop-clear-mask/); // spotlight won — clearance shape not used
+		// the export rules flip the spotlight mask to its hard mirror in BOTH guards
+		expect((css.match(/--fin-backdrop-mask:\s*var\(--fin-backdrop-mask-opaque, none\)/g) || []).length).toBe(2);
+	});
+
+	it('mergeFinishOverride swaps a baked clearance for a deck spotlight (triple string)', () => {
+		const base = coerceRecipe({ backdrop: { clearance: true } });
+		const merged = mergeFinishOverride(base, { backdrop: { spotlight: '20 80 30' } });
+		expect(merged.backdrop?.spotlight).toEqual({ x: 20, y: 80, radius: 30 });
+		// spotlight wins in the regenerated CSS
+		expect(generateFinishCss('x', merged)).toMatch(/ellipse 30% 30% at 20% 80%/);
 	});
 
 	it('mergeFinishOverride deep-merges a finish-override partial over the recipe', () => {

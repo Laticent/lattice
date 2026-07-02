@@ -33,6 +33,26 @@ test('the Component tab reports a palette-blind / scoped gate', async ({ page })
 	await expect(page.getByText(/Palette-blind and scoped|ready to save/)).toBeVisible();
 });
 
+test('the Finish designer: spotlight reveals a joystick-placed window, mutually exclusive with clearance', async ({ page }) => {
+	await page.getByRole('button', { name: 'Finish', exact: true }).click();
+	const clearance = page.getByRole('checkbox', { name: 'Clear behind content' });
+	const spotlight = page.getByRole('checkbox', { name: 'Spotlight one area' });
+	await expect(clearance).toBeVisible();
+	await expect(spotlight).toBeVisible();
+	// Enabling clearance then spotlight: spotlight wins, clearance turns off (one mask).
+	await clearance.check();
+	await expect(clearance).toBeChecked();
+	await spotlight.check();
+	await expect(clearance).not.toBeChecked();
+	// The joystick + radius controls appear for placing the window.
+	await expect(page.getByLabel('Move spotlight')).toBeVisible();
+	await expect(page.getByRole('slider', { name: 'Radius' })).toBeVisible();
+	// Re-enabling clearance clears spotlight (and hides its controls).
+	await clearance.check();
+	await expect(spotlight).not.toBeChecked();
+	await expect(page.getByLabel('Move spotlight')).toHaveCount(0);
+});
+
 test('returning to Compose restores the editor', async ({ page }) => {
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
 	await expect(page.getByLabel('Deck source')).toBeVisible();

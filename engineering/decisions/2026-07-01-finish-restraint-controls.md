@@ -252,14 +252,24 @@ wrapper resolves or neutralizes the blockers:
    regenerate map (`mergeFinishOverride`). Retires the top-level `backdrop:` path
    (`resolve-backdrop.js` deleted, Deck-setup control + backdrop-axis lint gone,
    `retired-backdrop-key` migration warning added). **Export sign-off.**
-4. **Spotlight.** `.backdrop-mask` window gradient — a further baked backdrop axis +
-   its `finish-override:` knob, face-parity gate, joystick disambiguation (F12).
-5. ✅ **Docs + demo deck** (`examples/finish-override.md`), CHANGELOG, vocabulary pass.
+4. ✅ **Spotlight (#695).** `.backdrop-mask` REVEAL-window gradient — the inverse of
+   clearance (transparent in the window = finish shown, `var(--bg)` outside = hidden),
+   baked as `backdrop.spotlight { x, y, radius }` (`backdropSlots`) with a rich feather +
+   hard opaque mirror, both faces validated in the CLI PDF. Tuned in Fabricate by the
+   shipped `PlaceControl` (joystick + drag + numeric x/y + a radius slider); mutually
+   exclusive with clearance (one mask). Overridden via `finish-override:` with the resolved
+   TRIPLE grammar `spotlight: x y radius` (§10). Front-matter values are clamped integers
+   only (HARD RULE #22). *(Live joystick interaction rides the added `fabricate.spec.ts`
+   e2e in CI; the render + coercion are unit-tested and PDF-verified.)*
+5. ✅ **Docs + demo deck** (`examples/finish-override.md` — clearance + spotlight slides),
+   CHANGELOG, vocabulary pass.
 
 ## 10. Open questions
 
-- **`backdrop.spotlight` grammar** — a space-separated triple `x% y% radius%` (e.g.
-  `backdrop.spotlight: 84 30 40`) vs a named window (`top-right`). Resolve in slice 4.
+- ~~**`backdrop.spotlight` grammar**~~ — RESOLVED (#695): the space-separated TRIPLE
+  `spotlight: x y radius` (e.g. `84 30 40`), under `finish-override.backdrop`. The window
+  is now a *baked* recipe field `{ x, y, radius }` placed by the Fabricate joystick; the
+  triple is the deck-override serialization. `coerceSpotlight` accepts both.
 - **Strength scope** — deck-wide only, or also a per-slide hook?
 - **Clearance shape** — derive from the actual content box geometry (measured) or a
   fixed safe-margin approximation? Start with the approximation; measure later if

@@ -69,8 +69,10 @@ export type FinishRecipe = {
 	// tokens (see `backdropSlots`). The deck author OVERRIDES it — and any other layer —
 	// through the single `finish-override:` front-matter map (a partial recipe
 	// deep-merged into this one, then the CSS regenerated; see `mergeFinishOverride`).
-	// Absent = no baked backdrop restraint.
-	backdrop?: { strength?: number; clearance?: boolean };
+	// Absent = no baked backdrop restraint. `clearance` and `spotlight` are two SHAPES of
+	// the one `.backdrop-mask` overlay (clearance clears the center; spotlight reveals one
+	// window, hiding the rest), so they're alternatives — spotlight wins if both are set.
+	backdrop?: { strength?: number; clearance?: boolean; spotlight?: { x: number; y: number; radius: number } };
 };
 
 export const DEFAULT_RECIPE: FinishRecipe = {
@@ -182,6 +184,7 @@ const optInt = (v: unknown, lo: number, hi: number): number | undefined =>
 export const MARK_SCALE = { min: 30, max: 200, default: 100 } as const; // % of base ghost size
 export const MARK_ANGLE = { min: -30, max: 30, default: 0 } as const; // degrees
 export const WASH_SPREAD = { min: 50, max: 160, default: 100 } as const; // % of default radius
+export const SPOT_RADIUS = { min: 18, max: 70, default: 38 } as const; // spotlight window radius, % of slide
 
 // A coarse placement keyword → the glyph-center (x%, y%) it stands for. Lets a preset
 // or AI reply that only names a corner resolve to real coordinates the joystick/drag
@@ -253,13 +256,41 @@ export function coerceRecipe(input: unknown): FinishRecipe {
 // dropped entirely when nothing non-default is set (so a plain finish carries no
 // `backdrop` key). A default value drops the axis, so a `finish-override:` that resets
 // an axis (`strength: 1`, `clearance: off`) merges to nothing baked = the axis is off.
-function coerceBackdrop(input: unknown): { backdrop?: { strength?: number; clearance?: boolean } } {
+function coerceBackdrop(input: unknown): { backdrop?: FinishRecipe['backdrop'] } {
 	const b = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
-	const out: { strength?: number; clearance?: boolean } = {};
+	const out: NonNullable<FinishRecipe['backdrop']> = {};
 	const s = Number.parseFloat(String(b.strength));
 	if (Number.isFinite(s) && Math.min(1, Math.max(0, s)) !== 1) out.strength = Math.min(1, Math.max(0, s));
 	if (b.clearance === true || /^(on|true|yes)$/i.test(String(b.clearance ?? ''))) out.clearance = true;
+	const spot = coerceSpotlight(b.spotlight);
+	if (spot) out.spotlight = spot;
 	return Object.keys(out).length ? { backdrop: out } : {};
+}
+
+// The spotlight window, coerced to `{ x, y, radius }` (all clamped) or undefined. Accepts
+// either an object (`{ x, y, radius }`, the stored recipe form) OR the front-matter TRIPLE
+// grammar `x y radius` (e.g. `spotlight: 84 30 40`, space/comma separated). Only finite
+// numbers survive — a crafted string can't reach the generated CSS (HARD RULE #22).
+function coerceSpotlight(v: unknown): { x: number; y: number; radius: number } | undefined {
+	let x: number, y: number, r: number;
+	if (typeof v === 'string') {
+		if (!v.trim()) return undefined;
+		const p = v.trim().split(/[\s,]+/).map(Number);
+		[x, y, r] = [p[0], p[1], p[2]];
+	} else if (v && typeof v === 'object') {
+		const o = v as Record<string, unknown>;
+		x = Number(o.x);
+		y = Number(o.y);
+		r = Number(o.radius ?? o.r);
+	} else {
+		return undefined;
+	}
+	if (![x, y, r].every(Number.isFinite)) return undefined;
+	return {
+		x: Math.max(0, Math.min(100, Math.round(x))),
+		y: Math.max(0, Math.min(100, Math.round(y))),
+		radius: Math.max(SPOT_RADIUS.min, Math.min(SPOT_RADIUS.max, Math.round(r))),
+	};
 }
 
 // ── CSS emitters — one gradient builder per layer type, in TWO faces. ──
@@ -553,7 +584,7 @@ function opaqueOverrideDecls(r: FinishRecipe): string[] {
 	// `section.finish` (0,1,1) — LOWER than this finish's `section.finish.finish-<slug>`
 	// (0,2,1) rich setter, so that flip loses and the feathered mask grays in the vector PDF.
 	// Emitting the flip here (same 0,2,1 selector, later in source) is the one that wins.
-	if (r.backdrop?.clearance) out.push('--fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none)');
+	if (r.backdrop?.clearance || r.backdrop?.spotlight) out.push('--fin-backdrop-mask: var(--fin-backdrop-mask-opaque, none)');
 	return out;
 }
 
@@ -589,11 +620,34 @@ function backdropSlots(r: FinishRecipe): string[] {
 	const out: string[] = [];
 	const s = r.backdrop?.strength;
 	if (s != null && s < 1) out.push(`--fin-backdrop-strength: ${Math.min(1, Math.max(0, s)).toFixed(2)}`);
-	if (r.backdrop?.clearance) {
+	// The `.backdrop-mask` overlay carries ONE shape. Spotlight (reveal one window) wins
+	// over clearance (clear the center) if a finish somehow bakes both — the UI keeps them
+	// mutually exclusive. Both ship a rich feather + a hard opaque mirror (the opaque flip
+	// in generateFinishCss + base.finish.css swaps to `-opaque` in export).
+	const spot = r.backdrop?.spotlight;
+	if (spot) {
+		out.push(`--fin-backdrop-mask: ${spotlightMask(spot, 'rich')}`);
+		out.push(`--fin-backdrop-mask-opaque: ${spotlightMask(spot, 'opaque')}`);
+	} else if (r.backdrop?.clearance) {
 		out.push('--fin-backdrop-mask: var(--backdrop-clear-mask)');
 		out.push('--fin-backdrop-mask-opaque: var(--backdrop-clear-mask-opaque)');
 	}
 	return out;
+}
+
+// The SPOTLIGHT mask — a `var(--bg)` overlay that REVEALS the finish in one window and
+// hides it everywhere else (the inverse of clearance). Palette-blind (`var(--bg)` only),
+// no `mask-image`. RICH feathers the reveal edge; OPAQUE is a single HARD stop (a
+// feathered alpha area-fade grays in the vector PDF). x/y/radius are clamped integers, so
+// nothing but numbers reaches the CSS (HARD RULE #22).
+function spotlightMask(spot: { x: number; y: number; radius: number }, face: 'rich' | 'opaque'): string {
+	const x = spot.x.toFixed(0);
+	const y = spot.y.toFixed(0);
+	const rr = spot.radius.toFixed(0);
+	// transparent = finish shown (the window), var(--bg) = finish hidden (everywhere else).
+	return face === 'opaque'
+		? `radial-gradient(ellipse ${rr}% ${rr}% at ${x}% ${y}%, transparent 70%, var(--bg) 70%)`
+		: `radial-gradient(ellipse ${rr}% ${rr}% at ${x}% ${y}%, transparent 42%, var(--bg) 96%)`;
 }
 
 export function generateFinishCss(slug: string, recipe: FinishRecipe): string {

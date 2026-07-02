@@ -27,6 +27,7 @@ import {
 	type Placement,
 	PRESET_RECIPES,
 	placementXY,
+	SPOT_RADIUS,
 	safeFinishSlug,
 	TEXTURE_TYPES,
 	WASH_SPREAD,
@@ -91,8 +92,13 @@ export function FinishStudio({
 	// axis.
 	const strength = recipe.backdrop?.strength == null ? 100 : Math.round(recipe.backdrop.strength * 100);
 	const clearance = !!recipe.backdrop?.clearance;
+	// The mask is ONE shape — clearance (clear the center) OR spotlight (reveal one window),
+	// never both. Toggling one clears the other. Spotlight defaults to a considered window.
+	const spot = recipe.backdrop?.spotlight;
 	const setStrength = (pct: number) => patch({ backdrop: { ...recipe.backdrop, strength: pct >= 100 ? undefined : pct / 100 } });
-	const setClearance = (on: boolean) => patch({ backdrop: { ...recipe.backdrop, clearance: on || undefined } });
+	const setClearance = (on: boolean) => patch({ backdrop: { ...recipe.backdrop, clearance: on || undefined, spotlight: on ? undefined : recipe.backdrop?.spotlight } });
+	const setSpotlight = (on: boolean) =>
+		patch({ backdrop: { ...recipe.backdrop, clearance: on ? undefined : recipe.backdrop?.clearance, spotlight: on ? (recipe.backdrop?.spotlight ?? { x: 70, y: 36, radius: SPOT_RADIUS.default }) : undefined } });
 	const [prompt, setPrompt] = React.useState('');
 	const [gen, setGen] = React.useState<'idle' | 'working'>('idle');
 	const [saving, setSaving] = React.useState(false);
@@ -125,6 +131,12 @@ export function FinishStudio({
 	const nudgeWash = (dx: number, dy: number) => setRecipe((r) => coerceRecipe({ ...r, wash: { ...r.wash, x: clampPct((r.wash.x ?? 50) + dx * STEP_POS), y: clampPct((r.wash.y ?? 50) + dy * STEP_POS) } }));
 	const setMarkXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, mark: { ...r.mark, x: clampPct(x), y: clampPct(y) } }));
 	const setWashXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, wash: { ...r.wash, x: clampPct(x), y: clampPct(y) } }));
+	// Spotlight window writers — reuse the placement grammar (joystick nudge / absolute
+	// drag / numeric), plus a radius slider. Keep the existing radius when only x/y move.
+	const spotAt = (r: FinishRecipe) => r.backdrop?.spotlight ?? { x: 70, y: 36, radius: SPOT_RADIUS.default };
+	const nudgeSpot = (dx: number, dy: number) => setRecipe((r) => coerceRecipe({ ...r, backdrop: { ...r.backdrop, spotlight: { ...spotAt(r), x: clampPct(spotAt(r).x + dx * STEP_POS), y: clampPct(spotAt(r).y + dy * STEP_POS) } } }));
+	const setSpotXY = (x: number, y: number) => setRecipe((r) => coerceRecipe({ ...r, backdrop: { ...r.backdrop, spotlight: { ...spotAt(r), x: clampPct(x), y: clampPct(y) } } }));
+	const setSpotRadius = (radius: number) => setRecipe((r) => coerceRecipe({ ...r, backdrop: { ...r.backdrop, spotlight: { ...spotAt(r), radius } } }));
 
 	// Drag-on-canvas handles over the live preview — one per placeable element that's
 	// actually rendering (a mark needs a glyph to show; a hotspot needs a single-source
@@ -132,6 +144,7 @@ export function FinishStudio({
 	const canvasHandles: CanvasHandleSpec[] = [];
 	if (markPlaceable && recipe.mark.glyph?.trim()) canvasHandles.push({ key: 'mark', label: 'Mark', x: recipe.mark.x ?? 50, y: recipe.mark.y ?? 50, tone: 'accent', onMove: setMarkXY });
 	if (washPlaceable) canvasHandles.push({ key: 'wash', label: 'Wash hotspot', x: recipe.wash.x ?? 50, y: recipe.wash.y ?? 50, tone: 'ink', onMove: setWashXY });
+	if (spot) canvasHandles.push({ key: 'spotlight', label: 'Spotlight', x: spot.x, y: spot.y, tone: 'accent', onMove: setSpotXY });
 
 	const exportCss = () => {
 		const cls = `finish finish-${slug}`;
@@ -398,6 +411,27 @@ export function FinishStudio({
 							</span>
 							<input type="checkbox" aria-label="Clear behind content" checked={clearance} onChange={(e) => setClearance(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
 						</label>
+						{/* Spotlight — the inverse mask: reveal the finish in ONE window, hide the rest.
+						    Shares the mask with clearance (mutually exclusive). Joystick / drag / numeric
+						    place the window; the slider sizes it. */}
+						<label className="flex items-center justify-between gap-3 py-0.5">
+							<span className="flex flex-col">
+								<span className="text-[12.5px] font-semibold text-[var(--text-heading)]">Spotlight one area</span>
+								<span className="text-[11px] text-muted-foreground">Show the finish in a single window; hide it everywhere else</span>
+							</span>
+							<input type="checkbox" aria-label="Spotlight one area" checked={!!spot} onChange={(e) => setSpotlight(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
+						</label>
+						{spot && (
+							<PlaceControl
+								joystickLabel="Move spotlight"
+								x={spot.x}
+								y={spot.y}
+								onNudge={nudgeSpot}
+								onSetX={(x) => setSpotXY(x, spot.y)}
+								onSetY={(y) => setSpotXY(spot.x, y)}
+								size={{ label: 'Radius', value: spot.radius, min: SPOT_RADIUS.min, max: SPOT_RADIUS.max, suffix: '%', onChange: setSpotRadius }}
+							/>
+						)}
 					</LayerGroup>
 				</aside>
 			</div>

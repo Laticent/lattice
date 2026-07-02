@@ -172,14 +172,17 @@ in patch versions.
 
 - **Backdrop is the finish's FIFTH layer — baked in Fabricate, overridden with one
   `finish-override:` map.** A finish now carries a *backdrop* alongside wash / texture /
-  mark / edge: **strength** (dim the whole finish) + **clearance** (recede it behind the
-  content box so the words sit on clean canvas while the finish frames the margins). You
-  tune it in the Fabricate designer (a fifth layer group, previewed WYSIWYG), and it's
-  emitted into the finish's generated CSS as `--fin-backdrop-*` tokens — clearance is a
-  palette-blind `var(--bg)` mask on the `.backdrop-mask`, feathered on screen and a HARD
-  edge in export (a feathered alpha area-fade grays in the vector PDF), validated in both
-  faces. The deck author overrides **any** baked layer — backdrop included — through a
-  single nested front-matter map that mirrors the recipe:
+  mark / edge, with three composable restraints: **strength** (dim the whole finish),
+  **clearance** (recede it behind the content box so the words sit on clean canvas while
+  the finish frames the margins), and **spotlight** (the inverse mask — reveal the finish
+  in one joystick-placed window and hide it everywhere else). You tune them in the
+  Fabricate designer (a fifth layer group, previewed WYSIWYG), and they're emitted into
+  the finish's generated CSS as `--fin-backdrop-*` tokens — the mask is a palette-blind
+  `var(--bg)` overlay on `.backdrop-mask`, feathered on screen and a HARD edge in export
+  (a feathered alpha area-fade grays in the vector PDF), validated in both faces.
+  Clearance and spotlight are two shapes of the ONE mask, so they're mutually exclusive;
+  strength composes with either. The deck author overrides **any** baked layer — backdrop
+  included — through a single nested front-matter map that mirrors the recipe:
 
   ```yaml
   finish: finish-shu

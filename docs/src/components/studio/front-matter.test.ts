@@ -39,6 +39,13 @@ describe('front-matter', () => {
 		expect(parseFinishOverride('---\nfinish-override:\n  backdrop: {}\n---\n\n# D')).toEqual({});
 	});
 
+	it('parseFinishOverride carries a spotlight TRIPLE as a raw string (coerced downstream)', () => {
+		const expanded = '---\nfinish-override:\n  backdrop:\n    spotlight: 84 30 40\n---\n\n# D';
+		expect(parseFinishOverride(expanded)).toEqual({ backdrop: { spotlight: '84 30 40' } });
+		const inline = '---\nfinish-override:\n  backdrop: { spotlight: 84 30 40 }\n---\n\n# D';
+		expect(parseFinishOverride(inline)).toEqual({ backdrop: { spotlight: '84 30 40' } });
+	});
+
 	it('creates a block on the first directive', () => {
 		const out = setFrontMatter(BODY, 'size', 'square');
 		expect(out.startsWith('---\nsize: square\n---\n\n')).toBe(true);
