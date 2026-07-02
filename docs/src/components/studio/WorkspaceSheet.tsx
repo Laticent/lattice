@@ -14,11 +14,13 @@ import { type HandleStyle, loadInstructions, loadSettings, saveInstructions, sav
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
 // Workspace Settings — "your setup", distinct from the deck Inspector's "this deck".
-// The AI-model tab is a single GENERATION switch (Cloud / On-device) that picks the
-// ACTIVE tier — connection ≠ active (Studio Policy B): the cloud stays connected but
-// dormant while you run on-device, and one tap resumes it. The Spend tab shows the
-// authoritative OpenRouter account balance beside the live session tally.
-const TABS = ['General', 'AI model', 'Spend', 'Instructions', 'Storage'] as const;
+// General holds the non-AI workspace prefs (placement-handle style + where decks live);
+// the rest are AI-scoped. The AI-model tab is a single GENERATION switch (Cloud /
+// On-device) that picks the ACTIVE tier — connection ≠ active (Studio Policy B): the
+// cloud stays connected but dormant while you run on-device, and one tap resumes it. The
+// Spend tab shows the authoritative OpenRouter account balance beside the live session
+// tally; Instructions carries the AI output language + standing voice + generation prefs.
+const TABS = ['General', 'AI model', 'Spend', 'Instructions'] as const;
 type Tab = (typeof TABS)[number];
 type GenView = 'cloud' | 'ondevice';
 
@@ -166,6 +168,16 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								})}
 							</div>
 							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to every finish handle; changes take effect live in the designer.</p>
+
+							<div className="mt-5">
+								<GroupLabel icon={<FolderTree className="size-3.5" />}>Where decks live</GroupLabel>
+								<button type="button" onClick={() => { setStoreInCloud(false); notify('Decks are stored on this device (localStorage).'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', !storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
+									<span className="text-[13px] font-semibold text-[var(--text-heading)]">This device only</span><span className="ml-auto text-[11px] text-muted-foreground">local · how Studio stores today</span>
+								</button>
+								<button type="button" onClick={() => { setStoreInCloud(true); notify('Cloud sync is not enabled in this build — decks stay on this device.'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
+									<span className="text-[13px] font-semibold text-[var(--text-heading)]">Cloud workspace</span><span className="ml-auto text-[11px] text-muted-foreground">synced — coming soon</span>
+								</button>
+							</div>
 						</div>
 					)}
 
@@ -334,17 +346,6 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 						</div>
 					)}
 
-					{tab === 'Storage' && (
-						<div>
-							<GroupLabel icon={<FolderTree className="size-3.5" />}>Where decks live</GroupLabel>
-							<button type="button" onClick={() => { setStoreInCloud(false); notify('Decks are stored on this device (localStorage).'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', !storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
-								<span className="text-[13px] font-semibold text-[var(--text-heading)]">This device only</span><span className="ml-auto text-[11px] text-muted-foreground">local · how Studio stores today</span>
-							</button>
-							<button type="button" onClick={() => { setStoreInCloud(true); notify('Cloud sync is not enabled in this build — decks stay on this device.'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
-								<span className="text-[13px] font-semibold text-[var(--text-heading)]">Cloud workspace</span><span className="ml-auto text-[11px] text-muted-foreground">synced — coming soon</span>
-							</button>
-						</div>
-					)}
 				</div>
 			</SheetContent>
 		</Sheet>

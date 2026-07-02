@@ -86,6 +86,13 @@ in patch versions.
 
 ### Changed
 
+- **Workspace settings rebalanced — the General tab now holds the non-AI prefs.** Deck
+  storage (this-device / cloud) moves out of its own thin tab into **General**, beside the
+  placement-handle style; the standalone **Storage** tab is retired. The Workspace sheet
+  is now `General · AI model · Spend · Instructions` — one clear home for general setup
+  instead of leaning entirely on the AI-side tabs. (Output language stays in Instructions
+  — it only affects AI-written content.)
+
 - **Breaking: Lattice is relicensed from MIT to AGPL-3.0-only.** The full
   GNU Affero GPL v3 text replaces MIT in `LICENSE`; `package.json` now
   declares `AGPL-3.0-only`. Modified versions that are distributed or offered
