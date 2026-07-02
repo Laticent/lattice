@@ -21,6 +21,14 @@ export const editorTheme = EditorView.theme({
 		lineHeight: '1.85',
 		caretColor: 'var(--text-body)',
 	},
+	// iOS Safari auto-zooms the page when you focus an editable surface whose
+	// font computes under 16px. The landing.css global net can't reach
+	// CodeMirror's contenteditable (this scoped theme out-specifies it), so bump
+	// the content to 16px on coarse pointers, matching playground/editor.js;
+	// desktop keeps the denser 13px set on `&` above.
+	'@media (pointer: coarse)': {
+		'.cm-content': { fontSize: '16px' },
+	},
 	'.cm-gutters': { backgroundColor: 'var(--bg)', color: 'var(--text-muted)', border: 'none', fontFamily: 'var(--font-mono)' },
 	'.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--accent) 5%, transparent)' },
 	'.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--accent)' },

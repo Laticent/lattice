@@ -679,6 +679,7 @@ own traps, flagged where relevant.
 | `position:fixed` doesn't track an iframe's **internal** scroll on iOS → overlay strands | filmstrip | `position:absolute` at **document coordinates** (`getBoundingClientRect + scrollY`) so it scrolls with content |
 | Tapping an in-slide external `<a href>` **navigates the frame → blank** (frame-blocked site) | filmstrip (Playground + Drawing Board) | preview-only **link guard** (`linkGuardAgent`) opens `http(s)` taps in a real top-level tab (§ "Tapping an in-slide link blanks") |
 | Preview won't scroll after opening a modal sheet on iOS | Playground | make preview-side sheets **non-modal** (§ "won't scroll after … settings sheet") |
+| Focusing a **sub-16px text control auto-zooms the whole page** on iOS | any standalone page | global coarse-pointer ≥16px net in `landing.css` + per-CodeMirror-theme bump (§ "Tapping an input zooms the page on iOS") |
 
 **C. Document / realm / content — the #22 boundary**
 
@@ -1998,6 +1999,36 @@ never turn "passed in headless" into "works on iOS."
   NOT swap in `zoom` on headless evidence alone — verify `46cqi` on a real iOS device
   first. Full post-mortem: `engineering/decisions/2026-07-02-preview-scale-zoom.md`
   (REJECTED).
+
+### Tapping an input zooms the page on iOS (sub-16px text controls)
+
+- **Symptom:** On an iPhone, tapping into a text field — a search box, a settings
+  input, or a CodeMirror editor — makes iOS Safari zoom the whole page in, leaving
+  the layout cropped and forcing a pinch-out. Desktop and Android never show it.
+- **Cause:** iOS Safari auto-zooms on focus when the **focused element's computed
+  font-size is under 16 CSS px**. The trigger is per-element — the base body font,
+  viewport meta (`initial-scale=1`), and `-webkit-text-size-adjust` are all
+  irrelevant to it. Dense desktop-friendly controls (12–14px) are exactly the ones
+  that trip it.
+- **Why it regressed:** the first fix bumped *individual* offenders (docs search
+  boxes, the Playground editor's `.cm-content`) to 16px on coarse pointers. Every
+  NEW surface then had to remember the rule — and the Studio didn't: it forked its
+  own CodeMirror theme (`editor-theme.ts`, 13px) and shipped a set of 12–13.5px
+  raw inputs. Spot fixes don't survive new surfaces.
+- **Fix / don't reintroduce:** two layers, both keyed on `(pointer: coarse)`:
+  1. a **global net in the `landing.css` reset** (shared by every standalone
+     page) — all text-entry `input`/`textarea`/`select` compute
+     `max(16px, 1em)`; being unlayered it beats Tailwind's `@layer`-ed `text-*`
+     utilities, so a dense one-off input can't undercut it;
+  2. **each CodeMirror theme carries its own 16px `.cm-content` block**
+     (`docs/src/playground/editor.js`, `docs/src/components/studio/editor-theme.ts`)
+     — the scoped theme classes out-specify the global net, so a new CM surface
+     MUST copy the block.
+  Guard: `docs/e2e/ios-zoom.spec.ts` (touch-emulating; sweeps every mounted text
+  control on Studio + Playground and probes the net with a fresh input). The
+  emulated check pins the CSS contract; the zoom itself is only observable on a
+  real device (HARD RULE #23). Do NOT "fix" this with `maximum-scale=1` — it
+  degrades pinch-zoom accessibility instead of removing the trigger.
 
 ### Tapping an in-slide link blanks the live preview on iOS
 
