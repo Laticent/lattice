@@ -132,6 +132,16 @@ in patch versions.
   re-rendered — which also gives that deck the #690 raster-twin treatment), and
   the Studio's "add slide" template (`deck-ops.ts` `NEW_SLIDE`) now inserts
   `content`, the generic prose slide, so new Studio slides are styled.
+
+- **Studio "Delete slide" was never broken — it is a two-step in-place confirm,
+  and the E2E suite now proves it (#692).** The first click ARMS the rail button
+  (it flips to a red "Confirm delete slide" for 3 seconds), the second click
+  deletes — a deliberate destructive-op guard shipped with #610. Both the #691
+  E2E probe and the manual repro clicked once and misread the armed state as a
+  dead button. No product change: the `test.fixme` in
+  `docs/e2e/slide-ops.spec.ts` is replaced with a real two-step test (armed
+  state asserted, then rail −1 + "Slide deleted." toast), verified green in a
+  real browser against the production-built site.
 - **PDF export: SVG images are rasterized at export time by default (#690).**
   Chromium prints SVG `<img>`/`background-image` placements into the vector PDF
   as shading-pattern/transparency-group constructs that iOS Quartz viewers
