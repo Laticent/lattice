@@ -120,7 +120,8 @@ USAGE
 ARGUMENTS
   source.md          Markdown source (required)
   output             Output path (required); the extension picks the format:
-                       .pdf   vector PDF, selectable text (default; + HTML sidecar)
+                       .pdf   vector PDF, selectable text (default; + HTML sidecar;
+                              or one image per page with --raster)
                        .pptx  PowerPoint, one full-bleed slide image per slide
                        .png   one PNG per slide, written as <output>.NNN.png
                      An HTML sidecar is always written alongside.
@@ -151,9 +152,28 @@ OPTIONS
                           slides stay presenter-driven (no auto-advance). PDF only.
                           Can also be enabled per-deck with a 'present: true'
                           front-matter key.
+      --raster            Print the PDF as one full-bleed slide image per page
+                          (2x JPEG, from the same screenshots the PPTX path
+                          takes) instead of vector pages. Maximum viewer
+                          compatibility; selectable text is lost. Speaker
+                          notes, --present, and --embed-source still apply.
+                          PDF only.
+      --embed-source      Attach the deck's Markdown source to the PDF as an
+                          embedded file (visible in any viewer's attachments
+                          panel), so the deck can be re-rendered from the PDF
+                          alone. Note: ships your source (including speaker
+                          notes) inside the artifact.
+      --keep-vector-images
+                          Keep SVG images as vectors in the PDF. By default SVG
+                          <img>/background images are rasterized to 2x PNG at
+                          export, because some PDF viewers (iOS Quartz) mishandle
+                          the vector constructs Chromium prints for clipped or
+                          cropped SVG placements (#690). Inline SVG (Mermaid,
+                          charts, logo marks) always stays vector.
 
-  Both --flag value and --flag=value syntax accepted. Positional args still
-  work; named flags take precedence when both are supplied.
+  Value-taking options accept both --flag value and --flag=value syntax; the
+  boolean switches above take no value. Positional args still work; named
+  flags take precedence when both are supplied.
 
 SPEAKER NOTES
   A non-directive HTML comment on a slide is that slide's speaker note
@@ -220,6 +240,9 @@ function parseArgs(argv) {
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
     if (a === '--present') { flags.present = true; continue; }
+    if (a === '--raster') { flags.raster = true; continue; }
+    if (a === '--embed-source') { flags['embed-source'] = true; continue; }
+    if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
     // --flag=value form
     const eq = a.match(/^(--?[A-Za-z][\w-]*)=(.*)$/);
     if (eq && opts[eq[1]]) { flags[opts[eq[1]]] = eq[2]; continue; }
@@ -267,6 +290,8 @@ if (flags.palette) paletteArg = flags.palette;
 const QUIET = flags.quiet;
 const NOTES_SIDECAR = !!flags.notes;
 const NOTES_ICON = !!flags['notes-icon'];
+const EMBED_SOURCE = !!flags['embed-source'];
+const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 // PRESENT is resolved below, once the deck front matter is parsed (it can be
 // enabled by `--present` OR a `present: true` front-matter key, mirroring --fluid).
 // FLUID_VIEW is resolved below, once the deck front matter is parsed (it can be
@@ -289,6 +314,15 @@ if (!mdFile || !outFile) {
 // three formats are byte-for-byte the same pixels.
 const OUT_EXT = path.extname(outFile).toLowerCase();
 const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx' : (OUT_EXT === '.png' ? 'png' : 'pdf');
+// --raster swaps the PDF's vector page content for one full-bleed slide image
+// per page (the same 2× screenshots the PPTX path uses) — a maximum-compatibility
+// mode for viewers that mishandle vector constructs. Selectable text is lost, so
+// it is opt-in; the vector path stays the default. PDF only: PPTX/PNG are raster
+// by construction, so the flag is meaningless (and warned) there.
+const RASTER_PDF = !!flags.raster && OUT_FORMAT === 'pdf';
+if (flags.raster && OUT_FORMAT !== 'pdf') {
+  console.warn(`  ⚠ --raster applies only to .pdf output (a .${OUT_FORMAT} is already image-per-slide) — ignoring.`);
+}
 
 // Friendly error wrapper for file reads. Bare ENOENT throws produce
 // stack traces that look like crashes; this surfaces them as one-line
@@ -1601,7 +1635,7 @@ async function renderBody(browser, g, closeBrowser) {
   // an OOM (same trade-off the browser exporter makes). The largest integer
   // factor whose long edge stays ≤ 3840: HD (1280) → 2×, 4K (3840) → 1×, and any
   // custom @size is capped rather than left to blow up.
-  const RASTER = OUT_FORMAT === 'pptx' || OUT_FORMAT === 'png';
+  const RASTER = OUT_FORMAT === 'pptx' || OUT_FORMAT === 'png' || RASTER_PDF;
   const rasterScale = RASTER
     ? Math.max(1, Math.min(2, Math.floor(3840 / Math.max(slideW, slideH))))
     : 1;
@@ -1736,7 +1770,22 @@ async function renderBody(browser, g, closeBrowser) {
   await g(() => page.evaluate(() => {
     for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
   }), 'strip overflow marker');
-  if (OUT_FORMAT === 'pdf') {
+  // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
+  // clipped/cropped placements Chromium prints for them emit shading-pattern /
+  // transparency-group constructs that iOS Quartz viewers partially render or
+  // drop outright (#690). A 2x raster twin (a plain image XObject — the
+  // universally supported construct) is what fixed the gallery in #681; this
+  // applies the same remedy at export time, for any deck. Inline <svg>
+  // (Mermaid, charts, logo marks) is untouched — it prints through the page's
+  // normal paint path and stays vector. Opt out with --keep-vector-images.
+  // The raster paths (PPTX/PNG/--raster) screenshot pixels anyway, so skip.
+  if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !KEEP_VECTOR_IMAGES) {
+    const swapped = await rasterizeSvgImagesInPage(browser, g, page);
+    if (swapped && !QUIET) {
+      console.log(`  SVG images: ${swapped} reference${swapped > 1 ? 's' : ''} rasterized at 2x for PDF portability (--keep-vector-images keeps vectors)`);
+    }
+  }
+  if (OUT_FORMAT === 'pdf' && !RASTER_PDF) {
     // Render to a buffer (no `path`) so we can post-process before writing: the
     // speaker notes are attached as per-page PDF text annotations.
     const pdfBytes = await g(() => page.pdf({
@@ -1747,13 +1796,42 @@ async function renderBody(browser, g, closeBrowser) {
     await closeBrowser();
     let finalBytes = await embedNotesInPdf(pdfBytes, slideNotes);
     finalBytes = await applyPresentMode(finalBytes);
+    finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, finalBytes);
     const noteCount = slideNotes.filter(Boolean).length;
     if (!QUIET) {
       const tags = [];
       if (noteCount) tags.push(`${noteCount} slide${noteCount > 1 ? 's' : ''} with speaker notes`);
       if (PRESENT) tags.push('presentation mode');
+      if (EMBED_SOURCE) tags.push('source embedded');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}`);
+    }
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, slideNotes);
+  } else if (OUT_FORMAT === 'pdf') {
+    // --raster: one full-bleed slide image per PDF page, from the same per-slide
+    // element screenshots the PPTX path takes (2x viewport for crispness). JPEG
+    // q95 — slides are opaque full-bleed, and the compat mode exists for sharing,
+    // where a lossless-PNG deck would be several times the size. The pdf-lib
+    // post-passes (notes / present / source) run on the assembled document just
+    // as they do on the vector one.
+    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const jpegBuffers = [];
+    for (const h of handles) {
+      jpegBuffers.push(await g(() => h.screenshot({ type: 'jpeg', quality: 95 }), 'screenshot slide'));
+    }
+    await closeBrowser();
+    let finalBytes = await assembleRasterPdf(jpegBuffers);
+    finalBytes = await embedNotesInPdf(finalBytes, slideNotes);
+    finalBytes = await applyPresentMode(finalBytes);
+    finalBytes = await embedSourceInPdf(finalBytes);
+    fs.writeFileSync(outFile, finalBytes);
+    const noteCount = slideNotes.filter(Boolean).length;
+    if (!QUIET) {
+      const tags = [`raster, ${jpegBuffers.length} page${jpegBuffers.length > 1 ? 's' : ''}`];
+      if (noteCount) tags.push(`${noteCount} slide${noteCount > 1 ? 's' : ''} with speaker notes`);
+      if (PRESENT) tags.push('presentation mode');
+      if (EMBED_SOURCE) tags.push('source embedded');
+      console.log(`PDF: ${outFile} (${tags.join(', ')})`);
     }
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, slideNotes);
   } else {
@@ -1795,6 +1873,150 @@ async function renderBody(browser, g, closeBrowser) {
     fs.writeFileSync(outHtml, toFluidViewer(cleanDocHtml));
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
+}
+
+// Rasterize every SVG `<img>`/`background-image` reference in the loaded deck
+// page to a right-sized PNG data URL, and swap the references in place — the
+// vector-PDF portability fix for #690 (see the call site). Only <img> src and
+// inline-style background-image URLs ending .svg (or data:image/svg+xml) are
+// touched. Each unique URL is rendered once in a scratch page at its intrinsic
+// aspect ratio, sized to 2x its largest on-slide placement (the raster-twin
+// resolution #681 verified on-device), transparent background preserved. Any
+// per-image failure warns and leaves that reference vector — the deck must
+// never be lost to a portability fix. Returns the number of swapped references.
+async function rasterizeSvgImagesInPage(browser, g, page) {
+  // Pass 1 — collect: every SVG image URL (absolutized) with the largest
+  // placement box it occupies, measured from the real layout.
+  const refs = await g(() => page.evaluate(() => {
+    // Fragment views (sprite.svg#view) are skipped: a raster twin would swap
+    // the fragment's view for the whole sprite sheet. A data: URL can't carry
+    // a raw `#` (it would have terminated the URL), so only fetchable URLs
+    // get the fragment test.
+    const isSvgUrl = (u) => /^data:image\/svg\+xml/i.test(u) || (!u.includes('#') && /\.svg(?:\?.*)?$/i.test(u));
+    const out = {};
+    const add = (url, rect) => {
+      if (!url || !isSvgUrl(url)) return;
+      const r = out[url] || (out[url] = { w: 0, h: 0 });
+      r.w = Math.max(r.w, rect.width);
+      r.h = Math.max(r.h, rect.height);
+    };
+    for (const img of document.images) add(img.currentSrc || img.src, img.getBoundingClientRect());
+    for (const el of document.querySelectorAll('[style*="background-image"]')) {
+      // Walk EVERY url() token — a declaration can layer a gradient scrim over
+      // the image — and never let one malformed URL abort the collect: the
+      // deck must not be lost to a portability fix.
+      for (const m of (el.style.backgroundImage || '').matchAll(/url\(["']?([^"')]+)["']?\)/gi)) {
+        try { add(new URL(m[1], document.baseURI).href, el.getBoundingClientRect()); } catch (_e) { /* skip this token */ }
+      }
+    }
+    return out;
+  }), 'collect svg images');
+  const urls = Object.keys(refs);
+  if (!urls.length) return 0;
+
+  // Pass 2 — rasterize each unique SVG once in a scratch page.
+  const map = {};
+  const scratch = await g(() => browser.newPage(), 'svg raster page');
+  try {
+    for (const url of urls) {
+      try {
+        // A file:// SVG can't load as a subresource of the about:blank scratch
+        // page (Chromium blocks local subresources off non-file pages), so
+        // inline it as a data: URL; data:/http(s) sources load as-is.
+        const src = url.startsWith('file:')
+          ? `data:image/svg+xml;base64,${fs.readFileSync(fileURLToPath(url)).toString('base64')}`
+          : url;
+        await g(() => scratch.setContent(
+          '<!DOCTYPE html><html><body style="margin:0"><img id="t" style="display:block"></body></html>',
+        ), 'svg scratch doc');
+        // Assign src via evaluate (never string-interpolated into markup) and
+        // wait for the actual load result — a failed load throws to the catch
+        // below, leaving that reference vector instead of swapping in a blank.
+        const nat = await g(() => scratch.evaluate(async (s) => {
+          const i = document.getElementById('t');
+          const loaded = await new Promise((resolve) => {
+            i.onload = () => resolve(true);
+            i.onerror = () => resolve(false);
+            i.src = s;
+          });
+          try { await i.decode(); } catch (_e) { /* naturalWidth fallback below */ }
+          return { ok: loaded, w: i.naturalWidth, h: i.naturalHeight };
+        }, src), 'load svg');
+        if (!nat.ok) throw new Error('image failed to load');
+        // Intrinsic aspect from the SVG itself; a viewBox-less SVG reports 0,
+        // so fall back to its placement box (then the slide) for the ratio.
+        const disp = refs[url];
+        const natW = nat.w || disp.w || slideW;
+        const natH = nat.h || disp.h || slideH;
+        // 2x the placement box on EACH axis independently: a cover placement of
+        // an extreme-aspect asset (a pano full-bleed, a tall column) is
+        // constrained by its SHORT axis, so a long-edge-only target would
+        // under-resolve exactly the placements #690 is about. Floor for tiny
+        // marks, cap the long edge so a pano can't paint an OOM-sized canvas.
+        let scale = Math.max((2 * Math.max(disp.w, 1)) / natW, (2 * Math.max(disp.h, 1)) / natH);
+        const longEdge = Math.max(natW, natH) * scale;
+        if (longEdge < 64) scale *= 64 / longEdge;
+        if (longEdge > 4096) scale *= 4096 / longEdge;
+        const outW = Math.max(1, Math.round(natW * scale));
+        const outH = Math.max(1, Math.round(natH * scale));
+        await g(() => scratch.setViewport({ width: outW, height: outH, deviceScaleFactor: 1 }), 'size svg viewport');
+        await g(() => scratch.evaluate((w, h) => {
+          const i = document.getElementById('t');
+          i.style.width = `${w}px`;
+          i.style.height = `${h}px`;
+        }, outW, outH), 'size svg');
+        const png = await g(() => scratch.screenshot({
+          type: 'png',
+          omitBackground: true,
+          clip: { x: 0, y: 0, width: outW, height: outH },
+        }), 'raster svg');
+        map[url] = `data:image/png;base64,${Buffer.from(png).toString('base64')}`;
+      } catch (e) {
+        console.warn(`  ⚠ Could not rasterize SVG image (${url.slice(0, 96)}): ${e.message} — leaving it vector.`);
+      }
+    }
+  } finally {
+    try { await scratch.close(); } catch (_e) { /* browser teardown owns it */ }
+  }
+  if (!Object.keys(map).length) return 0;
+
+  // Pass 3 — swap in place, layout-neutrally. An <img> is pinned to its
+  // laid-out box FIRST (the twin's intrinsic size is 2x the placement, so an
+  // intrinsically-sized image would otherwise re-lay-out at double size — and
+  // this runs after the overflow/autosplit measurements, which must stay
+  // true). Background declarations replace only the matched url() tokens, so
+  // layered gradient scrims survive.
+  const swapped = await g(() => page.evaluate((twins) => {
+    let n = 0;
+    for (const img of document.images) {
+      const key = img.currentSrc || img.src;
+      if (!twins[key]) continue;
+      const r = img.getBoundingClientRect();
+      if (r.width && r.height) {
+        img.style.width = `${r.width}px`;
+        img.style.height = `${r.height}px`;
+      }
+      img.src = twins[key];
+      n++;
+    }
+    for (const el of document.querySelectorAll('[style*="background-image"]')) {
+      const bg = el.style.backgroundImage || '';
+      const next = bg.replace(/url\(["']?([^"')]+)["']?\)/gi, (token, u) => {
+        try {
+          const abs = new URL(u, document.baseURI).href;
+          if (twins[abs]) { n++; return `url("${twins[abs]}")`; }
+        } catch (_e) { /* leave this token as-is */ }
+        return token;
+      });
+      if (next !== bg) el.style.backgroundImage = next;
+    }
+    return n;
+  }, map), 'swap svg images');
+  // Let the swapped-in data: images decode before print.
+  await g(() => page.evaluate(() => Promise.all(
+    [...document.images].map((i) => (i.complete ? null : i.decode().catch(() => {}))),
+  )), 'settle swapped images');
+  return swapped;
 }
 
 // Driver: render once; on a Chrome target crash / wedge (NOT an author-fixable
@@ -1866,6 +2088,47 @@ async function embedNotesInPdf(pdfBytes, notes) {
     return await doc.save();
   } catch (e) {
     console.warn(`  ⚠ Could not embed speaker notes into the PDF (${e.message}); writing deck without note annotations.`);
+    return pdfBytes;
+  }
+}
+
+// Assemble the --raster PDF: one page per slide image, page box matching the
+// vector path's geometry exactly (CSS px → PDF points at 96px/in → 72pt/in), so
+// page-size expectations, N-up printing, and the note-annotation Rect math all
+// hold. Unlike the post-pass helpers below this must NOT swallow errors — there
+// is no deck without it.
+async function assembleRasterPdf(jpegBuffers) {
+  const { PDFDocument } = require('pdf-lib');
+  const doc = await PDFDocument.create();
+  const wPt = slideW * 0.75;
+  const hPt = slideH * 0.75;
+  for (const buf of jpegBuffers) {
+    const img = await doc.embedJpg(buf);
+    const pg = doc.addPage([wPt, hPt]);
+    pg.drawImage(img, { x: 0, y: 0, width: wPt, height: hPt });
+  }
+  return await doc.save();
+}
+
+// When --embed-source is set, attach the deck's ORIGINAL Markdown (as read from
+// disk — before the Mermaid pre-render) to the PDF as an embedded file, so the
+// artifact alone round-trips back to an editable deck. Any viewer with an
+// attachments panel (Acrobat, Firefox's pdf.js, most desktops) surfaces it;
+// `pdfdetach`/pdf-lib extract it in tooling. On any pdf-lib failure it returns
+// the input bytes unchanged — provenance must never cost the visible deck
+// (mirrors embedNotesInPdf).
+async function embedSourceInPdf(pdfBytes) {
+  if (!EMBED_SOURCE) return pdfBytes;
+  try {
+    const { PDFDocument } = require('pdf-lib');
+    const doc = await PDFDocument.load(pdfBytes);
+    await doc.attach(Buffer.from(md, 'utf8'), path.basename(mdFile), {
+      mimeType: 'text/markdown',
+      description: 'Lattice deck source (Markdown). Re-render with: lattice-emulator <this file> out.pdf',
+    });
+    return await doc.save();
+  } catch (e) {
+    console.warn(`  ⚠ Could not attach the Markdown source to the PDF (${e.message}); writing deck without it.`);
     return pdfBytes;
   }
 }

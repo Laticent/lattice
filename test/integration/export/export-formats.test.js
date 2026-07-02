@@ -141,6 +141,162 @@ describe('export-formats', () => {
     assert.ok(ring < 50, `overflow ring leaked into the export: ${ring} danger-red edge pixels (expected ~0)`);
   });
 
+  // ── PDF portability: SVG-image rasterization, --raster, --embed-source ────
+
+  // A 2-slide deck exercising both SVG image channels: a `![bg]` (CSS
+  // background-image on .lattice-bg) and an inline `![](…)` <img> — plus a
+  // speaker note and a marker string for the --embed-source round-trip.
+  const SOURCE_MARKER = 'LATTICE-EMBED-SOURCE-MARKER-7f3a';
+  const NOTE_MARKER   = 'Raster note marker 9c1d';
+  function writeSvgFixture(dir) {
+    fs.copyFileSync(
+      path.join(ROOT, 'examples', 'assets', 'sample-photo-wide.svg'),
+      path.join(dir, 'photo.svg'),
+    );
+    const src = path.join(dir, 'deck.md');
+    fs.writeFileSync(src, [
+      '---', 'paginate: true', '---', '',
+      '<!-- _class: image -->', '',
+      '![bg](photo.svg)', '',
+      '# SVG background', '',
+      `<!-- ${NOTE_MARKER} -->`, '',
+      '---', '',
+      '<!-- _class: content -->', '',
+      '## Inline SVG image', '',
+      `${SOURCE_MARKER}`, '',
+      '![sample](photo.svg)', '',
+    ].join('\n'));
+    return src;
+  }
+
+  // Parse `pdfimages -list` output into data rows (skip the 2 header lines).
+  function pdfImageRows(pdf) {
+    const out = execFileSync('pdfimages', ['-list', pdf], { encoding: 'utf8' });
+    return out.split('\n').slice(2).filter((l) => l.trim());
+  }
+
+  test('rasterizes SVG images in the vector PDF by default (#690 iOS Quartz portability)', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = writeSvgFixture(dir);
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    // Every SVG placement must land as a plain raster image XObject — the
+    // universally supported construct — not the shading-pattern / transparency-
+    // group vectors Quartz mishandles. One image per placement (bg + inline).
+    const rows = pdfImageRows(out);
+    assert.ok(rows.length >= 2, `expected ≥2 raster image XObjects (bg + inline), got ${rows.length}:\n${rows.join('\n')}`);
+    // The rest of the page stays vector: text must remain selectable.
+    const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+    assert.match(text, /Inline SVG image/, 'vector text should survive the SVG swap');
+  });
+
+  test('--keep-vector-images keeps the SVG placements vector (opt-out)', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = writeSvgFixture(dir);
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--keep-vector-images'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.equal(pdfImageRows(out).length, 0, 'opt-out export should carry no raster image XObjects');
+  });
+
+  test('--raster prints one full-page JPEG per slide; notes + --embed-source still apply', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const src = writeSvgFixture(dir);
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--raster', '--embed-source'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+
+    // One JPEG per page at the 2× raster size, and no fonts (no vector text).
+    const rows = pdfImageRows(out);
+    assert.equal(rows.length, 2, `expected exactly 1 image per page (2 pages), got:\n${rows.join('\n')}`);
+    for (const row of rows) {
+      assert.match(row, /\bjpeg\b/, `page image should be JPEG-encoded: ${row}`);
+      assert.match(row, /\b2560\s+1440\b/, `page image should be the 2× HD raster: ${row}`);
+    }
+    const fonts = execFileSync('pdffonts', [out], { encoding: 'utf8' }).split('\n').slice(2).filter((l) => l.trim());
+    assert.equal(fonts.length, 0, 'raster PDF should embed no fonts');
+
+    // The speaker note survives as a page-1 annotation on the assembled PDF
+    // (pdf-lib writes object streams, so inspect structurally — not raw bytes).
+    const { PDFDocument, PDFName } = require('pdf-lib');
+    const doc = await PDFDocument.load(fs.readFileSync(out));
+    assert.equal(doc.getPageCount(), 2, 'one PDF page per slide');
+    const annots = doc.getPage(0).node.Annots();
+    assert.ok(annots && annots.size() > 0, 'page 1 should carry the speaker-note annotation');
+    const annot = doc.context.lookup(annots.get(0));
+    const contents = annot.get(PDFName.of('Contents'));
+    const noteText = contents.decodeText ? contents.decodeText() : contents.asString();
+    assert.ok(noteText.includes(NOTE_MARKER), `annotation should carry the note, got: ${noteText}`);
+
+    // --embed-source round-trips: extract the attachment and compare bytes.
+    const extractDir = path.join(dir, 'extract');
+    fs.mkdirSync(extractDir);
+    execFileSync('pdfdetach', ['-saveall', '-o', extractDir + path.sep, out]);
+    const extracted = fs.readFileSync(path.join(extractDir, 'deck.md'), 'utf8');
+    assert.ok(extracted.includes(SOURCE_MARKER), 'extracted attachment should be the deck source');
+    assert.equal(extracted, fs.readFileSync(src, 'utf8'), 'attachment must be byte-identical to the source');
+  });
+
+  test('SVG swap is layout-neutral and robust: <img> box pinned, gradient scrims survive, malformed URLs skipped', { timeout: TIMEOUT }, () => {
+    // Three checker-found failure modes pinned by one render:
+    //  (a) an intrinsically-sized <img> must NOT re-lay-out at the twin's 2×
+    //      natural size — pass 3 pins the element to its laid-out box;
+    //  (b) a layered `linear-gradient(...), url(x.svg)` declaration must keep
+    //      the gradient scrim — only the url() token is replaced;
+    //  (c) one malformed background-image URL must not kill the export —
+    //      URL resolution is guarded per token.
+    const dir = tmpDir();
+    fs.writeFileSync(
+      path.join(dir, 'small-red.svg'),
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60"><rect width="100" height="60" fill="#ff0000"/></svg>',
+    );
+    const src = path.join(dir, 'robust.md');
+    fs.writeFileSync(src, [
+      '---', 'html: true', 'paginate: false', '---', '',
+      '<!-- _class: content -->', '',
+      '## Intrinsic pin', '',
+      '![red](small-red.svg)', '',
+      '---', '',
+      '<!-- _class: content -->', '',
+      '## Scrim and bad URL', '',
+      `<div style="width:200px;height:150px;background-image:linear-gradient(rgba(0,0,255,0.5),rgba(0,0,255,0.5)),url('small-red.svg')"></div>`, '',
+      `<div style="width:10px;height:10px;background-image:url('http://[bad/x.svg')"></div>`, '',
+    ].join('\n'));
+    const out = path.join(dir, 'robust.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    // (c) the malformed URL must not abort the render.
+    assert.equal(r.status, 0, `emulator failed (malformed URL should be skipped, not fatal): ${r.stderr}`);
+    assert.ok(pdfImageRows(out).length >= 2, 'both SVG placements should have been swapped for raster twins');
+
+    // Rasterize at 96 dpi → 1 raster px per CSS px on the 1280×720 page.
+    execFileSync('pdftoppm', ['-r', '96', out, path.join(dir, 'page')]);
+    const isRed  = (d, i) => d[i] > 215 && d[i + 1] < 40 && d[i + 2] < 40;
+    const isBlend = (d, i) => Math.abs(d[i] - 128) < 45 && d[i + 1] < 40 && Math.abs(d[i + 2] - 128) < 45;
+    const count = (ppm, pred) => {
+      const { w, h, data } = readPPM(ppm);
+      let n = 0;
+      for (let p = 0; p < w * h; p++) if (pred(data, p * 3)) n++;
+      return n;
+    };
+    // (a) the 100×60 image must cover ~6000 px, not ~24000 (the 2× twin's box).
+    const red1 = count(path.join(dir, 'page-1.ppm'), isRed);
+    assert.ok(red1 > 4000 && red1 < 12000, `intrinsically-sized <img> should keep its 100×60 box (~6000 red px), got ${red1}`);
+    // (b) the scrim must still blend the red tile (→ ~purple, ~0 pure red).
+    const red2 = count(path.join(dir, 'page-2.ppm'), isRed);
+    const blend2 = count(path.join(dir, 'page-2.ppm'), isBlend);
+    assert.ok(red2 < 1000, `gradient scrim should survive the swap (pure-red pixels ≈ 0), got ${red2}`);
+    assert.ok(blend2 > 15000, `scrim-over-image blend should cover the 200×150 box, got ${blend2}`);
+  });
+
   test('renders one PNG per slide at the 2× raster size', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.png');
