@@ -119,7 +119,12 @@ function fitAgent(gap, clamp) {
 		'  function gatedFit(){if(!fitSuspended)fit();}',
 		'  window.__latticeFit=gatedFit;',
 		'  window.__latticeFitSuspend=function(){fitSuspended=true;};',
-		'  window.__latticeFitResume=function(){fitSuspended=false;fit();};',
+		// Resume defers ONE frame: on iOS WebKit the parent may commit the new
+		// track widths and resume in the same tick — measuring clientWidth before
+		// the iframe relayout lands re-fits against the stale width (tiny slides
+		// over background). One rAF puts the measurement after layout; a second
+		// fit on a timeout is the WebKit belt.
+		'  window.__latticeFitResume=function(){fitSuspended=false;requestAnimationFrame(fit);setTimeout(fit,120);};',
 		'  window.addEventListener("resize",gatedFit);',
 		'  if(typeof ResizeObserver!=="undefined"){',
 		'    var ro=new ResizeObserver(function(){gatedFit();});',

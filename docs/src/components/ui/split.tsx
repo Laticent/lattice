@@ -175,6 +175,13 @@ interface DragState {
 	canceled: boolean
 	frame: number | null
 	pendingX: number | null
+	/** Touch/pen drags are DEFERRED: the divider line slides under the finger
+	 * (a transform on the handle — paint only, zero layout) and the tracks
+	 * commit ONCE on release. Live per-frame track resizing on tablets is the
+	 * jank the decision doc's coarse-pointer clause exists to prevent: the
+	 * iframe re-lays-out every frame against a fit-suspended deck (stale-scaled
+	 * slides over background), and iOS WebKit compounds it. */
+	deferred: boolean
 	onWindowKeyDown: (e: KeyboardEvent) => void
 	onVisibilityChange: () => void
 }
@@ -316,6 +323,9 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 			window.removeEventListener("keydown", drag.onWindowKeyDown, true)
 			document.removeEventListener("visibilitychange", drag.onVisibilityChange)
 			containerRef.current?.removeAttribute("data-split-arming")
+			// Ghost mode leaves a transform on the handle; the committed tracks (or
+			// the rewound vars) put the real line where it belongs.
+			if (handleRef.current) handleRef.current.style.transform = ""
 			if (!commit || drag.canceled) {
 				// Esc / teardown: restore the drag-start ratio. React state never
 				// changed mid-drag, so only the imperative vars need rewinding.
@@ -351,6 +361,7 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 				canceled: false,
 				frame: null,
 				pendingX: null,
+				deferred: e.pointerType === "touch" || e.pointerType === "pen",
 				// Esc cancels the drag ONLY — installed at drag start, removed at
 				// drag end, so it can't collide with overlay/CodeMirror Esc users.
 				onWindowKeyDown: (ke: KeyboardEvent) => {
@@ -414,7 +425,15 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 			drag.lastRatio = roundRatio(clampRatio(rawA / drag.pairWidth))
 			const el = containerRef.current
 			if (!el) return
-			writeVars(el, drag.lastRatio)
+			if (drag.deferred) {
+				// Ghost mode (touch/pen): slide the divider LINE itself — a paint-only
+				// transform, clamped to the band the tracks would allow — and commit
+				// the tracks once at end-of-drag.
+				const ghostDx = (drag.lastRatio - drag.startRatio) * drag.pairWidth
+				if (handleRef.current) handleRef.current.style.transform = `translateX(${ghostDx}px)`
+			} else {
+				writeVars(el, drag.lastRatio)
+			}
 			if (armed !== drag.armed) {
 				drag.armed = armed
 				if (armed) el.setAttribute("data-split-arming", armed)
