@@ -1,9 +1,11 @@
 <!doctype html>
-<!-- Offline fallback served by the service worker (docs/public/sw.js) when a
-     navigation misses both the network and the page cache. Fully
-     self-contained on purpose: this must render with NOTHING else cached.
-     References the mark by URL only as a bonus (it's usually in the asset
-     cache); the page reads fine without it. -->
+<!-- Offline fallback (/offline/) served by the service worker
+     (docs/public/sw.js) when a navigation misses both the network and the
+     page cache. A directory index rather than offline.html because Cloudflare
+     Pages 308-redirects *.html URLs, and a redirected response can't be
+     replayed for a navigation. Fully self-contained on purpose: this must
+     render with NOTHING else cached. References the mark by URL only as a
+     bonus (it's usually in the asset cache); the page reads fine without it. -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />

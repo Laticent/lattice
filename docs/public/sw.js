@@ -7,7 +7,7 @@
  * See engineering/decisions/2026-07-02-docs-pwa.md for the strategy choice.
  *
  * Strategies (GET only; anything else passes straight through):
- *   • Navigations (HTML)      network-first, cache fallback, then /offline.html.
+ *   • Navigations (HTML)      network-first, cache fallback, then /offline/.
  *     Fresh content always wins when online — a deploy needs no SW version bump.
  *   • Same-origin assets      stale-while-revalidate (CSS/JS/images/JSON/fonts).
  *     Heavy downloadables (.pdf/.pptx/.zip) are never cached — they'd blow the
@@ -25,7 +25,11 @@ const ASSETS = `lattice-${VERSION}-assets`;
 const FONTS = `lattice-${VERSION}-fonts`;
 const ALL_CACHES = [PAGES, ASSETS, FONTS];
 
-const OFFLINE_URL = '/offline.html';
+// A DIRECTORY page, not /offline.html: Cloudflare Pages 308-redirects
+// *.html to the pretty URL, and a redirected response can't be replayed for
+// a navigation (redirect mode 'manual') — the fallback would break on the
+// PR-preview host. /offline/ serves 200 on every host we deploy to.
+const OFFLINE_URL = '/offline/';
 // Never runtime-cache these: large, download-manager territory.
 const SKIP_EXTENSIONS = /\.(pdf|pptx|zip)$/i;
 // Per-cache entry caps — a coarse FIFO trim keeps storage bounded.

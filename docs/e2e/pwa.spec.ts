@@ -95,7 +95,7 @@ test('service worker activates and serves navigation offline', async ({ page }) 
 			.poll(() =>
 				page.evaluate(async () => {
 					const home = await caches.match(`${location.origin}/`);
-					const fallback = await caches.match('/offline.html');
+					const fallback = await caches.match('/offline/');
 					return Boolean(home && fallback);
 				}),
 			)
