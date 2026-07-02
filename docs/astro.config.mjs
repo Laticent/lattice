@@ -44,6 +44,13 @@ export default defineConfig({
 	// CJS→ESM build nudge is needed. See tools/build-authoring-core.js.
 	vite: {
 		server: { fs: { allow: ['..'] } },
+		// Module (ESM) workers, not the default IIFE: the PDF export worker
+		// (src/playground/pdf-export-worker.js) bundles jspdf, whose internal
+		// dynamic imports force a code-splitting worker build — which Rollup
+		// refuses under IIFE. Every browser that has OffscreenCanvas (the worker
+		// path's feature gate) also has module workers, and the main thread falls
+		// back to the in-thread build elsewhere.
+		worker: { format: 'es' },
 		// Tailwind v4 via its first-party Vite plugin. The entry stylesheet
 		// (src/styles/tailwind.css) imports only the theme + utilities layers —
 		// Preflight is OFF on purpose (see that file's header + the migration

@@ -139,6 +139,18 @@ in patch versions.
 
 ### Fixed
 
+- **Studio/Drawing Board PDF export no longer freezes the page on a large deck.**
+  The one-click image PDF's CPU-heavy stages — the per-slide PNG deflate
+  (`canvas.toDataURL`), jsPDF's per-image re-encode, and the final document
+  serialization — now run in a dedicated worker
+  (`docs/src/playground/pdf-export-worker.js`); the main thread only clones and
+  draws each slide and transfers the bitmap. Measured on a 36-slide deck (same
+  build, worker lane vs the old in-thread lane): total main-thread blocked time
+  48.7s → 7.8s (−84%), longest single freeze 1384ms → 376ms, wall time 64s →
+  54s — the progress line now paints and the page stays responsive throughout.
+  Browsers without OffscreenCanvas/module workers (and any worker failure) fall
+  back to the original in-thread build automatically. Export bytes-shape is
+  unchanged (2× PNG, one image per page).
 - **The bare `statement` slide class is retired from shipped content — it was
   never a registered component.** `statement` names a component *bucket*
   (`big-number` · `content` · `quote` · `split-panel`) and the `image statement`
