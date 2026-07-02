@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, gotoStudio, railButtons, setEditorContent, test, toastText } from '../studio-fixture';
 
 // Journey: chart deck → PDF. Stylesheet-styled chart SVGs (radar, donut) are the
@@ -10,15 +12,17 @@ import { expect, gotoStudio, railButtons, setEditorContent, test, toastText } fr
 // frame's chart polygon carries a baked non-black inline fill).
 test.describe.configure({ timeout: 120_000 });
 
-const DECK = [
-	'<!-- _class: radar -->\n\n## Scored on four axes\n\n- Speed\n  - Alpha: 8\n  - Beta: 5\n- Coverage\n  - Alpha: 6\n  - Beta: 9\n- Cost\n  - Alpha: 4\n  - Beta: 7\n- Fit\n  - Alpha: 9\n  - Beta: 6',
-	'<!-- _class: piechart donut -->\n\n## Where the quarter went\n\n- Build\n  - 46\n- Policy\n  - 22\n- Integration\n  - 18\n- Toil\n  - 14',
-].join('\n\n---\n\n');
+// The committed capture-sensitive coverage fixture (chart SVGs, Mermaid, ribbon
+// chrome, dark bookend) — the SAME deck engineering/visual-review.md tells a
+// human to eyeball through the real Share sheet on any export-pipeline change.
+const FIXTURE = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'test', 'fixtures', 'export-coverage-deck.md');
+const DECK = fs.readFileSync(FIXTURE, 'utf8');
+const SLIDES = (DECK.match(/<!-- _class:/g) || []).length; // every fixture slide declares a class
 
 test('a chart deck exports to PDF with styled (non-black) chart SVGs', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
-	await expect(railButtons(page)).toHaveCount(2);
+	await expect(railButtons(page)).toHaveCount(SLIDES);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 

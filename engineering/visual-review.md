@@ -85,6 +85,30 @@ cross-cutting "familiar across all three" call the QUALITY BAR requires. Same
 maker-checker discipline, same whole-screen rule — don't split one viewport
 across agents.
 
+## The export surface — review the artifact, not the preview
+
+The browser export pipeline (Studio/Drawing Board Share → PDF / PPTX;
+`docs/src/playground/drawing-board-export.js`) is a THIRD renderer, and it
+diverges in its own ways: html-to-image inlines computed styles onto
+HTMLElements only, so anything styled from the document stylesheet inside an
+`<svg>` needs explicit baking (see `engineering/gotchas.md` § "Charts export
+black/unstyled"). A change that renders perfectly in the live preview and
+through lattice-emulator can still export corrupted — the black-chart jargon
+export shipped exactly that way.
+
+So for ANY export-pipeline change (the capture frame, the rasterizers, the
+worker, html-to-image usage, fonts embedding):
+
+1. Build the docs site, open the real Studio, paste
+   `test/fixtures/export-coverage-deck.md` (the capture-sensitive component
+   sweep: chart SVGs, Mermaid, ribbon chrome, dark bookend), run Share → PDF,
+   and **look at every page** of the downloaded artifact.
+2. The `chart-export` e2e journey (`docs/e2e/journeys/chart-export.spec.ts`)
+   drives the same fixture headlessly and pins the SVG style-baking mechanism —
+   run it locally before pushing; it fails on a regression by probe timeout.
+3. "It downloaded and the toast fired" is a presence check, not fidelity —
+   never accept it as verification of a rendering change.
+
 ## Output
 
 Fold the checker-adjudicated findings into one prioritized list and fix what's
