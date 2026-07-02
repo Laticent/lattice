@@ -22,15 +22,22 @@ test('duplicate slide grows the deck by one', async ({ page }) => {
 	await expect(railButtons(page)).toHaveCount(n + 1);
 });
 
-// FIXME(studio): "Delete slide" is currently a no-op in the redesigned studio —
-// the button is enabled and fires no confirmation, but the rail count and deck
-// source are unchanged across every path tried (select-then-delete,
-// add-then-delete, nav-then-delete). Surfaced by this E2E; tracked as a studio
-// regression to fix separately. Re-enable this test once delete works again.
-test.fixme('delete slide shrinks the deck by one', async ({ page }) => {
+// Delete is destructive, so it confirms IN PLACE: the first click ARMS the
+// button (it flips to "Confirm delete slide", red, for 3s), the second click
+// deletes. A single click changes nothing by design — which is exactly what an
+// earlier version of this test (and #692's manual repro) misread as a dead
+// button. The two-step flow IS the oracle.
+test('delete slide arms, confirms, and shrinks the deck by one', async ({ page }) => {
 	const n = await slideCount(page);
 	await railButtons(page).nth(2).click();
+
 	await page.getByRole('button', { name: 'Delete slide' }).click();
+	// Armed, not deleted: the control flips to its confirm state, deck unchanged.
+	const confirm = page.getByRole('button', { name: 'Confirm delete slide' });
+	await expect(confirm).toBeVisible();
+	await expect(railButtons(page)).toHaveCount(n);
+
+	await confirm.click();
 	await expect(toastText(page)).toContainText('Slide deleted');
 	await expect(railButtons(page)).toHaveCount(n - 1);
 });
