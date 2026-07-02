@@ -1,4 +1,4 @@
-import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, MessageSquareText, Plug, Sparkles, Wallet, Zap } from 'lucide-react';
+import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, MessageSquareText, MousePointer2, Plug, SlidersHorizontal, Sparkles, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -9,7 +9,7 @@ import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, set
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
 import { languageFor, STUDIO_LANGUAGES } from './studio-language';
-import { loadInstructions, loadSettings, saveInstructions, saveSettings } from './studio-store';
+import { type HandleStyle, loadInstructions, loadSettings, saveInstructions, saveSettings } from './studio-store';
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
@@ -18,7 +18,7 @@ const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max
 // ACTIVE tier — connection ≠ active (Studio Policy B): the cloud stays connected but
 // dormant while you run on-device, and one tap resumes it. The Spend tab shows the
 // authoritative OpenRouter account balance beside the live session tally.
-const TABS = ['AI model', 'Spend', 'Instructions', 'Storage'] as const;
+const TABS = ['General', 'AI model', 'Spend', 'Instructions', 'Storage'] as const;
 type Tab = (typeof TABS)[number];
 type GenView = 'cloud' | 'ondevice';
 
@@ -26,6 +26,38 @@ const ON_DEVICE_TIERS = new Set(['prompt-api', 'webllm', 'universal']);
 
 function GroupLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
 	return <div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{icon}{children}</div>;
+}
+
+// The two on-canvas placement-handle styles the General tab offers (mirrors the finish
+// designer's CanvasHandles): a familiar grab-knob, or a precise see-through reticle.
+const HANDLE_CHOICES: { value: HandleStyle; title: string; blurb: string }[] = [
+	{ value: 'knob', title: 'Familiar', blurb: 'A grab-handle knob — obviously draggable' },
+	{ value: 'reticle', title: 'Precision', blurb: 'A see-through crosshair for exact placement' },
+];
+
+// A miniature of each handle style for the picker card (accent-toned).
+function HandlePreview({ kind }: { kind: HandleStyle }) {
+	if (kind === 'knob') {
+		return (
+			<span className="grid size-8 place-items-center">
+				<span
+					className="size-5 rounded-full border-[1.5px] shadow-[0_2px_6px_rgba(4,10,22,.4)]"
+					style={{ background: 'radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--accent) 26%, #fff) 0%, var(--accent) 60%, color-mix(in srgb, var(--accent) 72%, #000) 100%)', borderColor: 'color-mix(in srgb, var(--accent) 80%, #fff 10%)' }}
+				/>
+			</span>
+		);
+	}
+	return (
+		<span className="grid size-8 place-items-center">
+			<span className="relative size-6 rounded-full border-[1.5px]" style={{ borderColor: 'var(--accent)' }}>
+				<span className="absolute inset-0 m-auto size-1 rounded-full" style={{ background: 'var(--accent)' }} />
+				<span className="absolute left-1/2 -top-1 h-1.5 w-[1.5px] -translate-x-1/2" style={{ background: 'var(--accent)' }} />
+				<span className="absolute left-1/2 -bottom-1 h-1.5 w-[1.5px] -translate-x-1/2" style={{ background: 'var(--accent)' }} />
+				<span className="absolute top-1/2 -left-1 h-[1.5px] w-1.5 -translate-y-1/2" style={{ background: 'var(--accent)' }} />
+				<span className="absolute top-1/2 -right-1 h-[1.5px] w-1.5 -translate-y-1/2" style={{ background: 'var(--accent)' }} />
+			</span>
+		</span>
+	);
 }
 
 export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; onOpenChange: (v: boolean) => void; notify: (msg: string) => void }) {
@@ -40,6 +72,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [instructions, setInstructions] = React.useState(loadInstructions);
 	// The AI output language (seeded from the browser the first time; see studio-store).
 	const [language, setLanguage] = React.useState(() => loadSettings().language);
+	// How the Fabricate finish designer draws its on-canvas placement handles.
+	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
 	const [storeInCloud, setStoreInCloud] = React.useState(false);
 	const [connecting, setConnecting] = React.useState(false);
 	const [spend, setSpend] = React.useState(() => architectSpend());
@@ -101,6 +135,39 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							<button type="button" key={t} role="tab" aria-selected={t === tab} onClick={() => setTab(t)} className={cn('rounded-full border px-3 py-1.5 text-[12.5px] font-semibold', t === tab ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}>{t}</button>
 						))}
 					</div>
+
+					{tab === 'General' && (
+						<div>
+							<GroupLabel icon={<MousePointer2 className="size-3.5" />}>Placement handles</GroupLabel>
+							<p className="mb-3 text-xs text-muted-foreground">How the finish designer draws the drag handles you place a wash, mark, or spotlight with — on the canvas over your specimen.</p>
+							<div className="grid grid-cols-2 gap-2.5">
+								{HANDLE_CHOICES.map((c) => {
+									const active = handleStyle === c.value;
+									return (
+										<label
+											key={c.value}
+											className={cn('flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-center transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)]', active ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]' : 'border-border bg-background hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+										>
+											<input
+												type="radio"
+												name="handle-style"
+												value={c.value}
+												checked={active}
+												onChange={() => { setHandleStyle(c.value); saveSettings({ handleStyle: c.value }); notify(`Placement handles: ${c.title.toLowerCase()}.`); }}
+												className="sr-only"
+											/>
+											<HandlePreview kind={c.value} />
+											<span className="flex flex-col gap-0.5">
+												<span className="text-[13px] font-semibold text-[var(--text-heading)]">{c.title}</span>
+												<span className="text-[11px] leading-snug text-muted-foreground">{c.blurb}</span>
+											</span>
+										</label>
+									);
+								})}
+							</div>
+							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to every finish handle; changes take effect live in the designer.</p>
+						</div>
+					)}
 
 					{tab === 'AI model' && (
 						<div>

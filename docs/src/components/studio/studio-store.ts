@@ -215,8 +215,13 @@ export function saveChat(deckId: string, messages: ChatMessage[]): void {
 // welcome, makes an edit, or opens a panel). It gates the reduced-density
 // first-run shell: while false, the side panels start closed and a one-time
 // welcome cue shows; once true, the Studio opens at full density as before.
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; onboarded: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, onboarded: false };
+// `handleStyle` — how the Fabricate finish designer draws its on-canvas placement
+// handles (wash hotspot / mark / spotlight). 'knob' is the familiar slider-thumb (the
+// default, most obviously grabbable); 'reticle' is a precise, see-through crosshair for
+// designers. A workspace preference, so the whole team's Studio reads the same way.
+export type HandleStyle = 'knob' | 'reticle';
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; onboarded: boolean; handleStyle: HandleStyle };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, onboarded: false, handleStyle: 'knob' };
 
 export function loadSettings(): StudioSettings {
 	const saved = read<Partial<StudioSettings>>(SETTINGS_LS) ?? {};
@@ -225,8 +230,13 @@ export function loadSettings(): StudioSettings {
 	const language = saved.language ?? detectLanguage();
 	return { ...DEFAULT_SETTINGS, ...saved, language };
 }
+// Notify same-tab listeners a setting changed (the native `storage` event only fires in
+// OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace
+// sheet reflects live without a remount.
+export const SETTINGS_EVENT = 'lattice:settings';
 export function saveSettings(partial: Partial<StudioSettings>): void {
 	write(SETTINGS_LS, { ...loadSettings(), ...partial });
+	if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SETTINGS_EVENT));
 }
 
 // Standing instructions — a free-text voice prefix the AI honors on every

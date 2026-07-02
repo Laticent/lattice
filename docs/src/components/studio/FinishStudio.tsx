@@ -36,6 +36,7 @@ import {
 } from './finish-generate';
 import { saveStudioFinish } from './finish-library';
 import { Joystick } from './Joystick';
+import { type HandleStyle, loadSettings, SETTINGS_EVENT } from './studio-store';
 
 // The Finish faculty — the third Fabricate workbench (beside Theme + Component),
 // now a real RIGHT-PANEL DESIGNER that mirrors them: a live preview specimen in
@@ -141,6 +142,20 @@ export function FinishStudio({
 	// Drag-on-canvas handles over the live preview — one per placeable element that's
 	// actually rendering (a mark needs a glyph to show; a hotspot needs a single-source
 	// wash). Reads x/y for position; dragging writes absolute x/y.
+	// The workspace's chosen handle style (knob = familiar / reticle = precise). Re-read on
+	// the same-tab settings event + cross-tab `storage`, so switching it in the Workspace
+	// sheet updates the live specimen without a remount.
+	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
+	React.useEffect(() => {
+		const sync = () => setHandleStyle(loadSettings().handleStyle);
+		window.addEventListener(SETTINGS_EVENT, sync);
+		window.addEventListener('storage', sync);
+		return () => {
+			window.removeEventListener(SETTINGS_EVENT, sync);
+			window.removeEventListener('storage', sync);
+		};
+	}, []);
+
 	const canvasHandles: CanvasHandleSpec[] = [];
 	if (markPlaceable && recipe.mark.glyph?.trim()) canvasHandles.push({ key: 'mark', label: 'Mark', x: recipe.mark.x ?? 50, y: recipe.mark.y ?? 50, tone: 'accent', onMove: setMarkXY });
 	if (washPlaceable) canvasHandles.push({ key: 'wash', label: 'Wash', x: recipe.wash.x ?? 50, y: recipe.wash.y ?? 50, tone: 'ink', onMove: setWashXY });
@@ -280,7 +295,7 @@ export function FinishStudio({
 							className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]"
 							aria-label="Finish specimen"
 						/>
-						{canvasHandles.length > 0 && <CanvasHandles handles={canvasHandles} />}
+						{canvasHandles.length > 0 && <CanvasHandles handles={canvasHandles} handleStyle={handleStyle} />}
 					</div>
 					{exporting && (
 						<p className="text-[11.5px] leading-relaxed text-[var(--accent)]">Showing the export face — finishes render slightly flatter in baked PDF/PPTX exports.</p>
@@ -573,9 +588,70 @@ function PlaceControl({
 // x/y from the pointer position within the preview box.
 type CanvasHandleSpec = { key: string; label: string; x: number; y: number; tone: 'accent' | 'ink'; onMove: (x: number, y: number) => void };
 
-function CanvasHandles({ handles }: { handles: CanvasHandleSpec[] }) {
+// The tone color per handle — accent for spotlight/mark, an ink gray-blue for the wash
+// hotspot — exposed as `--tone` so the knob gradient + reticle strokes recolor from one var.
+const handleTone = (tone: 'accent' | 'ink') =>
+	tone === 'accent' ? 'var(--accent)' : 'color-mix(in srgb, var(--ink, var(--accent)) 74%, var(--border))';
+
+// A named LABEL chip beside the mark, so multiple handles are told apart at a glance. It
+// flips to the opposite side near an edge so it never clips off the specimen.
+function HandleLabel({ label, side }: { label: string; side: 'above' | 'below' }) {
+	return (
+		<span
+			className={cn(
+				'pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border bg-card/85 px-1.5 py-[2px] text-[10px] font-semibold leading-none shadow-[0_2px_8px_rgba(8,18,38,.35)] backdrop-blur-sm',
+				side === 'above' ? 'bottom-[calc(100%+5px)]' : 'top-[calc(100%+5px)]',
+			)}
+			style={{ borderColor: 'var(--tone)', color: 'var(--tone)' }}
+		>
+			{label}
+		</span>
+	);
+}
+
+// KNOB (familiar) — a raised slider-thumb marks the exact point; the name floats on a tag.
+function KnobMark({ label, grabbing, flip }: { label: string; grabbing: boolean; flip: boolean }) {
+	return (
+		<span className={cn('relative grid place-items-center transition-transform duration-100 motion-reduce:transition-none', grabbing && 'scale-110')}>
+			<HandleLabel label={label} side={flip ? 'below' : 'above'} />
+			<span
+				className="relative size-[22px] rounded-full border-[1.5px] group-focus-visible:ring-2 group-focus-visible:ring-[var(--accent)] group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-transparent"
+				style={{
+					background: 'radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--tone) 26%, #fff) 0%, var(--tone) 60%, color-mix(in srgb, var(--tone) 72%, #000) 100%)',
+					borderColor: 'color-mix(in srgb, var(--tone) 80%, #fff 10%)',
+					boxShadow: grabbing ? '0 6px 16px rgba(4,10,22,.5), inset 0 1px 1px rgba(255,255,255,.45)' : '0 3px 10px rgba(4,10,22,.42), inset 0 1px 1px rgba(255,255,255,.45)',
+				}}
+			>
+				<span className="absolute inset-0 m-auto size-[5px] rounded-full bg-white/55" style={{ boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--tone) 40%, transparent)' }} />
+			</span>
+		</span>
+	);
+}
+
+// RETICLE (precise) — a see-through crosshair frames the exact point; the name captions it.
+function ReticleMark({ label, grabbing, flip }: { label: string; grabbing: boolean; flip: boolean }) {
+	const tick = 'absolute' as const;
+	return (
+		<span className={cn('relative grid place-items-center transition-transform duration-100 motion-reduce:transition-none', grabbing && 'scale-110')}>
+			<HandleLabel label={label} side={flip ? 'above' : 'below'} />
+			<span
+				className="relative size-[26px] rounded-full border-[1.5px] bg-card/45 shadow-[0_2px_8px_rgba(4,10,22,.38)] backdrop-blur-[2px] group-focus-visible:ring-2 group-focus-visible:ring-[var(--accent)] group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-transparent"
+				style={{ borderColor: 'var(--tone)' }}
+			>
+				<span className="absolute inset-0 m-auto size-[5px] rounded-full" style={{ background: 'var(--tone)' }} />
+				<span className={cn(tick, 'left-1/2 -top-[4px] h-[5px] w-[1.5px] -translate-x-1/2')} style={{ background: 'var(--tone)' }} />
+				<span className={cn(tick, 'left-1/2 -bottom-[4px] h-[5px] w-[1.5px] -translate-x-1/2')} style={{ background: 'var(--tone)' }} />
+				<span className={cn(tick, 'top-1/2 -left-[4px] w-[5px] h-[1.5px] -translate-y-1/2')} style={{ background: 'var(--tone)' }} />
+				<span className={cn(tick, 'top-1/2 -right-[4px] w-[5px] h-[1.5px] -translate-y-1/2')} style={{ background: 'var(--tone)' }} />
+			</span>
+		</span>
+	);
+}
+
+function CanvasHandles({ handles, handleStyle }: { handles: CanvasHandleSpec[]; handleStyle: HandleStyle }) {
 	const boxRef = React.useRef<HTMLDivElement>(null);
 	const draggingRef = React.useRef<CanvasHandleSpec | null>(null);
+	const [dragKey, setDragKey] = React.useState<string | null>(null);
 
 	const fromPointer = (clientX: number, clientY: number, h: CanvasHandleSpec) => {
 		const box = boxRef.current;
@@ -587,40 +663,41 @@ function CanvasHandles({ handles }: { handles: CanvasHandleSpec[] }) {
 
 	return (
 		<div ref={boxRef} className="pointer-events-none absolute inset-0 z-10">
-			{handles.map((h) => (
-				<button
-					type="button"
-					key={h.key}
-					aria-label={`${h.label} — drag to place`}
-					onPointerDown={(e) => {
-						e.preventDefault();
-						draggingRef.current = h;
-						(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-					}}
-					onPointerMove={(e) => {
-						if (draggingRef.current?.key === h.key) fromPointer(e.clientX, e.clientY, h);
-					}}
-					onPointerUp={(e) => {
-						draggingRef.current = null;
-						(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-					}}
-					onPointerCancel={() => {
-						draggingRef.current = null;
-					}}
-					className={cn(
-						// A LABELED pill IS the handle marker (centered on the effect's x/y), so multiple
-						// on-canvas handles — wash / mark / spotlight — are told apart by name at a glance
-						// instead of reading as identical dots. Tone-colored border + text for a second cue.
-						'pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none whitespace-nowrap rounded-full border-2 bg-card/85 px-2 py-0.5 text-[10.5px] font-semibold leading-none shadow-[0_2px_8px_rgba(8,18,38,.35)] backdrop-blur-sm active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
-						h.tone === 'accent'
-							? 'border-[var(--accent)] text-[var(--accent)]'
-							: 'border-[color-mix(in_srgb,var(--ink,var(--accent))_70%,var(--border))] text-[var(--text-heading)]',
-					)}
-					style={{ left: `${h.x}%`, top: `${h.y}%` }}
-				>
-					{h.label}
-				</button>
-			))}
+			{handles.map((h) => {
+				const grabbing = dragKey === h.key;
+				// Flip the label to the far side near an edge so it never clips off the specimen.
+				const flip = handleStyle === 'knob' ? h.y < 20 : h.y > 84;
+				return (
+					<button
+						type="button"
+						key={h.key}
+						aria-label={`${h.label} — drag to place`}
+						onPointerDown={(e) => {
+							e.preventDefault();
+							draggingRef.current = h;
+							setDragKey(h.key);
+							(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+						}}
+						onPointerMove={(e) => {
+							if (draggingRef.current?.key === h.key) fromPointer(e.clientX, e.clientY, h);
+						}}
+						onPointerUp={(e) => {
+							draggingRef.current = null;
+							setDragKey(null);
+							(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+						}}
+						onPointerCancel={() => {
+							draggingRef.current = null;
+							setDragKey(null);
+						}}
+						// ≥44px invisible touch target around the visible mark; the mark itself is centered on x/y.
+						className="group pointer-events-auto absolute grid size-11 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none appearance-none place-items-center border-0 bg-transparent p-0 active:cursor-grabbing focus-visible:outline-none"
+						style={{ left: `${h.x}%`, top: `${h.y}%`, '--tone': handleTone(h.tone) } as React.CSSProperties}
+					>
+						{handleStyle === 'knob' ? <KnobMark label={h.label} grabbing={grabbing} flip={flip} /> : <ReticleMark label={h.label} grabbing={grabbing} flip={flip} />}
+					</button>
+				);
+			})}
 		</div>
 	);
 }
