@@ -75,24 +75,65 @@
 	display: none;
 }
 
-/* Split pane: editor | preview. Flex child of .pg-page — fills the space left
-   below the topbar + bar, whatever height the bar happens to be. */
+/* Split pane: rail | editor | handle | preview | rail (2026-07-02 decision).
+   Flex child of .pg-page — fills the space left below the topbar + bar.
+   Five grid children whose track count always matches: rails and the handle sit
+   at 0px tracks when unused (never display:none — that desyncs tracks from
+   items). The 1px handle track IS the divider line (the editor's old
+   border-right moved there); --split-a/--split-b carry their fr unit inside the
+   var (`var(--x)fr` is invalid CSS), with the pre-paint seed from
+   playground.astro as the fallback so returning resizers see no width jump. */
 .pg-split {
 	display: grid;
-	grid-template-columns: minmax(320px, 0.9fr) 1.1fr;
+	grid-template-columns:
+		0 minmax(280px, var(--split-a, var(--split-playground-a, 0.45fr))) 1px
+		minmax(320px, var(--split-b, var(--split-playground-b, 0.55fr))) 0;
 	flex: 1 1 auto;
 	min-height: 0;
+}
+/* Collapsed states are desktop/tablet-only (the attribute is also dropped by
+   the island below the breakpoint — this scoping is the CSS belt): mobile's
+   single-column rule must always win there. */
+@media (min-width: 821px) {
+	.pg-split[data-split-collapsed='a'] {
+		grid-template-columns: 28px 0 0 minmax(0, 1fr) 0;
+	}
+	.pg-split[data-split-collapsed='b'] {
+		grid-template-columns: 0 minmax(0, 1fr) 0 0 28px;
+	}
+}
+/* Drag shield: with pointer capture on the handle the iframe never sees the
+   drag, but pointer-events:none is cheap belt-and-braces — and text selection
+   must not start in either pane mid-drag. */
+.pg-split[data-split-dragging] iframe {
+	pointer-events: none;
+}
+.pg-split[data-split-dragging] .pg-pane {
+	user-select: none;
+}
+/* Collapse arming: dragging ≥48px past a pane's minimum dooms it; release
+   collapses, dragging back disarms. */
+.pg-split[data-split-arming='a'] .pg-pane.editor,
+.pg-split[data-split-arming='b'] .pg-pane.preview {
+	opacity: 0.6;
 }
 .pg-pane {
 	min-width: 0;
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
+	overflow: hidden; /* a collapsed (0px-track) pane must not bleed content */
+	transition: opacity 0.12s ease;
 }
-.pg-pane.editor {
-	border-right: 1px solid var(--border);
+@media (prefers-reduced-motion: reduce) {
+	.pg-pane {
+		transition: none;
+	}
 }
 .pg-pane-label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 	font-family: var(--font-mono);
 	font-size: 10px;
 	letter-spacing: 0.14em;
@@ -101,6 +142,37 @@
 	padding: 8px 14px;
 	border-bottom: 1px solid var(--border);
 	background: var(--bg-alt);
+}
+.pg-pane-label-spacer {
+	flex: 1;
+}
+.pg-pane-collapse {
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 0;
+	border-radius: 5px;
+	background: none;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+.pg-pane-collapse:hover,
+.pg-pane-collapse:focus-visible {
+	color: var(--accent);
+	background: var(--accent-soft);
+}
+.pg-pane-collapse svg {
+	width: 14px;
+	height: 14px;
+}
+.pg-rail-error-dot {
+	width: 8px;
+	height: 8px;
+	flex: none;
+	border-radius: 999px;
+	background: var(--fail, #c20000);
 }
 /* Editor host: fills the pane; CodeMirror's own scroller handles overflow. */
 .pg-editor-host {
@@ -182,8 +254,14 @@
 	.pg-split {
 		grid-template-columns: 1fr;
 	}
-	.pg-pane.editor {
-		border-right: 0;
+	/* CSS-side belt for the split (the JS `active` gate uses the same 820px
+	   media string): below the tab breakpoint the handle and rails leave the
+	   grid entirely, so the single 1fr column holds exactly the one visible
+	   pane — and a server-rendered handle can never flash during hydration. */
+	.pg-split > [data-slot='split-handle'],
+	.pg-split > [data-slot='split-rail'],
+	.pg-pane-collapse {
+		display: none;
 	}
 	/* One pane at a time on phones; the active React Tab sets body[data-pane]. */
 	body[data-pane='preview'] .pg-pane.editor {

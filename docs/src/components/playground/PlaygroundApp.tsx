@@ -1,3 +1,4 @@
+import { PanelLeftClose, PanelRightClose } from 'lucide-react';
 import * as React from 'react';
 import {
 	Select,
@@ -6,6 +7,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import { SplitHandle, SplitRail, useSplit } from '@/components/ui/split';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import {
@@ -138,13 +140,28 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const onFrameLoad = React.useCallback(() => {
 		applyDebug(frameRef.current, { force: forceRef.current });
 		videoOverlayRef.current?.rebind();
+		// Close the expand-during-srcdoc-load race: an expand that fired before the
+		// fresh document defined __latticeFit would silently no-op; the loaded doc
+		// re-fits itself here against the now-final pane width.
+		frameRef.current?.contentWindow?.__latticeFit?.();
 	}, []);
+
+	// While the preview pane is collapsed, rendering into its 0-width iframe is
+	// both wasted work and the iOS FIT-blank precondition — defer instead, and
+	// let the expand path run one authoritative render.
+	const previewCollapsedRef = React.useRef(false);
+	const pendingWhileCollapsedRef = React.useRef(false);
 
 	// ── The render loop (wraps the engine; never reimplements it) ───────────────
 	const render = React.useCallback(
 		async (fresh: boolean) => {
 			const frame = frameRef.current;
 			if (!frame) return;
+			if (previewCollapsedRef.current) {
+				pendingWhileCollapsedRef.current = true;
+				setStatusLine('Preview collapsed — render deferred.');
+				return;
+			}
 			const engine = engineRef.current;
 			if (!engine.ready()) {
 				setStatusLine('Loading engine…');
@@ -216,6 +233,75 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		render(true);
 	}, [render]);
 
+	// ── Resizable/collapsible split (2026-07-02 decision) ──────────────────────
+	// Active only above the tab breakpoint — the SAME media string as
+	// playground.css's single-pane block, so CSS and JS can't disagree about who
+	// owns layout. Below it, the Edit/Preview tabs are the sole authority and the
+	// split renders inert 0px tracks.
+	const [splitActive, setSplitActive] = React.useState(true);
+	React.useEffect(() => {
+		const mql = window.matchMedia('(max-width: 820px)');
+		const sync = () => setSplitActive(!mql.matches);
+		sync();
+		mql.addEventListener('change', sync);
+		return () => mql.removeEventListener('change', sync);
+	}, []);
+	const split = useSplit({
+		storageKey: 'lattice-docs-split-playground',
+		defaultRatio: 0.45, // mirrors the historical 0.9fr/1.1fr grid
+		min: [280, 320],
+		railWidth: 28,
+		active: splitActive,
+		paneIds: ['pg-pane-editor', 'pg-pane-preview'],
+		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
+		onExpand: (side) => {
+			if (side !== 'b') return;
+			// Fires after the expand has laid out (double rAF), so the iframe is
+			// measurable again. A deck change deferred while collapsed needs the
+			// full fresh render; otherwise one re-fit + patch render heals the view.
+			if (pendingWhileCollapsedRef.current) {
+				pendingWhileCollapsedRef.current = false;
+				freshRender();
+			} else {
+				frameRef.current?.contentWindow?.__latticeFit?.();
+				render(false);
+			}
+		},
+		// One authoritative re-fit per resize commit (drag release or keyboard step).
+		onSettle: () => frameRef.current?.contentWindow?.__latticeFit?.(),
+	});
+	// Mirror synchronously each render (the forceRef pattern above): the render
+	// loop must see the collapse the moment React commits it, not an effect
+	// later. Below the tab breakpoint the retained collapse is inert — the tabs
+	// own visibility and renders must proceed normally.
+	previewCollapsedRef.current = splitActive && split.collapsed === 'b';
+	// Stable handle for callbacks defined above/below without dep churn.
+	const splitApiRef = React.useRef(split);
+	splitApiRef.current = split;
+	// Suspend the in-iframe FIT agent's per-frame observers during a divider drag;
+	// resume (which runs one fit) at end-of-drag. Without this every drag frame
+	// runs an O(sections) rescale + filmstrip reflow inside the preview.
+	React.useEffect(() => {
+		const w = frameRef.current?.contentWindow;
+		if (!w) return;
+		if (split.dragging) w.__latticeFitSuspend?.();
+		else w.__latticeFitResume?.();
+	}, [split.dragging]);
+	// Re-entering the split regime (iPad rotate back above 820px) re-applies the
+	// retained ratio/collapse; re-fit the preview against its new width (no-op
+	// before the engine loads or when the frame is empty).
+	React.useEffect(() => {
+		if (splitActive) frameRef.current?.contentWindow?.__latticeFit?.();
+	}, [splitActive]);
+	// Collapse via a header glyph: if focus was inside the now-inert pane it
+	// would drop to <body>; hand it to the always-visible rail instead.
+	const collapseFromHeader = React.useCallback((side: 'a' | 'b') => {
+		splitApiRef.current.collapse(side);
+		requestAnimationFrame(() => {
+			document.querySelector<HTMLButtonElement>(`.pg-split [data-slot='split-rail'][data-side='${side}']`)?.focus();
+		});
+	}, []);
+
 	// Mount the parent-hosted chart-interact layer over the preview iframe once,
 	// for the component's lifetime (render() calls rebind() after each paint).
 	React.useEffect(() => {
@@ -286,6 +372,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// Safari never reveals it (unlike Chrome, which recovers via ResizeObserver).
 				// This mirrors the Drawing Board's setPane, which sets data-pane THEN renders.
 				document.body.setAttribute('data-pane', 'preview');
+				// `toPreview` is INTENT — "ensure the preview is visible" — and above
+				// the tab breakpoint the collapsed-pane analog is the split. Expanding
+				// is a no-op when the preview is already open; when it was collapsed,
+				// the freshRender below defers (render-skip) and the expand's onExpand
+				// runs the one authoritative render into a laid-out pane. Without this,
+				// a component/gallery pick with the preview collapsed would report
+				// "Rendered N slide(s)" over a blank screen.
+				splitApiRef.current.expand('b');
 			}
 			freshRender();
 		},
@@ -379,6 +473,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// data-pane from state (single source); this pre-set just wins the ordering
 			// so a Safari render into a still-hidden pane can't leave the deck blank.
 			document.body.setAttribute('data-pane', 'preview');
+			// Same intent as applyDeck's toPreview: a collapsed preview expands
+			// before the render (no-op otherwise).
+			splitApiRef.current.expand('b');
 			render(false);
 		}
 	};
@@ -472,18 +569,60 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				</div>
 			</div>
 
-			{/* Split: editor | preview */}
-			<main className="pg-split">
-				<section className="pg-pane editor">
-					<div className="pg-pane-label">Markdown</div>
+			{/* Split: rail | editor | handle | preview | rail — five children whose
+			    grid tracks ALWAYS match (a display:none child would desync tracks
+			    from items, the Studio grid lesson); rails/handle live at 0px tracks
+			    until needed. Ratio/collapse state: useSplit above. */}
+			<main
+				className="pg-split"
+				style={split.gridVars}
+				data-split-collapsed={splitActive && split.collapsed ? split.collapsed : undefined}
+				{...split.containerProps}
+			>
+				<SplitRail direction="right" label="Markdown" labelExpand="Expand editor" {...split.railProps('a')} />
+				<section id="pg-pane-editor" className="pg-pane editor" inert={splitActive && split.collapsed === 'a' ? true : undefined}>
+					<div className="pg-pane-label">
+						Markdown
+						<span className="pg-pane-label-spacer" />
+						{splitActive && (
+							<button
+								type="button"
+								className="pg-pane-collapse"
+								aria-label="Collapse editor"
+								title="Collapse editor — or drag the divider past its minimum"
+								onClick={() => collapseFromHeader('a')}
+							>
+								<PanelLeftClose aria-hidden="true" />
+							</button>
+						)}
+					</div>
 					<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} />
 				</section>
-				<section className="pg-pane preview">
-					<div className="pg-pane-label">Rendered slides</div>
+				<SplitHandle {...split.handleProps} />
+				<section id="pg-pane-preview" className="pg-pane preview" inert={splitActive && split.collapsed === 'b' ? true : undefined}>
+					<div className="pg-pane-label">
+						Rendered slides
+						<span className="pg-pane-label-spacer" />
+						{splitActive && (
+							<button
+								type="button"
+								className="pg-pane-collapse"
+								aria-label="Collapse preview"
+								title="Collapse preview — or drag the divider past its minimum"
+								onClick={() => collapseFromHeader('b')}
+							>
+								<PanelRightClose aria-hidden="true" />
+							</button>
+						)}
+					</div>
 					<div className="pg-preview-wrap">
 						<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} />
 					</div>
 				</section>
+				<SplitRail direction="left" label="Rendered slides" labelExpand="Expand preview" {...split.railProps('b')}>
+					{/* Never edit blind: a render failure while collapsed lights the rail. */}
+					{isError && <span aria-hidden="true" className="pg-rail-error-dot" />}
+				</SplitRail>
 			</main>
 		</div>
 	);

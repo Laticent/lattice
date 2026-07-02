@@ -556,6 +556,14 @@ function SplitHandle({ className, children, ...props }: React.ComponentProps<"di
 				"hover:border-l-[color:color-mix(in_srgb,var(--accent)_45%,var(--border))]",
 				"focus-visible:border-l-[color:var(--accent)]",
 				"data-[dragging]:border-l-[color:var(--accent)]",
+				// The 1px track IS the divider line; the grab target is an out-of-flow
+				// overlay straddling it, biased toward the preview so a grab beside the
+				// CodeMirror scrollbar can't start a drag. Wider on coarse pointers.
+				"after:absolute after:inset-y-0 after:-left-1 after:-right-2 after:content-['']",
+				"pointer-coarse:after:-left-3 pointer-coarse:after:-right-3",
+				// While a pane is collapsed the handle's track is 0px — paint nothing,
+				// catch nothing (the rail owns the edge until restore).
+				"data-[collapsed]:invisible data-[collapsed]:pointer-events-none",
 				className,
 			)}
 			{...props}
@@ -564,7 +572,7 @@ function SplitHandle({ className, children, ...props }: React.ComponentProps<"di
 				<span
 					data-slot="split-grip"
 					aria-hidden="true"
-					className="pointer-events-none flex flex-col gap-[3px] opacity-0 transition-opacity duration-150 group-hover/split-handle:opacity-100 group-focus-visible/split-handle:opacity-100 group-data-[dragging]/split-handle:opacity-100"
+					className="pointer-events-none flex flex-col gap-[3px] opacity-0 transition-opacity duration-150 group-hover/split-handle:opacity-100 group-focus-visible/split-handle:opacity-100 group-data-[dragging]/split-handle:opacity-100 pointer-coarse:opacity-50"
 				>
 					<span className="size-[3px] rounded-full bg-muted-foreground" />
 					<span className="size-[3px] rounded-full bg-muted-foreground" />
@@ -608,6 +616,10 @@ function SplitRail({
 				"flex min-w-0 cursor-pointer flex-col items-center gap-2 overflow-hidden border-l border-border bg-muted/40 py-2 outline-none",
 				"transition-colors hover:bg-muted",
 				"focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]",
+				// A rail whose track is 0px must paint nothing — borders would still
+				// draw a sliver, so visibility (not display) gates it: the rail stays a
+				// grid item, keeping track count == child count in every state.
+				"invisible data-[visible]:visible",
 				className,
 			)}
 			{...props}
