@@ -187,6 +187,25 @@ swipe between them, so the same deck reads on a phone without pinch-zooming:
 lattice deck.md deck.html --fluid
 ```
 
+Three more PDF delivery options:
+
+```sh
+lattice deck.md deck.pdf --raster              # one full-page image per slide
+lattice deck.md deck.pdf --embed-source        # attach the .md inside the PDF
+lattice deck.md deck.pdf --keep-vector-images  # keep SVG images as vectors
+```
+
+`--raster` trades selectable text for maximum viewer compatibility — every page
+is a single full-bleed 2× JPEG (speaker notes, `--present`, and
+`--embed-source` still apply). `--embed-source` attaches the deck's Markdown
+source as a PDF embedded file, so anyone holding the PDF can recover and
+re-render the deck (note: that ships your source, speaker notes included, inside
+the artifact). By default the exporter also **rasterizes SVG images**
+(`![bg](photo.svg)`, inline `![](photo.svg)`) into the otherwise-vector PDF,
+because iOS's built-in PDF viewer mishandles the vector constructs Chromium
+prints for them; `--keep-vector-images` opts back into vectors. Inline SVG —
+Mermaid diagrams, charts, logo marks — always stays vector.
+
 ## Render the gallery deck
 
 ```sh

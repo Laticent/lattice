@@ -141,6 +141,109 @@ describe('export-formats', () => {
     assert.ok(ring < 50, `overflow ring leaked into the export: ${ring} danger-red edge pixels (expected ~0)`);
   });
 
+  // ── PDF portability: SVG-image rasterization, --raster, --embed-source ────
+
+  // A 2-slide deck exercising both SVG image channels: a `![bg]` (CSS
+  // background-image on .lattice-bg) and an inline `![](…)` <img> — plus a
+  // speaker note and a marker string for the --embed-source round-trip.
+  const SOURCE_MARKER = 'LATTICE-EMBED-SOURCE-MARKER-7f3a';
+  const NOTE_MARKER   = 'Raster note marker 9c1d';
+  function writeSvgFixture(dir) {
+    fs.copyFileSync(
+      path.join(ROOT, 'examples', 'assets', 'sample-photo-wide.svg'),
+      path.join(dir, 'photo.svg'),
+    );
+    const src = path.join(dir, 'deck.md');
+    fs.writeFileSync(src, [
+      '---', 'paginate: true', '---', '',
+      '<!-- _class: image -->', '',
+      '![bg](photo.svg)', '',
+      '# SVG background', '',
+      `<!-- ${NOTE_MARKER} -->`, '',
+      '---', '',
+      '<!-- _class: content -->', '',
+      '## Inline SVG image', '',
+      `${SOURCE_MARKER}`, '',
+      '![sample](photo.svg)', '',
+    ].join('\n'));
+    return src;
+  }
+
+  // Parse `pdfimages -list` output into data rows (skip the 2 header lines).
+  function pdfImageRows(pdf) {
+    const out = execFileSync('pdfimages', ['-list', pdf], { encoding: 'utf8' });
+    return out.split('\n').slice(2).filter((l) => l.trim());
+  }
+
+  test('rasterizes SVG images in the vector PDF by default (#690 iOS Quartz portability)', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = writeSvgFixture(dir);
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    // Every SVG placement must land as a plain raster image XObject — the
+    // universally supported construct — not the shading-pattern / transparency-
+    // group vectors Quartz mishandles. One image per placement (bg + inline).
+    const rows = pdfImageRows(out);
+    assert.ok(rows.length >= 2, `expected ≥2 raster image XObjects (bg + inline), got ${rows.length}:\n${rows.join('\n')}`);
+    // The rest of the page stays vector: text must remain selectable.
+    const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+    assert.match(text, /Inline SVG image/, 'vector text should survive the SVG swap');
+  });
+
+  test('--keep-vector-images keeps the SVG placements vector (opt-out)', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = writeSvgFixture(dir);
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--keep-vector-images'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.equal(pdfImageRows(out).length, 0, 'opt-out export should carry no raster image XObjects');
+  });
+
+  test('--raster prints one full-page JPEG per slide; notes + --embed-source still apply', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const src = writeSvgFixture(dir);
+    const out = path.join(dir, 'deck.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--raster', '--embed-source'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+
+    // One JPEG per page at the 2× raster size, and no fonts (no vector text).
+    const rows = pdfImageRows(out);
+    assert.equal(rows.length, 2, `expected exactly 1 image per page (2 pages), got:\n${rows.join('\n')}`);
+    for (const row of rows) {
+      assert.match(row, /\bjpeg\b/, `page image should be JPEG-encoded: ${row}`);
+      assert.match(row, /\b2560\s+1440\b/, `page image should be the 2× HD raster: ${row}`);
+    }
+    const fonts = execFileSync('pdffonts', [out], { encoding: 'utf8' }).split('\n').slice(2).filter((l) => l.trim());
+    assert.equal(fonts.length, 0, 'raster PDF should embed no fonts');
+
+    // The speaker note survives as a page-1 annotation on the assembled PDF
+    // (pdf-lib writes object streams, so inspect structurally — not raw bytes).
+    const { PDFDocument, PDFName } = require('pdf-lib');
+    const doc = await PDFDocument.load(fs.readFileSync(out));
+    assert.equal(doc.getPageCount(), 2, 'one PDF page per slide');
+    const annots = doc.getPage(0).node.Annots();
+    assert.ok(annots && annots.size() > 0, 'page 1 should carry the speaker-note annotation');
+    const annot = doc.context.lookup(annots.get(0));
+    const contents = annot.get(PDFName.of('Contents'));
+    const noteText = contents.decodeText ? contents.decodeText() : contents.asString();
+    assert.ok(noteText.includes(NOTE_MARKER), `annotation should carry the note, got: ${noteText}`);
+
+    // --embed-source round-trips: extract the attachment and compare bytes.
+    const extractDir = path.join(dir, 'extract');
+    fs.mkdirSync(extractDir);
+    execFileSync('pdfdetach', ['-saveall', '-o', extractDir + path.sep, out]);
+    const extracted = fs.readFileSync(path.join(extractDir, 'deck.md'), 'utf8');
+    assert.ok(extracted.includes(SOURCE_MARKER), 'extracted attachment should be the deck source');
+    assert.equal(extracted, fs.readFileSync(src, 'utf8'), 'attachment must be byte-identical to the source');
+  });
+
   test('renders one PNG per slide at the 2× raster size', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.png');

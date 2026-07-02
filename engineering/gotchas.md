@@ -247,6 +247,15 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **Removable when:** Apple PDFKit gains parity with Skia/PDFium for the soft-mask constructs Chromium emits. No timeline.
 - **Commits:** This branch (treatments rename; the cropped-bbox + box-shadow + gradient-slot escape hatches). See `engineering/treatments.md` → "Mark rendering" for the rendering-mechanism breakdown.
 
+### SVG images in the exported PDF partially render or vanish in iOS Quartz viewers
+
+- **Symptom:** A slide whose photo is an **SVG file** (`![bg](photo.svg)` or an inline `![](photo.svg)`) renders perfectly in poppler (CI rasterization, desktop viewers) but breaks in iOS Safari's built-in PDF viewer and other Quartz-based viewers: the image draws only partially (a top band) or the photo column is dropped entirely, showing bare canvas. Other SVG placements on the same device can draw fine — the failure is construct-specific (clipped/cropped placements), not SVG-wholesale. First observed on-device reviewing the full-coverage gallery (#690).
+- **Cause:** Chromium prints an SVG `<img>`/`background-image` into the vector PDF as shading patterns and transparency groups; the clipped/cover placements emit combinations Quartz mishandles (the same viewer-strictness family as the `mask-image` gotcha above). Poppler renders them correctly, which is why single-renderer verification never caught it.
+- **Mitigation:** Since #690 landed, **lattice-emulator rasterizes SVG `<img>`/`background-image` references at export time by default** — each unique SVG becomes a 2× PNG twin (a plain image XObject, the universally supported construct) swapped into the loaded page before `page.pdf()`. Inline `<svg>` (Mermaid, charts, logo marks) stays vector. Opt out with `--keep-vector-images` if you need the vector construct and control the viewers. For decks rendered by other paths (marp-cli), prefer raster assets (`.jpg`/`.png` twins), as the baseline gallery does (#681).
+- **Triggered by:** Any deck embedding `.svg` images, opened on an iPhone/iPad or macOS Preview — which is exactly where a shared `/gallery.pdf` link gets opened first.
+- **Removable when:** Quartz gains parity with poppler/Skia for Chromium's SVG-image print constructs. No timeline; treat SVG-in-PDF as a portability hazard.
+- **Commits:** The pdf-export-portability branch (#690); the deck-side raster twins landed in #681.
+
 ### Flex-centred caps read high in JetBrains Mono (and `text-box-trim` can't fix it here)
 
 - **Symptom:** A pill/badge laid out as `display:inline-flex; align-items:center; line-height:1` in **JetBrains Mono** looks like its text sits slightly HIGH — more empty space below the glyphs than above — even though the box is centred. Adding `text-box-trim:trim-both; text-box-edge:cap alphabetic` (the spec-correct fix) changes nothing in the rendered PDF.
