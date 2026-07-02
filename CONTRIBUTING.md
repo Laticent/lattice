@@ -1,22 +1,31 @@
 # Contributing to Lattice
 
-Thanks for contributing! Two things to know up front.
+Thanks for your interest! Two things to know up front.
 
-## 1. You own your work — there is no CLA
+## 1. Contribution policy — under review (you own your work, no CLA)
 
-Lattice does not ask contributors to sign a Contributor License Agreement.
-You keep full ownership of anything you contribute. By submitting a pull
-request you agree your contribution is licensed under the project's license
-(AGPL-3.0-only, the inbound = outbound default) — nothing more is granted to
-anyone.
+Lattice does not ask contributors to sign a Contributor License Agreement —
+the short-lived CLA requirement is withdrawn and no longer applies to anyone.
+You keep full ownership of anything you contribute; nothing here asks you to
+give up rights.
 
-One honest note while the long-term contribution model is being finalized
-(a plugin/marketplace direction is under design — see
-`engineering/decisions/`): please **open an issue before starting a large
-core feature**. Small fixes and improvements are always welcome; for big
-engine work we'd rather talk first — possibly about paying for it — than
-have effort go to waste. This keeps your time respected and the project's
-options open.
+The long-term contribution model (community core vs. an owned plugin/theme
+layer with a marketplace) is being finalized — see
+`engineering/decisions/2026-07-02-contribution-model.md`. Until it lands:
+
+- **Issues, bug reports, and design discussion are open and welcome** — this
+  is the most useful way to contribute right now.
+- **Pull requests may be opened and will be reviewed, but held for merge**,
+  with one exception: obvious, minimal fixes (typos, broken links, clearly
+  mechanical one-liners) may be merged if the commit carries a
+  `Signed-off-by:` line per the
+  [Developer Certificate of Origin](https://developercertificate.org).
+- For larger engine work, please open an issue first — we'd rather talk
+  (possibly about paying for the work) than have your effort go to waste.
+
+Lattice is AGPL-3.0-only with the additional permissions in
+[LICENSE-EXCEPTIONS](LICENSE-EXCEPTIONS). Contributions, when accepted, are
+licensed inbound = outbound under those same terms.
 
 ## 2. Development setup
 
@@ -36,9 +45,3 @@ flow) are in [`engineering/workflow.md`](engineering/workflow.md), and the
 repo-wide hard rules are indexed in [`CLAUDE.md`](CLAUDE.md). Pre-commit and
 pre-push hooks enforce the gates; a hook failure is a root cause to fix, not
 a `--no-verify` to skip.
-
-## License
-
-Lattice is licensed under the [GNU AGPL v3.0](LICENSE), with the
-[Lattice Output Exception](LICENSE-EXCEPTIONS). Contributions are accepted
-under the same license.
