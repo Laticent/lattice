@@ -190,14 +190,22 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 	const { storageKey, active = true } = options
 	const collapsedKey = `${storageKey}-collapsed`
 
-	// Initial reads happen once, lazily; when inactive they sanitize WITHOUT
-	// healing (no storage writes while the tabs own layout).
-	const [ratio, setRatio] = React.useState(() =>
-		readStoredRatio(storageKey, options.defaultRatio, active),
-	)
-	const [collapsed, setCollapsed] = React.useState<SplitSide | null>(() =>
-		readStoredCollapsed(collapsedKey, active),
-	)
+	// HYDRATION CONTRACT: initial state is the DEFAULT (matching the server
+	// render exactly); persisted state applies in the mount effect below. React
+	// 19 hydration silently DROPS attribute-level server/client mismatches in
+	// production — and every restored bit here is attribute-level (the inline
+	// --split vars, aria-valuenow, data-split-collapsed, inert, the rail's
+	// data-visible) — so a storage read in the initializer restores the vDOM but
+	// never the DOM, leaving persistence dead and a restored collapse STUCK
+	// (renders deferred with both panes visible). A post-mount setState is a
+	// normal re-render, which patches the DOM. Found by e2e on the built site.
+	const [ratio, setRatio] = React.useState(() => roundRatio(clampRatio(options.defaultRatio)))
+	const [collapsed, setCollapsed] = React.useState<SplitSide | null>(null)
+	// False until the mount effect applies storage: while false, gridVars emits
+	// NO inline vars, so the page's pre-paint seed (the CSS var() fallback chain)
+	// carries the first paint at the SAVED ratio — an SSR'd inline --split-a
+	// would override the seed and flash the default width instead.
+	const [restored, setRestored] = React.useState(false)
 	const [dragging, setDragging] = React.useState(false)
 
 	// Latest-value refs: the drag lifecycle is imperative and long-lived, so its
@@ -228,6 +236,20 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 	const setRailBEl = React.useCallback((el: HTMLButtonElement | null) => {
 		railRefs.current.b = el
 	}, [])
+
+	// Apply persisted state post-mount (see the hydration contract above). Reads
+	// sanitize; healing writes only happen while active (no storage writes while
+	// the mobile tabs own layout).
+	React.useEffect(() => {
+		const r = readStoredRatio(storageKey, optsRef.current.defaultRatio, activeRef.current)
+		ratioRef.current = r
+		setRatio(r)
+		const c = readStoredCollapsed(collapsedKey, activeRef.current)
+		collapsedRef.current = c
+		setCollapsed(c)
+		setRestored(true)
+		// storageKey identifies the surface; a key change is a different split.
+	}, [storageKey, collapsedKey])
 
 	const commitRatio = React.useCallback(
 		(r: number, settle: boolean) => {
@@ -494,11 +516,15 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 
 	const gridVars = React.useMemo(
 		() =>
-			({
-				"--split-a": `${roundRatio(ratio)}fr`,
-				"--split-b": `${roundRatio(1 - ratio)}fr`,
-			}) as React.CSSProperties,
-		[ratio],
+			restored
+				? ({
+						"--split-a": `${roundRatio(ratio)}fr`,
+						"--split-b": `${roundRatio(1 - ratio)}fr`,
+					} as React.CSSProperties)
+				: // Pre-restore (SSR + hydration): no inline vars — the pre-paint
+					// seed's var() fallback carries the first paint at the saved ratio.
+					({} as React.CSSProperties),
+		[ratio, restored],
 	)
 
 	const containerProps: SplitContainerBind = {
