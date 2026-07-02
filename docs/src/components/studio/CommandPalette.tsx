@@ -1,10 +1,11 @@
-import { FileText, Focus, Palette, PencilRuler, Play, Plus, Share2, Sparkles } from 'lucide-react';
+import { Columns2, FileText, Focus, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Share2, Sparkles } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import type { StudioDeck } from './decks';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
 	open, onOpenChange, decks, palettes, onPickDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onInsert, onFocus,
+	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit,
 }: {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
@@ -18,6 +19,13 @@ export function CommandPalette({
 	onReshape: () => void;
 	onInsert?: () => void;
 	onFocus?: () => void;
+	// The editor|preview split (2026-07-02 decision) — each handler is passed
+	// only while it applies (e.g. no Expand without a collapsed pane), so the
+	// palette never lists a dead command.
+	onCollapseEditor?: () => void;
+	onCollapsePreview?: () => void;
+	onExpandPane?: () => void;
+	onResetSplit?: () => void;
 }) {
 	const run = (fn: () => void) => () => {
 		onOpenChange(false);
@@ -36,6 +44,17 @@ export function CommandPalette({
 					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
 					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
 				</CommandGroup>
+				{(onCollapseEditor || onCollapsePreview || onExpandPane || onResetSplit) && (
+					<>
+						<CommandSeparator />
+						<CommandGroup heading="Layout">
+							{onCollapseEditor && <CommandItem onSelect={run(onCollapseEditor)}><PanelLeftClose />Collapse editor pane</CommandItem>}
+							{onCollapsePreview && <CommandItem onSelect={run(onCollapsePreview)}><PanelRightClose />Collapse preview pane</CommandItem>}
+							{onExpandPane && <CommandItem onSelect={run(onExpandPane)}><PanelLeftOpen />Expand collapsed pane</CommandItem>}
+							{onResetSplit && <CommandItem onSelect={run(onResetSplit)}><Columns2 />Reset split</CommandItem>}
+						</CommandGroup>
+					</>
+				)}
 				<CommandSeparator />
 				<CommandGroup heading="Switch deck">
 					{decks.map((d) => (

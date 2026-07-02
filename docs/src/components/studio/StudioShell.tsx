@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft,
-	Copy, Eye, FileBox, FileText, Focus, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, StickyNote, Sun, Trash2, Upload, Volume2, Wand2, X,
+	Copy, Eye, FileBox, FileText, Focus, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, StickyNote, Sun, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -10,7 +10,8 @@ import {
 	DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
+import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
@@ -94,6 +95,26 @@ function timeAgo(ts: number): string {
 	const h = Math.round(m / 60);
 	if (h < 24) return `${h}h ago`;
 	return `${Math.round(h / 24)}d ago`;
+}
+// The editor|preview split's five middle tracks: rail-a | editor | handle |
+// preview | rail-b (2026-07-02 resizable-panes decision §5). ONE source of
+// truth consumed by EVERY non-mobile grid branch (desktop, tablet, focus) so
+// their track lists can't drift; the desktop branch appends its flanking
+// Architect/Inspector columns around these. The fr custom properties carry the
+// unit INSIDE the var (`0.46fr` — `var(--x)fr` is invalid CSS) and fall back to
+// the pre-paint seed (studio.astro writes --split-studio-a/-b) then the default
+// ratio. A collapsed side's pane+handle tracks drop to 0px and its 46px rail
+// (the Inspector-rail geometry) takes the edge.
+function splitTracks(collapsed: SplitSide | null): string[] {
+	if (collapsed === 'a') return ['46px', '0px', '0px', 'minmax(0,1fr)', '0px'];
+	if (collapsed === 'b') return ['0px', 'minmax(0,1fr)', '0px', '0px', '46px'];
+	return [
+		'0px',
+		'minmax(240px, var(--split-a, var(--split-studio-a, 0.46fr)))',
+		'1px',
+		'minmax(280px, var(--split-b, var(--split-studio-b, 0.54fr)))',
+		'0px',
+	];
 }
 // Theme constants + the grouped picker live in ThemePicker.tsx (every shipped
 // theme, incl. the AA color-blind-safe set). BUILTIN_PALETTES = anything we can
@@ -539,6 +560,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// AND scroll the editor to that slide (mapping the viewed index back to its
 	// position in the full source), so the two panes stay in lock-step.
 	function goToSlide(i: number) {
+		// Moving the preview is INTENT to see it (the Playground's toPreview
+		// lesson): a collapsed preview expands first — a no-op when it's open —
+		// so a navigation never lands in a hidden pane.
+		splitApiRef.current.expand('b');
 		const idx = Math.max(0, Math.min(i, viewSlides.length - 1));
 		setActiveSlide(idx);
 		const fullIdx = composeLens === 'full' ? idx : slides.indexOf(viewSlides[idx]);
@@ -564,6 +589,41 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		toastTimer.current = setTimeout(() => setToast(null), 2600);
 	}, []);
 	React.useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+	// ── Resizable/collapsible editor|preview split (2026-07-02 decision) ─────
+	// Active on every non-mobile Compose branch (desktop, tablet, focus) — on
+	// mobile the Edit/Preview pane swap owns visibility, and in Fabricate the
+	// Compose grid isn't rendered; state is retained across both.
+	const splitUsable = bp !== 'mobile' && view === 'compose';
+	const split = useSplit({
+		storageKey: 'lattice-docs-split-studio',
+		defaultRatio: 0.46, // mirrors the historical 0.92fr/1.08fr grid
+		min: [240, 280],
+		railWidth: 46, // the Inspector rail's geometry — collapsed rails read as a rail group
+		active: splitUsable,
+		paneIds: ['studio-pane-editor', 'studio-pane-preview'],
+		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
+	});
+	// Stable handle for callbacks defined above/below without dep churn (the
+	// Playground's splitApiRef pattern).
+	const splitApiRef = React.useRef(split);
+	splitApiRef.current = split;
+	// Suspend the per-host scaleFrame ResizeObservers during a divider drag —
+	// otherwise every drag frame rescales the preview iframe; resume runs one
+	// authoritative re-fit per live host (mirrors the Playground's FIT suspend).
+	React.useEffect(() => {
+		if (!split.dragging) return;
+		suspendScaleObservers(true);
+		return () => suspendScaleObservers(false);
+	}, [split.dragging]);
+	// Collapse via a header glyph (or a ⌘K command): if focus was inside the
+	// now-inert pane it would drop to <body>; hand it to the always-visible rail.
+	const collapseFromHeader = React.useCallback((side: SplitSide) => {
+		splitApiRef.current.collapse(side);
+		requestAnimationFrame(() => {
+			document.querySelector<HTMLButtonElement>(`[data-studio-split] [data-slot='split-rail'][data-side='${side}']`)?.focus();
+		});
+	}, []);
 
 	// Contextual reveal: the FIRST genuine authoring edit a newcomer makes opens the
 	// Architect (desktop) so the coach appears exactly when they start writing — then
@@ -880,6 +940,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI chat edit', Date.now()));
 		setSource(next);
 		setActiveSlide(0);
+		// The AI edit jumps the preview to the top — reveal a collapsed preview so
+		// the applied change is never rendered into a hidden pane (no-op when open).
+		splitApiRef.current.expand('b');
 		requestAnimationFrame(() => editorRef.current?.revealSlide(0));
 	};
 
@@ -1073,8 +1136,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	);
 
 	// ── Editor pane — shared by all breakpoints ──────────────────────────────
+	// The old `md:border-r` divider is gone: the SplitHandle's border-l IS the
+	// single line between the panes now (decision §2 — never a doubled line).
+	// The section is a size container so its header labels collapse with the
+	// PANE's width (a user-narrowed editor at a wide viewport), not the viewport;
+	// collapsed → inert (width 0, content unfocusable) while staying mounted so
+	// CodeMirror history survives.
 	const editorPane = (
-		<section className="flex min-h-0 flex-1 flex-col overflow-hidden border-border md:border-r">
+		<section
+			id="studio-pane-editor"
+			inert={split.collapsed === 'a' ? true : undefined}
+			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-arming=a]/split:opacity-60 group-data-[split-dragging]/split:select-none"
+		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Edit
 				<span className="flex-1" />
@@ -1082,7 +1155,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{hasSelection && (
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<button type="button" disabled={refineBusy} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-40" aria-label="Refine selection" title="Refine selection"><Wand2 className="size-3" /><span className="hidden lg:inline">Refine</span></button>
+							<button type="button" disabled={refineBusy} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-40" aria-label="Refine selection" title="Refine selection"><Wand2 className="size-3" /><span className="hidden @[36rem]:inline">Refine</span></button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-60">
 							{ai.ready ? (
@@ -1101,18 +1174,30 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{insertComponents.length > 0 && <button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component" title="Insert component"><Plus className="size-3" /><span className="hidden lg:inline">Insert</span></button>}
-				<button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues" title="Fix all issues"><ListChecks className="size-3" /><span className="hidden lg:inline">Fix all</span></button>
-				<button type="button" onClick={() => setNotesOpen(true)} aria-label="Speaker notes" title="Speaker notes" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]"><StickyNote className="size-3" /><span className="hidden lg:inline">Notes</span></button>
-				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground lg:inline-flex"><FileText className="size-3" />Markdown</span>
+				{insertComponents.length > 0 && <button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component" title="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button>}
+				<button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues" title="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
+				<button type="button" onClick={() => setNotesOpen(true)} aria-label="Speaker notes" title="Speaker notes" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]"><StickyNote className="size-3" /><span className="hidden @[36rem]:inline">Notes</span></button>
+				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
+				{splitUsable && (
+					<Button variant="ghost" size="icon-sm" aria-label="Collapse editor" title="Collapse editor — or drag the divider past its minimum" onClick={() => collapseFromHeader('a')}>
+						<PanelLeftClose className="size-4" />
+					</Button>
+				)}
 			</div>
 			<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onUserEdit={onFirstUserEdit} className="flex-1" />
 		</section>
 	);
 
 	// ── Preview pane (live engine render) — shared by all breakpoints ────────
+	// Collapsed → inert AND DeckPreview `active=false` below: per-keystroke
+	// renders defer while hidden and ONE render fires on the expand rising edge
+	// (the shipped DeckPreview contract), so nothing renders into a 0-width frame.
 	const previewPane = (
-		<section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+		<section
+			id="studio-pane-preview"
+			inert={split.collapsed === 'b' ? true : undefined}
+			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-arming=b]/split:opacity-60 group-data-[split-dragging]/split:select-none"
+		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Preview
 				{composeLens !== 'full' && (
@@ -1124,6 +1209,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
 				<span className="rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>
 				<button type="button" onClick={() => goToSlide(slideNo)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
+				{splitUsable && (
+					<Button variant="ghost" size="icon-sm" aria-label="Collapse preview" title="Collapse preview — or drag the divider past its minimum" onClick={() => collapseFromHeader('b')}>
+						<PanelRightClose className="size-4" />
+					</Button>
+				)}
 			</div>
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
 			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
@@ -1132,8 +1222,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
 				    ABOVE this (debug-overlay.js), so it works regardless of this rule. */}
-				<div className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : 'h-auto w-full max-w-[760px]')} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={activeTheme?.name} extraTheme={extraTheme} extraCss={previewExtraCss} debounceMs={140} className="size-full" aria-label="Live deck preview" />
+				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
+				    "collapse editor" delivers the same-size slide in a sea of gutter
+				    (decision §5; landscape only — portrait binds to height already). */}
+				<div className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={activeTheme?.name} extraTheme={extraTheme} extraCss={previewExtraCss} active={split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
@@ -1173,6 +1266,25 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<span className="flex-1" /><span className="hidden sm:inline">{ratioText(previewRatio)} · {viewSlides.length} slide{viewSlides.length === 1 ? '' : 's'}</span>
 			</div>
 		</section>
+	);
+
+	// The split's fixed grid children — rails + handle, shared by EVERY non-mobile
+	// branch so the five splitTracks() columns always match five children (rails
+	// are always rendered; a 0px track + visibility gating hides them). Rail
+	// badges keep the collapsed pane honest: the editor rail carries the existing
+	// amber issue pill (never editing blind), the preview rail a slide count.
+	const splitRailA = (
+		<SplitRail direction="right" label="Edit" labelExpand="Expand editor" {...split.railProps('a')}>
+			{issues > 0 && (
+				<span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>
+			)}
+		</SplitRail>
+	);
+	const splitHandle = <SplitHandle {...split.handleProps} />;
+	const splitRailB = (
+		<SplitRail direction="left" label="Preview" labelExpand="Expand preview" {...split.railProps('b')}>
+			<span className="font-mono text-[10px] text-muted-foreground">{viewSlides.length}</span>
+		</SplitRail>
 	);
 
 	return (
@@ -1353,22 +1465,39 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			) : focus ? (
 				/* Focus: Editor | Preview only — Architect/Inspector hidden, ⌘K still
 				   reaches everything (2026-06-30-studio-focus-mode.md). */
-				<div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.08fr)' }}>
+				<div
+					className="group/split grid min-h-0 flex-1"
+					data-studio-split=""
+					data-split-collapsed={split.collapsed ?? undefined}
+					style={{ ...split.gridVars, gridTemplateColumns: splitTracks(split.collapsed).join(' ') }}
+					{...split.containerProps}
+				>
+					{splitRailA}
 					{editorPane}
+					{splitHandle}
 					{previewPane}
+					{splitRailB}
 				</div>
 			) : (
-				/* Desktop: 4-column grid · Tablet: editor | preview (panels → sheets) */
+				/* Desktop: Architect? | split | Inspector · Tablet: just the split
+				   (panels → sheets). The split contributes FIVE children (rail | editor
+				   | handle | preview | rail) via splitTracks() — one helper for every
+				   branch so track lists can't drift. */
 				<div
-					className="grid min-h-0 flex-1"
+					className="group/split grid min-h-0 flex-1"
+					data-studio-split=""
+					data-split-collapsed={split.collapsed ?? undefined}
 					style={{
+						...split.gridVars,
 						// Track count must MATCH the rendered children: the Architect aside is
 						// only present when open, so its column is omitted when closed (a fixed
 						// '0px' track here would push the editor into it and collapse it).
-						gridTemplateColumns: compact
-							? 'minmax(0,1fr) minmax(0,1.08fr)'
-							: [...(architectOpen ? ['232px'] : []), 'minmax(0,0.92fr)', 'minmax(0,1.08fr)', inspectorOpen ? '300px' : '46px'].join(' '),
+						gridTemplateColumns: (compact
+							? splitTracks(split.collapsed)
+							: [...(architectOpen ? ['232px'] : []), ...splitTracks(split.collapsed), inspectorOpen ? '300px' : '46px']
+						).join(' '),
 					}}
+					{...split.containerProps}
 				>
 					{/* Architect — persistent column only on desktop */}
 					{!compact && architectOpen && (
@@ -1378,8 +1507,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</aside>
 					)}
 
+					{splitRailA}
 					{editorPane}
+					{splitHandle}
 					{previewPane}
+					{splitRailB}
 
 					{/* Inspector — persistent column/rail only on desktop (PM-4) */}
 					{!compact && (inspectorOpen ? (
@@ -1476,6 +1608,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onReshape={() => { setFocus(false); setInspectorOpen(true); }}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
 				onFocus={() => setFocus(true)}
+				onCollapseEditor={splitUsable && split.collapsed !== 'a' ? () => collapseFromHeader('a') : undefined}
+				onCollapsePreview={splitUsable && split.collapsed !== 'b' ? () => collapseFromHeader('b') : undefined}
+				onExpandPane={split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined}
+				onResetSplit={splitUsable ? () => splitApiRef.current.reset() : undefined}
 			/>
 			<InsertComponent open={insertOpen} onOpenChange={setInsertOpen} components={insertComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}

@@ -90,8 +90,11 @@ describe('StudioShell — smoke', () => {
 		expect(screen.getByText('Q3 Board Review')).toBeInTheDocument();
 		expect(screen.getByText('Architect')).toBeInTheDocument();
 		expect(screen.getByText('Board-ready')).toBeInTheDocument();
-		expect(screen.getByText('Edit')).toBeInTheDocument();
-		expect(screen.getByText('Preview')).toBeInTheDocument();
+		// 'Edit' / 'Preview' appear in the pane header AND its collapse rail (rails
+		// are ALWAYS rendered, visibility-gated by the split's 0px track) — assert
+		// the panes are present, not that the label is unique.
+		expect(screen.getAllByText('Edit').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('Preview').length).toBeGreaterThan(0);
 		// Present is a verb (button), not a persistent tab.
 		expect(screen.getByRole('button', { name: 'Present' })).toBeInTheDocument();
 	});

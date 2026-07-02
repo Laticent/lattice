@@ -94,6 +94,18 @@ try {
 					var m = localStorage.getItem('lattice-docs-mode');
 					if (m === 'light' || m === 'dark') r.setAttribute('data-mode', m);
 					else if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) r.setAttribute('data-mode', 'dark');
+					// Pre-paint seed for the editor|preview split ratio: the Studio grid
+					// consumes these as var() fallbacks, so a returning resizer's saved
+					// width applies before the island hydrates (no first-paint jump).
+					// Clamped to the same [0.2, 0.8] band the split hook enforces.
+					var sp = localStorage.getItem('lattice-docs-split-studio');
+					if (sp) {
+						var sv = JSON.parse(sp);
+						if (sv && sv.v === 1 && typeof sv.a === 'number' && sv.a >= 0.2 && sv.a <= 0.8) {
+							r.style.setProperty('--split-studio-a', sv.a + 'fr');
+							r.style.setProperty('--split-studio-b', (1 - sv.a) + 'fr');
+						}
+					}
 				} catch (e) {}
 			})();
 		</script>
