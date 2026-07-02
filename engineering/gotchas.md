@@ -1908,6 +1908,24 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **Don't reintroduce:** any sheet/dialog that overlays a surface the user still
   needs to scroll (the live preview) must be non-modal, or it will scroll-lock iOS.
 
+### Preview slides collapse (cqi shrinks to near-zero) on iOS if scaled with CSS `zoom`
+
+- **Symptom:** Down-scaling the preview with CSS `zoom` instead of `transform: scale()`
+  renders **perfectly in Chromium** (and every headless gate) but on a **real iPhone**
+  collapses every `cqi`/`cqh`-sized dimension — a `46cqi` poster shrinks to a fragment,
+  flex text columns wrap to one word per line, the slide under-fills the pane.
+- **Cause:** iOS Safari does **not** re-resolve `container-type: size` + `cqi`/`cqh`
+  against a `zoom`-scaled container — the container-query lengths resolve against a
+  wrong/near-zero effective container. Chromium re-resolves them proportionally, so the
+  headless spike looks clean and misleading (adjacent to the mobile-WebKit `:root` cqi
+  entry above; both are headless-Chromium blind spots). `transform: scale()` is immune —
+  it scales the *paint* of an already-resolved layout (cqi resolves once against the
+  intrinsic 1280×720 box), which is exactly why the preview uses it.
+- **Fix / don't reintroduce:** keep `transform: scale()` for preview down-scaling. Do
+  NOT swap in `zoom` on headless evidence alone — verify `46cqi` on a real iOS device
+  first. Full post-mortem: `engineering/decisions/2026-07-02-preview-scale-zoom.md`
+  (REJECTED).
+
 ### Tapping an in-slide link blanks the live preview on iOS
 
 - **Symptom:** On the **/playground** (or Drawing Board filmstrip) on an iPhone,
