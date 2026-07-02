@@ -16,6 +16,7 @@
 import '../styles/landing.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import PerfOverlay from '../components/site/PerfOverlay.astro';
+import PwaHead from '../components/site/PwaHead.astro';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -152,6 +153,9 @@ const CATALOG = [
 			content={`A scannable, segmented catalog of everything Lattice does: ${componentCount} field-native components across ${bucketCount} buckets, ${editorialPalettes.length} palettes with guaranteed WCAG-AA, one source rendered pixel-identical to PDF/PPTX/PNG/HTML, a deck that behaves like code, native diagrams and math, AI authoring, and open-source/offline/no-lock-in.`}
 		/>
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
+		{/* Manifest + service-worker registration (this page has its own head,
+		    so it doesn't go through <ResourceHints>). */}
+		<PwaHead />
 		<script is:inline>
 			(function () {
 				var r = document.documentElement;

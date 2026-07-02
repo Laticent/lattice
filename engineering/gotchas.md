@@ -2064,6 +2064,41 @@ never turn "passed in headless" into "works on iOS."
 
 ## Docs site (Astro + GitHub Pages)
 
+### `astro dev` serves stale assets after previewing a production build (service worker)
+
+- **Symptom:** After running `astro preview` (or the e2e suite) and then
+  switching to `astro dev` on the same port, the dev site shows stale modules,
+  `504 Outdated Optimize Dep`-style noise, or edits that don't take. Hard
+  refresh doesn't help; an incognito window does.
+- **Cause:** The docs site ships a **service worker** (`docs/public/sw.js` —
+  offline cache, see `engineering/decisions/2026-07-02-docs-pwa.md`). It
+  registers on **production builds only**, but `astro preview` and `astro dev`
+  share the `localhost:4321` origin, so a worker registered while previewing
+  keeps controlling the dev server's pages and serves its
+  stale-while-revalidate cache — including Vite's module URLs.
+- **Fix:** Usually none needed — dev builds emit a self-destroying script
+  (`docs/src/components/site/PwaHead.astro`) that unregisters any worker on
+  load; one reload after switching to dev clears it. If a worker somehow
+  lingers: DevTools → Application → Service Workers → Unregister (or
+  `navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()))`
+  in the console), then reload. In Playwright, workers are blocked globally in
+  `docs/playwright.config.ts` (`serviceWorkers: 'block'`) so route mocks keep
+  seeing same-origin GETs; only `e2e/pwa.spec.ts` opts back in.
+
+### Installed iOS PWA: "Connect OpenRouter" doesn't stick
+
+- **Symptom:** On an iPhone with the docs site added to the home screen, a
+  user connects OpenRouter in the Playground/Studio, but the installed app
+  keeps asking them to connect (or the reverse: connected in the app, not in
+  Safari).
+- **Cause:** iOS gives an installed (standalone) PWA **separate storage**
+  from Safari. The OAuth round-trip can bounce through Safari proper, so the
+  key lands in Safari's `localStorage` — invisible to the installed app. Not
+  fixable site-side; it's platform storage partitioning.
+- **Fix:** connect from inside the surface you'll actually use. Related iOS
+  limits (7-day idle eviction of the worker + caches, fixed `theme_color`):
+  `engineering/decisions/2026-07-02-docs-pwa.md` § iOS caveats.
+
 ### `build:check` fails: "builds a live preview frame … not a sanctioned preview builder" (HARD RULE #22)
 
 You added (or refactored into) a `docs/src` module that assembles a live slide

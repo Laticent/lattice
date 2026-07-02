@@ -14,7 +14,14 @@
 // Keeps a no-op StarlightThemeProvider global so any leftover Starlight code
 // that calls updatePickers() (e.g. if a default picker is ever re-introduced)
 // doesn't throw. The visible mode/palette controls live in Header.astro.
+//
+// Also carries <PwaHead> (manifest + service-worker registration): Starlight
+// renders this override inside <head> on every docs page, making it the docs-
+// zone counterpart of <ResourceHints> on the standalone routes.
+import PwaHead from './site/PwaHead.astro';
 ---
+
+<PwaHead />
 
 <script is:inline>
 	(function () {

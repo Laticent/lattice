@@ -13,10 +13,15 @@
 // Starlight docs pages get the same two hints via the `head` config in
 // astro.config.mjs; this component covers the standalone Astro routes.
 import PerfOverlay from './PerfOverlay.astro';
+import PwaHead from './PwaHead.astro';
 ---
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+{/* Web-app manifest + service-worker registration (docs pages get the same
+    via the ThemeProvider override). */}
+<PwaHead />
 
 {/* Live Core-Web-Vitals overlay, gated behind ?perf (no cost otherwise). */}
 <PerfOverlay />

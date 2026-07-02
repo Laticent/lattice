@@ -27,6 +27,14 @@ in patch versions.
 
 ### Added
 
+- **The docs site is an installable PWA with an offline cache.** A web-app
+  manifest + generated brand icons (`tools/make-pwa-icons.js`) make
+  lattice.style installable (app icon, standalone window), and a runtime-caching
+  service worker keeps visited pages — docs, Playground, Studio — working
+  offline, with a branded fallback page for unvisited routes. Heavy
+  downloadables (PDF/PPTX/zip) are never cached; the worker registers on
+  production builds only. See `engineering/decisions/2026-07-02-docs-pwa.md`.
+
 - **Studio E2E: committed pixel baselines at all three viewports.** The
   `@visual` specs now compare against committed `toHaveScreenshot` baselines
   (`docs/e2e/visual.spec.ts-snapshots/`) instead of only attaching screenshots

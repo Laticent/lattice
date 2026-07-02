@@ -1,0 +1,47 @@
+---
+// PWA head tags + service-worker registration, emitted in <head> on every
+// page: standalone routes get it via <ResourceHints> (or directly, where a
+// page builds its own head — features.astro), Starlight docs pages via the
+// <ThemeProvider> override (which Starlight renders in <head>). The one
+// deliberate exception is proto/css3d-pie.astro, whose header forbids site
+// imports ("self-contained, delete-to-revert") — a worker registered from
+// any other page controls the origin regardless.
+//
+//   • site.webmanifest → installability (app icon, standalone window).
+//   • apple-touch-icon → iOS ignores manifest icons; it wants this link.
+//   • sw.js            → offline runtime cache (see that file's header for
+//                        the strategy; engineering/decisions/2026-07-02-docs-pwa.md
+//                        for why it's hand-rolled).
+//
+// The worker registers on any production BUILD — lattice.style and the
+// Cloudflare PR previews alike (scope is per-origin, so previews stay
+// isolated from prod and from each other). In dev the same block
+// actively UNREGISTERS instead: `astro preview` (where the worker is real)
+// and `astro dev` share the localhost:4321 origin, so a worker left behind
+// by a preview session would otherwise keep serving stale-while-revalidate
+// assets under the dev server. See engineering/gotchas.md.
+const prod = import.meta.env.PROD;
+---
+
+<link rel="manifest" href="/site.webmanifest" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+{
+	prod ? (
+		<script is:inline>
+			if ('serviceWorker' in navigator) {
+				addEventListener('load', function () {
+					navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+				});
+			}
+		</script>
+	) : (
+		<script is:inline>
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.getRegistrations().then(function (rs) {
+					rs.forEach(function (r) { r.unregister(); });
+				});
+			}
+		</script>
+	)
+}

@@ -210,6 +210,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-snippets.js` | Generate `.vscode/lattice.code-snippets` from `lib/components/*.json`. |
 | `tools/build-theme-core.js` | Bundle the pure Theme Studio core for the browser. |
 | `tools/build.js` | The Lattice build orchestrator — one entry point that produces every |
+| `tools/make-pwa-icons.js` | Rasterize the brand mark into the PWA icon set (docs/public/icons/) with the |
 | `tools/minify-css.js` | Shared CSS minifier for the dist `.min.css` variants. |
 
 ### Check / gate

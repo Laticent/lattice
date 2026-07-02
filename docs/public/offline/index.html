@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- Offline fallback (/offline/) served by the service worker
+     (docs/public/sw.js) when a navigation misses both the network and the
+     page cache. A directory index rather than offline.html because Cloudflare
+     Pages 308-redirects *.html URLs, and a redirected response can't be
+     replayed for a navigation. Fully self-contained on purpose: this must
+     render with NOTHING else cached. References the mark by URL only as a
+     bonus (it's usually in the asset cache); the page reads fine without it. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Offline — Lattice</title>
+<style>
+	:root { color-scheme: light dark; }
+	body {
+		margin: 0; min-height: 100vh; display: grid; place-items: center;
+		background: #FAF7F2; color: #1F2933;
+		font-family: Georgia, 'Times New Roman', serif; text-align: center;
+	}
+	@media (prefers-color-scheme: dark) {
+		body { background: #15110D; color: #E8E2D8; }
+	}
+	main { padding: 2rem; max-width: 30rem; }
+	img { width: 72px; height: 72px; }
+	h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; }
+	p { font-size: 1rem; line-height: 1.55; opacity: 0.85; }
+	a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+	<img src="/lattice-mark-min.svg" alt="" onerror="this.style.display='none'" />
+	<h1>You're offline</h1>
+	<p>
+		This page isn't cached yet. Pages you've visited before are available
+		offline — try <a href="/">the home page</a> once you're back online.
+	</p>
+</main>
+</body>
+</html>

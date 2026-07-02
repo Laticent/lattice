@@ -63,6 +63,12 @@ export default defineConfig({
 		screenshot: 'only-on-failure',
 		actionTimeout: 15_000,
 		navigationTimeout: 40_000,
+		// The site ships a service worker (docs/public/sw.js). Keep it OUT of the
+		// e2e contexts by default: a controlling worker re-originates same-origin
+		// GETs, which makes them invisible to page.route/context.route mocks
+		// (playground-paint.spec.ts stubs Mermaid/KaTeX/fonts that way). The PWA
+		// spec opts back in with test.use({ serviceWorkers: 'allow' }).
+		serviceWorkers: 'block',
 	},
 	// Tag routing:
 	//   (untagged)   functional oracles — desktop only (no need to re-run per width)
