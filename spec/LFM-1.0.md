@@ -347,7 +347,7 @@ LFM 1.0 deliberately does **not**:
 - **License.** This specification — the prose under `spec/` — is published under
   **[CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)**. Anyone may
   implement LFM (a renderer, a linter, a `remark` plugin) and redistribute the
-  spec, with attribution. The Lattice engine's *code* is MIT; the spec carries
+  spec, with attribution. The Lattice engine's *code* is AGPL-3.0; the spec carries
   its own license because a normative document is a different artifact from the
   reference implementation.
 - **Steward.** The SlideWright project stewards LFM. The spec is the owned

@@ -84,7 +84,8 @@ in, same PDF out. Standard Node.js runtime. Nothing to run in
 production.
 
 **InfoSec, risk, and procurement** see a tool that takes no
-credentials, reads no network, holds no data, and is MIT-licensed.
+credentials, reads no network, holds no data, and is open source
+(AGPL-3.0).
 The output is a standard PDF. No lock-in: if your organization ever
 moves away from Lattice, every deck it produced still opens in any
 PDF reader.

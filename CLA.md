@@ -96,4 +96,4 @@ comment with instructions; reply on the pull request with:
 > I have read the CLA Document and I hereby sign the CLA
 
 Your signature is recorded once and covers all your future Contributions to
-this repository.
+projects owned or managed by SlideWright, as defined in section 1.

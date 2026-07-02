@@ -65,8 +65,9 @@ in patch versions.
   enforced by the `cla.yml` workflow via CLA Assistant Lite, with signatures
   recorded on a `cla-signatures` branch) so SlideWright can dual-license —
   see `CONTRIBUTING.md` (new). Versions published before this change remain
-  MIT. The README, docs-site landing/features/comparison copy, and footers
-  now say AGPL instead of MIT.
+  MIT. The README, docs-site copy (landing/features/comparison/introduction,
+  footers), and the LFM spec's governance section now say AGPL instead of MIT
+  (the spec prose itself stays CC-BY-4.0).
 
 ### Fixed
 

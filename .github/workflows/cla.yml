@@ -17,16 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: CLA assistant
-        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        # contains() (not ==) so a signer's stray punctuation still triggers a
+        # run; the action itself does the tolerant signature matching.
+        if: (github.event.comment.body == 'recheck' || contains(github.event.comment.body, 'I have read the CLA Document')) || github.event_name == 'pull_request_target'
         uses: contributor-assistant/github-action@v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           path-to-signatures: 'signatures/cla.json'
-          path-to-document: 'https://github.com/SlideWright/lattice/blob/main/CLA.md'
+          path-to-document: 'https://github.com/slidewright/lattice/blob/main/CLA.md'
           branch: 'cla-signatures'
           allowlist: 'saden1,*[bot]'
           custom-notsigned-prcomment: >
             Thank you for your contribution! Before we can merge, we need you
-            to sign the [SlideWright Contributor License Agreement](https://github.com/SlideWright/lattice/blob/main/CLA.md).
+            to sign the [SlideWright Contributor License Agreement](https://github.com/slidewright/lattice/blob/main/CLA.md).
             Please read it, then post the comment below on this pull request.
