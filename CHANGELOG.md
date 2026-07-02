@@ -30,7 +30,8 @@ in patch versions.
 - **Studio: back up and restore your whole workspace.** Workspace → General
   gains **Backup & restore**: one `lattice-workspace.zip` holding every deck
   (with readable `.md` copies), version history, chats, settings, and your
-  saved themes/components/finishes — restore merges and never overwrites (a
+  Library — saved themes, components, finishes, and reference docs — restore
+  merges and never overwrites (a
   deck that changed since the backup comes back beside it as "(restored)").
   Your OpenRouter connection is deliberately never in the file. A quiet
   "Last backup" line and a rare, earned reminder round it out; Safari tabs

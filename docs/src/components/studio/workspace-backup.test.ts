@@ -31,6 +31,7 @@ describe('workspace-backup — zip anatomy', () => {
 		const manifest = JSON.parse(await zip.file('manifest.json')!.async('string'));
 		expect(manifest.format).toBe(WORKSPACE_FORMAT);
 		expect(manifest.counts.decks).toBeGreaterThan(0);
+		expect(manifest.counts.refdocs).toBe(0); // jsdom has no IndexedDB → empty shelf, but the count is declared
 		expect(zip.file('workspace.json')).toBeTruthy();
 		expect(zip.file('README.md')).toBeTruthy();
 		expect(zip.file('decks/quarterly-plan.md')).toBeTruthy();

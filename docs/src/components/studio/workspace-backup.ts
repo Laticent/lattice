@@ -11,6 +11,9 @@
 //     library.zip       the saved themes/components/finishes, as a NESTED
 //                       lattice-asset/1 bundle — restore feeds it straight back
 //                       through unpackBundle, zero new parsing code
+//     refdocs.json      the Library's reference docs (kind:'refdoc' records —
+//                       JSON-safe, PDFs ride as data URLs); restore upserts by
+//                       name through saveRefDoc, the same path Library import uses
 //
 // Deliberately EXCLUDED: the OpenRouter key + PKCE verifier (a backup file gets
 // emailed and synced; secrets don't belong in it) and theme showcase PDFs
@@ -22,6 +25,7 @@
 import { packBundle, unpackBundle } from './asset-bundle';
 import { listStudioComponents, saveStudioComponent } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
+import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
 import { exportStudioState, type ImportSummary, importStudioState, type StudioExport, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
 
@@ -31,10 +35,11 @@ export const WORKSPACE_ZIP_NAME = 'lattice-workspace.zip';
 export type WorkspaceManifest = {
 	format: typeof WORKSPACE_FORMAT;
 	exportedAt: string; // ISO — provenance for the human opening the zip
-	counts: { decks: number; themes: number; components: number; finishes: number };
+	// `refdocs` is absent from pre-refdoc backups — read with ?? 0.
+	counts: { decks: number; themes: number; components: number; finishes: number; refdocs?: number };
 };
 
-export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number };
+export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; refdocs: number };
 
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
 async function jszip(): Promise<any> {
@@ -51,7 +56,7 @@ const fileSlug = (title: string, id: string) =>
  */
 export async function packWorkspace(now: number): Promise<Blob> {
 	const state = exportStudioState();
-	const [themes, components, finishes] = await Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes()]);
+	const [themes, components, finishes, refdocs] = await Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs()]);
 
 	const zip = await jszip();
 	zip.file('workspace.json', JSON.stringify(state, null, 2));
@@ -72,16 +77,19 @@ export async function packWorkspace(now: number): Promise<Blob> {
 		const assets = await packBundle(themes.map((theme) => ({ theme })), components, finishes);
 		zip.file('library.zip', assets);
 	}
+	// Reference docs are user-imported content (the Architect's brand guidelines
+	// etc.) — as much "the workspace" as the decks are.
+	if (refdocs.length) zip.file('refdocs.json', JSON.stringify(refdocs, null, 2));
 
 	const manifest: WorkspaceManifest = {
 		format: WORKSPACE_FORMAT,
 		exportedAt: new Date(now).toISOString(),
-		counts: { decks: state.index.length, themes: themes.length, components: components.length, finishes: finishes.length },
+		counts: { decks: state.index.length, themes: themes.length, components: components.length, finishes: finishes.length, refdocs: refdocs.length },
 	};
 	zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 	zip.file(
 		'README.md',
-		`# Lattice workspace backup\n\nExported ${manifest.exportedAt}. ${manifest.counts.decks} deck(s), ${manifest.counts.themes} theme(s), ${manifest.counts.components} component(s), ${manifest.counts.finishes} finish(es).\n\n- \`decks/*.md\` — your decks, readable anywhere.\n- \`workspace.json\` + \`library.zip\` — the full workspace; restore via Studio → Workspace → General → Restore backup.\n\nYour OpenRouter connection is deliberately NOT in this file — reconnect with one click after a restore.\n`,
+		`# Lattice workspace backup\n\nExported ${manifest.exportedAt}. ${manifest.counts.decks} deck(s), ${manifest.counts.themes} theme(s), ${manifest.counts.components} component(s), ${manifest.counts.finishes} finish(es), ${refdocs.length} reference doc(s).\n\n- \`decks/*.md\` — your decks, readable anywhere.\n- \`workspace.json\` + \`library.zip\` + \`refdocs.json\` — the full workspace; restore via Studio → Workspace → General → Restore backup.\n\nYour OpenRouter connection is deliberately NOT in this file — reconnect with one click after a restore.\n`,
 	);
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
@@ -102,7 +110,7 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	if (!stateFile) throw new Error('Backup is missing workspace.json.');
 	const state = JSON.parse(await stateFile.async('string')) as StudioExport;
 
-	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0 };
+	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, refdocs: 0 };
 
 	const libraryFile = zip.file('library.zip');
 	if (libraryFile) {
@@ -118,6 +126,16 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		for (const f of parsed.finishes) {
 			await saveStudioFinish({ name: f.name, label: f.label, css: f.css, recipe: f.recipe });
 			summary.finishes++;
+		}
+	}
+
+	const refdocsFile = zip.file('refdocs.json');
+	if (refdocsFile) {
+		const records = JSON.parse(await refdocsFile.async('string')) as RefDocRecord[];
+		for (const rec of records) {
+			// saveRefDoc upserts by name — the same path Library import uses.
+			await saveRefDoc(recordToDoc(rec), rec.addedAt ?? now);
+			summary.refdocs++;
 		}
 	}
 	return summary;

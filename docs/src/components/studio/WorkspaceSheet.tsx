@@ -297,7 +297,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									<SlidersHorizontal className="size-3" />
 									Last backup: {backupAt ? new Date(backupAt).toLocaleDateString() : 'never'}{storageLine ? ` · ${storageLine}` : ''}
 								</p>
-								<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">One zip: every deck (readable .md copies included), version history, chats, settings, and your saved themes/components/finishes. Restoring never overwrites — a deck that changed since the backup comes back beside the current one as “(restored)”. Your OpenRouter connection is never in the file.</p>
+								<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">One zip: every deck (readable .md copies included), version history, chats, settings, and your Library — saved themes, components, finishes, and reference docs. Restoring never overwrites — a deck that changed since the backup comes back beside the current one as “(restored)”. Your OpenRouter connection is never in the file.</p>
 							</div>
 						</div>
 					)}

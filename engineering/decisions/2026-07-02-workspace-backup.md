@@ -32,6 +32,7 @@ back in: export was per-deck artifacts + per-asset zips only.
 | `workspace.json` | the Studio store snapshot (index, edited sources, checkpoints, chats, settings, instructions) |
 | `decks/<slug>.md` | a readable copy of every deck — useful with no Lattice at all |
 | `library.zip` | themes/components/finishes as a NESTED `lattice-asset/1` bundle — restore reuses `unpackBundle` verbatim |
+| `refdocs.json` | the Library's reference docs (`kind:'refdoc'` records; PDFs as data URLs) — restore upserts by name via `saveRefDoc` |
 
 Store knowledge stays in `studio-store.ts` (`exportStudioState` /
 `importStudioState`); the backup module only packs, parses, and orchestrates.
