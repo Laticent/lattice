@@ -63,6 +63,11 @@ export type FinishRecipe = {
 	texture: { type: TextureType; intensity: number; scale: number };
 	mark: { type: MarkType; placement: Placement; glyph?: string; x?: number; y?: number; scale?: number; angle?: number };
 	edge: { type: EdgeType; intensity: number };
+	// The BAKED backdrop restraint — a design element of the finish (strength 0–1 +
+	// clearance), NOT part of the generated CSS (backdrop is a deck-level render).
+	// Set in the Fabricate designer and stamped into the deck's `backdrop:` front
+	// matter on Apply, where the deck author tunes it. Absent = no baked restraint.
+	backdrop?: { strength?: number; clearance?: boolean };
 };
 
 export const DEFAULT_RECIPE: FinishRecipe = {
@@ -237,7 +242,20 @@ export function coerceRecipe(input: unknown): FinishRecipe {
 			angle: optInt(m.angle, MARK_ANGLE.min, MARK_ANGLE.max) ?? MARK_ANGLE.default,
 		},
 		edge: { type: oneOf(EDGE_TYPES, e.type, 'none'), intensity: clampInt(e.intensity, 3, 20, 6) },
+		...coerceBackdrop(o.backdrop),
 	};
+}
+
+// The baked backdrop restraint, coerced to `{ strength?: 0–1, clearance?: true }` or
+// dropped entirely when nothing non-default is set (so a plain finish carries no
+// `backdrop` key). Never reaches generated CSS — only the front-matter stamp on Apply.
+function coerceBackdrop(input: unknown): { backdrop?: { strength?: number; clearance?: boolean } } {
+	const b = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+	const out: { strength?: number; clearance?: boolean } = {};
+	const s = Number.parseFloat(String(b.strength));
+	if (Number.isFinite(s) && Math.min(1, Math.max(0, s)) !== 1) out.strength = Math.min(1, Math.max(0, s));
+	if (b.clearance === true || /^(on|true|yes)$/i.test(String(b.clearance ?? ''))) out.clearance = true;
+	return Object.keys(out).length ? { backdrop: out } : {};
 }
 
 // ── CSS emitters — one gradient builder per layer type, in TWO faces. ──

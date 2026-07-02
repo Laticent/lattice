@@ -148,6 +148,19 @@ describe('finish-generate', () => {
 		expect(() => coerceRecipe(42)).not.toThrow();
 	});
 
+	it('coerceRecipe carries a BAKED backdrop (strength/clearance), dropping defaults', () => {
+		// a real baked backdrop round-trips (clamped)
+		expect(coerceRecipe({ backdrop: { strength: 0.6, clearance: 'on' } }).backdrop).toEqual({ strength: 0.6, clearance: true });
+		expect(coerceRecipe({ backdrop: { strength: 1.8 } }).backdrop).toBeUndefined(); // clamps to 1 = full = default → dropped
+		expect(coerceRecipe({ backdrop: { strength: 1, clearance: false } }).backdrop).toBeUndefined(); // all-default → no key
+		// a plain finish (no backdrop) carries no backdrop key
+		expect('backdrop' in coerceRecipe({ wash: { type: 'grid' } })).toBe(false);
+		// clearance alone (no strength) is kept
+		expect(coerceRecipe({ backdrop: { clearance: true } }).backdrop).toEqual({ clearance: true });
+		// backdrop is NEVER emitted into the generated CSS (it's a front-matter stamp, not a layer)
+		expect(generateFinishCss('x', coerceRecipe({ backdrop: { strength: 0.5, clearance: true } }))).not.toMatch(/backdrop/i);
+	});
+
 	it('generateSwatch returns a usable background string for every preset', () => {
 		for (const r of Object.values(PRESET_RECIPES)) {
 			const sw = generateSwatch(r);

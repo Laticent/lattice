@@ -1,9 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, setFrontMatter, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getBackdropAxis, getFrontMatter, mergeClassTokens, setBackdropAxis, setFrontMatter, stripFrontMatter } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
 
 describe('front-matter', () => {
+	it('round-trips a nested backdrop: block — a flat edit does NOT flatten it', () => {
+		const src = '---\ntheme: indaco\nfinish: finish-shu\nbackdrop:\n  strength: 0.6\n  clearance: on\n---\n\n# Deck';
+		expect(getBackdropAxis(src, 'strength')).toBe('0.6');
+		expect(getBackdropAxis(src, 'clearance')).toBe('on');
+		// editing a FLAT key preserves the nested block (regression: it used to flatten)
+		const out = setFrontMatter(src, 'paginate', 'true');
+		expect(out).toMatch(/\nbackdrop:\n {2}strength: 0\.6\n {2}clearance: on\n/);
+		expect(getFrontMatter(out, 'paginate')).toBe('true');
+		expect(getFrontMatter(out, 'strength')).toBeUndefined(); // never a flat key
+	});
+
+	it('drops an invalid FLAT `backdrop:` scalar so stamping never duplicates the key', () => {
+		// `backdrop` is exclusively the nested key; a hand-typed flat `backdrop: on` is
+		// invalid and must not survive to produce two `backdrop:` lines.
+		const src = '---\nfinish: finish-shu\nbackdrop: on\n---\n\n# D';
+		const out = setBackdropAxis(src, 'strength', '0.5');
+		expect((out.match(/^backdrop:/gm) || []).length).toBe(1);
+		expect(getBackdropAxis(out, 'strength')).toBe('0.5');
+	});
+
+	it('setBackdropAxis stamps + clears nested axes; drops the block when empty', () => {
+		const base = '---\nfinish: finish-shu\n---\n\n# D';
+		const withStrength = setBackdropAxis(base, 'strength', '0.6');
+		expect(withStrength).toMatch(/\nbackdrop:\n {2}strength: 0\.6\n/);
+		const withBoth = setBackdropAxis(withStrength, 'clearance', 'on');
+		expect(getBackdropAxis(withBoth, 'strength')).toBe('0.6');
+		expect(getBackdropAxis(withBoth, 'clearance')).toBe('on');
+		// clearing one axis leaves the other
+		const cleared = setBackdropAxis(withBoth, 'strength', null);
+		expect(getBackdropAxis(cleared, 'strength')).toBeUndefined();
+		expect(getBackdropAxis(cleared, 'clearance')).toBe('on');
+		// clearing the last axis drops the whole backdrop block
+		const none = setBackdropAxis(cleared, 'clearance', null);
+		expect(none).not.toMatch(/backdrop:/);
+		expect(getFrontMatter(none, 'finish')).toBe('finish-shu'); // flat keys survive
+	});
+
 	it('creates a block on the first directive', () => {
 		const out = setFrontMatter(BODY, 'size', 'square');
 		expect(out.startsWith('---\nsize: square\n---\n\n')).toBe(true);

@@ -24,16 +24,54 @@ export function stripFrontMatter(source: string): string {
 	return m ? src.slice(m[0].length) : src;
 }
 
-/** Parse the leading block into an ordered list of [key, value] pairs. */
-function parsePairs(source: string): [string, string][] {
+/**
+ * Parse the leading block into its ordered flat [key, value] pairs PLUS the one
+ * nested map we understand — `backdrop:` (Lattice's only nested front-matter key).
+ * The nested axes are captured as a map (not flattened into stray `strength:` /
+ * `clearance:` scalars, which would corrupt the block and break resolve-backdrop's
+ * reader). `finish:` etc. stay flat. Mirrors deck-config.js's split, kept here so the
+ * Studio's own writer round-trips a backdrop block instead of destroying it.
+ */
+function parseFm(source: string): { pairs: [string, string][]; backdrop: Record<string, string> | null } {
 	const m = FM_RE.exec(String(source ?? ''));
-	if (!m) return [];
+	if (!m) return { pairs: [], backdrop: null };
 	const pairs: [string, string][] = [];
-	for (const line of m[1].split(/\r?\n/)) {
-		const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line.trim());
-		if (kv) pairs.push([kv[1], unquote(kv[2])]);
+	let backdrop: Record<string, string> | null = null;
+	const lines = m[1].split(/\r?\n/);
+	for (let i = 0; i < lines.length; i++) {
+		const head = lines[i].match(/^(\s*)backdrop:\s*$/);
+		if (head) {
+			backdrop = {};
+			const base = head[1].length;
+			while (i + 1 < lines.length) {
+				const next = lines[i + 1];
+				if (!next.trim()) { i++; continue; }
+				if ((next.match(/^(\s*)/)?.[1] ?? '').length <= base) break; // dedent → block ends
+				const kv = next.match(/^\s+([A-Za-z][\w-]*):\s*(.*)$/);
+				if (kv) backdrop[kv[1]] = unquote(kv[2].replace(/\s+#.*$/, ''));
+				i++;
+			}
+			continue;
+		}
+		const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(lines[i].trim());
+		// `backdrop` is EXCLUSIVELY the nested key (a bare header, handled above). A flat
+		// `backdrop: <scalar>` is invalid syntax the engine ignores; drop it so stamping a
+		// nested axis can't leave a duplicate `backdrop:` line behind.
+		if (kv && kv[1] !== 'backdrop') pairs.push([kv[1], unquote(kv[2])]);
 	}
-	return pairs;
+	return { pairs, backdrop };
+}
+
+/** Re-emit a front-matter block from flat pairs + the nested `backdrop:` map, or the
+ *  bare body when nothing remains. The backdrop block trails the flat keys. */
+function emitFm(pairs: [string, string][], backdrop: Record<string, string> | null, body: string): string {
+	const lines = pairs.map(([k, v]) => `${k}: ${quoteIfNeeded(v)}`);
+	if (backdrop && Object.keys(backdrop).length) {
+		lines.push('backdrop:');
+		for (const [ax, v] of Object.entries(backdrop)) lines.push(`  ${ax}: ${v}`);
+	}
+	if (!lines.length) return body;
+	return `---\n${lines.join('\n')}\n---\n\n${body.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
 }
 
 function unquote(v: string): string {
@@ -45,10 +83,15 @@ function quoteIfNeeded(v: string): string {
 	return /^[\w:.\-/]+$/.test(v) ? v : `"${v.replace(/"/g, '\\"')}"`;
 }
 
-/** Read a single directive's value, or undefined if absent. */
+/** Read a single flat directive's value, or undefined if absent. */
 export function getFrontMatter(source: string, key: string): string | undefined {
-	const hit = parsePairs(source).find(([k]) => k === key);
+	const hit = parseFm(source).pairs.find(([k]) => k === key);
 	return hit?.[1];
+}
+
+/** Read one nested `backdrop:` axis (e.g. `strength`, `clearance`), or undefined. */
+export function getBackdropAxis(source: string, axis: string): string | undefined {
+	return parseFm(source).backdrop?.[axis];
 }
 
 /**
@@ -78,12 +121,24 @@ export function mergeClassTokens(source: string, tokens: string): string {
  */
 export function setFrontMatter(source: string, key: string, value: string | null): string {
 	const body = stripFrontMatter(source);
-	const pairs = parsePairs(source).filter(([k]) => k !== key);
+	const { pairs: all, backdrop } = parseFm(source);
+	const pairs = all.filter(([k]) => k !== key);
 	if (value !== null) pairs.push([key, value]);
-	if (!pairs.length) return body;
-	const block = pairs.map(([k, v]) => `${k}: ${quoteIfNeeded(v)}`).join('\n');
-	// Single blank line between the block and the body. Collapse only leading blank
-	// LINES (not all whitespace) so meaningful indentation on the body's first line
-	// survives.
-	return `---\n${block}\n---\n\n${body.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
+	// A nested `backdrop:` block round-trips untouched when any OTHER key changes.
+	return emitFm(pairs, backdrop, body);
+}
+
+/**
+ * Set (or, with `value === null`, clear) ONE axis of the nested `backdrop:` map —
+ * `strength` / `clearance` — preserving the flat keys and the body. Removes the
+ * `backdrop:` block when it empties. Used to stamp a saved finish's BAKED backdrop
+ * onto the deck on Apply, where the author then tunes it (front matter / Deck-setup).
+ */
+export function setBackdropAxis(source: string, axis: string, value: string | null): string {
+	const body = stripFrontMatter(source);
+	const { pairs, backdrop } = parseFm(source);
+	const map = { ...(backdrop || {}) };
+	if (value === null) delete map[axis];
+	else map[axis] = value;
+	return emitFm(pairs, Object.keys(map).length ? map : null, body);
 }

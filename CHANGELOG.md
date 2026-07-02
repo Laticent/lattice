@@ -179,6 +179,14 @@ in patch versions.
   (default off), and inert without a finish. Wired across all three render paths, with a
   Deck-setup drawer toggle, editor autocomplete, and a lint check on the value. Slice 3
   of the backdrop-layer work (`engineering/decisions/2026-07-01-finish-restraint-controls.md`).
+- **The Fabricate finish designer BAKES a backdrop into a finish.** Backdrop strength +
+  clearance are now design elements of a fabricated finish: set them in the designer
+  (previewed WYSIWYG on the specimen), and **Apply stamps them into the deck's `backdrop:`
+  front matter** as its starting restraint, where the author tunes them. A saved finish
+  carries a considered default restraint; built-ins stay bare. The baked value rides on
+  the recipe and never reaches the generated CSS. (Supersedes the preview-only "Preview
+  strength" control from #687.) The Studio's front-matter writer also now round-trips a
+  nested `backdrop:` block instead of flattening it — a latent bug fix.
 - **The Fabricate finish designer previews at backdrop strength.** A "Preview strength"
   control dials the specimen's `--backdrop-strength` (the same lever the deck-wide
   `backdrop: strength:` axis pulls), so you can design and judge a finish at the restraint

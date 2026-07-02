@@ -23,7 +23,7 @@ import { Editor, type EditorHandle } from './Editor';
 import { activeFinishLabel, FinishMenuItems, type SavedFinishMenuEntry } from './FinishPicker';
 import { generateSwatch as finishSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, setFrontMatter, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, mergeClassTokens, setBackdropAxis, setFrontMatter, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { Library } from './Library';
@@ -309,7 +309,22 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const headerFooter = getFrontMatter(source, 'header') != null;
 	// …and WRITE to it (the editor + every export update in lock-step).
 	const finish = getFrontMatter(source, 'finish') || 'none';
-	const setFinish = (value: string) => setSource((s) => setFrontMatter(s, 'finish', value === 'none' ? null : value));
+	const setFinish = (value: string) => {
+		// A saved finish carries a BAKED backdrop (strength / clearance) — stamp those
+		// axes into the deck's `backdrop:` front matter as its starting restraint, where
+		// the author then tunes them (front matter / Deck-setup drawer). Only the axes the
+		// finish bakes are set (re-applying resets THOSE to the finish's defaults); axes it
+		// doesn't bake — and a built-in / `none` pick — leave the deck's backdrop untouched.
+		// (`backdrop:` is a finish design element — 2026-07-01 decision doc.)
+		const saved = savedFinishes.find((f) => value === `finish-${f.name}` || value === f.name);
+		const bd = saved?.recipe?.backdrop;
+		setSource((s) => {
+			let out = setFrontMatter(s, 'finish', value === 'none' ? null : value);
+			if (bd?.strength != null) out = setBackdropAxis(out, 'strength', String(bd.strength));
+			if (bd?.clearance) out = setBackdropAxis(out, 'clearance', 'on');
+			return out;
+		});
+	};
 	// The `mode:` axis (rendering mode — boardroom / sketch), a sibling of finish.
 	// (The key can't be `style:` — that's Marp's built-in inline-CSS directive.)
 	// Named `renderMode` locally to avoid clashing with the light/dark `mode` below.

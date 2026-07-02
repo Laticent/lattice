@@ -8,6 +8,18 @@ summary: A finish can OVERPOWER content — too intense, or covering the area be
 **Status:** proposed 2026-07-01. Design-before-code for a structural change;
 prototype-validated. Implementation staged into slices (§9), each its own PR.
 
+> **Revision 2026-07-02 — backdrop is ALSO a finish design element.** §1/§3 below
+> frame the controls as living purely on the *layer*, "not on any preset." In
+> practice a *fabricated* finish now **bakes** its own backdrop defaults (`strength`
+> + `clearance`) as part of its design: you set them in the Fabricate designer, they
+> save on the recipe (`recipe.backdrop`), and **Apply stamps them into the deck's
+> `backdrop:` front matter**, where the deck author tunes them. So the finish carries
+> a considered *default* restraint; the deck-level `backdrop:` axes (this doc) remain
+> the *tuning* surface — the two compose, they don't conflict. The baked value never
+> reaches the generated finish CSS (it's a front-matter stamp, not a layer), so the
+> render model here is unchanged. (Built-in presets stay bare — only saved finishes
+> bake a backdrop.) Landed with the clearance slice (#695).
+
 ## 1. The problem
 
 A finish is a stack of palette-blind gradient layers painted *behind* slide

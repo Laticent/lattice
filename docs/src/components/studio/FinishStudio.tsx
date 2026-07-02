@@ -82,13 +82,15 @@ export function FinishStudio({
 	// "Export preview" — show the OPAQUE export face the PDF/PPTX bakes, not just the
 	// rich on-screen face, so the designer sees the flatter look before they ship it.
 	const [exporting, setExporting] = React.useState(false);
-	// Preview-only backdrop RESTRAINT (%). The deck-wide `backdrop: strength:` axis dims
-	// a finish via `--backdrop-strength` (opacity on the `.backdrop` compositor); this
-	// dials the SAME token on the specimen so a finish can be designed and judged at the
-	// restraint it'll be shown with. Preview-scoped: the finish stays a pure recipe —
-	// strength is a per-deck control, not baked into the saved finish (the finish/backdrop
-	// axes are deliberately separate; see 2026-07-01-finish-restraint-controls.md).
-	const [strength, setStrength] = React.useState(100);
+	// BAKED backdrop restraint — a design element OF the finish (2026-07-01 decision doc,
+	// revised): `strength` (0–1) + `clearance` are saved on the recipe and stamped into a
+	// deck's `backdrop:` front matter on Apply, where the deck author tunes them. The
+	// designer previews the finish AT its baked restraint (WYSIWYG). Read from / written
+	// to `recipe.backdrop`; a full/absent value carries no baked axis.
+	const strength = recipe.backdrop?.strength == null ? 100 : Math.round(recipe.backdrop.strength * 100);
+	const clearance = !!recipe.backdrop?.clearance;
+	const setStrength = (pct: number) => patch({ backdrop: { ...recipe.backdrop, strength: pct >= 100 ? undefined : pct / 100 } });
+	const setClearance = (on: boolean) => patch({ backdrop: { ...recipe.backdrop, clearance: on || undefined } });
 	const [prompt, setPrompt] = React.useState('');
 	const [gen, setGen] = React.useState<'idle' | 'working'>('idle');
 	const [saving, setSaving] = React.useState(false);
@@ -98,15 +100,16 @@ export function FinishStudio({
 	// export/save (targets the named slug). Recompute as the recipe changes.
 	const slug = safeFinishSlug(name) === 'custom' && !name.trim() ? 'custom' : safeFinishSlug(name);
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
-	// The preview CSS plus (when restrained) the `--backdrop-strength` token on the
-	// specimen's backdrop — the exact lever the deck-wide `backdrop: strength:` pulls.
-	const previewBackdropCss = React.useMemo(
-		() =>
-			strength >= 100
-				? previewCss
-				: `${previewCss}\n/* preview backdrop restraint (design-time only) */\nsection.finish > .backdrop { --backdrop-strength: ${(strength / 100).toFixed(2)}; }`,
-		[previewCss, strength],
-	);
+	// The preview CSS + the baked backdrop restraint applied to the specimen so the
+	// designer is WYSIWYG: `--backdrop-strength` dims the whole finish, and the clearance
+	// mask (the RICH/screen face, mirroring base.finish.css `section.finish.backdrop-clear`)
+	// recedes it behind the content. Both design-time; the SAVED render reads the recipe.
+	const previewBackdropCss = React.useMemo(() => {
+		let css = previewCss;
+		if (strength < 100) css += `\nsection.finish > .backdrop { --backdrop-strength: ${(strength / 100).toFixed(2)}; }`;
+		if (clearance) css += `\nsection.finish > .backdrop > .backdrop-mask { background: radial-gradient(ellipse 90% 84% at 50% 45%, var(--bg) 44%, transparent 88%); }`;
+		return css;
+	}, [previewCss, strength, clearance]);
 	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(slug);
 
 	// Mutators — each layer's controls write back through coerceRecipe so state can
@@ -259,16 +262,23 @@ export function FinishStudio({
 							</div>
 						</div>
 					</div>
-					{/* Preview restraint — judge the finish at the backdrop strength it'll be
-					    shown with (the deck-wide `backdrop: strength:` axis). Design-time only. */}
-					<Tuned label="Preview strength" value={`${strength}%`}>
+					{/* BAKED backdrop restraint — saved WITH the finish and stamped into a deck's
+					    `backdrop:` on Apply, where the author tunes it. The specimen previews it. */}
+					<Tuned label="Backdrop strength" value={`${strength}%`}>
 						<div className="flex items-center gap-2.5">
-							<Slider aria-label="Preview backdrop strength" min={10} max={100} value={strength} onValueChange={setStrength} />
+							<Slider aria-label="Backdrop strength" min={10} max={100} value={strength} onValueChange={setStrength} />
 							{strength < 100 && (
 								<button type="button" onClick={() => setStrength(100)} className="shrink-0 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground hover:text-[var(--accent)]">Reset</button>
 							)}
 						</div>
 					</Tuned>
+					<label className="flex items-center justify-between gap-3 py-0.5">
+						<span className="flex flex-col">
+							<span className="text-[12.5px] font-semibold text-[var(--text-heading)]">Clear behind content</span>
+							<span className="text-[11px] text-muted-foreground">Recede the finish behind the text; it reads at the margins</span>
+						</span>
+						<input type="checkbox" aria-label="Clear behind content" checked={clearance} onChange={(e) => setClearance(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
+					</label>
 					<div className="relative">
 						<DeckPreview
 							options={options}
