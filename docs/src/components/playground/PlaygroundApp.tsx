@@ -226,7 +226,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		chartInteractRef.current = ci;
 		// Parent-hosted video playback: plays an embedded clip OVER the preview poster
 		// (never an iframe inside the slide — #22 + the iOS scaled-iframe traps).
-		const vo = createVideoOverlay({ stage, getFrame: () => frameRef.current ?? frame });
+		const vo = createVideoOverlay({ getFrame: () => frameRef.current ?? frame });
 		videoOverlayRef.current = vo;
 		return () => {
 			ci.destroy();

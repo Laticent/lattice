@@ -49,19 +49,17 @@ export function embedSrc(href) {
 }
 
 /**
- * Mount the parent-hosted video overlay over a preview iframe.
+ * Mount the parent-hosted video overlay over a preview iframe. The lightbox mounts
+ * on <body> (viewport-fixed), so no stage element is needed.
  * @param {object} o
- * @param {HTMLElement} o.stage  the preview wrapper (the iframe's offset parent)
  * @param {() => HTMLIFrameElement|null} o.getFrame  the live preview iframe
  * @returns {{ rebind: () => void, destroy: () => void }}
  */
-export function createVideoOverlay({ stage, getFrame }) {
-	let modal = null; // the mounted { root, onScroll } or null
+export function createVideoOverlay({ getFrame }) {
+	let modal = null; // the mounted { root, onKey } or null
 
 	function close() {
 		if (!modal) return;
-		window.removeEventListener('scroll', modal.onScroll, true);
-		window.removeEventListener('resize', modal.onScroll);
 		document.removeEventListener('keydown', modal.onKey, true);
 		modal.root.remove();
 		modal = null;
@@ -69,57 +67,54 @@ export function createVideoOverlay({ stage, getFrame }) {
 
 	// Called (from the iframe's link guard) with the tapped poster anchor. Returns
 	// true if a player was mounted, false if the provider isn't embeddable.
+	//
+	// A CENTERED LIGHTBOX, not a tiny player pinned over the poster: on mobile the
+	// poster's rect is small, so a pinned player gave YouTube's controls at a size
+	// too small to hit (and too small to matter). A large centered 16:9 modal gives
+	// full-size, tappable controls. Mounted on <body> (NOT the preview stage) so
+	// `position:fixed` is viewport-relative even if an ancestor is transformed.
 	function play(poster) {
 		try {
 			const src = embedSrc(poster && poster.getAttribute && poster.getAttribute('href'));
 			if (!src) return false;
-			const frame = getFrame();
-			if (!frame) return false;
 			close();
-
-			// Map the poster's rect (iframe-viewport coords, already transform-scaled)
-			// into the PARENT viewport: iframe element offset + the in-iframe rect.
-			const fr = frame.getBoundingClientRect();
-			const pr = poster.getBoundingClientRect();
-			const box = { left: fr.left + pr.left, top: fr.top + pr.top, width: pr.width, height: pr.height };
 
 			const root = document.createElement('div');
 			root.className = 'pg-video-modal';
-			// A full-viewport backdrop (tap-to-close) + the player pinned over the poster.
-			root.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(6,10,18,.72);';
+			root.style.cssText =
+				'position:fixed;inset:0;z-index:2147483000;background:rgba(6,10,18,.8);' +
+				'display:flex;align-items:center;justify-content:center;padding:4vmin;';
 			const shell = document.createElement('div');
 			shell.style.cssText =
-				`position:fixed;left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;` +
-				'border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#000;';
+				'position:relative;width:min(92vw,960px);aspect-ratio:16/9;max-height:86vh;' +
+				'border-radius:12px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.6);background:#000;';
 			const player = document.createElement('iframe');
 			player.src = src;
 			player.title = 'Video player';
 			player.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
 			player.setAttribute('allowfullscreen', '');
+			player.setAttribute('webkitallowfullscreen', ''); // legacy iOS Safari fullscreen
 			player.referrerPolicy = 'strict-origin-when-cross-origin';
-			player.style.cssText = 'width:100%;height:100%;border:0;display:block;';
+			player.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;display:block;';
 			const btn = document.createElement('button');
 			btn.type = 'button';
 			btn.setAttribute('aria-label', 'Close video');
 			btn.textContent = '✕';
+			// Top-right, clear of YouTube's own bottom control bar so it never overlaps.
 			btn.style.cssText =
-				'position:absolute;top:6px;right:6px;width:30px;height:30px;border:0;border-radius:50%;cursor:pointer;' +
-				'background:rgba(0,0,0,.6);color:#fff;font-size:15px;line-height:30px;padding:0;';
+				'position:absolute;top:8px;right:8px;z-index:1;width:34px;height:34px;border:0;border-radius:50%;cursor:pointer;' +
+				'background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:34px;padding:0;';
 			btn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
 			shell.appendChild(player);
 			shell.appendChild(btn);
 			root.appendChild(shell);
+			// Backdrop tap closes; a tap on the player/shell does not (it drives playback).
 			root.addEventListener('click', (e) => { if (e.target === root) close(); });
 
-			// Pin-and-track is deliberately simple: dismiss on any scroll/resize so the
-			// player can't strand off its poster (a filmstrip scrolls; re-tap to replay).
-			const onScroll = () => close();
 			const onKey = (e) => { if (e.key === 'Escape') close(); };
-			modal = { root, onScroll, onKey };
-			window.addEventListener('scroll', onScroll, true);
-			window.addEventListener('resize', onScroll);
+			modal = { root, onKey };
 			document.addEventListener('keydown', onKey, true);
-			(stage || document.body).appendChild(root);
+			document.body.appendChild(root);
 			return true;
 		} catch (_e) {
 			return false;
