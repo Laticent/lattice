@@ -196,6 +196,7 @@ const TOOL_GROUP = {
   'build-capabilities.js': 'Build / generate', 'build-landing-tokens.js': 'Build / generate', 'build-snippets.js': 'Build / generate',
   'build-galleries.js': 'Build / generate', 'build-bucket-galleries.js': 'Build / generate', 'build-basemap.js': 'Build / generate',
   'build-basemap.world.js': 'Build / generate', 'minify-css.js': 'Build / generate', 'anatomy-catalog.js': 'Build / generate',
+  'make-pwa-icons.js': 'Build / generate',
   // Check/gate
   'check-ownership.js': 'Check / gate', 'check-commit-msg.sh': 'Check / gate', 'build-staged-pdfs.js': 'Check / gate',
   'check-chart-responsiveness.js': 'Check / gate', 'check-svg-scaling.js': 'Check / gate', 'affected-tests.js': 'Check / gate',

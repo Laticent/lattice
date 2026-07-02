@@ -2064,6 +2064,27 @@ never turn "passed in headless" into "works on iOS."
 
 ## Docs site (Astro + GitHub Pages)
 
+### `astro dev` serves stale assets after previewing a production build (service worker)
+
+- **Symptom:** After running `astro preview` (or the e2e suite) and then
+  switching to `astro dev` on the same port, the dev site shows stale modules,
+  `504 Outdated Optimize Dep`-style noise, or edits that don't take. Hard
+  refresh doesn't help; an incognito window does.
+- **Cause:** The docs site ships a **service worker** (`docs/public/sw.js` —
+  offline cache, see `engineering/decisions/2026-07-02-docs-pwa.md`). It
+  registers on **production builds only**, but `astro preview` and `astro dev`
+  share the `localhost:4321` origin, so a worker registered while previewing
+  keeps controlling the dev server's pages and serves its
+  stale-while-revalidate cache — including Vite's module URLs.
+- **Fix:** Usually none needed — dev builds emit a self-destroying script
+  (`docs/src/components/site/PwaHead.astro`) that unregisters any worker on
+  load; one reload after switching to dev clears it. If a worker somehow
+  lingers: DevTools → Application → Service Workers → Unregister (or
+  `navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()))`
+  in the console), then reload. In Playwright, workers are blocked globally in
+  `docs/playwright.config.ts` (`serviceWorkers: 'block'`) so route mocks keep
+  seeing same-origin GETs; only `e2e/pwa.spec.ts` opts back in.
+
 ### `build:check` fails: "builds a live preview frame … not a sanctioned preview builder" (HARD RULE #22)
 
 You added (or refactored into) a `docs/src` module that assembles a live slide
