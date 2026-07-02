@@ -98,11 +98,15 @@ in patch versions.
   relicense contributions under commercial terms) was one-sided, and that is
   not this project's model. Contributions are accepted plainly under
   AGPL-3.0 (inbound = outbound) with no additional rights granted to anyone;
-  `CLA.md` and the `cla.yml` enforcement workflow are deleted, the
-  `cla-signatures` branch is removed, and `CONTRIBUTING.md` is rewritten
-  around ownership-preserving terms. The long-term contribution/monetization
-  model (community core vs. an owned plugin/marketplace layer) is recorded
-  as a decision doc in `engineering/decisions/`.
+  `CLA.md` and the `cla.yml` enforcement workflow are deleted and
+  `CONTRIBUTING.md` is rewritten around the chosen model — a sole-authored
+  core with an author-owned periphery: issues and small DCO-signed fixes
+  welcome; substantive engine work by arrangement (paid if it ships in
+  anything commercially licensed); themes/plugins/tools belong entirely to
+  their authors to license and sell anywhere; and a symmetry pledge that any
+  engine capability a commercial SlideWright product monetizes lands in the
+  AGPL engine within six months. Analysis and decision:
+  `engineering/decisions/2026-07-02-contribution-model.md`.
 
 ### Fixed
 

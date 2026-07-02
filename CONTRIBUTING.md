@@ -1,33 +1,47 @@
 # Contributing to Lattice
 
-Thanks for your interest! Two things to know up front.
+Lattice is **open source, with a sole-authored core** — in the spirit of
+SQLite's "Open-Source, not Open-Contribution," stated up front so nobody's
+work goes to waste. The reasons: it keeps the engine's design coherent, and
+it keeps the licensing story simple enough that *you* keep everything you
+make. There is **no CLA** — nothing here asks you to sign anything or give
+up any rights. Full background:
+`engineering/decisions/2026-07-02-contribution-model.md`.
 
-## 1. Contribution policy — under review (you own your work, no CLA)
+## Ownership and money — the deal, in plain terms
 
-Lattice does not ask contributors to sign a Contributor License Agreement —
-the short-lived CLA requirement is withdrawn and no longer applies to anyone.
-You keep full ownership of anything you contribute; nothing here asks you to
-give up rights.
+- **Your themes, plugins, and tools are yours — entirely.** Build on
+  Lattice's public surfaces (the theme token contract, the LFM markdown
+  format, the CLI) and what you make is your property, under any license you
+  choose, sold anywhere you like, with no cut owed to anyone. Use a
+  non-official name (`lattice-theme-foo` style — see
+  [TRADEMARKS.md](TRADEMARKS.md)).
+- **Engine code that ships in anything commercially licensed gets paid
+  for.** If we want your work inside the engine and the engine is ever sold
+  under commercial terms, that happens by explicit written arrangement — a
+  paid license grant — never by a signature you were required to hand over.
+- **The symmetry pledge:** any engine capability that a commercial
+  SlideWright product monetizes lands in the AGPL engine within six months.
+  The open engine is the product, not the demo.
 
-The long-term contribution model (community core vs. an owned plugin/theme
-layer with a marketplace) is being finalized — see
-`engineering/decisions/2026-07-02-contribution-model.md`. Until it lands:
+## What contributions look like in practice
 
-- **Issues, bug reports, and design discussion are open and welcome** — this
-  is the most useful way to contribute right now.
-- **Pull requests may be opened and will be reviewed, but held for merge**,
-  with one exception: obvious, minimal fixes (typos, broken links, clearly
-  mechanical one-liners) may be merged if the commit carries a
-  `Signed-off-by:` line per the
+- **Issues, bug reports, and design discussion — always open, most
+  valuable.** This is genuinely the best way to contribute.
+- **Small mechanical fixes** (typos, broken links, clearly mechanical
+  one-liners) are welcome as PRs with a `Signed-off-by:` line per the
   [Developer Certificate of Origin](https://developercertificate.org).
-- For larger engine work, please open an issue first — we'd rather talk
-  (possibly about paying for the work) than have your effort go to waste.
+- **Substantive engine work is by arrangement:** open an issue first. If it
+  fits, we'll agree terms before code is written — possibly paid work. An
+  unarranged substantive PR will be reviewed with thanks but not merged;
+  that's not a judgment of the work, it's how the ownership model stays
+  honest.
 
-Lattice is AGPL-3.0-only with the additional permissions in
-[LICENSE-EXCEPTIONS](LICENSE-EXCEPTIONS). Contributions, when accepted, are
-licensed inbound = outbound under those same terms.
+Contributions, when accepted, are licensed inbound = outbound under
+AGPL-3.0-only with the additional permissions in
+[LICENSE-EXCEPTIONS](LICENSE-EXCEPTIONS).
 
-## 2. Development setup
+## Development setup
 
 Everything about the toolchain — Node version, npm scripts, tests, lint,
 hooks, and CI — lives in [`engineering/development.md`](engineering/development.md).

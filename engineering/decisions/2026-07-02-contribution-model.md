@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: Retire the CLA; choose the contribution/monetization model — recommendation is a sole-authored core with an author-owned plugin/theme layer, no marketplace platform until users demand one
+status: in-progress
+summary: "CLA retired; model chosen: sole-authored core with an author-owned plugin/theme layer (Model B, stripped) — no marketplace platform until users demand one"
 last-updated: 2026-07-02
 companion:
   - ../../CONTRIBUTING.md
@@ -21,8 +21,12 @@ before a single signature was collected (this PR).
 
 Three independent adversarial reviews (business, legal/community, inversion)
 were run against four candidate models. This doc records the findings and the
-recommendation. **The model choice is the owner's; status flips to `shipped`
-when it's made.**
+decision. **DECIDED 2026-07-02: Model B, stripped of its machinery** (owner's
+pick, on the reviews' unanimous recommendation). Steps 1–2 of the
+recommendation ship with this doc; steps 3–5 remain, hence `in-progress` —
+flip to `shipped` when the theme spec + starter + exception land (step 3) or
+are consciously deferred with the trivial-fixes-only merge rule still
+standing in CONTRIBUTING.
 
 ## The candidates
 
