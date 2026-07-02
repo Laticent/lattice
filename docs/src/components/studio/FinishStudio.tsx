@@ -143,7 +143,7 @@ export function FinishStudio({
 	// wash). Reads x/y for position; dragging writes absolute x/y.
 	const canvasHandles: CanvasHandleSpec[] = [];
 	if (markPlaceable && recipe.mark.glyph?.trim()) canvasHandles.push({ key: 'mark', label: 'Mark', x: recipe.mark.x ?? 50, y: recipe.mark.y ?? 50, tone: 'accent', onMove: setMarkXY });
-	if (washPlaceable) canvasHandles.push({ key: 'wash', label: 'Wash hotspot', x: recipe.wash.x ?? 50, y: recipe.wash.y ?? 50, tone: 'ink', onMove: setWashXY });
+	if (washPlaceable) canvasHandles.push({ key: 'wash', label: 'Wash', x: recipe.wash.x ?? 50, y: recipe.wash.y ?? 50, tone: 'ink', onMove: setWashXY });
 	if (spot) canvasHandles.push({ key: 'spotlight', label: 'Spotlight', x: spot.x, y: spot.y, tone: 'accent', onMove: setSpotXY });
 
 	const exportCss = () => {
@@ -608,12 +608,17 @@ function CanvasHandles({ handles }: { handles: CanvasHandleSpec[] }) {
 						draggingRef.current = null;
 					}}
 					className={cn(
-						'pointer-events-auto absolute grid size-6 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none place-items-center rounded-full border-2 bg-card/80 shadow-[0_2px_8px_rgba(8,18,38,.35)] backdrop-blur-sm active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
-						h.tone === 'accent' ? 'border-[var(--accent)]' : 'border-[color-mix(in_srgb,var(--ink,var(--accent))_70%,var(--border))]',
+						// A LABELED pill IS the handle marker (centered on the effect's x/y), so multiple
+						// on-canvas handles — wash / mark / spotlight — are told apart by name at a glance
+						// instead of reading as identical dots. Tone-colored border + text for a second cue.
+						'pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none whitespace-nowrap rounded-full border-2 bg-card/85 px-2 py-0.5 text-[10.5px] font-semibold leading-none shadow-[0_2px_8px_rgba(8,18,38,.35)] backdrop-blur-sm active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+						h.tone === 'accent'
+							? 'border-[var(--accent)] text-[var(--accent)]'
+							: 'border-[color-mix(in_srgb,var(--ink,var(--accent))_70%,var(--border))] text-[var(--text-heading)]',
 					)}
 					style={{ left: `${h.x}%`, top: `${h.y}%` }}
 				>
-					<span className={cn('size-1.5 rounded-full', h.tone === 'accent' ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--ink,var(--accent))_70%,var(--border))]')} />
+					{h.label}
 				</button>
 			))}
 		</div>

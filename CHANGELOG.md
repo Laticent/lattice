@@ -44,6 +44,10 @@ in patch versions.
   Markdown source to the PDF as an embedded file (visible in any attachments
   panel, extractable with `pdfdetach`), so the artifact alone round-trips back
   to an editable deck.
+- **The Fabricate finish designer's on-canvas placement handles are now LABELED.** The
+  drag dots over the specimen (wash hotspot, mark, spotlight) were identical circles —
+  you couldn't tell which was which. Each is now a named, tone-colored pill (`Wash` /
+  `Mark` / `Spotlight`) centered on its point, so multiple handles read at a glance.
 - **Studio E2E — journeys + persona scenarios, with a live-OpenRouter AI tier
   (`docs/e2e/journeys/`, `docs/e2e/scenarios/`, #694).** Two new layers on top
   of the feature-level suite (#691), each asserted on a goal-level oracle
