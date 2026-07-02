@@ -27,6 +27,15 @@ in patch versions.
 
 ### Added
 
+- **Choose your placement-handle style — a new Workspace › General tab.** The finish
+  designer's on-canvas handles (wash hotspot, mark, spotlight) now come in two styles,
+  picked per workspace: **Familiar** — a raised grab-knob that reads as obviously
+  draggable (the default), or **Precision** — a see-through crosshair reticle for exact
+  placement. Designers get precision; everyone else gets familiarity. The setting lives
+  in a new **General** tab on the Workspace sheet (previously AI/spend/storage only) and
+  takes effect live in the designer. Replaces the flat label pill, which had no grab
+  affordance on touch. Each handle keeps its name and a ≥44px touch target.
+
 - **Tap a video poster in the Playground preview to play the clip in place.** The
   `video` component's poster now plays the embedded YouTube/Vimeo clip **over the
   preview** instead of opening a new tab — via a parent-hosted player overlay
