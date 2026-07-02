@@ -180,6 +180,19 @@ in patch versions.
 
 ### Fixed
 
+- **Chart slides no longer export black/unstyled in the Studio image PDF and
+  PPTX.** html-to-image inlines computed styles onto HTMLElements only, so a
+  nested chart `<svg>`'s clone kept just its classes — fills fell to
+  SVG-default black, gradient stops kept raw `var()` (black pentagon/donut),
+  the CSS-sized root rescaled via its viewBox, and label font-sizes vanished
+  (found exporting the jargon gallery on-device; pre-existing, unmasked once
+  large-deck exports stopped crashing). The capture pass now bakes every
+  stylesheet-styled chart `<svg>` with `flattenSvgStyles` — the same kernel
+  behind "download chart as SVG" — and pins its layout box before
+  rasterization; Mermaid/function-plot (self-styled via their own `<style>`
+  block) are untouched. One pass covers PDF (both lanes) and PPTX. Regression
+  e2e pins the mechanism (baked font-sizes, no raw `var()` stops) and was
+  verified to fail on the pre-fix build.
 - **Studio/Drawing Board PDF export no longer freezes the page on a large deck.**
   The one-click image PDF's CPU-heavy stages — the per-slide PNG deflate
   (`canvas.toDataURL`), jsPDF's per-image re-encode, and the final document
