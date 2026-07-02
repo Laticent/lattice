@@ -89,7 +89,15 @@ export async function resolveTikTokSrc(href, fetchImpl) {
 			// on "Loading…" forever — a timeout rejects → the in-lightbox link fallback.
 			const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
 			const t = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
-			return fetch(u, ctrl ? { signal: ctrl.signal } : undefined).finally(() => {
+			// Strip tracking signals so iPhone Safari's cross-site tracking prevention
+			// (ITP) is less likely to block this cross-origin request to tiktok.com —
+			// no cookies, no referrer. It's a plain public oEmbed GET; we need neither.
+			return fetch(u, {
+				signal: ctrl ? ctrl.signal : undefined,
+				credentials: 'omit',
+				referrerPolicy: 'no-referrer',
+				cache: 'no-store',
+			}).finally(() => {
 				if (t) clearTimeout(t);
 			});
 		});
