@@ -49,6 +49,9 @@ describe('buildSrcdoc', () => {
 		assert.match(doc, /window\.top\|\|window\)\.open\(href,"_blank"/);
 		// It must run in capture phase (so it wins before the frame follows the link).
 		assert.match(doc, /addEventListener\("click",function\(e\)\{[\s\S]*?\},true\)/);
+		// Video posters first offer themselves to a parent-hosted player (window.__videoPlay);
+		// only if that declines (no overlay / non-embeddable) does it fall back to a tab.
+		assert.match(doc, /video-poster.*window\.__videoPlay/);
 	});
 
 	test('clamps the filmstrip tail by default and can be turned off', async () => {

@@ -21,6 +21,7 @@ import { applyDebug, deckDebugOn } from '@/playground/debug-overlay.js';
 import { debugEffectiveOn, getDebugOverride, onDebugOverrideChange, setDebugOverride } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
 import { createChartInteract } from '@/playground/drawing-board-chart-interact.js';
+import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { BoundingBoxToggle } from './BoundingBoxToggle';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
@@ -71,6 +72,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// module + behaviour as the Drawing Board. Created on mount, re-bound after
 	// each render (a srcdoc rewrite replaces the iframe doc). Export untouched.
 	const chartInteractRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
+	const videoOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const editorRef = React.useRef<EditorAdapter | null>(null);
 	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl));
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
@@ -130,8 +132,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	}, [debugOverride, sourceVersion]);
 	// Re-apply after every full srcdoc rewrite (deck swap / theme / mode / size);
 	// the render loop re-applies after a section patch (the doc stays live there).
+	// The render-success path also rebinds these, but on a FRESH srcdoc write that
+	// runs before the new document has loaded (setting the hook on the old window),
+	// so re-install the parent-hosted bridges here against the now-live document.
 	const onFrameLoad = React.useCallback(() => {
 		applyDebug(frameRef.current, { force: forceRef.current });
+		videoOverlayRef.current?.rebind();
 	}, []);
 
 	// ── The render loop (wraps the engine; never reimplements it) ───────────────
@@ -178,6 +184,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				frame.parentElement?.classList.add('is-live');
 				// Re-bind the hover layer to the (possibly new) iframe document.
 				chartInteractRef.current?.rebind();
+				// Re-install the parent-hosted video playback bridge on the (possibly new) frame.
+				videoOverlayRef.current?.rebind();
 				// Re-apply the debug overlay: a section PATCH keeps the doc live but swaps
 				// the <section> nodes the chips were bound to, so the agent must redraw.
 				// (A full srcdoc write reloads → onFrameLoad handles that; this no-ops
@@ -216,9 +224,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!frame || !stage) return;
 		const ci = createChartInteract({ stage, getFrame: () => frameRef.current ?? frame, hoverAny: true });
 		chartInteractRef.current = ci;
+		// Parent-hosted video playback: plays an embedded clip OVER the preview poster
+		// (never an iframe inside the slide — #22 + the iOS scaled-iframe traps).
+		const vo = createVideoOverlay({ stage, getFrame: () => frameRef.current ?? frame });
+		videoOverlayRef.current = vo;
 		return () => {
 			ci.destroy();
 			chartInteractRef.current = null;
+			vo.destroy();
+			videoOverlayRef.current = null;
 		};
 	}, []);
 
