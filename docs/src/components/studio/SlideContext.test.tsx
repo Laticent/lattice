@@ -83,6 +83,25 @@ describe('SlideContext drawer', () => {
 		expect(toks).toContain('at-right');
 	});
 
+	it('Reset is disabled until an edit lands, then reverts to the original slide', () => {
+		const orig = '<!-- _class: kpi -->\n\n# Hi';
+		const edited = '<!-- _class: kpi dark scale-xl -->\n\n# Hi';
+		const onMutate = vi.fn();
+		const { rerender } = render(
+			<SlideContext open onOpenChange={() => {}} chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+		);
+		expect(screen.getByRole('button', { name: /reset slide/i })).toBeDisabled();
+		// Simulate an edit landing (the source changed under the drawer).
+		rerender(
+			<SlideContext open onOpenChange={() => {}} chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+		);
+		const reset = screen.getByRole('button', { name: /reset slide/i });
+		expect(reset).not.toBeDisabled();
+		fireEvent.click(reset);
+		// The reset transform restores the ORIGINAL chunk verbatim, ignoring current content.
+		expect(onMutate.mock.calls.at(-1)?.[0]('whatever')).toBe(orig);
+	});
+
 	it('shows the emitted _class line', () => {
 		setup('<!-- _class: kpi dark -->\n\n# Hi');
 		expect(screen.getByText(/kpi dark/)).toBeTruthy();

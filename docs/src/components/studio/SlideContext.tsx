@@ -11,7 +11,7 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Info, StickyNote } from 'lucide-react';
+import { Info, RotateCcw, StickyNote } from 'lucide-react';
 import * as React from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -155,6 +155,17 @@ export function SlideContext(props: SlideContextProps) {
 	React.useEffect(() => setNoteDraft(curNote), [curNote, slideNumber]);
 	const commitNote = () => { if (noteDraft !== curNote) onMutate((c) => setNote(c, noteDraft)); };
 
+	// "Reset" baseline — the slide chunk as it was when the drawer opened on THIS
+	// slide, so one click reverts every edit made this session (note + all class
+	// controls) to the original. Snapshot on open / slide change only, NOT on edit, so
+	// the baseline stays fixed while the author experiments. A restore replaces the
+	// slide wholesale (bytes-identical to the original), preserving every token.
+	const originalRef = React.useRef(chunk);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: capture the baseline on open/slide change, not on every edit.
+	React.useEffect(() => { originalRef.current = chunk; }, [slideNumber, open]);
+	const dirty = chunk !== originalRef.current;
+	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); onMutate(() => originalRef.current); } };
+
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
 	const editable = React.useMemo(() => canEditClass(chunk), [chunk]);
 	const has = (t: string) => tokens.includes(t);
@@ -227,6 +238,20 @@ export function SlideContext(props: SlideContextProps) {
 				</SheetHeader>
 
 				<div className="flex-1 overflow-y-auto px-4">
+					{/* Reset — revert every edit made this session back to the original slide. */}
+					<div className="flex items-center justify-between border-b border-border py-2">
+						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>
+						<button
+							type="button"
+							onClick={resetSlide}
+							disabled={!dirty}
+							title="Revert this slide to how it was when you opened the drawer"
+							className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent"
+						>
+							<RotateCcw className="size-3" />Reset slide
+						</button>
+					</div>
+
 					{/* Note */}
 					<Section label="Speaker note">
 						<textarea
