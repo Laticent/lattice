@@ -4,7 +4,7 @@ import { slideToSpeech, useReadAloud } from './read-aloud';
 
 // The spoken-audio rung is irrelevant to the teleprompter timer that drives
 // onFinish — stub the voice model so play() doesn't import the real Kokoro worker.
-vi.mock('@/playground/voice-model.js', () => ({
+vi.mock('@/components/studio/present/voice-model.js', () => ({
 	createVoiceModel: () => ({ speak() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent' }),
 }));
 

@@ -14,6 +14,8 @@
 // source of truth and centres a single slide with flex + a uniform scale, so a
 // rehearsal slide looks identical to the same slide in the preview.
 
+import { createRehearsalPlanner, metasFromSections, metasFromSource, overBeat } from '../components/studio/present/rehearsal.js';
+import { createVoiceModel } from '../components/studio/present/voice-model.js';
 // Shared theme registration (WRAP, DON'T REINVENT): walks the transitive
 // `@import` closure so a multi-level theme (a11y-* → a11y-base → onyx → lattice)
 // registers fully — the one tested path, not a re-inlined copy.
@@ -28,12 +30,10 @@ import { A11Y_DEFS, KATEX_URL, MERMAID_URL, splitSections } from './deck-preview
 import { createChartInteract } from './drawing-board-chart-interact.js';
 import { isCapableTier } from './drawing-board-chat.js';
 import { initPracticeTour } from './drawing-board-practice-tour.js';
-import { createRehearsalPlanner, metasFromSections, metasFromSource, overBeat } from './drawing-board-rehearsal.js';
 import { budgetStatus, readBudgetCap, readBudgetMode, readSpend, recordSpend } from './drawing-board-settings.js';
 import { slideBox } from './frame-css.js';
 import { toursAllowedHere } from './guided-tour.js';
 import { toursEnabled } from './tour-prefs.js';
-import { createVoiceModel } from './voice-model.js';
 
 const { notesFromHtml } = notesCore;
 

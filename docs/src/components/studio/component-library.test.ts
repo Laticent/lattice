@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 // Capture what reaches the asset store so we can assert the FULL manifest is
 // persisted (not just name/bucket). listAssets returns [] so the empty-shelf test
 // still holds; deleteAsset is a no-op.
-vi.mock('@/playground/asset-store.js', () => ({
+vi.mock('@/components/studio/library/asset-store.js', () => ({
 	putAsset: vi.fn(async (a: unknown) => a),
 	listAssets: vi.fn(async () => []),
 	deleteAsset: vi.fn(async () => {}),
 }));
 
-import { putAsset } from '@/playground/asset-store.js';
+import { putAsset } from '@/components/studio/library/asset-store.js';
 import { listStudioComponents, saveStudioComponent } from './component-library';
 
 const putSpy = putAsset as unknown as ReturnType<typeof vi.fn>;

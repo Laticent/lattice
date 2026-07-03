@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  return import('../../../docs/src/playground/coach-actions.js');
+  return import('../../../docs/src/components/studio/coach/coach-actions.js');
 }
 
 const assessment = {

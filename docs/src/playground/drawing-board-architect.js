@@ -11,10 +11,10 @@
 // Voiced as "the Architect" per the naming decision.
 
 import Fuse from 'fuse.js';
-import { applyEdit, diffLines, sliceSlide } from './architect-edits.js';
-import { requestSlideFix } from './architect-fix.js';
-import { orSupportsCache } from './architect-model.js';
-import { cosineRank } from './architect-retrieval.js';
+import { applyEdit, diffLines, sliceSlide } from '../components/studio/ai/architect-edits.js';
+import { requestSlideFix } from '../components/studio/ai/architect-fix.js';
+import { orSupportsCache } from '../components/studio/ai/architect-model.js';
+import { cosineRank } from '../components/studio/ai/architect-retrieval.js';
 // The pure authoring cores (lib/authoring/*) are CommonJS; consume them through
 // the esbuild bundle so they load in `astro dev` too (a direct /@fs import of a
 // source CJS file has no `default` export in dev — see tools/build-authoring-core.js).

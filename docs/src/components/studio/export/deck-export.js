@@ -27,9 +27,9 @@
 //
 // jspdf / pptxgenjs / html-to-image are lazy-imported (own chunks).
 
-import { themeImportNames } from '../lib/theme-fetch.ts';
-import { buildSrcdoc } from './deck-preview.js';
-import { embedComponentsInMarkdown } from './layout-core.generated.js';
+import { themeImportNames } from '../../../lib/theme-fetch.ts';
+import { buildSrcdoc } from '../../../playground/deck-preview.js';
+import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 
 function safeName(name) {
 	return (name || 'deck').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'deck';
@@ -320,7 +320,7 @@ async function sectionsOf(frame) {
 	// with their fonts already resolved instead of racing the lazy loader.
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
-	const { buildFontEmbedCss, ensureFontsLoaded } = await import('./font-embed.js');
+	const { buildFontEmbedCss, ensureFontsLoaded } = await import('../../../playground/font-embed.js');
 	const fontEmbedCSS = await buildFontEmbedCss();
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	await flattenChartSvgs(frame, sections);
@@ -345,7 +345,7 @@ async function sectionsOf(frame) {
 async function flattenChartSvgs(frame, sections) {
 	const win = frame.contentWindow;
 	if (!win) return;
-	const { flattenSvgStyles } = await import('./standalone-svg.generated.js');
+	const { flattenSvgStyles } = await import('../../../playground/standalone-svg.generated.js');
 	for (const sec of sections) {
 		for (const svg of Array.from(sec.querySelectorAll('svg'))) {
 			if (svg.querySelector('style')) continue; // self-styled (Mermaid, function-plot)
@@ -811,8 +811,8 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 		const svg = CLEAN_SVG_LAYOUTS.some((c) => sec.classList.contains(c)) ? sec.querySelector('svg[viewBox]') : null;
 		if (svg) {
 			const [core, fontMod] = await Promise.all([
-				import('./standalone-svg.generated.js'),
-				import('./font-embed.js'),
+				import('../../../playground/standalone-svg.generated.js'),
+				import('../../../playground/font-embed.js'),
 			]);
 			const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = core;
 			const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;

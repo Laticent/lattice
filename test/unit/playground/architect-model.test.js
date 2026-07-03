@@ -20,8 +20,8 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  const model = await import('../../../docs/src/playground/architect-model.js');
-  const retrieval = await import('../../../docs/src/playground/architect-retrieval.js');
+  const model = await import('../../../docs/src/components/studio/ai/architect-model.js');
+  const retrieval = await import('../../../docs/src/components/studio/ai/architect-retrieval.js');
   return { model, retrieval };
 }
 

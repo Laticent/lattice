@@ -17,7 +17,7 @@
  *
  * The Drawing Board's "Export chart" button does the same job in the browser: SVG
  * via this shared core, PNG via `html-to-image` (it rasterizes these charts
- * faithfully — see drawing-board-export.js). This CLI is the no-browser path. See
+ * faithfully — see docs/src/components/studio/export/deck-export.js). This CLI is the no-browser path. See
  * chart-family.docs.md § "Standalone export".
  *
  * Usage:

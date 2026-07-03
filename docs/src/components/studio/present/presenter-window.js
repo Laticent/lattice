@@ -22,8 +22,8 @@
 //     second screen. Framework-agnostic — the Drawing Board (vanilla) and the
 //     Studio (React, via a thin wrapper) both pass closures into their state.
 
-import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
-import { slideBox } from './frame-css.js';
+import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
+import { slideBox } from '../../../playground/frame-css.js';
 
 /**
  * The single-slide stage document — one `<section>` of `html` shown at a time,

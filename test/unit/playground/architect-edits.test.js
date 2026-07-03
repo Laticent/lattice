@@ -10,7 +10,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  return import('../../../docs/src/playground/architect-edits.js');
+  return import('../../../docs/src/components/studio/ai/architect-edits.js');
 }
 
 const DECK = ['# One', '', 'body one', '---', '## Two', '', 'body two', '---', '### Three'].join('\n');

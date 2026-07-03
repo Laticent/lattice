@@ -3,7 +3,7 @@
 // WHY THIS EXISTS — the lazy-load race.
 // Marp's bespoke slide template lazy-loads each web font face only when the
 // ACTIVE slide needs it (see engineering/decisions/2026-06-11-sketch-finish.md).
-// The image exporters (drawing-board-export.js) rasterize EVERY slide — including
+// The image exporters (the Studio's export/deck-export.js) rasterize EVERY slide — including
 // off-screen ones they force-visualize mid-loop — through html-to-image. They
 // awaited `document.fonts.ready` once, up front, before those off-screen slides
 // requested their faces. So a face first needed by an off-screen slide (the

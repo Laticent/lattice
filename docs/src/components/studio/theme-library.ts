@@ -10,7 +10,7 @@
 // when IndexedDB is unavailable (private mode / SSR / jsdom) so a read never
 // throws — it just returns an empty shelf.
 
-import { deleteAsset, listAssets, putAsset } from '@/playground/asset-store.js';
+import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
 import { themeAsset } from '@/playground/theme-core.generated.js';
 
 /** A saved theme as the Studio uses it (render with `extraTheme={name,css}`). */

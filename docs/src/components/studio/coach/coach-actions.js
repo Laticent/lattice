@@ -12,7 +12,7 @@
 // scorecard share ONE definition each — they can't drift apart. Via the esbuild
 // bundle (not a direct CJS import) so it loads in `astro dev` — see
 // tools/build-authoring-core.js.
-import { reviewCore } from './authoring-core.generated.js';
+import { reviewCore } from '../../../playground/authoring-core.generated.js';
 
 const SEV_WEIGHT = { error: 3, warning: 2, suggestion: 1 };
 const SEV_ORDER = { error: 0, warning: 1, suggestion: 2 };

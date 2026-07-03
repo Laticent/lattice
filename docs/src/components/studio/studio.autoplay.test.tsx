@@ -9,7 +9,7 @@ import { PresentOverlay } from './PresentOverlay';
 // toggle exists, flips state, and actually engages the reader.
 
 vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp" /> }));
-vi.mock('@/playground/voice-model.js', () => ({
+vi.mock('@/components/studio/present/voice-model.js', () => ({
 	createVoiceModel: () => ({ speak() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent' }),
 }));
 // The presenter stage doc needs the engine — stub it out (it's best-effort anyway).

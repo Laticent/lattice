@@ -31,7 +31,7 @@ import { previewFontFaceCss } from '../playground/font-embed.js';
 import { assetBase } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import { isPreviewDeploy as isPreviewDeployEnv } from '../lib/deploy-env.mjs';
-import { pickGrammarVariants } from '../playground/architect-knowledge.js';
+import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge.js';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import DrawingBoardExportMenu from '../components/drawing-board/DrawingBoardExportMenu.tsx';
 import ResourceHints from '../components/site/ResourceHints.astro';
@@ -538,13 +538,13 @@ const dbData = JSON.stringify({
 		     fix guidance. Zero model. -->
 		<script>
 			import { createArchitect, createOnboarding } from '../playground/drawing-board-architect.js';
-			import { createArchitectModel } from '../playground/architect-model.js';
+			import { createArchitectModel } from '../components/studio/ai/architect-model.js';
 			import { createChat } from '../playground/drawing-board-chat.js';
-			import { scrollJumpState } from '../playground/chat-markdown.js';
+			import { scrollJumpState } from '../components/studio/ai/chat-markdown.js';
 			import { createModelSettings } from '../playground/drawing-board-settings.js';
 			import { createConfigPanel } from '../playground/deck-config.js';
 			import { createCoachConsole } from '../playground/coach-console.js';
-			import { createVoiceModel } from '../playground/voice-model.js';
+			import { createVoiceModel } from '../components/studio/present/voice-model.js';
 			import { getPref } from '../playground/drawing-board-prefs.js';
 			const data = JSON.parse(document.getElementById('db-data').textContent);
 
@@ -887,8 +887,8 @@ const dbData = JSON.stringify({
 		<!-- Export — MD / PDF / PPTX (Slice 4). PptxGenJS is lazy-imported inside
 		     the module on first PPTX use, so it never loads unless invoked. -->
 		<script>
-			import { exportMarkdown, exportMarp, exportPdf, exportPptx, exportPrint, exportChart, activeChartSection } from '../playground/drawing-board-export.js';
-			import { listAssets } from '../playground/asset-store.js';
+			import { exportMarkdown, exportMarp, exportPdf, exportPptx, exportPrint, exportChart, activeChartSection } from '../components/studio/export/deck-export.js';
+			import { listAssets } from '../components/studio/library/asset-store.js';
 			import { referencedComponents } from '../playground/layout-core.generated.js';
 			const statusEl = document.getElementById('db-status');
 			const deckName = () => {
@@ -1059,7 +1059,7 @@ const dbData = JSON.stringify({
 		     a refresh event. See engineering/decisions/2026-06-11-workbench-export-
 		     bridge.md. -->
 		<script>
-			import { listAssets } from '../playground/asset-store.js';
+			import { listAssets } from '../components/studio/library/asset-store.js';
 			async function loadLibraryThemes() {
 				let themes = [];
 				try {
@@ -1082,7 +1082,7 @@ const dbData = JSON.stringify({
 		     they can't drift. See engineering/decisions/2026-06-12-workbench-
 		     component-bridge.md. -->
 		<script>
-			import { listAssets } from '../playground/asset-store.js';
+			import { listAssets } from '../components/studio/library/asset-store.js';
 			import { referencedComponents, embedComponentsInMarkdown } from '../playground/layout-core.generated.js';
 			let LIBC = [];
 			const names = () => LIBC.map((c) => c.name);
@@ -1119,7 +1119,7 @@ const dbData = JSON.stringify({
 		     isolated sub-editor + live fragment preview. Deterministic, no model. -->
 		<script>
 			import { createFocus } from '../playground/drawing-board-focus.js';
-			import { createRefine } from '../playground/drawing-board-refine.js';
+			import { createRefine } from '../components/studio/ai/refine.js';
 			const data = JSON.parse(document.getElementById('db-data').textContent);
 			const openBtn = document.getElementById('db-focus-open');
 			function wireFocus() {

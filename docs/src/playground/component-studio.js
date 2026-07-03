@@ -15,8 +15,8 @@
 // preview palette is borrowed from the Theme Studio core so a component previews
 // on a real, contrast-clean theme without the author choosing one.
 
+import { deleteAsset, listAssets, putAsset } from '../components/studio/library/asset-store.js';
 import { createThemeFetcher } from '../lib/theme-fetch';
-import { deleteAsset, listAssets, putAsset } from './asset-store.js';
 import { hashString, renderDeck } from './deck-preview.js';
 import {
   collidesWithShipped,

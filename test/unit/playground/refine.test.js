@@ -9,7 +9,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  return import('../../../docs/src/playground/drawing-board-refine.js');
+  return import('../../../docs/src/components/studio/ai/refine.js');
 }
 
 describe('buildRefinePrompt', () => {

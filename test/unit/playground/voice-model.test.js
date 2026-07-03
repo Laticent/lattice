@@ -8,7 +8,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const url = require('node:url').pathToFileURL(
-  require('node:path').join(__dirname, '../../../docs/src/playground/voice-model.js')
+  require('node:path').join(__dirname, '../../../docs/src/components/studio/present/voice-model.js')
 ).href;
 
 async function load() { return import(url); }

@@ -4,11 +4,11 @@
 // the derived tokens — so the delivered palette is always AA-clean.
 import Fuse from 'fuse.js';
 import * as React from 'react';
-import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits } from '@/playground/architect-edits.js';
-import { requestSlideFix } from '@/playground/architect-fix.js';
-import { cosineRank } from '@/playground/architect-retrieval.js';
-import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/drawing-board-refine.js';
-import { budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
+import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits } from '@/components/studio/ai/architect-edits.js';
+import { requestSlideFix } from '@/components/studio/ai/architect-fix.js';
+import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
+import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
+import { budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { askComponentMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
@@ -150,7 +150,7 @@ let modelPromise: Promise<ArchitectModel | null> | null = null;
 /** The single shared architect model (lazy — backends touch window). */
 export function architectModel(): Promise<ArchitectModel | null> {
 	if (!modelPromise) {
-		modelPromise = import('@/playground/architect-model.js')
+		modelPromise = import('@/components/studio/ai/architect-model.js')
 			// explicitTierWins: a deliberate on-device pick outranks the connected cloud
 			// (Studio Policy B — connection ≠ active; one tap resumes the cloud).
 			// defaultModel: the cheap Haiku family's `~*-latest` ALIAS — OpenRouter resolves

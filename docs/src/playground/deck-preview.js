@@ -256,7 +256,7 @@ export function buildSrcdoc({
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
-	// (drawing-board-export.js); the in-repo renderDeck path also pre-sanitizes
+	// (the Studio's export/deck-export.js); the in-repo renderDeck path also pre-sanitizes
 	// for its innerHTML patch, so this is a no-op there.
 	html = sanitizeSlideHtml(html);
 	const gw = (geom && geom.w) || 1280;

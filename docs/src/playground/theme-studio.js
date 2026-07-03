@@ -14,14 +14,14 @@
 // docs/astro.config.mjs. No model is involved in Faculty 1's deterministic
 // core; seeds come from the starter library.
 
-// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — theme-fetch.ts.
-import { createThemeFetcher } from '../lib/theme-fetch';
 // The on-device / OpenRouter model ladder — the SAME adapter the Drawing Board
 // Architect uses (connection persists in localStorage, so a model connected
 // there works here too). complete() ALWAYS resolves: it floors to the
 // deterministic core when no model is present.
-import { createArchitectModel } from './architect-model.js';
-import { deleteAsset, listAssets, putAsset } from './asset-store.js';
+import { createArchitectModel } from '../components/studio/ai/architect-model.js';
+import { deleteAsset, listAssets, putAsset } from '../components/studio/library/asset-store.js';
+// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — theme-fetch.ts.
+import { createThemeFetcher } from '../lib/theme-fetch';
 import { hashString, renderDeck } from './deck-preview.js';
 import { mountStudioPreviewConfig } from './studio-preview-config.js';
 // The pure theme core (lib/theme/*) is CommonJS and its modules require() each
