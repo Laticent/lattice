@@ -3320,6 +3320,11 @@ section.decision-points .split-pt-b { color: var(--text-body); font-size: var(--
 
 
 section.diagram { align-items:center; }
+/* The section centers its children so the Mermaid SVG sits centered — but that also
+   shrink-centers the masthead band, floating the title/eyebrow toward the middle
+   instead of the left margin every other component uses. Stretch the band full-width
+   so its title left-aligns (same override the Key Insight blockquote below needs). */
+section.diagram > .cell-masthead { align-self:stretch; }
 section.diagram h3 { padding-bottom:0.3125cqi; }
 section.diagram h2 { font-size:var(--fs-h3); padding-bottom:0.3125cqi; }
 section.diagram > p { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-secondary); margin-bottom:0; padding-bottom:var(--sp-sm); }
@@ -18142,6 +18147,16 @@ section.form.claim-hero > footer,                      /* running footer text (d
 section.form.claim-hero .tile-progress,                /* section-dot rail (either nesting) */
 section.form.claim-hero .cell-masthead .masthead-bay { /* meta / logo / status bay */
   display: none;
+}
+/* The page number STAYS at hero (unlike the receding footer text / rail / bay), so a
+ * vertically-filling layout (a 2×2 grid, a verdict grid, a statute stack) must not run
+ * its content under it in the bottom-right. Reserve a thin page-number strip — far less
+ * than the full footer band, so the "content takes the stage" gain holds — but ONLY when
+ * the number is actually shown: it is injected only on a paginated slide
+ * (`:has(.lat-pagination)`), and `no-paginate` / `silent` hide it (so a
+ * `claim-hero no-paginate` still fills fully to the edge). */
+section.form.claim-hero:has(.lat-pagination):not(.no-paginate):not(.silent) {
+  --footer-reserve: calc(var(--frame-inset-y) + var(--fs-meta) + var(--sp-sm));
 }
 
 /* bleed — the content reaches as close to the edge as it SAFELY can. MEDIA /

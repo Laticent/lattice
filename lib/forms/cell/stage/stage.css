@@ -294,6 +294,16 @@ section.form.claim-hero .tile-progress,                /* section-dot rail (eith
 section.form.claim-hero .cell-masthead .masthead-bay { /* meta / logo / status bay */
   display: none;
 }
+/* The page number STAYS at hero (unlike the receding footer text / rail / bay), so a
+ * vertically-filling layout (a 2×2 grid, a verdict grid, a statute stack) must not run
+ * its content under it in the bottom-right. Reserve a thin page-number strip — far less
+ * than the full footer band, so the "content takes the stage" gain holds — but ONLY when
+ * the number is actually shown: it is injected only on a paginated slide
+ * (`:has(.lat-pagination)`), and `no-paginate` / `silent` hide it (so a
+ * `claim-hero no-paginate` still fills fully to the edge). */
+section.form.claim-hero:has(.lat-pagination):not(.no-paginate):not(.silent) {
+  --footer-reserve: calc(var(--frame-inset-y) + var(--fs-meta) + var(--sp-sm));
+}
 
 /* bleed — the content reaches as close to the edge as it SAFELY can. MEDIA /
  * canvas layouts (chart, big-number, diagram, image, video) go true edge-to-edge
