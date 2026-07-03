@@ -55,6 +55,20 @@ in patch versions.
 
 ### Fixed
 
+- **`claim-hero` no longer collides the page number with vertically-filling content.**
+  Hero keeps the page number but had collapsed the footer reserve to the bare edge inset,
+  so a grid that fills the height (matrix-2x2, verdict-grid, statute-stack) ran its
+  bottom-right cell under the number. Hero now reserves a thin page-number strip — but
+  only when the number is actually shown (`:has(.lat-pagination)` and not
+  `no-paginate`/`silent`), so a `claim-hero no-paginate` slide still fills fully to the
+  edge.
+
+- **Diagram slide titles now left-align to the margin like every other component.** The
+  `diagram` layout centers its children so the Mermaid SVG sits centered, which also
+  shrink-centered the masthead band — floating the title/eyebrow toward the middle. The
+  band now stretches full-width (`align-self: stretch`, the same override the Key Insight
+  blockquote already uses), so the title left-aligns while the SVG stays centered.
+
 - **Status markers now read on dark title/closing/divider slides.** These bookends paint
   a dark surface but deliberately keep `color-scheme: light` (so their explicit headings
   hold), which left an accent-colored marker (`pinned`/`revised`) resolving its

@@ -12,6 +12,11 @@
 
 
 section.diagram { align-items:center; }
+/* The section centers its children so the Mermaid SVG sits centered — but that also
+   shrink-centers the masthead band, floating the title/eyebrow toward the middle
+   instead of the left margin every other component uses. Stretch the band full-width
+   so its title left-aligns (same override the Key Insight blockquote below needs). */
+section.diagram > .cell-masthead { align-self:stretch; }
 section.diagram h3 { padding-bottom:0.3125cqi; }
 section.diagram h2 { font-size:var(--fs-h3); padding-bottom:0.3125cqi; }
 section.diagram > p { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-secondary); margin-bottom:0; padding-bottom:var(--sp-sm); }
