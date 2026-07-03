@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The slide stays `<section>` (measurement + all CSS select it). The deck `<main>` is the highest-value change and is TWO different edits on TWO render paths: a sanctioned `<main>` wrapper in the export shell (safe — theme CSS is section-scoped there), and a deferred, pixel-gated `div.lattice → main.lattice` shared-kernel change on the engine/preview path (its CSS is tag-qualified to `div.lattice > section`). `<figure>` for charts is a semantic win carved into its own export-signed phase. Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose.
+summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The slide stays `<section>` (measurement + all CSS select it). The deck `<main>` is TWO edits on TWO render paths — a sanctioned `<main>` wrapper in the export shell (theme CSS is section-scoped there) AND the engine/preview `div.lattice → main.lattice` retag with its lockstep `css.js` kernel edit (its CSS is tag-qualified to `div.lattice > section`); DECISION: do both. `<figure>` for charts is a semantic win folded into the SAME change (DECISION: one combined, export-signed PR — not two phases). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint confirmed). Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13.
 ---
 
 # Semantic HTML for accessibility — retag, don't wrap
@@ -181,11 +181,13 @@ alone — it requires editing `css.js` (the `scaffold()` rules `:104-153` and
 `packSelector` `:243`) to emit `main.lattice > section` at the same specificity, in
 lockstep across the shared kernel (HARD RULE #1), proven by pixel-diff.
 
-**Recommendation (Fork D, §6): do Path A now; defer Path B.** Path A is where a
-real user reads a deck standalone (the shared link) — high value, low risk, no
-kernel change. Path B only affects *previews that are always embedded in an app
-that already has its own `<main>`* — low navigational value for a shared-kernel
-change with pixel-diff cost. Deferring it is the cheaper path that meets the bar.
+**Decision (Fork D, §13): do BOTH paths in this feature.** Path A is where a real
+user reads a deck standalone (the shared link); Path B makes the embedded previews
+navigable too. The owner call ("we don't settle") takes the complete path: Path B
+carries the lockstep `css.js` edit (`scaffold()` `:104-153` + `packSelector` `:243`
+→ `main.lattice > section` at the same (0,1,2) specificity), a pixel-diff, and a
+maker-checker pass (shared kernel, HARD RULE #1). It is one of the export-bytes
+surfaces the single sign-off (Fork B) covers.
 
 The per-node mapping (Path-independent). **Bold = a change; the rest is "confirmed
 correct, leave it."**
@@ -193,7 +195,7 @@ correct, leave it."**
 | Node (today) | File | Verdict |
 |---|---|---|
 | slide wrapper `<section>` | `lib/engine/slides.js:99` | **Keep `<section>`.** Already correct; measurement + hundreds of `section.<name>` rules + `div.lattice > section` packing depend on it. Non-negotiable (§8-#1). |
-| deck container `div.lattice` | `slides.js:229` | **Path B only, deferred:** `div.lattice → main.lattice` *with* the `css.js` lockstep edit. **Not** touched for the export (Path A wraps instead). |
+| deck container `div.lattice` | `slides.js:229` | **Path B (in scope):** `div.lattice → main.lattice` *with* the `css.js` lockstep edit + pixel-diff. **Not** touched for the export (Path A wraps instead). |
 | export shell `<body>` slides | `lattice-emulator.js:1463` | **Wrap in `<main id="deck" tabindex="-1">`** + `lang` + skip link. The sanctioned wrap. |
 | per-slide `<header>` / `<footer>` | `slides.js:210,216` | **Keep.** Already semantic; generic (not landmarks) because nested in the slide `<section>` — correct. |
 | headings from native components | (markdown) | **Keep authored levels.** Reality (§10-R1): mostly `<h2>`, one `<h1>` (`title`), a couple headingless (`quote`, `big-number`). Do **not** synthesize an `<h1>` per slide. |
@@ -223,7 +225,7 @@ to it. **Bold = change.**
 | **Playground** (`PlaygroundApp.tsx`) | Already has `<main>` + `<section>` panes and `.pg-pane-label` anchors (`:584,603`). **Name the panes** (`aria-labelledby` → a text `<span id>` inside the label, not the label div). Add a **skip link** + `tabindex="-1"` on `<main>`. Optional **`<footer>`** for parity. |
 | **All standalone pages** | Add a **skip-to-content link** as the first *tabbable* element, targeting each page's `<main id="main-content" tabindex="-1">`. None exist today. The page skeleton is duplicated per page, so this is applied per surface — *unless* we first extract a shared skeleton (a follow-up). |
 | **SiteHeader** (`SiteHeader.astro`) | **No change** — already `<header>` + `<nav aria-label="Primary">`. The one shared top-nav; leave it. |
-| Preview iframe | **No landmark change** — separate `srcdoc` document (isolated tree); its *content* is Path B of §4, deferred. Host references it accessibly already (`<iframe title="Rendered slides preview">`). |
+| Preview iframe | **No landmark change** — separate `srcdoc` document (isolated tree); its *content* is Path B of §4 (in scope). Host references it accessibly already (`<iframe title="Rendered slides preview">`). |
 | Split panes | **No change — and record it so a future retag doesn't regress it:** the resize handle is already keyboard-operable (`ui/split.tsx`: `role="separator"`, `tabindex`, `aria-orientation/valuenow/valuemin/valuemax`, `onKeyDown`) (§10-R-L3). |
 
 One element-coupling watch-item the recon flagged: `.db-edit-diff > div`
@@ -238,20 +240,21 @@ here (§10-R credit).
 
 ---
 
-## 6. The genuine forks (what I need you to decide)
+## 6. The genuine forks (RESOLVED — see §13)
 
-Four real decisions the rubric doesn't settle on its own. My recommendation first
-in each.
+Four real decisions the rubric doesn't settle on its own; each is now **decided**
+(§13). The options are kept below for the record — the chosen option is marked
+**← chosen**.
 
 **Fork A — headingless slides and the slide-as-region question.** The first draft
 claimed "40 `<h1>`s"; the truth (measured) is ~1 `<h1>` (`title`) + mostly `<h2>` +
 a couple **headingless** slide types (`quote`, `big-number`). So the real question
 isn't de-duping h1s — it's what to do about slides with *no* heading and whether a
 slide should be a *named region* at all.
-- **(A1, recommended) Keep authored heading levels; leave slide `<section>`s
-  generic (unnamed).** No 40-region rotor flood; the heading list is a clean slide
-  index. For the headingless types, derive a lightweight `aria-label` on that
-  slide's `<section>` from front-matter/first text so it isn't literally
+- **(A1, recommended — ← chosen) Keep authored heading levels; leave slide
+  `<section>`s generic (unnamed).** No 40-region rotor flood; the heading list is a
+  clean slide index. For the headingless types, derive a lightweight `aria-label` on
+  that slide's `<section>` from front-matter/first text so it isn't literally
   nameless-in-the-heading-rotor — a narrow, opt-in fix, not a blanket per-slide
   label.
 - (A2) Name *every* slide `<section>` (aria-label per slide). Rejected: floods the
@@ -266,7 +269,9 @@ exported bytes → your export sign-off** (QUALITY BAR).
   (export `<main>`/lang/skip link, Studio main + region names, Playground names +
   skip link) — no export sign-off. Then `<figure>` as its own branch with a
   rendered dark+light demo deck **and a real NVDA/VoiceOver pass** for your sign-off.
-- (B2) One change, one sign-off round covering everything.
+- **(B2) ← chosen** — One change, one sign-off round covering everything. The whole
+  feature becomes an export-bytes change gated on one inspection; simpler to reason
+  about as a single reviewable diff, at the cost of no early byte-neutral landing.
 
 **Fork C — confirm the restraint stance.** The rubric deliberately **leaves
 `.cell-stage`, the split columns, backdrops, and scrims as `<div>`.** I'm confident
@@ -274,18 +279,22 @@ this is right (they're presentational; promoting them manufactures landmark nois
 The one place it's a genuine judgment call is the split-panel columns — a
 comparison's two columns *could* be `aria-label`d regions ("left/right panel") if
 you read it as a true two-region compare. I recommend **not** (the content inside
-already carries semantics), but flag it as the one arguable call.
+already carries semantics), but flag it as the one arguable call. **← chosen:
+restraint confirmed** (split columns stay `<div>`).
 
-**Fork D — the deck `<main>` scope (from §4).** **(D1, recommended)** do the export
-`<main>` now (Path A, cheap, high value) and **defer** the engine/preview container
-retag (Path B, shared-kernel + pixel-diff, preview-only value). (D2) Do both now.
+**Fork D — the deck `<main>` scope (from §4).** (D1) do the export `<main>` now and
+**defer** the engine/preview container retag. **(D2) ← chosen** — do both now: the
+export wrapper *and* the engine-path `div.lattice → main.lattice` kernel change,
+pixel-diffed and maker-checked.
 
 ---
 
-## 7. Carve-out — `<figure>` is real work, quarantined on purpose
+## 7. The `<figure>` conversion — real work, its own commit, the sign-off surface
 
 `<figure>`/`<figcaption>` for the ~13 chart transforms is the highest-semantic-value
-change *and* the highest-risk, so it does not ride in the byte-neutral phase:
+change *and* the highest-risk. It rides in the same branch (Fork B — one combined
+change) but as its **own late commit**, because it is the export-bytes surface the
+sign-off exists for. Its four hazards, each a checklist item:
 
 - **UA margin.** Browsers default `figure` to `margin-block: 1em; margin-inline:
   40px` (**not** `40px 0` — the first draft swapped the axes; §10-R-M3). The
@@ -330,7 +339,7 @@ first draft stated these as prose only; that was itself a #18 violation.
    `render()` asserting the slide token is `section`.
 2. **Exactly one `<main>` per document.** **Gate/design:** make the container tag a
    *parameter* — `div` by default, `main` opt-in only at the export-shell and
-   (deferred) engine call sites — so a second `<main>` is *physically unemittable*
+   engine render call sites — so a second `<main>` is *physically unemittable*
    rather than guarded by a comment. A tripwire you can't trip beats a note.
 3. **No nameless landmarks.** A promoted `<section>`/`<aside>`/`<nav>` ships with an
    `aria-label`/`aria-labelledby` **in the same edit**. **Gate:** a jsdom test over
@@ -364,15 +373,15 @@ first draft stated these as prose only; that was itself a #18 violation.
 | export shell `<main>` wrap + `lang` + skip link (Path A) | every exported deck gets a skip target, a language, a named main | ~a dozen lines in the emulator shell; a golden re-diff (block-box, should be zero-delta) |
 | Studio `<main>` (editor+preview scope) + region names, all 4 views | the flagship app surface becomes navigable; regions named | JSX tag swaps + `aria-labelledby` spans; a region-label audit; visually free |
 | Playground/pages skip links + region names | keyboard users bypass chrome; regions named | per-surface edits (skeleton isn't shared yet) |
-| deck container retag (Path B) — **deferred** | preview-doc gets a main (low value — always embedded) | a shared-kernel `css.js` edit + pixel-diff (why it's deferred) |
-| chart `<div>` → `<figure>`/`<figcaption>` (phase 2) | charts + captions gain the figure/caption roles | UA-margin resets, JS-selector fix, CSS-leak audit, **export sign-off + real SR pass** |
+| deck container retag (Path B — **in scope**) | the embedded previews (docs-site, VS Code) get a main too | a shared-kernel `css.js` edit + pixel-diff + maker-checker |
+| chart `<div>` → `<figure>`/`<figcaption>` (**same combined change**) | charts + captions gain the figure/caption roles | UA-margin resets, JS-selector fix, CSS-leak audit, **export sign-off + real SR pass** |
 | the new a11y **gates** | the invariants can't silently rot (the #18 lesson) | ~4 small gate/test additions, one-time |
 | **leaving presentational divs alone** | a *usable* landmark menu (no noise) | the temptation to "finish" by tagging everything — deliberately not spent |
 
 The design's value isn't "more semantic elements." It's a **navigable structure
 that's honest** — real landmarks where they help, plain `<div>`s where they don't,
-gates so it stays that way, and not one byte of export drift in the phase that
-doesn't need sign-off.
+gates so it stays that way, and every export-byte delta (container retag + figures)
+surfaced for your sign-off rather than slipped in.
 
 ---
 
@@ -398,7 +407,7 @@ right). They overturned four **mechanics**, each folded into the body above:
   `div.lattice > section` (so the swap needs a lockstep `css.js` kernel edit); the
   export **discards** the container and injects bare sections (so the swap does
   nothing there — the `<main>` must be a wrapper). **Rewritten as two edits on two
-  paths (§4), with Path B deferred (Fork D).**
+  paths (§4); both are in scope (Fork D chosen "do both", §13).**
 - **R1 (red team, HIGH) — "40 `<h1>`s" is false:** measured, the deck is ~1 `<h1>` +
   mostly `<h2>` + a couple headingless slides. Fork A was solving a non-problem;
   **reframed** around the real gap — headingless slides and whether a slide is a
@@ -443,7 +452,11 @@ labeled (§5).
 
 ## 12. File map (for whoever implements)
 
-**Phase 1 — byte-neutral landmarks & retags (no export sign-off):**
+One branch, many commits, one PR (HARD RULE #17); the commits are the §13 sequence
+(gates → app/export landmarks → engine kernel → figures → sign-off deck). The whole
+diff is export-bytes-changing, so it merges only after your sign-off.
+
+**Commits 1–2 — gates + byte-neutral landmarks/retags:**
 - Export shell `<main>` wrap + `lang` + skip link + inlined visually-hidden CSS +
   `tabindex="-1"`: `lattice-emulator.js:1450` (`lang`), `:1461-1463` (skip link +
   `<main>` wrap around `${slidesWithMeta2}`).
@@ -463,18 +476,21 @@ labeled (§5).
 - `CHANGELOG.md` `## Unreleased` (HARD RULE #10); the landmark contract + promotion
   rubric into a new canonical `engineering/accessibility.md`.
 
-**Phase 2 — `<figure>`/`<figcaption>` for charts (export sign-off + SR pass):**
-- The ~13 `lib/components/**/*.transform.js` figure wrappers + `plugins.js:969`
-  (`.functionplot`); co-located `margin:0` resets; the `div.functionplot` JS
-  selectors (`runtime/index.js:1309`, `lattice-emulator.js:1406`) changed to
-  class-only first; CSS-leak audit against `:is(…figure…)` + `base.fluid-view.css:58`;
-  a rendered dark+light demo deck + a real NVDA/VoiceOver pass for sign-off.
-
-**Deferred — Path B (engine/preview container retag):**
+**Commit 3 — Path B engine/preview container retag (pixel-diff + maker-checker):**
 - `lib/engine/slides.js:229` (`div.lattice → main.lattice`) **in lockstep with**
   `lib/engine/css.js` (`scaffold()` `:104-153`, `packSelector` `:243`), preserving
   (0,1,2) specificity over the preview-frame `.lattice > section` rule; pixel-diff
   proof; maker-checker (shared kernel, HARD RULE #1).
+
+**Commit 4 — `<figure>`/`<figcaption>` for charts:**
+- The ~13 `lib/components/**/*.transform.js` figure wrappers + `plugins.js:969`
+  (`.functionplot`); co-located `margin:0` resets; the `div.functionplot` JS
+  selectors (`runtime/index.js:1309`, `lattice-emulator.js:1406`) changed to
+  class-only first; CSS-leak audit against `:is(…figure…)` + `base.fluid-view.css:58`.
+
+**Commit 5 — the sign-off artifact:** a rendered dark+light demo deck
+(`examples/<slug>.md` + committed `.pdf`, HARD RULE #9) + a real NVDA/VoiceOver pass;
+this is what you inspect before merge (export sign-off gate).
 
 **Docs to update in the same change(s):** `engineering/gotchas.md` (the `<figure>`
 UA-margin + `div.functionplot` traps; the one-`<main>`-per-document tripwire; the
@@ -483,9 +499,42 @@ canonical landmark/rubric reference.
 
 ---
 
-## 13. Decisions (to be resolved at sign-off)
+## 13. Decisions (resolved at sign-off, 2026-07-03)
 
-Pending the four forks in §6. Everything else — the retag-not-wrap principle, the
-promotion rubric, the slide-stays-`<section>` invariant, the restraint stance, the
-gates in §8, the two-phase split, and the corrections in §10 — is proposed as
-settled unless you say otherwise.
+The four forks (§6) are decided:
+
+1. **Fork D — deck `<main>`: do BOTH paths.** The export shell `<main>` wrapper
+   *and* the engine/preview `div.lattice → main.lattice` retag land in this feature.
+   The engine-path change is no longer deferred: it carries the lockstep `css.js`
+   edit (`scaffold()` + `packSelector`, preserving (0,1,2) specificity over the
+   preview-frame `.lattice > section` rule), a pixel-diff, and a maker-checker pass
+   (shared kernel, HARD RULE #1). *Rationale: "we don't settle" — a preview a
+   sighted user reads should be navigable to a screen-reader user too; the kernel
+   change is bounded and gated.*
+2. **Fork B — `<figure>`: one combined change.** No two-phase split. The chart
+   `<figure>`/`<figcaption>` conversion ships in the same branch as the landmark
+   work, under a single export sign-off round covering the whole diff. This makes
+   the entire feature an **export-bytes change → your inspection is a hard gate
+   before merge** (QUALITY BAR): a rendered demo deck in dark + light, plus a real
+   screen-reader pass (§7), signed off by you.
+3. **Fork A — headingless slides: generic sections + label the headingless.**
+   Authored heading levels kept; slide `<section>`s stay generic; `quote` /
+   `big-number` (and other heading-free types) get a front-matter-derived
+   `aria-label` so they aren't invisible in the heading rotor.
+4. **Fork C — restraint confirmed.** Presentational boxes stay `<div>`, split-panel
+   columns included; promote only nodes that carry a navigational role.
+
+Everything else — the retag-not-wrap principle, the promotion rubric, the
+slide-stays-`<section>` invariant, the §8 gates, and the §10 corrections — was
+settled in the second draft. What remains is **one branch, many commits, one PR**
+(HARD RULE #17), culminating in the export sign-off gate. The precise
+front-matter-derived `aria-label` wording for headingless slides and the exact
+region-label copy for the Studio panes are left to the implementation branch (not
+blockers to this proposal).
+
+**Sequencing within the one branch** (so each commit banks a working slice and the
+sign-off sees the whole picture): (1) the a11y **gates** first (they fail-safe the
+rest); (2) the byte-neutral app + export landmarks; (3) the engine-path container
+kernel change (pixel-diff); (4) the `<figure>` conversion (`div.functionplot` JS
+selectors fixed first); (5) render the sign-off demo deck + SR pass. Steps 3–4 are
+the export-bytes surface; the PR does not merge until they're signed off.
