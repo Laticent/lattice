@@ -280,14 +280,22 @@ section.form.claim-hero .tile-progress {                    /* section-dot rail 
   display: none;
 }
 
-/* bleed — true edge-to-edge: zero inset, all chrome gone, no top spectrum rule. */
+/* bleed — true edge-to-edge: zero inset, all chrome gone (incl. the page
+ * number), no top spectrum rule. Charts keep their title (like hero — the
+ * chart-family band owns it) but still bleed and lose the page number. */
 section.form.claim-bleed {
   --frame-x: 0px;
   --frame-y: 0px;
   --footer-reserve: 0px;
 }
-section.form.claim-bleed > .cell-masthead,
-section.form.claim-bleed > .cell-footer {
+section.form.claim-bleed:not(.chart-frame) > .cell-masthead, /* charts keep their title */
+section.form.claim-bleed > .cell-footer,                     /* migrated footer band (incl. the page number) */
+section.form.claim-bleed > footer,                           /* running footer text on deferred layouts */
+section.form.claim-bleed .tile-progress {                    /* section-dot rail (either nesting) */
   display: none;
 }
+/* The legacy pseudo page number on STAGE_DEFERRED layouts (chart / diagram /
+ * video) — those have no .cell-footer, so the page number is a section::after.
+ * Doubled class for specificity, mirroring `no-paginate` (base.variants.css). */
+section.form.claim-bleed.claim-bleed::after { content: none; }
 section.claim-bleed { border-top: 0; }   /* kill the top spectrum bar for the true edge */

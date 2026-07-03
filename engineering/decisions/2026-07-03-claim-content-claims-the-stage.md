@@ -395,3 +395,30 @@ slides" lint (§8) is warn-only or a soft gate.
 - **Docs to update in the same change:** `design/concepts.md`, `design/forms.md`
   (§2.5 same-sweep), `design/design-system.md` (§6.5 modifier tiers),
   `CHANGELOG.md`.
+
+---
+
+## 15. As-built notes (implementation, 2026-07-03)
+
+Refinements settled while building the feature (and hardened by a maker-checker
+pass):
+
+- **`hero` keeps the page number by default** (it reads through the content);
+  `no-paginate` removes it. Safer default than "lose wayfinding unless kept," and
+  it's the clean proof the presets are composable switches, not a rigid slider.
+- **Charts keep their title at `hero` and `bleed`.** An unlabeled full-bleed
+  chart is useless in a board deck, so the universal masthead-hide is scoped
+  `:not(.chart-frame)`; a chart at `hero`/`bleed` keeps its title and gains the
+  full-bleed caption band the retired `cover` provided (relocated to
+  `section.chart-frame:is(.claim-hero, .claim-bleed)`).
+- **`bleed` works on the media/canvas layouts it targets** (chart, diagram,
+  video, big-number). These are STAGE_DEFERRED with no `.cell-footer`, so
+  `claim-bleed` also hides the legacy `section::after` page-number pseudo + the
+  running footer — otherwise the page number survived the bleed.
+- **The `bleed` safety cap is enforced on BOTH paths.** The `claim-bleed-unsafe`
+  lint warns for a per-slide `claim-bleed` AND a deck-wide `claim: bleed` landing
+  on an excluding component (the propagator stamps the token uniformly, so the
+  guard rail lives in the linter). A per-slide `claim-framed` opts a slide out.
+  A hard export gate for `bleed` (per §8) remains future work.
+- **`claim:` front-matter gets typo validation** (`unknown-claim`), mirroring
+  `finish:`/`mode:` — a typo silently mapped to the framed baseline otherwise.

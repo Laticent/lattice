@@ -427,3 +427,33 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
     assert.equal(out.filter((f) => f.rule === 'conflicting-variants').length, 0);
   });
 });
+
+describe('lint-core: claim safety (2026-07-03 claim decision §8)', () => {
+  const cvocab = {
+    names: new Set(['compare-table', 'big-number']),
+    modifiers: new Set(['claim-bleed', 'claim-hero', 'claim-quiet', 'claim-framed']),
+    claimExcludes: { 'compare-table': ['claim-bleed'] },
+    claimNames: ['framed', 'quiet', 'hero', 'bleed'],
+  };
+  const table = (cls) => `${FM}<!-- _class: ${cls} -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n`;
+  const has = (src, rule) => core.lintTextWith(src, cvocab).some((f) => f.rule === rule);
+
+  test('per-slide claim-bleed on an excluding component warns', () => {
+    assert.ok(has(table('compare-table claim-bleed'), 'claim-bleed-unsafe'));
+  });
+  test('claim-bleed on a non-excluding component is silent', () => {
+    assert.equal(has(`${FM}<!-- _class: big-number claim-bleed -->\n\n- 42\n  - x\n`, 'claim-bleed-unsafe'), false);
+  });
+  test('deck-wide claim: bleed warns on an excluding component (no per-slide token)', () => {
+    assert.ok(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- _class: compare-table -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'));
+  });
+  test('a per-slide claim-framed opts a slide out of a deck-wide bleed → no warning', () => {
+    assert.equal(has('---\nmarp: true\nclaim: bleed\n---\n\n<!-- _class: compare-table claim-framed -->\n\n## H\n\n| a | b |\n| - | - |\n| 1 | 2 |\n', 'claim-bleed-unsafe'), false);
+  });
+  test('an unknown claim: value warns (typo → silent framed baseline)', () => {
+    assert.ok(has('---\nmarp: true\nclaim: heo\n---\n\n<!-- _class: big-number -->\n\n- 42\n  - x\n', 'unknown-claim'));
+  });
+  test('a known claim: value is silent', () => {
+    assert.equal(has('---\nmarp: true\nclaim: hero\n---\n\n<!-- _class: big-number -->\n\n- 42\n  - x\n', 'unknown-claim'), false);
+  });
+});
