@@ -79,10 +79,18 @@ test('manifest is linked from both page shells and parses', async ({ page, reque
 	await expect(page.locator('head link[rel="manifest"]')).toHaveAttribute('href', '/site.webmanifest');
 
 	const manifest = await (await request.get('/site.webmanifest')).json();
-	expect(manifest.name).toBe('Lattice');
+	// The Studio IS the app: installing launches the editor, not the homepage
+	// (2026-07-03-pwa-studio-identity.md). Scope stays site-wide so docs open
+	// inside the installed window.
+	expect(manifest.name).toBe('Lattice Studio');
+	expect(manifest.start_url).toBe('/studio/');
+	expect(manifest.scope).toBe('/');
 	expect(manifest.display).toBe('standalone');
 	for (const icon of manifest.icons) {
 		expect((await request.get(icon.src)).status()).toBe(200);
+	}
+	for (const shortcut of manifest.shortcuts) {
+		expect((await request.get(shortcut.url)).status()).toBe(200);
 	}
 });
 

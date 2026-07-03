@@ -486,6 +486,23 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setView('compose');
 		notify('New deck created.');
 	}
+	// The installed app's icon shortcut ("New deck" → /studio/?new=1): honor the
+	// query ONCE on boot, then scrub it from the URL so a reload (or a bookmark
+	// of the launched page) doesn't mint another deck. Ref-carried so the effect
+	// needs no dependency on the unmemoized newDeck.
+	const newDeckRef = React.useRef(newDeck);
+	newDeckRef.current = newDeck;
+	const shortcutHandled = React.useRef(false);
+	React.useEffect(() => {
+		if (shortcutHandled.current) return;
+		shortcutHandled.current = true;
+		const params = new URLSearchParams(window.location.search);
+		if (!params.has('new')) return;
+		params.delete('new');
+		const qs = params.toString();
+		window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+		newDeckRef.current();
+	}, []);
 	// Import a deck from an external `.md` file — seed a new persisted deck with its
 	// content (title from the first heading) and load it.
 	const importInputRef = React.useRef<HTMLInputElement>(null);

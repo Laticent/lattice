@@ -361,6 +361,14 @@ only** and self-unregisters in dev; Playwright blocks it globally except
 `engineering/decisions/2026-07-02-docs-pwa.md`; the dev-shadowing trap:
 `gotchas.md` § Docs site.
 
+**The installed app is the Studio**: the manifest launches `/studio/` under
+the name "Lattice Studio" (scope stays site-wide so docs open inside the app
+window), tapping the icon focuses a running Studio rather than opening a
+second copy, and the icon carries New deck / Drawing Board / Docs shortcuts.
+Install is offered in-app (Workspace → General → Install the app;
+`install-app.ts` + the `beforeinstallprompt` capture in `PwaHead.astro`).
+Identity rationale: `engineering/decisions/2026-07-03-pwa-studio-identity.md`.
+
 ### Docs-site quality gates (responsive + web-perf)
 
 The docs gates split by **gate species**: a deterministic check (layout width,

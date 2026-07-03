@@ -34,6 +34,21 @@ const prod = import.meta.env.PROD;
 					navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
 				});
 			}
+			// Capture Chromium's install prompt EARLY (it can fire before any
+			// island hydrates) and park it for the Studio's "Install app" entry
+			// (WorkspaceSheet → General). preventDefault also suppresses the
+			// browser's own mini-infobar — we present install ourselves, where
+			// the app is. See engineering/decisions/2026-07-03-pwa-studio-identity.md.
+			addEventListener('beforeinstallprompt', function (e) {
+				e.preventDefault();
+				window.__latticeInstallPrompt = e;
+				window.dispatchEvent(new CustomEvent('lattice:can-install'));
+			});
+			// Once installed, clear the parked prompt so UI flips to "installed".
+			addEventListener('appinstalled', function () {
+				window.__latticeInstallPrompt = null;
+				window.dispatchEvent(new CustomEvent('lattice:can-install'));
+			});
 		</script>
 	) : (
 		<script is:inline>
