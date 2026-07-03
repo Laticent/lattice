@@ -368,6 +368,35 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
 	});
 
+	it('the Footer switch writes footer front-matter to the source', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		const sw = await screen.findByRole('switch', { name: 'Footer' });
+		// Off by default (no footer directive); turning it on writes a `footer:` line.
+		expect(sw).not.toBeChecked();
+		await user.click(sw);
+		expect(sw).toBeChecked();
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/footer:/);
+		// Turning it off removes the directive again.
+		await user.click(screen.getByRole('switch', { name: 'Footer' }));
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/footer:/);
+	});
+
+	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		const sw = await screen.findByRole('switch', { name: 'Section rail' });
+		// Rail is ON by default (no class token) — so the switch reads checked.
+		expect(sw).toBeChecked();
+		// Turning it OFF stamps `class: no-progress` deck-wide.
+		await user.click(sw);
+		expect(sw).not.toBeChecked();
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/class:\s*no-progress/);
+		// Turning it back ON clears the token (and the now-empty class key).
+		await user.click(screen.getByRole('switch', { name: 'Section rail' }));
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/no-progress/);
+	});
+
 	it('the Size control writes a `size` directive to the source', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));

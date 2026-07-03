@@ -341,6 +341,24 @@ canvas level — a "this slide is the failure slide" treatment. The
 are the author surface of the `claim:` register (`design/concepts.md`;
 `engineering/decisions/2026-07-03-claim-content-claims-the-stage.md`).
 
+**Chrome control is per-slide OR deck-wide.** The Chrome tokens above are
+per-slide (`<!-- _class: no-footer -->`). Each chrome element also has a
+deck-wide control in the front-matter, so an author can set the baseline once
+and opt individual slides out:
+
+| Element | Per-slide token | Deck-wide (front-matter) | Default |
+|---|---|---|---|
+| Running header | `no-header` | `header: "…"` (text present) | off |
+| Running footer | `no-footer` | `footer: "…"` (text present) | off |
+| Page number | `no-paginate` | `paginate: true` | on (Form) |
+| Section rail | `no-progress` | `class: no-progress` (propagated) | on (Form) |
+
+Header / footer / pagination ride native Marp directives; the rail has no native
+directive, so its deck-wide off-switch is the `no-progress` class propagated to
+every slide. `silent` bundles header + footer + pagination off for a single
+slide. The full matrix — and the Studio controls that emit it — is in the
+authoring guide (`docs/src/content/docs/guides/authoring.md`).
+
 **Tier 2 — Semi-universal.** Apply to most layouts but
 not all. Manifests opt OUT via `excludes`; default is accepted.
 

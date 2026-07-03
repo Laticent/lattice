@@ -152,6 +152,24 @@ export function mergeClassTokens(source: string, tokens: string): string {
 }
 
 /**
+ * Remove space-separated class tokens from the deck's `class:` directive — the
+ * inverse of `mergeClassTokens`. Any listed token is dropped; the rest keep their
+ * order. When the last token goes, the `class:` key is removed entirely (mirroring
+ * `setFrontMatter(..., null)`). With no incoming tokens, or no `class:` present, the
+ * source is returned untouched. (Used to un-stamp a deck-wide chrome token — e.g.
+ * clearing `no-progress` when the global "Section rail" toggle is switched back on.)
+ */
+export function removeClassTokens(source: string, tokens: string): string {
+	const drop = new Set(String(tokens || '').trim().split(/\s+/).filter(Boolean));
+	if (!drop.size) return source;
+	const existing = (getFrontMatter(source, 'class') || '').trim().split(/\s+/).filter(Boolean);
+	if (!existing.length) return source;
+	const kept = existing.filter((t) => !drop.has(t));
+	if (kept.length === existing.length) return source; // nothing removed
+	return setFrontMatter(source, 'class', kept.length ? kept.join(' ') : null);
+}
+
+/**
  * Set (or, with `value === null`, remove) a single front-matter directive,
  * preserving the rest of the block and the body. Creating the first directive
  * adds the block at the very top; removing the last one drops the block entirely.

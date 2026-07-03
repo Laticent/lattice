@@ -270,6 +270,47 @@ follows. Only a registered palette is applied — a typo stays in your source so
 you can fix it, but the deck keeps rendering in the last valid palette rather
 than going unstyled, and the drawer flags it.
 
+## Chrome — show or hide the slide furniture
+
+Every deck carries a standard set of *chrome*: the running **header** and
+**footer** bands, the **page number**, and the **section rail** (the row of
+progress dots that tracks where you are between dividers). You control each one
+at **two scopes** — set the baseline for the whole deck in the front matter, then
+opt an individual slide out with a `_class` token.
+
+| Element | Whole deck (front matter) | One slide (`_class`) | On by default? |
+|---|---|---|---|
+| Running header | `header: "Acme — Q3"` | `no-header` | no — appears once you give it text |
+| Running footer | `footer: "Confidential"` | `no-footer` | no — appears once you give it text |
+| Page number | `paginate: true` | `no-paginate` | on for Form decks |
+| Section rail | `class: no-progress` (turns it **off**) | `no-progress` | on when the deck has dividers |
+
+The header, footer, and page number ride Marp's own front-matter directives, so
+a running band turns **on** by giving it text and **off** by removing the line.
+The section rail has no such directive, so its deck-wide off-switch is the
+`no-progress` class, which propagates to every slide. Want the rail gone
+everywhere? Add `class: no-progress` to the front matter. Want it back on one
+slide? That direction is rarer — reach for Marp's per-slide `_header:` /
+`_footer:` / `_paginate:` local directives when you need to turn a band *on* for
+a single slide against a deck that leaves it off.
+
+For a slide that wants **none** of the standard chrome — a bookend, a full-bleed
+statement — `silent` clears the header, footer, and page number in one token:
+
+```markdown
+<!-- _class: content silent -->
+## Nothing but the message
+```
+
+To let the content dominate *without* stripping the title, reach for the
+**claim** presets (`claim-hero`, `claim-quiet`) instead — they recede the chrome
+but keep the slide labeled, because a board slide should never go untitled.
+
+In the **Studio**, these live as switches: the Deck inspector carries the
+whole-deck toggles (Page numbers · Running header · Footer · Section rail), and
+the *This slide* editor's Chrome section carries the per-slide ones (Clean slide
+· Hide header · Hide footer · Hide page number · Hide rail).
+
 ## Where to go next
 
 - [Themes & palettes](/guides/themes/) — choose or author a palette.
