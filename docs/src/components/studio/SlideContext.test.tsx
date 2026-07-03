@@ -57,6 +57,19 @@ describe('SlideContext drawer', () => {
 		expect(toks).not.toContain('tone-warn');
 	});
 
+	it('sets a per-slide brand bar (spectrum) from the Look picker', () => {
+		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		fireEvent.change(screen.getByRole('combobox', { name: /brand bar/i }), { target: { value: 'off' } });
+		expect(applied()).toContain('spectrum-off');
+	});
+
+	it('reads the brand bar as inherited from the deck `spectrum:` register', () => {
+		const src = '---\nspectrum: solid\n---\n\n<!-- _class: kpi -->\n\n# Hi';
+		setup('<!-- _class: kpi -->\n\n# Hi', src);
+		const picker = screen.getByRole('combobox', { name: /brand bar/i }) as HTMLSelectElement;
+		expect(picker.value).toBe('__inherit__');
+	});
+
 	it('overrides the stamp SHAPE from the Stamp style picker', () => {
 		const { applied } = setup('<!-- _class: kpi confidential -->\n\n# Hi');
 		fireEvent.change(screen.getByRole('combobox', { name: /stamp style/i }), { target: { value: 'seal' } });

@@ -65,8 +65,13 @@ wins. `tone: edge` (specificity 0,2,1) always beats the register (0,1,1).
 
 - Register + propagation (both paths) + per-slide override; `unknown-spectrum` lint.
 - CSS as above; docs + demo + tests.
-- **Not** a per-slide Studio drawer control — `spectrum:` is deck-brand config, not
-  per-slide craft; it lives in front matter (revisit if authors ask).
+- **Studio UI (added after the first cut — authors asked):** a deck-level **"Brand bar"**
+  control in the Deck inspector (`SpectrumPicker` + `spectrum-catalog`, alongside
+  Mode/Finish), and a per-slide **"Brand bar"** override in the "This slide" drawer
+  (Inherit·Rainbow / None / Solid accent, provenance-aware like Finish). The deck control
+  is the primary home (spectrum is deck-brand config); the drawer override is the
+  per-slide escape hatch. No per-slide "back to rainbow" over a deck off/solid — `on` maps
+  to no token by design (documented).
 
 ## Do-not-regress
 

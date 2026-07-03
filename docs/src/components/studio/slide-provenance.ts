@@ -172,3 +172,31 @@ export function setToneStyle(chunk: string, name: string | null, styleTokens: re
 	if (name) kept.push(`tone-${name}`);
 	return setClassTokens(chunk, kept);
 }
+
+// ── spectrum (white-label brand bar) ───────────────────────────────────────────
+// The deck `spectrum:` register (resolve-spectrum.js) controls the brand bar deck-wide;
+// a per-slide `spectrum-off` / `spectrum-solid` token overrides. Only off / solid carry a
+// token — `on` (the rainbow) is the default and the absence of a token, so there is no
+// per-slide "back to rainbow" over a deck off/solid (finding documented in the design
+// doc); provenance is inherited (deck off/solid) / on (this slide) / off (rainbow default).
+
+const isSpectrumToken = (t: string) => t === 'spectrum-off' || t === 'spectrum-solid';
+
+/** Effective brand-bar state for a slide. `value` is the bare name (`off` / `solid`). */
+export function spectrumProvenance(chunk: string, source: string): Provenance {
+	const own = getClassTokens(chunk).find(isSpectrumToken);
+	const deck = (getFrontMatter(source, 'spectrum') || '').trim().toLowerCase();
+	const deckValue = deck === 'off' || deck === 'solid' ? deck : undefined; // `on`/unset → rainbow default
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own.slice('spectrum-'.length), deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
+}
+
+/** Set the slide's brand bar. `'off'` / `'solid'` → the token; `null` → inherit / rainbow
+ *  (clear the per-slide token). Existing spectrum tokens are cleared first so it can't stack. */
+export function setSpectrum(chunk: string, name: string | null): string {
+	const kept = getClassTokens(chunk).filter((t) => !isSpectrumToken(t));
+	if (name === 'off' || name === 'solid') kept.push(`spectrum-${name}`);
+	return setClassTokens(chunk, kept);
+}
