@@ -176,6 +176,23 @@ describe("collapse / expand", () => {
 	})
 })
 
+describe("the emitted flex pair (TRIPWIRE — do not normalize)", () => {
+	it("emits the ratio DOUBLED so the pair sums to 2, never 1", () => {
+		// CSS Grid §12.7.1: when one pane clamps at its px minimum, a flex-factor
+		// sum below 1 distributes only that FRACTION of the leftover — the rest
+		// is a dead void at the grid's edge (the iPad void bug, reproduced on
+		// real WebKit AND Chromium). Doubling keeps the surviving track's factor
+		// ≥ 1 across the whole [0.2, 0.8] band so it absorbs all leftover.
+		// A future "clean up the pair to sum 1" refactor reintroduces the bug —
+		// this test is the tripwire.
+		localStorage.setItem(KEY, '{"v":1,"a":0.75}')
+		render(<Harness />)
+		const container = screen.getByTestId("container")
+		expect(container.style.getPropertyValue("--split-a")).toBe("1.5fr")
+		expect(container.style.getPropertyValue("--split-b")).toBe("0.5fr")
+	})
+})
+
 describe("persistence", () => {
 	it("hydrates the ratio from localStorage", () => {
 		localStorage.setItem(KEY, '{"v":1,"a":0.6}')
@@ -283,8 +300,8 @@ describe("active: false (mobile tabs own layout)", () => {
 		localStorage.setItem(KEY, '{"v":1,"a":0.6}')
 		render(<Harness active={false} />)
 		const container = screen.getByTestId("container")
-		expect(container.style.getPropertyValue("--split-a")).toBe("0.6fr")
-		expect(container.style.getPropertyValue("--split-b")).toBe("0.4fr")
+		expect(container.style.getPropertyValue("--split-a")).toBe("1.2fr")
+		expect(container.style.getPropertyValue("--split-b")).toBe("0.8fr")
 		// Inactive reads must not heal (no writes): garbage stays put.
 		localStorage.setItem(KEY, "garbage")
 		render(<Harness active={false} storageKey="other-split" />)

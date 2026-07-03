@@ -38,11 +38,30 @@ function afterLayout(fn: () => void) {
 	raf(() => raf(fn))
 }
 
+/**
+ * The emitted flex pair is the ratio DOUBLED — `2r fr / 2(1−r) fr` — never the
+ * normalized `r/1−r`. This is load-bearing, not style (CSS Grid §12.7.1): when
+ * one pane freezes at its `minmax()` px minimum, the remaining flex factors are
+ * re-summed, and a sum BELOW 1 distributes only that fraction of the leftover —
+ * the rest becomes an empty void at the grid's edge. With a normalized pair the
+ * survivor's factor is always < 1, so dragging a pane under its minimum (or
+ * merely reloading with such a ratio stored) leaves a dead strip beside the
+ * preview on any container narrow enough to clamp (< ~1600px; every iPad).
+ * Doubling keeps the survivor ≥ 1 in the split's whole active band, so it
+ * absorbs all leftover, spec-exactly, in every engine. Reproduced + verified
+ * on real WebKit and Chromium; do NOT "clean up" the pair back to sum 1 — the
+ * unit test on the emitted vars is the tripwire.
+ */
+function splitFlexPair(ratio: number): [string, string] {
+	return [`${roundRatio(2 * ratio)}fr`, `${roundRatio(2 * (1 - ratio))}fr`]
+}
+
 /** Write the track vars imperatively (the zero-React-render drag path). */
 function writeVars(el: HTMLElement | null, ratio: number) {
 	if (!el) return
-	el.style.setProperty("--split-a", `${roundRatio(ratio)}fr`)
-	el.style.setProperty("--split-b", `${roundRatio(1 - ratio)}fr`)
+	const [a, b] = splitFlexPair(ratio)
+	el.style.setProperty("--split-a", a)
+	el.style.setProperty("--split-b", b)
 }
 
 /**
@@ -554,18 +573,15 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 
 	const paneIds = options.paneIds ?? [`${storageKey}-a`, `${storageKey}-b`]
 
-	const gridVars = React.useMemo(
-		() =>
-			restored
-				? ({
-						"--split-a": `${roundRatio(ratio)}fr`,
-						"--split-b": `${roundRatio(1 - ratio)}fr`,
-					} as React.CSSProperties)
-				: // Pre-restore (SSR + hydration): no inline vars — the pre-paint
-					// seed's var() fallback carries the first paint at the saved ratio.
-					({} as React.CSSProperties),
-		[ratio, restored],
-	)
+	const gridVars = React.useMemo(() => {
+		if (!restored) {
+			// Pre-restore (SSR + hydration): no inline vars — the pre-paint
+			// seed's var() fallback carries the first paint at the saved ratio.
+			return {} as React.CSSProperties
+		}
+		const [a, b] = splitFlexPair(ratio)
+		return { "--split-a": a, "--split-b": b } as React.CSSProperties
+	}, [ratio, restored])
 
 	const containerProps: SplitContainerBind = {
 		ref: setContainerEl,

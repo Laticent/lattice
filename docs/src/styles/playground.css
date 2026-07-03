@@ -85,9 +85,15 @@
    playground.astro as the fallback so returning resizers see no width jump. */
 .pg-split {
 	display: grid;
+	/* The flex pair sums to 2 (0.9/1.1 = ratio 0.45 doubled), NEVER to 1: per
+	   CSS Grid §12.7.1, when one pane clamps at its px minimum a flex sum < 1
+	   distributes only that FRACTION of the leftover — the rest is a dead void
+	   at the grid's right edge (reproduced on iPad + both engines). Doubling
+	   keeps the surviving factor ≥ 1 so it absorbs everything. See split.tsx
+	   splitFlexPair — every emit site (hook, seeds, Studio) must agree. */
 	grid-template-columns:
-		0 minmax(280px, var(--split-a, var(--split-playground-a, 0.45fr))) 1px
-		minmax(320px, var(--split-b, var(--split-playground-b, 0.55fr))) 0;
+		0 minmax(280px, var(--split-a, var(--split-playground-a, 0.9fr))) 1px
+		minmax(320px, var(--split-b, var(--split-playground-b, 1.1fr))) 0;
 	flex: 1 1 auto;
 	min-height: 0;
 }

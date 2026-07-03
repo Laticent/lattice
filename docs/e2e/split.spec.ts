@@ -264,6 +264,44 @@ test('switching the collapsed side runs the deferred render — no stale preview
 	await expect(page.locator('#pg-pane-preview')).not.toHaveAttribute('inert');
 });
 
+// The iPad void bug (CSS Grid §12.7.1): with a normalized flex pair (sum 1),
+// a pane clamped at its px minimum leaves the survivor's factor < 1 and the
+// leftover is only fractionally distributed — a dead strip beside the preview.
+// The emitted pair is DOUBLED (sum 2) so the survivor always absorbs all
+// leftover; this asserts the grid always fills its container in the exact
+// band that voided in the field (stored ratio deep enough to clamp the
+// preview at an iPad-width container).
+test.describe('no grid void when a pane clamps at its minimum (iPad width)', () => {
+	test.use({ viewport: { width: 1180, height: 820 } });
+
+	test('a stored near-collapse ratio fills the container edge-to-edge', async ({ page }) => {
+		await page.addInitScript(() => {
+			try {
+				localStorage.setItem('lattice-docs-split-playground', '{"v":1,"a":0.75}');
+			} catch {
+				/* storage disabled */
+			}
+		});
+		await gotoPlayground(page);
+		await expect
+			.poll(async () =>
+				page.evaluate(() => {
+					const s = document.querySelector('.pg-split') as HTMLElement;
+					const sum = getComputedStyle(s)
+						.gridTemplateColumns.split(' ')
+						.map(Number.parseFloat)
+						.reduce((a, b) => a + b, 0);
+					return Math.round(s.getBoundingClientRect().width - sum);
+				}),
+			)
+			.toBe(0);
+		// The preview really is pinned at its minimum (the clamp engaged) — the
+		// void band, not a soft ratio the redistribution never had to touch.
+		const preview = await page.locator('#pg-pane-preview').boundingBox();
+		expect(preview!.width).toBeLessThan(325);
+	});
+});
+
 // The Studio's desktop grid is the one configuration the Playground can't
 // cover: Architect (232px) + editor (min 240px) + handle (1px) + preview
 // (min 280px) + Inspector (300px) = 1053px — the decision doc's worst-case

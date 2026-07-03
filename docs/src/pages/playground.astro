@@ -157,8 +157,11 @@ const pgData = {
 					if (sp) {
 						var sv = JSON.parse(sp);
 						if (sv && sv.v === 1 && typeof sv.a === 'number' && sv.a >= 0.2 && sv.a <= 0.8) {
-							r.style.setProperty('--split-playground-a', sv.a + 'fr');
-							r.style.setProperty('--split-playground-b', (1 - sv.a) + 'fr');
+							// Doubled flex pair (sum 2, never 1) — a sum-1 pair leaves a
+							// dead void when a pane clamps at its px minimum (CSS Grid
+							// §12.7.1 fraction-of-leftover). Must match split.tsx splitFlexPair.
+							r.style.setProperty('--split-playground-a', 2 * sv.a + 'fr');
+							r.style.setProperty('--split-playground-b', 2 * (1 - sv.a) + 'fr');
 						}
 					}
 				} catch (e) {}

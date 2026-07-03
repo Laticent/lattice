@@ -36,6 +36,19 @@ silently absorbed:
   placement in a narrowed Studio editor on Safari — `container-type:inline-size`
   does not re-root `position:fixed` descendants in Chromium (verified live),
   but Safari/Firefox are unverified from the sandbox.
+- **The emitted flex pair is the ratio DOUBLED (sum 2), never normalized** —
+  the iPad field reports of a dead strip beside a near-minimum preview were a
+  spec-correct consequence of a sum-1 pair (CSS Grid §12.7.1: when a pane
+  clamps at its px minimum, a remaining flex sum < 1 distributes only that
+  fraction of the leftover). Reproduced on real WebKit AND Chromium (engine
+  matrix + the real page + a zero-interaction seed reload); fixed by emitting
+  `2r fr / 2(1−r) fr` at every site (hook, both page seeds, Studio tracks,
+  CSS fallbacks — the defaults are again the historical 0.9/1.1 and 0.92/1.08).
+  Tripwire unit test guards against a future "normalize the pair" cleanup;
+  e2e asserts the grid fills its container in the exact clamp band at iPad
+  width. Related note: the post-drag re-fit rides on the resume belt (the
+  onSettle-time fit is gated during suspension by design) — measured landing
+  ≤150ms on real WebKit.
 
 ## Context & problem
 

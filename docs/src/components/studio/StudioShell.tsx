@@ -101,18 +101,22 @@ function timeAgo(ts: number): string {
 // truth consumed by EVERY non-mobile grid branch (desktop, tablet, focus) so
 // their track lists can't drift; the desktop branch appends its flanking
 // Architect/Inspector columns around these. The fr custom properties carry the
-// unit INSIDE the var (`0.46fr` — `var(--x)fr` is invalid CSS) and fall back to
-// the pre-paint seed (studio.astro writes --split-studio-a/-b) then the default
-// ratio. A collapsed side's pane+handle tracks drop to 0px and its 46px rail
-// (the Inspector-rail geometry) takes the edge.
+// unit INSIDE the var (`0.92fr` — `var(--x)fr` is invalid CSS) and fall back to
+// the pre-paint seed (studio.astro writes --split-studio-a/-b) then the default.
+// The flex pair sums to 2 (ratio DOUBLED — 0.92/1.08, never 0.46/0.54): per CSS
+// Grid §12.7.1, when one pane clamps at its px minimum a flex sum < 1 leaves a
+// dead void instead of redistributing (the iPad void bug — see splitFlexPair in
+// ui/split.tsx, whose emitted vars these fallbacks must match). A collapsed
+// side's pane+handle tracks drop to 0px and its 46px rail (the Inspector-rail
+// geometry) takes the edge.
 function splitTracks(collapsed: SplitSide | null): string[] {
 	if (collapsed === 'a') return ['46px', '0px', '0px', 'minmax(0,1fr)', '0px'];
 	if (collapsed === 'b') return ['0px', 'minmax(0,1fr)', '0px', '0px', '46px'];
 	return [
 		'0px',
-		'minmax(240px, var(--split-a, var(--split-studio-a, 0.46fr)))',
+		'minmax(240px, var(--split-a, var(--split-studio-a, 0.92fr)))',
 		'1px',
-		'minmax(280px, var(--split-b, var(--split-studio-b, 0.54fr)))',
+		'minmax(280px, var(--split-b, var(--split-studio-b, 1.08fr)))',
 		'0px',
 	];
 }
