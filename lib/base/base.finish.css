@@ -126,7 +126,12 @@ section.finish > .backdrop {
  * once a slide overflows, so the red ring shows; on a normal slide it still wins (the
  * `:not()` adds no specificity, but the finish rule is later in source order). */
 section.finish:not(.overflow) {
-  box-shadow: var(--fin-frame, none);
+  /* Compose the tone rail (base.variants.css, a no-op `0 0 transparent` when the
+     slide has no tone) AHEAD of the finish frame, so a `tone-* finish-*` slide keeps
+     BOTH — the finish box-shadow would otherwise override the tone rail's. Both
+     fall back to a no-op shadow (NOT `none`, which is invalid inside a shadow LIST
+     and would drop the whole declaration on a frameless finish). */
+  box-shadow: var(--tone-rail, 0 0 transparent), var(--fin-frame, 0 0 transparent);
 }
 
 /* z3 — the MARK pseudo. A full-inset layer behind content; the preset fills

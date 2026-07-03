@@ -270,6 +270,14 @@ in patch versions.
 
 ### Fixed
 
+- **A `tone-*` and a state marker (`confidential`, `wip`, …) on the same slide no
+  longer collide.** The tone accent rail used `section::before` — the same pseudo
+  every state stamp and `mark-*` decoration owns — so combining them either
+  collapsed the stamp into the 8px rail or (on `form` layouts) erased the rail
+  entirely. The rail is now an inset `box-shadow` (a channel state markers don't
+  touch), composed into the finish frame so `tone-* finish-*` keeps both. Solid and
+  blur-free, so it prints identically in the vector PDF.
+
 - **The Studio no longer deletes `_focus` / `_build` / `style` directives or
   corrupts fenced code when you edit a speaker note.** The note transform's
   directive classifier had drifted from the engine and silently ate any comment it

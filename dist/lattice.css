@@ -15919,7 +15919,12 @@ section.finish > .backdrop {
  * once a slide overflows, so the red ring shows; on a normal slide it still wins (the
  * `:not()` adds no specificity, but the finish rule is later in source order). */
 section.finish:not(.overflow) {
-  box-shadow: var(--fin-frame, none);
+  /* Compose the tone rail (base.variants.css, a no-op `0 0 transparent` when the
+     slide has no tone) AHEAD of the finish frame, so a `tone-* finish-*` slide keeps
+     BOTH — the finish box-shadow would otherwise override the tone rail's. Both
+     fall back to a no-op shadow (NOT `none`, which is invalid inside a shadow LIST
+     and would drop the whole declaration on a frameless finish). */
+  box-shadow: var(--tone-rail, 0 0 transparent), var(--fin-frame, 0 0 transparent);
 }
 
 /* z3 — the MARK pseudo. A full-inset layer behind content; the preset fills
@@ -17345,38 +17350,37 @@ section.no-paginate.no-paginate::after {
 
 /* ── TONE ── canvas-level reuse of the state-token color system ─────── */
 
-/* Each tone draws a vertical accent rail on the slide's left edge,
+/* Each tone draws an 8px vertical accent rail on the slide's left edge,
    colored from the existing --pass / --warn / --fail tokens (so the
    palette controls saturation, contrast, and dark-mode adaptation
    without per-tone CSS).
-   The rail uses ::before. Layouts that already use ::before on the
-   section (cards-grid numbered counters, quote blockquote marks) are
-   unaffected — those selectors target descendants (> ol > li::before,
-   blockquote::before), not the section itself. */
 
+   The rail is an INSET BOX-SHADOW, not a ::before. Tone used to own
+   `section::before`, but EVERY state marker (wip/confidential/draft/… corner
+   stamps, bands, watermarks) and the mark-* decorations own that same pseudo —
+   an element has only one ::before, so tone + a state stamp collided: on a plain
+   layout the stamp collapsed INTO the tone rail (top/left 8px), and on a `form`
+   layout the state's `::before{content:none}` suppression erased the rail. A solid,
+   blur-free inset box-shadow sidesteps the pseudo entirely and — being alpha-free —
+   prints cleanly in the vector PDF (the same discipline the finish frame follows).
+
+   Exposed as --tone-rail so the finish frame (base.finish.css) can COMPOSE the rail
+   into its own box-shadow list rather than overriding it; the no-op default keeps
+   that composition valid on non-tone slides. The overflow-debug ring
+   (base.modifiers.css) still wins on an overflowing slide — a deliberate debug
+   signal — momentarily hiding the rail. */
+
+section { --tone-rail: 0 0 transparent; }
+section.tone-pass { --tone-rail: inset 8px 0 0 0 var(--pass); }
+section.tone-warn { --tone-rail: inset 8px 0 0 0 var(--warn); }
+section.tone-fail { --tone-rail: inset 8px 0 0 0 var(--fail); }
+section.tone-skip { --tone-rail: inset 8px 0 0 0 var(--text-muted); }
 section.tone-pass,
 section.tone-warn,
 section.tone-fail,
 section.tone-skip {
-  position: relative;
+  box-shadow: var(--tone-rail);
 }
-section.tone-pass::before,
-section.tone-warn::before,
-section.tone-fail::before,
-section.tone-skip::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 8px;
-  pointer-events: none;
-  z-index: 50;
-}
-section.tone-pass::before { background: var(--pass); }
-section.tone-warn::before { background: var(--warn); }
-section.tone-fail::before { background: var(--fail); }
-section.tone-skip::before { background: var(--text-muted); }
 
 /* ── STATE ── meta indicators about the slide itself ────────────────── */
 
