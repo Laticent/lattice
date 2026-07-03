@@ -35,6 +35,10 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	return { onMutate, applied };
 }
 
+// The drawer is now dynamic pill-tabs — controls live under Look / Status / Decoration /
+// Chrome / Notes. Switch to the tab that owns a control before interacting with it.
+const goTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
+
 describe('SlideContext drawer', () => {
 	it('toggles dark on', () => {
 		const { onMutate, applied } = setup('<!-- _class: kpi -->\n\n# Hi');
@@ -51,6 +55,7 @@ describe('SlideContext drawer', () => {
 
 	it('single-selects a tone (and swaps, not stacks)', () => {
 		const { applied } = setup('<!-- _class: kpi tone-warn -->\n\n# Hi');
+		goTab('Status');
 		fireEvent.click(screen.getByRole('radio', { name: 'Fail' }));
 		const toks = applied();
 		expect(toks).toContain('tone-fail');
@@ -72,18 +77,21 @@ describe('SlideContext drawer', () => {
 
 	it('overrides the stamp SHAPE from the Stamp style picker', () => {
 		const { applied } = setup('<!-- _class: kpi confidential -->\n\n# Hi');
+		goTab('Status');
 		fireEvent.change(screen.getByRole('combobox', { name: /stamp style/i }), { target: { value: 'seal' } });
 		expect(applied()).toContain('stamp-seal');
 	});
 
 	it('picking the inherited/default stamp head clears the per-slide shape', () => {
 		const { applied } = setup('<!-- _class: kpi confidential stamp-notch -->\n\n# Hi');
+		goTab('Status');
 		fireEvent.change(screen.getByRole('combobox', { name: /stamp style/i }), { target: { value: '__default__' } });
 		expect(applied().some((t) => t.startsWith('stamp-'))).toBe(false);
 	});
 
 	it('sets the tone SHAPE without disturbing the semantic tone', () => {
 		const { applied } = setup('<!-- _class: kpi tone-pass -->\n\n# Hi');
+		goTab('Status');
 		fireEvent.change(screen.getByRole('combobox', { name: /tone style/i }), { target: { value: 'edge' } });
 		const toks = applied();
 		expect(toks).toContain('tone-pass'); // semantic tone untouched
@@ -93,18 +101,21 @@ describe('SlideContext drawer', () => {
 	it('reads the stamp shape as inherited from the deck `stamp:` register', () => {
 		const src = '---\nstamp: seal\n---\n\n<!-- _class: kpi confidential -->\n\n# Hi';
 		setup('<!-- _class: kpi confidential -->\n\n# Hi', src);
+		goTab('Status');
 		const picker = screen.getByRole('combobox', { name: /stamp style/i }) as HTMLSelectElement;
 		expect(picker.value).toBe('__inherit__');
 	});
 
 	it('toggles the silent chrome switch', () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		goTab('Chrome');
 		fireEvent.click(screen.getByRole('switch', { name: /silent/i }));
 		expect(applied()).toContain('silent');
 	});
 
 	it('toggles the section rail off (no-progress), independent of silent', () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		goTab('Chrome');
 		fireEvent.click(screen.getByRole('switch', { name: /hide section rail/i }));
 		expect(applied()).toContain('no-progress');
 	});
@@ -125,6 +136,7 @@ describe('SlideContext drawer', () => {
 
 	it('applies a decoration tint phrase (token + placement together)', () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		goTab('Decoration');
 		fireEvent.click(screen.getByRole('radio', { name: 'Edge' }));
 		const toks = applied();
 		expect(toks).toContain('tint-edge');
@@ -159,6 +171,24 @@ describe('SlideContext drawer', () => {
 		setup('<!-- _class: [kpi, dark] -->\n\n# Hi');
 		expect(screen.getByText(/hand-authored/i)).toBeTruthy();
 		expect(screen.queryByRole('switch', { name: /dark/i })).toBeNull();
+	});
+
+	it('editable slide defaults to the Look tab; Notes is behind a tab', () => {
+		setup('<!-- _class: kpi -->\n\n# Hi');
+		// Look controls are visible immediately (default tab); the note is NOT (its own tab).
+		expect(screen.getByRole('switch', { name: /dark/i })).toBeTruthy();
+		expect(screen.queryByRole('textbox', { name: 'Speaker note for this slide' })).toBeNull();
+		// The tab bar offers the applicable sections.
+		expect(screen.getByRole('tab', { name: 'Look' })).toBeTruthy();
+		expect(screen.getByRole('tab', { name: 'Notes' })).toBeTruthy();
+	});
+
+	it('a non-editable slide collapses to the note only (no look/status/chrome tabs)', () => {
+		setup('<!-- _class: [kpi, dark] -->\n\n# Hi');
+		// No tab bar (single Notes panel); the note + reason show directly.
+		expect(screen.queryByRole('tab', { name: 'Look' })).toBeNull();
+		expect(screen.queryByRole('tab', { name: 'Chrome' })).toBeNull();
+		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
 	});
 
 	it('reads dark as inherited from a dark deck (no misleading off toggle)', () => {

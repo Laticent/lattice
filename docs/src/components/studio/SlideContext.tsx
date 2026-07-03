@@ -11,8 +11,9 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Info, RotateCcw, StickyNote } from 'lucide-react';
+import { Info, RotateCcw, SquarePen } from 'lucide-react';
 import * as React from 'react';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
@@ -50,15 +51,6 @@ export type SlideContextProps = {
 };
 
 // ── Small local controls, styled to match the Inspector vocabulary ─────────────
-
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
-	return (
-		<div className="border-b border-border py-3 last:border-b-0">
-			<div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
-			{children}
-		</div>
-	);
-}
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
 	return (
@@ -279,15 +271,34 @@ export function SlideContext(props: SlideContextProps) {
 
 	const cur = (members: readonly string[]): string | null => tokens.find((t) => members.includes(t)) ?? null;
 
+	// Dynamic pill-tabs — de-crowd the drawer WITHOUT hiding controls behind empty tabs:
+	// each tab renders ONLY when it has content to show. Look is the general default;
+	// Status / Decoration appear only when the deck's vocabulary carries those markers;
+	// Chrome + Notes are always applicable. When the slide's `_class` isn't round-trippable
+	// (not editable), only Notes shows. The active tab is derived so it self-heals when the
+	// slide changes and the current tab no longer applies (falls back to the first).
+	const hasStatus = stateGroup.length > 0 || toneAxis.length > 0;
+	const hasDecoration = tints.length > 0 || marks.length > 0;
+	const tabDefs = [
+		...(editable ? [{ value: 'look', label: 'Look' }] : []),
+		...(editable && hasStatus ? [{ value: 'status', label: 'Status' }] : []),
+		...(editable && hasDecoration ? [{ value: 'decoration', label: 'Decoration' }] : []),
+		...(editable ? [{ value: 'chrome', label: 'Chrome' }] : []),
+		{ value: 'notes', label: 'Notes' },
+	];
+	const [tab, setTab] = React.useState('look');
+	const tabValues = tabDefs.map((t) => t.value);
+	const activeTab = tabValues.includes(tab) ? tab : (tabValues[0] ?? 'notes');
+
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[420px]">
 				<SheetHeader className="border-b border-border">
 					<SheetTitle className="flex items-center gap-2 text-[15px]">
-						<StickyNote className="size-4 text-[var(--accent)]" />This slide
+						<SquarePen className="size-4 text-[var(--accent)]" />Slide settings
 						<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">slide {slideNumber}</span>
 					</SheetTitle>
-					<SheetDescription className="sr-only">Edit this slide's note, look, status, decoration, and chrome. Changes write into the slide's markdown.</SheetDescription>
+					<SheetDescription className="sr-only">Adjust this slide's look, status, decoration, chrome, and speaker note. Changes write into the slide's markdown.</SheetDescription>
 				</SheetHeader>
 
 				<div className="flex-1 overflow-y-auto px-4">
@@ -305,126 +316,129 @@ export function SlideContext(props: SlideContextProps) {
 						</button>
 					</div>
 
-					{/* Note */}
-					<Section label="Speaker note">
-						<textarea
-							value={noteDraft}
-							onChange={(e) => setNoteDraft(e.target.value)}
-							onBlur={commitNote}
-							aria-label="Speaker note for this slide"
-							placeholder="What you'll say on this slide — read aloud in Present, exported to PDF/PPTX notes."
-							className="min-h-[96px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
-						/>
-					</Section>
+					{/* Dynamic pill-tabs — only tabs with content for this slide render. */}
+					{tabDefs.length > 1 && (
+						<PillTabs className="py-3" ariaLabel="Slide settings sections" value={activeTab} onValueChange={setTab} tabs={tabDefs} />
+					)}
 
-					{!editable ? (
-						<div className="my-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
-							<Info className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />
-							This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({readClassDirective(chunk).reason === 'array-form' ? 'a YAML array' : 'more than one _class comment'}). Edit it directly in the markdown.
+					{/* NOTES */}
+					{activeTab === 'notes' && (
+						<div className="py-2">
+							<textarea
+								value={noteDraft}
+								onChange={(e) => setNoteDraft(e.target.value)}
+								onBlur={commitNote}
+								aria-label="Speaker note for this slide"
+								placeholder="What you'll say on this slide — read aloud in Present, exported to PDF/PPTX notes."
+								className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
+							/>
+							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Read aloud in Present and exported to the PDF/PPTX speaker-notes field.</p>
+							{!editable && (
+								<div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
+									<Info className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />
+									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({readClassDirective(chunk).reason === 'array-form' ? 'a YAML array' : 'more than one _class comment'}), so the look/status controls are hidden. Edit it directly in the markdown.
+								</div>
+							)}
 						</div>
-					) : (
-						<>
-							{/* Look */}
-							<Section label="Look">
-								<Row label="Dark" hint={dark.state === 'inherited' ? 'from deck' : undefined}>
-									{dark.state === 'inherited'
-										? <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">On · deck</span>
-										: <Switch label="Dark canvas" on={dark.state === 'on'} onClick={() => onMutate((c) => setDark(c, dark.state !== 'on'))} />}
-								</Row>
-								<Row label="Type scale">
+					)}
+
+					{/* LOOK */}
+					{activeTab === 'look' && (
+						<div className="py-1">
+							<Row label="Dark" hint={dark.state === 'inherited' ? 'from deck' : undefined}>
+								{dark.state === 'inherited'
+									? <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">On · deck</span>
+									: <Switch label="Dark canvas" on={dark.state === 'on'} onClick={() => onMutate((c) => setDark(c, dark.state !== 'on'))} />}
+							</Row>
+							<Row label="Type scale">
+								<Seg
+									ariaLabel="Type scale"
+									value={cur(scaleAxis)}
+									onChange={(v) => groupSet(scaleAxis, v)}
+									options={[{ label: 'M', value: null }, { label: 'L', value: 'scale-l' }, { label: 'XL', value: 'scale-xl' }, { label: '2XL', value: 'scale-2xl' }]}
+								/>
+							</Row>
+							<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined}>
+								<Picker ariaLabel="Slide finish" value={finishValue} onChange={onFinish} options={finishOptions} />
+							</Row>
+							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined}>
+								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
+							</Row>
+							{(accepts('compact') || accepts('loose')) && (
+								<Row label="Spacing">
 									<Seg
-										ariaLabel="Type scale"
-										value={cur(scaleAxis)}
-										onChange={(v) => groupSet(scaleAxis, v)}
-										options={[{ label: 'M', value: null }, { label: 'L', value: 'scale-l' }, { label: 'XL', value: 'scale-xl' }, { label: '2XL', value: 'scale-2xl' }]}
+										ariaLabel="Density"
+										value={cur(densityAxis)}
+										onChange={(v) => groupSet(densityAxis, v)}
+										options={[{ label: 'Compact', value: 'compact' }, { label: 'Default', value: null }, { label: 'Loose', value: 'loose' }]}
 									/>
 								</Row>
-								<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined}>
-									<Picker ariaLabel="Slide finish" value={finishValue} onChange={onFinish} options={finishOptions} />
-								</Row>
-								<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined}>
-									<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
-								</Row>
-							</Section>
+							)}
+							{accepts('accent') && <Row label="Accent"><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
+						</div>
+					)}
 
-							{/* Density */}
-							{(accepts('compact') || accepts('loose') || accepts('accent')) && (
-								<Section label="Density">
-									{(accepts('compact') || accepts('loose')) && (
-										<Row label="Spacing">
-											<Seg
-												ariaLabel="Density"
-												value={cur(densityAxis)}
-												onChange={(v) => groupSet(densityAxis, v)}
-												options={[{ label: 'Compact', value: 'compact' }, { label: 'Default', value: null }, { label: 'Loose', value: 'loose' }]}
-											/>
+					{/* STATUS */}
+					{activeTab === 'status' && (
+						<div className="py-1">
+							{stateGroup.length > 0 && (
+								<div className="my-1.5">
+									<div className="mb-1.5 text-[12px] text-foreground">Stamp</div>
+									<ChipRow ariaLabel="State stamp" value={cur(stateGroup)} onChange={(v) => groupSet(stateGroup, v)} options={stateGroup.map((s) => ({ label: cap(s), value: s }))} />
+									{hasStampStyles && (
+										<Row label="Style" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined}>
+											<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} options={stampStyleHead} groups={stampStyleGroups} />
 										</Row>
 									)}
-									{accepts('accent') && <Row label="Accent"><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
-								</Section>
+								</div>
 							)}
-
-							{/* Status */}
-							{(stateGroup.length > 0 || toneAxis.length > 0) && (
-								<Section label="Status">
-									{stateGroup.length > 0 && (
-										<div className="my-1.5">
-											<div className="mb-1.5 text-[12px] text-foreground">Stamp</div>
-											<ChipRow ariaLabel="State stamp" value={cur(stateGroup)} onChange={(v) => groupSet(stateGroup, v)} options={stateGroup.map((s) => ({ label: cap(s), value: s }))} />
-											{hasStampStyles && (
-												<Row label="Style" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined}>
-													<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} options={stampStyleHead} groups={stampStyleGroups} />
-												</Row>
-											)}
-										</div>
+							{toneAxis.length > 0 && (
+								<div className="my-2">
+									<div className="mb-1.5 text-[12px] text-foreground">Tone</div>
+									<ChipRow ariaLabel="Tone" value={cur(toneAxis)} onChange={(v) => groupSet(toneAxis, v)} options={toneAxis.map((t) => ({ label: cap(t.replace('tone-', '')), value: t, tone: TONE_SWATCH[t] }))} />
+									{toneStyleTokens.length > 0 && (
+										<Row label="Style" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined}>
+											<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} options={toneStyleOptions} />
+										</Row>
 									)}
-									{toneAxis.length > 0 && (
-										<div className="my-2">
-											<div className="mb-1.5 text-[12px] text-foreground">Tone</div>
-											<ChipRow ariaLabel="Tone" value={cur(toneAxis)} onChange={(v) => groupSet(toneAxis, v)} options={toneAxis.map((t) => ({ label: cap(t.replace('tone-', '')), value: t, tone: TONE_SWATCH[t] }))} />
-											{toneStyleTokens.length > 0 && (
-												<Row label="Style" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined}>
-													<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} options={toneStyleOptions} />
-												</Row>
-											)}
-										</div>
-									)}
-								</Section>
+								</div>
 							)}
+						</div>
+					)}
 
-							{/* Decoration */}
-							{(tints.length > 0 || marks.length > 0) && (
-								<Section label="Decoration">
-									{tints.length > 0 && (
-										<div className="my-1.5">
-											<div className="mb-1.5 text-[12px] text-foreground">Tint</div>
-											<ChipRow ariaLabel="Tint treatment" value={phraseActive(tints)} onChange={(v) => applyPhrase(tints, v)} options={tints.map((p) => ({ label: decorLabel(p), value: p }))} />
-										</div>
-									)}
-									{marks.length > 0 && (
-										<div className="my-2">
-											<div className="mb-1.5 text-[12px] text-foreground">Mark</div>
-											<ChipRow ariaLabel="Mark treatment" value={phraseActive(marks)} onChange={(v) => applyPhrase(marks, v)} options={marks.map((p) => ({ label: decorLabel(p), value: p }))} />
-										</div>
-									)}
-								</Section>
+					{/* DECORATION */}
+					{activeTab === 'decoration' && (
+						<div className="py-1">
+							{tints.length > 0 && (
+								<div className="my-1.5">
+									<div className="mb-1.5 text-[12px] text-foreground">Tint</div>
+									<ChipRow ariaLabel="Tint treatment" value={phraseActive(tints)} onChange={(v) => applyPhrase(tints, v)} options={tints.map((p) => ({ label: decorLabel(p), value: p }))} />
+								</div>
 							)}
+							{marks.length > 0 && (
+								<div className="my-2">
+									<div className="mb-1.5 text-[12px] text-foreground">Mark</div>
+									<ChipRow ariaLabel="Mark treatment" value={phraseActive(marks)} onChange={(v) => applyPhrase(marks, v)} options={marks.map((p) => ({ label: decorLabel(p), value: p }))} />
+								</div>
+							)}
+						</div>
+					)}
 
-							{/* Chrome */}
-							<Section label="Chrome">
-								<Row label="Clean slide" hint="hide chrome"><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
-								{!has('silent') && (
-									<div className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
-										<Row label="Hide header"><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
-										<Row label="Hide footer"><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
-										<Row label="Hide page number"><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>
-									</div>
-								)}
-								{/* The section-progress rail is independent of `silent` (which covers
-								    only header/footer/pagination), so it sits at section level. */}
-								<Row label="Hide rail" hint="section dots"><Switch label="Hide section rail" on={has('no-progress')} onClick={() => toggle('no-progress')} /></Row>
-							</Section>
-						</>
+					{/* CHROME */}
+					{activeTab === 'chrome' && (
+						<div className="py-1">
+							<Row label="Clean slide" hint="hide chrome"><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
+							{!has('silent') && (
+								<div className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+									<Row label="Hide header"><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
+									<Row label="Hide footer"><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
+									<Row label="Hide page number"><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>
+								</div>
+							)}
+							{/* The section-progress rail is independent of `silent` (which covers
+							    only header/footer/pagination), so it sits at section level. */}
+							<Row label="Hide rail" hint="section dots"><Switch label="Hide section rail" on={has('no-progress')} onClick={() => toggle('no-progress')} /></Row>
+						</div>
 					)}
 				</div>
 

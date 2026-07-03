@@ -39,6 +39,21 @@ in patch versions.
 
 ### Changed
 
+- **Studio: the per-slide "Slide settings" drawer is organized into pill-tabs.**
+  The drawer that was one long scroll of ~19 controls now groups them behind
+  Workspace-style pill-tabs — **Look** (default: dark, type scale, finish, brand
+  bar, density, accent) · **Status** (stamp + tone + shapes) · **Decoration**
+  (tint + mark) · **Chrome** (clean-slide + hides) · **Notes** (speaker note).
+  Tabs are dynamic: a tab renders only when it has content for the active slide,
+  so a hand-authored (non-round-trippable) slide collapses to the Notes tab
+  alone. Reset stays pinned at the top and the emitted `_class` line at the
+  bottom. The trigger is now a proper icon button (a `SquarePen` glyph, titled
+  "Slide settings") matching the editor header's other controls, and the tablist
+  is a shared `PillTabs` primitive the Workspace sheet also uses. The deck
+  Inspector stays grouped (it is a glanceable reference column — tabbing it would
+  be a regression). See
+  `engineering/decisions/2026-07-03-slide-settings-pill-tabs.md`.
+
 - **Studio: the real brand mark and a two-row phone toolbar.** The topbar
   (and focus header) now render the Spectrum Cell mark instead of a text "L"
   tile — inlined so its colors follow the Studio's own light/dark mode, not

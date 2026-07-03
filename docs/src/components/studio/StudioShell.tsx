@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft,
-	Copy, Eye, FileBox, FileText, Focus, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, StickyNote, Sun, Trash2, Upload, Volume2, Wand2, X,
+	Copy, Eye, FileBox, FileText, Focus, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, SquarePen, Sun, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -1234,7 +1234,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				)}
 				{insertComponents.length > 0 && <button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component" title="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button>}
 				<button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues" title="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
-				<button type="button" onClick={() => setNotesOpen(true)} aria-label="This slide" title="This slide — note, look, status, chrome" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]"><StickyNote className="size-3" /><span className="hidden @[36rem]:inline">This slide</span></button>
+				<Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes" className="text-[var(--accent)] hover:bg-[var(--accent-soft)]"><SquarePen className="size-[18px]" /></Button>
 				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
 				{splitUsable && (
 					<Button variant="ghost" size="icon-sm" aria-label="Collapse editor" title="Collapse editor — or drag the divider past its minimum" onClick={() => collapseFromHeader('a')}>
@@ -1541,7 +1541,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</div>
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
-						{mobilePane === 'preview' && <button type="button" onClick={() => setNotesOpen(true)} aria-label="This slide" title="This slide — note, look, status, chrome" className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><StickyNote className="size-4" /></button>}
+						{mobilePane === 'preview' && <button type="button" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes" className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><SquarePen className="size-4" /></button>}
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
