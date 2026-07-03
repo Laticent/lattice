@@ -76,4 +76,16 @@ describe('resolve-tone-style', () => {
       assert.ok(new RegExp(`\\.${cls}\\b`).test(css), `${cls} is registered but base.variants.css has no rule`);
     }
   });
+
+  // `tone: edge` RECOLORS the spectrum (border-top), it does NOT paint a separate top
+  // box-shadow band that would fight the brand bar (the Respect+Recolor decision,
+  // 2026-07-03 §9). Guard the mechanism so a refactor can't silently reintroduce the band.
+  test('tone-edge recolors the spectrum border, gated on a semantic tone', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
+    const rule = css.match(/section:is\([^)]*\)\.tone-edge\s*\{[^}]*\}/);
+    assert.ok(rule, 'tone-edge should be gated on a semantic tone via section:is(...).tone-edge');
+    assert.match(rule[0], /border-top:[^;]*var\(--tone-color\)/, 'tone-edge should recolor the top border with --tone-color');
+    assert.match(rule[0], /border-image:\s*none/, 'tone-edge should clear the spectrum border-image');
+    assert.match(rule[0], /--tone-rail:\s*0 0 transparent/, 'tone-edge should suppress the box-shadow band');
+  });
 });

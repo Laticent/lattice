@@ -6,9 +6,14 @@
  * See lib/components/divider/divider.manifest.json for the component contract.
  */
 
-section.divider { background:var(--surface-inverse); padding-left:calc(var(--_sec-1cqi,1cqi)*9.375); justify-content:center; align-items:flex-start; }
+/* The left-edge spectrum rail rides the section BACKGROUND (a left gradient strip over
+ * the inverse fill), NOT a ::before — so a state stamp's ::before can still render on a
+ * divider slide. The rail and the stamp used to fight for the single ::before, erasing
+ * one; background-vs-::before keeps both. (box-shadow can't carry the rainbow gradient,
+ * so background is the right layer.) See
+ * engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
+section.divider { background:var(--spectrum-vertical, var(--spectrum)) left / 0.46875cqi 100% no-repeat, var(--surface-inverse); padding-left:calc(var(--_sec-1cqi,1cqi)*9.375); justify-content:center; align-items:flex-start; }
 section.divider { border-top: none; }
-section.divider::before { content:''; position:absolute; left:0; top:0; bottom:0; width:0.46875cqi; background:var(--spectrum-vertical, var(--spectrum)); }
 /* Section heading slot is h2 — a divider names a section of the deck, not
  * its document title; the lone h1 belongs to `title`. Rendered at --fs-h1
  * so the section headline keeps its full dark-canvas weight. */
@@ -21,6 +26,5 @@ section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-widt
  * Sits between a dark divider and a run of content slides for finer
  * orientation. Merged from the standalone subtopic on 2026-06-07. */
 section.divider.light { background:var(--bg); padding-left:0; justify-content:center; align-items:center; }
-section.divider.light::before { content:none; }
 section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; padding-bottom:var(--sp-sm); text-align:center; line-height:var(--lh-tight); }
 section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; line-height:var(--lh-relaxed); margin:0; text-align:center; }

@@ -81,4 +81,13 @@ describe('resolve-stamp', () => {
       assert.ok(new RegExp(`\\.${cls}\\b`).test(css), `${cls} is registered but base.variants.css has no rule`);
     }
   });
+
+  // Coexistence guard (2026-07-03 §9): state stamps render via `::before`, so the divider
+  // left spectrum rail must NOT use `::before` (it would erase the stamp on a
+  // `divider confidential` slide). The rail rides the section BACKGROUND instead.
+  test('the divider spectrum rail does not use ::before (keeps it free for state stamps)', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/components/anchor/divider/divider.styles.css'), 'utf8');
+    assert.ok(!/section\.divider::before/.test(css), 'divider must not paint its rail with ::before — it collides with the state-stamp ::before');
+    assert.match(css, /section\.divider\s*\{[^}]*background:[^}]*var\(--spectrum/, 'the divider rail should ride the section background gradient');
+  });
 });

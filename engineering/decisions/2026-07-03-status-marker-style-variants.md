@@ -158,9 +158,44 @@ now show the corner tab by default. Flagged in the PR; a deck can restore the do
    (+ PDF) showing every marker × the boardroom styles; unit tests for the registers;
    verify on the live browser Studio + PDF; maker-checker; PR.
 
+## 9. Spectrum collision — Respect + Recolor (2026-07-03)
+
+`tone: edge` originally painted a *separate* top box-shadow band, which fought the
+**spectrum** — the rainbow brand bar every `<section>` carries on its top border
+(`base.elements.css`), and which a `divider` slide carries as a *left* rail
+(`divider.styles.css`). Red-teamed with an independent chair; the framed options were
+(A) respect the spectrum, (B) make the spectrum deck-configurable, (C) shift tone to the
+bottom/right edge. Findings that decided it:
+
+- **C is a trap.** 10 of 13 state stamps already cluster top-**right**; the **bottom** is
+  owned by the footer (bottom-left), pagination (bottom-right), and finish ghost-numerals
+  (bottom-right). Both "free" edges are the busiest — moving tone there trades one
+  collision for another. Tone stays **left** (its box-shadow *composes*, it never erased).
+- **B is white-label, not a status fix.** A deck toggle that hides the brand bar to fit a
+  transient status marker inverts the priority. A `spectrum:` register is a legitimate
+  **white-label** feature (client-brand > Lattice-brand) but a *separate* PR (HARD RULE
+  #17/#8) — not folded into the status work.
+- **A, done by recolor, wins.** `tone: edge` now **recolors the spectrum itself** with the
+  tone color (`border-top` solid `--tone-color`, `border-image: none`) — the exact move
+  the `accent` modifier already makes (`shared.styles.css`), so it's precedent, not a new
+  idiom. One edge, dual-purpose, zero new geometry. Gated on a semantic tone; a no-op
+  where the spectrum is absent (dark/divider slides).
+
+**Divider `::before` erasure (fixed in-scope).** The red-team surfaced a latent bug: the
+divider's left spectrum rail was a `::before` — the *same* pseudo every state stamp owns —
+so `divider confidential` erased one of the two. Fixed by moving the divider rail onto the
+section **background** (a left gradient strip), which frees `::before` for the stamp.
+box-shadow can't carry the rainbow gradient, so background (not box-shadow) is the right
+layer — this also sidesteps any interaction with the tone rail's box-shadow composition.
+
 ## 8. Do-not-regress
 
 - The tone rail stays box-shadow + backdrop-inset over finishes (2026-07-03).
+- `tone: edge` recolors the spectrum (never a separate top band that fights it); it is a
+  no-op where the spectrum is absent (dark/divider/accent slides).
+- The divider left rail rides the section background, never a `::before` (keeps the
+  `::before` free for state stamps — `divider confidential` shows both).
 - State stamps never re-enter a pseudo shared with tone or pagination.
 - Every stamp/tone color stays a palette token — no hex (HARD RULE #3).
 - Masthead-less forms never render an invisible stamp (the tab default guarantees it).
+- The white-label `spectrum:` register is a SEPARATE feature — never folded into this PR.

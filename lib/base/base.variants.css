@@ -107,8 +107,21 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
 /* `tone-rail` is the default shape; it is ALSO a first-class token so a per-slide (or
    drawer) pick of "rail" restores the left rail even over a deck-wide `tone: edge`. */
 section.tone-rail { --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); }  /* left rail (explicit) */
-section.tone-edge { --tone-rail: inset 0 0.45cqi 0 0 var(--tone-color); }  /* top edge band */
 section.tone-glow { --tone-rail: inset 0 0 0 0.35cqi var(--tone-color); }  /* full inset ring */
+
+/* `tone: edge` RECOLORS the spectrum brand bar (the top border) with the tone color,
+   rather than painting a SEPARATE top band that would fight it — the same move the
+   `accent` modifier makes (lib/shared/shared.styles.css). It suppresses the box-shadow
+   band and re-paints the top border solid in --tone-color. Gated on a SEMANTIC tone
+   (which supplies --tone-color), so a bare `tone-edge` on a tone-less slide leaves the
+   spectrum untouched; where the spectrum is absent (dark/divider slides set
+   border-top:none) it is a clean no-op. See
+   engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
+  --tone-rail: 0 0 transparent;   /* no box-shadow band — the recolored border carries the tone */
+  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid var(--tone-color); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+  border-image: none;
+}
 
 /* ── STATE ── meta indicators about the slide itself ────────────────── */
 

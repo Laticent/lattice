@@ -642,14 +642,16 @@ subset first, then the wider range).
 The wider range (also valid, surfaced under "More"): `ribbon`, `flag`,
 `underline`, `dot`, `mark`, `veil`, `bar`, `pin`.
 
-`tone:` — the **tone-marker shape** (the box-shadow band a `tone-*` color paints
-in). The default (omit the key) is the left `rail`. All three are box-shadow-shaped,
-so they never collide with the state `::before` or the pagination `::after`:
+`tone:` — the **tone-marker shape** (how a `tone-*` color paints). The default (omit
+the key) is the left `rail`. `rail` and `glow` are box-shadow-shaped, so they never
+collide with the state `::before` or the pagination `::after`. `edge` **recolors the
+spectrum brand bar** itself (the top border) with the tone color — the same move the
+`accent` modifier makes — instead of a competing top band that would fight it:
 
 | `tone:` value | Shape |
 |---|---|
 | `rail` | A left edge rail. **The default.** |
-| `edge` | A top edge band. |
+| `edge` | Recolors the top spectrum bar with the tone color (needs a semantic tone; a no-op where the spectrum is absent, e.g. a dark/divider slide). |
 | `glow` | A full inset ring. |
 
 Every marker uses the SAME shape by default (a coherent family, not a per-marker
