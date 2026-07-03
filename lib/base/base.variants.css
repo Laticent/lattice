@@ -37,6 +37,11 @@ section.no-header > header {
 }
 section.silent > footer,
 section.no-footer > footer {
+  /* Legacy / non-Form decks — the footer is a direct `> footer` child here, so
+   * this reaches it. The migrated Form frame nests the footer as
+   * `section > .cell-footer > footer`, which this direct-child selector does NOT
+   * match, so the Form suppression lives beside the show rule in stage.css
+   * (`section.form.no-footer > .cell-footer > footer`). */
   display: none;
 }
 section.silent.silent::after,

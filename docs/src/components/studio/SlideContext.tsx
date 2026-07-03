@@ -420,6 +420,9 @@ export function SlideContext(props: SlideContextProps) {
 										<Row label="Hide page number"><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>
 									</div>
 								)}
+								{/* The section-progress rail is independent of `silent` (which covers
+								    only header/footer/pagination), so it sits at section level. */}
+								<Row label="Hide rail" hint="section dots"><Switch label="Hide section rail" on={has('no-progress')} onClick={() => toggle('no-progress')} /></Row>
 							</Section>
 						</>
 					)}

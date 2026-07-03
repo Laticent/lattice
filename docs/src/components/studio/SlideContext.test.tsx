@@ -8,7 +8,7 @@ const lintVocab = {
 		mood: ['dark'],
 		decoration: ['treatment-none', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette', 'tint-edge at-right', 'mark-threads'],
 		typography: ['with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl'],
-		chrome: ['silent', 'no-header', 'no-footer', 'no-paginate'],
+		chrome: ['silent', 'no-header', 'no-footer', 'no-paginate', 'no-progress'],
 		state: ['wip', 'draft', 'confidential'],
 		tone: ['tone-pass', 'tone-warn', 'tone-fail', 'tone-skip'],
 	},
@@ -101,6 +101,12 @@ describe('SlideContext drawer', () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		fireEvent.click(screen.getByRole('switch', { name: /silent/i }));
 		expect(applied()).toContain('silent');
+	});
+
+	it('toggles the section rail off (no-progress), independent of silent', () => {
+		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
+		fireEvent.click(screen.getByRole('switch', { name: /hide section rail/i }));
+		expect(applied()).toContain('no-progress');
 	});
 
 	it('sets a per-slide finish from the picker', () => {

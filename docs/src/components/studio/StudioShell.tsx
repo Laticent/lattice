@@ -24,7 +24,7 @@ import { Editor, type EditorHandle } from './Editor';
 import { activeFinishLabel, FinishMenuItems, type SavedFinishMenuEntry } from './FinishPicker';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, setFrontMatter, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { LatticeMark } from './LatticeMark';
@@ -352,6 +352,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const deckSize = getFrontMatter(source, 'size') || '16:9';
 	const pageNumbers = getFrontMatter(source, 'paginate') === 'true';
 	const headerFooter = getFrontMatter(source, 'header') != null;
+	const footer = getFrontMatter(source, 'footer') != null;
+	// The section-progress rail has no native Marp directive (unlike header/footer/
+	// paginate), so it is governed deck-wide by the `no-progress` class token
+	// propagated to every slide (deckClassPropagate). ON is the default; the toggle
+	// stamps / clears `no-progress`.
+	const deckRail = !(getFrontMatter(source, 'class') || '').split(/\s+/).includes('no-progress');
 	// …and WRITE to it (the editor + every export update in lock-step).
 	const finish = getFrontMatter(source, 'finish') || 'none';
 	// A finish's backdrop is BAKED into its CSS (a 5th finish layer, generateFinishCss →
@@ -478,6 +484,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const setDeckSize = (value: string) => setSource((s) => setFrontMatter(s, 'size', value));
 	const togglePageNumbers = () => setSource((s) => setFrontMatter(s, 'paginate', pageNumbers ? null : 'true'));
 	const toggleHeaderFooter = () => setSource((s) => setFrontMatter(s, 'header', getFrontMatter(s, 'header') != null ? null : deck.title));
+	const toggleFooter = () => setSource((s) => setFrontMatter(s, 'footer', getFrontMatter(s, 'footer') != null ? null : deck.title));
+	// Rail ON → clear `no-progress`; rail OFF → stamp it (deck-wide, non-destructive
+	// to any other author classes).
+	const toggleDeckRail = () => setSource((s) => (deckRail ? mergeClassTokens(s, 'no-progress') : removeClassTokens(s, 'no-progress')));
 
 	function loadDeck(d: StudioDeck) {
 		// Flush the current deck's edits before leaving it (the debounce may not
@@ -1131,6 +1141,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</Field>
 					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 				<Field label="Running header"><Toggle label="Running header" on={headerFooter} onClick={toggleHeaderFooter} /></Field>
+				<Field label="Footer"><Toggle label="Footer" on={footer} onClick={toggleFooter} /></Field>
+				<Field label="Section rail"><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 			</InspGroup>
 			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring">
 				<Field label="Inline validation"><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>

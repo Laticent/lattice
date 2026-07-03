@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, setFrontMatter, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, stripFrontMatter } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
 
@@ -122,5 +122,29 @@ describe('mergeClassTokens — finish class injection MERGES, never clobbers (ME
 		const src = '---\nclass: dark\n---\n\n# Deck';
 		expect(mergeClassTokens(src, '')).toBe(src);
 		expect(mergeClassTokens(src, '   ')).toBe(src);
+	});
+});
+
+describe('removeClassTokens — the inverse of mergeClassTokens', () => {
+	it('drops a token, preserving the author tokens and their order', () => {
+		const src = '---\nclass: dark no-progress wide\n---\n\n# Deck';
+		expect(getFrontMatter(removeClassTokens(src, 'no-progress'), 'class')).toBe('dark wide');
+	});
+
+	it('removes the class: key entirely when the last token goes', () => {
+		const src = '---\nclass: no-progress\n---\n\n# Deck';
+		expect(getFrontMatter(removeClassTokens(src, 'no-progress'), 'class')).toBeUndefined();
+	});
+
+	it('is a no-op when the token is absent, or no class: / no tokens', () => {
+		const src = '---\nclass: dark\n---\n\n# Deck';
+		expect(removeClassTokens(src, 'no-progress')).toBe(src);
+		expect(removeClassTokens('---\ntheme: indaco\n---\n\n# Deck', 'no-progress')).toBe('---\ntheme: indaco\n---\n\n# Deck');
+		expect(removeClassTokens(src, '')).toBe(src);
+	});
+
+	it('round-trips with mergeClassTokens (stamp then clear leaves the original)', () => {
+		const src = '---\nclass: dark\n---\n\n# Deck';
+		expect(removeClassTokens(mergeClassTokens(src, 'no-progress'), 'no-progress')).toBe(src);
 	});
 });

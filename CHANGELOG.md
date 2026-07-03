@@ -76,6 +76,18 @@ in patch versions.
   `lib/core/resolve-spectrum.js`; design:
   `engineering/decisions/2026-07-03-spectrum-register-white-label.md`.
 
+- **The chrome-control matrix is complete — every band toggles at both slide and
+  deck scope.** Authors can now show or hide the running header, footer, page
+  number, and section rail at *both* scopes. New this release: a deck-wide
+  **Footer** control (the native `footer:` directive, mirroring `header:`), a
+  deck-wide **Section rail** control (propagates `class: no-progress`), and a
+  per-slide **Hide rail** toggle (`no-progress`) in the Studio's *This slide*
+  Chrome section. Header (`header:` / `no-header`), page number (`paginate:` /
+  `no-paginate`), and `silent` were already present; this fills the two missing
+  cells (deck-wide footer, rail at either scope). Full matrix:
+  `docs/src/content/docs/guides/authoring.md` (Chrome) and
+  `design/design-system.md` §6.5.
+
 - **The Studio's Notes button is now a "This slide" drawer** — a context-sensitive
   editor for one slide's craft, beyond the speaker note. Toggle **dark** (tri-state:
   it reads "inherited" when the deck is dark, never a broken off), pick a **type
@@ -327,6 +339,16 @@ in patch versions.
   `engineering/decisions/2026-07-02-contribution-model.md`.
 
 ### Fixed
+
+- **`no-footer` / `silent` now actually hide the running footer on Form decks.**
+  The migrated Form frame nests the footer text in `.cell-footer`, and an
+  unlayered `display:flex` beat the base `section.no-footer > footer` rule (which
+  is in `@layer universal`), so `no-footer` and `silent` silently left the footer
+  visible on the default composition — including the Studio's "Hide footer"
+  toggle. The suppression now lives in the same unlayered context, scoped to
+  `.form` (only the footer text hides; the page number and rail keep their berth
+  in the band). Guarded by a real-render computed-style test
+  (`test/integration/invariants/chrome-suppression.test.js`).
 
 - **State markers (`confidential` / `wip` / `draft`) no longer vanish on
   masthead-less form layouts** (`quote`, `big-number`). The form status Tile

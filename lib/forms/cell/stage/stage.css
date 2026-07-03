@@ -180,6 +180,18 @@ section.form > .cell-footer > footer {
   align-items: center;
   max-width: var(--footerleft-w, 52cqi);
 }
+/* `no-footer` / `silent` drop the running footer text on a Form deck. The base
+ * variant rule `section.no-footer > footer` is a DIRECT-CHILD selector, so it
+ * structurally cannot reach the migrated footer, which nests as
+ * `section > .cell-footer > footer` — it never matched here at all. Counter the
+ * show rule above from this same (unlayered) context, mirroring the claim-hero/
+ * bleed footer recede below. Adding the chrome class → (0,3,2) beats the show
+ * rule's (0,2,2) on class-count (and it is later in source order). Only the footer
+ * text is hidden; pagination + rail keep their berth in the band. */
+section.form.no-footer > .cell-footer > footer,
+section.form.silent > .cell-footer > footer {
+  display: none;
+}
 /* The page number as a real element — mono, --fs-meta, vertically centred with the
  * footer text + rail, matching the retired pseudo's appearance. */
 section.form > .cell-footer > .lat-pagination {
