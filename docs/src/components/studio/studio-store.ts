@@ -265,6 +265,25 @@ export type StudioExport = {
 	instructions: string;
 };
 
+/**
+ * Every deck's CURRENT full source — edited override where one exists, the
+ * canonical built-in source otherwise. This is what the backup's readable
+ * decks/ copies pack: a person inspecting their backup must see EVERY deck
+ * from the switcher, not just the ones they happen to have touched (the
+ * edited-only variant shipped first and read as "my decks weren't backed up").
+ */
+export function resolvedSources(): { entry: IndexEntry; source: string }[] {
+	return loadIndex().map((entry) => ({ entry, source: loadSource(entry.id) ?? canonicalSource(entry) }));
+}
+
+// Ask the live shell to flush its debounced editor save (StudioShell persists
+// the active deck's source on a 400ms debounce) — dispatched by the backup
+// path so a download taken mid-keystroke can't miss the newest edits.
+export const FLUSH_EVENT = 'lattice:flush-deck';
+export function requestSourceFlush(): void {
+	if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(FLUSH_EVENT));
+}
+
 /** Snapshot everything user-authored in the Studio's localStorage. */
 export function exportStudioState(): StudioExport {
 	const index = loadIndex();

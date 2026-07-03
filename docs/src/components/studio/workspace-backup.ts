@@ -26,7 +26,7 @@ import { packBundle, unpackBundle } from './asset-bundle';
 import { listStudioComponents, saveStudioComponent } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
-import { exportStudioState, type ImportSummary, importStudioState, type StudioExport, titleFromSource } from './studio-store';
+import { exportStudioState, type ImportSummary, importStudioState, requestSourceFlush, resolvedSources, type StudioExport } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
 
 export const WORKSPACE_FORMAT = 'lattice-workspace/1';
@@ -55,21 +55,26 @@ const fileSlug = (title: string, id: string) =>
  * stamp) so the module stays clock-free and deterministic under test.
  */
 export async function packWorkspace(now: number): Promise<Blob> {
+	// The shell persists the active deck on a 400ms debounce — flush it first,
+	// or a backup taken mid-keystroke misses the newest edits (and a JUST-edited
+	// built-in would have no stored source at all and drop out entirely).
+	requestSourceFlush();
 	const state = exportStudioState();
 	const [themes, components, finishes, refdocs] = await Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs()]);
 
 	const zip = await jszip();
 	zip.file('workspace.json', JSON.stringify(state, null, 2));
 
-	// Readable copies — every deck's CURRENT source (edited override or none).
+	// Readable copies — EVERY deck in the switcher, at its current source
+	// (edited override or the canonical built-in). workspace.json still carries
+	// edited sources only (untouched built-ins re-seed on restore); decks/ is
+	// for the human inspecting the file, and it must match the deck list.
 	const seen = new Set<string>();
-	for (const entry of state.index) {
-		const src = state.sources[entry.id];
-		if (src == null) continue; // untouched built-in: canonical source, nothing of the user's
-		let name = fileSlug(entry.title || titleFromSource(src), entry.id);
+	for (const { entry, source } of resolvedSources()) {
+		let name = fileSlug(entry.title, entry.id);
 		while (seen.has(name)) name = `${name}-2`;
 		seen.add(name);
-		zip.file(`decks/${name}.md`, src);
+		zip.file(`decks/${name}.md`, source);
 	}
 
 	// The Library rides as a nested lattice-asset/1 bundle (no showcase PDFs).

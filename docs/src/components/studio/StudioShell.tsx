@@ -33,7 +33,7 @@ import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
 import { getNote, setNote } from './slide-notes';
 import { listFindings } from './studio-lint';
-import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { useBreakpoint } from './use-breakpoint';
@@ -297,6 +297,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		}
 		const id = setTimeout(() => saveSource(deck.id, source), 400);
 		return () => clearTimeout(id);
+	}, [source, deck.id]);
+	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
+	// for an immediate write-through, so a download can't race the 400ms timer
+	// above — without this, a JUST-edited built-in deck could drop out of the
+	// backup entirely (no stored source yet at pack time).
+	React.useEffect(() => {
+		const flush = () => saveSource(deck.id, source);
+		window.addEventListener(FLUSH_EVENT, flush);
+		return () => window.removeEventListener(FLUSH_EVENT, flush);
 	}, [source, deck.id]);
 
 	// Persist the editor preference as it changes.

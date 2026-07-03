@@ -37,6 +37,15 @@ back in: export was per-deck artifacts + per-asset zips only.
 Store knowledge stays in `studio-store.ts` (`exportStudioState` /
 `importStudioState`); the backup module only packs, parses, and orchestrates.
 
+Two rules earned by on-device testing (decks looked "randomly missing"):
+`decks/` carries **every** deck at its resolved source (edited override or the
+canonical built-in) so the readable folder always matches the switcher and the
+manifest count, while `workspace.json` keeps edited sources only (untouched
+built-ins re-seed on restore). And packing first dispatches `FLUSH_EVENT` so
+the shell writes through its **400ms-debounced** editor save — without it, a
+backup taken mid-keystroke misses the newest edits, and a just-edited built-in
+(no stored source yet) dropped out of the zip entirely.
+
 **Excluded on purpose:** the OpenRouter key + PKCE verifier (a backup gets
 emailed and synced; secrets don't ride in it — reconnecting is one click) and
 theme showcase PDFs (re-renderable weight). A unit test asserts the key can

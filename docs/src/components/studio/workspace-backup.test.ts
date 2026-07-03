@@ -38,6 +38,39 @@ describe('workspace-backup — zip anatomy', () => {
 		expect(await zip.file('decks/quarterly-plan.md')!.async('string')).toContain('# Quarterly plan');
 	});
 
+	it('decks/ contains EVERY deck in the switcher, untouched built-ins included', async () => {
+		// The regression the on-device inspection caught: edited-only copies made
+		// the zip look like decks were randomly missing (they varied with which
+		// decks the user had touched). The readable folder must match the manifest.
+		seedWorkspace();
+		const blob = await packWorkspace(T0);
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(blob);
+		const manifest = JSON.parse(await zip.file('manifest.json')!.async('string'));
+		const deckFiles = Object.keys(zip.files).filter((n) => n.startsWith('decks/') && n.endsWith('.md'));
+		expect(deckFiles.length).toBe(manifest.counts.decks);
+		// An untouched built-in ships its canonical source.
+		const untouched = deckFiles.find((n) => !n.includes('quarterly-plan'));
+		expect(untouched).toBeTruthy();
+		expect((await zip.file(untouched!)!.async('string')).length).toBeGreaterThan(0);
+	});
+
+	it('packing flushes the live editor debounce first (the mid-keystroke race)', async () => {
+		seedWorkspace();
+		// Simulate the shell's flush listener: the newest source only lands in
+		// localStorage when the flush event fires.
+		const listener = () => saveSource('deck-aaa', '# Quarterly plan\n\nFlushed at pack time.');
+		window.addEventListener('lattice:flush-deck', listener);
+		try {
+			const blob = await packWorkspace(T0);
+			const { default: JSZip } = await import('jszip');
+			const zip = await JSZip.loadAsync(blob);
+			expect(await zip.file('decks/quarterly-plan.md')!.async('string')).toContain('Flushed at pack time');
+		} finally {
+			window.removeEventListener('lattice:flush-deck', listener);
+		}
+	});
+
 	it('never packs the OpenRouter key, even if present', async () => {
 		seedWorkspace();
 		localStorage.setItem('lattice-db-or-key', 'sk-secret-123');
