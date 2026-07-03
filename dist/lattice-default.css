@@ -17510,6 +17510,18 @@ section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .
   line-height: 1;
 }
 
+/* Non-flipping dark bookends (title / closing / a dark divider) paint a dark surface
+   via --surface-inverse but deliberately KEEP color-scheme:light so their explicit
+   --text-display headings hold (base.modifiers.css, inline-code note). That would leave
+   the marker's light-dark() --stamp-color resolving to its faint LIGHT value on the dark
+   field. Flip the marker PSEUDO's own color-scheme so the label picks the bright on-dark
+   side — the same targeted rebind the inline-code chip uses. divider.light is bright, so
+   it is excluded. */
+section:is(.title, .closing)::before,
+section.divider:not(.light)::before {
+  color-scheme: dark;
+}
+
 /* ── DEFAULT + TAB — a filled corner tab hugging top-right, inner diagonal notch. */
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
 section.stamp-tab::before {
