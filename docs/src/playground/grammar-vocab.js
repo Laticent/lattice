@@ -28,10 +28,11 @@ export const PAGINATE_VALUES = ['true', 'false', 'skip', 'hold'];
 
 // Value vocabulary for the deck-level `form:` front-matter toggle — the Form
 // composition model. 'standard' = masthead band + bay + progress rail (the
-// DEFAULT, so an absent `form:` key composes as standard); 'minimal' = band +
-// bay, no rail; 'off' = disabled (the opt-out). Mirrors FORM_MODES in
-// lib/integrations/markdown-it/plugins.js.
-export const FORM_VALUES = ['off', 'standard', 'minimal'];
+// DEFAULT, so an absent `form:` key composes as standard); 'off' = disabled (the
+// opt-out). Mirrors FORM_MODES in lib/integrations/markdown-it/plugins.js.
+// (`minimal` retired 2026-07-03 — its "form, no rail" look is now the deck-wide
+// `class: no-progress` chrome control.)
+export const FORM_VALUES = ['off', 'standard'];
 
 // Value vocabulary for the deck-level `autosplit:` front-matter toggle — opt the
 // deck into the Fit Ladder's SPLIT move (an over-capacity slide is divided across

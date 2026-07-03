@@ -4,11 +4,13 @@
  * TAIL_SOURCES (already declared in build-css.js, file just didn't
  * exist until now).
  *
- * Three modifiers:
+ * Two modifiers:
  *   compact  — shrinks the --sp-* scale ~25%
- *   loose    — inverse of compact, more breathing room
  *   accent   — replaces the spectrum top-border with a single-colour
  *              accent stripe and tints the slide heading
+ *
+ * (`loose` — the inverse of compact — was retired 2026-07-03: 0 real uses, and
+ *  `claim` now owns "give the content the stage." See the decision doc.)
  *
  * Per the three-tier modifier model in design-system.md §6.5: components
  * either accept these by default or opt out via the `excludes` field
@@ -29,19 +31,6 @@ section.compact {
   --sp-lg: 1.875cqi;
   --sp-xl: 2.8125cqi;
   --sp-2xl: 3.75cqi;
-}
-
-/* ── loose ──────────────────────────────────────────────────────────────
- * More breathing room. Inverse of compact. */
-section.loose {
-  --sp-3xs: 0.1953125cqi;
-  --sp-2xs: 0.390625cqi;
-  --sp-xs: 0.78125cqi;
-  --sp-sm: 1.5625cqi;
-  --sp-md: 2.34375cqi;
-  --sp-lg: 3.125cqi;
-  --sp-xl: 4.6875cqi;
-  --sp-2xl: 6.25cqi;
 }
 
 /* ── accent ─────────────────────────────────────────────────────────────

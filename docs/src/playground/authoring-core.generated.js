@@ -657,6 +657,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
       if (vocab.spectrumNames) findings.push(...findUnknownSpectrum(source, vocab.spectrumNames));
       findings.push(...findRetiredBackdrop(source));
+      findings.push(...findRetiredFormMinimal(source));
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
@@ -1006,6 +1007,20 @@ ${indent}   - ${body.trim()}`;
         line: "backdrop:",
         message: "top-level `backdrop:` is retired \u2014 backdrop is a baked finish layer now, so this block silently no-ops",
         fix: "Bake the backdrop into the finish in Fabricate, then tune it under `finish-override:` (e.g. `finish-override:` \u2192 `backdrop:` \u2192 `strength: 0.4`)."
+      }];
+    }
+    function findRetiredFormMinimal(source) {
+      const fmBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      if (!/^form:\s*["']?minimal["']?\s*$/im.test(fmBlock[1])) return [];
+      return [{
+        slide: 0,
+        rule: "retired-form-minimal",
+        severity: "warning",
+        classToken: "form",
+        line: "form: minimal",
+        message: "`form: minimal` is retired \u2014 it resolves to `standard` now (the progress rail returns)",
+        fix: "Drop the `form: minimal` key (Form is on by default) and hide just the rail with the `no-progress` chrome control \u2014 deck-wide `class: no-progress`, or per-slide `no-progress`."
       }];
     }
     function findUnknownSplit(source, splitNames) {

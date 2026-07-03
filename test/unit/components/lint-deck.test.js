@@ -228,6 +228,21 @@ describe('deck linter', () => {
     assert.equal(ok.filter((x) => /backdrop/.test(x.rule)).length, 0);
   });
 
+  test('warns that a deck-wide `form: minimal` is retired (migrate to the rail control)', () => {
+    // Retired 2026-07-03: `form: minimal` only added `no-progress`; that look is now the
+    // `no-progress` chrome control. A lingering key silently resolves to standard, so it
+    // earns one migration warning.
+    const bad = lintText('---\ntheme: indaco\nform: minimal\n---\n\n## H.\n', { vocab });
+    const retired = bad.filter((x) => x.rule === 'retired-form-minimal');
+    assert.equal(retired.length, 1, 'exactly one migration warning for the retired toggle');
+    assert.equal(retired[0].classToken, 'form');
+    // `form: standard` / `form: off` are live values → no warning.
+    for (const v of ['standard', 'off']) {
+      const ok = lintText(`---\ntheme: indaco\nform: ${v}\n---\n\n## H.\n`, { vocab });
+      assert.equal(ok.filter((x) => x.rule === 'retired-form-minimal').length, 0, `form: ${v} is live`);
+    }
+  });
+
   test('every committed deck is completely lint-clean (no errors, no warnings)', () => {
     // The deck tree is clean and the gate is --strict, so warnings count too.
     // Locks in the fixes for the baseline gallery (cards-stack inline-title),

@@ -1103,16 +1103,16 @@ Adoption ships nothing in Phase 02 — the dash is load-bearing, and nobody has 
 
 ---
 
-<!-- _class: content loose -->
-<!-- _footer: "Modifier — loose · content loose" -->
+<!-- _class: content -->
+<!-- _footer: "Editorial — one point, given room · content" -->
 
 `Values · Restraint`
 
 ## One point, given the room it asked for.
 
-One editorial point, given room on purpose — values pages, principles, closing lines. The type holds still and the silence around it grows a quarter. Used here, once, as restraint.
+One editorial point, standing alone — values pages, principles, closing lines. The type holds still and the silence around it does the work. Used here, once, as restraint.
 
-> Density is not the same as importance. `loose` says: this page deserves room — not because it carries more, but because it carries one thing well.
+> Density is not the same as importance. A page can deserve room — not because it carries more, but because it carries one thing well. (To hand the whole stage to the content, reach for `claim: hero`.)
 
 ---
 

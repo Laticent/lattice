@@ -73,7 +73,7 @@ describe('component-manifest', () => {
         ...GOOD,
         purpose: 'Use for parallel options.',
         variants: ['mirror', 'four', 'three'],
-        excludes: ['loose'],
+        excludes: ['accent'],
         slots: {
           title: { selector: 'h2', required: true, description: 'Heading.' },
         },
@@ -270,7 +270,7 @@ describe('component-manifest', () => {
     });
 
     test('accepts well-formed excludes array', () => {
-      assert.deepEqual(validate({ ...GOOD, excludes: ['compact', 'loose'] }), []);
+      assert.deepEqual(validate({ ...GOOD, excludes: ['compact', 'accent'] }), []);
     });
 
     test('rejects non-array excludes', () => {
@@ -964,10 +964,9 @@ describe('component-manifest', () => {
     });
 
     test('respects excludes for semi-universals', () => {
-      const m = { ...GOOD, excludes: ['compact', 'loose'] };
+      const m = { ...GOOD, excludes: ['compact'] };
       const vs = effectiveVariants(m);
       assert.ok(!vs.includes('compact'));
-      assert.ok(!vs.includes('loose'));
       // Universals still present
       assert.ok(vs.includes('dark'));
       // Non-excluded semi-universal still present

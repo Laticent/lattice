@@ -2,7 +2,7 @@
 
 **Status:** vocabulary ratified 2026-06-14; **Form is the default composition
 model as of 2026-06-26** — every deck renders with the masthead band, bay, and
-progress rail unless it opts out with `form: off` (or quietens to `form: minimal`).
+progress rail unless it opts out with `form: off` (or drops just the rail with the `no-progress` chrome control).
 The `form:` toggle and per-slide `form` / `no-form` tokens still select per
 deck/slide; only the *default* moved from off to `standard`. Supersedes the
 *Islands* working name and the `berth` / `island` / `island-group` terms in
@@ -445,7 +445,7 @@ asserting no pixel drift.
 What ships **today** is the masthead lift, the `meta` / `progress` / `watermark`
 injectors, and the `form:` toggle with its skip-list — **now on by default**
 (2026-06-26): an absent `form:` key resolves to `standard`, so every eligible
-section composes as Form unless it opts out (`form: off`, `form: minimal`, or a
+section composes as Form unless it opts out (`form: off`, or a
 per-slide `no-form`). Chart-frame components compose with the band (the eyebrow +
 title lift into the masthead Cell; the chart's own subtitle/caption and body are
 untouched — see the chart-family in-form rules). The default flip lands in the

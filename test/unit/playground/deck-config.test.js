@@ -54,19 +54,20 @@ describe('readFrontMatter', () => {
     assert.equal(fm.configured, false, 'theme is ubiquitous under full sync — not a bespoke-setup signal');
   });
 
-  test('form toggle: canonicalises standard/on/minimal/off; absent = standard (default), not configured', async () => {
+  test('form toggle: canonicalises standard/on/off; retired minimal → standard; absent = default, not configured', async () => {
     const { readFrontMatter } = await import(MOD);
     assert.equal(readFrontMatter('---\nmarp: true\nform: standard\n---\n').form, 'standard');
     assert.equal(readFrontMatter('---\nmarp: true\nform: on\n---\n').form, 'standard');
     assert.equal(readFrontMatter('---\nmarp: true\nform: true\n---\n').form, 'standard');
-    assert.equal(readFrontMatter('---\nmarp: true\nform: minimal\n---\n').form, 'minimal');
+    // `form: minimal` retired (2026-07-03) → resolves to standard (the default).
+    assert.equal(readFrontMatter('---\nmarp: true\nform: minimal\n---\n').form, 'standard');
     assert.equal(readFrontMatter('---\nmarp: true\nform: off\n---\n').form, 'off');
     // Form is ON by default — an absent key reads as standard and is NOT bespoke config.
     assert.equal(readFrontMatter(CLEAN).form, 'standard');
     assert.equal(readFrontMatter(CLEAN).configured, false);
-    // The explicit opt-out (off) and minimal ARE bespoke config.
+    // Only the explicit opt-out (off) is bespoke config; retired minimal reads as the default.
     assert.equal(readFrontMatter('---\nmarp: true\nform: off\n---\n').configured, true);
-    assert.equal(readFrontMatter('---\nmarp: true\nform: minimal\n---\n').configured, true);
+    assert.equal(readFrontMatter('---\nmarp: true\nform: minimal\n---\n').configured, false);
   });
 
   test('autosplit toggle: on/true/yes → true (boolean); off/absent → false, not configured', async () => {
@@ -116,12 +117,13 @@ describe('writeFrontMatter', () => {
     assert.equal(block, '---\nmarp: true\nsize: 4K\npaginate: true\nfooter: Confidential');
   });
 
-  test('form: writes off/minimal in canonical slot; standard (default) omits it', async () => {
+  test('form: writes off in canonical slot; standard (default) + retired minimal omit it', async () => {
     const { writeFrontMatter } = await import(MOD);
     const off = writeFrontMatter(CLEAN, 'form', 'off');
     assert.ok(/^---\nmarp: true\nform: off\n---\n/.test(off));
+    // Retired `minimal` canonicalises to standard (the default) → the key is omitted.
     const min = writeFrontMatter(CLEAN, 'form', 'minimal');
-    assert.ok(min.includes('form: minimal\n'));
+    assert.ok(!min.includes('form:'));
     // `class` precedes `form` in the canonical order
     let src = writeFrontMatter(CLEAN, 'form', 'off');
     src = writeFrontMatter(src, 'class', 'dark');

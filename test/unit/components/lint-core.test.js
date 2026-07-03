@@ -392,14 +392,14 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
     names: new Set(['kpi']),
     modifiers: new Set([
       'dark', 'tone-pass', 'tone-warn', 'tone-fail', 'scale-l', 'scale-xl',
-      'with-period', 'no-period', 'compact', 'loose', 'finish', 'finish-atrium',
+      'with-period', 'no-period', 'compact', 'claim-quiet', 'claim-hero', 'finish', 'finish-atrium',
       'finish-meridian', 'finish-none',
     ]),
     exclusiveAxes: {
       tone: ['tone-pass', 'tone-warn', 'tone-fail', 'tone-skip'],
       scale: ['scale-l', 'scale-xl', 'scale-2xl'],
       period: ['with-period', 'no-period'],
-      density: ['compact', 'loose'],
+      claim: ['claim-framed', 'claim-quiet', 'claim-hero', 'claim-bleed'],
     },
   };
   const conflict = (cls) => core.lintTextWith(`${FM}<!-- _class: ${cls} -->\n\n## H`, axVocab).find((f) => f.rule === 'conflicting-variants');
@@ -412,7 +412,7 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
   });
   test('two type scales conflict', () => assert.ok(conflict('kpi scale-l scale-xl')));
   test('with-period + no-period conflict', () => assert.ok(conflict('kpi with-period no-period')));
-  test('compact + loose conflict', () => assert.ok(conflict('kpi compact loose')));
+  test('two claim presets conflict', () => assert.ok(conflict('kpi claim-quiet claim-hero')));
   test('a single axis member is clean', () => assert.equal(conflict('kpi tone-warn scale-l compact'), undefined));
   test('two finish presets conflict (dynamic axis)', () => {
     const f = conflict('kpi finish-atrium finish-meridian');

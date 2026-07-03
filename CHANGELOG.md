@@ -39,6 +39,20 @@ in patch versions.
 
 ### Changed
 
+- **Breaking:** **Retired two dead dials — the `form: minimal` toggle and the
+  `loose` density modifier** (both 0 real authored uses; scheduled by the `claim`
+  decision §11). `form: minimal` only ever added `no-progress`, which is now the
+  explicit `no-progress` chrome control — so it migrates to `class: no-progress`
+  (an *exact* behavior-preserving equivalent), not `claim: quiet` (which also drops
+  the meta bay + tightens the inset). `loose` (grow the spacing scale) is superseded
+  by `claim` owning "give the content the stage." **Kept:** `form: off`,
+  `form: standard`, `no-form`, `compact`, and every chrome token. A lingering
+  `form: minimal` resolves to `standard` and earns a `retired-form-minimal` lint
+  warning; a lingering `loose` becomes `unknown-class`. The `density` exclusive axis
+  is removed (`compact` is now a lone toggle; the Studio density Seg becomes a
+  compact-only Switch). See
+  `engineering/decisions/2026-07-03-retire-form-minimal-loose.md`.
+
 - **Studio: the per-slide "Slide settings" drawer is organized into pill-tabs.**
   The drawer that was one long scroll of ~19 controls now groups them behind
   Workspace-style pill-tabs — **Look** (default: dark, type scale, finish, brand
