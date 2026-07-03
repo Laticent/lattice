@@ -51,7 +51,7 @@ const path = require('node:path');
 const { loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/components');
 const {
   FUNCTIONS, FORMS, SUBSTANCES, TAG_GROUPS,
-  UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, effectiveVariants,
+  UNIVERSAL_GROUPS, UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, EXCLUSIVE_AXES, effectiveVariants,
   FAMILY_MODIFIERS, familyModifiersFor,
 } = require('../lib/components');
 const { BUCKET_BLURBS } = require('./build-bucket-galleries');
@@ -414,7 +414,9 @@ function renderPortalJson(manifests) {
       buckets: [...BUCKETS],
       tags: Object.fromEntries(Object.entries(TAG_GROUPS).map(([k, v]) => [k, [...v]])),
       universalVariants: [...UNIVERSAL_VARIANTS],
+      universalGroups: Object.fromEntries(Object.entries(UNIVERSAL_GROUPS).map(([k, g]) => [k, [...g]])),
       semiUniversalVariants: [...SEMI_UNIVERSAL_VARIANTS],
+      exclusiveAxes: Object.fromEntries(Object.entries(EXCLUSIVE_AXES).map(([k, g]) => [k, [...g]])),
       familyModifiers: Object.fromEntries(
         Object.entries(FAMILY_MODIFIERS).map(([k, g]) => [k, [...g.modifiers]]),
       ),
