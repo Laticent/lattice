@@ -7,6 +7,16 @@ summary: The Studio topbar packs up to ~15 controls into one 54px row; on a port
 
 *2026-06-30 · status: shipped · revised after red-team + checker*
 
+> **Amended 2026-07-03** (`2026-07-03-studio-brand-mark-toolbar.md`): on the
+> **mobile tier only** (<700px), the four deck actions (Present · Share ·
+> Architect · Inspector) move from the header to the Edit/Preview pane bar —
+> still one tap, so the "never buried" rule is preserved — and the header's
+> width goes to the deck title, which now flexes instead of capping at 150px.
+> Scope 1(a) (mode stays a standalone 1-tap icon on compact) and the ⋯
+> membership are unchanged; the "L" text tile is replaced by the real brand
+> mark everywhere. The fold-into-⋯ alternative was red-teamed again and
+> rejected again.
+
 > **Implemented** (`StudioShell.tsx`) — built on top of merged #635 per the sequencing
 > below. Owner confirmed scope **1(a) + 2(a)**: full Appearance grouping + the one-rule
 > `⋯` overflow, with the light/dark toggle kept a standalone 1-tap icon on compact.

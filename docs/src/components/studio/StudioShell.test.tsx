@@ -400,6 +400,38 @@ describe('StudioShell — topbar information architecture', () => {
 		// side-opening submenu (which overflows a phone viewport). Picking one is one tap.
 		expect(await screen.findByRole('menuitem', { name: 'Indaco' })).toBeInTheDocument();
 		expect(screen.getByRole('menuitem', { name: 'Onyx' })).toBeInTheDocument();
+		// Tablet keeps the mode toggle ON the bar — no duplicate row inside ⋯.
+		expect(screen.queryByRole('menuitem', { name: /Switch to (dark|light) mode/ })).not.toBeInTheDocument();
+	});
+
+	it('mobile: the deck actions move to the pane bar; the top row keeps launcher · deck · mode · ⋯', async () => {
+		setViewport('mobile');
+		const user = setup();
+		// The four deck actions live in the pane toolbar (row 2), not the header —
+		// the header's width goes to the deck title instead.
+		const paneBar = screen.getByRole('toolbar', { name: 'Deck actions' });
+		expect(within(paneBar).getByRole('button', { name: 'Present' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Share' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Toggle Architect' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' })).toBeInTheDocument();
+		// The header keeps the launcher, the deck switcher, the 1-tap mode flip, and ⋯.
+		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
+		// The pane toggles still work from the pane bar (the Inspector opens as a sheet).
+		await user.click(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' }));
+		expect(await screen.findByText('this deck')).toBeInTheDocument();
+	});
+
+	it('the launcher and deck switcher no longer duplicate "New deck" (deck CRUD lives in the switcher)', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+		expect(await screen.findByRole('menuitem', { name: /Import deck/ })).toBeInTheDocument();
+		expect(screen.queryByRole('menuitem', { name: 'New deck' })).not.toBeInTheDocument();
+		await user.keyboard('{Escape}');
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		expect(await screen.findByRole('menuitem', { name: 'New deck' })).toBeInTheDocument();
 	});
 
 	it('compact: the ⋯ Search/commands row opens the command palette', async () => {
