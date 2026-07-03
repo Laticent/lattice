@@ -275,7 +275,7 @@ section.radar.dark {
 /* ── RADAR · COVER ──────────────────────────────────────────────────────
  * `cover` is the global full-bleed-with-caption modifier (base.variants.css),
  * and the chart family generalizes it (chart-family.css `section.chart-frame
- * .cover`): the bleed, hidden chrome, exposed title, filled chart-body, and the
+ * .claim-hero`): the bleed, hidden chrome, exposed title, filled chart-body, and the
  * sheen caption band all come from there. This block adds only radar's own
  * extras — centring and scaling up the single SVG unit (diagram + key), and the
  * lifted scale ticks. Pure CSS. */
@@ -284,7 +284,7 @@ section.radar.dark {
  * just CENTRES + scales it: equal 1fr gutters flank the auto-width svg so the
  * whole unit centres on the slide (the key scales up with the diagram — the
  * "cover just works" property of the SVG-native key). */
-section.radar.cover .radar-figure {
+section.radar.claim-hero .radar-figure {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -294,7 +294,7 @@ section.radar.cover .radar-figure {
 }
 /* Explicit cqi size scales the unit up (the base flex-height / cap both fail at
  * full-bleed); max-height guards against a tall two-line caption. */
-section.radar.cover .radar-svg {
+section.radar.claim-hero .radar-svg {
   grid-column: 2;
   justify-self: center;
   height: 36cqi;
@@ -305,7 +305,7 @@ section.radar.cover .radar-svg {
 
 /* Scale ticks read too faint at full-bleed size — lift them off --text-muted
  * to a stronger heading mix and add weight so the 0–10 scale stays legible. */
-section.radar.cover .radar-tick {
+section.radar.claim-hero .radar-tick {
   fill: color-mix(in srgb, var(--text-heading) 80%, transparent);
   font-weight: 600;
 }

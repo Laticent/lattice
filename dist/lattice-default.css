@@ -8273,17 +8273,17 @@ section.piechart .piechart-svg {
 }
 /* Cover is full-bleed. With the key now INSIDE the SVG the figure has no
    intrinsic-height child, so a %/cqh chain collapses to 0 (blank). Mirror the
-   proven radar.cover fix: drop the figure's size-containment so the SVG's `cqi`
+   proven radar.claim-hero fix: drop the figure's size-containment so the SVG's `cqi`
    resolves against the SECTION (container-type:size), and give the SVG an
    explicit `cqi` height that scales the whole unit (disc + key) up. The viewBox
    `meet` keeps it undistorted; max-height guards a tall two-line caption. */
-section.piechart.cover .piechart-figure {
+section.piechart.claim-hero .piechart-figure {
   container-type: normal;
   height: auto;
   width: 100%;
   max-width: 100%;
 }
-section.piechart.cover .piechart-svg {
+section.piechart.claim-hero .piechart-svg {
   height: 38cqi;
   width: auto;
   max-height: 100%;
@@ -8315,13 +8315,13 @@ section.piechart.cover .piechart-svg {
        the unified viewBox aspect, so the WHOLE unit (disc + key) scales and
        never overflows/clips, HD and 4K alike.
    Scoped to section.form so non-form pie rendering stays byte-identical. */
-section.form.piechart:not(.cover) .chart-body {
+section.form.piechart:not(.claim-hero) .chart-body {
   container-type: size;
 }
-section.form.piechart:not(.cover) .piechart-figure {
+section.form.piechart:not(.claim-hero) .piechart-figure {
   display: contents;
 }
-section.form.piechart:not(.cover) .piechart-svg {
+section.form.piechart:not(.claim-hero) .piechart-svg {
   height: 100cqh;
   width: auto;
   max-width: 100%;
@@ -9195,10 +9195,10 @@ section.quadrant .quadrant-svg:not(.quadrant-svg--cohort) {
  *     bodies. The chart-body's own centering flex column takes over the
  *     figure's centering job.
  * Non-form rendering keeps the slide-based rule above, byte-identical. */
-section.form.quadrant:not(.cover) .quadrant-figure {
+section.form.quadrant:not(.claim-hero) .quadrant-figure {
   display: contents;
 }
-section.form.quadrant:not(.cover) .quadrant-svg:not(.quadrant-svg--cohort) {
+section.form.quadrant:not(.claim-hero) .quadrant-svg:not(.quadrant-svg--cohort) {
   height: 100cqh;
   max-height: none;
   width: auto;
@@ -9703,7 +9703,7 @@ section.radar.dark {
 /* ── RADAR · COVER ──────────────────────────────────────────────────────
  * `cover` is the global full-bleed-with-caption modifier (base.variants.css),
  * and the chart family generalizes it (chart-family.css `section.chart-frame
- * .cover`): the bleed, hidden chrome, exposed title, filled chart-body, and the
+ * .claim-hero`): the bleed, hidden chrome, exposed title, filled chart-body, and the
  * sheen caption band all come from there. This block adds only radar's own
  * extras — centring and scaling up the single SVG unit (diagram + key), and the
  * lifted scale ticks. Pure CSS. */
@@ -9712,7 +9712,7 @@ section.radar.dark {
  * just CENTRES + scales it: equal 1fr gutters flank the auto-width svg so the
  * whole unit centres on the slide (the key scales up with the diagram — the
  * "cover just works" property of the SVG-native key). */
-section.radar.cover .radar-figure {
+section.radar.claim-hero .radar-figure {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -9722,7 +9722,7 @@ section.radar.cover .radar-figure {
 }
 /* Explicit cqi size scales the unit up (the base flex-height / cap both fail at
  * full-bleed); max-height guards against a tall two-line caption. */
-section.radar.cover .radar-svg {
+section.radar.claim-hero .radar-svg {
   grid-column: 2;
   justify-self: center;
   height: 36cqi;
@@ -9733,7 +9733,7 @@ section.radar.cover .radar-svg {
 
 /* Scale ticks read too faint at full-bleed size — lift them off --text-muted
  * to a stronger heading mix and add weight so the 0–10 scale stays legible. */
-section.radar.cover .radar-tick {
+section.radar.claim-hero .radar-tick {
   fill: color-mix(in srgb, var(--text-heading) 80%, transparent);
   font-weight: 600;
 }
@@ -14947,7 +14947,7 @@ section.chart-frame .chart-status[data-s="deferred"] {
  *
  * This CSS now carries only the key TYPE (`.chart-key-*`, below — geometry is in
  * the SVG) plus the figure SIZING that centres + scales each chart's single svg.
- * Scoped `:not(.cover)` (those variants own their own full-bleed layout, where
+ * Scoped `:not(.claim-hero)` (those variants own their own full-bleed layout, where
  * the key scales up inside the svg for free) and off radar·small-multiples (no
  * single key). See engineering/decisions/2026-06-13-svg-native-legend.md
  * (supersedes 2026-06-11-chart-legend-system.md). */
@@ -14991,11 +14991,11 @@ section.chart-frame .chart-key-value {
  * viewBox aspect and is capped to the box, so a vertical squeeze shrinks the
  * WHOLE unit (diagram AND key) instead of clipping. Mirrors the piechart rule in
  * piechart.styles.css (kept separate so the pie's cover chain is untouched). Off
- * `.cover` (full-bleed, each chart's own rule) and radar·small-multiples (its own
+ * `.claim-hero` (full-bleed, each chart's own rule) and radar·small-multiples (its own
  * grid of minis). See engineering/decisions/2026-06-13-svg-native-legend.md. */
-section.radar:not(.cover) .radar-figure:not([data-variant="small-multiples"]),
-section.map:not(.cover) .map-figure,
-section.quadrant:not(.cover) .quadrant-figure[data-variant="cohort"] {
+section.radar:not(.claim-hero) .radar-figure:not([data-variant="small-multiples"]),
+section.map:not(.claim-hero) .map-figure,
+section.quadrant:not(.claim-hero) .quadrant-figure[data-variant="cohort"] {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15004,9 +15004,9 @@ section.quadrant:not(.cover) .quadrant-figure[data-variant="cohort"] {
   min-height: 0;
   container-type: size;
 }
-section.radar:not(.cover) .radar-svg:not(.radar-svg--mini),
-section.map:not(.cover) .map-svg,
-section.quadrant:not(.cover) .quadrant-svg--cohort {
+section.radar:not(.claim-hero) .radar-svg:not(.radar-svg--mini),
+section.map:not(.claim-hero) .map-svg,
+section.quadrant:not(.claim-hero) .quadrant-svg--cohort {
   flex: 0 0 auto;
   height: 100cqh;
   width: auto;
@@ -15040,38 +15040,38 @@ section.quadrant:not(.cover) .quadrant-svg--cohort {
        the unified viewBox aspect, so the WHOLE unit (diagram + key) scales and
        never overflows/clips.
    Scoped to section.form so non-form chart rendering stays byte-identical. */
-section.form.radar:not(.cover) .chart-body,
-section.form.map:not(.cover) .chart-body,
-section.form.quadrant:not(.cover) .chart-body {
+section.form.radar:not(.claim-hero) .chart-body,
+section.form.map:not(.claim-hero) .chart-body,
+section.form.quadrant:not(.claim-hero) .chart-body {
   container-type: size;
 }
-section.form.radar:not(.cover) .radar-figure:not([data-variant="small-multiples"]),
-section.form.map:not(.cover) .map-figure,
-section.form.quadrant:not(.cover) .quadrant-figure[data-variant="cohort"] {
+section.form.radar:not(.claim-hero) .radar-figure:not([data-variant="small-multiples"]),
+section.form.map:not(.claim-hero) .map-figure,
+section.form.quadrant:not(.claim-hero) .quadrant-figure[data-variant="cohort"] {
   display: contents;
 }
-section.form.radar:not(.cover) .radar-svg:not(.radar-svg--mini),
-section.form.map:not(.cover) .map-svg,
-section.form.quadrant:not(.cover) .quadrant-svg--cohort {
+section.form.radar:not(.claim-hero) .radar-svg:not(.radar-svg--mini),
+section.form.map:not(.claim-hero) .map-svg,
+section.form.quadrant:not(.claim-hero) .quadrant-svg--cohort {
   height: 100cqh;
   width: auto;
   max-width: 100%;
 }
 
 
-/* ── COVER ── `cover`, a CHART-FAMILY modifier ───────────────────────────────
- * `cover` is NOT an all-layout universal modifier — it is scoped to the chart
- * family (registered as a `cover` variant on the charts that support it, e.g.
- * radar, piechart). The diagram fills the whole slide and the slide title + a
- * one-line takeaway reflow into a bottom caption band carrying the chart sheen
- * (a --text-heading→--bg radial wash with a hairline edge), the page number
- * reading through it. Generalized from the radar prototype to every chart-frame
- * member: the chrome drops, the section bleeds, the chart-header collapses so
- * its h2 joins the caption stack, and the chart-body grows to fill above the
- * band, stripped of the surface panel. Per-chart rules (radar's centred diagram
- * + legend column) layer on top; an untuned chart still bleeds + captions but
- * may need an explicit figure size (cf. radar's 36cqi). Palette-blind. */
-section.chart-frame.cover {
+/* ── CLAIM · hero (chart family) ── the chart layer of the universal `claim-hero`
+ * preset (2026-07-03 decision; absorbs the retired chart-only `cover` modifier,
+ * no alias). For a chart-frame member at `claim-hero`, the chart fills the whole
+ * slide and a one-line takeaway reflows into a bottom caption band carrying the
+ * chart sheen (a --text-heading→--bg radial wash with a hairline edge), the page
+ * number reading through it. The chart KEEPS its masthead title (stage.css scopes
+ * the universal masthead-hide to `:not(.chart-frame)`) — an unlabeled full-bleed
+ * chart is useless in a board deck. The chrome drops, the section bleeds, and the
+ * chart-body grows to fill above the band, stripped of the surface panel.
+ * Per-chart rules (radar's centred diagram + legend column) layer on top; an
+ * untuned chart still bleeds + captions but may need an explicit figure size (cf.
+ * radar's 36cqi). Palette-blind. */
+section.chart-frame.claim-hero {
   --cover-gutter: calc(var(--_sec-1cqi, 1cqi) * 5);   /* caption text inset */
   position: relative;
   padding: 0;
@@ -15080,22 +15080,22 @@ section.chart-frame.cover {
   flex-direction: column;
   overflow: hidden;
 }
-section.chart-frame.cover > header,
-section.chart-frame.cover > footer,
-section.chart-frame.cover .chart-eyebrow,
-section.chart-frame.cover .chart-subtitle {
+section.chart-frame.claim-hero > header,
+section.chart-frame.claim-hero > footer,
+section.chart-frame.claim-hero .chart-eyebrow,
+section.chart-frame.claim-hero .chart-subtitle {
   display: none;
 }
 /* chart-header → display:contents so its h2 becomes a direct flex child the
  * caption rules below can order into the bottom band. */
-section.chart-frame.cover .chart-header {
+section.chart-frame.claim-hero .chart-header {
   display: contents;
 }
 /* The diagram fills the space above the caption (order 0, grows). The repeated
  * .chart-frame out-specifies the shared surface-panel rule, stripping the panel
  * background/border for a true bleed. position:relative makes it the containing
  * block for any absolutely-positioned figure chrome. */
-section.chart-frame.cover .chart-body {
+section.chart-frame.claim-hero .chart-body {
   order: 0;
   position: relative;
   flex: 1 1 auto;
@@ -15115,7 +15115,7 @@ section.chart-frame.cover .chart-body {
  * chart bleeds, so the band already spans the full slide (no breakout needed).
  * margin:auto pins it to the bottom; the chart-frame skeleton measure-caps the
  * title at higher specificity, so re-assert measure / align / size here. */
-section.chart-frame.cover .chart-header h2 {
+section.chart-frame.claim-hero .chart-header h2 {
   /* order:1 puts the title last; the flex:1 chart-body above it fills the column and
    * pushes this bottom shelf to the foot — no margin-top:auto needed (#20). */
   order: 1;
@@ -15138,7 +15138,7 @@ section.chart-frame.cover .chart-header h2 {
 }
 /* CAPTION · NOTE — the trailing paragraph (a bare class-less <p>, direct
  * section child); flat base of the sheen, content ink, clamped to two lines. */
-section.chart-frame.cover > p:last-of-type {
+section.chart-frame.claim-hero > p:last-of-type {
   order: 2;
   margin: 0;
   z-index: 2;
@@ -15156,7 +15156,7 @@ section.chart-frame.cover > p:last-of-type {
   overflow: hidden;
 }
 /* Pagination reads through the band — lifted above it and recoloured. */
-section.chart-frame.cover::after {
+section.chart-frame.claim-hero::after {
   z-index: 3;
   color: color-mix(in oklab, var(--text-heading) 62%, transparent);
 }
@@ -17367,10 +17367,12 @@ section.no-paginate.no-paginate::after {
   content: none;
 }
 
-/* `cover` is NOT a universal modifier — it is scoped to the chart family.
- * Its full treatment lives in chart-family.css (`section.chart-frame.cover`),
- * registered as a `cover` variant on the charts that support it (radar,
- * piechart). There is deliberately no `section.cover` here. */
+/* The `claim` presets (claim-quiet / claim-hero / claim-bleed) live in the
+ * shared Cell CSS (lib/forms/cell/stage/stage.css) — they act on the frame's
+ * chrome Cells, not on a component root, so they are not here. A chart at
+ * `claim-hero` gets an extra chart-family layer (the full-bleed caption band)
+ * in chart-family.css (`section.chart-frame.claim-hero`), which absorbed the
+ * retired chart-only `cover` modifier (2026-07-03 decision). */
 
 /* ── TONE ── canvas-level reuse of the state-token color system ─────── */
 
@@ -18006,6 +18008,59 @@ section.form.fill-optical {
   justify-content: center;
   padding-bottom: calc(var(--footer-reserve) + var(--sp-2xl));
 }
+
+/* ── CLAIM · let content claim the stage (2026-07-03 decision) ───────────────
+ * A universal, purpose-coupled dial: how much of the frame the content claims
+ * vs the chrome. The presets expand to composable switches (inset + chrome
+ * recede + bleed); the individual chrome switches (`no-paginate`, `silent`, …)
+ * still compose on top, so `claim-hero no-paginate` is expressible — switches,
+ * not a rigid slider. Default (`framed` / no token) is the standard frame,
+ * unchanged. Insets are PADDING via the `--frame-*` vars (HARD RULE #20 — never
+ * margin); cqi lengths, no hex, no color. `claim-quiet`/`claim-hero` are
+ * universal; `claim-bleed` is opt-out-able by prose-dense components
+ * (`excludes: ["claim-bleed"]`) because content at the true edge gets cropped.
+ *
+ * COST, priced: quiet drops the section-dot rail + meta bay (keeps title + page
+ * number); hero drops the bands (keeps the page number reading through); bleed
+ * drops the safe margin itself (edge-to-edge; media/canvas only). */
+
+/* quiet — recede secondary chrome, tighten one step; title + page number stay. */
+section.form.claim-quiet {
+  --frame-x: calc(var(--_sec-1cqi, 1cqi) * 3.75);
+  --frame-y: calc(var(--_sec-1cqi, 1cqi) * 5);
+}
+/* the section-dot rail (docked in .cell-footer on standard frames, a direct
+ * section child on chart frames — descendant selector catches both) + the meta
+ * / logo / status bay. */
+section.form.claim-quiet .tile-progress,
+section.form.claim-quiet .cell-masthead .masthead-bay {
+  display: none;
+}
+
+/* hero — drop the bands; content fills the stage. The page number is KEPT by
+ * default (reads through the content); `no-paginate` removes it. */
+section.form.claim-hero {
+  --frame-x: var(--frame-inset-x);
+  --frame-y: var(--frame-inset-y);
+  --footer-reserve: var(--frame-inset-y);
+}
+section.form.claim-hero:not(.chart-frame) > .cell-masthead, /* charts keep their title (chart-family hero band owns it) */
+section.form.claim-hero > .cell-footer > footer,            /* running footer text */
+section.form.claim-hero .tile-progress {                    /* section-dot rail (either nesting) */
+  display: none;
+}
+
+/* bleed — true edge-to-edge: zero inset, all chrome gone, no top spectrum rule. */
+section.form.claim-bleed {
+  --frame-x: 0px;
+  --frame-y: 0px;
+  --footer-reserve: 0px;
+}
+section.form.claim-bleed > .cell-masthead,
+section.form.claim-bleed > .cell-footer {
+  display: none;
+}
+section.claim-bleed { border-top: 0; }   /* kill the top spectrum bar for the true edge */
 
 /* === lib/forms/tile/meta/meta.css === */
 /* meta Tile — date · owner · classification.

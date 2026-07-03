@@ -23,6 +23,7 @@
       "term+definition"
     ]
   },
+  "excludes": ["claim-bleed"],
   "tags": ["definition", "reference", "onboarding"],
   "description": "Two-column term/definition table with auto-derived alphabetic range pill.",
   "purpose": "Use for jargon-heavy decks where the audience needs a reference page. The runtime auto-adds a range pill (e.g. 'A – G') to the heading.",

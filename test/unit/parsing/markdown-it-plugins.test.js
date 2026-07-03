@@ -211,6 +211,48 @@ describe('markdown-it-plugins', () => {
       `finish-none must not inherit the deck finish-atrium; got [${cls.join(', ')}]`);
   });
 
+  test('deckClassPropagate: `claim: quiet` propagates claim-quiet to every section', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    const md = [
+      '---', 'claim: quiet', '---', '',
+      '# Slide 1', '',
+      '---', '',
+      '<!-- _class: cards-grid -->',
+      '# Slide 2',
+    ].join('\n');
+    const { html } = m.render(md);
+    const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.equal(sections.length, 2);
+    for (const cls of sections) assert.ok(cls.includes('claim-quiet'), `missing 'claim-quiet'; got [${cls.join(', ')}]`);
+    assert.ok(sections[1].includes('cards-grid'), `slide 2 lost 'cards-grid'; got [${sections[1].join(', ')}]`);
+  });
+
+  test('deckClassPropagate: a per-slide claim-* OVERRIDES the deck claim (no two presets stacked)', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    const md = [
+      '---', 'claim: quiet', '---', '',
+      '# Slide 1 (gets the deck quiet)', '',
+      '---', '',
+      '<!-- _class: big-number claim-hero -->',
+      '# Slide 2 (its own hero overrides the deck quiet)',
+    ].join('\n');
+    const { html } = m.render(md);
+    const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.ok(sections[0].includes('claim-quiet'), `slide 1 should be quiet; got [${sections[0].join(', ')}]`);
+    assert.ok(sections[1].includes('claim-hero'), `slide 2 should keep its own hero; got [${sections[1].join(', ')}]`);
+    assert.ok(!sections[1].includes('claim-quiet'), `slide 2 must NOT inherit the deck quiet; got [${sections[1].join(', ')}]`);
+  });
+
+  test('deckClassPropagate: `claim: framed` and an unknown value map to no class (the frame baseline)', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    for (const v of ['framed', 'nonsense']) {
+      const md = ['---', `claim: ${v}`, '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
+      const { html } = m.render(md);
+      const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+      assert.deepEqual(cls, ['title'], `claim: ${v} should add nothing; got [${cls.join(', ')}]`);
+    }
+  });
+
   // The meta, progress and watermark Tiles are self-contained Form Tiles (issue
   // #356): each owns its kernel + cross-path parity pin in test/unit/forms/
   // <id>-tile.test.js, so their coverage is no longer here.

@@ -315,9 +315,9 @@ state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
 recognises four tiers:
 
-**Tier 1 — Universal (32 variants).** Apply to every component. Added
+**Tier 1 — Universal (34 variants).** Apply to every component. Added
 automatically by `effectiveVariants()`; manifests must NOT list them. The
-canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Seven
+canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Eight
 categories:
 
 | Category | Variants |
@@ -329,14 +329,19 @@ categories:
 | Social (1) | `safe` |
 | State (8) | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
 | Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
+| Claim (2) | `claim-quiet`, `claim-hero` (+ `claim-framed`, the no-op per-slide opt-out marker) |
 
 The State variants are the team-collaboration vocabulary — visible
 markers for slides that are in-progress, confidential, or otherwise
 need a meta-signal independent of the content. The Tone variants
 reuse the state-token color system (pass/warn/fail/skip) at the
-canvas level — a "this slide is the failure slide" treatment.
+canvas level — a "this slide is the failure slide" treatment. The
+**Claim** variants let content claim the stage by receding the chrome
+(quiet → hero → bleed); they compose with the Chrome switches above and
+are the author surface of the `claim:` register (`design/concepts.md`;
+`engineering/decisions/2026-07-03-claim-content-claims-the-stage.md`).
 
-**Tier 2 — Semi-universal (3 variants).** Apply to most layouts but
+**Tier 2 — Semi-universal.** Apply to most layouts but
 not all. Manifests opt OUT via `excludes`; default is accepted.
 
 | Variant | Excluded by |
@@ -344,6 +349,7 @@ not all. Manifests opt OUT via `excludes`; default is accepted.
 | `compact` | layouts with no internal density (bookends, single-canvas) |
 | `loose` | same |
 | `accent` | dense ledger layouts where the focal is ambiguous |
+| `claim-bleed` | prose-dense / table layouts where edge-to-edge crops content (`compare-table`, `list-tabular`, `glossary`, `inventory`, the legal ledgers) |
 
 **Tier 3 — Family (scoped).** Cross-cutting section modifiers that apply
 to a SUBSET of layouts — neither universal nor a single component's

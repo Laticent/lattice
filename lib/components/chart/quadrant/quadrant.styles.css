@@ -141,10 +141,10 @@ section.quadrant .quadrant-svg:not(.quadrant-svg--cohort) {
  *     bodies. The chart-body's own centering flex column takes over the
  *     figure's centering job.
  * Non-form rendering keeps the slide-based rule above, byte-identical. */
-section.form.quadrant:not(.cover) .quadrant-figure {
+section.form.quadrant:not(.claim-hero) .quadrant-figure {
   display: contents;
 }
-section.form.quadrant:not(.cover) .quadrant-svg:not(.quadrant-svg--cohort) {
+section.form.quadrant:not(.claim-hero) .quadrant-svg:not(.quadrant-svg--cohort) {
   height: 100cqh;
   max-height: none;
   width: auto;

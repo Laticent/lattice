@@ -10,8 +10,7 @@
   "description": "Pie or donut chart with legend — proportional wedges.",
   "purpose": "Use for part-to-whole breakdowns with three to six slices. Add the `donut` modifier for a hole in the middle — visually cleaner for executive decks.",
   "variants": [
-    "donut",
-    "cover"
+    "donut"
   ],
   "slots": {
     "title": {
@@ -80,11 +79,6 @@
     }
   ],
   "variantDocs": {
-    "cover": {
-      "label": "Cover — full-bleed with a caption band",
-      "caption": "The chart-family `cover` modifier: the donut + legend fill the slide and the title + a one-line takeaway reflow into a bottom caption band carrying the chart sheen. For a hero breakdown where the proportion IS the message. Chart-scoped — not an all-layout modifier.",
-      "sample": "<!-- _class: piechart cover -->\n\n`H1 2026 · 1,840 person-hours`\n\n## Where the planning quarter actually went.\n\n- Deck production `46%`\n- Meetings about meetings `22%`\n- Realigning on priorities `18%`\n- Stakeholder management `9%`\n- Actually deciding `5%`\n\nNearly half went to producing decks; the deciding itself was the smallest slice.\n"
-    },
     "donut": {
       "label": "Donut — hollow centre",
       "caption": "Hollows the pie into a donut. Visually cleaner for executive decks; the centre is left blank for a calmer read. Default pick for board and investor material.",

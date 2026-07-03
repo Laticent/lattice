@@ -259,39 +259,6 @@ Composable modifier: drops the polygon fills for a stroke-only read on a faint g
   - Security `7`
 ```
 
-### `cover` — Cover — full-bleed with a caption band
-
-The chart-family `cover` modifier: the diagram fills the whole slide and the title + a one-line takeaway reflow into a bottom caption band carrying the chart sheen. For a hero comparison slide where the radar IS the message. Chart-scoped — not an all-layout modifier.
-
-```markdown
-<!-- _class: radar cover -->
-
-`Scale · 0–10`
-
-## How we stack up across the buying criteria.
-
-- Meridian
-  - Performance `9`
-  - Pricing `7`
-  - Support `8`
-  - Ecosystem `6`
-  - Security `9`
-- Vantage
-  - Performance `7`
-  - Pricing `8`
-  - Support `6`
-  - Ecosystem `9`
-  - Security `7`
-- Helios
-  - Performance `6`
-  - Pricing `9`
-  - Support `7`
-  - Ecosystem `8`
-  - Security `8`
-
-Meridian leads on performance and support; Helios is the value pick across pricing and ecosystem.
-```
-
 ## Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `loose`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.

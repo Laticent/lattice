@@ -67,6 +67,7 @@
   ],
   "description": "A parallel set of related items of similar weight — one content shape, four interchangeable looks.",
   "purpose": "Use for a small register of related items where each carries similar weight. Author the content once (a bold lead + detail per item, optional trailing insight) and pick the look with a variant: the default numbered ledger, a cards grid, a horizontal timeline, or a magazine-style editorial split — no re-authoring. For more than six items, escalate to list-tabular or split across slides.",
+  "excludes": ["claim-bleed"],
   "variants": [
     "cards",
     "timeline",

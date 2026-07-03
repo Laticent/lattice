@@ -217,37 +217,6 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: radar cover -->
-<!-- _footer: "Cover — full-bleed with a caption band · radar cover" -->
-
-`Scale · 0–10`
-
-## How we stack up across the buying criteria.
-
-- Meridian
-  - Performance `9`
-  - Pricing `7`
-  - Support `8`
-  - Ecosystem `6`
-  - Security `9`
-- Vantage
-  - Performance `7`
-  - Pricing `8`
-  - Support `6`
-  - Ecosystem `9`
-  - Security `7`
-- Helios
-  - Performance `6`
-  - Pricing `9`
-  - Support `7`
-  - Ecosystem `8`
-  - Security `8`
-
-Meridian leads on performance and support; Helios is the value pick across pricing and ecosystem.
-
-
----
-
 <!-- _class: radar -->
 <!-- _footer: "Stress test · radar" -->
 
