@@ -253,6 +253,70 @@ describe('markdown-it-plugins', () => {
     }
   });
 
+  // ── deck-wide `stamp:` / `tone:` SHAPE registers ───────────────────────
+
+  test('deckClassPropagate: `stamp: seal` + `tone: edge` propagate the shape token to every section', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    const md = [
+      '---', 'stamp: seal', 'tone: edge', '---', '',
+      '# Slide 1', '',
+      '---', '',
+      '<!-- _class: cards-grid -->',
+      '# Slide 2',
+    ].join('\n');
+    const { html } = m.render(md);
+    const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.equal(sections.length, 2);
+    for (const cls of sections) {
+      assert.ok(cls.includes('stamp-seal'), `missing 'stamp-seal'; got [${cls.join(', ')}]`);
+      assert.ok(cls.includes('tone-edge'), `missing 'tone-edge'; got [${cls.join(', ')}]`);
+    }
+    // Composes with the per-slide layout class, not replaces it.
+    assert.ok(sections[1].includes('cards-grid'), `slide 2 lost 'cards-grid'; got [${sections[1].join(', ')}]`);
+  });
+
+  test('deckClassPropagate: a per-slide `stamp-*` / `tone-*` shape OVERRIDES the deck register', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    const md = [
+      '---', 'stamp: seal', 'tone: edge', '---', '',
+      '# Slide 1 (deck shapes)', '',
+      '---', '',
+      '<!-- _class: stamp-notch tone-glow -->',
+      '# Slide 2 (its own shapes win)',
+    ].join('\n');
+    const { html } = m.render(md);
+    const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    // Slide 1 carries the deck shapes.
+    assert.ok(sections[0].includes('stamp-seal') && sections[0].includes('tone-edge'),
+      `slide 1 should carry the deck shapes; got [${sections[0].join(', ')}]`);
+    // Slide 2 keeps its OWN shapes and does NOT also get the deck's (no two stacked).
+    assert.ok(sections[1].includes('stamp-notch') && !sections[1].includes('stamp-seal'),
+      `slide 2 stamp should be its own; got [${sections[1].join(', ')}]`);
+    assert.ok(sections[1].includes('tone-glow') && !sections[1].includes('tone-edge'),
+      `slide 2 tone should be its own; got [${sections[1].join(', ')}]`);
+  });
+
+  test('deckClassPropagate: a semantic `tone-pass` does NOT suppress the deck `tone:` shape (orthogonal axes)', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    const md = [
+      '---', 'tone: edge', '---', '',
+      '<!-- _class: tone-pass -->',
+      '# A passing slide — its SHAPE still comes from the deck',
+    ].join('\n');
+    const { html } = m.render(md);
+    const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+    assert.ok(cls.includes('tone-pass'), `should keep the semantic tone; got [${cls.join(', ')}]`);
+    assert.ok(cls.includes('tone-edge'), `semantic tone must not suppress the deck shape; got [${cls.join(', ')}]`);
+  });
+
+  test('deckClassPropagate: an unknown `stamp:` / `tone:` value maps to no class (silent default)', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    const md = ['---', 'stamp: sael', 'tone: raill', '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
+    const { html } = m.render(md);
+    const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+    assert.deepEqual(cls, ['title'], `unknown shapes should add nothing; got [${cls.join(', ')}]`);
+  });
+
   // The meta, progress and watermark Tiles are self-contained Form Tiles (issue
   // #356): each owns its kernel + cross-path parity pin in test/unit/forms/
   // <id>-tile.test.js, so their coverage is no longer here.

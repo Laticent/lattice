@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getClassTokens } from './slide-directives';
-import { darkProvenance, finishProvenance, modeProvenance, setDark, setFinish, setMode } from './slide-provenance';
+import { darkProvenance, finishProvenance, modeProvenance, setDark, setFinish, setMode, setStampStyle, setToneStyle, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+
+const TONE_STYLES = ['tone-rail', 'tone-edge', 'tone-glow'];
 
 const deck = (fm: string, body: string) => `---\n${fm}\n---\n\n${body}`;
 
@@ -71,5 +73,52 @@ describe('mode provenance + opt-out', () => {
 		expect(getClassTokens(setMode('<!-- _class: kpi -->', 'sketch-clean'))).toEqual(['kpi', 'sketch', 'sketch-clean-body']);
 		expect(getClassTokens(setMode('<!-- _class: kpi sketch -->', 'boardroom'))).toEqual(['kpi', 'boardroom']);
 		expect(getClassTokens(setMode('<!-- _class: kpi sketch sketch-clean-body -->', null))).toEqual(['kpi']);
+	});
+});
+
+describe('stamp-style provenance + override', () => {
+	it('off (the uniform default) when neither slide nor deck sets a shape', () => {
+		expect(stampStyleProvenance('<!-- _class: kpi confidential -->', '# deck').state).toBe('off');
+	});
+	it('inherited from the deck `stamp:` register', () => {
+		const src = deck('stamp: seal', '<!-- _class: kpi -->');
+		expect(stampStyleProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'inherited', value: 'seal', deckValue: 'seal', inheritable: true });
+	});
+	it('on when the slide overrides with its own stamp-* shape', () => {
+		const src = deck('stamp: seal', '<!-- _class: kpi stamp-notch -->');
+		expect(stampStyleProvenance('<!-- _class: kpi stamp-notch -->', src)).toMatchObject({ state: 'on', value: 'notch', deckValue: 'seal' });
+	});
+	it('setStampStyle never stacks shapes; null clears back to inherit/default', () => {
+		let chunk = '<!-- _class: kpi stamp-seal -->';
+		chunk = setStampStyle(chunk, 'notch');
+		expect(getClassTokens(chunk).filter((t) => t.startsWith('stamp-'))).toEqual(['stamp-notch']);
+		expect(getClassTokens(setStampStyle(chunk, null)).some((t) => t.startsWith('stamp-'))).toBe(false);
+	});
+});
+
+describe('tone-style provenance + override', () => {
+	it('off (the default rail) when neither slide nor deck sets a shape', () => {
+		expect(toneStyleProvenance('<!-- _class: kpi tone-pass -->', '# deck', TONE_STYLES).state).toBe('off');
+	});
+	it('inherited from the deck `tone:` register', () => {
+		const src = deck('tone: edge', '<!-- _class: kpi -->');
+		expect(toneStyleProvenance('<!-- _class: kpi -->', src, TONE_STYLES)).toMatchObject({ state: 'inherited', value: 'edge', inheritable: true });
+	});
+	it('on when the slide overrides with its own tone-* shape', () => {
+		const src = deck('tone: edge', '<!-- _class: kpi tone-glow -->');
+		expect(toneStyleProvenance('<!-- _class: kpi tone-glow -->', src, TONE_STYLES)).toMatchObject({ state: 'on', value: 'glow', deckValue: 'edge' });
+	});
+	it('a SEMANTIC tone (tone-pass) is not read as a tone STYLE — the axes are orthogonal', () => {
+		// tone-pass sets the color; the shape stays at its default (off).
+		expect(toneStyleProvenance('<!-- _class: kpi tone-pass -->', '', TONE_STYLES).state).toBe('off');
+	});
+	it('setToneStyle clears only the KNOWN style tokens, never a semantic tone', () => {
+		let chunk = '<!-- _class: kpi tone-pass tone-edge -->';
+		chunk = setToneStyle(chunk, 'glow', TONE_STYLES);
+		const tokens = getClassTokens(chunk);
+		expect(tokens).toContain('tone-pass'); // semantic tone untouched
+		expect(tokens).toContain('tone-glow');
+		expect(tokens).not.toContain('tone-edge');
+		expect(getClassTokens(setToneStyle(chunk, null, TONE_STYLES))).toEqual(['kpi', 'tone-pass']);
 	});
 });

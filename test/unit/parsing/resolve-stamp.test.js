@@ -1,0 +1,84 @@
+/**
+ * Unit: the `stamp:` register resolver (lib/core/resolve-stamp.js).
+ *
+ * Pure mapping from the deck front-matter `stamp:` value (the state-marker SHAPE —
+ * tab / seal / notch / …) to the `stamp-<name>` class token the three render paths
+ * append to every section. The sibling of resolve-finish / resolve-mode; orthogonal to
+ * WHICH state marker shows (that's the semantic `confidential`/`wip`/… token).
+ */
+
+const { test, describe } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {
+  STAMP_STYLES,
+  STAMP_STYLE_NAMES,
+  STAMP_STYLE_TOKENS,
+  readFrontMatterStamp,
+  isKnownStamp,
+  stampClass,
+  stampClassFromSource,
+} = require('../../../lib/core/resolve-stamp');
+
+describe('resolve-stamp', () => {
+  test('stampClass maps each known name to its class token', () => {
+    assert.equal(stampClass('tab'), 'stamp-tab');
+    assert.equal(stampClass('seal'), 'stamp-seal');
+    assert.equal(stampClass('ribbon'), 'stamp-ribbon');
+  });
+
+  test('omitted / unrecognized resolve to no class', () => {
+    assert.equal(stampClass(''), '');
+    assert.equal(stampClass('   '), '');
+    assert.equal(stampClass('taab'), '', 'typo → no class (deck-lint flags it)');
+    assert.equal(stampClass(undefined), '');
+    assert.equal(stampClass(null), '');
+  });
+
+  test('value is case- and whitespace-insensitive', () => {
+    assert.equal(stampClass('  Seal  '), 'stamp-seal');
+    assert.equal(stampClass('NOTCH'), 'stamp-notch');
+  });
+
+  test('isKnownStamp recognizes the register names only', () => {
+    assert.ok(isKnownStamp('tab'));
+    assert.ok(isKnownStamp('pin'));
+    assert.ok(!isKnownStamp('taab'));
+    assert.ok(!isKnownStamp(''));
+    assert.ok(!isKnownStamp(undefined));
+  });
+
+  test('STAMP_STYLE_NAMES is the boardroom subset followed by the wider range', () => {
+    assert.deepEqual([...STAMP_STYLE_NAMES], [...STAMP_STYLES.boardroom, ...STAMP_STYLES.range]);
+    // boardroom leads with the curated five.
+    assert.deepEqual([...STAMP_STYLES.boardroom], ['tab', 'notch', 'bracket', 'seal', 'pill']);
+  });
+
+  test('STAMP_STYLE_TOKENS is each name stamp-prefixed', () => {
+    assert.deepEqual([...STAMP_STYLE_TOKENS], STAMP_STYLE_NAMES.map((n) => `stamp-${n}`));
+  });
+
+  test('readFrontMatterStamp extracts the value from the front-matter block only', () => {
+    const md = '---\nmarp: true\ntheme: carta\nstamp: seal\n---\n\n# H\n\n`stamp: not-this` in body\n';
+    assert.equal(readFrontMatterStamp(md), 'seal');
+    assert.equal(stampClassFromSource(md), 'stamp-seal');
+  });
+
+  test('readFrontMatterStamp accepts quotes and returns null when absent', () => {
+    assert.equal(readFrontMatterStamp('---\nstamp: "notch"\n---\n'), 'notch');
+    assert.equal(readFrontMatterStamp("---\nstamp: 'pill'\n---\n"), 'pill');
+    assert.equal(readFrontMatterStamp('---\ntheme: carta\n---\n'), null);
+    assert.equal(readFrontMatterStamp(''), null);
+  });
+
+  // Rot-guard: every style token the register knows must have a real CSS rule in
+  // base.variants.css — keeps the vocabulary in lock-step with the stylesheet the same
+  // way resolve-finish guards base.finish.css and resolve-mode guards base.sketch.css.
+  test('every stamp style token resolves to a real CSS rule in base.variants.css', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
+    for (const cls of STAMP_STYLE_TOKENS) {
+      assert.ok(new RegExp(`\\.${cls}\\b`).test(css), `${cls} is registered but base.variants.css has no rule`);
+    }
+  });
+});

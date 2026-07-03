@@ -346,10 +346,6 @@ ${indent}   - ${body.trim()}`;
       const slides = source.split(/^---$/m);
       const fm = fmChunks(source);
       const orientation = deckOrientation(source);
-      const fmClaimBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
-      const deckClaimRaw = fmClaimBlock && (fmClaimBlock[1].match(/^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1];
-      const deckClaimName = deckClaimRaw ? deckClaimRaw.trim().toLowerCase() : "";
-      const deckClaimToken = ["quiet", "hero", "bleed"].includes(deckClaimName) ? `claim-${deckClaimName}` : null;
       slides.forEach((slide, idx) => {
         const m = slide.match(CLASS_DIRECTIVE);
         if (!m) return;
@@ -394,26 +390,6 @@ ${indent}   - ${body.trim()}`;
             message: `${finishHits.length} finish selectors on one slide \u2014 only one renders`,
             fix: "Keep a single finish-<name> (or finish-none); remove the others."
           });
-        }
-        if (vocab.claimExcludes) {
-          const comp = tokens.find((t) => vocab.names.has(t));
-          const excluded = comp && vocab.claimExcludes[comp];
-          if (excluded) {
-            const ownClaim = tokens.find((t) => t.startsWith("claim-"));
-            const effective = ownClaim || deckClaimToken;
-            if (effective && excluded.includes(effective)) {
-              const via = ownClaim ? `'${effective}'` : `deck-wide \`claim: ${deckClaimName}\``;
-              findings.push({
-                slide: idx - fm + 1,
-                rule: "claim-bleed-unsafe",
-                severity: "warning",
-                classToken: effective,
-                line: m[0],
-                message: `${via} runs '${comp}' to the true edge, where its content is cropped`,
-                fix: `Use 'claim-hero' instead (keeps a hairline safe zone), or drop this slide to 'claim-framed'; only media/canvas layouts should bleed.`
-              });
-            }
-          }
         }
         if (tokens.includes("qr")) {
           const URL = /^(https?:\/\/|mailto:|tel:|WIFI:|BEGIN:VCARD)/i;
@@ -652,7 +628,8 @@ ${indent}   - ${body.trim()}`;
       if (vocab.mapRegions) findings.push(...findUnknownMapRegions(source, vocab.mapRegions));
       if (vocab.finishNames) findings.push(...findUnknownFinish(source, vocab.finishNames));
       if (vocab.modeNames) findings.push(...findUnknownMode(source, vocab.modeNames));
-      if (vocab.claimNames) findings.push(...findUnknownClaim(source, vocab.claimNames));
+      if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
+      if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
       findings.push(...findRetiredBackdrop(source));
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
@@ -919,22 +896,40 @@ ${indent}   - ${body.trim()}`;
         fix: `Set front-matter \`mode:\` to one of: ${[...modeNames].join(", ")}.`
       }];
     }
-    function findUnknownClaim(source, claimNames) {
+    function findUnknownStamp(source, stampStyleNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
-      const fmClaim = fmBlock[1].match(/^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
-      if (!fmClaim) return [];
-      const value = fmClaim[1].trim();
-      const known = new Set([...claimNames].map((n) => String(n).toLowerCase()));
+      const fmStamp = fmBlock[1].match(/^\s*stamp:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmStamp) return [];
+      const value = fmStamp[1].trim();
+      const known = new Set([...stampStyleNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
       return [{
         slide: 0,
-        rule: "unknown-claim",
+        rule: "unknown-stamp",
         severity: "warning",
         classToken: value,
-        line: fmClaim[0].trim(),
-        message: `'${value}' is not a known claim register \u2014 the deck would silently render the framed baseline`,
-        fix: `Set front-matter \`claim:\` to one of: ${[...claimNames].join(", ")}.`
+        line: fmStamp[0].trim(),
+        message: `'${value}' is not a known stamp style \u2014 the deck would silently render the uniform default (tab) shape`,
+        fix: `Set front-matter \`stamp:\` to one of: ${[...stampStyleNames].join(", ")}.`
+      }];
+    }
+    function findUnknownToneStyle(source, toneStyleNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmTone = fmBlock[1].match(/^\s*tone:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmTone) return [];
+      const value = fmTone[1].trim();
+      const known = new Set([...toneStyleNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-tone",
+        severity: "warning",
+        classToken: value,
+        line: fmTone[0].trim(),
+        message: `'${value}' is not a known tone style \u2014 the deck would silently render the default rail shape`,
+        fix: `Set front-matter \`tone:\` to one of: ${[...toneStyleNames].join(", ")}.`
       }];
     }
     function findRetiredBackdrop(source) {
@@ -1019,6 +1014,8 @@ ${indent}   - ${body.trim()}`;
       findAutosplitOrientationMismatch,
       findUnknownFinish,
       findUnknownMode,
+      findUnknownStamp,
+      findUnknownToneStyle,
       nearestRegion,
       editDistance,
       isKnownModifier,

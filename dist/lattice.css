@@ -17432,6 +17432,9 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
   --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); /* rail (default) */
   box-shadow: var(--tone-rail);
 }
+/* `tone-rail` is the default shape; it is ALSO a first-class token so a per-slide (or
+   drawer) pick of "rail" restores the left rail even over a deck-wide `tone: edge`. */
+section.tone-rail { --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); }  /* left rail (explicit) */
 section.tone-edge { --tone-rail: inset 0 0.45cqi 0 0 var(--tone-color); }  /* top edge band */
 section.tone-glow { --tone-rail: inset 0 0 0 0.35cqi var(--tone-color); }  /* full inset ring */
 
