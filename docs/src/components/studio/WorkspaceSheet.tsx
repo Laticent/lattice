@@ -1,5 +1,6 @@
 import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, SlidersHorizontal, Sparkles, Upload, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -207,11 +208,13 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 					<SheetDescription className="sr-only">Your workspace setup — placement handles and deck storage under General; the AI model, spend, and standing instructions under AI.</SheetDescription>
 				</SheetHeader>
 				<div className="overflow-y-auto p-5">
-					<div className="mb-4 flex flex-wrap gap-1.5" role="tablist" aria-label="Workspace settings">
-						{TABS.map((t) => (
-							<button type="button" key={t} role="tab" aria-selected={t === tab} onClick={() => setTab(t)} className={cn('rounded-full border px-3 py-1.5 text-[12.5px] font-semibold', t === tab ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}>{t}</button>
-						))}
-					</div>
+					<PillTabs
+						className="mb-4"
+						ariaLabel="Workspace settings"
+						value={tab}
+						onValueChange={(v) => setTab(v as Tab)}
+						tabs={TABS.map((t) => ({ value: t, label: t }))}
+					/>
 
 					{tab === 'General' && (
 						<div>

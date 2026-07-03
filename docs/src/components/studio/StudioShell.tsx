@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft,
-	Copy, Eye, FileBox, FileText, Focus, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, StickyNote, Sun, Trash2, Upload, Volume2, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -1055,8 +1055,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
 		<>
-			<InspGroup icon={<Palette className="size-3.5" />} label="Look">
-				<Field label="Theme">
+			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light/dark, slide size, and the chrome every slide inherits (a single slide can override any of it).">
+				<Field label="Theme" desc="The color palette every slide draws from.">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Control aria-label="Choose theme"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activePalette.color }} /><span className="truncate">{activePalette.label}</span></span> <ChevronDown className="size-3.5" /></Control>
@@ -1078,8 +1078,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</div>
 					)}
 				</Field>
-				<Field label="Appearance"><Control onClick={toggleMode} aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{mode === 'dark' ? 'Dark' : 'Light'} {mode === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}</Control></Field>
-				<Field label="Size">
+				<Field label="Appearance" desc="Renders the whole deck in light or dark."><Control onClick={toggleMode} aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{mode === 'dark' ? 'Dark' : 'Light'} {mode === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}</Control></Field>
+				<Field label="Size" desc="The slide shape and dimensions (16:9, A4, …).">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Control>{SIZE_LABELS[deckSize] ?? deckSize} <ChevronDown className="size-3.5" /></Control>
@@ -1091,7 +1091,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>
-				<Field label="Mode">
+				<Field label="Mode" desc="The rendering style — boardroom (crisp) or sketch (hand-drawn). Separate from Finish; the two combine.">
 						{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
 						    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
 						    owns `style:` for inline CSS, so the axis is named "mode"). */}
@@ -1104,7 +1104,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</Field>
-				<Field label="Finish">
+				<Field label="Finish" desc="A backdrop texture applied to every slide — a soft gradient, wash, or grain behind the content.">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Control aria-label="Choose finish"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activeFin.swatch, backgroundSize: activeFin.backgroundSize }} /><span className="truncate">{activeFin.label}</span></span> <ChevronDown className="size-3.5" /></Control>
@@ -1126,7 +1126,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							))}
 						</div>
 					)}
-					<Field label="Brand bar">
+					<Field label="Brand bar" desc="The colored strip along each slide's top edge. Rainbow by default; None removes it; Solid uses the theme's accent — set that to a client's brand color to white-label the deck.">
 							{/* The white-label spectrum — the rainbow bar on the top border / divider
 							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 							    the theme accent to a client's brand and Solid follows. */}
@@ -1139,18 +1139,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								</DropdownMenuContent>
 							</DropdownMenu>
 						</Field>
-					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
-				<Field label="Running header"><Toggle label="Running header" on={headerFooter} onClick={toggleHeaderFooter} /></Field>
-				<Field label="Footer"><Toggle label="Footer" on={footer} onClick={toggleFooter} /></Field>
-				<Field label="Section rail"><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+					<Field label="Page numbers" desc="Show the page number on every slide."><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
+				<Field label="Running header" desc="Show the deck title along the top of every slide."><Toggle label="Running header" on={headerFooter} onClick={toggleHeaderFooter} /></Field>
+				<Field label="Footer" desc="Show the running line at the bottom of every slide."><Toggle label="Footer" on={footer} onClick={toggleFooter} /></Field>
+				<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 			</InspGroup>
-			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring">
-				<Field label="Inline validation"><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
+			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring" desc="Aids while you write. Preview-only — none of this appears in the export.">
+				<Field label="Inline validation" desc="Flags unknown components in the editor as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
 				{/* Debug overlay — outlines every box by layout mode and labels the
 				    structural ones on hover; `always` pins them. A deck setting (`debug:`
 				    front matter), preview-only, stripped from every export.
 				    engineering/decisions/2026-07-01-debug-bounding-boxes.md */}
-				<Field label="Debug overlay">
+				<Field label="Debug overlay" desc="Outlines every layout box for debugging. Preview-only — stripped from every export.">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Control aria-label="Debug overlay">{debugLabel} <ChevronDown className="size-3.5" /></Control>
@@ -1166,7 +1166,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</DropdownMenu>
 				</Field>
 			</InspGroup>
-			<InspGroup icon={<History className="size-3.5" />} label="History">
+			<InspGroup icon={<History className="size-3.5" />} label="History" desc="Snapshots of the deck you can restore. One is saved automatically before each AI edit.">
 				<button type="button" onClick={saveVersion} className="mb-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Save className="size-3.5" />Save a version</button>
 				{checkpoints.length === 0 ? (
 					<p className="px-0.5 py-1 text-[11.5px] leading-relaxed text-muted-foreground">No saved versions yet. Versions are also captured automatically before each AI edit.</p>
@@ -1181,11 +1181,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</ul>
 				)}
 			</InspGroup>
-			<InspGroup icon={<Volume2 className="size-3.5" />} label="Read">
-				<Field label="Voice"><Control onClick={() => notify('Read-aloud voice — Aria, Cedar, and more in the full app.')}>Aria <ChevronDown className="size-3.5" /></Control></Field>
-				<Field label="Pace"><Control onClick={() => notify('Read-aloud pace — slower for boardrooms, faster for review.')}>Steady <ChevronDown className="size-3.5" /></Control></Field>
+			<InspGroup icon={<Volume2 className="size-3.5" />} label="Read" desc="How the deck sounds when read aloud in Present mode.">
+				<Field label="Voice" desc="The read-aloud voice."><Control onClick={() => notify('Read-aloud voice — Aria, Cedar, and more in the full app.')}>Aria <ChevronDown className="size-3.5" /></Control></Field>
+				<Field label="Pace" desc="How fast it reads — slower for a boardroom, faster for review."><Control onClick={() => notify('Read-aloud pace — slower for boardrooms, faster for review.')}>Steady <ChevronDown className="size-3.5" /></Control></Field>
 			</InspGroup>
-			<InspGroup icon={<Sparkles className="size-3.5" />} label="Lenses" last>
+			<InspGroup icon={<Sparkles className="size-3.5" />} label="Lenses" desc="Preview a filtered cut of the deck — the source stays whole." last>
 				<Lens on={composeLens === 'full'} icon={<FileText className="size-3.5" />} name="Full deck" desc="The canonical source" badge="source" onClick={() => setLens('full')} />
 				<Lens on={composeLens === 'exec'} icon={<Sparkles className="size-3.5" />} name="Exec summary" desc="Headline slides only" onClick={() => setLens('exec')} />
 				<Lens on={composeLens === 'onepager'} icon={<LayoutGrid className="size-3.5" />} name="One-pager" desc="The single key slide" onClick={() => setLens('onepager')} />
@@ -1234,7 +1234,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				)}
 				{insertComponents.length > 0 && <button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component" title="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button>}
 				<button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues" title="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
-				<button type="button" onClick={() => setNotesOpen(true)} aria-label="This slide" title="This slide — note, look, status, chrome" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]"><StickyNote className="size-3" /><span className="hidden @[36rem]:inline">This slide</span></button>
+				<Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>
 				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
 				{splitUsable && (
 					<Button variant="ghost" size="icon-sm" aria-label="Collapse editor" title="Collapse editor — or drag the divider past its minimum" onClick={() => collapseFromHeader('a')}>
@@ -1541,7 +1541,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</div>
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
-						{mobilePane === 'preview' && <button type="button" onClick={() => setNotesOpen(true)} aria-label="This slide" title="This slide — note, look, status, chrome" className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><StickyNote className="size-4" /></button>}
+						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
@@ -1770,16 +1770,24 @@ function RailOp({ label, onClick, disabled, danger, armed, children }: { label: 
 function Chip({ children, onClick, busy }: { children: React.ReactNode; onClick?: () => void; busy?: boolean }) {
 	return <button type="button" onClick={onClick} disabled={busy} className="mt-2 mr-1.5 inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] text-[var(--accent)] disabled:opacity-60">{busy && <Sparkles className="size-3 animate-pulse" />}{children}</button>;
 }
-function InspGroup({ icon, label, last, children }: { icon: React.ReactNode; label: string; last?: boolean; children: React.ReactNode }) {
+function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNode; label: string; desc?: string; last?: boolean; children: React.ReactNode }) {
 	return (
 		<div className={cn('py-3', !last && 'border-b border-border')}>
-			<div className="mb-2.5 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{icon}{label}</div>
+			<div className="mb-1 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{icon}{label}</div>
+			{desc && <p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 			{children}
 		</div>
 	);
 }
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-	return <div className="my-2 flex items-center justify-between gap-2.5"><span className="text-[12.5px] text-foreground">{label}</span>{children}</div>;
+// A deck-setting row. `desc` adds a plain-language help line under the control —
+// no magic, no mystery: every setting says what it does. Obvious toggles can omit it.
+function Field({ label, desc, children }: { label: string; desc?: string; children: React.ReactNode }) {
+	return (
+		<div className="my-2">
+			<div className="flex items-center justify-between gap-2.5"><span className="text-[12.5px] text-foreground">{label}</span>{children}</div>
+			{desc && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
+		</div>
+	);
 }
 // Forwards ref + props so it can be a Radix `asChild` trigger (the Size menu).
 const Control = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(({ children, ...props }, ref) => (
