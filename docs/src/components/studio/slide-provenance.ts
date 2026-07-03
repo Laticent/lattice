@@ -33,7 +33,10 @@ export function deckDefaults(source: string): { classTokens: string[]; finish: s
 	return { classTokens, finish, mode };
 }
 
-const isFinishToken = (t: string) => /^finish-(.+)$/.test(t) && t !== 'finish-none';
+// A per-slide finish selector — mirrors the engine's isFinishVariantClass
+// (resolve-finish.js): `finish-<name>` EXCEPT the `finish-none` opt-out and the
+// `finish-preview` specimen (both of which never activate a real backdrop).
+const isFinishToken = (t: string) => /^finish-(.+)$/.test(t) && t !== 'finish-none' && t !== 'finish-preview';
 const finishName = (t: string) => (t.match(/^finish-(.+)$/)?.[1] ?? '');
 
 // ── dark ─────────────────────────────────────────────────────────────────────
@@ -43,8 +46,12 @@ const finishName = (t: string) => (t.match(/^finish-(.+)$/)?.[1] ?? '');
 export function darkProvenance(chunk: string, source: string): Provenance {
 	const tokens = getClassTokens(chunk);
 	const deckDark = deckDefaults(source).classTokens.includes('dark');
-	if (tokens.includes('dark')) return { state: 'on', inheritable: deckDark };
+	// A dark deck always wins: the slide is dark no matter what, so report it as
+	// inherited (a per-slide `dark` token would be redundant) rather than a toggle the
+	// author could seem to switch off. Only when the deck is NOT dark is the per-slide
+	// token a real on/off.
 	if (deckDark) return { state: 'inherited', deckValue: 'dark', inheritable: true };
+	if (tokens.includes('dark')) return { state: 'on', inheritable: false };
 	return { state: 'off', inheritable: false };
 }
 
@@ -98,7 +105,9 @@ export function modeProvenance(chunk: string, source: string): Provenance {
 	const inheritable = deckValue !== undefined;
 	if (tokens.includes('boardroom')) return { state: 'off', deckValue, inheritable };
 	const own = tokens.find((t) => isModeToken(t) && t !== 'boardroom');
-	if (own) return { state: 'on', value: own === 'sketch-clean-body' ? 'sketch-clean' : 'sketch', deckValue, inheritable };
+	// `sketch-clean` emits BOTH `sketch` and `sketch-clean-body`; token order isn't
+	// guaranteed, so key the value on the clean marker, not on which token comes first.
+	if (own) return { state: 'on', value: tokens.includes('sketch-clean-body') ? 'sketch-clean' : 'sketch', deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }

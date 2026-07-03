@@ -421,6 +421,7 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
   });
   test('a finish preset + finish-none opt-out conflict', () => assert.ok(conflict('kpi finish-atrium finish-none')));
   test('a single finish is clean', () => assert.equal(conflict('kpi finish-atrium'), undefined));
+  test('finish-preview is not a real finish (no conflict with a preset)', () => assert.equal(conflict('kpi finish-preview finish-atrium'), undefined));
   test('no exclusiveAxes vocab → rule inert (except finish prefix)', () => {
     const out = core.lintTextWith(`${FM}<!-- _class: kpi tone-warn tone-fail -->\n\n## H`, { names: new Set(['kpi']), modifiers: new Set(['tone-warn', 'tone-fail']) });
     assert.equal(out.filter((f) => f.rule === 'conflicting-variants').length, 0);

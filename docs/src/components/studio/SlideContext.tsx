@@ -191,9 +191,13 @@ export function SlideContext(props: SlideContextProps) {
 	const tints = decor.filter((p) => p.includes('tint-'));
 	const marks = decor.filter((p) => p.includes('mark-'));
 	const phraseActive = (list: string[]) => list.find((p) => p.split(/\s+/).every((t) => has(t))) ?? null;
-	const applyPhrase = (list: string[], phrase: string | null, stripPlacement: boolean) => onMutate((c) => {
+	// Apply one phrase from a kind (tint/mark), clearing the others OF THAT KIND. The
+	// phrases carry their own `at-*` placement, so `remove` already sheds a departing
+	// tint's placement — we do NOT blanket-strip every `at-*`, which would clobber a
+	// hand-authored placement on an unrelated (e.g. mark) token.
+	const applyPhrase = (list: string[], phrase: string | null) => onMutate((c) => {
 		const remove = new Set(list.flatMap((p) => p.split(/\s+/)));
-		let kept = getClassTokens(c).filter((t) => !remove.has(t) && t !== 'treatment-none' && !(stripPlacement && /^at-/.test(t)));
+		let kept = getClassTokens(c).filter((t) => !remove.has(t) && t !== 'treatment-none');
 		if (phrase) kept = kept.concat(phrase.split(/\s+/));
 		return setClassTokens(c, kept);
 	});
@@ -303,13 +307,13 @@ export function SlideContext(props: SlideContextProps) {
 									{tints.length > 0 && (
 										<div className="my-1.5">
 											<div className="mb-1.5 text-[12px] text-foreground">Tint</div>
-											<ChipRow ariaLabel="Tint treatment" value={phraseActive(tints)} onChange={(v) => applyPhrase(tints, v, true)} options={tints.map((p) => ({ label: decorLabel(p), value: p }))} />
+											<ChipRow ariaLabel="Tint treatment" value={phraseActive(tints)} onChange={(v) => applyPhrase(tints, v)} options={tints.map((p) => ({ label: decorLabel(p), value: p }))} />
 										</div>
 									)}
 									{marks.length > 0 && (
 										<div className="my-2">
 											<div className="mb-1.5 text-[12px] text-foreground">Mark</div>
-											<ChipRow ariaLabel="Mark treatment" value={phraseActive(marks)} onChange={(v) => applyPhrase(marks, v, false)} options={marks.map((p) => ({ label: decorLabel(p), value: p }))} />
+											<ChipRow ariaLabel="Mark treatment" value={phraseActive(marks)} onChange={(v) => applyPhrase(marks, v)} options={marks.map((p) => ({ label: decorLabel(p), value: p }))} />
 										</div>
 									)}
 								</Section>

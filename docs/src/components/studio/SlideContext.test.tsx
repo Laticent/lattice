@@ -23,10 +23,10 @@ const lintVocab = {
 };
 const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'loose', 'accent'] }];
 
-function setup(chunk: string, source = chunk) {
+function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	const onMutate = vi.fn();
 	render(
-		<SlideContext open onOpenChange={() => {}} chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+		<SlideContext open onOpenChange={() => {}} chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinishNames={savedFinishNames} onMutate={onMutate} />,
 	);
 	// Apply the captured transform to the chunk to see the resulting tokens.
 	const applied = () => getClassTokens(onMutate.mock.calls.at(-1)?.[0](chunk));
@@ -65,6 +65,14 @@ describe('SlideContext drawer', () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		fireEvent.change(screen.getByRole('combobox', { name: /finish/i }), { target: { value: 'meridian' } });
 		expect(applied()).toContain('finish-meridian');
+	});
+
+	it('writes a SAVED finish as bare finish-<name>, not a double prefix', () => {
+		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi', '<!-- _class: kpi -->\n\n# Hi', ['velvet']);
+		fireEvent.change(screen.getByRole('combobox', { name: /finish/i }), { target: { value: 'velvet' } });
+		const toks = applied();
+		expect(toks).toContain('finish-velvet');
+		expect(toks).not.toContain('finish-finish-velvet');
 	});
 
 	it('applies a decoration tint phrase (token + placement together)', () => {

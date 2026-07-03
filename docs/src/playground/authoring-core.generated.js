@@ -379,7 +379,7 @@ ${indent}   - ${body.trim()}`;
             });
           }
         }
-        const finishHits = tokens.filter((t) => /^finish-.+/.test(t));
+        const finishHits = tokens.filter((t) => /^finish-.+/.test(t) && t !== "finish-preview");
         if (finishHits.length > 1) {
           findings.push({
             slide: idx - fm + 1,

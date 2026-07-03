@@ -315,16 +315,18 @@ state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
 recognises four tiers:
 
-**Tier 1 — Universal (25 variants).** Apply to every component. Added
-automatically by `effectiveVariants()`; manifests must NOT list them.
-Six categories:
+**Tier 1 — Universal (32 variants).** Apply to every component. Added
+automatically by `effectiveVariants()`; manifests must NOT list them. The
+canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Seven
+categories:
 
 | Category | Variants |
 |---|---|
 | Mood (1) | `dark` |
 | Decoration (6) | `treatment-none`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
-| Typography (2) | `with-period`, `no-period` |
-| Chrome (4) | `silent`, `no-header`, `no-footer`, `no-paginate` |
+| Typography (5) | `with-period`, `no-period`, `scale-l`, `scale-xl`, `scale-2xl` |
+| Chrome (7) | `silent`, `no-header`, `no-footer`, `no-paginate`, `form`, `no-form`, `no-progress` |
+| Social (1) | `safe` |
 | State (8) | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
 | Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
 

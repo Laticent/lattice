@@ -17,6 +17,10 @@ describe('dark provenance', () => {
 		expect(p.state).toBe('inherited');
 		expect(p.deckValue).toBe('dark');
 	});
+	it('a dark deck reads inherited even when the slide ALSO carries dark (no phantom off)', () => {
+		const src = deck('class: dark', '<!-- _class: kpi dark -->');
+		expect(darkProvenance('<!-- _class: kpi dark -->', src).state).toBe('inherited');
+	});
 	it('setDark toggles only the dark token', () => {
 		expect(getClassTokens(setDark('<!-- _class: kpi tint-corner -->', true))).toEqual(['kpi', 'tint-corner', 'dark']);
 		expect(getClassTokens(setDark('<!-- _class: kpi dark tint-corner -->', false))).toEqual(['kpi', 'tint-corner']);
@@ -38,6 +42,9 @@ describe('finish provenance + override', () => {
 		const src = deck('finish: atrium', '<!-- _class: kpi finish-none -->');
 		expect(finishProvenance('<!-- _class: kpi finish-none -->', src).state).toBe('off');
 	});
+	it('the finish-preview specimen is NOT a real finish (mirrors the engine)', () => {
+		expect(finishProvenance('<!-- _class: kpi finish-preview -->', '').state).toBe('off');
+	});
 	it('setFinish never stacks finishes', () => {
 		let chunk = '<!-- _class: kpi finish-atrium -->';
 		chunk = setFinish(chunk, 'meridian');
@@ -55,6 +62,10 @@ describe('mode provenance + opt-out', () => {
 	it('off via boardroom opt-out', () => {
 		const src = deck('mode: sketch', '<!-- _class: kpi boardroom -->');
 		expect(modeProvenance('<!-- _class: kpi boardroom -->', src).state).toBe('off');
+	});
+	it('reads sketch-clean back correctly regardless of token order', () => {
+		expect(modeProvenance('<!-- _class: kpi sketch sketch-clean-body -->', '')).toMatchObject({ state: 'on', value: 'sketch-clean' });
+		expect(modeProvenance('<!-- _class: kpi sketch -->', '')).toMatchObject({ state: 'on', value: 'sketch' });
 	});
 	it('setMode writes the right tokens', () => {
 		expect(getClassTokens(setMode('<!-- _class: kpi -->', 'sketch-clean'))).toEqual(['kpi', 'sketch', 'sketch-clean-body']);
