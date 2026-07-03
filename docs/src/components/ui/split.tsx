@@ -426,14 +426,27 @@ export function useSplit(options: UseSplitOptions): UseSplitReturn {
 			if (e.pointerType === "mouse" && e.button !== 0) return
 			// The fr pair distributes the container minus the 1px handle track
 			// (rails are 0px while both panes are open, so they don't enter).
-			const width = containerRef.current?.getBoundingClientRect().width ?? 0
+			const containerRect = containerRef.current?.getBoundingClientRect()
+			const width = containerRect?.width ?? 0
 			const pairWidth = Math.max(1, width - 1)
+			// Start from the RENDERED divider position, not the stored ratio: when
+			// a pane is clamped at its px minimum the two disagree (stored 0.75 can
+			// render at 0.73), and seeding from storage makes the first move frame
+			// jump ~25px. The handle's left edge IS the editor track's width (the
+			// rail-a track is 0 while both panes are open). jsdom / a 0-width
+			// layout measures nothing — fall back to the stored ratio there.
+			const handleLeft = handleRef.current?.getBoundingClientRect().left
+			const rendered =
+				containerRect && handleLeft !== undefined && width > 0
+					? clampRatio((handleLeft - containerRect.left) / pairWidth)
+					: ratioRef.current
+			const startRatio = Number.isFinite(rendered) && rendered > 0 ? rendered : ratioRef.current
 			const drag: DragState = {
 				pointerId: e.pointerId,
 				startX: e.clientX,
-				startRatio: ratioRef.current,
+				startRatio,
 				pairWidth,
-				lastRatio: ratioRef.current,
+				lastRatio: startRatio,
 				armed: null,
 				canceled: false,
 				frame: null,
