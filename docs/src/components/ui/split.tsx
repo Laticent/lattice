@@ -702,7 +702,12 @@ function SplitRail({
 			aria-label={labelExpand}
 			title={labelExpand}
 			className={cn(
-				"flex min-w-0 cursor-pointer flex-col items-center gap-2 overflow-hidden border-l border-border bg-muted/40 py-2 outline-none",
+				"flex min-w-0 cursor-pointer flex-col items-center gap-2 overflow-hidden border-border bg-muted/40 py-2 outline-none",
+				// The 1px boundary line survives collapse on the PANE-facing edge —
+				// rail-a (editor collapsed, viewport-left) borders right, rail-b
+				// (preview collapsed, viewport-right) borders left. Without it the
+				// rail floats against the expanded pane; the outer edge needs none.
+				"data-[side=a]:border-r data-[side=b]:border-l",
 				"transition-colors hover:bg-muted",
 				"focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]",
 				// A rail whose track is 0px must paint nothing — borders would still
