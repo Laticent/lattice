@@ -201,6 +201,21 @@ in patch versions.
 
 ### Fixed
 
+- **Tapping an input in the Studio no longer zooms the page on iOS.** iOS
+  Safari auto-zooms when a focused text control computes under 16px; the
+  first fix (bumping individual search boxes and the Playground editor)
+  didn't survive new surfaces — the Studio shipped its own CodeMirror theme
+  (13px) plus a set of dense 12–13.5px fields, and the zoom came back. The
+  fix is now structural: a global coarse-pointer net in the shared
+  `landing.css` reset forces every text-entry control on every standalone
+  page (Studio, Playground, Drawing Board, landing, workbench) to at least
+  16px, and the Studio's shared editor theme carries the same
+  coarse-pointer bump as the Playground's for the CodeMirror contenteditable
+  the net can't reach. A touch-emulating Playwright guard
+  (`docs/e2e/ios-zoom.spec.ts`) sweeps every mounted text control on both
+  Studio and Playground so a third regression fails in the nightly. Desktop
+  keeps the denser sizes.
+
 - **Chart slides no longer export black/unstyled in the Studio image PDF and
   PPTX.** html-to-image inlines computed styles onto HTMLElements only, so a
   nested chart `<svg>`'s clone kept just its classes — fills fell to

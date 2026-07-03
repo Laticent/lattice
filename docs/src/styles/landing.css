@@ -166,6 +166,34 @@ img {
 	max-width: 100%;
 	display: block;
 }
+/* iOS Safari auto-zooms the whole page when a focused text control computes
+ * under 16px — the threshold is 16 CSS px on the FOCUSED ELEMENT (the base
+ * body font is irrelevant to it). This global net forces every text-entry
+ * control to at least 16px on coarse pointers so no surface can reintroduce
+ * the zoom with a dense one-off input (it already regressed once: the first
+ * fix bumped individual search boxes, then the Studio shipped new sub-16px
+ * fields). Being unlayered, it also beats Tailwind's @layer-ed text-* /
+ * text-[Npx] utilities. `max(16px, 1em)` keeps controls that inherit a larger
+ * size. CodeMirror is NOT covered here (its contenteditable is styled by a
+ * scoped theme that out-specifies this) — each CM theme carries its own
+ * coarse-pointer 16px block (playground/editor.js, studio/editor-theme.ts). */
+@media (pointer: coarse) {
+	input:not(
+			[type='checkbox'],
+			[type='radio'],
+			[type='range'],
+			[type='file'],
+			[type='color'],
+			[type='button'],
+			[type='submit'],
+			[type='reset'],
+			[type='image']
+		),
+	textarea,
+	select {
+		font-size: max(16px, 1em);
+	}
+}
 a {
 	color: var(--accent);
 	text-decoration: none;
