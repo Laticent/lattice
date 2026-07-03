@@ -33,7 +33,7 @@ import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, 
 import { activeModeLabel, ModeMenuItems } from './ModePicker';
 import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
-import { getNote, setNote } from './slide-notes';
+import { SlideContext } from './SlideContext';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
@@ -950,19 +950,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	}
 
 	// ── Architect body (cards) — shared by the desktop column and the sheet ──
-	// Speaker note for the slide in view — authored in the Inspector, written into
-	// the slide's source as a `<!-- note: … -->` comment (the engine surfaces it in
-	// the presenter view / PDF notes). Local draft so typing doesn't rewrite the
-	// source per keystroke; committed on blur.
-	const curNote = React.useMemo(() => getNote(slides[activeFullIndex] ?? ''), [slides, activeFullIndex]);
-	const [noteDraft, setNoteDraft] = React.useState(curNote);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed the draft when the active slide's note changes.
-	React.useEffect(() => setNoteDraft(curNote), [curNote, activeFullIndex]);
-	const commitNote = () => {
-		const chunk = slides[activeFullIndex];
-		if (chunk == null || noteDraft === curNote) return;
-		setSource(replaceSlide(source, activeFullIndex, setNote(chunk, noteDraft)).source);
-	};
+	// Per-slide edits (note + class tokens) commit through ONE funnel: a pure
+	// transform applied to the FRESHEST slide chunk via a functional setSource, so a
+	// pending editor flush or an AI edit can't land a stale write on the wrong slide.
+	// The "This slide" drawer owns the note + class controls (SlideContext).
+	const mutateActiveSlide = React.useCallback((fn: (chunk: string) => string) => {
+		setSource((s) => {
+			const chunk = splitSlides(stripFrontMatter(s))[activeFullIndex];
+			return chunk == null ? s : replaceSlide(s, activeFullIndex, fn(chunk)).source;
+		});
+	}, [activeFullIndex]);
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
@@ -1206,7 +1203,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				)}
 				{insertComponents.length > 0 && <button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component" title="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button>}
 				<button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues" title="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
-				<button type="button" onClick={() => setNotesOpen(true)} aria-label="Speaker notes" title="Speaker notes" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]"><StickyNote className="size-3" /><span className="hidden @[36rem]:inline">Notes</span></button>
+				<button type="button" onClick={() => setNotesOpen(true)} aria-label="This slide" title="This slide — note, look, status, chrome" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]"><StickyNote className="size-3" /><span className="hidden @[36rem]:inline">This slide</span></button>
 				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
 				{splitUsable && (
 					<Button variant="ghost" size="icon-sm" aria-label="Collapse editor" title="Collapse editor — or drag the divider past its minimum" onClick={() => collapseFromHeader('a')}>
@@ -1513,7 +1510,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</div>
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
-						{mobilePane === 'preview' && <button type="button" onClick={() => setNotesOpen(true)} aria-label="Speaker notes" title="Speaker notes" className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><StickyNote className="size-4" /></button>}
+						{mobilePane === 'preview' && <button type="button" onClick={() => setNotesOpen(true)} aria-label="This slide" title="This slide — note, look, status, chrome" className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><StickyNote className="size-4" /></button>}
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
@@ -1619,25 +1616,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<Sheet open={notesOpen} onOpenChange={setNotesOpen}>
-				<SheetContent side="right" className="w-[88vw] gap-0 sm:max-w-[420px]">
-					<SheetHeader className="border-b border-border">
-						<SheetTitle className="flex items-center gap-2 text-[15px]"><StickyNote className="size-4 text-[var(--accent)]" />Speaker notes<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">slide {activeFullIndex + 1}</span></SheetTitle>
-						<SheetDescription className="sr-only">The talk track for the current slide — read aloud in Present, exported as PDF/PPTX notes.</SheetDescription>
-					</SheetHeader>
-					<div className="flex min-h-0 flex-1 flex-col p-4">
-						<textarea
-							value={noteDraft}
-							onChange={(e) => setNoteDraft(e.target.value)}
-							onBlur={commitNote}
-							aria-label="Speaker note for this slide"
-							placeholder="What you'll say on this slide — read aloud in Present, exported as PDF/PPTX notes."
-							className="min-h-[180px] w-full flex-1 resize-none rounded-lg border border-border bg-background p-3 text-[13.5px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
-						/>
-						<p className="mt-2 text-[11px] text-muted-foreground">Notes ride with the slide — read aloud in Present and exported to PDF/PPTX.</p>
-					</div>
-				</SheetContent>
-			</Sheet>
+			<SlideContext
+				open={notesOpen}
+				onOpenChange={setNotesOpen}
+				chunk={slides[activeFullIndex] ?? ''}
+				source={source}
+				slideNumber={activeFullIndex + 1}
+				lintVocab={lintVocab}
+				catalog={components}
+				savedFinishNames={savedFinishMenu.map((f) => f.name)}
+				onMutate={mutateActiveSlide}
+			/>
 			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={palette} mode={mode === 'dark' ? 'dark' : 'light'} extraTheme={extraTheme} extraCss={previewExtraCss} onPresent={() => setPresentOpen(true)} notify={notify} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			<Library

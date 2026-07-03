@@ -149,11 +149,80 @@
       "tone-fail",
       "tone-skip"
     ],
+    "universalGroups": {
+      "mood": [
+        "dark"
+      ],
+      "decoration": [
+        "treatment-none",
+        "tint-corner at-tl",
+        "mark-orbit",
+        "tint-vignette",
+        "tint-edge at-right",
+        "mark-threads"
+      ],
+      "typography": [
+        "with-period",
+        "no-period",
+        "scale-l",
+        "scale-xl",
+        "scale-2xl"
+      ],
+      "chrome": [
+        "silent",
+        "no-header",
+        "no-footer",
+        "no-paginate",
+        "form",
+        "no-form",
+        "no-progress"
+      ],
+      "social": [
+        "safe"
+      ],
+      "state": [
+        "wip",
+        "draft",
+        "tbd",
+        "confidential",
+        "redacted",
+        "archived",
+        "pinned",
+        "revised"
+      ],
+      "tone": [
+        "tone-pass",
+        "tone-warn",
+        "tone-fail",
+        "tone-skip"
+      ]
+    },
     "semiUniversalVariants": [
       "compact",
       "loose",
       "accent"
     ],
+    "exclusiveAxes": {
+      "tone": [
+        "tone-pass",
+        "tone-warn",
+        "tone-fail",
+        "tone-skip"
+      ],
+      "scale": [
+        "scale-l",
+        "scale-xl",
+        "scale-2xl"
+      ],
+      "period": [
+        "with-period",
+        "no-period"
+      ],
+      "density": [
+        "compact",
+        "loose"
+      ]
+    },
     "familyModifiers": {
       "state-markers": [
         "checks-ringed",

@@ -2,15 +2,46 @@
 // the "unknown component" detection (the engine of the inline-validation badge)
 // are property-testable without rendering anything.
 
-/** Split deck source into trimmed, non-empty slide chunks on `---` fences. */
-export function splitSlides(src: string): string[] {
-	return String(src ?? '')
-		.split(/\n-{3,}\n/)
-		.map((s) => s.trim())
-		.filter(Boolean);
+import { fenceRanges } from './slide-directives';
+
+// A slide separator is a `---` (3+ dashes) line flanked by newlines — but NOT one
+// inside a fenced code block (a mermaid block's `---` front matter, a YAML sample).
+// Scanning was fence-blind, which split such slides into pieces and corrupted the
+// deck on the next structural edit. `separatorPositions` masks fences once and every
+// splitter/locator below shares it, so they never disagree.
+const SEP_RE = /\n-{3,}\n/g;
+function separatorPositions(src: string): Array<{ index: number; length: number }> {
+	const text = String(src ?? '');
+	const fences = fenceRanges(text);
+	const inFence = (i: number) => fences.some(([a, b]) => i >= a && i < b);
+	const out: Array<{ index: number; length: number }> = [];
+	let m: RegExpExecArray | null;
+	SEP_RE.lastIndex = 0;
+	while ((m = SEP_RE.exec(text))) {
+		// The separator "line" is the dashes; the match includes the flanking newlines.
+		if (!inFence(m.index + 1)) out.push({ index: m.index, length: m[0].length });
+	}
+	return out;
 }
 
-const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)\s*-->/g;
+/** Split deck source into trimmed, non-empty slide chunks on `---` fences (fence-aware). */
+export function splitSlides(src: string): string[] {
+	const text = String(src ?? '');
+	const seps = separatorPositions(text);
+	const chunks: string[] = [];
+	let pos = 0;
+	for (const s of seps) {
+		chunks.push(text.slice(pos, s.index));
+		pos = s.index + s.length;
+	}
+	chunks.push(text.slice(pos));
+	return chunks.map((s) => s.trim()).filter(Boolean);
+}
+
+// First token of a `_class` value — the COMPONENT — tolerating extra modifier
+// tokens (`_class: kpi dark scale-xl`), which the old single-token regex missed
+// (so the rail chip read `text` and the score miscounted a modified slide).
+const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)(?:[ \t][^\n>]*?)?\s*-->/g;
 
 /** The `_class` component names used in the source, in document order. */
 export function usedComponents(src: string): string[] {
@@ -37,24 +68,17 @@ export function slideClass(slideSrc: string): string {
 /** Zero-based index of the slide containing character offset `pos` — the count of
  *  `---` fences before it. Pairs with splitSlides() to sync editor cursor ↔ preview. */
 export function slideIndexAt(src: string, pos: number): number {
-	const before = String(src ?? '').slice(0, Math.max(0, pos));
-	return before.match(/\n-{3,}\n/g)?.length ?? 0;
+	const at = Math.max(0, pos);
+	return separatorPositions(src).filter((s) => s.index < at).length;
 }
 
 /** Character offset where slide `index` begins — just past its preceding fence.
  *  The inverse of slideIndexAt, for scrolling the editor to a slide. */
 export function slideStartOffset(src: string, index: number): number {
 	if (index <= 0) return 0;
-	const text = String(src ?? '');
-	const re = /\n-{3,}\n/g;
-	let m: RegExpExecArray | null;
-	let pos = 0;
-	let count = 0;
-	while ((m = re.exec(text)) && count < index) {
-		pos = m.index + m[0].length;
-		count++;
-	}
-	return pos;
+	const seps = separatorPositions(src);
+	const s = seps[Math.min(index, seps.length) - 1];
+	return s ? s.index + s.length : 0;
 }
 
 export type PresentLens = 'full' | 'exec' | 'onepager';

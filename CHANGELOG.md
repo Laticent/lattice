@@ -55,6 +55,23 @@ in patch versions.
 
 ### Added
 
+- **The Studio's Notes button is now a "This slide" drawer** — a context-sensitive
+  editor for one slide's craft, beyond the speaker note. Toggle **dark** (tri-state:
+  it reads "inherited" when the deck is dark, never a broken off), pick a **type
+  scale** (M/L/XL/2XL), set a per-slide **finish** (inherit / none / any preset or
+  saved finish), tune **density** (compact / default / loose + accent), stamp a
+  **state** (wip … revised) or **tone** (pass/warn/fail/skip), apply a **decoration**
+  (tint + mark), and control **chrome** (clean-slide, or granular header/footer/page).
+  Every control is driven by the engine's generated vocabulary (so it never drifts),
+  writes span-surgically into the slide's `_class` — preserving hand-authored tokens —
+  and shows the emitted `<!-- _class: … -->` line with inherited deck tokens ghosted,
+  so authors learn the markdown. The drawer only offers what the active layout accepts,
+  and goes read-only on a class shape it can't round-trip.
+- **New lint rule `conflicting-variants`** flags a slide carrying two members of one
+  mutually-exclusive axis (two tones, two type scales, `with-period` + `no-period`,
+  `compact` + `loose`) or two finish selectors — the same rule the drawer's
+  single-select controls reflect.
+
 - **The installed app is now the Studio.** Installing Lattice (from any page)
   puts **"Lattice Studio"** on your home screen or dock, launching straight
   into the editor instead of the homepage — docs still open inside the app
@@ -252,6 +269,34 @@ in patch versions.
   `engineering/decisions/2026-07-02-contribution-model.md`.
 
 ### Fixed
+
+- **State markers (`confidential` / `wip` / `draft`) no longer vanish on
+  masthead-less form layouts** (`quote`, `big-number`). The form status Tile
+  suppressed the base band/watermark on the assumption a masthead-bay chip would
+  replace it — but those layouts have no bay, so the marker silently disappeared.
+  They now fall back to an always-visible top-right corner pill, suppressed (via a
+  bare `:has(.masthead-bay)`) only where a bay exists to host the chip.
+
+- **A `tone-*` rail now coexists with state markers AND finishes.** The tone accent
+  rail used `section::before` — the same pseudo every state stamp (`confidential`,
+  `wip`, …) and `mark-*` decoration owns — so combining a tone with a stamp either
+  collapsed the stamp into the 8px rail or (on `form` layouts) erased the rail. The
+  rail is now a solid, blur-free inset `box-shadow` on the section (a channel state
+  markers don't touch, and one that prints reliably in the vector PDF). On a
+  `tone-* finish-*` slide the finish backdrop recedes 8px from the left so the rail
+  reads beside the finish instead of being occluded by its wash.
+
+- **The Studio no longer deletes `_focus` / `_build` / `style` directives or
+  corrupts fenced code when you edit a speaker note.** The note transform's
+  directive classifier had drifted from the engine and silently ate any comment it
+  didn't recognize as a directive; its slide splitter and comment scan were
+  fence-blind, so a mermaid block's `---` front matter split the slide (changing the
+  slide count and destroying the diagram) and a `<!-- … -->` shown inside a code
+  fence was read/edited as a note. All per-slide editing now shares one fence-aware,
+  span-surgical serializer whose directive vocabulary is generated from the engine
+  (drift-gated by a parity test). The slide-rail chip and readiness score also now
+  read multi-token `_class` values (e.g. `kpi dark`) instead of falling back to
+  `text`.
 
 - **The `video` demo, gallery, and docs pointed at a removed Vimeo clip.** The
   sample Vimeo URL (`vimeo.com/76979871`) had been taken down (404), so the demo

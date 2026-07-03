@@ -386,3 +386,44 @@ describe('lint-core: capacity rule', () => {
     assert.equal(out.filter((f) => f.rule.startsWith('capacity')).length, 0);
   });
 });
+
+describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', () => {
+  const axVocab = {
+    names: new Set(['kpi']),
+    modifiers: new Set([
+      'dark', 'tone-pass', 'tone-warn', 'tone-fail', 'scale-l', 'scale-xl',
+      'with-period', 'no-period', 'compact', 'loose', 'finish', 'finish-atrium',
+      'finish-meridian', 'finish-none',
+    ]),
+    exclusiveAxes: {
+      tone: ['tone-pass', 'tone-warn', 'tone-fail', 'tone-skip'],
+      scale: ['scale-l', 'scale-xl', 'scale-2xl'],
+      period: ['with-period', 'no-period'],
+      density: ['compact', 'loose'],
+    },
+  };
+  const conflict = (cls) => core.lintTextWith(`${FM}<!-- _class: ${cls} -->\n\n## H`, axVocab).find((f) => f.rule === 'conflicting-variants');
+
+  test('two tones conflict', () => {
+    const f = conflict('kpi tone-warn tone-fail');
+    assert.ok(f, 'expected a conflicting-variants finding');
+    assert.equal(f.severity, 'warning');
+    assert.match(f.message, /tone/);
+  });
+  test('two type scales conflict', () => assert.ok(conflict('kpi scale-l scale-xl')));
+  test('with-period + no-period conflict', () => assert.ok(conflict('kpi with-period no-period')));
+  test('compact + loose conflict', () => assert.ok(conflict('kpi compact loose')));
+  test('a single axis member is clean', () => assert.equal(conflict('kpi tone-warn scale-l compact'), undefined));
+  test('two finish presets conflict (dynamic axis)', () => {
+    const f = conflict('kpi finish-atrium finish-meridian');
+    assert.ok(f);
+    assert.match(f.message, /finish/);
+  });
+  test('a finish preset + finish-none opt-out conflict', () => assert.ok(conflict('kpi finish-atrium finish-none')));
+  test('a single finish is clean', () => assert.equal(conflict('kpi finish-atrium'), undefined));
+  test('finish-preview is not a real finish (no conflict with a preset)', () => assert.equal(conflict('kpi finish-preview finish-atrium'), undefined));
+  test('no exclusiveAxes vocab → rule inert (except finish prefix)', () => {
+    const out = core.lintTextWith(`${FM}<!-- _class: kpi tone-warn tone-fail -->\n\n## H`, { names: new Set(['kpi']), modifiers: new Set(['tone-warn', 'tone-fail']) });
+    assert.equal(out.filter((f) => f.rule === 'conflicting-variants').length, 0);
+  });
+});

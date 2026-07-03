@@ -74,6 +74,7 @@ export function buildVocabSets(vocab) {
 	if (v.modeNames) sets.modeNames = v.modeNames; // deck-wide `mode:` validator
 	if (v.splitNames) sets.splitNames = v.splitNames; // deck-wide `split:` validator
 	if (v.capacity) sets.capacity = v.capacity; // per-layout content-capacity contract
+	if (v.exclusiveAxes) sets.exclusiveAxes = v.exclusiveAxes; // conflicting-variants axes
 	return sets;
 }
 

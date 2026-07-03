@@ -15934,7 +15934,21 @@ section.finish > .backdrop {
  * once a slide overflows, so the red ring shows; on a normal slide it still wins (the
  * `:not()` adds no specificity, but the finish rule is later in source order). */
 section.finish:not(.overflow) {
-  box-shadow: var(--fin-frame, none);
+  /* Compose the TONE rail (base.variants.css `--tone-rail`) ahead of the finish frame
+     on the SECTION box-shadow — a section shadow prints reliably in the vector PDF
+     (an inset shadow on the absolutely-positioned `.backdrop` does NOT). Both fall
+     back to a no-op `0 0 transparent` (never `none`, invalid inside a shadow list).
+     The rail would otherwise sit BEHIND the backdrop wash and be occluded — so the
+     tone rule below insets the backdrop by the rail's width, letting the rail show
+     beside the finish rather than under it. */
+  box-shadow: var(--tone-rail, 0 0 transparent), var(--fin-frame, 0 0 transparent);
+}
+
+/* On a `tone-* finish-*` slide, recede the backdrop wash from the left edge by the
+   8px rail width so the section's tone rail reads cleanly beside the finish (not
+   occluded by it). No effect on non-tone finish slides. */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).finish > .backdrop {
+  left: 8px;
 }
 
 /* z3 — the MARK pseudo. A full-inset layer behind content; the preset fills
@@ -17360,38 +17374,37 @@ section.no-paginate.no-paginate::after {
 
 /* ── TONE ── canvas-level reuse of the state-token color system ─────── */
 
-/* Each tone draws a vertical accent rail on the slide's left edge,
+/* Each tone draws an 8px vertical accent rail on the slide's left edge,
    colored from the existing --pass / --warn / --fail tokens (so the
    palette controls saturation, contrast, and dark-mode adaptation
    without per-tone CSS).
-   The rail uses ::before. Layouts that already use ::before on the
-   section (cards-grid numbered counters, quote blockquote marks) are
-   unaffected — those selectors target descendants (> ol > li::before,
-   blockquote::before), not the section itself. */
 
+   The rail is an INSET BOX-SHADOW, not a ::before. Tone used to own
+   `section::before`, but EVERY state marker (wip/confidential/draft/… corner
+   stamps, bands, watermarks) and the mark-* decorations own that same pseudo —
+   an element has only one ::before, so tone + a state stamp collided: on a plain
+   layout the stamp collapsed INTO the tone rail (top/left 8px), and on a `form`
+   layout the state's `::before{content:none}` suppression erased the rail. A solid,
+   blur-free inset box-shadow sidesteps the pseudo entirely and — being alpha-free —
+   prints cleanly in the vector PDF (the same discipline the finish frame follows).
+
+   Exposed as --tone-rail so the finish frame (base.finish.css) can COMPOSE the rail
+   into its own box-shadow list rather than overriding it; the no-op default keeps
+   that composition valid on non-tone slides. The overflow-debug ring
+   (base.modifiers.css) still wins on an overflowing slide — a deliberate debug
+   signal — momentarily hiding the rail. */
+
+section { --tone-rail: 0 0 transparent; }
+section.tone-pass { --tone-rail: inset 8px 0 0 0 var(--pass); }
+section.tone-warn { --tone-rail: inset 8px 0 0 0 var(--warn); }
+section.tone-fail { --tone-rail: inset 8px 0 0 0 var(--fail); }
+section.tone-skip { --tone-rail: inset 8px 0 0 0 var(--text-muted); }
 section.tone-pass,
 section.tone-warn,
 section.tone-fail,
 section.tone-skip {
-  position: relative;
+  box-shadow: var(--tone-rail);
 }
-section.tone-pass::before,
-section.tone-warn::before,
-section.tone-fail::before,
-section.tone-skip::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 8px;
-  pointer-events: none;
-  z-index: 50;
-}
-section.tone-pass::before { background: var(--pass); }
-section.tone-warn::before { background: var(--warn); }
-section.tone-fail::before { background: var(--fail); }
-section.tone-skip::before { background: var(--text-muted); }
 
 /* ── STATE ── meta indicators about the slide itself ────────────────── */
 
@@ -18071,9 +18084,55 @@ section.form .tile-progress {
  * tools/build-css.js into the same cascade slot it held in base.variants.css.
  * The `.masthead-bay` flex layout that stacks it is the masthead Cell's concern
  * and stays in base.variants.css. */
+/* On a form layout the label-type markers render as a light top-right corner PILL
+ * (overriding the base band / watermark). This is the always-visible fallback: on a
+ * layout that HAS a masthead bay the pill is suppressed and the marker docks in the
+ * bay instead (rules below). Previously the base treatment was blanket-suppressed
+ * here on the ASSUMPTION a bay chip would show — but masthead-less form layouts
+ * (quote, big-number) have no bay, so the marker silently vanished. */
 section.form.confidential::before,
 section.form.wip::before,
-section.form.draft::before { content: none; background: none; }
+section.form.draft::before {
+  position: absolute;
+  inset: auto; /* reset the base band/watermark's left:0 / inset:0 before docking a corner pill */
+  top: var(--sp-md);
+  right: var(--sp-md);
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: var(--sp-2xs) var(--sp-sm);
+  border-radius: var(--pill-radius);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  pointer-events: none;
+  transform: none; /* clear the base wip stamp's rotate */
+}
+section.form.confidential::before { content: 'Confidential'; }
+section.form.wip::before {
+  content: 'WIP';
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
+}
+section.form.draft::before {
+  content: 'Draft';
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
+}
+
+/* Where a masthead bay EXISTS, suppress the corner pill and dock the marker in the
+ * bay as a chip. Bare `:has()` is safe here (HARD RULE #12 bans only the
+ * `:not(:has())` / `:is(:has())` pair — each function alone evaluates correctly). */
+section.form.confidential:has(.masthead-bay)::before,
+section.form.wip:has(.masthead-bay)::before,
+section.form.draft:has(.masthead-bay)::before { content: none; background: none; border: none; }
 
 section.form:is(.confidential, .wip, .draft) .masthead-bay::after {
   display: inline-flex;

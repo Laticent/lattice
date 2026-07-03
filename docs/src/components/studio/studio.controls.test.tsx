@@ -327,9 +327,9 @@ describe('Studio — Inspector controls respond', () => {
 
 	it('authoring a speaker note writes it into the slide source', async () => {
 		const user = setup();
-		// Speaker notes live in their own drawer now (not the Inspector), opened from
-		// the editor row.
-		await user.click(screen.getByRole('button', { name: 'Speaker notes' }));
+		// The speaker note lives in the per-slide "This slide" drawer now (not the
+		// Inspector), opened from the editor row.
+		await user.click(screen.getByRole('button', { name: 'This slide' }));
 		const notes = await screen.findByRole('textbox', { name: 'Speaker note for this slide' });
 		await user.click(notes);
 		await user.type(notes, 'Open on the room, then the number.');

@@ -43,7 +43,20 @@ try {
 	// lintVocab read below, which already resolves from process.cwd().
 	const catalog = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
 	components = (catalog.components || [])
-		.map((c) => ({ name: c.name, bucket: c.bucket, description: c.description || '', skeleton: String(c.skeleton || '') }))
+		.map((c) => ({
+			name: c.name,
+			bucket: c.bucket,
+			description: c.description || '',
+			skeleton: String(c.skeleton || ''),
+			// Per-component validity data for the per-slide drawer: which variants /
+			// family modifiers / axes this layout actually accepts, so the drawer only
+			// offers controls that resolve at render time (never a disabled graveyard).
+			variants: Array.isArray(c.variants) ? c.variants : [],
+			...(Array.isArray(c.variantAxes) && c.variantAxes.length ? { variantAxes: c.variantAxes } : {}),
+			effectiveVariants: Array.isArray(c.effectiveVariants) ? c.effectiveVariants : [],
+			familyModifiers: Array.isArray(c.familyModifiers) ? c.familyModifiers : [],
+			...(Array.isArray(c.focusAxes) && c.focusAxes.length ? { focusAxes: c.focusAxes } : {}),
+		}))
 		.filter((c) => c.name && c.skeleton);
 } catch (e) {
 	components = [];
@@ -67,6 +80,9 @@ try {
 		modeNames: v.modeNames || [],
 		splitNames: v.splitNames || [],
 		capacity: v.capacity || {},
+		universalGroups: v.universalGroups || {},
+		semiUniversalVariants: v.semiUniversalVariants || [],
+		exclusiveAxes: v.exclusiveAxes || {},
 	};
 } catch (e) {
 	lintVocab = null;
