@@ -90,9 +90,9 @@ export async function buildDeckRender(options: SingleSlideOptions, source: strin
 	};
 }
 
-type ExportMod = typeof import('@/playground/drawing-board-export.js');
+type ExportMod = typeof import('@/components/studio/export/deck-export.js');
 function exporters(): Promise<ExportMod> {
-	return import('@/playground/drawing-board-export.js');
+	return import('@/components/studio/export/deck-export.js');
 }
 
 /**

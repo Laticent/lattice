@@ -95,7 +95,7 @@ type VoiceModel = {
 let voicePromise: Promise<VoiceModel | null> | null = null;
 function getVoice(): Promise<VoiceModel | null> {
 	if (!voicePromise) {
-		voicePromise = import('@/playground/voice-model.js')
+		voicePromise = import('@/components/studio/present/voice-model.js')
 			.then((m) =>
 				m.createVoiceModel({
 					getOpenRouterKey: () => {

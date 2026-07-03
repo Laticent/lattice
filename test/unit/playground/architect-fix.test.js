@@ -8,7 +8,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  return import('../../../docs/src/playground/architect-fix.js');
+  return import('../../../docs/src/components/studio/ai/architect-fix.js');
 }
 
 const DECK = `---

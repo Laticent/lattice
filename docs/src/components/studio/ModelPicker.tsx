@@ -1,6 +1,5 @@
 import { ChevronDown } from 'lucide-react';
 import * as React from 'react';
-import { cn } from '@/lib/utils';
 import {
 	emptyMessage,
 	filterModels,
@@ -9,7 +8,8 @@ import {
 	OR_VIEWS,
 	rowTitle,
 	shortName,
-} from '@/playground/or-catalog.js';
+} from '@/components/studio/ai/or-catalog.js';
+import { cn } from '@/lib/utils';
 import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } from './architect';
 
 // The OpenRouter model picker — a React port of the Drawing Board's accordion

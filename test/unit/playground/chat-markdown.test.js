@@ -9,7 +9,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  return import('../../../docs/src/playground/chat-markdown.js');
+  return import('../../../docs/src/components/studio/ai/chat-markdown.js');
 }
 
 describe('renderMarkdown', () => {

@@ -10,12 +10,12 @@
 // live phrasing path needs a capable Chrome/Edge — the panel says so when it's
 // running model-free.
 
-import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide } from './architect-edits.js';
-import { buildLatticePrimer } from './architect-knowledge.js';
-import { orSupportsCache } from './architect-model.js';
-import { renderMarkdown, renderMarkdownStream } from './chat-markdown.js';
+import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide } from '../components/studio/ai/architect-edits.js';
+import { buildLatticePrimer } from '../components/studio/ai/architect-knowledge.js';
+import { orSupportsCache } from '../components/studio/ai/architect-model.js';
+import { renderMarkdown, renderMarkdownStream } from '../components/studio/ai/chat-markdown.js';
+import { buildCanonContext } from '../components/studio/ai/presentation-canon.js';
 import { budgetStatus, readBudgetCap, readBudgetMode, readCachingEnabled, readSpend, readStandingInstructions, recordSpend } from './drawing-board-settings.js';
-import { buildCanonContext } from './presentation-canon.js';
 
 const BUDGET_WARNED_KEY = 'lattice-db-budget-warned'; // session flag so we toast each threshold once
 

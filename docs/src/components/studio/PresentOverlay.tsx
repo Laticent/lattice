@@ -1,10 +1,10 @@
 import { ChevronLeft, ChevronRight, FastForward, FileText, Grid2x2, LayoutGrid, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { createPresenterController } from '@/components/studio/present/presenter-window.js';
+import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
-import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
-import { createPresenterController } from '@/playground/presenter-window.js';
 import { type PresentLens, presentationSet } from './lint';
 import { slideToSpeech, useReadAloud } from './read-aloud';
 import { SlideOverview } from './SlideOverview';

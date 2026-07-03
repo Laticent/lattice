@@ -5,7 +5,7 @@ import { type APIRequestContext, type Page, request } from '@playwright/test';
 // The Studio's in-app connect flow is OAuth (PKCE) — not automatable headlessly —
 // but the whole connection contract is one localStorage key: `lattice-db-or-key`
 // holds the raw API key, and `ready()` is literally "has a key"
-// (docs/src/playground/architect-model.js). So the test-only injection path is
+// (docs/src/components/studio/ai/architect-model.js). So the test-only injection path is
 // env var → localStorage, seeded BEFORE the island hydrates.
 //
 // KEY HYGIENE: the key must never reach logs or artifacts. The spec that uses

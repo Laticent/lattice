@@ -18,7 +18,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
 async function load() {
-	return import('../../../docs/src/playground/drawing-board-export.js');
+	return import('../../../docs/src/components/studio/export/deck-export.js');
 }
 
 function section(initial = {}) {

@@ -1,10 +1,10 @@
 import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, SlidersHorizontal, Sparkles, Upload, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
+import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
+import { readDedupEnabled, writeDedupEnabled } from '@/components/studio/ai/spend.js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
-import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { ModelPicker } from './ModelPicker';

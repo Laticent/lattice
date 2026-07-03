@@ -358,14 +358,19 @@ carry it; if the freeze must hold past a quarter, revisit.
 
 - **P0 — this PR: the plan + the freeze.** This doc; freeze notes (§4);
   CHANGELOG note; re-scope the stranded issues (§4). Docs-only.
-- **P1 — ownership flip.** The §3 moves/renames + settings-kernel split +
-  import sweep + gate allowlist paths. No behavior change; `npm test`, the docs
-  vitest suite, and the Studio e2e smoke prove the surviving surfaces. ⚠ The
-  frozen surfaces have **zero e2e coverage** (§1), so the sweep's effect on
-  them is verified by hand — load `/drawing-board/` and `/workbench/` in the
-  built site and drive one edit→preview→export and one theme-derive loop; that
-  manual pass is the named verification surface (HARD RULE #23). Multi-file
-  refactor → **maker-checker** (one checker) per CLAUDE.md.
+- **P1 — ownership flip. ✅ SHIPPED (this PR).** The §3 moves/renames +
+  settings-kernel split + import sweep + gate allowlist paths. No behavior
+  change; test counts held across both runners (`npm test` 2845, docs vitest
+  551, `test:playground` 379 — all identical to the pre-move baseline), lint +
+  `build:check` green. ⚠ The frozen surfaces have **zero e2e coverage** (§1),
+  so the sweep's effect was verified by hand — the built site's
+  `/drawing-board/`, `/workbench/`, and `/studio/` were driven in headless
+  Chrome; all three mounted their editors, rendered previews, and resolved
+  every moved module at runtime with zero local module 404s and zero page
+  errors (the only failures were sandbox-blocked external CDNs). A
+  maker-checker pass ran on the diff and caught a Biome `--unsafe` autofix that
+  had contaminated three relocated files with optional-chain rewrites; those
+  were reverted to byte-identical moves before commit.
 - **P2a — deterministic coaching depth.** reviewCore scorecard replaces
   `scoreDeck` (delete it); Coach chips (kernel + React cards). Unit tests +
   `architect.spec.ts` e2e extension.

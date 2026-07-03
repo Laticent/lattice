@@ -6,7 +6,7 @@
 // Privacy: stored locally in the browser (IndexedDB), NEVER uploaded to us — the
 // bytes are only ever inlined into a call the user's own key pays for (the
 // inline-only decision, engineering/decisions/2026-06-29-studio-spend-budget.md).
-import { deleteAsset, listAssets, putAsset } from '@/playground/asset-store.js';
+import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
 import type { ReferenceDoc } from './reference-doc';
 
 /** A persisted reference doc — an asset-store record of kind 'refdoc'. */

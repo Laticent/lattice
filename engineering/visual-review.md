@@ -88,7 +88,7 @@ across agents.
 ## The export surface — review the artifact, not the preview
 
 The browser export pipeline (Studio/Drawing Board Share → PDF / PPTX;
-`docs/src/playground/drawing-board-export.js`) is a THIRD renderer, and it
+`docs/src/components/studio/export/deck-export.js`) is a THIRD renderer, and it
 diverges in its own ways: html-to-image inlines computed styles onto
 HTMLElements only, so anything styled from the document stylesheet inside an
 `<svg>` needs explicit baking (see `engineering/gotchas.md` § "Charts export

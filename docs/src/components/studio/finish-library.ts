@@ -7,7 +7,7 @@
 // consumption loop). Degrades gracefully when IndexedDB is unavailable (private
 // mode / SSR / jsdom) so a read never throws — it just returns an empty shelf.
 
-import { deleteAsset, listAssets, putAsset } from '@/playground/asset-store.js';
+import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
 import { coerceRecipe, type FinishRecipe, generateFinishCss } from './finish-generate';
 
 /** A saved finish as the Studio uses it (render with its CSS via DeckPreview's
