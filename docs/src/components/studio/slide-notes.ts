@@ -4,22 +4,22 @@
 // speaker note; the engine surfaces it in the presenter view / PDF notes / PPTX.
 // The Studio authors notes as `<!-- note: … -->` (still a plain note to the
 // engine) and, when reading, accepts any non-directive comment so a hand-authored
-// note round-trips. Pure string transforms over a single slide chunk; tested.
+// note round-trips.
+//
+// Directive-vs-note classification and fence awareness are SHARED with the slide
+// directive editor (slide-directives.ts) — one generated vocabulary, one fence
+// mask. The previous hand-rolled directive regex had drifted from the engine and
+// silently deleted `_focus` / `_build` / `style` directives, and its comment scan
+// was fence-blind (it ate `<!-- … -->` shown inside code fences). Both are fixed
+// by routing through `comments()` + `isDirectiveBody()`.
 
-// Comment bodies that are DIRECTIVES (or per-slide directives), not notes.
-const DIRECTIVE = /^_?(class|paginate|header|footer|theme|color|backgroundcolor|background|size|split|autosplit|finish|lang|present)\b/i;
-const COMMENT = /<!--([\s\S]*?)-->/g;
-const isDirective = (body: string) => DIRECTIVE.test(body.trim());
+import { comments, isDirectiveBody, tidyOutsideFences } from './slide-directives';
 
 /** The slide's speaker note (the first non-directive comment), or '' . */
 export function getNote(chunk: string): string {
-	const text = String(chunk || '');
-	COMMENT.lastIndex = 0;
-	let m: RegExpExecArray | null;
-	while ((m = COMMENT.exec(text))) {
-		const body = m[1].trim();
-		if (isDirective(body)) continue;
-		return body.replace(/^note:\s*/i, '').trim();
+	for (const c of comments(chunk)) {
+		if (isDirectiveBody(c.body)) continue;
+		return c.body.trim().replace(/^note:\s*/i, '').trim();
 	}
 	return '';
 }
@@ -27,20 +27,20 @@ export function getNote(chunk: string): string {
 /**
  * Set (or clear, with an empty note) the slide's speaker note: strip any existing
  * non-directive note comment(s), then append the new one. Directive comments
- * (`_class`, `paginate`, …) are left untouched.
+ * (`_class`, `_paginate`, `_focus`, …) are left untouched, and comments inside
+ * fenced code blocks are never touched (they're content, not notes).
  */
 export function setNote(chunk: string, note: string): string {
 	const text = String(chunk || '');
-	// Collect the ranges of existing note comments (non-directive).
-	const ranges: [number, number][] = [];
-	COMMENT.lastIndex = 0;
-	let m: RegExpExecArray | null;
-	while ((m = COMMENT.exec(text))) {
-		if (!isDirective(m[1].trim())) ranges.push([m.index, m.index + m[0].length]);
-	}
+	// Ranges of existing note comments (non-directive, outside fences), right-to-left.
+	const ranges = comments(text)
+		.filter((c) => !isDirectiveBody(c.body))
+		.map((c) => [c.start, c.end] as [number, number]);
 	let out = text;
 	for (let i = ranges.length - 1; i >= 0; i--) out = out.slice(0, ranges[i][0]) + out.slice(ranges[i][1]);
-	out = out.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n').trim();
+	// Tidy only the gaps left behind — collapse a run of blank lines a removed note
+	// opened up, and trim the tail — without reflowing a fenced code block's interior.
+	out = tidyOutsideFences(out).trim();
 	const t = note.trim().replace(/--+>/g, '->'); // never let the body close the comment early
 	return t ? `${out}\n\n<!-- note: ${t} -->` : out;
 }
