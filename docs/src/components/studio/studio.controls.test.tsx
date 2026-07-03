@@ -54,9 +54,9 @@ describe('Studio — every top-bar control responds', () => {
 		expect(document.documentElement.getAttribute('data-palette')).toBe('burgundy');
 	});
 
-	it('the launcher creates a New deck', async () => {
+	it('the deck switcher creates a New deck (deck CRUD lives there, not in the launcher)', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
 		await user.click(await screen.findByText('New deck'));
 		expect(screen.getByRole('button', { name: /Untitled deck/ })).toBeInTheDocument();
 	});

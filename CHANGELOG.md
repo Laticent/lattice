@@ -25,6 +25,20 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Studio: the real brand mark and a two-row phone toolbar.** The topbar
+  (and focus header) now render the Spectrum Cell mark instead of a text "L"
+  tile — inlined so its colors follow the Studio's own light/dark mode, not
+  the OS scheme — and the workspace launcher's dropdown chevron shows at every
+  width, so the menu no longer reads as a static logo on phones. On phones the
+  four deck actions (Present, Share, Architect, Inspector) move to the
+  Edit/Preview pane bar — still one tap — and the header's reclaimed width
+  goes to the deck title, which now shows whole instead of truncating at a
+  fixed 150px. "New deck" lives only in the deck switcher (the launcher keeps
+  Decks, Fabricate, and Import). See
+  `engineering/decisions/2026-07-03-studio-brand-mark-toolbar.md`.
+
 ### Added
 
 - **The installed app is now the Studio.** Installing Lattice (from any page)

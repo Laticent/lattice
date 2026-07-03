@@ -27,6 +27,7 @@ import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './fin
 import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, setFrontMatter, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
+import { LatticeMark } from './LatticeMark';
 import { Library } from './Library';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeModeLabel, ModeMenuItems } from './ModePicker';
@@ -1323,7 +1324,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			    control cluster is gone; ⌘K still reaches every feature. */}
 			{focus ? (
 			<header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
-				<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary text-[15px] font-extrabold text-primary-foreground">L</span>
+				<LatticeMark mode={mode} className="size-7 shrink-0" />
 				<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
 				<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
 				<div className="flex-1" />
@@ -1337,10 +1338,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			<header className="flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 sm:gap-3 sm:px-3.5">
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<button type="button" className="flex items-center gap-2 rounded-md px-1 py-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:px-1.5" aria-label="Workspace launcher">
-							<span className="grid size-7 place-items-center rounded-lg bg-primary text-[15px] font-extrabold text-primary-foreground">L</span>
+						{/* The real brand mark (not a text tile), and the chevron shows at EVERY
+						    width — without it the phone-width trigger reads as a static logo,
+						    not a menu. */}
+						<button type="button" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
+							<LatticeMark mode={mode} className="size-7" />
 							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] sm:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
-							<ChevronDown className="hidden size-4 text-muted-foreground sm:block" />
+							<ChevronDown className="size-4 text-muted-foreground" />
 						</button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start" className="w-60">
@@ -1349,7 +1353,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						{/* Fabricate is advanced (theme/component authoring) — hidden until a newcomer engages. */}
 						{onboarded && <DropdownMenuItem onSelect={() => setView('fabricate')}><PencilRuler className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Fabricate</div><div className="text-[11px] text-muted-foreground">Theme &amp; Component Studio</div></div></DropdownMenuItem>}
 						<DropdownMenuSeparator />
-						<DropdownMenuItem onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
+						{/* Deck CRUD lives in the deck switcher (New deck is there) — the
+						    launcher keeps app navigation + Import only, so the two adjacent
+						    menus don't offer the same action twice. */}
 						<DropdownMenuItem onSelect={() => importInputRef.current?.click()}><Upload className="size-4" />Import deck…</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
@@ -1358,7 +1364,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<button type="button" className="flex min-w-0 max-w-[150px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
+						{/* No width cap on phones — the deck title is the user's orientation, so
+						    it absorbs the bar's free width (siblings are shrink-0; this pill is
+						    the one shrinkable item, truncating only when the title outgrows the
+						    actual free space instead of a fixed 150px). */}
+						<button type="button" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
 							<span className="size-2 shrink-0 rounded-full bg-primary" />
 							<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
 							<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
@@ -1398,7 +1408,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 
 				{/* Appearance — desktop groups theme + light/dark into one bordered segment,
 				    the mode toggle kept a direct 1-tap button. On compact the theme picker
-				    folds into ⋯ and the mode toggle stands alone (below) — both stay 1-tap. */}
+				    folds into ⋯; the mode toggle stands alone on tablet and joins the ⋯
+				    Appearance tail on phones (below). */}
 				{!compact && (
 					<div className="flex items-center rounded-md border border-border bg-background p-0.5">
 						<DropdownMenu>
@@ -1413,22 +1424,26 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</div>
 				)}
 
-				{/* Present + Share — deliverable verbs, primary at every width. */}
-				<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-				<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
+				{/* Present + Share — the deliverable verbs, primary at every width. On
+				    phones they live one row down in the pane bar (with the panel toggles),
+				    which has the free width — the top row spends its width on the deck
+				    title (2026-07-03 decision). */}
+				{!mobile && <Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>}
+				{!mobile && <Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>}
 
 				<span className="hidden h-5 w-px bg-border sm:block" />
 				{/* Focus — drop to Editor + Preview, hide the panels, quiet the noise (desktop only; tablet/mobile already collapse panels). Advanced — revealed once a newcomer engages. */}
 				{!compact && onboarded && <Button variant="ghost" size="icon-sm" onClick={() => setFocus(true)} aria-label="Enter focus mode" title="Focus — hide panels, just write (⌘.)"><Focus className="size-[18px]" /></Button>}
-				{/* Architect + Inspector — the working-panel toggles stay primary at EVERY width
-				    (never folded into ⋯): one-tap reach, visible aria-pressed/active color, and
-				    the #635 first-edit Inspector pulse always lands directly on the bar. */}
-				<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
-				<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, size, notes, history" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
+				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
+				    (never folded into ⋯): visible aria-pressed/active color, and the #635
+				    first-edit Inspector pulse always lands on a visible button. On phones
+				    they ride the pane bar below with Present + Share. */}
+				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>}
+				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, size, notes, history" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
 
-				{/* Compact (≤1099): mode toggle stands alone (1-tap), then ONE ⋯ overflow holds
-				    the genuinely-secondary controls — theme picker, Library, Workspace, and a
-				    Search/commands row (the touch path to the ⌘K palette). */}
+				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
+				    holds the genuinely-secondary controls — theme picker, Library, Workspace,
+				    and a Search/commands row (the touch path to the ⌘K palette). */}
 				{compact && <Button variant="ghost" size="icon-sm" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button>}
 				{compact && (
 					<DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
@@ -1465,7 +1480,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-[var(--accent-soft)] px-3.5 py-2 text-[13px] text-[var(--text-heading)]">
 					<Sparkles className="hidden size-4 shrink-0 text-[var(--accent)] sm:block" />
 					<p className="min-w-0 flex-1 leading-snug">
-						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> live in the toolbar above.
+						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away in the toolbar.
 					</p>
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
 					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
@@ -1478,16 +1493,25 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 				</React.Suspense>
 			) : mobile ? (
-				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. */
+				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. The pane
+				   bar's free width carries the deck actions — Present, Share, and the two
+				   panel toggles — so the top row can spend its width on the deck title
+				   (2026-07-03 decision). Contextual extras stay per-pane so the row fits
+				   390px: the issues pill with Edit (where you fix them), Speaker notes
+				   with Preview (Edit's own header already has Notes). */
 				<div className="flex min-h-0 flex-1 flex-col">
-					<div className="flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5">
+					<div role="toolbar" aria-label="Deck actions" className="flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5">
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
 							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<FileText className="size-3.5" />}>Edit</PaneBtn>
 							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-3.5" />}>Preview</PaneBtn>
 						</div>
 						<span className="flex-1" />
-						{issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
-						<button type="button" onClick={() => setNotesOpen(true)} aria-label="Speaker notes" title="Speaker notes" className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><StickyNote className="size-4" /></button>
+						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
+						{mobilePane === 'preview' && <button type="button" onClick={() => setNotesOpen(true)} aria-label="Speaker notes" title="Speaker notes" className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><StickyNote className="size-4" /></button>}
+						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
+						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, size, notes, history" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
 					</div>
 					{mobilePane === 'edit' ? editorPane : previewPane}
 				</div>
