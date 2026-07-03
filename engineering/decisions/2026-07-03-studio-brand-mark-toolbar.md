@@ -83,6 +83,24 @@ absent (the pane bar belongs to compose) — Fabricate has its own chrome and
 the deck verbs are not part of theme/component authoring. The row-2 actions
 are icon-only (house style for tight widths).
 
+## Desktop: banding, not a second bar
+
+The owner asked whether the mobile principle (global row + deck row) should
+extend to desktop. A second red-team + independent-checker pass rejected it:
+the mobile row 2 pre-existed out of necessity and was half empty, while a
+desktop second bar would be manufactured at the cost of ~44px of `100dvh`
+canvas — the scarce desktop resource — to hold five controls on a 1440px
+stripe, demoting Share off the Fitts-optimal top-right corner. The
+"global vs deck" taxonomy also isn't crisp (the deck switcher, theme, mode,
+Focus, and ⌘K all straddle it), and no comparable tool (Slides, Figma,
+Keynote, VS Code) ships a global-row/document-verb-row split. What the
+instinct DID catch: the desktop right cluster interleaved altitudes with only
+one mid-group divider. Fix shipped: two desktop-only dividers band the
+existing order — `[⌘K · Appearance] | [Present · Share] | [Focus · Architect
+· Inspector] | [Library · Workspace · avatar]` — zero relocation, zero
+vertical cost. Revisit a true second bar only if the desktop row grows past
+~15 persistent controls or the Tauri shell changes the vertical budget.
+
 ## Verification
 
 - Unit: `StudioShell.test.tsx` "topbar information architecture" suite extended

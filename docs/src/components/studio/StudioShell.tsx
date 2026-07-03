@@ -1424,6 +1424,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</div>
 				)}
 
+				{/* Desktop dividers band the right cluster by altitude — utilities |
+				    deliverable verbs | session panels | app surfaces — so global and
+				    deck controls don't read as one interleaved run (2026-07-03). */}
+				{!compact && <span className="h-5 w-px bg-border" />}
+
 				{/* Present + Share — the deliverable verbs, primary at every width. On
 				    phones they live one row down in the pane bar (with the panel toggles),
 				    which has the free width — the top row spends its width on the deck
@@ -1440,6 +1445,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    they ride the pane bar below with Present + Share. */}
 				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>}
 				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, size, notes, history" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
+				{!compact && <span className="h-5 w-px bg-border" />}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
 				    holds the genuinely-secondary controls — theme picker, Library, Workspace,

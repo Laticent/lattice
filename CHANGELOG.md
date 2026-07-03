@@ -36,7 +36,9 @@ in patch versions.
   Edit/Preview pane bar — still one tap — and the header's reclaimed width
   goes to the deck title, which now shows whole instead of truncating at a
   fixed 150px. "New deck" lives only in the deck switcher (the launcher keeps
-  Decks, Fabricate, and Import). See
+  Decks, Fabricate, and Import), and the desktop bar's right cluster is now
+  banded by dividers — utilities | Present · Share | panels | app surfaces —
+  so global and deck controls no longer read as one run. See
   `engineering/decisions/2026-07-03-studio-brand-mark-toolbar.md`.
 
 ### Added
