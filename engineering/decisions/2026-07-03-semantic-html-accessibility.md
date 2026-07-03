@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The full Form/Cell/Tile → semantic HTML map (§4A) is adopted: the DECK is a self-contained composition → `<article class="lattice">` (with `<main>` as the shell/host landmark — where vs. what); a SLIDE stays `<section>` (a section of the deck-article; measurement + all CSS bind to it); the masthead/footer Cells become `<header>`/`<footer>`; the stage Cell stays `<div>`; liftable leaf cards become `<article>` (scoped, not every `<li>`). `<article>` plays its role at exactly the two liftable boundaries (deck + leaf card), never per slide. The container change is TWO edits on TWO render paths — a sanctioned `<main><article>` wrapper in the export shell (section-scoped CSS there) AND the engine/preview `div.lattice → article.lattice` retag with its lockstep `css.js` kernel edit — DECISION: do both. `<figure>` for charts folds into the SAME change (DECISION: one combined, export-signed PR). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint). Owner call: best practice, don't settle. Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13.
+summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The full Form/Cell/Tile → semantic HTML map (§4A) is adopted: the DECK is a self-contained composition → `<article class="lattice">` (with `<main>` as the shell/host landmark — where vs. what); a SLIDE stays `<section>` (a section of the deck-article; measurement + all CSS bind to it); the masthead/footer Cells become `<header>`/`<footer>`; the stage Cell stays `<div>`; liftable leaf cards become `<article>` (scoped, not every `<li>`). `<article>` plays its role at exactly the two liftable boundaries (deck + leaf card), never per slide. The container change is TWO edits on TWO render paths — a sanctioned `<main><article>` wrapper in the export shell (section-scoped CSS there) AND the engine/preview `div.lattice → article.lattice` retag with its lockstep `css.js` kernel edit — DECISION: do both. `<figure>` for charts folds into the SAME change (DECISION: one combined, export-signed PR). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint). Owner call: best practice, don't settle. A THIRD adversarial round (§14) tested the worked example against the full "accessible to all, any device" goal: the semantic base is confirmed solid, but it surfaced a tracked GAP REGISTER above the HTML — the shipped PDF (untagged) + PPTX (image-only, no alt) artifacts (the doc's own "out of scope" premise was factually wrong and is corrected), fixed-canvas reflow (1.4.10), forced-colors, color-only tone (1.4.1), bare-`<title>` SVG naming (needs aria-labelledby cross-AT), a missing `<title>` (2.4.2), pagination context (1.3.1), and no axe gate. Each tagged foundation vs later baby step. Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13.
 ---
 
 # Semantic HTML for accessibility — retag, don't wrap
@@ -10,8 +10,19 @@ summary: Retag structural divs to native AA-sensible elements (change the tag, k
 **Branch:** `claude/semantic-html-accessibility-qdht2a`
 **Scope:** the app (docs site: marketing, Studio, Playground, Components) **and**
 the decks (live web preview + HTML export). **Out of scope:** the export-to-Marp
-bundle (`lib/core/marp-bundle.js` — the recipient's Marp owns that HTML shell),
-and PDF/PPTX tag trees (raster/print artifacts, not a DOM a screen reader walks).
+bundle (`lib/core/marp-bundle.js` — the recipient's Marp owns that HTML shell).
+
+> **Scope correction (2026-07-03, third adversarial round — §14).** An earlier
+> draft also put "PDF/PPTX tag trees" out of scope with the parenthetical *"raster/
+> print artifacts, not a DOM a screen reader walks."* **That premise is wrong** — a
+> **tagged PDF's structure tree *is* exactly the DOM a screen reader walks.** The
+> PDF and PPTX are the artifacts people actually ship, and today they are
+> inaccessible (untagged PDF with no `lang`/`title`; image-only PPTX with no alt).
+> They are back **in scope as tracked gaps** (§14). This decision note's
+> *implementation* still starts with the HTML/app semantic base (the solid
+> foundation), but the goal "accessible to all, on any accessible device" is not
+> earned until the shipped artifacts are addressed — so they are named, not
+> disowned.
 
 > **This is the second draft.** The first was put through the three adversarial
 > passes the brief asked for — a red team, an inversion analysis, and an
@@ -666,3 +677,70 @@ rest); (2) the byte-neutral app + export landmarks; (3) the engine-path containe
 kernel change (pixel-diff); (4) the `<figure>` conversion (`div.functionplot` JS
 selectors fixed first); (5) render the sign-off demo deck + SR pass. Steps 3–4 are
 the export-bytes surface; the PR does not merge until they're signed off.
+
+---
+
+## 14. Accessibility gap register — "accessible to all, any device" (beyond the HTML)
+
+A third adversarial round (red team · inversion · independent checker) tested the
+worked example (§4A) against the **full** goal: *accessible to all, on any
+accessible device and software.* It confirmed the **foundation is solid** — the
+things below are verified correct: skip link + focusable `<main>`; `.image-text`
+never hidden; `aria-hidden` only on decoration; `<figure>`/`<figcaption>` and a
+nested `<svg>` compute **separate** names (one-name-per-node holds); multiple `<h2>`
+under one `<h1>` is valid; `prefers-reduced-motion` is already respected for build
+reveals (vestibular is the best-covered population); and the §8 gates are
+well-designed. **The semantic base is the right thing to build on.**
+
+But the base is not the whole goal. The round surfaced gaps in **layers above the
+HTML** — the shipped artifacts, low-vision reflow, forced-colors, and data
+equivalence — plus **two factual corrections to this doc**. These are tracked here
+as **baby steps to build on the foundation**, not blockers to the foundation
+itself. Each is tagged **[FOUNDATION]** (get right now / it rots) or **[LATER]** (a
+real gap, safe to sequence after the base lands).
+
+### Two corrections to this doc (the round caught these in *our* design)
+
+- **The scope premise was wrong (fixed, §Scope).** "PDF/PPTX aren't a DOM a screen
+  reader walks" is false — a tagged PDF's structure tree *is*. PDF/PPTX are back in
+  scope as gaps (G1).
+- **`<svg role="img">` with bare child `<title>`/`<desc>` is NOT reliably announced
+  cross-AT** (VoiceOver/Safari, older JAWS drop it). The durable pattern is
+  `role="img"` **+ `aria-labelledby="{title-id}"` + `aria-describedby="{desc-id}"`**.
+  The §4A worked example and §7 must use the id-referenced form, not bare
+  `<title>`/`<desc>`. **[FOUNDATION]** — get the figure pattern right the first time.
+
+### The register
+
+| # | Gap | Who it fails | SC | Tag | The fix (baby step) |
+|---|---|---|---|---|---|
+| **G1** | **PPTX is image-per-slide with no `altText`** (`pptx-export.js:57-63`); **PDF is untagged** with no `lang`/`title`/structure (`lattice-emulator.js:1791`, `:1449`) | every AT user of the *shipped* files | 1.1.1, 1.4.5, 2.4.2, 3.1.1 | **[FOUNDATION for the cheap wins; LATER for full tagging]** | Now: add `lang` + `<title>` to the shell (flows into Chrome's auto-tag `/Lang` + title); pass `altText` to PPTX `addImage` (from the slide heading). Later: a real tagged-PDF pipeline OR document PDF/PPTX as **known-degraded** and route AT users to the HTML export. **Never claim these formats accessible until then.** |
+| **G2** | **No `<title>` on the export shell** (`lattice-emulator.js:1450`) — even the target snippet omitted it | all AT + tabbed browsing | **2.4.2** (A) | **[FOUNDATION]** | Emit `<title>` from the deck title. One line; ships with the shell landmark commit. |
+| **G3** | **Pagination is a bare "2"** — no context | SR/braille orientation | **1.3.1** (not 4.1.2 — checker correction) | **[FOUNDATION]** | `aria-label="Slide 2 of 7"` (or visually-hidden "Slide "/" of 7"), sourced from deck length. Cheapest high-value win. |
+| **G4** | **Tone rail is color-only** (`box-shadow`, `base.variants.css:95`); **status is a CSS `::after`** (`status.css`) — both AT-invisible | colorblind (sighted!) + SR | **1.4.1** (A), 1.3.1 | **[FOUNDATION]** | Status → real DOM text (already in §4A). Tone → a **VISIBLE** non-color cue (icon/label/shape), not just `sr-only` — `sr-only` helps SR (1.3.1) but does **NOT** satisfy 1.4.1 for sighted colorblind users (checker A7 correction to Finding #2). |
+| **G5** | **SVG charts name the *type*, not the *data*** — `<desc>` is a conclusion, not equivalence | blind users on chart/diagram slides | **1.1.1** (A) | **[LATER]** | Emit a visually-hidden data table (quadrant: vendor×reach×depth) / ordered step list (diagram: nodes+edges) from the same structured source that draws the SVG (single source → can't drift). |
+| **G6** | **Fixed-px canvas can't reflow**; the fluid viewer is opt-in, HTML-only, and clips dense slides (`base.fluid-view.css`) | low-vision zoom/reflow (the largest population) | **1.4.10, 1.4.4, 1.4.12** (AA) | **[LATER — architectural]** | Finish the fluid viewer as the reflow answer (default-on narrow, pair with re-pagination so dense slides reflow not clip); the *shared* PDF/PPTX can't reflow → route reflow users to HTML and mark PDF/PPTX non-conformant for 1.4.10. |
+| **G7** | **Zero forced-colors handling** (grep: no `forced-colors`/`prefers-contrast` in `lib/**`); shadow/hue signals vanish in Windows HCM | Windows High Contrast / photosensitivity | 1.4.1, 1.4.11 | **[LATER]** | A `@media (forced-colors: active)` pass: re-express shadow state as `outline`/`border` (kept in HCM), pattern+label charts, opaque backing behind `.image-text`. CVD-safe palettes do **not** cover this. |
+| **G8** | **Running head/foot repeated in the AT tree on every slide** | braille / swipe-nav verbosity | 1.3.1 (quality) | **[LATER]** | If it's print chrome (confidentiality notice), `aria-hidden` it (state it once at document level); else expose once, not per-slide. |
+| **G9** | **One skip link, no TOC/inter-slide nav** for a long deck; generic slide sections | keyboard/switch/SR navigation | 2.4.1 (quality), 2.4.6 | **[LATER]** | Emit a `<nav aria-label="Slides">` table of contents. Note the Fork-A tension (checker A8): naming every slide `<section>` for the rotor is the *right* call at deck-scale even though §3 warns against it at slide-scale — revisit the threshold. |
+| **G10** | **No automated a11y gate** (no axe/pa11y/jest-axe anywhere); §8 gates are structural-only | regression over time | governance | **[FOUNDATION]** | Add `axe-core` on rendered gallery HTML in CI (cheap; closes the "new component ships div-soup" hole) alongside the §8 structural gates. Later: a periodic tagged-PDF/PPTX-alt check. |
+| **G11** | **Whole populations unaddressed:** video/audio has **no captions/transcript** requirement (`imagery/video/`); no cognitive/plain-language affordance | deaf/HoH; cognitive | 1.2.x | **[LATER]** | Name them in scope; require captions/transcripts the moment any audio ships (present narration, video, read-aloud); defer cognitive with a tracked owner. |
+
+### Verification honesty (the round's #5 finding)
+
+The planned "real NVDA/VoiceOver pass" (§7) must be widened, and its limits stated:
+it has to cover the **shipped artifacts** (NVDA/JAWS on the **PDF**; PowerPoint on
+the **PPTX**), not just the HTML; and a matrix of {NVDA, JAWS, VoiceOver-mac,
+VoiceOver-iOS, TalkBack} × {HTML, PDF} × {prose, chart, image deck}. **This sandbox
+cannot run iOS/macOS VoiceOver, JAWS, braille, or switch/voice control** — so those
+surfaces are **UNVERIFIED** by definition here (HARD RULE #23) and must be marked so,
+never converted to "tested." The SVG-naming reliability (correction above) is exactly
+one of the things only a real VoiceOver pass can confirm.
+
+**Bottom line:** the semantic HTML/app base is the correct foundation and is largely
+right (the confirmed-fine list proves it). "Accessible to all, any device" is a
+**layered** goal — G1 (artifacts) and G6 (reflow) are the two that most make the
+headline false today, and both are sequenced **on top of** the foundation, not
+instead of it. Baby steps, in order: the **[FOUNDATION]** rows land with the base
+(G2, G3, G4-status, G10, the SVG-id fix, G1's cheap `lang`/`title`/`altText`); the
+**[LATER]** rows are the tracked backlog.
