@@ -1,3 +1,8 @@
+---
+status: proposed
+summary: A universal author-facing concept — `claim` — that lets content take over the slide, as composable switches (chrome/inset/bleed) + named presets (framed/quiet/hero/bleed), unifying the six scattered mechanisms today (chart cover, image spotlight, silent, form:minimal, sovereign frames). Universal (default framed everywhere, no per-component field; the only per-component data is a bleed safety opt-out on the existing excludes list). bleed is its own preset; chart cover is purged not aliased; image spotlight/statement/split carved out as luminance-special. Shaped by five adversarial passes (red team, inversion, fact-checker, two peer sessions); direction validated against prototype renders across chart/diagram/table/grid/code/big-number
+---
+
 # `claim` — one way to give content the stage
 
 **Date:** 2026-07-03
