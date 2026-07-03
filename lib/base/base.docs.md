@@ -613,6 +613,52 @@ expected — Marp is an *export target*, served by a self-contained bundle
 themes, assets, a renderer + a marp-cli config, and a README), not a live render
 path we keep in lockstep. See `engineering/decisions/2026-06-13-export-to-marp.md`.
 
+#### The `stamp:` / `tone:` front-matter registers (marker shape)
+
+`stamp:` and `tone:` are the **deck-wide marker-SHAPE selectors** — siblings of
+`finish:` / `mode:` that pick the *shape* the status markers render in, once, for
+the whole deck. They are **orthogonal to which marker shows**: a state marker
+(`confidential` / `wip` / `draft` / …) sets its own *label + color*; a tone marker
+(`tone-pass` / `tone-warn` / …) sets its own *color*; these registers only choose
+the shape both render in, so a deck reads as one family. They **compose** with any
+per-slide `_class:`, and a slide carrying its OWN `stamp-<name>` / `tone-<style>`
+token **overrides** the deck default (append-not-replace, like every register). A
+typo is caught by the deck linter (`unknown-stamp` / `unknown-tone`). The vocab is
+open (`lib/core/resolve-stamp.js`, `lib/core/resolve-tone-style.js`), read by all
+three render paths, and surfaced in the Studio "This slide" drawer (the boardroom
+subset first, then the wider range).
+
+`stamp:` — the **state-marker shape** (the `::before` corner mark). The default
+(omit the key) is the uniform `tab`. The curated boardroom subset:
+
+| `stamp:` value | Shape |
+|---|---|
+| `tab` | A rounded corner tab. **The default.** |
+| `notch` | A folded corner notch. |
+| `bracket` | The label in `[ … ]` brackets, no fill. |
+| `seal` | A pill-shaped seal. |
+| `pill` | A soft-tinted pill. |
+
+The wider range (also valid, surfaced under "More"): `ribbon`, `flag`,
+`underline`, `dot`, `mark`, `veil`, `bar`, `pin`.
+
+`tone:` — the **tone-marker shape** (how a `tone-*` color paints). The default (omit
+the key) is the left `rail`. `rail` and `glow` are box-shadow-shaped, so they never
+collide with the state `::before` or the pagination `::after`. `edge` **recolors the
+spectrum brand bar** itself (the top border) with the tone color — the same move the
+`accent` modifier makes — instead of a competing top band that would fight it:
+
+| `tone:` value | Shape |
+|---|---|
+| `rail` | A left edge rail. **The default.** |
+| `edge` | Recolors the top spectrum bar with the tone color (needs a semantic tone; a no-op where the spectrum is absent, e.g. a dark/divider slide). |
+| `glow` | A full inset ring. |
+
+Every marker uses the SAME shape by default (a coherent family, not a per-marker
+signature); pick a different shape deck-wide with the register, or per-slide with
+the token. `stamp: seal` + `<!-- _class: confidential stamp-notch -->` renders that
+one slide's "Confidential" marker as a notch while the rest of the deck seals.
+
 | Token / class | Effect |
 |---|---|
 | `sketch` | Full handwriting (headings **and** body) + drawn boxes. The default. |
@@ -691,7 +737,10 @@ basis.
 
 Apply a semantic tone to the slide's accent strip. Used to signal
 overall slide status (e.g. `tone-pass` for an "all green" KPI slide,
-`tone-fail` for an alert slide).
+`tone-fail` for an alert slide). The tone token sets the **color**; the
+**shape** it paints in (rail / edge / glow) comes from the deck-wide `tone:`
+register or a per-slide `tone-<style>` token — see *The `stamp:` / `tone:`
+front-matter registers* above.
 
 ```markdown
 <!-- _class: kpi tone-warn -->

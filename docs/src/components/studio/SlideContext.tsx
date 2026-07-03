@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { cn } from '@/lib/utils';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { darkProvenance, deckDefaults, finishProvenance, setDark, setFinish } from './slide-provenance';
+import { darkProvenance, deckDefaults, finishProvenance, setDark, setFinish, setStampStyle, setToneStyle, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 
 type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
 type LintVocab = {
@@ -25,6 +25,10 @@ type LintVocab = {
 	exclusiveAxes?: Record<string, string[]>;
 	semiUniversalVariants?: string[];
 	finishNames?: string[];
+	/** Stamp SHAPE vocabulary — the curated boardroom subset + the wider range. */
+	stampStyles?: { boardroom: string[]; range: string[] };
+	/** Tone SHAPE vocabulary — the `tone-<style>` tokens (rail / edge / glow). */
+	toneStyles?: string[];
 } | null;
 
 export type SlideContextProps = {
@@ -124,8 +128,10 @@ function ChipRow({ options, value, onChange, ariaLabel }: { options: { label: st
 	);
 }
 
-// A minimal native select styled to match Control.
-function Picker({ value, onChange, options, ariaLabel }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; ariaLabel: string }) {
+// A minimal native select styled to match Control. Accepts flat `options` and/or
+// grouped `groups` (rendered as <optgroup>s after the flat heads), so a picker can lead
+// with an Inherit/Default head and then group the rest (e.g. Boardroom vs the wider range).
+function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { value: string; onChange: (v: string) => void; options?: { label: string; value: string }[]; groups?: { label: string; options: { label: string; value: string }[] }[]; ariaLabel: string }) {
 	return (
 		<select
 			aria-label={ariaLabel}
@@ -134,6 +140,11 @@ function Picker({ value, onChange, options, ariaLabel }: { value: string; onChan
 			className="min-w-[120px] rounded-md border border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)] outline-none hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] focus:border-[var(--accent)]"
 		>
 			{options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+			{groups.map((g) => (
+				<optgroup key={g.label} label={g.label}>
+					{g.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+				</optgroup>
+			))}
 		</select>
 	);
 }
@@ -223,6 +234,34 @@ export function SlideContext(props: SlideContextProps) {
 	const densityAxis = axes.density ?? [];
 	const toneAxis = axes.tone ?? groups.tone ?? [];
 	const stateGroup = groups.state ?? [];
+
+	// Marker SHAPE pickers — the deck `stamp:` / `tone:` register's per-slide override.
+	// Orthogonal to WHICH marker shows (the chips above): these pick the shape it renders
+	// in. Provenance-aware, so an inherited deck default reads as "Inherit — <name>" and a
+	// per-slide pick overrides it. The boardroom subset leads; the wider range follows.
+	const stampStyles = vocab.stampStyles ?? { boardroom: [], range: [] };
+	const hasStampStyles = stampStyles.boardroom.length > 0 || stampStyles.range.length > 0;
+	const stampStyle = stampStyleProvenance(chunk, source);
+	const stampStyleValue = stampStyle.state === 'inherited' ? '__inherit__' : stampStyle.state === 'off' ? '__default__' : (stampStyle.value ?? '__default__');
+	const stampStyleHead = stampStyle.inheritable
+		? [{ label: `Inherit — ${cap(stampStyle.deckValue ?? '')}`, value: '__inherit__' }]
+		: [{ label: 'Default — tab', value: '__default__' }];
+	const stampStyleGroups = [
+		{ label: 'Boardroom', options: stampStyles.boardroom.map((n) => ({ label: cap(n), value: n })) },
+		...(stampStyles.range.length ? [{ label: 'More', options: stampStyles.range.map((n) => ({ label: cap(n), value: n })) }] : []),
+	];
+	const onStampStyle = (v: string) => onMutate((c) => setStampStyle(c, v === '__inherit__' || v === '__default__' ? null : v));
+
+	const toneStyleTokens = vocab.toneStyles ?? [];
+	const toneStyle = toneStyleProvenance(chunk, source, toneStyleTokens);
+	const toneStyleValue = toneStyle.state === 'inherited' ? '__inherit__' : toneStyle.state === 'off' ? '__default__' : (toneStyle.value ?? '__default__');
+	const toneStyleOptions = [
+		...(toneStyle.inheritable
+			? [{ label: `Inherit — ${cap(toneStyle.deckValue ?? '')}`, value: '__inherit__' }]
+			: [{ label: 'Default — rail', value: '__default__' }]),
+		...toneStyleTokens.map((t) => { const n = t.replace('tone-', ''); return { label: cap(n), value: n }; }),
+	];
+	const onToneStyle = (v: string) => onMutate((c) => setToneStyle(c, v === '__inherit__' || v === '__default__' ? null : v, toneStyleTokens));
 
 	const cur = (members: readonly string[]): string | null => tokens.find((t) => members.includes(t)) ?? null;
 
@@ -315,12 +354,22 @@ export function SlideContext(props: SlideContextProps) {
 										<div className="my-1.5">
 											<div className="mb-1.5 text-[12px] text-foreground">Stamp</div>
 											<ChipRow ariaLabel="State stamp" value={cur(stateGroup)} onChange={(v) => groupSet(stateGroup, v)} options={stateGroup.map((s) => ({ label: cap(s), value: s }))} />
+											{hasStampStyles && (
+												<Row label="Style" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined}>
+													<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} options={stampStyleHead} groups={stampStyleGroups} />
+												</Row>
+											)}
 										</div>
 									)}
 									{toneAxis.length > 0 && (
 										<div className="my-2">
 											<div className="mb-1.5 text-[12px] text-foreground">Tone</div>
 											<ChipRow ariaLabel="Tone" value={cur(toneAxis)} onChange={(v) => groupSet(toneAxis, v)} options={toneAxis.map((t) => ({ label: cap(t.replace('tone-', '')), value: t, tone: TONE_SWATCH[t] }))} />
+											{toneStyleTokens.length > 0 && (
+												<Row label="Style" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined}>
+													<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} options={toneStyleOptions} />
+												</Row>
+											)}
 										</div>
 									)}
 								</Section>

@@ -20,6 +20,8 @@ const lintVocab = {
 	},
 	semiUniversalVariants: ['compact', 'loose', 'accent'],
 	finishNames: ['atrium', 'meridian'],
+	stampStyles: { boardroom: ['tab', 'notch', 'bracket', 'seal', 'pill'], range: ['ribbon', 'dot'] },
+	toneStyles: ['tone-rail', 'tone-edge', 'tone-glow'],
 };
 const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'loose', 'accent'] }];
 
@@ -53,6 +55,33 @@ describe('SlideContext drawer', () => {
 		const toks = applied();
 		expect(toks).toContain('tone-fail');
 		expect(toks).not.toContain('tone-warn');
+	});
+
+	it('overrides the stamp SHAPE from the Stamp style picker', () => {
+		const { applied } = setup('<!-- _class: kpi confidential -->\n\n# Hi');
+		fireEvent.change(screen.getByRole('combobox', { name: /stamp style/i }), { target: { value: 'seal' } });
+		expect(applied()).toContain('stamp-seal');
+	});
+
+	it('picking the inherited/default stamp head clears the per-slide shape', () => {
+		const { applied } = setup('<!-- _class: kpi confidential stamp-notch -->\n\n# Hi');
+		fireEvent.change(screen.getByRole('combobox', { name: /stamp style/i }), { target: { value: '__default__' } });
+		expect(applied().some((t) => t.startsWith('stamp-'))).toBe(false);
+	});
+
+	it('sets the tone SHAPE without disturbing the semantic tone', () => {
+		const { applied } = setup('<!-- _class: kpi tone-pass -->\n\n# Hi');
+		fireEvent.change(screen.getByRole('combobox', { name: /tone style/i }), { target: { value: 'edge' } });
+		const toks = applied();
+		expect(toks).toContain('tone-pass'); // semantic tone untouched
+		expect(toks).toContain('tone-edge');
+	});
+
+	it('reads the stamp shape as inherited from the deck `stamp:` register', () => {
+		const src = '---\nstamp: seal\n---\n\n<!-- _class: kpi confidential -->\n\n# Hi';
+		setup('<!-- _class: kpi confidential -->\n\n# Hi', src);
+		const picker = screen.getByRole('combobox', { name: /stamp style/i }) as HTMLSelectElement;
+		expect(picker.value).toBe('__inherit__');
 	});
 
 	it('toggles the silent chrome switch', () => {

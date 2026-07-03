@@ -177,6 +177,29 @@ describe('deck linter', () => {
     }
   });
 
+  test('warns on an unrecognized `stamp:` (state-marker shape) value; accepts the shapes', () => {
+    const bad = lintText('---\ntheme: indaco\nstamp: sael\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-stamp');
+    assert.ok(bad, 'unknown stamp should warn');
+    assert.equal(bad.severity, 'warning');
+    assert.equal(bad.classToken, 'sael');
+    assert.match(bad.fix, /tab, notch, bracket, seal, pill/);
+    for (const v of ['tab', 'seal', 'ribbon', 'PILL']) {
+      const src = `---\ntheme: indaco\nstamp: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-stamp').length, 0, v);
+    }
+  });
+
+  test('warns on an unrecognized `tone:` (tone-marker shape) value; accepts rail/edge/glow', () => {
+    const bad = lintText('---\ntheme: indaco\ntone: raill\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-tone');
+    assert.ok(bad, 'unknown tone should warn');
+    assert.equal(bad.classToken, 'raill');
+    assert.match(bad.fix, /rail, edge, glow/);
+    for (const v of ['rail', 'edge', 'glow', 'GLOW']) {
+      const src = `---\ntheme: indaco\ntone: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-tone').length, 0, v);
+    }
+  });
+
   test('a body `finish:` code span is not mistaken for the front-matter key', () => {
     const src = `${FM}<!-- _class: content -->\n\n## H.\n\n\`finish: bogus\` is just prose.\n`;
     assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-finish').length, 0);

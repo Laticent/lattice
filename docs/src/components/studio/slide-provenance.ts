@@ -121,3 +121,54 @@ export function setMode(chunk: string, mode: 'sketch' | 'sketch-clean' | 'boardr
 	else if (mode === 'boardroom') kept.push('boardroom');
 	return setClassTokens(chunk, kept);
 }
+
+// ── stamp / tone STYLE (shape) ─────────────────────────────────────────────────
+// The deck `stamp:` / `tone:` front-matter register picks a deck-wide SHAPE for the
+// state / tone markers (resolve-stamp.js / resolve-tone-style.js), appended onto every
+// section by deckClassPropagate; a per-slide `stamp-<name>` / `tone-<style>` class token
+// OVERRIDES. There is no opt-out token — the no-config shape IS the uniform default
+// (`tab` / `rail`) — so provenance is just inherited (deck) / on (this slide) / off
+// (falls back to the default). Tone STYLE tokens share the `tone-` prefix with the tone
+// SEMANTIC tokens, so callers pass the known style-token set (vocab.toneStyles) to
+// disambiguate; stamp-style tokens (`stamp-*`) never collide with a state marker.
+
+const isStampStyleToken = (t: string) => /^stamp-.+$/.test(t);
+
+/** Effective stamp-STYLE (shape) state for a slide. `value` is the bare style name. */
+export function stampStyleProvenance(chunk: string, source: string): Provenance {
+	const own = getClassTokens(chunk).find(isStampStyleToken);
+	const deckValue = (getFrontMatter(source, 'stamp') || '').trim() || undefined;
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own.slice('stamp-'.length), deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
+}
+
+/** Set the slide's stamp style. `name` → `stamp-<name>`; `null` → inherit (clear it).
+ *  Existing stamp-style tokens are cleared first so a style never stacks. */
+export function setStampStyle(chunk: string, name: string | null): string {
+	const kept = getClassTokens(chunk).filter((t) => !isStampStyleToken(t));
+	if (name) kept.push(`stamp-${name}`);
+	return setClassTokens(chunk, kept);
+}
+
+/** Effective tone-STYLE (shape) state. `styleTokens` = the known `tone-<style>` set
+ *  (vocab.toneStyles), needed to tell a style token from a semantic tone token. */
+export function toneStyleProvenance(chunk: string, source: string, styleTokens: readonly string[]): Provenance {
+	const set = new Set(styleTokens);
+	const own = getClassTokens(chunk).find((t) => set.has(t));
+	const deckValue = (getFrontMatter(source, 'tone') || '').trim() || undefined;
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own.slice('tone-'.length), deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
+}
+
+/** Set the slide's tone style. `name` → `tone-<name>`; `null` → inherit. Clears only
+ *  the KNOWN style tokens (never a semantic `tone-pass` etc.). */
+export function setToneStyle(chunk: string, name: string | null, styleTokens: readonly string[]): string {
+	const set = new Set(styleTokens);
+	const kept = getClassTokens(chunk).filter((t) => !set.has(t));
+	if (name) kept.push(`tone-${name}`);
+	return setClassTokens(chunk, kept);
+}

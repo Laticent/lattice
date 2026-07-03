@@ -653,6 +653,8 @@ ${indent}   - ${body.trim()}`;
       if (vocab.finishNames) findings.push(...findUnknownFinish(source, vocab.finishNames));
       if (vocab.modeNames) findings.push(...findUnknownMode(source, vocab.modeNames));
       if (vocab.claimNames) findings.push(...findUnknownClaim(source, vocab.claimNames));
+      if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
+      if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
       findings.push(...findRetiredBackdrop(source));
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
@@ -937,6 +939,42 @@ ${indent}   - ${body.trim()}`;
         fix: `Set front-matter \`claim:\` to one of: ${[...claimNames].join(", ")}.`
       }];
     }
+    function findUnknownStamp(source, stampStyleNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmStamp = fmBlock[1].match(/^\s*stamp:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmStamp) return [];
+      const value = fmStamp[1].trim();
+      const known = new Set([...stampStyleNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-stamp",
+        severity: "warning",
+        classToken: value,
+        line: fmStamp[0].trim(),
+        message: `'${value}' is not a known stamp style \u2014 the deck would silently render the uniform default (tab) shape`,
+        fix: `Set front-matter \`stamp:\` to one of: ${[...stampStyleNames].join(", ")}.`
+      }];
+    }
+    function findUnknownToneStyle(source, toneStyleNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmTone = fmBlock[1].match(/^\s*tone:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmTone) return [];
+      const value = fmTone[1].trim();
+      const known = new Set([...toneStyleNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-tone",
+        severity: "warning",
+        classToken: value,
+        line: fmTone[0].trim(),
+        message: `'${value}' is not a known tone style \u2014 the deck would silently render the default rail shape`,
+        fix: `Set front-matter \`tone:\` to one of: ${[...toneStyleNames].join(", ")}.`
+      }];
+    }
     function findRetiredBackdrop(source) {
       const fmBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
@@ -1019,6 +1057,8 @@ ${indent}   - ${body.trim()}`;
       findAutosplitOrientationMismatch,
       findUnknownFinish,
       findUnknownMode,
+      findUnknownStamp,
+      findUnknownToneStyle,
       nearestRegion,
       editDistance,
       isKnownModifier,

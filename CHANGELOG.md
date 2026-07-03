@@ -71,6 +71,21 @@ in patch versions.
   mutually-exclusive axis (two tones, two type scales, `with-period` + `no-period`,
   `compact` + `loose`) or two finish selectors — the same rule the drawer's
   single-select controls reflect.
+- **Status markers are now a shape system — `stamp:` / `tone:` front-matter
+  registers.** Every state marker (`confidential` / `wip` / `draft` / …) and tone
+  marker (`tone-pass` / …) renders in a chosen SHAPE, picked once deck-wide and
+  overridable per slide. State-marker shapes (`stamp:`): `tab` (default), `notch`,
+  `bracket`, `seal`, `pill`, plus a wider range (`ribbon`, `flag`, `underline`,
+  `dot`, `mark`, `veil`, `bar`, `pin`). Tone-marker shapes (`tone:`): `rail`
+  (default, left), `edge` (top), `glow` (inset ring). The shape is **orthogonal**
+  to which marker shows — the marker sets its label/color, the register sets its
+  shape — so a deck reads as one family. All marker labels/colors route through
+  palette tokens (`--fail`/`--warn`/`--accent`/`--text-muted`), so they stay
+  on-brand across themes. Surfaced in the Studio "This slide" drawer as
+  provenance-aware "Style" pickers (the boardroom subset first), and validated by
+  new `unknown-stamp` / `unknown-tone` deck-lint rules. Vocab:
+  `lib/core/resolve-stamp.js`, `lib/core/resolve-tone-style.js`; design:
+  `engineering/decisions/2026-07-03-status-marker-style-variants.md`.
 
 - **`claim` — one way to give content the stage.** A universal, purpose-coupled
   dial for how much of the frame the content claims vs the chrome — deck-wide
