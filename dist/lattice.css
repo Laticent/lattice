@@ -15919,12 +15919,21 @@ section.finish > .backdrop {
  * once a slide overflows, so the red ring shows; on a normal slide it still wins (the
  * `:not()` adds no specificity, but the finish rule is later in source order). */
 section.finish:not(.overflow) {
-  /* Compose the tone rail (base.variants.css, a no-op `0 0 transparent` when the
-     slide has no tone) AHEAD of the finish frame, so a `tone-* finish-*` slide keeps
-     BOTH — the finish box-shadow would otherwise override the tone rail's. Both
-     fall back to a no-op shadow (NOT `none`, which is invalid inside a shadow LIST
-     and would drop the whole declaration on a frameless finish). */
+  /* Compose the TONE rail (base.variants.css `--tone-rail`) ahead of the finish frame
+     on the SECTION box-shadow — a section shadow prints reliably in the vector PDF
+     (an inset shadow on the absolutely-positioned `.backdrop` does NOT). Both fall
+     back to a no-op `0 0 transparent` (never `none`, invalid inside a shadow list).
+     The rail would otherwise sit BEHIND the backdrop wash and be occluded — so the
+     tone rule below insets the backdrop by the rail's width, letting the rail show
+     beside the finish rather than under it. */
   box-shadow: var(--tone-rail, 0 0 transparent), var(--fin-frame, 0 0 transparent);
+}
+
+/* On a `tone-* finish-*` slide, recede the backdrop wash from the left edge by the
+   8px rail width so the section's tone rail reads cleanly beside the finish (not
+   occluded by it). No effect on non-tone finish slides. */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).finish > .backdrop {
+  left: 8px;
 }
 
 /* z3 — the MARK pseudo. A full-inset layer behind content; the preset fills
