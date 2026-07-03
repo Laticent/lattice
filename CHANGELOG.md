@@ -25,6 +25,18 @@ in patch versions.
 
 ## Unreleased
 
+### Deprecated
+
+- **The Drawing Board and the Workbench are frozen — the Studio succeeds
+  them.** No further development happens on either surface (security and
+  data-integrity fixes still land). The Studio (`/studio/`) already covers
+  their jobs and keeps growing; the remaining coaching/conversation depth
+  moves over next, then a one-click importer for Drawing Board decks ships
+  **before** any deprecation banner or removal — saved themes, components,
+  and finishes already live in the shared library and carry over untouched.
+  Plan and phased removal:
+  `engineering/decisions/2026-07-03-studio-succession.md`.
+
 ### Changed
 
 - **Studio: the real brand mark and a two-row phone toolbar.** The topbar

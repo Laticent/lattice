@@ -5,6 +5,12 @@ summary: Design model for the Drawing Board browser-only deck studio and its on-
 
 # The Drawing Board — browser deck studio + the Architect (2026-06-07)
 
+> **FROZEN (2026-07-03).** The Drawing Board is development-frozen and will be
+> removed; the Studio succeeds it. Direction now lives in
+> `2026-07-03-studio-succession.md`. The Architect's architectural decisions
+> (tooling-first, Coach-vs-Converse, the canon pack) remain canonical and bind
+> the Studio.
+
 > Status: **proposal / design model.** No code yet. This doc fixes direction
 > before implementation, per the "design before code on rethink requests" rule
 > in `CLAUDE.md`. Product name **decided: Drawing Board** — bare mark for the

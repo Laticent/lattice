@@ -337,6 +337,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | The 10/10 visual rubric | `engineering/decisions/2026-06-06-layout-audit/` |
 | A large visual sweep / parallel reviewer fan-out | `engineering/visual-review.md` |
 | Release / publish | `RELEASE.md` |
+| The Drawing Board / Workbench (**FROZEN** — no feature work; the Studio succeeds them) | `engineering/decisions/2026-07-03-studio-succession.md` |
 | Durable investigation notes | `engineering/decisions/YYYY-MM-DD-topic.md` |
 
 The 12 component buckets: anchor, statement, inventory, comparison, progression,
