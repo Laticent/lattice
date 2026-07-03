@@ -212,3 +212,31 @@ describe('WorkspaceSheet — General tab backup & restore', () => {
 		expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Backup downloaded/));
 	});
 });
+
+describe('WorkspaceSheet — General tab install group', () => {
+	it('shows the install group; jsdom (no prompt, not iOS) gets the browser-menu fallback', async () => {
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		expect(sheet.getByText('Install the app')).toBeInTheDocument();
+		expect(sheet.getByText(/installs from its own menu/)).toBeInTheDocument();
+	});
+
+	it('with a parked Chromium prompt, the real Install button shows and drives it', async () => {
+		(window as Window & { __latticeInstallPrompt?: unknown }).__latticeInstallPrompt = {
+			prompt: vi.fn(async () => {}),
+			userChoice: Promise.resolve({ outcome: 'accepted' }),
+		};
+		try {
+			const notify = vi.fn();
+			const user = userEvent.setup();
+			render(<WorkspaceSheet open onOpenChange={noop} notify={notify} />);
+			const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
+			await user.click(sheet.getByRole('tab', { name: 'General' }));
+			await user.click(sheet.getByRole('button', { name: /Install app/ }));
+			expect(await sheet.findByText(/Installed on this device/)).toBeInTheDocument();
+			expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Installed/));
+		} finally {
+			(window as Window & { __latticeInstallPrompt?: unknown }).__latticeInstallPrompt = null;
+		}
+	});
+});

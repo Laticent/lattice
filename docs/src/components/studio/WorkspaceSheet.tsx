@@ -1,4 +1,4 @@
-import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MousePointer2, Plug, SlidersHorizontal, Sparkles, Upload, Wallet, Zap } from 'lucide-react';
+import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, SlidersHorizontal, Sparkles, Upload, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
+import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
 import { languageFor, STUDIO_LANGUAGES } from './studio-language';
@@ -108,6 +109,19 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [storageLine, setStorageLine] = React.useState('');
 	const [busy, setBusy] = React.useState<'backup' | 'restore' | null>(null);
 	const restoreInput = React.useRef<HTMLInputElement>(null);
+	// Install-the-app (General tab): four honest states — see install-app.ts.
+	// Chromium can park its prompt at any moment, so track the announce event.
+	const [install, setInstall] = React.useState<InstallState>(() => installState());
+	React.useEffect(() => {
+		const sync = () => setInstall(installState());
+		window.addEventListener(CAN_INSTALL_EVENT, sync);
+		return () => window.removeEventListener(CAN_INSTALL_EVENT, sync);
+	}, []);
+	const doInstall = async () => {
+		const outcome = await promptInstall();
+		if (outcome === 'accepted') { setInstall('installed'); notify('Installed — Lattice Studio is on your home screen / launcher.'); }
+		else if (outcome === 'dismissed') { setInstall(installState()); notify('No problem — install any time from here.'); }
+	};
 	React.useEffect(() => {
 		if (open) {
 			setSpend(architectSpend());
@@ -298,6 +312,27 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									Last backup: {backupAt ? new Date(backupAt).toLocaleDateString() : 'never'}{storageLine ? ` · ${storageLine}` : ''}
 								</p>
 								<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">One zip: every deck (readable .md copies included), version history, chats, settings, and your Library — saved themes, components, finishes, and reference docs. Restoring never overwrites — a deck that changed since the backup comes back beside the current one as “(restored)”. Your OpenRouter connection is never in the file.</p>
+							</div>
+
+							{/* Install the app — the Studio IS the app (the manifest launches here).
+							    Four honest states; never a dead button. */}
+							<div className="mt-6">
+								<GroupLabel icon={<MonitorDown className="size-3.5" />}>Install the app</GroupLabel>
+								{install === 'installed' ? (
+									<p className="text-xs text-muted-foreground"><span className="font-semibold text-[var(--text-heading)]">Installed on this device</span> — the icon launches straight into the Studio, and it works offline.</p>
+								) : install === 'promptable' ? (
+									<div>
+										<p className="mb-2.5 text-xs text-muted-foreground">Put the Studio on your home screen or dock: its own window, its own icon, works offline.</p>
+										<button type="button" onClick={doInstall} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground"><MonitorDown className="size-4" />Install app</button>
+									</div>
+								) : install === 'ios-manual' ? (
+									<div className="rounded-xl border border-border bg-card p-3">
+										<p className="text-[12.5px] font-semibold text-[var(--text-heading)]">Add to your home screen</p>
+										<p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">iPhone/iPad installs by hand: tap <span className="font-semibold text-[var(--text-heading)]">Share</span> (the square with the arrow), then <span className="font-semibold text-[var(--text-heading)]">Add to Home Screen</span>. The icon launches straight into the Studio and works offline.</p>
+									</div>
+								) : (
+									<p className="text-[11px] leading-relaxed text-muted-foreground">Your browser installs from its own menu — look for “Install app” or “Add to Home Screen”.</p>
+								)}
 							</div>
 						</div>
 					)}

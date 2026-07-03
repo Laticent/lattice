@@ -1,16 +1,22 @@
 {
 	"id": "/",
-	"name": "Lattice",
+	"name": "Lattice Studio",
 	"short_name": "Lattice",
 	"description": "A slide-deck engine that renders boardroom-ready PDFs from plain Markdown. Themed layouts, Mermaid diagrams, WCAG AA throughout.",
-	"start_url": "/",
+	"start_url": "/studio/",
 	"scope": "/",
 	"display": "standalone",
 	"background_color": "#FAF7F2",
 	"theme_color": "#003D66",
+	"launch_handler": { "client_mode": ["focus-existing", "auto"] },
 	"icons": [
 		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
 		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
 		{ "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+	],
+	"shortcuts": [
+		{ "name": "New deck", "url": "/studio/?new=1", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+		{ "name": "Drawing Board", "url": "/drawing-board/", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+		{ "name": "Docs", "url": "/overview/", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
 	]
 }

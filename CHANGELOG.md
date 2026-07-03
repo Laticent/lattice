@@ -27,6 +27,17 @@ in patch versions.
 
 ### Added
 
+- **The installed app is now the Studio.** Installing Lattice (from any page)
+  puts **"Lattice Studio"** on your home screen or dock, launching straight
+  into the editor instead of the homepage — docs still open inside the app
+  window. New alongside it: an **Install the app** entry in Workspace →
+  General (real one-tap install on Android/Chrome; a Share → Add to Home
+  Screen instruction card on iPhone), tap-the-icon focuses your already-open
+  Studio instead of opening a second copy, and long-pressing the icon offers
+  **New deck · Drawing Board · Docs** shortcuts. Existing installs pick up the
+  new launch target automatically. See
+  `engineering/decisions/2026-07-03-pwa-studio-identity.md`.
+
 - **Studio: back up and restore your whole workspace.** Workspace → General
   gains **Backup & restore**: one `lattice-workspace.zip` holding every deck
   (with readable `.md` copies), version history, chats, settings, and your
