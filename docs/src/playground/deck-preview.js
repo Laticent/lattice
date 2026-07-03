@@ -110,10 +110,26 @@ function fitAgent(gap, clamp) {
 		// 0 until shown) never flashes the slides at full 1280px width.
 		'    lattice.style.visibility="visible";',
 		'  }',
-		'  window.__latticeFit=fit;',
-		'  window.addEventListener("resize",fit);',
+		// Drag-time suspension: a live pane-splitter drag resizes this iframe every
+		// frame, and each width change would run fit() (O(sections) style writes +
+		// a filmstrip reflow) via the resize/RO listeners below — a per-frame layout
+		// storm on large decks. The parent suspends during drag and resumes on the
+		// authoritative end-of-drag, which runs the ONE re-fit that matters.
+		'  var fitSuspended=false;',
+		'  function gatedFit(){if(!fitSuspended)fit();}',
+		'  window.__latticeFit=gatedFit;',
+		'  window.__latticeFitSuspend=function(){fitSuspended=true;};',
+		// Resume defers ONE frame: on iOS WebKit the parent may commit the new
+		// track widths and resume in the same tick — measuring clientWidth before
+		// the iframe relayout lands re-fits against the stale width (tiny slides
+		// over background). One rAF puts the measurement after layout; a second
+		// fit on a timeout is the WebKit belt.
+		// The follow-ups go through the GATE so a new drag started within ~120ms
+		// of a release can't sneak one full mid-drag fit past the suspension.
+		'  window.__latticeFitResume=function(){fitSuspended=false;requestAnimationFrame(gatedFit);setTimeout(gatedFit,120);};',
+		'  window.addEventListener("resize",gatedFit);',
 		'  if(typeof ResizeObserver!=="undefined"){',
-		'    var ro=new ResizeObserver(function(){fit();});',
+		'    var ro=new ResizeObserver(function(){gatedFit();});',
 		'    var m=document.querySelector(".lattice");',
 		'    if(m){ro.observe(document.documentElement);',
 		'      var ss=m.querySelectorAll(":scope>section");',

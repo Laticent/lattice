@@ -149,6 +149,21 @@ const pgData = {
 					var m = localStorage.getItem('lattice-docs-mode');
 					if (m === 'light' || m === 'dark') r.setAttribute('data-mode', m);
 					else if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) r.setAttribute('data-mode', 'dark');
+					// Pre-paint seed for the editor|preview split ratio: playground.css
+					// consumes these as var() fallbacks, so a returning resizer's saved
+					// width applies before the island hydrates (no first-paint jump).
+					// Clamped to the same [0.2, 0.8] band the split hook enforces.
+					var sp = localStorage.getItem('lattice-docs-split-playground');
+					if (sp) {
+						var sv = JSON.parse(sp);
+						if (sv && sv.v === 1 && typeof sv.a === 'number' && sv.a >= 0.2 && sv.a <= 0.8) {
+							// Doubled flex pair (sum 2, never 1) — a sum-1 pair leaves a
+							// dead void when a pane clamps at its px minimum (CSS Grid
+							// §12.7.1 fraction-of-leftover). Must match split.tsx splitFlexPair.
+							r.style.setProperty('--split-playground-a', 2 * sv.a + 'fr');
+							r.style.setProperty('--split-playground-b', 2 * (1 - sv.a) + 'fr');
+						}
+					}
 				} catch (e) {}
 			})();
 		</script>

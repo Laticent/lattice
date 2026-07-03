@@ -40,5 +40,9 @@ declare global {
 		// its pane was `display:none` (0-width) — the FIT gate can't scale a 0-width
 		// iframe, so the reveal has to be re-triggered once the pane is laid out.
 		__latticeFit?: () => void;
+		// Drag-time FIT suspension (pane-splitter): the parent suspends per-frame
+		// re-fits while dragging the divider and resumes (one fit) on release.
+		__latticeFitSuspend?: () => void;
+		__latticeFitResume?: () => void;
 	}
 }

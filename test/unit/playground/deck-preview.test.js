@@ -31,8 +31,12 @@ describe('buildSrcdoc', () => {
 		// Anti-flash gate + the box pin that keeps container-type:size from collapsing.
 		assert.match(doc, /\.lattice\{visibility:hidden;\}/);
 		assert.match(doc, /\.lattice>section\{width:1280px;height:720px\}/);
-		// FIT agent: scales, reveals, and exposes the patch hook.
-		assert.match(doc, /window\.__latticeFit=fit/);
+		// FIT agent: scales, reveals, and exposes the patch hook — through the
+		// drag-suspension gate (the pane splitter suspends per-frame re-fits
+		// mid-drag; resume runs the one authoritative fit).
+		assert.match(doc, /window\.__latticeFit=gatedFit/);
+		assert.match(doc, /window\.__latticeFitSuspend=function\(\)\{fitSuspended=true;\}/);
+		assert.match(doc, /window\.__latticeFitResume=function\(\)\{fitSuspended=false;requestAnimationFrame\(gatedFit\);setTimeout\(gatedFit,120\);\}/);
 		assert.match(doc, /lattice\.style\.visibility="visible"/);
 		// Engine wiring + the deck's geometry globals.
 		assert.match(doc, /window\.__SLIDE_W=1280;window\.__SLIDE_H=720;/);

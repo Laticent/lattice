@@ -38,6 +38,19 @@ in patch versions.
   get one extra sentence about WebKit's 7-day storage rule. See
   `engineering/decisions/2026-07-02-workspace-backup.md`.
 
+- **Resize and collapse the editor and preview panes — Playground + Studio.** The
+  editor|preview divider is now live: drag it to any ratio (keyboard: arrow keys on
+  the focused divider; double-click resets), or drag past a pane's minimum — or use
+  the header collapse button — to collapse that pane into a slim labeled rail with
+  one-click restore. The split persists per surface and self-heals stale values;
+  collapse lasts for the session. The rail keeps you informed while collapsed (render
+  errors on the Playground preview rail; the issues pill on the Studio editor rail),
+  Studio's ⌘K palette gains Collapse/Expand/Reset-split commands, and picking a
+  component or gallery auto-expands a collapsed preview so a load never renders into
+  a hidden pane. Below the tablet breakpoint the existing Edit/Preview tabs remain
+  the sole layout control, unchanged. Design record:
+  `engineering/decisions/2026-07-02-resizable-editor-preview-panes.md`.
+
 - **The docs site is an installable PWA with an offline cache.** A web-app
   manifest + generated brand icons (`tools/make-pwa-icons.js`) make
   lattice.style installable (app icon, standalone window), and a runtime-caching

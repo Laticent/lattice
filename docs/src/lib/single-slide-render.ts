@@ -35,6 +35,27 @@ const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 
+// ── Drag-time observer gating (2026-07-02 resizable-panes decision §8) ──────
+// Every live host gets a ResizeObserver that re-runs scaleFrame on any host
+// resize — during a split-divider drag that's one rescale per host per frame.
+// The Studio suspends the callbacks for the drag's duration and resumes with
+// ONE authoritative re-fit per live host (the single-slide analog of the
+// Playground's __latticeFitSuspend/__latticeFitResume pair). Module-level so
+// one gate covers every renderer instance on the page.
+let scaleSuspended = false;
+const scaleTargets = new Map<HTMLElement, () => void>();
+export function suspendScaleObservers(on: boolean): void {
+	scaleSuspended = on;
+	if (on) return;
+	for (const [host, refit] of scaleTargets) {
+		// Prune unmounted hosts on resume: the module-level Map would otherwise
+		// root every detached preview subtree forever (Studio's mobile pane
+		// swaps, Compose↔Fabricate) and refit dead iframes each resume.
+		if (host.isConnected) refit();
+		else scaleTargets.delete(host);
+	}
+}
+
 export type Geom = { width: number; height: number };
 export type RenderStatus = { ok: boolean; slides: number; error: string | null };
 
@@ -239,7 +260,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					fr.style.transformOrigin = 'top left';
 					host.appendChild(fr);
 					if (typeof ResizeObserver !== 'undefined') {
-						new ResizeObserver(() => scaleFrame(host)).observe(host);
+						// The callback honors the module-level drag gate above; the host is
+						// registered so a resume can re-fit it once, authoritatively.
+						// Sweep dead hosts on each registration so no-drag sessions
+						// (where the resume-time prune never runs) stay bounded too.
+						for (const h of scaleTargets.keys()) if (!h.isConnected) scaleTargets.delete(h);
+						scaleTargets.set(host, () => scaleFrame(host));
+						new ResizeObserver(() => {
+							if (!scaleSuspended) scaleFrame(host);
+						}).observe(host);
 					}
 				}
 				// After the frame loads: fit it, then draw the layout debug overlay if the

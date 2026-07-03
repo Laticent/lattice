@@ -322,6 +322,18 @@ The universal search is the ⌘K command palette: it navigates anywhere, switche
 and full-text-searches the docs via Starlight's Pagefind index (built site only — in
 `npm run dev` the palette still navigates/themes, just without doc-text results).
 
+### Screenshot matrix for the pane split (Playground + Studio)
+
+The editor|preview split (`docs/src/components/ui/split.tsx`, decision
+`2026-07-02-resizable-editor-preview-panes.md`) adds *stateful* layouts, so a
+visual pass over either surface covers: default split, editor collapsed,
+preview collapsed (in Studio: including the collapsed preview rail sitting
+beside the closed Inspector rail — the dual-rail adjacency is a named review
+state), at 1440/820/390, light + dark. **Pin or clear the storage keys**
+(`lattice-docs-split-playground` / `lattice-docs-split-studio`, plus their
+`-collapsed` sessionStorage twins) before every shot — a stray persisted ratio
+shifts every pixel.
+
 ### Traps (full entries in `gotchas.md`)
 
 - **`docs/` is a separate package** → its own `npm install`; the root
