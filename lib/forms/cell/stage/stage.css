@@ -267,35 +267,55 @@ section.form.claim-quiet .cell-masthead .masthead-bay {
   display: none;
 }
 
-/* hero — drop the bands; content fills the stage. The page number is KEPT by
- * default (reads through the content); `no-paginate` removes it. */
+/* hero — the content takes the stage: the footer band, section rail, and meta
+ * bay recede and the inset tightens so the content fills the freed space, but
+ * the TITLE and the page number STAY on EVERY component — an unlabeled slide has
+ * no place in a board deck (drop the number with `no-paginate`). */
 section.form.claim-hero {
   --frame-x: var(--frame-inset-x);
   --frame-y: var(--frame-inset-y);
   --footer-reserve: var(--frame-inset-y);
 }
-section.form.claim-hero:not(.chart-frame) > .cell-masthead, /* charts keep their title (chart-family hero band owns it) */
-section.form.claim-hero > .cell-footer > footer,            /* running footer text */
-section.form.claim-hero .tile-progress {                    /* section-dot rail (either nesting) */
+section.form.claim-hero > .cell-footer > footer,       /* running footer text (migrated) */
+section.form.claim-hero > footer,                      /* running footer text (deferred) */
+section.form.claim-hero .tile-progress,                /* section-dot rail (either nesting) */
+section.form.claim-hero .cell-masthead .masthead-bay { /* meta / logo / status bay */
   display: none;
 }
 
-/* bleed — true edge-to-edge: zero inset, all chrome gone (incl. the page
- * number), no top spectrum rule. Charts keep their title (like hero — the
- * chart-family band owns it) but still bleed and lose the page number. */
+/* bleed — the content reaches as close to the edge as it SAFELY can. MEDIA /
+ * canvas layouts (chart, big-number, diagram, image, video) go true edge-to-edge
+ * with all chrome — title + page number included — gone. Everything else can't
+ * crop, so bleed keeps the hero safe inset, its title, and its page number: a
+ * stray `claim-bleed` on a table degrades to hero, never a cropped board slide
+ * (the linter also warns). */
 section.form.claim-bleed {
-  --frame-x: 0px;
+  --frame-x: var(--frame-inset-x);   /* safe default = hero inset (non-media) */
+  --frame-y: var(--frame-inset-y);
+  --footer-reserve: var(--frame-inset-y);
+}
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) {
+  --frame-x: 0px;                    /* media / canvas: the true edge */
   --frame-y: 0px;
   --footer-reserve: 0px;
+  border-top: 0;                     /* kill the top spectrum only where it bleeds */
 }
-section.form.claim-bleed:not(.chart-frame) > .cell-masthead, /* charts keep their title */
-section.form.claim-bleed > .cell-footer,                     /* migrated footer band (incl. the page number) */
-section.form.claim-bleed > footer,                           /* running footer text on deferred layouts */
-section.form.claim-bleed .tile-progress {                    /* section-dot rail (either nesting) */
+/* Chrome recede — the footer text, rail, and meta bay recede on EVERY bleed
+ * slide (as hero). Title + page number stay unless the layout is edge-media. */
+section.form.claim-bleed > .cell-footer > footer,
+section.form.claim-bleed > footer,
+section.form.claim-bleed .tile-progress,
+section.form.claim-bleed .cell-masthead .masthead-bay {
   display: none;
 }
-/* The legacy pseudo page number on STAGE_DEFERRED layouts (chart / diagram /
- * video) — those have no .cell-footer, so the page number is a section::after.
- * Doubled class for specificity, mirroring `no-paginate` (base.variants.css). */
-section.form.claim-bleed.claim-bleed::after { content: none; }
-section.claim-bleed { border-top: 0; }   /* kill the top spectrum bar for the true edge */
+/* Edge-media (except charts, which stay labeled) drops the title too; and every
+ * edge-media layout drops the page number for the pure edge-to-edge visual. The
+ * legacy pseudo page number on STAGE_DEFERRED media is a section::after (doubled
+ * class for specificity, mirroring `no-paginate`). */
+section.form.claim-bleed:is(.big-number, .diagram, .image, .video) > .cell-masthead,
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) > .cell-footer {
+  display: none;
+}
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video).claim-bleed::after {
+  content: none;
+}

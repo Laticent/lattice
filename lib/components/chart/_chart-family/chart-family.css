@@ -682,7 +682,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
  * Per-chart rules (radar's centred diagram + legend column) layer on top; an
  * untuned chart still bleeds + captions but may need an explicit figure size (cf.
  * radar's 36cqi). Palette-blind. */
-section.chart-frame:is(.claim-hero, .claim-bleed) {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) {
   --cover-gutter: calc(var(--_sec-1cqi, 1cqi) * 5);   /* caption text inset */
   position: relative;
   padding: 0;
@@ -691,22 +691,22 @@ section.chart-frame:is(.claim-hero, .claim-bleed) {
   flex-direction: column;
   overflow: hidden;
 }
-section.chart-frame:is(.claim-hero, .claim-bleed) > header,
-section.chart-frame:is(.claim-hero, .claim-bleed) > footer,
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-eyebrow,
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > header,
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > footer,
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-eyebrow,
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-subtitle {
   display: none;
 }
 /* chart-header → display:contents so its h2 becomes a direct flex child the
  * caption rules below can order into the bottom band. */
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-header {
   display: contents;
 }
 /* The diagram fills the space above the caption (order 0, grows). The repeated
  * .chart-frame out-specifies the shared surface-panel rule, stripping the panel
  * background/border for a true bleed. position:relative makes it the containing
  * block for any absolutely-positioned figure chrome. */
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-body {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-body {
   order: 0;
   position: relative;
   flex: 1 1 auto;
@@ -726,7 +726,7 @@ section.chart-frame:is(.claim-hero, .claim-bleed) .chart-body {
  * chart bleeds, so the band already spans the full slide (no breakout needed).
  * margin:auto pins it to the bottom; the chart-frame skeleton measure-caps the
  * title at higher specificity, so re-assert measure / align / size here. */
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header h2 {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-header h2 {
   /* order:1 puts the title last; the flex:1 chart-body above it fills the column and
    * pushes this bottom shelf to the foot — no margin-top:auto needed (#20). */
   order: 1;
@@ -749,7 +749,7 @@ section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header h2 {
 }
 /* CAPTION · NOTE — the trailing paragraph (a bare class-less <p>, direct
  * section child); flat base of the sheen, content ink, clamped to two lines. */
-section.chart-frame:is(.claim-hero, .claim-bleed) > p:last-of-type {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > p:last-of-type {
   order: 2;
   margin: 0;
   z-index: 2;
@@ -767,7 +767,7 @@ section.chart-frame:is(.claim-hero, .claim-bleed) > p:last-of-type {
   overflow: hidden;
 }
 /* Pagination reads through the band — lifted above it and recoloured. */
-section.chart-frame:is(.claim-hero, .claim-bleed)::after {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed)::after {
   z-index: 3;
   color: color-mix(in oklab, var(--text-heading) 62%, transparent);
 }
@@ -778,10 +778,10 @@ section.chart-frame:is(.claim-hero, .claim-bleed)::after {
  * and recede the meta bay: hero/bleed is the chart's stage, not a place for deck
  * meta. The title reads cleanly at the top; the takeaway rides the bottom sheen
  * band. The masthead hairline is dropped so nothing rules across the bleed. */
-section.chart-frame:is(.claim-hero, .claim-bleed) > .cell-masthead {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > .cell-masthead {
   padding: var(--sp-sm) var(--cover-gutter) 0;
   border-bottom: 0;
 }
-section.chart-frame:is(.claim-hero, .claim-bleed) .cell-masthead .masthead-bay {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-masthead .masthead-bay {
   display: none;
 }

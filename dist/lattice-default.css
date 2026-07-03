@@ -15071,7 +15071,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
  * Per-chart rules (radar's centred diagram + legend column) layer on top; an
  * untuned chart still bleeds + captions but may need an explicit figure size (cf.
  * radar's 36cqi). Palette-blind. */
-section.chart-frame:is(.claim-hero, .claim-bleed) {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) {
   --cover-gutter: calc(var(--_sec-1cqi, 1cqi) * 5);   /* caption text inset */
   position: relative;
   padding: 0;
@@ -15080,22 +15080,22 @@ section.chart-frame:is(.claim-hero, .claim-bleed) {
   flex-direction: column;
   overflow: hidden;
 }
-section.chart-frame:is(.claim-hero, .claim-bleed) > header,
-section.chart-frame:is(.claim-hero, .claim-bleed) > footer,
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-eyebrow,
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > header,
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > footer,
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-eyebrow,
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-subtitle {
   display: none;
 }
 /* chart-header → display:contents so its h2 becomes a direct flex child the
  * caption rules below can order into the bottom band. */
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-header {
   display: contents;
 }
 /* The diagram fills the space above the caption (order 0, grows). The repeated
  * .chart-frame out-specifies the shared surface-panel rule, stripping the panel
  * background/border for a true bleed. position:relative makes it the containing
  * block for any absolutely-positioned figure chrome. */
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-body {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-body {
   order: 0;
   position: relative;
   flex: 1 1 auto;
@@ -15115,7 +15115,7 @@ section.chart-frame:is(.claim-hero, .claim-bleed) .chart-body {
  * chart bleeds, so the band already spans the full slide (no breakout needed).
  * margin:auto pins it to the bottom; the chart-frame skeleton measure-caps the
  * title at higher specificity, so re-assert measure / align / size here. */
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header h2 {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-header h2 {
   /* order:1 puts the title last; the flex:1 chart-body above it fills the column and
    * pushes this bottom shelf to the foot — no margin-top:auto needed (#20). */
   order: 1;
@@ -15138,7 +15138,7 @@ section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header h2 {
 }
 /* CAPTION · NOTE — the trailing paragraph (a bare class-less <p>, direct
  * section child); flat base of the sheen, content ink, clamped to two lines. */
-section.chart-frame:is(.claim-hero, .claim-bleed) > p:last-of-type {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > p:last-of-type {
   order: 2;
   margin: 0;
   z-index: 2;
@@ -15156,7 +15156,7 @@ section.chart-frame:is(.claim-hero, .claim-bleed) > p:last-of-type {
   overflow: hidden;
 }
 /* Pagination reads through the band — lifted above it and recoloured. */
-section.chart-frame:is(.claim-hero, .claim-bleed)::after {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed)::after {
   z-index: 3;
   color: color-mix(in oklab, var(--text-heading) 62%, transparent);
 }
@@ -15167,11 +15167,11 @@ section.chart-frame:is(.claim-hero, .claim-bleed)::after {
  * and recede the meta bay: hero/bleed is the chart's stage, not a place for deck
  * meta. The title reads cleanly at the top; the takeaway rides the bottom sheen
  * band. The masthead hairline is dropped so nothing rules across the bleed. */
-section.chart-frame:is(.claim-hero, .claim-bleed) > .cell-masthead {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > .cell-masthead {
   padding: var(--sp-sm) var(--cover-gutter) 0;
   border-bottom: 0;
 }
-section.chart-frame:is(.claim-hero, .claim-bleed) .cell-masthead .masthead-bay {
+section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-masthead .masthead-bay {
   display: none;
 }
 
@@ -17380,6 +17380,15 @@ section.no-paginate.no-paginate::after {
      !important form across light + dark. */
   content: none;
 }
+/* The migrated Form frame renders the page number as a REAL element
+ * (`span.lat-pagination`), not the `::after` pseudo above — so suppressing the
+ * pseudo alone leaves it visible. Hide the element too, so `no-paginate` /
+ * `silent` (and `claim-hero no-paginate`) actually drop the page number on every
+ * frame. */
+section.silent .lat-pagination,
+section.no-paginate .lat-pagination {
+  display: none;
+}
 
 /* The `claim` presets (claim-quiet / claim-hero / claim-bleed) live in the
  * shared Cell CSS (lib/forms/cell/stage/stage.css) — they act on the frame's
@@ -18051,38 +18060,58 @@ section.form.claim-quiet .cell-masthead .masthead-bay {
   display: none;
 }
 
-/* hero — drop the bands; content fills the stage. The page number is KEPT by
- * default (reads through the content); `no-paginate` removes it. */
+/* hero — the content takes the stage: the footer band, section rail, and meta
+ * bay recede and the inset tightens so the content fills the freed space, but
+ * the TITLE and the page number STAY on EVERY component — an unlabeled slide has
+ * no place in a board deck (drop the number with `no-paginate`). */
 section.form.claim-hero {
   --frame-x: var(--frame-inset-x);
   --frame-y: var(--frame-inset-y);
   --footer-reserve: var(--frame-inset-y);
 }
-section.form.claim-hero:not(.chart-frame) > .cell-masthead, /* charts keep their title (chart-family hero band owns it) */
-section.form.claim-hero > .cell-footer > footer,            /* running footer text */
-section.form.claim-hero .tile-progress {                    /* section-dot rail (either nesting) */
+section.form.claim-hero > .cell-footer > footer,       /* running footer text (migrated) */
+section.form.claim-hero > footer,                      /* running footer text (deferred) */
+section.form.claim-hero .tile-progress,                /* section-dot rail (either nesting) */
+section.form.claim-hero .cell-masthead .masthead-bay { /* meta / logo / status bay */
   display: none;
 }
 
-/* bleed — true edge-to-edge: zero inset, all chrome gone (incl. the page
- * number), no top spectrum rule. Charts keep their title (like hero — the
- * chart-family band owns it) but still bleed and lose the page number. */
+/* bleed — the content reaches as close to the edge as it SAFELY can. MEDIA /
+ * canvas layouts (chart, big-number, diagram, image, video) go true edge-to-edge
+ * with all chrome — title + page number included — gone. Everything else can't
+ * crop, so bleed keeps the hero safe inset, its title, and its page number: a
+ * stray `claim-bleed` on a table degrades to hero, never a cropped board slide
+ * (the linter also warns). */
 section.form.claim-bleed {
-  --frame-x: 0px;
+  --frame-x: var(--frame-inset-x);   /* safe default = hero inset (non-media) */
+  --frame-y: var(--frame-inset-y);
+  --footer-reserve: var(--frame-inset-y);
+}
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) {
+  --frame-x: 0px;                    /* media / canvas: the true edge */
   --frame-y: 0px;
   --footer-reserve: 0px;
+  border-top: 0;                     /* kill the top spectrum only where it bleeds */
 }
-section.form.claim-bleed:not(.chart-frame) > .cell-masthead, /* charts keep their title */
-section.form.claim-bleed > .cell-footer,                     /* migrated footer band (incl. the page number) */
-section.form.claim-bleed > footer,                           /* running footer text on deferred layouts */
-section.form.claim-bleed .tile-progress {                    /* section-dot rail (either nesting) */
+/* Chrome recede — the footer text, rail, and meta bay recede on EVERY bleed
+ * slide (as hero). Title + page number stay unless the layout is edge-media. */
+section.form.claim-bleed > .cell-footer > footer,
+section.form.claim-bleed > footer,
+section.form.claim-bleed .tile-progress,
+section.form.claim-bleed .cell-masthead .masthead-bay {
   display: none;
 }
-/* The legacy pseudo page number on STAGE_DEFERRED layouts (chart / diagram /
- * video) — those have no .cell-footer, so the page number is a section::after.
- * Doubled class for specificity, mirroring `no-paginate` (base.variants.css). */
-section.form.claim-bleed.claim-bleed::after { content: none; }
-section.claim-bleed { border-top: 0; }   /* kill the top spectrum bar for the true edge */
+/* Edge-media (except charts, which stay labeled) drops the title too; and every
+ * edge-media layout drops the page number for the pure edge-to-edge visual. The
+ * legacy pseudo page number on STAGE_DEFERRED media is a section::after (doubled
+ * class for specificity, mirroring `no-paginate`). */
+section.form.claim-bleed:is(.big-number, .diagram, .image, .video) > .cell-masthead,
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) > .cell-footer {
+  display: none;
+}
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video).claim-bleed::after {
+  content: none;
+}
 
 /* === lib/forms/tile/meta/meta.css === */
 /* meta Tile — date · owner · classification.
