@@ -1862,7 +1862,7 @@ async function renderBody(browser, g, closeBrowser) {
         company: `Lattice · ${paletteName}`,
         width: slideW,
         height: slideH,
-      });
+      }, slideNotes);
       if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}`);
     }
   }

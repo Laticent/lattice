@@ -96,6 +96,16 @@ in patch versions.
 
 ### Fixed
 
+- **PPTX export now carries speaker notes.** The owned image-per-slide `.pptx`
+  writer dropped every note — a note authored in Markdown survived to the PDF and
+  the HTML sidecar but silently vanished from PowerPoint. `writePptx` now writes
+  each slide's note into its notes placeholder via `slide.addNotes()`, index-aligned
+  to the slides and drawing on the same `notes-core` boundary the PDF path uses
+  (HARD RULE #1) — so the tooling-pragma exclusion and multi-comment joining match
+  across formats, and a slide with no note carries no presenter copy. Verified
+  end-to-end: a three-slide deck exports with the note on slide 1, none on a
+  pragma-only slide 2, and both joined notes on slide 3.
+
 - **`claim-hero` no longer collides the page number with vertically-filling content.**
   Hero keeps the page number but had collapsed the footer reserve to the bare edge inset,
   so a grid that fills the height (matrix-2x2, verdict-grid, statute-stack) ran its

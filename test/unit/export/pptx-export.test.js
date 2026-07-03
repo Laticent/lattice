@@ -56,6 +56,47 @@ describe('pptx-export', () => {
     await assert.rejects(() => writePptx(out, []), /no slide images/i);
   });
 
+  // Read every notesSlide part's text, index-aligned by the notesSlideN filename.
+  async function notesText(out) {
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const parts = Object.keys(zip.files)
+      .filter((n) => /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(n))
+      .sort((a, b) => Number(a.match(/(\d+)\.xml$/)[1]) - Number(b.match(/(\d+)\.xml$/)[1]));
+    return Promise.all(parts.map((n) => zip.files[n].async('string')));
+  }
+
+  test('writes speaker notes into the notes slide and skips empty notes', async () => {
+    const out = tmpFile();
+    // Three slides; only slides 1 and 3 carry a note (slide 2 is null).
+    const count = await writePptx(
+      out,
+      [ONE_PX_PNG, ONE_PX_PNG, ONE_PX_PNG],
+      { title: 'Notes Deck' },
+      ['Say this on the opener', null, 'Close with the ask'],
+    );
+    assert.equal(count, 3);
+
+    // pptxgenjs emits a notesSlide part per slide regardless; assert the NOTE TEXT
+    // survives export for the noted slides and never fabricates a note from `null`.
+    const all = (await notesText(out)).join('\n');
+    assert.match(all, /Say this on the opener/, 'opener note missing from notes slides');
+    assert.match(all, /Close with the ask/, 'closing note missing from notes slides');
+    assert.doesNotMatch(all, /null/, 'a null note must not be stringified into the deck');
+  });
+
+  test('no notes argument leaves the notes text empty (back-compat)', async () => {
+    const out = tmpFile();
+    const count = await writePptx(out, [ONE_PX_PNG, ONE_PX_PNG], { title: 'No Notes' });
+    assert.equal(count, 2);
+    // The call succeeds and no author copy is injected. pptxgenjs still emits the
+    // notesSlide parts with their slide-number field, so the only text is digits —
+    // assert no authored WORDS leak in when notes are absent.
+    const bodies = await notesText(out);
+    const authored = bodies.join('').replace(/<[^>]+>/g, '').trim();
+    assert.doesNotMatch(authored, /[A-Za-z]/, `expected no authored note words, got: ${authored.slice(0, 80)}`);
+  });
+
   describe('pptxLayout — slide aspect from @size geometry', () => {
     // Stub just enough of a pptx instance to capture defineLayout.
     function stub() {
