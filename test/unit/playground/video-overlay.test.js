@@ -28,7 +28,7 @@ describe('embedSrc', () => {
 
 	test('Vimeo → player embed by numeric id', async () => {
 		const { embedSrc } = await load();
-		assert.equal(embedSrc('https://vimeo.com/76979871'), 'https://player.vimeo.com/video/76979871?autoplay=1');
+		assert.equal(embedSrc('https://vimeo.com/1084537'), 'https://player.vimeo.com/video/1084537?autoplay=1');
 	});
 
 	test('TikTok CANONICAL link → player embed SYNC (id in URL); a short link → null (async path)', async () => {
@@ -74,7 +74,7 @@ describe('embedSrc', () => {
 		const out = embedSrc('https://evil.example/#youtube.com/embed/aqz-KE-bpKQ');
 		assert.ok(out === null || out.startsWith('https://www.youtube-nocookie.com/embed/'));
 		assert.match(embedSrc('https://www.youtube.com/watch?v=aqz-KE-bpKQ'), /^https:\/\/www\.youtube-nocookie\.com\/embed\/[\w-]{11}\?/);
-		assert.match(embedSrc('https://vimeo.com/76979871'), /^https:\/\/player\.vimeo\.com\/video\/\d+\?/);
+		assert.match(embedSrc('https://vimeo.com/1084537'), /^https:\/\/player\.vimeo\.com\/video\/\d+\?/);
 		// Instagram: the src is Instagram's OWN origin + a constrained shortcode ([\w-]+),
 		// never the input's origin — even when a hostile href carries a look-alike substring.
 		assert.match(embedSrc('https://www.instagram.com/reel/DaStLQkuN3Q/'), /^https:\/\/www\.instagram\.com\/p\/[\w-]+\/embed\/$/);
@@ -87,7 +87,7 @@ describe('isEmbeddable', () => {
 	test('YouTube / Vimeo / TikTok / Instagram (any form) → true; junk → false', async () => {
 		const { isEmbeddable } = await load();
 		assert.equal(isEmbeddable('https://youtu.be/aqz-KE-bpKQ'), true);
-		assert.equal(isEmbeddable('https://vimeo.com/76979871'), true);
+		assert.equal(isEmbeddable('https://vimeo.com/1084537'), true);
 		assert.equal(isEmbeddable('https://www.tiktok.com/t/ZP8GrtdJH/'), true); // short link — resolved async
 		assert.equal(isEmbeddable('https://www.tiktok.com/@x/video/6718335390845095173'), true);
 		assert.equal(isEmbeddable('https://www.instagram.com/reel/DaStLQkuN3Q/'), true); // sync — shortcode in URL
@@ -100,7 +100,7 @@ describe('providerShape', () => {
 	test('YouTube / Vimeo → landscape; TikTok / Instagram (vertical) → portrait; junk → landscape', async () => {
 		const { providerShape } = await load();
 		assert.equal(providerShape('https://youtu.be/aqz-KE-bpKQ'), 'landscape');
-		assert.equal(providerShape('https://vimeo.com/76979871'), 'landscape');
+		assert.equal(providerShape('https://vimeo.com/1084537'), 'landscape');
 		assert.equal(providerShape('https://www.tiktok.com/t/ZP8GrtdJH/'), 'portrait');
 		assert.equal(providerShape('https://www.tiktok.com/@x/video/6718335390845095173'), 'portrait');
 		assert.equal(providerShape('https://www.instagram.com/reel/DaStLQkuN3Q/'), 'portrait');

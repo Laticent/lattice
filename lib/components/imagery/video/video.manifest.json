@@ -80,7 +80,7 @@
     "gallery": {
       "label": "Gallery — a contained, matted exhibit",
       "caption": "The still CONTAINED on a matte (zero-crop, letterboxed) with a placard caption below — for a diagram-ish or vertical clip where the whole frame matters. `qr` adds a code beside the placard.",
-      "sample": "<!-- _class: video gallery -->\n\n## Exhibit 1 — the onboarding flow, end to end.\n\n- https://vimeo.com/76979871\n- The reference onboarding walkthrough, contained on its matte. `caption`\n- video-poster.svg `poster`\n"
+      "sample": "<!-- _class: video gallery -->\n\n## Exhibit 1 — the onboarding flow, end to end.\n\n- https://vimeo.com/1084537\n- The reference onboarding walkthrough, contained on its matte. `caption`\n- video-poster.svg `poster`\n"
     },
     "qr": {
       "label": "qr — add a scannable code (a modifier, combine with any composition)",

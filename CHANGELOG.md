@@ -214,6 +214,16 @@ in patch versions.
 
 ### Fixed
 
+- **The `video` demo, gallery, and docs pointed at a removed Vimeo clip.** The
+  sample Vimeo URL (`vimeo.com/76979871`) had been taken down (404), so the demo
+  deck's link/QR, the component gallery, docs, and the `dist` machine-catalog all
+  sent viewers to a dead page. Swapped to a live, embeddable, Creative-Commons clip
+  (`vimeo.com/1084537`, Big Buck Bunny — verified via oEmbed: embeddable, no domain
+  restriction). The committed `examples/video.pdf` and the video gallery PDFs were
+  rebuilt; they grow because they were previously (anomalously) stored with SVG
+  posters kept as vectors, and the rebuild follows the engine's default of
+  rasterizing SVG `<img>`/background images at 2× for PDF portability.
+
 - **Tapping an input in the Studio no longer zooms the page on iOS.** iOS
   Safari auto-zooms when a focused text control computes under 16px; the
   first fix (bumping individual search boxes and the Playground editor)

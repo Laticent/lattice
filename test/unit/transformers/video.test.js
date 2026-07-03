@@ -38,9 +38,9 @@ describe('detectProvider', () => {
   });
 
   test('Vimeo resolves id + oembed', () => {
-    const p = detectProvider('https://vimeo.com/76979871');
+    const p = detectProvider('https://vimeo.com/1084537');
     assert.equal(p.key, 'vimeo');
-    assert.equal(p.id, '76979871');
+    assert.equal(p.id, '1084537');
     assert.match(p.oembedUrl, /vimeo\.com\/api\/oembed\.json/);
   });
 
@@ -138,7 +138,7 @@ describe('oEmbed resolver (injected fetcher — no network)', () => {
   });
 
   test('a failed fetch resolves to null, never throws', async () => {
-    const r = await resolveOembed('https://vimeo.com/76979871', async () => { throw new Error('network'); });
+    const r = await resolveOembed('https://vimeo.com/1084537', async () => { throw new Error('network'); });
     assert.equal(r, null);
   });
 

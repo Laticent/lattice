@@ -47,7 +47,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ## Exhibit 1 — the onboarding flow, end to end.
 
-- https://vimeo.com/76979871
+- https://vimeo.com/1084537
 - The reference onboarding walkthrough, contained on its matte. `caption`
 - video-poster.svg `poster`
 
