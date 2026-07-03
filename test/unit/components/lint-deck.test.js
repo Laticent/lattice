@@ -200,6 +200,17 @@ describe('deck linter', () => {
     }
   });
 
+  test('warns on an unrecognized `spectrum:` (white-label brand bar) value; accepts on/off/solid', () => {
+    const bad = lintText('---\ntheme: indaco\nspectrum: rainbowww\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum');
+    assert.ok(bad, 'unknown spectrum should warn');
+    assert.equal(bad.classToken, 'rainbowww');
+    assert.match(bad.fix, /on, off, solid/);
+    for (const v of ['on', 'off', 'solid', 'OFF']) {
+      const src = `---\ntheme: indaco\nspectrum: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum').length, 0, v);
+    }
+  });
+
   test('a body `finish:` code span is not mistaken for the front-matter key', () => {
     const src = `${FM}<!-- _class: content -->\n\n## H.\n\n\`finish: bogus\` is just prose.\n`;
     assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-finish').length, 0);

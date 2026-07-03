@@ -17470,6 +17470,30 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
   border-image: none;
 }
 
+/* ── SPECTRUM register ── the white-label brand-bar control (`spectrum:` front matter).
+   The rainbow brand BAR is painted in three sites — the top border-image (base.elements),
+   the `.dark`-canvas top background line (base.modifiers), and the divider left rail
+   (divider.styles). The register targets exactly those three; it deliberately does NOT
+   touch the `--spectrum` token, which is ALSO reused by non-brand decorations (author
+   `---` rules, the list-steps spine, table header rails) that must not vanish when a deck
+   opts out of the brand bar. `off` removes the bar; `solid` repaints it in the single
+   brand `--accent` (white-label: set the theme accent to the client color).
+   See engineering/decisions/2026-07-03-spectrum-register-white-label.md. */
+section.spectrum-off { border-top: none; }
+section.dark.spectrum-off { background: var(--bg); }
+section.divider:not(.light).spectrum-off { background: var(--surface-inverse); }
+
+section.spectrum-solid {
+  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid var(--accent); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+  border-image: none;
+}
+section.dark.spectrum-solid {
+  background: linear-gradient(var(--accent), var(--accent)) top / 100% 1px no-repeat, var(--bg);
+}
+section.divider:not(.light).spectrum-solid {
+  background: linear-gradient(var(--accent), var(--accent)) left / 0.46875cqi 100% no-repeat, var(--surface-inverse);
+}
+
 /* ── STATE ── meta indicators about the slide itself ────────────────── */
 
 /* ── STATE ── meta markers about the slide, rendered by an orthogonal STYLE axis.

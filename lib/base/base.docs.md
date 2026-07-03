@@ -659,6 +659,32 @@ signature); pick a different shape deck-wide with the register, or per-slide wit
 the token. `stamp: seal` + `<!-- _class: confidential stamp-notch -->` renders that
 one slide's "Confidential" marker as a notch while the rest of the deck seals.
 
+#### The `spectrum:` front-matter register (white-label brand bar)
+
+`spectrum:` is the **white-label control** for the SPECTRUM — the rainbow gradient bar
+every section carries on its top border, and that a `divider` carries as a left rail. A
+deck rendered under a **client's** brand can drop the Lattice rainbow or replace it with
+the client's single color. Sibling of the registers above (`lib/core/resolve-spectrum.js`),
+propagated to every section, overridable per slide with a `spectrum-<value>` token; a typo
+is caught as `unknown-spectrum`.
+
+| `spectrum:` value | Token | Effect |
+|---|---|---|
+| `on` | *(none)* | The rainbow spectrum. **The default** (omit the key). |
+| `off` | `spectrum-off` | No brand bar — a clean top edge (and no divider rail). |
+| `solid` | `spectrum-solid` | A single **`--accent`** bar. White-label: set the theme's accent to the client brand and the whole bar follows. |
+
+The bar is painted in three places (the top `border-image`, the `dark`-canvas top line,
+the divider left rail) and the register targets exactly those — it does **not** touch the
+`--spectrum` token, which non-brand decorations (an author's `---` rule, the `list-steps`
+spine, table header rails) also read and which must not vanish on `spectrum: off`. A deck
+that wants *every* spectrum-derived accent recolored sets `--spectrum` directly at the
+theme level; that is the token's job, orthogonal to this register. `spectrum:` composes
+with `accent` / `tone: edge` (both per-slide brand-bar recolors), which win over the deck
+register where they apply. `on` is the baseline (omit the key); there is no per-slide
+"back to rainbow" token over a deck `off`/`solid`. On a dark bookend a dark client accent
+reads faint — pick a theme accent that reads on dark, or use `spectrum: off` there.
+
 | Token / class | Effect |
 |---|---|
 | `sketch` | Full handwriting (headings **and** body) + drawn boxes. The default. |
