@@ -5,6 +5,10 @@ summary: Slice-by-slice Phase 1 walking-skeleton plan for the Drawing Board, shi
 
 # The Drawing Board — Phase 1 walking-skeleton build plan (2026-06-07)
 
+> **FROZEN (2026-07-03).** The Drawing Board is development-frozen and will be
+> removed; the Studio succeeds it. No further phases land on this surface. See
+> `2026-07-03-studio-succession.md`.
+
 > Status: **✅ COMPLETE & gate-green** on branch
 > `claude/github-pages-slide-editor-6zJe3` (PR #79). All six slices shipped:
 > 0 route+shell · 1 editor↔engine · 2 filmstrip+sync · 3 IndexedDB persistence ·
