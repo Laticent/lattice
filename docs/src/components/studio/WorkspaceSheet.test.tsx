@@ -186,3 +186,29 @@ describe('WorkspaceSheet — spend (layered budget)', () => {
 		expect(link).toHaveAttribute('href', 'https://openrouter.ai/settings/keys');
 	});
 });
+
+describe('WorkspaceSheet — General tab backup & restore', () => {
+	it('shows the backup group with ownership copy, both controls, and the last-backup line', async () => {
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		expect(sheet.getByText('Backup & restore')).toBeInTheDocument();
+		// Ownership framing, not alarm.
+		expect(sheet.getByText(/Your decks live in this browser/)).toBeInTheDocument();
+		expect(sheet.getByRole('button', { name: /Download backup/ })).toBeInTheDocument();
+		expect(sheet.getByRole('button', { name: /Restore backup/ })).toBeInTheDocument();
+		expect(sheet.getByText(/Last backup: never/)).toBeInTheDocument();
+		// The restore input only takes zips.
+		expect(sheet.getByLabelText('Restore a workspace backup')).toHaveAttribute('accept', '.zip');
+	});
+
+	it('downloading a backup stamps the last-backup line and toasts', async () => {
+		const notify = vi.fn();
+		const user = userEvent.setup();
+		render(<WorkspaceSheet open onOpenChange={noop} notify={notify} />);
+		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
+		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		await user.click(sheet.getByRole('button', { name: /Download backup/ }));
+		expect(await sheet.findByText(/Last backup: (?!never)/)).toBeInTheDocument();
+		expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Backup downloaded/));
+	});
+});

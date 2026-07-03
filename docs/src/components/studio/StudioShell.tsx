@@ -33,11 +33,12 @@ import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
 import { getNote, setNote } from './slide-notes';
 import { listFindings } from './studio-lint';
-import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { useBreakpoint } from './use-breakpoint';
 import { WorkspaceSheet } from './WorkspaceSheet';
+import { isEvictionProneBrowser } from './workspace-backup';
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
@@ -296,6 +297,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		}
 		const id = setTimeout(() => saveSource(deck.id, source), 400);
 		return () => clearTimeout(id);
+	}, [source, deck.id]);
+	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
+	// for an immediate write-through, so a download can't race the 400ms timer
+	// above — without this, a JUST-edited built-in deck could drop out of the
+	// backup entirely (no stored source yet at pack time).
+	React.useEffect(() => {
+		const flush = () => saveSource(deck.id, source);
+		window.addEventListener(FLUSH_EVENT, flush);
+		return () => window.removeEventListener(FLUSH_EVENT, flush);
 	}, [source, deck.id]);
 
 	// Persist the editor preference as it changes.
@@ -588,6 +598,25 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		resumePendingAuth().then((ok) => {
 			if (ok) notify('OpenRouter connected — the Architect can now edit your deck.');
 		});
+	}, [notify]);
+	// Storage durability — two quiet moves on boot. (1) Ask the browser to mark
+	// this origin's storage persistent (best-effort; silently denied where
+	// unsupported). (2) The EARNED backup nudge: only when real unbacked-up work
+	// exists, at most once per 14 days (shouldNudgeBackup) — ownership framing,
+	// a plain toast, never a modal. Tiers + copy:
+	// engineering/decisions/2026-07-02-workspace-backup.md.
+	React.useEffect(() => {
+		try {
+			navigator.storage?.persist?.().catch(() => {});
+		} catch {
+			/* no Storage API here */
+		}
+		const now = Date.now();
+		if (shouldNudgeBackup(now)) {
+			markBackupNudged(now);
+			const edited = loadDeckList().filter((d) => loadSource(d.id) != null).length;
+			notify(`${edited} decks live only in this browser — a backup takes 10 s: Workspace → General.${isEvictionProneBrowser() ? ' (Safari clears unused site data after a week.)' : ''}`);
+		}
 	}, [notify]);
 	// Run one architect instruction. Applies real edits when a model is connected;
 	// degrades honestly (points at Workspace) when it is not.
