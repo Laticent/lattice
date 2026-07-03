@@ -52,13 +52,34 @@ export type SlideContextProps = {
 
 // ── Small local controls, styled to match the Inspector vocabulary ─────────────
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Row({ label, hint, desc, children }: { label: string; hint?: string; desc?: string; children: React.ReactNode }) {
 	return (
-		<div className="my-1.5 flex items-center justify-between gap-2.5">
-			<span className="text-[12.5px] text-foreground">{label}{hint && <span className="ml-1.5 text-[11px] text-muted-foreground">{hint}</span>}</span>
-			{children}
+		<div className="my-1.5">
+			<div className="flex items-center justify-between gap-2.5">
+				<span className="text-[12.5px] text-foreground">{label}{hint && <span className="ml-1.5 text-[11px] text-muted-foreground">{hint}</span>}</span>
+				{children}
+			</div>
+			{desc && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 		</div>
 	);
+}
+
+// A labeled group heading with an explanatory line — for the chip-based controls
+// (stamp / tone / tint / mark) that don't use Row. No magic, no mystery: every
+// new concept says what it does in plain words.
+function GroupHead({ label, desc }: { label: string; desc: string }) {
+	return (
+		<div className="mb-1.5">
+			<div className="text-[12px] text-foreground">{label}</div>
+			<p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{desc}</p>
+		</div>
+	);
+}
+
+// The one-line framing that opens each tab — says what the whole group is FOR
+// before the individual controls explain themselves.
+function TabIntro({ children }: { children: React.ReactNode }) {
+	return <p className="mb-3 border-b border-border/60 pb-2.5 text-[11.5px] leading-snug text-muted-foreground">{children}</p>;
 }
 
 function Switch({ on, onClick, label, disabled }: { on?: boolean; onClick?: () => void; label: string; disabled?: boolean }) {
@@ -324,6 +345,7 @@ export function SlideContext(props: SlideContextProps) {
 					{/* NOTES */}
 					{activeTab === 'notes' && (
 						<div className="py-2">
+							<TabIntro>The speaker note for this slide — what you'll say when it's on screen. It never appears on the slide itself.</TabIntro>
 							<textarea
 								value={noteDraft}
 								onChange={(e) => setNoteDraft(e.target.value)}
@@ -332,7 +354,7 @@ export function SlideContext(props: SlideContextProps) {
 								placeholder="What you'll say on this slide — read aloud in Present, exported to PDF/PPTX notes."
 								className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
 							/>
-							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Read aloud in Present and exported to the PDF/PPTX speaker-notes field.</p>
+							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Read aloud in Present, and exported to the PDF/PPTX speaker-notes field.</p>
 							{!editable && (
 								<div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
 									<Info className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />
@@ -345,12 +367,13 @@ export function SlideContext(props: SlideContextProps) {
 					{/* LOOK */}
 					{activeTab === 'look' && (
 						<div className="py-1">
-							<Row label="Dark" hint={dark.state === 'inherited' ? 'from deck' : undefined}>
+							<TabIntro>How this one slide looks — its canvas, text size, backdrop, and brand bar. Anything you don't set here is inherited from the deck.</TabIntro>
+							<Row label="Dark" hint={dark.state === 'inherited' ? 'from deck' : undefined} desc="Paints this slide on the theme's dark canvas — light text on a dark surface.">
 								{dark.state === 'inherited'
 									? <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">On · deck</span>
 									: <Switch label="Dark canvas" on={dark.state === 'on'} onClick={() => onMutate((c) => setDark(c, dark.state !== 'on'))} />}
 							</Row>
-							<Row label="Type scale">
+							<Row label="Type scale" desc="Sizes all the text on this slide together. M is the deck default; step up to fill a sparse slide or land a big statement.">
 								<Seg
 									ariaLabel="Type scale"
 									value={cur(scaleAxis)}
@@ -358,14 +381,14 @@ export function SlideContext(props: SlideContextProps) {
 									options={[{ label: 'M', value: null }, { label: 'L', value: 'scale-l' }, { label: 'XL', value: 'scale-xl' }, { label: '2XL', value: 'scale-2xl' }]}
 								/>
 							</Row>
-							<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined}>
+							<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined} desc="A backdrop texture behind the content — a soft gradient or grain. Inherited from the deck unless you override it here.">
 								<Picker ariaLabel="Slide finish" value={finishValue} onChange={onFinish} options={finishOptions} />
 							</Row>
-							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined}>
+							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The colored strip on the slide's top edge (a divider shows it as a left rail). None removes it; Solid repaints it in the theme's accent.">
 								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
 							</Row>
 							{(accepts('compact') || accepts('loose')) && (
-								<Row label="Spacing">
+								<Row label="Spacing" desc="Tightens or opens the space between elements on this slide.">
 									<Seg
 										ariaLabel="Density"
 										value={cur(densityAxis)}
@@ -374,19 +397,20 @@ export function SlideContext(props: SlideContextProps) {
 									/>
 								</Row>
 							)}
-							{accepts('accent') && <Row label="Accent"><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
+							{accepts('accent') && <Row label="Accent" desc="Emphasizes this layout's key element in the theme's accent color."><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
 						</div>
 					)}
 
 					{/* STATUS */}
 					{activeTab === 'status' && (
 						<div className="py-1">
+							<TabIntro>Mark where this slide stands — a small state badge and a review tone. Both are overlays on the slide, separate from its content.</TabIntro>
 							{stateGroup.length > 0 && (
 								<div className="my-1.5">
-									<div className="mb-1.5 text-[12px] text-foreground">Stamp</div>
+									<GroupHead label="Stamp" desc="A small state badge in a corner — like Draft or Confidential. A label on the slide, not part of the content." />
 									<ChipRow ariaLabel="State stamp" value={cur(stateGroup)} onChange={(v) => groupSet(stateGroup, v)} options={stateGroup.map((s) => ({ label: cap(s), value: s }))} />
 									{hasStampStyles && (
-										<Row label="Style" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined}>
+										<Row label="Style" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined} desc="The badge's shape.">
 											<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} options={stampStyleHead} groups={stampStyleGroups} />
 										</Row>
 									)}
@@ -394,10 +418,10 @@ export function SlideContext(props: SlideContextProps) {
 							)}
 							{toneAxis.length > 0 && (
 								<div className="my-2">
-									<div className="mb-1.5 text-[12px] text-foreground">Tone</div>
+									<GroupHead label="Tone" desc="Colors the slide by review status — pass, warn, or fail. For sign-off and status decks." />
 									<ChipRow ariaLabel="Tone" value={cur(toneAxis)} onChange={(v) => groupSet(toneAxis, v)} options={toneAxis.map((t) => ({ label: cap(t.replace('tone-', '')), value: t, tone: TONE_SWATCH[t] }))} />
 									{toneStyleTokens.length > 0 && (
-										<Row label="Style" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined}>
+										<Row label="Style" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined} desc="How the tone shows — a side rail, a full edge, or a soft glow.">
 											<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} options={toneStyleOptions} />
 										</Row>
 									)}
@@ -409,15 +433,16 @@ export function SlideContext(props: SlideContextProps) {
 					{/* DECORATION */}
 					{activeTab === 'decoration' && (
 						<div className="py-1">
+							<TabIntro>Atmospheric accents in the slide's margins — purely visual, with no meaning attached. Tap an active chip again to clear it.</TabIntro>
 							{tints.length > 0 && (
 								<div className="my-1.5">
-									<div className="mb-1.5 text-[12px] text-foreground">Tint</div>
+									<GroupHead label="Tint" desc="A soft color wash in a corner or along an edge." />
 									<ChipRow ariaLabel="Tint treatment" value={phraseActive(tints)} onChange={(v) => applyPhrase(tints, v)} options={tints.map((p) => ({ label: decorLabel(p), value: p }))} />
 								</div>
 							)}
 							{marks.length > 0 && (
 								<div className="my-2">
-									<div className="mb-1.5 text-[12px] text-foreground">Mark</div>
+									<GroupHead label="Mark" desc="A faint line-art motif in the margins, like a watermark." />
 									<ChipRow ariaLabel="Mark treatment" value={phraseActive(marks)} onChange={(v) => applyPhrase(marks, v)} options={marks.map((p) => ({ label: decorLabel(p), value: p }))} />
 								</div>
 							)}
@@ -427,17 +452,18 @@ export function SlideContext(props: SlideContextProps) {
 					{/* CHROME */}
 					{activeTab === 'chrome' && (
 						<div className="py-1">
-							<Row label="Clean slide" hint="hide chrome"><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
+							<TabIntro>The slide's furniture — the running header, footer, page number, and the section-progress rail. Hide whatever this slide doesn't need.</TabIntro>
+							<Row label="Clean slide" hint="hide chrome" desc="Hides the header, footer, and page number together — for a full-bleed slide."><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
 							{!has('silent') && (
 								<div className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
-									<Row label="Hide header"><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
-									<Row label="Hide footer"><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
-									<Row label="Hide page number"><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>
+									<Row label="Hide header" desc="The running title along the top."><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
+									<Row label="Hide footer" desc="The running line along the bottom."><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
+									<Row label="Hide page number" desc="This slide's page number."><Switch label="Hide pagination" on={has('no-paginate')} onClick={() => toggle('no-paginate')} /></Row>
 								</div>
 							)}
 							{/* The section-progress rail is independent of `silent` (which covers
 							    only header/footer/pagination), so it sits at section level. */}
-							<Row label="Hide rail" hint="section dots"><Switch label="Hide section rail" on={has('no-progress')} onClick={() => toggle('no-progress')} /></Row>
+							<Row label="Hide rail" hint="section dots" desc="Hides the section-progress dots — the rail that tracks where you are in the deck."><Switch label="Hide section rail" on={has('no-progress')} onClick={() => toggle('no-progress')} /></Row>
 						</div>
 					)}
 				</div>

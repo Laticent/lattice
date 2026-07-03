@@ -191,6 +191,17 @@ describe('SlideContext drawer', () => {
 		expect(screen.getByRole('textbox', { name: 'Speaker note for this slide' })).toBeTruthy();
 	});
 
+	it('each tab explains itself — a tab intro plus per-control help text', () => {
+		setup('<!-- _class: kpi -->\n\n# Hi');
+		// Look tab (default): the group intro + a field-level description are both present.
+		expect(screen.getByText(/how this one slide looks/i)).toBeTruthy();
+		expect(screen.getByText(/theme's dark canvas/i)).toBeTruthy();
+		// Switching tabs swaps in that tab's own intro.
+		goTab('Chrome');
+		expect(screen.getByText(/the slide's furniture/i)).toBeTruthy();
+		expect(screen.getByText(/section-progress dots/i)).toBeTruthy();
+	});
+
 	it('reads dark as inherited from a dark deck (no misleading off toggle)', () => {
 		const src = '---\nclass: dark\n---\n\n<!-- _class: kpi -->\n\n# Hi';
 		setup('<!-- _class: kpi -->\n\n# Hi', src);

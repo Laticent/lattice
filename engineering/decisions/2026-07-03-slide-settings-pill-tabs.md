@@ -28,6 +28,15 @@ traps; the plan below reflects the survivors.
 - **Trigger:** retitled **"Slide settings"** with a `SquarePen` icon, as an icon button
   (`Button variant="ghost" size="icon-sm"`) matching the editor header's other icon
   buttons; kept in the editor-pane header (contextual to the slide being edited).
+- **Self-documenting — no magic, no mystery.** These controls are new vocabulary to
+  authors, so every one explains itself: each tab opens with a one-line `TabIntro`
+  framing the group, and each control carries a plain-language description (a `desc`
+  on `Row`/`Field`, a `GroupHead` for the chip groups) that defines the jargon on
+  first use (finish = backdrop texture, brand bar = the colored top strip, rail =
+  the section-progress dots). **The deck Inspector got the same treatment** (per-group
+  intro + per-field help via `InspGroup`/`Field` `desc`), so the two settings surfaces
+  read as one system — the one place the "leave the Inspector alone" rule bends,
+  because help text doesn't restructure the glance-panel, it annotates it.
 
 ## Why the inversion changed the plan
 

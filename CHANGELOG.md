@@ -54,6 +54,15 @@ in patch versions.
   be a regression). See
   `engineering/decisions/2026-07-03-slide-settings-pill-tabs.md`.
 
+- **Studio: every setting now explains itself — no magic, no mystery.** Both the
+  per-slide "Slide settings" drawer and the deck Inspector gained plain-language
+  help text: each tab/group opens with a one-line intro of what it's for, and
+  each individual control (dark, type scale, finish, brand bar, stamp, tone,
+  tint, mark, chrome toggles; and the deck's theme, mode, brand bar, chrome, …)
+  carries a short description that names the concept in plain words and defines
+  the jargon on first use — aimed at authors meeting these controls for the
+  first time.
+
 - **Studio: the real brand mark and a two-row phone toolbar.** The topbar
   (and focus header) now render the Spectrum Cell mark instead of a text "L"
   tile — inlined so its colors follow the Studio's own light/dark mode, not
