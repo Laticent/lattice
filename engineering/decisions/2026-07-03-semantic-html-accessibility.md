@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The slide stays `<section>` (measurement + all CSS select it). The deck `<main>` is TWO edits on TWO render paths — a sanctioned `<main>` wrapper in the export shell (theme CSS is section-scoped there) AND the engine/preview `div.lattice → main.lattice` retag with its lockstep `css.js` kernel edit (its CSS is tag-qualified to `div.lattice > section`); DECISION: do both. `<figure>` for charts is a semantic win folded into the SAME change (DECISION: one combined, export-signed PR — not two phases). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint confirmed). Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13.
+summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The full Form/Cell/Tile → semantic HTML map (§4A) is adopted: the DECK is a self-contained composition → `<article class="lattice">` (with `<main>` as the shell/host landmark — where vs. what); a SLIDE stays `<section>` (a section of the deck-article; measurement + all CSS bind to it); the masthead/footer Cells become `<header>`/`<footer>`; the stage Cell stays `<div>`; liftable leaf cards become `<article>` (scoped, not every `<li>`). `<article>` plays its role at exactly the two liftable boundaries (deck + leaf card), never per slide. The container change is TWO edits on TWO render paths — a sanctioned `<main><article>` wrapper in the export shell (section-scoped CSS there) AND the engine/preview `div.lattice → article.lattice` retag with its lockstep `css.js` kernel edit — DECISION: do both. `<figure>` for charts folds into the SAME change (DECISION: one combined, export-signed PR). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint). Owner call: best practice, don't settle. Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13.
 ---
 
 # Semantic HTML for accessibility — retag, don't wrap
@@ -121,7 +121,7 @@ taste. A `<div>` earns promotion only when a native element carries its **role**
 > | `<section>` | a thematic region a user would jump to, **that has an accessible name** | `region` — **only if named**; otherwise generic | must be named to count |
 > | `<aside>` | complementary content beside the main flow (Inspector, Architect) | `complementary` | **keeps role even inside `<main>`** — so it must be a *sibling* of main, not a child (§10-R3) |
 > | `<figure>`/`<figcaption>` | a self-contained graphic + its caption (a chart) | `figure` | UA margin — see §7 |
-> | `<article>` | a self-contained, independently-meaningful unit (a carousel card) | `article` | keeps role |
+> | `<article>` | a self-contained, independently-meaningful unit — **the deck**, or a liftable leaf card (§4A) | `article` | keeps role; only at the two liftable boundaries |
 > | **leave `<div>`** | a **presentational** box: a layout cell, a backdrop, a scrim, a positioning wrapper | none — correct as-is | — |
 
 The rubric's most important row is the last one. `.cell-stage` (the body cell),
@@ -176,40 +176,133 @@ but the engine's own selector packer scopes **every** themed rule and the geomet
 scaffold to `div.lattice > section`, deliberately tag-qualified to `div` for
 (0,1,2) specificity that beats the preview-frame's `.lattice > section` sizing rule
 (`lib/engine/css.js:104,243`, with the rationale in the comment at `:99-103`).
-Retagging the container to `<main>` here therefore **cannot** be done in `slides.js`
-alone — it requires editing `css.js` (the `scaffold()` rules `:104-153` and
-`packSelector` `:243`) to emit `main.lattice > section` at the same specificity, in
-lockstep across the shared kernel (HARD RULE #1), proven by pixel-diff.
+Retagging the container here therefore **cannot** be done in `slides.js` alone — it
+requires editing `css.js` (the `scaffold()` rules `:104-153` and `packSelector`
+`:243`) to emit the new tag at the same specificity, in lockstep across the shared
+kernel (HARD RULE #1), proven by pixel-diff.
 
-**Decision (Fork D, §13): do BOTH paths in this feature.** Path A is where a real
-user reads a deck standalone (the shared link); Path B makes the embedded previews
-navigable too. The owner call ("we don't settle") takes the complete path: Path B
-carries the lockstep `css.js` edit (`scaffold()` `:104-153` + `packSelector` `:243`
-→ `main.lattice > section` at the same (0,1,2) specificity), a pixel-diff, and a
-maker-checker pass (shared kernel, HARD RULE #1). It is one of the export-bytes
-surfaces the single sign-off (Fork B) covers.
+**Decision (Fork D, §13): do BOTH paths, and the container becomes `<article>`, not
+`<main>`.** The refinement (§4A): the deck is a *self-contained composition* →
+`<article class="lattice">`; the `<main>` **landmark** is supplied by the document
+shell/host (the export shell wraps `<main><article class="lattice">…`; the app host
+page already owns its `<main>`). `<main>` says *where the primary content is*;
+`<article>` says *what it is* — orthogonal, and both correct. Path B carries the
+lockstep `css.js` edit (`scaffold()` + `packSelector` → `article.lattice > section`
+at the same (0,1,2) specificity — `article` is a type selector exactly like `div`,
+so zero specificity cost), a pixel-diff, and a maker-checker pass. `<article>` has
+no UA margin, so it stays byte-neutral in box terms; it is still one of the
+export-bytes surfaces the single sign-off (Fork B) covers.
 
 The per-node mapping (Path-independent). **Bold = a change; the rest is "confirmed
-correct, leave it."**
+correct, leave it."** The structural model this table realizes is §4A.
 
 | Node (today) | File | Verdict |
 |---|---|---|
 | slide wrapper `<section>` | `lib/engine/slides.js:99` | **Keep `<section>`.** Already correct; measurement + hundreds of `section.<name>` rules + `div.lattice > section` packing depend on it. Non-negotiable (§8-#1). |
-| deck container `div.lattice` | `slides.js:229` | **Path B (in scope):** `div.lattice → main.lattice` *with* the `css.js` lockstep edit + pixel-diff. **Not** touched for the export (Path A wraps instead). |
-| export shell `<body>` slides | `lattice-emulator.js:1463` | **Wrap in `<main id="deck" tabindex="-1">`** + `lang` + skip link. The sanctioned wrap. |
-| per-slide `<header>` / `<footer>` | `slides.js:210,216` | **Keep.** Already semantic; generic (not landmarks) because nested in the slide `<section>` — correct. |
+| deck container `div.lattice` | `slides.js:229` | **→ `<article class="lattice">`** (Path B) *with* the `css.js` lockstep edit (`article.lattice > section`) + pixel-diff. The deck is a self-contained composition (§4A). |
+| export shell `<body>` slides | `lattice-emulator.js:1463` | **Wrap in `<main id="deck" tabindex="-1"><article class="lattice">…`** + `lang` + skip link. The sanctioned wrap — `<main>` is the landmark, `<article>` is the deck. |
+| masthead Cell `.cell-masthead` | `masthead.transform.js:191` | **→ `<header class="cell-masthead">`.** It *is* the slide's header (title + eyebrow). Generic (not a banner landmark) because nested in the slide `<section>`. Class-keyed CSS + no UA margin → byte-neutral. |
+| footer Cell `.cell-footer` | forms footer cell | **→ `<footer class="cell-footer">`.** The slide's footer (running text · progress rail · page number). Generic when nested; byte-neutral. |
+| running `header:`/`footer:` directive | `slides.js:210,216` | **Reconcile to one per slide.** Today emitted as a second section-level `<header>`/`<footer>`; fold into the masthead/footer Cell as a chrome Tile so a slide has **exactly one** `<header>` and one `<footer>` (§8-#8). |
 | headings from native components | (markdown) | **Keep authored levels.** Reality (§10-R1): mostly `<h2>`, one `<h1>` (`title`), a couple headingless (`quote`, `big-number`). Do **not** synthesize an `<h1>` per slide. |
-| chart figure wrappers `.funnel-figure`, `.quadrant-figure`, `.radar-figure`, `.state-chart-figure`, `.functionplot`, … | 13 `*.transform.js`, `plugins.js:969` | **→ `<figure>` + `<figcaption>`** — a chart is the textbook `<figure>`. **Carved into its own phase (§7): UA-margin, a JS-selector hazard, and export-byte cost.** |
+| chart figure wrappers `.funnel-figure`, `.quadrant-figure`, `.radar-figure`, `.state-chart-figure`, `.functionplot`, … | 13 `*.transform.js`, `plugins.js:969` | **→ `<figure>` + `<figcaption>`** — a chart is the textbook `<figure>`. Its own late commit (§7): UA-margin, a JS-selector hazard, and export-byte cost. |
+| liftable leaf cards (comparison / inventory cards that stand alone) | component transforms | **→ `<article>` — scoped.** A card that is independently meaningful is `article #2` (§4A). **Not** every `<li>`: over-articling floods the AT rotor exactly as over-sectioning does (restraint, §3). |
 | `.cell-stage` (body cell) | `masthead-lift.js:63` | **Leave `<div>`.** Presentational layout cell; the probe keys on its *class*. Promoting adds a nameless region. |
 | `.backdrop`, `.image-scrim`, `.lattice-bg` | plugins / scrim / bg-image | **Leave `<div>` + `aria-hidden="true"`.** Pure decoration; `.image-scrim`/`.backdrop` are already hidden today. |
 | **`.image-text`** | `lib/core/bg-image.js:150` | **Leave `<div>`, and NEVER `aria-hidden`** — it holds the author's `<h2>`/`<p>` on every image slide (§10-I1, the caught regression). |
 | split-panel columns `.panel-left/.panel-right` | `split-panels.js` | **Leave `<div>`.** Two columns of one comparison aren't two landmarks; the *content* inside carries its own semantics. (Alternative named-regions considered and rejected, §10-R-Fork-C.) |
-| carousel card `.ct-card` | `carousel.js:329` | **Keep `<article>`.** Already correct. |
+| carousel card `.ct-card` | `carousel.js:329` | **Keep `<article>`.** Already correct — the first instance of `article #2`. |
 
 Deliberately **not** doing at the deck level: `role=` on native elements (redundant
 role is its own anti-pattern), and — the reframed decision — per-slide
 `aria-label`s naming every slide as a region (that would flood the rotor with 40
 named regions; §10-R1, Fork A).
+
+---
+
+## 4A. Form/Cell/Tile → semantic HTML — the structural map
+
+The deck's whole layout model is already a tree — a **Frame** carves the slide into
+**Cells** (masthead · stage · footer), each Cell holds **Tiles** (title, meta,
+logo, footer, pagination, the content component); the canonical model is
+`design/forms.md`. Semantic HTML is *also* a nesting vocabulary. The mapping rule is
+one line:
+
+> **Map each Form noun to the element whose ARIA role matches the noun's job** — not
+> by tag taste. Where a noun's job is "just group some boxes," the honest element is
+> a `<div>`. Where its job is a *role* (a header, a footer, a self-contained
+> composition, a figure), use that element.
+
+### Where `<article>` plays its role — the two liftable boundaries
+
+`<article>` means one specific thing: **a self-contained composition you could lift
+out and it still makes sense.** In our tree that property is true at exactly two
+boundaries, and false everywhere between them:
+
+- **`article #1` — the whole deck.** A deck is the textbook self-contained
+  composition → **`<article class="lattice">`** (the container, Path B). This is the
+  container change of Fork D — `<article>`, wrapped by the document's `<main>`.
+- **`article #2` — a liftable leaf card.** A card that stands on its own (a carousel
+  card — already `<article>`; a self-contained comparison/inventory card) →
+  **`<article>`**, *scoped* to genuinely-independent cards, never every `<li>`.
+
+**A slide is deliberately NOT an `<article>`.** It's a *section of* the deck-article
+— part of the narrative, not independently syndicated — so it stays `<section>`, on
+both semantic grounds (sections of an article) and mechanical grounds (measurement +
+CSS bind to `section`). `<article>`-ness attaches only where the sub-tree is truly
+liftable, which mirrors the Form model's own Composite recursion ("a component is
+this grammar one level up," `forms.md:176`).
+
+### The tree, current → target
+
+```
+DOCUMENT  (export shell, or the app host page)
+│
+├─ <main>                               LANDMARK "primary content"  ── shell/host (WHERE)
+│   └─ <article class="lattice">        THE DECK — self-contained composition  ◄ article #1
+│       │                                  (div.lattice → <article>, css.js lockstep)
+│       ├─ <section data-lattice-slide>  a SLIDE = the root Frame        (stays <section>)
+│       │   ├─ <header class="cell-masthead">   masthead Cell — title+eyebrow   (div → <header>)
+│       │   │      └─ .masthead-lede (h1/h2 + eyebrow) · .masthead-bay (meta/logo/status Tiles)
+│       │   ├─ <div class="cell-stage">         stage Cell — the body box       (stays <div>)
+│       │   │      └─ the CONTENT Tile = the author's component:
+│       │   │            prose/list/table → native <h_/p/ul/table>   (already semantic)
+│       │   │            a chart          → <figure> + <figcaption>  (§7)
+│       │   │            a grid of liftable cards → each <article>   ◄ article #2 (scoped)
+│       │   └─ <footer class="cell-footer">     footer Cell — nav strip         (div → <footer>)
+│       │          └─ running footer · progress rail · <span class="lat-pagination">
+│       └─ <section data-lattice-slide> … next slide …
+│
+(z-plane surface Tiles — .backdrop / .image-scrim / .lattice-bg / atmosphere —
+ sit behind content as <div aria-hidden="true">, out of the accessibility tree)
+```
+
+### The table (the map, per noun)
+
+| Form noun | Instance | Element | Why (role match) | Change? |
+|---|---|---|---|---|
+| *(collection)* | the deck | **`<article class="lattice">`** | self-contained composition — **article #1** | div → article |
+| **Frame** (root) | a slide | `<section data-lattice-slide>` | a section *of* the deck-article; the measurement anchor | keep |
+| **Cell** — masthead | title band | **`<header class="cell-masthead">`** | the section's header (its heading area); generic when nested | div → header |
+| **Cell** — stage | body box | `<div class="cell-stage">` | presentational layout cell — no role; the Tile inside carries semantics | keep |
+| **Cell** — footer | bottom band | **`<footer class="cell-footer">`** | the section's footer; generic when nested | div → footer |
+| **Tile** — content | the component | native / **`<figure>`** / **`<article>`** | per component; a *liftable card* is **article #2** | per-component |
+| **Tile** — chrome: title | the heading | `<h1>`/`<h2>` | it *is* a heading | keep |
+| **Tile** — chrome: pagination | page № | `<span class="lat-pagination">` | already content, not decoration | keep |
+| **Tile** — chrome: meta/logo/status | masthead bay | `<div>` (in the `<header>`) | grouping of small chrome; no landmark role of its own | keep |
+| **Tile** — surface: backdrop/atmosphere | decoration | `<div aria-hidden="true">` | leaves the accessibility tree | hide |
+| **Tile** — review: annotation | overlay | `<aside>` (preview-only) | complementary; preview-only, never exported | keep |
+
+Two invariants this map introduces, both gated (§8): **exactly one `<header>` and one
+`<footer>` per slide** (so the running `header:`/`footer:` directive folds into the
+Cell rather than emitting a competing second element), and **`<article>` only at the
+two liftable boundaries** (deck + scoped leaf cards) so the AT rotor isn't flooded.
+
+Every promotion here is *byte-neutral* in the box model (`article`/`header`/`footer`
+are all `display:block`, no UA margin — only `<figure>` isn't, §7) and *visually
+free* (class-keyed CSS: `<div class="cell-masthead">` → `<header class="cell-masthead">`
+keeps every rule). The only mechanical cost is the container's `css.js` lockstep edit
+(Path B) — one shared-kernel change, pixel-diffed.
 
 ---
 
@@ -282,10 +375,12 @@ you read it as a true two-region compare. I recommend **not** (the content insid
 already carries semantics), but flag it as the one arguable call. **← chosen:
 restraint confirmed** (split columns stay `<div>`).
 
-**Fork D — the deck `<main>` scope (from §4).** (D1) do the export `<main>` now and
-**defer** the engine/preview container retag. **(D2) ← chosen** — do both now: the
-export wrapper *and* the engine-path `div.lattice → main.lattice` kernel change,
-pixel-diffed and maker-checked.
+**Fork D — the deck container scope (from §4).** (D1) do the export `<main>` now and
+**defer** the engine/preview container retag. **(D2) ← chosen, refined** — do both
+now, and the container is **`<article class="lattice">`** (with `<main>` as the
+shell/host landmark): the export wrapper *and* the engine-path `div.lattice →
+article.lattice` kernel change, pixel-diffed and maker-checked. Carries the Cell →
+`<header>`/`<footer>` promotions too (§4A).
 
 ---
 
@@ -334,13 +429,17 @@ first draft stated these as prose only; that was itself a #18 violation.
 
 1. **The slide wrapper stays `<section>`, always.** The overflow probe selects
    `section[data-lattice-slide]`; every component CSS is rooted at `section.<name>`;
-   the packer emits `div.lattice > section`. Retagging the slide silently kills
-   overflow detection and unstyles every component. **Gate:** a unit test on
+   the packer emits `<container>.lattice > section`. Retagging the slide silently
+   kills overflow detection and unstyles every component. **Gate:** a unit test on
    `render()` asserting the slide token is `section`.
-2. **Exactly one `<main>` per document.** **Gate/design:** make the container tag a
-   *parameter* — `div` by default, `main` opt-in only at the export-shell and
-   engine render call sites — so a second `<main>` is *physically unemittable*
-   rather than guarded by a comment. A tripwire you can't trip beats a note.
+2. **The deck is one `<article>`; the `<main>` landmark is the shell's, and there is
+   exactly one per document.** The container renders `<article class="lattice">`; the
+   single `<main>` comes from the document shell/host. **Gate/design:** make the
+   container tag a *parameter* (`article` for the deck) and emit the `<main>` only at
+   the export-shell / host call site, so a second `<main>` is *physically
+   unemittable* rather than guarded by a comment. A tripwire you can't trip beats a
+   note. (The `css.js` packer must move `div.lattice` → `article.lattice` in lockstep,
+   §4/§4A.)
 3. **No nameless landmarks.** A promoted `<section>`/`<aside>`/`<nav>` ships with an
    `aria-label`/`aria-labelledby` **in the same edit**. **Gate:** a jsdom test over
    rendered app surfaces asserting every non-slide `<section>`/`<aside>`/`<nav>` has
@@ -363,6 +462,13 @@ first draft stated these as prose only; that was itself a #18 violation.
 7. **Skip links actually move focus.** Target carries `tabindex="-1"`; the link is
    the **first tabbable** element on its surface; the visually-hidden CSS is inlined
    so it can't render visibly if a stylesheet is missing.
+8. **One `<header>` and one `<footer>` per slide; `<article>` only at the two
+   liftable boundaries.** The masthead Cell is the `<header>`, the footer Cell is the
+   `<footer>`, and the running `header:`/`footer:` directive folds in as a Tile — not
+   a competing second element (§4A). `<article>` appears only as the deck container
+   and as scoped liftable leaf cards, never per slide and never per `<li>`. **Gate:**
+   a jsdom test over rendered gallery HTML asserting ≤1 `<header>` and ≤1 `<footer>`
+   per slide `<section>`, and that no slide `<section>` is itself an `<article>`.
 
 ---
 
@@ -370,12 +476,13 @@ first draft stated these as prose only; that was itself a #18 violation.
 
 | Change | You gain | You spend |
 |---|---|---|
-| export shell `<main>` wrap + `lang` + skip link (Path A) | every exported deck gets a skip target, a language, a named main | ~a dozen lines in the emulator shell; a golden re-diff (block-box, should be zero-delta) |
+| export shell `<main><article class="lattice">` wrap + `lang` + skip link (Path A) | every exported deck gets a skip target, a language, a named main, and a deck-as-article | ~a dozen lines in the emulator shell; a golden re-diff (block-box, should be zero-delta) |
+| deck container `div.lattice → <article>` (Path B) + masthead/footer Cell → `<header>`/`<footer>` | the full Form/Cell/Tile semantic map (§4A): deck=article, slide=section, header/footer cells | the container's shared-kernel `css.js` lockstep edit + pixel-diff + maker-checker; the Cell swaps are class-keyed + byte-neutral |
+| liftable leaf cards → `<article>` (scoped) | self-contained cards announce as articles | a per-component judgment (only genuinely-liftable cards); no `<li>` blanket |
 | Studio `<main>` (editor+preview scope) + region names, all 4 views | the flagship app surface becomes navigable; regions named | JSX tag swaps + `aria-labelledby` spans; a region-label audit; visually free |
 | Playground/pages skip links + region names | keyboard users bypass chrome; regions named | per-surface edits (skeleton isn't shared yet) |
-| deck container retag (Path B — **in scope**) | the embedded previews (docs-site, VS Code) get a main too | a shared-kernel `css.js` edit + pixel-diff + maker-checker |
 | chart `<div>` → `<figure>`/`<figcaption>` (**same combined change**) | charts + captions gain the figure/caption roles | UA-margin resets, JS-selector fix, CSS-leak audit, **export sign-off + real SR pass** |
-| the new a11y **gates** | the invariants can't silently rot (the #18 lesson) | ~4 small gate/test additions, one-time |
+| the new a11y **gates** | the invariants can't silently rot (the #18 lesson) | ~5 small gate/test additions, one-time |
 | **leaving presentational divs alone** | a *usable* landmark menu (no noise) | the temptation to "finish" by tagging everything — deliberately not spent |
 
 The design's value isn't "more semantic elements." It's a **navigable structure
@@ -453,13 +560,19 @@ labeled (§5).
 ## 12. File map (for whoever implements)
 
 One branch, many commits, one PR (HARD RULE #17); the commits are the §13 sequence
-(gates → app/export landmarks → engine kernel → figures → sign-off deck). The whole
-diff is export-bytes-changing, so it merges only after your sign-off.
+(gates → app/export landmarks → Cell retags → engine kernel → figures → sign-off
+deck). The whole diff is export-bytes-changing, so it merges only after your sign-off.
 
 **Commits 1–2 — gates + byte-neutral landmarks/retags:**
-- Export shell `<main>` wrap + `lang` + skip link + inlined visually-hidden CSS +
-  `tabindex="-1"`: `lattice-emulator.js:1450` (`lang`), `:1461-1463` (skip link +
-  `<main>` wrap around `${slidesWithMeta2}`).
+- Export shell `<main id="deck"><article class="lattice">` wrap + `lang` + skip link
+  + inlined visually-hidden CSS + `tabindex="-1"`: `lattice-emulator.js:1450`
+  (`lang`), `:1461-1463` (skip link + `<main>`/`<article>` wrap around
+  `${slidesWithMeta2}`).
+- Masthead/footer Cell → `<header>`/`<footer>` (class-keyed, byte-neutral):
+  `lib/forms/cell/masthead/masthead.transform.js:191` (`.cell-masthead` element), the
+  footer-cell emitter; reconcile the running `header:`/`footer:` directive
+  (`slides.js:210,216`) so it folds into the Cell — **one `<header>`/`<footer>` per
+  slide** (§8-#8).
 - Decorative `aria-hidden` (allowlisted only): `plugins.js` (`.backdrop`),
   `lib/core/bg-image.js` (`.lattice-bg` — **not** `.image-text`); `.image-scrim`
   already hidden. Add `checkAriaHiddenAllowlist` + `SANCTIONED_ARIA_HIDDEN` to
@@ -471,16 +584,21 @@ diff is export-bytes-changing, so it merges only after your sign-off.
   `docs/src/pages/playground.astro`.
 - Skip links on standalone pages: `docs/src/pages/index.astro`,
   `docs/src/layouts/ComponentsLayout.astro`.
-- Gates/tests: slide-stays-`<section>` render test; container-tag parameter (one
-  `<main>` per document); nameless-landmark + landmark-count-budget jsdom test.
+- Gates/tests: slide-stays-`<section>` render test; container-tag parameter (deck =
+  `<article>`, one `<main>` per document); one-`<header>`/`<footer>`-per-slide +
+  no-slide-is-`<article>` test; nameless-landmark + landmark-count-budget jsdom test.
 - `CHANGELOG.md` `## Unreleased` (HARD RULE #10); the landmark contract + promotion
-  rubric into a new canonical `engineering/accessibility.md`.
+  rubric + the §4A Form/Cell/Tile map into a new canonical
+  `engineering/accessibility.md`.
 
 **Commit 3 — Path B engine/preview container retag (pixel-diff + maker-checker):**
-- `lib/engine/slides.js:229` (`div.lattice → main.lattice`) **in lockstep with**
-  `lib/engine/css.js` (`scaffold()` `:104-153`, `packSelector` `:243`), preserving
-  (0,1,2) specificity over the preview-frame `.lattice > section` rule; pixel-diff
-  proof; maker-checker (shared kernel, HARD RULE #1).
+- `lib/engine/slides.js:229` (`div.lattice → <article class="lattice">`) **in lockstep
+  with** `lib/engine/css.js` (`scaffold()` `:104-153`, `packSelector` `:243`
+  → `article.lattice > section`), preserving (0,1,2) specificity over the
+  preview-frame `.lattice > section` rule; pixel-diff proof; maker-checker (shared
+  kernel, HARD RULE #1).
+- Liftable leaf cards → `<article>` (scoped): the comparison/inventory card transforms
+  where a card is independently meaningful; carousel already done.
 
 **Commit 4 — `<figure>`/`<figcaption>` for charts:**
 - The ~13 `lib/components/**/*.transform.js` figure wrappers + `plugins.js:969`
@@ -501,16 +619,26 @@ canonical landmark/rubric reference.
 
 ## 13. Decisions (resolved at sign-off, 2026-07-03)
 
-The four forks (§6) are decided:
+**Overarching call (2026-07-03): employ the full best-practice mapping, don't settle
+for the minimal landmark set because the fuller change is harder.** So the complete
+Form/Cell/Tile → semantic HTML map (§4A) is adopted as canon — with the restraint it
+builds in (the stage stays `<div>`, decoration stays hidden, `<article>` only at the
+two liftable boundaries, not every `<li>`), because over-tagging is itself a
+best-practice failure. The four forks (§6):
 
-1. **Fork D — deck `<main>`: do BOTH paths.** The export shell `<main>` wrapper
-   *and* the engine/preview `div.lattice → main.lattice` retag land in this feature.
-   The engine-path change is no longer deferred: it carries the lockstep `css.js`
-   edit (`scaffold()` + `packSelector`, preserving (0,1,2) specificity over the
-   preview-frame `.lattice > section` rule), a pixel-diff, and a maker-checker pass
-   (shared kernel, HARD RULE #1). *Rationale: "we don't settle" — a preview a
-   sighted user reads should be navigable to a screen-reader user too; the kernel
-   change is bounded and gated.*
+1. **Fork D — deck container: do BOTH paths, container → `<article>` (refined).** The
+   export shell wraps `<main id="deck"><article class="lattice">`; the engine/preview
+   container `div.lattice → <article class="lattice">` with the lockstep `css.js` edit
+   (`scaffold()` + `packSelector` → `article.lattice > section`, preserving (0,1,2)
+   specificity over the preview-frame `.lattice > section` rule), a pixel-diff, and a
+   maker-checker pass (shared kernel, HARD RULE #1). *Refinement over the first
+   resolution (`<main>` on the container): `<main>` is the shell/host **landmark**
+   (where), `<article>` is the deck **composition** (what) — orthogonal and both
+   correct, same specificity cost, byte-neutral.* Alongside it, the **Cell → element**
+   promotions land: masthead Cell → `<header>`, footer Cell → `<footer>`, with the
+   running directive folded to one-per-slide (§4A, §8-#8). *Rationale: "we don't
+   settle" — the full map is the best-practice structure; the kernel change is bounded
+   and gated.*
 2. **Fork B — `<figure>`: one combined change.** No two-phase split. The chart
    `<figure>`/`<figcaption>` conversion ships in the same branch as the landmark
    work, under a single export sign-off round covering the whole diff. This makes
