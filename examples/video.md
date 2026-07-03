@@ -28,7 +28,7 @@ Ninety seconds, unscripted: a first-day admin goes from signup to a published bo
 
 Two minutes on why the category needed rebuilding from the data layer up — the poster is a plain link when you don't opt into `qr`.
 
-- https://vimeo.com/76979871
+- https://vimeo.com/1084537
 - The 2-minute director's cut `caption`
 - video-poster.svg `poster`
 
@@ -38,7 +38,7 @@ Two minutes on why the category needed rebuilding from the data layer up — the
 
 ## Exhibit 1 — the onboarding flow, end to end.
 
-- https://vimeo.com/76979871
+- https://vimeo.com/1084537
 - The reference onboarding walkthrough, contained on its matte. `caption`
 - video-poster.svg `poster`
 
