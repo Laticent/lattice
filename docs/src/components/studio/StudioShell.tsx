@@ -109,6 +109,14 @@ function timeAgo(ts: number): string {
 // ui/split.tsx, whose emitted vars these fallbacks must match). A collapsed
 // side's pane+handle tracks drop to 0px and its 46px rail (the Inspector-rail
 // geometry) takes the edge.
+//
+// INVARIANT — pair-space ≥ 2×minB (560px): the sum-2 flex pair guarantees zero
+// grid void only while the editor+preview space is at least twice the larger
+// minimum. Worst case today: 1100 (desktop threshold) − 232 (Architect) − 300
+// (Inspector) − 1 (handle) = 567px — SEVEN px of headroom. Widening either
+// flank by ≥8px total, raising the preview minimum, or padding the grid
+// silently reopens a hairline void band near ratio 0.5 (issue #721; the
+// near-0.5 case is asserted by the 1100px e2e in docs/e2e/split.spec.ts).
 function splitTracks(collapsed: SplitSide | null): string[] {
 	if (collapsed === 'a') return ['46px', '0px', '0px', 'minmax(0,1fr)', '0px'];
 	if (collapsed === 'b') return ['0px', 'minmax(0,1fr)', '0px', '0px', '46px'];

@@ -275,6 +275,10 @@ test.describe('no grid void when a pane clamps at its minimum (iPad width)', () 
 	test.use({ viewport: { width: 1180, height: 820 } });
 
 	test('a stored near-collapse ratio fills the container edge-to-edge', async ({ page }) => {
+		// Cold-start full runs spend most of the default budget on the first
+		// engine render (gotoPlayground waits up to 45s) — triple the allowance
+		// so a slow first paint can't masquerade as a geometry regression (#721).
+		test.slow();
 		await page.addInitScript(() => {
 			try {
 				localStorage.setItem('lattice-docs-split-playground', '{"v":1,"a":0.75}');
@@ -332,5 +336,36 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 			.locator('[data-studio-split]')
 			.evaluate((el) => el.scrollWidth - el.clientWidth);
 		expect(gridOverflow).toBeLessThanOrEqual(0);
+	});
+
+	test('near-0.5 ratio with both panels open — zero grid void (the 7px invariant)', async ({ page }) => {
+		test.slow();
+		// The sum-2 pair's zero-void guarantee needs pair-space ≥ 2×minB; worst
+		// case here is 1100 − 232 − 300 − 1 = 567 ≥ 560 — seven px of headroom
+		// (issue #721, splitTracks invariant comment). A ratio just under 0.5 is
+		// the band a future flank widening would reopen — assert it stays filled.
+		await page.addInitScript(() => {
+			try {
+				localStorage.setItem('lattice-docs-split-studio', '{"v":1,"a":0.48}');
+			} catch {
+				/* storage disabled */
+			}
+		});
+		await gotoStudio(page);
+		await page.getByRole('button', { name: 'Toggle Architect' }).click();
+		await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+		await page.getByRole('button', { name: 'Open Deck inspector' }).click();
+		await expect(separator(page)).toBeVisible();
+		await expect
+			.poll(async () =>
+				page.locator('[data-studio-split]').evaluate((el) => {
+					const sum = getComputedStyle(el)
+						.gridTemplateColumns.split(' ')
+						.map(Number.parseFloat)
+						.reduce((a, b) => a + b, 0);
+					return Math.round(el.getBoundingClientRect().width - sum);
+				}),
+			)
+			.toBe(0);
 	});
 });
