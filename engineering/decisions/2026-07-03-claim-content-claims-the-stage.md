@@ -145,10 +145,13 @@ section wayfinding. The slide can't be located in the deck unless you keep the
 page number back on.*
 
 ### `bleed` — true edge-to-edge
-Zero inset; content touches all four edges. **Guard-railed** (§8): only sanctioned
-for self-contained media/canvas components (chart, diagram, big-number, video —
-**not** image, which owns its own bleed, §9). On prose-dense components it warns
-and clamps to `hero`.
+Zero inset; content touches all four edges. Its own distinct preset, never a
+flag on `hero` — reaching the true edge is a deliberate, risky choice and gets a
+deliberate word (no magic). **Guard-railed** (§8): a component that can't safely
+bleed opts out via its existing `excludes` list (§7), and prose-dense layouts
+that try it are warned and clamped to `hero`. In practice `bleed` is for
+self-contained media/canvas (chart, diagram, big-number, video — **not** image,
+which owns its own bleed, §9).
 *Cost: the safe margin itself. Content at the true edge risks being cropped by a
 projector or a printer's trim. Legibility becomes the author's responsibility.*
 
@@ -174,7 +177,11 @@ chrome, and (via §8) refuses the prices that produce a broken boardroom slide.
 
 ## 7. How you invoke it
 
-Three surfaces, mirroring how `finish:` / `mode:` already work:
+`claim` is a **universal** concept — the four presets mean the same thing on
+every component, exactly like `dark` or `silent`. There is **no per-component
+`claim` setting and no manifest sweep**: everything defaults to `framed`
+(today's look), so a deck that says nothing is unchanged. Two author surfaces,
+mirroring how `finish:` / `mode:` already work:
 
 - **Deck-wide:** `claim: quiet` in front-matter → applied to every eligible
   slide, propagated the way `class:` / `finish:` / `mode:` are today
@@ -183,12 +190,14 @@ Three surfaces, mirroring how `finish:` / `mode:` already work:
 - **Per-slide:** a `claim-hero` token in `_class` (prefixed family, like
   `tint-*` / `tone-*` / `checks-*` — avoids the bare-word collisions that sank
   `full` / `cover`).
-- **Per-component default:** a component's manifest may declare its natural
-  `claim` level and allowed range (e.g. `big-number` defaults to `quiet`; a
-  chart may allow up to `bleed`; a dense table is capped at `quiet`). So the
-  sensible thing happens with no author effort, and the guard rail (§8) is data,
-  not a special case. This mirrors how `image` already auto-resolves its
-  composition from aspect × orientation (`lib/core/image-aspect.js`).
+
+The **only** per-component data the system needs is a single safety fact:
+*can this component safely reach `bleed`?* A dense table or heavy-prose layout
+run to the true edge is a broken slide (the outer content is cropped, no safe
+margin), so it opts **out** of `bleed` — using the `excludes` list it already
+has (the exact mechanism a component uses today to opt out of `compact`). Most
+components exclude nothing and get the full universal behavior; a handful add
+one word. **No new field, no new mechanism, no 50-file edit.**
 
 ---
 
@@ -206,8 +215,10 @@ template.
 
 1. **Presets are named for intent** (`hero`, `quiet`), not magnitude. You ask
    for a hero slide; you don't ask to "remove 60% of chrome."
-2. **Per-component ranges** (§7) mean a component that shouldn't bleed *can't* —
-   the manifest caps it. Prose-dense layouts top out at `quiet`.
+2. **The `bleed` safety opt-out** (§7) means a component that shouldn't reach the
+   true edge *can't* — it lists `claim-bleed` in its existing `excludes`, the
+   same way some components already exclude `compact`. Prose-dense layouts top
+   out at `hero`.
 3. **Two lint rules** (feasible in the pure, fs-free `lib/authoring/lint-core.js`):
    - `bleed` on a prose-dense component → warn + clamp to `hero`.
    - wayfinding lost on more than *N* consecutive slides → warn ("the audience
@@ -230,12 +241,15 @@ existing export sign-off gate (a bytes-of-the-artifact change; QUALITY BAR).
   one component where "the visual is the slide" is the *default*, not a claim
   level. **We leave it alone.** (Conceptually, `image` behaves as if permanently
   at `hero`/`bleed`; we simply don't route it through `claim`.)
-- **Chart `cover` is absorbed, not preserved.** Unlike a photo, a chart's
-  background luminance is known, so its caption band is safe and its behavior
-  *is* the generic `hero`. Fold `cover` into `claim-hero` and retire the
-  chart-only name. (This is the one real consolidation; the image consolidation
-  the first draft proposed is explicitly dropped — the review showed chart and
-  image full-bleed share ~5 lines and diverge on 100+.)
+- **Chart `cover` is absorbed and purged, not aliased.** Unlike a photo, a
+  chart's background luminance is known, so its caption band is safe and its
+  behavior *is* the generic `hero`. Fold `cover` into `claim-hero`, and delete
+  the `cover` name outright — no one-release alias. The only decks that type it
+  are a handful of our own chart demos (radar, piechart); we do the one-word edit
+  in those as part of the change. Pre-GA, a dead synonym earns nothing. (This is
+  the one real consolidation; the image consolidation the first draft proposed is
+  explicitly dropped — the review showed chart and image full-bleed share ~5
+  lines and diverge on 100+.)
 - **`silent` and the `no-*` hide-tokens stay** as the surgical, per-Tile
   switches. `claim` presets are *defined in terms of* them; they remain
   available for one-off overrides. One mechanism underneath, two levels of
@@ -261,11 +275,12 @@ bleed for the components that lack it). Concretely:
 - The presets map onto Frames: `framed` = the `standard` frame; `quiet` = the
   `minimal` frame (reclaimed and completed); `hero` / `bleed` = sovereign
   behavior applied to a component that keeps its own layout.
-- A new **manifest field** (`claim`: default + allowed range) carries the
-  per-component default. This is a genuine model extension — `concepts.md` and
-  `forms.md` both note only Finish decomposes into registers, so the edit that
-  introduces `claim` must land in both canonical docs in the same change (the
-  §2.5 "same-sweep" hazard).
+- **No new manifest field.** `claim` is universal (default `framed` everywhere);
+  the only per-component fact is the `bleed` safety opt-out, which reuses the
+  existing `excludes` list (§7). This still touches the canonical docs —
+  `concepts.md`, `forms.md`, `design-system.md` §6.5 — because `claim` is a new
+  universal concept, and that edit must land in the same change (the §2.5
+  "same-sweep" hazard); it just adds no schema field.
 - **Vocabulary law (§2.5):** one system word + one human word = **"Claim."** No
   third synonym. The stop names (`framed`/`quiet`/`hero`/`bleed`) are the
   preset vocabulary, added to `MODIFIER_PREFIXES` / `isKnownModifier` in
@@ -333,16 +348,22 @@ bolted on," `forms.md:27`). Only the *shape* changed.
 
 ---
 
-## 13. Open questions for sign-off
+## 13. Decisions (resolved at sign-off, 2026-07-03)
 
-1. **Preset count.** Four (`framed`/`quiet`/`hero`/`bleed`) or three (drop
-   `bleed` into a `hero` switch)? Leaning four — `bleed`'s guard rail is
-   different enough (hard export gate) to deserve its own name.
-2. **Does `chart cover` retire immediately or alias for one release?** Charts
-   are the only current `cover` users (radar, piechart); a one-release alias is
-   cheap insurance.
-3. **`claim` field on every manifest, or only where it differs from `framed`?**
-   Leaning "only where it differs" to avoid a vestigial field on 50 components.
+1. **Four presets.** `bleed` is its own preset with its own word — never a flag
+   on `hero`. Reaching the true edge is a deliberate, risky choice; it earns a
+   deliberate name, no magic.
+2. **`cover` is retired and purged**, not aliased. The chart-only `cover` name
+   is deleted outright when `claim` lands; the handful of in-repo chart demos
+   using it are edited in the same change. Pre-GA, no dead synonym.
+3. **`claim` is universal; no per-component field.** Every component defaults to
+   `framed`; the concept means the same thing everywhere. The only per-component
+   data is the `bleed` safety opt-out, carried on the *existing* `excludes` list
+   — no new schema field, no manifest sweep.
+
+Remaining for the implementation branch (not blockers to this proposal): the
+precise inset ratios for `quiet` (§4), and whether the "wayfinding lost across N
+slides" lint (§8) is warn-only or a soft gate.
 
 ---
 
@@ -359,8 +380,9 @@ bolted on," `forms.md:27`). Only the *shape* changed.
   value as-is).
 - **Frame mapping:** `lib/forms/frame/{standard,minimal}/*.manifest.json`,
   `lib/forms/schema/frame.schema.json`, `lib/forms/index.js` (`frameToggleSkip`).
-- **Per-component default + range:** the component manifest schema; precedent in
-  `lib/core/image-aspect.js`.
+- **`bleed` safety opt-out:** the existing `excludes` mechanism (Tier-2 opt-out,
+  `lib/components/index.js` `SEMI_UNIVERSAL_VARIANTS` + per-manifest `excludes`)
+  — reused, not a new field.
 - **Vocab + lint guard rails:** `lib/authoring/lint-core.js`
   (`MODIFIER_PREFIXES`, `isKnownModifier`, the two new `claim` checks).
 - **Chart `cover` to absorb:** `lib/components/chart/_chart-family/chart-family.css:673-773`.
