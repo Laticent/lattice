@@ -5,10 +5,9 @@
 // (the Drawing Board settings drawer writes it), and palette-blind popover
 // styling that reads the same design tokens as the rest of the site.
 //
-// driver.js was chosen over intro.js / Shepherd.js when this repo was still
-// MIT and their AGPL-3.0 terms were a poison pill; the repo is AGPL-3.0 itself
-// now, but driver.js remains the right pick — MIT and framework-agnostic, which
-// matches this site's vanilla-JS / plain-CSS stack exactly.
+// driver.js was chosen over intro.js / Shepherd.js: MIT-licensed and
+// framework-agnostic, which matches this site's vanilla-JS / plain-CSS
+// stack exactly.
 //
 // Per-page step decks live beside this file (playground-tour.js,
 // workbench-tour.js, drawing-board-tour.js); they describe WHICH elements to
