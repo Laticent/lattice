@@ -238,3 +238,84 @@ section.form.fill-optical {
   justify-content: center;
   padding-bottom: calc(var(--footer-reserve) + var(--sp-2xl));
 }
+
+/* ── CLAIM · let content claim the stage (2026-07-03 decision) ───────────────
+ * A universal, purpose-coupled dial: how much of the frame the content claims
+ * vs the chrome. The presets expand to composable switches (inset + chrome
+ * recede + bleed); the individual chrome switches (`no-paginate`, `silent`, …)
+ * still compose on top, so `claim-hero no-paginate` is expressible — switches,
+ * not a rigid slider. Default (`framed` / no token) is the standard frame,
+ * unchanged. Insets are PADDING via the `--frame-*` vars (HARD RULE #20 — never
+ * margin); cqi lengths, no hex, no color. `claim-quiet`/`claim-hero` are
+ * universal; `claim-bleed` is opt-out-able by prose-dense components
+ * (`excludes: ["claim-bleed"]`) because content at the true edge gets cropped.
+ *
+ * COST, priced: quiet drops the section-dot rail + meta bay (keeps title + page
+ * number); hero drops the bands (keeps the page number reading through); bleed
+ * drops the safe margin itself (edge-to-edge; media/canvas only). */
+
+/* quiet — recede secondary chrome, tighten one step; title + page number stay. */
+section.form.claim-quiet {
+  --frame-x: calc(var(--_sec-1cqi, 1cqi) * 3.75);
+  --frame-y: calc(var(--_sec-1cqi, 1cqi) * 5);
+}
+/* the section-dot rail (docked in .cell-footer on standard frames, a direct
+ * section child on chart frames — descendant selector catches both) + the meta
+ * / logo / status bay. */
+section.form.claim-quiet .tile-progress,
+section.form.claim-quiet .cell-masthead .masthead-bay {
+  display: none;
+}
+
+/* hero — the content takes the stage: the footer band, section rail, and meta
+ * bay recede and the inset tightens so the content fills the freed space, but
+ * the TITLE and the page number STAY on EVERY component — an unlabeled slide has
+ * no place in a board deck (drop the number with `no-paginate`). */
+section.form.claim-hero {
+  --frame-x: var(--frame-inset-x);
+  --frame-y: var(--frame-inset-y);
+  --footer-reserve: var(--frame-inset-y);
+}
+section.form.claim-hero > .cell-footer > footer,       /* running footer text (migrated) */
+section.form.claim-hero > footer,                      /* running footer text (deferred) */
+section.form.claim-hero .tile-progress,                /* section-dot rail (either nesting) */
+section.form.claim-hero .cell-masthead .masthead-bay { /* meta / logo / status bay */
+  display: none;
+}
+
+/* bleed — the content reaches as close to the edge as it SAFELY can. MEDIA /
+ * canvas layouts (chart, big-number, diagram, image, video) go true edge-to-edge
+ * with all chrome — title + page number included — gone. Everything else can't
+ * crop, so bleed keeps the hero safe inset, its title, and its page number: a
+ * stray `claim-bleed` on a table degrades to hero, never a cropped board slide
+ * (the linter also warns). */
+section.form.claim-bleed {
+  --frame-x: var(--frame-inset-x);   /* safe default = hero inset (non-media) */
+  --frame-y: var(--frame-inset-y);
+  --footer-reserve: var(--frame-inset-y);
+}
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) {
+  --frame-x: 0px;                    /* media / canvas: the true edge */
+  --frame-y: 0px;
+  --footer-reserve: 0px;
+  border-top: 0;                     /* kill the top spectrum only where it bleeds */
+}
+/* Chrome recede — the footer text, rail, and meta bay recede on EVERY bleed
+ * slide (as hero). Title + page number stay unless the layout is edge-media. */
+section.form.claim-bleed > .cell-footer > footer,
+section.form.claim-bleed > footer,
+section.form.claim-bleed .tile-progress,
+section.form.claim-bleed .cell-masthead .masthead-bay {
+  display: none;
+}
+/* Edge-media (except charts, which stay labeled) drops the title too; and every
+ * edge-media layout drops the page number for the pure edge-to-edge visual. The
+ * legacy pseudo page number on STAGE_DEFERRED media is a section::after (doubled
+ * class for specificity, mirroring `no-paginate`). */
+section.form.claim-bleed:is(.big-number, .diagram, .image, .video) > .cell-masthead,
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) > .cell-footer {
+  display: none;
+}
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video).claim-bleed::after {
+  content: none;
+}

@@ -35,17 +35,17 @@ section.piechart .piechart-svg {
 }
 /* Cover is full-bleed. With the key now INSIDE the SVG the figure has no
    intrinsic-height child, so a %/cqh chain collapses to 0 (blank). Mirror the
-   proven radar.cover fix: drop the figure's size-containment so the SVG's `cqi`
+   proven radar:is(.claim-hero, .claim-bleed) fix: drop the figure's size-containment so the SVG's `cqi`
    resolves against the SECTION (container-type:size), and give the SVG an
    explicit `cqi` height that scales the whole unit (disc + key) up. The viewBox
    `meet` keeps it undistorted; max-height guards a tall two-line caption. */
-section.piechart.cover .piechart-figure {
+section.piechart:is(.claim-hero, .claim-bleed) .piechart-figure {
   container-type: normal;
   height: auto;
   width: 100%;
   max-width: 100%;
 }
-section.piechart.cover .piechart-svg {
+section.piechart:is(.claim-hero, .claim-bleed) .piechart-svg {
   height: 38cqi;
   width: auto;
   max-height: 100%;
@@ -77,13 +77,13 @@ section.piechart.cover .piechart-svg {
        the unified viewBox aspect, so the WHOLE unit (disc + key) scales and
        never overflows/clips, HD and 4K alike.
    Scoped to section.form so non-form pie rendering stays byte-identical. */
-section.form.piechart:not(.cover) .chart-body {
+section.form.piechart:not(.claim-hero):not(.claim-bleed) .chart-body {
   container-type: size;
 }
-section.form.piechart:not(.cover) .piechart-figure {
+section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-figure {
   display: contents;
 }
-section.form.piechart:not(.cover) .piechart-svg {
+section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
   height: 100cqh;
   width: auto;
   max-width: 100%;

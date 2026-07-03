@@ -172,11 +172,13 @@ it in per-component CSS.**
 | Moving from → to | You gain | You spend |
 |---|---|---|
 | `framed → quiet` | ~1 step tighter, calmer edges | the **section-dot rail** + **meta chips** (fine-grained in-section wayfinding) |
-| `quiet → hero` | the whole stage minus a hairline | the **bands**: title-in-place, running footer, **deck identity (logo)**, and **page-number wayfinding** — unless you switch the page number back on |
-| `hero → bleed` | the last hairline of safe margin | **projector/print safety** and the **legibility guarantee** (transferred to the author) |
+| `quiet → hero` | the whole stage minus a hairline; content fills the freed space | the **footer band** (running footer), the **section rail**, and **deck identity (logo/meta)**. The **title and the page number STAY** (as-built §15) — an unlabeled slide has no place in a board deck; drop the number with `no-paginate` |
+| `hero → bleed` | the last hairline of safe margin (media/canvas only) | on **edge-media** (chart, big-number, diagram, image, video): the **title + page number + projector/print safety**. On everything else `bleed` degrades to `hero` (it can't crop), so the only extra spend there is none |
 
 The design's value is not that it hides chrome — it's that it **prices** hiding
 chrome, and (via §8) refuses the prices that produce a broken boardroom slide.
+The as-built keeps this honest: `hero` retains the title + page number on every
+component (§15), so the "priced cost" is the *bands*, not the label.
 
 ---
 
@@ -395,3 +397,58 @@ slides" lint (§8) is warn-only or a soft gate.
 - **Docs to update in the same change:** `design/concepts.md`, `design/forms.md`
   (§2.5 same-sweep), `design/design-system.md` (§6.5 modifier tiers),
   `CHANGELOG.md`.
+
+---
+
+## 15. As-built notes (implementation, 2026-07-03)
+
+Refinements settled while building the feature (and hardened by a maker-checker
+pass):
+
+- **`hero` keeps the page number by default** (it reads through the content);
+  `no-paginate` removes it. Safer default than "lose wayfinding unless kept," and
+  it's the clean proof the presets are composable switches, not a rigid slider.
+- **Charts keep their title at `hero` and `bleed`.** An unlabeled full-bleed
+  chart is useless in a board deck, so the universal masthead-hide is scoped
+  `:not(.chart-frame)`; a chart at `hero`/`bleed` keeps its title and gains the
+  full-bleed caption band the retired `cover` provided (relocated to
+  `section.chart-frame:is(.claim-hero, .claim-bleed)`).
+- **`bleed` works on the media/canvas layouts it targets** (chart, diagram,
+  video, big-number). These are STAGE_DEFERRED with no `.cell-footer`, so
+  `claim-bleed` also hides the legacy `section::after` page-number pseudo + the
+  running footer — otherwise the page number survived the bleed.
+- **The `bleed` safety cap is enforced on BOTH paths.** The `claim-bleed-unsafe`
+  lint warns for a per-slide `claim-bleed` AND a deck-wide `claim: bleed` landing
+  on an excluding component (the propagator stamps the token uniformly, so the
+  guard rail lives in the linter). A per-slide `claim-framed` opts a slide out.
+  A hard export gate for `bleed` (per §8) remains future work.
+- **`claim:` front-matter gets typo validation** (`unknown-claim`), mirroring
+  `finish:`/`mode:` — a typo silently mapped to the framed baseline otherwise.
+
+### As-built revision 2 (2026-07-03, post adversarial round — the universality hardening)
+
+A red-team / inversion / independent-checker round found `hero`/`bleed` had been
+validated only on the happy path (piechart/radar + prose) and broke across the
+rest of the matrix. Reshaped to be genuinely universal and board-safe:
+
+- **`hero` keeps the TITLE on every component** (not just charts). The universal
+  masthead-hide is gone; `hero` recedes the footer band, section rail, and meta
+  bay but keeps the title + page number everywhere — so no component produces an
+  unlabeled slide. (The chart title carve-out is thus no longer special.)
+- **`bleed` adapts to content safety.** Only **edge-media** (`chart-frame`,
+  `big-number`, `diagram`, `image`, `video`) reaches the true edge; every other
+  layout can't crop, so `bleed` degrades to the hero safe inset and keeps its
+  title + page number. This closes the "cropped table exports" hole comprehensively
+  (not just the 7 excludes) — a stray `claim-bleed` on ANY prose/table layout is
+  now safe, and the render-side guarantee complements the lint warning.
+- **The dramatic chart full-bleed treatment is scoped to `:is(.piechart, .radar)`**
+  — the two chart types with tuned replacement sizing. The other 11 chart types
+  (quadrant, map, funnel, gantt, kanban, roadmap, journey, timeline-list,
+  word-cloud, progress, state-chart) previously rendered blank/tiny at `hero`
+  because the sizing-disable guards fired with no replacement; now they render
+  their normal layout with the chrome receded (labeled, not broken).
+- **`no-paginate` now hides the real `.lat-pagination`** element (migrated
+  frames), not just the legacy `::after` pseudo — so `hero no-paginate` actually
+  drops the page number everywhere (was a pre-existing Form defect on the path).
+- **`border-top: 0` at bleed is scoped to edge-media** (was unscoped, stripping
+  the spectrum from sovereign title/divider slides under a deck-wide `claim: bleed`).

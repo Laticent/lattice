@@ -83,26 +83,6 @@ The toil-and-on-call slice is the one nobody put in the roadmap.
 Refreshed weekly · figures from the time-tracking export
 ```
 
-### `cover` — Cover — full-bleed with a caption band
-
-The chart-family `cover` modifier: the donut + legend fill the slide and the title + a one-line takeaway reflow into a bottom caption band carrying the chart sheen. For a hero breakdown where the proportion IS the message. Chart-scoped — not an all-layout modifier.
-
-```markdown
-<!-- _class: piechart cover -->
-
-`H1 2026 · 1,840 person-hours`
-
-## Where the planning quarter actually went.
-
-- Deck production `46%`
-- Meetings about meetings `22%`
-- Realigning on priorities `18%`
-- Stakeholder management `9%`
-- Actually deciding `5%`
-
-Nearly half went to producing decks; the deciding itself was the smallest slice.
-```
-
 ## Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `loose`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.

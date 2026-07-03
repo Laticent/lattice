@@ -72,6 +72,28 @@ in patch versions.
   `compact` + `loose`) or two finish selectors — the same rule the drawer's
   single-select controls reflect.
 
+- **`claim` — one way to give content the stage.** A universal, purpose-coupled
+  dial for how much of the frame the content claims vs the chrome — deck-wide
+  (`claim: quiet|hero|bleed` front-matter) or per slide (`claim-quiet` /
+  `claim-hero` / `claim-bleed`; `framed` is the default). `quiet` recedes the
+  section-dot rail + meta bay (keeps the title + page number); `hero` drops the
+  masthead/footer bands (the page number reads through — `no-paginate` removes
+  it); `bleed` goes true edge-to-edge. It composes with the existing chrome
+  switches (so `claim-hero no-paginate` is expressible — switches, not a rigid
+  slider). `claim-quiet`/`claim-hero` are universal; `claim-bleed` is a
+  semi-universal opt-out — prose-dense/table layouts (`compare-table`,
+  `list-tabular`, `glossary`, `inventory`, and the legal ledgers) exclude it
+  because content at the true edge crops, and the deck linter warns
+  (`claim-bleed-unsafe`) if used anyway. Chart `cover` is **absorbed** into
+  `claim-hero` (a chart at `claim-hero` keeps its title and gains the full-bleed
+  caption band cover used to provide). Image's `spotlight`/`statement`/`split`
+  are left untouched. Design:
+  `engineering/decisions/2026-07-03-claim-content-claims-the-stage.md`.
+- **Removed: the chart-only `cover` modifier.** Superseded by the universal
+  `claim-hero` (above); `<!-- _class: radar cover -->` becomes
+  `<!-- _class: radar claim-hero -->`. Only the radar and piechart demos used
+  it. *(Additive for authors overall — `claim-hero` works on every component;
+  this line notes the one renamed token.)*
 - **The installed app is now the Studio.** Installing Lattice (from any page)
   puts **"Lattice Studio"** on your home screen or dock, launching straight
   into the editor instead of the homepage — docs still open inside the app

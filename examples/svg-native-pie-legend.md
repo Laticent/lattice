@@ -74,8 +74,8 @@ No clipping: the font shrinks just enough to seat every keyed row.
 
 ---
 
-<!-- _class: piechart cover -->
-<!-- _footer: "Cover — the whole unit scales up, key included" -->
+<!-- _class: piechart claim-hero -->
+<!-- _footer: "claim-hero — the whole unit scales up, key included" -->
 
 `H1 2026 · 1,840 person-hours`
 

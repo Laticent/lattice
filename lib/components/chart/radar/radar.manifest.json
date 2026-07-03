@@ -90,15 +90,9 @@
     "benchmark",
     "quadrant",
     "small-multiples",
-    "minimal",
-    "cover"
+    "minimal"
   ],
   "variantDocs": {
-    "cover": {
-      "label": "Cover — full-bleed with a caption band",
-      "caption": "The chart-family `cover` modifier: the diagram fills the whole slide and the title + a one-line takeaway reflow into a bottom caption band carrying the chart sheen. For a hero comparison slide where the radar IS the message. Chart-scoped — not an all-layout modifier.",
-      "sample": "<!-- _class: radar cover -->\n\n`Scale · 0–10`\n\n## How we stack up across the buying criteria.\n\n- Meridian\n  - Performance `9`\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n- Vantage\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n- Helios\n  - Performance `6`\n  - Pricing `9`\n  - Support `7`\n  - Ecosystem `8`\n  - Security `8`\n\nMeridian leads on performance and support; Helios is the value pick across pricing and ecosystem.\n"
-    },
     "target": {
       "label": "Target — actual vs reference ring",
       "caption": "Reads the series named `Target` (or `Goal`/`Plan`) as a dashed reference polygon; each axis where the actual falls short gets a rose gap segment along the spoke, surplus a quiet green one. The shortfall is the read.",

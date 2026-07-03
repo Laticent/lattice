@@ -55,24 +55,6 @@ Refreshed weekly · figures from the time-tracking export
 
 ---
 
-<!-- _class: piechart cover -->
-<!-- _footer: "Cover — full-bleed with a caption band · piechart cover" -->
-
-`H1 2026 · 1,840 person-hours`
-
-## Where the planning quarter actually went.
-
-- Deck production `46%`
-- Meetings about meetings `22%`
-- Realigning on priorities `18%`
-- Stakeholder management `9%`
-- Actually deciding `5%`
-
-Nearly half went to producing decks; the deciding itself was the smallest slice.
-
-
----
-
 <!-- _class: piechart -->
 <!-- _footer: "Stress test · piechart" -->
 

@@ -866,9 +866,9 @@ describe('component-manifest', () => {
       assert.ok(!SUBSTANCES.includes(MIXED_SUBSTANCE));
     });
 
-    test('UNIVERSAL_GROUPS has the seven documented categories', () => {
+    test('UNIVERSAL_GROUPS has the eight documented categories', () => {
       assert.deepEqual(Object.keys(UNIVERSAL_GROUPS).sort(), [
-        'chrome', 'decoration', 'mood', 'social', 'state', 'tone', 'typography',
+        'chrome', 'claim', 'decoration', 'mood', 'social', 'state', 'tone', 'typography',
       ]);
     });
 
@@ -882,6 +882,15 @@ describe('component-manifest', () => {
       const uni = new Set(UNIVERSAL_VARIANTS);
       const overlap = SEMI_UNIVERSAL_VARIANTS.filter((v) => uni.has(v));
       assert.deepEqual(overlap, []);
+    });
+
+    test('claim: quiet/hero (+framed marker) are universal; bleed is a semi-universal opt-out', () => {
+      const uni = new Set(UNIVERSAL_VARIANTS);
+      for (const t of ['claim-quiet', 'claim-hero', 'claim-framed']) {
+        assert.ok(uni.has(t), `${t} should be universal`);
+      }
+      assert.ok(SEMI_UNIVERSAL_VARIANTS.includes('claim-bleed'), 'claim-bleed should be semi-universal (opt-out)');
+      assert.ok(!uni.has('claim-bleed'), 'claim-bleed must not be universal (it is opt-out-able)');
     });
 
     test('FAMILY_MODIFIERS are scoped, not universal, and tokens are their flat union', () => {

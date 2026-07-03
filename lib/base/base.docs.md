@@ -382,11 +382,12 @@ same layout structure works on either canvas. The dark bookend layouts
 <!-- _class: content dark -->
 ```
 
-> **Not universal:** `cover` (the chart full-bleed-with-caption modifier)
-> is **not** a universal variant — it is scoped to the chart family,
-> registered as a `cover` variant on the charts that support it (radar,
-> piechart). See those components' docs. Don't confuse it with image's
-> own **`full`** photo variant.
+> **Universal:** `claim-quiet` / `claim-hero` let content claim the stage on
+> **every** component (the `claim` concept, 2026-07-03 decision); `claim-bleed`
+> is a semi-universal opt-out (prose-dense layouts exclude it). A chart at
+> `claim-hero` additionally gets a chart-family full-bleed caption band — the
+> treatment that the retired chart-only `cover` modifier used to provide.
+> Don't confuse `claim-hero` with image's own **`full`** photo variant.
 
 ### `mirror`
 

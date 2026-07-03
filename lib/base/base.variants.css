@@ -52,11 +52,22 @@ section.no-paginate.no-paginate::after {
      !important form across light + dark. */
   content: none;
 }
+/* The migrated Form frame renders the page number as a REAL element
+ * (`span.lat-pagination`), not the `::after` pseudo above — so suppressing the
+ * pseudo alone leaves it visible. Hide the element too, so `no-paginate` /
+ * `silent` (and `claim-hero no-paginate`) actually drop the page number on every
+ * frame. */
+section.silent .lat-pagination,
+section.no-paginate .lat-pagination {
+  display: none;
+}
 
-/* `cover` is NOT a universal modifier — it is scoped to the chart family.
- * Its full treatment lives in chart-family.css (`section.chart-frame.cover`),
- * registered as a `cover` variant on the charts that support it (radar,
- * piechart). There is deliberately no `section.cover` here. */
+/* The `claim` presets (claim-quiet / claim-hero / claim-bleed) live in the
+ * shared Cell CSS (lib/forms/cell/stage/stage.css) — they act on the frame's
+ * chrome Cells, not on a component root, so they are not here. A chart at
+ * `claim-hero` gets an extra chart-family layer (the full-bleed caption band)
+ * in chart-family.css (`section.chart-frame.claim-hero`), which absorbed the
+ * retired chart-only `cover` modifier (2026-07-03 decision). */
 
 /* ── TONE ── canvas-level reuse of the state-token color system ─────── */
 

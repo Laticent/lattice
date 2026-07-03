@@ -9,6 +9,7 @@
   "function": "comparison",
   "form": "ledger",
   "substance": "prose",
+  "excludes": ["claim-bleed"],
   "tags": ["tradeoff", "ranking", "assessment"],
   "description": "Multi-row comparison table with consistent columns.",
   "purpose": "Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-prose can hold legibly.",
