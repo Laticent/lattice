@@ -47,8 +47,11 @@ in patch versions.
   Tabs are dynamic: a tab renders only when it has content for the active slide,
   so a hand-authored (non-round-trippable) slide collapses to the Notes tab
   alone. Reset stays pinned at the top and the emitted `_class` line at the
-  bottom. The trigger is now a proper icon button (a `SquarePen` glyph, titled
-  "Slide settings") matching the editor header's other controls, and the tablist
+  bottom. The trigger is now a proper icon button (a `FileSliders` glyph — a
+  page with setting sliders, i.e. "configure this slide," distinct from the deck
+  Inspector's `SlidersHorizontal`; titled "Slide settings") a plain ghost icon
+  button matching the editor header's other icon buttons at every breakpoint, and
+  the tablist
   is a shared `PillTabs` primitive the Workspace sheet also uses. The deck
   Inspector stays grouped (it is a glanceable reference column — tabbing it would
   be a regression). See
