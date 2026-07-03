@@ -270,6 +270,13 @@ in patch versions.
 
 ### Fixed
 
+- **State markers (`confidential` / `wip` / `draft`) no longer vanish on
+  masthead-less form layouts** (`quote`, `big-number`). The form status Tile
+  suppressed the base band/watermark on the assumption a masthead-bay chip would
+  replace it — but those layouts have no bay, so the marker silently disappeared.
+  They now fall back to an always-visible top-right corner pill, suppressed (via a
+  bare `:has(.masthead-bay)`) only where a bay exists to host the chip.
+
 - **A `tone-*` rail now coexists with state markers AND finishes.** The tone accent
   rail used `section::before` — the same pseudo every state stamp (`confidential`,
   `wip`, …) and `mark-*` decoration owns — so combining a tone with a stamp either

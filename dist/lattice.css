@@ -18069,9 +18069,55 @@ section.form .tile-progress {
  * tools/build-css.js into the same cascade slot it held in base.variants.css.
  * The `.masthead-bay` flex layout that stacks it is the masthead Cell's concern
  * and stays in base.variants.css. */
+/* On a form layout the label-type markers render as a light top-right corner PILL
+ * (overriding the base band / watermark). This is the always-visible fallback: on a
+ * layout that HAS a masthead bay the pill is suppressed and the marker docks in the
+ * bay instead (rules below). Previously the base treatment was blanket-suppressed
+ * here on the ASSUMPTION a bay chip would show — but masthead-less form layouts
+ * (quote, big-number) have no bay, so the marker silently vanished. */
 section.form.confidential::before,
 section.form.wip::before,
-section.form.draft::before { content: none; background: none; }
+section.form.draft::before {
+  position: absolute;
+  inset: auto; /* reset the base band/watermark's left:0 / inset:0 before docking a corner pill */
+  top: var(--sp-md);
+  right: var(--sp-md);
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: var(--sp-2xs) var(--sp-sm);
+  border-radius: var(--pill-radius);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  pointer-events: none;
+  transform: none; /* clear the base wip stamp's rotate */
+}
+section.form.confidential::before { content: 'Confidential'; }
+section.form.wip::before {
+  content: 'WIP';
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
+}
+section.form.draft::before {
+  content: 'Draft';
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
+}
+
+/* Where a masthead bay EXISTS, suppress the corner pill and dock the marker in the
+ * bay as a chip. Bare `:has()` is safe here (HARD RULE #12 bans only the
+ * `:not(:has())` / `:is(:has())` pair — each function alone evaluates correctly). */
+section.form.confidential:has(.masthead-bay)::before,
+section.form.wip:has(.masthead-bay)::before,
+section.form.draft:has(.masthead-bay)::before { content: none; background: none; border: none; }
 
 section.form:is(.confidential, .wip, .draft) .masthead-bay::after {
   display: inline-flex;
