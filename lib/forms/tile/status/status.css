@@ -1,91 +1,15 @@
-/* status Tile — under `form`, the label-type state markers
- * (confidential · wip · draft) dock in the masthead bay as a clean chip,
- * REPLACING their default corner stamp / full-width band / canvas watermark. The
- * more-specific `section.form.<state>` selector wins over the base
- * `section.<state>::before` rule, so the default treatment is suppressed without
- * !important. (redacted / tbd / archived keep their stronger full-canvas
- * overlays — those are deliberate "do not circulate" signals, not a quiet bay
- * marker.)
+/* status Tile — SUPERSEDED by the universal stamp-style system.
  *
- * Self-contained Form Tile (issue #356): pure-CSS Tile (no kernel — it keys off
- * the existing state classes), co-located with its manifest and bundled by
- * tools/build-css.js into the same cascade slot it held in base.variants.css.
- * The `.masthead-bay` flex layout that stacks it is the masthead Cell's concern
- * and stays in base.variants.css. */
-/* On a form layout the label-type markers render as a light top-right corner PILL
- * (overriding the base band / watermark). This is the always-visible fallback: on a
- * layout that HAS a masthead bay the pill is suppressed and the marker docks in the
- * bay instead (rules below). Previously the base treatment was blanket-suppressed
- * here on the ASSUMPTION a bay chip would show — but masthead-less form layouts
- * (quote, big-number) have no bay, so the marker silently vanished. */
-section.form.confidential::before,
-section.form.wip::before,
-section.form.draft::before {
-  position: absolute;
-  inset: auto; /* reset the base band/watermark's left:0 / inset:0 before docking a corner pill */
-  top: var(--sp-md);
-  right: var(--sp-md);
-  z-index: 100;
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: var(--sp-2xs) var(--sp-sm);
-  border-radius: var(--pill-radius);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-  pointer-events: none;
-  transform: none; /* clear the base wip stamp's rotate */
-}
-section.form.confidential::before { content: 'Confidential'; }
-section.form.wip::before {
-  content: 'WIP';
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
-}
-section.form.draft::before {
-  content: 'Draft';
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
-}
-
-/* Where a masthead bay EXISTS, suppress the corner pill and dock the marker in the
- * bay as a chip. Bare `:has()` is safe here (HARD RULE #12 bans only the
- * `:not(:has())` / `:is(:has())` pair — each function alone evaluates correctly). */
-section.form.confidential:has(.masthead-bay)::before,
-section.form.wip:has(.masthead-bay)::before,
-section.form.draft:has(.masthead-bay)::before { content: none; background: none; border: none; }
-
-section.form:is(.confidential, .wip, .draft) .masthead-bay::after {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: var(--sp-2xs) var(--sp-sm);
-  border-radius: var(--pill-radius);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-}
-section.form.confidential .masthead-bay::after { content: 'Confidential'; }
-section.form.wip .masthead-bay::after {
-  content: 'WIP';
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
-}
-section.form.draft .masthead-bay::after {
-  content: 'Draft';
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
-}
+ * The label-type state markers (confidential / wip / draft) used to dock as a chip
+ * in the form masthead bay, with a corner-pill fallback for masthead-less layouts.
+ * The status-marker style-variant work (2026-07-03) replaces that special-case with
+ * ONE uniform default — the corner TAB — on every layout, form or not, plus an
+ * author-selectable `stamp-<style>` axis (base.variants.css). This removes the
+ * masthead-bay coupling (and the masthead-less-invisible bug it caused): a stamp is
+ * now always visible and always the same shape family across a deck.
+ *
+ * The masthead-bay dock was a genuinely nice look where a masthead exists; it is
+ * planned to return as an opt-in `stamp-dock` style. Until then this Tile adds no
+ * rules — the base system owns state markers on form layouts too.
+ *
+ * See engineering/decisions/2026-07-03-status-marker-style-variants.md §6. */

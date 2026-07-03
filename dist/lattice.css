@@ -17420,174 +17420,169 @@ section.no-paginate .lat-pagination {
    signal — momentarily hiding the rail. */
 
 section { --tone-rail: 0 0 transparent; }
-section.tone-pass { --tone-rail: inset 8px 0 0 0 var(--pass); }
-section.tone-warn { --tone-rail: inset 8px 0 0 0 var(--warn); }
-section.tone-fail { --tone-rail: inset 8px 0 0 0 var(--fail); }
-section.tone-skip { --tone-rail: inset 8px 0 0 0 var(--text-muted); }
-section.tone-pass,
-section.tone-warn,
-section.tone-fail,
-section.tone-skip {
+section.tone-pass { --tone-color: var(--pass); }
+section.tone-warn { --tone-color: var(--warn); }
+section.tone-fail { --tone-color: var(--fail); }
+section.tone-skip { --tone-color: var(--text-muted); }
+/* The tone STYLE axis (orthogonal to the semantic tone above) sets the box-shadow
+   SHAPE, so `tone-fail tone-edge` composes. Default (no style) = the left rail; a
+   `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never
+   collides with the state ::before or the pagination ::after, and prints in the PDF. */
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
+  --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); /* rail (default) */
   box-shadow: var(--tone-rail);
 }
+section.tone-edge { --tone-rail: inset 0 0.45cqi 0 0 var(--tone-color); }  /* top edge band */
+section.tone-glow { --tone-rail: inset 0 0 0 0.35cqi var(--tone-color); }  /* full inset ring */
 
 /* ── STATE ── meta indicators about the slide itself ────────────────── */
 
-/* Shared positioning for corner stamps (wip, pinned, revised). All use
-   the `::before` corner-mark pattern — small, top-right, layered above
-   content. Uses the section as positioning context. */
+/* ── STATE ── meta markers about the slide, rendered by an orthogonal STYLE axis.
+   The SEMANTIC class (confidential/wip/…) sets ONLY a label + a palette color; a
+   `stamp-<style>` class sets the SHAPE. They compose, so `confidential stamp-seal`
+   is the Confidential label in the seal shape. The default (no stamp-* class) is the
+   corner TAB, so a no-config, mixed-marker deck reads as ONE family. All color is a
+   palette token, so every style is on-brand across themes/palettes automatically.
+   See engineering/decisions/2026-07-03-status-marker-style-variants.md. */
 
-section.wip,
-section.pinned,
-section.revised {
+section.confidential { --stamp-label: "Confidential"; --stamp-color: var(--fail); }
+section.wip          { --stamp-label: "WIP";          --stamp-color: var(--warn); }
+section.draft        { --stamp-label: "Draft";        --stamp-color: var(--warn); }
+section.tbd          { --stamp-label: "TBD";          --stamp-color: var(--text-muted); }
+section.redacted     { --stamp-label: "Redacted";     --stamp-color: var(--fail); }
+section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-muted); }
+section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
+section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
+
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised) {
   position: relative;
 }
-section.wip::before,
-section.pinned::before,
-section.revised::before {
+
+/* Shared pseudo setup. `content: var(--stamp-label)` is the GATE: with no state
+   marker the var is unset, content computes invalid, and the ::before is not
+   generated — so each style rule is marker-blind and recolors per marker for free.
+   Only non-geometry basics live here; each style sets its own full geometry. */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
+section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin)::before {
+  content: var(--stamp-label);
   position: absolute;
-  top: 16px;
-  right: 16px;
   z-index: 100;
   pointer-events: none;
   font-family: var(--font-mono);
-  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 4px;
+  line-height: 1;
 }
 
-section.wip::before {
-  content: 'WIP';
-  background: var(--fail);
-  color: #fff;
-  transform: rotate(6deg);
-  transform-origin: top right;
-}
-section.pinned::before {
-  content: '★ Pinned';
-  background: var(--accent);
-  color: var(--on-accent);
-}
-section.revised::before {
-  content: '♻ Revised';
-  background: var(--warn);
-  color: #fff;
+/* ── DEFAULT + TAB — a filled corner tab hugging top-right, inner diagonal notch. */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
+section.stamp-tab::before {
+  top: 0; right: 0;
+  color: var(--on-accent); background: var(--stamp-color);
+  font-size: 0.86cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding: 0.45cqi 0.9cqi 0.45cqi 1.15cqi;
+  clip-path: polygon(0.7cqi 0, 100% 0, 100% 100%, 0 100%);
 }
 
-/* Full-canvas watermarks (draft, redacted). Center-positioned,
-   low-opacity, rotated. Sit above all content via z-index but
-   pointer-events:none so they don't intercept any interaction. */
-
-section.draft,
-section.redacted {
-  position: relative;
-}
-section.draft::before,
-section.redacted::before {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-weight: 900;
-  letter-spacing: 0.25em;
-  pointer-events: none;
-  z-index: 90;
-  transform: rotate(-20deg);
-}
-section.draft::before {
-  content: 'DRAFT';
-  font-size: 200px;
-  color: rgba(0, 0, 0, 0.05);
-}
-section.redacted::before {
-  content: 'REDACTED';
-  font-size: 140px;
-  color: rgba(155, 28, 28, 0.10);
+/* ── NOTCH — a top full-width hairline band with a leading color chip. */
+section.stamp-notch::before {
+  top: 0; left: 0; right: 0; clip-path: none;
+  display: flex; align-items: center; gap: 0.5cqi;
+  color: color-mix(in srgb, var(--stamp-color) 86%, var(--text-heading));
+  background: color-mix(in srgb, var(--stamp-color) 9%, var(--bg));
+  border-bottom: 0.12cqi solid color-mix(in srgb, var(--stamp-color) 28%, transparent);
+  font-size: 0.74cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.16em; padding: 0.36cqi 0.9cqi;
 }
 
-/* Placeholder/archived overlays (tbd, archived). tbd shows a soft
-   red-tinted backdrop with a centered "TBD" message; archived shows
-   a gray overlay indicating historical content. */
-
-section.tbd,
-section.archived {
-  position: relative;
-}
-section.tbd::before {
-  content: 'TBD';
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: color-mix(in oklab, var(--fail) 6%, transparent);
-  font-family: var(--font-display);
-  font-size: 160px;
-  font-weight: 900;
-  color: var(--fail);
-  opacity: 0.4;
-  pointer-events: none;
-  z-index: 90;
-}
-section.archived::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: color-mix(in oklab, var(--text-muted) 18%, transparent);
-  pointer-events: none;
-  z-index: 90;
-}
-section.archived.archived::after {
-  /* Replaces the pagination pseudo with the ARCHIVED stamp. The class is DOUBLED
-     (`.archived.archived`) to reach specificity (0,2,2), beating the engine
-     pagination pseudo `div.lattice > section::after` (0,1,3) on class-count — so
-     the stamp wins WITHOUT !important. Doubling (rather than a `.lattice >`
-     ancestor) is PATH-AGNOSTIC — it depends on no ancestor structure, which
-     differs across render paths: a `.lattice >` form was caught dropping the stamp
-     in the emulator by pixel-diff (that bundle carries no
-     `div.lattice > section::after` rule, and a combinator selector would also
-     change content-mask matching). Parity with the prior !important block is
-     verified pixel-identical, light + dark, engine + emulator. NB the doubled
-     class still matches the pagination content-mask regex, exactly as the prior
-     `section.archived::after` did — so mask behaviour is unchanged. */
-  content: 'ARCHIVED';
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  font-weight: 700;
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.85);
-  padding: 4px 10px;
-  border-radius: 4px;
-  bottom: 24px;
-  right: 30px;
+/* ── PILL — a keyline-outlined pill, accent text on a soft wash. */
+section.stamp-pill::before {
+  top: 6%; right: 5%; clip-path: none;
+  color: var(--stamp-color);
+  background: color-mix(in srgb, var(--stamp-color) 10%, var(--bg));
+  border: 0.12cqi solid color-mix(in srgb, var(--stamp-color) 40%, transparent);
+  font-size: 0.78cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding: 0.34cqi 0.8cqi; border-radius: 999px;
 }
 
-/* Header bands (confidential). Sits above any existing header content,
-   below the spectrum bar. Red full-width strip with "CONFIDENTIAL" text. */
-
-section.confidential {
-  position: relative;
+/* ── BRACKET — [ LABEL ] framed technical tag (glyphs concatenated onto the var). */
+section.stamp-bracket::before {
+  content: "[ " var(--stamp-label) " ]";
+  top: 6%; right: 5%; clip-path: none; background: none;
+  color: var(--stamp-color);
+  font-size: 0.8cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.22em; padding: 0.3cqi 0;
 }
-section.confidential::before {
-  content: 'CONFIDENTIAL';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: var(--fail);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-align: center;
-  padding: 6px 0;
-  pointer-events: none;
+
+/* ── SEAL — a ruled double-ring seal, letterpressed. */
+section.stamp-seal::before {
+  top: 6%; right: 5%; clip-path: none; background: none;
+  width: 7.6cqi; height: 7.6cqi; border-radius: 50%;
+  display: grid; place-items: center; text-align: center;
+  color: var(--stamp-color);
+  border: 0.16cqi solid color-mix(in srgb, var(--stamp-color) 55%, transparent);
+  box-shadow: inset 0 0 0 0.28cqi color-mix(in srgb, var(--stamp-color) 13%, transparent);
+  font-size: 0.62cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.08em; padding: 0.4cqi;
+}
+
+/* ── RIBBON — a 45° banner across the top-right corner. */
+section.stamp-ribbon::before {
+  top: 8%; right: -21%; width: 60%; clip-path: none;
+  transform: rotate(38deg); transform-origin: center;
+  color: var(--on-accent); background: var(--stamp-color); text-align: center;
+  font-size: 0.66cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.18em; padding: 0.34cqi 0;
+  box-shadow: 0 0.1cqi 0.3cqi color-mix(in srgb, var(--text-heading) 22%, transparent);
+}
+
+/* ── FLAG — a vertical bookmark flag down the right edge. */
+section.stamp-flag::before {
+  top: 0; right: 8%; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
+  writing-mode: vertical-rl; color: var(--on-accent); background: var(--stamp-color);
+  font-size: 0.7cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.14em; padding: 0.8cqi 0.32cqi 1cqi;
+}
+
+/* ── UNDERLINE — label on a thick accent keyline. */
+section.stamp-underline::before {
+  top: 6.5%; right: 5%; clip-path: none; background: none;
+  color: var(--text-heading);
+  font-size: 0.78cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding-bottom: 0.28cqi;
+  border-bottom: 0.28cqi solid var(--stamp-color);
+}
+
+/* ── DOT — a status dot + label, the quietest option (dot glyph concatenated). */
+section.stamp-dot::before {
+  content: "● " var(--stamp-label);
+  top: 6.5%; right: 5%; clip-path: none; background: none;
+  color: var(--stamp-color); font-size: 0.76cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
+}
+
+/* ── MARK — a restrained diagonal watermark (opt-in; the iconic DRAFT look). */
+section.stamp-mark::before {
+  inset: 0; clip-path: none; display: grid; place-items: center;
+  color: color-mix(in srgb, var(--stamp-color) 12%, transparent);
+  font-family: var(--font-display); font-weight: 900; font-size: 16cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
+  letter-spacing: 0.06em; transform: rotate(-18deg);
+}
+
+/* ── VEIL — a desaturating overlay + a corner label chip. */
+section.stamp-veil::before {
+  inset: 0; clip-path: none;
+  background: color-mix(in srgb, var(--stamp-color) 13%, transparent);
+  display: grid; place-items: start end; padding: 5%;
+  color: color-mix(in srgb, var(--stamp-color) 90%, var(--text-heading));
+  font-size: 0.74cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
+}
+
+/* ── BAR — a redaction bar (label hidden; the shape is the message). */
+section.stamp-bar::before {
+  top: 6.5%; right: 5%; clip-path: none;
+  color: transparent; overflow: hidden;
+  background: color-mix(in srgb, var(--stamp-color) 82%, var(--text-heading));
+  border-radius: 0.2cqi; height: 1.5cqi; width: 8cqi;
+}
+
+/* ── PIN — a bookmark pin dropped from the top edge (label hidden). */
+section.stamp-pin::before {
+  top: 0; right: 11%; clip-path: polygon(0 0, 100% 0, 100% 76%, 50% 100%, 0 76%);
+  color: transparent; overflow: hidden;
+  background: var(--stamp-color); width: 2cqi; height: 2.9cqi;
 }
 
 /* The Form (`section.form`) chrome — the root Frame box, the masthead / stage /
@@ -18176,97 +18171,21 @@ section.form .tile-progress {
 }
 
 /* === lib/forms/tile/status/status.css === */
-/* status Tile — under `form`, the label-type state markers
- * (confidential · wip · draft) dock in the masthead bay as a clean chip,
- * REPLACING their default corner stamp / full-width band / canvas watermark. The
- * more-specific `section.form.<state>` selector wins over the base
- * `section.<state>::before` rule, so the default treatment is suppressed without
- * !important. (redacted / tbd / archived keep their stronger full-canvas
- * overlays — those are deliberate "do not circulate" signals, not a quiet bay
- * marker.)
+/* status Tile — SUPERSEDED by the universal stamp-style system.
  *
- * Self-contained Form Tile (issue #356): pure-CSS Tile (no kernel — it keys off
- * the existing state classes), co-located with its manifest and bundled by
- * tools/build-css.js into the same cascade slot it held in base.variants.css.
- * The `.masthead-bay` flex layout that stacks it is the masthead Cell's concern
- * and stays in base.variants.css. */
-/* On a form layout the label-type markers render as a light top-right corner PILL
- * (overriding the base band / watermark). This is the always-visible fallback: on a
- * layout that HAS a masthead bay the pill is suppressed and the marker docks in the
- * bay instead (rules below). Previously the base treatment was blanket-suppressed
- * here on the ASSUMPTION a bay chip would show — but masthead-less form layouts
- * (quote, big-number) have no bay, so the marker silently vanished. */
-section.form.confidential::before,
-section.form.wip::before,
-section.form.draft::before {
-  position: absolute;
-  inset: auto; /* reset the base band/watermark's left:0 / inset:0 before docking a corner pill */
-  top: var(--sp-md);
-  right: var(--sp-md);
-  z-index: 100;
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: var(--sp-2xs) var(--sp-sm);
-  border-radius: var(--pill-radius);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-  pointer-events: none;
-  transform: none; /* clear the base wip stamp's rotate */
-}
-section.form.confidential::before { content: 'Confidential'; }
-section.form.wip::before {
-  content: 'WIP';
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
-}
-section.form.draft::before {
-  content: 'Draft';
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
-}
-
-/* Where a masthead bay EXISTS, suppress the corner pill and dock the marker in the
- * bay as a chip. Bare `:has()` is safe here (HARD RULE #12 bans only the
- * `:not(:has())` / `:is(:has())` pair — each function alone evaluates correctly). */
-section.form.confidential:has(.masthead-bay)::before,
-section.form.wip:has(.masthead-bay)::before,
-section.form.draft:has(.masthead-bay)::before { content: none; background: none; border: none; }
-
-section.form:is(.confidential, .wip, .draft) .masthead-bay::after {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: var(--sp-2xs) var(--sp-sm);
-  border-radius: var(--pill-radius);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
-}
-section.form.confidential .masthead-bay::after { content: 'Confidential'; }
-section.form.wip .masthead-bay::after {
-  content: 'WIP';
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
-}
-section.form.draft .masthead-bay::after {
-  content: 'Draft';
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
-}
+ * The label-type state markers (confidential / wip / draft) used to dock as a chip
+ * in the form masthead bay, with a corner-pill fallback for masthead-less layouts.
+ * The status-marker style-variant work (2026-07-03) replaces that special-case with
+ * ONE uniform default — the corner TAB — on every layout, form or not, plus an
+ * author-selectable `stamp-<style>` axis (base.variants.css). This removes the
+ * masthead-bay coupling (and the masthead-less-invisible bug it caused): a stamp is
+ * now always visible and always the same shape family across a deck.
+ *
+ * The masthead-bay dock was a genuinely nice look where a masthead exists; it is
+ * planned to return as an opt-in `stamp-dock` style. Until then this Tile adds no
+ * rules — the base system owns state markers on form layouts too.
+ *
+ * See engineering/decisions/2026-07-03-status-marker-style-variants.md §6. */
 
 /* === lib/forms/tile/watermark/watermark.css === */
 /* ── FORM · watermark Tile — section-number ghost ───────────────────────

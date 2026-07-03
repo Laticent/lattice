@@ -780,12 +780,6 @@ const SANCTIONED_HEX = [
     file: 'lib/base/base.modifiers.css', hex: '#fff', count: 1,
     why: 'overflow-tab label ink — fixed white on the fixed danger red above; same exception.',
   },
-  {
-    file: 'lib/base/base.variants.css', hex: '#fff', count: 3,
-    why: 'WIP / Revised / status-stamp ink — fixed white on the always-saturated --fail/--warn '
-       + 'badge fills. A flipping --on-* token would invert to dark ink in dark mode and fail '
-       + 'against the saturated badge, so white is fixed in both modes by design.',
-  },
 ];
 
 // Offset-preserving comment strip (mirrors lib/layout/gate.js): blanks comment bytes but keeps
