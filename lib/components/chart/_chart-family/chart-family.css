@@ -670,6 +670,16 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
 }
 
 
+/* At hero/bleed the chart title lifts into the masthead Cell, vacating the
+ * chart-header — but its decorative divider (`.chart-header::after`, a short
+ * centered rule) and any residual eyebrow/subtitle would then float orphaned in
+ * the empty band. Hide them on EVERY chart type at hero/bleed. */
+section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header::after,
+section.chart-frame:is(.claim-hero, .claim-bleed) .chart-eyebrow,
+section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle {
+  display: none;
+}
+
 /* ── CLAIM · hero (chart family) ── the chart layer of the universal `claim-hero`
  * preset (2026-07-03 decision; absorbs the retired chart-only `cover` modifier,
  * no alias). For a chart-frame member at `claim-hero`, the chart fills the whole

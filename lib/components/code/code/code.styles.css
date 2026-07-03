@@ -16,3 +16,8 @@ section.code h2 { padding-bottom:var(--sp-xs); }
 section.code > .cell-stage > em { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-label); padding-bottom:var(--sp-sm); font-style:normal; display:block; }
 section.code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
 section.code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
+
+/* At claim-hero/bleed the stage grows tall; a short snippet in a `flex:1` panel
+ * then reads as a huge empty box. Size the panel to its content instead (the
+ * stage optical-centers it) so short code sits as an intentional, roomy block. */
+section.code:is(.claim-hero, .claim-bleed) pre { flex: 0 1 auto; }

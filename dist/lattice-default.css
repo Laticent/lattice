@@ -2489,6 +2489,11 @@ section.code > .cell-stage > em { font-size:var(--fs-meta); line-height:var(--lh
 section.code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
 section.code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 
+/* At claim-hero/bleed the stage grows tall; a short snippet in a `flex:1` panel
+ * then reads as a huge empty box. Size the panel to its content instead (the
+ * stage optical-centers it) so short code sits as an intentional, roomy block. */
+section.code:is(.claim-hero, .claim-bleed) pre { flex: 0 1 auto; }
+
 /* === lib/components/code/compare-code/compare-code.styles.css === */
 /* compare-code — extracted from lib/_legacy.css (batch 5).
  * See lib/components/compare-code/compare-code.manifest.json for the component contract.
@@ -15058,6 +15063,16 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
   max-width: 100%;
 }
 
+
+/* At hero/bleed the chart title lifts into the masthead Cell, vacating the
+ * chart-header — but its decorative divider (`.chart-header::after`, a short
+ * centered rule) and any residual eyebrow/subtitle would then float orphaned in
+ * the empty band. Hide them on EVERY chart type at hero/bleed. */
+section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header::after,
+section.chart-frame:is(.claim-hero, .claim-bleed) .chart-eyebrow,
+section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle {
+  display: none;
+}
 
 /* ── CLAIM · hero (chart family) ── the chart layer of the universal `claim-hero`
  * preset (2026-07-03 decision; absorbs the retired chart-only `cover` modifier,
