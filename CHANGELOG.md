@@ -53,7 +53,28 @@ in patch versions.
   so global and deck controls no longer read as one run. See
   `engineering/decisions/2026-07-03-studio-brand-mark-toolbar.md`.
 
+### Fixed
+
+- **Status markers now read on dark title/closing/divider slides.** These bookends paint
+  a dark surface but deliberately keep `color-scheme: light` (so their explicit headings
+  hold), which left an accent-colored marker (`pinned`/`revised`) resolving its
+  `light-dark()` color to the faint light value on the dark field — a barely-visible ring.
+  The marker `::before` now flips its own `color-scheme` to dark, so the label picks the
+  bright on-dark side (mirroring the inline-code chip rebind).
+
 ### Added
+
+- **`spectrum:` register — white-label the brand bar.** A deck front-matter register
+  controls the **spectrum** (the rainbow gradient bar every slide carries on its top
+  border, and a `divider` carries as a left rail): `spectrum: off` removes it for a clean
+  edge, `spectrum: solid` repaints it in the theme's single `--accent` (set the accent to
+  a client's brand color and the whole bar follows), `on` is the rainbow default. The
+  register targets the three brand-bar sites (top border, dark-canvas line, divider rail)
+  without touching the shared `--spectrum` token, so an author's `---` rules and other
+  spectrum-derived decorations survive `spectrum: off`; overridable per slide with a
+  `spectrum-<value>` token, validated by a new `unknown-spectrum` lint. Vocab:
+  `lib/core/resolve-spectrum.js`; design:
+  `engineering/decisions/2026-07-03-spectrum-register-white-label.md`.
 
 - **The Studio's Notes button is now a "This slide" drawer** — a context-sensitive
   editor for one slide's craft, beyond the speaker note. Toggle **dark** (tri-state:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getClassTokens } from './slide-directives';
-import { darkProvenance, finishProvenance, modeProvenance, setDark, setFinish, setMode, setStampStyle, setToneStyle, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { darkProvenance, finishProvenance, modeProvenance, setDark, setFinish, setMode, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 
 const TONE_STYLES = ['tone-rail', 'tone-edge', 'tone-glow'];
 
@@ -120,5 +120,29 @@ describe('tone-style provenance + override', () => {
 		expect(tokens).toContain('tone-glow');
 		expect(tokens).not.toContain('tone-edge');
 		expect(getClassTokens(setToneStyle(chunk, null, TONE_STYLES))).toEqual(['kpi', 'tone-pass']);
+	});
+});
+
+describe('spectrum provenance + override (brand bar)', () => {
+	it('off (rainbow default) when neither slide nor deck sets a brand bar', () => {
+		expect(spectrumProvenance('<!-- _class: kpi -->', '# deck').state).toBe('off');
+	});
+	it('inherited from the deck `spectrum:` register (off / solid)', () => {
+		const src = deck('spectrum: solid', '<!-- _class: kpi -->');
+		expect(spectrumProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'inherited', value: 'solid', deckValue: 'solid', inheritable: true });
+	});
+	it('a deck `spectrum: on` is the rainbow default, not an inherited override', () => {
+		const src = deck('spectrum: on', '<!-- _class: kpi -->');
+		expect(spectrumProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'off', inheritable: false });
+	});
+	it('on when the slide overrides with its own spectrum-* token', () => {
+		const src = deck('spectrum: solid', '<!-- _class: kpi spectrum-off -->');
+		expect(spectrumProvenance('<!-- _class: kpi spectrum-off -->', src)).toMatchObject({ state: 'on', value: 'off', deckValue: 'solid' });
+	});
+	it('setSpectrum writes off/solid, never stacks, and null clears to inherit/rainbow', () => {
+		let chunk = '<!-- _class: kpi spectrum-solid -->';
+		chunk = setSpectrum(chunk, 'off');
+		expect(getClassTokens(chunk).filter((t) => t.startsWith('spectrum-'))).toEqual(['spectrum-off']);
+		expect(getClassTokens(setSpectrum(chunk, null)).some((t) => t.startsWith('spectrum-'))).toBe(false);
 	});
 });

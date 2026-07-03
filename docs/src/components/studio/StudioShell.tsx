@@ -34,6 +34,7 @@ import { activeModeLabel, ModeMenuItems } from './ModePicker';
 import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
 import { SlideContext } from './SlideContext';
+import { activeSpectrumLabel, SpectrumMenuItems } from './SpectrumPicker';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
@@ -364,6 +365,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Named `renderMode` locally to avoid clashing with the light/dark `mode` below.
 	const renderMode = getFrontMatter(source, 'mode') || 'boardroom';
 	const setRenderMode = (value: string) => setSource((s) => setFrontMatter(s, 'mode', value === 'boardroom' ? null : value));
+	// The white-label brand bar (`spectrum:` register). `on` is the rainbow default, so it
+	// writes no key; off / solid write the register.
+	const spectrum = getFrontMatter(source, 'spectrum') || 'on';
+	const setSpectrum = (value: string) => setSource((s) => setFrontMatter(s, 'spectrum', value === 'on' ? null : value));
 	// The layout DEBUG overlay — a real deck setting (`debug:` front matter), so it
 	// rides in previewFm to the render and is stripped from every export. Off is the
 	// default; the reveal modes are on-hover / on-always, each with an optional
@@ -575,6 +580,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const activePalette = React.useMemo(() => activePaletteLabel(palette, savedMenu), [palette, savedMenu]);
 	const activeFin = React.useMemo(() => activeFinishLabel(finish, savedFinishMenu), [finish, savedFinishMenu]);
 	const activeMan = React.useMemo(() => activeModeLabel(renderMode), [renderMode]);
+	const activeSpec = React.useMemo(() => activeSpectrumLabel(spectrum), [spectrum]);
 	// Light/dark toggle — flips the shared `data-mode` (engine `light-dark()` resolves
 	// off it); the data-mode observer below pulls the new value into `mode` and the
 	// preview re-renders. Persisted via site-chrome so it survives a reload.
@@ -1110,6 +1116,19 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							))}
 						</div>
 					)}
+					<Field label="Brand bar">
+							{/* The white-label spectrum — the rainbow bar on the top border / divider
+							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
+							    the theme accent to a client's brand and Solid follows. */}
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Control aria-label="Choose brand bar"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activeSpec.swatch, backgroundSize: activeSpec.backgroundSize }} /><span className="truncate">{activeSpec.label}</span></span> <ChevronDown className="size-3.5" /></Control>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end" className="w-56">
+									<SpectrumMenuItems spectrum={spectrum} onPick={setSpectrum} />
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</Field>
 					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 				<Field label="Running header"><Toggle label="Running header" on={headerFooter} onClick={toggleHeaderFooter} /></Field>
 			</InspGroup>

@@ -317,6 +317,38 @@ describe('markdown-it-plugins', () => {
     assert.deepEqual(cls, ['title'], `unknown shapes should add nothing; got [${cls.join(', ')}]`);
   });
 
+  // ── deck-wide `spectrum:` register (white-label brand bar) ─────────────
+
+  test('deckClassPropagate: `spectrum: off` / `solid` propagate the token; `on`/unknown add nothing', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    for (const [v, expected] of [['off', 'spectrum-off'], ['solid', 'spectrum-solid']]) {
+      const md = ['---', `spectrum: ${v}`, '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
+      const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+      assert.equal(sections.length, 2);
+      for (const cls of sections) assert.ok(cls.includes(expected), `spectrum: ${v} missing '${expected}'; got [${cls.join(', ')}]`);
+      assert.ok(sections[1].includes('cards-grid'), `slide 2 lost 'cards-grid'; got [${sections[1].join(', ')}]`);
+    }
+    for (const v of ['on', 'nonsense']) {
+      const cls = m.render(['---', `spectrum: ${v}`, '---', '', '<!-- _class: title -->', '# Slide'].join('\n')).html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+      assert.deepEqual(cls, ['title'], `spectrum: ${v} should add nothing; got [${cls.join(', ')}]`);
+    }
+  });
+
+  test('deckClassPropagate: a per-slide `spectrum-*` OVERRIDES the deck register (no two stacked)', () => {
+    const m = makeMarp(plugins.deckClassPropagate);
+    const md = [
+      '---', 'spectrum: solid', '---', '',
+      '# Slide 1 (deck solid)', '',
+      '---', '',
+      '<!-- _class: content spectrum-off -->',
+      '# Slide 2 (its own off wins)',
+    ].join('\n');
+    const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.ok(sections[0].includes('spectrum-solid'), `slide 1 should be solid; got [${sections[0].join(', ')}]`);
+    assert.ok(sections[1].includes('spectrum-off') && !sections[1].includes('spectrum-solid'),
+      `slide 2 should keep its own off, not inherit solid; got [${sections[1].join(', ')}]`);
+  });
+
   // The meta, progress and watermark Tiles are self-contained Form Tiles (issue
   // #356): each owns its kernel + cross-path parity pin in test/unit/forms/
   // <id>-tile.test.js, so their coverage is no longer here.

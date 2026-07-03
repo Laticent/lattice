@@ -75,6 +75,7 @@ export function buildVocabSets(vocab) {
 	if (v.splitNames) sets.splitNames = v.splitNames; // deck-wide `split:` validator
 	if (v.stampStyleNames) sets.stampStyleNames = v.stampStyleNames; // deck-wide `stamp:` validator
 	if (v.toneStyleNames) sets.toneStyleNames = v.toneStyleNames; // deck-wide `tone:` validator
+	if (v.spectrumNames) sets.spectrumNames = v.spectrumNames; // deck-wide `spectrum:` validator
 	if (v.capacity) sets.capacity = v.capacity; // per-layout content-capacity contract
 	if (v.exclusiveAxes) sets.exclusiveAxes = v.exclusiveAxes; // conflicting-variants axes
 	return sets;

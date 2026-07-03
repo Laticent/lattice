@@ -90,4 +90,14 @@ describe('resolve-stamp', () => {
     assert.ok(!/section\.divider::before/.test(css), 'divider must not paint its rail with ::before — it collides with the state-stamp ::before');
     assert.match(css, /section\.divider\s*\{[^}]*background:[^}]*var\(--spectrum/, 'the divider rail should ride the section background gradient');
   });
+
+  // Non-flipping dark bookends (title/closing/dark divider) keep color-scheme:light, so
+  // the marker ::before must flip its OWN color-scheme to dark or the light-dark()
+  // --stamp-color reads faint on the dark field (pinned/revised bug). Guard the rebind.
+  test('the marker ::before flips color-scheme:dark on the non-flipping dark bookends', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
+    const rule = css.match(/section:is\(\.title, \.closing\)::before,\s*section\.divider:not\(\.light\)::before\s*\{[^}]*\}/);
+    assert.ok(rule, 'expected a color-scheme rebind on the title/closing/divider marker ::before');
+    assert.match(rule[0], /color-scheme:\s*dark/, 'the bookend marker ::before should flip color-scheme to dark');
+  });
 });

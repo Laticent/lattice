@@ -655,6 +655,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.claimNames) findings.push(...findUnknownClaim(source, vocab.claimNames));
       if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
       if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
+      if (vocab.spectrumNames) findings.push(...findUnknownSpectrum(source, vocab.spectrumNames));
       findings.push(...findRetiredBackdrop(source));
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
@@ -975,6 +976,24 @@ ${indent}   - ${body.trim()}`;
         fix: `Set front-matter \`tone:\` to one of: ${[...toneStyleNames].join(", ")}.`
       }];
     }
+    function findUnknownSpectrum(source, spectrumNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmSpectrum = fmBlock[1].match(/^\s*spectrum:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmSpectrum) return [];
+      const value = fmSpectrum[1].trim();
+      const known = new Set([...spectrumNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-spectrum",
+        severity: "warning",
+        classToken: value,
+        line: fmSpectrum[0].trim(),
+        message: `'${value}' is not a known spectrum value \u2014 the deck would silently render the rainbow default`,
+        fix: `Set front-matter \`spectrum:\` to one of: ${[...spectrumNames].join(", ")}.`
+      }];
+    }
     function findRetiredBackdrop(source) {
       const fmBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
@@ -1059,6 +1078,7 @@ ${indent}   - ${body.trim()}`;
       findUnknownMode,
       findUnknownStamp,
       findUnknownToneStyle,
+      findUnknownSpectrum,
       nearestRegion,
       editDistance,
       isKnownModifier,

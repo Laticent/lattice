@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { cn } from '@/lib/utils';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { darkProvenance, deckDefaults, finishProvenance, setDark, setFinish, setStampStyle, setToneStyle, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { darkProvenance, deckDefaults, finishProvenance, setDark, setFinish, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 
 type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
 type LintVocab = {
@@ -206,6 +206,20 @@ export function SlideContext(props: SlideContextProps) {
 	];
 	const onFinish = (v: string) => onMutate((c) => setFinish(c, v === '__inherit__' ? null : v === '__none__' ? 'none' : v));
 
+	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
+	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
+	// deck sets off/solid the head reads "Inherit — <deck>"; otherwise it's the rainbow.
+	const spectrum = spectrumProvenance(chunk, source);
+	const spectrumValue = spectrum.state === 'on' ? (spectrum.value ?? '__inherit__') : '__inherit__';
+	const spectrumOptions = [
+		spectrum.inheritable
+			? { label: `Inherit — ${cap(spectrum.deckValue ?? '')}`, value: '__inherit__' }
+			: { label: 'Rainbow', value: '__inherit__' },
+		{ label: 'None', value: 'off' },
+		{ label: 'Solid accent', value: 'solid' },
+	];
+	const onSpectrum = (v: string) => onMutate((c) => setSpectrum(c, v === '__inherit__' ? null : v));
+
 	// Decoration — the featured tint / mark phrases from the generated group. Each is a
 	// single-select; applying one clears the other members of its kind (tints also clear
 	// any `at-*` placement + `treatment-none`).
@@ -327,6 +341,9 @@ export function SlideContext(props: SlideContextProps) {
 								</Row>
 								<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined}>
 									<Picker ariaLabel="Slide finish" value={finishValue} onChange={onFinish} options={finishOptions} />
+								</Row>
+								<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined}>
+									<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
 								</Row>
 							</Section>
 
