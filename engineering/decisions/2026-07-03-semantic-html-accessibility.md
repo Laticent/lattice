@@ -692,6 +692,22 @@ under one `<h1>` is valid; `prefers-reduced-motion` is already respected for bui
 reveals (vestibular is the best-covered population); and the §8 gates are
 well-designed. **The semantic base is the right thing to build on.**
 
+**Credit where the CVD baseline is already strong (correction to an early
+overstatement).** Lattice ships **5 colorblind themes** (`a11y-base`,
+`-deuteranopia`, `-protanopia`, `-tritanopia`, `-achromatopsia`) AND
+`lib/core/accessibility-textures.js` — a shared `<defs>` of **12 distinct SVG
+`<pattern>` geometries** that texture **chart marks** (`chart-family.js:319`,
+`fill:url(#latt-a11y-tex-N)`) **and their legend swatches** (`svg-legend.js:218`).
+So categorical **chart series already carry a non-color channel *in the SVG***, and
+the legend maps by texture — genuine WCAG 1.4.1 redundant encoding reaching the
+charts, not just CSS. Two scoping facts: it is **opt-in via theme** (inert unless an
+`a11y-*` theme wires the fills — a *normal*-theme deck's chart fills are still
+color-only, and a viewer of a static export can't switch it on), and it covers chart
+**series** — **not** the tone rail (G4) and **not** blind-user *data* equivalence
+(G5, a different population). Bonus: the pattern **geometry survives forced-colors**
+(hues forced, shapes remain distinct), so a11y-themed charts are more robust in
+Windows HCM than G7 implies.
+
 But the base is not the whole goal. The round surfaced gaps in **layers above the
 HTML** — the shipped artifacts, low-vision reflow, forced-colors, and data
 equivalence — plus **two factual corrections to this doc**. These are tracked here
@@ -717,10 +733,10 @@ real gap, safe to sequence after the base lands).
 | **G1** | **PPTX is image-per-slide with no `altText`** (`pptx-export.js:57-63`); **PDF is untagged** with no `lang`/`title`/structure (`lattice-emulator.js:1791`, `:1449`) | every AT user of the *shipped* files | 1.1.1, 1.4.5, 2.4.2, 3.1.1 | **[FOUNDATION for the cheap wins; LATER for full tagging]** | Now: add `lang` + `<title>` to the shell (flows into Chrome's auto-tag `/Lang` + title); pass `altText` to PPTX `addImage` (from the slide heading). Later: a real tagged-PDF pipeline OR document PDF/PPTX as **known-degraded** and route AT users to the HTML export. **Never claim these formats accessible until then.** |
 | **G2** | **No `<title>` on the export shell** (`lattice-emulator.js:1450`) — even the target snippet omitted it | all AT + tabbed browsing | **2.4.2** (A) | **[FOUNDATION]** | Emit `<title>` from the deck title. One line; ships with the shell landmark commit. |
 | **G3** | **Pagination is a bare "2"** — no context | SR/braille orientation | **1.3.1** (not 4.1.2 — checker correction) | **[FOUNDATION]** | `aria-label="Slide 2 of 7"` (or visually-hidden "Slide "/" of 7"), sourced from deck length. Cheapest high-value win. |
-| **G4** | **Tone rail is color-only** (`box-shadow`, `base.variants.css:95`); **status is a CSS `::after`** (`status.css`) — both AT-invisible | colorblind (sighted!) + SR | **1.4.1** (A), 1.3.1 | **[FOUNDATION]** | Status → real DOM text (already in §4A). Tone → a **VISIBLE** non-color cue (icon/label/shape), not just `sr-only` — `sr-only` helps SR (1.3.1) but does **NOT** satisfy 1.4.1 for sighted colorblind users (checker A7 correction to Finding #2). |
+| **G4** | **Tone rail is color-only** (`box-shadow`, `base.variants.css:95`); **status is a CSS `::after`** (`status.css`) — both AT-invisible. *(Note: this is the NON-chart residue — chart series ARE textured, see the CVD-credit above; tone/status are not.)* | colorblind (sighted!) + SR | **1.4.1** (A), 1.3.1 | **[FOUNDATION]** | Status → real DOM text (already in §4A). Tone → a **VISIBLE** non-color cue (icon/label/shape) — mirror the existing `accessibility-textures` idea onto the rail, don't leave it hue-only; `sr-only` helps SR (1.3.1) but does **NOT** satisfy 1.4.1 for sighted colorblind users (checker A7 correction to Finding #2). |
 | **G5** | **SVG charts name the *type*, not the *data*** — `<desc>` is a conclusion, not equivalence | blind users on chart/diagram slides | **1.1.1** (A) | **[LATER]** | Emit a visually-hidden data table (quadrant: vendor×reach×depth) / ordered step list (diagram: nodes+edges) from the same structured source that draws the SVG (single source → can't drift). |
 | **G6** | **Fixed-px canvas can't reflow**; the fluid viewer is opt-in, HTML-only, and clips dense slides (`base.fluid-view.css`) | low-vision zoom/reflow (the largest population) | **1.4.10, 1.4.4, 1.4.12** (AA) | **[LATER — architectural]** | Finish the fluid viewer as the reflow answer (default-on narrow, pair with re-pagination so dense slides reflow not clip); the *shared* PDF/PPTX can't reflow → route reflow users to HTML and mark PDF/PPTX non-conformant for 1.4.10. |
-| **G7** | **Zero forced-colors handling** (grep: no `forced-colors`/`prefers-contrast` in `lib/**`); shadow/hue signals vanish in Windows HCM | Windows High Contrast / photosensitivity | 1.4.1, 1.4.11 | **[LATER]** | A `@media (forced-colors: active)` pass: re-express shadow state as `outline`/`border` (kept in HCM), pattern+label charts, opaque backing behind `.image-text`. CVD-safe palettes do **not** cover this. |
+| **G7** | **Zero forced-colors handling** (grep: no `forced-colors`/`prefers-contrast` in `lib/**`); shadow/hue signals vanish in Windows HCM. *(Charts partly survive: the SVG texture geometry (§CVD-credit) stays distinct when hues are forced — but only under an `a11y-*` theme, and tone/status/scrim don't.)* | Windows High Contrast / photosensitivity | 1.4.1, 1.4.11 | **[LATER]** | A `@media (forced-colors: active)` pass: re-express shadow state as `outline`/`border` (kept in HCM), opaque backing behind `.image-text`, and — cheap win — make chart textures active in forced-colors regardless of theme. CVD-safe *palettes* don't cover this (though the texture engine partly does for charts). |
 | **G8** | **Running head/foot repeated in the AT tree on every slide** | braille / swipe-nav verbosity | 1.3.1 (quality) | **[LATER]** | If it's print chrome (confidentiality notice), `aria-hidden` it (state it once at document level); else expose once, not per-slide. |
 | **G9** | **One skip link, no TOC/inter-slide nav** for a long deck; generic slide sections | keyboard/switch/SR navigation | 2.4.1 (quality), 2.4.6 | **[LATER]** | Emit a `<nav aria-label="Slides">` table of contents. Note the Fork-A tension (checker A8): naming every slide `<section>` for the rotor is the *right* call at deck-scale even though §3 warns against it at slide-scale — revisit the threshold. |
 | **G10** | **No automated a11y gate** (no axe/pa11y/jest-axe anywhere); §8 gates are structural-only | regression over time | governance | **[FOUNDATION]** | Add `axe-core` on rendered gallery HTML in CI (cheap; closes the "new component ships div-soup" hole) alongside the §8 structural gates. Later: a periodic tagged-PDF/PPTX-alt check. |
