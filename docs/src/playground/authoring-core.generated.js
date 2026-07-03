@@ -364,6 +364,33 @@ ${indent}   - ${body.trim()}`;
             fix: "Check the spelling against dist/docs/components.json (component names) or design/design-system.md \xA76.5 (modifiers)."
           });
         }
+        const exclusiveAxes = vocab.exclusiveAxes || {};
+        for (const [axis, members] of Object.entries(exclusiveAxes)) {
+          const hits = tokens.filter((t) => members.includes(t));
+          if (hits.length > 1) {
+            findings.push({
+              slide: idx - fm + 1,
+              rule: "conflicting-variants",
+              severity: "warning",
+              classToken: hits[1],
+              line: m[0],
+              message: `'${hits.join("' and '")}' conflict \u2014 a slide takes one ${axis} at a time`,
+              fix: `Keep a single ${axis} token; remove the other${hits.length > 2 ? "s" : ""}.`
+            });
+          }
+        }
+        const finishHits = tokens.filter((t) => /^finish-.+/.test(t));
+        if (finishHits.length > 1) {
+          findings.push({
+            slide: idx - fm + 1,
+            rule: "conflicting-variants",
+            severity: "warning",
+            classToken: finishHits[1],
+            line: m[0],
+            message: `${finishHits.length} finish selectors on one slide \u2014 only one renders`,
+            fix: "Keep a single finish-<name> (or finish-none); remove the others."
+          });
+        }
         if (tokens.includes("qr")) {
           const URL = /^(https?:\/\/|mailto:|tel:|WIFI:|BEGIN:VCARD)/i;
           let payloads = 0, empties = 0;
