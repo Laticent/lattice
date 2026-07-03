@@ -10,7 +10,7 @@ components, opt-in via class.
 
 | File | What it implements |
 |---|---|
-| `shared.styles.css` | The three semi-universal modifiers: `compact`, `loose`, `accent`. |
+| `shared.styles.css` | The semi-universal modifiers: `compact`, `accent`. |
 
 This file used to live at `lib/_semi-universal.css`. The role hasn't
 changed, only the name. Future shared modifiers land here too as the
@@ -31,15 +31,8 @@ section by 1-2 lines.
 <!-- _class: cards-grid compact -->
 ```
 
-## `loose`
-
-Inverse of `compact` — grows the spacing scale ~25%. Reach for it when
-a slide carries a single editorial point and you want the page to feel
-deliberately quiet.
-
-```markdown
-<!-- _class: content loose -->
-```
+<!-- `loose` (the inverse of compact) was retired 2026-07-03: 0 real uses, and
+     `claim` now owns "give the content the stage." -->
 
 ## `accent`
 

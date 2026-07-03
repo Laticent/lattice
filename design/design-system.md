@@ -32,7 +32,7 @@ Symptoms a new author hits:
 - "Charts" (quadrant, radar, native SVG) and "diagrams" (Mermaid) are
   authored, classed, and rendered three different ways even when they
   express the same thing (e.g. `matrix-2x2` vs `quadrant`).
-- Cross-cutting modifiers (`dark`, `compact`, `loose`, `accent`,
+- Cross-cutting modifiers (`dark`, `compact`, `accent`,
   `mirror`, `numbered`) work on some layouts and silently no-op on
   others. The matrix of valid combinations isn't written down.
 - New layouts get added ad hoc with inconsistent naming
@@ -65,7 +65,7 @@ Every Lattice slide is a stack of four orthogonal decisions:
 │                                                            │     contract each
 ├────────────────────────────────────────────────────────────┤
 │  FINISH     palette tokens + cross-cutting modifiers       │  ← already
-│             dark · compact · loose · accent · mirror ·     │     clean
+│             dark · compact · accent · mirror ·     │     clean
 │             numbered · background · period                 │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -282,7 +282,7 @@ lib/components/cards-grid.json
   "substance": "structure",
   "description": "2–4 parallel items, similar weight, scannable in a grid.",
   "purpose": "Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides.",
-  "variants": ["compact", "loose", "dark", "mirror", "accent", "numbered", "four", "three"],
+  "variants": ["compact", "dark", "mirror", "accent", "numbered", "four", "three"],
   "slots": {
     "title":  { "selector": "h2",         "required": true,  "description": "Slide heading." },
     "cards":  { "selector": "ul > li",    "required": true,  "description": "Each list item becomes one card. A top-level bullet is the card title (renders bold); an indented bullet underneath carries the body text." },
@@ -309,7 +309,7 @@ integration) is unchanged. The manifest is metadata, not behavior.
 ### 6.5 Universal variants — four tiers
 
 Variants don't all belong to one component. Some apply to every layout
-("dark", "with-period"); some apply to most ("compact", "loose",
+("dark", "with-period"); some apply to most ("compact",
 "accent"); some apply to a family of layouts ("checks-*" for the
 state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
@@ -365,7 +365,6 @@ not all. Manifests opt OUT via `excludes`; default is accepted.
 | Variant | Excluded by |
 |---|---|
 | `compact` | layouts with no internal density (bookends, single-canvas) |
-| `loose` | same |
 | `accent` | dense ledger layouts where the focal is ambiguous |
 | `claim-bleed` | prose-dense / table layouts where edge-to-edge crops content (`compare-table`, `list-tabular`, `glossary`, `inventory`, the legal ledgers) |
 
@@ -743,7 +742,7 @@ ordering bugs possible.
 2. `lib/_root.css` — `:root` tokens, font-face declarations
 3. `lib/_scaffold.css` — `section`, `header`, `footer`, pagination
 4. `lib/components/*/styles.css` — every per-component file (alphabetical)
-5. `lib/_semi-universal.css` — `compact`, `loose`, `accent` rules
+5. `lib/_semi-universal.css` — `compact`, `accent` rules
 6. `lib/_universal.css` — `dark`, `with-period`, `tint-*`, `mark-*`, State, Tone, Chrome
 7. `lib/_diagram-overrides.css` — Mermaid theme overrides
 

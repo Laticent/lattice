@@ -205,7 +205,7 @@ function renderDocs(m) {
 
   lines.push('## Universal modifiers');
   lines.push('');
-  lines.push('This component accepts all universal variants (`dark`, `compact`, `loose`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.');
+  lines.push('This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.');
   lines.push('');
 
   if (Array.isArray(m.related) && m.related.length) {
@@ -252,8 +252,7 @@ function renderDocs(m) {
  * modifier (e.g. layouts that already declare `dark` in their default
  * chrome — title, divider, closing — get no extra dark composition).
  *
- * The set is bounded: dark / compact / accent. loose is the inverse of
- * compact and not separately interesting; mirror is layout-specific
+ * The set is bounded: dark / compact / accent. mirror is layout-specific
  * (only some layouts have asymmetric halves to flip).
  */
 const COMPOSITION_MODIFIERS = ['dark', 'compact', 'accent'];

@@ -353,13 +353,14 @@ describe('markdown-it-plugins', () => {
   // #356): each owns its kernel + cross-path parity pin in test/unit/forms/
   // <id>-tile.test.js, so their coverage is no longer here.
 
-  // ── Form deck-wide toggle (`form: off | standard | minimal`) ───────────
+  // ── Form deck-wide toggle (`form: off | standard`) ─────────────────────
 
   test('readFormMode: Form is ON BY DEFAULT — absent form: key → standard; off / false / no opt out', () => {
     for (const v of ['standard', 'true', 'on', 'yes', 'ON', '"standard"']) {
       assert.equal(plugins.readFormMode(`---\nform: ${v}\n---\n`), 'standard', v);
     }
-    assert.equal(plugins.readFormMode('---\nform: minimal\n---\n'), 'minimal');
+    // `form: minimal` was retired (2026-07-03) → resolves to standard now.
+    assert.equal(plugins.readFormMode('---\nform: minimal\n---\n'), 'standard');
     // Explicit opt-out — the only way to disable now.
     for (const v of ['false', 'off', 'no']) {
       assert.equal(plugins.readFormMode(`---\nform: ${v}\n---\n`), 'off', v);
@@ -381,10 +382,13 @@ describe('markdown-it-plugins', () => {
     }
   });
 
-  test('formToggleClass: `minimal` adds form + no-progress; `off` is a no-op', () => {
-    assert.equal(plugins.formToggleClass('content', 'minimal'), 'content form no-progress');
-    assert.equal(plugins.formToggleClass('divider', 'minimal'), 'divider'); // still skips bookends
+  test('formToggleClass: `off` is a no-op; retired `minimal` no longer stamps no-progress', () => {
     assert.equal(plugins.formToggleClass('content', 'off'), 'content');
+    // `form: minimal` is retired: a deck that still carries it resolves to standard
+    // (readFormMode above), so the toggle stamps only `form` — no auto `no-progress`.
+    // The "form, no rail" look is now the explicit `class: no-progress` chrome control.
+    const mode = plugins.readFormMode('---\nform: minimal\n---\n'); // → 'standard'
+    assert.equal(plugins.formToggleClass('content', mode), 'content form');
   });
 
   test('formToggleClass: respects explicit form / no-form; idempotent', () => {
@@ -393,7 +397,7 @@ describe('markdown-it-plugins', () => {
     assert.equal(plugins.formToggleClass(plugins.formToggleClass('content', 'standard'), 'standard'), 'content form');
   });
 
-  test('applyFormToggleToHtml: off no-ops; standard/minimal rewrite eligible sections', () => {
+  test('applyFormToggleToHtml: off no-ops; standard rewrites eligible sections', () => {
     const html =
       '<section class="content" data-lattice-slide="1"></section>' +
       '<section class="divider" data-lattice-slide="2"></section>' +
@@ -403,8 +407,10 @@ describe('markdown-it-plugins', () => {
     assert.match(std, /<section class="content form" data-lattice-slide="1">/);
     assert.match(std, /<section class="divider" data-lattice-slide="2">/, 'divider skipped');
     assert.match(std, /<section class="form" data-lattice-slide="3">/, 'bare slide gets a class attr');
+    // Retired `form: minimal` resolves to standard — no auto `no-progress` stamp.
     const min = plugins.applyFormToggleToHtml(html, '---\nform: minimal\n---\n');
-    assert.match(min, /<section class="content form no-progress" data-lattice-slide="1">/);
+    assert.match(min, /<section class="content form" data-lattice-slide="1">/);
+    assert.doesNotMatch(min, /no-progress/);
   });
 
   // ── applyDeckLogoToHtml ────────────────────────────────────────────────

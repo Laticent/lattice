@@ -16,14 +16,13 @@ const lintVocab = {
 		tone: ['tone-pass', 'tone-warn', 'tone-fail', 'tone-skip'],
 		scale: ['scale-l', 'scale-xl', 'scale-2xl'],
 		period: ['with-period', 'no-period'],
-		density: ['compact', 'loose'],
 	},
-	semiUniversalVariants: ['compact', 'loose', 'accent'],
+	semiUniversalVariants: ['compact', 'accent'],
 	finishNames: ['atrium', 'meridian'],
 	stampStyles: { boardroom: ['tab', 'notch', 'bracket', 'seal', 'pill'], range: ['ribbon', 'dot'] },
 	toneStyles: ['tone-rail', 'tone-edge', 'tone-glow'],
 };
-const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'loose', 'accent'] }];
+const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'accent'] }];
 
 function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	const onMutate = vi.fn();

@@ -258,7 +258,6 @@ export function SlideContext(props: SlideContextProps) {
 		...(finish.state === 'inherited' ? [`finish-${deck.finish}`] : []),
 	];
 	const scaleAxis = axes.scale ?? [];
-	const densityAxis = axes.density ?? [];
 	const toneAxis = axes.tone ?? groups.tone ?? [];
 	const stateGroup = groups.state ?? [];
 
@@ -387,14 +386,10 @@ export function SlideContext(props: SlideContextProps) {
 							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The colored strip on the slide's top edge (a divider shows it as a left rail). None removes it; Solid repaints it in the theme's accent.">
 								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
 							</Row>
-							{(accepts('compact') || accepts('loose')) && (
-								<Row label="Spacing" desc="Tightens or opens the space between elements on this slide.">
-									<Seg
-										ariaLabel="Density"
-										value={cur(densityAxis)}
-										onChange={(v) => groupSet(densityAxis, v)}
-										options={[{ label: 'Compact', value: 'compact' }, { label: 'Default', value: null }, { label: 'Loose', value: 'loose' }]}
-									/>
+							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
+							{accepts('compact') && (
+								<Row label="Compact" hint="tighter spacing" desc="Tightens the space between elements on this slide.">
+									<Switch label="Compact spacing" on={has('compact')} onClick={() => toggle('compact')} />
 								</Row>
 							)}
 							{accepts('accent') && <Row label="Accent" desc="Emphasizes this layout's key element in the theme's accent color."><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}

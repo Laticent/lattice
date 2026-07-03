@@ -124,14 +124,14 @@ export const CONFIG_PROFILES = Object.freeze({
 const TRUEY = /^(true|yes|on|1)$/i;
 const FALSEY = /^(false|no|off|0)$/i;
 
-// Canonicalise a `form:` value to one of the three modes. Mirrors readFormMode
-// in lib/integrations/markdown-it/plugins.js: 'standard' is the DEFAULT, so an
+// Canonicalise a `form:` value to a mode. Mirrors readFormMode in
+// lib/integrations/markdown-it/plugins.js: 'standard' is the DEFAULT, so an
 // absent/empty value (and any `on`/`true`/`yes`) resolves to standard; only the
-// explicit `off`/`false`/`no` opts out, and `minimal` drops the rail.
+// explicit `off`/`false`/`no` opts out. (`minimal` retired 2026-07-03 → resolves
+// to standard; its "no rail" look is now `class: no-progress`.)
 function formMode(raw) {
   const v = (raw == null ? '' : String(raw)).trim().toLowerCase();
   if (/^(off|false|no)$/.test(v)) return 'off';
-  if (v === 'minimal') return 'minimal';
   return 'standard';
 }
 
@@ -201,7 +201,7 @@ export function readFrontMatter(source) {
     footer: map.footer || '',
     class: map.class || '',
     // Absent `form:` → 'standard' (the default), so the drawer reflects that Form
-    // is on out of the box; an explicit `form: off` / `minimal` pre-fills as typed.
+    // is on out of the box; an explicit `form: off` pre-fills as typed.
     form: formMode(map.form),
     // `validate` is binary, default ON — surfaced as a boolean (like paginate) for
     // the switch. On unless the deck explicitly opts out with a falsey value.
@@ -224,8 +224,8 @@ function isDefault(key, value) {
   // default; only an explicit `validate: off` is written into the block.
   if (key === 'validate') return !FALSEY.test(String(value).trim());
   if (key === 'math') return value === '' || value === 'katex';
-  // `form` defaults to 'standard' (on) — that's the omitted value; only `off` /
-  // `minimal` are written into the block.
+  // `form` defaults to 'standard' (on) — that's the omitted value; only `off`
+  // is written into the block.
   if (key === 'form') return formMode(value) === 'standard';
   // 'none' is the named backdrop baseline — the same no-class result as omitting
   // finish, so it's treated as the default and dropped from the block.
@@ -251,7 +251,7 @@ function normalize(key, value) {
   if (key === 'validate') return value === false || FALSEY.test(String(value).trim()) ? 'off' : null;
   const v = (value == null ? '' : String(value)).trim();
   if (key === 'math') return v === '' || v === 'katex' ? null : v;
-  // `form`: standard (the default) omits the key; off / minimal are written.
+  // `form`: standard (the default) omits the key; only `off` is written.
   if (key === 'form') { const m = formMode(v); return m === 'standard' ? null : m; }
   // none = backdrop baseline → omit (same no-class render as no key at all).
   if (key === 'finish') { const f = v.toLowerCase(); return f === '' || f === 'none' ? null : f; }
@@ -516,11 +516,11 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
 
     // Form — the deck-wide composition model (masthead band + bay + rail). On by
     // default, so 'standard' leads and carries the "(default)" cue; pick 'off' to
-    // opt out or 'minimal' to drop the rail.
+    // opt out. (To drop just the rail, use the Section-rail chrome control —
+    // `class: no-progress`; the old `form: minimal` was retired 2026-07-03.)
     if (show('form')) {
       host.append(selectRow('form', 'Form', 'Masthead band, meta/status bay & progress rail, deck-wide', [
         ['standard', 'Standard — band, bay & rail (default)'],
-        ['minimal', 'Minimal — band & bay, no rail'],
         ['off', 'Off — no deck chrome'],
       ], fm.form));
     }
