@@ -771,3 +771,17 @@ section.chart-frame:is(.claim-hero, .claim-bleed)::after {
   z-index: 3;
   color: color-mix(in oklab, var(--text-heading) 62%, transparent);
 }
+/* Under Form the chart's title is LIFTED into the masthead Cell (not the
+ * `.chart-header` the sheen rules above target), and this block zeroes the
+ * section padding for the bleed — which would jam that kept title against the
+ * slide edge. Give the kept masthead a real inset (matching the caption gutter)
+ * and recede the meta bay: hero/bleed is the chart's stage, not a place for deck
+ * meta. The title reads cleanly at the top; the takeaway rides the bottom sheen
+ * band. The masthead hairline is dropped so nothing rules across the bleed. */
+section.chart-frame:is(.claim-hero, .claim-bleed) > .cell-masthead {
+  padding: var(--sp-sm) var(--cover-gutter) 0;
+  border-bottom: 0;
+}
+section.chart-frame:is(.claim-hero, .claim-bleed) .cell-masthead .masthead-bay {
+  display: none;
+}

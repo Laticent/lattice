@@ -198,6 +198,11 @@
         "tone-warn",
         "tone-fail",
         "tone-skip"
+      ],
+      "claim": [
+        "claim-quiet",
+        "claim-hero",
+        "claim-framed"
       ]
     },
     "semiUniversalVariants": [
@@ -225,6 +230,12 @@
       "density": [
         "compact",
         "loose"
+      ],
+      "claim": [
+        "claim-framed",
+        "claim-quiet",
+        "claim-hero",
+        "claim-bleed"
       ]
     },
     "familyModifiers": {
