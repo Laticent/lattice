@@ -56,6 +56,31 @@ describe('pptx-export', () => {
     await assert.rejects(() => writePptx(out, []), /no slide images/i);
   });
 
+  test('writes accessibility descriptions as image alt text, skipping empty ones', async () => {
+    const out = tmpFile();
+    // Three slides; only slides 1 and 3 carry a description (slide 2 is null).
+    await writePptx(
+      out,
+      [ONE_PX_PNG, ONE_PX_PNG, ONE_PX_PNG],
+      { title: 'Described Deck' },
+      [], // no notes
+      ['Revenue rose 40 percent over three quarters', null, 'A pie chart with three equal slices'],
+    );
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const slideParts = Object.keys(zip.files)
+      .filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+      .sort((a, b) => Number(a.match(/(\d+)\.xml$/)[1]) - Number(b.match(/(\d+)\.xml$/)[1]));
+    const xml = await Promise.all(slideParts.map((n) => zip.files[n].async('string')));
+    // OOXML alt text lands in the picture's cNvPr @descr. Assert the described
+    // slides carry their alt, the undescribed slide falls back to a neutral
+    // "Slide N" (NOT pptxgenjs's junk "preencoded.png" filename default).
+    assert.match(xml[0], /descr="[^"]*Revenue rose 40 percent/, 'slide 1 alt text missing');
+    assert.match(xml[2], /descr="[^"]*three equal slices/, 'slide 3 alt text missing');
+    assert.match(xml[1], /descr="Slide 2"/, 'slide 2 should fall back to a neutral alt');
+    assert.doesNotMatch(xml.join(''), /descr="preencoded/, 'must never ship the image filename as alt');
+  });
+
   // Read every notesSlide part's text, index-aligned by the notesSlideN filename.
   async function notesText(out) {
     const JSZip = require('jszip');
