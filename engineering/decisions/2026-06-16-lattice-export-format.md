@@ -8,11 +8,17 @@ last-status-update: 2026-06-16
 
 # The Lattice export format — a portable, self-contained deck that re-imports losslessly
 
-**Date:** 2026-06-16 · **Status:** design-decision (shape aligned with the
-owner; no code yet) · **Owner:** Sharmarke
+**Date:** 2026-06-16 · **Status:** design-decision; **project-format MVP shipped
+2026-07-04** · **Owner:** Sharmarke
 
-> **Not canonical / no shipped behaviour yet.** This fixes the *shape* of the
-> capability before any code lands. When this note and a shipped surface
+> **Partially shipped (project format MVP).** The `.lattice` **project zip** now
+> exists — `docs/src/components/studio/lattice-file.ts`: `deck.md` (verbatim source,
+> lossless round-trip) + `manifest.json` (metadata + the deck's review **comments**),
+> exported via Share → "Lattice project (.lattice)" and re-imported (source +
+> comments restored). This delivers the "comments travel with the deck" job
+> (`2026-07-04-comments-layer.md`). Still design-only: the self-contained **`.html`
+> player** (Decision 2), the full **theme/asset envelope** (fonts/images/CSS
+> inlining), and LFM `grammar.json` packaging. When this note and a shipped surface
 > disagree, the shipped surface wins.
 
 Related: [`2026-06-13-export-to-marp.md`](2026-06-13-export-to-marp.md) (the

@@ -159,6 +159,17 @@ export async function shareMarkdown(options: SingleSlideOptions, source: string,
 	ex.exportMarkdown(embedFinishInMarkdown(source, finishClass, finishCss), name, theme, []);
 }
 
+/** The `.lattice` project file — the deck source + its review comments in one zip,
+ *  so comments travel with the deck (re-import restores both). `now` is stamped by
+ *  the caller (app code) into the manifest; the download name gets a `.lattice` ext. */
+export async function shareLattice(source: string, name: string, deckTitle: string, deckId: string | undefined, now: number): Promise<void> {
+	const [{ exportLatticeBlob }, { listComments }] = await Promise.all([import('./lattice-file'), import('./slide-comments')]);
+	const comments = deckId ? listComments(deckId) : [];
+	const blob = await exportLatticeBlob(source, deckTitle, comments, now);
+	const { downloadBlob } = await import('./download');
+	downloadBlob(`${name}.lattice`, blob);
+}
+
 /** The self-contained Marp ZIP bundle (renders anywhere). */
 export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string): Promise<void> {
 	await ensureReady(options); // PG.marp must be present

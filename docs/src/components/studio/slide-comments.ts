@@ -52,7 +52,12 @@ function isComment(c: unknown): c is SlideComment {
 	// undefined body an empty bubble. A malformed entry is dropped, not shown.
 	return (
 		typeof o.id === 'string' &&
+		// A 1-based slide index — a positive integer. Drops junk anchors (0, -3, 1.5)
+		// from an imported .lattice; an in-range-but-stale index is the documented
+		// index-anchoring limit, not something this guard can catch.
 		typeof o.slide === 'number' &&
+		Number.isInteger(o.slide) &&
+		o.slide >= 1 &&
 		typeof o.body === 'string' &&
 		typeof o.author === 'string' &&
 		typeof o.createdAt === 'number' &&
@@ -131,4 +136,20 @@ export function clearComments(deckId: string): void {
 	} catch {
 		/* storage unavailable — non-fatal */
 	}
+}
+
+/**
+ * Replace a deck's comments wholesale — for restoring a `.lattice` import onto a
+ * freshly-created deck id. Untrusted input (a shared file), so every entry is run
+ * through the same `isComment` guard `readAll` uses; malformed ones are dropped.
+ * Returns how many survived. No-ops (clears) on an empty/invalid array.
+ */
+export function importComments(deckId: string, comments: unknown): number {
+	const arr = Array.isArray(comments) ? comments.filter(isComment) : [];
+	if (!arr.length) {
+		clearComments(deckId);
+		return 0;
+	}
+	writeAll(deckId, arr);
+	return arr.length;
 }

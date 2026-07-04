@@ -5,6 +5,7 @@ import {
 	commentsForSlide,
 	deleteComment,
 	editComment,
+	importComments,
 	listComments,
 	openCountForSlide,
 	setResolved,
@@ -85,6 +86,19 @@ describe('slide-comments store', () => {
 		const got = listComments('corrupt');
 		expect(got).toHaveLength(1);
 		expect(got[0].id).toBe('ok');
+	});
+
+	it('importComments restores a .lattice payload, dropping malformed entries', () => {
+		const good = { id: 'ok', slide: 1, author: 'You', body: 'real', createdAt: 1000, resolved: false };
+		const bad = { id: 'x', slide: 1 }; // missing display-critical fields
+		const n = importComments(DECK, [good, bad]);
+		expect(n).toBe(1);
+		expect(listComments(DECK)).toHaveLength(1);
+		expect(listComments(DECK)[0].body).toBe('real');
+		// An empty/invalid payload clears the deck's comments.
+		expect(importComments(DECK, [])).toBe(0);
+		expect(listComments(DECK)).toHaveLength(0);
+		expect(importComments(DECK, 'nonsense')).toBe(0);
 	});
 
 	it('clearComments removes the storage key entirely (no orphaned empty array)', () => {

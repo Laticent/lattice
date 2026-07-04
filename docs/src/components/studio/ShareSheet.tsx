@@ -1,4 +1,4 @@
-import { ChevronRight, Download, FileText, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
+import { ChevronRight, Download, FileArchive, FileText, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
 import * as React from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -7,7 +7,7 @@ import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
-import { shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintDeck, sharePrintSource } from './share-export';
+import { shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintDeck, sharePrintSource } from './share-export';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
 // the rendered ARTIFACT vs hand off the SOURCE. Every row is REAL now: the source
@@ -29,7 +29,6 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// PDF (where comments can ride along as sticky notes). Reset to the menu whenever
 	// the sheet re-opens so it never lands mid-flow.
 	const [view, setView] = React.useState<'menu' | 'pdf'>('menu');
-	// Reset to the menu whenever the sheet re-opens so it never lands mid-flow.
 	React.useEffect(() => { if (open) setView('menu'); }, [open]);
 	// A saved finish renders via a `finish finish-<slug>` class the engine doesn't know
 	// + its generated CSS. The two handoffs treat it differently:
@@ -105,6 +104,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 							<section className="space-y-2">
 								<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the source</h3>
 								<p className="text-xs text-muted-foreground">The Markdown — for editing, review, or portability.</p>
+								<Row busy={busy === 'lattice'} icon={<FileArchive className="size-4" />} title="Lattice project (.lattice)" desc="Deck + comments in one file — re-opens here" onClick={() => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now()))} />
 								<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss))} />
 								<Row dev busy={busy === 'marp'} icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss))} />
 								<Row dev icon={<Printer className="size-4" />} title="Print source" desc="The Markdown, monospace — for markup &amp; review" onClick={() => run('printsrc', 'Print source', () => sharePrintSource(source, name))} />
