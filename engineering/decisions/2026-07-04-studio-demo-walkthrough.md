@@ -118,6 +118,22 @@ change flows back through the editor's own `onChange`. A periodic "render breath
 past the preview's ~140 ms debounce) keeps the preview repainting mid-slide, so editor and
 preview stay in sync instead of the preview freezing on the prior slide during a burst.
 
+*The seed-append race (iPad).* `typeTail` appends at the doc's current end. "My First Deck"
+is created via `createDeck`, which seeds `NEW_DECK_TEMPLATE` (a `<!-- _class: title -->`
+starter); `createDemoFirstDeck` then blanks the canvas with `setSource('')`. But `setSource`
+reaches the editor only through the async `value`-prop sync — and on a slow surface (real
+iPad Safari) that can lag the first `typeTail`, which then appends the board deck AFTER the
+seed. Two `_class: title` comments land in slide 1 → `readClassDirective` sees a duplicate →
+the slide's settings drawer goes read-only (only Notes/Comments; no Look/Status/Decoration/
+Chrome), so the closing flourish can't show finishes at all. Fixed by adding
+`EditorHandle.resetDoc(text)` — a SYNCHRONOUS whole-doc replace via a direct view dispatch —
+and calling `resetDoc('')` in `createDemoFirstDeck`, so the canvas is provably empty before
+the first keystroke regardless of the value-sync's timing. Reproduced-clean in headless
+Chromium at desktop / tablet / mobile on dev AND the production build (every slide keeps a
+single `_class`, all six drawer tabs render); the failing surface itself — iPad/iPadOS
+Safari — is **UNVERIFIED** here (not reachable from the sandbox, HARD RULE #23), so the
+on-device confirmation is owed.
+
 **New drivers, all real.** The storyboard reaches the deck switcher (a controlled Radix
 menu), the per-slide settings drawer (`setNotesOpen` + the drawer's own `mutateActiveSlide`
 funnel, applying the real `setFinish` / `setGroupToken` / `setStampStyle` transforms), and

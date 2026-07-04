@@ -92,6 +92,13 @@ export type EditorHandle = {
 	 *  typing, and the change flows back out through `onChange` like any edit. Carries
 	 *  no user-event annotation, so it does NOT trip `onUserEdit` (the first-edit cue). */
 	typeTail: (text: string) => void;
+	/** Replace the WHOLE document with `text` SYNCHRONOUSLY (a direct view dispatch,
+	 *  not the async `value`-prop sync). The demo calls `resetDoc('')` before it starts
+	 *  typing so the first `typeTail` can never append onto a stale seed (e.g. a freshly
+	 *  created deck's `NEW_DECK_TEMPLATE`) — which would duplicate the slide's `_class`
+	 *  and flip its settings drawer read-only. No user-event annotation (won't trip
+	 *  `onUserEdit`); caret parked at the top so an empty reset can't jump the preview. */
+	resetDoc: (text: string) => void;
 };
 
 export const Editor = React.forwardRef<EditorHandle, {
@@ -257,6 +264,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// Insert at the tail, caret to the new end, scroll to follow. No userEvent
 			// annotation → onUserEdit stays silent (this is the demo, not the author).
 			v.dispatch({ changes: { from: end, insert: text }, selection: { anchor: end + text.length }, scrollIntoView: true });
+		},
+		resetDoc(text: string) {
+			const v = viewRef.current;
+			if (!v || v.state.doc.toString() === text) return;
+			// Whole-doc replace, right now — the demo's guarantee that the canvas is exactly
+			// `text` before the first typeTail (see the handle doc above). Caret to the top.
+			lastSlideRef.current = 0;
+			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text }, selection: { anchor: 0 } });
 		},
 	}));
 

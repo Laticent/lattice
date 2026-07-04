@@ -547,6 +547,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setDecks(loadDeckList());
 		setDeck(d);
 		setSource(''); // a blank canvas — the demo types the board deck into it
+		// Clear the editor doc SYNCHRONOUSLY too. `setSource('')` only reaches the editor
+		// through the async value-prop sync; on a slow surface (real iPad Safari) that can
+		// lag the demo's first typeTail, which would then append the board deck AFTER the
+		// new deck's seeded template — duplicating slide 1's `_class` and collapsing its
+		// settings drawer to just Notes/Comments. A direct doc reset closes that race.
+		editorRef.current?.resetDoc('');
 		setActiveSlide(0);
 		setView('compose');
 		notify('Created “My First Deck.”');
