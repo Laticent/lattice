@@ -85,16 +85,41 @@ inspector should hold *settings*, not actions or preview modes:
 - **Read group removed.** Voice/Pace only toasted "in the full app"; a stub
   control in a settings panel erodes trust, so it's gone until read-aloud
   settings are real.
-- **Version history → its own sheet.** Save/restore is an action, not a deck
-  property; it now opens from a top-bar **History** button (desktop) and the
-  compact ⋯ overflow. Restore is always visible (was hover-only) so it works on
-  touch.
-- **Lenses → a "View" dropdown in the preview header.** The reader lens filters
-  the *preview* (the source stays whole), so it belongs on the preview, not in
-  deck settings. A `Clear reader lens` affordance is kept.
+- **Version history → its own sheet, launched from the editor header.** Restore
+  is always visible (was hover-only) so it works on touch. Placement was
+  contested and settled by a second red-team / inversion / independent-judge
+  round (below).
+- **Lenses → a "View" dropdown in the preview header** (and the same dropdown in
+  Present mode, replacing a horizontally-scrolling chip row that clipped on
+  phones). The reader lens filters the *preview* (the source stays whole), so it
+  belongs on the preview, not in deck settings. A `Clear reader lens` affordance
+  is kept.
 - **Light visual pass.** Dropdown controls share a steadier `min-width`; the
   decluttering itself (inspector down to Look · Running marks · Authoring) is
   the biggest visual win.
+
+### Where does Version history live? (red-team + inversion + judge)
+
+First shipped as a **top-nav History icon**. The owner pushed back: it belongs by
+the deck controls, not floating in the top bar. A three-lens round (red-team of
+the placement · inversion of the premises · independent judge) resolved it:
+
+- **It's recovery, not a setting.** Version history auto-snapshots *before every
+  AI edit* — it's undo's sibling, a safety net reached under pressure. So it must
+  be **always visible**, never gated behind a panel that defaults closed. That
+  vindicates moving it *out* of the inspector (industry does the same — Docs /
+  Figma / Keynote / Notion all put version history in app chrome, never a
+  properties panel).
+- **The real defect** wasn't "top bar" — it was that the icon sat among the
+  *panel-toggle* buttons (Architect / Inspector) and so read as a toggle while it
+  actually launches a modal.
+- **Resolution (owner's call):** dock the History button in the **editor-pane
+  header, immediately beside the Slide-settings launcher** — always visible, at
+  every breakpoint (the editor header is shared; on the mobile preview pane it
+  rides the pane bar next to Slide settings). This co-locates it with the
+  editing controls (the owner's instinct) *and* keeps the recovery path one tap
+  away without opening a closed panel. The top-nav icon and the ⋯ overflow item
+  are removed.
 
 Still deferred: reconciling the Lenses/Architect exec-summary duplication, and
 aligning the per-slide drawer's "Chrome" tab name with "Running marks".

@@ -42,10 +42,11 @@ in patch versions.
 - **Studio: the Deck inspector is now settings-only — actions and preview modes
   moved out.** Following the same red-team, three things that were not deck
   *settings* left the inspector: the **Read** group (Voice/Pace were
-  non-functional stubs) is removed; **Version history** (save/restore is an
-  action, not a deck property) moves to its own sheet opened from a top-bar
-  History button (and the compact ⋯ overflow), with Restore always visible for
-  touch; and the **Lenses** reader-view (it filters the *preview*, the source
+  non-functional stubs) is removed; **Version history** (a recovery affordance —
+  it auto-snapshots before every AI edit — not a deck property) moves to its own
+  sheet, launched from a **History button in the editor header beside the
+  Slide-settings launcher** (always visible, at every breakpoint), with Restore
+  always visible for touch; and the **Lenses** reader-view (it filters the *preview*, the source
   stays whole) becomes a "View" dropdown in the preview header. The inspector is
   left with just Look · Running marks · Authoring, and dropdown controls share a
   steadier min-width. Present mode's reader-lens switch becomes the **same
