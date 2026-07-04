@@ -132,3 +132,19 @@ export function clearComments(deckId: string): void {
 		/* storage unavailable — non-fatal */
 	}
 }
+
+/**
+ * Replace a deck's comments wholesale — for restoring a `.lattice` import onto a
+ * freshly-created deck id. Untrusted input (a shared file), so every entry is run
+ * through the same `isComment` guard `readAll` uses; malformed ones are dropped.
+ * Returns how many survived. No-ops (clears) on an empty/invalid array.
+ */
+export function importComments(deckId: string, comments: unknown): number {
+	const arr = Array.isArray(comments) ? comments.filter(isComment) : [];
+	if (!arr.length) {
+		clearComments(deckId);
+		return 0;
+	}
+	writeAll(deckId, arr);
+	return arr.length;
+}

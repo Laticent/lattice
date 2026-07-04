@@ -537,10 +537,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Import a deck from an external `.md` file — seed a new persisted deck with its
 	// content (title from the first heading) and load it.
 	const importInputRef = React.useRef<HTMLInputElement>(null);
-	function importDeckFromText(text: string) {
+	// Open a deck source into a fresh deck. `comments` (from a .lattice import) are
+	// restored onto the NEW deck id so they travel with the file. Returns nothing;
+	// notifies on success.
+	function openImportedDeck(text: string, title: string, comments?: unknown) {
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
 		saveSource(deck.id, source);
-		const d = createDeck(titleFromSource(text), text);
+		const d = createDeck(title || titleFromSource(text), text);
+		if (comments) { import('./slide-comments').then(({ importComments }) => importComments(d.id, comments)); }
 		setDecks(loadDeckList());
 		setDeck(d);
 		setSource(text);
@@ -548,10 +552,21 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setView('compose');
 		notify(`Imported “${d.title}”.`);
 	}
+	function importDeckFromText(text: string) {
+		openImportedDeck(text, titleFromSource(text));
+	}
 	function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
 		e.target.value = ''; // allow re-importing the same file
 		if (!file) return;
+		// A .lattice file is a zip carrying the deck + its comments; a .md is plain text.
+		if (/\.lattice$/i.test(file.name)) {
+			import('./lattice-file')
+				.then(({ readLatticeFile }) => readLatticeFile(file))
+				.then(({ source: src, title, comments }) => openImportedDeck(src, title, comments))
+				.catch((err) => notify(err?.message || 'Could not read that .lattice file.'));
+			return;
+		}
 		file.text().then(importDeckFromText).catch(() => notify('Could not read that file.'));
 	}
 	function renameActiveDeck(title: string) {
@@ -1726,7 +1741,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			/>
 			<InsertComponent open={insertOpen} onOpenChange={setInsertOpen} components={insertComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}
-			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
+			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
 			{/* Transient toast — no dead clicks in the prototype */}
 			{toast && (

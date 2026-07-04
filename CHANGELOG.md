@@ -197,6 +197,14 @@ in patch versions.
 
 ### Added
 
+- **The `.lattice` project file — your comments travel with the deck.** Share → **Lattice
+  project (.lattice)** saves a single file holding the deck plus its review **comments**;
+  open it back (import a `.lattice`) and the deck returns with every comment intact. Comments
+  live in the app, not the Markdown, so this is how they move between machines or to a
+  collaborator — separately from a plain `.md`. The source round-trips byte-for-byte. The
+  self-contained shareable player and full theme/asset packaging are the next steps for this
+  format. See `engineering/decisions/2026-06-16-lattice-export-format.md`.
+
 - **Export options + comments in your PDF.** Share → PDF now opens a short **Export options**
   step before the download. Your review **comments** are off by default (a clean handout never
   leaks private notes) — flip them on and each comment rides the PDF as a real **sticky-note

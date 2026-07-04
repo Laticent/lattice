@@ -24,10 +24,15 @@ now opens a pre-export **Export options** panel (`ExportOptionsPanel.tsx`); comm
 sticky-note annotation** on its slide (`pdf-sticky-notes.js`, applied in BOTH PDF lanes — the
 off-thread worker and the main-thread fallback). The earlier "needs a `pdf-lib` pass" worry was
 moot: a jsPDF `createAnnotation` overlays the note object on the image page directly. Scope is
-author-chosen (All / Open only). **Deferred (documented follow-ons):** the `.lattice` manifest
-serialization (that format is unbuilt — the next PR in this stack); reorder-stable anchoring +
-real author identity (both land with the collaboration layer); PPTX has no reachable comment
-channel (pptxgenjs exposes none).
+author-chosen (All / Open only). **Shipped (this PR — comments travel in a `.lattice` file):**
+the project format now exists (`lattice-file.ts`): **Share → Lattice project (.lattice)** writes a
+zip carrying `deck.md` (the verbatim source — a lossless round-trip) + `manifest.json` holding the
+deck's comments; opening a `.lattice` re-imports the deck AND restores its comments onto the new
+deck (`importComments`). This is the comments' home off-device — they travel with the deck,
+separately from the Markdown, exactly as this doc called for. **Deferred (documented follow-ons):**
+the self-contained `.html` player + full theme/asset envelope (the flagship export-format artifacts,
+`2026-06-16-lattice-export-format.md`); reorder-stable anchoring + real author identity (both land
+with the collaboration layer); PPTX has no reachable comment channel (pptxgenjs exposes none).
 
 ---
 
