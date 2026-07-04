@@ -144,7 +144,7 @@ export function createDemoStage(root: HTMLElement, onExit: () => void): DemoStag
 		'box-shadow:0 8px 26px rgba(0,0,0,.4);pointer-events:none;opacity:0;' +
 		'transition:opacity .3s ease;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);';
 	const badge = document.createElement('span');
-	badge.textContent = 'Demo';
+	badge.textContent = 'Live demo';
 	badge.style.cssText = 'display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:13px;';
 	badge.insertAdjacentHTML(
 		'afterbegin',
@@ -346,7 +346,7 @@ export function createDemoStage(root: HTMLElement, onExit: () => void): DemoStag
 				860,
 			);
 		}
-		return wait(reduced ? 80 : 700, signal);
+		return wait(reduced ? 80 : 480, signal);
 	}
 
 	async function circle(el: HTMLElement, signal?: AbortSignal): Promise<void> {
@@ -360,16 +360,16 @@ export function createDemoStage(root: HTMLElement, onExit: () => void): DemoStag
 			`border-radius:14px;border:3px solid ${ACCENT};box-shadow:0 0 0 1.5px rgba(255,255,255,.85),0 0 36px 2px ${ACCENT};opacity:0;pointer-events:none;`;
 		layer.appendChild(glow);
 		glow.animate(
-			[{ opacity: 0 }, { opacity: 0.85, offset: 0.2 }, { opacity: 0.85, offset: 0.78 }, { opacity: 0 }],
-			{ duration: 2200, easing: 'ease-in-out' },
+			[{ opacity: 0 }, { opacity: 0.85, offset: 0.22 }, { opacity: 0.85, offset: 0.75 }, { opacity: 0 }],
+			{ duration: 1600, easing: 'ease-in-out' },
 		);
-		window.setTimeout(() => glow.remove(), 2300);
-		if (reduced) return wait(700, signal);
+		window.setTimeout(() => glow.remove(), 1700);
+		if (reduced) return wait(500, signal);
 		// The cursor traces an ellipse around the region (~1.25 loops).
 		const rx = Math.min(r.width * 0.42, 260);
 		const ry = Math.min(r.height * 0.42, 180);
 		const a0 = Math.atan2(cy - my, cx - mx);
-		const dur = 1900;
+		const dur = 1400;
 		const start = performance.now();
 		return new Promise((resolve, reject) => {
 			const onAbort = () => reject(new AbortError());

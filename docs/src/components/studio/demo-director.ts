@@ -29,6 +29,11 @@ export type DemoActions = {
 	toggleMode: () => void;
 	openPresent: (open: boolean) => void;
 	openShare: (open: boolean) => void;
+	/** Open/close the per-slide settings drawer (the closing polish flourish). */
+	openSlideSettings: (open: boolean) => void;
+	/** Apply a pure chunk→chunk transform to the ACTIVE slide's source (the drawer's
+	 *  own commit channel) — e.g. add a finish or a status stamp. */
+	mutateSlide: (fn: (chunk: string) => string) => void;
 	/** Run every autofixable lint finding (the editor's "Fix all"). */
 	fixAll: () => void;
 };
@@ -110,7 +115,7 @@ async function typeTo(
 	// "render breath" (past the preview's ~140ms debounce) so the preview repaints the
 	// partial slide MID-typing — otherwise the debounce holds it on the prior slide for
 	// the whole run and editor + preview drift out of sync.
-	const BREATH_EVERY = 28;
+	const BREATH_EVERY = 38;
 	let sinceBreath = 0;
 	let i = keep;
 	while (i < target.length) {
@@ -158,7 +163,7 @@ export async function runStoryboard(
 			if (el) {
 				// Lead the eye first: fire the anticipation cue, let it register, then move.
 				stage.anticipate(el);
-				await wait(stage.reduced ? 0 : 650, signal);
+				await wait(stage.reduced ? 0 : 480, signal);
 				await stage.moveToEl(el, signal);
 			}
 		}

@@ -5,6 +5,13 @@
 // pokes a real Studio setter; the selectors only tell the cursor where to point.
 
 import type { DemoStep, Storyboard } from './demo-director';
+import { setGroupToken } from './slide-directives';
+import { setFinish, setStampStyle } from './slide-provenance';
+
+// The mutually-exclusive per-slide STATE group (lib UNIVERSAL_GROUPS.state) — set
+// `wip` and the others are cleared. Hardcoded here so the storyboard stays a plain
+// data module (no lintVocab handoff needed for the closing flourish).
+const STATE_MEMBERS = ['wip', 'draft', 'tbd', 'confidential', 'redacted', 'archived', 'pinned', 'revised'] as const;
 
 // The six board slides, authored to the shipped component contracts (title / agenda
 // / kpi / quote / stats / closing) — the same shapes exec-board-update.spec.ts proves.
@@ -32,32 +39,33 @@ const SEL = {
 	mode: '[data-demo="mode"]',
 	present: '[data-demo="present"]',
 	share: '[data-demo="share"]',
+	slideSettings: '[aria-label="Slide settings"]',
 } as const;
 
 const steps: DemoStep[] = [
 	{
-		say: 'Meet the Studio — one workspace to compose, coach, present, and export a deck.',
-		settle: 1600,
+		say: 'The Studio — a ~80-second live demo that drives itself: it builds a board deck, coaches it, and ships it.',
+		settle: 1700,
 	},
 	{
 		say: 'You write in plain Markdown on the left…',
 		moveTo: SEL.editor,
 		click: true,
-		settle: 400,
+		settle: 300,
 	},
 	// Slide 1 is the hero — typed at a readable pace so the eye can follow it land.
 	{
 		say: '…and the engine renders it live on the right, as you type.',
 		type: upTo(1),
-		cadence: 30,
-		settle: 800,
+		cadence: 24,
+		settle: 550,
 	},
 	// The first "look what it made" beat — circle the preview while its frame glows.
 	{
 		moveTo: SEL.preview,
 		circle: SEL.preview,
 		say: 'Every slide is a boardroom-grade layout — no fiddling with boxes.',
-		settle: 1400,
+		settle: 900,
 	},
 	// Build the rest slide by slide. Each slide is typed, then held past the preview's
 	// ~140ms render debounce, so the preview repaints THAT slide before the next —
@@ -68,24 +76,24 @@ const steps: DemoStep[] = [
 		moveTo: SEL.editor,
 		click: true,
 		type: upTo(2),
-		cadence: 11,
-		settle: 480,
+		cadence: 7,
+		settle: 340,
 	},
-	{ type: upTo(3), cadence: 10, settle: 520 },
-	{ type: upTo(4), cadence: 10, settle: 460 },
-	{ type: upTo(5), cadence: 10, settle: 460 },
-	{ type: upTo(6), cadence: 10, settle: 600 },
+	{ type: upTo(3), cadence: 6, settle: 380 },
+	{ type: upTo(4), cadence: 6, settle: 320 },
+	{ type: upTo(5), cadence: 6, settle: 320 },
+	{ type: upTo(6), cadence: 6, settle: 420 },
 	{
 		moveTo: SEL.rail,
 		say: 'Six slides, drafted in seconds. Jump to any of them.',
 		act: (a) => a.gotoSlide(2),
 		click: true,
-		settle: 1400,
+		settle: 950,
 	},
 	{
 		say: 'Reskin the entire deck with one theme — the layouts never change, only the palette.',
 		act: (a) => a.openInspector(true),
-		settle: 500,
+		settle: 400,
 	},
 	// Circle the preview again on the reskin, so the eye catches the whole deck reshade.
 	{
@@ -93,14 +101,14 @@ const steps: DemoStep[] = [
 		click: true,
 		act: (a) => a.setPalette('cuoio'),
 		circle: SEL.preview,
-		settle: 1200,
+		settle: 900,
 	},
 	{
 		moveTo: SEL.mode,
 		say: 'Light or dark, instantly — the theme carries both.',
 		click: true,
 		act: (a) => a.toggleMode(),
-		settle: 1500,
+		settle: 1100,
 	},
 	{
 		moveTo: SEL.architect,
@@ -110,33 +118,78 @@ const steps: DemoStep[] = [
 			a.openArchitect(true);
 			a.setArchitectTab('coach');
 		},
-		settle: 2200,
+		settle: 1650,
 	},
 	{
 		say: 'Board-ready. Now present it full-screen…',
 		moveTo: SEL.present,
 		click: true,
 		act: (a) => a.openPresent(true),
-		settle: 2200,
+		settle: 1650,
 	},
 	{
 		act: (a) => a.openPresent(false),
-		settle: 500,
+		settle: 400,
 	},
 	{
 		say: '…or export a pixel-perfect PDF, ready for the boardroom.',
 		moveTo: SEL.share,
 		click: true,
 		act: (a) => a.openShare(true),
-		settle: 2400,
+		settle: 1750,
 	},
 	{
 		act: (a) => a.openShare(false),
+		settle: 350,
+	},
+	// ── The closing flourish: polish the hero via its own settings, then present it. ──
+	{
+		say: 'One last thing — let’s make the title unmistakably yours.',
+		moveTo: SEL.rail,
+		act: (a) => a.gotoSlide(0),
+		click: true,
+		settle: 900,
+	},
+	{
+		say: 'Every slide has its own controls.',
+		moveTo: SEL.slideSettings,
+		click: true,
+		act: (a) => a.openSlideSettings(true),
+		settle: 800,
+	},
+	{
+		say: 'A finish — Nimbus lays a soft glow behind the title…',
+		act: (a) => a.mutateSlide((c) => setFinish(c, 'nimbus')),
+		settle: 950,
+	},
+	{
+		say: '…and a status stamp — WIP, in a bracket.',
+		act: (a) => {
+			a.mutateSlide((c) => setGroupToken(c, STATE_MEMBERS, 'wip'));
+			a.mutateSlide((c) => setStampStyle(c, 'bracket'));
+		},
+		settle: 1000,
+	},
+	// Close the drawer to reveal the polished preview, and spotlight the trade: one
+	// changed line of source ↔ a transformed title.
+	{
+		say: 'One line of source changed…',
+		act: (a) => a.openSlideSettings(false),
+		circle: SEL.editor,
 		settle: 400,
 	},
 	{
-		say: "That's the Studio. Click anywhere to start building your own deck.",
-		settle: 2600,
+		say: '…a boardroom-beautiful title.',
+		circle: SEL.preview,
+		settle: 900,
+	},
+	// Slam into Present, full-screen, on the glowing hero.
+	{
+		say: 'This is the Studio. Now go build yours.',
+		moveTo: SEL.present,
+		click: true,
+		act: (a) => a.openPresent(true),
+		settle: 3200,
 	},
 ];
 

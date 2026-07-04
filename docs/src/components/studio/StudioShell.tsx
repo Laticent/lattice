@@ -280,6 +280,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// mid-demo would make it permanent). A ref (not state) so the save effects read
 	// the live value without re-subscribing.
 	const demoActiveRef = React.useRef(false);
+	// Indirection so the demo can drive the slide-settings drawer's commit funnel —
+	// `mutateActiveSlide` is defined lower down (it needs `activeFullIndex`), so the
+	// hook reads it through this ref, assigned once it exists.
+	const mutateSlideRef = React.useRef<(fn: (chunk: string) => string) => void>(() => {});
 
 	const bp = useBreakpoint();
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
@@ -691,6 +695,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		toggleMode,
 		setPresentOpen,
 		setShareOpen,
+		setNotesOpen,
+		mutateSlide: (fn: (chunk: string) => string) => mutateSlideRef.current(fn),
 		fixAll: () => editorRef.current?.fixAll(),
 		setActiveSlide,
 		setFocus,
@@ -1039,6 +1045,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			return chunk == null ? s : replaceSlide(s, activeFullIndex, fn(chunk)).source;
 		});
 	}, [activeFullIndex]);
+	mutateSlideRef.current = mutateActiveSlide;
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.

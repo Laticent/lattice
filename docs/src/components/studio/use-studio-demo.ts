@@ -32,6 +32,10 @@ export type StudioDemoBindings = {
 	toggleMode: () => void;
 	setPresentOpen: (open: boolean) => void;
 	setShareOpen: (open: boolean) => void;
+	/** Open/close the per-slide settings drawer (`notesOpen`). */
+	setNotesOpen: (open: boolean) => void;
+	/** The drawer's commit funnel — apply a pure transform to the active slide. */
+	mutateSlide: (fn: (chunk: string) => string) => void;
 	fixAll: () => void;
 	setActiveSlide: (index: number) => void;
 	setFocus: (on: boolean) => void;
@@ -153,6 +157,8 @@ export function useStudioDemo(
 			toggleMode: () => bindRef.current.toggleMode(),
 			openPresent: (o) => bindRef.current.setPresentOpen(o),
 			openShare: (o) => bindRef.current.setShareOpen(o),
+			openSlideSettings: (o) => bindRef.current.setNotesOpen(o),
+			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),
 			fixAll: () => bindRef.current.fixAll(),
 		};
 
