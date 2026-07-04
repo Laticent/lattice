@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Comments (review feedback on a slide) are a web-app feature that travels with the deck in the .lattice zip's manifest — never baked into PDF/PPTX. They are a distinct channel from speaker notes and accessibility descriptions, are openly-travelling (privacy is not enforceable in a file-based model), and are shaped so the Yjs collaboration layer can later sync them alongside the source.
+summary: Comments (review feedback on a slide) are a web-app feature whose home is the .lattice zip's manifest; they are OFF by default in every other export and reach a shared PDF only when the author opts in at export time (a visible sticky note), via a broader export-options step. PPTX has no reachable comment channel (tooling wall). They are a distinct channel from speaker notes and accessibility descriptions, are openly-travelling (privacy is not enforceable in a file-based model), anchor to a stable slide id (not an ordinal), and are shaped so the Yjs collaboration layer can later sync them alongside the source.
 companion:
   - ./2026-06-16-lattice-export-format.md
   - ./2026-06-14-yjs-collaboration-exploration.md
@@ -34,13 +34,18 @@ second kind of note. This doc decides what a comment *is* in Lattice.
 1. **Comments are a web-app (Studio) feature.** They are authored, shown, and
    resolved in the app — not a Markdown/LFM construct and not something a
    presenter reads aloud.
-2. **Comments travel with the deck in the `.lattice` zip** — specifically in the
-   **document manifest** (see [`2026-06-16-lattice-export-format.md`](./2026-06-16-lattice-export-format.md)
-   §3b), as their own block, **separate from the deck's Markdown source**. A
-   `.lattice` file carries the deck *and* its comments; a `.md`, PDF, or PPTX does not.
-3. **Comments are NOT baked into PDF or PPTX.** Those are audience artifacts.
-   (See "Why not PDF/PPTX" below — it is a deliberate scope choice, and for PPTX
-   it is also a tooling wall.)
+2. **The comments' home is the `.lattice` zip** — specifically the **document
+   manifest** (see [`2026-06-16-lattice-export-format.md`](./2026-06-16-lattice-export-format.md)
+   §3b), as their own block, **separate from the deck's Markdown source**. That is
+   the one format that always carries them, editably.
+3. **Every other export is a per-export choice, made at export time.** Comments are
+   **off by default** (a clean PDF/PPTX is the default deliverable), but the export
+   step offers a toggle to **include comments** — for PDF, as visible sticky-note
+   annotations (the emulator already writes these). This sits in a broader
+   **export-options** step where the author decides *what travels* before the file
+   is written (comments, note visibility, present-mode facets, embedded source).
+   See "How comments reach an export" below. (PPTX has no native comment channel
+   the toolchain can reach — a tooling wall, not a scope choice; see below.)
 4. **They are shaped so collaboration can sync them later.** When the Yjs model
    in [`2026-06-14-yjs-collaboration-exploration.md`](./2026-06-14-yjs-collaboration-exploration.md)
    ships, the comment set becomes a synced CRDT structure alongside the shared
@@ -73,7 +78,7 @@ presenter teleprompter or in a screen-reader's description).
 |---|---|---|---|
 | **Speaker note** | the presenter | a slide's HTML comment (LFM); `lib/authoring/notes-core.js` is the boundary | PDF annotation, **PPTX notes** (shipped, #741), Present teleprompter, HTML sidecar |
 | **Accessibility description / alt-text** | the reader / assistive tech | *(proposed, separate — not this doc)* | exported into PPTX `descr`, tagged-PDF `/Alt`, HTML `aria` |
-| **Comment** *(this doc)* | the author / reviewer / collaborator | the **`.lattice` manifest** (app state), never the Markdown | the **`.lattice` file** and the app only |
+| **Comment** *(this doc)* | the author / reviewer / collaborator | the **`.lattice` manifest** (app state), never the Markdown | the **`.lattice` file** + the app always; **PDF only if opted in at export** (sticky notes) |
 
 The accessibility description channel is a **separate, still-open decision** (it
 is *exported* on purpose, which comments are not); it is noted here only to keep
@@ -88,65 +93,96 @@ single-user with no server or identity boundary
 (`docs/src/components/studio/studio-store.ts` — localStorage; every "share" path
 serializes the deck). Anything that ships in a file the recipient holds is, by
 definition, readable. Promising "private" would be a guarantee the architecture
-can't keep. So comments **travel openly inside the `.lattice` file** and are
-simply **absent from every other export** (PDF/PPTX/`.md`). "Don't send it to
-that audience" is achieved by choosing the export format, not by a privacy flag.
+can't keep. So comments **travel openly inside the `.lattice` file**, are **off by
+default in every other export**, and reach a shared PDF only when the author
+opts in at export time (below). "Don't send it to that audience" is achieved by
+the default (clean export) plus an explicit include-comments choice — not by a
+privacy flag.
 
-## Why not PDF / PPTX
+## How comments reach an export — a choice at export time
 
-- **Decision:** PDF/PPTX are the *audience* deliverables; review scaffolding does
-  not belong in the thing you present or hand out. Comments ride the `.lattice`
-  file, which is the *author-continuity* format.
-- **PPTX is also a tooling wall:** the OOXML comment construct exists, but
-  `pptxgenjs` (our writer, `lib/export/pptx-export.js`) has **no comment API** —
+Comments' home is the `.lattice` file (always, editable). Whether they appear in
+any *other* export is **the author's decision, made per export**, not a fixed
+property of the format:
+
+- **The default is clean.** A plain PDF / PPTX / `.md` carries **no** comments —
+  the audience deliverable stays free of review scaffolding.
+- **PDF: an opt-in include.** The export step offers **"Include comments"**, which
+  writes each comment as a **visible sticky-note annotation**. This is nearly free:
+  the emulator already writes `Text` annotations via pdf-lib and already has a
+  visible-vs-hidden toggle (`lattice-emulator.js` — the `--notes-icon` flag). A
+  Review-PDF is the review loop people actually run (mark up in Acrobat/Preview,
+  hand back) — Lattice meeting reviewers where they are, *when the author chooses to*.
+- **PPTX: a tooling wall, not a scope choice.** The OOXML comment construct exists,
+  but `pptxgenjs` (our writer, `lib/export/pptx-export.js`) has **no comment API** —
   only `addNotes` (one notes string). Native PPTX comments would need hand-written
-  OOXML zip surgery. Not worth it against a deliberate scope choice.
-- **PDF *could* be cheap** (the emulator already writes `Text` sticky-note
-  annotations via pdf-lib — a visible authored comment would reuse that path). We
-  are **not** doing it: it would re-introduce review scaffolding into an audience
-  artifact. Recorded here so the option is a known, rejected one, not a gap.
+  OOXML zip surgery; deferred until demand justifies it.
+
+**This generalizes.** "Include comments" is one switch in a broader **export-options
+step** — a small panel shown before the file is written where the author decides
+*what travels*: comments, speaker-note visibility, embedded source, and the
+present-mode facets. The CLI already has the primitives (`--notes`, `--notes-icon`,
+`--present`, `--embed-source`); the Studio should surface them as pre-export
+choices rather than fixed defaults. (Scoped as a follow-on; this doc only fixes
+that comments belong in that panel, opt-in, off by default.)
 
 ## Where comments live — the manifest block
 
 Extend the Lattice document manifest ([`2026-06-16-lattice-export-format.md`](./2026-06-16-lattice-export-format.md)
-§3b) with a top-level `comments` block, a sibling of `notes` / `config`:
+§3b) with a top-level `comments` block, a sibling of `notes` / `config`. **This
+shape is illustrative, not frozen** — the `.lattice` format has no code yet, and
+its real constraints (byte-exact round-trip, `format` versioning, file-vs-inline
+pointers) must pressure-test `comments` when it lands:
 
 ```jsonc
 {
   "format": "1.0",
-  "source": "<base64 LFM>",     // the deck — the source of truth, unchanged
+  "source": "<base64 LFM>",       // the deck — the source of truth, unchanged
   "notes":  true,
-  "comments": [                 // NEW — review layer, never in `source`
+  "comments": [                   // NEW — review layer, never in `source`
     {
       "id": "c1",
-      "anchor": { "slide": 3 }, // slide-scoped to start; a text/region range is a later refinement
-      "author": "Sharmarke",
+      "anchor": { "slideId": "s_ab12" }, // a STABLE per-slide id, NOT an ordinal (see below)
+      "author": { "id": "u_local", "name": "Sharmarke" }, // see identity caveat
       "body": "Double-check this number before the board.",
       "createdAt": "…",
       "resolved": false
-      // "thread": [ … ]        // replies — deferred until the collaboration layer
+      // "range": { … }           // text/region anchoring — a later refinement
+      // "thread": [ … ]          // replies — deferred until the collaboration layer
     }
   ]
 }
 ```
 
-- **Anchored, not inline.** A comment references a slide (later, a text range) —
-  it is never spliced into the Markdown, so the source stays clean and
-  byte-exact round-trips (the format's golden-test requirement, §3c).
-- **Reuse the plumbing.** The zip + `manifest.json` machinery already exists —
-  `docs/src/components/studio/workspace-backup.ts` (the `lattice-workspace.zip`
-  backup, [`2026-07-02-workspace-backup.md`](./2026-07-02-workspace-backup.md))
-  and `asset-bundle.ts` (the shared manifest envelope). Don't reinvent the
-  container; extend the manifest.
+- **Anchor to a stable slide id, never a slide number.** Review is *what causes*
+  reorders and inserts; a numeric `{ "slide": 3 }` silently reattaches the comment
+  to the wrong slide the moment a slide moves. The MVP anchor must be a stable
+  per-slide id (the same relative-position problem the Yjs layer solves), not an
+  ordinal. Text-range anchoring is the later refinement.
+- **Author identity is a real prerequisite, not a nicety.** The whole *collaborator*
+  value ("who flagged this?") rests on a trustworthy author field, and Lattice has
+  **no identity system** yet (the Yjs doc's identity is a random name + color). In a
+  single-author file a free-text name is harmless; for multi-party review it is the
+  load-bearing field, so identity must land *with* collaboration, not after.
+- **Anchored, not inline.** A comment references a slide (never spliced into the
+  Markdown), so the source stays clean and byte-exact round-trips (the format's
+  golden-test requirement, §3c).
+- **Reuse the *pattern*, not the container.** The zip + `manifest.json` approach is
+  already proven — `docs/src/components/studio/workspace-backup.ts` (the
+  whole-workspace `lattice-workspace.zip`,
+  [`2026-07-02-workspace-backup.md`](./2026-07-02-workspace-backup.md)) and
+  `asset-bundle.ts` (the shared manifest envelope). Those assemble *different*
+  containers than the per-deck `.lattice` (which is unbuilt); comments extend the
+  `.lattice` manifest, reusing the JSZip + envelope machinery, not those files' zips.
 
 ## The collaboration path (why the shape matters now)
 
 The Yjs model ([`2026-06-14-yjs-collaboration-exploration.md`](./2026-06-14-yjs-collaboration-exploration.md))
 syncs the deck's Markdown as **one shared `Y.Text`** and derives everything else.
 Comments are exactly the kind of thing that is *not* the source: they become a
-separate synced structure (a `Y.Array` of comment objects) that rides the same
-session. Designing comments as an **anchored, id'd list in the manifest today**
-means:
+separate synced structure — plausibly a `Y.Array` of comment objects (a design
+projection, not stated in the Yjs doc) — that rides the same session. Designing
+comments as an **anchored, id'd list in the manifest today** means:
 
 - the offline `.lattice` file and the live Yjs document hold the *same* comment
   shape — the manifest is just the serialized snapshot;
@@ -158,7 +194,9 @@ means:
 
 ## Non-goals / do-not
 
-- **No comments in PDF/PPTX/`.md`** — `.lattice` (and the app) only.
+- **Comments are off by default in PDF/PPTX/`.md`** — never *automatically* baked
+  in; PDF carries them only when the author opts in at export time. PPTX has no
+  reachable comment channel yet (tooling wall). `.lattice` + the app are the always-on home.
 - **No "private" comment** — unenforceable in a file-based model; comments are
   open within the file they travel in.
 - **No round-trip review importer** — Lattice does not ingest a reviewer's
@@ -168,13 +206,22 @@ means:
 
 ## Open questions (for when this is built)
 
-1. **Anchoring granularity** — slide-scoped is the MVP; a text/region range needs
-   a stable position model (and interacts with the Yjs relative-position API).
-2. **Sequencing vs. the `.lattice` format** — comments need the `.lattice`
-   container to exist first (that format is itself still `proposed`, no code). So
-   this is gated on the export-format work, then the collaboration work.
-3. **The accessibility description channel** is a separate decision to make (it is
-   *exported*, unlike comments) — do not fold it in here.
+1. **Stable slide-id source** — the anchor needs a stable per-slide id that
+   survives reorder/insert (an ordinal does not). Where does it come from — a new
+   id stamped into the slide, or the Yjs relative-position model? Text-range
+   anchoring is the later refinement on top.
+2. **Author identity** — the collaborator value needs a trustworthy author field,
+   and there is no identity system yet. Identity must land *with* collaboration.
+3. **The export-options step** — "Include comments" is one switch in a broader
+   pre-export panel (comments, note visibility, embedded source, present facets).
+   That panel is its own follow-on design; this doc only fixes that comments belong
+   in it, opt-in, off by default.
+4. **Sequencing** — comments need the `.lattice` container to exist first (itself
+   `proposed`, no code); the PDF opt-in reuses the emulator annotation path and can
+   come independently. So: export-format work → then comments home; the Review-PDF
+   include can land alongside the annotation infra already present.
+5. **The accessibility description channel** is a separate decision to make (it is
+   *exported by default*, unlike comments) — do not fold it in here.
 
 ## Related decisions
 
