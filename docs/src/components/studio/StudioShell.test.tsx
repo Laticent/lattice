@@ -165,11 +165,14 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(d.getByText('1 / 6')).toBeInTheDocument();
 		await user.click(d.getAllByRole('button', { name: 'Next slide' })[0]);
 		expect(d.getByText('2 / 6')).toBeInTheDocument();
-		// Exec-summary lens reshapes to the headline slides (title/kpi/stats/closing).
-		await user.click(d.getByRole('button', { name: /Exec summary/ }));
+		// The lens switch is a dropdown now (was a scrolling chip row). Open it, pick
+		// Exec summary — reshapes to the headline slides (title/kpi/stats/closing).
+		await user.click(d.getByRole('button', { name: 'Reader view' }));
+		await user.click(await screen.findByRole('menuitem', { name: /Exec summary/ }));
 		expect(d.getByText('1 / 4')).toBeInTheDocument();
 		// One-pager collapses to a single slide.
-		await user.click(d.getByRole('button', { name: /One-pager/ }));
+		await user.click(d.getByRole('button', { name: 'Reader view' }));
+		await user.click(await screen.findByRole('menuitem', { name: /One-pager/ }));
 		expect(d.getByText('1 / 1')).toBeInTheDocument();
 	});
 
@@ -259,7 +262,9 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
 		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
-		expect(screen.getByText('Lenses')).toBeInTheDocument();
+		// The inspector is settings-only now (Lenses/History/Read moved out); the
+		// Running-marks group is a stable marker that the body rendered.
+		expect(screen.getByText('Running marks')).toBeInTheDocument();
 	});
 
 	it('the Inspector "Inline validation" toggle has real teeth', async () => {
@@ -404,16 +409,19 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.queryByRole('menuitem', { name: /Switch to (dark|light) mode/ })).not.toBeInTheDocument();
 	});
 
-	it('mobile: the deck actions move to the pane bar; the top row keeps launcher · deck · mode · ⋯', async () => {
+	it('mobile: the deck actions stay inline on the pane bar (icon Edit/Preview toggle, no ⋯ hiding)', async () => {
 		setViewport('mobile');
 		const user = setup();
-		// The four deck actions live in the pane toolbar (row 2), not the header —
-		// the header's width goes to the deck title instead.
+		// The deck actions live one-tap on the pane toolbar (row 2), not behind a ⋯ —
+		// an icon-only Edit/Preview toggle reclaims the width to keep them inline.
 		const paneBar = screen.getByRole('toolbar', { name: 'Deck actions' });
 		expect(within(paneBar).getByRole('button', { name: 'Present' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Share' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Toggle Architect' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' })).toBeInTheDocument();
+		// The icon toggle keeps its accessible names.
+		expect(within(paneBar).getByRole('button', { name: 'Preview' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Edit' })).toBeInTheDocument();
 		// The header keeps the launcher, the deck switcher, the 1-tap mode flip, and ⋯.
 		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();

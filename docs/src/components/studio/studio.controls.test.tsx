@@ -340,17 +340,22 @@ describe('Studio — Inspector controls respond', () => {
 
 	it('version history saves a checkpoint and restores it', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		// History moved out of the inspector into its own sheet (an action, not a
+		// deck setting), opened from the top-bar "Version history" button.
+		await user.click(screen.getByRole('button', { name: 'Version history' }));
 		// Save the current deck as a version.
 		await user.click(await screen.findByRole('button', { name: /Save a version/ }));
 		expect(await screen.findByText('Saved version')).toBeInTheDocument();
-		// Edit the deck, then restore — the saved content comes back.
+		// The sheet is modal — close it to edit the deck behind it.
+		await user.keyboard('{Escape}');
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.keyboard('{Control>}a{/Control}');
 		await user.paste('<!-- _class: title -->\n\n# TOTALLY DIFFERENT\n');
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/TOTALLY DIFFERENT/);
-		await user.click(screen.getByRole('button', { name: 'Restore' }));
+		// Reopen history and restore — the saved content comes back.
+		await user.click(screen.getByRole('button', { name: 'Version history' }));
+		await user.click(await screen.findByRole('button', { name: 'Restore' }));
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/TOTALLY DIFFERENT/);
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/Q3 Board Review/);
 	});

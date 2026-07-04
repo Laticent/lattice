@@ -39,6 +39,34 @@ in patch versions.
 
 ### Changed
 
+- **Studio: the mobile toolbars stop overflowing — by shrinking, not hiding — and
+  the reader-lens control is unified.** Adding Version history had pushed the mobile
+  Deck-actions bar past 390px (the Inspector icon clipped). The fix keeps every action
+  **inline and one-tap**: the Edit/Preview toggle becomes **icon-only**, which reclaims
+  enough width to fit the whole row (no overflow menu — visible beats hidden on a touch
+  surface). **Present mode's bottom control bar** now fits phones by construction — the
+  counter never wraps, Autoplay collapses to an icon below `sm`, and the non-essential
+  voice/caption status is the only thing hidden. The **reader-lens picker** is now one
+  shared, always-labeled `LensPicker` used by both the editor preview header and Present
+  (was two divergent widgets — a bare icon vs a labeled pill — and three label sources).
+  Version history's home is settled by a placement-by-budget rule (desktop editor-header
+  icon; phone inline icon). See
+  `engineering/decisions/2026-07-04-studio-toolbar-budget.md`.
+
+- **Studio: the Deck inspector is now settings-only — actions and preview modes
+  moved out.** Following the same red-team, three things that were not deck
+  *settings* left the inspector: the **Read** group (Voice/Pace were
+  non-functional stubs) is removed; **Version history** (a recovery affordance —
+  it auto-snapshots before every AI edit — not a deck property) moves to its own
+  sheet, launched from a **History button in the editor header beside the
+  Slide-settings launcher** (always visible, at every breakpoint), with Restore
+  always visible for touch; and the **Lenses** reader-view (it filters the *preview*, the source
+  stays whole) becomes a "View" dropdown in the preview header. The inspector is
+  left with just Look · Running marks · Authoring, and dropdown controls share a
+  steadier min-width. Present mode's reader-lens switch becomes the **same
+  dropdown** (it was a horizontally-scrolling chip row that clipped on phones).
+  See `engineering/decisions/2026-07-04-deck-furniture-declarations.md`.
+
 - **Studio: the deck's running header & footer are text you declare, not
   toggles — and the whole Deck inspector now reads as deck-wide.** The header
   and footer controls in the Deck inspector were on/off switches that stamped

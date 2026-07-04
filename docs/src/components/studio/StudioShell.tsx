@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Volume2, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -30,6 +30,7 @@ import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { LatticeMark } from './LatticeMark';
 import { Library } from './Library';
+import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeModeLabel, ModeMenuItems } from './ModePicker';
 import { PresentOverlay } from './PresentOverlay';
@@ -63,7 +64,6 @@ const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'agenda', 'big-number', 's
 // its linter stands down (an empty known-set flags nothing) without re-creating
 // the array each render (which would needlessly rebuild CodeMirror).
 const NO_KNOWN: string[] = [];
-const LENS_LABEL: Record<string, string> = { exec: 'Exec summary', onepager: 'One-pager' };
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -162,6 +162,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	onboardedRef.current = onboarded;
 	const [architectOpen, setArchitectOpen] = React.useState(() => onboarded); // newcomers start calm
 	const [inspectorOpen, setInspectorOpen] = React.useState(false); // PM-4: preview is sacred
+	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	// One-time welcome banner — shown only to a newcomer; dismiss graduates them.
 	const [welcomeOpen, setWelcomeOpen] = React.useState(() => !onboarded);
 	// First contextual reveal of the Architect fires once per session.
@@ -688,7 +689,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		firstEditRef.current = true;
 		if (!compact) setArchitectOpen(true);
 		// Now that they're authoring, nudge them toward the deck Inspector (look,
-		// size, history) with a one-time pulse — gentler than auto-opening it.
+		// chrome, running marks) with a one-time pulse — gentler than auto-opening it.
 		setInspectorPulse(true);
 		notify('Your AI Coach reviews the deck as you write — it just opened on the left.');
 		graduate();
@@ -1158,7 +1159,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 					<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				</InspGroup>
-			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring" desc="Aids while you write. Preview-only — none of this appears in the export.">
+			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring" desc="Aids while you write. Preview-only — none of this appears in the export." last>
 				<Field label="Inline validation" desc="Flags unknown components in the editor as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
 				{/* Debug overlay — outlines every box by layout mode and labels the
 				    structural ones on hover; `always` pins them. A deck setting (`debug:`
@@ -1179,30 +1180,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>
-			</InspGroup>
-			<InspGroup icon={<History className="size-3.5" />} label="History" desc="Snapshots of the deck you can restore. One is saved automatically before each AI edit.">
-				<button type="button" onClick={saveVersion} className="mb-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Save className="size-3.5" />Save a version</button>
-				{checkpoints.length === 0 ? (
-					<p className="px-0.5 py-1 text-[11.5px] leading-relaxed text-muted-foreground">No saved versions yet. Versions are also captured automatically before each AI edit.</p>
-				) : (
-					<ul className="max-h-[180px] space-y-0.5 overflow-y-auto">
-						{checkpoints.map((cp) => (
-							<li key={cp.id} className="group flex items-center gap-2 rounded-md px-1.5 py-1.5 hover:bg-[var(--accent-soft)]">
-								<span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{cp.label}</span><span className="block font-mono text-[10.5px] text-muted-foreground">{timeAgo(cp.ts)} · {metaFor(cp.source)}</span></span>
-								<button type="button" onClick={() => restoreCheckpoint(cp)} className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)] opacity-0 hover:bg-background group-hover:opacity-100">Restore</button>
-							</li>
-						))}
-					</ul>
-				)}
-			</InspGroup>
-			<InspGroup icon={<Volume2 className="size-3.5" />} label="Read" desc="How the deck sounds when read aloud in Present mode.">
-				<Field label="Voice" desc="The read-aloud voice."><Control onClick={() => notify('Read-aloud voice — Aria, Cedar, and more in the full app.')}>Aria <ChevronDown className="size-3.5" /></Control></Field>
-				<Field label="Pace" desc="How fast it reads — slower for a boardroom, faster for review."><Control onClick={() => notify('Read-aloud pace — slower for boardrooms, faster for review.')}>Steady <ChevronDown className="size-3.5" /></Control></Field>
-			</InspGroup>
-			<InspGroup icon={<Sparkles className="size-3.5" />} label="Lenses" desc="Preview a filtered cut of the deck — the source stays whole." last>
-				<Lens on={composeLens === 'full'} icon={<FileText className="size-3.5" />} name="Full deck" desc="The canonical source" badge="source" onClick={() => setLens('full')} />
-				<Lens on={composeLens === 'exec'} icon={<Sparkles className="size-3.5" />} name="Exec summary" desc="Headline slides only" onClick={() => setLens('exec')} />
-				<Lens on={composeLens === 'onepager'} icon={<LayoutGrid className="size-3.5" />} name="One-pager" desc="The single key slide" onClick={() => setLens('onepager')} />
 			</InspGroup>
 		</>
 	);
@@ -1248,6 +1225,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				)}
 				{insertComponents.length > 0 && <button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component" title="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button>}
 				<button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues" title="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
+				{/* Version history — deck-level recovery, docked in the editor header beside
+				    the Slide-settings launcher (always visible; not in the top nav). */}
+				<Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>
 				<Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>
 				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
 				{splitUsable && (
@@ -1272,10 +1252,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Preview
+				{/* View — the reader lens (shared LensPicker, also used in Present). It
+				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" />
 				{composeLens !== 'full' && (
-					<button type="button" onClick={() => setLens('full')} className="inline-flex items-center gap-1 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--accent)]" aria-label="Clear reader lens">
-						<Sparkles className="size-3" />{LENS_LABEL[composeLens]} · {viewSlides.length} of {slides.length}<X className="size-3" />
-					</button>
+					<button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens" title="Clear reader lens"><X className="size-3.5" /></button>
 				)}
 				<span className="flex-1" />
 				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
@@ -1486,7 +1467,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    first-edit Inspector pulse always lands on a visible button. On phones
 				    they ride the pane bar below with Present + Share. */}
 				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>}
-				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, size, notes, history" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
+				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
 				{!compact && <span className="h-5 w-px bg-border" />}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
@@ -1541,25 +1522,31 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 				</React.Suspense>
 			) : mobile ? (
-				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. The pane
-				   bar's free width carries the deck actions — Present, Share, and the two
-				   panel toggles — so the top row can spend its width on the deck title
-				   (2026-07-03 decision). Contextual extras stay per-pane so the row fits
-				   390px: the issues pill with Edit (where you fix them), Speaker notes
-				   with Preview (Edit's own header already has Notes). */
+				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. The deck
+				   actions stay INLINE and one-tap — an icon-only Edit/Preview toggle reclaims
+				   the width that keeps them on the bar at 390px (no ⋯ hiding). The top row
+				   spends its width on the deck title (2026-07-03 decision). Contextual extras
+				   stay per-pane so the row fits: the issues pill on the Edit pane; History +
+				   Slide settings on the Preview pane (the Edit pane's editor header has them). */
 				<div className="flex min-h-0 flex-1 flex-col">
 					<div role="toolbar" aria-label="Deck actions" className="flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5">
+						{/* Icon-only Edit/Preview toggle — dropping the two text labels reclaims
+						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
+						    and still fit 390px. */}
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<FileText className="size-3.5" />}>Edit</PaneBtn>
-							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-3.5" />}>Preview</PaneBtn>
+							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<PencilLine className="size-4" />} label="Edit" />
+							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" />
 						</div>
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
+						{/* Version history + Slide settings ride the pane bar only on the PREVIEW
+						    pane — the EDIT pane's own editor header already carries both. */}
+						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>}
 						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
-						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, size, notes, history" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
 					</div>
 					{mobilePane === 'edit' ? editorPane : previewPane}
 				</div>
@@ -1631,8 +1618,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<aside className="flex min-h-0 flex-col items-center gap-2 border-l border-border bg-background py-2.5">
 							<button type="button" onClick={() => setInspectorOpen(true)} className="grid size-[30px] place-items-center rounded-lg border border-border text-foreground hover:text-[var(--accent)]" aria-label="Open Deck inspector"><ChevronLeft className="size-4" /></button>
 							<Palette className="size-[18px] text-muted-foreground" />
-							<Volume2 className="size-[18px] text-muted-foreground" />
-							<Sparkles className="size-[18px] text-muted-foreground" />
+							<Frame className="size-[18px] text-muted-foreground" />
+							<Wand2 className="size-[18px] text-muted-foreground" />
 							<span className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>Deck</span>
 						</aside>
 					))}
@@ -1678,6 +1665,33 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			/>
 			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={palette} mode={mode === 'dark' ? 'dark' : 'light'} extraTheme={extraTheme} extraCss={previewExtraCss} onPresent={() => setPresentOpen(true)} notify={notify} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
+			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
+			    so it lives in its own sheet off the top bar rather than in the inspector
+			    (which is now settings-only). Restore stays always-visible (not hover-only)
+			    so it works on touch. */}
+			<Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+				<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[360px]">
+					<SheetHeader className="border-b border-border">
+						<SheetTitle className="flex items-center gap-2 text-[15px]"><History className="size-4 text-[var(--accent)]" />Version history</SheetTitle>
+						<SheetDescription className="text-[11px] leading-snug text-muted-foreground">Snapshots of the deck you can restore. One is saved automatically before each AI edit.</SheetDescription>
+					</SheetHeader>
+					<div className="flex-1 overflow-y-auto px-4 py-3">
+						<button type="button" onClick={saveVersion} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Save className="size-3.5" />Save a version</button>
+						{checkpoints.length === 0 ? (
+							<p className="px-0.5 py-1 text-[11.5px] leading-relaxed text-muted-foreground">No saved versions yet. Versions are also captured automatically before each AI edit.</p>
+						) : (
+							<ul className="space-y-0.5">
+								{checkpoints.map((cp) => (
+									<li key={cp.id} className="flex items-center gap-2 rounded-md px-1.5 py-1.5 hover:bg-[var(--accent-soft)]">
+										<span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{cp.label}</span><span className="block font-mono text-[10.5px] text-muted-foreground">{timeAgo(cp.ts)} · {metaFor(cp.source)}</span></span>
+										<button type="button" onClick={() => restoreCheckpoint(cp)} className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)] hover:bg-background">Restore</button>
+									</li>
+								))}
+							</ul>
+						)}
+					</div>
+				</SheetContent>
+			</Sheet>
 			<Library
 				open={libraryOpen}
 				onOpenChange={(o) => { setLibraryOpen(o); if (!o) setLibInitialFilter(undefined); }}
@@ -1702,7 +1716,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onPresent={() => setPresentOpen(true)}
 				onShare={() => setShareOpen(true)}
 				onFabricate={() => setView('fabricate')}
-				onReshape={() => { setFocus(false); setInspectorOpen(true); }}
+				onReshape={() => { setFocus(false); setArchitectOpen(true); }}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
 				onFocus={() => setFocus(true)}
 				onCollapseEditor={splitUsable && split.collapsed !== 'a' ? () => collapseFromHeader('a') : undefined}
@@ -1757,9 +1771,12 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 		</div>
 	);
 }
-function PaneBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+// Icon-only segmented button (Edit / Preview). The label rides `aria-label`/`title`
+// (+ aria-pressed for the active side) rather than visible text, so the toggle stays
+// compact — that reclaimed width keeps the deck actions inline instead of behind a ⋯.
+function PaneBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
 	return (
-		<button type="button" onClick={onClick} className={cn('inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}{children}</button>
+		<button type="button" onClick={onClick} aria-label={label} title={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button>
 	);
 }
 function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {
@@ -1809,7 +1826,7 @@ function Field({ label, desc, children }: { label: string; desc?: string; childr
 }
 // Forwards ref + props so it can be a Radix `asChild` trigger (the Size menu).
 const Control = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(({ children, ...props }, ref) => (
-	<button ref={ref} type="button" {...props} className="inline-flex min-w-[96px] items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-heading)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">{children}</button>
+	<button ref={ref} type="button" {...props} className="inline-flex min-w-[116px] items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-heading)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">{children}</button>
 ));
 Control.displayName = 'Control';
 function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; label?: string }) {
@@ -1850,14 +1867,5 @@ function TextRow({ label, desc, value, placeholder, onCommit }: { label: string;
 				className="mt-1.5 h-8 text-[12.5px]"
 			/>
 		</div>
-	);
-}
-function Lens({ on, icon, name, desc, badge, onClick }: { on?: boolean; icon: React.ReactNode; name: string; desc: string; badge?: string; onClick?: () => void }) {
-	return (
-		<button type="button" onClick={onClick} className={cn('my-1.5 flex w-full cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-left', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
-			<span className={cn('grid size-[26px] place-items-center rounded-[7px]', on ? 'bg-primary text-primary-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}>{icon}</span>
-			<span><div className="text-[12.5px] font-semibold text-[var(--text-heading)]">{name}</div><div className="text-[11px] text-muted-foreground">{desc}</div></span>
-			{badge && <span className="ml-auto rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] px-1.5 py-0.5 font-mono text-[9px] text-[var(--accent)]">{badge}</span>}
-		</button>
 	);
 }
