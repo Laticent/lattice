@@ -37,10 +37,13 @@ surface. The budget is now kept by *shrinking the biggest element*, not by hidin
 ## What shipped
 
 - **Mobile Deck-actions bar → icon toggle, everything inline** (`StudioShell.tsx`). The
-  `Edit/Preview` segmented toggle is now **icon-only** (label on `aria-label`/`title` +
-  `aria-pressed`), reclaiming ~78px. The deck actions stay inline and one-tap:
-  `[📄|👁]` · (Preview pane: Version history · Slide settings ·) Present · Share · Architect
-  · Inspector. No `⋯`; the Inspector keeps its first-edit pulse. Measured `scrollWidth ==
+  `Edit/Preview` segmented toggle is now **icon-only** — a **pencil** (Edit) + an **eye**
+  (Preview), the standard editor idiom that reads without text; label on `aria-label`/
+  `title` + `aria-pressed`. (A follow-up red-team/inversion/judge round confirmed icon-only
+  over text/rename, and swapped the Edit glyph from a `FileText` *document* — which read as
+  "file" — to `PencilLine`.) Dropping the two labels reclaims ~78px, so the deck actions
+  stay inline and one-tap: `[✏️|👁]` · (Preview pane: Version history · Slide settings ·)
+  Present · Share · Architect · Inspector. No `⋯`; the Inspector keeps its first-edit pulse. Measured `scrollWidth ==
   390` (no clip). (The Edit pane omits History/Slide-settings from the bar — its own editor
   header carries them.)
 - **Present bottom bar fits by construction** (`PresentOverlay.tsx`). The counter is
