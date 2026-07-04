@@ -48,28 +48,28 @@ const steps: DemoStep[] = [
 	{
 		say: '…and the engine renders it live on the right, as you type.',
 		type: upTo(1),
-		cadence: 26,
-		settle: 700,
+		cadence: 32,
+		settle: 900,
 	},
 	{
 		moveTo: SEL.preview,
 		say: 'Every slide is a boardroom-grade layout — no fiddling with boxes.',
-		settle: 1500,
+		settle: 1800,
 	},
 	{
 		say: 'A `---` starts each new slide. Here comes the rest of the board update…',
 		moveTo: SEL.editor,
 		click: true,
 		type: upTo(3),
-		cadence: 9,
-		settle: 500,
+		cadence: 15,
+		settle: 700,
 	},
 	// Split the remaining slides into a second beat so each typed run stays under
 	// the director's instant-paste threshold and actually animates as typing.
 	{
 		type: upTo(6),
-		cadence: 7,
-		settle: 800,
+		cadence: 12,
+		settle: 900,
 	},
 	{
 		moveTo: SEL.rail,

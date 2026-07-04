@@ -90,8 +90,9 @@ async function typeTo(
 		emit(target.slice(0, keep));
 		await wait(90, signal);
 	}
-	// Reveal the tail, chunking whitespace so typing feels like words, not a
-	// metronome — a newline/space run lands in one tick.
+	// Reveal the tail, chunking whitespace so typing reads as words, not a metronome —
+	// a newline/space run lands in one tick. Each keystroke's delay is jittered ±40%
+	// so the rhythm feels human, not machine-uniform.
 	let i = keep;
 	while (i < target.length) {
 		let next = i + 1;
@@ -100,7 +101,7 @@ async function typeTo(
 		}
 		emit(target.slice(0, next));
 		i = next;
-		await wait(cadence, signal);
+		await wait(cadence * (0.7 + Math.random() * 0.6), signal);
 	}
 }
 

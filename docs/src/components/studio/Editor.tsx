@@ -319,14 +319,32 @@ export const Editor = React.forwardRef<EditorHandle, {
 		viewRef.current?.dispatch({ effects: lintComp.current.reconfigure(buildLint()) });
 	}, [vocabSets, known]);
 
-	// External value changes (deck switch) → replace doc without losing the editor.
-	// Reset the cursor to the top so the doc-replace can't map the caret to the end
-	// and fire a spurious cursor→preview jump to the last slide.
+	// External value changes → replace the doc without losing the editor. Two shapes:
+	//  • a pure APPEND (the self-driving demo types a growing prefix) → keep the caret
+	//    at the tail and scroll to follow it, so the growing text never runs off-screen
+	//    and the preview tracks each slide as it's typed;
+	//  • anything else (deck switch, restore, AI apply) → reset the cursor to the top so
+	//    the doc-replace can't map the caret to the end and fire a spurious cursor→preview
+	//    jump to the last slide.
 	React.useEffect(() => {
 		const v = viewRef.current;
 		if (v && value !== v.state.doc.toString()) {
-			lastSlideRef.current = 0;
-			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 } });
+			const prev = v.state.doc.toString();
+			const append = value.length > prev.length && value.startsWith(prev);
+			if (append) {
+				// Insert only the new tail (not a whole-doc replace) so the caret lands at
+				// the end and `scrollIntoView` reliably follows it — a full replace resets
+				// scroll to the top and drops the scroll intent. This is the demo-typing
+				// path; the preview tracks each slide as it's typed.
+				const from = prev.length;
+				v.dispatch({ changes: { from, insert: value.slice(from) }, selection: { anchor: value.length }, scrollIntoView: true });
+			} else {
+				// Deck switch / restore / AI apply → reset the cursor to the top so the
+				// doc-replace can't map the caret to the end and fire a spurious
+				// cursor→preview jump to the last slide.
+				lastSlideRef.current = 0;
+				v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 } });
+			}
 		}
 	}, [value]);
 
