@@ -12,8 +12,11 @@ import { type DemoStage, wait } from './demo-stage';
 
 /** The Studio operations a storyboard can trigger — each bound to a real setter. */
 export type DemoActions = {
-	/** Replace the deck source (drives the editor, preview, rail, Coach). */
+	/** Replace the whole deck source (seed / restore / the rare rewrite). */
 	setSource: (source: string) => void;
+	/** Append typed text at the editor's tail — a native CodeMirror insert that
+	 *  scrolls to follow and flows back to `source` via onChange. The typing channel. */
+	typeTail: (text: string) => void;
 	/** Select a slide by index (drives the preview + editor reveal). */
 	gotoSlide: (index: number) => void;
 	setView: (view: 'compose' | 'fabricate') => void;
@@ -65,29 +68,34 @@ function commonPrefix(a: string, b: string): number {
 	return i;
 }
 
-// Type toward `target` from `current`: back out to the shared prefix, then reveal
-// the new tail. Our storyboards are append-only, so this is pure forward typing;
-// the prefix logic just keeps it correct if a step ever rewrites earlier text.
+/** How the director mutates the deck: replace the whole doc, or append a typed run. */
+type TypeOps = { set: (source: string) => void; append: (text: string) => void };
+
+// Type toward `target` from `current`. Append-only storyboards (ours) are pure
+// forward typing via `ops.append` (a native editor insert per keystroke run); the
+// prefix logic just keeps it correct if a step ever rewrites earlier text.
 async function typeTo(
 	current: string,
 	target: string,
 	cadence: number,
 	reduced: boolean,
-	emit: (s: string) => void,
+	ops: TypeOps,
 	signal: AbortSignal,
 ): Promise<void> {
 	if (current === target) return;
 	const keep = commonPrefix(current, target);
-	// Reduced motion (or a very long insert) skips the keystroke animation.
+	// Reduced motion (or a very long insert) skips the keystroke animation — set the
+	// whole target at once (a full-doc replace is fine when there's no animation).
 	const tail = target.length - keep;
 	if (reduced || tail > 900) {
-		emit(target);
+		ops.set(target);
 		await wait(reduced ? 60 : 260, signal);
 		return;
 	}
-	// Delete back to the shared prefix in a couple of quick chunks (rare path).
+	// A rewrite of earlier text (not append-only) → reset to the shared prefix first,
+	// then append the new tail. Ours never hits this, but it keeps typeTo total.
 	if (keep < current.length) {
-		emit(target.slice(0, keep));
+		ops.set(target.slice(0, keep));
 		await wait(90, signal);
 	}
 	// Reveal the tail, chunking whitespace so typing reads as words, not a metronome —
@@ -99,7 +107,7 @@ async function typeTo(
 		if (/\s/.test(target[i])) {
 			while (next < target.length && /\s/.test(target[next])) next++;
 		}
-		emit(target.slice(0, next));
+		ops.append(target.slice(i, next));
 		i = next;
 		await wait(cadence * (0.7 + Math.random() * 0.6), signal);
 	}
@@ -136,7 +144,7 @@ export async function runStoryboard(
 				step.type,
 				step.cadence ?? TYPE_CADENCE,
 				stage.reduced,
-				actions.setSource,
+				{ set: actions.setSource, append: actions.typeTail },
 				signal,
 			);
 			current = step.type;

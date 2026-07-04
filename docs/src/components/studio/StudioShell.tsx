@@ -681,6 +681,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		palette,
 		demoActiveRef,
 		setSource,
+		typeTail: (t: string) => editorRef.current?.typeTail(t),
 		goToSlide,
 		setView,
 		setArchitectOpen,

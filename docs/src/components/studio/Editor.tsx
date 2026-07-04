@@ -86,6 +86,12 @@ export type EditorHandle = {
 	/** Replace the current selection with `text` as one undoable transaction, then
 	 *  re-select the inserted run so a follow-up refine stacks on the same span. */
 	replaceSelection: (text: string) => void;
+	/** Append `text` at the document end, move the caret there, and scroll to follow —
+	 *  the self-driving demo's typing channel. A native CodeMirror insert (not a
+	 *  full-doc replace via the value prop): the caret + scroll behave like real
+	 *  typing, and the change flows back out through `onChange` like any edit. Carries
+	 *  no user-event annotation, so it does NOT trip `onUserEdit` (the first-edit cue). */
+	typeTail: (text: string) => void;
 };
 
 export const Editor = React.forwardRef<EditorHandle, {
@@ -244,6 +250,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 			v.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from, head: r.from + text.length } });
 			v.focus();
 		},
+		typeTail(text: string) {
+			const v = viewRef.current;
+			if (!v || !text) return;
+			const end = v.state.doc.length;
+			// Insert at the tail, caret to the new end, scroll to follow. No userEvent
+			// annotation → onUserEdit stays silent (this is the demo, not the author).
+			v.dispatch({ changes: { from: end, insert: text }, selection: { anchor: end + text.length }, scrollIntoView: true });
+		},
 	}));
 
 	// Single init (StrictMode-safe): construct once, never on every render. `value`
@@ -326,25 +340,16 @@ export const Editor = React.forwardRef<EditorHandle, {
 	//  • anything else (deck switch, restore, AI apply) → reset the cursor to the top so
 	//    the doc-replace can't map the caret to the end and fire a spurious cursor→preview
 	//    jump to the last slide.
+	// External value changes (deck switch / restore / AI apply) → replace the doc
+	// without losing the editor. Reset the cursor to the top so the doc-replace can't
+	// map the caret to the end and fire a spurious cursor→preview jump to the last
+	// slide. (The demo types through the `typeTail` handle, a native insert — NOT this
+	// path — so a growing deck never round-trips as a full replace here.)
 	React.useEffect(() => {
 		const v = viewRef.current;
 		if (v && value !== v.state.doc.toString()) {
-			const prev = v.state.doc.toString();
-			const append = value.length > prev.length && value.startsWith(prev);
-			if (append) {
-				// Insert only the new tail (not a whole-doc replace) so the caret lands at
-				// the end and `scrollIntoView` reliably follows it — a full replace resets
-				// scroll to the top and drops the scroll intent. This is the demo-typing
-				// path; the preview tracks each slide as it's typed.
-				const from = prev.length;
-				v.dispatch({ changes: { from, insert: value.slice(from) }, selection: { anchor: value.length }, scrollIntoView: true });
-			} else {
-				// Deck switch / restore / AI apply → reset the cursor to the top so the
-				// doc-replace can't map the caret to the end and fire a spurious
-				// cursor→preview jump to the last slide.
-				lastSlideRef.current = 0;
-				v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 } });
-			}
+			lastSlideRef.current = 0;
+			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 } });
 		}
 	}, [value]);
 

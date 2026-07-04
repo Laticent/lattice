@@ -21,6 +21,8 @@ export type StudioDemoBindings = {
 	 *  demo's sample deck never persists over the viewer's stored deck. */
 	demoActiveRef: React.MutableRefObject<boolean>;
 	setSource: (source: string) => void;
+	/** Append typed text natively in the editor (the demo's typing channel). */
+	typeTail: (text: string) => void;
 	goToSlide: (index: number) => void;
 	setView: (view: 'compose' | 'fabricate') => void;
 	setArchitectOpen: (open: boolean) => void;
@@ -141,6 +143,7 @@ export function useStudioDemo(
 		// a long-running demo always drives the freshest state.
 		const actions: DemoActions = {
 			setSource: (s) => bindRef.current.setSource(s),
+			typeTail: (t) => bindRef.current.typeTail(t),
 			gotoSlide: (i) => bindRef.current.goToSlide(i),
 			setView: (v) => bindRef.current.setView(v),
 			openArchitect: (o) => bindRef.current.setArchitectOpen(o),

@@ -6,7 +6,7 @@ import type { DemoStage } from './demo-stage';
 // A fake stage: no real DOM, everything resolves instantly, reduced-motion ON so
 // the director takes its fast path (no per-keystroke animation). It records the
 // caption + cursor calls so we can assert the fixed step order.
-function fakeStage(log: string[]): DemoStage {
+function fakeStage(log: string[], reduced = true): DemoStage {
 	return {
 		resolve: (sel) => {
 			log.push(`resolve:${sel}`);
@@ -20,7 +20,7 @@ function fakeStage(log: string[]): DemoStage {
 		},
 		say: (t) => log.push(`say:${t}`),
 		contains: () => false,
-		reduced: true,
+		reduced,
 		destroy: () => {},
 	};
 }
@@ -31,6 +31,10 @@ function fakeActions(log: string[]): DemoActions & { source: string } {
 		setSource: (s: string) => {
 			bag.source = s;
 			log.push(`src:${s.length}`);
+		},
+		typeTail: (t: string) => {
+			bag.source += t;
+			log.push(`type:${t.length}`);
 		},
 		gotoSlide: (i: number) => log.push(`slide:${i}`),
 		setView: () => {},
@@ -89,15 +93,20 @@ describe('demo director', () => {
 		expect(log).not.toContain('slide:9');
 	});
 
-	it('never fires onUserEdit-style keystrokes — it only calls setSource', async () => {
-		// The director's only editing channel is setSource (programmatic doc sync),
-		// which by design does NOT trip the Studio's first-user-edit reveal.
+	it('animated typing appends through typeTail (native editor insert), not setSource', async () => {
+		// With motion ON, each keystroke run is a native tail append — NOT a full-doc
+		// setSource. setSource is only the seed here; the growing deck goes through
+		// typeTail, which the editor dispatches without a user-event annotation (so it
+		// never trips the first-edit cue).
 		const log: string[] = [];
 		const actions = fakeActions(log);
-		const spy = vi.spyOn(actions, 'setSource');
-		const board: Storyboard = { seed: '', steps: [{ type: 'abc', settle: 0 }] };
-		await runStoryboard(fakeStage(log), actions, board, new AbortController().signal);
-		expect(spy).toHaveBeenCalled();
-		expect(actions.source).toBe('abc');
+		const setSpy = vi.spyOn(actions, 'setSource');
+		const typeSpy = vi.spyOn(actions, 'typeTail');
+		const board: Storyboard = { seed: '', steps: [{ type: 'hello world', settle: 0 }] };
+		await runStoryboard(fakeStage(log, /* reduced */ false), actions, board, new AbortController().signal);
+		expect(setSpy).toHaveBeenCalledTimes(1); // the seed only
+		expect(setSpy).toHaveBeenCalledWith(''); // …with the empty seed
+		expect(typeSpy).toHaveBeenCalled(); // the deck was typed, not set
+		expect(actions.source).toBe('hello world'); // and the appends reconstruct the target
 	});
 });
