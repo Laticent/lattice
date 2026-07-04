@@ -145,10 +145,15 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-figure {
   display: contents;
 }
 section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quadrant-svg--cohort) {
-  height: 100cqh;
+  /* #742 — container-fill: the .chart-body is a container-type:size box and the
+     figure is display:contents, so the SVG fills BOTH axes of that definite box;
+     preserveAspectRatio `meet` fits the 420/320 plot inside, shrink-to-fit.
+     max-height:none + flex:0 0 auto clear the base rule's slide-relative 50cqh cap
+     and flex-shrink, which would otherwise re-clamp the plot to half the stage. */
+  width: 100%;
+  height: 100%;
   max-height: none;
-  width: auto;
-  max-width: 100%;
+  flex: 0 0 auto;
 }
 
 /* ── Native 2×2 quadrant SVG chrome — appended Phase 4 ──

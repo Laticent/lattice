@@ -28,7 +28,8 @@ section.map .map-svg {
   /* Width-driven (a world map is wide-short): FILL the 70% canvas zone so the
    * map scales to the room it's actually given (it was pinned small at 56cqi).
    * height:auto lets the aspect ratio set the height; max-height guards a tall
-   * two-line subtitle. */
+   * two-line subtitle. This BASE rule governs hero/bleed maps only — the Form and
+   * non-form non-hero maps container-fill via the shared rules in chart-family.css. */
   width: 100%;
   max-width: 100%;
   height: auto;

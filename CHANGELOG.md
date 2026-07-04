@@ -112,6 +112,17 @@ in patch versions.
 
 ### Fixed
 
+- **SVG charts share one sizing model — container-fill.** The SVG chart-family
+  charts (piechart, radar, map, cohort + default quadrant) bound `height:100cqh;
+  width:auto` to size their figure. The Form (default) rendering path for all five
+  — plus the non-form path for pie/radar/map/cohort — now uses the standard
+  responsive `width:100%; height:100%` against their definite `container-type:size`
+  parent, letting `preserveAspectRatio="xMidYMid meet"` shrink-to-fit. (The
+  non-form default quadrant keeps its slide-relative #180 rule; hero/bleed keep
+  their own.) Same pixels (a square chart's horizontal margin is aspect-ratio, not
+  a sizing bug), print-safe (verified in PDF export), one fewer axis-binding scheme.
+  See `engineering/decisions/2026-07-04-chart-container-fill-sizing.md`.
+
 - **PPTX export now carries speaker notes.** The owned image-per-slide `.pptx`
   writer dropped every note — a note authored in Markdown survived to the PDF and
   the HTML sidecar but silently vanished from PowerPoint. `writePptx` now writes

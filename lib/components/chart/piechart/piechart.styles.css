@@ -25,12 +25,12 @@ section.piechart .piechart-figure {
 }
 section.piechart .piechart-svg {
   flex: 0 0 auto;
-  /* Height-bound: fill the box height; width follows the unified viewBox aspect
-     (disc 200 + two divider gaps + key rail = 376 : 200). Shrinks to a smaller
-     FULL unit under a squeeze — diagram AND key together — instead of clipping. */
-  height: 100cqh;
-  width: auto;
-  max-width: 100%;
+  /* #742 — CONTAINER-FILL. The parent (.piechart-figure) is a container-type:size
+     box, so the SVG fills BOTH axes of that definite box; its preserveAspectRatio
+     `meet` fits the unit inside, whichever dimension binds — shrink-to-fit, never
+     clip, resolution-independent. (Was height-bound: height:100cqh; width:auto.) */
+  width: 100%;
+  height: 100%;
   display: block;
 }
 /* Cover is full-bleed. With the key now INSIDE the SVG the figure has no
@@ -84,9 +84,8 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-figure {
   display: contents;
 }
 section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
-  height: 100cqh;
-  width: auto;
-  max-width: 100%;
+  width: 100%;
+  height: 100%;
 }
 section.piechart .piechart-svg .wedge {
   /* Stroke colour is the slot's --catN-ink (set per nth-child below); the
