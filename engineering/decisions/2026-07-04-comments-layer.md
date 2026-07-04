@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: Comments (review feedback on a slide) are a web-app feature whose home is the .lattice zip's manifest; they are OFF by default in every other export and reach a shared PDF only when the author opts in at export time (a visible sticky note), via a broader export-options step. PPTX has no reachable comment channel (tooling wall). They are a distinct channel from speaker notes and accessibility descriptions, are openly-travelling (privacy is not enforceable in a file-based model), anchor to a stable slide id (not an ordinal), and are shaped so the Yjs collaboration layer can later sync them alongside the source.
 companion:
   - ./2026-06-16-lattice-export-format.md
@@ -9,10 +9,19 @@ companion:
 
 # Comments — a review layer that travels in the `.lattice` file
 
-**Date:** 2026-07-04 · **Status:** proposed (design-decision; no code yet) · **Owner:** Sharmarke
+**Date:** 2026-07-04 · **Status:** in-progress (app layer shipped; follow-ons noted above) · **Owner:** Sharmarke
 
-> **Not canonical / no shipped behavior yet.** This fixes the *shape* of the
-> capability. When this note and a shipped surface disagree, the shipped surface wins.
+> **Status: partially shipped.** The app-layer comment feature is built (per-deck store +
+> the Studio Comments tab: add / resolve / delete). When this note and a shipped surface
+> disagree, the shipped surface wins.
+
+**Shipped (this build):** comments as **app state** — a per-deck `localStorage` store
+(`slide-comments.ts`) and a per-slide **Comments** tab in the drawer (`SlideComments.tsx`):
+add (⌘↵), resolve/reopen, delete. Anchored by slide **index** (see the anchor note below).
+**Deferred (documented follow-ons):** the `.lattice` manifest serialization (that format is
+unbuilt); the **opt-in PDF sticky-note export** (the Studio's browser PDF is canvas-rasterized,
+so it needs a `pdf-lib` annotation pass) and the broader **export-options step**; reorder-stable
+anchoring + real author identity (both land with the collaboration layer).
 
 ---
 

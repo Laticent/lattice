@@ -1703,15 +1703,34 @@ var require_notes_core = __commonJS({
       const t = String(body == null ? "" : body).trim();
       return MAGIC_COMMENT_MATCHERS.some((re) => re.test(t));
     }
+    var DESCRIBE_MATCHER = /^describe\s*:/i;
+    function isDescriptionComment(body) {
+      return DESCRIBE_MATCHER.test(String(body == null ? "" : body).trim());
+    }
     function notesFromHtml(sectionHtml) {
       const re = new RegExp(COMMENT_SOURCE, "g");
       const bodies = [];
       for (const m of String(sectionHtml == null ? "" : sectionHtml).matchAll(re)) {
         const body = m[1].trim();
-        if (!body || isToolingComment(body)) continue;
+        if (!body || isToolingComment(body) || isDescriptionComment(body)) continue;
         bodies.push(body);
       }
       return bodies.length ? bodies.join("\n\n") : null;
+    }
+    function descriptionFromHtml(sectionHtml) {
+      const re = new RegExp(COMMENT_SOURCE, "g");
+      const parts = [];
+      for (const m of String(sectionHtml == null ? "" : sectionHtml).matchAll(re)) {
+        const body = m[1].trim();
+        if (!isDescriptionComment(body)) continue;
+        const text = body.replace(DESCRIBE_MATCHER, "").trim();
+        if (text) parts.push(text);
+      }
+      return parts.length ? parts.join(" ") : null;
+    }
+    function extractSlideDescriptions(slidesHtml) {
+      const arr = Array.isArray(slidesHtml) ? slidesHtml : [slidesHtml];
+      return arr.map(descriptionFromHtml);
     }
     function extractSlideNotes(slidesHtml) {
       const arr = Array.isArray(slidesHtml) ? slidesHtml : [slidesHtml];
@@ -1726,8 +1745,11 @@ var require_notes_core = __commonJS({
     module.exports = {
       MAGIC_COMMENT_MATCHERS,
       isToolingComment,
+      isDescriptionComment,
       notesFromHtml,
       extractSlideNotes,
+      descriptionFromHtml,
+      extractSlideDescriptions,
       stripCommentNodes
     };
   }

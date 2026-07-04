@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: A per-slide accessibility DESCRIPTION channel — author-owned, AI-accelerated, human-confirmed — that exports as the WCAG SC 1.1.1 (Level A) text alternative. It lives beside the speaker note in the Studio Notes tab but is a SEPARATE register with opposite correctness rules (objective equivalent of THIS slide, never off-slide context), stored as its own consumed directive (never a bare comment that leaks into the note). Charts/numbers derive their description from the same source data (structure-first, can't hallucinate). MVP ships to PPTX `altText` + HTML; tagged-PDF `/Alt` is deferred (no pipeline). Reshaped from the owner's plan after a red-team + inversion + independent feasibility pass.
 companion:
   - ./2026-07-03-semantic-html-accessibility.md
@@ -9,10 +9,18 @@ companion:
 
 # Accessible slide descriptions — the text alternative, author-owned + AI-accelerated
 
-**Date:** 2026-07-04 · **Status:** proposed (design-decision; no code yet) · **Owner:** Sharmarke
+**Date:** 2026-07-04 · **Status:** in-progress (channel + export + authoring shipped; follow-ons noted above) · **Owner:** Sharmarke
 
-> **Not canonical / no shipped behavior yet.** This fixes the *shape* of the
-> capability. When this note and a shipped surface disagree, the shipped surface wins.
+> **Status: partially shipped.** The channel + export + authoring are built (see
+> "Shipped" below). When this note and a shipped surface disagree, the shipped surface wins.
+
+**Shipped (this build):** the `describe:` engine channel (`notes-core`: consumed, never a
+note); PPTX image `altText` on **both** export paths (CLI `lib/export/pptx-export.js` +
+Studio `drawing-board-export.js`); the HTML `aria-describedby` sink (CLI); the Studio Notes-tab
+field with AI **Generate** (slide-local, structure-first prompt) + the review/confirm gate.
+**Deferred (documented follow-ons):** tagged-PDF `/Alt` (no tagged-PDF pipeline exists); a
+full deck-wide batch "describe all slides" in the Architect (the per-slide generate ships now);
+engine-derived data-tables for charts (the structure-first rule is enforced at the prompt today).
 
 Shaped with the owner, then pressure-tested by a **red-team + inversion + independent
 feasibility** pass. The owner's plan was right on destination and ownership; four
