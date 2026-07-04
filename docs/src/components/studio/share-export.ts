@@ -11,7 +11,7 @@
 import { ensureEngine } from '@/lib/load-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
-import { mergeClassTokens, setFrontMatter } from './front-matter';
+import { getFrontMatter, mergeClassTokens, setFrontMatter } from './front-matter';
 
 type EngineRender = { html: string; css: string; width?: number; height?: number };
 type PG = {
@@ -223,7 +223,7 @@ export async function sharePrintDeck(options: SingleSlideOptions, source: string
 		const done = () => res();
 		const t = window.setTimeout(done, 10000);
 		frame.addEventListener('load', () => { window.clearTimeout(t); done(); }, { once: true });
-		frame.srcdoc = buildSrcdoc({ html: render.html, css: render.css, mode: render.mode, geom: render.geom, runtimeUrl: render.runtimeUrl, fontCss: render.fontCss, contentVisibility: false, cursor: false, sync: false, printRules: true });
+		frame.srcdoc = buildSrcdoc({ html: render.html, css: render.css, mode: render.mode, geom: render.geom, runtimeUrl: render.runtimeUrl, fontCss: render.fontCss, contentVisibility: false, cursor: false, sync: false, printRules: true, lang: getFrontMatter(source, 'lang') || 'en' });
 	});
 	try {
 		if (frame.contentWindow && (frame.contentWindow as Window & { __latticeFit?: () => void }).__latticeFit) (frame.contentWindow as Window & { __latticeFit?: () => void }).__latticeFit?.();

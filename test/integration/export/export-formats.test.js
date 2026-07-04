@@ -312,4 +312,20 @@ describe('export-formats', () => {
       assert.ok(fs.statSync(f).size > 5000, 'PNG should be non-trivial (catches blank screenshots)');
     }
   });
+
+  // Accessibility: the exported PDF shell must carry the deck's title + language, so a
+  // screen reader announces both (was a tracked gap — untagged PDF, no /Lang, no title;
+  // semantic-html-accessibility.md G1/G2). Chrome's print-to-PDF lifts them from the
+  // shell's <title> + <html lang>.
+  test('the exported PDF carries an accessible /Lang + title (WCAG 2.4.2 / 3.1.1)', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'titled.md');
+    fs.writeFileSync(src, '---\ntitle: Q3 Board Review\nlang: fr\ntheme: indaco\n---\n\n# Hello\n\nSome text.\n');
+    const out = path.join(dir, 'titled.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const bytes = fs.readFileSync(out).toString('latin1');
+    assert.match(bytes, /\/Lang ?\(fr\)/, 'PDF should carry /Lang from the deck lang: front-matter');
+    assert.match(bytes, /Q3 Board Review/, 'PDF should carry the deck title from title: front-matter');
+  });
 });

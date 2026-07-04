@@ -1470,9 +1470,23 @@ if (hasStateChart) {
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 
+// ── Document accessibility metadata (WCAG 2.4.2 title, 3.1.1 language) ─────────
+// An exported HTML/PDF shell with no <title> and no lang is a tracked a11y gap
+// (semantic-html-accessibility.md G1/G2): a screen reader can't announce the deck's
+// name or language, and Chrome's print-to-PDF carries neither into the file. Derive
+// both from the deck — front-matter `title:`/`lang:`, else the first heading / a safe
+// default — and stamp them on the shell so the CLI PDF + HTML export carry them.
+const deckLang = (fm.match(/^\s*lang:\s*["']?([A-Za-z][\w-]*)["']?\s*$/m) || [])[1] || 'en';
+const deckTitle =
+  (fm.match(/^\s*title:\s*["']?(.+?)["']?\s*$/m) || [])[1] ||
+  (rawMd.replace(/^---[\s\S]*?---\r?\n/, '').match(/^#{1,3}\s+(.+?)\s*$/m) || [])[1] ||
+  path.basename(outFile).replace(/\.[^.]+$/, '') ||
+  'Lattice deck';
+
 // ── HTML document ─────────────────────────────────────────────────────────────
 const htmlDoc = `<!DOCTYPE html>
-<html><head><meta charset="utf-8">
+<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
+<title>${escapeHtml(deckTitle.replace(/[`*_]/g, '').trim().slice(0, 120))}</title>
 ${embeddedFonts}
 ${katexCssLink}
 <style>

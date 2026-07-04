@@ -253,6 +253,8 @@ export function buildSrcdoc({
 	a11yDefs = A11Y_DEFS, // categorical texture <pattern> <defs> — injected into <body>
 	// on every render so `fill: url(#latt-a11y-tex-N)` resolves in this browsing
 	// context under an a11y theme (inert otherwise). Owned here, not per-caller.
+	lang = 'en', // <html lang> for the frame — real-text surfaces (vector Print PDF, the
+	// preview a screen reader can walk) announce the deck's language (WCAG 3.1.1).
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
@@ -285,7 +287,7 @@ export function buildSrcdoc({
 	// Mermaid/charts added after the first edit never render. A fresh srcdoc resets
 	// the guard. See engineering/gotchas.md "Playground: Mermaid stops rendering".
 	return (
-		'<!doctype html><html><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"><head><meta charset="utf-8">' +
 		'<link rel="stylesheet" href="' + katexUrl + '">' +
 		(fontCss ? '<style>' + fontCss + '</style>' : '') +
 		'<style>html,body{margin:0;padding:' + padding + 'px;background:' + bg + ';}' +
