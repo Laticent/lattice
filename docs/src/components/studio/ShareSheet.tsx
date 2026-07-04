@@ -29,7 +29,6 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// PDF (where comments can ride along as sticky notes). Reset to the menu whenever
 	// the sheet re-opens so it never lands mid-flow.
 	const [view, setView] = React.useState<'menu' | 'pdf'>('menu');
-	// Reset to the menu whenever the sheet re-opens so it never lands mid-flow.
 	React.useEffect(() => { if (open) setView('menu'); }, [open]);
 	// A saved finish renders via a `finish finish-<slug>` class the engine doesn't know
 	// + its generated CSS. The two handoffs treat it differently:

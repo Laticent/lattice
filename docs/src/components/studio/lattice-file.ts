@@ -10,7 +10,16 @@
 // follow-ons. See engineering/decisions/2026-06-16-lattice-export-format.md and
 // 2026-07-04-comments-layer.md (comments travel in the `.lattice` manifest).
 
-import { type SlideComment } from './slide-comments';
+import type { SlideComment } from './slide-comments';
+
+// Untrusted-input guards: a `.lattice` is a file from anyone, so reading one must
+// not let a tiny deflate bomb inflate to gigabytes and OOM the tab. Cap both the
+// on-disk size and the declared inflated size before decompressing.
+const MAX_COMPRESSED_BYTES = 25 * 1024 * 1024; // 25 MB on disk
+const MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024; // 64 MB inflated (source + manifest)
+// A deck title from an untrusted manifest is clamped to the same spirit as the
+// `.md` import path (titleFromSource caps length) — no multi-MB titles in the index.
+const MAX_TITLE_LEN = 120;
 
 /** The manifest envelope. `version` gates forward-compat; bump on a breaking shape change. */
 export type LatticeManifest = {
@@ -57,13 +66,18 @@ export function parseLatticeManifest(json: string): LatticeManifest {
 	if (!m || typeof m !== 'object' || m.format !== 'lattice') {
 		throw new Error('Not a Lattice file — missing the Lattice manifest.');
 	}
-	if (typeof m.version !== 'number' || m.version > LATTICE_VERSION) {
+	if (typeof m.version !== 'number' || !Number.isInteger(m.version) || m.version < 1) {
+		throw new Error('Not a Lattice file — the manifest version is invalid.');
+	}
+	if (m.version > LATTICE_VERSION) {
 		throw new Error(`This .lattice file needs a newer Lattice (format v${m.version}).`);
 	}
+	// Clamp the untrusted title to the index's expectations (length + no newlines).
+	const title = typeof m.title === 'string' ? m.title.replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE_LEN) : '';
 	return {
 		format: 'lattice',
 		version: m.version,
-		title: typeof m.title === 'string' ? m.title : 'Untitled deck',
+		title: title || 'Untitled deck',
 		engine: 'lattice',
 		generatedAt: typeof m.generatedAt === 'number' ? m.generatedAt : 0,
 		comments: Array.isArray(m.comments) ? (m.comments as SlideComment[]) : [],
@@ -91,6 +105,10 @@ export type LatticeImport = { source: string; title: string; comments: SlideComm
  * clean toast rather than a stack trace.
  */
 export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
+	// Reject an oversized archive before touching it (cheap, catches the obvious case).
+	if (file.size > MAX_COMPRESSED_BYTES) {
+		throw new Error('That .lattice file is too large to open.');
+	}
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(file).catch(() => {
 		throw new Error('That .lattice file is not a valid archive.');
@@ -100,7 +118,17 @@ export async function readLatticeFile(file: Blob): Promise<LatticeImport> {
 	if (!deckEntry || !manifestEntry) {
 		throw new Error('That .lattice file is missing its deck or manifest.');
 	}
+	// Deflate-bomb guard: refuse to inflate if the DECLARED uncompressed size is huge
+	// (a few-KB zip can otherwise expand to gigabytes and crash the tab). JSZip exposes
+	// the entry's uncompressed size on its internal `_data`.
+	const inflated = (e: unknown) => Number((e as { _data?: { uncompressedSize?: number } })?._data?.uncompressedSize) || 0;
+	if (inflated(deckEntry) + inflated(manifestEntry) > MAX_UNCOMPRESSED_BYTES) {
+		throw new Error('That .lattice file is too large to open.');
+	}
 	const [source, manifestText] = await Promise.all([deckEntry.async('string'), manifestEntry.async('string')]);
 	const manifest = parseLatticeManifest(manifestText);
+	// Note: `source` is UTF-8 decoded from the zip — round-trip is byte-identical for
+	// any well-formed text (a lone surrogate, only reachable via a corrupt paste, is
+	// normalized to U+FFFD on encode; an accepted narrow caveat, not a data path).
 	return { source, title: manifest.title, comments: manifest.comments };
 }

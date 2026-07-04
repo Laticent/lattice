@@ -46,4 +46,20 @@ describe('lattice-file', () => {
 		const blob = await zip.generateAsync({ type: 'blob' });
 		await expect(readLatticeFile(blob)).rejects.toThrow(/missing its deck or manifest/i);
 	});
+
+	it('readLatticeFile rejects a non-zip blob (corrupt archive)', async () => {
+		await expect(readLatticeFile(new Blob(['not a zip at all']))).rejects.toThrow(/not a valid archive/i);
+	});
+
+	it('rejects an invalid manifest version (non-integer / < 1) distinctly from a newer one', () => {
+		expect(() => parseLatticeManifest(JSON.stringify({ format: 'lattice', version: 0 }))).toThrow(/version is invalid/i);
+		expect(() => parseLatticeManifest(JSON.stringify({ format: 'lattice', version: 1.5 }))).toThrow(/version is invalid/i);
+		expect(() => parseLatticeManifest(JSON.stringify({ format: 'lattice', version: -1 }))).toThrow(/version is invalid/i);
+	});
+
+	it('clamps a hostile manifest title (length + newlines)', () => {
+		const m = parseLatticeManifest(JSON.stringify({ format: 'lattice', version: 1, title: `a${'x'.repeat(500)}\n\nb` }));
+		expect(m.title.length).toBeLessThanOrEqual(120);
+		expect(m.title).not.toContain('\n');
+	});
 });

@@ -13,7 +13,8 @@ export function downloadBlob(filename: string, blob: Blob): void {
 }
 
 // Trigger a client-side file download for a text blob (the Share "hand off the
-// source" path).
+// source" path). Guarded so it stays a no-op in a non-DOM environment (tests).
 export function downloadText(filename: string, text: string, mime = 'text/markdown'): void {
+	if (typeof Blob === 'undefined') return;
 	downloadBlob(filename, new Blob([text], { type: `${mime};charset=utf-8` }));
 }

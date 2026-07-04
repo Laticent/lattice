@@ -52,7 +52,12 @@ function isComment(c: unknown): c is SlideComment {
 	// undefined body an empty bubble. A malformed entry is dropped, not shown.
 	return (
 		typeof o.id === 'string' &&
+		// A 1-based slide index — a positive integer. Drops junk anchors (0, -3, 1.5)
+		// from an imported .lattice; an in-range-but-stale index is the documented
+		// index-anchoring limit, not something this guard can catch.
 		typeof o.slide === 'number' &&
+		Number.isInteger(o.slide) &&
+		o.slide >= 1 &&
 		typeof o.body === 'string' &&
 		typeof o.author === 'string' &&
 		typeof o.createdAt === 'number' &&

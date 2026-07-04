@@ -37,6 +37,7 @@ import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
 import { SlideContext } from './SlideContext';
 import { activeSpectrumLabel, SpectrumMenuItems } from './SpectrumPicker';
+import { importComments } from './slide-comments';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
@@ -544,7 +545,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
 		saveSource(deck.id, source);
 		const d = createDeck(title || titleFromSource(text), text);
-		if (comments) { import('./slide-comments').then(({ importComments }) => importComments(d.id, comments)); }
+		// Restore comments SYNCHRONOUSLY (static import) before the deck goes active —
+		// a floating async restore could be overwritten by a comment added in the gap,
+		// or fail silently after a success toast.
+		if (comments) importComments(d.id, comments);
 		setDecks(loadDeckList());
 		setDeck(d);
 		setSource(text);
