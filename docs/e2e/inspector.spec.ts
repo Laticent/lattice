@@ -25,10 +25,12 @@ test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
 	await expect.poll(() => persistedSource(page)).toContain('paginate: true');
 });
 
-test('running-header toggle writes header front-matter', async ({ page }) => {
-	const toggle = page.getByRole('switch', { name: 'Running header' });
-	await toggle.click();
-	await expect(toggle).toHaveAttribute('aria-checked', 'true');
+test('the Header field declares running-header text into front-matter', async ({ page }) => {
+	// Header is a text DECLARATION now (you state the copy), not a toggle.
+	const header = page.getByRole('textbox', { name: 'Header' });
+	await header.click();
+	await header.fill('Acme — Q3');
+	await header.blur();
 	await expect.poll(() => persistedSource(page)).toContain('header:');
 });
 

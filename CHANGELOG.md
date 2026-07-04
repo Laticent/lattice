@@ -39,6 +39,21 @@ in patch versions.
 
 ### Changed
 
+- **Studio: the deck's running header & footer are text you declare, not
+  toggles — and the whole Deck inspector now reads as deck-wide.** The header
+  and footer controls in the Deck inspector were on/off switches that stamped
+  the deck title; they are now **text fields** where you type the actual copy
+  the band renders (blank clears the directive, so presence-of-text *is* the
+  switch — the whole point of the feature). The header, footer, page number,
+  and section rail are pulled into a dedicated **Every slide** group (a `Frame`
+  glyph) whose label carries the "repeats on every slide" sense once, so the
+  rows stay plainly named (Header · Footer · Page numbers · Section rail) — the
+  earlier lone "Running header" naming was inconsistent with its neighbors. The
+  drawer header now states its scope in plain words ("Everything here applies to
+  the whole deck; each slide inherits it…") and the chip reads **deck-wide**
+  (was "this deck"), parallel to the per-slide drawer's `slide N` chip. See
+  `engineering/decisions/2026-07-04-deck-furniture-declarations.md`.
+
 - **Breaking:** **Retired two dead dials — the `form: minimal` toggle and the
   `loose` density modifier** (both 0 real authored uses; scheduled by the `claim`
   decision §11). `form: minimal` only ever added `no-progress`, which is now the
