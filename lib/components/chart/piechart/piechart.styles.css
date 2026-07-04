@@ -25,7 +25,8 @@ section.piechart .piechart-figure {
 }
 section.piechart .piechart-svg {
   flex: 0 0 auto;
-  /* #742 — CONTAINER-FILL. The parent (.piechart-figure) is a container-type:size
+  /* CONTAINER-FILL (2026-07-04-chart-container-fill-sizing.md). The parent
+     (.piechart-figure) is a container-type:size
      box, so the SVG fills BOTH axes of that definite box; its preserveAspectRatio
      `meet` fits the unit inside, whichever dimension binds — shrink-to-fit, never
      clip, resolution-independent. (Was height-bound: height:100cqh; width:auto.) */

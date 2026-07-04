@@ -145,7 +145,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-figure {
   display: contents;
 }
 section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quadrant-svg--cohort) {
-  /* #742 — container-fill: the .chart-body is a container-type:size box and the
+  /* Container-fill (2026-07-04-chart-container-fill-sizing.md): the .chart-body is a container-type:size box and the
      figure is display:contents, so the SVG fills BOTH axes of that definite box;
      preserveAspectRatio `meet` fits the 420/320 plot inside, shrink-to-fit.
      max-height:none + flex:0 0 auto clear the base rule's slide-relative 50cqh cap
