@@ -3328,6 +3328,17 @@ section.diagram > .cell-masthead { align-self:stretch; }
 section.diagram h3 { padding-bottom:0.3125cqi; }
 section.diagram h2 { font-size:var(--fs-h3); padding-bottom:0.3125cqi; }
 section.diagram > p { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-secondary); margin-bottom:0; padding-bottom:var(--sp-sm); }
+/* Under the Form the eyebrow + title lift into the left-aligned masthead band, but
+   the dek <p> is left in flow — and section.diagram { align-items:center } shrink-wraps
+   and centers it (the same trap the masthead band and the Key Insight blockquote hit),
+   so it floats center while the lifted title left-aligns. Stretch it full-width so its
+   text aligns to the title's left edge. Form-scoped: a non-Form diagram has no masthead
+   lift and keeps its centered title, so the dek must stay centered to match it. */
+section.form.diagram > p { align-self:stretch; }
+/* Hug the title band when a subtitle leads — mirror of the chart-frame rule: the
+   masthead clearance is right below a bare title, too loose below a leading dek. */
+section.form.diagram:has(> p) > .cell-masthead { padding-bottom:var(--sp-xs); }
+section.form.diagram:has(> p) { gap:var(--sp-xs); }
 
 /* Explicit pixel width so Mermaid's getBoundingClientRect() always returns a concrete value.
    Most diagram types (sequence, timeline, gitgraph…) use useMaxWidth:true by default and
@@ -14713,13 +14724,38 @@ section.chart-frame .chart-subtitle {
 }
 
 /* Under the Form, the chart-frame's eyebrow + h2 are lifted into the masthead
- * Cell, so the in-flow .chart-header holds only the subtitle. Its tall top
- * padding (--sp-2xl, sized for the full eyebrow+h2+subtitle header) then wastes
- * ~5cqi directly below the masthead band and STARVES the chart Cell — the donut
- * collapse on dense slides was this, not the svg sizing. Drop the top padding so
- * the stage gives its height to the chart. (Scoped to section.form; non-form
- * chart headers keep their full breathing room.) */
-section.form.chart-frame .chart-header { padding-top: 0; }
+ * Cell, so the in-flow .chart-header holds only the subtitle. Three things follow:
+ *   1. Its tall top padding (--sp-2xl, sized for the full eyebrow+h2+subtitle
+ *      header) wastes ~5cqi directly below the masthead band and STARVES the chart
+ *      Cell — the donut collapse on dense slides was this, not the svg sizing.
+ *   2. Align the lone subtitle to the SAME left edge as the masthead title: drop
+ *      the centered flow and the --sp-2xl horizontal inset the full centered header
+ *      carried. A left-aligned title with a centered/inset dek reads as a mistake.
+ *   3. The masthead's own border-bottom is now the header↔body divider, so the
+ *      decorative ::after hairline would be a redundant second rule — retire it
+ *      under the Form (this also removes a stray rule when there is no subtitle).
+ * Scoped to section.form; non-form chart headers keep their full centered breathing
+ * room and their hairline. */
+section.form.chart-frame .chart-header {
+  padding-top: 0;
+  padding-inline: 0;
+  align-items: flex-start;
+  text-align: left;
+}
+section.form.chart-frame .chart-header::after { content: none; }
+
+/* Title→subtitle clearance is conditional on there BEING a subtitle. The masthead
+ * band's clearance (padding-bottom → hairline, then the section gap → body) is the
+ * deliberate title-band↔content separation and is right when the body leads with
+ * chart content. But a subtitle belongs to the headline unit and must HUG the title
+ * band, not sit a full clearance away. When (and only when) a .chart-subtitle leads,
+ * pull the hairline up under the title and the subtitle up under the hairline. */
+/* Guard against claim-hero/bleed: there the subtitle is display:none but stays in
+ * the DOM, so :has(.chart-subtitle) still matches — the hug would tighten the band
+ * with no visible dek. The plain :not() guards are fine (HARD RULE #12 bans only the
+ * :not(:has())/:is(:has()) compound forms, and only in themes/). */
+section.form.chart-frame:has(.chart-subtitle):not(.claim-hero):not(.claim-bleed) > .cell-masthead { padding-bottom: var(--sp-xs); }
+section.form.chart-frame:has(.chart-subtitle):not(.claim-hero):not(.claim-bleed) { gap: var(--sp-xs); }
 
 section.chart-frame .chart-body {
   /* Pin to slide-internal width (1280 − 2× horizontal padding), same
