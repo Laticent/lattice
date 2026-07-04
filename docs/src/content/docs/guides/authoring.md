@@ -306,7 +306,7 @@ To let the content dominate *without* stripping the title, reach for the
 **claim** presets (`claim-hero`, `claim-quiet`) instead — they recede the chrome
 but keep the slide labeled, because a board slide should never go untitled.
 
-In the **Studio**, these live in the Deck inspector's **Every slide** group —
+In the **Studio**, these live in the Deck inspector's **Running marks** group —
 all deck-wide, and every slide inherits them. The header and footer are **text
 fields** (you type the running copy the band will read; clear the field to turn
 it off), while page numbers and the section rail are switches. The *This slide*

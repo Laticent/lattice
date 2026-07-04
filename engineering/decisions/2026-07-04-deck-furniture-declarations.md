@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Polish the Studio Deck inspector's running-chrome controls. Header & footer become text-DECLARATION fields (type the copy the band renders; blank clears it) instead of title-stamping toggles. The four furniture controls move into a dedicated "Every slide" group whose label carries the "repeats on every slide" sense once, so the rows are plainly named (Header / Footer / Page numbers / Section rail) — the lone "Running header" naming was inconsistent. The whole drawer now states its deck-wide scope in plain words, and the chip reads "deck-wide" (parallel to the per-slide drawer's "slide N").
+summary: Polish the Studio Deck inspector's running-chrome controls. Header & footer become text-DECLARATION fields (type the copy the band renders; blank clears it) instead of title-stamping toggles. The four furniture controls move into a dedicated "Running marks" group named for its contents, so the rows are plainly named (Header / Footer / Page numbers / Section rail) — the lone "Running header" naming was inconsistent. The whole drawer states its deck-wide scope in plain words ONCE (a red-team caught the idea repeated three times), and the chip reads "deck-wide" (parallel to the per-slide drawer's "slide N").
 ---
 
 # Deck inspector — declared furniture & an obviously deck-wide scope
@@ -28,10 +28,13 @@ naming scheme and redirected the scope question):
 
 - **Naming of the four furniture controls.** Options: prefix all four with
   "Running"; "Running" only on the header/footer print-term pair; or drop the
-  prefix and let a group label carry the "every slide" sense once. **Chosen:**
-  the group label carries it — rows are plainly named **Header · Footer · Page
-  numbers · Section rail**, no repeated "Running" prefix (which read clunky on
-  "Running section rail" anyway).
+  prefix and let a group label carry the sense once. **Chosen:** the group
+  carries it — rows are plainly named **Header · Footer · Page numbers · Section
+  rail**, no repeated "Running" prefix (which read clunky on "Running section
+  rail" anyway). The group was first titled "Every slide", but an expert UI/UX
+  red-team (below) found that restated the deck-wide *scope* the drawer header
+  already owns; it was renamed **Running marks**, which names the group's
+  *contents* instead.
 
 - **Deck-wide denotation.** The author's redirect: the point is that the *whole*
   drawer is deck-wide — and no, that wasn't obvious. The only cue was a small
@@ -53,19 +56,36 @@ naming scheme and redirected the scope question):
   full-width `Input` from the shadcn primitives, HARD RULE #15). Reads
   `header:` / `footer:` front-matter; writes the trimmed value or clears the key.
   Placeholders seed an example (`e.g. <deck title>` / `e.g. Confidential`).
-- **A dedicated "Every slide" group** (a `Frame` glyph) holding Header · Footer
-  · Page numbers · Section rail, moved out of the crowded "Look" group. Its desc
-  names the four elements and says they repeat across the deck and are inherited
-  per slide.
-- **Deck-wide scope, stated** — the desktop inspector header and the mobile
-  Sheet header gained a plain-language line ("Everything here applies to the
-  whole deck; each slide inherits it. To change one slide, open its Slide
-  settings.") and the chip now reads **deck-wide**.
+- **A dedicated "Running marks" group** (a `Frame` glyph) holding Header ·
+  Footer · Page numbers · Section rail, moved out of the crowded "Look" group.
+  Named for its contents; the desc is a bare inventory of the four elements.
+- **Deck-wide scope, stated once** — the desktop inspector header and the mobile
+  Sheet header carry a plain-language line ("Applies to the whole deck — each
+  slide inherits it. Change just one in its Slide settings.") and the chip reads
+  **deck-wide**. Per the red-team, the scope idea lives *only* here now — the
+  Look and Running-marks group descriptions no longer restate it, and the Look
+  desc dropped the "chrome" jargon.
+
+## Red-team polish (same PR)
+
+An expert UI/UX red-team (three parallel reviewers — information architecture,
+visual craft, content/interaction) ran against full-panel screenshots + source.
+The unanimous top finding matched the owner's instinct: the deck-wide/inherit
+idea appeared **three times** (header line, Look desc, chrome group title+desc).
+Folded in on this branch: rename "Every slide" → "Running marks" (name by
+contents), de-duplicate the scope copy to the header line only, tighten the
+Header/Footer/Brand-bar help, and give `TextRow` a real `<label htmlFor>` +
+`aria-describedby`. Deferred to follow-up issues (separate PRs, HARD RULE #17):
+retire/gate the non-functional **Read** stub group, move **Lenses** (a preview
+mode, overlapping the Architect) and **History** (an action, not a setting) out
+of the settings spine, align the per-slide drawer's "Chrome" tab name with
+"Running marks", and a visual-system pass (control right-edge, spacing scale,
+label/value weight).
 
 ## Docs / tests
 
 - `guides/authoring.md` — the Studio paragraph now says header/footer are text
-  fields in the **Every slide** group (was "these live as switches").
+  fields in the **Running marks** group (was "these live as switches").
 - Unit (`studio.controls.test.tsx`) — the old "Footer switch" test is replaced
   by a Header/Footer *declaration* test (type → blur → directive; clear → gone).
 - E2E (`inspector.spec.ts`) — the "running-header toggle" test now fills the

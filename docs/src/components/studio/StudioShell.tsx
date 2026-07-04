@@ -1061,7 +1061,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
 		<>
-			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light/dark, slide size, and the chrome every slide inherits (a single slide can override any of it).">
+			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light or dark, size, and surface.">
 				<Field label="Theme" desc="The color palette every slide draws from.">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
@@ -1132,7 +1132,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							))}
 						</div>
 					)}
-					<Field label="Brand bar" desc="The colored strip along each slide's top edge. Rainbow by default; None removes it; Solid uses the theme's accent — set that to a client's brand color to white-label the deck.">
+					<Field label="Brand bar" desc="The colored strip along each slide's top edge. Set Solid to a client's brand color to white-label the deck.">
 							{/* The white-label spectrum — the rainbow bar on the top border / divider
 							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 							    the theme accent to a client's brand and Solid follows. */}
@@ -1146,16 +1146,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							</DropdownMenu>
 						</Field>
 				</InspGroup>
-			{/* The deck's running furniture — the marks that repeat on every slide.
-			    Header & footer are text you DECLARE (the whole point: you say what the
-			    band reads); page numbers & the rail are on/off. All four are deck-wide
-			    defaults every slide inherits — a single slide hides any of them from its
-			    Slide settings › Chrome. The group label carries the "every slide" sense
-			    once, so the rows stay plainly named. */}
-			<InspGroup icon={<Frame className="size-3.5" />} label="Every slide" desc="The header, footer, page number, and section rail that repeat across the whole deck. Set them here — each slide inherits them, and can hide any from its Slide settings.">
-					<TextRow label="Header" desc="Runs along the top of every slide — a deck title or client name. Leave blank to hide it." value={headerText} placeholder={`e.g. ${deck.title}`} onCommit={setHeaderText} />
-					<TextRow label="Footer" desc="Runs along the bottom of every slide — a confidentiality or source line. Leave blank to hide it." value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
-					<Field label="Page numbers" desc="Number every slide."><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
+			{/* The deck's running marks — the header, footer, page number, and rail that
+			    repeat across slides. Header & footer are text you DECLARE (the whole point:
+			    you say what the band reads); page numbers & the rail are on/off. The group is
+			    named for its CONTENTS, not its scope — the drawer header already says these are
+			    deck-wide, so the title needn't restate it (that was the redundancy). A single
+			    slide hides any of them from its Slide settings. */}
+			<InspGroup icon={<Frame className="size-3.5" />} label="Running marks" desc="The header, footer, page number, and section rail.">
+					<TextRow label="Header" desc="The line along the top — a deck title or client name. Blank hides it." value={headerText} placeholder={`e.g. ${deck.title}`} onCommit={setHeaderText} />
+					<TextRow label="Footer" desc="The line along the bottom — a confidentiality or source line. Blank hides it." value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
+					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 					<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				</InspGroup>
 			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring" desc="Aids while you write. Preview-only — none of this appears in the export.">
@@ -1623,7 +1623,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 									<span className="text-sm font-bold text-[var(--text-heading)]">Deck</span>
 									<span className="ml-auto rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">deck-wide</span>
 								</div>
-								<p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">Everything here applies to the whole deck; each slide inherits it. To change one slide, open its Slide settings.</p>
+								<p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">Applies to the whole deck — each slide inherits it. Change just one in its Slide settings.</p>
 							</div>
 							<div className="space-y-0 px-3.5 pb-4">{inspectorBody}</div>
 						</aside>
@@ -1655,7 +1655,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<SheetContent side="right" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
 							<SheetHeader className="border-b border-border">
 								<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings2 className="size-4 text-[var(--accent)]" />Deck<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">deck-wide</span></SheetTitle>
-								<SheetDescription className="text-[11px] leading-snug text-muted-foreground">Everything here applies to the whole deck; each slide inherits it. To change one slide, open its Slide settings.</SheetDescription>
+								<SheetDescription className="text-[11px] leading-snug text-muted-foreground">Applies to the whole deck — each slide inherits it. Change just one in its Slide settings.</SheetDescription>
 							</SheetHeader>
 							<div className="space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
 						</SheetContent>
@@ -1825,16 +1825,22 @@ function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; la
 // export) isn't rewritten on every keystroke. An empty commit clears the setting.
 function TextRow({ label, desc, value, placeholder, onCommit }: { label: string; desc?: string; value: string; placeholder?: string; onCommit: (v: string) => void }) {
 	const [draft, setDraft] = React.useState(value);
+	// A real <label htmlFor> (not a bare span) so tapping the label focuses the field,
+	// and aria-describedby so a screen reader announces the help line (incl. "Blank
+	// hides it") — the one sentence that explains the show/hide behavior.
+	const id = React.useId();
+	const descId = `${id}-desc`;
 	// Re-sync when the stored value changes underneath us (deck switch, restore,
 	// AI edit). Value only moves on our own commit during normal typing, so this
 	// never fights the author mid-keystroke.
 	React.useEffect(() => { setDraft(value); }, [value]);
 	return (
 		<div className="my-2">
-			<span className="text-[12.5px] text-foreground">{label}</span>
-			{desc && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
+			<label htmlFor={id} className="text-[12.5px] text-foreground">{label}</label>
+			{desc && <p id={descId} className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 			<Input
-				aria-label={label}
+				id={id}
+				aria-describedby={desc ? descId : undefined}
 				value={draft}
 				placeholder={placeholder}
 				onChange={(e) => setDraft(e.target.value)}
