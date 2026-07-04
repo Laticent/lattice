@@ -140,6 +140,22 @@ in patch versions.
 
 ### Fixed
 
+- **Studio: the Deck settings panel collapses from its own header, not only the
+  top bar.** The collapsed rail expands the panel with a `‹` chevron, but the
+  expanded panel had no matching control — you had to reach up to the top-bar
+  toggle to close it. The expanded header now carries a mirror `›` collapse
+  chevron, so the same affordance toggles both ways.
+
+- **Studio: no more stray horizontal scrollbar at tablet width.** The Studio's
+  collapsed split-rail (the thin restore strip for a hidden editor/preview pane)
+  is always rendered — kept as a grid item so the grid's track count stays stable
+  — and hidden via `visibility` when its track is `0px`. But a grid item doesn't
+  shrink to a `0px` fixed track on its own, and with `box-sizing:border-box` its
+  padding + border floored the box at ~13px, which poked past the viewport (a
+  ~13px sideways scroll around the 820px tablet width). The rail now gates its
+  width, padding, AND border behind `data-visible`, so a hidden rail is a true
+  `0px` box; the collapsed-pane rail (width, padding, boundary line) is unchanged.
+
 - **SVG charts share one sizing model — container-fill.** The SVG chart-family
   charts (piechart, radar, map, cohort + default quadrant) bound `height:100cqh;
   width:auto` to size their figure. The Form (default) rendering path for all five

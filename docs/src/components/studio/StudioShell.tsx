@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft, ChevronRight,
 	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
@@ -1628,6 +1628,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 									<Settings2 className="size-4 text-[var(--accent)]" />
 									<span className="text-sm font-bold text-[var(--text-heading)]">Deck</span>
 									<span className="ml-auto rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">deck-wide</span>
+									{/* Collapse back to the rail — the mirror of the rail's expand chevron,
+									    so the same affordance toggles both ways (open with ‹, close with ›). */}
+									<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse Deck inspector" title="Collapse Deck inspector" className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--accent)]"><ChevronRight className="size-4" /></button>
 								</div>
 								<p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">Applies to the whole deck — each slide inherits it. Change just one in its Slide settings.</p>
 							</div>

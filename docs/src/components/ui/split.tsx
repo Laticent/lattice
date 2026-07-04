@@ -731,18 +731,22 @@ function SplitRail({
 			aria-label={labelExpand}
 			title={labelExpand}
 			className={cn(
-				"flex min-w-0 cursor-pointer flex-col items-center gap-2 overflow-hidden border-border bg-muted/40 py-2 outline-none",
-				// The 1px boundary line survives collapse on the PANE-facing edge —
-				// rail-a (editor collapsed, viewport-left) borders right, rail-b
-				// (preview collapsed, viewport-right) borders left. Without it the
-				// rail floats against the expanded pane; the outer edge needs none.
-				"data-[side=a]:border-r data-[side=b]:border-l",
+				"flex min-w-0 cursor-pointer flex-col items-center gap-2 overflow-hidden border-border bg-muted/40 outline-none",
 				"transition-colors hover:bg-muted",
 				"focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]",
-				// A rail whose track is 0px must paint nothing — borders would still
-				// draw a sliver, so visibility (not display) gates it: the rail stays a
-				// grid item, keeping track count == child count in every state.
-				"invisible data-[visible]:visible",
+				// A rail whose track is 0px must occupy NOTHING, not just paint nothing.
+				// A grid item does not shrink to a 0px fixed track on its own, and with
+				// box-sizing:border-box its padding + border FLOOR the box (~13px) even at
+				// width:0 — that sliver pokes past the viewport → a stray body scrollbar.
+				// So ALL box-contributing chrome (width, padding, and the pane-facing
+				// border) is gated behind data-visible: hidden → a true 0px box; visible
+				// (a pane is collapsed) → width fills the track, py-2 padding, and the 1px
+				// boundary line on the PANE-facing edge (rail-a borders right, rail-b left;
+				// the outer edge needs none). The rail stays a grid item in every state, so
+				// track count == child count holds.
+				"invisible w-0 p-0",
+				"data-[visible]:visible data-[visible]:w-auto data-[visible]:py-2",
+				"data-[visible]:data-[side=a]:border-r data-[visible]:data-[side=b]:border-l",
 				className,
 			)}
 			{...props}
