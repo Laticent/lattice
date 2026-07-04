@@ -27,7 +27,9 @@ test('present navigates through slides and exits on Escape', async ({ page }) =>
 
 test('the present reader lens trims the presented set', async ({ page }) => {
 	const dialog = page.getByRole('dialog', { name: 'Present' });
-	await dialog.getByRole('button', { name: 'Exec summary' }).click();
+	// The reader lens is a dropdown now (was a scrolling chip row): open it, pick Exec.
+	await dialog.getByRole('button', { name: 'Reader view' }).click();
+	await page.getByRole('menuitem', { name: 'Exec summary' }).click();
 	// Exec keeps only headline slides → a strictly smaller denominator.
 	const counter = await dialog.getByText(/^\d+ \/ \d+$/).first().textContent();
 	const denom = Number((counter ?? '').split('/')[1]);

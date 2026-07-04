@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, FastForward, FileText, Grid2x2, LayoutGrid, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, FastForward, FileText, Grid2x2, LayoutGrid, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
@@ -249,17 +250,28 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	}, [open]);
 
 	if (!open) return null;
+	const activeLens = LENSES.find((l) => l.key === lens) ?? LENSES[0];
 	return (
 		<div role="dialog" aria-modal="true" aria-label="Present" className="lx-ui fixed inset-0 z-[100] flex flex-col items-center overflow-x-hidden bg-background">
 			<div className="flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">
 				<button type="button" onClick={onClose} className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-foreground" aria-label="Exit present"><X className="size-5" /></button>
-				{/* Lens switch — centered, and scrolls instead of wrapping/clipping if it ever can't fit. */}
-				<div className="flex min-w-0 flex-1 justify-center overflow-x-auto">
-					<div className="inline-flex shrink-0 gap-1 rounded-full border border-border bg-card p-1">
-						{LENSES.map((l) => (
-							<button type="button" key={l.key} onClick={() => pickLens(l.key)} aria-pressed={l.key === lens} className={cn('inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-1.5 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:text-[12.5px]', l.key === lens ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{l.icon}{l.label}</button>
-						))}
-					</div>
+				{/* Lens switch — a dropdown (was a horizontally-scrolling chip row that
+				    clipped on phones). Same "View" pattern as the editor's preview header. */}
+				<div className="flex min-w-0 flex-1 justify-center">
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<button type="button" aria-label="Reader view" className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] font-semibold text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">
+								<span className="shrink-0">{activeLens.icon}</span><span className="truncate">{activeLens.label}</span>{lens !== 'full' && <span className="shrink-0 text-muted-foreground">· {count}/{slides.length}</span>}<ChevronDown className="size-3.5 shrink-0" />
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="center" className="w-56">
+							{LENSES.map((l) => (
+								<DropdownMenuItem key={l.key} onSelect={() => pickLens(l.key)} className="gap-2">
+									<span className="shrink-0">{l.icon}</span><span className="flex-1">{l.label}</span>{l.key === lens && <span className="text-[var(--accent)]">✓</span>}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 				<button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} title="All slides (G) — jump anywhere" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden sm:inline">Slides</span></button>
 				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" />Rehearse</button>

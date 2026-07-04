@@ -48,8 +48,9 @@ in patch versions.
   touch; and the **Lenses** reader-view (it filters the *preview*, the source
   stays whole) becomes a "View" dropdown in the preview header. The inspector is
   left with just Look · Running marks · Authoring, and dropdown controls share a
-  steadier min-width. See
-  `engineering/decisions/2026-07-04-deck-furniture-declarations.md`.
+  steadier min-width. Present mode's reader-lens switch becomes the **same
+  dropdown** (it was a horizontally-scrolling chip row that clipped on phones).
+  See `engineering/decisions/2026-07-04-deck-furniture-declarations.md`.
 
 - **Studio: the deck's running header & footer are text you declare, not
   toggles — and the whole Deck inspector now reads as deck-wide.** The header

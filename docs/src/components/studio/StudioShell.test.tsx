@@ -165,11 +165,14 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(d.getByText('1 / 6')).toBeInTheDocument();
 		await user.click(d.getAllByRole('button', { name: 'Next slide' })[0]);
 		expect(d.getByText('2 / 6')).toBeInTheDocument();
-		// Exec-summary lens reshapes to the headline slides (title/kpi/stats/closing).
-		await user.click(d.getByRole('button', { name: /Exec summary/ }));
+		// The lens switch is a dropdown now (was a scrolling chip row). Open it, pick
+		// Exec summary — reshapes to the headline slides (title/kpi/stats/closing).
+		await user.click(d.getByRole('button', { name: 'Reader view' }));
+		await user.click(await screen.findByRole('menuitem', { name: /Exec summary/ }));
 		expect(d.getByText('1 / 4')).toBeInTheDocument();
 		// One-pager collapses to a single slide.
-		await user.click(d.getByRole('button', { name: /One-pager/ }));
+		await user.click(d.getByRole('button', { name: 'Reader view' }));
+		await user.click(await screen.findByRole('menuitem', { name: /One-pager/ }));
 		expect(d.getByText('1 / 1')).toBeInTheDocument();
 	});
 
