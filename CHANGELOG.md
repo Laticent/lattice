@@ -197,6 +197,14 @@ in patch versions.
 
 ### Added
 
+- **Accessible PDF: title + language.** An exported PDF now carries the deck's **title** and
+  **language** (from the `title:` / `lang:` front-matter, else the first heading / English),
+  so a screen reader announces both and the file shows a real name in the viewer — previously
+  it had neither (WCAG 2.4.2 Page Titled, 3.1.1 Language of Page). The Studio's vector **Print**
+  and live preview frames also declare the language. Full per-image alt text *inside* the PDF
+  still needs a tagged-PDF pipeline — a tracked follow-on; PPTX and HTML already carry the
+  per-slide descriptions. See `engineering/decisions/2026-07-03-semantic-html-accessibility.md`.
+
 - **The `.lattice` project file — your comments travel with the deck.** Share → **Lattice
   project (.lattice)** saves a single file holding the deck plus its review **comments**;
   open it back (import a `.lattice`) and the deck returns with every comment intact. Comments

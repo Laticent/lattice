@@ -43,6 +43,14 @@ describe('buildSrcdoc', () => {
 		assert.match(doc, /src="\/rt\.js"/);
 	});
 
+	test('stamps <html lang> — default en, and the deck language when given (WCAG 3.1.1)', async () => {
+		const { buildSrcdoc } = await load();
+		assert.match(buildSrcdoc({ ...BASE }), /<html lang="en">/); // default
+		assert.match(buildSrcdoc({ ...BASE, lang: 'fr' }), /<html lang="fr">/);
+		// A hostile lang is sanitized to letters/hyphen (no attribute-breakout).
+		assert.match(buildSrcdoc({ ...BASE, lang: 'en"><script>' }), /<html lang="enscript">/);
+	});
+
 	test('always injects the link guard so an external tap cannot navigate (blank) the frame', async () => {
 		const { buildSrcdoc } = await load();
 		// The guard is unconditional (every filmstrip srcdoc), capture-phase, gated to

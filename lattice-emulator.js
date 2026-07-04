@@ -1470,9 +1470,29 @@ if (hasStateChart) {
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 
+// ── Document accessibility metadata (WCAG 2.4.2 title, 3.1.1 language) ─────────
+// An exported HTML/PDF shell with no <title> and no lang is a tracked a11y gap
+// (semantic-html-accessibility.md G1/G2): a screen reader can't announce the deck's
+// name or language, and Chrome's print-to-PDF carries neither into the file. Derive
+// both from the deck — front-matter `title:`/`lang:`, else the first heading / a safe
+// default — and stamp them on the shell. Reuse the ENGINE's front-matter parser
+// (HARD RULE #1) so title/lang read exactly like theme/size (quote- + CRLF-tolerant),
+// and strip fenced code so a `# comment` inside a leading code block isn't the title.
+const { parseFrontMatter: parseFm } = require('./lib/engine/directives');
+const { directives: deckFm, body: deckBody } = parseFm(rawMd);
+const cleanTitle = (t) => String(t == null ? '' : t).replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+const deckLang = (String(deckFm.lang || '').match(/^[A-Za-z][\w-]*/) || ['en'])[0];
+const firstHeading = (deckBody.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
+const deckTitle =
+  cleanTitle(deckFm.title) ||
+  cleanTitle(firstHeading) ||
+  path.basename(outFile).replace(/\.[^.]+$/, '') ||
+  'Lattice deck';
+
 // ── HTML document ─────────────────────────────────────────────────────────────
 const htmlDoc = `<!DOCTYPE html>
-<html><head><meta charset="utf-8">
+<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
+<title>${escapeHtml(deckTitle)}</title>
 ${embeddedFonts}
 ${katexCssLink}
 <style>
