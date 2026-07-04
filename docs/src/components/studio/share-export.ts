@@ -176,11 +176,16 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
 	await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages });
 }
 
-/** PowerPoint (image-slides, full-bleed). */
+/** PowerPoint (image-slides, full-bleed). Threads each slide's accessibility
+ *  description onto the image's alt text (WCAG SC 1.1.1) — image-per-slide PPTX
+ *  otherwise gives a screen reader nothing. Index-aligned to the deck's slides. */
 export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
-	await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' });
+	const { splitSlides } = await import('./lint');
+	const { getDescription } = await import('./slide-descriptions');
+	const descriptions = splitSlides(source).map((s) => getDescription(s));
+	await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, descriptions);
 }
 
 /**
