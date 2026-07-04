@@ -122,8 +122,10 @@ async function typeTo(
 		sinceBreath += next - i;
 		i = next;
 		if (sinceBreath >= BREATH_EVERY && i < target.length) {
+			// This loop only runs with motion on (the reduced path returned above), so
+			// the breath is always the full 175ms.
 			sinceBreath = 0;
-			await wait(reduced ? 0 : 175, signal);
+			await wait(175, signal);
 		} else {
 			await wait(cadence * (0.7 + Math.random() * 0.6), signal);
 		}
