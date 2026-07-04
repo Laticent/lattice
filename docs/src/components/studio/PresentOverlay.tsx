@@ -1,11 +1,12 @@
-import { ChevronDown, ChevronLeft, ChevronRight, FastForward, FileText, Grid2x2, LayoutGrid, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FastForward, Grid2x2, Monitor, MoreHorizontal, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
 import { createPresenterController } from '@/playground/presenter-window.js';
+import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationSet } from './lint';
 import { slideToSpeech, useReadAloud } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
@@ -16,11 +17,6 @@ import { buildPresenterStageDoc } from './studio-presenter';
 // reader-facing lens switch that actually RESHAPES the deck (meet the reader where
 // they want to go) and real slide navigation (←/→/Space). The slide is the live
 // engine render.
-const LENSES: { key: PresentLens; icon: React.ReactNode; label: string }[] = [
-	{ key: 'full', icon: <FileText className="size-3.5" />, label: 'Full deck' },
-	{ key: 'exec', icon: <Sparkles className="size-3.5" />, label: 'Exec summary' },
-	{ key: 'onepager', icon: <LayoutGrid className="size-3.5" />, label: 'One-pager' },
-];
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
@@ -250,28 +246,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	}, [open]);
 
 	if (!open) return null;
-	const activeLens = LENSES.find((l) => l.key === lens) ?? LENSES[0];
 	return (
 		<div role="dialog" aria-modal="true" aria-label="Present" className="lx-ui fixed inset-0 z-[100] flex flex-col items-center overflow-x-hidden bg-background">
 			<div className="flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">
 				<button type="button" onClick={onClose} className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-foreground" aria-label="Exit present"><X className="size-5" /></button>
-				{/* Lens switch — a dropdown (was a horizontally-scrolling chip row that
-				    clipped on phones). Same "View" pattern as the editor's preview header. */}
+				{/* Lens switch — the shared LensPicker (same widget as the editor's preview
+				    header), centered. Was a horizontally-scrolling chip row that clipped. */}
 				<div className="flex min-w-0 flex-1 justify-center">
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<button type="button" aria-label="Reader view" className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] font-semibold text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">
-								<span className="shrink-0">{activeLens.icon}</span><span className="truncate">{activeLens.label}</span>{lens !== 'full' && <span className="shrink-0 text-muted-foreground">· {count}/{slides.length}</span>}<ChevronDown className="size-3.5 shrink-0" />
-							</button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="center" className="w-56">
-							{LENSES.map((l) => (
-								<DropdownMenuItem key={l.key} onSelect={() => pickLens(l.key)} className="gap-2">
-									<span className="shrink-0">{l.icon}</span><span className="flex-1">{l.label}</span>{l.key === lens && <span className="text-[var(--accent)]">✓</span>}
-								</DropdownMenuItem>
-							))}
-						</DropdownMenuContent>
-					</DropdownMenu>
+					<LensPicker value={lens} onChange={pickLens} count={count} total={slides.length} align="center" />
 				</div>
 				<button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} title="All slides (G) — jump anywhere" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden sm:inline">Slides</span></button>
 				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" />Rehearse</button>
@@ -303,22 +285,36 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				)}
 			</div>
 
-			<div className="mb-7 mt-4 flex items-center gap-3.5 rounded-full border border-border bg-card px-3.5 py-2.5 shadow-[0_8px_24px_rgba(10,22,40,.10)]">
-				<button type="button" onClick={goPrev} disabled={clamped === 0} className="grid size-9 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
-				<span className="font-mono text-[12px] font-semibold text-[var(--text-heading)]">{clamped + 1} / {count}</span>
-				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-9 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
-				<span className="h-5 w-px bg-border" />
-				<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : reader.toggle())} className="grid size-11 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause read-aloud' : 'Play read-aloud'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
+			{/* Bottom control bar. It fits the viewport BY CONSTRUCTION: the counter never
+			    wraps, and on phones the secondary read-aloud controls (Auto + the voice
+			    status) fold into a ⋯ Playback menu so the pill can't overflow. A max-w
+			    backstop guards against any future addition. */}
+			<div className="mb-7 mt-4 flex max-w-[calc(100vw-1.5rem)] items-center gap-3 rounded-full border border-border bg-card px-3 py-2 shadow-[0_8px_24px_rgba(10,22,40,.10)] sm:gap-3.5 sm:px-3.5 sm:py-2.5">
+				<button type="button" onClick={goPrev} disabled={clamped === 0} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
+				<span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-[var(--text-heading)]">{clamped + 1} / {count}</span>
+				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
+				<span className="h-5 w-px shrink-0 bg-border" />
+				<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : reader.toggle())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause read-aloud' : 'Play read-aloud'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
 				<div className="relative hidden h-[5px] w-[180px] rounded-full bg-border sm:block">
 					<span className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300" style={{ width: `${rehearse ? Math.min(100, (elapsed / target) * 100) : reader.sentences.length ? Math.round(((reader.index + 1) / reader.sentences.length) * 100) : 0}%` }} />
 				</div>
 				<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{rehearse ? `${fmt(elapsed)} / ${fmt(target)}` : reader.sentences.length ? `${Math.max(0, reader.index + 1)} / ${reader.sentences.length}` : '0 / 0'}</span>
 				{rehearse ? (
-					<span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
+					<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
 				) : (
 					<>
-						<button type="button" onClick={toggleAutoplay} aria-pressed={autoplay} title="Autoplay — read every slide, advancing on its own" className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', autoplay ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><FastForward className="size-3.5" />Auto</button>
-						<span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]"><Volume2 className="size-3.5" />{rungLabel}</span>
+						<button type="button" onClick={toggleAutoplay} aria-pressed={autoplay} title="Autoplay — read every slide, advancing on its own" className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold sm:inline-flex', autoplay ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><FastForward className="size-3.5" />Auto</button>
+						<span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] sm:inline-flex"><Volume2 className="size-3.5" />{rungLabel}</span>
+						{/* Phone: Auto + voice status live behind a ⋯ so the bar never overflows. */}
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button type="button" aria-label="Playback options" className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground sm:hidden"><MoreHorizontal className="size-5" /></button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" side="top" className="w-48">
+								<DropdownMenuItem onSelect={(e) => { e.preventDefault(); toggleAutoplay(); }} className="gap-2"><FastForward className="size-4" />Autoplay{autoplay && <span className="ml-auto text-[var(--accent)]">✓</span>}</DropdownMenuItem>
+								<DropdownMenuLabel className="flex items-center gap-2 text-[11px] font-normal text-muted-foreground"><Volume2 className="size-3.5" />{rungLabel}</DropdownMenuLabel>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					</>
 				)}
 			</div>

@@ -30,6 +30,7 @@ import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { LatticeMark } from './LatticeMark';
 import { Library } from './Library';
+import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeModeLabel, ModeMenuItems } from './ModePicker';
 import { PresentOverlay } from './PresentOverlay';
@@ -63,7 +64,6 @@ const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'agenda', 'big-number', 's
 // its linter stands down (an empty known-set flags nothing) without re-creating
 // the array each render (which would needlessly rebuild CodeMirror).
 const NO_KNOWN: string[] = [];
-const LENS_LABEL: Record<string, string> = { exec: 'Exec summary', onepager: 'One-pager' };
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -1252,28 +1252,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Preview
-				{/* View — the reader lens, moved out of the inspector: it filters the
-				    PREVIEW (the source stays whole), so it belongs on the preview, not in
-				    deck settings. Full deck by default; Exec / One-pager show a cut. */}
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<button type="button" aria-label="Preview view" className="inline-flex min-w-0 shrink items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--text-heading)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">
-							{composeLens === 'full'
-								? <><Layers className="size-3 shrink-0 text-muted-foreground" /><span className="hidden sm:inline">Full deck</span></>
-								: <><Sparkles className="size-3 shrink-0 text-[var(--accent)]" /><span className="truncate"><span className="hidden sm:inline">{LENS_LABEL[composeLens]} · </span>{viewSlides.length}/{slides.length}</span></>}
-							<ChevronDown className="size-3 shrink-0" />
-						</button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="start" className="w-56">
-						<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">View — filter the preview</DropdownMenuLabel>
-						{([{ v: 'full', name: 'Full deck', desc: 'The whole source' }, { v: 'exec', name: 'Exec summary', desc: 'Headline slides only' }, { v: 'onepager', name: 'One-pager', desc: 'The single key slide' }] as const).map((o) => (
-							<DropdownMenuItem key={o.v} onSelect={() => setLens(o.v)} className="flex-col items-start gap-0.5">
-								<span className="flex w-full items-center text-[12.5px] font-semibold text-[var(--text-heading)]">{o.name}{composeLens === o.v && <span className="ml-auto text-[var(--accent)]">✓</span>}</span>
-								<span className="text-[11px] text-muted-foreground">{o.desc}</span>
-							</DropdownMenuItem>
-						))}
-					</DropdownMenuContent>
-				</DropdownMenu>
+				{/* View — the reader lens (shared LensPicker, also used in Present). It
+				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" />
 				{composeLens !== 'full' && (
 					<button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens" title="Clear reader lens"><X className="size-3.5" /></button>
 				)}
@@ -1528,7 +1509,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-[var(--accent-soft)] px-3.5 py-2 text-[13px] text-[var(--text-heading)]">
 					<Sparkles className="hidden size-4 shrink-0 text-[var(--accent)] sm:block" />
 					<p className="min-w-0 flex-1 leading-snug">
-						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away in the toolbar.
+						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> live in the toolbar<span className="hidden sm:inline"> — one tap on the right</span><span className="sm:hidden"> — under ⋯</span>.
 					</p>
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
 					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
@@ -1542,11 +1523,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				</React.Suspense>
 			) : mobile ? (
 				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. The pane
-				   bar's free width carries the deck actions — Present, Share, and the two
-				   panel toggles — so the top row can spend its width on the deck title
-				   (2026-07-03 decision). Contextual extras stay per-pane so the row fits
-				   390px: the issues pill with Edit (where you fix them), Speaker notes
-				   with Preview (Edit's own header already has Notes). */
+				   bar keeps a fixed BUDGET so it can never overflow at 390px — Edit/Preview
+				   toggle + Present + Share + a ⋯ overflow — with the panels (Architect, Deck
+				   settings) and the secondary slide/version tools folded into ⋯. The top row
+				   spends its width on the deck title (2026-07-03 decision). The issues pill
+				   stays inline on the Edit pane (a status cue, where you fix them). */
 				<div className="flex min-h-0 flex-1 flex-col">
 					<div role="toolbar" aria-label="Deck actions" className="flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5">
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
@@ -1555,15 +1536,26 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</div>
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
-						{/* History + Slide settings ride the pane bar only on the PREVIEW pane —
-						    on the EDIT pane the editor header already carries both (avoids a
-						    double button). */}
-						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>}
-						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
-						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
-						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
+						{/* Budget: the bar holds only Edit/Preview + Present + Share + ⋯, so it can
+						    never overflow (adding History here is what tipped it past 390px). The
+						    panels (Architect, Deck settings) and the secondary slide/version tools
+						    fold into ⋯; the ⋯ carries the active-panel dot and the first-edit
+						    Inspector pulse so those signals survive the fold. Slide settings +
+						    Version history appear here only on the Preview pane — the Edit pane's
+						    own editor header already carries them (no double entry). */}
+						<DropdownMenu onOpenChange={(o) => { if (o) { graduate(); setInspectorPulse(false); } }}>
+							<DropdownMenuTrigger asChild>
+								<Button variant="ghost" size="icon-sm" aria-label="More — panels, slide & version tools" title="More" className={cn((architectOpen || inspectorOpen) && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><MoreHorizontal className="size-[18px]" /></Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" className="w-52">
+								<DropdownMenuItem onSelect={() => setArchitectOpen(true)} className="gap-2"><Sparkles className="size-4" />Architect{architectOpen && <span className="ml-auto text-[var(--accent)]">✓</span>}</DropdownMenuItem>
+								<DropdownMenuItem onSelect={() => setInspectorOpen(true)} className="gap-2"><SlidersHorizontal className="size-4" />Deck settings{inspectorOpen && <span className="ml-auto text-[var(--accent)]">✓</span>}</DropdownMenuItem>
+								{mobilePane === 'preview' && <DropdownMenuItem onSelect={() => setNotesOpen(true)} className="gap-2"><FileSliders className="size-4" />Slide settings</DropdownMenuItem>}
+								{mobilePane === 'preview' && <DropdownMenuItem onSelect={() => setHistoryOpen(true)} className="gap-2"><History className="size-4" />Version history</DropdownMenuItem>}
+							</DropdownMenuContent>
+						</DropdownMenu>
 					</div>
 					{mobilePane === 'edit' ? editorPane : previewPane}
 				</div>

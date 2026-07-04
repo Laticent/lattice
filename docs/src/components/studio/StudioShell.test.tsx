@@ -342,11 +342,13 @@ describe('StudioShell — responsive layout', () => {
 		expect(screen.queryByText(/Slide \d+ \//)).not.toBeInTheDocument();
 	});
 
-	it('mobile: the Architect opens as a slide-in sheet', async () => {
+	it('mobile: the Architect opens as a slide-in sheet (from the pane-bar ⋯)', async () => {
 		setViewport('mobile');
 		const user = setup();
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Toggle Architect' }));
+		// On phones the panels fold into the pane-bar ⋯.
+		await user.click(screen.getByRole('button', { name: /^More — panels/ }));
+		await user.click(await screen.findByRole('menuitem', { name: 'Architect' }));
 		expect(await screen.findByText('Board-ready')).toBeInTheDocument();
 	});
 
@@ -409,23 +411,27 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.queryByRole('menuitem', { name: /Switch to (dark|light) mode/ })).not.toBeInTheDocument();
 	});
 
-	it('mobile: the deck actions move to the pane bar; the top row keeps launcher · deck · mode · ⋯', async () => {
+	it('mobile: the pane bar keeps a budget — Present · Share · ⋯; panels fold into ⋯', async () => {
 		setViewport('mobile');
 		const user = setup();
-		// The four deck actions live in the pane toolbar (row 2), not the header —
-		// the header's width goes to the deck title instead.
+		// The pane toolbar (row 2) holds only Present + Share + a ⋯ overflow, so it
+		// can't exceed 390px. The panels (Architect, Deck settings) and secondary
+		// slide/version tools live inside ⋯.
 		const paneBar = screen.getByRole('toolbar', { name: 'Deck actions' });
 		expect(within(paneBar).getByRole('button', { name: 'Present' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Share' })).toBeInTheDocument();
-		expect(within(paneBar).getByRole('button', { name: 'Toggle Architect' })).toBeInTheDocument();
-		expect(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' })).toBeInTheDocument();
 		// The header keeps the launcher, the deck switcher, the 1-tap mode flip, and ⋯.
 		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
-		// The pane toggles still work from the pane bar (the Inspector opens as a sheet).
-		await user.click(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' }));
+		// The panels (Architect, Deck settings) fold into the pane-bar ⋯ (open it last,
+		// since the open menu aria-hides the rest of the page).
+		await user.click(within(paneBar).getByRole('button', { name: /^More — panels/ }));
+		expect(await screen.findByRole('menuitem', { name: 'Architect' })).toBeInTheDocument();
+		expect(screen.getByRole('menuitem', { name: 'Deck settings' })).toBeInTheDocument();
+		// Picking "Deck settings" from the ⋯ opens the inspector as a sheet.
+		await user.click(screen.getByRole('menuitem', { name: 'Deck settings' }));
 		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
 	});
 

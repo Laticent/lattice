@@ -39,6 +39,21 @@ in patch versions.
 
 ### Changed
 
+- **Studio: the toolbars get a budget + a ⋯ overflow, so they stop overflowing —
+  and the reader-lens control is unified.** Adding Version history had pushed the
+  mobile Deck-actions bar past 390px (the Inspector icon clipped). Root cause: the
+  bar had no button budget or overflow menu (the desktop top bar already had both).
+  Now the mobile bar holds only Edit/Preview · Present · Share · **⋯**, with the
+  panels (Architect, Deck settings) and secondary slide/version tools folded into
+  the ⋯ (which carries the active-panel dot + the first-edit pulse). **Present
+  mode's bottom control bar** is rebuilt to fit phones by construction — the counter
+  never wraps and Auto/Captions fold into a ⋯ Playback menu below `sm`. The
+  **reader-lens picker** is now one shared, always-labeled `LensPicker` used by both
+  the editor preview header and Present (was two divergent widgets — a bare icon in
+  preview vs a labeled pill in Present — and three label sources). Version history's
+  home is settled by a placement-by-budget rule (desktop editor-header icon; phone
+  ⋯ item). See `engineering/decisions/2026-07-04-studio-toolbar-budget.md`.
+
 - **Studio: the Deck inspector is now settings-only — actions and preview modes
   moved out.** Following the same red-team, three things that were not deck
   *settings* left the inspector: the **Read** group (Voice/Pace were
