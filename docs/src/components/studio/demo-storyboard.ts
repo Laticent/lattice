@@ -45,30 +45,28 @@ const steps: DemoStep[] = [
 		click: true,
 		settle: 400,
 	},
+	// Slide 1 is the hero — typed at a readable pace so the eye can follow it land.
 	{
 		say: '…and the engine renders it live on the right, as you type.',
 		type: upTo(1),
-		cadence: 32,
-		settle: 900,
+		cadence: 30,
+		settle: 800,
 	},
+	// The first "look what it made" beat — circle the preview while its frame glows.
 	{
 		moveTo: SEL.preview,
+		circle: SEL.preview,
 		say: 'Every slide is a boardroom-grade layout — no fiddling with boxes.',
-		settle: 1800,
+		settle: 1400,
 	},
+	// Fast-forward the rest of the deck — quick but still typed (and scrolling), so it
+	// reads as "the deck filling in," not a paste.
 	{
-		say: 'A `---` starts each new slide. Here comes the rest of the board update…',
+		say: 'Now watch the rest fill in — the whole board deck, in seconds.',
 		moveTo: SEL.editor,
 		click: true,
-		type: upTo(3),
-		cadence: 15,
-		settle: 700,
-	},
-	// Split the remaining slides into a second beat so each typed run stays under
-	// the director's instant-paste threshold and actually animates as typing.
-	{
 		type: upTo(6),
-		cadence: 12,
+		cadence: 5,
 		settle: 900,
 	},
 	{
@@ -76,18 +74,20 @@ const steps: DemoStep[] = [
 		say: 'Six slides, drafted in seconds. Jump to any of them.',
 		act: (a) => a.gotoSlide(2),
 		click: true,
-		settle: 1500,
+		settle: 1400,
 	},
 	{
 		say: 'Reskin the entire deck with one theme — the layouts never change, only the palette.',
 		act: (a) => a.openInspector(true),
 		settle: 500,
 	},
+	// Circle the preview again on the reskin, so the eye catches the whole deck reshade.
 	{
 		moveTo: SEL.theme,
 		click: true,
 		act: (a) => a.setPalette('cuoio'),
-		settle: 1400,
+		circle: SEL.preview,
+		settle: 1200,
 	},
 	{
 		moveTo: SEL.mode,

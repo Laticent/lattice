@@ -36,10 +36,14 @@ export type DemoActions = {
 export type DemoStep = {
 	/** Narration caption; persists until the next step that sets `say` (''=clear). */
 	say?: string;
-	/** CSS selector (within the Studio root) to glide the cursor to. */
+	/** CSS selector (within the Studio root) to glide the cursor to. An anticipation
+	 *  cue (streak + ping) fires toward it before the cursor moves. */
 	moveTo?: string;
-	/** Play a click ripple after arriving. Purely visual — pair with `act`. */
+	/** Play the click burst after arriving. Purely visual — pair with `act`. */
 	click?: boolean;
+	/** CSS selector to circle with the cursor + frame glow — the "look what
+	 *  rendered" gesture. Runs after `act`/`type`. */
+	circle?: string;
 	/** The real state change — a closure over a bound DemoAction. Runs after the ripple. */
 	act?: (a: DemoActions) => void;
 	/** Type toward this full source string (character by character from the current). */
@@ -84,10 +88,12 @@ async function typeTo(
 ): Promise<void> {
 	if (current === target) return;
 	const keep = commonPrefix(current, target);
-	// Reduced motion (or a very long insert) skips the keystroke animation — set the
-	// whole target at once (a full-doc replace is fine when there's no animation).
+	// Reduced motion (or an enormous insert) skips the keystroke animation — set the
+	// whole target at once (a full-doc replace is fine when there's no animation). The
+	// "fast-forward the rest of the deck" beat (~1k chars at a tiny cadence) stays under
+	// this, so it still animates + scrolls rather than snapping in.
 	const tail = target.length - keep;
-	if (reduced || tail > 900) {
+	if (reduced || tail > 1600) {
 		ops.set(target);
 		await wait(reduced ? 60 : 260, signal);
 		return;
@@ -127,14 +133,21 @@ export async function runStoryboard(
 	let current = board.seed;
 	// Seed the deck before the first step so the demo always starts from a known deck.
 	actions.setSource(current);
-	await wait(stage.reduced ? 120 : 500, signal);
+	await wait(stage.reduced ? 120 : 400, signal);
+	// The opening flourish — the cursor materializes at center and waves hello.
+	await stage.intro(signal);
 
 	for (const step of board.steps) {
 		if (signal.aborted) return;
 		if (step.say != null) stage.say(step.say);
 		if (step.moveTo) {
 			const el = stage.resolve(step.moveTo);
-			if (el) await stage.moveToEl(el, signal);
+			if (el) {
+				// Lead the eye first: fire the anticipation cue, let it register, then move.
+				stage.anticipate(el);
+				await wait(stage.reduced ? 0 : 560, signal);
+				await stage.moveToEl(el, signal);
+			}
 		}
 		if (step.click) await stage.press(signal);
 		if (step.act) step.act(actions);
@@ -148,6 +161,10 @@ export async function runStoryboard(
 				signal,
 			);
 			current = step.type;
+		}
+		if (step.circle) {
+			const el = stage.resolve(step.circle);
+			if (el) await stage.circle(el, signal);
 		}
 		await wait(step.settle ?? (stage.reduced ? 300 : STEP_SETTLE), signal);
 	}

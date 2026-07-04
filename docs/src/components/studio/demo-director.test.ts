@@ -12,11 +12,18 @@ function fakeStage(log: string[], reduced = true): DemoStage {
 			log.push(`resolve:${sel}`);
 			return {} as HTMLElement;
 		},
+		intro: async () => {
+			log.push('intro');
+		},
+		anticipate: () => log.push('anticipate'),
 		moveToEl: async () => {
 			log.push('move');
 		},
 		press: async () => {
 			log.push('press');
+		},
+		circle: async () => {
+			log.push('circle');
 		},
 		say: (t) => log.push(`say:${t}`),
 		contains: () => false,
@@ -62,9 +69,11 @@ describe('demo director', () => {
 			],
 		};
 		await runStoryboard(fakeStage(log), actions, board, new AbortController().signal);
-		// Seed first, then the ordered effects of step 1, then the typed target.
+		// Seed, then the intro flourish, then the ordered effects of step 1 (an
+		// anticipation cue fires before the move), then the typed target.
 		expect(log[0]).toBe('src:2'); // seed 'AB'
-		expect(log.slice(1, 6)).toEqual(['say:hello', 'resolve:#x', 'move', 'press', 'slide:2']);
+		expect(log[1]).toBe('intro');
+		expect(log.slice(2, 8)).toEqual(['say:hello', 'resolve:#x', 'anticipate', 'move', 'press', 'slide:2']);
 		expect(actions.source).toBe('ABCD'); // typed to the full target
 	});
 
