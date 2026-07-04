@@ -153,9 +153,13 @@ backend) isn't installed in this sandbox; the run was captured as frame stills i
 
 ## Known limitations
 
-- **Tablet theme beat is cursor-less.** At the `compact` breakpoint (tablet, where the
-  Watch-demo button is still offered) the Inspector is a Radix `Sheet` portaled to `body`
-  — outside `rootRef` — so the "reskin the deck" step can't resolve its cursor target. The
-  director handles the null gracefully (it skips the move and still runs the theme change),
-  so the beat degrades to "theme changes without a cursor glide," never a crash. The demo
-  is a desktop-first showcase; a tablet-aware target is deferred.
+- **Desktop + tablet only; phone is backlogged (#758).** The demo choreographs a cursor
+  across the **side-by-side editor + preview** layout. A phone (≤699px) renders a single
+  swappable Edit ⇄ Preview pane, where the storyboard's targets (`#studio-pane-editor`, the
+  `data-demo` Present/Share buttons) don't exist — so the Watch-demo button is `!mobile`-gated
+  (hidden on phone). iPad falls in the tablet band and gets the side-by-side layout, so it
+  works. A phone-native storyboard (drive the pane-swap + the sheets) is tracked in **#758**;
+  it must be verified on a **real iPhone** (HARD RULE #23 — 390px Chromium emulation isn't iOS).
+- **Portaled targets are reachable.** The stage resolves selectors against the whole document
+  (`root.ownerDocument`), so Radix menus/sheets/dialogs that portal to `<body>` (the deck
+  switcher, the Inspector/settings sheets) are found — no longer scoped to the Studio subtree.
