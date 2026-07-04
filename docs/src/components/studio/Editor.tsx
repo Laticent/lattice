@@ -86,6 +86,19 @@ export type EditorHandle = {
 	/** Replace the current selection with `text` as one undoable transaction, then
 	 *  re-select the inserted run so a follow-up refine stacks on the same span. */
 	replaceSelection: (text: string) => void;
+	/** Append `text` at the document end, move the caret there, and scroll to follow —
+	 *  the self-driving demo's typing channel. A native CodeMirror insert (not a
+	 *  full-doc replace via the value prop): the caret + scroll behave like real
+	 *  typing, and the change flows back out through `onChange` like any edit. Carries
+	 *  no user-event annotation, so it does NOT trip `onUserEdit` (the first-edit cue). */
+	typeTail: (text: string) => void;
+	/** Replace the WHOLE document with `text` SYNCHRONOUSLY (a direct view dispatch,
+	 *  not the async `value`-prop sync). The demo calls `resetDoc('')` before it starts
+	 *  typing so the first `typeTail` can never append onto a stale seed (e.g. a freshly
+	 *  created deck's `NEW_DECK_TEMPLATE`) — which would duplicate the slide's `_class`
+	 *  and flip its settings drawer read-only. No user-event annotation (won't trip
+	 *  `onUserEdit`); caret parked at the top so an empty reset can't jump the preview. */
+	resetDoc: (text: string) => void;
 };
 
 export const Editor = React.forwardRef<EditorHandle, {
@@ -244,6 +257,22 @@ export const Editor = React.forwardRef<EditorHandle, {
 			v.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from, head: r.from + text.length } });
 			v.focus();
 		},
+		typeTail(text: string) {
+			const v = viewRef.current;
+			if (!v || !text) return;
+			const end = v.state.doc.length;
+			// Insert at the tail, caret to the new end, scroll to follow. No userEvent
+			// annotation → onUserEdit stays silent (this is the demo, not the author).
+			v.dispatch({ changes: { from: end, insert: text }, selection: { anchor: end + text.length }, scrollIntoView: true });
+		},
+		resetDoc(text: string) {
+			const v = viewRef.current;
+			if (!v || v.state.doc.toString() === text) return;
+			// Whole-doc replace, right now — the demo's guarantee that the canvas is exactly
+			// `text` before the first typeTail (see the handle doc above). Caret to the top.
+			lastSlideRef.current = 0;
+			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text }, selection: { anchor: 0 } });
+		},
 	}));
 
 	// Single init (StrictMode-safe): construct once, never on every render. `value`
@@ -319,9 +348,18 @@ export const Editor = React.forwardRef<EditorHandle, {
 		viewRef.current?.dispatch({ effects: lintComp.current.reconfigure(buildLint()) });
 	}, [vocabSets, known]);
 
-	// External value changes (deck switch) → replace doc without losing the editor.
-	// Reset the cursor to the top so the doc-replace can't map the caret to the end
-	// and fire a spurious cursor→preview jump to the last slide.
+	// External value changes → replace the doc without losing the editor. Two shapes:
+	//  • a pure APPEND (the self-driving demo types a growing prefix) → keep the caret
+	//    at the tail and scroll to follow it, so the growing text never runs off-screen
+	//    and the preview tracks each slide as it's typed;
+	//  • anything else (deck switch, restore, AI apply) → reset the cursor to the top so
+	//    the doc-replace can't map the caret to the end and fire a spurious cursor→preview
+	//    jump to the last slide.
+	// External value changes (deck switch / restore / AI apply) → replace the doc
+	// without losing the editor. Reset the cursor to the top so the doc-replace can't
+	// map the caret to the end and fire a spurious cursor→preview jump to the last
+	// slide. (The demo types through the `typeTail` handle, a native insert — NOT this
+	// path — so a growing deck never round-trips as a full replace here.)
 	React.useEffect(() => {
 		const v = viewRef.current;
 		if (v && value !== v.state.doc.toString()) {
