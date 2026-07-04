@@ -259,7 +259,9 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
 		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
-		expect(screen.getByText('Lenses')).toBeInTheDocument();
+		// The inspector is settings-only now (Lenses/History/Read moved out); the
+		// Running-marks group is a stable marker that the body rendered.
+		expect(screen.getByText('Running marks')).toBeInTheDocument();
 	});
 
 	it('the Inspector "Inline validation" toggle has real teeth', async () => {

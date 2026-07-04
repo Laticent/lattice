@@ -47,6 +47,8 @@ test('a speaker note is written into the slide source on blur', async ({ page })
 });
 
 test('saving a version records a checkpoint', async ({ page }) => {
+	// Version history moved out of the inspector into its own top-bar sheet.
+	await page.getByRole('button', { name: 'Version history' }).click();
 	await page.getByRole('button', { name: 'Save a version' }).click();
 	await expect(toastText(page)).toContainText('Version saved');
 

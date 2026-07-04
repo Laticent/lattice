@@ -75,12 +75,29 @@ idea appeared **three times** (header line, Look desc, chrome group title+desc).
 Folded in on this branch: rename "Every slide" → "Running marks" (name by
 contents), de-duplicate the scope copy to the header line only, tighten the
 Header/Footer/Brand-bar help, and give `TextRow` a real `<label htmlFor>` +
-`aria-describedby`. Deferred to follow-up issues (separate PRs, HARD RULE #17):
-retire/gate the non-functional **Read** stub group, move **Lenses** (a preview
-mode, overlapping the Architect) and **History** (an action, not a setting) out
-of the settings spine, align the per-slide drawer's "Chrome" tab name with
-"Running marks", and a visual-system pass (control right-edge, spacing scale,
-label/value weight).
+`aria-describedby`.
+
+### Structural declutter (follow-up branch, same swimlane)
+
+The red-team's bigger structural findings then landed in a follow-up PR — the
+inspector should hold *settings*, not actions or preview modes:
+
+- **Read group removed.** Voice/Pace only toasted "in the full app"; a stub
+  control in a settings panel erodes trust, so it's gone until read-aloud
+  settings are real.
+- **Version history → its own sheet.** Save/restore is an action, not a deck
+  property; it now opens from a top-bar **History** button (desktop) and the
+  compact ⋯ overflow. Restore is always visible (was hover-only) so it works on
+  touch.
+- **Lenses → a "View" dropdown in the preview header.** The reader lens filters
+  the *preview* (the source stays whole), so it belongs on the preview, not in
+  deck settings. A `Clear reader lens` affordance is kept.
+- **Light visual pass.** Dropdown controls share a steadier `min-width`; the
+  decluttering itself (inspector down to Look · Running marks · Authoring) is
+  the biggest visual win.
+
+Still deferred: reconciling the Lenses/Architect exec-summary duplication, and
+aligning the per-slide drawer's "Chrome" tab name with "Running marks".
 
 ## Docs / tests
 
