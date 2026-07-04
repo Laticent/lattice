@@ -1,10 +1,10 @@
-import { Columns2, FileText, Focus, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Share2, Sparkles } from 'lucide-react';
+import { Columns2, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Share2, Sparkles } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import type { StudioDeck } from './decks';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
-	open, onOpenChange, decks, palettes, onPickDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onInsert, onFocus,
+	open, onOpenChange, decks, palettes, onPickDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus,
 	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit,
 }: {
 	open: boolean;
@@ -17,6 +17,7 @@ export function CommandPalette({
 	onShare: () => void;
 	onFabricate: () => void;
 	onReshape: () => void;
+	onWatchDemo?: () => void;
 	onInsert?: () => void;
 	onFocus?: () => void;
 	// The editor|preview split (2026-07-02 decision) — each handler is passed
@@ -43,6 +44,7 @@ export function CommandPalette({
 					{onInsert && <CommandItem onSelect={run(onInsert)}><Plus />Insert a component…</CommandItem>}
 					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
 					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
+					{onWatchDemo && <CommandItem onSelect={run(onWatchDemo)}><MonitorPlay />Watch demo — the Studio drives itself</CommandItem>}
 				</CommandGroup>
 				{(onCollapseEditor || onCollapsePreview || onExpandPane || onResetSplit) && (
 					<>

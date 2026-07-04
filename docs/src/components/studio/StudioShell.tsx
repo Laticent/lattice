@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft, ChevronRight,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, Minimize2, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -43,6 +43,7 @@ import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { useBreakpoint } from './use-breakpoint';
+import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
 import { isEvictionProneBrowser } from './workspace-backup';
 
@@ -271,6 +272,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// reflects the source and every export carries the directive.
 	const [validation, setValidation] = React.useState(() => loadSettings().validation);
 	const editorRef = React.useRef<EditorHandle>(null);
+	// The Studio root — the demo stage mounts over it and scopes its selectors here.
+	const rootRef = React.useRef<HTMLDivElement>(null);
 
 	const bp = useBreakpoint();
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
@@ -661,6 +664,30 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		toastTimer.current = setTimeout(() => setToast(null), 2600);
 	}, []);
 	React.useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+	// ── Self-driving demo walkthrough ───────────────────────────────────────
+	// A guided "watch it drive itself" tour: a fake cursor + captions play a
+	// storyboard against the LIVE Studio, driving real setters (not synthetic
+	// events), and hand the wheel back the instant the viewer clicks or types.
+	const { demoActive, startDemo } = useStudioDemo(rootRef, {
+		source,
+		setSource,
+		goToSlide,
+		setView,
+		setArchitectOpen,
+		setArchitectTab,
+		setInspectorOpen,
+		applyPalette,
+		toggleMode,
+		setPresentOpen,
+		setShareOpen,
+		fixAll: () => editorRef.current?.fixAll(),
+		setActiveSlide,
+		setFocus,
+		setWelcomeOpen,
+		setCmdOpen,
+		notify,
+	});
 
 	// ── Resizable/collapsible editor|preview split (2026-07-02 decision) ─────
 	// Active on every non-mobile Compose branch (desktop, tablet, focus) — on
@@ -1360,7 +1387,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	);
 
 	return (
-		<div className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
+		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* Focus mode: a slim header — deck title · ⌘K · Exit. Most of the
 			    control cluster is gone; ⌘K still reaches every feature. */}
@@ -1462,7 +1489,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</DropdownMenuContent>
 						</DropdownMenu>
-						<Button variant="ghost" size="icon-sm" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button>
+						<Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button>
 					</div>
 				)}
 
@@ -1475,8 +1502,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    phones they live one row down in the pane bar (with the panel toggles),
 				    which has the free width — the top row spends its width on the deck
 				    title (2026-07-03 decision). */}
-				{!mobile && <Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>}
-				{!mobile && <Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>}
+				{!mobile && !demoActive && <Button variant="ghost" size="icon-sm" onClick={startDemo} aria-label="Watch demo" title="Watch demo — the Studio drives itself"><MonitorPlay className="size-[18px]" /></Button>}
+				{!mobile && <Button variant="outline" size="sm" data-demo="present" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>}
+				{!mobile && <Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>}
 
 				<span className="hidden h-5 w-px bg-border sm:block" />
 				{/* Focus — drop to Editor + Preview, hide the panels, quiet the noise (desktop only; tablet/mobile already collapse panels). Advanced — revealed once a newcomer engages. */}
@@ -1530,6 +1558,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<p className="min-w-0 flex-1 leading-snug">
 						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away in the toolbar.
 					</p>
+					{!mobile && !demoActive && <button type="button" onClick={startDemo} className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-white hover:opacity-90"><MonitorPlay className="size-3.5" />Watch demo</button>}
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
 					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
 				</div>
@@ -1739,6 +1768,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onShare={() => setShareOpen(true)}
 				onFabricate={() => setView('fabricate')}
 				onReshape={() => { setFocus(false); setArchitectOpen(true); }}
+				onWatchDemo={startDemo}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
 				onFocus={() => setFocus(true)}
 				onCollapseEditor={splitUsable && split.collapsed !== 'a' ? () => collapseFromHeader('a') : undefined}

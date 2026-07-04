@@ -25,6 +25,20 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **Studio: a self-driving "Watch demo" walkthrough.** A one-click guided tour
+  (topbar button, the first-run welcome banner, and ⌘K → "Watch demo") in which
+  the Studio drives *itself* — a fake cursor glides between controls while the
+  deck types out live, a theme and light/dark flip in place, the Architect Coach
+  scores it board-ready, and Present + Share open — narrated by on-screen
+  captions. It runs on the **real** Studio (real setters, not synthetic events),
+  so the first real click or keystroke hands the wheel back instantly ("take
+  over"); completing or exiting restores the viewer's own deck, theme, and mode
+  untouched. Reuses the exec-board-update journey as its storyboard, so it needs
+  no AI call and spends no key (HARD RULE #24). Respects `prefers-reduced-motion`.
+  Design: `engineering/decisions/2026-07-04-studio-demo-walkthrough.md`.
+
 ### Deprecated
 
 - **The Drawing Board and the Workbench are frozen — the Studio succeeds
