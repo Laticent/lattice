@@ -59,16 +59,22 @@ const steps: DemoStep[] = [
 		say: 'Every slide is a boardroom-grade layout — no fiddling with boxes.',
 		settle: 1400,
 	},
-	// Fast-forward the rest of the deck — quick but still typed (and scrolling), so it
-	// reads as "the deck filling in," not a paste.
+	// Build the rest slide by slide. Each slide is typed, then held past the preview's
+	// ~140ms render debounce, so the preview repaints THAT slide before the next —
+	// editor and preview stay in sync (a single fast burst freezes the preview on the
+	// last-rendered slide until it settles). Reads as "watch the deck build."
 	{
-		say: 'Now watch the rest fill in — the whole board deck, in seconds.',
+		say: 'Now watch the rest build — slide by slide.',
 		moveTo: SEL.editor,
 		click: true,
-		type: upTo(6),
-		cadence: 5,
-		settle: 900,
+		type: upTo(2),
+		cadence: 11,
+		settle: 480,
 	},
+	{ type: upTo(3), cadence: 10, settle: 520 },
+	{ type: upTo(4), cadence: 10, settle: 460 },
+	{ type: upTo(5), cadence: 10, settle: 460 },
+	{ type: upTo(6), cadence: 10, settle: 600 },
 	{
 		moveTo: SEL.rail,
 		say: 'Six slides, drafted in seconds. Jump to any of them.',

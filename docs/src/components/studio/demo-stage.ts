@@ -21,6 +21,12 @@
 // for the typing speed.
 
 const ACCENT = 'var(--accent, #2b6ef2)';
+// The cues ride over BOTH the light Studio chrome and the dark navy preview slide,
+// where a same-hue accent washes out. So every ring pairs the brand accent with a
+// crisp white co-stroke + accent bloom (the same luminance trick the cursor uses
+// with its white outline) — legible on any ground, still on-brand.
+const RING_SHADOW = '0 0 0 1.5px rgba(255,255,255,.92), 0 0 22px 2px var(--accent, #2b6ef2)';
+const BAR_SHADOW = '0 0 8px var(--accent, #2b6ef2), 0 0 0 1px rgba(255,255,255,.7)';
 
 /** Ease-in-out cubic — a natural cursor glide (fast middle, soft ends). */
 function easeInOut(t: number): number {
@@ -205,13 +211,13 @@ export function createDemoStage(root: HTMLElement, onExit: () => void): DemoStag
 			spawnFx(
 				cx,
 				cy,
-				`width:64px;height:64px;border-radius:50%;border:2.5px solid ${ACCENT};opacity:0;`,
+				`width:64px;height:64px;border-radius:50%;border:3px solid ${ACCENT};box-shadow:${RING_SHADOW};opacity:0;`,
 				[
-					{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 0.6 },
+					{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 0.7 },
 					{ transform: 'translate(-50%,-50%) scale(2.6)', opacity: 0 },
 				],
-				{ duration: 1500, delay: k * 260, easing: 'ease-out' },
-				1800 + k * 280,
+				{ duration: 1650, delay: k * 300, easing: 'ease-out' },
+				2000 + k * 320,
 			);
 		}
 		// The cursor materializes: fade + scale in.
@@ -242,31 +248,33 @@ export function createDemoStage(root: HTMLElement, onExit: () => void): DemoStag
 		const { x: tx, y: ty } = aimAt(el.getBoundingClientRect());
 		const ang = (Math.atan2(ty - cy, tx - cx) * 180) / Math.PI;
 		const dist = Math.hypot(tx - cx, ty - cy);
-		// Streak: a line darts from the cursor toward the target along the path.
+		// Streak: a bright dash anchored AT the cursor that wipes toward the target
+		// (transform-origin left + scaleX 0→1), so it reads as shooting from the pointer
+		// to where it's headed — not a stray line floating mid-screen.
 		spawnFx(
 			cx,
 			cy,
-			`height:4px;border-radius:4px;width:${Math.min(dist, 150)}px;transform-origin:left center;background:linear-gradient(90deg,transparent,${ACCENT});`,
+			`height:5px;border-radius:5px;width:${Math.min(dist, 220)}px;transform-origin:left center;background:linear-gradient(90deg,transparent 4%,${ACCENT});box-shadow:0 0 12px ${ACCENT};`,
 			[
-				{ opacity: 0, transform: `translate(0,-50%) rotate(${ang}deg) scaleX(.6)` },
-				{ opacity: 0.95, offset: 0.35, transform: `translate(${(tx - cx) * 0.18}px,${(ty - cy) * 0.18 - 2}px) rotate(${ang}deg) scaleX(1)` },
-				{ opacity: 0, transform: `translate(${(tx - cx) * 0.62}px,${(ty - cy) * 0.62 - 2}px) rotate(${ang}deg) scaleX(1.1)` },
+				{ transform: `translate(0,-50%) rotate(${ang}deg) scaleX(0)`, opacity: 0 },
+				{ transform: `translate(0,-50%) rotate(${ang}deg) scaleX(1)`, opacity: 1, offset: 0.55 },
+				{ transform: `translate(0,-50%) rotate(${ang}deg) scaleX(1)`, opacity: 0 },
 			],
-			{ duration: 760, easing: 'ease-out' },
-			820,
+			{ duration: 720, easing: 'cubic-bezier(.2,.7,.3,1)' },
+			760,
 		);
 		// Two soft ping rings bloom where the cursor is headed.
 		for (let k = 0; k < 2; k++) {
 			spawnFx(
 				tx,
 				ty,
-				`width:40px;height:40px;border-radius:50%;border:2.5px solid ${ACCENT};opacity:0;`,
+				`width:44px;height:44px;border-radius:50%;border:2.5px solid ${ACCENT};box-shadow:${RING_SHADOW};opacity:0;`,
 				[
-					{ transform: 'translate(-50%,-50%) scale(.35)', opacity: 0.7 },
+					{ transform: 'translate(-50%,-50%) scale(.35)', opacity: 0.8 },
 					{ transform: 'translate(-50%,-50%) scale(2.0)', opacity: 0 },
 				],
-				{ duration: 1050, delay: k * 240, easing: 'ease-out' },
-				1350 + k * 260,
+				{ duration: 1350, delay: k * 300, easing: 'ease-out' },
+				1750 + k * 320,
 			);
 		}
 	}
@@ -316,29 +324,29 @@ export function createDemoStage(root: HTMLElement, onExit: () => void): DemoStag
 		spawnFx(
 			cx,
 			cy,
-			`width:40px;height:40px;border-radius:50%;border:3px solid ${ACCENT};`,
+			`width:44px;height:44px;border-radius:50%;border:3.5px solid ${ACCENT};box-shadow:${RING_SHADOW};`,
 			[
 				{ transform: 'translate(-50%,-50%) scale(.25)', opacity: 1 },
 				{ transform: 'translate(-50%,-50%) scale(2.7)', opacity: 0 },
 			],
-			{ duration: 720, easing: 'cubic-bezier(.2,.7,.3,1)' },
-			760,
+			{ duration: 950, easing: 'cubic-bezier(.2,.7,.3,1)' },
+			1000,
 		);
 		for (let i = 0; i < 10; i++) {
 			const a = (i / 10) * Math.PI * 2;
 			spawnFx(
 				cx,
 				cy,
-				`width:14px;height:3px;border-radius:3px;background:${ACCENT};transform-origin:center;`,
+				`width:15px;height:3.5px;border-radius:3px;background:${ACCENT};box-shadow:${BAR_SHADOW};transform-origin:center;`,
 				[
 					{ transform: `translate(-50%,-50%) rotate(${a}rad) translateX(10px)`, opacity: 1 },
-					{ transform: `translate(-50%,-50%) rotate(${a}rad) translateX(40px)`, opacity: 0 },
+					{ transform: `translate(-50%,-50%) rotate(${a}rad) translateX(44px)`, opacity: 0 },
 				],
-				{ duration: 600, easing: 'ease-out' },
-				640,
+				{ duration: 820, easing: 'ease-out' },
+				860,
 			);
 		}
-		return wait(reduced ? 80 : 520, signal);
+		return wait(reduced ? 80 : 700, signal);
 	}
 
 	async function circle(el: HTMLElement, signal?: AbortSignal): Promise<void> {
@@ -349,7 +357,7 @@ export function createDemoStage(root: HTMLElement, onExit: () => void): DemoStag
 		const glow = document.createElement('div');
 		glow.style.cssText =
 			`position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;z-index:3;` +
-			`border-radius:14px;border:2.5px solid ${ACCENT};box-shadow:0 0 34px ${ACCENT};opacity:0;pointer-events:none;`;
+			`border-radius:14px;border:3px solid ${ACCENT};box-shadow:0 0 0 1.5px rgba(255,255,255,.85),0 0 36px 2px ${ACCENT};opacity:0;pointer-events:none;`;
 		layer.appendChild(glow);
 		glow.animate(
 			[{ opacity: 0 }, { opacity: 0.85, offset: 0.2 }, { opacity: 0.85, offset: 0.78 }, { opacity: 0 }],

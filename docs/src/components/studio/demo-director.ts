@@ -106,7 +106,12 @@ async function typeTo(
 	}
 	// Reveal the tail, chunking whitespace so typing reads as words, not a metronome —
 	// a newline/space run lands in one tick. Each keystroke's delay is jittered ±40%
-	// so the rhythm feels human, not machine-uniform.
+	// so the rhythm feels human, not machine-uniform. Every ~28 chars we take a longer
+	// "render breath" (past the preview's ~140ms debounce) so the preview repaints the
+	// partial slide MID-typing — otherwise the debounce holds it on the prior slide for
+	// the whole run and editor + preview drift out of sync.
+	const BREATH_EVERY = 28;
+	let sinceBreath = 0;
 	let i = keep;
 	while (i < target.length) {
 		let next = i + 1;
@@ -114,8 +119,14 @@ async function typeTo(
 			while (next < target.length && /\s/.test(target[next])) next++;
 		}
 		ops.append(target.slice(i, next));
+		sinceBreath += next - i;
 		i = next;
-		await wait(cadence * (0.7 + Math.random() * 0.6), signal);
+		if (sinceBreath >= BREATH_EVERY && i < target.length) {
+			sinceBreath = 0;
+			await wait(reduced ? 0 : 175, signal);
+		} else {
+			await wait(cadence * (0.7 + Math.random() * 0.6), signal);
+		}
 	}
 }
 
@@ -145,7 +156,7 @@ export async function runStoryboard(
 			if (el) {
 				// Lead the eye first: fire the anticipation cue, let it register, then move.
 				stage.anticipate(el);
-				await wait(stage.reduced ? 0 : 560, signal);
+				await wait(stage.reduced ? 0 : 650, signal);
 				await stage.moveToEl(el, signal);
 			}
 		}
