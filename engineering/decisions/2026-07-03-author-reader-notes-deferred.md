@@ -5,6 +5,16 @@ summary: Deferred design for splitting a slide's single speaker note into speake
 
 # Author / reader / speaker notes — deferred (engine work first)
 
+> **Follow-up (2026-07-04) — this direction was reconsidered.** A red-team +
+> fact-check + accessibility analysis rejected the three-*kind* note split: no
+> export format carries three labeled note channels, and "private" is
+> unenforceable in a file-based model. The pieces resolved elsewhere — the
+> **"private/working note" became a comment**, decided in
+> [`2026-07-04-comments-layer.md`](./2026-07-04-comments-layer.md) (comments live
+> in the `.lattice` file, not PDF/PPTX); the **"reader/leave-behind" register**
+> folds into the still-open accessibility description/alt-text channel. Speaker
+> notes stay one note (and now reach PPTX — shipped, #741). Kept for the record.
+
 **Ask (2026-07-03):** in the Studio's per-slide Notes tab, let an author keep three
 genuinely-distinct notes: what you **say** live (speaker), a **private** working note
 (author), and a written note for whoever opens the exported file (reader).
