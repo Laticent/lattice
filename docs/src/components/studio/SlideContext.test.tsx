@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SlideContext } from './SlideContext';
+import { listComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 
 const lintVocab = {
@@ -41,6 +42,28 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 const goTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 
 describe('SlideContext drawer', () => {
+	beforeEach(() => localStorage.clear());
+
+	it('shows a Comments tab only with a deckId, and adds a comment for the slide', () => {
+		const onMutate = vi.fn();
+		render(
+			<SlideContext open onOpenChange={() => {}} deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+		);
+		goTab('Comments');
+		fireEvent.change(screen.getByRole('textbox', { name: 'New comment for this slide' }), { target: { value: 'Check this figure.' } });
+		fireEvent.click(screen.getByRole('button', { name: /add comment/i }));
+		const stored = listComments('d1');
+		expect(stored).toHaveLength(1);
+		expect(stored[0]).toMatchObject({ slide: 3, body: 'Check this figure.', resolved: false });
+		// Comments never touch the deck source.
+		expect(onMutate).not.toHaveBeenCalled();
+	});
+
+	it('has no Comments tab without a deckId', () => {
+		setup('<!-- _class: kpi -->\n\n# Hi'); // setup passes no deckId
+		expect(screen.queryByRole('tab', { name: 'Comments' })).toBeNull();
+	});
+
 	it('toggles dark on', () => {
 		const { onMutate, applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		fireEvent.click(screen.getByRole('switch', { name: /dark/i }));

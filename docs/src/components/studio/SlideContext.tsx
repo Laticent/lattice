@@ -17,6 +17,7 @@ import { PillTabs } from '@/components/ui/pill-tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { generateDescription } from './architect';
+import { SlideComments } from './SlideComments';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
@@ -46,6 +47,8 @@ export type SlideContextProps = {
 	lintVocab: LintVocab;
 	/** The insert catalog (built-ins + local) — to look up the active layout's validity. */
 	catalog: CatalogEntry[];
+	/** The active deck's id — keys the per-deck comments store. Comments tab hidden without it. */
+	deckId?: string;
 	/** The user's saved finish names, folded into the finish picker. */
 	savedFinishNames?: string[];
 	/** Commit a pure transform against the FRESHEST slide chunk (avoids stale drafts). */
@@ -168,7 +171,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--muted-foreground,#888)' };
 
 export function SlideContext(props: SlideContextProps) {
-	const { open, onOpenChange, chunk, source, slideNumber, lintVocab, catalog, savedFinishNames = [], onMutate } = props;
+	const { open, onOpenChange, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinishNames = [], onMutate } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -335,6 +338,7 @@ export function SlideContext(props: SlideContextProps) {
 		...(editable && hasDecoration ? [{ value: 'decoration', label: 'Decoration' }] : []),
 		...(editable ? [{ value: 'chrome', label: 'Chrome' }] : []),
 		{ value: 'notes', label: 'Notes' },
+		...(deckId ? [{ value: 'comments', label: 'Comments' }] : []),
 	];
 	const [tab, setTab] = React.useState('look');
 	const tabValues = tabDefs.map((t) => t.value);
@@ -425,6 +429,14 @@ export function SlideContext(props: SlideContextProps) {
 									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({readClassDirective(chunk).reason === 'array-form' ? 'a YAML array' : 'more than one _class comment'}), so the look/status controls are hidden. Edit it directly in the markdown.
 								</div>
 							)}
+						</div>
+					)}
+
+					{/* COMMENTS — review layer (app state, not the deck markdown). */}
+					{activeTab === 'comments' && deckId && (
+						<div className="py-2">
+							<TabIntro>Review notes on this slide — for you or a reviewer. They live with the deck in the app, never on the slide or in a shared PDF unless you opt in at export.</TabIntro>
+							<SlideComments deckId={deckId} slide={slideNumber} />
 						</div>
 					)}
 
