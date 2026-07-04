@@ -1,14 +1,26 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { generateDescription } from './architect';
+import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideContext } from './SlideContext';
 import { listComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 
-// The AI description generator is a network/model call — mock it so the confirm-gate
-// tests drive the draft state deterministically.
-vi.mock('./architect', () => ({ generateDescription: vi.fn() }));
+// The architect module is a network/model boundary — mock it so the confirm-gate +
+// Connect tests drive state deterministically. `useArchitectStatus` defaults to a
+// cloud-connected model (so the Generate button shows); a test flips it to offline.
+vi.mock('./architect', () => ({
+	generateDescription: vi.fn(),
+	connectOpenRouter: vi.fn(() => Promise.resolve()),
+	useArchitectStatus: vi.fn(() => ({ openRouterReady: true })),
+}));
 const mockGenerate = vi.mocked(generateDescription);
+const mockConnect = vi.mocked(connectOpenRouter);
+const mockStatus = vi.mocked(useArchitectStatus);
+
+beforeEach(() => {
+	mockStatus.mockReturnValue({ openRouterReady: true } as ReturnType<typeof useArchitectStatus>);
+	mockConnect.mockClear();
+});
 
 const lintVocab = {
 	universalGroups: {
@@ -291,6 +303,25 @@ describe('SlideContext drawer', () => {
 		fireEvent.blur(box);
 		expect(onMutate).toHaveBeenCalled();
 		expect(sourceOut()).toContain('<!-- describe: Edited by hand. -->');
+	});
+
+	it('with no cloud model, the Description offers a Connect button instead of Generate', () => {
+		mockStatus.mockReturnValue({ openRouterReady: false } as ReturnType<typeof useArchitectStatus>);
+		setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		// Generate is gone (it can't work without cloud); a one-tap Connect stands in.
+		expect(screen.queryByRole('button', { name: /generate/i })).toBeNull();
+		const connect = screen.getByRole('button', { name: /connect a cloud model/i });
+		fireEvent.click(connect);
+		expect(mockConnect).toHaveBeenCalledTimes(1);
+	});
+
+	it('once a cloud model is connected, the Description shows Generate (not Connect)', () => {
+		mockStatus.mockReturnValue({ openRouterReady: true } as ReturnType<typeof useArchitectStatus>);
+		setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		expect(screen.getByRole('button', { name: /generate/i })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /connect a cloud model/i })).toBeNull();
 	});
 
 	it('reads dark as inherited from a dark deck (no misleading off toggle)', () => {

@@ -11,12 +11,12 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Check, Eye, FileSliders, Info, RotateCcw, Sparkles } from 'lucide-react';
+import { Check, Cloud, Eye, FileSliders, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { generateDescription } from './architect';
+import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideComments } from './SlideComments';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
@@ -211,6 +211,20 @@ export function SlideContext(props: SlideContextProps) {
 			else setDescMsg('Add some slide content first — there’s nothing to describe yet.');
 		} finally { setDescBusy(false); }
 	};
+	// A description must be accurate, so generation requires the CLOUD tier (the tiny
+	// on-device model isn't trusted for accessibility text). When no cloud model is
+	// connected, offer a one-tap Connect right here — the same affordance Fabricate
+	// gives — instead of a dead-end "go to the Architect" message. `connectOpenRouter`
+	// begins the OAuth redirect and the app resumes it on return (resumePendingAuth).
+	const cloudReady = useArchitectStatus().openRouterReady;
+	const connectCloud = async () => {
+		setDescMsg('');
+		try {
+			await connectOpenRouter();
+		} catch {
+			setDescMsg('Couldn’t start the connect flow — open Workspace to connect a cloud model.');
+		}
+	};
 
 	// "Reset" baseline — the slide chunk as it was when the drawer opened on THIS
 	// slide, so one click reverts every edit made this session (note + all class
@@ -395,15 +409,29 @@ export function SlideContext(props: SlideContextProps) {
 							<div className="mt-5 border-t border-border pt-4">
 								<div className="flex items-center justify-between gap-2">
 									<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Eye className="size-3.5 text-[var(--accent)]" />Description <span className="font-normal text-muted-foreground">for screen readers</span></span>
-									<button
-										type="button"
-										onClick={generateDesc}
-										disabled={descBusy}
-										title="Draft a text alternative from this slide (you review & confirm before it's used)"
-										className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-50"
-									>
-										<Sparkles className="size-3" />{descBusy ? 'Generating…' : 'Generate'}
-									</button>
+									{cloudReady ? (
+										<button
+											type="button"
+											onClick={generateDesc}
+											disabled={descBusy}
+											title="Draft a text alternative from this slide (you review & confirm before it's used)"
+											className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-50"
+										>
+											<Sparkles className="size-3" />{descBusy ? 'Generating…' : 'Generate'}
+										</button>
+									) : (
+										// No cloud model yet — descriptions need the trusted cloud tier, so offer a
+										// one-tap Connect here (Fabricate's affordance) instead of a dead-end message.
+										<button
+											type="button"
+											onClick={connectCloud}
+											aria-label="Connect a cloud model for AI descriptions"
+											title="Connect a cloud model (OpenRouter) to draft descriptions with AI"
+											className="inline-flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90"
+										>
+											<Cloud className="size-3" />Connect AI
+										</button>
+									)}
 								</div>
 								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">An objective equivalent of what's on the slide — the accessibility text alternative (WCAG A). Exported as the slide image's alt text; never spoken or shown on the slide.</p>
 								<textarea

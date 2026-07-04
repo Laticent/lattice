@@ -167,9 +167,10 @@ in patch versions.
   stays with the right slide on front-matter and auto-split decks) and an **aria description
   in HTML**. Author it in the Studio's
   Notes tab beside the speaker note; an AI **Generate** drafts a slide-local, structure-first
-  alternative you **review and confirm** (unconfirmed AI text never exports). PDF `/Alt`
-  needs a tagged-PDF pipeline and is a follow-on. See
-  `engineering/decisions/2026-07-04-accessible-descriptions.md`.
+  alternative you **review and confirm** (unconfirmed AI text never exports). When no cloud
+  model is connected, the field offers a one-tap **Connect AI** (OpenRouter) inline — the same
+  affordance as Fabricate — instead of a dead-end message. PDF `/Alt` needs a tagged-PDF
+  pipeline and is a follow-on. See `engineering/decisions/2026-07-04-accessible-descriptions.md`.
 
 - **Comments — a per-slide review layer in the Studio.** Leave review feedback on a slide
   (“double-check this figure”) — a distinct channel from the speaker note and the

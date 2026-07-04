@@ -18,6 +18,10 @@ companion:
 note); PPTX image `altText` on **both** export paths (CLI `lib/export/pptx-export.js` +
 Studio `drawing-board-export.js`); the HTML `aria-describedby` sink (CLI); the Studio Notes-tab
 field with AI **Generate** (slide-local, structure-first prompt) + the review/confirm gate.
+When no cloud model is connected, the field swaps Generate for a one-tap **Connect AI**
+(OpenRouter OAuth via `connectOpenRouter`) — reusing Fabricate's affordance (HARD RULE #15),
+cloud-only because the on-device tier isn't trusted for accessibility text — rather than a
+passive "go to the Architect" message.
 On both PPTX paths the alt text is read from the **rendered `<section>` being rasterized**
 (via `notesCore.descriptionFromHtml`), never from a source re-split — so the alt stays
 index-locked to its slide even on front-matter and `split: headings` decks. (A first cut of
