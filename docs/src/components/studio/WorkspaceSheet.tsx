@@ -16,7 +16,7 @@ import { downloadBlob, isEvictionProneBrowser, packWorkspace, restoreWorkspace, 
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
-// Workspace Settings — "your setup", distinct from the deck Inspector's "this deck".
+// Workspace Settings — "your setup", distinct from the deck Inspector's "deck-wide".
 // Two tabs: General holds the non-AI workspace prefs (placement-handle style + where
 // decks live); AI holds everything about the model, in three stacked sections:
 //   · Model — the GENERATION switch (Cloud / On-device) that picks the ACTIVE tier.

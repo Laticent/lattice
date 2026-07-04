@@ -254,11 +254,11 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(sheet.queryByText('Active generation tier')).not.toBeInTheDocument();
 	});
 
-	it('expands the Deck Inspector ("this deck") from its collapsed rail', async () => {
+	it('expands the Deck Inspector ("deck-wide") from its collapsed rail', async () => {
 		const user = setup();
-		expect(screen.queryByText('this deck')).not.toBeInTheDocument();
+		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
-		expect(await screen.findByText('this deck')).toBeInTheDocument();
+		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
 		expect(screen.getByText('Lenses')).toBeInTheDocument();
 	});
 
@@ -350,9 +350,9 @@ describe('StudioShell — responsive layout', () => {
 		const user = setup();
 		// Both panes share the row; neither panel is docked open.
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
-		expect(screen.queryByText('this deck')).not.toBeInTheDocument();
+		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
-		expect(await screen.findByText('this deck')).toBeInTheDocument();
+		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
 	});
 });
 
@@ -421,7 +421,7 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
 		// The pane toggles still work from the pane bar (the Inspector opens as a sheet).
 		await user.click(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' }));
-		expect(await screen.findByText('this deck')).toBeInTheDocument();
+		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
 	});
 
 	it('the launcher and deck switcher no longer duplicate "New deck" (deck CRUD lives in the switcher)', async () => {

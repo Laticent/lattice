@@ -369,18 +369,27 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
 	});
 
-	it('the Footer switch writes footer front-matter to the source', async () => {
+	it('the Header/Footer fields declare running text into the source (blank clears it)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
-		const sw = await screen.findByRole('switch', { name: 'Footer' });
-		// Off by default (no footer directive); turning it on writes a `footer:` line.
-		expect(sw).not.toBeChecked();
-		await user.click(sw);
-		expect(sw).toBeChecked();
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/footer:/);
-		// Turning it off removes the directive again.
-		await user.click(screen.getByRole('switch', { name: 'Footer' }));
-		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/footer:/);
+		// Header & footer are text DECLARATIONS, not toggles: typing text (committed
+		// on blur) writes the directive; clearing the field removes it again.
+		const header = await screen.findByRole('textbox', { name: 'Header' });
+		await user.click(header);
+		await user.type(header, 'Acme — Q3');
+		await user.tab(); // blur commits
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/header:\s*"?Acme/);
+
+		const footer = screen.getByRole('textbox', { name: 'Footer' });
+		await user.click(footer);
+		await user.type(footer, 'Confidential');
+		await user.tab();
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/footer:\s*Confidential/);
+
+		// Clearing the header field turns the band off — the directive is dropped.
+		await user.clear(header);
+		await user.tab();
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/header:/);
 	});
 
 	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {

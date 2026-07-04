@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Volume2, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, LayoutGrid, ListChecks, Minimize2, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -9,6 +9,7 @@ import {
 	DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 	DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
@@ -351,8 +352,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || '16:9';
 	const pageNumbers = getFrontMatter(source, 'paginate') === 'true';
-	const headerFooter = getFrontMatter(source, 'header') != null;
-	const footer = getFrontMatter(source, 'footer') != null;
+	// Header & footer are DECLARATIONS, not toggles: the author types the running
+	// text that rides along the top / bottom of every slide. The band is on exactly
+	// when it carries text — an empty field clears the directive (the band is off).
+	const headerText = getFrontMatter(source, 'header') ?? '';
+	const footerText = getFrontMatter(source, 'footer') ?? '';
 	// The section-progress rail has no native Marp directive (unlike header/footer/
 	// paginate), so it is governed deck-wide by the `no-progress` class token
 	// propagated to every slide (deckClassPropagate). ON is the default; the toggle
@@ -483,8 +487,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	}, [fm, source, finishClass]);
 	const setDeckSize = (value: string) => setSource((s) => setFrontMatter(s, 'size', value));
 	const togglePageNumbers = () => setSource((s) => setFrontMatter(s, 'paginate', pageNumbers ? null : 'true'));
-	const toggleHeaderFooter = () => setSource((s) => setFrontMatter(s, 'header', getFrontMatter(s, 'header') != null ? null : deck.title));
-	const toggleFooter = () => setSource((s) => setFrontMatter(s, 'footer', getFrontMatter(s, 'footer') != null ? null : deck.title));
+	// Write the declared text (trimmed); a blank field clears the directive so the
+	// band turns off — no separate toggle, the presence of text IS the switch.
+	const setHeaderText = (v: string) => setSource((s) => setFrontMatter(s, 'header', v.trim() || null));
+	const setFooterText = (v: string) => setSource((s) => setFrontMatter(s, 'footer', v.trim() || null));
 	// Rail ON → clear `no-progress`; rail OFF → stamp it (deck-wide, non-destructive
 	// to any other author classes).
 	const toggleDeckRail = () => setSource((s) => (deckRail ? mergeClassTokens(s, 'no-progress') : removeClassTokens(s, 'no-progress')));
@@ -1055,7 +1061,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
 		<>
-			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light/dark, slide size, and the chrome every slide inherits (a single slide can override any of it).">
+			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light or dark, size, and surface.">
 				<Field label="Theme" desc="The color palette every slide draws from.">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
@@ -1126,7 +1132,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							))}
 						</div>
 					)}
-					<Field label="Brand bar" desc="The colored strip along each slide's top edge. Rainbow by default; None removes it; Solid uses the theme's accent — set that to a client's brand color to white-label the deck.">
+					<Field label="Brand bar" desc="The colored strip along each slide's top edge. Set Solid to a client's brand color to white-label the deck.">
 							{/* The white-label spectrum — the rainbow bar on the top border / divider
 							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 							    the theme accent to a client's brand and Solid follows. */}
@@ -1139,11 +1145,19 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								</DropdownMenuContent>
 							</DropdownMenu>
 						</Field>
-					<Field label="Page numbers" desc="Show the page number on every slide."><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
-				<Field label="Running header" desc="Show the deck title along the top of every slide."><Toggle label="Running header" on={headerFooter} onClick={toggleHeaderFooter} /></Field>
-				<Field label="Footer" desc="Show the running line at the bottom of every slide."><Toggle label="Footer" on={footer} onClick={toggleFooter} /></Field>
-				<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
-			</InspGroup>
+				</InspGroup>
+			{/* The deck's running marks — the header, footer, page number, and rail that
+			    repeat across slides. Header & footer are text you DECLARE (the whole point:
+			    you say what the band reads); page numbers & the rail are on/off. The group is
+			    named for its CONTENTS, not its scope — the drawer header already says these are
+			    deck-wide, so the title needn't restate it (that was the redundancy). A single
+			    slide hides any of them from its Slide settings. */}
+			<InspGroup icon={<Frame className="size-3.5" />} label="Running marks" desc="The header, footer, page number, and section rail.">
+					<TextRow label="Header" desc="The line along the top — a deck title or client name. Blank hides it." value={headerText} placeholder={`e.g. ${deck.title}`} onCommit={setHeaderText} />
+					<TextRow label="Footer" desc="The line along the bottom — a confidentiality or source line. Blank hides it." value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
+					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
+					<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+				</InspGroup>
 			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring" desc="Aids while you write. Preview-only — none of this appears in the export.">
 				<Field label="Inline validation" desc="Flags unknown components in the editor as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
 				{/* Debug overlay — outlines every box by layout mode and labels the
@@ -1603,10 +1617,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					{/* Inspector — persistent column/rail only on desktop (PM-4) */}
 					{!compact && (inspectorOpen ? (
 						<aside className="flex min-h-0 flex-col overflow-y-auto border-l border-border bg-background">
-							<div className="flex items-center gap-2 border-b border-border px-3.5 py-3">
-								<Settings2 className="size-4 text-[var(--accent)]" />
-								<span className="text-sm font-bold text-[var(--text-heading)]">Deck</span>
-								<span className="ml-auto rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">this deck</span>
+							<div className="border-b border-border px-3.5 py-3">
+								<div className="flex items-center gap-2">
+									<Settings2 className="size-4 text-[var(--accent)]" />
+									<span className="text-sm font-bold text-[var(--text-heading)]">Deck</span>
+									<span className="ml-auto rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">deck-wide</span>
+								</div>
+								<p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">Applies to the whole deck — each slide inherits it. Change just one in its Slide settings.</p>
 							</div>
 							<div className="space-y-0 px-3.5 pb-4">{inspectorBody}</div>
 						</aside>
@@ -1637,8 +1654,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
 						<SheetContent side="right" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
 							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings2 className="size-4 text-[var(--accent)]" />Deck<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">this deck</span></SheetTitle>
-								<SheetDescription className="sr-only">Look, authoring, read-aloud, and reader-lens settings for this deck.</SheetDescription>
+								<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings2 className="size-4 text-[var(--accent)]" />Deck<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">deck-wide</span></SheetTitle>
+								<SheetDescription className="text-[11px] leading-snug text-muted-foreground">Applies to the whole deck — each slide inherits it. Change just one in its Slide settings.</SheetDescription>
 							</SheetHeader>
 							<div className="space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
 						</SheetContent>
@@ -1799,6 +1816,39 @@ function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; la
 		<button type="button" role="switch" aria-checked={!!on} aria-label={label} onClick={onClick} className={cn('relative h-[22px] w-[38px] rounded-full transition-colors', on ? 'bg-primary' : 'bg-border')}>
 			<span className={cn('absolute top-[2px] size-[18px] rounded-full bg-white shadow transition-all', on ? 'left-[18px]' : 'left-[2px]')} />
 		</button>
+	);
+}
+// A text-DECLARATION row — label + help line, then a full-width input. Unlike a
+// Toggle (a binary state), this is where the author states the actual copy that
+// will render (the running header / footer text). Draft is local while typing and
+// commits on blur or Enter, so the source front-matter (and the editor + every
+// export) isn't rewritten on every keystroke. An empty commit clears the setting.
+function TextRow({ label, desc, value, placeholder, onCommit }: { label: string; desc?: string; value: string; placeholder?: string; onCommit: (v: string) => void }) {
+	const [draft, setDraft] = React.useState(value);
+	// A real <label htmlFor> (not a bare span) so tapping the label focuses the field,
+	// and aria-describedby so a screen reader announces the help line (incl. "Blank
+	// hides it") — the one sentence that explains the show/hide behavior.
+	const id = React.useId();
+	const descId = `${id}-desc`;
+	// Re-sync when the stored value changes underneath us (deck switch, restore,
+	// AI edit). Value only moves on our own commit during normal typing, so this
+	// never fights the author mid-keystroke.
+	React.useEffect(() => { setDraft(value); }, [value]);
+	return (
+		<div className="my-2">
+			<label htmlFor={id} className="text-[12.5px] text-foreground">{label}</label>
+			{desc && <p id={descId} className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
+			<Input
+				id={id}
+				aria-describedby={desc ? descId : undefined}
+				value={draft}
+				placeholder={placeholder}
+				onChange={(e) => setDraft(e.target.value)}
+				onBlur={() => { if (draft !== value) onCommit(draft); }}
+				onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+				className="mt-1.5 h-8 text-[12.5px]"
+			/>
+		</div>
 	);
 }
 function Lens({ on, icon, name, desc, badge, onClick }: { on?: boolean; icon: React.ReactNode; name: string; desc: string; badge?: string; onClick?: () => void }) {
