@@ -19,9 +19,25 @@ describe('lattice-file', () => {
 	it('round-trips source + comments losslessly through the zip', async () => {
 		const blob = await exportLatticeBlob(SRC, 'My deck', COMMENTS, 99);
 		const back = await readLatticeFile(blob);
-		expect(back.source).toBe(SRC); // byte-for-byte
+		expect(back.source).toBe(SRC); // lossless for any well-formed text
 		expect(back.title).toBe('My deck');
 		expect(back.comments).toEqual(COMMENTS);
+	});
+
+	// The deflate-bomb guard reads JSZip's INTERNAL `_data.uncompressedSize`. If a
+	// JSZip upgrade renames/restructures that field the guard silently fails open
+	// (Number(undefined) || 0 → the cap is never hit). This test pins the field so
+	// such an upgrade trips CI instead of quietly removing the protection.
+	it('JSZip still exposes the entry uncompressed size the bomb-guard depends on', async () => {
+		const { default: JSZip } = await import('jszip');
+		const blob = await exportLatticeBlob(SRC, 'My deck', COMMENTS, 99);
+		const zip = await JSZip.loadAsync(blob);
+		const entry = zip.file('deck.md') as unknown as { _data?: { uncompressedSize?: number } };
+		const size = entry?._data?.uncompressedSize;
+		expect(typeof size).toBe('number');
+		expect(Number.isFinite(size) && (size as number) > 0).toBe(true);
+		// It must equal the real UTF-8 byte length of the source (the guard sums this).
+		expect(size).toBe(new TextEncoder().encode(SRC).length);
 	});
 
 	it('parseLatticeManifest rejects non-Lattice JSON', () => {
