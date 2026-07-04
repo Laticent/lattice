@@ -132,3 +132,39 @@ describe('notes-core: known comment-collection deltas vs marp-core', () => {
     assert.equal(core.notesFromHtml('<section><div><!-- x --></div></section>'), 'x');
   });
 });
+
+describe('notes-core: accessible-description channel (describe:)', () => {
+  test('isDescriptionComment recognizes the describe: prefix, not a note', () => {
+    assert.equal(core.isDescriptionComment('describe: A bar chart rising left to right.'), true);
+    assert.equal(core.isDescriptionComment('Describe:  case-insensitive'), true);
+    assert.equal(core.isDescriptionComment('note: say this'), false);
+    assert.equal(core.isDescriptionComment('describe the room'), false); // no colon → prose note
+  });
+
+  test('a describe: comment is NOT collected as a speaker note', () => {
+    assert.equal(core.notesFromHtml(sec('<!-- describe: Revenue up 40% over three quarters. -->')), null);
+  });
+
+  test('descriptionFromHtml returns the description, prefix stripped', () => {
+    assert.equal(
+      core.descriptionFromHtml(sec('<!-- describe: Revenue up 40% over three quarters. -->')),
+      'Revenue up 40% over three quarters.',
+    );
+    assert.equal(core.descriptionFromHtml(sec('<!-- a plain note -->')), null);
+  });
+
+  test('note and description coexist on one slide without cross-contamination', () => {
+    const html = sec('<!-- Pause here. --><!-- describe: A pie chart, three equal slices. -->');
+    assert.equal(core.notesFromHtml(html), 'Pause here.'); // note only
+    assert.equal(core.descriptionFromHtml(html), 'A pie chart, three equal slices.'); // description only
+  });
+
+  test('extractSlideDescriptions is index-aligned; multiple describe join with a space', () => {
+    const slides = [
+      sec('<!-- describe: First. --><!-- describe: Second. -->'),
+      sec('<!-- just a note -->'),
+      sec('<!-- describe: Third. -->'),
+    ];
+    assert.deepEqual(core.extractSlideDescriptions(slides), ['First. Second.', null, 'Third.']);
+  });
+});

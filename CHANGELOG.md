@@ -158,6 +158,27 @@ in patch versions.
 
 ### Added
 
+- **Accessible slide descriptions — the text alternative (WCAG SC 1.1.1).** A per-slide
+  `<!-- describe: … -->` channel: an objective equivalent of what the slide shows, for a
+  screen-reader user. It is a **separate channel from the speaker note** (consumed by the
+  engine, never spoken) and exports as the **PPTX image alt text** (both the CLI and the
+  Studio's own PowerPoint export — closing the image-per-slide gap where a screen reader
+  got only "Slide N, Picture"; the alt is read from the rendered slide it sits on, so it
+  stays with the right slide on front-matter and auto-split decks) and an **aria description
+  in HTML**. Author it in the Studio's
+  Notes tab beside the speaker note; an AI **Generate** drafts a slide-local, structure-first
+  alternative you **review and confirm** (unconfirmed AI text never exports). When no cloud
+  model is connected, the field offers a one-tap **Connect AI** (OpenRouter) inline — the same
+  affordance as Fabricate — instead of a dead-end message. PDF `/Alt` needs a tagged-PDF
+  pipeline and is a follow-on. See `engineering/decisions/2026-07-04-accessible-descriptions.md`.
+
+- **Comments — a per-slide review layer in the Studio.** Leave review feedback on a slide
+  (“double-check this figure”) — a distinct channel from the speaker note and the
+  description. Add (⌘↵), resolve/reopen, delete, per-slide, in the drawer's **Comments** tab.
+  Comments are app state (per-deck), **not** the deck markdown, and never appear on a slide
+  or in an export. The `.lattice`-file travel and the opt-in PDF sticky-note export are
+  documented follow-ons. See `engineering/decisions/2026-07-04-comments-layer.md`.
+
 - **`spectrum:` register — white-label the brand bar.** A deck front-matter register
   controls the **spectrum** (the rainbow gradient bar every slide carries on its top
   border, and a `divider` carries as a left rail): `spectrum: off` removes it for a clean

@@ -1667,6 +1667,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			<SlideContext
 				open={notesOpen}
 				onOpenChange={setNotesOpen}
+				deckId={deck.id}
 				chunk={slides[activeFullIndex] ?? ''}
 				source={source}
 				slideNumber={activeFullIndex + 1}

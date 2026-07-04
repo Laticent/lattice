@@ -254,6 +254,64 @@ export async function refineSelection(action: RefineActionId, text: string): Pro
 	return { status: 'ok', text: next };
 }
 
+// ── Accessible description: "Generate a text alternative" ──────────────────────
+// Drafts the slide's WCAG SC 1.1.1 alternative for the author to REVIEW+CONFIRM
+// (never auto-applied). Deliberately SLIDE-LOCAL — the prompt is fed only this
+// slide's markdown, never the deck: a description must be an equivalent of THIS
+// slide's pixels, and off-slide context is a conformance regression, not a bonus
+// (opposite rule to a speaker note). The system prompt is the structure-first,
+// no-hallucination contract. See 2026-07-04-accessible-descriptions.md.
+const DESCRIBE_SYSTEM =
+	'You write accessibility text alternatives (WCAG SC 1.1.1) for ONE presentation slide, ' +
+	'for a person using a screen reader who cannot see it.\n' +
+	'Rules:\n' +
+	'- Describe ONLY what is on THIS slide. Never add outside context, background, or interpretation.\n' +
+	'- Be objective and factual. State the numbers, labels, and structure exactly as shown; never invent or estimate a figure.\n' +
+	'- For a chart or table, state the data it shows (values, categories, trend) as given — do not explain why.\n' +
+	'- Plain language. One to three sentences. No "image of" / "slide showing" preamble.\n' +
+	'- Output only the description text, nothing else.';
+
+/** The (pure) message list for a slide-local description generation. Exported for testing. */
+export function buildDescriptionPrompt(slideSource: string): Msg[] {
+	return [
+		{ role: 'system', content: DESCRIBE_SYSTEM },
+		{ role: 'user', content: `Slide markdown:\n\n${String(slideSource).trim()}\n\nWrite the description.` },
+	];
+}
+
+/**
+ * Draft an accessibility description from a single slide's markdown. Honest like the
+ * other bridges: `offline` with no cloud model (a description must be accurate, so
+ * the tiny on-device tier is not trusted here), `blocked` at the budget cap,
+ * `nochange` for empty input or an unusable reply — never a fabricated alt text.
+ * The caller (the drawer) treats the result as an UNCONFIRMED draft: it is not
+ * written to the slide until the author confirms or edits it.
+ */
+export async function generateDescription(slideSource: string): Promise<RefineOutcome> {
+	if (!String(slideSource).trim()) return { status: 'nochange' };
+	const model = await architectModel();
+	if (!model) return { status: 'offline' };
+	const generation = model.availability().generation;
+	// Accuracy matters (a wrong alt is worse than none), so require the cloud tier —
+	// the deterministic floor and tiny on-device model are not trusted to describe.
+	if (generation !== 'openrouter') return { status: 'offline' };
+	const blk = cloudBudgetBlock(model, slideSource);
+	if (blk) return { status: 'blocked', note: blk };
+	let out = '';
+	try {
+		out = await model.complete({
+			messages: withStudioVoice(buildDescriptionPrompt(slideSource)),
+			fallback: '',
+			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+		});
+	} catch {
+		return { status: 'offline' };
+	}
+	const next = String(out).trim().replace(/^describe:\s*/i, '').replace(/\s+/g, ' ').trim();
+	if (!next) return { status: 'nochange' };
+	return { status: 'ok', text: next };
+}
+
 // ── Theme Studio: "Describe a look" ────────────────────────────────────────
 // The shape auditBoth returns (lib/theme/contrast.js): an overall verdict plus a
 // per-canvas breakdown the inspector renders.

@@ -1,6 +1,7 @@
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
+import { clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 
 // Studio persistence — localStorage-backed, Studio-scoped (lattice-studio-*).
@@ -160,10 +161,13 @@ export function renameDeck(id: string, title: string): void {
 	saveIndex(loadIndex().map((e) => (e.id === id ? { ...e, title: t } : e)));
 }
 
-/** Remove a deck (index entry + its edited source). */
+/** Remove a deck (index entry + its edited source + its review comments). */
 export function deleteDeck(id: string): void {
 	saveIndex(loadIndex().filter((e) => e.id !== id));
 	dropSource(id);
+	// Comments are a per-deck app-state sidecar (lattice-studio-comments-<id>) — drop
+	// them too, or a deleted deck leaks its comment store forever.
+	clearComments(id);
 }
 
 // ── Version history (checkpoints) ──────────────────────────────────────────

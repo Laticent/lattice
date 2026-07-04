@@ -1,7 +1,26 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideContext } from './SlideContext';
+import { listComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
+
+// The architect module is a network/model boundary — mock it so the confirm-gate +
+// Connect tests drive state deterministically. `useArchitectStatus` defaults to a
+// cloud-connected model (so the Generate button shows); a test flips it to offline.
+vi.mock('./architect', () => ({
+	generateDescription: vi.fn(),
+	connectOpenRouter: vi.fn(() => Promise.resolve()),
+	useArchitectStatus: vi.fn(() => ({ openRouterReady: true })),
+}));
+const mockGenerate = vi.mocked(generateDescription);
+const mockConnect = vi.mocked(connectOpenRouter);
+const mockStatus = vi.mocked(useArchitectStatus);
+
+beforeEach(() => {
+	mockStatus.mockReturnValue({ openRouterReady: true } as ReturnType<typeof useArchitectStatus>);
+	mockConnect.mockClear();
+});
 
 const lintVocab = {
 	universalGroups: {
@@ -31,7 +50,9 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	);
 	// Apply the captured transform to the chunk to see the resulting tokens.
 	const applied = () => getClassTokens(onMutate.mock.calls.at(-1)?.[0](chunk));
-	return { onMutate, applied };
+	// The resulting SOURCE after applying the last captured transform.
+	const sourceOut = () => onMutate.mock.calls.at(-1)?.[0](chunk) as string;
+	return { onMutate, applied, sourceOut };
 }
 
 // The drawer is now dynamic pill-tabs — controls live under Look / Status / Decoration /
@@ -39,6 +60,28 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 const goTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 
 describe('SlideContext drawer', () => {
+	beforeEach(() => localStorage.clear());
+
+	it('shows a Comments tab only with a deckId, and adds a comment for the slide', () => {
+		const onMutate = vi.fn();
+		render(
+			<SlideContext open onOpenChange={() => {}} deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+		);
+		goTab('Comments');
+		fireEvent.change(screen.getByRole('textbox', { name: 'New comment for this slide' }), { target: { value: 'Check this figure.' } });
+		fireEvent.click(screen.getByRole('button', { name: /add comment/i }));
+		const stored = listComments('d1');
+		expect(stored).toHaveLength(1);
+		expect(stored[0]).toMatchObject({ slide: 3, body: 'Check this figure.', resolved: false });
+		// Comments never touch the deck source.
+		expect(onMutate).not.toHaveBeenCalled();
+	});
+
+	it('has no Comments tab without a deckId', () => {
+		setup('<!-- _class: kpi -->\n\n# Hi'); // setup passes no deckId
+		expect(screen.queryByRole('tab', { name: 'Comments' })).toBeNull();
+	});
+
 	it('toggles dark on', () => {
 		const { onMutate, applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		fireEvent.click(screen.getByRole('switch', { name: /dark/i }));
@@ -199,6 +242,86 @@ describe('SlideContext drawer', () => {
 		goTab('Chrome');
 		expect(screen.getByText(/the slide's furniture/i)).toBeTruthy();
 		expect(screen.getByText(/section-progress dots/i)).toBeTruthy();
+	});
+
+	it('authors an accessibility description as a describe: comment under the Notes tab', () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		const box = screen.getByRole('textbox', { name: 'Accessibility description for this slide' });
+		fireEvent.change(box, { target: { value: 'A bar chart, revenue up 40%.' } });
+		fireEvent.blur(box);
+		const out = sourceOut();
+		expect(out).toContain('<!-- describe: A bar chart, revenue up 40%. -->');
+		// It must NOT become the speaker note.
+		expect(out).not.toMatch(/<!-- note:.*bar chart/);
+	});
+
+	it('the description field is separate from the speaker note (both coexist)', () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		const note = screen.getByRole('textbox', { name: 'Speaker note for this slide' });
+		fireEvent.change(note, { target: { value: 'Pause here.' } });
+		fireEvent.blur(note);
+		// The note is committed; re-render happens via onMutate in the app, but within
+		// this unit the last transform holds the note. Now the description on a fresh setup.
+		const withNote = sourceOut();
+		expect(withNote).toContain('<!-- note: Pause here. -->');
+	});
+
+	it('an UNCONFIRMED AI draft does NOT commit on blur (a wrong alt is worse than none)', async () => {
+		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
+		const { onMutate } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+		// The draft lands in the field and the confirm affordance appears…
+		await screen.findByRole('button', { name: /use it/i });
+		expect((screen.getByRole('textbox', { name: 'Accessibility description for this slide' }) as HTMLTextAreaElement).value).toBe('AI-suggested description.');
+		// …but blurring the box must NOT write the unread AI text to the slide.
+		fireEvent.blur(screen.getByRole('textbox', { name: 'Accessibility description for this slide' }));
+		expect(onMutate).not.toHaveBeenCalled();
+	});
+
+	it('clicking "Use it" commits the AI draft as a describe: comment', async () => {
+		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
+		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+		fireEvent.click(await screen.findByRole('button', { name: /use it/i }));
+		expect(onMutate).toHaveBeenCalled();
+		expect(sourceOut()).toContain('<!-- describe: AI-suggested description. -->');
+	});
+
+	it('editing the AI draft by hand takes ownership — a subsequent blur DOES commit', async () => {
+		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
+		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+		const box = await screen.findByRole('textbox', { name: 'Accessibility description for this slide' });
+		// Typing clears the AI-draft flag (the author now owns the text).
+		fireEvent.change(box, { target: { value: 'Edited by hand.' } });
+		await waitFor(() => expect(screen.queryByRole('button', { name: /use it/i })).toBeNull());
+		fireEvent.blur(box);
+		expect(onMutate).toHaveBeenCalled();
+		expect(sourceOut()).toContain('<!-- describe: Edited by hand. -->');
+	});
+
+	it('with no cloud model, the Description offers a Connect button instead of Generate', () => {
+		mockStatus.mockReturnValue({ openRouterReady: false } as ReturnType<typeof useArchitectStatus>);
+		setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		// Generate is gone (it can't work without cloud); a one-tap Connect stands in.
+		expect(screen.queryByRole('button', { name: /generate/i })).toBeNull();
+		const connect = screen.getByRole('button', { name: /connect a cloud model/i });
+		fireEvent.click(connect);
+		expect(mockConnect).toHaveBeenCalledTimes(1);
+	});
+
+	it('once a cloud model is connected, the Description shows Generate (not Connect)', () => {
+		mockStatus.mockReturnValue({ openRouterReady: true } as ReturnType<typeof useArchitectStatus>);
+		setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		expect(screen.getByRole('button', { name: /generate/i })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /connect a cloud model/i })).toBeNull();
 	});
 
 	it('reads dark as inherited from a dark deck (no misleading off toggle)', () => {

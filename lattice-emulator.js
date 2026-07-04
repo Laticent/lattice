@@ -1223,14 +1223,28 @@ const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const slideNotes = notesCore.extractSlideNotes(slides);
+const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);
   const note = slideNotes[i];
-  if (!note) return stripped;
-  const aside = `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escapeHtml(note)}</aside>`;
-  // Inject just inside the opening <section> so the channel travels with its
-  // slide. `hidden` keeps it out of layout/print and the overflow watcher.
-  return stripped.replace(/^(\s*<section\b[^>]*>)/i, `$1${aside}`);
+  const description = slideDescriptions[i];
+  if (!note && !description) return stripped;
+  let inject = '';
+  let sectionAttr = '';
+  // Speaker note: a `hidden` aside — out of layout/print AND out of the a11y tree
+  // (it is spoken by the presenter, not read by a screen reader).
+  if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escapeHtml(note)}</aside>`;
+  // Accessible description: a visually-hidden but AT-EXPOSED element (sr-only, NOT
+  // `hidden`), referenced by `aria-describedby` on the section. It is the slide's
+  // text alternative for a screen-reader user; sr-only keeps it off the rasterized
+  // PNG (so it never prints on the slide) while a screen reader still reads it.
+  if (description) {
+    const id = `lat-desc-${i + 1}`;
+    inject += `<p class="lattice-description" id="${id}">${escapeHtml(description)}</p>`;
+    sectionAttr = ` aria-describedby="${id}"`;
+  }
+  // Inject just inside the opening <section>, adding aria-describedby to the tag.
+  return stripped.replace(/^(\s*<section\b)([^>]*>)/i, `$1${sectionAttr}$2${inject}`);
 });
 
 // ── Marp-equivalent CSS for pagination and header/footer ────────────────────
@@ -1256,6 +1270,17 @@ section[data-lattice-pagination]::after {
 /* Speaker-notes channel: a hidden, non-printing per-slide aside. Pinned off
    explicitly so a theme styling bare <aside> can never leak it into the PDF. */
 aside.lattice-notes { display: none !important; }
+
+/* Accessible-description channel: visually hidden (sr-only) so it never prints on
+   the slide or lands in the rasterized PNG, but — unlike display:none — it stays
+   in the accessibility tree for a screen reader (the WCAG SC 1.1.1 alternative). */
+.lattice-description {
+  position: absolute !important;
+  width: 1px !important; height: 1px !important;
+  padding: 0 !important; margin: -1px !important;
+  overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important; border: 0 !important;
+}
 `;
 
 // ── Self-hosted fonts (offline PDF embedding) ────────────────────────────────
@@ -1862,7 +1887,7 @@ async function renderBody(browser, g, closeBrowser) {
         company: `Lattice · ${paletteName}`,
         width: slideW,
         height: slideH,
-      }, slideNotes);
+      }, slideNotes, slideDescriptions);
       if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}`);
     }
   }
