@@ -18,10 +18,16 @@ companion:
 **Shipped (this build):** comments as **app state** — a per-deck `localStorage` store
 (`slide-comments.ts`) and a per-slide **Comments** tab in the drawer (`SlideComments.tsx`):
 add (⌘↵), resolve/reopen, delete. Anchored by slide **index** (see the anchor note below).
-**Deferred (documented follow-ons):** the `.lattice` manifest serialization (that format is
-unbuilt); the **opt-in PDF sticky-note export** (the Studio's browser PDF is canvas-rasterized,
-so it needs a `pdf-lib` annotation pass) and the broader **export-options step**; reorder-stable
-anchoring + real author identity (both land with the collaboration layer).
+**Shipped (this PR — the export-options step + PDF sticky notes):** tapping **Share → PDF**
+now opens a pre-export **Export options** panel (`ExportOptionsPanel.tsx`); comments are
+**off by default** and, when the author opts in, each rides the PDF as a real **`/Text`
+sticky-note annotation** on its slide (`pdf-sticky-notes.js`, applied in BOTH PDF lanes — the
+off-thread worker and the main-thread fallback). The earlier "needs a `pdf-lib` pass" worry was
+moot: a jsPDF `createAnnotation` overlays the note object on the image page directly. Scope is
+author-chosen (All / Open only). **Deferred (documented follow-ons):** the `.lattice` manifest
+serialization (that format is unbuilt — the next PR in this stack); reorder-stable anchoring +
+real author identity (both land with the collaboration layer); PPTX has no reachable comment
+channel (pptxgenjs exposes none).
 
 ---
 

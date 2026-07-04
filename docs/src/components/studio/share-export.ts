@@ -168,12 +168,14 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format
- *  (PNG lossless / JPEG fast) is the Workspace › General preference. */
-export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
+ *  (PNG lossless / JPEG fast) is the Workspace › General preference. `annotations`
+ *  (opt-in via the export panel) is the per-page comment sticky-note payload —
+ *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
+export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][]): Promise<void> {
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
-	await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages });
+	await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, annotations });
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's

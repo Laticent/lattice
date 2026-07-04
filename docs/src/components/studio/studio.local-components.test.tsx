@@ -93,10 +93,12 @@ describe('Studio — insert + render a saved local component', () => {
 
 		await user.click(screen.getByRole('button', { name: 'Share' }));
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
+		// PDF opens the Options step; Download runs the exporter.
 		await user.click(sheet.getByText('PDF'));
-		// The last positional arg to sharePdf is extraCss — it must carry the
-		// component's rules so the exported artifact is styled too.
+		await user.click(sheet.getByRole('button', { name: /download pdf/i }));
+		// The extraCss arg (index 7) must carry the component's rules so the exported
+		// artifact is styled too (annotations is the trailing arg, undefined here).
 		const call = shareSpies.sharePdf.mock.calls.at(-1) as unknown[];
-		expect(call?.at(-1)).toContain('section.mybox');
+		expect(call?.[7]).toContain('section.mybox');
 	});
 });

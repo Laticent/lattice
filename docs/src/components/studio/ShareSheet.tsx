@@ -3,6 +3,8 @@ import * as React from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
+import { ExportOptionsPanel } from './ExportOptionsPanel';
+import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens } from './front-matter';
 import { shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintDeck, sharePrintSource } from './share-export';
 
@@ -20,8 +22,14 @@ function Row({ icon, title, desc, dev, busy, status, onClick }: { icon: React.Re
 	);
 }
 
-export function ShareSheet({ open, onOpenChange, deckTitle, source, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent, notify }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; notify: (msg: string) => void }) {
+export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent, notify }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; notify: (msg: string) => void }) {
 	const close = () => onOpenChange(false);
+	// The sheet has two views: the format MENU, and the pre-export OPTIONS step for
+	// PDF (where comments can ride along as sticky notes). Reset to the menu whenever
+	// the sheet re-opens so it never lands mid-flow.
+	const [view, setView] = React.useState<'menu' | 'pdf'>('menu');
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset the view on open only.
+	React.useEffect(() => { if (open) setView('menu'); }, [open]);
 	// A saved finish renders via a `finish finish-<slug>` class the engine doesn't know
 	// + its generated CSS. The two handoffs treat it differently:
 	//   • ARTIFACT paths (PDF/PPTX/Print/Present) — bake the look in. Stamp the class
@@ -61,6 +69,13 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, finishClass,
 
 	const name = deckFilename(deckTitle).replace(/\.md$/, '');
 
+	// PDF export from the options step: build the comment sticky-note payload from
+	// the chosen scope (only when the author opted in), then run the shared export.
+	const exportPdf = (opts: ExportOptions) => {
+		const annotations = opts.commentsInPdf ? buildCommentAnnotations(deckId, opts.commentScope) : undefined;
+		run('pdf', 'PDF', (onStatus) => sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations));
+	};
+
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="w-full gap-0 sm:max-w-[440px]">
@@ -69,21 +84,27 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, finishClass,
 					<SheetDescription className="sr-only">Hand off the rendered deck or the Markdown source.</SheetDescription>
 				</SheetHeader>
 				<div className="space-y-6 overflow-y-auto p-5">
-					<section className="space-y-2">
-						<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the deck</h3>
-						<p className="text-xs text-muted-foreground">The rendered, paginated deck — for your audience.</p>
-						<Row icon={<Link2 className="size-4" />} title="Present link" desc="A live, themed link that opens in Present" onClick={() => { close(); onPresent(); }} />
-						<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page, high-resolution" onClick={() => run('pdf', 'PDF', (onStatus) => sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
-						<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', (onStatus) => sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
-						<Row busy={busy === 'print'} icon={<Printer className="size-4" />} title="Print deck" desc="The rendered slides, vector — default print" onClick={() => run('print', 'Print', () => sharePrintDeck(options, artifactSource, name, palette, mode, extraTheme, extraCss))} />
-					</section>
-					<section className="space-y-2">
-						<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the source</h3>
-						<p className="text-xs text-muted-foreground">The Markdown — for editing, review, or portability.</p>
-						<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss))} />
-						<Row dev busy={busy === 'marp'} icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss))} />
-						<Row dev icon={<Printer className="size-4" />} title="Print source" desc="The Markdown, monospace — for markup &amp; review" onClick={() => run('printsrc', 'Print source', () => sharePrintSource(source, name))} />
-					</section>
+					{view === 'pdf' ? (
+						<ExportOptionsPanel deckId={deckId} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
+					) : (
+						<>
+							<section className="space-y-2">
+								<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the deck</h3>
+								<p className="text-xs text-muted-foreground">The rendered, paginated deck — for your audience.</p>
+								<Row icon={<Link2 className="size-4" />} title="Present link" desc="A live, themed link that opens in Present" onClick={() => { close(); onPresent(); }} />
+								<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page — choose what rides along" onClick={() => setView('pdf')} />
+								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', (onStatus) => sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
+								<Row busy={busy === 'print'} icon={<Printer className="size-4" />} title="Print deck" desc="The rendered slides, vector — default print" onClick={() => run('print', 'Print', () => sharePrintDeck(options, artifactSource, name, palette, mode, extraTheme, extraCss))} />
+							</section>
+							<section className="space-y-2">
+								<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the source</h3>
+								<p className="text-xs text-muted-foreground">The Markdown — for editing, review, or portability.</p>
+								<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss))} />
+								<Row dev busy={busy === 'marp'} icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss))} />
+								<Row dev icon={<Printer className="size-4" />} title="Print source" desc="The Markdown, monospace — for markup &amp; review" onClick={() => run('printsrc', 'Print source', () => sharePrintSource(source, name))} />
+							</section>
+						</>
+					)}
 				</div>
 			</SheetContent>
 		</Sheet>

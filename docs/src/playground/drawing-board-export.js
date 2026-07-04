@@ -31,6 +31,7 @@ import { themeImportNames } from '../lib/theme-fetch.ts';
 import { notesCore } from './authoring-core.generated.js';
 import { buildSrcdoc } from './deck-preview.js';
 import { embedComponentsInMarkdown } from './layout-core.generated.js';
+import { addPageStickyNotes } from './pdf-sticky-notes.js';
 
 function safeName(name) {
 	return (name || 'deck').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'deck';
@@ -562,7 +563,7 @@ function canUsePdfWorker() {
 // lanes and give back part of the speed win.
 const PDF_WORKER_MAX_IN_FLIGHT = 2;
 
-async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat) {
+async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations) {
 	const worker = new Worker(new URL('./pdf-export-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
@@ -586,7 +587,7 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 		done.catch(() => {});
 		const { w: boxW, h: boxH } = slideGeom(sections[0]);
 		const { pageW, pageH } = pdfPageGeom(boxW, boxH);
-		worker.postMessage({ type: 'init', pageW, pageH, total, pageFormat, props: pdfProps(name, meta, total) });
+		worker.postMessage({ type: 'init', pageW, pageH, total, pageFormat, props: pdfProps(name, meta, total), annotations });
 		for (let i = 0; i < total; i++) {
 			// Backpressure: wait for the worker's ack before growing the in-flight
 			// window. Raced against `done` so a worker-side error breaks the wait
@@ -630,7 +631,7 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat) {
 }
 
 // Legacy lane: the original all-main-thread jsPDF build.
-async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat) {
+async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations) {
 	const { jsPDF } = await import('jspdf');
 	const { w: boxW, h: boxH } = slideGeom(sections[0]);
 	const { pageW, pageH } = pdfPageGeom(boxW, boxH);
@@ -641,6 +642,9 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat);
 		if (i > 0) pdf.addPage([pageW, pageH], 'landscape');
 		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, pageW, pageH);
+		// Review comments for this slide → sticky notes on the page just drawn (same
+		// helper + placement the worker lane uses, so the two lanes stay identical).
+		if (annotations) addPageStickyNotes(pdf, annotations[i], pageW);
 		// Yield a macrotask between slides so the browser can PAINT the progress
 		// line and service input — the per-slide rasterize + PNG-deflate are
 		// synchronous, and without this break a multi-slide export blocks the main
@@ -654,18 +658,20 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 // the bytes to a caller — e.g. the Library's theme-zip showcase).
 async function buildPdfBlob(render, name, onStatus, meta, opts) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
+	// Per-page comment sticky notes (opt-in via the export panel); absent → none.
+	const annotations = opts?.annotations || null;
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
 		if (canUsePdfWorker()) {
 			try {
-				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat);
+				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
 			} catch (e) {
 				// The deck must never be lost to the fast lane — rebuild on-thread.
 				console.warn('[lattice-export] PDF worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 			}
 		}
-		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat);
+		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
 	} finally {
 		dispose();
 	}
