@@ -136,6 +136,19 @@ in patch versions.
   band now stretches full-width (`align-self: stretch`, the same override the Key Insight
   blockquote already uses), so the title left-aligns while the SVG stays centered.
 
+- **Chart and diagram subtitles now align to the title and hug the title band.** Under the
+  Form, a chart/diagram lifts its eyebrow + title into the left-aligned masthead band, but
+  the in-flow subtitle (dek) was left behind: it rendered *centered* and inset (charts kept
+  the full centered `.chart-header`; the diagram `<p>` got shrink-centered by
+  `align-items: center`, the same trap the title hit), and it floated a full title-band
+  clearance below the rule. Now the subtitle pins to the title's exact left edge
+  (`text-align: left` + zeroed inset for charts; `align-self: stretch` for the diagram
+  `<p>`), and the title→subtitle gap is tightened *only when a subtitle leads* — a
+  title-only slide keeps its full clearance below the band. The chart family's decorative
+  `::after` accent hairline is retired under the Form, where the masthead's own rule is
+  already the header↔body divider (it was a redundant second line, and a stray rule on a
+  subtitle-less header). See `engineering/decisions/2026-07-04-form-subtitle-alignment.md`.
+
 - **Status markers now read on dark title/closing/divider slides.** These bookends paint
   a dark surface but deliberately keep `color-scheme: light` (so their explicit headings
   hold), which left an accent-colored marker (`pinned`/`revised`) resolving its
