@@ -1,7 +1,6 @@
-import { ChevronLeft, ChevronRight, FastForward, Grid2x2, Monitor, MoreHorizontal, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FastForward, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
@@ -303,18 +302,11 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 					<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
 				) : (
 					<>
-						<button type="button" onClick={toggleAutoplay} aria-pressed={autoplay} title="Autoplay — read every slide, advancing on its own" className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold sm:inline-flex', autoplay ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><FastForward className="size-3.5" />Auto</button>
+						{/* Autoplay stays inline as an icon on phones (no ⋯) — the "Auto" word
+						    shows at ≥ sm. The voice/caption status is non-essential, so it's the
+						    one thing hidden below sm. */}
+						<button type="button" onClick={toggleAutoplay} aria-pressed={autoplay} aria-label="Autoplay" title="Autoplay — read every slide, advancing on its own" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[12px] font-semibold sm:px-2.5', autoplay ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><FastForward className="size-3.5 shrink-0" /><span className="hidden sm:inline">Auto</span></button>
 						<span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] sm:inline-flex"><Volume2 className="size-3.5" />{rungLabel}</span>
-						{/* Phone: Auto + voice status live behind a ⋯ so the bar never overflows. */}
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<button type="button" aria-label="Playback options" className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground sm:hidden"><MoreHorizontal className="size-5" /></button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" side="top" className="w-48">
-								<DropdownMenuItem onSelect={(e) => { e.preventDefault(); toggleAutoplay(); }} className="gap-2"><FastForward className="size-4" />Autoplay{autoplay && <span className="ml-auto text-[var(--accent)]">✓</span>}</DropdownMenuItem>
-								<DropdownMenuLabel className="flex items-center gap-2 text-[11px] font-normal text-muted-foreground"><Volume2 className="size-3.5" />{rungLabel}</DropdownMenuLabel>
-							</DropdownMenuContent>
-						</DropdownMenu>
 					</>
 				)}
 			</div>

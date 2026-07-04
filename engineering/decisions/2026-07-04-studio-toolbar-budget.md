@@ -1,9 +1,9 @@
 ---
 status: shipped
-summary: Give the Studio's crowded toolbars a BUDGET + a ⋯ overflow (the discipline the desktop top bar already had, never carried over). The mobile Deck-actions bar overflowed 390px once a Version-history icon was appended; it now holds only Edit/Preview + Present + Share + ⋯, with the panels (Architect, Deck settings) and secondary slide/version tools folded into ⋯. Present mode's bottom control bar is rebuilt to fit phones by construction (counter never wraps; Auto/Captions fold into a ⋯ Playback menu below sm). The reader-lens control becomes ONE shared, always-labeled LensPicker used by both the editor preview header and Present (was two divergent widgets + three label sources). History's home is settled by a placement-by-budget rule so it stops bouncing.
+summary: The Studio's crowded toolbars overflowed because they had a WIDTH BUDGET no one was keeping. The mobile Deck-actions bar clipped once a Version-history icon was appended. The owner's chosen fix — reclaim width by SHRINKING, not by hiding: the Edit/Preview toggle becomes ICON-ONLY (~78px saved), which keeps all the deck actions INLINE and one-tap (no ⋯ menu). Present mode's bottom bar is rebuilt to fit phones by construction — the counter never wraps and Autoplay collapses to an icon (the non-essential voice/caption status is the only thing hidden below sm). The reader-lens control becomes ONE shared, always-labeled LensPicker (was two divergent widgets + three label sources). History's home settled by a placement-by-budget rule so it stops bouncing.
 ---
 
-# Studio toolbars — a budget and an overflow, not endless appending
+# Studio toolbars — keep a width budget by shrinking, not hiding
 
 **Ask (2026-07-04):** the owner flagged three things after Version history landed in
 the editor/deck-actions toolbar — (1) a real-estate/crowding problem (the mobile bar
@@ -17,30 +17,38 @@ asked for a red-team + inversion + independent checker.
 an overflow strategy.** The desktop top bar already solved this (a `compact` `⋯` menu +
 `hidden lg:inline` label collapse); that discipline was never carried to the two bars
 that broke. So controls were appended until one fell off — **Version history was just
-the control that tipped the mobile bar past 390px.** The load-bearing reversal: *toolbars
-have a fixed budget; the `⋯` overflow is the default home for everything past it.*
+the control that tipped the mobile bar past 390px.** The principle: *each bar has a width
+budget; keep it.*
 
 Measured before the fix: mobile Deck-actions bar `scrollWidth 419 > 390` (Inspector
-clipped); Present `document.body` overflowed horizontally at ≤ phone width (the bottom
-bar's `Auto`/`Captions` pills forced it wide and the `N / N` counter wrapped to two
-lines).
+clipped) — only ~29px over. Present `document.body` overflowed horizontally at phone width
+(the bottom bar's `Auto`/`Captions` pills forced it wide and the `N / N` counter wrapped
+to two lines).
+
+## The owner's call — shrink, don't hide
+
+The first pass folded the panels behind a `⋯` overflow. The owner rejected it: *"I would
+rather make edit and preview icon buttons than hurry things behind a ⋯."* Right instinct —
+the overflow was only ~29px, and the Edit/Preview toggle carried two text labels worth
+~78px. **Icon-izing that one toggle reclaims more than enough to keep every deck action
+inline and one-tap.** Visible-and-reachable beats hidden-but-tidy for a primary touch
+surface. The budget is now kept by *shrinking the biggest element*, not by hiding the rest.
 
 ## What shipped
 
-- **Mobile Deck-actions bar → a budget** (`StudioShell.tsx`). Inline: `Edit/Preview`
-  toggle · Present · Share · **⋯**. Folded into the ⋯ (labeled menu items): **Architect**,
-  **Deck settings**, and — on the Preview pane — **Slide settings** + **Version history**
-  (the Edit pane's own editor header already carries those two). The ⋯ trigger inherits
-  the **active-panel accent dot** (when Architect or Deck settings is open) and the
-  first-edit **Inspector pulse**, so both signals survive the fold. Reuses the existing
-  DropdownMenu pattern — no new primitive (HARD RULE #15). Welcome-banner copy updated
-  (panels are now "under ⋯" on phones, "one tap on the right" at ≥ sm).
+- **Mobile Deck-actions bar → icon toggle, everything inline** (`StudioShell.tsx`). The
+  `Edit/Preview` segmented toggle is now **icon-only** (label on `aria-label`/`title` +
+  `aria-pressed`), reclaiming ~78px. The deck actions stay inline and one-tap:
+  `[📄|👁]` · (Preview pane: Version history · Slide settings ·) Present · Share · Architect
+  · Inspector. No `⋯`; the Inspector keeps its first-edit pulse. Measured `scrollWidth ==
+  390` (no clip). (The Edit pane omits History/Slide-settings from the bar — its own editor
+  header carries them.)
 - **Present bottom bar fits by construction** (`PresentOverlay.tsx`). The counter is
   `whitespace-nowrap tabular-nums shrink-0` (never wraps); the pill has a
-  `max-w-[calc(100vw-1.5rem)]` backstop; below `sm` the secondary read-aloud controls
-  (**Auto** + the voice/caption status) fold into a **⋯ Playback** menu, leaving
-  `‹ N/N › · ▶ · ⋯`. Prev/next/play are 44px. Tablet/desktop are unchanged (they already
-  fit — the fold gates at `< sm`, not ≤ 820).
+  `max-w-[calc(100vw-1.5rem)]` backstop; below `sm` **Autoplay collapses to an icon** (the
+  `FastForward` glyph; the "Auto" word returns at ≥ sm) and the non-essential voice/caption
+  status is hidden — leaving `‹ N/N › · ▶ · Auto-icon`. Prev/next/play are 44px.
+  Tablet/desktop unchanged.
 - **One shared `LensPicker`** (`lens-picker.tsx`, exporting a single `LENSES` source).
   Used by the editor preview header AND Present. **Labeled at every width** (truncates in
   a tight container, never hidden behind a breakpoint — a bare glyph is undiscoverable,
@@ -54,8 +62,8 @@ relocated the crowding because it was a *naked icon competing for a permanent sl
 every width*. The stable rule: **placement-by-budget, not one global home.**
 
 - **Desktop:** an icon in the editor-pane header, beside Slide settings (there is room).
-- **Phone:** a labeled item inside the pane-bar `⋯` (no room for another icon; a
-  self-labeling menu row beats a bare glyph anyway).
+- **Phone:** an inline icon on the Preview pane's Deck-actions bar (the icon Edit/Preview
+  toggle reclaimed the room). Not top-nav.
 
 It is never again top-nav (wrong altitude — deck-level, not app-level) and never a
 floating deck-panel entry. Slide settings follows the identical rule.
@@ -65,9 +73,13 @@ floating deck-panel entry. Slide settings follows the identical rule.
 - **Merge Slide settings INTO Deck settings — DEFERRED** (own PR). A real IA/semantic
   change (two panels → one); folding it in here would balloon blast radius. The two
   coexist unchanged in this PR.
-- **A generic "toolbar budget" primitive — DOWNGRADED.** Realized by reusing the existing
-  `⋯` pattern per bar, not a new framework. "Every bar declares a budget" is captured
-  here as the durable rule, not as code.
+- **A generic "toolbar budget" primitive — REJECTED.** No new framework. Each bar keeps
+  its budget by construction (an icon-collapsing element, per-pane contextual items). The
+  durable rule ("keep each bar's width budget; shrink before you hide") lives here, not in
+  code.
+- **A `⋯` overflow on the pane bar — REJECTED (owner's call).** It would hide primary
+  actions on a touch surface; icon-izing the toggle keeps them visible instead. This also
+  avoids a second `⋯` competing with the top-bar app overflow on the same phone screen.
 - **slide-nav appears 3× in Compose; Slide-settings/Inspector overlap — LOGGED** as
   follow-ups (off-path).
 - **A ~15px horizontal body overflow at the 820 tablet width — LOGGED, pre-existing.**
@@ -75,17 +87,10 @@ floating deck-panel entry. Slide settings follows the identical rule.
   slide-navigator, neither touched here; the shared LensPicker cannot force it
   (`min-w-0 shrink truncate`). Off-path for this PR; tracked separately.
 
-## Known trade-off
-
-On phones there are now two `⋯` menus on screen — the top-bar **app** overflow
-(Library/Workspace/theme) and the pane-bar **deck** overflow (panels + slide/version
-tools). They sit in different bars with different scopes; acceptable, but worth watching
-if a future pass can consolidate the mobile chrome.
-
 ## Verification (HARD RULE #23)
 
 Real headless Chromium at 390 / 820 / 1440: mobile Deck-actions bar `scrollWidth == 390`
-(no clip); the ⋯ opens with Architect · Deck settings · Slide settings · Version history
-and "Deck settings" opens the inspector sheet; Present bottom bar `‹ 1/7 › ▶ ⋯` with no
-wrap and no viewport overflow; the shared LensPicker renders labeled in both the preview
-header and Present; 408 studio unit tests pass; lint + build:check clean.
+(no clip) with every action inline (icon Edit/Preview toggle · History · Slide settings ·
+Present · Share · Architect · Inspector); Present bottom bar `‹ 1/7 › ▶ Auto` with no wrap
+and no in-dialog overflow; the shared LensPicker renders labeled in both the preview header
+and Present; 408 studio unit tests pass; lint + build:check clean.

@@ -30,7 +30,7 @@ describe('Present — read-aloud autoplay toggle', () => {
 		// Starts idle on slide 1 of 2; the read-aloud play control is in its Play state.
 		expect(screen.getByText('1 / 2')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Play read-aloud' })).toBeInTheDocument();
-		const auto = screen.getByRole('button', { name: 'Auto' });
+		const auto = screen.getByRole('button', { name: 'Autoplay' });
 		expect(auto).toHaveAttribute('aria-pressed', 'false');
 		// Turning Auto on starts the read-aloud transport (play control flips to Pause).
 		await user.click(auto);
@@ -45,10 +45,10 @@ describe('Present — read-aloud autoplay toggle', () => {
 	it('Rehearse and Autoplay are mutually exclusive transports', async () => {
 		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
-		await user.click(screen.getByRole('button', { name: 'Auto' }));
-		expect(screen.getByRole('button', { name: 'Auto' })).toHaveAttribute('aria-pressed', 'true');
+		await user.click(screen.getByRole('button', { name: 'Autoplay' }));
+		expect(screen.getByRole('button', { name: 'Autoplay' })).toHaveAttribute('aria-pressed', 'true');
 		// Switching into Rehearse clears autoplay (the Auto pill leaves read-aloud mode).
 		await user.click(screen.getByRole('button', { name: 'Rehearse' }));
-		expect(screen.queryByRole('button', { name: 'Auto' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Autoplay' })).not.toBeInTheDocument();
 	});
 });

@@ -24,9 +24,7 @@ test('@mobile the studio collapses to a swappable Edit/Preview pane', async ({ p
 
 test('@mobile the Architect opens as a sheet, not a column', async ({ page }) => {
 	await gotoStudio(page);
-	// On phones the panels fold into the pane-bar ⋯ (budget: the bar can't overflow).
-	await page.getByRole('button', { name: /^More — panels/ }).click();
-	await page.getByRole('menuitem', { name: 'Architect' }).click();
+	await page.getByRole('button', { name: 'Toggle Architect' }).click();
 	// The Coach/Chat tabs are reachable once the Architect sheet is open.
 	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
 });

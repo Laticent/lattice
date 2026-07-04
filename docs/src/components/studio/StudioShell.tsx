@@ -1509,7 +1509,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-[var(--accent-soft)] px-3.5 py-2 text-[13px] text-[var(--text-heading)]">
 					<Sparkles className="hidden size-4 shrink-0 text-[var(--accent)] sm:block" />
 					<p className="min-w-0 flex-1 leading-snug">
-						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> live in the toolbar<span className="hidden sm:inline"> — one tap on the right</span><span className="sm:hidden"> — under ⋯</span>.
+						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away in the toolbar.
 					</p>
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
 					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
@@ -1522,40 +1522,31 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 				</React.Suspense>
 			) : mobile ? (
-				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. The pane
-				   bar keeps a fixed BUDGET so it can never overflow at 390px — Edit/Preview
-				   toggle + Present + Share + a ⋯ overflow — with the panels (Architect, Deck
-				   settings) and the secondary slide/version tools folded into ⋯. The top row
-				   spends its width on the deck title (2026-07-03 decision). The issues pill
-				   stays inline on the Edit pane (a status cue, where you fix them). */
+				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. The deck
+				   actions stay INLINE and one-tap — an icon-only Edit/Preview toggle reclaims
+				   the width that keeps them on the bar at 390px (no ⋯ hiding). The top row
+				   spends its width on the deck title (2026-07-03 decision). Contextual extras
+				   stay per-pane so the row fits: the issues pill on the Edit pane; History +
+				   Slide settings on the Preview pane (the Edit pane's editor header has them). */
 				<div className="flex min-h-0 flex-1 flex-col">
 					<div role="toolbar" aria-label="Deck actions" className="flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5">
+						{/* Icon-only Edit/Preview toggle — dropping the two text labels reclaims
+						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
+						    and still fit 390px. */}
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<FileText className="size-3.5" />}>Edit</PaneBtn>
-							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-3.5" />}>Preview</PaneBtn>
+							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<FileText className="size-4" />} label="Edit" />
+							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" />
 						</div>
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
+						{/* Version history + Slide settings ride the pane bar only on the PREVIEW
+						    pane — the EDIT pane's own editor header already carries both. */}
+						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>}
+						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
-						{/* Budget: the bar holds only Edit/Preview + Present + Share + ⋯, so it can
-						    never overflow (adding History here is what tipped it past 390px). The
-						    panels (Architect, Deck settings) and the secondary slide/version tools
-						    fold into ⋯; the ⋯ carries the active-panel dot and the first-edit
-						    Inspector pulse so those signals survive the fold. Slide settings +
-						    Version history appear here only on the Preview pane — the Edit pane's
-						    own editor header already carries them (no double entry). */}
-						<DropdownMenu onOpenChange={(o) => { if (o) { graduate(); setInspectorPulse(false); } }}>
-							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon-sm" aria-label="More — panels, slide & version tools" title="More" className={cn((architectOpen || inspectorOpen) && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><MoreHorizontal className="size-[18px]" /></Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-52">
-								<DropdownMenuItem onSelect={() => setArchitectOpen(true)} className="gap-2"><Sparkles className="size-4" />Architect{architectOpen && <span className="ml-auto text-[var(--accent)]">✓</span>}</DropdownMenuItem>
-								<DropdownMenuItem onSelect={() => setInspectorOpen(true)} className="gap-2"><SlidersHorizontal className="size-4" />Deck settings{inspectorOpen && <span className="ml-auto text-[var(--accent)]">✓</span>}</DropdownMenuItem>
-								{mobilePane === 'preview' && <DropdownMenuItem onSelect={() => setNotesOpen(true)} className="gap-2"><FileSliders className="size-4" />Slide settings</DropdownMenuItem>}
-								{mobilePane === 'preview' && <DropdownMenuItem onSelect={() => setHistoryOpen(true)} className="gap-2"><History className="size-4" />Version history</DropdownMenuItem>}
-							</DropdownMenuContent>
-						</DropdownMenu>
+						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
 					</div>
 					{mobilePane === 'edit' ? editorPane : previewPane}
 				</div>
@@ -1780,9 +1771,12 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 		</div>
 	);
 }
-function PaneBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+// Icon-only segmented button (Edit / Preview). The label rides `aria-label`/`title`
+// (+ aria-pressed for the active side) rather than visible text, so the toggle stays
+// compact — that reclaimed width keeps the deck actions inline instead of behind a ⋯.
+function PaneBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
 	return (
-		<button type="button" onClick={onClick} className={cn('inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}{children}</button>
+		<button type="button" onClick={onClick} aria-label={label} title={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button>
 	);
 }
 function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {
