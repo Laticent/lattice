@@ -30,10 +30,12 @@
 // interleave their awaits and embed pages out of order.
 
 import { jsPDF } from 'jspdf';
+import { addPageStickyNotes } from './pdf-sticky-notes.js';
 
 let pdf = null;
 let page = null;
 let jpeg = false;
+let annotations = null; // per-page comment sticky notes (index-aligned to slides)
 let chain = Promise.resolve();
 // One reusable scratch canvas (slides in a deck share one geometry) — churning
 // a fresh multi-MB OffscreenCanvas per slide is avoidable allocator pressure
@@ -46,6 +48,7 @@ async function handle(m) {
 		jpeg = m.pageFormat === 'jpeg';
 		pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [page.w, page.h], compress: true });
 		pdf.setProperties(m.props);
+		annotations = m.annotations || null;
 		return;
 	}
 	if (m.type === 'slide') {
@@ -69,6 +72,9 @@ async function handle(m) {
 		const bytes = new Uint8Array(await blob.arrayBuffer());
 		if (m.index > 0) pdf.addPage([page.w, page.h], 'landscape');
 		pdf.addImage(bytes, jpeg ? 'JPEG' : 'PNG', 0, 0, page.w, page.h);
+		// Sticky notes for THIS slide land on the page just drawn (createAnnotation
+		// targets the current page), so the review comments ride the exported PDF.
+		if (annotations) addPageStickyNotes(pdf, annotations[m.index], page.w);
 		self.postMessage({ type: 'progress', index: m.index });
 		return;
 	}

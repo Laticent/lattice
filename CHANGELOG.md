@@ -197,6 +197,14 @@ in patch versions.
 
 ### Added
 
+- **Export options + comments in your PDF.** Share → PDF now opens a short **Export options**
+  step before the download. Your review **comments** are off by default (a clean handout never
+  leaks private notes) — flip them on and each comment rides the PDF as a real **sticky-note
+  annotation** on its slide, the kind you click to read in any PDF viewer (Acrobat, Preview,
+  Chrome). Choose **All** comments or **Open only**. Works on both PDF export lanes (the fast
+  off-thread one and the fallback), so the notes look the same however the file was built.
+  See `engineering/decisions/2026-07-04-comments-layer.md`.
+
 - **Accessible slide descriptions — the text alternative (WCAG SC 1.1.1).** A per-slide
   `<!-- describe: … -->` channel: an objective equivalent of what the slide shows, for a
   screen-reader user. It is a **separate channel from the speaker note** (consumed by the

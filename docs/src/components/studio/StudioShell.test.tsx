@@ -209,12 +209,15 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(sheet.getByText('Markdown'));
 		expect(shareSpies.shareMarkdown).toHaveBeenCalled();
 		expect(await screen.findByText(/Markdown ready/)).toBeInTheDocument();
-		// The rendered-artifact actions each run their own exporter (not a toast).
+		// PDF now opens the pre-export Options step first; Download runs the exporter.
 		await user.click(sheet.getByText('PDF'));
+		await user.click(sheet.getByRole('button', { name: /download pdf/i }));
 		expect(shareSpies.sharePdf).toHaveBeenCalled();
 		// G8: the export must receive a REAL onStatus (7th arg) — the Studio used to
 		// pass `undefined`, so a multi-second export gave no per-slide progress.
 		expect(typeof shareSpies.sharePdf.mock.calls.at(-1)?.[6]).toBe('function');
+		// Back to the format list for the remaining formats.
+		await user.click(sheet.getByRole('button', { name: /all formats/i }));
 		await user.click(sheet.getByText('PowerPoint'));
 		expect(shareSpies.sharePptx).toHaveBeenCalled();
 		await user.click(sheet.getByText('Marp bundle'));
