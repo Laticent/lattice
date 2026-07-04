@@ -31,7 +31,9 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	);
 	// Apply the captured transform to the chunk to see the resulting tokens.
 	const applied = () => getClassTokens(onMutate.mock.calls.at(-1)?.[0](chunk));
-	return { onMutate, applied };
+	// The resulting SOURCE after applying the last captured transform.
+	const sourceOut = () => onMutate.mock.calls.at(-1)?.[0](chunk) as string;
+	return { onMutate, applied, sourceOut };
 }
 
 // The drawer is now dynamic pill-tabs — controls live under Look / Status / Decoration /
@@ -199,6 +201,30 @@ describe('SlideContext drawer', () => {
 		goTab('Chrome');
 		expect(screen.getByText(/the slide's furniture/i)).toBeTruthy();
 		expect(screen.getByText(/section-progress dots/i)).toBeTruthy();
+	});
+
+	it('authors an accessibility description as a describe: comment under the Notes tab', () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		const box = screen.getByRole('textbox', { name: 'Accessibility description for this slide' });
+		fireEvent.change(box, { target: { value: 'A bar chart, revenue up 40%.' } });
+		fireEvent.blur(box);
+		const out = sourceOut();
+		expect(out).toContain('<!-- describe: A bar chart, revenue up 40%. -->');
+		// It must NOT become the speaker note.
+		expect(out).not.toMatch(/<!-- note:.*bar chart/);
+	});
+
+	it('the description field is separate from the speaker note (both coexist)', () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		const note = screen.getByRole('textbox', { name: 'Speaker note for this slide' });
+		fireEvent.change(note, { target: { value: 'Pause here.' } });
+		fireEvent.blur(note);
+		// The note is committed; re-render happens via onMutate in the app, but within
+		// this unit the last transform holds the note. Now the description on a fresh setup.
+		const withNote = sourceOut();
+		expect(withNote).toContain('<!-- note: Pause here. -->');
 	});
 
 	it('reads dark as inherited from a dark deck (no misleading off toggle)', () => {

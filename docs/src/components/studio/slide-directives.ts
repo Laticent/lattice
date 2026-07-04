@@ -40,6 +40,13 @@ export function isDirectiveBody(body: string): boolean {
 	return directiveKey(body) !== '';
 }
 
+/** True when the comment body is the slide's `describe:` accessibility description
+ *  — a separate channel from the speaker note (mirrors notes-core.isDescriptionComment).
+ *  Kept distinct so the note reader/writer never treats a description as a note. */
+export function isDescriptionBody(body: string): boolean {
+	return /^describe\s*:/i.test(String(body).trim());
+}
+
 // ── Fence awareness ──────────────────────────────────────────────────────────
 // A `---` or a `<!-- … -->` INSIDE a fenced code block is content, not structure.
 // The old splitter (lint.ts) and note transform were fence-blind, so a mermaid

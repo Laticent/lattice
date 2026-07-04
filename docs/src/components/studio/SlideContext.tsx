@@ -11,11 +11,13 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { FileSliders, Info, RotateCcw } from 'lucide-react';
+import { Check, Eye, FileSliders, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { generateDescription } from './architect';
+import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
 import { darkProvenance, deckDefaults, finishProvenance, setDark, setFinish, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
@@ -179,6 +181,34 @@ export function SlideContext(props: SlideContextProps) {
 	React.useEffect(() => setNoteDraft(curNote), [curNote, slideNumber]);
 	const commitNote = () => { if (noteDraft !== curNote) onMutate((c) => setNote(c, noteDraft)); };
 
+	// Accessibility description — a SEPARATE channel from the note (objective
+	// equivalent of the slide, for screen readers). Same draft-then-commit shape;
+	// commits to a `<!-- describe: … -->` comment the engine routes to image alt /
+	// aria, never to the spoken note.
+	const curDescription = React.useMemo(() => getDescription(chunk), [chunk]);
+	const [descDraft, setDescDraft] = React.useState(curDescription);
+	// An AI-drafted description is UNCONFIRMED until the author acts on it: a wrong
+	// alt is worse than none, so a bare "Generate" then blur must NOT write it to the
+	// slide (that would export unread AI text). `descAiDraft` gates the commit —
+	// cleared by a manual edit (the author now owns it) or by explicit Confirm.
+	const [descAiDraft, setDescAiDraft] = React.useState(false);
+	const [descBusy, setDescBusy] = React.useState(false);
+	const [descMsg, setDescMsg] = React.useState('');
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
+	React.useEffect(() => { setDescDraft(curDescription); setDescAiDraft(false); setDescMsg(''); }, [curDescription, slideNumber]);
+	const commitDescription = () => { if (!descAiDraft && descDraft !== curDescription) onMutate((c) => setDescription(c, descDraft)); };
+	const confirmDescription = () => { setDescAiDraft(false); if (descDraft !== curDescription) onMutate((c) => setDescription(c, descDraft)); };
+	const generateDesc = async () => {
+		setDescBusy(true); setDescMsg('');
+		try {
+			const r = await generateDescription(chunk);
+			if (r.status === 'ok') { setDescDraft(r.text); setDescAiDraft(true); }
+			else if (r.status === 'offline') setDescMsg('Connect a cloud model in the Architect to generate — the on-device tier isn’t trusted for accessibility text.');
+			else if (r.status === 'blocked') setDescMsg(r.note);
+			else setDescMsg('Add some slide content first — there’s nothing to describe yet.');
+		} finally { setDescBusy(false); }
+	};
+
 	// "Reset" baseline — the slide chunk as it was when the drawer opened on THIS
 	// slide, so one click reverts every edit made this session (note + all class
 	// controls) to the original. Snapshot on open / slide change only, NOT on edit, so
@@ -188,7 +218,7 @@ export function SlideContext(props: SlideContextProps) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: capture the baseline on open/slide change, not on every edit.
 	React.useEffect(() => { originalRef.current = chunk; }, [slideNumber, open]);
 	const dirty = chunk !== originalRef.current;
-	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); onMutate(() => originalRef.current); } };
+	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); setDescDraft(getDescription(originalRef.current)); onMutate(() => originalRef.current); } };
 
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
 	const editable = React.useMemo(() => canEditClass(chunk), [chunk]);
@@ -354,6 +384,41 @@ export function SlideContext(props: SlideContextProps) {
 								className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
 							/>
 							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Read aloud in Present, and exported to the PDF/PPTX speaker-notes field.</p>
+
+							{/* DESCRIPTION — a separate channel from the note (opposite register:
+							    what's ON the slide, for screen readers), exported as the image's
+							    alt text (PPTX) / an aria description (HTML). */}
+							<div className="mt-5 border-t border-border pt-4">
+								<div className="flex items-center justify-between gap-2">
+									<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Eye className="size-3.5 text-[var(--accent)]" />Description <span className="font-normal text-muted-foreground">for screen readers</span></span>
+									<button
+										type="button"
+										onClick={generateDesc}
+										disabled={descBusy}
+										title="Draft a text alternative from this slide (you review & confirm before it's used)"
+										className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-50"
+									>
+										<Sparkles className="size-3" />{descBusy ? 'Generating…' : 'Generate'}
+									</button>
+								</div>
+								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">An objective equivalent of what's on the slide — the accessibility text alternative (WCAG A). Exported as the slide image's alt text; never spoken or shown on the slide.</p>
+								<textarea
+									value={descDraft}
+									onChange={(e) => { setDescDraft(e.target.value); setDescAiDraft(false); }}
+									onBlur={commitDescription}
+									aria-label="Accessibility description for this slide"
+									placeholder="What's on this slide, objectively — e.g. “A bar chart: revenue rising 40% across three quarters.”"
+									className={cn('min-h-[84px] w-full resize-none rounded-lg border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]', descAiDraft ? 'border-[var(--accent)]' : 'border-border')}
+								/>
+								{descAiDraft && (
+									<div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-2 text-[11.5px] text-[var(--text-heading)]">
+										<span className="flex items-start gap-1.5"><Sparkles className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />AI draft — read it against the slide, then confirm. Unconfirmed text isn't exported.</span>
+										<button type="button" onClick={confirmDescription} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground hover:opacity-90"><Check className="size-3" />Use it</button>
+									</div>
+								)}
+								{descMsg && <p className="mt-2 text-[11px] leading-snug text-[var(--warn,#9a6a00)]">{descMsg}</p>}
+							</div>
+
 							{!editable && (
 								<div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
 									<Info className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />
