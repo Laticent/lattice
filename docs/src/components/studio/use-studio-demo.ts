@@ -14,6 +14,12 @@ import { studioWalkthrough } from './demo-storyboard';
 export type StudioDemoBindings = {
 	/** Latest deck source — snapshotted at start, restored at end. */
 	source: string;
+	/** Active palette NAME (a builtin or a saved-theme name) — snapshotted/restored.
+	 *  Read from state, not `data-palette`, so a saved theme restores correctly. */
+	palette: string;
+	/** Set true while the demo runs, so StudioShell's autosave stands down and the
+	 *  demo's sample deck never persists over the viewer's stored deck. */
+	demoActiveRef: React.MutableRefObject<boolean>;
 	setSource: (source: string) => void;
 	goToSlide: (index: number) => void;
 	setView: (view: 'compose' | 'fabricate') => void;
@@ -64,15 +70,19 @@ export function useStudioDemo(
 		if (!root) return;
 		const b = bindRef.current;
 
-		// Snapshot everything the demo will mutate, so any exit restores it.
+		// Snapshot everything the demo will mutate, so any exit restores it. The
+		// palette comes from state (a saved theme keeps its name); mode from the DOM
+		// (site-chrome writes `data-mode` synchronously, so it's a settled read).
 		const snap = {
 			source: b.source,
-			palette: document.documentElement.dataset.palette || 'indaco',
+			palette: b.palette,
 			mode: document.documentElement.dataset.mode || 'light',
 		};
 
 		const controller = new AbortController();
 		let stopped = false;
+		// Persistence stands down for the whole run (restored inside stop()).
+		b.demoActiveRef.current = true;
 
 		// Clear the shell to a clean compose canvas before the cursor appears.
 		b.setCmdOpen(false);
@@ -106,20 +116,20 @@ export function useStudioDemo(
 			setDemoActive(false);
 
 			const cur = bindRef.current;
-			// Take-over means "let me drive from here" — leave the deck as-is so the
-			// viewer keeps the slide they grabbed. Completion / Exit restores their
-			// own deck and undoes the demo's theme + mode changes.
-			if (reason !== 'takeover') {
-				cur.setPresentOpen(false);
-				cur.setShareOpen(false);
-				cur.setSource(snap.source);
-				cur.setActiveSlide(0);
-				cur.applyPalette(snap.palette);
-				if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
-				cur.notify(reason === 'complete' ? 'Demo complete — your deck is back.' : 'Demo ended — your deck is back.');
-			} else {
-				cur.notify('You have the deck — build away.');
-			}
+			// Re-enable persistence BEFORE the restore writes, so the healing
+			// setSource re-saves the viewer's own deck (not the demo's sample).
+			cur.demoActiveRef.current = false;
+			// EVERY exit restores the viewer's deck, theme, and mode — including
+			// take-over and Escape (both route through onUserInput). Never leave the
+			// sample deck behind: it would otherwise persist over their real deck the
+			// moment they typed. The reason only changes the toast wording.
+			cur.setPresentOpen(false);
+			cur.setShareOpen(false);
+			cur.setSource(snap.source);
+			cur.setActiveSlide(0);
+			cur.applyPalette(snap.palette);
+			if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
+			cur.notify(reason === 'complete' ? 'Demo complete — your deck is back.' : 'Demo ended — your deck is back.');
 		};
 
 		runRef.current = { controller, stop };

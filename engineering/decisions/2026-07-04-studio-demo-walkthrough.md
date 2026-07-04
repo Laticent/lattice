@@ -66,11 +66,23 @@ real pointer/keydown events during a run come from the viewer. So a capture-phas
 the viewer wants to drive. It stops the demo instantly, the click falls through to the
 control they aimed at.
 
-The run snapshots the viewer's `source`, palette, and mode at start and restores them on
-**completion** or **Exit** ("your deck is back"); a **take-over** leaves the deck where
-the viewer grabbed it ("you have the deck — build away"). The demo never eats the
-viewer's work. `prefers-reduced-motion` collapses the glide/typing animation to instant
-placement.
+The demo types its sample deck into the **real** `source`, which means two things had to
+be handled so it never eats the viewer's work (both caught in maker-checker review):
+
+1. **Persistence stands down for the run.** StudioShell autosaves `source` to
+   `localStorage` on a 400 ms debounce (and on the backup/unload flush). Left alone, the
+   demo's board deck would be written over the viewer's stored deck — permanently if they
+   reloaded mid-demo. A `demoActiveRef` gates both save paths for the duration; it's
+   cleared inside `stop()` *before* the restore write, so the healing `setSource` re-saves
+   the viewer's own deck.
+2. **Every exit restores.** The run snapshots `source`, the active palette *name* (from
+   state, so a saved theme restores correctly — not just `data-palette`), and mode.
+   **Completion, Exit, take-over, AND Escape** all restore them. There is no "keep the
+   sample" path: leaving the demo deck behind would let it persist over the viewer's real
+   deck the moment they typed. Escape is the instinctive cancel, so it restores rather
+   than stranding the sample.
+
+`prefers-reduced-motion` collapses the glide/typing animation to instant placement.
 
 ## Entry points
 
@@ -104,3 +116,12 @@ are also covered by unit tests (`demo-director.test.ts`) and a real-surface e2e
 
 *Not verified here:* a full recorded video clip — `ffmpeg` (puppeteer's screencast
 backend) isn't installed in this sandbox; the run was captured as frame stills instead.
+
+## Known limitations
+
+- **Tablet theme beat is cursor-less.** At the `compact` breakpoint (tablet, where the
+  Watch-demo button is still offered) the Inspector is a Radix `Sheet` portaled to `body`
+  — outside `rootRef` — so the "reskin the deck" step can't resolve its cursor target. The
+  director handles the null gracefully (it skips the move and still runs the theme change),
+  so the beat degrades to "theme changes without a cursor glide," never a crash. The demo
+  is a desktop-first showcase; a tablet-aware target is deferred.

@@ -274,6 +274,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const editorRef = React.useRef<EditorHandle>(null);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
+	// True while the self-driving demo runs. The demo types a sample deck into the
+	// REAL `source`, so persistence must stand down — otherwise the debounced
+	// autosave would clobber the viewer's stored deck with demo content (a reload
+	// mid-demo would make it permanent). A ref (not state) so the save effects read
+	// the live value without re-subscribing.
+	const demoActiveRef = React.useRef(false);
 
 	const bp = useBreakpoint();
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
@@ -336,6 +342,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			firstSave.current = false;
 			return;
 		}
+		if (demoActiveRef.current) return; // demo content must never persist over the viewer's deck
 		const id = setTimeout(() => saveSource(deck.id, source), 400);
 		return () => clearTimeout(id);
 	}, [source, deck.id]);
@@ -344,7 +351,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// above — without this, a JUST-edited built-in deck could drop out of the
 	// backup entirely (no stored source yet at pack time).
 	React.useEffect(() => {
-		const flush = () => saveSource(deck.id, source);
+		const flush = () => { if (!demoActiveRef.current) saveSource(deck.id, source); };
 		window.addEventListener(FLUSH_EVENT, flush);
 		return () => window.removeEventListener(FLUSH_EVENT, flush);
 	}, [source, deck.id]);
@@ -671,6 +678,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// events), and hand the wheel back the instant the viewer clicks or types.
 	const { demoActive, startDemo } = useStudioDemo(rootRef, {
 		source,
+		palette,
+		demoActiveRef,
 		setSource,
 		goToSlide,
 		setView,
@@ -1502,7 +1511,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    phones they live one row down in the pane bar (with the panel toggles),
 				    which has the free width — the top row spends its width on the deck
 				    title (2026-07-03 decision). */}
-				{!mobile && !demoActive && <Button variant="ghost" size="icon-sm" onClick={startDemo} aria-label="Watch demo" title="Watch demo — the Studio drives itself"><MonitorPlay className="size-[18px]" /></Button>}
+				{!mobile && <Button variant="ghost" size="icon-sm" onClick={startDemo} aria-label="Watch demo" title="Watch demo — the Studio drives itself" className={cn(demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>}
 				{!mobile && <Button variant="outline" size="sm" data-demo="present" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>}
 				{!mobile && <Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>}
 

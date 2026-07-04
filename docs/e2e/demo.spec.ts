@@ -33,8 +33,9 @@ test('the demo drives the Studio, then completes and restores the deck', async (
 	await expect(page.locator(WATCH)).toBeVisible();
 });
 
-test('a real click mid-demo hands the wheel back (take over)', async ({ page }) => {
+test('a real click mid-demo stops the demo and restores the deck (take over)', async ({ page }) => {
 	await gotoStudio(page);
+	const seededCount = await railButtons(page).count();
 	await page.locator(WATCH).click();
 	await expect(page.locator(STAGE)).toBeVisible();
 
@@ -43,7 +44,25 @@ test('a real click mid-demo hands the wheel back (take over)', async ({ page }) 
 	await page.mouse.click(420, 520);
 
 	await expect(page.locator(STAGE)).toHaveCount(0);
-	await expect(toastText(page)).toContainText('build away');
+	// Take-over restores the viewer's own deck — the sample is never left behind
+	// (it would otherwise persist over their real deck on the next edit).
+	await expect(toastText(page)).toContainText('your deck is back');
+	await expect.poll(() => railButtons(page).count()).toBe(seededCount);
+});
+
+test('pressing Escape stops the demo and restores the deck', async ({ page }) => {
+	await gotoStudio(page);
+	const seededCount = await railButtons(page).count();
+	await page.locator(WATCH).click();
+	await expect(page.locator(STAGE)).toBeVisible();
+
+	// Escape is the instinctive "cancel" — it routes through take-over and must
+	// restore, never discard the viewer's deck.
+	await page.keyboard.press('Escape');
+
+	await expect(page.locator(STAGE)).toHaveCount(0);
+	await expect(toastText(page)).toContainText('your deck is back');
+	await expect.poll(() => railButtons(page).count()).toBe(seededCount);
 });
 
 test('the Exit button stops the demo and restores the deck', async ({ page }) => {

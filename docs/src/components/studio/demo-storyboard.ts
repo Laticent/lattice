@@ -60,6 +60,13 @@ const steps: DemoStep[] = [
 		say: 'A `---` starts each new slide. Here comes the rest of the board update…',
 		moveTo: SEL.editor,
 		click: true,
+		type: upTo(3),
+		cadence: 9,
+		settle: 500,
+	},
+	// Split the remaining slides into a second beat so each typed run stays under
+	// the director's instant-paste threshold and actually animates as typing.
+	{
 		type: upTo(6),
 		cadence: 7,
 		settle: 800,
