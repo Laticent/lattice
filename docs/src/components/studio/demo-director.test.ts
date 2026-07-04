@@ -44,7 +44,7 @@ function fakeActions(log: string[]): DemoActions & { source: string } {
 			log.push(`type:${t.length}`);
 		},
 		openDeckMenu: (o: boolean) => log.push(`deckmenu:${o}`),
-		setDeckTitle: (t: string) => log.push(`title:${t}`),
+		createFirstDeck: () => log.push('firstdeck'),
 		notify: (m: string) => log.push(`notify:${m}`),
 		gotoSlide: (i: number) => log.push(`slide:${i}`),
 		setView: () => {},

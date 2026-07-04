@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: A long-wanted "demo that showcases the Studio" — the owner suggested driving the real UI with @testing-library/user-event since "it runs in a browser." That tool is wrong for a WATCHABLE demo: here it runs under jsdom (no real browser, no cursor), and even in a real browser it dispatches synthetic events that paint nothing a viewer can see. The chosen build is a self-driving in-app walkthrough — a parent-document fake cursor + captions (the "stage") plays a storyboard through the Studio's OWN state setters (the "director"), never synthetic DOM events. Cursor is theater; setters are substance. Because the only real input during a run is the viewer's, the first real click/keystroke unambiguously means "take over" and stops the demo. Verified on the real Studio in headless Chromium (compose → theme → mode → Coach 10.0 → Present → Share → restore) and on all three exit paths.
+summary: A long-wanted "demo that showcases the Studio" — the owner suggested driving the real UI with @testing-library/user-event since "it runs in a browser." That tool is wrong for a WATCHABLE demo: here it runs under jsdom (no real browser, no cursor), and even in a real browser it dispatches synthetic events that paint nothing a viewer can see. The chosen build is a self-driving in-app walkthrough — a parent-document fake cursor + captions (the "stage") plays a storyboard through the Studio's OWN state setters (the "director"), never synthetic DOM events. Cursor is theater; setters are substance. Because the only real input during a run is the viewer's, the first real click/keystroke unambiguously means "take over" and stops the demo. Verified on the real Studio in headless Chromium (new deck → compose → theme → mode → Coach 10.0 → Present → Share → polish → Present) and on all three exit paths. The walkthrough builds a real, persisted "My First Deck" and leaves it behind for the newcomer — deduped like a test fixture (any prior one deleted first) so a re-run never accumulates duplicates.
 ---
 
 # Studio demo walkthrough — the app drives itself
@@ -66,21 +66,25 @@ real pointer/keydown events during a run come from the viewer. So a capture-phas
 the viewer wants to drive. It stops the demo instantly, the click falls through to the
 control they aimed at.
 
-The demo types its sample deck into the **real** `source`, which means two things had to
-be handled so it never eats the viewer's work (both caught in maker-checker review):
+The demo never touches the viewer's own deck. Instead of typing its sample into whatever
+deck is open, its opening beat mints a **fresh, real deck** ("My First Deck") and switches
+to it, so everything the cursor types lands there — the viewer's current deck is never the
+canvas. Two properties follow, both framed like a unit-test fixture:
 
-1. **Persistence stands down for the run.** StudioShell autosaves `source` to
-   `localStorage` on a 400 ms debounce (and on the backup/unload flush). Left alone, the
-   demo's board deck would be written over the viewer's stored deck — permanently if they
-   reloaded mid-demo. A `demoActiveRef` gates both save paths for the duration; it's
-   cleared inside `stop()` *before* the restore write, so the healing `setSource` re-saves
-   the viewer's own deck.
-2. **Every exit restores.** The run snapshots `source`, the active palette *name* (from
-   state, so a saved theme restores correctly — not just `data-palette`), and mode.
-   **Completion, Exit, take-over, AND Escape** all restore them. There is no "keep the
-   sample" path: leaving the demo deck behind would let it persist over the viewer's real
-   deck the moment they typed. Escape is the instinctive cancel, so it restores rather
-   than stranding the sample.
+1. **The deck is a real, deduped `createDeck` — beforeSetup, not afterSetup.** The "New
+   deck" beat calls `createDemoFirstDeck`, which **deletes any existing "My First Deck"
+   first** (a beforeSetup clean-up), then `createDeck`s a blank one and switches to it. So
+   the flow *always* creates the deck, existing ones get cleaned up, and re-running the
+   walkthrough never accumulates duplicates — there is always exactly one. Because it's a
+   real deck, StudioShell's autosave persists the typed board content to it normally (no
+   `demoActiveRef` gate — there's nothing to protect the viewer *from* anymore).
+2. **The deck is left behind; only the global flourishes are restored.** The newcomer walks
+   away with "My First Deck" fully built — that's the payoff of the first-time arc. What
+   *does* get restored on every exit (completion, Exit, take-over, Escape) is the demo's
+   purely-cosmetic global changes: it reskins to Cuoio and flips light/dark for show, so
+   `stop()` snapshots the palette *name* (from state, so a saved theme restores correctly —
+   not just `data-palette`) and mode, and puts both back. It also closes any stage the demo
+   left open (Present / Share / the settings drawer).
 
 `prefers-reduced-motion` collapses the glide/typing animation to instant placement.
 
@@ -94,9 +98,9 @@ first-run welcome banner, and a ⌘K command — all calling one `startDemo()`.
 The demo grew from "compose → coach → ship" into a full ~90-second first-time arc, and
 the theater grew a small vocabulary. Both were tuned live against the real preview.
 
-**The arc:** open the deck menu → **New deck** (the "how do I even start?" beat — a *faked*
-new deck: it blanks the canvas and toasts, but never calls `createDeck`, so nothing
-persists) → type a board deck out live → navigate slides → reskin with a theme → flip
+**The arc:** open the deck menu → **New deck** (the "how do I even start?" beat — a *real*
+new deck, "My First Deck": deduped, `createDeck`d, switched to, and left behind for the
+newcomer) → type a board deck out live → navigate slides → reskin with a theme → flip
 light/dark → Architect Coach scores it board-ready → Present → Share → **closing flourish**
 (polish the title via its own settings drawer: a Nimbus finish + a WIP bracket status —
 one changed `_class` line — then slam into Present full-screen on the glowing hero).
@@ -133,16 +137,21 @@ different machine.
 Driven on the **real** Studio in headless Chromium (puppeteer, 1440×900) against the dev
 server — not a jsdom harness:
 
-- **Full run (~82 s, motion enabled via `emulateMediaFeatures` — the earlier
+- **Full run (motion enabled via `emulateMediaFeatures` — the earlier
   `--force-prefers-reduced-motion` flag forced reduce *on*, so it must be set explicitly):**
-  opened the deck menu → New deck (deck list stays 3, no persistent create) → typed the
-  6-slide board deck (preview repainting each slide mid-typing) → navigated → Cuoio → dark
-  → Coach **10.0 / 10 board-ready** → Present → Share → **polished the title via the drawer**
-  (`_class: title finish-nimbus wip stamp-bracket` — Nimbus glow + `[ WIP ]` bracket render)
-  → **Present full-screen on the polished hero** → **completed and restored**.
-- **Take-over:** a real click mid-run removed the stage and left the deck ("you have the
-  deck — build away").
-- **Exit:** the Exit button removed the stage and restored the deck.
+  opened the deck menu → New deck (a **real** "My First Deck" `createDeck`d + switched to —
+  deck list goes 3 → 4) → typed the 6-slide board deck INTO it (preview repainting each slide
+  mid-typing) → navigated → Cuoio → dark → Coach **10.0 / 10 board-ready** → Present → Share →
+  **polished the title via the drawer** (`_class: title finish-nimbus wip stamp-bracket` —
+  Nimbus glow + `[ WIP ]` bracket render) → **Present full-screen on the polished hero** →
+  **completed**. On completion the stage tore itself down, the persisted "My First Deck" held
+  the **full 6-slide** deck (title → closing), and the palette + mode flourishes were restored
+  (Cuoio → Indaco, dark → light).
+- **No duplication (beforeSetup dedup):** ran the walkthrough **twice** back-to-back; after
+  each run the deck index held **exactly one** "My First Deck" (the second run deleted the
+  first before recreating). The deck is left behind both times — never doubled.
+- **Take-over:** a real click mid-run removed the stage and **left "My First Deck" behind**
+  with what had been typed so far; palette + mode restored.
 
 The director's sequencing, typing-to-target, abort, and no-synthetic-keystroke guarantees
 are also covered by unit tests (`demo-director.test.ts`) and a real-surface e2e

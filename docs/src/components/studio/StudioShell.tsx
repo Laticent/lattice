@@ -66,6 +66,10 @@ const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'agenda', 'big-number', 's
 // its linter stands down (an empty known-set flags nothing) without re-creating
 // the array each render (which would needlessly rebuild CodeMirror).
 const NO_KNOWN: string[] = [];
+
+// The demo's starter deck title — a real, persisted deck deduped on each run and left
+// behind for the newcomer (see createDemoFirstDeck).
+const DEMO_FIRST_DECK_TITLE = 'My First Deck';
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -275,12 +279,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const editorRef = React.useRef<EditorHandle>(null);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
-	// True while the self-driving demo runs. The demo types a sample deck into the
-	// REAL `source`, so persistence must stand down — otherwise the debounced
-	// autosave would clobber the viewer's stored deck with demo content (a reload
-	// mid-demo would make it permanent). A ref (not state) so the save effects read
-	// the live value without re-subscribing.
-	const demoActiveRef = React.useRef(false);
 	// Indirection so the demo can drive the slide-settings drawer's commit funnel —
 	// `mutateActiveSlide` is defined lower down (it needs `activeFullIndex`), so the
 	// hook reads it through this ref, assigned once it exists.
@@ -347,7 +345,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			firstSave.current = false;
 			return;
 		}
-		if (demoActiveRef.current) return; // demo content must never persist over the viewer's deck
 		const id = setTimeout(() => saveSource(deck.id, source), 400);
 		return () => clearTimeout(id);
 	}, [source, deck.id]);
@@ -356,7 +353,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// above — without this, a JUST-edited built-in deck could drop out of the
 	// backup entirely (no stored source yet at pack time).
 	React.useEffect(() => {
-		const flush = () => { if (!demoActiveRef.current) saveSource(deck.id, source); };
+		const flush = () => saveSource(deck.id, source);
 		window.addEventListener(FLUSH_EVENT, flush);
 		return () => window.removeEventListener(FLUSH_EVENT, flush);
 	}, [source, deck.id]);
@@ -533,6 +530,27 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setView('compose');
 		notify('New deck created.');
 	}
+	// The demo's "New deck": a REAL, persisted "My First Deck", deduped like a test
+	// fixture — any existing one is deleted FIRST (a beforeSetup clean-up), so
+	// re-running the walkthrough never accumulates duplicates. The deck is left
+	// behind after the demo (the newcomer walks away with it). A plain function (like
+	// `newDeck` above), so it can close over `notify` without a dep-array TDZ.
+	function createDemoFirstDeck() {
+		// Flush the deck we're switching away from first (as newDeck/switchDeck do) — a
+		// viewer who clicks "Watch demo" within the 400ms autosave debounce of an edit
+		// would otherwise lose that edit when we switch decks.
+		saveSource(deck.id, source);
+		for (const d of loadDeckList()) {
+			if (d.title === DEMO_FIRST_DECK_TITLE) deleteDeckStore(d.id);
+		}
+		const d = createDeck(DEMO_FIRST_DECK_TITLE);
+		setDecks(loadDeckList());
+		setDeck(d);
+		setSource(''); // a blank canvas — the demo types the board deck into it
+		setActiveSlide(0);
+		setView('compose');
+		notify('Created “My First Deck.”');
+	}
 	// The installed app's icon shortcut ("New deck" → /studio/?new=1): honor the
 	// query ONCE on boot, then scrub it from the URL so a reload (or a bookmark
 	// of the launched page) doesn't mint another deck. Ref-carried so the effect
@@ -682,11 +700,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// storyboard against the LIVE Studio, driving real setters (not synthetic
 	// events), and hand the wheel back the instant the viewer clicks or types.
 	const { demoActive, startDemo } = useStudioDemo(rootRef, {
-		source,
 		palette,
-		deckTitle: deck.title,
-		setDeckTitle: (title: string) => setDeck((d) => ({ ...d, title })),
-		demoActiveRef,
+		createFirstDeck: createDemoFirstDeck,
 		setSource,
 		typeTail: (t: string) => editorRef.current?.typeTail(t),
 		goToSlide,

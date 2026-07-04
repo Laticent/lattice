@@ -12,18 +12,12 @@ import { studioWalkthrough } from './demo-storyboard';
 
 /** The Studio setters the demo drives (each already bound to real state). */
 export type StudioDemoBindings = {
-	/** Latest deck source — snapshotted at start, restored at end. */
-	source: string;
 	/** Active palette NAME (a builtin or a saved-theme name) — snapshotted/restored.
 	 *  Read from state, not `data-palette`, so a saved theme restores correctly. */
 	palette: string;
-	/** Active deck title — snapshotted so the faked "new deck" title restores. */
-	deckTitle: string;
-	/** Set the active deck's displayed title (transient React state, not persisted). */
-	setDeckTitle: (title: string) => void;
-	/** Set true while the demo runs, so StudioShell's autosave stands down and the
-	 *  demo's sample deck never persists over the viewer's stored deck. */
-	demoActiveRef: React.MutableRefObject<boolean>;
+	/** Create the demo's real, deduped "My First Deck" and switch to it (blank). It
+	 *  persists — the newcomer walks away with it — so nothing here is restored. */
+	createFirstDeck: () => void;
 	setSource: (source: string) => void;
 	/** Append typed text natively in the editor (the demo's typing channel). */
 	typeTail: (text: string) => void;
@@ -82,20 +76,17 @@ export function useStudioDemo(
 		if (!root) return;
 		const b = bindRef.current;
 
-		// Snapshot everything the demo will mutate, so any exit restores it. The
-		// palette comes from state (a saved theme keeps its name); mode from the DOM
-		// (site-chrome writes `data-mode` synchronously, so it's a settled read).
+		// Snapshot only the GLOBAL look the demo flourishes with — palette (from state,
+		// so a saved theme keeps its name) and mode (from the DOM, a settled read). The
+		// deck itself is NOT snapshotted: the demo builds a real, persisted "My First
+		// Deck" and leaves it behind, so there's nothing to restore there.
 		const snap = {
-			source: b.source,
 			palette: b.palette,
-			deckTitle: b.deckTitle,
 			mode: document.documentElement.dataset.mode || 'light',
 		};
 
 		const controller = new AbortController();
 		let stopped = false;
-		// Persistence stands down for the whole run (restored inside stop()).
-		b.demoActiveRef.current = true;
 
 		// Clear the shell to a clean compose canvas before the cursor appears.
 		b.setCmdOpen(false);
@@ -129,21 +120,18 @@ export function useStudioDemo(
 			setDemoActive(false);
 
 			const cur = bindRef.current;
-			// Re-enable persistence BEFORE the restore writes, so the healing
-			// setSource re-saves the viewer's own deck (not the demo's sample).
-			cur.demoActiveRef.current = false;
-			// EVERY exit restores the viewer's deck, theme, and mode — including
-			// take-over and Escape (both route through onUserInput). Never leave the
-			// sample deck behind: it would otherwise persist over their real deck the
-			// moment they typed. The reason only changes the toast wording.
+			// The deck is NOT restored: the demo built a real, persisted "My First Deck"
+			// and the newcomer keeps it. Only the GLOBAL flourishes are undone — close any
+			// stage the demo left open, and put the palette + mode back the way we found
+			// them (the demo reskins to cuoio and flips mode purely for show). Take-over,
+			// Escape, and natural completion all route here; the reason only picks the toast.
 			cur.setPresentOpen(false);
 			cur.setShareOpen(false);
-			cur.setSource(snap.source);
-			cur.setDeckTitle(snap.deckTitle);
-			cur.setActiveSlide(0);
+			cur.setNotesOpen(false);
+			cur.setDeckMenuOpen(false);
 			cur.applyPalette(snap.palette);
 			if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
-			cur.notify(reason === 'complete' ? 'Demo complete — your deck is back.' : 'Demo ended — your deck is back.');
+			cur.notify(reason === 'complete' ? 'Demo complete — “My First Deck” is yours to edit.' : 'Demo ended — “My First Deck” is yours to edit.');
 		};
 
 		runRef.current = { controller, stop };
@@ -167,7 +155,7 @@ export function useStudioDemo(
 			openShare: (o) => bindRef.current.setShareOpen(o),
 			openSlideSettings: (o) => bindRef.current.setNotesOpen(o),
 			openDeckMenu: (o) => bindRef.current.setDeckMenuOpen(o),
-			setDeckTitle: (t) => bindRef.current.setDeckTitle(t),
+			createFirstDeck: () => bindRef.current.createFirstDeck(),
 			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),
 			notify: (m) => bindRef.current.notify(m),
 			fixAll: () => bindRef.current.fixAll(),

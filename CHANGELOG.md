@@ -30,20 +30,22 @@ in patch versions.
 - **Studio: a self-driving "Watch demo" walkthrough.** A one-click, ~90-second
   live demo (topbar button, the first-run welcome banner, and ⌘K → "Watch demo")
   in which the Studio drives *itself* through the whole first-time arc: open the
-  deck menu → **New deck**, type a board deck out live (the preview tracking each
-  slide as it lands), navigate slides, reskin with a theme, flip light/dark, score
-  it board-ready in the Architect Coach, Present, and Share — then a closing
-  flourish that polishes the title via its own settings drawer (a Nimbus finish +
-  a WIP bracket status, one changed `_class` line) and slams into Present
-  full-screen. It's narrated by captions and led by a pointer **cue grammar** — a
-  streak-and-ping anticipation before each move, a burst on each click, and a
-  circle-and-glow on the "look what rendered" beats. Runs on the **real** Studio
-  (real setters + the editor's own transforms, never synthetic events), so the
-  first real click or keystroke hands the wheel back ("take over"); completing or
-  exiting restores the viewer's own deck, theme, and mode untouched, and nothing
-  it does persists (autosave stands down; the "new deck" is a visual, not a real
-  create). Reuses the exec-board-update journey, so it needs no AI call and spends
-  no key (HARD RULE #24). Respects `prefers-reduced-motion`. Design:
+  deck menu → **New deck** (a real, persisted **"My First Deck"** the newcomer keeps),
+  type a board deck out live into it (the preview tracking each slide as it lands),
+  navigate slides, reskin with a theme, flip light/dark, score it board-ready in the
+  Architect Coach, Present, and Share — then a closing flourish that polishes the title
+  via its own settings drawer (a Nimbus finish + a WIP bracket status, one changed
+  `_class` line) and slams into Present full-screen. It's narrated by captions and led
+  by a pointer **cue grammar** — a streak-and-ping anticipation before each move, a
+  burst on each click, and a circle-and-glow on the "look what rendered" beats. Runs on
+  the **real** Studio (real setters + the editor's own transforms, never synthetic
+  events), so the first real click or keystroke hands the wheel back ("take over"). The
+  walkthrough **leaves a deck behind but never a duplicate**: it always creates
+  "My First Deck", deleting any prior one first (a beforeSetup clean-up, like a test
+  fixture), so re-running never accumulates copies — the newcomer walks away with the
+  built deck. Only the demo's cosmetic global flourishes (theme + light/dark) are
+  restored on exit. Reuses the exec-board-update journey, so it needs no AI call and
+  spends no key (HARD RULE #24). Respects `prefers-reduced-motion`. Design:
   `engineering/decisions/2026-07-04-studio-demo-walkthrough.md`.
 
 ### Deprecated

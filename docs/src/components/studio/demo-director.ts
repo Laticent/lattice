@@ -31,8 +31,9 @@ export type DemoActions = {
 	openShare: (open: boolean) => void;
 	/** Open/close the deck switcher dropdown (the "create a new deck" opener). */
 	openDeckMenu: (open: boolean) => void;
-	/** Set the active deck's displayed title (transient — the demo's faked new deck). */
-	setDeckTitle: (title: string) => void;
+	/** Create (and switch to) the demo's real, persisted "My First Deck" — deleting any
+	 *  prior one first, so a re-run never duplicates. The newcomer keeps this deck. */
+	createFirstDeck: () => void;
 	/** Show a Studio toast (e.g. "New deck created."). */
 	notify: (message: string) => void;
 	/** Open/close the per-slide settings drawer (the closing polish flourish). */

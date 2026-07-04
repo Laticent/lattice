@@ -61,11 +61,11 @@ const steps: DemoStep[] = [
 		say: 'New deck — a blank canvas, titled “My First Deck.”',
 		moveTo: SEL.newDeck,
 		click: true,
+		// A real, persisted deck (deduped first, so a re-run never doubles it). It
+		// blanks the canvas, switches to it, and closes the menu — the newcomer keeps it.
 		act: (a) => {
-			a.setSource('');
-			a.setDeckTitle('My First Deck');
+			a.createFirstDeck();
 			a.openDeckMenu(false);
-			a.notify('New deck created.');
 		},
 		settle: 900,
 	},
