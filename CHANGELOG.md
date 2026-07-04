@@ -163,7 +163,9 @@ in patch versions.
   screen-reader user. It is a **separate channel from the speaker note** (consumed by the
   engine, never spoken) and exports as the **PPTX image alt text** (both the CLI and the
   Studio's own PowerPoint export — closing the image-per-slide gap where a screen reader
-  got only "Slide N, Picture") and an **aria description in HTML**. Author it in the Studio's
+  got only "Slide N, Picture"; the alt is read from the rendered slide it sits on, so it
+  stays with the right slide on front-matter and auto-split decks) and an **aria description
+  in HTML**. Author it in the Studio's
   Notes tab beside the speaker note; an AI **Generate** drafts a slide-local, structure-first
   alternative you **review and confirm** (unconfirmed AI text never exports). PDF `/Alt`
   needs a tagged-PDF pipeline and is a follow-on. See

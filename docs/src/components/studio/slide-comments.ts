@@ -45,7 +45,20 @@ function readAll(deckId: string): SlideComment[] {
 }
 
 function isComment(c: unknown): c is SlideComment {
-	return !!c && typeof c === 'object' && typeof (c as SlideComment).id === 'string' && typeof (c as SlideComment).slide === 'number';
+	if (!c || typeof c !== 'object') return false;
+	const o = c as SlideComment;
+	// Validate every display-critical field, not just id/slide — a tampered store
+	// entry with an undefined createdAt would otherwise render "NaNd ago" and an
+	// undefined body an empty bubble. A malformed entry is dropped, not shown.
+	return (
+		typeof o.id === 'string' &&
+		typeof o.slide === 'number' &&
+		typeof o.body === 'string' &&
+		typeof o.author === 'string' &&
+		typeof o.createdAt === 'number' &&
+		Number.isFinite(o.createdAt) &&
+		typeof o.resolved === 'boolean'
+	);
 }
 
 function writeAll(deckId: string, comments: SlideComment[]): void {
@@ -109,7 +122,13 @@ export function deleteComment(deckId: string, id: string): void {
 	writeAll(deckId, readAll(deckId).filter((c) => c.id !== id));
 }
 
-/** Drop every comment for a deck (e.g. on deck delete). */
+/** Drop every comment for a deck (e.g. on deck delete). Removes the storage key
+ *  entirely — not an empty array — so a deleted deck leaves no orphaned entry. */
 export function clearComments(deckId: string): void {
-	writeAll(deckId, []);
+	try {
+		localStorage.removeItem(key(deckId));
+		window.dispatchEvent(new CustomEvent(COMMENTS_EVENT, { detail: { deckId } }));
+	} catch {
+		/* storage unavailable — non-fatal */
+	}
 }

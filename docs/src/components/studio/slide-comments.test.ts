@@ -71,4 +71,28 @@ describe('slide-comments store', () => {
 		expect(listComments('deck-a')[0].body).toBe('A-only');
 		expect(listComments('deck-b')[0].body).toBe('B-only');
 	});
+
+	it('drops malformed stored entries instead of rendering "NaNd ago" / empty bubbles', () => {
+		// A hand-corrupted store: one valid comment, plus entries missing the
+		// display-critical fields (createdAt/body/resolved). Only the valid one survives.
+		const good = { id: 'ok', slide: 1, author: 'You', body: 'real', createdAt: 1000, resolved: false };
+		const bad = [
+			{ id: 'a', slide: 1 }, // missing everything downstream
+			{ id: 'b', slide: 1, author: 'You', body: 'x', createdAt: undefined, resolved: false },
+			{ id: 'c', slide: 1, author: 'You', body: 42, createdAt: 1, resolved: false },
+		];
+		localStorage.setItem('lattice-studio-comments-corrupt', JSON.stringify([good, ...bad]));
+		const got = listComments('corrupt');
+		expect(got).toHaveLength(1);
+		expect(got[0].id).toBe('ok');
+	});
+
+	it('clearComments removes the storage key entirely (no orphaned empty array)', () => {
+		addComment(DECK, 1, 'A');
+		expect(localStorage.getItem('lattice-studio-comments-' + DECK)).not.toBeNull();
+		clearComments(DECK);
+		// The key is gone, not left as "[]" — a deleted deck leaks nothing.
+		expect(localStorage.getItem('lattice-studio-comments-' + DECK)).toBeNull();
+		expect(listComments(DECK)).toHaveLength(0);
+	});
 });

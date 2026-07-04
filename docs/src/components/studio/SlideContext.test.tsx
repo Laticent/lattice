@@ -1,8 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { generateDescription } from './architect';
 import { SlideContext } from './SlideContext';
 import { listComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
+
+// The AI description generator is a network/model call — mock it so the confirm-gate
+// tests drive the draft state deterministically.
+vi.mock('./architect', () => ({ generateDescription: vi.fn() }));
+const mockGenerate = vi.mocked(generateDescription);
 
 const lintVocab = {
 	universalGroups: {
@@ -248,6 +254,43 @@ describe('SlideContext drawer', () => {
 		// this unit the last transform holds the note. Now the description on a fresh setup.
 		const withNote = sourceOut();
 		expect(withNote).toContain('<!-- note: Pause here. -->');
+	});
+
+	it('an UNCONFIRMED AI draft does NOT commit on blur (a wrong alt is worse than none)', async () => {
+		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
+		const { onMutate } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+		// The draft lands in the field and the confirm affordance appears…
+		await screen.findByRole('button', { name: /use it/i });
+		expect((screen.getByRole('textbox', { name: 'Accessibility description for this slide' }) as HTMLTextAreaElement).value).toBe('AI-suggested description.');
+		// …but blurring the box must NOT write the unread AI text to the slide.
+		fireEvent.blur(screen.getByRole('textbox', { name: 'Accessibility description for this slide' }));
+		expect(onMutate).not.toHaveBeenCalled();
+	});
+
+	it('clicking "Use it" commits the AI draft as a describe: comment', async () => {
+		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
+		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+		fireEvent.click(await screen.findByRole('button', { name: /use it/i }));
+		expect(onMutate).toHaveBeenCalled();
+		expect(sourceOut()).toContain('<!-- describe: AI-suggested description. -->');
+	});
+
+	it('editing the AI draft by hand takes ownership — a subsequent blur DOES commit', async () => {
+		mockGenerate.mockResolvedValue({ status: 'ok', text: 'AI-suggested description.' });
+		const { onMutate, sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		fireEvent.click(screen.getByRole('button', { name: /generate/i }));
+		const box = await screen.findByRole('textbox', { name: 'Accessibility description for this slide' });
+		// Typing clears the AI-draft flag (the author now owns the text).
+		fireEvent.change(box, { target: { value: 'Edited by hand.' } });
+		await waitFor(() => expect(screen.queryByRole('button', { name: /use it/i })).toBeNull());
+		fireEvent.blur(box);
+		expect(onMutate).toHaveBeenCalled();
+		expect(sourceOut()).toContain('<!-- describe: Edited by hand. -->');
 	});
 
 	it('reads dark as inherited from a dark deck (no misleading off toggle)', () => {

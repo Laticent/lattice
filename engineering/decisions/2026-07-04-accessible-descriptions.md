@@ -18,6 +18,12 @@ companion:
 note); PPTX image `altText` on **both** export paths (CLI `lib/export/pptx-export.js` +
 Studio `drawing-board-export.js`); the HTML `aria-describedby` sink (CLI); the Studio Notes-tab
 field with AI **Generate** (slide-local, structure-first prompt) + the review/confirm gate.
+On both PPTX paths the alt text is read from the **rendered `<section>` being rasterized**
+(via `notesCore.descriptionFromHtml`), never from a source re-split — so the alt stays
+index-locked to its slide even on front-matter and `split: headings` decks. (A first cut of
+the Studio path re-derived descriptions from `splitSlides(source)`; a red-team + checker pass
+caught that the front-matter `---` becomes a phantom chunk and shifted every alt by one — a
+"wrong alt is worse than none" failure. Guarded by `test/unit/export/description-alignment.test.js`.)
 **Deferred (documented follow-ons):** tagged-PDF `/Alt` (no tagged-PDF pipeline exists); a
 full deck-wide batch "describe all slides" in the Architect (the per-slide generate ships now);
 engine-derived data-tables for charts (the structure-first rule is enforced at the prompt today).
@@ -170,6 +176,26 @@ This is the biggest accuracy win and it is already the house decision.
    (a11y doc G1/G2); its own decision when prioritized.
 5. **Note generation** — the one-call `{note, description}` builder is net-new; `lib/layout/ai.js:91`
    only *preserves* note comments during component-gen, it is not a note generator.
+
+## Known limitations / edge cases (from the red-team + checker pass)
+
+These are accepted, bounded trade-offs — recorded here so they are known, not silent.
+
+- **A pre-existing note that begins `describe:` is now reclassified as a description.** The
+  channel reserves the `describe:` comment prefix, so a legacy speaker note authored as
+  `<!-- describe: the slow build to the reveal -->` moves from the presenter-notes field to the
+  image alt text. Narrow trigger (the word must be the very first token); no migration shipped.
+  This is the cost of a plain, memorable prefix and is by design — `describe:` is the directive.
+- **Export-to-Marp does not translate the description.** The one surviving Marp handoff
+  (`shareMarp` → `lib/core/marp-bundle.js`) emits the source with `<!-- describe: … -->` intact;
+  rendered by *real* Marp (which has no `describe:` concept) it becomes a speaker note. Out of the
+  owned engine, but a path where a description could be spoken — a follow-on if Marp export is hardened.
+- **The Studio PPTX path threads descriptions but not speaker notes.** Pre-existing asymmetry
+  (`exportPptx` never took a notes argument); the CLI PPTX carries both. Tracked as a follow-on —
+  wire the Studio browser export's `addNotes` the same way it now wires `altText`.
+- **Deck delete now also clears the per-deck comment store** (`clearComments` in `deleteDeck`);
+  a sibling gap — checkpoints (`lattice-studio-snap-<id>`) are still orphaned on delete — is
+  pre-existing and off-path, logged here rather than pulled into this diff (HARD RULE #18).
 
 ## Related decisions
 

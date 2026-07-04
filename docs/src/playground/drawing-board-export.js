@@ -28,6 +28,7 @@
 // jspdf / pptxgenjs / html-to-image are lazy-imported (own chunks).
 
 import { themeImportNames } from '../lib/theme-fetch.ts';
+import { notesCore } from './authoring-core.generated.js';
 import { buildSrcdoc } from './deck-preview.js';
 import { embedComponentsInMarkdown } from './layout-core.generated.js';
 
@@ -686,10 +687,14 @@ export async function exportPdf(render, name, onStatus, meta, opts) {
 }
 
 // ── PPTX (image-slides) ───────────────────────────────────────────────────────
-// `descriptions` (optional): per-slide accessibility text, index-aligned to the
-// deck's slides, threaded onto each image's alt text — the WCAG SC 1.1.1 alternative
-// an image-per-slide deck otherwise lacks. Mirrors lib/export/pptx-export.js.
-export async function exportPptx(render, name, onStatus, meta, descriptions = []) {
+// Each image's alt text is the slide's accessibility description — the WCAG
+// SC 1.1.1 alternative an image-per-slide deck otherwise lacks. It is read from
+// the SAME rendered `<section>` that is rasterized (via the engine's
+// `descriptionFromHtml`, the single note/description boundary — HARD RULE #1), so
+// the alt can never drift onto the wrong slide: no source re-split, no
+// front-matter phantom, no auto-split (`split: headings`) misalignment. Mirrors
+// lib/export/pptx-export.js, which extracts from the same rendered slides it paints.
+export async function exportPptx(render, name, onStatus, meta) {
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
@@ -717,9 +722,10 @@ export async function exportPptx(render, name, onStatus, meta, descriptions = []
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 		const png = await rasterizeSection(sections[i], fontEmbedCSS);
-		// Alt text: the author's description, else a neutral "Slide N" (never let
-		// pptxgenjs default `descr` to the image filename — junk a screen reader reads).
-		const altText = (descriptions[i] || '').trim() || `Slide ${i + 1}`;
+		// Alt text: the slide's own `describe:` description, read from the very
+		// section being rasterized, else a neutral "Slide N" (never let pptxgenjs
+		// default `descr` to the image filename — junk a screen reader reads).
+		const altText = (notesCore.descriptionFromHtml(sections[i].outerHTML) || '').trim() || `Slide ${i + 1}`;
 		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
