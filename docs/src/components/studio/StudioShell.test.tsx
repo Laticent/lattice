@@ -260,14 +260,20 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(sheet.queryByText('Active generation tier')).not.toBeInTheDocument();
 	});
 
-	it('expands the Deck Inspector ("deck-wide") from its collapsed rail', async () => {
+	it('the Deck Inspector expands from the rail chevron and collapses from the header chevron', async () => {
 		const user = setup();
+		// Collapsed by default → the rail's expand chevron shows, the body doesn't.
 		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Open Deck inspector' }));
 		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
 		// The inspector is settings-only now (Lenses/History/Read moved out); the
 		// Running-marks group is a stable marker that the body rendered.
 		expect(screen.getByText('Running marks')).toBeInTheDocument();
+		// Symmetric toggle: the expanded header's collapse chevron closes it back to
+		// the rail (same affordance both ways, not only the top-bar toggle).
+		await user.click(screen.getByRole('button', { name: 'Collapse Deck inspector' }));
+		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Open Deck inspector' })).toBeInTheDocument();
 	});
 
 	it('the Inspector "Inline validation" toggle has real teeth', async () => {

@@ -140,6 +140,12 @@ in patch versions.
 
 ### Fixed
 
+- **Studio: the Deck settings panel collapses from its own header, not only the
+  top bar.** The collapsed rail expands the panel with a `‹` chevron, but the
+  expanded panel had no matching control — you had to reach up to the top-bar
+  toggle to close it. The expanded header now carries a mirror `›` collapse
+  chevron, so the same affordance toggles both ways.
+
 - **Studio: no more stray horizontal scrollbar at tablet width.** The Studio's
   collapsed split-rail (the thin restore strip for a hidden editor/preview pane)
   is always rendered — kept as a grid item so the grid's track count stays stable
