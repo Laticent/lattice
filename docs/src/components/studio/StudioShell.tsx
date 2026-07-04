@@ -684,6 +684,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const { demoActive, startDemo } = useStudioDemo(rootRef, {
 		source,
 		palette,
+		deckTitle: deck.title,
+		setDeckTitle: (title: string) => setDeck((d) => ({ ...d, title })),
 		demoActiveRef,
 		setSource,
 		typeTail: (t: string) => editorRef.current?.typeTail(t),

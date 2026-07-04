@@ -17,6 +17,10 @@ export type StudioDemoBindings = {
 	/** Active palette NAME (a builtin or a saved-theme name) — snapshotted/restored.
 	 *  Read from state, not `data-palette`, so a saved theme restores correctly. */
 	palette: string;
+	/** Active deck title — snapshotted so the faked "new deck" title restores. */
+	deckTitle: string;
+	/** Set the active deck's displayed title (transient React state, not persisted). */
+	setDeckTitle: (title: string) => void;
 	/** Set true while the demo runs, so StudioShell's autosave stands down and the
 	 *  demo's sample deck never persists over the viewer's stored deck. */
 	demoActiveRef: React.MutableRefObject<boolean>;
@@ -84,6 +88,7 @@ export function useStudioDemo(
 		const snap = {
 			source: b.source,
 			palette: b.palette,
+			deckTitle: b.deckTitle,
 			mode: document.documentElement.dataset.mode || 'light',
 		};
 
@@ -134,6 +139,7 @@ export function useStudioDemo(
 			cur.setPresentOpen(false);
 			cur.setShareOpen(false);
 			cur.setSource(snap.source);
+			cur.setDeckTitle(snap.deckTitle);
 			cur.setActiveSlide(0);
 			cur.applyPalette(snap.palette);
 			if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
@@ -161,6 +167,7 @@ export function useStudioDemo(
 			openShare: (o) => bindRef.current.setShareOpen(o),
 			openSlideSettings: (o) => bindRef.current.setNotesOpen(o),
 			openDeckMenu: (o) => bindRef.current.setDeckMenuOpen(o),
+			setDeckTitle: (t) => bindRef.current.setDeckTitle(t),
 			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),
 			notify: (m) => bindRef.current.notify(m),
 			fixAll: () => bindRef.current.fixAll(),

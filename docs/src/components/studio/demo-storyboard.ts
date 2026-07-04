@@ -58,11 +58,12 @@ const steps: DemoStep[] = [
 		settle: 950,
 	},
 	{
-		say: 'New deck — a blank canvas.',
+		say: 'New deck — a blank canvas, titled “My First Deck.”',
 		moveTo: SEL.newDeck,
 		click: true,
 		act: (a) => {
 			a.setSource('');
+			a.setDeckTitle('My First Deck');
 			a.openDeckMenu(false);
 			a.notify('New deck created.');
 		},
