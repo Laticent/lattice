@@ -22,10 +22,12 @@ figure — the latter collapses to a thumbnail in print), `2026-06-13-svg-native
 
 Investigating the "horizontal void" on square charts (a pie/radar/quadrant is
 ~1:1; the stage below the header is wide-short ~3.5:1, so a correctly-sized
-chart leaves an empty band beside it — issue #742). The investigation proved
+chart leaves an empty band beside it). The investigation proved
 the void is **aspect-ratio, not a sizing defect**: the chart is already as big
 as the short stage allows, and no binding or geometry change enlarges a square
-in a wide box without cropping or distorting it (see §4).
+in a wide box without cropping or distorting it (see §4). (This is a chart
+observation, distinct from issue #742, which is the *vertical* fill-to-height
+panel void on the redline / statute-stack legal components.)
 
 But the investigation surfaced a real inconsistency worth fixing on its own:
 **the charts each bound a different single axis to size themselves**, rather

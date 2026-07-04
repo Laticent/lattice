@@ -8289,7 +8289,8 @@ section.piechart .piechart-figure {
 }
 section.piechart .piechart-svg {
   flex: 0 0 auto;
-  /* #742 — CONTAINER-FILL. The parent (.piechart-figure) is a container-type:size
+  /* CONTAINER-FILL (2026-07-04-chart-container-fill-sizing.md). The parent
+     (.piechart-figure) is a container-type:size
      box, so the SVG fills BOTH axes of that definite box; its preserveAspectRatio
      `meet` fits the unit inside, whichever dimension binds — shrink-to-fit, never
      clip, resolution-independent. (Was height-bound: height:100cqh; width:auto.) */
@@ -9224,7 +9225,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-figure {
   display: contents;
 }
 section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quadrant-svg--cohort) {
-  /* #742 — container-fill: the .chart-body is a container-type:size box and the
+  /* Container-fill (2026-07-04-chart-container-fill-sizing.md): the .chart-body is a container-type:size box and the
      figure is display:contents, so the SVG fills BOTH axes of that definite box;
      preserveAspectRatio `meet` fits the 420/320 plot inside, shrink-to-fit.
      max-height:none + flex:0 0 auto clear the base rule's slide-relative 50cqh cap
@@ -15042,7 +15043,8 @@ section.chart-frame .chart-key-value {
  * svg-legend.js), so the figure only CENTRES + SIZES that svg; the 70/30 split,
  * spine and key live INSIDE the viewBox and scale with the diagram by
  * construction (no CSS grid, no `cqh`-in-`font-size`). The svg CONTAINER-FILLS
- * (width:100%; height:100% against the size-container figure — #742); its
+ * (width:100%; height:100% against the size-container figure; see
+ * 2026-07-04-chart-container-fill-sizing.md); its
  * preserveAspectRatio `meet` fits the unified viewBox inside, so a vertical
  * squeeze shrinks the WHOLE unit (diagram AND key) instead of clipping. Mirrors
  * the piechart rule in piechart.styles.css (kept separate so the pie's cover
@@ -15108,7 +15110,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-figure[data-v
 section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-svg:not(.radar-svg--mini),
 section.form.map:not(.claim-hero):not(.claim-bleed) .map-svg,
 section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
-  /* #742 — container-fill (was height:100cqh; width:auto). Same as the piechart
+  /* Container-fill (was height:100cqh; width:auto) — same as the piechart
      rule: the chart-body is a container-type:size box and the figure is
      display:contents, so the SVG fills both axes and preserveAspectRatio `meet`
      fits the diagram+key unit inside. Equivalent render, one uniform model. */
