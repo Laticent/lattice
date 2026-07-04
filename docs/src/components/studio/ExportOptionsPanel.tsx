@@ -12,12 +12,16 @@ import { type CommentScope, commentCount, type ExportOptions } from './export-op
 
 export function ExportOptionsPanel({
 	deckId,
+	slideCount,
 	busy,
 	status,
 	onBack,
 	onExport,
 }: {
 	deckId?: string;
+	/** The deck's rendered slide count — bounds a comment's anchor so the count
+	 *  shown here matches exactly what the export embeds (see export-options). */
+	slideCount?: number;
 	busy?: boolean;
 	status?: string | null;
 	onBack: () => void;
@@ -27,8 +31,8 @@ export function ExportOptionsPanel({
 	// deliberate opt-in, so the plain one-tap PDF never leaks review notes.
 	const [commentsInPdf, setCommentsInPdf] = React.useState(false);
 	const [commentScope, setCommentScope] = React.useState<CommentScope>('all');
-	const total = commentCount(deckId, 'all');
-	const inScope = commentCount(deckId, commentScope);
+	const total = commentCount(deckId, 'all', slideCount);
+	const inScope = commentCount(deckId, commentScope, slideCount);
 
 	return (
 		<div className="space-y-5">

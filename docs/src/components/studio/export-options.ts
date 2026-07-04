@@ -32,10 +32,25 @@ function inScope(c: SlideComment, scope: CommentScope): boolean {
 	return scope === 'all' || !c.resolved;
 }
 
+/**
+ * Is this comment placeable — in scope AND anchored to a slide that still exists?
+ * `slideCount` (the deck's rendered slide count) bounds the anchor: a comment left
+ * on slide 5 that now points past a shortened deck (slides deleted after commenting,
+ * the documented index-anchoring limit) has no page to land on. Both the panel count
+ * and the export payload use THIS predicate, so "N notes" always equals N embedded —
+ * the two can never disagree. Omit `slideCount` to skip the upper bound.
+ */
+function placeable(c: SlideComment, scope: CommentScope, slideCount?: number): boolean {
+	if (!inScope(c, scope)) return false;
+	if (c.slide < 1) return false;
+	if (slideCount != null && c.slide > slideCount) return false;
+	return true;
+}
+
 /** How many comments a deck would contribute under a scope (for the panel count). */
-export function commentCount(deckId: string | undefined, scope: CommentScope): number {
+export function commentCount(deckId: string | undefined, scope: CommentScope, slideCount?: number): number {
 	if (!deckId) return 0;
-	return listComments(deckId).filter((c) => inScope(c, scope)).length;
+	return listComments(deckId).filter((c) => placeable(c, scope, slideCount)).length;
 }
 
 /**
@@ -50,14 +65,16 @@ export function commentCount(deckId: string | undefined, scope: CommentScope): n
  * normal deck. A layout that auto-splits one source slide into several rendered
  * pages (`split: headings`) can drift here — the same known index-anchoring limit
  * the comments decision doc records; reorder-stable anchoring is the Yjs-era fix.
+ * `slideCount` bounds the anchor so a comment pointing past a shortened deck is
+ * dropped rather than silently lost off the end (see `placeable`); pass it so the
+ * embedded count matches the panel's.
  */
-export function buildCommentAnnotations(deckId: string | undefined, scope: CommentScope): PdfAnnotation[][] {
+export function buildCommentAnnotations(deckId: string | undefined, scope: CommentScope, slideCount?: number): PdfAnnotation[][] {
 	const byPage: PdfAnnotation[][] = [];
 	if (!deckId) return byPage;
 	for (const c of listComments(deckId)) {
-		if (!inScope(c, scope)) continue;
+		if (!placeable(c, scope, slideCount)) continue;
 		const page = c.slide - 1;
-		if (page < 0) continue;
 		(byPage[page] ||= []).push({
 			title: c.resolved ? `${c.author} · resolved` : c.author,
 			contents: c.body,

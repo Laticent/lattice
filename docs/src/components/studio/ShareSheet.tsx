@@ -5,7 +5,8 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
-import { mergeClassTokens } from './front-matter';
+import { mergeClassTokens, stripFrontMatter } from './front-matter';
+import { splitSlides } from './lint';
 import { shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintDeck, sharePrintSource } from './share-export';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
@@ -69,10 +70,15 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 
 	const name = deckFilename(deckTitle).replace(/\.md$/, '');
 
+	// The deck's rendered slide count — the rail's basis (front matter stripped), so a
+	// comment's anchor can be bounded to a slide that still exists (the panel count then
+	// matches exactly what the export embeds).
+	const slideCount = React.useMemo(() => splitSlides(stripFrontMatter(source)).length, [source]);
+
 	// PDF export from the options step: build the comment sticky-note payload from
 	// the chosen scope (only when the author opted in), then run the shared export.
 	const exportPdf = (opts: ExportOptions) => {
-		const annotations = opts.commentsInPdf ? buildCommentAnnotations(deckId, opts.commentScope) : undefined;
+		const annotations = opts.commentsInPdf ? buildCommentAnnotations(deckId, opts.commentScope, slideCount) : undefined;
 		run('pdf', 'PDF', (onStatus) => sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations));
 	};
 
@@ -85,7 +91,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				</SheetHeader>
 				<div className="space-y-6 overflow-y-auto p-5">
 					{view === 'pdf' ? (
-						<ExportOptionsPanel deckId={deckId} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
+						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : (
 						<>
 							<section className="space-y-2">

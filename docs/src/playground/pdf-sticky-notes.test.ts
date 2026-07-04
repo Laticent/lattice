@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { addPageStickyNotes } from './pdf-sticky-notes.js';
 
+type Ann = { type: string; title: string; contents: string; bounds: { x: number; y: number; w: number; h: number }; open: boolean };
+
 // A minimal jsPDF stand-in capturing createAnnotation calls — the contract both
-// PDF lanes rely on (worker + main-thread), so a lane can't silently diverge.
+// PDF lanes rely on (worker + main-thread), so a lane can't silently diverge. The
+// method param is `object` to match the helper's structural type; we narrow inside.
 function fakePdf() {
-	const calls: Array<{ type: string; title: string; contents: string; bounds: { x: number; y: number; w: number; h: number }; open: boolean }> = [];
-	return { calls, createAnnotation(a: (typeof calls)[number]) { calls.push(a); } };
+	const calls: Ann[] = [];
+	return { calls, createAnnotation(a: object) { calls.push(a as Ann); } };
 }
 
 describe('pdf-sticky-notes', () => {

@@ -14,7 +14,9 @@ const MARGIN = 14; // inset from the page's top / right edge
 
 /**
  * Write one slide's comment sticky notes onto the CURRENT page of `pdf`.
- * @param {import('jspdf').jsPDF} pdf the doc, positioned on the target page
+ * Typed structurally on the one method used, so both a real jsPDF and a test
+ * stand-in satisfy it.
+ * @param {{ createAnnotation: (a: object) => void }} pdf the doc, on the target page
  * @param {{title:string, contents:string}[]|undefined} notes this slide's comments
  * @param {number} pageW page width in px (notes hug the right edge)
  */

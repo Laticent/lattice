@@ -48,4 +48,19 @@ describe('export-options — comment → PDF sticky-note payload', () => {
 		expect(buildCommentAnnotations(undefined, 'all')).toEqual([]);
 		expect(commentCount(undefined, 'all')).toBe(0);
 	});
+
+	it('drops a stale comment anchored past the deck length — count matches what is embedded', () => {
+		// A comment left on slide 5, then the deck shortened to 3 slides (index-anchoring
+		// limit). The stale anchor has no page — it must be dropped from BOTH the count
+		// and the payload, so the panel's "N notes" can never over-promise the PDF.
+		addComment(DECK, 1, 'valid');
+		addComment(DECK, 5, 'orphaned by a later delete');
+		// Without the bound, the old behavior over-counted (2) and silently dropped one.
+		expect(commentCount(DECK, 'all', 3)).toBe(1);
+		const ann = buildCommentAnnotations(DECK, 'all', 3);
+		expect(ann.flat().filter(Boolean)).toHaveLength(1);
+		expect(ann[4]).toBeUndefined(); // slide 5 never placed
+		// Unbounded (no slideCount) keeps the prior behavior for callers that don't pass it.
+		expect(commentCount(DECK, 'all')).toBe(2);
+	});
 });
