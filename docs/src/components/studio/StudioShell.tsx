@@ -1521,7 +1521,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    phones they live one row down in the pane bar (with the panel toggles),
 				    which has the free width — the top row spends its width on the deck
 				    title (2026-07-03 decision). */}
-				{!mobile && <Button variant="ghost" size="icon-sm" onClick={startDemo} aria-label="Watch demo" title="Watch demo — the Studio drives itself" className={cn(demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>}
+				{!mobile && <Button variant="ghost" size="icon-sm" onClick={startDemo} aria-label="Watch demo" title="Watch demo — the Studio drives itself" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>}
 				{!mobile && <Button variant="outline" size="sm" data-demo="present" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>}
 				{!mobile && <Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>}
 
@@ -1577,7 +1577,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<p className="min-w-0 flex-1 leading-snug">
 						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away in the toolbar.
 					</p>
-					{!mobile && !demoActive && <button type="button" onClick={startDemo} className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-white hover:opacity-90"><MonitorPlay className="size-3.5" />Watch demo</button>}
+					{!mobile && !demoActive && <button type="button" onClick={startDemo} className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90"><MonitorPlay className="size-3.5" />Watch demo</button>}
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
 					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
 				</div>
