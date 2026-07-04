@@ -29,6 +29,10 @@ export type DemoActions = {
 	toggleMode: () => void;
 	openPresent: (open: boolean) => void;
 	openShare: (open: boolean) => void;
+	/** Open/close the deck switcher dropdown (the "create a new deck" opener). */
+	openDeckMenu: (open: boolean) => void;
+	/** Show a Studio toast (e.g. "New deck created."). */
+	notify: (message: string) => void;
 	/** Open/close the per-slide settings drawer (the closing polish flourish). */
 	openSlideSettings: (open: boolean) => void;
 	/** Apply a pure chunk→chunk transform to the ACTIVE slide's source (the drawer's
@@ -148,9 +152,10 @@ export async function runStoryboard(
 	board: Storyboard,
 	signal: AbortSignal,
 ): Promise<void> {
+	// `current` tracks the typed source for the diff engine. The storyboard owns the
+	// starting state (its opening "new deck" beat blanks the canvas), so we do NOT seed
+	// here — the demo opens on the viewer's real current deck, then creates a new one.
 	let current = board.seed;
-	// Seed the deck before the first step so the demo always starts from a known deck.
-	actions.setSource(current);
 	await wait(stage.reduced ? 120 : 400, signal);
 	// The opening flourish — the cursor materializes at center and waves hello.
 	await stage.intro(signal);

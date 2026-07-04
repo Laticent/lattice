@@ -40,12 +40,33 @@ const SEL = {
 	present: '[data-demo="present"]',
 	share: '[data-demo="share"]',
 	slideSettings: '[aria-label="Slide settings"]',
+	deckSwitcher: '[data-demo="deck-switcher"]',
+	newDeck: '[data-demo="new-deck"]',
 } as const;
 
 const steps: DemoStep[] = [
 	{
-		say: 'The Studio — a ~80-second live demo that drives itself: it builds a board deck, coaches it, and ships it.',
-		settle: 1700,
+		say: 'The Studio — a ~90-second live demo that drives itself: it builds a board deck, coaches it, and ships it.',
+		settle: 1800,
+	},
+	// The first-time experience starts where every deck does — the deck switcher.
+	{
+		say: 'Every deck starts the same way — from the deck menu.',
+		moveTo: SEL.deckSwitcher,
+		click: true,
+		act: (a) => a.openDeckMenu(true),
+		settle: 950,
+	},
+	{
+		say: 'New deck — a blank canvas.',
+		moveTo: SEL.newDeck,
+		click: true,
+		act: (a) => {
+			a.setSource('');
+			a.openDeckMenu(false);
+			a.notify('New deck created.');
+		},
+		settle: 900,
 	},
 	{
 		say: 'You write in plain Markdown on the left…',

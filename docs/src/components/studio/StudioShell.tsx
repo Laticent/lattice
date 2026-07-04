@@ -178,6 +178,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// feature is one keystroke away. Opt-in per session (not sticky, not a default).
 	const [focus, setFocus] = React.useState(false);
 	const [notesOpen, setNotesOpen] = React.useState(false); // speaker-notes drawer (own surface, not the Inspector)
+	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate'>('compose');
 	const [shareOpen, setShareOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
@@ -696,6 +697,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setPresentOpen,
 		setShareOpen,
 		setNotesOpen,
+		setDeckMenuOpen,
 		mutateSlide: (fn: (chunk: string) => string) => mutateSlideRef.current(fn),
 		fixAll: () => editorRef.current?.fixAll(),
 		setActiveSlide,
@@ -1448,13 +1450,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 
 				<span className="hidden h-5 w-px bg-border sm:block" />
 
-				<DropdownMenu>
+				<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
 					<DropdownMenuTrigger asChild>
 						{/* No width cap on phones — the deck title is the user's orientation, so
 						    it absorbs the bar's free width (siblings are shrink-0; this pill is
 						    the one shrinkable item, truncating only when the title outgrows the
 						    actual free space instead of a fixed 150px). */}
-						<button type="button" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
+						<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
 							<span className="size-2 shrink-0 rounded-full bg-primary" />
 							<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
 							<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
@@ -1477,7 +1479,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						))}
 						<DropdownMenuSeparator />
 						<DropdownMenuItem onSelect={() => { const t = window.prompt('Rename deck', deck.title); if (t != null) renameActiveDeck(t); }}><PencilLine className="size-4" />Rename “{deck.title}”</DropdownMenuItem>
-						<DropdownMenuItem onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
+						<DropdownMenuItem data-demo="new-deck" onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
 

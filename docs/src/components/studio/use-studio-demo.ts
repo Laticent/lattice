@@ -34,6 +34,8 @@ export type StudioDemoBindings = {
 	setShareOpen: (open: boolean) => void;
 	/** Open/close the per-slide settings drawer (`notesOpen`). */
 	setNotesOpen: (open: boolean) => void;
+	/** Open/close the deck switcher dropdown (the "create a new deck" opener). */
+	setDeckMenuOpen: (open: boolean) => void;
 	/** The drawer's commit funnel — apply a pure transform to the active slide. */
 	mutateSlide: (fn: (chunk: string) => string) => void;
 	fixAll: () => void;
@@ -158,7 +160,9 @@ export function useStudioDemo(
 			openPresent: (o) => bindRef.current.setPresentOpen(o),
 			openShare: (o) => bindRef.current.setShareOpen(o),
 			openSlideSettings: (o) => bindRef.current.setNotesOpen(o),
+			openDeckMenu: (o) => bindRef.current.setDeckMenuOpen(o),
 			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),
+			notify: (m) => bindRef.current.notify(m),
 			fixAll: () => bindRef.current.fixAll(),
 		};
 

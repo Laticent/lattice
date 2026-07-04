@@ -400,7 +400,10 @@ export function createDemoStage(root: HTMLElement, onExit: () => void): DemoStag
 	}
 
 	return {
-		resolve: (selector) => root.querySelector<HTMLElement>(selector),
+		// Search the whole document (via the root's ownerDocument), not just the Studio
+		// subtree — Radix menus/sheets/dialogs portal to <body>, so their items would be
+		// unreachable from the root. The Studio is the only thing on the page.
+		resolve: (selector) => (root.ownerDocument ?? document).querySelector<HTMLElement>(selector),
 		intro,
 		anticipate,
 		moveToEl,

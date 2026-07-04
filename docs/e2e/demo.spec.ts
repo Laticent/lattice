@@ -5,9 +5,9 @@ import { expect, gotoStudio, railButtons, test, toastText } from './studio-fixtu
 // mounts, the deck it types grows the slide rail, and each of the three exit paths
 // (complete · take-over · Exit) tears the stage down with the right restore.
 
-// The full run types a 6-slide deck and walks the whole toolbar (~20s), so the
-// completion test needs headroom over the default per-test timeout.
-test.describe.configure({ timeout: 90_000 });
+// The full run is the whole first-time arc (new deck → type → coach → present →
+// share → polish → present) at ~85s, so the completion test needs generous headroom.
+test.describe.configure({ timeout: 180_000 });
 
 const STAGE = '.studio-demo-stage';
 const WATCH = 'button[aria-label="Watch demo"]';
@@ -24,10 +24,10 @@ test('the demo drives the Studio, then completes and restores the deck', async (
 	await expect(page.locator(WATCH)).toHaveCount(0);
 
 	// It drives: the storyboard types a 6-slide board deck onto the canvas.
-	await expect.poll(() => railButtons(page).count(), { timeout: 40_000 }).toBe(6);
+	await expect.poll(() => railButtons(page).count(), { timeout: 70_000 }).toBe(6);
 
 	// It completes on its own: the stage detaches and the viewer's deck is restored.
-	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 40_000 });
+	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 120_000 });
 	await expect(toastText(page)).toContainText('your deck is back');
 	await expect.poll(() => railButtons(page).count()).toBe(seededCount);
 	await expect(page.locator(WATCH)).toBeVisible();

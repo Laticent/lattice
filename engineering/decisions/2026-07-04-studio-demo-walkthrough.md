@@ -89,6 +89,37 @@ be handled so it never eats the viewer's work (both caught in maker-checker revi
 A topbar "Watch demo" button (hidden while a demo runs), a primary action on the
 first-run welcome banner, and a ⌘K command — all calling one `startDemo()`.
 
+## The shipped shape — arc, cue grammar, drivers (review-evolved)
+
+The demo grew from "compose → coach → ship" into a full ~90-second first-time arc, and
+the theater grew a small vocabulary. Both were tuned live against the real preview.
+
+**The arc:** open the deck menu → **New deck** (the "how do I even start?" beat — a *faked*
+new deck: it blanks the canvas and toasts, but never calls `createDeck`, so nothing
+persists) → type a board deck out live → navigate slides → reskin with a theme → flip
+light/dark → Architect Coach scores it board-ready → Present → Share → **closing flourish**
+(polish the title via its own settings drawer: a Nimbus finish + a WIP bracket status —
+one changed `_class` line — then slam into Present full-screen on the glowing hero).
+
+**Cue grammar (two primitives).** A soft *ping* + a *streak* anticipate where the cursor is
+headed (leading the eye before it moves); a sharp *burst* confirms each click; a
+*circle-and-glow* marks the "look what rendered" beats. Every ring pairs the brand accent
+with a white co-stroke so it reads on the navy preview AND the light chrome. Sizes and
+speeds are tuned to be *followable* — the same call we made for the typing.
+
+**Typing drives CodeMirror natively.** The director types through
+`EditorHandle.typeTail` (a real tail-insert transaction that scrolls to follow), not a
+full-doc `setSource` per keystroke — so the caret + scroll behave like real typing and the
+change flows back through the editor's own `onChange`. A periodic "render breath" (a pause
+past the preview's ~140 ms debounce) keeps the preview repainting mid-slide, so editor and
+preview stay in sync instead of the preview freezing on the prior slide during a burst.
+
+**New drivers, all real.** The storyboard reaches the deck switcher (a controlled Radix
+menu), the per-slide settings drawer (`setNotesOpen` + the drawer's own `mutateActiveSlide`
+funnel, applying the real `setFinish` / `setGroupToken` / `setStampStyle` transforms), and
+`notify`. The stage resolves selectors against the whole document (Radix menus/sheets
+portal to `<body>`, outside the Studio root).
+
 ## Why not the surviving `driver.js` tour engine
 
 `guided-tour.js` (which survives for the Playground) spotlights static DOM by selector
@@ -102,10 +133,13 @@ different machine.
 Driven on the **real** Studio in headless Chromium (puppeteer, 1440×900) against the dev
 server — not a jsdom harness:
 
-- **Full run:** typed the title slide → typed the full 6-slide deck → navigated slides →
-  switched theme to Cuoio → flipped to dark → opened the Coach (**10.0 / 10 board-ready**)
-  → opened Present → opened Share → closing caption → **completed and restored** to the
-  original welcome deck in Indaco/Light.
+- **Full run (~82 s, motion enabled via `emulateMediaFeatures` — the earlier
+  `--force-prefers-reduced-motion` flag forced reduce *on*, so it must be set explicitly):**
+  opened the deck menu → New deck (deck list stays 3, no persistent create) → typed the
+  6-slide board deck (preview repainting each slide mid-typing) → navigated → Cuoio → dark
+  → Coach **10.0 / 10 board-ready** → Present → Share → **polished the title via the drawer**
+  (`_class: title finish-nimbus wip stamp-bracket` — Nimbus glow + `[ WIP ]` bracket render)
+  → **Present full-screen on the polished hero** → **completed and restored**.
 - **Take-over:** a real click mid-run removed the stage and left the deck ("you have the
   deck — build away").
 - **Exit:** the Exit button removed the stage and restored the deck.
