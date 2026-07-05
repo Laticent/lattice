@@ -205,6 +205,12 @@ in patch versions.
 
 ### Fixed
 
+- **map demo: the "Naming a region" slide no longer overflows the frame.** A
+  trailing clause on the second bullet pushed the slide a hair past the frame
+  height (flagged at export, though nothing visibly clipped). Trimmed it — which
+  also dropped a stale reference to the frozen Drawing Board — so `examples/map.md`
+  exports clean with comfortable breathing room.
+
 - **map: keyed (with-legend) maps no longer shove the basemap off its slot.** The
   world map read as badly misaligned — dead space at the top-left, the southern
   edge clipped, and the continents jammed into the legend. The keyed compositor

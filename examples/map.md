@@ -76,7 +76,7 @@ Name a place, give it a value. The tokens pick the rest.
 World names vary wildly (Côte d'Ivoire, Myanmar, Czechia), and a mistyped name is a silent gap. Two defences, both off the same baked vocabulary — no model call, no token cost.
 
 - **Group as a fat alias.** Name a continent or a dated bloc — `European Union`, `Sub-Saharan Africa`, `G20` — and the kernel fills every member. Blocs carry the year their membership is asserted.
-- **Autocomplete + did-you-mean.** In the editor, region names complete as you type; a name that still slips through is flagged at lint time with the nearest match (`Brasil` → `Brazil`) — the Drawing Board and the CLI run the same check.
+- **Autocomplete + did-you-mean.** In the editor, region names complete as you type; a name that still slips through is flagged at lint time with the nearest match (`Brasil` → `Brazil`).
 
 ---
 
