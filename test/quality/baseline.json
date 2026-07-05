@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "note": "Committed quality-assessment ratchet (structural coupling, boundaries, circular deps, complexity, duplication, dead code). Refresh with `npm run quality:bless`; compare with `npm run quality:check`. Change coupling is intentionally excluded — its signal depends on available git history, not code quality. See engineering/quality-assessment.md.",
+  "tolerancePct": 0,
+  "metrics": {
+    "circularDependencies": 0,
+    "boundaryViolations": 1,
+    "duplicatedPercent": 3.56,
+    "duplicateClones": 107,
+    "deadFiles": 0,
+    "deadExports": 0,
+    "unlistedDependencies": 1,
+    "complexityFunctionsAboveThreshold": 69,
+    "worstFunctionComplexity": 209
+  }
+}

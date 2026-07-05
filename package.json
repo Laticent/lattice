@@ -69,6 +69,9 @@
     "new:component": "node tools/new-component.js",
     "scorecard": "node tools/theme-scorecard.js",
     "scorecard:check": "node tools/theme-scorecard.js --check",
+    "quality": "node tools/quality-assessment.js",
+    "quality:bless": "node tools/quality-assessment.js --bless",
+    "quality:check": "node tools/quality-assessment.js --check",
     "snippets:build": "node tools/build-snippets.js",
     "snippets:check": "node tools/build-snippets.js --check",
     "css:build": "node tools/build-css.js",
@@ -189,10 +192,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
+    "acorn": "^8.17.0",
     "c8": "^11.0.0",
+    "dependency-cruiser": "^18.0.0",
     "esbuild": "^0.28.0",
+    "jscpd": "^5.0.11",
     "jsdom": "^29.1.1",
     "jszip": "^3.10.1",
+    "knip": "^6.24.0",
     "lefthook": "^2.1.6",
     "tinybench": "^6.0.2"
   }
