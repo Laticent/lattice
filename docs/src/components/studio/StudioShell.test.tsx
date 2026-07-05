@@ -440,9 +440,16 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
-		// The pane toggles still work from the pane bar (the Inspector opens as a sheet).
+		// The pane toggles still work from the pane bar. On mobile the Inspector opens
+		// as a Sheet, but it hosts the SAME Slide-first scope switch + echo as the
+		// desktop/tablet column — opening from "Deck inspector" lands on deck scope.
 		await user.click(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' }));
-		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
+		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
+		// The Slide-first segment is present, so a user can flip to this-slide scope
+		// without leaving the sheet — the deterministic scope switch, one surface.
+		const scopeSheet = screen.getByRole('dialog');
+		await user.click(within(scopeSheet).getByRole('button', { name: 'Slide scope' }));
+		expect(await within(scopeSheet).findByText(/Editing Slide \d+ only/)).toBeInTheDocument();
 	});
 
 	it('the launcher and deck switcher no longer duplicate "New deck" (deck CRUD lives in the switcher)', async () => {

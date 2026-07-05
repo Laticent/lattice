@@ -1279,6 +1279,52 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		</>
 	);
 
+	// The Inspector's scope-switch + active body — shared by the desktop/tablet
+	// column AND the mobile Sheet (one source of truth; HARD RULE #15). The wrapper
+	// (an <aside> on desktop, a <Sheet> on mobile) differs; the innards do not.
+	const inspectorScopeContent = (
+		<>
+			{/* Scope switch when there is no rail (tablet + mobile): a Slide-first segment. */}
+			{!railVisible && (
+				<div className="flex gap-1 border-b border-border p-2">
+					{([{ k: 'slide', label: 'Slide' }, { k: 'deck', label: 'Deck' }] as const).map(({ k, label }) => (
+						<button key={k} type="button" aria-pressed={inspectorScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', inspectorScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>{label}</button>
+					))}
+				</div>
+			)}
+			{inspectorScope === 'deck' ? (
+				<>
+					{/* Scope echo — loud, blue = deck-wide. Impossible to misread. aria-live so
+					    a screen-reader user hears the scope on switch/nav (not only sighted). */}
+					<div role="status" aria-live="polite" className="border-b border-border bg-[var(--accent-soft)] px-3.5 py-2.5">
+						<div className="flex items-center gap-2">
+							<SlidersHorizontal className="size-4 text-[var(--accent)]" />
+							<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
+							<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
+							<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><ChevronRight className="size-4" /></button>
+						</div>
+						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
+					</div>
+					<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
+				</>
+			) : (
+				<>
+					{/* Scope echo — amber = this slide only (an override). Token-driven. */}
+					<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+						<div className="flex items-center gap-2">
+							<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
+							<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
+							<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
+							<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><ChevronRight className="size-4" /></button>
+						</div>
+						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
+					</div>
+					<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateActiveSlide} />
+				</>
+			)}
+		</>
+	);
+
 	// ── Editor pane — shared by all breakpoints ──────────────────────────────
 	// The old `md:border-r` divider is gone: the SplitHandle's border-l IS the
 	// single line between the panes now (decision §2 — never a doubled line).
@@ -1323,7 +1369,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* Version history — deck-level recovery, docked in the editor header beside
 				    the Slide-settings launcher (always visible; not in the top nav). */}
 				<Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>
-				<Button variant="ghost" size="icon-sm" onClick={() => { if (mobile) { setNotesOpen(true); } else { setInspectorScope('slide'); setInspectorOpen(true); } }} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>
+				<Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>
 				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
 				{splitUsable && (
 					<Button variant="ghost" size="icon-sm" aria-label="Collapse editor" title="Collapse editor — or drag the divider past its minimum" onClick={() => collapseFromHeader('a')}>
@@ -1639,7 +1685,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						{/* Version history + Slide settings ride the pane bar only on the PREVIEW
 						    pane — the EDIT pane's own editor header already carries both. */}
 						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>}
-						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
+						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
@@ -1710,44 +1756,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							{/* The Inspector column — hosts the ACTIVE scope's body; deck stays visible. */}
 							{inspectorOpen && (
 								<aside className="flex min-h-0 flex-col border-l border-border bg-background">
-									{/* Scope switch when there is no rail (tablet): a Slide-first segment. */}
-									{!railVisible && (
-										<div className="flex gap-1 border-b border-border p-2">
-											{([{ k: 'slide', label: 'Slide' }, { k: 'deck', label: 'Deck' }] as const).map(({ k, label }) => (
-												<button key={k} type="button" aria-pressed={inspectorScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', inspectorScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>{label}</button>
-											))}
-										</div>
-									)}
-									{inspectorScope === 'deck' ? (
-										<>
-											{/* Scope echo — loud, blue = deck-wide. Impossible to misread. aria-live so
-											    a screen-reader user hears the scope on switch/nav (not only sighted). */}
-											<div role="status" aria-live="polite" className="border-b border-border bg-[var(--accent-soft)] px-3.5 py-2.5">
-												<div className="flex items-center gap-2">
-													<SlidersHorizontal className="size-4 text-[var(--accent)]" />
-													<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
-													<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
-													<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><ChevronRight className="size-4" /></button>
-												</div>
-												<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
-											</div>
-											<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
-										</>
-									) : (
-										<>
-											{/* Scope echo — amber = this slide only (an override). Token-driven. */}
-											<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
-												<div className="flex items-center gap-2">
-													<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
-													<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
-													<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
-													<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><ChevronRight className="size-4" /></button>
-												</div>
-												<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
-											</div>
-											<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateActiveSlide} />
-										</>
-									)}
+									{inspectorScopeContent}
 								</aside>
 							)}
 							{/* The scope rail — deterministic Slide-first scope switch, always present. */}
@@ -1783,16 +1792,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{architectBody}</div>
 						</SheetContent>
 					</Sheet>
-					{/* Deck-settings Sheet — MOBILE only. Tablet uses the non-blocking column
-					    above (like desktop); mobile has no room for a column. */}
+					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
+					    active body as the desktop/tablet column, just wrapped in a Sheet
+					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
 					{mobile && (
 						<Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
 							<SheetContent side="right" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
 								<SheetHeader className="border-b border-border">
-									<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings2 className="size-4 text-[var(--accent)]" />Deck<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">deck-wide</span></SheetTitle>
-									<SheetDescription className="text-[11px] leading-snug text-muted-foreground">Applies to the whole deck — each slide inherits it. Change just one in its Slide settings.</SheetDescription>
+									<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings2 className="size-4 text-[var(--accent)]" />Settings</SheetTitle>
+									<SheetDescription className="sr-only">Slide-first settings: switch between this slide's overrides and deck-wide defaults.</SheetDescription>
 								</SheetHeader>
-								<div className="space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
+								<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{inspectorScopeContent}</div>
 							</SheetContent>
 						</Sheet>
 					)}
