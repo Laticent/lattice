@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronLeft, ChevronRight,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronRight,
 	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, Minimize2, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
@@ -35,7 +35,7 @@ import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, 
 import { activeModeLabel, ModeMenuItems } from './ModePicker';
 import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
-import { SlideContext } from './SlideContext';
+import { SlideContext, SlideContextBody } from './SlideContext';
 import { activeSpectrumLabel, SpectrumMenuItems } from './SpectrumPicker';
 import { importComments } from './slide-comments';
 import { listFindings } from './studio-lint';
@@ -168,6 +168,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	onboardedRef.current = onboarded;
 	const [architectOpen, setArchitectOpen] = React.useState(() => onboarded); // newcomers start calm
 	const [inspectorOpen, setInspectorOpen] = React.useState(false); // PM-4: preview is sacred
+	// Inspector scope — DETERMINISTIC (no context inference): Slide-first, most-frequent.
+	// The rail is the scope switch; the column hosts the active scope's body.
+	const [inspectorScope, setInspectorScope] = React.useState<'slide' | 'deck'>('slide');
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	// One-time welcome banner — shown only to a newcomer; dismiss graduates them.
 	const [welcomeOpen, setWelcomeOpen] = React.useState(() => !onboarded);
@@ -1316,7 +1319,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* Version history — deck-level recovery, docked in the editor header beside
 				    the Slide-settings launcher (always visible; not in the top nav). */}
 				<Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>
-				<Button variant="ghost" size="icon-sm" onClick={() => setNotesOpen(true)} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>
+				<Button variant="ghost" size="icon-sm" onClick={() => { if (compact) { setNotesOpen(true); } else { setInspectorScope('slide'); setInspectorOpen(true); } }} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>
 				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
 				{splitUsable && (
 					<Button variant="ghost" size="icon-sm" aria-label="Collapse editor" title="Collapse editor — or drag the divider past its minimum" onClick={() => collapseFromHeader('a')}>
@@ -1672,7 +1675,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						// '0px' track here would push the editor into it and collapse it).
 						gridTemplateColumns: (compact
 							? splitTracks(split.collapsed)
-							: [...(architectOpen ? ['232px'] : []), ...splitTracks(split.collapsed), inspectorOpen ? '300px' : '46px']
+							: [...(architectOpen ? ['232px'] : []), ...splitTracks(split.collapsed), ...(inspectorOpen ? ['296px'] : []), '72px']
 						).join(' '),
 					}}
 					{...split.containerProps}
@@ -1692,30 +1695,58 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					{splitRailB}
 
 					{/* Inspector — persistent column/rail only on desktop (PM-4) */}
-					{!compact && (inspectorOpen ? (
-						<aside className="flex min-h-0 flex-col overflow-y-auto border-l border-border bg-background">
-							<div className="border-b border-border px-3.5 py-3">
-								<div className="flex items-center gap-2">
-									<Settings2 className="size-4 text-[var(--accent)]" />
-									<span className="text-sm font-bold text-[var(--text-heading)]">Deck</span>
-									<span className="ml-auto rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">deck-wide</span>
-									{/* Collapse back to the rail — the mirror of the rail's expand chevron,
-									    so the same affordance toggles both ways (open with ‹, close with ›). */}
-									<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse Deck inspector" title="Collapse Deck inspector" className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--accent)]"><ChevronRight className="size-4" /></button>
-								</div>
-								<p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">Applies to the whole deck — each slide inherits it. Change just one in its Slide settings.</p>
-							</div>
-							<div className="space-y-0 px-3.5 pb-4">{inspectorBody}</div>
-						</aside>
-					) : (
-						<aside className="flex min-h-0 flex-col items-center gap-2 border-l border-border bg-background py-2.5">
-							<button type="button" onClick={() => setInspectorOpen(true)} className="grid size-[30px] place-items-center rounded-lg border border-border text-foreground hover:text-[var(--accent)]" aria-label="Open Deck inspector"><ChevronLeft className="size-4" /></button>
-							<Palette className="size-[18px] text-muted-foreground" />
-							<Frame className="size-[18px] text-muted-foreground" />
-							<Wand2 className="size-[18px] text-muted-foreground" />
-							<span className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>Deck</span>
-						</aside>
-					))}
+					{!compact && (
+						<>
+							{/* The Inspector column — hosts the ACTIVE scope's body; deck stays visible. */}
+							{inspectorOpen && (
+								<aside className="flex min-h-0 flex-col border-l border-border bg-background">
+									{inspectorScope === 'deck' ? (
+										<>
+											{/* Scope echo — loud, blue = deck-wide. Impossible to misread. */}
+											<div className="border-b border-border bg-[var(--accent-soft)] px-3.5 py-2.5">
+												<div className="flex items-center gap-2">
+													<SlidersHorizontal className="size-4 text-[var(--accent)]" />
+													<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
+													<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
+													<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><ChevronRight className="size-4" /></button>
+												</div>
+												<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
+											</div>
+											<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
+										</>
+									) : (
+										<>
+											{/* Scope echo — amber = this slide only (an override). Token-driven. */}
+											<div className="border-b border-border px-3.5 py-2.5" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+												<div className="flex items-center gap-2">
+													<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
+													<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
+													<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
+													<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><ChevronRight className="size-4" /></button>
+												</div>
+												<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
+											</div>
+											<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateActiveSlide} />
+										</>
+									)}
+								</aside>
+							)}
+							{/* The scope rail — deterministic Slide-first scope switch, always present. */}
+							<aside className="flex min-h-0 flex-col items-stretch gap-1 border-l border-border bg-background p-1.5">
+								{([{ key: 'slide', label: 'Slide', Icon: FileSliders }, { key: 'deck', label: 'Deck', Icon: SlidersHorizontal }] as const).map(({ key, label, Icon }) => {
+									const active = inspectorOpen && inspectorScope === key;
+									return (
+										<button key={key} type="button" aria-pressed={active} onClick={() => { setInspectorScope(key); setInspectorOpen(true); }} title={key === 'slide' ? 'Slide settings — this slide only' : 'Deck settings — the whole deck'} className={cn('flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-semibold transition-colors', active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]')}>
+											<Icon className="size-[18px]" />{label}
+										</button>
+									);
+								})}
+								<span className="flex-1" />
+								{inspectorOpen && <button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings panel" title="Collapse" className="grid place-items-center rounded-lg py-1.5 text-muted-foreground hover:text-[var(--accent)]"><ChevronRight className="size-4" /></button>}
+								<span className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>Scope</span>
+							</aside>
+						</>
+					)}
 				</div>
 			)}
 
