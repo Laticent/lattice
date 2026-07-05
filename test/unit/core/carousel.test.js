@@ -459,3 +459,11 @@ describe('core: carousel — kanban-lanes (kanban portrait, one lane per slide)'
     assert.equal(carouselize(kbTag, one, { strategy: 'kanban-lanes' }), null);
   });
 });
+
+test('carouselize degrades to null on Object.prototype-shadowing strategy names', () => {
+  // A manifest typo like strategy:"toString" must be an unknown strategy
+  // (null → left for the ring), not an inherited Object.prototype member.
+  for (const strategy of ['toString', 'constructor', 'hasOwnProperty', '__proto__', 'valueOf']) {
+    assert.equal(carouselize('<section>', '<h2>t</h2>', { strategy }, 1.4, 'content'), null, strategy);
+  }
+});
