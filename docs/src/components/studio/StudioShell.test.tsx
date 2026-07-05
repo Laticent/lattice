@@ -265,7 +265,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		// Closed by default → no scope echo showing.
 		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
 		// The rail's "Deck" scope button opens the column in deck scope (loud echo).
-		await user.click(screen.getByRole('button', { name: 'Deck' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
 		// The inspector is settings-only now; the Running-marks group is a stable
 		// marker that the deck-scope body rendered.
@@ -274,13 +274,13 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(screen.getByRole('button', { name: 'Collapse settings' }));
 		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
 		// The rail's scope buttons remain (the switch is always present).
-		expect(screen.getByRole('button', { name: 'Deck' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toBeInTheDocument();
 	});
 
 	it('the Inspector "Inline validation" toggle has real teeth', async () => {
 		const user = setup();
 		// Deck-wide Authoring controls live in Deck scope — open it from the rail.
-		await user.click(screen.getByRole('button', { name: 'Deck' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		const sw = await screen.findByRole('switch', { name: 'Inline validation' });
 		expect(sw).toBeChecked();
 		await user.click(sw);
@@ -361,14 +361,16 @@ describe('StudioShell — responsive layout', () => {
 		expect(await screen.findByText('Board-ready')).toBeInTheDocument();
 	});
 
-	it('tablet: panels are sheets, both closed by default', async () => {
+	it('tablet: the inspector is a docked non-blocking column (not a dimming sheet)', async () => {
 		setViewport('tablet');
 		const user = setup();
-		// Both panes share the row; neither panel is docked open.
+		// Nothing docked open by default; the deck stays visible.
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
-		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
+		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
+		// Tablet keeps the desktop column (rail collapses to icons) — the deck-inspector
+		// toggle opens Deck scope in the column, no overlay that dims the deck.
 		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
-		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
+		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
 	});
 });
 
