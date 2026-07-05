@@ -1702,8 +1702,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								<aside className="flex min-h-0 flex-col border-l border-border bg-background">
 									{inspectorScope === 'deck' ? (
 										<>
-											{/* Scope echo — loud, blue = deck-wide. Impossible to misread. */}
-											<div className="border-b border-border bg-[var(--accent-soft)] px-3.5 py-2.5">
+											{/* Scope echo — loud, blue = deck-wide. Impossible to misread. aria-live so
+											    a screen-reader user hears the scope on switch/nav (not only sighted). */}
+											<div role="status" aria-live="polite" className="border-b border-border bg-[var(--accent-soft)] px-3.5 py-2.5">
 												<div className="flex items-center gap-2">
 													<SlidersHorizontal className="size-4 text-[var(--accent)]" />
 													<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
@@ -1717,7 +1718,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 									) : (
 										<>
 											{/* Scope echo — amber = this slide only (an override). Token-driven. */}
-											<div className="border-b border-border px-3.5 py-2.5" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+											<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
 												<div className="flex items-center gap-2">
 													<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
 													<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
