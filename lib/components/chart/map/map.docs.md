@@ -62,6 +62,25 @@ Swaps the default world map for the US-states basemap (d3.geoAlbersUsa, AK/HI in
 - Washington `9.6`
 ```
 
+### `world` — world
+
+The explicit spelling of the Basemap axis default — `map world` ⥣ `map us`. The bare `map` already renders the world-countries basemap; write `world` to return from `us` or to pin the basemap explicitly in a deck that mixes both.
+
+```markdown
+<!-- _class: map world -->
+
+## The same engine, pinned to the world basemap.
+
+- Germany `42.7`
+- Japan `35.1`
+- Canada `28.9`
+- Australia `21.4`
+- Chile `16.2`
+- Morocco `12.8`
+- Vietnam `10.5`
+- Iceland `7.3`
+```
+
 ### `highlight` — highlight
 
 Categorical mode — each named region takes its own --catN colour and unnamed regions stay neutral. For ‘which ones’, not ‘how much’. Works on either basemap.

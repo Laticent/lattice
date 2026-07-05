@@ -57,6 +57,19 @@ const GOOD = Object.freeze({
   skeleton: '<!-- _class: cards-grid -->\n\n## Heading.\n',
 });
 
+// Every declared variant needs a variantDocs entry (total coverage,
+// 2026-07-05 Specimen Book decision) — fixtures build them with this.
+function docsFor(...names) {
+  const docs = {};
+  for (const n of names) {
+    docs[n] = {
+      caption: `What ${n} changes and when to reach for it.`,
+      sample: `<!-- _class: cards-grid ${n} -->\n\n## Heading.\n`,
+    };
+  }
+  return docs;
+}
+
 describe('component-manifest', () => {
   describe('validate', () => {
     test('accepts a minimal well-formed manifest', () => {
@@ -68,11 +81,27 @@ describe('component-manifest', () => {
       assert.ok(validate({ ...GOOD, stressSample: '' }).some((e) => /stressSample/.test(e)));
     });
 
+    test('stressDoc: accepts { caption, sample }, rejects malformed and dual spellings', () => {
+      const sd = { caption: 'Seven items — the ceiling.', sample: '<!-- _class: x -->\n\n## …\n' };
+      assert.deepEqual(validate({ ...GOOD, stressDoc: sd }), []);
+      assert.ok(validate({ ...GOOD, stressDoc: { sample: sd.sample } }).some((e) => /stressDoc\.caption/.test(e)));
+      assert.ok(validate({ ...GOOD, stressDoc: { caption: sd.caption } }).some((e) => /stressDoc\.sample/.test(e)));
+      assert.ok(
+        validate({ ...GOOD, stressDoc: sd, stressSample: sd.sample }).some((e) => /not both/.test(e))
+      );
+    });
+
+    test('specimenVoice: accepts a boolean, rejects non-boolean', () => {
+      assert.deepEqual(validate({ ...GOOD, specimenVoice: true }), []);
+      assert.ok(validate({ ...GOOD, specimenVoice: 'yes' }).some((e) => /specimenVoice/.test(e)));
+    });
+
     test('accepts optional fields when present and well-formed', () => {
       const m = {
         ...GOOD,
         purpose: 'Use for parallel options.',
         variants: ['mirror', 'four', 'three'],
+        variantDocs: docsFor('mirror', 'four', 'three'),
         excludes: ['accent'],
         slots: {
           title: { selector: 'h2', required: true, description: 'Heading.' },
@@ -266,7 +295,17 @@ describe('component-manifest', () => {
     });
 
     test('accepts layout-specific variants', () => {
-      assert.deepEqual(validate({ ...GOOD, variants: ['mirror', 'four'] }), []);
+      assert.deepEqual(
+        validate({ ...GOOD, variants: ['mirror', 'four'], variantDocs: docsFor('mirror', 'four') }),
+        []
+      );
+    });
+
+    test('rejects a declared variant without a variantDocs entry (total coverage)', () => {
+      const errors = validate({ ...GOOD, variants: ['mirror', 'four'], variantDocs: docsFor('mirror') });
+      assert.equal(errors.length, 1);
+      assert.match(errors[0], /variants\[\] declares "four" but variantDocs has no "four" entry/);
+      assert.match(errors[0], /editorial\.md §Specimen voice/);
     });
 
     test('accepts well-formed excludes array', () => {
