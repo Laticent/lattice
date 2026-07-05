@@ -170,8 +170,14 @@ function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { val
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--muted-foreground,#888)' };
 
-export function SlideContext(props: SlideContextProps) {
-	const { open, onOpenChange, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinishNames = [], onMutate } = props;
+/** The body (controls only, no Sheet chrome) — hostable in a persistent column OR
+ *  inside a Sheet. `open` is kept only as an extra baseline-recapture trigger; the
+ *  baseline also recaptures on `slideNumber`, so a persistently-mounted body (open
+ *  held true) still resets correctly per slide. */
+export type SlideContextBodyProps = Omit<SlideContextProps, 'onOpenChange'>;
+
+export function SlideContextBody(props: SlideContextBodyProps) {
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinishNames = [], onMutate } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -359,17 +365,8 @@ export function SlideContext(props: SlideContextProps) {
 	const activeTab = tabValues.includes(tab) ? tab : (tabValues[0] ?? 'notes');
 
 	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[420px]">
-				<SheetHeader className="border-b border-border">
-					<SheetTitle className="flex items-center gap-2 text-[15px]">
-						<FileSliders className="size-4 text-[var(--accent)]" />Slide settings
-						<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">slide {slideNumber}</span>
-					</SheetTitle>
-					<SheetDescription className="sr-only">Adjust this slide's look, status, decoration, chrome, and speaker note. Changes write into the slide's markdown.</SheetDescription>
-				</SheetHeader>
-
-				<div className="flex-1 overflow-y-auto px-4">
+		<>
+			<div className="flex-1 overflow-y-auto px-4">
 					{/* Reset — revert every edit made this session back to the original slide. */}
 					<div className="flex items-center justify-between border-b border-border py-2">
 						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>
@@ -582,6 +579,24 @@ export function SlideContext(props: SlideContextProps) {
 					</div>
 					{inheritedGhost.length > 0 && <div className="mt-1 text-[10px] text-muted-foreground">Faded tokens are inherited from the deck.</div>}
 				</div>
+		</>
+	);
+}
+
+/** The Sheet-wrapped surface — used on compact/mobile breakpoints. On desktop the
+ *  same SlideContextBody is hosted directly in the Inspector column. */
+export function SlideContext(props: SlideContextProps) {
+	return (
+		<Sheet open={props.open} onOpenChange={props.onOpenChange}>
+			<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[420px]">
+				<SheetHeader className="border-b border-border">
+					<SheetTitle className="flex items-center gap-2 text-[15px]">
+						<FileSliders className="size-4 text-[var(--accent)]" />Slide settings
+						<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">slide {props.slideNumber}</span>
+					</SheetTitle>
+					<SheetDescription className="sr-only">Adjust this slide's look, status, decoration, chrome, and speaker note. Changes write into the slide's markdown.</SheetDescription>
+				</SheetHeader>
+				<SlideContextBody {...props} />
 			</SheetContent>
 		</Sheet>
 	);
