@@ -34,6 +34,20 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **The gallery content contract (Specimen Book, PR 1).** Component manifests
+  gain `stressDoc { caption, sample }` (target spelling for the stress-test
+  slide; `stressSample` deprecated) and `specimenVoice` (the migration
+  attestation flag). `validate()` now requires a `variantDocs` entry for
+  every declared variant — a variant without one was silently dropped from
+  the gallery (fixed for `map world`, whose slide now exists in the deck and
+  docs). `galleryPlan(m)` is the one exported walk order behind the gallery
+  PDFs and page-count contract, and `gallery-contract.test.js` enforces the
+  named `VOICE_DEBT`/`VOICE_EXEMPT` ledger (stale entries fail), the
+  default-≤-soft capacity gate, the sample-footer ban, and placeholder
+  rejection. Prose rules: `design/editorial.md` §Specimen voice.
+
 ### Changed
 
 - **`manifest.schema.json` is now the manifest contract's source of truth.**

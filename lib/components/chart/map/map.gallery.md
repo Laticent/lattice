@@ -51,6 +51,23 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 ---
 
+<!-- _class: map world -->
+<!-- _footer: "world · map world" -->
+
+## The same engine, pinned to the world basemap.
+
+- Germany `42.7`
+- Japan `35.1`
+- Canada `28.9`
+- Australia `21.4`
+- Chile `16.2`
+- Morocco `12.8`
+- Vietnam `10.5`
+- Iceland `7.3`
+
+
+---
+
 <!-- _class: map highlight -->
 <!-- _footer: "highlight · map highlight" -->
 

@@ -315,52 +315,118 @@ function renderCompositionSlide(m, modifier) {
   return injectFooter(composed, `Composition: ${modifier} · ${m.name} ${modifier}`);
 }
 
-function renderGallery(m) {
+/**
+ * Normalize the stress-test content to { caption, sample } regardless of
+ * which manifest spelling carries it. `stressDoc` ({ caption, sample }) is
+ * the target shape; the legacy `stressSample` string is accepted during
+ * the voice migration and reads as a caption-less stressDoc. Returns null
+ * when the manifest declares neither.
+ */
+function stressDocOf(m) {
+  if (m.stressDoc && typeof m.stressDoc === 'object') return m.stressDoc;
+  if (m.stressSample) return { caption: '', sample: m.stressSample };
+  return null;
+}
+
+/**
+ * The gallery deck as an ordered plan: one entry per slide, each with a
+ * stable `kind` key (title / default / variant:<v> / stress /
+ * composition:<mod> / anti-patterns / see-also), the caption that narrates
+ * it, and the slide markdown. Every consumer of the deck — the PDF
+ * renderer (renderGallery), the page-count contract
+ * (expectedGallerySlideCount), and the docs-site Explore surface — reads
+ * THIS plan, so the walk order cannot fork between them.
+ *
+ * Caption footers (the `— <caption>` suffix on variant/stress footers)
+ * are gated on `manifest.specimenVoice`: an unmigrated manifest renders
+ * today's short footers byte-for-byte, so each deck's rendered output
+ * changes exactly once, inside the migration PR whose visual review
+ * covers it.
+ */
+function galleryPlan(m) {
+  const specimen = m.specimenVoice === true;
   const slides = [];
   const variantKeys = Array.isArray(m.variants) && m.variantDocs
     ? m.variants.filter((v) => m.variantDocs[v])
     : [];
 
-  slides.push(`<!-- _class: title silent -->
+  slides.push({
+    kind: 'title',
+    caption: m.description || '',
+    md: `<!-- _class: title silent -->
 
 # ${m.name}
 
 \`${tc(m.function)} · ${tc(m.form)} · ${tc(m.substance)}\`
 
-${m.description}`);
+${m.description}`,
+  });
 
   if (m.sample) {
-    const sampleWithFooter = injectFooter(m.sample, `Default · ${m.name}`);
-    slides.push(sampleWithFooter);
+    slides.push({
+      kind: 'default',
+      caption: m.description || '',
+      md: injectFooter(m.sample, `Default · ${m.name}`),
+    });
   }
 
   for (const v of variantKeys) {
     const vd = m.variantDocs[v];
     const label = vd.label || v;
-    const sampleWithFooter = injectFooter(vd.sample, `${label} · ${m.name} ${v}`);
-    slides.push(sampleWithFooter);
+    const base = `${label} · ${m.name} ${v}`;
+    const footer = specimen && vd.caption ? `${base} — ${vd.caption}` : base;
+    slides.push({
+      kind: `variant:${v}`,
+      caption: vd.caption || '',
+      md: injectFooter(vd.sample, footer),
+    });
   }
 
   // Optional stress-test slide — an edge-case input (volume, range,
   // length) that exercises the engine past the tidy default sample.
-  if (m.stressSample) {
-    slides.push(injectFooter(m.stressSample, `Stress test · ${m.name}`));
+  const stress = stressDocOf(m);
+  if (stress) {
+    const base = `Stress test · ${m.name}`;
+    const footer = specimen && stress.caption ? `${base} — ${stress.caption}` : base;
+    slides.push({
+      kind: 'stress',
+      caption: stress.caption || '',
+      md: injectFooter(stress.sample, footer),
+    });
   }
 
   // Composition slides — one per universal modifier the component accepts.
   for (const mod of compositionModifiersFor(m)) {
     const slide = renderCompositionSlide(m, mod);
-    if (slide) slides.push(slide);
+    if (slide) {
+      slides.push({
+        kind: `composition:${mod}`,
+        caption: `Composition: ${mod} · ${m.name} ${mod}`,
+        md: slide,
+      });
+    }
   }
 
   if (Array.isArray(m.antiPatterns) && m.antiPatterns.length) {
-    slides.push(renderAntiPatternsSlide(m));
+    slides.push({
+      kind: 'anti-patterns',
+      caption: `When NOT to reach for ${m.name}.`,
+      md: renderAntiPatternsSlide(m),
+    });
   }
 
   if (Array.isArray(m.related) && m.related.length) {
-    slides.push(renderClosingSlide(m));
+    slides.push({
+      kind: 'see-also',
+      caption: 'Related components.',
+      md: renderClosingSlide(m),
+    });
   }
 
+  return slides;
+}
+
+function renderGallery(m) {
   const frontMatter = `---
 marp: true
 theme: indaco
@@ -368,6 +434,7 @@ paginate: true
 header: "Lattice · ${m.name}"
 ---`;
 
+  const slides = galleryPlan(m).map((s) => s.md);
   return `${frontMatter}\n\n${slides.join('\n\n---\n\n')}\n`;
 }
 
@@ -416,18 +483,7 @@ ${items}`;
  * manifest's declared variant count.
  */
 function expectedGallerySlideCount(m) {
-  const variantKeys = Array.isArray(m.variants) && m.variantDocs
-    ? m.variants.filter((v) => m.variantDocs[v]).length
-    : 0;
-  let n = 1; // title
-  if (m.sample) n += 1;
-  n += variantKeys;
-  if (m.stressSample) n += 1;
-  // Composition slides — emitted only if there's a sample to compose from.
-  if (m.sample) n += compositionModifiersFor(m).length;
-  if (Array.isArray(m.antiPatterns) && m.antiPatterns.length) n += 1;
-  if (Array.isArray(m.related) && m.related.length) n += 1;
-  return n;
+  return galleryPlan(m).length;
 }
 
 // Resolve the on-disk directory for a component. Tolerates three shapes
@@ -568,6 +624,9 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 module.exports = {
   renderDocs,
   renderGallery,
+  galleryPlan,
+  stressDocOf,
+  injectFooter,
   expectedGallerySlideCount,
   compositionModifiersFor,
   COMPOSITION_MODIFIERS,

@@ -408,7 +408,32 @@ var require_manifest_schema = __commonJS({
         stressSample: {
           type: "string",
           minLength: 1,
-          description: "Optional. Full slide markdown for an extra <name>.gallery.md slide that stress-tests the engine with an edge-case input (high volume, wide value range, long text) past the tidy default sample. Rendered after the variant slides; counted by expectedGallerySlideCount()."
+          description: "Optional. Full slide markdown for an extra <name>.gallery.md slide that stress-tests the engine with an edge-case input (high volume, wide value range, long text) past the tidy default sample. Rendered after the variant slides; counted by expectedGallerySlideCount(). DEPRECATED spelling: migrating to stressDoc { caption, sample } (2026-07-05 Specimen Book decision); accepted until the voice migration completes, then removed."
+        },
+        stressDoc: {
+          type: "object",
+          description: "Optional (required wherever capacity is declared, enforced by the gallery-contract debt ledger during the voice migration). The stress-test slide as { caption, sample }: caption is one sentence naming the limit the slide shows; sample is the full slide markdown at the upper content limit. Replaces the legacy stressSample string.",
+          required: [
+            "caption",
+            "sample"
+          ],
+          additionalProperties: false,
+          properties: {
+            caption: {
+              type: "string",
+              minLength: 1,
+              description: "One sentence naming the limit shown (surfaced as the caption footer and the Explore caption)."
+            },
+            sample: {
+              type: "string",
+              minLength: 1,
+              description: "Full slide markdown exercising the upper content limit (counted like stressSample by expectedGallerySlideCount())."
+            }
+          }
+        },
+        specimenVoice: {
+          type: "boolean",
+          description: "Machine-attestable voice flag (2026-07-05 Specimen Book decision). True asserts this manifest's samples passed their migration PR's visual-review fan-out and speak the specimen voice; set ONLY in that PR. Gates the caption footers in galleryPlan(). Absent means unmigrated."
         },
         variantDocs: {
           type: "object",

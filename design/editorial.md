@@ -141,3 +141,43 @@ The closing slide gets one sentence. The H2 carries the action. The
 body, if any, is a single italic line stating the next step or a
 calling-back of the deck's central claim. Resist the temptation to
 list bullet-point next steps; that's what a follow-up email is for.
+
+## Specimen voice — per-component gallery copy
+
+The generated per-component galleries speak the **specimen voice** (2026-07-05
+Specimen Book decision): each slide demonstrates the component *by describing
+it*, the way a type-specimen book shows a typeface by talking about itself.
+The six long-running curated decks keep their narrative fiction — they
+demonstrate real-deck usage, a different job. These rules bind `manifest.json`
+`sample` / `variantDocs` / `stressDoc` content:
+
+- **Elements demonstrate; captions teach.** Slide copy stays inside the
+  component's `density` budget and *shows* the layout; the one-sentence
+  didactic explanation lives in the caption channel (`variantDocs.caption`,
+  `stressDoc.caption` — surfaced as the caption footer and the Explore
+  caption). Never inflate element copy to teach — if the lesson doesn't fit
+  the caption sentence, it belongs in `<name>.docs.md`.
+- **The default sample's H2 states the component's job** as a complete
+  declarative sentence. A variant sample's copy names what the variant
+  changes. A stress sample's caption names the limit shown.
+- **Axis defaults document the axis, not a re-render.** When a variant is a
+  `variantAxes` entry's `default` (e.g. `map world`), its slide documents the
+  axis and the toggle — explicit spelling, when to write it — never a copy of
+  the Default slide.
+- **Silent slides narrate in their copy.** `title`/`closing` (and other
+  `silent` layouts) suppress footer chrome, so their caption footer never
+  renders; their sample copy must self-identify, and the Explore caption
+  carries the narration.
+- **Interim rule for unmigrated components:** a `variantDocs` entry added to a
+  component still carrying `voice` debt is short, honest, and budget-clean —
+  the migration PR revoices it. Placeholder-shaped content (TBD/TODO/lorem)
+  never passes the gallery-contract test.
+- **Density integrity (blocked pattern):** `density` values come from
+  `tools/calibrate-density.js` output only, calibration artifact committed
+  alongside. Raising `density` in the same PR that adds the prose it excuses
+  is barred — shorten the copy or move the component to `VOICE_EXEMPT` with a
+  reason.
+
+The mechanical gates live in `test/unit/components/gallery-contract.test.js`
+(the named `VOICE_DEBT` / `VOICE_EXEMPT` ledger) and `validate()` (total
+`variantDocs` coverage of `variants[]`).

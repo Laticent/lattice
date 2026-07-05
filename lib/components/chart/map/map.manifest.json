@@ -1,13 +1,25 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "map",
-  "adapt": { "mode": "reflow", "priority": ["title", "regions", "detail"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "regions",
+      "detail"
+    ]
+  },
   "dataCompletion": true,
   "function": "evidence",
   "form": "spatial",
   "substance": "series",
   "bucket": "chart",
-  "tags": ["metric", "proportion", "overview", "visual"],
+  "tags": [
+    "metric",
+    "proportion",
+    "overview",
+    "visual"
+  ],
   "description": "A world-countries (or US-states) basemap that fills regions by value (choropleth) or category (highlight) so the audience leaves knowing where.",
   "purpose": "Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical colour. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.",
   "slots": {
@@ -27,16 +39,42 @@
       "description": "Optional nested sublist under a region. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the region `<path>`(s) with `data-mark` (a group shares one index across all its regions) and emits the sublist as an inert `<template class=\"chart-detail\">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Region (value): item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A map with no sublists emits no note and is unchanged."
     }
   },
-  "variants": ["us", "world", "highlight", "robinson", "grouped"],
+  "variants": [
+    "us",
+    "world",
+    "highlight",
+    "robinson",
+    "grouped"
+  ],
   "variantAxes": [
-    { "label": "Basemap", "exclusive": true, "default": "world", "members": ["world", "us"] },
-    { "label": "Modifier", "members": ["highlight", "robinson", "grouped"] }
+    {
+      "label": "Basemap",
+      "exclusive": true,
+      "default": "world",
+      "members": [
+        "world",
+        "us"
+      ]
+    },
+    {
+      "label": "Modifier",
+      "members": [
+        "highlight",
+        "robinson",
+        "grouped"
+      ]
+    }
   ],
   "variantDocs": {
     "us": {
       "label": "us",
       "caption": "Swaps the default world map for the US-states basemap (d3.geoAlbersUsa, AK/HI insets) — `map us` (alias `map usa`). Same authoring and read modes; names resolve by full name, postal code, or abbreviation (`California` / `CA` / `Calif.`).",
       "sample": "<!-- _class: map us -->\n\n## Grant dollars by state — unevenly.\n\n- California `48.2`\n- Texas `36.4`\n- New York `31.0`\n- Florida `27.5`\n- Illinois `19.3`\n- Ohio `14.1`\n- Georgia `11.8`\n- Washington `9.6`\n"
+    },
+    "world": {
+      "label": "world",
+      "caption": "The explicit spelling of the Basemap axis default — `map world` ⥣ `map us`. The bare `map` already renders the world-countries basemap; write `world` to return from `us` or to pin the basemap explicitly in a deck that mixes both.",
+      "sample": "<!-- _class: map world -->\n\n## The same engine, pinned to the world basemap.\n\n- Germany `42.7`\n- Japan `35.1`\n- Canada `28.9`\n- Australia `21.4`\n- Chile `16.2`\n- Morocco `12.8`\n- Vietnam `10.5`\n- Iceland `7.3`\n"
     },
     "highlight": {
       "label": "highlight",
@@ -86,9 +124,21 @@
     }
   ],
   "related": [
-    { "name": "progress", "when": "the regions are really a ranking — labelled bars compare magnitudes faster than shades" },
-    { "name": "stats", "when": "a few headline figures with no geography to place them on" },
-    { "name": "piechart", "when": "regional shares of a single whole rather than a value per place" },
-    { "name": "image", "when": "the geography needs detail (counties, cities, routes) the basemap can't draw" }
+    {
+      "name": "progress",
+      "when": "the regions are really a ranking — labelled bars compare magnitudes faster than shades"
+    },
+    {
+      "name": "stats",
+      "when": "a few headline figures with no geography to place them on"
+    },
+    {
+      "name": "piechart",
+      "when": "regional shares of a single whole rather than a value per place"
+    },
+    {
+      "name": "image",
+      "when": "the geography needs detail (counties, cities, routes) the basemap can't draw"
+    }
   ]
 }
