@@ -56,6 +56,11 @@ Two standards are treated as **law**, not flavor:
 - **Rams — "Weniger, aber besser."** Good design is **unobtrusive** (the engine is invisible until
   it performs), **honest** (no knob that looks configurable but isn't), and **as little design as
   possible** (defaults so good most consumers configure nothing).
+- **Designed for humans, not machines.** A corollary that governs every customization field (§9):
+  **no setting may take a value the human eye can't use.** A cue the eye can't follow is a defect, so
+  pacing is a curated set of *followable* presets, never a free numeric a caller can set to `0.02` or
+  `40`. A dial where most of the range is useless is a dishonest dial — the tenet forbids it. This is
+  the same principle that justified cutting the callback cues and the fake determinism knob (§14).
 
 The ideation surfaced ~45 uses demanding branch, loop, conditional, await, cooperative hand-off,
 determinism, streaming, concurrency. The maximalist reading is "build a state-reactive graph engine."
@@ -243,31 +248,50 @@ interface AwaitUserOpts {
 
 ## 9. Customizable effects — the Rams seam (smaller after the trio)
 
-Zero config = the house look. Customization is **exactly** this, and nothing more:
+Zero config = the house look. Every field is **description, never a callback, and never a free
+numeric a caller could set to a useless value** (the human-not-machine tenet, §2). Customization is
+exactly this:
 
 ```ts
 interface EffectsTheme {
-  accent?: string;                 // brand hue; applied via setProperty('--accent', v) ONLY (I4)
-  cue?: { scale?: number; speed?: number };   // global size/pace multipliers
-  caption?: { className?: string };            // hand caption styling to the host's own CSS
-  cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>; // SILENCE a cue. That's it.
-  portalRoot?: HTMLElement;        // where the overlay mounts (default document.body)
-  zIndex?: number;                 // for hosts with their own high stacking context
+  accent?: string;                          // brand hue for pointer + cues + glow; setProperty('--accent') ONLY (I4)
+  speed?: 'slow' | 'moderate' | 'fast';     // curated, GUARANTEED-followable pacing (default 'moderate'). Not a number.
+  pointer?: 'arrow' | 'ring' | 'dot';       // curated cursor SHAPE (default 'arrow'); its color follows accent
+  caption?: { className?: string };         // hand caption styling to the host's own CSS
+  cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>; // SILENCE a cue
+  portalRoot?: HTMLElement;                 // where the overlay mounts (default document.body)
+  zIndex?: number;                          // for hosts with their own high stacking context
 }
 ```
 
-What the trio **cut** from the candidate, and why it's *more* Rams:
+**Pointer & glow ARE customizable — as shape + color, from curated choices:**
+- **Color** — the pointer, the cue rings, and the `circle` glow all tint from `accent`. One token
+  brands the whole theater. (Applied via `setProperty`, never concatenated into `cssText` — I4.)
+- **Pointer shape** — a small hand-designed set (`arrow` / `ring` / `dot`), each kept legible; you
+  pick one, you can't draw an illegible cursor. A truly bespoke brand cursor (a logo) stays a
+  documented future seam that would render a *sanitized* description into a `pointer-events:none`
+  node — never a v1 callback.
+- **Glow** — color via `accent`; presence via silencing `circle` (`cues: { circle: false }`). No free
+  radius/intensity dial — same human-not-machine reason as `speed`.
+
+**Pacing is `speed`, a curated preset — this is the headline of the human-not-machine tenet.** `slow`
+/ `moderate` / `fast` each map to hand-tuned internal timings that the eye can always follow; there is
+no value in the set that produces an un-watchable run, because there is no free "set."
+
+What the trio (and this refinement) **cut**, and why it's *more* Rams:
 - **No callback-valued cues, no `cursor` factory.** They received the live target element and could
   emit real input → break I1/I2 (§14/C2). A cue can be **silenced**; it cannot be **replaced by
-  arbitrary code with DOM access**. Bespoke visuals, if ever needed, will take a *description*
-  (tokens/SVG string the engine renders into a `pointer-events:none` node) — a future seam, not v1.
+  arbitrary code with DOM access**.
+- **No free numeric `speed`/`scale` multipliers.** A pacing dial whose useful band is a sliver is a
+  dishonest dial (§2). `speed` is a preset; cue *size* is automatic and relative to the target it
+  points at (a display-density preset returns only if a real need proves it — never a raw number).
 - **No `clock`/`random` determinism knob.** It governed none of the real timing (rAF / WAAPI /
-  `setTimeout`) — a dishonest "looks configurable but isn't" (§14/H3). The record-to-video consumer
-  is out of v1 (§11); its determinism seam will be added *with* it, done honestly (all time through
-  one injected clock), not shipped as a decoy now.
+  `setTimeout`) — a dishonest "looks configurable but isn't" (§14/H3). Added *with* the record
+  consumer (out of v1, §11), done honestly (all time through one injected clock), not a decoy now.
 
-Result: house look → pass nothing; brand → set `accent` (one line); tighten pacing → `cue.speed`;
-drop a cue you don't want → `cues: { intro: false }`. Every field optional and honest.
+Result: house look → pass nothing; brand → set `accent` (one line); slower/faster → `speed: 'slow'`;
+a different cursor → `pointer: 'ring'`; drop a cue → `cues: { intro: false }`. Every field optional,
+honest, and human-followable by construction.
 
 ---
 
@@ -395,6 +419,12 @@ The trio's net effect was to **subtract and harden** — exactly the Saint-Exup�
   completion toast are **gated on its success**; the theater may never confirm what substance didn't do.
 - **checker** — restored `seed` + per-step `cadence`; pinned null-target-no-op, `say('')`-clears,
   reduced-motion-shortens-default-only; `onStop` after `destroy`; per-target type diff; type-coupled `TypeOps`.
+
+**Refined (owner, post-trio):**
+- The **human-not-machine tenet** (§2): pacing became a curated `speed: 'slow'|'moderate'|'fast'`
+  preset instead of a free numeric, the `scale` multiplier was dropped (auto sizing), and pointer/glow
+  customization was pinned to **shape + color from curated choices** — no dial may take a value the eye
+  can't use.
 
 **Reshaped (adoption / longevity):**
 - **Munger D1/D3** — **lead with `storyboard`, escape-hatch the `Walkthrough`**; ship a **buildless,
