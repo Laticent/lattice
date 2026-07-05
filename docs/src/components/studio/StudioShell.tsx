@@ -1559,7 +1559,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    first-edit Inspector pulse always lands on a visible button. On phones
 				    they ride the pane bar below with Present + Share. */}
 				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>}
-				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
+				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
 				{!compact && <span className="h-5 w-px bg-border" />}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
@@ -1639,7 +1639,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
-						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
 					</div>
 					{mobilePane === 'edit' ? editorPane : previewPane}
 				</div>
