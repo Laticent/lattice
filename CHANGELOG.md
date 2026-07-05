@@ -27,6 +27,16 @@ in patch versions.
 
 ### Changed
 
+- **Complexity frontier, pass 3.** The remaining high-complexity functions
+  decomposed with the same verified playbook: the forms catalog validators
+  (`checkIntegrity`, `validateSlicing`), the deck scorecard (`scoreDeck` →
+  five per-category scorers), the Fit Ladder's `carouselize` (→ a
+  per-strategy table), and the component-docs generator. 64 functions ≥ 15
+  cyclomatic complexity (from 69 pre-refactor); worst engine function 27
+  (from 209). The change-coupling tool now excludes generated artifacts
+  (committed PDFs / `*.generated.js`) that drowned the signal on full git
+  history.
+
 - **Engine internals refactored for maintainability** (no rendered-output
   change — verified by the gallery pixel-regression gate). One canonical
   home for the depth-aware HTML list walkers (`lib/core/html-lists.js`)
