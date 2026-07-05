@@ -60,6 +60,14 @@ in patch versions.
   (committed PDFs / `*.generated.js`) that drowned the signal on full git
   history.
 
+- **Studio settings now live in the non-blocking right column** — per-slide
+  settings no longer open a modal drawer that dimmed the deck, so you can judge
+  a slide's finish while you tune it. Both deck-wide and per-slide settings
+  share the right panel, switched by a deterministic **Slide-first scope rail**,
+  with a loud blue (deck-wide) / amber (this-slide override) scope echo so it's
+  never ambiguous which you're editing. The editor, preview, and settings stay
+  locked to one active slide: the editor centers the active slide on navigation
+  and keeps your caret in place across a settings write.
 - **Engine internals refactored for maintainability** (no rendered-output
   change — verified by the gallery pixel-regression gate). One canonical
   home for the depth-aware HTML list walkers (`lib/core/html-lists.js`)
