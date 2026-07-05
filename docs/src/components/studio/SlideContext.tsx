@@ -1,13 +1,14 @@
-// The "This slide" drawer — context-sensitive per-slide editing beyond the speaker
-// note. Grows the old Notes sheet into a small, curated, provenance-aware editor for
-// a single slide's craft: its note, look (dark / type scale / finish), density,
-// status (state stamp / tone), decoration (tint / mark), and chrome.
+// The "This slide" settings body — context-sensitive per-slide editing beyond the
+// speaker note. Grows the old Notes sheet into a small, curated, provenance-aware editor
+// for a single slide's craft: its note, look (dark / type scale / finish), density,
+// status (state stamp / tone), decoration (tint / mark), and chrome. Hosted in the
+// Inspector's slide scope (a docked column on desktop/tablet, one Sheet on mobile).
 //
 // Every control is driven by the GENERATED vocabulary (lintVocab.universalGroups /
 // exclusiveAxes / finishNames + the catalog's per-component effectiveVariants), so it
 // can't drift from the engine; writes go through the span-surgical serializer
 // (slide-directives) and the tri-state provenance resolver (slide-provenance), so a
-// hand-edit and a drawer edit never fight and an inherited axis never lies. The drawer
+// hand-edit and a settings edit never fight and an inherited axis never lies. It
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
@@ -34,9 +35,10 @@ type LintVocab = {
 	toneStyles?: string[];
 } | null;
 
-export type SlideContextProps = {
+export type SlideContextBodyProps = {
+	/** Kept only as an extra baseline-recapture trigger; the baseline also recaptures on
+	 *  `slideNumber`, so a persistently-mounted body (open held true) still resets per slide. */
 	open: boolean;
-	onOpenChange: (o: boolean) => void;
 	/** The active slide's source chunk. */
 	chunk: string;
 	/** The full deck source — for deck-wide provenance (inherited class/finish/mode). */
@@ -169,12 +171,8 @@ function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { val
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--muted-foreground,#888)' };
 
-/** The body (controls only, no Sheet chrome) — hostable in a persistent column OR
- *  inside a Sheet. `open` is kept only as an extra baseline-recapture trigger; the
- *  baseline also recaptures on `slideNumber`, so a persistently-mounted body (open
- *  held true) still resets correctly per slide. */
-export type SlideContextBodyProps = Omit<SlideContextProps, 'onOpenChange'>;
-
+/** The body — controls only, no Sheet chrome — hostable in a persistent column
+ *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
 	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinishNames = [], onMutate } = props;
 	const vocab = lintVocab || {};
@@ -231,7 +229,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		}
 	};
 
-	// "Reset" baseline — the slide chunk as it was when the drawer opened on THIS
+	// "Reset" baseline — the slide chunk as it was when settings opened on THIS
 	// slide, so one click reverts every edit made this session (note + all class
 	// controls) to the original. Snapshot on open / slide change only, NOT on edit, so
 	// the baseline stays fixed while the author experiments. A restore replaces the
@@ -343,7 +341,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 
 	const cur = (members: readonly string[]): string | null => tokens.find((t) => members.includes(t)) ?? null;
 
-	// Dynamic pill-tabs — de-crowd the drawer WITHOUT hiding controls behind empty tabs:
+	// Dynamic pill-tabs — de-crowd the panel WITHOUT hiding controls behind empty tabs:
 	// each tab renders ONLY when it has content to show. Look is the general default;
 	// Status / Decoration appear only when the deck's vocabulary carries those markers;
 	// Chrome + Notes are always applicable. When the slide's `_class` isn't round-trippable
@@ -373,7 +371,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							type="button"
 							onClick={resetSlide}
 							disabled={!dirty}
-							title="Revert this slide to how it was when you opened the drawer"
+							title="Revert this slide to how it was when you opened settings"
 							className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent"
 						>
 							<RotateCcw className="size-3" />Reset slide

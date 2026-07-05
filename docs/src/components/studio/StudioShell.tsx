@@ -281,7 +281,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const editorRef = React.useRef<EditorHandle>(null);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
-	// Indirection so the demo can drive the slide-settings drawer's commit funnel —
+	// Indirection so the demo can drive the slide scope's commit funnel —
 	// `mutateActiveSlide` is defined lower down (it needs `activeFullIndex`), so the
 	// hook reads it through this ref, assigned once it exists.
 	const mutateSlideRef = React.useRef<(fn: (chunk: string) => string) => void>(() => {});
@@ -557,7 +557,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		// through the async value-prop sync; on a slow surface (real iPad Safari) that can
 		// lag the demo's first typeTail, which would then append the board deck AFTER the
 		// new deck's seeded template — duplicating slide 1's `_class` and collapsing its
-		// settings drawer to just Notes/Comments. A direct doc reset closes that race.
+		// settings panel to just Notes/Comments. A direct doc reset closes that race.
 		editorRef.current?.resetDoc('');
 		setActiveSlide(0);
 		setView('compose');
@@ -1244,7 +1244,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			{/* The deck's running marks — the header, footer, page number, and rail that
 			    repeat across slides. Header & footer are text you DECLARE (the whole point:
 			    you say what the band reads); page numbers & the rail are on/off. The group is
-			    named for its CONTENTS, not its scope — the drawer header already says these are
+			    named for its CONTENTS, not its scope — the scope echo already says these are
 			    deck-wide, so the title needn't restate it (that was the redundancy). A single
 			    slide hides any of them from its Slide settings. */}
 			<InspGroup icon={<Frame className="size-3.5" />} label="Running marks" desc="The header, footer, page number, and section rail.">
@@ -1291,11 +1291,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					))}
 				</div>
 			)}
-			{inspectorScope === 'deck' ? (
-				<>
-					{/* Scope echo — loud, blue = deck-wide. Impossible to misread. aria-live so
-					    a screen-reader user hears the scope on switch/nav (not only sighted). */}
-					<div role="status" aria-live="polite" className="border-b border-border bg-[var(--accent-soft)] px-3.5 py-2.5">
+			{/* Scope echo — ONE persistent live region: the node stays mounted across a
+			    deck↔slide switch and only its inner content/color swaps, so a screen reader
+			    reliably announces every scope change AND slide-nav change. (Two separate
+			    aria-live nodes — one per branch — would each be freshly INSERTED on a switch,
+			    which most screen readers don't announce.) */}
+			<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+				{inspectorScope === 'deck' ? (
+					<>
 						<div className="flex items-center gap-2">
 							<SlidersHorizontal className="size-4 text-[var(--accent)]" />
 							<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
@@ -1303,13 +1306,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><ChevronRight className="size-4" /></button>
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
-					</div>
-					<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
-				</>
-			) : (
-				<>
-					{/* Scope echo — amber = this slide only (an override). Token-driven. */}
-					<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
+					</>
+				) : (
+					<>
 						<div className="flex items-center gap-2">
 							<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
 							<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
@@ -1317,9 +1316,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><ChevronRight className="size-4" /></button>
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
-					</div>
-					<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateActiveSlide} />
-				</>
+					</>
+				)}
+			</div>
+			{inspectorScope === 'deck' ? (
+				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
+			) : (
+				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateActiveSlide} />
 			)}
 		</>
 	);
@@ -1614,7 +1617,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
 				    holds the genuinely-secondary controls — theme picker, Library, Workspace,
 				    and a Search/commands row (the touch path to the ⌘K palette). */}
-				{compact && <Button variant="ghost" size="icon-sm" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button>}
+				{compact && <Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button>}
 				{compact && (
 					<DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
 						<DropdownMenuTrigger asChild>
@@ -1801,7 +1804,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 									<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings2 className="size-4 text-[var(--accent)]" />Settings</SheetTitle>
 									<SheetDescription className="sr-only">Slide-first settings: switch between this slide's overrides and deck-wide defaults.</SheetDescription>
 								</SheetHeader>
-								<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{inspectorScopeContent}</div>
+								{/* No outer overflow: the scope body owns its own scroll region (like the
+							    desktop column), so the sheet never nests two scrollbars. */}
+							<div className="flex min-h-0 flex-1 flex-col">{inspectorScopeContent}</div>
 							</SheetContent>
 						</Sheet>
 					)}

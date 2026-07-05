@@ -49,6 +49,26 @@ test('the demo builds a board deck and completes — leaving "My First Deck" beh
 	await expect(page.locator(WATCH)).toBeVisible();
 });
 
+test('the demo drives the REAL settings panel — deck then slide scope, never a modal', async ({ page }) => {
+	// Regression guard: the walkthrough used to pop the old per-slide modal drawer
+	// (a dimming overlay) to demo settings. It must now drive the SAME non-blocking
+	// Inspector an author uses — the docked column (an <aside>), at the right scope.
+	await gotoStudio(page);
+	await page.locator(WATCH).click();
+	await expect(page.locator(STAGE)).toBeVisible();
+
+	// After the deck builds, the reskin beat opens the Inspector at DECK scope — in the
+	// docked column, not a dialog. (The blue echo names the scope.)
+	await expect.poll(() => railButtons(page).count(), { timeout: 70_000 }).toBe(6);
+	await expect(page.locator('aside').filter({ hasText: 'Editing the whole deck' })).toBeVisible({ timeout: 60_000 });
+
+	// The closing flourish switches the SAME panel to SLIDE scope (amber echo).
+	await expect(page.locator('aside').filter({ hasText: /Editing Slide \d+ only/ })).toBeVisible({ timeout: 90_000 });
+
+	// The retired modal never appears: no dialog titled "Slide settings" with a slide badge.
+	await expect(page.getByRole('dialog').filter({ hasText: 'Slide settings' })).toHaveCount(0);
+});
+
 test('re-running the demo never duplicates "My First Deck" (beforeSetup dedup)', async ({ page }) => {
 	await gotoStudio(page);
 

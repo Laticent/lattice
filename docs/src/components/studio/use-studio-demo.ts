@@ -35,7 +35,7 @@ export type StudioDemoBindings = {
 	setShareOpen: (open: boolean) => void;
 	/** Open/close the deck switcher dropdown (the "create a new deck" opener). */
 	setDeckMenuOpen: (open: boolean) => void;
-	/** The drawer's commit funnel — apply a pure transform to the active slide. */
+	/** The slide scope's commit funnel — apply a pure transform to the active slide. */
 	mutateSlide: (fn: (chunk: string) => string) => void;
 	fixAll: () => void;
 	setActiveSlide: (index: number) => void;
