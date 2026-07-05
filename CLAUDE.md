@@ -320,10 +320,13 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   — red team, Munger inversion, and an independent checker — applied to what
   will actually ship** (in a generate-then-pick flow, harden the *winner* after
   the human pick, never every candidate). Every fan-out is **estimated before
-  launch** (agent count + rough cost; above ~10 agents, my explicit OK first,
-  bundled into one question — *except* a named shape/workflow with a stated
-  cost or a fan-out CLAUDE.md already mandates without asking, e.g. the QUALITY
-  BAR's visual sweep, which carry that OK already), **budgeted** (token target + `budget.remaining()`
+  launch and counted session-cumulatively** (agent count + rough cost; above
+  ~10 agents *across the session*, not per-fan-out, my explicit OK first,
+  bundled into one question — the only exemptions are **pre-registered**: a
+  fan-out CLAUDE.md already mandates without asking, e.g. the QUALITY BAR's
+  visual sweep, or a named workflow with a committed hard cap; a shape-name
+  coined on the fly is not an exemption, and serial sub-10 fan-outs still
+  sum), **budgeted** (token target + `budget.remaining()`
   guards; refine loops cap at ~3 or stop when a round changes nothing), and
   **shaped** (iterate warm inside ONE agent session — a fresh context is bought
   only for fresh eyes; machine gates before agent judgment on bulk work; log
