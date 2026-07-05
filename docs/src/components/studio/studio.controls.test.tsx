@@ -301,7 +301,7 @@ describe('Studio — Fabricate + Present dock respond', () => {
 describe('Studio — Inspector controls respond', () => {
 	it('the Inspector theme dropdown applies the palette', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		// The Look group's grouped theme dropdown (Curated / AA / More) applies a pick.
 		await user.click(await screen.findByRole('button', { name: 'Choose theme' }));
 		await user.click(await screen.findByRole('menuitem', { name: /Cuoio/ }));
@@ -310,7 +310,7 @@ describe('Studio — Inspector controls respond', () => {
 
 	it('the Inspector theme dropdown surfaces the AA color-blind-safe palettes', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('button', { name: 'Choose theme' }));
 		// An a11y/CVD palette is selectable (it was missing before).
 		await user.click(await screen.findByRole('menuitem', { name: /Deuteranopia/ }));
@@ -362,7 +362,7 @@ describe('Studio — Inspector controls respond', () => {
 
 	it('the Page-numbers switch writes paginate front-matter to the source', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		// Off by default (no front-matter); turning it on writes `paginate: true`.
 		expect(sw).not.toBeChecked();
@@ -374,9 +374,38 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
 	});
 
+	it('a settings change raises a one-click Undo toast that reverts it', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
+		await user.click(sw);
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*true/);
+		// The change surfaces a one-click Undo, labeled by what changed.
+		const undo = await screen.findByRole('button', { name: 'Undo' });
+		expect(screen.getByText('Page numbers on')).toBeInTheDocument();
+		// One click reverts the source to before the change and dismisses the toast.
+		await user.click(undo);
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/));
+		expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+	});
+
+	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('switch', { name: 'Page numbers' }));
+		expect(await screen.findByRole('button', { name: 'Undo' })).toBeInTheDocument();
+		// Edit the source AFTER the settings change — the pending Undo must bow out so it
+		// can never revert (clobber) this edit. A whole-document restore would lose it.
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste('<!-- keep-me-marker -->\n\n');
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument());
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/keep-me-marker/);
+	});
+
 	it('the Header/Footer fields declare running text into the source (blank clears it)', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		// Header & footer are text DECLARATIONS, not toggles: typing text (committed
 		// on blur) writes the directive; clearing the field removes it again.
 		const header = await screen.findByRole('textbox', { name: 'Header' });
@@ -399,7 +428,7 @@ describe('Studio — Inspector controls respond', () => {
 
 	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		const sw = await screen.findByRole('switch', { name: 'Section rail' });
 		// Rail is ON by default (no class token) — so the switch reads checked.
 		expect(sw).toBeChecked();
@@ -414,7 +443,7 @@ describe('Studio — Inspector controls respond', () => {
 
 	it('the Size control writes a `size` directive to the source', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		// The Size control opens a menu of real @size tokens; picking one writes it.
 		await user.click(await screen.findByRole('button', { name: /Widescreen|16 : 9/ }));
 		await user.click(await screen.findByRole('menuitem', { name: /Square/ }));
@@ -423,7 +452,7 @@ describe('Studio — Inspector controls respond', () => {
 
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		// The Debug overlay control is a preset menu with every value; picking the
 		// verbose variant writes `debug: on-always verbose`.
 		await user.click(await screen.findByRole('button', { name: 'Debug overlay' }));

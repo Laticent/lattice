@@ -98,6 +98,15 @@ in patch versions.
   `.claude/workflows/design-competition.js`. From the 53-agent retro,
   `engineering/decisions/2026-07-05-orchestration-discipline.md`.
 
+- **Studio settings-panel polish: a collapsible scope rail and one-click Undo.**
+  The desktop scope rail now collapses from 72px (icon + caption) to 48px
+  (icons only) to reclaim width, and remembers your choice. Every settings
+  change in the panel — deck-wide or per-slide — raises a brief bottom-left
+  Undo toast (e.g. "Finish → Nimbus · Undo") that reverts it in one click, a
+  light complement to ⌘Z / Version history. The now-redundant desktop toolbar
+  "Deck inspector" toggle is gone — the rail owns scope there; tablet and
+  mobile keep a "Settings" opener (they have no rail), and the first-edit
+  discovery nudge moved onto the rail's Deck button.
 - **A README in every structural folder.** 29 folder READMEs (lib/ and
   each subdirectory, tools/, test/, spec/, assets/, design/, engineering/,
   examples/, exemplars/) written for a junior engineer: what the folder

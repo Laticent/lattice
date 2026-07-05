@@ -367,10 +367,36 @@ describe('StudioShell — responsive layout', () => {
 		// Nothing docked open by default; the deck stays visible.
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
 		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
-		// Tablet keeps the desktop column (rail collapses to icons) — the deck-inspector
-		// toggle opens Deck scope in the column, no overlay that dims the deck.
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		// Tablet keeps the docked column (in-panel segment, no rail) — the toolbar
+		// "Settings" toggle opens Deck scope in the column, no overlay that dims the deck.
+		await user.click(screen.getByRole('button', { name: 'Settings' }));
 		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
+	});
+});
+
+describe('StudioShell — desktop scope rail', () => {
+	it('the rail owns scope — no redundant toolbar toggle on desktop', async () => {
+		const user = setup(); // jsdom defaults to desktop
+		// The toolbar's old "Deck inspector" toggle is gone on desktop (the rail owns it).
+		expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
+		// The rail's Slide/Deck buttons open the panel at that scope.
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Slide scope' }));
+		expect(await screen.findByText(/Editing Slide \d+ only/)).toBeInTheDocument();
+	});
+
+	it('collapses from labels to icons and remembers the choice', async () => {
+		const user = setup();
+		// Expanded by default — the Deck button shows its caption.
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveTextContent('Deck');
+		// Collapse → the caption drops (icons only) and the choice persists.
+		await user.click(screen.getByRole('button', { name: 'Collapse rail to icons' }));
+		expect(screen.getByRole('button', { name: 'Deck scope' })).not.toHaveTextContent('Deck');
+		expect(localStorage.getItem('lattice-studio-rail-collapsed')).toBe('true');
+		// Expand again — captions return, flag flips back.
+		await user.click(screen.getByRole('button', { name: 'Show scope labels' }));
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveTextContent('Deck');
+		expect(localStorage.getItem('lattice-studio-rail-collapsed')).toBe('false');
 	});
 });
 
@@ -394,7 +420,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// The mode toggle stays a direct 1-tap button; the panel toggles stay primary.
 		expect(screen.getByRole('button', { name: 'Switch to dark mode' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Toggle Architect' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Toggle Deck inspector' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Present' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
 		// The genuinely-secondary controls leave the bar: the theme picker, Library,
@@ -431,7 +457,7 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(within(paneBar).getByRole('button', { name: 'Present' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Share' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Toggle Architect' })).toBeInTheDocument();
-		expect(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Settings' })).toBeInTheDocument();
 		// The icon toggle keeps its accessible names.
 		expect(within(paneBar).getByRole('button', { name: 'Preview' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Edit' })).toBeInTheDocument();
@@ -442,8 +468,8 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
 		// The pane toggles still work from the pane bar. On mobile the Inspector opens
 		// as a Sheet, but it hosts the SAME Slide-first scope switch + echo as the
-		// desktop/tablet column — opening from "Deck inspector" lands on deck scope.
-		await user.click(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' }));
+		// desktop/tablet column — opening from "Settings" lands on deck scope.
+		await user.click(within(paneBar).getByRole('button', { name: 'Settings' }));
 		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
 		// The Slide-first segment is present, so a user can flip to this-slide scope
 		// without leaving the sheet — the deterministic scope switch, one surface.
