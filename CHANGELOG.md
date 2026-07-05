@@ -87,6 +87,17 @@ in patch versions.
 
 ### Added
 
+- **HARD RULE #25 — multi-agent orchestration is tiered, budgeted, and
+  shaped.** Adversarial verification now scales with blast radius (self-review
+  → maker-checker → the mandatory red-team + Munger-inversion +
+  independent-checker trio for critical/high-blast-radius/novel work, applied
+  only to what ships), every fan-out is cost-estimated up front (>10 agents
+  needs an explicit OK), and iteration stays warm inside one agent session.
+  Canon in the new `engineering/orchestration.md`; the design-competition
+  shape is codified as the parameterized
+  `.claude/workflows/design-competition.js`. From the 53-agent retro,
+  `engineering/decisions/2026-07-05-orchestration-discipline.md`.
+
 - **A README in every structural folder.** 29 folder READMEs (lib/ and
   each subdirectory, tools/, test/, spec/, assets/, design/, engineering/,
   examples/, exemplars/) written for a junior engineer: what the folder

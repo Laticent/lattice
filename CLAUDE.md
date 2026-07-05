@@ -146,6 +146,13 @@ two (split inspection vs. assessment) only for the riskiest changes.** Skip it
 for trivial or low-risk edits — this earns its latency *and cost* only when a
 second set of eyes changes the merge decision. See `engineering/visual-review.md`.
 
+This is the **middle rung of the verification ladder** (HARD RULE #25):
+routine work self-reviews with the gates; blast radius gets maker-checker;
+**critical, high-blast-radius, or genuinely novel work escalates to the
+adversarial trio — red team + Munger inversion + independent checker —
+applied to what will actually ship.** Ladder, definitions, and fan-out cost
+rules: `engineering/orchestration.md`.
+
 ---
 
 ## HARD RULES (these override convenience; a violation is a defect)
@@ -306,6 +313,28 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   when the secret is unset), never per-PR. *(gated — `checkOpenRouterBudget` +
   `SANCTIONED_OPENROUTER_SPENDERS` / `SANCTIONED_OPENROUTER_WORKFLOWS` in `tools/check-ownership.js`,
   via `build:check`; `engineering/workflow.md` §OpenRouter budget.)*
+- **#25 — Multi-agent orchestration is tiered, budgeted, and shaped.**
+  Adversarial verification scales with blast radius: routine work self-reviews
+  with the gates; real blast radius gets MAKER-CHECKER (above); **critical,
+  high-blast-radius, or genuinely novel work MUST get the full adversarial trio
+  — red team, Munger inversion, and an independent checker — applied to what
+  will actually ship** (in a generate-then-pick flow, harden the *winner* after
+  the human pick, never every candidate). Every fan-out is **estimated before
+  launch and counted session-cumulatively** (agent count + rough cost; above
+  ~10 agents *across the session*, not per-fan-out, my explicit OK first,
+  bundled into one question — the only exemptions are **pre-registered**: a
+  fan-out CLAUDE.md already mandates without asking, e.g. the QUALITY BAR's
+  visual sweep, or a named workflow with a committed hard cap; a shape-name
+  coined on the fly is not an exemption, and serial sub-10 fan-outs still
+  sum), **budgeted** (token target + `budget.remaining()`
+  guards; refine loops cap at ~3 or stop when a round changes nothing), and
+  **shaped** (iterate warm inside ONE agent session — a fresh context is bought
+  only for fresh eyes; machine gates before agent judgment on bulk work; log
+  any dropped coverage). Start from a named shape — e.g. the parameterized
+  `design-competition` workflow — don't improvise at maximum scale.
+  *(discipline — no automated gate; ladder, shapes, and cost rules in
+  `engineering/orchestration.md`; born from
+  `engineering/decisions/2026-07-05-orchestration-discipline.md`.)*
 
 ---
 
@@ -337,6 +366,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Automated codebase quality assessment (coupling, boundaries, cycles, change coupling, complexity, duplication, dead code) | `engineering/quality-assessment.md` |
 | The 10/10 visual rubric | `engineering/decisions/2026-06-06-layout-audit/` |
 | A large visual sweep / parallel reviewer fan-out | `engineering/visual-review.md` |
+| Orchestrating agents — verification tiers, fan-out shapes, budgets (HARD RULE #25) | `engineering/orchestration.md` |
 | Release / publish | `RELEASE.md` |
 | The Drawing Board / Workbench (**FROZEN** — no feature work; the Studio succeeds them) | `engineering/decisions/2026-07-03-studio-succession.md` |
 | Durable investigation notes | `engineering/decisions/YYYY-MM-DD-topic.md` |
@@ -375,4 +405,6 @@ commits; auto-detects scope + pixel-diffs). Lint drafts with
 
 When asked to rethink something, write the design model first — name the axes,
 list candidate moves, recommend one, confirm in one `AskUserQuestion` round —
-before editing CSS or transforms. Bundle adjacent decisions.
+before editing CSS or transforms. Bundle adjacent decisions. When the ask
+warrants *competing* designs, start from the `design-competition` named
+workflow, not an improvised fan-out (`engineering/orchestration.md`).

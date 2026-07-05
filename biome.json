@@ -24,6 +24,7 @@
       "!**/*.min.js",
       "!mermaid-v11.min.js",
       "!examples/**/*.json",
+      "!.claude/workflows",
       "!.scratch",
       "!package-lock.json",
       "!**/*.pdf"

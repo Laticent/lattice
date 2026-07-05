@@ -7,7 +7,9 @@ components, a responsive pass over many pages — too much for one agent to revi
 carefully in sequence. Fan it out.
 
 This is MAKER-CHECKER (`CLAUDE.md`) applied to rendered pixels instead of a diff,
-and it is the proven pattern. The 2026-06-06 layout audit reviewed all 58
+and it is the proven pattern. (It's one of the named fan-out shapes — the
+general orchestration discipline, verification tiers, and cost rules live in
+`engineering/orchestration.md`, HARD RULE #25.) The 2026-06-06 layout audit reviewed all 58
 components this way (`engineering/decisions/2026-06-06-layout-audit/README.md`):
 11 maker agents, one per bucket (the two largest buckets each got their own),
 then 11 independent checkers that re-rendered and adversarially re-scored. The
