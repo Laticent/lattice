@@ -176,7 +176,7 @@ describe('Studio — Fabricate Theme Studio depth', () => {
 		// Back to Compose, open the Inspector — the saved theme is offered in the
 		// grouped theme dropdown under "Your themes"…
 		await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('button', { name: 'Choose theme' }));
 		// …and selecting it threads the saved theme into the live deck preview.
 		await user.click(await screen.findByRole('menuitem', { name: 'Ocean' }));
@@ -196,7 +196,7 @@ describe('Studio — Fabricate Theme Studio depth', () => {
 		await waitFor(() => expect(saveStudioTheme).toHaveBeenCalled());
 
 		await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		// Select it via the grouped dropdown, then delete it from the "Manage saved" list.
 		await user.click(await screen.findByRole('button', { name: 'Choose theme' }));
 		await user.click(await screen.findByRole('menuitem', { name: 'Ocean' }));

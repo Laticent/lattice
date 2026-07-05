@@ -87,7 +87,7 @@ async function clearLens(u: Ctx['user']) {
 
 const commands = [
 	fc.constant(cmd('toggle Architect', (u) => clickLabel(u, 'Toggle Architect'))),
-	fc.constant(cmd('toggle Inspector', (u) => clickLabel(u, 'Toggle Deck inspector'))),
+	fc.constant(cmd('toggle Inspector', (u) => clickLabel(u, 'Deck scope'))),
 	fc.constant(cmd('rail → first', (u) => railNth(u, 'first'))),
 	fc.constant(cmd('rail → last', (u) => railNth(u, 'last'))),
 	fc.constant(cmd('reshape → exec', (u) => reshape(u))),

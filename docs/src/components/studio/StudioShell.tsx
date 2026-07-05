@@ -153,6 +153,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		const first = loadDeckList()[0] ?? DECKS[0];
 		return loadSource(first.id) ?? deckSource(first);
 	});
+	// Always-current mirror of `source`, so a settings write can snapshot the exact
+	// pre-change text for one-click Undo without threading it through every setter.
+	const sourceRef = React.useRef(source);
+	sourceRef.current = source;
 	const [activeSlide, setActiveSlide] = React.useState(0); // 0-based; index into the VIEWED set
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
 	// First-run state. A newcomer (never engaged) gets a reduced-density shell —
@@ -171,6 +175,22 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Inspector scope — DETERMINISTIC (no context inference): Slide-first, most-frequent.
 	// The rail is the scope switch; the column hosts the active scope's body.
 	const [inspectorScope, setInspectorScope] = React.useState<'slide' | 'deck'>('slide');
+	// The desktop scope rail can collapse from 72px (icon + caption) to 48px (icons
+	// only) to reclaim width; the choice is per-user and sticky across sessions.
+	const [railCollapsed, setRailCollapsed] = React.useState(() => {
+		try {
+			return localStorage.getItem('lattice-studio-rail-collapsed') === 'true';
+		} catch {
+			return false;
+		}
+	});
+	React.useEffect(() => {
+		try {
+			localStorage.setItem('lattice-studio-rail-collapsed', String(railCollapsed));
+		} catch {
+			/* private mode / storage disabled — the rail just won't remember. */
+		}
+	}, [railCollapsed]);
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	// One-time welcome banner — shown only to a newcomer; dismiss graduates them.
 	const [welcomeOpen, setWelcomeOpen] = React.useState(() => !onboarded);
@@ -200,6 +220,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints((loadDeckList()[0] ?? DECKS[0]).id));
 	const [toast, setToast] = React.useState<string | null>(null);
 	const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	// One-click Undo for the LAST panel settings change — a light complement to ⌘Z /
+	// Version history. Each change captures the pre-change source; Undo restores it.
+	const [undo, setUndo] = React.useState<{ label: string; prev: string } | null>(null);
+	const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [palette, setPalette] = React.useState(() => {
 		try {
 			return localStorage.getItem('lattice-studio-palette') || 'indaco';
@@ -285,6 +309,30 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// `mutateActiveSlide` is defined lower down (it needs `activeFullIndex`), so the
 	// hook reads it through this ref, assigned once it exists.
 	const mutateSlideRef = React.useRef<(fn: (chunk: string) => string) => void>(() => {});
+
+	// ── Settings-write funnel with one-click Undo ────────────────────────────
+	// Every panel settings write routes through this: it snapshots the pre-change
+	// source, applies the (pure) update to the FRESHEST source, and raises a brief
+	// Undo toast. Palette / light-dark are runtime toggles that reverse instantly on
+	// their own, so they don't route here. `undoTimer` auto-dismisses the toast.
+	const showUndo = React.useCallback((label: string, prev: string) => {
+		setUndo({ label, prev });
+		if (undoTimer.current) clearTimeout(undoTimer.current);
+		undoTimer.current = setTimeout(() => setUndo(null), 5000);
+	}, []);
+	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
+		const prev = sourceRef.current;
+		if (updater(prev) === prev) return; // no-op (e.g. re-picking the current value) → no toast
+		setSource((s) => updater(s)); // functional: composes with any pending editor flush
+		showUndo(label, prev);
+	}, [showUndo]);
+	// Plain closure (not memoized) so it reads the CURRENT `undo` each render.
+	const applyUndo = () => {
+		if (!undo) return;
+		setSource(undo.prev);
+		setUndo(null);
+		if (undoTimer.current) clearTimeout(undoTimer.current);
+	};
 
 	const bp = useBreakpoint();
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
@@ -389,16 +437,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// The deck author OVERRIDES any baked layer — backdrop strength/clearance included —
 	// through the single `finish-override:` front-matter map, which deep-merges into the
 	// finish's recipe and regenerates its CSS (see `finishExtraCss`).
-	const setFinish = (value: string) => setSource((s) => setFrontMatter(s, 'finish', value === 'none' ? null : value));
+	const setFinish = (value: string) => settingsWrite(`Finish → ${value}`, (s) => setFrontMatter(s, 'finish', value === 'none' ? null : value));
 	// The `mode:` axis (rendering mode — boardroom / sketch), a sibling of finish.
 	// (The key can't be `style:` — that's Marp's built-in inline-CSS directive.)
 	// Named `renderMode` locally to avoid clashing with the light/dark `mode` below.
 	const renderMode = getFrontMatter(source, 'mode') || 'boardroom';
-	const setRenderMode = (value: string) => setSource((s) => setFrontMatter(s, 'mode', value === 'boardroom' ? null : value));
+	const setRenderMode = (value: string) => settingsWrite(`Mode → ${value}`, (s) => setFrontMatter(s, 'mode', value === 'boardroom' ? null : value));
 	// The white-label brand bar (`spectrum:` register). `on` is the rainbow default, so it
 	// writes no key; off / solid write the register.
 	const spectrum = getFrontMatter(source, 'spectrum') || 'on';
-	const setSpectrum = (value: string) => setSource((s) => setFrontMatter(s, 'spectrum', value === 'on' ? null : value));
+	const setSpectrum = (value: string) => settingsWrite(`Brand bar → ${value}`, (s) => setFrontMatter(s, 'spectrum', value === 'on' ? null : value));
 	// The layout DEBUG overlay — a real deck setting (`debug:` front matter), so it
 	// rides in previewFm to the render and is stripped from every export. Off is the
 	// default; the reveal modes are on-hover / on-always, each with an optional
@@ -505,15 +553,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		// inert to the engine and we just merge the class that does the work.
 		return frontMatterBlock(mergeClassTokens(source, finishClass));
 	}, [fm, source, finishClass]);
-	const setDeckSize = (value: string) => setSource((s) => setFrontMatter(s, 'size', value));
-	const togglePageNumbers = () => setSource((s) => setFrontMatter(s, 'paginate', pageNumbers ? null : 'true'));
+	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => setFrontMatter(s, 'size', value));
+	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => setFrontMatter(s, 'paginate', pageNumbers ? null : 'true'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
 	// band turns off — no separate toggle, the presence of text IS the switch.
-	const setHeaderText = (v: string) => setSource((s) => setFrontMatter(s, 'header', v.trim() || null));
-	const setFooterText = (v: string) => setSource((s) => setFrontMatter(s, 'footer', v.trim() || null));
+	const setHeaderText = (v: string) => settingsWrite('Header', (s) => setFrontMatter(s, 'header', v.trim() || null));
+	const setFooterText = (v: string) => settingsWrite('Footer', (s) => setFrontMatter(s, 'footer', v.trim() || null));
 	// Rail ON → clear `no-progress`; rail OFF → stamp it (deck-wide, non-destructive
 	// to any other author classes).
-	const toggleDeckRail = () => setSource((s) => (deckRail ? mergeClassTokens(s, 'no-progress') : removeClassTokens(s, 'no-progress')));
+	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => (deckRail ? mergeClassTokens(s, 'no-progress') : removeClassTokens(s, 'no-progress')));
 
 	function loadDeck(d: StudioDeck) {
 		// Flush the current deck's edits before leaving it (the debounce may not
@@ -705,7 +753,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		if (toastTimer.current) clearTimeout(toastTimer.current);
 		toastTimer.current = setTimeout(() => setToast(null), 2600);
 	}, []);
-	React.useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+	React.useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); if (undoTimer.current) clearTimeout(undoTimer.current); }, []);
 
 	// ── Self-driving demo walkthrough ───────────────────────────────────────
 	// A guided "watch it drive itself" tour: a fake cursor + captions play a
@@ -1077,6 +1125,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		});
 	}, [activeFullIndex]);
 	mutateSlideRef.current = mutateActiveSlide;
+	// The panel's slide-scope writes route through the Undo funnel (a user tuning a
+	// slide); the demo keeps the plain `mutateActiveSlide` so it never spawns toasts.
+	const mutateSlideFromPanel = React.useCallback((fn: (chunk: string) => string) => {
+		settingsWrite('This slide', (s) => {
+			const chunk = splitSlides(stripFrontMatter(s))[activeFullIndex];
+			return chunk == null ? s : replaceSlide(s, activeFullIndex, fn(chunk)).source;
+		});
+	}, [settingsWrite, activeFullIndex]);
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
@@ -1322,7 +1378,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
 			) : (
-				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateActiveSlide} />
+				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateSlideFromPanel} />
 			)}
 		</>
 	);
@@ -1611,7 +1667,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    first-edit Inspector pulse always lands on a visible button. On phones
 				    they ride the pane bar below with Present + Share. */}
 				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>}
-				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
+				{/* Settings opener — TABLET only. Desktop owns scope on the always-visible rail
+				    (the toggle moved there); mobile has its own opener on the pane bar below. */}
+				{bp === 'tablet' && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Settings" title="Settings — deck &amp; slide, in the side panel" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
 				{!compact && <span className="h-5 w-px bg-border" />}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
@@ -1653,7 +1711,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-[var(--accent-soft)] px-3.5 py-2 text-[13px] text-[var(--text-heading)]">
 					<Sparkles className="hidden size-4 shrink-0 text-[var(--accent)] sm:block" />
 					<p className="min-w-0 flex-1 leading-snug">
-						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away in the toolbar.
+						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away.
 					</p>
 					{!mobile && !demoActive && <button type="button" onClick={startDemo} className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90"><MonitorPlay className="size-3.5" />Watch demo</button>}
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
@@ -1691,7 +1749,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
-						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Toggle Deck inspector" title="Deck inspector — look, chrome, running marks" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Settings" title="Settings — deck &amp; slide" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
 					</div>
 					{mobilePane === 'edit' ? editorPane : previewPane}
 				</div>
@@ -1726,13 +1784,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						// only present when open, so its column is omitted when closed (a fixed
 						// '0px' track here would push the editor into it and collapse it).
 						// This branch renders for desktop AND tablet (mobile has its own pane).
-						// Architect column is desktop-only; the Inspector column + scope rail ride
-						// both (rail 48px on tablet, 72px on desktop).
+						// Architect column + scope rail are desktop-only; the Inspector column
+						// rides both. The rail is 72px (icon + caption) or 48px when collapsed.
 						gridTemplateColumns: [
 							...(bp === 'desktop' && architectOpen ? ['232px'] : []),
 							...splitTracks(split.collapsed),
 							...(inspectorOpen ? ['296px'] : []),
-							...(railVisible ? ['72px'] : []),
+							...(railVisible ? [railCollapsed ? '48px' : '72px'] : []),
 						].join(' '),
 					}}
 					{...split.containerProps}
@@ -1767,14 +1825,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								{([{ key: 'slide', label: 'Slide', Icon: FileSliders }, { key: 'deck', label: 'Deck', Icon: SlidersHorizontal }] as const).map(({ key, label, Icon }) => {
 									const active = inspectorOpen && inspectorScope === key;
 									return (
-										<button key={key} type="button" aria-pressed={active} onClick={() => { setInspectorScope(key); setInspectorOpen(true); }} title={key === 'slide' ? 'Slide settings — this slide only' : 'Deck settings — the whole deck'} aria-label={key === 'slide' ? 'Slide scope' : 'Deck scope'} className={cn('flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-semibold transition-colors', active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]')}>
-											<Icon className="size-[18px]" />{label}
+										<button key={key} type="button" aria-pressed={active} onClick={() => { setInspectorScope(key); setInspectorOpen(true); setInspectorPulse(false); }} title={key === 'slide' ? 'Slide settings — this slide only' : 'Deck settings — the whole deck'} aria-label={key === 'slide' ? 'Slide scope' : 'Deck scope'} className={cn('flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-semibold transition-colors', active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]', key === 'deck' && inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}>
+											<Icon className="size-[18px]" />{!railCollapsed && label}
 										</button>
 									);
 								})}
 								<span className="flex-1" />
 								{inspectorOpen && <button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings panel" title="Collapse" className="grid place-items-center rounded-lg py-1.5 text-muted-foreground hover:text-[var(--accent)]"><ChevronRight className="size-4" /></button>}
-								<span className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>Scope</span>
+								{/* Width toggle — 72px labels ⇄ 48px icons, sticky per user. */}
+									<button type="button" aria-pressed={railCollapsed} onClick={() => setRailCollapsed((v) => !v)} aria-label={railCollapsed ? 'Show scope labels' : 'Collapse rail to icons'} title={railCollapsed ? 'Show labels' : 'Collapse to icons'} className="grid place-items-center rounded-lg py-1.5 text-muted-foreground hover:text-[var(--accent)]">{railCollapsed ? <ArrowLeftToLine className="size-4" /> : <ArrowRightToLine className="size-4" />}</button>
+									{!railCollapsed && <span className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>Scope</span>}
 							</aside>
 							)}
 						</>
@@ -1884,6 +1944,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			{toast && (
 				<div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-[200] flex justify-center px-4">
 					<div className="max-w-[min(92vw,440px)] rounded-full border border-border bg-[var(--surface-inverse)] px-4 py-2 text-center text-[13px] font-medium text-white shadow-[0_8px_24px_rgba(10,22,40,.22)]">{toast}</div>
+				</div>
+			)}
+			{/* Undo toast — the LAST panel settings change, one click to revert. Bottom-LEFT,
+			    off the right-hand panel + controls, so it never covers what you just changed. */}
+			{undo && (
+				<div role="status" aria-live="polite" className="fixed bottom-6 left-6 z-[200] flex items-center gap-3 rounded-full border border-border bg-[var(--surface-inverse)] px-4 py-2 text-[13px] font-medium text-white shadow-[0_8px_24px_rgba(10,22,40,.22)]">
+					<span>{undo.label}</span>
+					<button type="button" onClick={applyUndo} className="rounded-full bg-white/15 px-2.5 py-0.5 text-[12px] font-semibold text-white transition-colors hover:bg-white/25">Undo</button>
 				</div>
 			)}
 		</div>
