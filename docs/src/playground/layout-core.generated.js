@@ -26,36 +26,670 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// lib/components/manifest.schema.json
+var require_manifest_schema = __commonJS({
+  "lib/components/manifest.schema.json"(exports, module) {
+    module.exports = {
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      $id: "https://lattice.slidewright.dev/manifest.schema.json",
+      title: "Lattice component manifest",
+      description: "Spec + prose source-of-truth for a Lattice layout. The engine reads name/function/form/substance/skeleton/slots/variants. The build-component-docs.js generator reads the prose fields (description, purpose, whenToUse, antiPatterns, related, variantDocs) to emit <name>.docs.md and <name>.gallery.md. See design/design-system.md.",
+      type: "object",
+      required: [
+        "name",
+        "function",
+        "form",
+        "substance",
+        "tags",
+        "description",
+        "skeleton"
+      ],
+      additionalProperties: false,
+      properties: {
+        $schema: {
+          type: "string"
+        },
+        name: {
+          type: "string",
+          pattern: "^[a-z][a-z0-9-]*$",
+          description: "The `_class` directive value (kebab-case)."
+        },
+        function: {
+          enum: [
+            "anchor",
+            "statement",
+            "inventory",
+            "comparison",
+            "progression",
+            "evidence",
+            "imagery"
+          ],
+          description: "Audience-function family the component belongs to (what the viewer leaves knowing). One of the seven taxonomies in design/design-system.md \xA73."
+        },
+        bucket: {
+          enum: [
+            "anchor",
+            "statement",
+            "inventory",
+            "comparison",
+            "progression",
+            "evidence",
+            "imagery",
+            "chart",
+            "diagram",
+            "math",
+            "code",
+            "legal",
+            "connect"
+          ],
+          description: "Disk-layout bucket the component lives in under lib/components/<bucket>/<name>/. Defaults to the value of `function` when absent. Four substance-defined buckets (`chart` for data visualizations, `diagram` for topological visuals, `math` for typeset equations, `code` for syntax-highlighted source) and one domain-defined bucket (`legal` for legal-family components) override the function value when colocation aids maintenance \u2014 each substance bucket describes a category of rendered content, not the library that happens to render it today. See design/design-system.md \xA79."
+        },
+        galleryAuthored: {
+          type: "boolean",
+          description: "When true, the build-component-docs.js generator skips writing <name>.gallery.md (the file is hand-authored). Use this for components where variation lives in slide CONTENT, not in modifier classes \u2014 e.g. `diagram` (every Mermaid diagram type is the same _class) or future `code`/`math` if their galleries need a richer showcase than the manifest's variantDocs can express. <name>.docs.md is still generated from the manifest. The integration test continues to assert light/dark page-count parity for the PDFs but no longer derives the expected count from the manifest formula."
+        },
+        form: {
+          enum: [
+            "bookend",
+            "divider",
+            "canvas",
+            "grid",
+            "stack",
+            "ledger",
+            "panel",
+            "matrix",
+            "scatter",
+            "spatial",
+            "timeline",
+            "split"
+          ]
+        },
+        substance: {
+          enum: [
+            "prose",
+            "structure",
+            "series",
+            "graph",
+            "mixed"
+          ]
+        },
+        orientation: {
+          description: 'The canvas orientations this component is DESIGNED for \u2014 a bidirectional support contract. `["landscape","portrait"]` = both (most layouts: native scaling or explicit reflow); `["landscape"]` = landscape-only (e.g. redline\'s side-by-side diff); `["portrait"]` = portrait/social-only (built for the vertical feed). lint:deck warns when a deck\'s @size orientation is NOT in this list \u2014 in either direction. Default (omitted) = both. How a \'both\' layout adapts to portrait (native vs reflow) is recorded in the audit notes, not here. See engineering/decisions/2026-06-16-orientation-in-the-form-model.md.',
+          type: "array",
+          minItems: 1,
+          uniqueItems: true,
+          items: {
+            enum: [
+              "landscape",
+              "portrait"
+            ]
+          }
+        },
+        adapt: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "mode"
+          ],
+          description: "Adaptivity declaration (engineering/decisions/2026-06-20-adaptive-manifest-contract.md). `mode` is the REQUIRED, deterministic statement of how the layout handles non-landscape boxes; every component declares one. `families` and the rest are the box-local reflow CONTRACT \u2014 the honest support list + declared layout INTENT the authored per-family CSS honors (the data a future resolver would consume without re-authoring). The CSS is hand-written (#2 'authored per family'); this block does NOT generate layout. NOTE: distinct from the top-level `families` field, which names opt-in modifier groups (e.g. state-markers).",
+          properties: {
+            mode: {
+              enum: [
+                "reflow",
+                "native",
+                "single-orientation"
+              ],
+              description: "How the component adapts to the box/orientation it occupies. `reflow` = ships DISTINCT per-family structural layouts (via `@container lattice (aspect-ratio \u2026)` CSS, a `*.transform.js` that branches geometry on orientation, or the mermaid reorient) \u2014 the box is restructured, not just scaled. `native` = adapts by the universal cqi scaling + orientation-aware type alone, no structural change needed (most prose/figure layouts). `single-orientation` = deliberately ONE orientation (its `orientation` field has one entry), e.g. redline's side-by-side diff. A CI gate (tools/check-ownership.js checkAdaptDeclarations) cross-checks the declaration against reality: any component whose CSS carries `@container \u2026 aspect-ratio` MUST be `reflow`, so the declaration can never silently drift from the code.",
+              type: "string"
+            },
+            families: {
+              description: "The box-FAMILIES this component ships authored layouts for \u2014 the finer, box-local successor to `orientation`. A component reflows box-locally via `@container lattice (aspect-ratio \u2026)`, so it adapts to the box it OCCUPIES (a portrait deck, OR a narrow nested cell), not just the deck. Four families by container aspect: `wide` (>1.05) \xB7 `square` (0.9\u20131.05) \xB7 `tall` (0.5\u20130.9) \xB7 `strip` (<0.5). Omitted = derived from `orientation` (landscape\u2192[wide,square], portrait\u2192[tall,strip]) so unmigrated components stay honest. Render-backed: set it only once the authored layouts are verified.",
+              type: "array",
+              minItems: 1,
+              uniqueItems: true,
+              items: {
+                enum: [
+                  "wide",
+                  "square",
+                  "tall",
+                  "strip"
+                ]
+              }
+            },
+            priority: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1
+              },
+              description: "Slots / content roles in importance order, highest first \u2014 what leads and what sheds first when the box can't hold everything. Slot names SHOULD be keys of `slots`; sub-part role names are free-form (documented in the component's docs)."
+            },
+            droppable: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1
+              },
+              description: "Sub-parts the layout may SHED in the narrowest (strip) family \u2014 tightest last. Each is a role the authored strip CSS hides (e.g. kpi `status-pills`). Declares intent; the CSS makes it true."
+            },
+            keepTogether: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1
+              },
+              description: "Pairs/groups that must never split across a reflow (e.g. a number and its label)."
+            },
+            capacity: {
+              type: "object",
+              description: "Per-family content capacity \u2014 the box-aware generalization of the top-level `capacity`. `axis` names the collection (a focusAxes member); each family key carries soft/hard (and optional min/sweet) element counts for THAT box, plus optional escalateTo. A Strip honestly holds fewer than a Wide.",
+              properties: {
+                axis: {
+                  enum: [
+                    "item",
+                    "row",
+                    "col",
+                    "cell",
+                    "line"
+                  ]
+                }
+              },
+              patternProperties: {
+                "^(wide|square|tall|strip)$": {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    min: {
+                      type: "integer",
+                      minimum: 1
+                    },
+                    sweet: {
+                      type: "integer",
+                      minimum: 1
+                    },
+                    soft: {
+                      type: "integer",
+                      minimum: 1
+                    },
+                    hard: {
+                      type: "integer",
+                      minimum: 1
+                    },
+                    escalateTo: {
+                      type: "array",
+                      items: {
+                        type: "string",
+                        minLength: 1
+                      },
+                      minItems: 1
+                    }
+                  }
+                }
+              },
+              additionalProperties: false
+            }
+          }
+        },
+        tags: {
+          type: "array",
+          minItems: 3,
+          maxItems: 5,
+          uniqueItems: true,
+          items: {
+            type: "string",
+            pattern: "^[a-z][a-z0-9-]*$"
+          },
+          description: "3-5 search tags from the controlled vocabulary (TAG_GROUPS in lib/components/index.js). The searcher's layer \u2014 complementary to Function/Form/Substance, never a restatement of the component's own name/function/form/substance/bucket. Feeds the docs-portal filter and the generated reference. The vocabulary-membership, complementary, and cross-component clustering rules are enforced by validate() and tools/check-ownership.js. See design/design-system.md \xA77 (Discovery)."
+        },
+        description: {
+          type: "string",
+          minLength: 1,
+          description: "One-sentence human description."
+        },
+        purpose: {
+          type: "string",
+          minLength: 1,
+          description: "Optional: 2-3 sentence rationale for when to reach for this component."
+        },
+        variants: {
+          type: "array",
+          items: {
+            type: "string",
+            pattern: "^[a-z][a-z0-9-]*$"
+          },
+          description: "Layout-specific modifier names. MUST NOT include universal or semi-universal variants \u2014 those are added automatically by effectiveVariants()."
+        },
+        excludes: {
+          type: "array",
+          items: {
+            type: "string"
+          },
+          description: "Semi-universal variants this layout opts out of (must be a subset of compact / loose / accent)."
+        },
+        variantAxes: {
+          type: "array",
+          description: "Optional. Groups this layout's variants into orthogonal axes for docs / gallery / variant-chip presentation (e.g. a 'Basemap' axis us/world vs a 'Modifier' axis highlight/robinson/grouped). Members MUST be a subset of variants[]. Purely presentational \u2014 the engine routes tokens independently regardless of this grouping.",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "label",
+              "members"
+            ],
+            properties: {
+              label: {
+                type: "string",
+                minLength: 1
+              },
+              exclusive: {
+                type: "boolean",
+                description: "True when the members are mutually exclusive \u2014 pick exactly one (e.g. the basemap us/world)."
+              },
+              default: {
+                type: "string",
+                description: "The member that applies when no token in this axis is named (meaningful for exclusive axes)."
+              },
+              members: {
+                type: "array",
+                items: {
+                  type: "string",
+                  pattern: "^[a-z][a-z0-9-]*$"
+                },
+                minItems: 1
+              }
+            }
+          }
+        },
+        slots: {
+          type: "object",
+          additionalProperties: {
+            type: "object",
+            required: [
+              "selector",
+              "description"
+            ],
+            properties: {
+              selector: {
+                type: "string",
+                minLength: 1
+              },
+              required: {
+                type: "boolean"
+              },
+              description: {
+                type: "string",
+                minLength: 1
+              }
+            }
+          }
+        },
+        skeleton: {
+          type: "string",
+          minLength: 1,
+          description: "Markdown emitted by the scaffolder. Must include the `_class` directive."
+        },
+        docs: {
+          type: "string",
+          description: "Deprecated: deep link into a reference doc. Superseded by the generated <name>.docs.md sibling."
+        },
+        example: {
+          type: "string",
+          description: "Deprecated: relative path to a snippet file. Superseded by <name>.gallery.md."
+        },
+        whenToUse: {
+          type: "array",
+          description: "Bulleted authoring guidance. Each entry has a short title + body sentence. Renders as the 'When to use' section of <name>.docs.md and as the opening prose slide of <name>.gallery.md.",
+          items: {
+            type: "object",
+            required: [
+              "title",
+              "body"
+            ],
+            additionalProperties: false,
+            properties: {
+              title: {
+                type: "string",
+                minLength: 1
+              },
+              body: {
+                type: "string",
+                minLength: 1
+              }
+            }
+          }
+        },
+        antiPatterns: {
+          type: "array",
+          description: "'Don't' callouts. Same {title, body} shape as whenToUse so the cards-grid meta-slide in the gallery renders consistent bold-title cards. Renders as the 'When NOT to use' section of <name>.docs.md and the anti-patterns slide of <name>.gallery.md.",
+          items: {
+            type: "object",
+            required: [
+              "title",
+              "body"
+            ],
+            additionalProperties: false,
+            properties: {
+              title: {
+                type: "string",
+                minLength: 1
+              },
+              body: {
+                type: "string",
+                minLength: 1
+              }
+            }
+          }
+        },
+        related: {
+          type: "array",
+          description: "See-also pointers to other components.",
+          items: {
+            type: "object",
+            required: [
+              "name",
+              "when"
+            ],
+            additionalProperties: false,
+            properties: {
+              name: {
+                type: "string"
+              },
+              when: {
+                type: "string"
+              }
+            }
+          }
+        },
+        sample: {
+          type: "string",
+          minLength: 1,
+          description: "Full slide markdown (including the `_class` directive line, with no modifier) for the default-appearance slide of <name>.gallery.md. The skeleton field is the placeholder template for the scaffolder; sample is real prose that demonstrates the component."
+        },
+        stressSample: {
+          type: "string",
+          minLength: 1,
+          description: "Optional. Full slide markdown for an extra <name>.gallery.md slide that stress-tests the engine with an edge-case input (high volume, wide value range, long text) past the tidy default sample. Rendered after the variant slides; counted by expectedGallerySlideCount()."
+        },
+        variantDocs: {
+          type: "object",
+          description: "Per-variant prose used by the generator. Keys MUST be a subset of variants[]; the validator enforces this.",
+          additionalProperties: {
+            type: "object",
+            required: [
+              "caption",
+              "sample"
+            ],
+            additionalProperties: false,
+            properties: {
+              label: {
+                type: "string",
+                minLength: 1
+              },
+              caption: {
+                type: "string",
+                minLength: 1,
+                description: "One-sentence summary of what the variant does."
+              },
+              sample: {
+                type: "string",
+                minLength: 1,
+                description: "Full slide markdown (including the `_class` directive line) demonstrating this variant in context."
+              }
+            }
+          }
+        },
+        anatomyBlock: {
+          type: "string",
+          pattern: "^[a-zA-Z][a-zA-Z0-9-]*$",
+          description: 'ID into the canonical ASCII catalog at tools/ascii-preview.py (e.g. "T7-card-grid-2x2" or "divider-bookend"). The generator resolves this against `python3 tools/ascii-preview.py build` so geometry stays uniform across all components and the canonical block can never drift.'
+        },
+        showcase: {
+          type: "object",
+          additionalProperties: false,
+          description: "Opt-in metadata for the docs LANDING page (docs/src/pages/index.astro) and its showcase image pipeline (docs/scripts/rasterize-showcase.mjs). Independent of the component portal, which already lists every component automatically. Flagging a component here pulls it into the curated landing highlight reel on the next build (run `npm run showcase` once to rasterize its image).",
+          properties: {
+            featured: {
+              type: "boolean",
+              description: "Include this component as a tile in the landing 'every kind of slide' showcase strip."
+            },
+            hero: {
+              type: "boolean",
+              description: "Use this component as the landing hero \u2014 its `sample` is shown as the headline source and rendered as the hero slide. Exactly one component should set this."
+            },
+            page: {
+              type: "integer",
+              minimum: 1,
+              description: "1-based gallery-PDF page to rasterize for the showcase image. Defaults to 2, the manifest `sample` slide."
+            }
+          }
+        },
+        focusAxes: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "item",
+              "row",
+              "col",
+              "cell",
+              "line"
+            ]
+          },
+          description: "Optional. Focusable axes this layout supports for per-axis `_focus` highlighting \u2014 a subset of the focus resolver's SUPPORTED_AXES (lib/transformers/focus.js): a `<table>` body \u2192 row/col/cell, a top-level list/grid \u2192 item, a code block \u2192 line. Scopes the editor's `_focus:` / `_focusSteps:` axis completion per layout."
+        },
+        transform: {
+          type: "array",
+          description: "Optional declarative structural-transform rules \u2014 the component transform DSL (engineering/decisions/2026-06-29-component-transform-dsl.md). An ordered list of `match \u2192 do` rules the engine interprets identically across render paths; NO user JS. The AUTHORITATIVE safety gate is validateTransform() in lib/core/transform-dsl/schema.js (closed element/attribute allowlists, closed selector sub-grammar, known-op/known-capability sets, prototype-pollution defense), run by the manifest loader at load time \u2014 this schema only marks the field shape. PROTOTYPE: not yet wired into the render pipeline (\xA712).",
+          items: {
+            type: "object",
+            properties: {
+              name: {
+                type: "string"
+              },
+              match: {
+                type: "object"
+              },
+              do: {
+                type: "array",
+                items: {
+                  type: "object"
+                }
+              }
+            },
+            required: [
+              "do"
+            ]
+          }
+        },
+        capacity: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "axis",
+            "soft",
+            "hard"
+          ],
+          description: "Optional content-capacity contract: how many elements the layout holds along the axis it is built on, so the author/agent picks by content SHAPE and the linter can warn before an overflow. `soft`/`hard` are element counts on `axis` (a focusAxes member): past `soft` the layout begins to crowd (soft warning); past `hard` it overflows / loses legibility (overflow warning). Advisory only \u2014 never blocks. Counted approximately at authoring time (lib/authoring/lint-core.js `countPrimaryCollection`) and exactly at render time (lib/core/collections.js). See engineering/decisions/2026-06-17-content-capacity-contract.md.",
+          properties: {
+            axis: {
+              enum: [
+                "item",
+                "row",
+                "col",
+                "cell",
+                "line"
+              ],
+              description: "The collection that drives crowding \u2014 MUST be a focusAxes member when focusAxes is declared. `item` = top-level list/grid entries, `row`/`col`/`cell` = table, `line` = code lines."
+            },
+            min: {
+              type: "integer",
+              minimum: 1,
+              description: "Below this the layout looks starved (advisory; not warned)."
+            },
+            sweet: {
+              type: "integer",
+              minimum: 1,
+              description: "The ideal count surfaced to the author/agent."
+            },
+            soft: {
+              type: "integer",
+              minimum: 1,
+              description: "Past this the layout begins to crowd \u2192 soft warning."
+            },
+            hard: {
+              type: "integer",
+              minimum: 1,
+              description: "Past this the layout overflows / loses legibility \u2192 overflow warning."
+            },
+            escalateTo: {
+              type: "array",
+              minItems: 1,
+              items: {
+                type: "string",
+                minLength: 1
+              },
+              description: "Actionable fix the warning prints \u2014 sibling component names and/or 'split across slides'. UNIVERSAL RULE: 'split across slides' (autosplit / the Fit Ladder's SPLIT move) operates ONLY at a portrait/square @size \u2014 portrait, story, mobile, square. In a wide/landscape box, collapse + shed resolve overflow before split is reached, so the engine skips autosplit there (lattice-emulator.js) and lint:deck warns on `autosplit: on` + a landscape @size (rule autosplit-landscape-noop). The orientation boundary is lib/authoring/lint-core.js PORTRAIT_SIZES; see engineering/decisions/2026-06-22-the-fit-spine.md \xA73 + 2026-06-23-read-across-carousel.md."
+            },
+            note: {
+              type: "string",
+              minLength: 1,
+              description: "One-line human consequence of overflowing (reused in the generated docs line)."
+            }
+          }
+        },
+        density: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "soft",
+            "hard"
+          ],
+          description: "Optional prose-density budget (phase 2 of the content-capacity contract) \u2014 how many WORDS each element along `axis` gets before the slide loses brevity, so the author/agent writes tight and the reviewer can flag verbosity. Where `capacity` budgets the element COUNT, `density` budgets the words-per-element. `soft` is the editorial target surfaced to the author (a label + short clause, not a sentence); `hard` is the evidence-clamped overflow ceiling (set just below where rendering actually overflows \u2014 see tools/calibrate-density.js). Advisory only \u2014 surfaces as a review SUGGESTION (lib/authoring/review-core.js), never a lint warning, so the stress galleries stay free. See engineering/decisions/2026-06-30-prose-density-budget.md.",
+          properties: {
+            axis: {
+              enum: [
+                "item",
+                "row",
+                "col",
+                "cell",
+                "line"
+              ],
+              description: "The collection whose ELEMENTS carry the budgeted prose. Defaults to `capacity.axis` when omitted. Unlike capacity, NOT tied to focusAxes \u2014 focusAxes governs _focus highlighting (a ledger may highlight as table rows) while density counts the markdown the author writes (a ledger authored as a bullet list is the `item` axis; glossary is the canonical case). The only axis guard is measurability in the sample. Per-element word counting is currently implemented for `item` and `row` only; validate() rejects the others (col/cell/line) so a block can't validate yet silently never fire."
+            },
+            soft: {
+              type: "integer",
+              minimum: 1,
+              description: "Words per element \u2014 the editorial target surfaced to the author/agent. Past this the element begins to crowd \u2192 soft suggestion."
+            },
+            hard: {
+              type: "integer",
+              minimum: 1,
+              description: "Words per element \u2014 the EDITORIAL maximum: past this the element reads as a wall of text. This is NOT the physical overflow point (the Fit Spine owns that, far higher) \u2014 it is clamped to stay safely UNDER the measured geometric ceiling (tools/calibrate-density.js), so the suggestion never claims a break that won't happen. Always \u2265 soft; the gap between soft and hard is the editorial 'reads well' \u2192 'reads heavy' band."
+            },
+            note: {
+              type: "string",
+              minLength: 1,
+              description: "One-line human consequence of over-writing the element (reused in the generated Density docs line and the suggestion message)."
+            }
+          }
+        },
+        families: {
+          type: "array",
+          uniqueItems: true,
+          items: {
+            enum: [
+              "state-markers"
+            ]
+          },
+          description: "Opt-in modifier-family groups this component joins (only the per-layout families \u2014 bucket-scoped families apply automatically from the bucket, so declaring them here is rejected). The enum is the source of truth for the opt-in set; lib/components/index.js OPT_IN_FAMILY_NAMES must match (sync-gated by test/unit/components/schema-source-of-truth.test.js)."
+        },
+        dataCompletion: {
+          type: "boolean",
+          description: "When true, the layout renders author-supplied data to completion (no sampling/truncation) \u2014 read by the docs portal and authoring guidance."
+        },
+        split: {
+          type: "object",
+          required: [
+            "strategy"
+          ],
+          additionalProperties: false,
+          description: "The Fit Ladder carousel recipe: when a slide of this layout OVERFLOWS (deck-level `autosplit: on`), lib/core/auto-split.js hands the section to lib/core/carousel.js carouselize() with this recipe, re-authoring the read-across as a cover \u2192 windowed sequence. The strategy enum is the source of truth; CAROUSEL_STRATEGIES in lib/core/carousel.js must carry exactly these keys (sync-gated). Historically this field was undocumented and unvalidated \u2014 a typo'd strategy silently fell through (or, worse, hit an Object.prototype member).",
+          properties: {
+            strategy: {
+              enum: [
+                "feature-cover",
+                "cover-rows",
+                "cover-sides",
+                "cover-decision",
+                "cover-code",
+                "redline-blocks",
+                "kanban-lanes",
+                "cover-cards",
+                "cover-paginate"
+              ],
+              description: "Which carouselize() splitter re-authors the overflowing section. See lib/core/carousel.js for what each strategy parses and emits."
+            },
+            axis: {
+              enum: [
+                "item",
+                "row",
+                "col",
+                "cell",
+                "line"
+              ],
+              description: "The collection axis the paginating strategies window over (overrides capacity.axis for the re-authored split body)."
+            },
+            perPage: {
+              type: "integer",
+              minimum: 1,
+              description: "How many members each windowed page holds (strategies that window: cover-rows, cover-decision, cover-paginate)."
+            },
+            intro: {
+              type: "string",
+              minLength: 1,
+              description: `The cover's kicker line introducing the windowed sequence (e.g. "The reasoning").`
+            },
+            family: {
+              type: "string",
+              minLength: 1,
+              description: "Free-form label grouping recipes in docs/notes (not read by carouselize)."
+            },
+            roles: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1
+              },
+              description: 'The page roles the strategy emits, for docs (e.g. ["cover", "points"]); not read by carouselize.'
+            },
+            note: {
+              type: "string",
+              minLength: 1,
+              description: "Maintainer note: why this recipe, its preconditions, and the decision doc that introduced it."
+            }
+          }
+        }
+      }
+    };
+  }
+});
+
 // lib/layout/gate.js
 var require_gate = __commonJS({
   "lib/layout/gate.js"(exports, module) {
-    var FUNCTIONS2 = Object.freeze([
-      "anchor",
-      "statement",
-      "inventory",
-      "comparison",
-      "progression",
-      "evidence",
-      "imagery"
-    ]);
-    var BUCKETS2 = Object.freeze([...FUNCTIONS2, "chart", "diagram", "math", "code", "legal"]);
-    var FORMS2 = Object.freeze([
-      "bookend",
-      "divider",
-      "canvas",
-      "grid",
-      "stack",
-      "ledger",
-      "panel",
-      "matrix",
-      "scatter",
-      "spatial",
-      "timeline",
-      "split"
-    ]);
-    var SUBSTANCES2 = Object.freeze(["prose", "structure", "series", "graph", "mixed"]);
+    var MANIFEST_SCHEMA = require_manifest_schema();
+    (function deepFreeze(o) {
+      if (o && typeof o === "object" && !Object.isFrozen(o)) {
+        Object.freeze(o);
+        for (const v of Object.values(o)) deepFreeze(v);
+      }
+    })(MANIFEST_SCHEMA);
+    var FUNCTIONS2 = Object.freeze(MANIFEST_SCHEMA.properties.function.enum);
+    var BUCKETS2 = Object.freeze(MANIFEST_SCHEMA.properties.bucket.enum);
+    var FORMS2 = Object.freeze(MANIFEST_SCHEMA.properties.form.enum);
+    var SUBSTANCES2 = Object.freeze(MANIFEST_SCHEMA.properties.substance.enum);
     var CSS_ONLY_SUBSTANCES2 = Object.freeze(["prose", "structure"]);
-    var NAME_RE2 = /^[a-z][a-z0-9-]*$/;
+    var NAME_RE2 = new RegExp(MANIFEST_SCHEMA.properties.name.pattern);
     var HEX_RE = /#[0-9a-fA-F]{3,8}\b/g;
     var CSS_EXFIL_RULES = Object.freeze([
       { rule: "css-import", re: /@import\b/gi, message: "@import fetches a remote stylesheet \u2014 not allowed (it can beacon out or load attacker CSS)." },
@@ -634,7 +1268,7 @@ var require_bridge = __commonJS({
 var require_ai = __commonJS({
   "lib/layout/ai.js"(exports, module) {
     var { NAME_RE: NAME_RE2, FUNCTIONS: FUNCTIONS2, BUCKETS: BUCKETS2, FORMS: FORMS2, CSS_ONLY_SUBSTANCES: CSS_ONLY_SUBSTANCES2, findUnscopedSelectors: findUnscopedSelectors2 } = require_gate();
-    var ADAPT_MODES = ["native", "reflow", "single-orientation"];
+    var ADAPT_MODES = require_manifest_schema().properties.adapt.properties.mode.enum;
     var DENSITY_AXES = ["item", "row"];
     var MAX_CSS_BYTES = 24 * 1024;
     var COMPONENT_CANON2 = 'HOW A LATTICE COMPONENT IS BUILT (so your draft feels native, not generic CSS):\n\n\u2022 FORM VOCABULARY. A slide is a Frame divided into Cells; the content Cell hosts a Tile \u2014 your component. The Frame auto-supplies the chrome: the masthead band lifts the eyebrow + the `h2` title; the footer supplies running text, section progress, and the page number. NEVER re-implement chrome (no title bar, no page number, no progress rail). Your CSS targets ONLY the body, which lives under `section.<name> > .cell-stage` \u2014 a flex column.\n\n\u2022 ROOT. Always `section.<name> > .cell-stage { display:flex; flex-direction:column; }` plus `flex:1; min-height:0` on the list so rows distribute into the bounded stage (the stage clips + measures overflow \u2014 without `min-height:0` a dense deck overruns and clips).\n\n\u2022 CARDS ARE LIST ITEMS, never `<div>`s. Author markdown is `- Label` (one line) with an optional nested `  - body`. The list is `ul/ol > li` with `list-style:none; padding:0; margin:0`; the lead text AUTO-BOLDS via CSS \u2014 the author writes `- Signal custody`, NEVER `- **Signal custody.** body`. The body is a nested list that spans a full-width row below the header (`flex:0 0 100%`).\n\n\u2022 AUTHOR WITH THE MARKDOWN STRUCTURE THAT FITS THE DATA \u2014 and it MUST be valid markdown. Your choices, all transform-free (no custom code, just CSS over the native DOM the markdown produces):\n   \u2013 LIST (`ul/ol > li`) \u2014 a SET of items (cards, rosters, checklists, glossaries).\n   \u2013 TABLE (a GFM markdown table: a header row, a `| --- | --- |` divider, then rows) \u2014 a GRID of values that reads ACROSS columns (features \xD7 plans, duties \xD7 parties). It renders to a native `<table>`; style `section.<name> table`, `section.<name> thead th`, `section.<name> td` with tokens + `border-bottom:1px solid var(--border)` (NEVER margin, `border-collapse:collapse`). When the data is a matrix, USE A TABLE \u2014 do not fake it with a list or a grid of divs.\n   \u2013 PROSE paragraph \u2014 a statement / callout. FENCED CODE (```lang) \u2014 a code sample (the engine highlights it; do not restyle the tokens). MATH (`$$\u2026$$`) \u2014 the engine renders it. Pick lists vs tables vs prose by the shape of the content.\n\n\u2022 STATE MARKERS ARE A UNIVERSAL GRAMMAR \u2014 use them when a ROW carries done/partial/pending status; never re-invent status. A leading bracket marker on a list item OR a table cell is AUTO-CHROME the engine decodes into a colour-blind-safe status disc (a shape + a state token): `[x]` = done/pass, `[-]` = partial/qualified, `[ ]` = todo/pending (neutral; "not met" only in a verdict grid), `[/]` = out of scope/waived. Author `- [x] Item` (or `| Clause | [x] | [ ] |`); do NOT style the `.state` disc yourself (it is universal), and do NOT fake status with a raw emoji, a colored hex, or a bare bullet. Reach for markers on a readiness checklist, a coverage/obligation matrix, or a criteria verdict \u2014 NOT on a plain inventory list (a status PILL fits a one-word label; a MARKER fits a true status axis).\n\n\u2022 THE SLIDE GRAMMAR \u2014 ORDER IS LOAD-BEARING. The chrome slots are AUTO-DETECTED by POSITION, so a block in the wrong place is read as a different slot (or breaks). Emit the skeleton in THIS order:\n   1. EYEBROW \u2014 an inline-code-ONLY paragraph (a line that is just `` `Label` ``) placed IMMEDIATELY ABOVE the `##` heading.\n   2. TITLE \u2014 the `## heading` (the Frame lifts it into the masthead; never style it).\n   3. SUBTITLE \u2014 a plain (or `_italic_`) paragraph IMMEDIATELY AFTER the heading.\n   4. CONTENT \u2014 your list / table / prose (the body you actually style).\n   5. KEY-INSIGHT \u2014 a TRAILING `> blockquote` at the very end \u2192 the accent takeaway bar (auto-chrome; do not draw it).\n   6. BELOW-NOTE \u2014 a final short paragraph led by an em-dash (`\u2014 \u2026`), or a trailing `_italic_` annotation paragraph.\nINLINE CODE means different things BY POSITION: a `code`-only paragraph above the heading is the EYEBROW; a TRAILING `code` on a list row is a PILL (a one/two-word status chip); `code` elsewhere is a label/citation chip. Same token, different slot \u2014 the position decides.\n\n\u2022 THE SKELETON IS PURE MARKDOWN \u2014 NO RAW HTML TAGS. The engine builds every structure from the markdown DOM, so you NEVER need a tag. Do not emit `<div>`, `<span>`, `<br>`, `<table>` (write a GFM pipe table instead), and ABSOLUTELY never `<script>`/`<style>`/`<iframe>` (an XSS/style-override vector \u2014 the gate rejects ANY raw tag). To SHOW code, use inline `` `code` `` or a ```fence (there the `<tag>` is escaped text, not live HTML). The ONE allowed HTML is the `<!-- \u2026 -->` comment \u2014 the `<!-- _class: <name> -->` directive, and any other `<!-- presenter / reader note -->` you want to leave; comments are kept.\n\n\u2022 ZERO non-reset `margin`. A bare `margin:0` reset is the ONLY margin allowed; all real spacing is `gap` (between flex/grid children) or `padding` (inside a box), sized with `--sp-*`. Right-anchor a pill with `justify-content:space-between` or a `flex:1` spacer \u2014 NEVER `margin-left:auto` or `margin:auto`. (margin is invisible to the height math the stage depends on.) The #1 recurring trap is a CUSTOM `::before` MARKER (a `content:"\u2022"`/dot/icon bullet): space it from the text with `padding-right`, or make the row `display:flex; gap:\u2026` \u2014 NEVER `margin-right` on the pseudo. (Spacing columns/cards is the same rule: `gap` on the grid/flex CONTAINER, never a `margin` on the child.) BEFORE you return, scan your own CSS: if any `margin` appears that is not `margin:0` \u2014 including on a `::before`/`::after` \u2014 it is a bug; rewrite it as `gap`/`padding`.\n\n\u2022 COMPOSE ONLY FROM TOKENS \u2014 never invent a value. Color: `--bg`, `--bg-alt`, `--border`, `--text-heading`, `--text-body`, `--text-secondary`, `--text-muted`; accent `--accent`, `--accent-soft`, `--on-accent`, `--on-accent-soft`; state `--pass`, `--warn`, `--fail`; categorical `--cat-1-mark \u2026 --cat-12-mark`. ZERO hex. Type is the 12-token `--fs-*` ROLE system \u2014 pick by role, never a raw px/cqi/rem: `--fs-meta` (11pt chrome) \xB7 `--fs-body-compact` (13pt dense cells) \xB7 `--fs-body` (16pt default) \xB7 `--fs-message` (21pt statement) \xB7 `--fs-emphasis` (30pt lead); headings `--fs-h1 \u2026 --fs-h6` (`--fs-h2` 28pt = standard title); `--fs-hero` (86pt, the one monumental number). Spacing `--sp-3xs \u2026 --sp-2xl`; geometry in `cqi`/`cqh`; radius `--radius-sm/-md`; pills inherit the `--pill-*` family.\n\n\u2022 PREFER FLEX \u2014 reach for `grid` only with a proven reason. `display:flex` is the DEFAULT layout primitive for a component body: a single row/column (`flex-direction`), a wrapping multi-column deck (the "matrix" idiom), an evenly-split comparison (`flex:1` per side) \u2014 flex handles them all, and it reflows for portrait with a one-line `flex-direction:column` / `width:100%`. MULTI-COLUMN is the flex matrix: `display:flex; flex-wrap:wrap; gap:var(--sp-md)` on the list + `box-sizing:border-box; width:calc(50% - var(--sp-md)/2)` on the cards (NEVER a flex-`basis` calc \u2014 proven unreliable). An EVEN split is even simpler: `display:flex; gap` on the list, `flex:1 1 0; min-width:0` on each child. Reach for `display:grid` ONLY when the layout genuinely needs TWO-dimensional alignment that flex cannot give \u2014 cells that must line up across BOTH rows AND columns simultaneously (a real matrix). But a true matrix is almost always tabular DATA, which belongs in a `<table>` (see the table guidance) \u2014 so in practice flex covers nearly every card/panel/split layout, and an unexamined `grid-template-columns` is a smell. If you do use grid, justify it to yourself first; otherwise rewrite it as flex.\n\n\u2022 BOX-LOCAL REFLOW for portrait/tall frames: `@container lattice (aspect-ratio <= 1.05) { \u2026 width:100% \u2026 }` to drop to a single column. Use the DOUBLED-CLASS specificity trick \u2014 `section.<name>.<name> > .cell-stage > ul > li` \u2014 so the reflow rule outranks the base multi-column rule (the `width:calc(50% \u2026)` on the flex cards, or a `flex-direction` on an even split). This is the single most error-prone idiom; copy it exactly.\n\n\u2022 THE SLOT VOCABULARY (auto-detected from markdown \u2014 author the CONTENT slots; NEVER re-draw a CHROME slot). CHROME (the Frame supplies these \u2014 do not style them): the masthead lifts the EYEBROW (`p > code:only-child` ABOVE the `h2`) + the TITLE (`h2`); the SUBTITLE is inline `code` just BELOW the heading; the FOOTER band carries running text, the PAGINATION (page number) and the PROGRESS mark; the LOGO is the author brand mark, top-right, from front-matter. CONTENT slots you DO author: the METADATA PILL (a trailing inline `code` on a card line \u2192 a chip), the KEY-INSIGHT (a trailing `blockquote`), the BELOW-NOTE (an em-dash `<p>`). RAIL IS NOT ONE SLOT \u2014 three things share the word, do not confuse them: (a) the PROGRESS rail = the footer\'s section-progress mark, auto-chrome you must NOT draw; (b) a SPLIT/SOVEREIGN rail = a dark side column only a `form: split` component owns; (c) an agenda-style `.rail` = a per-component variant class. A side rail is a split-form or a variant concern \u2014 never a universal slot you hand-author.\n\n\u2022 TAXONOMY \u2014 classify the component correctly (drives the manifest + dedup). The buckets and what each is FOR: anchor (title/section/closing covers) \xB7 statement (one big idea / KPI / quote) \xB7 INVENTORY (lists, cards, rosters, ledgers, glossaries \u2014 your home bucket) \xB7 comparison (two-or-more options side by side) \xB7 progression (steps/stages/phases over time) \xB7 evidence (proof: tables, stats, citations) \xB7 imagery (photo-led) \xB7 chart \xB7 diagram \xB7 math \xB7 code \xB7 legal. Pick the `function`/`form`/`substance` that matches; for a transform-free CSS component stay in inventory/comparison/evidence/legal (+ code/math prose).\n\n\u2022 RESTRAINT (the 10/10 rubric, checkable not vibes): one accent, reserved for the verdict \u2014 not decoration; SIX distinct hierarchy levels (if two adjacent levels look the same it is broken); cards never touch the stage edges (always `padding`); \u2264 ~6 cards, \u2264 ~40 words, \u2264 6 bullets; state carried by SHAPE + a state token, not color alone; categorical hues capped ~6\u20138 (Wong 2011); contrast checked against `--bg-alt`, not just `--bg`.\n\n\u2022 DESIGN FOR FIT \u2014 the structure must EARN its capacity, not just declare one. Reason about how the content fills the bounded stage BEFORE you pick a layout, because the #1 generated-component failure is a sparse, dead-space slide (a few small cards adrift in a sea of empty, or a KPI number left body-sized). Two rules: (a) the SWEET count must FILL the stage handsomely \u2014 choose the column/row count so a sweet-many tiles cleanly (2 items \u2192 one row of two big panels, 4 \u2192 a 2\xD72, 6 \u2192 2\xD73), and let the cards GROW into the space (`flex:1; min-height:0` on the list so rows distribute; the cards stretch, they do not float at intrinsic size). (b) the HARD count must sit just BELOW overflow \u2014 past it the stage clips. Match `capacity` to what THIS layout legibly holds, never a boilerplate `{4,6,8}`: a two-panel comparison is `{sweet:2,soft:2,hard:3}`, a single monument is `{sweet:1,soft:1,hard:1}`. And SIZE TO THE ROLE \u2014 when the payload is ONE number or a short verdict, make it MONUMENTAL (`--fs-hero` / `--fs-emphasis`), not a lonely `--fs-body` line; a statement component that reads small in a big frame is the dead-space defect by another name.\n\n\u2022 SHAPE MUST EARN THE STAGE \u2014 a NON-RECTANGULAR or FIXED-ASPECT shape (hexagon, disc, stamp, film frame, photo) has its OWN aspect ratio that fights the 16:9 stage; the fix is the SAME flex-fill mechanism as a card grid, applied to the shape. NEVER size the shape by its intrinsic proportion (that leaves small shapes adrift in empty, or a tall shape clipping the bottom \u2014 the dead-space and overflow defects share this one root). Instead make the shapes a ROW that FILLS the stage as a band: `display:flex; gap` on the list, `flex:1 1 0; min-width:0; min-height:0` per item so the band grows to the full stage height, then give the SHAPE its ratio INSIDE that grown cell (`aspect-ratio:1` for a disc, `clip-path:polygon(\u2026)` + `aspect-ratio:0.87` for a hexagon, `aspect-ratio:0.7` for a stamp) sized in `cqh`/`%` of the cell \u2014 so N discs/hexagons/stamps sit edge-to-edge in ONE stage-filling band, not a thin ribbon mid-slide. A STRIP/BAND form (filmstrip, ticker, timeline) GROWS its frames to the stage height with `flex:1` frames (or STACKS two bands) \u2014 never a short strip floating in a sea of empty. If one row of the sweet count would leave the shapes short, use fewer-and-bigger or WRAP to a filling grid (`flex-wrap` + `align-content:stretch`). (A tilt for character is still a static `transform:rotate()`, never a margin \u2014 see the DARE bullet\'s positional-play rule.)\n\n\u2022 WRITE TO THE WORD BUDGET \u2014 density is a contract, not a suggestion. Each element along the collection axis gets a TIGHT words-per-element budget: a label + a short clause, NEVER a sentence that wraps to three lines. Declare it as `density:{"axis":"item","soft":S,"hard":H}` (`item` = list/grid entries, `row` = table rows \u2014 the only two the counter measures) where `soft` is the editorial target (the count you design the card WIDTH around) and `hard` is the wall-of-text ceiling. Then HONOR it in your own skeleton: the sample rows you emit must themselves sit within `soft`, so the component demonstrates the brevity it asks for \u2014 a card built for 6-word labels but seeded with a 20-word paragraph teaches the wrong shape and overflows the moment it is reused. (This is per-ELEMENT; the slide-level \u2264~40-word budget in RESTRAINT still holds on top.)\n\n\u2022 RESPONSIVE BY CONSTRUCTION \u2014 design the reflow up front, do not bolt it on. Every component must stay legible in a WIDE box AND a TALL/strip one, because the same Tile is dropped into landscape decks, portrait/social frames, and narrow nested cells. Bake in the `@container lattice (aspect-ratio <= 1.05)` single-column drop (the BOX-LOCAL REFLOW idiom above) as part of the FIRST draft, not a follow-up \u2014 a multi-column grid with no portrait rule is an unfinished component. Size with `cqi`/`cqh` and the `--fs-*` roles (which already scale with the box) so the body reflows fluidly between the two extremes, and keep `capacity` honest about it: a strip honestly holds fewer than a wide, so the count that fills a landscape row must still clip cleanly when it stacks.\n\n\u2022 START BOARDROOM, ESCALATE ON DEMAND. The DEFAULT is the killer boardroom framework \u2014 clean, restrained, one accent, no gimmicks; that is the FLOOR and the right answer for a plain ask ("a list of risks", "three KPIs", "a quarterly summary"). Do NOT decorate a neutral request. But MATCH the visual ambition to the concept: a request that names a distinctive form or feel ("like a boarding pass", "a honeycomb of skills", "terminal-style", "a vintage receipt", "a polaroid wall") UNLOCKS proportionally more creative freedom \u2014 go as far as the concept earns, no further. At every level the result stays BOARDROOM-READY: legible first, on-palette, restrained accent, nothing that fights the brand. Creativity SERVES the concept; it never overrides clarity.\n\n\u2022 DARE A DISTINCTIVE VISUAL IDENTITY (when the concept calls for it, per the rule above) \u2014 rich CSS is IN SCOPE, not just bordered boxes. "Transform-free" bars generated GEOMETRY / codegen, NOT decorative CSS. For a request with a strong visual concept (a boarding pass, a receipt, a terminal/console panel, a polaroid, a luggage tag, a wax-seal stamp, a filmstrip) you SHOULD reach for the full pure-CSS toolkit to make it unmistakable: `linear/radial/conic-gradient` + `repeating-linear/radial-gradient` (a BARCODE is a `repeating-linear-gradient`; a ticket PERFORATION is a `radial-gradient` of evenly-spaced dots), `::before`/`::after` pseudo-elements (badges, ribbons, corner folds, edge notches), `clip-path` (a ticket stub, a chevron, a torn edge), `mask`, layered `box-shadow` (elevation, inset rules), `border`/`outline`/`border-radius` tricks, and a static `transform` for ALL POSITIONAL PLAY \u2014 `rotate()` a stamp/ribbon, `translate()` to scatter polaroids, overlap cards, hang a luggage tag, or nudge a pushpin. EVERY decorative offset, tilt, scatter, or overlap is a `transform` \u2014 NEVER a `margin`: a non-zero margin both corrupts the height math the bounded stage measures AND is rejected by the gate, so a margin-nudged layout LOOKS fine in your head but never actually ships. SHAPE IS YOURS TOO \u2014 a card need not be a rectangle: `border-radius:50%` + `aspect-ratio:1` makes a DISC (circular avatars, a radial badge), `clip-path:polygon(\u2026)` cuts a HEXAGON, TRIANGLE, DIAMOND, or chevron TAB, a pill is a fully-rounded rect. Reach for an odd shape when it serves the concept (a honeycomb of capabilities, circular team avatars, diamond milestones, a hexagon skill grid) \u2014 TASTEFULLY, never gratuitously, and mind legibility (text stays inside the safe rectangle of a clipped shape, via `padding`). This is all PURE CSS over the markdown DOM \u2014 NEVER a reason to decline. The rails still bind every pixel: type is `--fs-*`, spacing is `gap`/`padding` and decorative offset is `transform` (no margin, ever), all selectors under `section.<name>`, and colors are `var(--\u2026)` tokens (ZERO hex) \u2014 EVEN WHEN THE CONCEPT NAMES A COLOR. The colors creative concepts reach for all have a token PATH, so a hex is never needed: a DARK panel (a terminal/console/night surface) INVERTS the existing tokens \u2014 `background:var(--text-heading); color:var(--bg)`, with a `--bg-alt`/`--border` inset title bar \u2014 NOT a hardcoded charcoal; STATUS / traffic-light dots are `--fail` (red), `--warn` (amber), `--pass` (green); and a distinctive MATERIAL TINT (post-it yellow, kraft/manila, a colored stamp or sticky) is `color-mix(in srgb, var(--cat-3-mark) 12-22%, var(--bg))` \u2014 any hue off the categorical ramp (`--cat-1-mark` \u2026 `--cat-12-mark`) supplies the color, `color-mix` dilutes it to a paper tint, and the text on top stays `--text-heading`/`--text-body`. Restraint governs the ACCENT (one, for the verdict) \u2014 but TEXTURE and FORM (a perforation, a stub edge, a barcode, a scanline) are free; spend them when the concept earns it. The neutral surface/border/`--text-muted` tokens carry most decorative work without touching the accent.\n\n\u2022 THE OTHER INVARIANTS (with the why): SCOPING (#7) \u2014 every selector starts `section.<name>` so styles can never leak onto another slide; the gate rejects a bare `ul`/`h2`. US ENGLISH (#21) \u2014 every word a human reads (class names, comments, copy) uses the US spelling (`color`, `gray`, `behavior`, `center`), never the British form. card-nesting (#5) \u2014 `- Title` / `  - body`, never inline `- **Title.** body` (the title is a structural slot the CSS bolds, not editorial `**`).\n\n\u2022 MANIFEST IS THE CONTRACT. Always declare `adapt` (how the component reflows \u2014 `{"mode":"native"}` when it relies on the universal cqi scaling + the `@container lattice` reflow above; `{"mode":"reflow"}` once it ships per-family layouts) and `capacity` (its legible ceiling \u2014 `{"sweet":4,"soft":6,"hard":8}`: the comfortable, the stretched, and the hard cap on cards/rows before it should escalate to a denser sibling) and `density` (the words-per-element budget \u2014 `{"axis":"item","soft":6,"hard":12}` \u2014 that keeps each card terse; see WRITE TO THE WORD BUDGET above). `capacity` budgets the element COUNT; `density` budgets the words inside each one. A component that never declares how it adapts will overflow a portrait frame \u2014 declare it.\n\n\u2022 DECLINE only when COMPUTED GEOMETRY or CODEGEN is required \u2014 never for a LOOK. You author from the native DOM valid markdown produces (lists, TABLES, prose, fenced code, math), and you may style it with the full pure-CSS toolkit incl. gradients, pseudo-elements, `clip-path`, masks, and odd shapes (the DARE bullet). A distinctive VISUAL IDENTITY \u2014 a boarding pass, a barcode, a perforation, a hexagon card, a terminal panel \u2014 is ALWAYS buildable in pure CSS, so it is NEVER grounds to decline. Decline ONLY when the structure itself must be COMPUTED or GENERATED: a chart (data plotted to axes/bars/arcs), a diagram (nodes + drawn connectors), a 2-D positioned MAP (items placed by an x/y value \u2014 a quadrant/scatter), a timeline/roadmap/journey (a positioned track), generated/highlighted source beyond a plain fenced block. A matrix is a TABLE, not a decline. When a transform is genuinely required, return a decline (see the output contract) routing to a first-party build, NOT a broken fake.\n';

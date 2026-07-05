@@ -15,7 +15,16 @@ in patch versions.
 > | Category in `## Unreleased` | Bump |
 > |---|---|
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
-> | `### Added`, `### Changed`, `### Deprecated` | **minor** |
+> | `### Fixed
+
+- **`autosplit: on` now works in the packaged CLI.** The npm-shipped bundle
+  looked for component manifests in its own `dist/` directory (which ships
+  none), so the Fit Ladder's measured auto-split silently never ran for
+  `npx lattice` users — decks rendered with overflowing slides instead of
+  splitting. The CLI now resolves manifests from the package root, and
+  warns if the registry ever comes up empty under `autosplit: on`.
+
+### Added`, `### Changed`, `### Deprecated` | **minor** |
 > | `### Fixed`, `### Security` | **patch** |
 >
 > Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
@@ -26,6 +35,20 @@ in patch versions.
 ## Unreleased
 
 ### Changed
+
+- **`manifest.schema.json` is now the manifest contract's source of truth.**
+  The validator (`lib/components/index.js`) and the Studio gate
+  (`lib/layout/gate.js`) derive their vocabularies from the schema instead of
+  carrying hand-synced copies (one had already drifted — the gate was missing
+  the `connect` bucket). The schema gained the three fields real manifests
+  already used (`split`, `families`, `dataCompletion`), the previously
+  unvalidated `split` carousel recipe is now validated at load (a typo'd
+  strategy fails the build instead of silently not splitting), and unknown
+  manifest keys are rejected per the schema's `additionalProperties: false`.
+  If you load YOUR OWN manifests through this package's `loadAll()`/
+  `validate()`: manifests with stray top-level keys or malformed `split`
+  blocks that previously loaded will now fail validation — the schema always
+  declared them invalid; the loader now agrees.
 
 - **Complexity frontier, pass 3.** The remaining high-complexity functions
   decomposed with the same verified playbook: the forms catalog validators

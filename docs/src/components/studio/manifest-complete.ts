@@ -31,7 +31,10 @@ export function manifestCompletion(before: string): ManifestCompletion | null {
 	// value position: inside the quotes of `"<key>": "<partial>`
 	const v = before.match(/"(\w+)"\s*:\s*"([^"\n]*)$/);
 	if (v) {
-		const opts = MANIFEST_ENUMS[v[1]];
+		// Object.hasOwn, not a bare lookup: typing `"constructor": "` would
+		// otherwise resolve Object.prototype.constructor (a Function) and crash
+		// the completion source when it hits .map().
+		const opts = Object.hasOwn(MANIFEST_ENUMS, v[1]) ? MANIFEST_ENUMS[v[1]] : undefined;
 		return opts ? { kind: 'value', token: v[2], options: opts } : null;
 	}
 	// key position: a property name being typed at an object boundary

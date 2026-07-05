@@ -144,6 +144,84 @@ encode the manifest contract twice and are hand-synced. Logged as the
 next structural question (generate one from the other, or gate their
 agreement).
 
+## Pass 4: the manifest schema becomes the source of truth
+
+The change-coupling finding (validator ↔ schema co-change 21×, hand-synced)
+got its decision: **manifest.schema.json is canonical; code derives.**
+Investigation showed the drift was worse than logged — nothing consumed the
+schema (every reference was a "kept in sync by hand" comment); a THIRD copy
+in `lib/layout/gate.js` had already drifted (missing the `connect` bucket);
+the schema was missing three fields real manifests use (`split` — the Fit
+Ladder carousel recipe, 13 manifests, validated by NOTHING — plus
+`dataCompletion` and `families`); and the schema's
+`additionalProperties: false` promise was never enforced.
+
+What shipped: the schema trued up (+`split`/`families`/`dataCompletion`
+definitions); `lib/components/index.js` and `lib/layout/gate.js` now derive
+FUNCTIONS/BUCKETS/FORMS/SUBSTANCES/axes/name-pattern/allowed-key-sets from
+the schema (a JSON require — fs-free, esbuild-inlined for the browser);
+two new checkers enforce what the schema declares (`checkSplit` — closing
+the unvalidated-strategy footgun at the data boundary — and
+`checkUnknownKeys` for additionalProperties:false); and
+`test/unit/components/schema-source-of-truth.test.js` sync-gates the three
+mirrors that stay hand-written for browser-purity (focus.js axes, lint-core
+FOCUS_AXES, CAROUSEL_STRATEGIES keys). Verified by a 1,276-input
+differential vs origin/main: 0 unexpected diffs (112 differ only by the
+intended new enforcement); the independent checker proved the strict
+prefix property over a 23-case adversarial corpus, verified the browser
+bundle inlines the schema (the `connect` fix reaches the Studio), and
+demonstrated live schema-object corruption via the require cache — fixed
+by deep-freezing the schema on load. Two pre-existing residuals it
+surfaced, logged not fixed: `lattice-emulator.js` hand-lists
+WIDTH_REDUCING_STRATEGIES (a subset classifier a strategy rename would
+silently miss), and `lint-core.js` hard-codes the axis list in one
+message string the sync gate doesn't cover.
+
+### Pass 4 hardening — red team + inversion + fit/risk (three parallel lenses)
+
+Review asked for the full trio on the schema PR. Zero must-fix across all
+three; the folded-back findings: the first two sync tests were TAUTOLOGIES
+(derived-vs-schema — can never fail), so the schema's load-bearing content
+is now FIXTURE-PINNED (widen/delete/reorder/un-anchor all fail a literal
+fixture, making schema edits as loud in review as validator edits were); a
+disk↔enum gate (deleting a bucket from the enum silently orphaned that
+whole component family — loadAll only walks listed buckets); an
+intra-schema agreement test (the axis enum exists in FIVE copies inside the
+schema itself); gate.js now deep-freezes its browser copy too; the
+emulator's WIDTH_REDUCING_STRATEGIES subset is gated against the strategy
+enum; a stale comment checkSplit falsified is fixed; and the CHANGELOG
+warns own-manifest npm consumers about the stricter loader.
+
+Residuals surfaced by the lenses — ALL FIXED in the same PR after review
+directed "no broken windows" (each was pre-existing; verification named per
+item):
+
+- **Packaged-CLI autosplit was a silent no-op** (inversion, path 6): the
+  npm-shipped bundle resolved `loadAll()` against `<pkg>/dist/` (its own
+  `__dirname`), which ships no manifests, so `SPLIT_CAP` was empty and
+  `autosplit: on` did nothing for `npx lattice` users. Fixed: the emulator
+  resolves the manifest tree from `PKG_ROOT/lib/components` (correct in
+  the repo AND the tarball), and an empty registry under `autosplit: on`
+  now warns instead of staying silent. Verified on the REAL surface:
+  `npm pack` → clean-room install → the installed CLI ran the measured
+  autosplit passes and produced the same 25-page output as the repo CLI
+  (pre-fix: 8 overflowing pages).
+- **`validate()` threw (not errored) on a truthy non-string `sample`** for
+  a form-linted layout name — the four form checkers now string-guard what
+  they hand lint-core (the type error itself was already reported by the
+  field checkers); regression-tested.
+- **The Studio manifest autocompleter crashed on prototype-named keys**
+  (`"constructor": "` resolved Object.prototype.constructor via a bare
+  bracket lookup) — now `Object.hasOwn`-guarded; regression-tested in the
+  docs suite.
+- **`ADAPT_MODES` hand-mirrors retired**: `lib/layout/ai.js` and
+  `tools/check-ownership.js` now derive it from the schema (membership-only
+  use, so the enum-order difference is inert). Still open by design:
+  `orientation`/`adapt`/`showcase` VALUES get no structural validation from
+  validate() (repo-side, check-ownership's checkAdaptDeclarations covers
+  adapt.mode); and lint-core's one hard-coded axis list in a message string
+  is display text whose trail runs through the gated FOCUS_AXES set.
+
 ## Follow-ups (logged, not in this PR)
 
 - **The committed gallery goldens drift ~7-13% on this sandbox's
