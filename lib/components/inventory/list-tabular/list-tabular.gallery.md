@@ -24,9 +24,11 @@ Hairline-ruled ledger of items — name on the left, body on the right.
    - Label, clause, optional meta line.
    - _Twelve soft · sixteen hard_
 2. Looks
-   - Eight named looks reskin the same rows.
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
 3. Escalation
-   - Long content leaves for a real table.
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 
 ---
@@ -161,9 +163,11 @@ Hairline-ruled ledger of items — name on the left, body on the right.
    - Label, clause, optional meta line.
    - _Twelve soft · sixteen hard_
 2. Looks
-   - Eight named looks reskin the same rows.
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
 3. Escalation
-   - Long content leaves for a real table.
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 
 ---
@@ -177,9 +181,11 @@ Hairline-ruled ledger of items — name on the left, body on the right.
    - Label, clause, optional meta line.
    - _Twelve soft · sixteen hard_
 2. Looks
-   - Eight named looks reskin the same rows.
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
 3. Escalation
-   - Long content leaves for a real table.
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 
 ---
@@ -193,9 +199,11 @@ Hairline-ruled ledger of items — name on the left, body on the right.
    - Label, clause, optional meta line.
    - _Twelve soft · sixteen hard_
 2. Looks
-   - Eight named looks reskin the same rows.
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
 3. Escalation
-   - Long content leaves for a real table.
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 
 ---

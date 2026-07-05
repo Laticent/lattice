@@ -74,7 +74,7 @@
   },
   "skeleton": "<!-- _class: list-tabular -->\n\n## Slide heading.\n\n1. First entry\n   - Description or value for the first entry.\n2. Second entry\n   - Description or value for the second entry.\n3. Third entry\n   - Description or value for the third entry.\n4. Fourth entry\n   - Description or value for the fourth entry.\n",
   "anatomyBlock": "list-tabular",
-  "sample": "<!-- _class: list-tabular -->\n\n## The tabular list rules rows into a register.\n\n1. Rows\n   - Label, clause, optional meta line.\n   - _Twelve soft · sixteen hard_\n2. Looks\n   - Eight named looks reskin the same rows.\n3. Escalation\n   - Long content leaves for a real table.\n",
+  "sample": "<!-- _class: list-tabular -->\n\n## The tabular list rules rows into a register.\n\n1. Rows\n   - Label, clause, optional meta line.\n   - _Twelve soft · sixteen hard_\n2. Looks\n   - Eight named looks reskin the rows.\n   - _def · spec · register_\n3. Escalation\n   - Long content leaves for a table.\n   - _split past eight rows_\n",
   "stressDoc": {
     "caption": "Eight rows — the register's page.",
     "sample": "<!-- _class: list-tabular register -->\n\n## Eight rows is the register's practical page.\n\n1. title `stable`\n2. big-number `stable`\n3. cards-grid `stable`\n4. split-panel `stable`\n5. funnel `stable`\n6. map `stable`\n7. radar `beta`\n8. word-cloud `preview`\n"
