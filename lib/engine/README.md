@@ -20,3 +20,5 @@ and `tools/export-marp.js`. History: `engineering/marp-independence.md`.
 the real `dist/lattice.css` + theme. And `math.js`/`qr.js` are synchronous
 BY DESIGN: the headless-Chromium PDF path has raced on async reflow before.
 Do not make a substance renderer async.
+
+*(File lists here are a snapshot — `ls` is the truth if they ever disagree.)*

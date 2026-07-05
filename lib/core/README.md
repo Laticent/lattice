@@ -30,3 +30,5 @@ Grouped tour:
 **The direction rule (enforced by the quality assessment's
 dependency-cruiser config):** components import core; core NEVER imports a
 component. If a component kernel has something generic, move it here.
+
+*(File lists here are a snapshot — `ls` is the truth if they ever disagree.)*

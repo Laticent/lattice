@@ -172,7 +172,7 @@ versa:
 |------|-----------|------|
 | **Component transform** | one component's CSS/manifest | `lib/components/<bucket>/<name>/<name>.transform.js` (roadmap, journey, word-cloud, the chart layouts) |
 | **Bucket-family transform** | one bucket | `lib/components/<bucket>/_family/` (chart-family) |
-| **Structural primitive** | nothing — any component opts in | `lib/core/` (split-panels, split-slides, below-note, slot-label-lift, match-section, resolve-palette) |
+| **Structural primitive** | nothing — any component opts in | `lib/core/` (split-panels, split-slides, below-note, slot-label-lift, match-section, resolve-palette, html-lists, section-walk) |
 | **Registry + render adapters** | the wiring across render paths | `lib/transformers/` |
 
 The distinction that surprises people: `split-panels` lives in
@@ -182,7 +182,12 @@ statement, `split-compare` in comparison) opt into its left-anchor /
 right-content panel mechanism, and they don't even share DOM class
 names. It is the same kind of thing as `split-slides`, not the same
 kind of thing as `roadmap.transform.js`. Different role → different
-home is correct, not an inconsistency.
+home is correct, not an inconsistency. The same reasoning moved the
+depth-aware HTML walkers into core (`html-lists.js` — top-level `<li>`
+/ first-list extraction; `section-walk.js` — the shared `<section>`
+walker every applyToRenderedHtml uses): they are coupled to nothing,
+and core importing FROM a component kernel is the inverted edge the
+quality assessment flags as a boundary violation.
 
 The `lib/transformers/` registry is the wiring layer: each entry is a
 registry-shaped adapter around a kernel (which lives in one of the

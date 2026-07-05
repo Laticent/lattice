@@ -4,13 +4,13 @@
   "tolerancePct": 0,
   "metrics": {
     "circularDependencies": 0,
-    "boundaryViolations": 1,
-    "duplicatedPercent": 3.56,
-    "duplicateClones": 107,
+    "boundaryViolations": 0,
+    "duplicatedPercent": 2.6,
+    "duplicateClones": 95,
     "deadFiles": 0,
     "deadExports": 0,
-    "unlistedDependencies": 1,
-    "complexityFunctionsAboveThreshold": 69,
-    "worstFunctionComplexity": 209
+    "unlistedDependencies": 0,
+    "complexityFunctionsAboveThreshold": 72,
+    "worstFunctionComplexity": 51
   }
 }

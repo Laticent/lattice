@@ -36,3 +36,5 @@ the structure below exists so shared logic lives in exactly one place.
 The #1 gotcha repo-wide: several folders are **bundled into the browser** by
 `tools/build-*-core.js` — anything reachable from those entries must be pure
 (no `fs`, no Node-only APIs). Each folder README says whether that applies.
+
+*(File lists here are a snapshot — `ls` is the truth if they ever disagree.)*

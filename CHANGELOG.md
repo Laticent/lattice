@@ -25,7 +25,27 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Engine internals refactored for maintainability** (no rendered-output
+  change — verified by the gallery pixel-regression gate). One canonical
+  home for the depth-aware HTML list walkers (`lib/core/html-lists.js`)
+  and the slide `<section>` walker (`lib/core/section-walk.js`), replacing
+  six scattered copies; the shared chart string helpers live in
+  `lib/components/chart/_chart-family/transform-utils.js`; the manifest
+  validator is now a pipeline of 18 single-concern checkers (worst-case
+  cyclomatic complexity 209 → 51 codebase-wide). Fixes the one
+  architectural-boundary violation the quality assessment flagged
+  (`lib/core` importing a component kernel). See
+  `engineering/decisions/2026-07-05-quality-driven-refactor.md`.
+
 ### Added
+
+- **A README in every structural folder.** 29 folder READMEs (lib/ and
+  each subdirectory, tools/, test/, spec/, assets/, design/, engineering/,
+  examples/, exemplars/) written for a junior engineer: what the folder
+  is, who consumes it, the canonical doc it defers to, and the gotcha most
+  likely to bite.
 
 - **Automated codebase quality assessment.** `npm run quality` covers seven
   structural-health dimensions in one command: structural coupling,

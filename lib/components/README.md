@@ -26,3 +26,5 @@ both skip it. Shared chart helpers live in `chart/_chart-family/`
 **Gotcha:** generic HTML list/section walking belongs in `lib/core/`
 (`html-lists.js`, `section-walk.js`) — never copy those into a component,
 and never import a component from `lib/core`.
+
+*(File lists here are a snapshot — `ls` is the truth if they ever disagree.)*

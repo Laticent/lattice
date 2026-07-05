@@ -19,3 +19,5 @@ board-ready the deck is (scorecard), and the note/non-note boundary.
 dependencies. The vocabulary is *injected* (Node builds it from manifests;
 the browser passes a precomputed one) — never `require` the component
 catalog from `lint-core`.
+
+*(File lists here are a snapshot — `ls` is the truth if they ever disagree.)*
