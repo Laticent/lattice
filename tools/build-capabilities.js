@@ -51,6 +51,7 @@ const FRAMEWORKS = [
   ['Browser automation', 'puppeteer with the cached Chromium (screenshots, export, DOM checks).', '`tools/screenshot.js` · custom scripts from repo root'],
   ['Bundling', 'esbuild — every `dist/` JS bundle and docs-site core is an esbuild build.', '`npm run build` (orchestrates all generators behind the ownership gate)'],
   ['Docs site', 'Astro + Starlight + React 19 + Tailwind v4 + shadcn/ui (new-york) + CodeMirror — a SEPARATE npm package under docs/. shadcn maps onto the 14-palette Lattice theme via the token bridge (`docs/src/styles/tailwind.css`); React islands are tested with Vitest + Testing Library. House additions to `docs/src/components/ui/` beyond stock shadcn: `split.tsx` — the pane splitter (pointer-captured drag, rail collapse, ARIA window-splitter, persisted ratio) shared by the Playground and Studio; don\'t hand-roll another.', '`cd docs && npm run dev` (runs the sync steps + astro; see CLAUDE.md § Cloud sandbox)'],
+  ['Quality assessment', '`dependency-cruiser` (structural coupling, circular deps, custom architectural-boundary rules — `.dependency-cruiser.cjs`), `jscpd` (duplication — `.jscpd.json`), and `knip` (dead files/exports — `knip.json`), plus two bespoke scripts (git change-coupling, acorn-based complexity). On-demand diagnostic, NOT a blocking CI gate — mirrors `bench`/`scorecard`\'s baseline-ratchet pattern.', '`npm run quality` · `quality:bless` · `quality:check` · `engineering/quality-assessment.md`'],
 ];
 
 // ── npm scripts (mandatory descriptions) ─────────────────────────────────
@@ -163,6 +164,9 @@ const SCRIPT_META = {
   'fonts:emoji':              ['Build & bundle', 'Vendor Noto Color Emoji into dist/fonts/ for the opt-in full-offline tier (~25 MB, excluded from the npm tarball). Run once while online; needs network.'],
   'scorecard':                ['Lint & audit', 'Token-parity + palette-quality score for every theme.'],
   'scorecard:check':          ['Lint & audit', 'Gate: fail if any theme scorecard regresses.'],
+  'quality':                  ['Lint & audit', 'Codebase quality assessment: coupling, boundaries, cycles, change coupling, complexity, duplication, dead code — see engineering/quality-assessment.md.'],
+  'quality:bless':            ['Lint & audit', 'Write the committed quality-assessment baseline (test/quality/baseline.json) from a fresh run — the ratchet a quality-improving PR updates.'],
+  'quality:check':            ['Lint & audit', 'Re-run the quality assessment and compare vs the committed baseline; flags any metric that got worse. On-demand, not a blocking CI gate.'],
 
   // Scaffold
   'new:theme':                ['Scaffold', 'Scaffold a new palette from the indaco template.'],
@@ -203,6 +207,7 @@ const TOOL_GROUP = {
   // Lint/audit
   'lint-deck.js': 'Lint / audit', 'contrast-audit.js': 'Lint / audit', 'theme-scorecard.js': 'Lint / audit',
   'pixel-check.js': 'Lint / audit', 'check-shadcn-bridge-contrast.js': 'Lint / audit',
+  'quality-assessment.js': 'Lint / audit', 'change-coupling.js': 'Lint / audit', 'complexity-report.js': 'Lint / audit',
   // Render/visual
   'emulator-engine-parity.mjs': 'Render / visual',
   'regression-gate.mjs': 'Render / visual',

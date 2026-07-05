@@ -334,6 +334,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | A specific component's slots/variants/anti-patterns | `lib/components/<bucket>/<name>/<name>.docs.md` |
 | Picking a component as an agent (machine catalog) | `dist/docs/components.json`, `AGENTS.md` |
 | What scripts/tools already exist (don't reinvent) | `engineering/capabilities.md` |
+| Automated codebase quality assessment (coupling, boundaries, cycles, change coupling, complexity, duplication, dead code) | `engineering/quality-assessment.md` |
 | The 10/10 visual rubric | `engineering/decisions/2026-06-06-layout-audit/` |
 | A large visual sweep / parallel reviewer fan-out | `engineering/visual-review.md` |
 | Release / publish | `RELEASE.md` |

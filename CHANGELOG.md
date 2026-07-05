@@ -27,6 +27,18 @@ in patch versions.
 
 ### Added
 
+- **Automated codebase quality assessment.** `npm run quality` covers seven
+  structural-health dimensions in one command: structural coupling,
+  architectural boundary violations, circular dependencies, git change
+  coupling, complexity, duplication, and dead exports/files —
+  `dependency-cruiser` (coupling/boundaries/cycles), `jscpd` (duplication),
+  `knip` (dead code), and two new bespoke scripts
+  (`tools/change-coupling.js`, `tools/complexity-report.js`), orchestrated
+  by `tools/quality-assessment.js`. On-demand, not a blocking CI gate — a
+  committed `test/quality/baseline.json` ratchets via `quality:bless`
+  /`quality:check`, mirroring the `bench`/`scorecard` pattern. See
+  `engineering/quality-assessment.md`.
+
 - **Studio: a self-driving "Watch demo" walkthrough.** A one-click, ~90-second
   live demo (topbar button, the first-run welcome banner, and ⌘K → "Watch demo")
   in which the Studio drives *itself* through the whole first-time arc: open the

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "lattice-emulator.js",
+    "lib/runtime/index.js",
+    "lib/playground/index.js",
+    "lib/engine/index.js",
+    "tools/*.{js,mjs}",
+    "test/**/*.test.js",
+    "test/benchmark/*.mjs",
+    "lib/theme/*.js",
+    "lib/layout/*.js",
+    "lib/authoring/*.js",
+    "lib/exemplars/*.js",
+    "lib/components/chart/_chart-family/*.js",
+    "lib/core/*.js"
+  ],
+  "project": ["lib/**/*.js", "tools/**/*.js", "*.js"],
+  "ignore": [
+    "dist/**",
+    "docs/**",
+    ".scratch/**",
+    "node_modules/**",
+    "examples/**",
+    "exemplars/**",
+    "themes/**",
+    "spec/**",
+    "assets/**",
+    "mermaid-v11.min.js"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": []
+}

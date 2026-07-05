@@ -1,0 +1,20 @@
+{
+  "path": ["lib", "tools"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.scratch/**",
+    "**/*.min.js",
+    "**/*.test.js",
+    "**/*.generated.js"
+  ],
+  "format": ["javascript"],
+  "minTokens": 50,
+  "minLines": 5,
+  "reporters": ["json"],
+  "output": "./.scratch/quality-report/jscpd",
+  "gitignore": true,
+  "absolute": false,
+  "silent": true,
+  "threshold": 100
+}
