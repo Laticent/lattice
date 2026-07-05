@@ -58,43 +58,43 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ## Variants (component-specific)
 
-### `numbered` — Numbered — auto-incrementing section index
+### `numbered` — numbered
 
-Stamps an auto-incrementing section number in the corner. Each divider in the deck increments the counter; closing slides carry an independent counter.
+Stamps the running section number.
 
 ```markdown
 <!-- _class: divider silent numbered -->
 
-`Section 03`
+`divider numbered`
 
-## Inventory
+## The corner stamp counts this divider for you.
 ```
 
-### `light` — Light — bright-canvas sub-section break
+### `light` — light
 
-Drops the dark canvas for the standard bright body-slide background, centers the heading, and shrinks it to h2 weight. Use for mid-section orientation that shouldn't carry the full context-switch weight of a dark divider. Absorbed the standalone `subtopic` component on 2026-06-07.
+Bright canvas, sentence-length waypoint.
 
 ```markdown
 <!-- _class: divider light -->
 
-`The Framework · Component 02`
+`divider light`
 
-## Before we can score a signal, we have to agree on what one is.
+## The light divider trades the dark canvas for a bright, full-sentence waypoint.
 ```
 
-### `qr` — QR — scan-to call to action
+### `qr` — qr
 
-The `qr` variant adds a scannable code from a payload bullet — a bare URL auto-resolves, or force a non-URL with `` `qr` ``; an optional `` `caption` `` bullet labels it. Reuses the shared QR encoder; the code is a fixed light-paper/dark-ink tile so it scans on any ground.
+The payload bullet becomes a code.
 
 ```markdown
 <!-- _class: divider qr -->
 
-`Next step`
+`divider qr`
 
-## Begin the pilot.
+## The payload bullet below becomes a scannable code.
 
-- https://slidewright.dev/pilot/start
-- Scan to begin `caption`
+- https://slidewright.dev/components/divider
+- Scan for the divider's docs `caption`
 ```
 
 ## Universal modifiers

@@ -18,17 +18,17 @@ Final slide. Dark canvas mirror of title.
 <!-- _class: closing silent -->
 <!-- _footer: "Default · closing" -->
 
-## The signal was always there. Now we have a system that looks.
+## The closing mirrors the title — dark canvas, one last claim.
 
-`Product Strategy · Q3 2025`
+`anchor · closing`
 
 
 ---
 
 <!-- _class: closing silent numbered -->
-<!-- _footer: "Numbered — independent closing counter · closing numbered" -->
+<!-- _footer: "numbered · closing numbered — Counts closings apart from dividers." -->
 
-## Take this away.
+## The closing counts itself, apart from the dividers.
 
 `Closing 04`
 
@@ -36,36 +36,16 @@ Final slide. Dark canvas mirror of title.
 ---
 
 <!-- _class: closing qr -->
-<!-- _footer: "QR — scan to take the deck · closing qr" -->
+<!-- _footer: "qr · closing qr — Scan to take the deck with you." -->
 
-`Q3 Board Review`
+`closing qr`
 
-## Take the deck with you.
+## Leave a scannable takeaway behind.
 
-Every slide, the appendix, and the workbook — before you go.
+The payload bullet renders as a QR code sized for the back row.
 
-- https://slidewright.dev/decks/q3
+- https://slidewright.dev/components/closing
 - Scan to open `caption`
-
-
----
-
-<!-- _class: closing silent compact -->
-<!-- _footer: "Composition: compact · closing compact" -->
-
-## The signal was always there. Now we have a system that looks.
-
-`Product Strategy · Q3 2025`
-
-
----
-
-<!-- _class: closing silent accent -->
-<!-- _footer: "Composition: accent · closing accent" -->
-
-## The signal was always there. Now we have a system that looks.
-
-`Product Strategy · Q3 2025`
 
 
 ---

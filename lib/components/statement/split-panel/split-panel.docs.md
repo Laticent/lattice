@@ -67,116 +67,116 @@ One-sentence framing paragraph explaining what the points cover.
 
 ## Variants (component-specific)
 
-### `metric` — Metric — hero number owns the room
+### `metric` — metric
 
-Flips the polarity: light left panel with one hero number (wrap a unit in an `<em>`, e.g. `114<em>%</em>`, to render it smaller — note plain `*%*` is not CommonMark emphasis next to a digit), dark right panel with the supporting findings. The `h2` is the number; the inline-code eyebrow is the unit label; the lede is the measurement context. Was the standalone `split-metric` component before 2026-06-07.
+Light panel behind one hero number.
 
 ```markdown
 <!-- _class: split-panel metric -->
 
-`Net Revenue Retention`
+`split-panel metric`
 
-## 114<em>%</em>
+## 16<em>wpi</em>
 
-Trailing twelve months, top-50 accounts, versus a 108% target.
+Words per item — the budget this layout holds its supporting column to.
 
-- Expansion outran churn
-  - Seat growth in the installed base more than covered the two logos lost to consolidation.
-- Concentration is the watch-item
-  - The top ten accounts drive 41% of the number; a single departure swings it three points.
+- The panel flips light
+  - metric flips the panel light behind one hero number.
+- The number claims
+  - Keep support brief — two items beside a figure.
 ```
 
-### `pullquote` — Quote — pull-quote feature
+### `pullquote` — pullquote
 
-The left panel commits half the slide to one quotation (display italic on a dark canvas) with an optional inline-code attribution; the right panel spells out the implications. Write a `>` blockquote instead of an `h2`. Was the standalone `split-statement` component before 2026-06-07.
+Half the slide to one quotation.
 
 ```markdown
 <!-- _class: split-panel pullquote -->
 
-> We do not have a demand problem. We have a coverage problem.
+> pullquote gives half the slide to one voice, and the other half to what it means.
 
-`VP Sales · Q2 board review`
+`split-panel pullquote · the layout, quoted`
 
-- Reframes the miss
-  - The pipeline gap is structural, not a market signal — it followed the field reorg.
-- Points at the fix
-  - Coverage is a staffing decision the room can make today, not a quarter-long bet.
+- The quote claims
+  - Display italic on the dark panel; keep it under twenty-five words.
+- The column interprets
+  - Two items that say why the words matter, not who said them again.
 ```
 
-### `steps` — Steps — numbered step-timeline
+### `steps` — steps
 
-The left panel anchors a phase (inline-code phase number as a watermark + heading + summary); the right panel renders an ordered list as a numbered step-timeline with a connecting line. Use `ol` for numbered discs. Was the standalone `split-steps` component before 2026-06-07.
+The panel anchors a numbered phase.
 
 ```markdown
 <!-- _class: split-panel steps -->
 
 `02`
 
-## Calibrate
+## steps
 
-What the second phase produces before rollout begins.
+The left panel anchors a phase; the column numbers its moves.
 
-1. Tune the weights
-   - Score real outcomes against the model and adjust until the error band is acceptable.
-2. Make the log mandatory
-   - Every decision is recorded with its signals; the audit trail starts here.
-3. Sign off the baseline
-   - Written agreement on scope before the rollout phase opens.
+1. Watermark the phase
+   - The inline-code number becomes the panel's backdrop.
+2. Number the column
+   - An ordered list reads as sequence — three steps fit.
+3. Keep steps parallel
+   - Verb-first titles, one supporting line each.
 ```
 
-### `watermark` — Watermark — accent panel + letterform
+### `watermark` — watermark
 
-An accent left panel with a large letterform watermark (the heading's first letter), an `h3` section rubric in the right panel, and an optional `Audience · / Intent ·` metadata footer on the right. Use for an overview/showcase panel. Was the standalone `split-list` component before 2026-06-07.
+Accent panel, letterform, h3 rubric.
 
 ```markdown
 <!-- _class: split-panel watermark -->
 
-## Scorecard
+## Watermark
 
-### What the framework measures
+### The heading's first letter becomes the panel
 
-- Signal quality
-  - Whether the inputs are trustworthy enough to act on without re-checking.
-- Decision latency
-  - How long from signal to a logged, owned decision.
-- Reversal rate
-  - How often a logged decision is later overturned, and why.
+- The accent panel decorates
+  - A large letterform behind the heading — presence without a photo.
+- The h3 subtitles
+  - One line naming what the slide surveys.
+- The column carries the content
+  - Same three-item budget as the default split.
 ```
 
-### `mirror` — Mirror — swap left and right
+### `mirror` — mirror
 
-Flips the featured panel to the right and the supporting zone to the left. Use when the deck's reading rhythm wants the panel on the trailing side.
+Featured panel moves right.
 
 ```markdown
 <!-- _class: split-panel mirror -->
 
-`Eyebrow context`
+`split-panel mirror`
 
-## Headline on the right-hand panel.
+## mirror puts the featured panel on the right.
 
-One-sentence framing paragraph.
+Same anatomy, flipped — for when the deck's rhythm wants the claim to land late.
 
-- First point
-  - Supporting detail.
-- Second point
-  - Supporting detail.
+- Reading order still works
+  - The eye crosses support first, then lands on the panel's claim.
+- Use it sparingly
+  - One mirror per section keeps the flip meaningful.
 ```
 
-### `qr` — QR — companion: claim beside a scannable code
+### `qr` — qr
 
-The `qr` variant adds a scannable code from a payload bullet — a bare URL auto-resolves, or force a non-URL with `` `qr` ``; an optional `` `caption` `` bullet labels it. Reuses the shared QR encoder; the code is a fixed light-paper/dark-ink tile so it scans on any ground.
+Payload bullet becomes a code.
 
 ```markdown
 <!-- _class: split-panel qr -->
 
-`Revenue model`
+`split-panel qr`
 
-## The full build is in the workbook.
+## The payload bullet becomes a code on the panel.
 
-Every line traces to a driver you can open — three scenarios off one shared set of assumptions.
+A bare URL auto-resolves; the caption line labels the scan.
 
-- https://slidewright.dev/appendix/revenue-model `qr`
-- Scan for the live model `caption`
+- https://slidewright.dev/components/split-panel `qr`
+- Scan for this layout's docs `caption`
 ```
 
 ## Universal modifiers

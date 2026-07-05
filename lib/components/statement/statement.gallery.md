@@ -10,43 +10,47 @@ Statement — one declarative claim per slide.
 ---
 
 <!-- _class: big-number -->
+<!-- _footer: "big-number · statement survey" -->
 
-`Net new ARR · FY26 through Q3`
+`big-number · one number, the whole canvas`
 
-- $48M
-  - booked against a $42M full-year plan, with a quarter still to close.
+- 1
+  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.
 
 ---
 
 <!-- _class: content -->
+<!-- _footer: "content · statement survey" -->
 
-`Context · Competitive Dynamics`
+`statement · content`
 
-## The window for differentiation is narrowing.
+## The content slide is the plainest tool in the box.
 
-Three converging forces — commoditized infrastructure, compressed release cycles, and rising switching costs — have cut the average durable-advantage window from 36 months to under 14. The teams that win the next two years can tell signal from noise inside it.
+A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
 
 ---
 
 <!-- _class: quote -->
+<!-- _footer: "quote · statement survey" -->
 
-> The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
+> A quotation earns the whole slide, or it does not belong on one.
 
-— Head of Product, Pilot Team 3
+— the quote layout, stating its own rule
 
 ---
 
 <!-- _class: split-panel -->
+<!-- _footer: "split-panel · statement survey" -->
 
-`Q2 board review`
+`statement · split-panel`
 
-## Renewals held; the gap is new logos.
+## The featured panel makes the claim; this side supports it.
 
-The quarter closed on plan for retention, and three findings explain the new-business shortfall.
+A dark left panel carries the headline, and the bright right column holds up to three supporting items.
 
-- Net retention beat plan
-  - 114% against a 108% target; the installed base is healthy and expanding.
-- New-logo pipeline thinned
-  - Top-of-funnel fell 22% after the field reorg; coverage is the constraint, not conversion.
-- The fix is coverage, not price
-  - Two reps moved onto the gap close most of it before the Q4 cutover.
+- Two zones, one argument
+  - The split is hierarchy, not decoration — the panel claims, the column proves.
+- Three items is the comfort zone
+  - A short title and one supporting line each, like this.
+- Prose stays on a budget
+  - Sixteen words per item keeps the column scannable.

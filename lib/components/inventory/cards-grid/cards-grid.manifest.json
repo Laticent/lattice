@@ -16,7 +16,12 @@
     ],
     "note": "the grid loses scannability past four cards"
   },
-  "density": { "axis": "item", "soft": 15, "hard": 24, "note": "a card body is one short clause, not a paragraph" },
+  "density": {
+    "axis": "item",
+    "soft": 15,
+    "hard": 24,
+    "note": "a card body is one short clause, not a paragraph"
+  },
   "function": "inventory",
   "form": "grid",
   "substance": "structure",
@@ -89,7 +94,11 @@
     }
   },
   "skeleton": "<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
-  "sample": "<!-- _class: cards-grid -->\n\n## The framework has four components.\n\n- Signal Intake.\n  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema before scoring.\n- Scoring Model.\n  - Each signal scored on three dimensions — confidence, recency, and strategic relevance. Weights are team-configurable and reviewed quarterly.\n- Decision Log.\n  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied. Feeds the calibration loop.\n- Calibration Loop.\n  - Monthly retrospective that compares predicted outcomes to actual outcomes and adjusts scoring weights accordingly.\n",
+  "sample": "<!-- _class: cards-grid -->\n\n## A cards grid gives equal weight to peers.\n\n- Parallel titles.\n  - Noun phrases of similar weight, never mixed.\n- Short bodies.\n  - One clause each; a long card collapses the grid.\n- Rank order.\n  - Left to right reads strongest first.\n- Four cards.\n  - The hard ceiling; five means a new slide.\n",
+  "stressDoc": {
+    "caption": "Four cards at the hard budget.",
+    "sample": "<!-- _class: cards-grid -->\n\n## Four full cards is this grid's loud maximum.\n\n- Card one.\n  - A body at the hard budget runs this long — two clauses that read as one breath, and not a word more.\n- Card two.\n  - Parallel structure matters most at the ceiling; matching shapes are what keep four dense cards readable as a set.\n- Card three.\n  - The grid trades white space for words here; past this density the audience reads one card and skips the rest.\n- Card four.\n  - The hard stop. A fifth card or a longer body does not fit — split the slide or reach for list-tabular.\n"
+  },
   "anatomyBlock": "T7-card-grid-2x2",
   "whenToUse": [
     {
@@ -148,21 +157,22 @@
   "variantDocs": {
     "three": {
       "label": "Three columns",
-      "caption": "Three equal columns instead of the default two. The 2+1 last-child span rule is reset to `auto`.",
-      "sample": "<!-- _class: cards-grid three -->\n\n## The framework has three components.\n\n- Signal Intake.\n  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema.\n- Scoring Model.\n  - Each signal scored on three dimensions — confidence, recency, strategic relevance. Weights are reviewed quarterly.\n- Decision Log.\n  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied.\n"
+      "caption": "Three equal columns.",
+      "sample": "<!-- _class: cards-grid three -->\n\n## three widens the grid to three columns.\n\n- Wider cards.\n  - Each card earns a third of the row.\n- Same budget.\n  - Bodies stay one clause, titles stay parallel.\n- Sweet spot.\n  - Three peers is the count this grid loves.\n"
     },
     "four": {
       "label": "Four columns",
-      "caption": "Four equal columns instead of two. Pair with `compact` so the cards retain breathing room.",
-      "sample": "<!-- _class: cards-grid four compact -->\n\n## Four phases, four owners.\n\n- Intake.\n  - PM. Collect raw signals.\n- Score.\n  - Analyst. Apply weights.\n- Decide.\n  - Lead. Pick the call.\n- Calibrate.\n  - Team. Compare to actuals.\n"
+      "caption": "Four columns; pair with compact.",
+      "sample": "<!-- _class: cards-grid four compact -->\n\n## four locks a two-by-two, compact tightens it.\n\n- Quadrant read.\n  - Four cells scan as a loop.\n- Compact pairing.\n  - Padding shrinks so labels stay whole.\n- Named corners.\n  - Position carries meaning; place cards deliberately.\n- Still four.\n  - The ceiling does not move.\n"
     },
     "numbered": {
       "label": "Numbered cards",
-      "caption": "Authored as `ol` (`1.` source), the grid stamps a flush top-left accent corner tag on each card. Sublist must be indented 3 spaces to clear the `1. ` prefix.",
-      "sample": "<!-- _class: cards-grid -->\n\n## Signal Intake produces three outputs.\n\n1. Weekly Signal Brief\n   - A ranked list of the top 10 signals from the prior week, with confidence scores and source attribution. Distributed to product leads every Monday.\n2. Anomaly Alerts\n   - Real-time flags when a signal exceeds the 2σ threshold on any dimension. Routed to the accountable PM with a 4-hour response SLA.\n3. Monthly Signal Index\n   - The source of truth for the calibration loop. Required reading before each retrospective.\n"
+      "caption": "Ordered source stamps corner tags.",
+      "sample": "<!-- _class: cards-grid -->\n\n## An ordered list numbers the cards.\n\n1. Numbers appear\n   - Markdown's ordered list turns cards into steps.\n2. Sequence reads\n   - The grid now implies order, so mean it.\n3. Budget holds\n   - Same one-clause bodies as the unnumbered grid.\n"
     }
   },
   "showcase": {
     "featured": true
-  }
+  },
+  "specimenVoice": true
 }

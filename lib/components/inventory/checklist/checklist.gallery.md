@@ -18,15 +18,33 @@ Items with state markers — done, partial, todo.
 <!-- _class: checklist -->
 <!-- _footer: "Default · checklist" -->
 
-## Go-live readiness for the framework rollout.
+## The checklist tracks readiness in four states.
 
-- [x] Signal taxonomy ratified, in workshop four of three
-- [x] Scoring weights agreed by the steering committee
-- [x] Decision log live in staging
-- [-] Pilot teams trained, two still "circling back"
-- [-] Operating rhythm on the calendar, attendance optional in practice
-- [ ] Exec sponsor confirmed for the launch comms
-- [/] Per-team weighting UI, descoped to next half
+- [x] Done rows take a solid check
+- [x] Keep each line under ten words
+- [-] Half-done rows show the dash
+- [ ] Open rows stay empty boxes
+- [/] Descoped rows get the slash
+- [ ] Eight rows is the soft ceiling
+
+
+---
+
+<!-- _class: checklist -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · checklist — Nine rows, all four states — the ceiling." -->
+
+## Nine rows is where the checklist overflows.
+
+- [x] The first rows land while attention is fresh
+- [x] Sixteen words is the budget a stress row may spend
+- [x] Three checks in a row read as momentum
+- [-] A dash admits the honest middle state
+- [-] Two dashes together flag where the risk lives
+- [ ] Open boxes pull the eye forward
+- [ ] Late rows stay short; the audience is counting now
+- [/] The slash records what was cut, visibly
+- [x] Nine is the last row this layout seats
 
 
 ---
@@ -34,15 +52,14 @@ Items with state markers — done, partial, todo.
 <!-- _class: checklist dark -->
 <!-- _footer: "Composition: dark · checklist dark" -->
 
-## Go-live readiness for the framework rollout.
+## The checklist tracks readiness in four states.
 
-- [x] Signal taxonomy ratified, in workshop four of three
-- [x] Scoring weights agreed by the steering committee
-- [x] Decision log live in staging
-- [-] Pilot teams trained, two still "circling back"
-- [-] Operating rhythm on the calendar, attendance optional in practice
-- [ ] Exec sponsor confirmed for the launch comms
-- [/] Per-team weighting UI, descoped to next half
+- [x] Done rows take a solid check
+- [x] Keep each line under ten words
+- [-] Half-done rows show the dash
+- [ ] Open rows stay empty boxes
+- [/] Descoped rows get the slash
+- [ ] Eight rows is the soft ceiling
 
 
 ---
@@ -50,15 +67,14 @@ Items with state markers — done, partial, todo.
 <!-- _class: checklist compact -->
 <!-- _footer: "Composition: compact · checklist compact" -->
 
-## Go-live readiness for the framework rollout.
+## The checklist tracks readiness in four states.
 
-- [x] Signal taxonomy ratified, in workshop four of three
-- [x] Scoring weights agreed by the steering committee
-- [x] Decision log live in staging
-- [-] Pilot teams trained, two still "circling back"
-- [-] Operating rhythm on the calendar, attendance optional in practice
-- [ ] Exec sponsor confirmed for the launch comms
-- [/] Per-team weighting UI, descoped to next half
+- [x] Done rows take a solid check
+- [x] Keep each line under ten words
+- [-] Half-done rows show the dash
+- [ ] Open rows stay empty boxes
+- [/] Descoped rows get the slash
+- [ ] Eight rows is the soft ceiling
 
 
 ---
@@ -66,15 +82,14 @@ Items with state markers — done, partial, todo.
 <!-- _class: checklist accent -->
 <!-- _footer: "Composition: accent · checklist accent" -->
 
-## Go-live readiness for the framework rollout.
+## The checklist tracks readiness in four states.
 
-- [x] Signal taxonomy ratified, in workshop four of three
-- [x] Scoring weights agreed by the steering committee
-- [x] Decision log live in staging
-- [-] Pilot teams trained, two still "circling back"
-- [-] Operating rhythm on the calendar, attendance optional in practice
-- [ ] Exec sponsor confirmed for the launch comms
-- [/] Per-team weighting UI, descoped to next half
+- [x] Done rows take a solid check
+- [x] Keep each line under ten words
+- [-] Half-done rows show the dash
+- [ ] Open rows stay empty boxes
+- [/] Descoped rows get the slash
+- [ ] Eight rows is the soft ceiling
 
 
 ---

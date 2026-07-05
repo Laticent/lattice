@@ -20,16 +20,40 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ## Glossary
 
-- Consent
-  - A freely given, specific, informed agreement to processing — pre-ticked boxes don't count.
-- Controller
-  - The party that decides why and how personal data is processed, and carries the legal accountability for it.
-- DSAR
-  - Data Subject Access Request — a person's demand to see, correct, or delete the data held on them, on a 45-day clock under CCPA.
-- PII
-  - Personal information that identifies a person, now read broadly enough to cover device IDs, cookies, and IP addresses.
-- Processor
-  - A party that processes data on the controller's instructions — a vendor, not the decision-maker.
+- Component
+  - A slide layout with a manifest, styles, and docs.
+- Variant
+  - A named modifier that changes one layout decision.
+- Modifier
+  - A universal class — dark, compact, accent — any layout accepts.
+- Stress test
+  - The slide that shows a layout's upper limit.
+
+
+---
+
+<!-- _class: glossary -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · glossary — Eight terms at the definition ceiling." -->
+
+## Glossary, at capacity
+
+- Bucket
+  - One of thirteen functional families a component lives in; the bucket gallery surveys its members.
+- Capacity
+  - How many elements a layout seats before it overflows — sweet, soft, and hard marks.
+- Caption channel
+  - The footer sentence that carries the lesson.
+- Density budget
+  - The soft and hard word counts a sample element may spend, enforced by the contract test.
+- Ledger
+  - The named debt list that tracks migration honestly.
+- Manifest
+  - The JSON file that owns a component's samples, variants, budgets, and docs.
+- Specimen voice
+  - Gallery copy that teaches the layout by describing it.
+- Walk order
+  - The fixed slide sequence every gallery follows.
 
 
 ---
@@ -39,16 +63,14 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ## Glossary
 
-- Consent
-  - A freely given, specific, informed agreement to processing — pre-ticked boxes don't count.
-- Controller
-  - The party that decides why and how personal data is processed, and carries the legal accountability for it.
-- DSAR
-  - Data Subject Access Request — a person's demand to see, correct, or delete the data held on them, on a 45-day clock under CCPA.
-- PII
-  - Personal information that identifies a person, now read broadly enough to cover device IDs, cookies, and IP addresses.
-- Processor
-  - A party that processes data on the controller's instructions — a vendor, not the decision-maker.
+- Component
+  - A slide layout with a manifest, styles, and docs.
+- Variant
+  - A named modifier that changes one layout decision.
+- Modifier
+  - A universal class — dark, compact, accent — any layout accepts.
+- Stress test
+  - The slide that shows a layout's upper limit.
 
 
 ---
@@ -58,16 +80,14 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ## Glossary
 
-- Consent
-  - A freely given, specific, informed agreement to processing — pre-ticked boxes don't count.
-- Controller
-  - The party that decides why and how personal data is processed, and carries the legal accountability for it.
-- DSAR
-  - Data Subject Access Request — a person's demand to see, correct, or delete the data held on them, on a 45-day clock under CCPA.
-- PII
-  - Personal information that identifies a person, now read broadly enough to cover device IDs, cookies, and IP addresses.
-- Processor
-  - A party that processes data on the controller's instructions — a vendor, not the decision-maker.
+- Component
+  - A slide layout with a manifest, styles, and docs.
+- Variant
+  - A named modifier that changes one layout decision.
+- Modifier
+  - A universal class — dark, compact, accent — any layout accepts.
+- Stress test
+  - The slide that shows a layout's upper limit.
 
 
 ---
@@ -77,16 +97,14 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ## Glossary
 
-- Consent
-  - A freely given, specific, informed agreement to processing — pre-ticked boxes don't count.
-- Controller
-  - The party that decides why and how personal data is processed, and carries the legal accountability for it.
-- DSAR
-  - Data Subject Access Request — a person's demand to see, correct, or delete the data held on them, on a 45-day clock under CCPA.
-- PII
-  - Personal information that identifies a person, now read broadly enough to cover device IDs, cookies, and IP addresses.
-- Processor
-  - A party that processes data on the controller's instructions — a vendor, not the decision-maker.
+- Component
+  - A slide layout with a manifest, styles, and docs.
+- Variant
+  - A named modifier that changes one layout decision.
+- Modifier
+  - A universal class — dark, compact, accent — any layout accepts.
+- Stress test
+  - The slide that shows a layout's upper limit.
 
 
 ---

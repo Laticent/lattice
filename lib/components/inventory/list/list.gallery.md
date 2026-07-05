@@ -18,89 +18,105 @@ Bulleted list under a heading — plain pills, hairline takeaways, or display-we
 <!-- _class: list -->
 <!-- _footer: "Default · list" -->
 
-## What the first six months of pilots taught us.
+## The list states one point per line.
 
-- Teams log roughly one decision for every twenty they actually make.
-- The scoring weights get re-tuned after almost every retrospective.
-- Predicted outcomes are the field most often left blank.
-- Alignment scores rose fastest on the teams that reviewed the log weekly.
-- No pilot team has asked to go back to the old process.
+- A line is a complete statement, not a fragment.
+- Fourteen words is the budget a line may spend.
+- Six lines fill the canvas comfortably.
+- Parallel openings keep the scan honest.
+- Nesting belongs to card layouts, not here.
 
 
 ---
 
 <!-- _class: list takeaway -->
-<!-- _footer: "Takeaway — hairline single-line points · list takeaway" -->
+<!-- _footer: "takeaway · list takeaway — Ruled single lines for conclusions." -->
 
-## What this review showed, in five lines.
+## takeaway boxes the list as findings.
 
-- Q2 revenue missed plan by 9%, and three structural factors explain almost all of it.
-- The shortfall is in enterprise renewals, not new logos.
-- Every one of the three causes is fixable before the Q4 close.
-- The Q3 plan moves two engineers and one rep onto the gaps.
-- We are not asking for more headcount — only to move what we have.
+- The box frames the lines as conclusions.
+- Lead with the strongest finding.
+- Five lines read as a verdict.
+- Longer sets go back to plain list.
 
 
 ---
 
 <!-- _class: list principles -->
-<!-- _footer: "Principles — display-weight declarations · list principles" -->
+<!-- _footer: "principles · list principles — Numbered declarations at display weight." -->
 
-## How we make calls when the spec is silent.
+## principles numbers the house rules.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
-4. Disagree in the room, then commit outside it.
-5. Optimise for the reader who wasn't there.
+1. State each rule as an imperative.
+2. Keep rules under ten words.
+3. Order them by how often they apply.
+4. Retire a rule you keep breaking.
 
 
 ---
 
 <!-- _class: list takeaway numbered -->
-<!-- _footer: "Numbered — accent counter on takeaways · list numbered" -->
+<!-- _footer: "numbered · list numbered — Accent counters on the takeaway box." -->
 
-## What this review showed, in five lines.
+## numbered ranks the boxed findings.
 
-- Q2 revenue missed plan by 9%, and three structural factors explain it.
-- The shortfall is in enterprise renewals, not new logos.
-- Every one of the three causes is fixable before the Q4 close.
+- Ranks turn findings into priorities.
+- The top line owns the meeting.
+- Three ranked lines beat six flat ones.
 
 
 ---
 
 <!-- _class: list principles lettered -->
-<!-- _footer: "Lettered — A, B, C counter on principles · list lettered" -->
+<!-- _footer: "lettered · list lettered — Letters replace the counters." -->
 
-## Working agreements.
+## lettered counts the rules with letters.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Letters read as options, not sequence.
+2. Use them when order is arbitrary.
+3. Three options is a decision; six is a menu.
 
 
 ---
 
 <!-- _class: list principles roman -->
-<!-- _footer: "Roman — I, II, III counter on principles · list roman" -->
+<!-- _footer: "roman · list roman — Roman numerals replace counters." -->
 
-## Working agreements.
+## roman sets the rules in numerals.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Numerals lend formal weight.
+2. Reserve them for charters and mandates.
+3. Past five, the gravitas becomes parody.
 
 
 ---
 
 <!-- _class: list principles bullet -->
-<!-- _footer: "Bullet — dot instead of a counter on principles · list bullet" -->
+<!-- _footer: "bullet · list bullet — Dots replace the counters." -->
 
-## Working agreements.
+## bullet strips the markers back to dots.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Dots drop the counting entirely.
+2. The principles frame stays.
+3. Use when rules are peers.
+
+
+---
+
+<!-- _class: list -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · list — Eight lines at the hard ceiling." -->
+
+## Eight lines is the most a list should carry.
+
+- A stress line may spend twenty words, and this one spends them to show where the wrap lands.
+- Even at the ceiling every line stays one complete statement with a single clause of support.
+- The third line is where a reading audience starts skimming instead.
+- Vary sentence length or eight dense lines blur into one.
+- The fifth line should carry something worth the fatigue.
+- Numbers and names hold attention better than abstractions here.
+- The seventh line is the last one anyone quotes.
+- Eight is the stop; nine becomes a memo.
 
 
 ---
@@ -108,13 +124,13 @@ Bulleted list under a heading — plain pills, hairline takeaways, or display-we
 <!-- _class: list dark -->
 <!-- _footer: "Composition: dark · list dark" -->
 
-## What the first six months of pilots taught us.
+## The list states one point per line.
 
-- Teams log roughly one decision for every twenty they actually make.
-- The scoring weights get re-tuned after almost every retrospective.
-- Predicted outcomes are the field most often left blank.
-- Alignment scores rose fastest on the teams that reviewed the log weekly.
-- No pilot team has asked to go back to the old process.
+- A line is a complete statement, not a fragment.
+- Fourteen words is the budget a line may spend.
+- Six lines fill the canvas comfortably.
+- Parallel openings keep the scan honest.
+- Nesting belongs to card layouts, not here.
 
 
 ---
@@ -122,13 +138,13 @@ Bulleted list under a heading — plain pills, hairline takeaways, or display-we
 <!-- _class: list compact -->
 <!-- _footer: "Composition: compact · list compact" -->
 
-## What the first six months of pilots taught us.
+## The list states one point per line.
 
-- Teams log roughly one decision for every twenty they actually make.
-- The scoring weights get re-tuned after almost every retrospective.
-- Predicted outcomes are the field most often left blank.
-- Alignment scores rose fastest on the teams that reviewed the log weekly.
-- No pilot team has asked to go back to the old process.
+- A line is a complete statement, not a fragment.
+- Fourteen words is the budget a line may spend.
+- Six lines fill the canvas comfortably.
+- Parallel openings keep the scan honest.
+- Nesting belongs to card layouts, not here.
 
 
 ---
@@ -136,13 +152,13 @@ Bulleted list under a heading — plain pills, hairline takeaways, or display-we
 <!-- _class: list accent -->
 <!-- _footer: "Composition: accent · list accent" -->
 
-## What the first six months of pilots taught us.
+## The list states one point per line.
 
-- Teams log roughly one decision for every twenty they actually make.
-- The scoring weights get re-tuned after almost every retrospective.
-- Predicted outcomes are the field most often left blank.
-- Alignment scores rose fastest on the teams that reviewed the log weekly.
-- No pilot team has asked to go back to the old process.
+- A line is a complete statement, not a fragment.
+- Fourteen words is the budget a line may spend.
+- Six lines fill the canvas comfortably.
+- Parallel openings keep the scan honest.
+- Nesting belongs to card layouts, not here.
 
 
 ---

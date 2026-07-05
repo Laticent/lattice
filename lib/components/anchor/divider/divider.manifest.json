@@ -37,7 +37,7 @@
   },
   "skeleton": "<!-- _class: divider -->\n<!-- _paginate: false -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n`Section 01`\n\n## Section name\n",
   "anatomyBlock": "divider-bookend",
-  "sample": "<!-- _class: divider silent -->\n\n`Section 03`\n\n## Inventory\n",
+  "sample": "<!-- _class: divider silent -->\n\n`divider · Section 03`\n\n## A divider gives the deck a place to breathe.\n",
   "whenToUse": [
     {
       "title": "Major section starts",
@@ -82,22 +82,27 @@
   ],
   "variantDocs": {
     "numbered": {
-      "label": "Numbered — auto-incrementing section index",
-      "caption": "Stamps an auto-incrementing section number in the corner. Each divider in the deck increments the counter; closing slides carry an independent counter.",
-      "sample": "<!-- _class: divider silent numbered -->\n\n`Section 03`\n\n## Inventory\n"
+      "label": "numbered",
+      "caption": "Stamps the running section number.",
+      "sample": "<!-- _class: divider silent numbered -->\n\n`divider numbered`\n\n## The corner stamp counts this divider for you.\n"
     },
     "light": {
-      "label": "Light — bright-canvas sub-section break",
-      "caption": "Drops the dark canvas for the standard bright body-slide background, centers the heading, and shrinks it to h2 weight. Use for mid-section orientation that shouldn't carry the full context-switch weight of a dark divider. Absorbed the standalone `subtopic` component on 2026-06-07.",
-      "sample": "<!-- _class: divider light -->\n\n`The Framework · Component 02`\n\n## Before we can score a signal, we have to agree on what one is.\n"
+      "label": "light",
+      "caption": "Bright canvas, sentence-length waypoint.",
+      "sample": "<!-- _class: divider light -->\n\n`divider light`\n\n## The light divider trades the dark canvas for a bright, full-sentence waypoint.\n"
     },
     "qr": {
-      "label": "QR — scan-to call to action",
-      "caption": "The `qr` variant adds a scannable code from a payload bullet — a bare URL auto-resolves, or force a non-URL with `` `qr` ``; an optional `` `caption` `` bullet labels it. Reuses the shared QR encoder; the code is a fixed light-paper/dark-ink tile so it scans on any ground.",
-      "sample": "<!-- _class: divider qr -->\n\n`Next step`\n\n## Begin the pilot.\n\n- https://slidewright.dev/pilot/start\n- Scan to begin `caption`\n"
+      "label": "qr",
+      "caption": "The payload bullet becomes a code.",
+      "sample": "<!-- _class: divider qr -->\n\n`divider qr`\n\n## The payload bullet below becomes a scannable code.\n\n- https://slidewright.dev/components/divider\n- Scan for the divider's docs `caption`\n"
     }
   },
   "showcase": {
     "featured": true
-  }
+  },
+  "specimenVoice": true,
+  "excludes": [
+    "accent",
+    "compact"
+  ]
 }

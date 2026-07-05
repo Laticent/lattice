@@ -76,59 +76,55 @@ Use for a small register of related items where each carries similar weight. Aut
 
 ### `cards` — Cards
 
-The same register as an equal grid of cards, with the insight as a centred pull-quote. Best when the items read as parallel options scanned at a glance.
+The register as tiles with a pull-quote.
 
 ```markdown
 <!-- _class: inventory cards -->
 
-`Framework · Four Components`
+`inventory cards`
 
-## The system has four moving parts.
+## cards deals the parts into tiles.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 ```
 
 ### `timeline` — Timeline
 
-A horizontal numbered run with connectors, the insight as a kicker above. Reads the register as a left-to-right progression.
+A numbered run along a line.
 
 ```markdown
 <!-- _class: inventory timeline -->
 
-`Framework · Four Components`
+`inventory timeline`
 
-## The system has four moving parts.
+## timeline strings the parts along a line.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 ```
 
 ### `editorial` — Editorial
 
-A magazine split — the insight as an accent-ruled sidebar beside a ruled item column (the title rides the masthead band). For a feature-statement register.
+A magazine split with a sidebar takeaway.
 
 ```markdown
 <!-- _class: inventory editorial -->
 
-`Framework · Four Components`
+`inventory editorial`
 
-## The system has four moving parts.
+## editorial sets the parts as a column.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** Same content, magazine form.
 
-> Signals without decisions are just noise.
+> The sidebar carries the register's one takeaway.
 ```
 
 ## Universal modifiers

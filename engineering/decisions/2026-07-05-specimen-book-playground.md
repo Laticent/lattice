@@ -196,3 +196,31 @@ Bucket galleries are **already** aggregated with a standing drift gate — this 
 ## 8. Why this is 10/10
 
 Every brief item lands with an automated gate you can point at — and every gate arrives with its violator count *measured as compliance, not field presence*. Variant coverage is a `validate()` error the day PR 1 lands because the tree has exactly one violator and PR 1 fixes it (`chart/map`, whose `world` variant is silently dropped by the generator's own filter at build-component-docs.js:320) — and the gate ships with its authoring path, so it can't strand a contributor into committing "TBD". Word budgets are blocking with the truth on the table: 53 violations across 19 components exist today, so they enter `VOICE_DEBT` under a mechanical `budget` predicate whose stale-entry check makes both regression and unrecorded progress test failures; the rule binds immediately everywhere else and everywhere, by PR 4. The stress band is never vacuous (`[min(soft+1,hard), hard]` — cards-stack's at-ceiling slide passes, measured), the default-≤-soft gate has 0 violators (measured), and `density` can only ever be loosened by the calibrator, never by deadline pressure. Bucket galleries cannot drift because the md-drift test **already in the tree** (`bucket-galleries.test.js`) asserts on-disk equals `composeBucketGallery` output. The walkthrough cannot diverge from the PDFs because both consume the same exported `galleryPlan(m)` — staged by `sync-playground-assets.mjs` *inside* the existing content hash, with the 404 path unit-tested rather than undiscovered in production. Every rendered footer ships through a fan-out because captions switch on per-deck inside the migration PR that reviews that deck — which also halves the committed-PDF churn. The Playground fixes each confirmed jank at its named line (`ComponentPicker.tsx:39`, `PlaygroundApp.tsx:326`'s `if (!det) return`) under a two-state model that makes the clear-case fix and the persisted component provably non-colliding; closes all three draft-clobber paths with an apply-consumed, fingerprint-guarded, backup-and-undo handoff; and survives its own success — catalog rewrites can't dirty pristine drafts, renamed variants can't blank shared links, a deploy can't kill a mid-walk tab, and the phone user gets the words at body size instead of a 0.28-scale promise. Zero new preview builders, zero new #22 sanctions, zero edits to freeze-shared tour machinery, all 13 buckets scheduled, one honest UNVERIFIED (iOS touch) shipped degradation-safe with an owner and a date. If any of those claims is false, a gate in the merged tree fails; that is the falsifiability the boardroom bar demands.
+
+## Appendix — pre-existing defects logged during PR 2's visual sweep (HARD RULE #18)
+
+The group-1 visual fan-out (4 reviewers, 446 whole-slide rasters, light + dark)
+surfaced defects that predate the migration and are OFF the content path —
+verified pre-existing against untouched galleries (`map`) or pre-change PDFs.
+Logged here for their own fixes; none are pulled into the migration PRs:
+
+1. **See-also closers are illegible in light mood** — on every gallery's
+   `closing silent` see-also slide, the prose after each related-component chip
+   renders dark-on-dark in the LIGHT deck (dark deck correct). Engine/theme
+   token bug on the closing canvas. Confirmed on untouched `map` gallery.
+2. **Anti-pattern slides fragment around inline code chips** — the `list`
+   meta-slide scrambles card prose into disjoint columns wherever a body
+   carries inline code. Confirmed on untouched `map` gallery, both moods.
+3. **split-panel's footer clips at the panel edge** — the `_footer` renders
+   inside the dark panel zone and hard-clips at the panel/column boundary, so
+   any footer longer than ~48 characters truncates mid-phrase. Component CSS.
+4. **quote's attribution line renders at micro size** — attribution has always
+   rendered far below body scale (verified against the pre-change PDF).
+5. **contact renders slot lines without the chip treatment wifi gets** —
+   email/phone/url lines are bare mono while wifi's ssid/password/security get
+   labeled chips; inconsistent slot chrome between the two connect cards.
+6. **wifi's caption line carries a stray list-marker dot** when it wraps.
+7. **inventory capacity is miscalibrated at the top** — `capacity.hard = 6`,
+   but the register look clips the sixth row's body even under `compact`
+   (measured in PR 2; the stress slide ships at the honest n=5 and the ledger
+   carries a `band` entry until capacity is recalibrated).

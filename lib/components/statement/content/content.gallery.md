@@ -18,11 +18,30 @@ Generic prose slide — heading plus paragraphs or a short list.
 <!-- _class: content -->
 <!-- _footer: "Default · content" -->
 
-`Context · Competitive Dynamics`
+`statement · content`
 
-## The window for differentiation is narrowing.
+## The content slide is the plainest tool in the box.
 
-Three converging forces — commoditized infrastructure, compressed release cycles, and rising switching costs — have cut the average durable-advantage window from 36 months to under 14. The teams that win the next two years can tell signal from noise inside it.
+A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
+
+
+---
+
+<!-- _class: content -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · content — Two paragraphs and a list — the ceiling." -->
+
+`content · stress — the ceiling for prose`
+
+## This is as much text as one slide should ever carry.
+
+Two paragraphs is the working limit. This first one runs three full lines to show where the measure sits, how the leading holds, and why anything denser belongs in a document instead of a deck.
+
+The second paragraph stays shorter — because by now the audience is reading, not listening.
+
+- One list is allowed after prose
+- Three items is its comfortable end
+- A fourth begins to crowd the footer
 
 
 ---
@@ -30,11 +49,11 @@ Three converging forces — commoditized infrastructure, compressed release cycl
 <!-- _class: content dark -->
 <!-- _footer: "Composition: dark · content dark" -->
 
-`Context · Competitive Dynamics`
+`statement · content`
 
-## The window for differentiation is narrowing.
+## The content slide is the plainest tool in the box.
 
-Three converging forces — commoditized infrastructure, compressed release cycles, and rising switching costs — have cut the average durable-advantage window from 36 months to under 14. The teams that win the next two years can tell signal from noise inside it.
+A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
 
 
 ---
@@ -42,11 +61,11 @@ Three converging forces — commoditized infrastructure, compressed release cycl
 <!-- _class: content compact -->
 <!-- _footer: "Composition: compact · content compact" -->
 
-`Context · Competitive Dynamics`
+`statement · content`
 
-## The window for differentiation is narrowing.
+## The content slide is the plainest tool in the box.
 
-Three converging forces — commoditized infrastructure, compressed release cycles, and rising switching costs — have cut the average durable-advantage window from 36 months to under 14. The teams that win the next two years can tell signal from noise inside it.
+A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
 
 
 ---
@@ -54,11 +73,11 @@ Three converging forces — commoditized infrastructure, compressed release cycl
 <!-- _class: content accent -->
 <!-- _footer: "Composition: accent · content accent" -->
 
-`Context · Competitive Dynamics`
+`statement · content`
 
-## The window for differentiation is narrowing.
+## The content slide is the plainest tool in the box.
 
-Three converging forces — commoditized infrastructure, compressed release cycles, and rising switching costs — have cut the average durable-advantage window from 36 months to under 14. The teams that win the next two years can tell signal from noise inside it.
+A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
 
 
 ---

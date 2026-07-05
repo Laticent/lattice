@@ -17,11 +17,20 @@
       "logos"
     ]
   },
-  "tags": ["visual", "showcase", "pitch"],
+  "tags": [
+    "visual",
+    "showcase",
+    "pitch"
+  ],
   "description": "A grid of customer, partner, or funder logos as social proof.",
   "purpose": "Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-coloured silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and colour-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.",
-  "variants": ["color", "dense"],
-  "excludes": ["accent"],
+  "variants": [
+    "color",
+    "dense"
+  ],
+  "excludes": [
+    "accent"
+  ],
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",
@@ -46,7 +55,7 @@
   },
   "skeleton": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## The headline claim the logos back up.\n\n- ![First brand](logo-1.svg)\n  - First brand\n  - `Series B`\n- ![Second brand](logo-2.svg)\n  - Second brand\n- ![Third brand](logo-3.svg)\n- ![Fourth brand](logo-4.svg)\n- ![Fifth brand](logo-5.svg)\n- ![Sixth brand](logo-6.svg)\n",
   "anatomyBlock": "logo-wall",
-  "sample": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## 400+ teams run board prep on Lattice.\n\n- ![Acme](acme.svg)\n  - Acme\n  - `Series B`\n- ![Globex](globex.svg)\n  - Globex\n  - `Enterprise`\n- ![Vantage](vantage.svg)\n  - Vantage\n  - `Public`\n- ![Umbra](umbra.svg)\n  - Umbra\n  - `Series C`\n- ![Meridian](meridian.svg)\n  - Meridian\n  - `Seed`\n- ![Helios](helios.svg)\n  - Helios\n  - `Public`\n- ![Northwind](northwind.svg)\n  - Northwind\n  - `Anchor`\n- ![Cobalt](cobalt.svg)\n  - Cobalt\n  - `Series A`\n",
+  "sample": "<!-- _class: logo-wall -->\n\n`inventory · logo-wall`\n\n## The logo wall seats the marks with captions.\n\n- ![Acme](acme.svg)\n  - Acme\n  - `Series B`\n- ![Globex](globex.svg)\n  - Globex\n  - `Enterprise`\n- ![Vantage](vantage.svg)\n  - Vantage\n  - `Public`\n- ![Umbra](umbra.svg)\n  - Umbra\n  - `Series C`\n- ![Meridian](meridian.svg)\n  - Meridian\n  - `Seed`\n- ![Helios](helios.svg)\n  - Helios\n  - `Public`\n- ![Northwind](northwind.svg)\n  - Northwind\n  - `Anchor`\n- ![Cobalt](cobalt.svg)\n  - Cobalt\n  - `Series A`\n",
   "whenToUse": [
     {
       "title": "The proof is the logos",
@@ -72,26 +81,42 @@
     },
     {
       "title": "Mismatched raster art",
-      "body": "The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; colour is supplied by the palette token, not the file."
+      "body": "The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; color is supplied by the palette token, not the file."
     }
   ],
   "related": [
-    { "name": "actors", "when": "each named entity owns a responsibility, not just lends its logo" },
-    { "name": "cards-grid", "when": "each item needs a line of body text, not just a mark" },
-    { "name": "big-number", "when": "the proof is a count ('400+ teams'), not the individual marks" },
-    { "name": "quote", "when": "one customer's testimonial carries the slide" },
-    { "name": "image", "when": "a single visual, not a grid of marks, is the evidence" }
+    {
+      "name": "actors",
+      "when": "each named entity owns a responsibility, not just lends its logo"
+    },
+    {
+      "name": "cards-grid",
+      "when": "each item needs a line of body text, not just a mark"
+    },
+    {
+      "name": "big-number",
+      "when": "the proof is a count ('400+ teams'), not the individual marks"
+    },
+    {
+      "name": "quote",
+      "when": "one customer's testimonial carries the slide"
+    },
+    {
+      "name": "image",
+      "when": "a single visual, not a grid of marks, is the evidence"
+    }
   ],
   "variantDocs": {
     "color": {
-      "label": "Color — per-mark palette hues",
-      "caption": "Gives each mark its own categorical palette hue (`--cat-*-mark`, cycling 1..12) instead of the single muted token — useful when telling the marks apart matters more than restraint, e.g. a partner directory. The hues are ours, so they stay cohesive with the deck's charts and AA on both grounds; the single-token default is the boardroom-restrained pick.",
-      "sample": "<!-- _class: logo-wall color -->\n\n`Our partners`\n\n## The brands behind the programme.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n"
+      "label": "color",
+      "caption": "Marks keep their brand hues.",
+      "sample": "<!-- _class: logo-wall color -->\n\n`logo-wall color`\n\n## color lets the marks keep their brands.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n"
     },
     "dense": {
-      "label": "Dense — more marks, smaller cells",
-      "caption": "Tightens to six columns with shorter cells for a longer roster — a member directory, a full funder list, every participating agency. Past about eighteen marks the recognition threshold gives out; split across two slides instead.",
-      "sample": "<!-- _class: logo-wall dense -->\n\n`Our funders`\n\n## Eighteen organisations backed this year's work.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n- ![Cobalt](cobalt.svg)\n- ![Sable](sable.svg)\n- ![Quanta](quanta.svg)\n- ![Lumen](lumen.svg)\n"
+      "label": "dense",
+      "caption": "Six columns for the long roster.",
+      "sample": "<!-- _class: logo-wall dense -->\n\n`logo-wall dense`\n\n## dense packs the long roster, captions off.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n- ![Cobalt](cobalt.svg)\n- ![Sable](sable.svg)\n- ![Quanta](quanta.svg)\n- ![Lumen](lumen.svg)\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

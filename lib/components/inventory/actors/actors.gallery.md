@@ -18,18 +18,40 @@ Roster of responsibilities owned by named actors.
 <!-- _class: actors -->
 <!-- _footer: "Default · actors" -->
 
-## Who owns each part of the framework, and who answers for it.
+## The actors ledger names who owns what.
 
-- Owns the scoring model `Head of Product`
-  - Sets the weights and signs off changes after each calibration, then retunes them until the output agrees with the roadmap.
-- Runs the weekly signal review `Chief of Staff`
-  - Chairs the thirty minutes and keeps the decision log current, in the sense of opening it weekly.
-- Maintains the decision log `Program Manager`
-  - Every call recorded with its bet; chases the missing predicted outcomes.
-- Owns adoption `Enablement Lead`
-  - Onboards each team — the reason attendance is merely aspirational.
-- Clears blockers `Executive Sponsor`
-  - Approves the operating rhythm; stays out of the scoring debates, and out of the room when the outcomes are reviewed.
+- Owns one row `Each actor`
+  - A verb-first responsibility, twelve words at most.
+- Reads top to bottom `The ledger`
+  - Order carries seniority or sequence.
+- Answers by name `The role chip`
+  - The inline code names the seat.
+- Stops at six rows `This layout`
+  - Past six, reach for list-tabular.
+
+
+---
+
+<!-- _class: actors -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · actors — Seven rows — the ledger's ceiling." -->
+
+## Seven rows is where the ledger maxes out.
+
+- Row one `First seat`
+  - Even at the ceiling, every row keeps a verb-first responsibility line.
+- Row two `Second seat`
+  - Eighteen words is the hard budget; this row spends most of them deliberately.
+- Row three `Third seat`
+  - Rows stay parallel or the column of chips stops lining up.
+- Row four `Fourth seat`
+  - Middle rows read fastest; bury nothing important here.
+- Row five `Fifth seat`
+  - The eye is tiring by now — keep these short.
+- Row six `Sixth seat`
+  - The soft ceiling was one row ago.
+- Row seven `Last seat`
+  - The hard stop; an eighth row means a second slide.
 
 
 ---
@@ -37,18 +59,16 @@ Roster of responsibilities owned by named actors.
 <!-- _class: actors dark -->
 <!-- _footer: "Composition: dark · actors dark" -->
 
-## Who owns each part of the framework, and who answers for it.
+## The actors ledger names who owns what.
 
-- Owns the scoring model `Head of Product`
-  - Sets the weights and signs off changes after each calibration, then retunes them until the output agrees with the roadmap.
-- Runs the weekly signal review `Chief of Staff`
-  - Chairs the thirty minutes and keeps the decision log current, in the sense of opening it weekly.
-- Maintains the decision log `Program Manager`
-  - Every call recorded with its bet; chases the missing predicted outcomes.
-- Owns adoption `Enablement Lead`
-  - Onboards each team — the reason attendance is merely aspirational.
-- Clears blockers `Executive Sponsor`
-  - Approves the operating rhythm; stays out of the scoring debates, and out of the room when the outcomes are reviewed.
+- Owns one row `Each actor`
+  - A verb-first responsibility, twelve words at most.
+- Reads top to bottom `The ledger`
+  - Order carries seniority or sequence.
+- Answers by name `The role chip`
+  - The inline code names the seat.
+- Stops at six rows `This layout`
+  - Past six, reach for list-tabular.
 
 
 ---
@@ -56,18 +76,16 @@ Roster of responsibilities owned by named actors.
 <!-- _class: actors compact -->
 <!-- _footer: "Composition: compact · actors compact" -->
 
-## Who owns each part of the framework, and who answers for it.
+## The actors ledger names who owns what.
 
-- Owns the scoring model `Head of Product`
-  - Sets the weights and signs off changes after each calibration, then retunes them until the output agrees with the roadmap.
-- Runs the weekly signal review `Chief of Staff`
-  - Chairs the thirty minutes and keeps the decision log current, in the sense of opening it weekly.
-- Maintains the decision log `Program Manager`
-  - Every call recorded with its bet; chases the missing predicted outcomes.
-- Owns adoption `Enablement Lead`
-  - Onboards each team — the reason attendance is merely aspirational.
-- Clears blockers `Executive Sponsor`
-  - Approves the operating rhythm; stays out of the scoring debates, and out of the room when the outcomes are reviewed.
+- Owns one row `Each actor`
+  - A verb-first responsibility, twelve words at most.
+- Reads top to bottom `The ledger`
+  - Order carries seniority or sequence.
+- Answers by name `The role chip`
+  - The inline code names the seat.
+- Stops at six rows `This layout`
+  - Past six, reach for list-tabular.
 
 
 ---
@@ -75,18 +93,16 @@ Roster of responsibilities owned by named actors.
 <!-- _class: actors accent -->
 <!-- _footer: "Composition: accent · actors accent" -->
 
-## Who owns each part of the framework, and who answers for it.
+## The actors ledger names who owns what.
 
-- Owns the scoring model `Head of Product`
-  - Sets the weights and signs off changes after each calibration, then retunes them until the output agrees with the roadmap.
-- Runs the weekly signal review `Chief of Staff`
-  - Chairs the thirty minutes and keeps the decision log current, in the sense of opening it weekly.
-- Maintains the decision log `Program Manager`
-  - Every call recorded with its bet; chases the missing predicted outcomes.
-- Owns adoption `Enablement Lead`
-  - Onboards each team — the reason attendance is merely aspirational.
-- Clears blockers `Executive Sponsor`
-  - Approves the operating rhythm; stays out of the scoring debates, and out of the room when the outcomes are reviewed.
+- Owns one row `Each actor`
+  - A verb-first responsibility, twelve words at most.
+- Reads top to bottom `The ledger`
+  - Order carries seniority or sequence.
+- Answers by name `The role chip`
+  - The inline code names the seat.
+- Stops at six rows `This layout`
+  - Past six, reach for list-tabular.
 
 
 ---

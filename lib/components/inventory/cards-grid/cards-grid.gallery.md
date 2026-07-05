@@ -18,63 +18,81 @@ header: "Lattice · cards-grid"
 <!-- _class: cards-grid -->
 <!-- _footer: "Default · cards-grid" -->
 
-## The framework has four components.
+## A cards grid gives equal weight to peers.
 
-- Signal Intake.
-  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema before scoring.
-- Scoring Model.
-  - Each signal scored on three dimensions — confidence, recency, and strategic relevance. Weights are team-configurable and reviewed quarterly.
-- Decision Log.
-  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied. Feeds the calibration loop.
-- Calibration Loop.
-  - Monthly retrospective that compares predicted outcomes to actual outcomes and adjusts scoring weights accordingly.
+- Parallel titles.
+  - Noun phrases of similar weight, never mixed.
+- Short bodies.
+  - One clause each; a long card collapses the grid.
+- Rank order.
+  - Left to right reads strongest first.
+- Four cards.
+  - The hard ceiling; five means a new slide.
 
 
 ---
 
 <!-- _class: cards-grid four compact -->
-<!-- _footer: "Four columns · cards-grid four" -->
+<!-- _footer: "Four columns · cards-grid four — Four columns; pair with compact." -->
 
-## Four phases, four owners.
+## four locks a two-by-two, compact tightens it.
 
-- Intake.
-  - PM. Collect raw signals.
-- Score.
-  - Analyst. Apply weights.
-- Decide.
-  - Lead. Pick the call.
-- Calibrate.
-  - Team. Compare to actuals.
+- Quadrant read.
+  - Four cells scan as a loop.
+- Compact pairing.
+  - Padding shrinks so labels stay whole.
+- Named corners.
+  - Position carries meaning; place cards deliberately.
+- Still four.
+  - The ceiling does not move.
 
 
 ---
 
 <!-- _class: cards-grid three -->
-<!-- _footer: "Three columns · cards-grid three" -->
+<!-- _footer: "Three columns · cards-grid three — Three equal columns." -->
 
-## The framework has three components.
+## three widens the grid to three columns.
 
-- Signal Intake.
-  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema.
-- Scoring Model.
-  - Each signal scored on three dimensions — confidence, recency, strategic relevance. Weights are reviewed quarterly.
-- Decision Log.
-  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied.
+- Wider cards.
+  - Each card earns a third of the row.
+- Same budget.
+  - Bodies stay one clause, titles stay parallel.
+- Sweet spot.
+  - Three peers is the count this grid loves.
 
 
 ---
 
 <!-- _class: cards-grid -->
-<!-- _footer: "Numbered cards · cards-grid numbered" -->
+<!-- _footer: "Numbered cards · cards-grid numbered — Ordered source stamps corner tags." -->
 
-## Signal Intake produces three outputs.
+## An ordered list numbers the cards.
 
-1. Weekly Signal Brief
-   - A ranked list of the top 10 signals from the prior week, with confidence scores and source attribution. Distributed to product leads every Monday.
-2. Anomaly Alerts
-   - Real-time flags when a signal exceeds the 2σ threshold on any dimension. Routed to the accountable PM with a 4-hour response SLA.
-3. Monthly Signal Index
-   - The source of truth for the calibration loop. Required reading before each retrospective.
+1. Numbers appear
+   - Markdown's ordered list turns cards into steps.
+2. Sequence reads
+   - The grid now implies order, so mean it.
+3. Budget holds
+   - Same one-clause bodies as the unnumbered grid.
+
+
+---
+
+<!-- _class: cards-grid -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · cards-grid — Four cards at the hard budget." -->
+
+## Four full cards is this grid's loud maximum.
+
+- Card one.
+  - A body at the hard budget runs this long — two clauses that read as one breath, and not a word more.
+- Card two.
+  - Parallel structure matters most at the ceiling; matching shapes are what keep four dense cards readable as a set.
+- Card three.
+  - The grid trades white space for words here; past this density the audience reads one card and skips the rest.
+- Card four.
+  - The hard stop. A fifth card or a longer body does not fit — split the slide or reach for list-tabular.
 
 
 ---
@@ -82,16 +100,16 @@ header: "Lattice · cards-grid"
 <!-- _class: cards-grid dark -->
 <!-- _footer: "Composition: dark · cards-grid dark" -->
 
-## The framework has four components.
+## A cards grid gives equal weight to peers.
 
-- Signal Intake.
-  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema before scoring.
-- Scoring Model.
-  - Each signal scored on three dimensions — confidence, recency, and strategic relevance. Weights are team-configurable and reviewed quarterly.
-- Decision Log.
-  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied. Feeds the calibration loop.
-- Calibration Loop.
-  - Monthly retrospective that compares predicted outcomes to actual outcomes and adjusts scoring weights accordingly.
+- Parallel titles.
+  - Noun phrases of similar weight, never mixed.
+- Short bodies.
+  - One clause each; a long card collapses the grid.
+- Rank order.
+  - Left to right reads strongest first.
+- Four cards.
+  - The hard ceiling; five means a new slide.
 
 
 ---
@@ -99,16 +117,16 @@ header: "Lattice · cards-grid"
 <!-- _class: cards-grid compact -->
 <!-- _footer: "Composition: compact · cards-grid compact" -->
 
-## The framework has four components.
+## A cards grid gives equal weight to peers.
 
-- Signal Intake.
-  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema before scoring.
-- Scoring Model.
-  - Each signal scored on three dimensions — confidence, recency, and strategic relevance. Weights are team-configurable and reviewed quarterly.
-- Decision Log.
-  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied. Feeds the calibration loop.
-- Calibration Loop.
-  - Monthly retrospective that compares predicted outcomes to actual outcomes and adjusts scoring weights accordingly.
+- Parallel titles.
+  - Noun phrases of similar weight, never mixed.
+- Short bodies.
+  - One clause each; a long card collapses the grid.
+- Rank order.
+  - Left to right reads strongest first.
+- Four cards.
+  - The hard ceiling; five means a new slide.
 
 
 ---
@@ -116,16 +134,16 @@ header: "Lattice · cards-grid"
 <!-- _class: cards-grid accent -->
 <!-- _footer: "Composition: accent · cards-grid accent" -->
 
-## The framework has four components.
+## A cards grid gives equal weight to peers.
 
-- Signal Intake.
-  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema before scoring.
-- Scoring Model.
-  - Each signal scored on three dimensions — confidence, recency, and strategic relevance. Weights are team-configurable and reviewed quarterly.
-- Decision Log.
-  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied. Feeds the calibration loop.
-- Calibration Loop.
-  - Monthly retrospective that compares predicted outcomes to actual outcomes and adjusts scoring weights accordingly.
+- Parallel titles.
+  - Noun phrases of similar weight, never mixed.
+- Short bodies.
+  - One clause each; a long card collapses the grid.
+- Rank order.
+  - Left to right reads strongest first.
+- Four cards.
+  - The hard ceiling; five means a new slide.
 
 
 ---

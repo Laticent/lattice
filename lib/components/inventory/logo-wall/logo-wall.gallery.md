@@ -18,9 +18,9 @@ A grid of customer, partner, or funder logos as social proof.
 <!-- _class: logo-wall -->
 <!-- _footer: "Default · logo-wall" -->
 
-`Trusted by`
+`inventory · logo-wall`
 
-## 400+ teams run board prep on Lattice.
+## The logo wall seats the marks with captions.
 
 - ![Acme](acme.svg)
   - Acme
@@ -51,11 +51,11 @@ A grid of customer, partner, or funder logos as social proof.
 ---
 
 <!-- _class: logo-wall color -->
-<!-- _footer: "Color — per-mark palette hues · logo-wall color" -->
+<!-- _footer: "color · logo-wall color — Marks keep their brand hues." -->
 
-`Our partners`
+`logo-wall color`
 
-## The brands behind the programme.
+## color lets the marks keep their brands.
 
 - ![Acme](acme.svg)
 - ![Globex](globex.svg)
@@ -70,11 +70,11 @@ A grid of customer, partner, or funder logos as social proof.
 ---
 
 <!-- _class: logo-wall dense -->
-<!-- _footer: "Dense — more marks, smaller cells · logo-wall dense" -->
+<!-- _footer: "dense · logo-wall dense — Six columns for the long roster." -->
 
-`Our funders`
+`logo-wall dense`
 
-## Eighteen organisations backed this year's work.
+## dense packs the long roster, captions off.
 
 - ![Acme](acme.svg)
 - ![Globex](globex.svg)
@@ -95,9 +95,9 @@ A grid of customer, partner, or funder logos as social proof.
 <!-- _class: logo-wall dark -->
 <!-- _footer: "Composition: dark · logo-wall dark" -->
 
-`Trusted by`
+`inventory · logo-wall`
 
-## 400+ teams run board prep on Lattice.
+## The logo wall seats the marks with captions.
 
 - ![Acme](acme.svg)
   - Acme
@@ -130,9 +130,9 @@ A grid of customer, partner, or funder logos as social proof.
 <!-- _class: logo-wall compact -->
 <!-- _footer: "Composition: compact · logo-wall compact" -->
 
-`Trusted by`
+`inventory · logo-wall`
 
-## 400+ teams run board prep on Lattice.
+## The logo wall seats the marks with captions.
 
 - ![Acme](acme.svg)
   - Acme
@@ -169,7 +169,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 - **Names that need a sentence.** If each entity needs a role, a quote, or a metric beside it, this is the wrong layout. Use `actors` (who owns what), `cards-grid` (a short body per item), or `quote` (a single testimonial).
 - **Logos nobody recognises.** A wall of unknown marks proves nothing and asks the audience to squint. If the names don't carry on sight, state the count as a `big-number` ('400+ teams') instead.
-- **Mismatched raster art.** The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; colour is supplied by the palette token, not the file.
+- **Mismatched raster art.** The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; color is supplied by the palette token, not the file.
 
 ---
 

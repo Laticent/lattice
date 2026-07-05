@@ -35,37 +35,35 @@ const { countPrimaryCollection } = require('../../../lib/authoring/lint-core');
 // ---- the ledger: NAMED debt, measured at PR 1 (re-run this file to re-measure) ----
 const VOICE_DEBT = {
   stressDoc: [
-    'actors', 'authority-chain', 'big-number', 'cards-grid', 'checklist', 'citation-card',
-    'closing', 'code', 'compare-code', 'compare-prose', 'compare-table', 'contact', 'content',
-    'decision', 'diagram', 'divider', 'glossary', 'image', 'inventory', 'journey', 'kpi',
-    'list', 'list-criteria', 'list-steps', 'list-tabular', 'logo-wall', 'math', 'matrix-2x2',
-    'obligation-matrix', 'quote', 'redline', 'regulatory-update', 'roadmap', 'split-compare',
-    'split-panel', 'stats', 'statute-stack', 'title', 'verdict-grid', 'video', 'wifi'
+    'authority-chain', 'citation-card', 'code', 'compare-code', 'compare-prose',
+    'compare-table', 'decision', 'diagram', 'image', 'journey', 'kpi', 'list-criteria',
+    'list-steps', 'math', 'matrix-2x2', 'obligation-matrix', 'redline', 'regulatory-update',
+    'roadmap', 'split-compare', 'stats', 'statute-stack', 'verdict-grid', 'video'
   ],
   density: [
-    'big-number', 'citation-card', 'closing', 'code', 'compare-code', 'contact', 'content',
-    'diagram', 'divider', 'funnel', 'gantt', 'image', 'journey', 'logo-wall', 'map', 'math',
-    'obligation-matrix', 'piechart', 'pricing', 'progress', 'quadrant', 'quote', 'radar',
-    'redline', 'roadmap', 'state-chart', 'title', 'video', 'wifi', 'word-cloud'
+    'citation-card', 'code', 'compare-code', 'diagram', 'funnel', 'gantt', 'image', 'journey',
+    'map', 'math', 'obligation-matrix', 'piechart', 'pricing', 'progress', 'quadrant', 'radar',
+    'redline', 'roadmap', 'state-chart', 'video', 'word-cloud'
   ],
   voice: [
-    'actors', 'agenda', 'authority-chain', 'big-number', 'cards-grid', 'cards-stack',
-    'checklist', 'citation-card', 'closing', 'code', 'compare-code', 'compare-prose',
-    'compare-table', 'contact', 'content', 'decision', 'diagram', 'divider', 'funnel', 'gantt',
-    'glossary', 'image', 'inventory', 'journey', 'kanban', 'kpi', 'list', 'list-criteria',
-    'list-steps', 'list-tabular', 'logo-wall', 'map', 'math', 'matrix-2x2',
-    'obligation-matrix', 'piechart', 'pricing', 'progress', 'q-and-a', 'quadrant', 'quote',
-    'radar', 'redline', 'regulatory-update', 'roadmap', 'split-compare', 'split-panel',
-    'state-chart', 'stats', 'statute-stack', 'timeline-list', 'title', 'verdict-grid', 'video',
-    'wifi', 'word-cloud'
+    'authority-chain', 'citation-card', 'code', 'compare-code', 'compare-prose',
+    'compare-table', 'decision', 'diagram', 'funnel', 'gantt', 'image', 'journey', 'kanban',
+    'kpi', 'list-criteria', 'list-steps', 'map', 'math', 'matrix-2x2', 'obligation-matrix',
+    'piechart', 'pricing', 'progress', 'quadrant', 'radar', 'redline', 'regulatory-update',
+    'roadmap', 'split-compare', 'state-chart', 'stats', 'statute-stack', 'timeline-list',
+    'verdict-grid', 'video', 'word-cloud'
   ],
   budget: [
-    'actors', 'cards-grid', 'cards-stack', 'compare-prose', 'decision', 'glossary', 'kanban',
-    'kpi', 'list', 'list-criteria', 'list-steps', 'list-tabular', 'matrix-2x2', 'q-and-a',
-    'split-compare', 'split-panel', 'statute-stack', 'timeline-list', 'verdict-grid'
+    'compare-prose', 'decision', 'kanban', 'kpi', 'list-criteria', 'list-steps', 'matrix-2x2',
+    'split-compare', 'statute-stack', 'timeline-list', 'verdict-grid'
   ],
   band: [
-    'agenda', 'kanban', 'q-and-a'
+    // inventory: measured truth — the register look seats five full rows, but
+    // capacity declares hard=6, so a band-conforming (n=6) stress slide CLIPS.
+    // The stress slide ships at the honest n=5 and says so; resolving the
+    // mismatch is a capacity recalibration follow-up, not a copy edit.
+    'inventory',
+    'kanban',
   ],
 };
 
@@ -73,7 +71,19 @@ const VOICE_DEBT = {
 // Stale-entry-fails applies here too: an exemption for a component that now
 // passes (or that names a rule it no longer needs) must be deleted.
 const VOICE_EXEMPT = {
-  // name: { rules: ['density'], reason: 'no countable axis' },
+  // Anchors: single-element dark bookends — no collection to stress, no countable axis to budget.
+  title: { rules: ['stressDoc', 'density'], reason: 'single-element dark bookend' },
+  divider: { rules: ['stressDoc', 'density'], reason: 'single-element dark bookend' },
+  closing: { rules: ['stressDoc', 'density'], reason: 'single-element dark bookend' },
+  // Connect cards: the slot list IS the layout — a fixed identity/credentials card, not a scalable collection.
+  contact: { rules: ['stressDoc', 'density'], reason: 'fixed vCard card; slots, not a collection' },
+  wifi: { rules: ['stressDoc', 'density'], reason: 'fixed credentials card; slots, not a collection' },
+  // Logo wall: marks carry no prose to budget; the dense variant is the documented upper limit.
+  'logo-wall': { rules: ['stressDoc', 'density'], reason: 'no prose axis; dense variant is the ceiling' },
+  // Prose statements: no item/row axis — prose density is review-core's advisory domain.
+  'big-number': { rules: ['density'], reason: 'one number and a caption — no countable axis' },
+  content: { rules: ['density'], reason: 'freeform prose — no item/row axis' },
+  quote: { rules: ['density'], reason: 'a single quotation — no countable axis' },
 };
 
 function measure(m) {

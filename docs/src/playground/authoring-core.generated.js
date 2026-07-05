@@ -464,6 +464,7 @@ ${indent}   - ${body.trim()}`;
           }
         }
         if (vocab.capacity) {
+          const isStressSlide = /<!--\s*stress-slide\s*-->/.test(slide);
           for (const t of tokens) {
             const cap = vocab.capacity[t];
             if (!cap) continue;
@@ -481,7 +482,7 @@ ${indent}   - ${body.trim()}`;
                 message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n} \u2014 it will overflow` + (cap.note ? ` (${cap.note})` : ""),
                 fix: capacityFix(cap)
               });
-            } else if (cap.soft != null && n > cap.soft) {
+            } else if (cap.soft != null && n > cap.soft && !isStressSlide) {
               findings.push({
                 slide: idx - fm + 1,
                 rule: "capacity-crowd",

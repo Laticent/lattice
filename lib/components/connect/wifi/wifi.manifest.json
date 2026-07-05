@@ -42,7 +42,7 @@
     }
   },
   "skeleton": "<!-- _class: wifi -->\n\n`Room Wi-Fi`\n\n## Join the room.\n\n- Network-Name `ssid`\n- network-password `password`\n- WPA2 `security`\n- Scan to connect `caption`\n",
-  "sample": "<!-- _class: wifi -->\n\n`Room Wi-Fi`\n\n## Join the room.\n\n- Offsite-Guest `ssid`\n- boardroom2026 `password`\n- WPA2 `security`\n- Scan to connect `caption`\n",
+  "sample": "<!-- _class: wifi -->\n\n`connect · wifi`\n\n## The credentials you can read, the QR joins for you.\n\n- Lattice-Demo `ssid`\n- specimen2026 `password`\n- WPA2 `security`\n- One scan connects the room `caption`\n",
   "whenToUse": [
     {
       "title": "Get the room connected",
@@ -60,7 +60,7 @@
     },
     {
       "title": "Don't bold the field values",
-      "body": "The value leads and the key is a trailing inline-code tag — `- Offsite-Guest `ssid``. Don't write `- **SSID:** Offsite-Guest`; the transform reads the postfix key, not a bold label."
+      "body": "The value leads and the key trails as a small tag — ssid last, never first. Writing the key first, bolded, breaks the transform's postfix read."
     }
   ],
   "related": [
@@ -68,5 +68,9 @@
       "name": "contact",
       "when": "the card is a person's identity rather than a network"
     }
+  ],
+  "specimenVoice": true,
+  "excludes": [
+    "compact"
   ]
 }

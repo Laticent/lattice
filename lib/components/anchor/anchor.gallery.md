@@ -10,25 +10,28 @@ Anchor — where you are in the deck.
 ---
 
 <!-- _class: closing silent -->
+<!-- _footer: "closing · anchor survey" -->
 
-## The signal was always there. Now we have a system that looks.
+## The closing mirrors the title — dark canvas, one last claim.
 
-`Product Strategy · Q3 2025`
+`anchor · closing`
 
 ---
 
 <!-- _class: divider silent -->
+<!-- _footer: "divider · anchor survey" -->
 
-`Section 03`
+`divider · Section 03`
 
-## Inventory
+## A divider gives the deck a place to breathe.
 
 ---
 
 <!-- _class: title silent -->
+<!-- _footer: "title · anchor survey" -->
 
-# From Signal to Strategy
+# The title slide opens on the dark canvas.
 
-`Product Strategy · Q3 2025`
+`anchor · title · the deck's first breath`
 
-A decision framework for product leaders navigating market uncertainty.
+One heading, an eyebrow, one line of context — centered, chrome-free, quickly gone.

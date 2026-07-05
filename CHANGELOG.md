@@ -34,6 +34,21 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Group-1 galleries speak the specimen voice (Specimen Book, PR 2).** All 20
+  components across anchor, statement, inventory, and connect now teach
+  themselves: samples and variant slides describe the layout they demonstrate,
+  inside their word budgets, with one-line captions on variant/stress footers.
+  New stress slides land for big-number, content, quote, split-panel, actors,
+  agenda (7 stops), cards-grid, checklist (9 rows), glossary, inventory, list,
+  list-tabular, and q-and-a (6 pairs); agenda and q-and-a stress slides now sit
+  in the honest capacity band. Bucket surveys for the four buckets carry
+  per-slide attribution footers. The anchor bookends and connect cards drop
+  their no-op composition slides. A `<!-- stress-slide -->` marker (generator-
+  emitted, specimen-gated) lets deliberate at-the-ceiling slides pass deck lint
+  without loosening `capacity-crowd` for authors.
+
 ### Added
 
 - **The gallery content contract (Specimen Book, PR 1).** Component manifests

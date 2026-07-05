@@ -654,13 +654,11 @@
         "heading"
       ],
       "modifiers": [
-        "accent",
         "archived",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -1003,7 +1001,6 @@
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -1262,13 +1259,11 @@
         "heading"
       ],
       "modifiers": [
-        "accent",
         "archived",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -3785,13 +3780,11 @@
         "heading"
       ],
       "modifiers": [
-        "accent",
         "archived",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -4016,7 +4009,6 @@
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",

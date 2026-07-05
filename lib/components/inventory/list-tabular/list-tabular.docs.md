@@ -66,136 +66,121 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 
 ### `def` — Editorial (def)
 
-Big counter spans both rows; eyebrow above the name. Use when the entries are conceptual definitions that want editorial weight.
+Counter spans rows; eyebrow above.
 
 ```markdown
 <!-- _class: list-tabular def -->
 
-## The four layers of the design system.
+## def pairs each term with its role.
 
-1. Function `Purpose`
-   - Why the slide exists — the communication job it does. Seven families.
-2. Form `Composition`
-   - The spatial shape the slide takes. Eleven shapes.
-3. Substance `Data`
-   - The kind of content that fills the shape. Four contracts.
-4. Finish `Treatment`
-   - The palette, typography, and chrome applied last. Theme-controlled.
+1. Label `Term`
+   - def styles the register as definitions.
+2. Chip `Role`
+   - The inline code becomes a right-hand chip.
+3. Body `Clause`
+   - One clause under each term.
 ```
 
 ### `metric` — Tile (metric)
 
-Meta renders as a bordered tile on the right — useful when each row carries a numeric value or a status the audience scans.
+Values in bordered tiles.
 
 ```markdown
 <!-- _class: list-tabular metric -->
 
-## Renderer parity — current scoreboard.
+## metric turns the chips into figures.
 
-1. Marp CLI build path `334 / 334`
-2. lattice-emulator inline path `334 / 334`
-3. marp-vscode runtime DOM path `327 / 334`
-4. Cross-renderer page-count parity `pass`
+1. Rows carry values `12 / 16`
+2. Figures right-align `100%`
+3. Labels stay short `4 rows`
 ```
 
-### `spec` — Technical key (spec)
+### `spec` — spec
 
-Mono name as a key, accent-coloured. Technical-reference feel — config keys, API parameters, environment flags.
+Mono keys for flags and params.
 
 ```markdown
 <!-- _class: list-tabular spec -->
 
-## Environment flags the build path reads.
+## spec documents flags and their types.
 
 1. `LATTICE_THEME` `string`
-   - Override the deck's declared theme at build time. Default: theme from front-matter.
-2. `LATTICE_CACHE` `0 | 1`
-   - Toggle the render helper's hash-keyed cache. Default: 1 locally, 0 on CI.
-3. `LATTICE_TRACE` `0 | 1`
-   - Emit per-slide transform timing to stderr. Default: 0.
+   - spec sets code labels beside type chips.
+2. `LATTICE_DEBUG` `bool`
+   - One clause explains each flag.
 ```
 
-### `register` — Tagged pill (register)
+### `register` — register
 
-Meta renders as an accent-soft pill — status registers, tagged inventories, role registers where the meta is a category.
+Status pills on each row.
 
 ```markdown
 <!-- _class: list-tabular register -->
 
-## Active components — release status.
+## register pairs names with status chips.
 
 1. cards-grid `stable`
 2. split-panel `stable`
-3. radar-chart `beta`
-4. quadrant-chart `beta`
-5. kanban-board `alpha`
+3. radar `beta`
+4. word-cloud `preview`
 ```
 
 ### `rule` — def + rule
 
-Adds a continuous accent rail down the left edge of `def`. Anchors the column visually when the entries are long and the eye needs a guide.
+Accent rail down the left edge.
 
 ```markdown
 <!-- _class: list-tabular def rule -->
 
-## The four layers of the design system.
+## rule draws a hairline under every row.
 
-1. Function `Purpose`
-   - Why the slide exists — the communication job it does. Seven families.
-2. Form `Composition`
-   - The spatial shape the slide takes. Eleven shapes.
-3. Substance `Data`
-   - The kind of content that fills the shape. Four contracts.
-4. Finish `Treatment`
-   - The palette, typography, and chrome applied last. Theme-controlled.
+1. Hairlines `On`
+   - rule adds the horizontal separators.
+2. Density `Same`
+   - Budgets do not change with the look.
 ```
 
 ### `solid` — metric + solid
 
-Fills the metric tile with accent colour instead of the bordered default. Use when the values are headline numbers the room should land on first.
+Filled value tiles for headlines.
 
 ```markdown
 <!-- _class: list-tabular metric solid -->
 
-## Quarterly headline metrics.
+## solid fills the register with panel color.
 
-1. Net new ARR `$4.2M`
-2. Logo retention `94%`
-3. Time-to-value (median) `11d`
-4. Pipeline coverage `3.2x`
+1. Net new rows `4`
+2. Panel fill `on`
+3. Best for `headline metrics`
 ```
 
 ### `stacked` — spec + stacked
 
-Description drops to its own row beneath the spec name. Counter enlarges to span both rows. Use when the description is longer than one line.
+Clause drops below the name.
 
 ```markdown
 <!-- _class: list-tabular spec stacked -->
 
-## API endpoints exposed by the deck-server.
+## stacked drops the clause under its label.
 
-1. `GET /decks/:id` `200 | 404`
-   - Returns the rendered deck metadata, slide manifest, and signed PDF URL.
-2. `POST /decks/:id/render` `202 | 409`
-   - Enqueues a re-render. 409 if a render is already in flight for this deck.
-3. `DELETE /decks/:id/cache` `204 | 404`
-   - Evicts the cached PDF and forces a cold re-render on the next read.
+1. `GET /plans/:name` `200 | 404`
+   - stacked gives each row two decks of text.
+2. `GET /gallery/:name` `200`
+   - The clause wraps below, full width.
 ```
 
 ### `outline` — register + outline
 
-Renders the register tag as a hairline-bordered outline pill instead of the filled accent-soft default. Lighter visual weight when the deck has many register slides in a row.
+Outline pills — a lighter register.
 
 ```markdown
 <!-- _class: list-tabular register outline -->
 
-## Active components — release status.
+## outline boxes each row in a keyline.
 
 1. cards-grid `stable`
 2. split-panel `stable`
-3. radar-chart `beta`
-4. quadrant-chart `beta`
-5. kanban-board `alpha`
+3. quote `stable`
 ```
 
 ## Universal modifiers

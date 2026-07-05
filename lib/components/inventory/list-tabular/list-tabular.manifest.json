@@ -4,7 +4,12 @@
   "function": "inventory",
   "form": "ledger",
   "substance": "structure",
-  "density": { "axis": "item", "soft": 12, "hard": 16, "note": "a short row label plus a clause" },
+  "density": {
+    "axis": "item",
+    "soft": 12,
+    "hard": 16,
+    "note": "a short row label plus a clause"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -42,7 +47,9 @@
   ],
   "description": "Hairline-ruled ledger of items — name on the left, body on the right.",
   "purpose": "Use for compact reference tables: glossary-style entries, key/value pairs, specs. Four primary variants (def, metric, spec, register) tune the visual treatment; secondary modifiers (rule, solid, stacked, outline) refine each.",
-  "excludes": ["claim-bleed"],
+  "excludes": [
+    "claim-bleed"
+  ],
   "variants": [
     "def",
     "metric",
@@ -67,7 +74,11 @@
   },
   "skeleton": "<!-- _class: list-tabular -->\n\n## Slide heading.\n\n1. First entry\n   - Description or value for the first entry.\n2. Second entry\n   - Description or value for the second entry.\n3. Third entry\n   - Description or value for the third entry.\n4. Fourth entry\n   - Description or value for the fourth entry.\n",
   "anatomyBlock": "list-tabular",
-  "sample": "<!-- _class: list-tabular -->\n\n## The five workstreams carrying the transformation.\n\n1. Framework\n   - The scoring model, the signal taxonomy, and the weights nobody quite agrees on.\n   - _Two analysts · ships Q3_\n2. Adoption\n   - Onboarding every team to the weekly ritual and the decision log.\n   - _One enablement lead · ships Q3_\n3. Governance\n   - The operating rhythm, the review cadence, and the escalation path.\n   - _One chief of staff · ships Q4_\n4. Tooling\n   - The intake form, the dashboards, and the exports for the board.\n   - _One PM · ships Q4_\n5. Change\n   - Comms, exec sponsorship, and the people who preferred the old way.\n   - _One comms partner · ships Q4_\n",
+  "sample": "<!-- _class: list-tabular -->\n\n## The tabular list rules rows into a register.\n\n1. Rows\n   - Label, clause, optional meta line.\n   - _Twelve soft · sixteen hard_\n2. Looks\n   - Eight named looks reskin the same rows.\n3. Escalation\n   - Long content leaves for a real table.\n",
+  "stressDoc": {
+    "caption": "Eight rows — the register's page.",
+    "sample": "<!-- _class: list-tabular register -->\n\n## Eight rows is the register's practical page.\n\n1. title `stable`\n2. big-number `stable`\n3. cards-grid `stable`\n4. split-panel `stable`\n5. funnel `stable`\n6. map `stable`\n7. radar `beta`\n8. word-cloud `preview`\n"
+  },
   "whenToUse": [
     {
       "title": "Compact reference rows",
@@ -117,43 +128,44 @@
   "variantDocs": {
     "def": {
       "label": "Editorial (def)",
-      "caption": "Big counter spans both rows; eyebrow above the name. Use when the entries are conceptual definitions that want editorial weight.",
-      "sample": "<!-- _class: list-tabular def -->\n\n## The four layers of the design system.\n\n1. Function `Purpose`\n   - Why the slide exists — the communication job it does. Seven families.\n2. Form `Composition`\n   - The spatial shape the slide takes. Eleven shapes.\n3. Substance `Data`\n   - The kind of content that fills the shape. Four contracts.\n4. Finish `Treatment`\n   - The palette, typography, and chrome applied last. Theme-controlled.\n"
+      "caption": "Counter spans rows; eyebrow above.",
+      "sample": "<!-- _class: list-tabular def -->\n\n## def pairs each term with its role.\n\n1. Label `Term`\n   - def styles the register as definitions.\n2. Chip `Role`\n   - The inline code becomes a right-hand chip.\n3. Body `Clause`\n   - One clause under each term.\n"
     },
     "metric": {
       "label": "Tile (metric)",
-      "caption": "Meta renders as a bordered tile on the right — useful when each row carries a numeric value or a status the audience scans.",
-      "sample": "<!-- _class: list-tabular metric -->\n\n## Renderer parity — current scoreboard.\n\n1. Marp CLI build path `334 / 334`\n2. lattice-emulator inline path `334 / 334`\n3. marp-vscode runtime DOM path `327 / 334`\n4. Cross-renderer page-count parity `pass`\n"
+      "caption": "Values in bordered tiles.",
+      "sample": "<!-- _class: list-tabular metric -->\n\n## metric turns the chips into figures.\n\n1. Rows carry values `12 / 16`\n2. Figures right-align `100%`\n3. Labels stay short `4 rows`\n"
     },
     "spec": {
-      "label": "Technical key (spec)",
-      "caption": "Mono name as a key, accent-coloured. Technical-reference feel — config keys, API parameters, environment flags.",
-      "sample": "<!-- _class: list-tabular spec -->\n\n## Environment flags the build path reads.\n\n1. `LATTICE_THEME` `string`\n   - Override the deck's declared theme at build time. Default: theme from front-matter.\n2. `LATTICE_CACHE` `0 | 1`\n   - Toggle the render helper's hash-keyed cache. Default: 1 locally, 0 on CI.\n3. `LATTICE_TRACE` `0 | 1`\n   - Emit per-slide transform timing to stderr. Default: 0.\n"
+      "label": "spec",
+      "caption": "Mono keys for flags and params.",
+      "sample": "<!-- _class: list-tabular spec -->\n\n## spec documents flags and their types.\n\n1. `LATTICE_THEME` `string`\n   - spec sets code labels beside type chips.\n2. `LATTICE_DEBUG` `bool`\n   - One clause explains each flag.\n"
     },
     "register": {
-      "label": "Tagged pill (register)",
-      "caption": "Meta renders as an accent-soft pill — status registers, tagged inventories, role registers where the meta is a category.",
-      "sample": "<!-- _class: list-tabular register -->\n\n## Active components — release status.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. radar-chart `beta`\n4. quadrant-chart `beta`\n5. kanban-board `alpha`\n"
+      "label": "register",
+      "caption": "Status pills on each row.",
+      "sample": "<!-- _class: list-tabular register -->\n\n## register pairs names with status chips.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. radar `beta`\n4. word-cloud `preview`\n"
     },
     "rule": {
       "label": "def + rule",
-      "caption": "Adds a continuous accent rail down the left edge of `def`. Anchors the column visually when the entries are long and the eye needs a guide.",
-      "sample": "<!-- _class: list-tabular def rule -->\n\n## The four layers of the design system.\n\n1. Function `Purpose`\n   - Why the slide exists — the communication job it does. Seven families.\n2. Form `Composition`\n   - The spatial shape the slide takes. Eleven shapes.\n3. Substance `Data`\n   - The kind of content that fills the shape. Four contracts.\n4. Finish `Treatment`\n   - The palette, typography, and chrome applied last. Theme-controlled.\n"
+      "caption": "Accent rail down the left edge.",
+      "sample": "<!-- _class: list-tabular def rule -->\n\n## rule draws a hairline under every row.\n\n1. Hairlines `On`\n   - rule adds the horizontal separators.\n2. Density `Same`\n   - Budgets do not change with the look.\n"
     },
     "solid": {
       "label": "metric + solid",
-      "caption": "Fills the metric tile with accent colour instead of the bordered default. Use when the values are headline numbers the room should land on first.",
-      "sample": "<!-- _class: list-tabular metric solid -->\n\n## Quarterly headline metrics.\n\n1. Net new ARR `$4.2M`\n2. Logo retention `94%`\n3. Time-to-value (median) `11d`\n4. Pipeline coverage `3.2x`\n"
+      "caption": "Filled value tiles for headlines.",
+      "sample": "<!-- _class: list-tabular metric solid -->\n\n## solid fills the register with panel color.\n\n1. Net new rows `4`\n2. Panel fill `on`\n3. Best for `headline metrics`\n"
     },
     "stacked": {
       "label": "spec + stacked",
-      "caption": "Description drops to its own row beneath the spec name. Counter enlarges to span both rows. Use when the description is longer than one line.",
-      "sample": "<!-- _class: list-tabular spec stacked -->\n\n## API endpoints exposed by the deck-server.\n\n1. `GET /decks/:id` `200 | 404`\n   - Returns the rendered deck metadata, slide manifest, and signed PDF URL.\n2. `POST /decks/:id/render` `202 | 409`\n   - Enqueues a re-render. 409 if a render is already in flight for this deck.\n3. `DELETE /decks/:id/cache` `204 | 404`\n   - Evicts the cached PDF and forces a cold re-render on the next read.\n"
+      "caption": "Clause drops below the name.",
+      "sample": "<!-- _class: list-tabular spec stacked -->\n\n## stacked drops the clause under its label.\n\n1. `GET /plans/:name` `200 | 404`\n   - stacked gives each row two decks of text.\n2. `GET /gallery/:name` `200`\n   - The clause wraps below, full width.\n"
     },
     "outline": {
       "label": "register + outline",
-      "caption": "Renders the register tag as a hairline-bordered outline pill instead of the filled accent-soft default. Lighter visual weight when the deck has many register slides in a row.",
-      "sample": "<!-- _class: list-tabular register outline -->\n\n## Active components — release status.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. radar-chart `beta`\n4. quadrant-chart `beta`\n5. kanban-board `alpha`\n"
+      "caption": "Outline pills — a lighter register.",
+      "sample": "<!-- _class: list-tabular register outline -->\n\n## outline boxes each row in a keyline.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. quote `stable`\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

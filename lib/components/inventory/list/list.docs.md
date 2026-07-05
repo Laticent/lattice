@@ -63,92 +63,90 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 ## Variants (component-specific)
 
-### `takeaway` — Takeaway — hairline single-line points
+### `takeaway` — takeaway
 
-Renders each item as a hairline-ruled single line at message weight. Use at the end of a section or deck to restate the headline points, one complete claim per line. Was the standalone `tldr` component before 2026-06-07.
+Ruled single lines for conclusions.
 
 ```markdown
 <!-- _class: list takeaway -->
 
-## What this review showed, in five lines.
+## takeaway boxes the list as findings.
 
-- Q2 revenue missed plan by 9%, and three structural factors explain almost all of it.
-- The shortfall is in enterprise renewals, not new logos.
-- Every one of the three causes is fixable before the Q4 close.
-- The Q3 plan moves two engineers and one rep onto the gaps.
-- We are not asking for more headcount — only to move what we have.
+- The box frames the lines as conclusions.
+- Lead with the strongest finding.
+- Five lines read as a verdict.
+- Longer sets go back to plain list.
 ```
 
-### `principles` — Principles — display-weight declarations
+### `principles` — principles
 
-Renders an ordered list of single-sentence declarations at display weight with a large accent counter. For design tenets, working agreements, or decision rules. Was the standalone `principles` component before 2026-06-07.
+Numbered declarations at display weight.
 
 ```markdown
 <!-- _class: list principles -->
 
-## How we make calls when the spec is silent.
+## principles numbers the house rules.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
-4. Disagree in the room, then commit outside it.
-5. Optimise for the reader who wasn't there.
+1. State each rule as an imperative.
+2. Keep rules under ten words.
+3. Order them by how often they apply.
+4. Retire a rule you keep breaking.
 ```
 
-### `numbered` — Numbered — accent counter on takeaways
+### `numbered` — numbered
 
-Adds a large accent counter (01, 02, …) to the `takeaway` variant.
+Accent counters on the takeaway box.
 
 ```markdown
 <!-- _class: list takeaway numbered -->
 
-## What this review showed, in five lines.
+## numbered ranks the boxed findings.
 
-- Q2 revenue missed plan by 9%, and three structural factors explain it.
-- The shortfall is in enterprise renewals, not new logos.
-- Every one of the three causes is fixable before the Q4 close.
+- Ranks turn findings into priorities.
+- The top line owns the meeting.
+- Three ranked lines beat six flat ones.
 ```
 
-### `lettered` — Lettered — A, B, C counter on principles
+### `lettered` — lettered
 
-Switches the `principles` counter to upper-alpha.
+Letters replace the counters.
 
 ```markdown
 <!-- _class: list principles lettered -->
 
-## Working agreements.
+## lettered counts the rules with letters.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Letters read as options, not sequence.
+2. Use them when order is arbitrary.
+3. Three options is a decision; six is a menu.
 ```
 
-### `roman` — Roman — I, II, III counter on principles
+### `roman` — roman
 
-Switches the `principles` counter to upper-roman.
+Roman numerals replace counters.
 
 ```markdown
 <!-- _class: list principles roman -->
 
-## Working agreements.
+## roman sets the rules in numerals.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Numerals lend formal weight.
+2. Reserve them for charters and mandates.
+3. Past five, the gravitas becomes parody.
 ```
 
-### `bullet` — Bullet — dot instead of a counter on principles
+### `bullet` — bullet
 
-Replaces the `principles` counter with a centered dot.
+Dots replace the counters.
 
 ```markdown
 <!-- _class: list principles bullet -->
 
-## Working agreements.
+## bullet strips the markers back to dots.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Dots drop the counting entirely.
+2. The principles frame stays.
+3. Use when rules are peers.
 ```
 
 ## Universal modifiers

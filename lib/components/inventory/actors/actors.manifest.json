@@ -23,9 +23,29 @@
       "actor"
     ]
   },
-  "capacity": { "axis": "item", "min": 3, "sweet": 4, "soft": 6, "hard": 7, "escalateTo": ["list-tabular","split across slides"], "note": "the ledger reads cleanly up to about six rows" },
-  "density": { "axis": "item", "soft": 12, "hard": 18, "note": "one short responsibility per row, not a job description" },
-  "tags": ["ownership", "onboarding", "reference"],
+  "capacity": {
+    "axis": "item",
+    "min": 3,
+    "sweet": 4,
+    "soft": 6,
+    "hard": 7,
+    "escalateTo": [
+      "list-tabular",
+      "split across slides"
+    ],
+    "note": "the ledger reads cleanly up to about six rows"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 12,
+    "hard": 18,
+    "note": "one short responsibility per row, not a job description"
+  },
+  "tags": [
+    "ownership",
+    "onboarding",
+    "reference"
+  ],
   "description": "Roster of responsibilities owned by named actors.",
   "purpose": "Use to show 'who owns what' across a process, scoring policy, or org chart. Two-column layout: actor on left, responsibilities on right.",
   "slots": {
@@ -42,7 +62,11 @@
   },
   "skeleton": "<!-- _class: actors -->\n\n## Who owns each part of the process.\n\n- Owns the first part `First actor`\n  - One-line note on what that ownership covers.\n- Owns the second part `Second actor`\n  - One-line note.\n- Owns the third part `Third actor`\n  - One-line note.\n",
   "anatomyBlock": "actors",
-  "sample": "<!-- _class: actors -->\n\n## Who owns each part of the framework, and who answers for it.\n\n- Owns the scoring model `Head of Product`\n  - Sets the weights and signs off changes after each calibration, then retunes them until the output agrees with the roadmap.\n- Runs the weekly signal review `Chief of Staff`\n  - Chairs the thirty minutes and keeps the decision log current, in the sense of opening it weekly.\n- Maintains the decision log `Program Manager`\n  - Every call recorded with its bet; chases the missing predicted outcomes.\n- Owns adoption `Enablement Lead`\n  - Onboards each team — the reason attendance is merely aspirational.\n- Clears blockers `Executive Sponsor`\n  - Approves the operating rhythm; stays out of the scoring debates, and out of the room when the outcomes are reviewed.\n",
+  "sample": "<!-- _class: actors -->\n\n## The actors ledger names who owns what.\n\n- Owns one row `Each actor`\n  - A verb-first responsibility, twelve words at most.\n- Reads top to bottom `The ledger`\n  - Order carries seniority or sequence.\n- Answers by name `The role chip`\n  - The inline code names the seat.\n- Stops at six rows `This layout`\n  - Past six, reach for list-tabular.\n",
+  "stressDoc": {
+    "caption": "Seven rows — the ledger's ceiling.",
+    "sample": "<!-- _class: actors -->\n\n## Seven rows is where the ledger maxes out.\n\n- Row one `First seat`\n  - Even at the ceiling, every row keeps a verb-first responsibility line.\n- Row two `Second seat`\n  - Eighteen words is the hard budget; this row spends most of them deliberately.\n- Row three `Third seat`\n  - Rows stay parallel or the column of chips stops lining up.\n- Row four `Fourth seat`\n  - Middle rows read fastest; bury nothing important here.\n- Row five `Fifth seat`\n  - The eye is tiring by now — keep these short.\n- Row six `Sixth seat`\n  - The soft ceiling was one row ago.\n- Row seven `Last seat`\n  - The hard stop; an eighth row means a second slide.\n"
+  },
   "whenToUse": [
     {
       "title": "Who owns what",
@@ -80,10 +104,14 @@
       "name": "cards-stack",
       "when": "each item needs two sentences of body text"
     },
-    { "name": "list", "when": "declared statements — the `principles` variant" },
+    {
+      "name": "list",
+      "when": "declared statements — the `principles` variant"
+    },
     {
       "name": "glossary",
       "when": "the left column is a term, not an actor"
     }
-  ]
+  ],
+  "specimenVoice": true
 }

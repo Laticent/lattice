@@ -72,7 +72,7 @@
   - [`obligation-matrix`](#obligation-matrix)
   - [`regulatory-update`](#regulatory-update)
   - [`statute-stack`](#statute-stack)
-- [Connect](#connect) — connect
+- [Connect](#connect) — cards the room can scan: join the network, save the speaker.
   - [`contact`](#contact)
   - [`wifi`](#wifi)
 
@@ -140,32 +140,32 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 #### Variants (component-specific)
 
-##### `numbered` — Numbered — independent closing counter
+##### `numbered` — numbered
 
-Stamps an auto-incrementing closing number, independent of the divider section counter. Useful for serialized deck families where each deck closes on numbered note `Closing 04`.
+Counts closings apart from dividers.
 
 ```markdown
 <!-- _class: closing silent numbered -->
 
-## Take this away.
+## The closing counts itself, apart from the dividers.
 
 `Closing 04`
 ```
 
-##### `qr` — QR — scan to take the deck
+##### `qr` — qr
 
-The `qr` variant adds a scannable code from a payload bullet — a bare URL auto-resolves, or force a non-URL with `` `qr` ``; an optional `` `caption` `` bullet labels it. Reuses the shared QR encoder; the code is a fixed light-paper/dark-ink tile so it scans on any ground.
+Scan to take the deck with you.
 
 ```markdown
 <!-- _class: closing qr -->
 
-`Q3 Board Review`
+`closing qr`
 
-## Take the deck with you.
+## Leave a scannable takeaway behind.
 
-Every slide, the appendix, and the workbook — before you go.
+The payload bullet renders as a QR code sized for the back row.
 
-- https://slidewright.dev/decks/q3
+- https://slidewright.dev/components/closing
 - Scan to open `caption`
 ```
 
@@ -243,43 +243,43 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 #### Variants (component-specific)
 
-##### `numbered` — Numbered — auto-incrementing section index
+##### `numbered` — numbered
 
-Stamps an auto-incrementing section number in the corner. Each divider in the deck increments the counter; closing slides carry an independent counter.
+Stamps the running section number.
 
 ```markdown
 <!-- _class: divider silent numbered -->
 
-`Section 03`
+`divider numbered`
 
-## Inventory
+## The corner stamp counts this divider for you.
 ```
 
-##### `light` — Light — bright-canvas sub-section break
+##### `light` — light
 
-Drops the dark canvas for the standard bright body-slide background, centers the heading, and shrinks it to h2 weight. Use for mid-section orientation that shouldn't carry the full context-switch weight of a dark divider. Absorbed the standalone `subtopic` component on 2026-06-07.
+Bright canvas, sentence-length waypoint.
 
 ```markdown
 <!-- _class: divider light -->
 
-`The Framework · Component 02`
+`divider light`
 
-## Before we can score a signal, we have to agree on what one is.
+## The light divider trades the dark canvas for a bright, full-sentence waypoint.
 ```
 
-##### `qr` — QR — scan-to call to action
+##### `qr` — qr
 
-The `qr` variant adds a scannable code from a payload bullet — a bare URL auto-resolves, or force a non-URL with `` `qr` ``; an optional `` `caption` `` bullet labels it. Reuses the shared QR encoder; the code is a fixed light-paper/dark-ink tile so it scans on any ground.
+The payload bullet becomes a code.
 
 ```markdown
 <!-- _class: divider qr -->
 
-`Next step`
+`divider qr`
 
-## Begin the pilot.
+## The payload bullet below becomes a scannable code.
 
-- https://slidewright.dev/pilot/start
-- Scan to begin `caption`
+- https://slidewright.dev/components/divider
+- Scan for the divider's docs `caption`
 ```
 
 #### Universal modifiers
@@ -654,116 +654,116 @@ One-sentence framing paragraph explaining what the points cover.
 
 #### Variants (component-specific)
 
-##### `metric` — Metric — hero number owns the room
+##### `metric` — metric
 
-Flips the polarity: light left panel with one hero number (wrap a unit in an `<em>`, e.g. `114<em>%</em>`, to render it smaller — note plain `*%*` is not CommonMark emphasis next to a digit), dark right panel with the supporting findings. The `h2` is the number; the inline-code eyebrow is the unit label; the lede is the measurement context. Was the standalone `split-metric` component before 2026-06-07.
+Light panel behind one hero number.
 
 ```markdown
 <!-- _class: split-panel metric -->
 
-`Net Revenue Retention`
+`split-panel metric`
 
-## 114<em>%</em>
+## 16<em>wpi</em>
 
-Trailing twelve months, top-50 accounts, versus a 108% target.
+Words per item — the budget this layout holds its supporting column to.
 
-- Expansion outran churn
-  - Seat growth in the installed base more than covered the two logos lost to consolidation.
-- Concentration is the watch-item
-  - The top ten accounts drive 41% of the number; a single departure swings it three points.
+- The panel flips light
+  - metric flips the panel light behind one hero number.
+- The number claims
+  - Keep support brief — two items beside a figure.
 ```
 
-##### `pullquote` — Quote — pull-quote feature
+##### `pullquote` — pullquote
 
-The left panel commits half the slide to one quotation (display italic on a dark canvas) with an optional inline-code attribution; the right panel spells out the implications. Write a `>` blockquote instead of an `h2`. Was the standalone `split-statement` component before 2026-06-07.
+Half the slide to one quotation.
 
 ```markdown
 <!-- _class: split-panel pullquote -->
 
-> We do not have a demand problem. We have a coverage problem.
+> pullquote gives half the slide to one voice, and the other half to what it means.
 
-`VP Sales · Q2 board review`
+`split-panel pullquote · the layout, quoted`
 
-- Reframes the miss
-  - The pipeline gap is structural, not a market signal — it followed the field reorg.
-- Points at the fix
-  - Coverage is a staffing decision the room can make today, not a quarter-long bet.
+- The quote claims
+  - Display italic on the dark panel; keep it under twenty-five words.
+- The column interprets
+  - Two items that say why the words matter, not who said them again.
 ```
 
-##### `steps` — Steps — numbered step-timeline
+##### `steps` — steps
 
-The left panel anchors a phase (inline-code phase number as a watermark + heading + summary); the right panel renders an ordered list as a numbered step-timeline with a connecting line. Use `ol` for numbered discs. Was the standalone `split-steps` component before 2026-06-07.
+The panel anchors a numbered phase.
 
 ```markdown
 <!-- _class: split-panel steps -->
 
 `02`
 
-## Calibrate
+## steps
 
-What the second phase produces before rollout begins.
+The left panel anchors a phase; the column numbers its moves.
 
-1. Tune the weights
-   - Score real outcomes against the model and adjust until the error band is acceptable.
-2. Make the log mandatory
-   - Every decision is recorded with its signals; the audit trail starts here.
-3. Sign off the baseline
-   - Written agreement on scope before the rollout phase opens.
+1. Watermark the phase
+   - The inline-code number becomes the panel's backdrop.
+2. Number the column
+   - An ordered list reads as sequence — three steps fit.
+3. Keep steps parallel
+   - Verb-first titles, one supporting line each.
 ```
 
-##### `watermark` — Watermark — accent panel + letterform
+##### `watermark` — watermark
 
-An accent left panel with a large letterform watermark (the heading's first letter), an `h3` section rubric in the right panel, and an optional `Audience · / Intent ·` metadata footer on the right. Use for an overview/showcase panel. Was the standalone `split-list` component before 2026-06-07.
+Accent panel, letterform, h3 rubric.
 
 ```markdown
 <!-- _class: split-panel watermark -->
 
-## Scorecard
+## Watermark
 
-### What the framework measures
+### The heading's first letter becomes the panel
 
-- Signal quality
-  - Whether the inputs are trustworthy enough to act on without re-checking.
-- Decision latency
-  - How long from signal to a logged, owned decision.
-- Reversal rate
-  - How often a logged decision is later overturned, and why.
+- The accent panel decorates
+  - A large letterform behind the heading — presence without a photo.
+- The h3 subtitles
+  - One line naming what the slide surveys.
+- The column carries the content
+  - Same three-item budget as the default split.
 ```
 
-##### `mirror` — Mirror — swap left and right
+##### `mirror` — mirror
 
-Flips the featured panel to the right and the supporting zone to the left. Use when the deck's reading rhythm wants the panel on the trailing side.
+Featured panel moves right.
 
 ```markdown
 <!-- _class: split-panel mirror -->
 
-`Eyebrow context`
+`split-panel mirror`
 
-## Headline on the right-hand panel.
+## mirror puts the featured panel on the right.
 
-One-sentence framing paragraph.
+Same anatomy, flipped — for when the deck's rhythm wants the claim to land late.
 
-- First point
-  - Supporting detail.
-- Second point
-  - Supporting detail.
+- Reading order still works
+  - The eye crosses support first, then lands on the panel's claim.
+- Use it sparingly
+  - One mirror per section keeps the flip meaningful.
 ```
 
-##### `qr` — QR — companion: claim beside a scannable code
+##### `qr` — qr
 
-The `qr` variant adds a scannable code from a payload bullet — a bare URL auto-resolves, or force a non-URL with `` `qr` ``; an optional `` `caption` `` bullet labels it. Reuses the shared QR encoder; the code is a fixed light-paper/dark-ink tile so it scans on any ground.
+Payload bullet becomes a code.
 
 ```markdown
 <!-- _class: split-panel qr -->
 
-`Revenue model`
+`split-panel qr`
 
-## The full build is in the workbook.
+## The payload bullet becomes a code on the panel.
 
-Every line traces to a driver you can open — three scenarios off one shared set of assumptions.
+A bare URL auto-resolves; the caption line labels the scan.
 
-- https://slidewright.dev/appendix/revenue-model `qr`
-- Scan for the live model `caption`
+- https://slidewright.dev/components/split-panel `qr`
+- Scan for this layout's docs `caption`
 ```
 
 #### Universal modifiers
@@ -930,165 +930,170 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 #### Variants (component-specific)
 
-##### `progress-1` — Progress · section 1
+##### `progress-1` — progress-1
 
-Wayfinding for the start of the deck — the first item is current, the rest are dimmed ahead.
+Stop 1 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-1 -->
 
-## Where we are now.
+## progress-1 marks stop 1 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-##### `progress-2` — Progress · section 2
+##### `progress-2` — progress-2
 
-The same agenda dropped between sections one and two — the second item is marked as the current position.
+Stop 2 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-2 -->
 
-## Where we are now.
+## progress-2 marks stop 2 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-##### `progress-3` — Progress · section 3
+##### `progress-3` — progress-3
 
-Same wayfinding pattern, current position moved to the third item.
+Stop 3 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-3 -->
 
-## Where we are now.
+## progress-3 marks stop 3 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-##### `progress-4` — Progress · section 4
+##### `progress-4` — progress-4
 
-Current position on the fourth item — three sections done, two to go.
+Stop 4 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-4 -->
 
-## Where we are now.
+## progress-4 marks stop 4 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-##### `progress-5` — Progress · section 5
+##### `progress-5` — progress-5
 
-Current position on the fifth item — the last section opening, used as a final wayfinder before the closing.
+Stop 5 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-5 -->
 
-## Where we are now.
+## progress-5 marks stop 5 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-##### `progress-6` — Progress · section 6
+##### `progress-6` — progress-6
 
-Same wayfinding pattern on a six-section agenda — current position at the sixth and final item.
+Stop 6 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-6 -->
 
-## Where we are now.
+## progress-6 marks stop 6 as the current one.
 
-1. Why we're here — the problem
-2. Where we are today
-3. The proposal
-4. Migration plan
-5. Risks and mitigations
-6. Decision and next steps
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
 ##### `circles` — Style · circles
 
-Each section number sits in a drawn ring; with `progress-N` the current ring fills with the accent. A calmer, more graphic take on the contents page.
+Numbers become rings; current fills.
 
 ```markdown
 <!-- _class: agenda circles progress-3 -->
 
-## Where we are now.
+## circles swaps the numbers for filled dots.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 ```
 
 ##### `rail` — Style · rail
 
-Numbered nodes threaded on a vertical journey line — reads as moving down the deck. The active node fills with the accent.
+Nodes on a vertical rail; active fills.
 
 ```markdown
 <!-- _class: agenda rail progress-3 -->
 
-## Where we are now.
+## rail runs the progress down a side rail.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 ```
 
 ##### `cards` — Style · cards
 
-Each section is a boxed row; the current card fills with the accent wash and takes the accent border.
+Boxed stops; the current takes accent.
 
 ```markdown
 <!-- _class: agenda cards progress-3 -->
 
-## Where we are now.
+## cards deals each stop its own card.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 ```
 
 ##### `checks` — Style · checks
 
-A progress checklist: with `progress-N`, sections already covered get a tick, the current one an arrow, and upcoming ones an empty box — the whole journey-state at a glance.
+Done gets a tick, current an arrow.
 
 ```markdown
 <!-- _class: agenda checks progress-3 -->
 
-## Where we are now.
+## checks ticks the stops already behind you.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 ```
 
 #### Universal modifiers
@@ -1182,55 +1187,55 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 
 ##### `four` — Four columns
 
-Four equal columns instead of two. Pair with `compact` so the cards retain breathing room.
+Four columns; pair with compact.
 
 ```markdown
 <!-- _class: cards-grid four compact -->
 
-## Four phases, four owners.
+## four locks a two-by-two, compact tightens it.
 
-- Intake.
-  - PM. Collect raw signals.
-- Score.
-  - Analyst. Apply weights.
-- Decide.
-  - Lead. Pick the call.
-- Calibrate.
-  - Team. Compare to actuals.
+- Quadrant read.
+  - Four cells scan as a loop.
+- Compact pairing.
+  - Padding shrinks so labels stay whole.
+- Named corners.
+  - Position carries meaning; place cards deliberately.
+- Still four.
+  - The ceiling does not move.
 ```
 
 ##### `three` — Three columns
 
-Three equal columns instead of the default two. The 2+1 last-child span rule is reset to `auto`.
+Three equal columns.
 
 ```markdown
 <!-- _class: cards-grid three -->
 
-## The framework has three components.
+## three widens the grid to three columns.
 
-- Signal Intake.
-  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema.
-- Scoring Model.
-  - Each signal scored on three dimensions — confidence, recency, strategic relevance. Weights are reviewed quarterly.
-- Decision Log.
-  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied.
+- Wider cards.
+  - Each card earns a third of the row.
+- Same budget.
+  - Bodies stay one clause, titles stay parallel.
+- Sweet spot.
+  - Three peers is the count this grid loves.
 ```
 
 ##### `numbered` — Numbered cards
 
-Authored as `ol` (`1.` source), the grid stamps a flush top-left accent corner tag on each card. Sublist must be indented 3 spaces to clear the `1. ` prefix.
+Ordered source stamps corner tags.
 
 ```markdown
 <!-- _class: cards-grid -->
 
-## Signal Intake produces three outputs.
+## An ordered list numbers the cards.
 
-1. Weekly Signal Brief
-   - A ranked list of the top 10 signals from the prior week, with confidence scores and source attribution. Distributed to product leads every Monday.
-2. Anomaly Alerts
-   - Real-time flags when a signal exceeds the 2σ threshold on any dimension. Routed to the accountable PM with a 4-hour response SLA.
-3. Monthly Signal Index
-   - The source of truth for the calibration loop. Required reading before each retrospective.
+1. Numbers appear
+   - Markdown's ordered list turns cards into steps.
+2. Sequence reads
+   - The grid now implies order, so mean it.
+3. Budget holds
+   - Same one-clause bodies as the unnumbered grid.
 ```
 
 #### Universal modifiers
@@ -1318,36 +1323,36 @@ Use when the items want vertical reading order — sequential exploration rather
 
 ##### `horizontal` — Horizontal cards
 
-Stacked rows pivot to a left-aligned title column with the body to its right — useful when the card titles are short labels and the body carries the weight.
+The stack pivots sideways.
 
 ```markdown
 <!-- _class: cards-stack horizontal -->
 
-## Three patterns, each with its own pull.
+## horizontal lays the stack on its side.
 
-- Inventory.
-  - Equal-weight items the audience scans without ordering. The cards-grid family lives here — grid, stack, wide, side.
-- Comparison.
-  - Two or more items weighed against shared criteria. The verdict and compare families live here — they take sides.
-- Progression.
-  - Items that carry an explicit sequence. The list-steps and timeline families live here — order is load-bearing.
+- Rows become columns.
+  - The ranking now reads left to right.
+- Same card anatomy.
+  - Title, body, optional status pill.
+- Use for timelines.
+  - Sequence feels natural sideways.
 ```
 
 ##### `numbered` — Numbered stack
 
-Authored as `ol` (`1.` source). Each row carries a flush corner number — use when the stack carries an implicit count ("three options", "four phases") even if the order is interchangeable.
+Corner numbers make rank explicit.
 
 ```markdown
 <!-- _class: cards-stack -->
 
-## Three reasons to keep cards-stack at three items.
+## An ordered list makes the ranking explicit.
 
-1. Cognitive load
-   - Three is the threshold the audience can hold without effort. Past three, the slide demands working memory the room shouldn't have to spend.
-2. Vertical real estate
-   - Each stacked card needs ~30% of the slide height to breathe. Four cards force you to shrink the cards until they stop reading as cards.
-3. Build path symmetry
-   - cards-stack pairs with cards-grid (3-4 items) for at-a-glance comparison. One stack layout, not two, keeps the family's choices clean.
+1. Numbers stamp the rank
+   - The stack's order stops being implicit.
+2. Three still rules
+   - Numbering does not raise the ceiling.
+3. Parallel or nothing
+   - Ranked cards must match shapes.
 ```
 
 #### Universal modifiers
@@ -1596,59 +1601,55 @@ Use for a small register of related items where each carries similar weight. Aut
 
 ##### `cards` — Cards
 
-The same register as an equal grid of cards, with the insight as a centred pull-quote. Best when the items read as parallel options scanned at a glance.
+The register as tiles with a pull-quote.
 
 ```markdown
 <!-- _class: inventory cards -->
 
-`Framework · Four Components`
+`inventory cards`
 
-## The system has four moving parts.
+## cards deals the parts into tiles.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 ```
 
 ##### `timeline` — Timeline
 
-A horizontal numbered run with connectors, the insight as a kicker above. Reads the register as a left-to-right progression.
+A numbered run along a line.
 
 ```markdown
 <!-- _class: inventory timeline -->
 
-`Framework · Four Components`
+`inventory timeline`
 
-## The system has four moving parts.
+## timeline strings the parts along a line.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 ```
 
 ##### `editorial` — Editorial
 
-A magazine split — the insight as an accent-ruled sidebar beside a ruled item column (the title rides the masthead band). For a feature-statement register.
+A magazine split with a sidebar takeaway.
 
 ```markdown
 <!-- _class: inventory editorial -->
 
-`Framework · Four Components`
+`inventory editorial`
 
-## The system has four moving parts.
+## editorial sets the parts as a column.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** Same content, magazine form.
 
-> Signals without decisions are just noise.
+> The sidebar carries the register's one takeaway.
 ```
 
 #### Universal modifiers
@@ -1731,92 +1732,90 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 #### Variants (component-specific)
 
-##### `takeaway` — Takeaway — hairline single-line points
+##### `takeaway` — takeaway
 
-Renders each item as a hairline-ruled single line at message weight. Use at the end of a section or deck to restate the headline points, one complete claim per line. Was the standalone `tldr` component before 2026-06-07.
+Ruled single lines for conclusions.
 
 ```markdown
 <!-- _class: list takeaway -->
 
-## What this review showed, in five lines.
+## takeaway boxes the list as findings.
 
-- Q2 revenue missed plan by 9%, and three structural factors explain almost all of it.
-- The shortfall is in enterprise renewals, not new logos.
-- Every one of the three causes is fixable before the Q4 close.
-- The Q3 plan moves two engineers and one rep onto the gaps.
-- We are not asking for more headcount — only to move what we have.
+- The box frames the lines as conclusions.
+- Lead with the strongest finding.
+- Five lines read as a verdict.
+- Longer sets go back to plain list.
 ```
 
-##### `principles` — Principles — display-weight declarations
+##### `principles` — principles
 
-Renders an ordered list of single-sentence declarations at display weight with a large accent counter. For design tenets, working agreements, or decision rules. Was the standalone `principles` component before 2026-06-07.
+Numbered declarations at display weight.
 
 ```markdown
 <!-- _class: list principles -->
 
-## How we make calls when the spec is silent.
+## principles numbers the house rules.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
-4. Disagree in the room, then commit outside it.
-5. Optimise for the reader who wasn't there.
+1. State each rule as an imperative.
+2. Keep rules under ten words.
+3. Order them by how often they apply.
+4. Retire a rule you keep breaking.
 ```
 
-##### `numbered` — Numbered — accent counter on takeaways
+##### `numbered` — numbered
 
-Adds a large accent counter (01, 02, …) to the `takeaway` variant.
+Accent counters on the takeaway box.
 
 ```markdown
 <!-- _class: list takeaway numbered -->
 
-## What this review showed, in five lines.
+## numbered ranks the boxed findings.
 
-- Q2 revenue missed plan by 9%, and three structural factors explain it.
-- The shortfall is in enterprise renewals, not new logos.
-- Every one of the three causes is fixable before the Q4 close.
+- Ranks turn findings into priorities.
+- The top line owns the meeting.
+- Three ranked lines beat six flat ones.
 ```
 
-##### `lettered` — Lettered — A, B, C counter on principles
+##### `lettered` — lettered
 
-Switches the `principles` counter to upper-alpha.
+Letters replace the counters.
 
 ```markdown
 <!-- _class: list principles lettered -->
 
-## Working agreements.
+## lettered counts the rules with letters.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Letters read as options, not sequence.
+2. Use them when order is arbitrary.
+3. Three options is a decision; six is a menu.
 ```
 
-##### `roman` — Roman — I, II, III counter on principles
+##### `roman` — roman
 
-Switches the `principles` counter to upper-roman.
+Roman numerals replace counters.
 
 ```markdown
 <!-- _class: list principles roman -->
 
-## Working agreements.
+## roman sets the rules in numerals.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Numerals lend formal weight.
+2. Reserve them for charters and mandates.
+3. Past five, the gravitas becomes parody.
 ```
 
-##### `bullet` — Bullet — dot instead of a counter on principles
+##### `bullet` — bullet
 
-Replaces the `principles` counter with a centered dot.
+Dots replace the counters.
 
 ```markdown
 <!-- _class: list principles bullet -->
 
-## Working agreements.
+## bullet strips the markers back to dots.
 
-1. Default to the choice that is cheaper to reverse.
-2. Name the actor, never the system.
-3. Write the bet on the same slide as the choice.
+1. Dots drop the counting entirely.
+2. The principles frame stays.
+3. Use when rules are peers.
 ```
 
 #### Universal modifiers
@@ -1901,136 +1900,121 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 
 ##### `def` — Editorial (def)
 
-Big counter spans both rows; eyebrow above the name. Use when the entries are conceptual definitions that want editorial weight.
+Counter spans rows; eyebrow above.
 
 ```markdown
 <!-- _class: list-tabular def -->
 
-## The four layers of the design system.
+## def pairs each term with its role.
 
-1. Function `Purpose`
-   - Why the slide exists — the communication job it does. Seven families.
-2. Form `Composition`
-   - The spatial shape the slide takes. Eleven shapes.
-3. Substance `Data`
-   - The kind of content that fills the shape. Four contracts.
-4. Finish `Treatment`
-   - The palette, typography, and chrome applied last. Theme-controlled.
+1. Label `Term`
+   - def styles the register as definitions.
+2. Chip `Role`
+   - The inline code becomes a right-hand chip.
+3. Body `Clause`
+   - One clause under each term.
 ```
 
 ##### `metric` — Tile (metric)
 
-Meta renders as a bordered tile on the right — useful when each row carries a numeric value or a status the audience scans.
+Values in bordered tiles.
 
 ```markdown
 <!-- _class: list-tabular metric -->
 
-## Renderer parity — current scoreboard.
+## metric turns the chips into figures.
 
-1. Marp CLI build path `334 / 334`
-2. lattice-emulator inline path `334 / 334`
-3. marp-vscode runtime DOM path `327 / 334`
-4. Cross-renderer page-count parity `pass`
+1. Rows carry values `12 / 16`
+2. Figures right-align `100%`
+3. Labels stay short `4 rows`
 ```
 
-##### `spec` — Technical key (spec)
+##### `spec` — spec
 
-Mono name as a key, accent-coloured. Technical-reference feel — config keys, API parameters, environment flags.
+Mono keys for flags and params.
 
 ```markdown
 <!-- _class: list-tabular spec -->
 
-## Environment flags the build path reads.
+## spec documents flags and their types.
 
 1. `LATTICE_THEME` `string`
-   - Override the deck's declared theme at build time. Default: theme from front-matter.
-2. `LATTICE_CACHE` `0 | 1`
-   - Toggle the render helper's hash-keyed cache. Default: 1 locally, 0 on CI.
-3. `LATTICE_TRACE` `0 | 1`
-   - Emit per-slide transform timing to stderr. Default: 0.
+   - spec sets code labels beside type chips.
+2. `LATTICE_DEBUG` `bool`
+   - One clause explains each flag.
 ```
 
-##### `register` — Tagged pill (register)
+##### `register` — register
 
-Meta renders as an accent-soft pill — status registers, tagged inventories, role registers where the meta is a category.
+Status pills on each row.
 
 ```markdown
 <!-- _class: list-tabular register -->
 
-## Active components — release status.
+## register pairs names with status chips.
 
 1. cards-grid `stable`
 2. split-panel `stable`
-3. radar-chart `beta`
-4. quadrant-chart `beta`
-5. kanban-board `alpha`
+3. radar `beta`
+4. word-cloud `preview`
 ```
 
 ##### `rule` — def + rule
 
-Adds a continuous accent rail down the left edge of `def`. Anchors the column visually when the entries are long and the eye needs a guide.
+Accent rail down the left edge.
 
 ```markdown
 <!-- _class: list-tabular def rule -->
 
-## The four layers of the design system.
+## rule draws a hairline under every row.
 
-1. Function `Purpose`
-   - Why the slide exists — the communication job it does. Seven families.
-2. Form `Composition`
-   - The spatial shape the slide takes. Eleven shapes.
-3. Substance `Data`
-   - The kind of content that fills the shape. Four contracts.
-4. Finish `Treatment`
-   - The palette, typography, and chrome applied last. Theme-controlled.
+1. Hairlines `On`
+   - rule adds the horizontal separators.
+2. Density `Same`
+   - Budgets do not change with the look.
 ```
 
 ##### `solid` — metric + solid
 
-Fills the metric tile with accent colour instead of the bordered default. Use when the values are headline numbers the room should land on first.
+Filled value tiles for headlines.
 
 ```markdown
 <!-- _class: list-tabular metric solid -->
 
-## Quarterly headline metrics.
+## solid fills the register with panel color.
 
-1. Net new ARR `$4.2M`
-2. Logo retention `94%`
-3. Time-to-value (median) `11d`
-4. Pipeline coverage `3.2x`
+1. Net new rows `4`
+2. Panel fill `on`
+3. Best for `headline metrics`
 ```
 
 ##### `stacked` — spec + stacked
 
-Description drops to its own row beneath the spec name. Counter enlarges to span both rows. Use when the description is longer than one line.
+Clause drops below the name.
 
 ```markdown
 <!-- _class: list-tabular spec stacked -->
 
-## API endpoints exposed by the deck-server.
+## stacked drops the clause under its label.
 
-1. `GET /decks/:id` `200 | 404`
-   - Returns the rendered deck metadata, slide manifest, and signed PDF URL.
-2. `POST /decks/:id/render` `202 | 409`
-   - Enqueues a re-render. 409 if a render is already in flight for this deck.
-3. `DELETE /decks/:id/cache` `204 | 404`
-   - Evicts the cached PDF and forces a cold re-render on the next read.
+1. `GET /plans/:name` `200 | 404`
+   - stacked gives each row two decks of text.
+2. `GET /gallery/:name` `200`
+   - The clause wraps below, full width.
 ```
 
 ##### `outline` — register + outline
 
-Renders the register tag as a hairline-bordered outline pill instead of the filled accent-soft default. Lighter visual weight when the deck has many register slides in a row.
+Outline pills — a lighter register.
 
 ```markdown
 <!-- _class: list-tabular register outline -->
 
-## Active components — release status.
+## outline boxes each row in a keyline.
 
 1. cards-grid `stable`
 2. split-panel `stable`
-3. radar-chart `beta`
-4. quadrant-chart `beta`
-5. kanban-board `alpha`
+3. quote `stable`
 ```
 
 #### Universal modifiers
@@ -2068,7 +2052,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 - **Names that need a sentence.** If each entity needs a role, a quote, or a metric beside it, this is the wrong layout. Use `actors` (who owns what), `cards-grid` (a short body per item), or `quote` (a single testimonial).
 - **Logos nobody recognises.** A wall of unknown marks proves nothing and asks the audience to squint. If the names don't carry on sight, state the count as a `big-number` ('400+ teams') instead.
-- **Mismatched raster art.** The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; colour is supplied by the palette token, not the file.
+- **Mismatched raster art.** The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; color is supplied by the palette token, not the file.
 
 #### Authoring
 
@@ -2117,16 +2101,16 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 #### Variants (component-specific)
 
-##### `color` — Color — per-mark palette hues
+##### `color` — color
 
-Gives each mark its own categorical palette hue (`--cat-*-mark`, cycling 1..12) instead of the single muted token — useful when telling the marks apart matters more than restraint, e.g. a partner directory. The hues are ours, so they stay cohesive with the deck's charts and AA on both grounds; the single-token default is the boardroom-restrained pick.
+Marks keep their brand hues.
 
 ```markdown
 <!-- _class: logo-wall color -->
 
-`Our partners`
+`logo-wall color`
 
-## The brands behind the programme.
+## color lets the marks keep their brands.
 
 - ![Acme](acme.svg)
 - ![Globex](globex.svg)
@@ -2138,16 +2122,16 @@ Gives each mark its own categorical palette hue (`--cat-*-mark`, cycling 1..12) 
 - ![Northwind](northwind.svg)
 ```
 
-##### `dense` — Dense — more marks, smaller cells
+##### `dense` — dense
 
-Tightens to six columns with shorter cells for a longer roster — a member directory, a full funder list, every participating agency. Past about eighteen marks the recognition threshold gives out; split across two slides instead.
+Six columns for the long roster.
 
 ```markdown
 <!-- _class: logo-wall dense -->
 
-`Our funders`
+`logo-wall dense`
 
-## Eighteen organisations backed this year's work.
+## dense packs the long roster, captions off.
 
 - ![Acme](acme.svg)
 - ![Globex](globex.svg)
@@ -2248,87 +2232,87 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 #### Variants (component-specific)
 
-##### `spine` — Spine — sequential walkthrough
+##### `spine` — spine
 
-Threads the questions down a vertical spine with accent nodes, for when you want to walk the room through the objections in order. Drops the index for a narrative, one-after-another read.
+Pairs threaded down an accent spine.
 
 ```markdown
 <!-- _class: q-and-a spine -->
 
-## What the board will press on.
+## spine threads the pairs down an accent spine.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 ```
 
-##### `rail` — Rail — question / answer columns
+##### `rail` — rail
 
-Sets each pair as a numbered exhibit row — question and answer in parallel columns, separated by a hairline. Scannable when the answers are short and you want them lined up for comparison.
+Numbered exhibit rows in columns.
 
 ```markdown
 <!-- _class: q-and-a rail -->
 
-## What the board will press on.
+## rail hangs the questions on a left rail.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 ```
 
-##### `tab` — Tab — underlined prompts
+##### `tab` — tab
 
-The most editorial, minimal look: a short accent underline sits tight beneath each question, then the answer drops below it. Generous whitespace, no enumeration — best for three or four pairs.
+Underlined prompts; answers hang below.
 
 ```markdown
 <!-- _class: q-and-a tab -->
 
-## What the board will press on.
+## tab folds each answer under a question tab.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 ```
 
-##### `grid` — Grid — two-up density
+##### `grid` — grid
 
-Packs four pairs into a 2×2 grid split by a gradient hairline cross — the density treatment for when you have more pairs than the stack holds comfortably. Each header reserves two lines so questions and answers align across a row.
+Four pairs in a two-by-two.
 
 ```markdown
 <!-- _class: q-and-a grid -->
 
-## What the board will press on.
+## grid deals the pairs into two columns.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028; after renewal it costs three quarters.
-- What happens to the team mid-migration?
-  - No headcount change. Four engineers run both stacks through the eight-week overlap.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential.
-- What is the rollback plan?
-  - A one-command revert to the pinned release, rehearsed weekly in staging.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
+- Why four pairs here?
+  - Grids want even counts.
 ```
 
-##### `solo` — Solo — one question, one answer
+##### `solo` — solo
 
-Gives a single question and its answer the whole slide, at display weight — for the one objection you know is coming and want to meet head-on. The question runs large as a prompt; the prepared answer sits below it in message type.
+One pair, the whole slide.
 
 ```markdown
 <!-- _class: q-and-a solo -->
 
-## The one question we know is coming.
+## solo gives one question the whole slide.
 
-- If the pilot fails, what have we actually lost?
-  - One quarter and $180K, fully recoverable. The contract caps exposure at the pilot scope, with no auto-renewal and a thirty-day exit. The downside is bounded; the upside is the whole thesis.
+- What does solo change?
+  - One pair, full canvas.
 ```
 
 #### Universal modifiers
@@ -7342,7 +7326,7 @@ See [statute-stack.gallery.light.pdf](../../lib/components/legal/statute-stack/s
 
 ## Connect
 
-*connect*
+*cards the room can scan: join the network, save the speaker.*
 
 ### contact
 
@@ -7362,7 +7346,7 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 #### When NOT to use
 
 - **Not a team roster.** One card is one person. For a set of people use an inventory layout; a contact card is a single identity.
-- **Don't bold the field values.** The value leads and the key is a trailing inline-code tag — `- Sharmarke Aden `name``. Don't write `- **Name:** Sharmarke Aden`; the transform reads the postfix key, not a bold label.
+- **Don't bold the field values.** The value leads and the key trails as a small tag — name last, never first. Writing the key first, bolded, breaks the transform's postfix read.
 
 #### Authoring
 
@@ -7416,7 +7400,7 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 #### When NOT to use
 
 - **Not for secrets that outlive the room.** A rendered deck is persistent and shareable. Use it for guest/offsite networks, not for credentials that must not leak.
-- **Don't bold the field values.** The value leads and the key is a trailing inline-code tag — `- Offsite-Guest `ssid``. Don't write `- **SSID:** Offsite-Guest`; the transform reads the postfix key, not a bold label.
+- **Don't bold the field values.** The value leads and the key trails as a small tag — ssid last, never first. Writing the key first, bolded, breaks the transform's postfix read.
 
 #### Authoring
 

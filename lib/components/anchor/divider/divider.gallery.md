@@ -18,62 +18,42 @@ Section boundary slide. Dark canvas with a single heading.
 <!-- _class: divider silent -->
 <!-- _footer: "Default · divider" -->
 
-`Section 03`
+`divider · Section 03`
 
-## Inventory
+## A divider gives the deck a place to breathe.
 
 
 ---
 
 <!-- _class: divider silent numbered -->
-<!-- _footer: "Numbered — auto-incrementing section index · divider numbered" -->
+<!-- _footer: "numbered · divider numbered — Stamps the running section number." -->
 
-`Section 03`
+`divider numbered`
 
-## Inventory
+## The corner stamp counts this divider for you.
 
 
 ---
 
 <!-- _class: divider light -->
-<!-- _footer: "Light — bright-canvas sub-section break · divider light" -->
+<!-- _footer: "light · divider light — Bright canvas, sentence-length waypoint." -->
 
-`The Framework · Component 02`
+`divider light`
 
-## Before we can score a signal, we have to agree on what one is.
+## The light divider trades the dark canvas for a bright, full-sentence waypoint.
 
 
 ---
 
 <!-- _class: divider qr -->
-<!-- _footer: "QR — scan-to call to action · divider qr" -->
+<!-- _footer: "qr · divider qr — The payload bullet becomes a code." -->
 
-`Next step`
+`divider qr`
 
-## Begin the pilot.
+## The payload bullet below becomes a scannable code.
 
-- https://slidewright.dev/pilot/start
-- Scan to begin `caption`
-
-
----
-
-<!-- _class: divider silent compact -->
-<!-- _footer: "Composition: compact · divider compact" -->
-
-`Section 03`
-
-## Inventory
-
-
----
-
-<!-- _class: divider silent accent -->
-<!-- _footer: "Composition: accent · divider accent" -->
-
-`Section 03`
-
-## Inventory
+- https://slidewright.dev/components/divider
+- Scan for the divider's docs `caption`
 
 
 ---

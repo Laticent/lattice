@@ -34,6 +34,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { loadAll, groupByBucket, BUCKETS } = require('../lib/components');
 const { injectDark, THEMES } = require('./build-galleries');
+const { injectFooter } = require('./build-component-docs');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -47,6 +48,7 @@ const BUCKET_BLURBS = Object.freeze({
   anchor:      'Anchor — where you are in the deck.',
   statement:   'Statement — one declarative claim per slide.',
   inventory:   'Inventory — parallel sets of related items.',
+  connect:     'Connect — cards the room can scan: join the network, save the speaker.',
   comparison:  'Comparison — how two or more options differ.',
   progression: 'Progression — ordered movement through stages or time.',
   evidence:    'Evidence — data that supports the argument.',
@@ -119,9 +121,17 @@ function composeBucketGallery(bucket, manifests) {
     );
   }
 
+  // Per-slide attribution (2026-07-05 Specimen Book decision §3.4): each
+  // member slide names its component. Gated per member on specimenVoice so
+  // a survey's rendered output changes exactly once — inside the migration
+  // PR whose visual review covers it. Uses the shared injectFooter (which
+  // no-ops on a hand-set _footer:, banned in samples by gallery-contract).
   const componentSlides = manifests
     .filter((m) => typeof m.sample === 'string' && m.sample.trim())
-    .map((m) => prefixAssetPaths(m.sample.trim(), m.name));
+    .map((m) => {
+      const slide = prefixAssetPaths(m.sample.trim(), m.name);
+      return m.specimenVoice === true ? injectFooter(slide, `${m.name} · ${bucket} survey`) : slide;
+    });
 
   const slides = [titleSlide, ...componentSlides];
   return slides.join('\n\n---\n\n') + '\n';

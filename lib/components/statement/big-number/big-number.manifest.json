@@ -1,7 +1,17 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "big-number",
-  "adapt": { "mode": "native", "priority": ["number", "caption", "eyebrow"], "keepTogether": ["number+caption"] },
+  "adapt": {
+    "mode": "native",
+    "priority": [
+      "number",
+      "caption",
+      "eyebrow"
+    ],
+    "keepTogether": [
+      "number+caption"
+    ]
+  },
   "function": "statement",
   "form": "canvas",
   "substance": "prose",
@@ -31,7 +41,11 @@
   },
   "skeleton": "<!-- _class: big-number -->\n\n`Optional eyebrow`\n\n- 92%\n  - of the audience remembers a single number from a deck.\n",
   "anatomyBlock": "big-number-canvas",
-  "sample": "<!-- _class: big-number -->\n\n`Net new ARR · FY26 through Q3`\n\n- $48M\n  - booked against a $42M full-year plan, with a quarter still to close.\n",
+  "sample": "<!-- _class: big-number -->\n\n`big-number · one number, the whole canvas`\n\n- 1\n  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.\n",
+  "stressDoc": {
+    "caption": "Ten digits is the practical ceiling.",
+    "sample": "<!-- _class: big-number -->\n\n`big-number · stress — the longest number that still lands`\n\n- $1,248,500,000\n  - ten digits with separators, scaled down to fit; past this width the claim stops reading at the back of the room.\n"
+  },
   "whenToUse": [
     {
       "title": "One metric carries the slide",
@@ -80,5 +94,6 @@
   ],
   "showcase": {
     "featured": true
-  }
+  },
+  "specimenVoice": true
 }
