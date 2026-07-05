@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: The Specimen Book — the generated per-component gallery deck becomes the product, and the Playground becomes a reader over those decks. Adopted from a five-way design competition (five candidates, five hostile critique rounds each, per-candidate red team + inversion + independent codebase checker, three-judge panel: unanimous first place, 9/10 on user, maintainer, and design-critic lenses). Amended after user review of interactive prototypes to keep the Playground's Studio-precursor features — deck setup (finish, front matter, debug overlay), the gallery drawer as two shelves, Reset scoped to the editor — and to REPLACE "Insert skeleton" with an "Open in Studio" handoff. The body below is the hardened competition design, verbatim; §0 records the amendments that supersede specific clauses.
+summary: The Specimen Book — the generated per-component gallery deck becomes the product, and the Playground becomes a reader over those decks. Adopted from a five-way design competition (five candidates, five hostile critique rounds each, per-candidate red team + inversion + independent codebase checker, three-judge panel: unanimous first place, 9/10 on user, maintainer, and design-critic lenses). Amended across two user review rounds (interactive prototypes, then the on-brand simulation): deck setup (finish, front matter, debug overlay) and the gallery drawer (two shelves) stay; Reset scopes to the editor; "Insert skeleton" is removed with no replacement and the Playground carries no Studio call-to-action; the walkthrough mode ships as "Explore" with full-word labeled chips. The body below is the hardened competition design, verbatim; §0 records the amendments that supersede specific clauses.
 ---
 
 # The Specimen Book — specimen galleries + the Playground as their reader (2026-07-05)
@@ -38,21 +38,24 @@ no persistence beyond the existing scratch draft).
 3. **Reset stays, scoped to the editor.** Read mode is stateless, so Reset
    lives only in the Edit escape hatch as "Reset to this slide's example,"
    with the §4 arm-to-confirm + backup + undo-toast guards unchanged.
-4. **"Insert skeleton" is REMOVED, replaced by "Open in Studio."** Skeleton
-   insertion is an authoring affordance the Studio already does properly
-   (InsertComponent). The Playground instead offers a one-click handoff that
-   carries the current draft into a new Studio deck via a one-shot
-   `lattice-studio-handoff` key `{ md, from: 'playground', ts }`, consumed by
-   the Studio on apply (mirror of the §4 Playground handoff contract,
-   including park-on-decline). Every §4/§6 clause that names "Insert
-   skeleton" (its guard, its `readerComponent` fallback, its arm-to-confirm
-   copy) now applies to Reset only; the skeleton button and its code path are
-   deleted in PR 5. The Studio-side consumer is a small addition to PR 6 (or
-   its own follow-up slice if the Studio diff wants isolation); until it
-   lands, the button ships hidden behind the handoff key's absence check.
-5. **Tour gains one step** for the Studio handoff ("outgrow the Playground →
-   continue in the Studio"), replacing nothing — the §4 tour rewrite already
-   deletes the stale Drawing Board/Workbench outro.
+4. **"Insert skeleton" is REMOVED — with no replacement.** Skeleton insertion
+   is an authoring affordance the Studio already does properly
+   (InsertComponent); in a playground it produces an empty scaffold that
+   renders badly and teaches nothing. A first draft of this amendment replaced
+   it with an "Open in Studio" handoff button; the user rejected that on
+   review of the simulation ("why would we want that — this is a
+   playground"), and the rejection is the decision: **the Playground carries
+   no Studio call-to-action.** "Precursor to the Studio" means shared chrome,
+   shared primitives, and Studio-grade quality — not a door pushing people
+   out; the Studio stays reachable where it already is, the site nav. No
+   `lattice-studio-handoff` key, no Studio-side consumer. Every §4/§6 clause
+   that names "Insert skeleton" (its guard, its `readerComponent` fallback,
+   its arm-to-confirm copy) now applies to Reset only; the skeleton button
+   and its code path are deleted in PR 5.
+5. **The tour ends inside the Playground.** (A first draft added a closing
+   Studio-handoff stop; retired with amendment 4.) The §4 tour rewrite still
+   deletes the stale Drawing Board/Workbench outro; the final stop is
+   Galleries + Deck setup — the tour never markets another surface.
 6. **The mode is named "Explore," not "Read," and walk steps are labeled
    chips, never single letters.** The user's framing, adopted verbatim: the
    surface's job is not that people *read* the deck — it is to whet appetites,
