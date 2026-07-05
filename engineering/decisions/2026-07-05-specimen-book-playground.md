@@ -53,6 +53,18 @@ no persistence beyond the existing scratch draft).
 5. **Tour gains one step** for the Studio handoff ("outgrow the Playground →
    continue in the Studio"), replacing nothing — the §4 tour rewrite already
    deletes the stale Drawing Board/Workbench outro.
+6. **The mode is named "Explore," not "Read," and walk steps are labeled
+   chips, never single letters.** The user's framing, adopted verbatim: the
+   surface's job is not that people *read* the deck — it is to whet appetites,
+   show what is possible, deliver visual eye candy. Every "Read mode" below is
+   the same mechanism shipped under the **Explore** label (UI copy, tour copy,
+   command-menu entry all say Explore; internal keys may keep `read`). The
+   Walk bar's per-slide affordances are **full-word labeled chips** — "Title,"
+   "Default," the variant's own name, "Stress test," "Anti-patterns," "See
+   also" — at accessible target sizes with AA contrast; single-letter dots are
+   a named anti-pattern for this surface (cryptic recall-over-recognition,
+   sub-AA targets). Verified against the on-brand interactive simulation the
+   user reviewed before accepting this doc.
 
 Everything else below stands as written.
 
