@@ -2,7 +2,12 @@
  * manifest.schema.json is the manifest contract's SOURCE OF TRUTH.
  *
  * lib/components/index.js and lib/layout/gate.js DERIVE their vocabularies
- * from it (structurally incapable of drifting). Three mirrors remain
+ * from it, so the derived values cannot drift — but that also means a
+ * derived-vs-schema comparison is a tautology. The REAL gates here are the
+ * FIXTURE PINS below: literal copies of the schema's load-bearing content,
+ * so any schema edit (widen, delete, reorder, un-anchor the name pattern)
+ * must change a fixture in the same reviewed diff — a schema change can
+ * never again read as "just docs". Three mirrors remain
  * hand-written for browser-purity reasons and are sync-GATED here instead:
  * lib/transformers/focus.js and lib/authoring/lint-core.js (Vite dev serves
  * lint-core as a dependency-free leaf — a require would break it), and
@@ -49,22 +54,11 @@ test('focus axes: schema enum == transformers/focus.js == authoring/lint-core.js
 
 test('split.strategy enum == CAROUSEL_STRATEGIES keys (the recipe names carouselize can actually run)', () => {
   const carousel = require('../../../lib/core/carousel.js');
-  // CAROUSEL_STRATEGIES is internal; probe it through carouselize: a known
-  // strategy must not be treated as unknown-null purely on name grounds…
-  // but the direct check is stronger — export presence via the schema:
-  const schemaStrategies = [...schema.properties.split.properties.strategy.enum].sort();
-  const tableKeys = Object.keys(carousel.CAROUSEL_STRATEGIES ?? {}).sort();
-  if (tableKeys.length) {
-    assert.deepEqual(tableKeys, schemaStrategies);
-  } else {
-    // Table not exported: fall back to behavior — every schema strategy with an
-    // unparseable body must return null WITHOUT throwing (unknown strategies
-    // also return null, so pair with the manifest sweep below, which proves
-    // every real recipe is schema-legal, and carousel's own 53-test suite).
-    for (const s of schemaStrategies) {
-      assert.equal(carousel.carouselize('<section>', '', { strategy: s }, 1.4, 'x'), null);
-    }
-  }
+  assert.ok(carousel.CAROUSEL_STRATEGIES, 'CAROUSEL_STRATEGIES export removed — this sync gate would be blinded; restore it');
+  assert.deepEqual(
+    Object.keys(carousel.CAROUSEL_STRATEGIES).sort(),
+    [...schema.properties.split.properties.strategy.enum].sort(),
+  );
 });
 
 test('opt-in family enum: schema == OPT_IN_FAMILY_NAMES', () => {
@@ -119,4 +113,70 @@ test('split recipes are validated: a typo or prototype-name strategy is rejected
   assert.ok(bad.some((e) => e.includes('split.perPage')));
   assert.ok(bad.some((e) => e.includes('split.roles')));
   assert.ok(bad.some((e) => e.includes("unknown key 'junk'")));
+});
+
+// ── FIXTURE PINS — the anti-rubber-stamp gate ──────────────────────────────
+// The schema is load-bearing: these enums drive the validator, the Studio
+// gate (browser), and loadAll()'s directory walk. Because code DERIVES from
+// the schema, only literal fixtures can catch a widened/deleted/reordered
+// enum. If this test fails, you edited the schema: confirm the change is
+// intentional, update the fixture IN THE SAME COMMIT, and check every
+// consumer named in the failing assertion's message.
+
+test('FIXTURE PIN: the core vocabularies and name pattern', () => {
+  assert.deepEqual(schema.properties.function.enum,
+    ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery'],
+    'function enum changed — validator + Studio gate + docs grouping all follow');
+  assert.deepEqual(schema.properties.bucket.enum,
+    ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery',
+      'chart', 'diagram', 'math', 'code', 'legal', 'connect'],
+    'bucket enum changed — loadAll() only walks listed buckets: a deleted entry SILENTLY drops that whole component family from the catalog');
+  assert.deepEqual(schema.properties.form.enum,
+    ['bookend', 'divider', 'canvas', 'grid', 'stack', 'ledger', 'panel', 'matrix', 'scatter', 'spatial', 'timeline', 'split'],
+    'form enum changed');
+  assert.deepEqual(schema.properties.substance.enum,
+    ['prose', 'structure', 'series', 'graph', 'mixed'],
+    'substance enum changed');
+  assert.equal(schema.properties.name.pattern, '^[a-z][a-z0-9-]*$',
+    'name pattern changed — an un-anchored pattern silently loosens name validation in the validator AND the Studio gate');
+  assert.deepEqual(schema.required,
+    ['name', 'function', 'form', 'substance', 'tags', 'description', 'skeleton'],
+    'required set changed');
+});
+
+test('every lib/components/ bucket directory is a schema bucket (deleting an enum entry must not silently orphan a family)', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', '..', '..', 'lib', 'components');
+  const onDisk = fs.readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith('_'))
+    .map((e) => e.name)
+    .filter((name) => fs.readdirSync(path.join(dir, name), { withFileTypes: true })
+      .some((e) => e.isDirectory()));
+  for (const b of onDisk) {
+    assert.ok(components.BUCKETS.includes(b),
+      `lib/components/${b}/ holds components but '${b}' is not in the schema bucket enum — loadAll() silently skips it`);
+  }
+});
+
+test('the five intra-schema axis-enum copies agree (the schema must not drift against itself)', () => {
+  const axes = schema.properties.capacity.properties.axis.enum;
+  assert.deepEqual(schema.properties.density.properties.axis.enum, axes);
+  assert.deepEqual(schema.properties.focusAxes.items.enum, axes);
+  assert.deepEqual(schema.properties.split.properties.axis.enum, axes);
+  assert.deepEqual(schema.properties.adapt.properties.capacity.properties.axis.enum, axes);
+});
+
+test('the emulator\'s WIDTH_REDUCING_STRATEGIES hand-subset stays within the schema strategy enum', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lattice-emulator.js'), 'utf8');
+  const m = src.match(/WIDTH_REDUCING_STRATEGIES = new Set\(\[([^\]]*)\]\)/);
+  assert.ok(m, 'WIDTH_REDUCING_STRATEGIES set not found in lattice-emulator.js — update this extraction');
+  const listed = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  assert.ok(listed.length >= 1, 'extraction came back empty');
+  const strategies = new Set(schema.properties.split.properties.strategy.enum);
+  for (const s of listed) {
+    assert.ok(strategies.has(s), `WIDTH_REDUCING_STRATEGIES lists '${s}', which is not a schema split strategy — a rename went stale`);
+  }
 });

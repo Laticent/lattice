@@ -36,6 +36,10 @@ in patch versions.
   unvalidated `split` carousel recipe is now validated at load (a typo'd
   strategy fails the build instead of silently not splitting), and unknown
   manifest keys are rejected per the schema's `additionalProperties: false`.
+  If you load YOUR OWN manifests through this package's `loadAll()`/
+  `validate()`: manifests with stray top-level keys or malformed `split`
+  blocks that previously loaded will now fail validation — the schema always
+  declared them invalid; the loader now agrees.
 
 - **Complexity frontier, pass 3.** The remaining high-complexity functions
   decomposed with the same verified playbook: the forms catalog validators

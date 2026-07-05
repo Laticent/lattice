@@ -678,6 +678,12 @@ var require_manifest_schema = __commonJS({
 var require_gate = __commonJS({
   "lib/layout/gate.js"(exports, module) {
     var MANIFEST_SCHEMA = require_manifest_schema();
+    (function deepFreeze(o) {
+      if (o && typeof o === "object" && !Object.isFrozen(o)) {
+        Object.freeze(o);
+        for (const v of Object.values(o)) deepFreeze(v);
+      }
+    })(MANIFEST_SCHEMA);
     var FUNCTIONS2 = Object.freeze(MANIFEST_SCHEMA.properties.function.enum);
     var BUCKETS2 = Object.freeze(MANIFEST_SCHEMA.properties.bucket.enum);
     var FORMS2 = Object.freeze(MANIFEST_SCHEMA.properties.form.enum);

@@ -177,6 +177,42 @@ WIDTH_REDUCING_STRATEGIES (a subset classifier a strategy rename would
 silently miss), and `lint-core.js` hard-codes the axis list in one
 message string the sync gate doesn't cover.
 
+### Pass 4 hardening — red team + inversion + fit/risk (three parallel lenses)
+
+Review asked for the full trio on the schema PR. Zero must-fix across all
+three; the folded-back findings: the first two sync tests were TAUTOLOGIES
+(derived-vs-schema — can never fail), so the schema's load-bearing content
+is now FIXTURE-PINNED (widen/delete/reorder/un-anchor all fail a literal
+fixture, making schema edits as loud in review as validator edits were); a
+disk↔enum gate (deleting a bucket from the enum silently orphaned that
+whole component family — loadAll only walks listed buckets); an
+intra-schema agreement test (the axis enum exists in FIVE copies inside the
+schema itself); gate.js now deep-freezes its browser copy too; the
+emulator's WIDTH_REDUCING_STRATEGIES subset is gated against the strategy
+enum; a stale comment checkSplit falsified is fixed; and the CHANGELOG
+warns own-manifest npm consumers about the stricter loader.
+
+Tracked residuals surfaced by the lenses (pre-existing, off-path, logged):
+
+- **Packaged-CLI autosplit is a silent no-op** (inversion, path 6): the
+  npm-shipped `dist/lattice-emulator.js` resolves `loadAll()` against
+  `<pkg>/dist/`, which holds no manifests, so `SPLIT_CAP` is empty and
+  `autosplit: on` does nothing for `npx lattice` users — on main today.
+  Fix candidate: resolve the manifests dir from PKG_ROOT (resolver already
+  in the bundle) or bake a manifest registry into the bundle.
+- **`validate()` throws (not errors) on a truthy non-string `sample` for a
+  card-style/ledger layout name** — TypeError via lint-core's
+  findInlineTitleBodyLine; predates every pass.
+- **`docs/src/components/studio/manifest-complete.ts`** uses a bare bracket
+  lookup over MANIFEST_ENUMS, so typing `"constructor": "` in the manifest
+  editor resolves Object.prototype.constructor and crashes the completion
+  source.
+- **`ADAPT_MODES` is hand-mirrored** in `lib/layout/ai.js` and
+  `tools/check-ownership.js` (not yet schema-derived or sync-gated);
+  `orientation`/`adapt`/`showcase` values pass checkUnknownKeys but get no
+  structural validation from validate() (repo-side, check-ownership's
+  checkAdaptDeclarations covers adapt.mode).
+
 ## Follow-ups (logged, not in this PR)
 
 - **The committed gallery goldens drift ~7-13% on this sandbox's
