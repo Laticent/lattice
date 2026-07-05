@@ -35,7 +35,7 @@ import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, 
 import { activeModeLabel, ModeMenuItems } from './ModePicker';
 import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
-import { SlideContext, SlideContextBody } from './SlideContext';
+import { SlideContextBody } from './SlideContext';
 import { activeSpectrumLabel, SpectrumMenuItems } from './SpectrumPicker';
 import { importComments } from './slide-comments';
 import { listFindings } from './studio-lint';
@@ -184,7 +184,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Editor + Preview + slide nav. Nothing is removed — ⌘K stays live, so every
 	// feature is one keystroke away. Opt-in per session (not sticky, not a default).
 	const [focus, setFocus] = React.useState(false);
-	const [notesOpen, setNotesOpen] = React.useState(false); // speaker-notes drawer (own surface, not the Inspector)
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate'>('compose');
 	const [shareOpen, setShareOpen] = React.useState(false);
@@ -726,7 +725,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		toggleMode,
 		setPresentOpen,
 		setShareOpen,
-		setNotesOpen,
+		setInspectorScope,
 		setDeckMenuOpen,
 		mutateSlide: (fn: (chunk: string) => string) => mutateSlideRef.current(fn),
 		fixAll: () => editorRef.current?.fixAll(),
@@ -1070,7 +1069,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Per-slide edits (note + class tokens) commit through ONE funnel: a pure
 	// transform applied to the FRESHEST slide chunk via a functional setSource, so a
 	// pending editor flush or an AI edit can't land a stale write on the wrong slide.
-	// The "This slide" drawer owns the note + class controls (SlideContext).
+	// The Inspector's slide scope owns the note + class controls (SlideContextBody).
 	const mutateActiveSlide = React.useCallback((fn: (chunk: string) => string) => {
 		setSource((s) => {
 			const chunk = splitSlides(stripFrontMatter(s))[activeFullIndex];
@@ -1810,18 +1809,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<SlideContext
-				open={notesOpen}
-				onOpenChange={setNotesOpen}
-				deckId={deck.id}
-				chunk={slides[activeFullIndex] ?? ''}
-				source={source}
-				slideNumber={activeFullIndex + 1}
-				lintVocab={lintVocab}
-				catalog={components}
-				savedFinishNames={savedFinishMenu.map((f) => f.name)}
-				onMutate={mutateActiveSlide}
-			/>
 			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={palette} mode={mode === 'dark' ? 'dark' : 'light'} extraTheme={extraTheme} extraCss={previewExtraCss} onPresent={() => setPresentOpen(true)} notify={notify} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,

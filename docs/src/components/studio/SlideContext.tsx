@@ -11,10 +11,9 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Check, Cloud, Eye, FileSliders, Info, RotateCcw, Sparkles } from 'lucide-react';
+import { Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideComments } from './SlideComments';
@@ -580,24 +579,5 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					{inheritedGhost.length > 0 && <div className="mt-1 text-[10px] text-muted-foreground">Faded tokens are inherited from the deck.</div>}
 				</div>
 		</>
-	);
-}
-
-/** The Sheet-wrapped surface — used on compact/mobile breakpoints. On desktop the
- *  same SlideContextBody is hosted directly in the Inspector column. */
-export function SlideContext(props: SlideContextProps) {
-	return (
-		<Sheet open={props.open} onOpenChange={props.onOpenChange}>
-			<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[420px]">
-				<SheetHeader className="border-b border-border">
-					<SheetTitle className="flex items-center gap-2 text-[15px]">
-						<FileSliders className="size-4 text-[var(--accent)]" />Slide settings
-						<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">slide {props.slideNumber}</span>
-					</SheetTitle>
-					<SheetDescription className="sr-only">Adjust this slide's look, status, decoration, chrome, and speaker note. Changes write into the slide's markdown.</SheetDescription>
-				</SheetHeader>
-				<SlideContextBody {...props} />
-			</SheetContent>
-		</Sheet>
 	);
 }

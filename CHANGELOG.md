@@ -70,7 +70,9 @@ in patch versions.
   and keeps your caret in place across a settings write. On tablet and phone
   the same Slide-first scope switch and echo appear — as an in-panel segment
   (tablet keeps the docked column; phone opens one Sheet) — so the surface is
-  identical on every screen.
+  identical on every screen. The self-driving guided demo now drives that same
+  panel too (it used to pop the old modal drawer), so the walkthrough shows the
+  real UI rather than a stand-in; the retired per-slide modal drawer is gone.
 - **Engine internals refactored for maintainability** (no rendered-output
   change — verified by the gallery pixel-regression gate). One canonical
   home for the depth-aware HTML list walkers (`lib/core/html-lists.js`)
