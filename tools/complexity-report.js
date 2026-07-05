@@ -60,6 +60,22 @@ function walkFiles(dir, out = []) {
  *  report cares about. */
 const FUNCTION_NODE_TYPES = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
 
+// AST metadata keys that never hold child nodes.
+const SKIP_KEYS = new Set(['type', 'loc', 'range', 'start', 'end']);
+
+/** Call fn(child) for every AST child node of `node` (arrays flattened). */
+function walkChildren(node, fn) {
+  for (const key of Object.keys(node)) {
+    if (SKIP_KEYS.has(key)) continue;
+    const value = node[key];
+    if (Array.isArray(value)) {
+      for (const child of value) if (child && typeof child.type === 'string') fn(child);
+    } else if (value && typeof value.type === 'string') {
+      fn(value);
+    }
+  }
+}
+
 /** True for arrows/expressions worth measuring as their own unit: named
  *  (assigned to a const/property) rather than an inline callback argument. */
 function isNamedFunctionBinding(node, parent) {
@@ -83,6 +99,15 @@ function functionName(node, parent) {
   return '(anonymous)';
 }
 
+// Node types that each contribute exactly one McCabe decision point.
+const DECISION_TYPES = new Set([
+  'IfStatement', 'ConditionalExpression',
+  'ForStatement', 'ForInStatement', 'ForOfStatement',
+  'WhileStatement', 'DoWhileStatement',
+  'CatchClause',
+]);
+const SHORT_CIRCUIT_OPS = new Set(['&&', '||', '??']);
+
 /** Walk a function's body and count McCabe decision points, stopping at
  *  nested function boundaries (their complexity is counted separately). */
 function cyclomaticComplexity(fnNode) {
@@ -91,35 +116,10 @@ function cyclomaticComplexity(fnNode) {
   function visit(node) {
     if (!node || typeof node.type !== 'string') return;
     if (node !== fnNode && FUNCTION_NODE_TYPES.has(node.type)) return; // nested fn: own unit
-
-    switch (node.type) {
-      case 'IfStatement':
-      case 'ConditionalExpression':
-      case 'ForStatement':
-      case 'ForInStatement':
-      case 'ForOfStatement':
-      case 'WhileStatement':
-      case 'DoWhileStatement':
-      case 'CatchClause':
-        complexity++;
-        break;
-      case 'SwitchCase':
-        if (node.test) complexity++; // `default:` isn't a decision point
-        break;
-      case 'LogicalExpression':
-        if (node.operator === '&&' || node.operator === '||' || node.operator === '??') complexity++;
-        break;
-      default:
-        break;
-    }
-
-    for (const key of Object.keys(node)) {
-      if (key === 'type' || key === 'loc' || key === 'range' || key === 'start' || key === 'end') continue;
-      const value = node[key];
-      if (Array.isArray(value)) {
-        for (const child of value) if (child && typeof child.type === 'string') visit(child);
-      } else if (value && typeof value.type === 'string') visit(value);
-    }
+    if (DECISION_TYPES.has(node.type)) complexity++;
+    else if (node.type === 'SwitchCase' && node.test) complexity++; // `default:` isn't a decision point
+    else if (node.type === 'LogicalExpression' && SHORT_CIRCUIT_OPS.has(node.operator)) complexity++;
+    walkChildren(node, visit);
   }
 
   visit(fnNode.body);
@@ -146,7 +146,6 @@ function analyzeFile(file) {
 
   const functions = [];
   function visit(node, parent) {
-    if (!node || typeof node.type !== 'string') return;
     if (FUNCTION_NODE_TYPES.has(node.type) && isNamedFunctionBinding(node, parent)) {
       functions.push({
         name: functionName(node, parent),
@@ -155,13 +154,7 @@ function analyzeFile(file) {
         loc: linesOf(node, source),
       });
     }
-    for (const key of Object.keys(node)) {
-      if (key === 'type' || key === 'loc' || key === 'range' || key === 'start' || key === 'end') continue;
-      const value = node[key];
-      if (Array.isArray(value)) {
-        for (const child of value) if (child && typeof child.type === 'string') visit(child, node);
-      } else if (value && typeof value.type === 'string') visit(value, node);
-    }
+    walkChildren(node, (child) => visit(child, node));
   }
   visit(ast, null);
 

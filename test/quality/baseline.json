@@ -5,12 +5,12 @@
   "metrics": {
     "circularDependencies": 0,
     "boundaryViolations": 0,
-    "duplicatedPercent": 2.6,
-    "duplicateClones": 95,
+    "duplicatedPercent": 2.56,
+    "duplicateClones": 93,
     "deadFiles": 0,
     "deadExports": 0,
     "unlistedDependencies": 0,
-    "complexityFunctionsAboveThreshold": 72,
-    "worstFunctionComplexity": 51
+    "complexityFunctionsAboveThreshold": 67,
+    "worstFunctionComplexity": 45
   }
 }

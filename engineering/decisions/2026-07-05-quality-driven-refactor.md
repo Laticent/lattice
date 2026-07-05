@@ -52,12 +52,20 @@ a `MANIFEST_CHECKS` pipeline of 18 named single-concern checkers
 (`checkIdentity`, `checkTags`, `checkCapacity`, …) run in the original
 order. Adding a manifest rule is now "write one checker, slot it in."
 
-**Honest metric note:** the "functions ≥ 15" count ROSE 69 → 72, because
-one 209-complexity function became 18 checkers of which a few (e.g.
-`checkCapacity` at 34) individually clear the threshold. The worst-case
-dropped 4×; total logic is unchanged; the per-function count is simply a
-metric that penalizes decomposition. The re-blessed baseline records
-72 with this note as its justification.
+**Second pass — the count goes DOWN, not sideways:** the first
+decomposition left "functions ≥ 15" at 72 (up from 69: one 209 function
+became 18 checkers, several individually above threshold). Review pushback
+("things going higher doesn't feel right") drove a second pass:
+`transformChartSection` (51) became a per-layout `SECTION_BUILDERS` table
+plus named frame-wrap helpers; `probeSectionOverflow` (51) folded its two
+pasted rect-scan loops into one nested helper (nested on purpose — the
+function is `.toString()`-injected into page.evaluate, so module-level
+helpers can't travel with it); `checkCapacity`/`checkDensity` split into
+focused sub-checkers sharing one measurability guard; and the complexity
+tool's own walkers restructured onto lookup tables (verified to produce
+byte-identical measurements for all 1,442 functions). Final: **67
+functions ≥ 15 (below the original 69), worst 45** — and that 45 is an
+on-demand tool script (`buildWorld`); the worst engine function is 36.
 
 ### 4. Dead/undeclared deps (unlisted 1 → 0)
 
@@ -117,9 +125,11 @@ good README already exists (themes/, lib/theme/), where it's generated
   font bytes; the HTML sidecar is deterministic). Harmless today, but a
   deterministic embed would make PDF byte-diffs usable as a gate.
 
-- `transformChartSection` (51) and `probeSectionOverflow` (51) are the
-  new complexity frontier — each is one function doing dispatch + several
-  chart builds; a split would mirror what validate() got.
+- The complexity frontier after the second pass is all pre-existing,
+  untouched code: `buildWorld` (45, an on-demand network tool),
+  `checkIntegrity` (36) / `validateSlicing` (28) in `lib/forms/index.js`
+  (the same decomposition validate() got would fit), `carouselize` (33),
+  `renderDocs` (32), `scoreDeck` (30).
 - journey's walker/escape variants could consolidate onto the shared
   helpers after a behavior review.
 - funnel/map's `esc`/`stripTags` twins (identical to each other) could
