@@ -192,26 +192,35 @@ emulator's WIDTH_REDUCING_STRATEGIES subset is gated against the strategy
 enum; a stale comment checkSplit falsified is fixed; and the CHANGELOG
 warns own-manifest npm consumers about the stricter loader.
 
-Tracked residuals surfaced by the lenses (pre-existing, off-path, logged):
+Residuals surfaced by the lenses — ALL FIXED in the same PR after review
+directed "no broken windows" (each was pre-existing; verification named per
+item):
 
-- **Packaged-CLI autosplit is a silent no-op** (inversion, path 6): the
-  npm-shipped `dist/lattice-emulator.js` resolves `loadAll()` against
-  `<pkg>/dist/`, which holds no manifests, so `SPLIT_CAP` is empty and
-  `autosplit: on` does nothing for `npx lattice` users — on main today.
-  Fix candidate: resolve the manifests dir from PKG_ROOT (resolver already
-  in the bundle) or bake a manifest registry into the bundle.
-- **`validate()` throws (not errors) on a truthy non-string `sample` for a
-  card-style/ledger layout name** — TypeError via lint-core's
-  findInlineTitleBodyLine; predates every pass.
-- **`docs/src/components/studio/manifest-complete.ts`** uses a bare bracket
-  lookup over MANIFEST_ENUMS, so typing `"constructor": "` in the manifest
-  editor resolves Object.prototype.constructor and crashes the completion
-  source.
-- **`ADAPT_MODES` is hand-mirrored** in `lib/layout/ai.js` and
-  `tools/check-ownership.js` (not yet schema-derived or sync-gated);
-  `orientation`/`adapt`/`showcase` values pass checkUnknownKeys but get no
-  structural validation from validate() (repo-side, check-ownership's
-  checkAdaptDeclarations covers adapt.mode).
+- **Packaged-CLI autosplit was a silent no-op** (inversion, path 6): the
+  npm-shipped bundle resolved `loadAll()` against `<pkg>/dist/` (its own
+  `__dirname`), which ships no manifests, so `SPLIT_CAP` was empty and
+  `autosplit: on` did nothing for `npx lattice` users. Fixed: the emulator
+  resolves the manifest tree from `PKG_ROOT/lib/components` (correct in
+  the repo AND the tarball), and an empty registry under `autosplit: on`
+  now warns instead of staying silent. Verified on the REAL surface:
+  `npm pack` → clean-room install → the installed CLI ran the measured
+  autosplit passes and produced the same 25-page output as the repo CLI
+  (pre-fix: 8 overflowing pages).
+- **`validate()` threw (not errored) on a truthy non-string `sample`** for
+  a form-linted layout name — the four form checkers now string-guard what
+  they hand lint-core (the type error itself was already reported by the
+  field checkers); regression-tested.
+- **The Studio manifest autocompleter crashed on prototype-named keys**
+  (`"constructor": "` resolved Object.prototype.constructor via a bare
+  bracket lookup) — now `Object.hasOwn`-guarded; regression-tested in the
+  docs suite.
+- **`ADAPT_MODES` hand-mirrors retired**: `lib/layout/ai.js` and
+  `tools/check-ownership.js` now derive it from the schema (membership-only
+  use, so the enum-order difference is inert). Still open by design:
+  `orientation`/`adapt`/`showcase` VALUES get no structural validation from
+  validate() (repo-side, check-ownership's checkAdaptDeclarations covers
+  adapt.mode); and lint-core's one hard-coded axis list in a message string
+  is display text whose trail runs through the gated FOCUS_AXES set.
 
 ## Follow-ups (logged, not in this PR)
 

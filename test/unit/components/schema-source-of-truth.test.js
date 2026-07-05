@@ -180,3 +180,20 @@ test('the emulator\'s WIDTH_REDUCING_STRATEGIES hand-subset stays within the sch
     assert.ok(strategies.has(s), `WIDTH_REDUCING_STRATEGIES lists '${s}', which is not a schema split strategy — a rename went stale`);
   }
 });
+
+test('validate() reports (never throws) on truthy non-string sample/skeleton for form-linted layouts', () => {
+  // Regression: card-style/ledger/statement/split form lints assumed string
+  // samples and crashed on e.g. sample: 42 (already reported as a type error
+  // by the field checkers — the form lint just must not throw).
+  const cases = [
+    { name: 'cards-grid', sample: 42 },
+    { name: 'cards-grid', skeleton: 42, sample: 'ok' },
+    { name: 'split-panel', sample: 42, skeleton: {} },
+    { name: 'cards-grid', variants: ['x'], variantDocs: { x: { caption: 'c', sample: 42 } } },
+    { name: 'agenda', sample: [1, 2] },
+  ];
+  for (const c of cases) {
+    const errors = components.validate(c, 't');
+    assert.ok(Array.isArray(errors) && errors.length > 0, JSON.stringify(c));
+  }
+});

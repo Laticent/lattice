@@ -15,7 +15,16 @@ in patch versions.
 > | Category in `## Unreleased` | Bump |
 > |---|---|
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
-> | `### Added`, `### Changed`, `### Deprecated` | **minor** |
+> | `### Fixed
+
+- **`autosplit: on` now works in the packaged CLI.** The npm-shipped bundle
+  looked for component manifests in its own `dist/` directory (which ships
+  none), so the Fit Ladder's measured auto-split silently never ran for
+  `npx lattice` users — decks rendered with overflowing slides instead of
+  splitting. The CLI now resolves manifests from the package root, and
+  warns if the registry ever comes up empty under `autosplit: on`.
+
+### Added`, `### Changed`, `### Deprecated` | **minor** |
 > | `### Fixed`, `### Security` | **patch** |
 >
 > Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty

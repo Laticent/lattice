@@ -1034,11 +1034,21 @@ const AUTOSPLIT = /^\s*autosplit:\s*(?:on|true|yes)\s*$/im.test(fm);
 const SPLIT_CAP = (() => {
   if (!AUTOSPLIT) return {};
   const map = {};
-  for (const m of require('./lib/components').loadAll()) {
+  // Resolve the manifest tree from PKG_ROOT, not the module's __dirname: in
+  // the esbuild bundle __dirname is <pkg>/dist/ (no manifests there), which
+  // made autosplit a SILENT NO-OP for every npx/npm consumer of the packaged
+  // CLI while working in the repo. lib/ ships in the tarball, so the
+  // package-root walk lands on the real manifests in both worlds.
+  for (const m of require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components'))) {
     const axis = m.capacity?.axis ?? m.adapt?.capacity?.axis;
     // A layout joins the split registry if it can paginate (has a capacity axis) OR
     // declares a carousel `split` recipe (read-across re-authored as a sequence).
     if (axis || m.split) map[m.name] = { axis: axis ?? null, hard: m.capacity?.hard ?? null, sweet: m.capacity?.sweet ?? null, soft: m.capacity?.soft ?? null, split: m.split ?? null };
+  }
+  // An empty registry with autosplit requested means the manifests were not
+  // found — the exact silent failure this resolver fix closes. Never quiet.
+  if (!Object.keys(map).length) {
+    console.warn('autosplit: on — but no component manifests were found under ' + path.join(PKG_ROOT, 'lib', 'components') + '; autosplit will not run.');
   }
   return map;
 })();

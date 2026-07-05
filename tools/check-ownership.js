@@ -1035,7 +1035,8 @@ function checkThemeTokenParity(errors) {
   }
 }
 
-const ADAPT_MODES = new Set(['reflow', 'native', 'single-orientation']);
+// Derived from the manifest schema (the contract's source of truth) — was a hand-mirror.
+const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').properties.adapt.properties.mode.enum);
 
 /**
  * Cross-check the adaptivity DECLARATION (manifest `adapt.mode`) against reality,

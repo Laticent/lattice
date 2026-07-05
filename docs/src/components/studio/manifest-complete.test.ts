@@ -34,4 +34,12 @@ describe('manifest-complete — schema-aware JSON completion', () => {
 		expect(manifestCompletion('  "description": "A grid of ')).toBeNull();
 		expect(manifestCompletion('  "sweet": 4')).toBeNull();
 	});
+
+	it('does not resolve prototype-named keys to inherited Object members', () => {
+		// Regression: a bare MANIFEST_ENUMS[key] lookup resolved
+		// Object.prototype.constructor for `"constructor": "` and crashed .map().
+		for (const key of ['constructor', 'toString', 'hasOwnProperty', '__proto__']) {
+			expect(manifestCompletion(`  "${key}": "`)).toBeNull();
+		}
+	});
 });
