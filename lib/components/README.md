@@ -13,6 +13,12 @@ One folder per component, grouped into buckets (`anchor/`, `chart/`,
 `FUNCTIONS`/`FORMS`/`SUBSTANCES`/`BUCKETS` vocabularies, and `validate()` —
 a pipeline of single-concern manifest checkers (see the file header).
 
+**`manifest.schema.json` is the manifest contract's source of truth.** The
+validator and `lib/layout/gate.js` DERIVE their vocabularies from it; to add
+a bucket, form, field, or split strategy, change the schema first — the code
+follows, and `test/unit/components/schema-source-of-truth.test.js` gates the
+few hand-written mirrors that can't derive (browser-purity constraints).
+
 **Where to look things up:** a component's own `<name>.docs.md` for usage;
 `dist/docs/components.json` for the machine catalog; `design/design-system.md`
 for what a component/variant/token IS.

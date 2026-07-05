@@ -144,6 +144,39 @@ encode the manifest contract twice and are hand-synced. Logged as the
 next structural question (generate one from the other, or gate their
 agreement).
 
+## Pass 4: the manifest schema becomes the source of truth
+
+The change-coupling finding (validator ↔ schema co-change 21×, hand-synced)
+got its decision: **manifest.schema.json is canonical; code derives.**
+Investigation showed the drift was worse than logged — nothing consumed the
+schema (every reference was a "kept in sync by hand" comment); a THIRD copy
+in `lib/layout/gate.js` had already drifted (missing the `connect` bucket);
+the schema was missing three fields real manifests use (`split` — the Fit
+Ladder carousel recipe, 13 manifests, validated by NOTHING — plus
+`dataCompletion` and `families`); and the schema's
+`additionalProperties: false` promise was never enforced.
+
+What shipped: the schema trued up (+`split`/`families`/`dataCompletion`
+definitions); `lib/components/index.js` and `lib/layout/gate.js` now derive
+FUNCTIONS/BUCKETS/FORMS/SUBSTANCES/axes/name-pattern/allowed-key-sets from
+the schema (a JSON require — fs-free, esbuild-inlined for the browser);
+two new checkers enforce what the schema declares (`checkSplit` — closing
+the unvalidated-strategy footgun at the data boundary — and
+`checkUnknownKeys` for additionalProperties:false); and
+`test/unit/components/schema-source-of-truth.test.js` sync-gates the three
+mirrors that stay hand-written for browser-purity (focus.js axes, lint-core
+FOCUS_AXES, CAROUSEL_STRATEGIES keys). Verified by a 1,276-input
+differential vs origin/main: 0 unexpected diffs (112 differ only by the
+intended new enforcement); the independent checker proved the strict
+prefix property over a 23-case adversarial corpus, verified the browser
+bundle inlines the schema (the `connect` fix reaches the Studio), and
+demonstrated live schema-object corruption via the require cache — fixed
+by deep-freezing the schema on load. Two pre-existing residuals it
+surfaced, logged not fixed: `lattice-emulator.js` hand-lists
+WIDTH_REDUCING_STRATEGIES (a subset classifier a strategy rename would
+silently miss), and `lint-core.js` hard-codes the axis list in one
+message string the sync gate doesn't cover.
+
 ## Follow-ups (logged, not in this PR)
 
 - **The committed gallery goldens drift ~7-13% on this sandbox's

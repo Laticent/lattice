@@ -27,6 +27,16 @@ in patch versions.
 
 ### Changed
 
+- **`manifest.schema.json` is now the manifest contract's source of truth.**
+  The validator (`lib/components/index.js`) and the Studio gate
+  (`lib/layout/gate.js`) derive their vocabularies from the schema instead of
+  carrying hand-synced copies (one had already drifted — the gate was missing
+  the `connect` bucket). The schema gained the three fields real manifests
+  already used (`split`, `families`, `dataCompletion`), the previously
+  unvalidated `split` carousel recipe is now validated at load (a typo'd
+  strategy fails the build instead of silently not splitting), and unknown
+  manifest keys are rejected per the schema's `additionalProperties: false`.
+
 - **Complexity frontier, pass 3.** The remaining high-complexity functions
   decomposed with the same verified playbook: the forms catalog validators
   (`checkIntegrity`, `validateSlicing`), the deck scorecard (`scoreDeck` →
