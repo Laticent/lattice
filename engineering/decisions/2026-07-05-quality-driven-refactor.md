@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The follow-through on the 2026-07-05 quality baseline — every finding actioned in one refactor pass. One canonical home for the depth-aware HTML list walkers (lib/core/html-lists.js) and the <section> walker (lib/core/section-walk.js, replacing five pasted copies); the quadrant↔radar 71-line clone extracted to _chart-family/transform-utils.js; the core→component boundary violation fixed by inverting the import direction; validate() (cyclomatic complexity 209) decomposed into 18 single-concern checkers with differential-tested identical behavior; d3-geo declared; a README in every structural folder for junior engineers. Verified by the full unit suite, a 1,381-input differential harness, the pixel-regression gate over the committed gallery goldens, and docs-site screenshots at three widths.
+summary: The follow-through on the 2026-07-05 quality baseline — every finding actioned in one refactor pass. One canonical home for the depth-aware HTML list walkers (lib/core/html-lists.js) and the <section> walker (lib/core/section-walk.js, replacing five pasted copies); the quadrant↔radar 71-line clone extracted to _chart-family/transform-utils.js; the core→component boundary violation fixed by inverting the import direction; validate() (cyclomatic complexity 209) decomposed into 18 single-concern checkers with differential-tested identical behavior; d3-geo declared; a README in every structural folder for junior engineers. Verified by the full unit suite, a 1,381-input differential harness, a same-machine A/B render (branch vs main — byte-identical HTML, 0 differing PDF pixels), and docs-site screenshots at three widths.
 ---
 
 # The quality-driven refactor — acting on the baseline's findings
@@ -81,9 +81,18 @@ good README already exists (themes/, lib/theme/), where it's generated
   differential harness ran old-vs-new `validate()` over all 80 real
   manifests + per-key-deletion fuzz + 31 broken-manifest cases (1,381
   inputs, 0 output mismatches).
-- **Rendered PDFs (the real artifact):** `npm run regress` — every
-  gallery re-rendered fresh through the refactored engine and pixel-
-  diffed against the committed golden PDFs.
+- **Rendered PDFs (the real artifact):** same-machine A/B — four
+  representative galleries (quadrant, chart, statement, progression)
+  rendered through the branch engine AND through unmodified origin/main:
+  emulator HTML byte-identical, and every PDF page **0 differing pixels**
+  (pdftoppm + ImageMagick compare). The committed-golden gate
+  (`npm run regress`) reports 21 drifted galleries, but unmodified
+  origin/main drifts on the SAME galleries with the IDENTICAL numbers
+  (e.g. statement 7.06%/7.09%) — that drift is environmental (this
+  sandbox's Chromium vs the machine that blessed the goldens),
+  pre-existing, and deliberately NOT re-blessed here (42 golden PDFs
+  from a foreign render environment would be churn, not signal —
+  logged below instead).
 - **Website (the real site):** docs site built and screenshotted at
   1440/820/390 (landing, components index, quadrant + radar live
   previews — which render through the rebuilt playground bundle
@@ -97,6 +106,16 @@ good README already exists (themes/, lib/theme/), where it's generated
   folded back before the PR.
 
 ## Follow-ups (logged, not in this PR)
+
+- **The committed gallery goldens drift ~7-13% on this sandbox's
+  Chromium even for unmodified main** — the regression gate's goldens
+  encode the blessing machine's renderer. Worth either re-blessing from
+  the canonical environment or recording the blessing Chrome version in
+  the baseline so the gate can warn on mismatch instead of crying drift.
+- The emulator's PDF output embeds a nondeterministic font-subset blob
+  (two same-code renders of the same deck differ in ~5 KB of embedded
+  font bytes; the HTML sidecar is deterministic). Harmless today, but a
+  deterministic embed would make PDF byte-diffs usable as a gate.
 
 - `transformChartSection` (51) and `probeSectionOverflow` (51) are the
   new complexity frontier — each is one function doing dispatch + several
