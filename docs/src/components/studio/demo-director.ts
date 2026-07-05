@@ -36,10 +36,10 @@ export type DemoActions = {
 	createFirstDeck: () => void;
 	/** Show a Studio toast (e.g. "New deck created."). */
 	notify: (message: string) => void;
-	/** Open/close the per-slide settings drawer (the closing polish flourish). */
+	/** Open the Inspector at slide scope (the closing polish flourish). */
 	openSlideSettings: (open: boolean) => void;
-	/** Apply a pure chunk→chunk transform to the ACTIVE slide's source (the drawer's
-	 *  own commit channel) — e.g. add a finish or a status stamp. */
+	/** Apply a pure chunk→chunk transform to the ACTIVE slide's source (the slide
+	 *  scope's commit channel) — e.g. add a finish or a status stamp. */
 	mutateSlide: (fn: (chunk: string) => string) => void;
 	/** Run every autofixable lint finding (the editor's "Fix all"). */
 	fixAll: () => void;

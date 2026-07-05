@@ -2,7 +2,7 @@ import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
-import { Compartment, EditorState } from '@codemirror/state';
+import { ChangeSet, EditorSelection as CmSelection, Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
@@ -231,15 +231,26 @@ export const Editor = React.forwardRef<EditorHandle, {
 				v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } });
 			}
 		},
-		// Scroll the editor to a slide (rail / arrow nav). Sets the cursor at the
-		// slide's start; the resulting selectionSet echoes the SAME index back, so
-		// onCursorSlide no-ops — no sync loop.
+		// Reveal a slide in the editor — called only from explicit NAV (rail / arrow /
+		// filmstrip / source click), never from a cursor-move effect, so typing never
+		// re-centers. Frames the WHOLE slide range centered (shows all of it when it
+		// fits; CodeMirror clamps to anchor the start on the first/last slide or a slide
+		// taller than the pane). Sets the caret to the slide start and pre-seeds
+		// lastSlideRef so the resulting selectionSet echoes the SAME index → onCursorSlide
+		// no-ops, no sync loop. A single scroll effect — NO end→start caret hop (that
+		// parked the caret in slide index+1 and flickered the preview).
 		revealSlide(index: number) {
 			const v = viewRef.current;
 			if (!v) return;
-			const pos = Math.min(slideStartOffset(v.state.doc.toString(), index), v.state.doc.length);
+			const doc = v.state.doc.toString();
+			const from = Math.min(slideStartOffset(doc, index), v.state.doc.length);
+			const nextStart = slideStartOffset(doc, index + 1);
+			const to = Math.min(nextStart > from ? nextStart - 1 : v.state.doc.length, v.state.doc.length);
 			lastSlideRef.current = index;
-			v.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+			v.dispatch({
+				selection: { anchor: from },
+				effects: EditorView.scrollIntoView(CmSelection.range(from, to), { y: 'center' }),
+			});
 		},
 		getSelection(): EditorSelection {
 			const v = viewRef.current;
@@ -362,7 +373,31 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// path — so a growing deck never round-trips as a full replace here.)
 	React.useEffect(() => {
 		const v = viewRef.current;
-		if (v && value !== v.state.doc.toString()) {
+		if (!v || value === v.state.doc.toString()) return;
+		const old = v.state.doc.toString();
+		// Minimal diff — the common prefix/suffix the two docs share.
+		const minLen = Math.min(old.length, value.length);
+		let p = 0;
+		while (p < minLen && old.charCodeAt(p) === value.charCodeAt(p)) p++;
+		let suf = 0;
+		while (suf < minLen - p && old.charCodeAt(old.length - 1 - suf) === value.charCodeAt(value.length - 1 - suf)) suf++;
+		const from = p;
+		const toOld = old.length - suf;
+		const insert = value.slice(p, value.length - suf);
+		// A LOCALIZED change (a surgical slide-settings / note write) PRESERVES the caret:
+		// dispatch only the changed span so CodeMirror maps the selection through it, and
+		// pre-seed lastSlideRef with the caret's resulting slide so the value-sync doesn't
+		// fire a spurious cursor->preview jump. Under the old modal the caret-reset was
+		// invisible; beside the open Inspector column it was a visible jump to doc-top.
+		// A WHOLESALE replace (deck switch / restore / AI apply) still resets to the top —
+		// the old caret is meaningless in the new doc (the original guard).
+		const localized = toOld - from <= old.length / 2 && insert.length <= value.length / 2;
+		if (localized) {
+			const change = { from, to: toOld, insert };
+			const mappedHead = ChangeSet.of(change, old.length).mapPos(v.state.selection.main.head, 1);
+			lastSlideRef.current = slideIndexAt(value, mappedHead);
+			v.dispatch({ changes: change, selection: { anchor: mappedHead } });
+		} else {
 			lastSlideRef.current = 0;
 			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 } });
 		}

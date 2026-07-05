@@ -26,15 +26,16 @@ export type StudioDemoBindings = {
 	setArchitectOpen: (open: boolean) => void;
 	setArchitectTab: (tab: 'coach' | 'chat') => void;
 	setInspectorOpen: (open: boolean) => void;
+	/** Point the (real) Inspector at a scope — 'slide' for per-slide settings,
+	 *  'deck' for deck-wide. The demo drives the SAME panel the author uses. */
+	setInspectorScope: (scope: 'slide' | 'deck') => void;
 	applyPalette: (name: string) => void;
 	toggleMode: () => void;
 	setPresentOpen: (open: boolean) => void;
 	setShareOpen: (open: boolean) => void;
-	/** Open/close the per-slide settings drawer (`notesOpen`). */
-	setNotesOpen: (open: boolean) => void;
 	/** Open/close the deck switcher dropdown (the "create a new deck" opener). */
 	setDeckMenuOpen: (open: boolean) => void;
-	/** The drawer's commit funnel — apply a pure transform to the active slide. */
+	/** The slide scope's commit funnel — apply a pure transform to the active slide. */
 	mutateSlide: (fn: (chunk: string) => string) => void;
 	fixAll: () => void;
 	setActiveSlide: (index: number) => void;
@@ -127,7 +128,7 @@ export function useStudioDemo(
 			// Escape, and natural completion all route here; the reason only picks the toast.
 			cur.setPresentOpen(false);
 			cur.setShareOpen(false);
-			cur.setNotesOpen(false);
+			cur.setInspectorOpen(false);
 			cur.setDeckMenuOpen(false);
 			cur.applyPalette(snap.palette);
 			if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
@@ -148,12 +149,21 @@ export function useStudioDemo(
 			setView: (v) => bindRef.current.setView(v),
 			openArchitect: (o) => bindRef.current.setArchitectOpen(o),
 			setArchitectTab: (t) => bindRef.current.setArchitectTab(t),
-			openInspector: (o) => bindRef.current.setInspectorOpen(o),
+			// The reskin beat is deck-wide — point the real Inspector at deck scope.
+			openInspector: (o) => {
+				if (o) bindRef.current.setInspectorScope('deck');
+				bindRef.current.setInspectorOpen(o);
+			},
 			setPalette: (n) => bindRef.current.applyPalette(n),
 			toggleMode: () => bindRef.current.toggleMode(),
 			openPresent: (o) => bindRef.current.setPresentOpen(o),
 			openShare: (o) => bindRef.current.setShareOpen(o),
-			openSlideSettings: (o) => bindRef.current.setNotesOpen(o),
+			// "Every slide has its own controls" — the SAME right-hand panel the author
+			// uses, at slide scope. No separate modal drawer; the demo drives the real UI.
+			openSlideSettings: (o) => {
+				if (o) bindRef.current.setInspectorScope('slide');
+				bindRef.current.setInspectorOpen(o);
+			},
 			openDeckMenu: (o) => bindRef.current.setDeckMenuOpen(o),
 			createFirstDeck: () => bindRef.current.createFirstDeck(),
 			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
-import { SlideContext } from './SlideContext';
+import { SlideContextBody } from './SlideContext';
 import { listComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 
@@ -46,7 +46,7 @@ const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'accent'] }];
 function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	const onMutate = vi.fn();
 	render(
-		<SlideContext open onOpenChange={() => {}} chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinishNames={savedFinishNames} onMutate={onMutate} />,
+		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinishNames={savedFinishNames} onMutate={onMutate} />,
 	);
 	// Apply the captured transform to the chunk to see the resulting tokens.
 	const applied = () => getClassTokens(onMutate.mock.calls.at(-1)?.[0](chunk));
@@ -59,13 +59,13 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 // Chrome / Notes. Switch to the tab that owns a control before interacting with it.
 const goTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 
-describe('SlideContext drawer', () => {
+describe('SlideContextBody controls', () => {
 	beforeEach(() => localStorage.clear());
 
 	it('shows a Comments tab only with a deckId, and adds a comment for the slide', () => {
 		const onMutate = vi.fn();
 		render(
-			<SlideContext open onOpenChange={() => {}} deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+			<SlideContextBody open deckId="d1" chunk="<!-- _class: kpi -->\n\n# Hi" source="<!-- _class: kpi -->\n\n# Hi" slideNumber={3} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
 		);
 		goTab('Comments');
 		fireEvent.change(screen.getByRole('textbox', { name: 'New comment for this slide' }), { target: { value: 'Check this figure.' } });
@@ -190,12 +190,12 @@ describe('SlideContext drawer', () => {
 		const edited = '<!-- _class: kpi dark scale-xl -->\n\n# Hi';
 		const onMutate = vi.fn();
 		const { rerender } = render(
-			<SlideContext open onOpenChange={() => {}} chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
 		);
 		expect(screen.getByRole('button', { name: /reset slide/i })).toBeDisabled();
 		// Simulate an edit landing (the source changed under the drawer).
 		rerender(
-			<SlideContext open onOpenChange={() => {}} chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
+			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} />,
 		);
 		const reset = screen.getByRole('button', { name: /reset slide/i });
 		expect(reset).not.toBeDisabled();

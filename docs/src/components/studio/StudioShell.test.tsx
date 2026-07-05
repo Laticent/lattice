@@ -260,25 +260,27 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(sheet.queryByText('Active generation tier')).not.toBeInTheDocument();
 	});
 
-	it('the Deck Inspector expands from the rail chevron and collapses from the header chevron', async () => {
+	it('the settings panel opens to a scope from the rail and collapses from the header chevron', async () => {
 		const user = setup();
-		// Collapsed by default → the rail's expand chevron shows, the body doesn't.
-		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Open Deck inspector' }));
-		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
-		// The inspector is settings-only now (Lenses/History/Read moved out); the
-		// Running-marks group is a stable marker that the body rendered.
+		// Closed by default → no scope echo showing.
+		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
+		// The rail's "Deck" scope button opens the column in deck scope (loud echo).
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
+		// The inspector is settings-only now; the Running-marks group is a stable
+		// marker that the deck-scope body rendered.
 		expect(screen.getByText('Running marks')).toBeInTheDocument();
-		// Symmetric toggle: the expanded header's collapse chevron closes it back to
-		// the rail (same affordance both ways, not only the top-bar toggle).
-		await user.click(screen.getByRole('button', { name: 'Collapse Deck inspector' }));
-		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Open Deck inspector' })).toBeInTheDocument();
+		// The header collapse chevron closes it back to the rail.
+		await user.click(screen.getByRole('button', { name: 'Collapse settings' }));
+		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
+		// The rail's scope buttons remain (the switch is always present).
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toBeInTheDocument();
 	});
 
 	it('the Inspector "Inline validation" toggle has real teeth', async () => {
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
+		// Deck-wide Authoring controls live in Deck scope — open it from the rail.
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		const sw = await screen.findByRole('switch', { name: 'Inline validation' });
 		expect(sw).toBeChecked();
 		await user.click(sw);
@@ -359,14 +361,16 @@ describe('StudioShell — responsive layout', () => {
 		expect(await screen.findByText('Board-ready')).toBeInTheDocument();
 	});
 
-	it('tablet: panels are sheets, both closed by default', async () => {
+	it('tablet: the inspector is a docked non-blocking column (not a dimming sheet)', async () => {
 		setViewport('tablet');
 		const user = setup();
-		// Both panes share the row; neither panel is docked open.
+		// Nothing docked open by default; the deck stays visible.
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
-		expect(screen.queryByText('deck-wide')).not.toBeInTheDocument();
+		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
+		// Tablet keeps the desktop column (rail collapses to icons) — the deck-inspector
+		// toggle opens Deck scope in the column, no overlay that dims the deck.
 		await user.click(screen.getByRole('button', { name: 'Toggle Deck inspector' }));
-		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
+		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
 	});
 });
 
@@ -436,9 +440,16 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
-		// The pane toggles still work from the pane bar (the Inspector opens as a sheet).
+		// The pane toggles still work from the pane bar. On mobile the Inspector opens
+		// as a Sheet, but it hosts the SAME Slide-first scope switch + echo as the
+		// desktop/tablet column — opening from "Deck inspector" lands on deck scope.
 		await user.click(within(paneBar).getByRole('button', { name: 'Toggle Deck inspector' }));
-		expect(await screen.findByText('deck-wide')).toBeInTheDocument();
+		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
+		// The Slide-first segment is present, so a user can flip to this-slide scope
+		// without leaving the sheet — the deterministic scope switch, one surface.
+		const scopeSheet = screen.getByRole('dialog');
+		await user.click(within(scopeSheet).getByRole('button', { name: 'Slide scope' }));
+		expect(await within(scopeSheet).findByText(/Editing Slide \d+ only/)).toBeInTheDocument();
 	});
 
 	it('the launcher and deck switcher no longer duplicate "New deck" (deck CRUD lives in the switcher)', async () => {

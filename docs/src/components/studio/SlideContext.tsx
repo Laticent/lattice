@@ -1,20 +1,20 @@
-// The "This slide" drawer — context-sensitive per-slide editing beyond the speaker
-// note. Grows the old Notes sheet into a small, curated, provenance-aware editor for
-// a single slide's craft: its note, look (dark / type scale / finish), density,
-// status (state stamp / tone), decoration (tint / mark), and chrome.
+// The "This slide" settings body — context-sensitive per-slide editing beyond the
+// speaker note. Grows the old Notes sheet into a small, curated, provenance-aware editor
+// for a single slide's craft: its note, look (dark / type scale / finish), density,
+// status (state stamp / tone), decoration (tint / mark), and chrome. Hosted in the
+// Inspector's slide scope (a docked column on desktop/tablet, one Sheet on mobile).
 //
 // Every control is driven by the GENERATED vocabulary (lintVocab.universalGroups /
 // exclusiveAxes / finishNames + the catalog's per-component effectiveVariants), so it
 // can't drift from the engine; writes go through the span-surgical serializer
 // (slide-directives) and the tri-state provenance resolver (slide-provenance), so a
-// hand-edit and a drawer edit never fight and an inherited axis never lies. The drawer
+// hand-edit and a settings edit never fight and an inherited axis never lies. It
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Check, Cloud, Eye, FileSliders, Info, RotateCcw, Sparkles } from 'lucide-react';
+import { Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideComments } from './SlideComments';
@@ -35,9 +35,10 @@ type LintVocab = {
 	toneStyles?: string[];
 } | null;
 
-export type SlideContextProps = {
+export type SlideContextBodyProps = {
+	/** Kept only as an extra baseline-recapture trigger; the baseline also recaptures on
+	 *  `slideNumber`, so a persistently-mounted body (open held true) still resets per slide. */
 	open: boolean;
-	onOpenChange: (o: boolean) => void;
 	/** The active slide's source chunk. */
 	chunk: string;
 	/** The full deck source — for deck-wide provenance (inherited class/finish/mode). */
@@ -170,8 +171,10 @@ function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { val
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--muted-foreground,#888)' };
 
-export function SlideContext(props: SlideContextProps) {
-	const { open, onOpenChange, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinishNames = [], onMutate } = props;
+/** The body — controls only, no Sheet chrome — hostable in a persistent column
+ *  (desktop/tablet) OR inside a Sheet (mobile). */
+export function SlideContextBody(props: SlideContextBodyProps) {
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinishNames = [], onMutate } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -226,7 +229,7 @@ export function SlideContext(props: SlideContextProps) {
 		}
 	};
 
-	// "Reset" baseline — the slide chunk as it was when the drawer opened on THIS
+	// "Reset" baseline — the slide chunk as it was when settings opened on THIS
 	// slide, so one click reverts every edit made this session (note + all class
 	// controls) to the original. Snapshot on open / slide change only, NOT on edit, so
 	// the baseline stays fixed while the author experiments. A restore replaces the
@@ -338,7 +341,7 @@ export function SlideContext(props: SlideContextProps) {
 
 	const cur = (members: readonly string[]): string | null => tokens.find((t) => members.includes(t)) ?? null;
 
-	// Dynamic pill-tabs — de-crowd the drawer WITHOUT hiding controls behind empty tabs:
+	// Dynamic pill-tabs — de-crowd the panel WITHOUT hiding controls behind empty tabs:
 	// each tab renders ONLY when it has content to show. Look is the general default;
 	// Status / Decoration appear only when the deck's vocabulary carries those markers;
 	// Chrome + Notes are always applicable. When the slide's `_class` isn't round-trippable
@@ -359,17 +362,8 @@ export function SlideContext(props: SlideContextProps) {
 	const activeTab = tabValues.includes(tab) ? tab : (tabValues[0] ?? 'notes');
 
 	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[420px]">
-				<SheetHeader className="border-b border-border">
-					<SheetTitle className="flex items-center gap-2 text-[15px]">
-						<FileSliders className="size-4 text-[var(--accent)]" />Slide settings
-						<span className="ml-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--accent)]">slide {slideNumber}</span>
-					</SheetTitle>
-					<SheetDescription className="sr-only">Adjust this slide's look, status, decoration, chrome, and speaker note. Changes write into the slide's markdown.</SheetDescription>
-				</SheetHeader>
-
-				<div className="flex-1 overflow-y-auto px-4">
+		<>
+			<div className="flex-1 overflow-y-auto px-4">
 					{/* Reset — revert every edit made this session back to the original slide. */}
 					<div className="flex items-center justify-between border-b border-border py-2">
 						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>
@@ -377,7 +371,7 @@ export function SlideContext(props: SlideContextProps) {
 							type="button"
 							onClick={resetSlide}
 							disabled={!dirty}
-							title="Revert this slide to how it was when you opened the drawer"
+							title="Revert this slide to how it was when you opened settings"
 							className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent"
 						>
 							<RotateCcw className="size-3" />Reset slide
@@ -582,7 +576,6 @@ export function SlideContext(props: SlideContextProps) {
 					</div>
 					{inheritedGhost.length > 0 && <div className="mt-1 text-[10px] text-muted-foreground">Faded tokens are inherited from the deck.</div>}
 				</div>
-			</SheetContent>
-		</Sheet>
+		</>
 	);
 }

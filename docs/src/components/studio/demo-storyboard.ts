@@ -34,7 +34,6 @@ const SEL = {
 	preview: '#studio-pane-preview',
 	rail: 'nav[aria-label="Slide navigator"]',
 	architect: '[aria-label="Toggle Architect"]',
-	inspector: '[aria-label="Toggle Deck inspector"]',
 	theme: '[aria-label="Choose theme"]',
 	mode: '[data-demo="mode"]',
 	present: '[data-demo="present"]',

@@ -35,9 +35,10 @@ test('the Header field declares running-header text into front-matter', async ({
 });
 
 test('a speaker note is written into the slide source on blur', async ({ page }) => {
-	// The speaker-note field lives behind the topbar "Notes" toggle (it moved out
-	// of the inspector in the redesign).
-	await page.getByRole('button', { name: 'Notes' }).click();
+	// The speaker note lives in the Inspector's SLIDE scope, under the "Notes" tab.
+	// Open Slide settings (which points the panel at slide scope), then the Notes tab.
+	await page.getByRole('button', { name: 'Slide settings' }).click();
+	await page.getByRole('tab', { name: 'Notes' }).click();
 	const note = page.getByRole('textbox', { name: 'Speaker note for this slide' });
 	await note.click();
 	await note.fill('Open with the headline number.');
