@@ -1589,10 +1589,7 @@ var require_scorecard = __commonJS({
     var clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
     var band = (n) => n >= 93 ? "A" : n >= 85 ? "A\u2212" : n >= 78 ? "B+" : n >= 70 ? "B" : n >= 62 ? "C+" : n >= 55 ? "C" : n >= 45 ? "D" : "F";
     var plural = (n) => n > 1 ? "s" : "";
-    function scoreDeck(o = {}) {
-      const source = o.source || "";
-      const lint = o.lintFindings || [];
-      const review = o.reviewFindings || [];
+    function parseDeckShape(source) {
       const slides = source.split(/^---$/m);
       const tokensPer = slides.map((s) => {
         const m = s.match(CLASS_DIRECTIVE);
@@ -1602,32 +1599,40 @@ var require_scorecard = __commonJS({
       const start = /^\s*---\s*\r?\n/.test(source) ? 2 : 0;
       const contentSlides = slides.filter((s, i) => i >= start && s.trim()).length;
       const hasDataSlide = tokensPer.some((t) => DATA_LAYOUTS.has(t[0]));
-      const countRule = (arr, rule) => arr.filter((f) => f.rule === rule).length;
+      return { has, contentSlides, hasDataSlide };
+    }
+    function countRule(arr, rule) {
+      return arr.filter((f) => f.rule === rule).length;
+    }
+    function scoreStructure(shape, review) {
       let structure = 100;
-      const sNotes = [];
-      if (!has("title")) {
+      const notes = [];
+      if (!shape.has("title")) {
         structure -= 25;
-        sNotes.push("no opening / title slide");
+        notes.push("no opening / title slide");
       }
-      if (contentSlides >= 3 && !has("closing")) {
+      if (shape.contentSlides >= 3 && !shape.has("closing")) {
         structure -= 15;
-        sNotes.push("no closing slide");
+        notes.push("no closing slide");
       }
-      if (contentSlides >= 4 && countRule(review, "no-ask")) {
+      if (shape.contentSlides >= 4 && countRule(review, "no-ask")) {
         structure -= 22;
-        sNotes.push("no clear ask");
+        notes.push("no clear ask");
       }
       const stubs = countRule(review, "stub-slide");
       const dups = countRule(review, "duplicate-heading");
       const agendaMiss = countRule(review, "agenda-missing");
       const titleGaps = countRule(review, "title-incomplete");
       structure -= stubs * 8 + dups * 8 + agendaMiss * 10 + titleGaps * 10;
-      if (stubs) sNotes.push(`${stubs} stub slide${plural(stubs)}`);
-      if (dups) sNotes.push(`${dups} duplicate heading${plural(dups)}`);
-      if (agendaMiss) sNotes.push("no agenda on a long deck");
-      if (titleGaps) sNotes.push(`${titleGaps} title slide gap${plural(titleGaps)}`);
+      if (stubs) notes.push(`${stubs} stub slide${plural(stubs)}`);
+      if (dups) notes.push(`${dups} duplicate heading${plural(dups)}`);
+      if (agendaMiss) notes.push("no agenda on a long deck");
+      if (titleGaps) notes.push(`${titleGaps} title slide gap${plural(titleGaps)}`);
+      return { score: structure, notes };
+    }
+    function scoreClarity(review) {
       let clarity = 100;
-      const cNotes = [];
+      const notes = [];
       const labels = countRule(review, "label-title");
       const walls = countRule(review, "wall-of-text");
       const longH = countRule(review, "long-heading");
@@ -1635,41 +1640,62 @@ var require_scorecard = __commonJS({
       const poss = countRule(review, "possessive-stacking");
       const noAlt = countRule(review, "image-no-alt");
       clarity -= labels * 12 + walls * 12 + longH * 6 + monotone * 12 + poss * 5 + noAlt * 5;
-      if (labels) cNotes.push(`${labels} label title${plural(labels)}`);
-      if (walls) cNotes.push(`${walls} dense slide${plural(walls)}`);
-      if (longH) cNotes.push(`${longH} over-long heading${plural(longH)}`);
-      if (monotone) cNotes.push("monotone heading cadence");
-      if (poss) cNotes.push(`${poss} hard-to-read line${plural(poss)}`);
-      if (noAlt) cNotes.push(`${noAlt} image${plural(noAlt)} missing alt text`);
+      if (labels) notes.push(`${labels} label title${plural(labels)}`);
+      if (walls) notes.push(`${walls} dense slide${plural(walls)}`);
+      if (longH) notes.push(`${longH} over-long heading${plural(longH)}`);
+      if (monotone) notes.push("monotone heading cadence");
+      if (poss) notes.push(`${poss} hard-to-read line${plural(poss)}`);
+      if (noAlt) notes.push(`${noAlt} image${plural(noAlt)} missing alt text`);
+      return { score: clarity, notes };
+    }
+    function scoreData(review) {
       let data = 100;
-      const dNotes = [];
+      const notes = [];
       const charts = countRule(review, "chart-no-takeaway");
       const metricRef = countRule(review, "metric-no-referent");
       data -= charts * 20 + metricRef * 15;
-      if (charts) dNotes.push(`${charts} data slide${plural(charts)} without a takeaway`);
-      if (metricRef) dNotes.push(`${metricRef} hero number${plural(metricRef)} without a referent`);
+      if (charts) notes.push(`${charts} data slide${plural(charts)} without a takeaway`);
+      if (metricRef) notes.push(`${metricRef} hero number${plural(metricRef)} without a referent`);
+      return { score: data, notes };
+    }
+    function scorePacing(shape, review) {
       let pacing = 100;
-      const pNotes = [];
+      const notes = [];
       if (countRule(review, "length-vs-time")) {
         pacing -= 28;
-        pNotes.push("too many slides for the time");
-      } else if (contentSlides > 40) {
+        notes.push("too many slides for the time");
+      } else if (shape.contentSlides > 40) {
         pacing -= 20;
-        pNotes.push(`${contentSlides} slides \u2014 very long for one sitting`);
+        notes.push(`${shape.contentSlides} slides \u2014 very long for one sitting`);
       }
+      return { score: pacing, notes };
+    }
+    function scoreContract(lint) {
       let contract = 100;
-      const conNotes = [];
+      const notes = [];
       const errs = lint.filter((f) => f.severity === "error").length;
       const warns = lint.filter((f) => f.severity === "warning").length;
       contract -= errs * 22 + warns * 8;
-      if (errs) conNotes.push(`${errs} authoring error${plural(errs)}`);
-      if (warns) conNotes.push(`${warns} warning${plural(warns)}`);
+      if (errs) notes.push(`${errs} authoring error${plural(errs)}`);
+      if (warns) notes.push(`${warns} warning${plural(warns)}`);
+      return { score: contract, notes };
+    }
+    function scoreDeck(o = {}) {
+      const source = o.source || "";
+      const lint = o.lintFindings || [];
+      const review = o.reviewFindings || [];
+      const shape = parseDeckShape(source);
+      const structure = scoreStructure(shape, review);
+      const clarity = scoreClarity(review);
+      const data = scoreData(review);
+      const pacing = scorePacing(shape, review);
+      const contract = scoreContract(lint);
       const categories = [
-        { key: "structure", label: "Structure", score: clamp(structure), notes: sNotes },
-        { key: "clarity", label: "Clarity", score: clamp(clarity), notes: cNotes },
-        hasDataSlide ? { key: "data", label: "Data", score: clamp(data), notes: dNotes } : { key: "data", label: "Data", score: null, na: true, notes: ["no data slides \u2014 not scored"] },
-        { key: "pacing", label: "Pacing", score: clamp(pacing), notes: pNotes },
-        { key: "contract", label: "Contract", score: clamp(contract), notes: conNotes }
+        { key: "structure", label: "Structure", score: clamp(structure.score), notes: structure.notes },
+        { key: "clarity", label: "Clarity", score: clamp(clarity.score), notes: clarity.notes },
+        shape.hasDataSlide ? { key: "data", label: "Data", score: clamp(data.score), notes: data.notes } : { key: "data", label: "Data", score: null, na: true, notes: ["no data slides \u2014 not scored"] },
+        { key: "pacing", label: "Pacing", score: clamp(pacing.score), notes: pacing.notes },
+        { key: "contract", label: "Contract", score: clamp(contract.score), notes: contract.notes }
       ];
       const weights = { structure: 1, clarity: 1.2, data: 0.8, pacing: 0.8, contract: 1.2 };
       let tot = 0;

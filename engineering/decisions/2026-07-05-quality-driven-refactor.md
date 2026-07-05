@@ -113,6 +113,37 @@ good README already exists (themes/, lib/theme/), where it's generated
   separate fit/risk agent reviewed it against CLAUDE.md's rules; findings
   folded back before the PR.
 
+## Pass 3 (follow-on PR): the frontier itself, plus real change-coupling
+
+The "continue" pass took the logged frontier apart with the same playbook:
+`checkIntegrity` (36) → four named referential sub-checks; `validateSlicing`
+(28) → a per-placement validator; `scoreDeck` (30) → five per-category
+scorers matching its own banner comments; `carouselize` (33) → a
+`CAROUSEL_STRATEGIES` table (the same shape transformChartSection got);
+`renderDocs` (32) → six per-section emitters. Result: **64 functions ≥ 15**
+(69 → 72 → 67 → 64 across the passes); the worst engine function is now 27.
+Deliberately skipped: `buildWorld` (45, network-dependent on-demand tool)
+and `transformSlotLabels` (27, browser-runtime DOM path — the verification
+cost outweighs a 27).
+
+Verification: 2959/2959 unit; forms differential (loadCatalog identity +
+integrity mutations, 0 mismatches); scoreDeck differential over 135 real
+decks × 3 input shapes (405 comparisons, 0 mismatches); all 76
+baseline/example decks byte-identical through old vs new engine; 53 direct
+carousel tests; renderDocs proven by its own byte-diff gate (56 docs
+unchanged).
+
+**Change coupling got real:** the sandbox clone was unshallowed (1,382
+commits; 616 non-merge commits with ≥2 source files). First full-history
+run exposed a tool defect — committed gallery PDFs (generated artifacts)
+dominated the pair list — fixed by excluding `*.pdf` / `*.generated.js`
+from the default scope. The cleaned signal's one standout: 
+`lib/components/index.js` ↔ `lib/components/manifest.schema.json`
+co-change 21 times (37% confidence) — the validator and the JSON schema
+encode the manifest contract twice and are hand-synced. Logged as the
+next structural question (generate one from the other, or gate their
+agreement).
+
 ## Follow-ups (logged, not in this PR)
 
 - **The committed gallery goldens drift ~7-13% on this sandbox's

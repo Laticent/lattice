@@ -10,7 +10,7 @@
     "deadFiles": 0,
     "deadExports": 0,
     "unlistedDependencies": 0,
-    "complexityFunctionsAboveThreshold": 67,
+    "complexityFunctionsAboveThreshold": 64,
     "worstFunctionComplexity": 45
   }
 }

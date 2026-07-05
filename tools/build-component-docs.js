@@ -107,8 +107,12 @@ function tableCell(s) {
  *   10. Related components (from related[])
  *   11. Demo pointer (always)
  */
-function renderDocs(m) {
-  const lines = [];
+// ── renderDocs sections ──────────────────────────────────────────────────
+// One emitter per numbered section of the doc (see the contract above);
+// each appends its lines (with the trailing blank) or nothing when the
+// manifest lacks that block. renderDocs() runs them in the documented order.
+
+function emitDocsHeader(m, lines) {
   lines.push(`# ${m.name}`);
   lines.push('');
   lines.push(`> ${m.description}`);
@@ -119,6 +123,9 @@ function renderDocs(m) {
     lines.push(`**Tags** ${m.tags.map((t) => `\`${t}\``).join(' · ')}`);
     lines.push('');
   }
+}
+
+function emitDocsBudgets(m, lines) {
   if (m.capacity) {
     const c = m.capacity;
     const sweet = c.sweet != null ? c.sweet : c.soft;
@@ -137,7 +144,9 @@ function renderDocs(m) {
     lines.push(m.purpose);
     lines.push('');
   }
+}
 
+function emitDocsGuidance(m, lines) {
   if (Array.isArray(m.whenToUse) && m.whenToUse.length) {
     lines.push('## When to use');
     lines.push('');
@@ -146,7 +155,6 @@ function renderDocs(m) {
     }
     lines.push('');
   }
-
   if (Array.isArray(m.antiPatterns) && m.antiPatterns.length) {
     lines.push('## When NOT to use');
     lines.push('');
@@ -155,14 +163,15 @@ function renderDocs(m) {
     }
     lines.push('');
   }
+}
 
+function emitDocsAuthoring(m, lines) {
   lines.push('## Authoring');
   lines.push('');
   lines.push('```markdown');
   lines.push(m.skeleton.replace(/\n$/, ''));
   lines.push('```');
   lines.push('');
-
   if (m.slots && Object.keys(m.slots).length) {
     lines.push('## Slots');
     lines.push('');
@@ -174,7 +183,6 @@ function renderDocs(m) {
     }
     lines.push('');
   }
-
   if (m.anatomyBlock) {
     lines.push('## Anatomy');
     lines.push('');
@@ -183,7 +191,9 @@ function renderDocs(m) {
     lines.push('```');
     lines.push('');
   }
+}
 
+function emitDocsVariants(m, lines) {
   const variantDocs = m.variantDocs || {};
   const variantKeys = Array.isArray(m.variants) ? m.variants.filter((v) => variantDocs[v]) : [];
   if (variantKeys.length) {
@@ -202,12 +212,13 @@ function renderDocs(m) {
       lines.push('');
     }
   }
-
   lines.push('## Universal modifiers');
   lines.push('');
   lines.push('This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.');
   lines.push('');
+}
 
+function emitDocsPointers(m, lines) {
   if (Array.isArray(m.related) && m.related.length) {
     lines.push('## Related components');
     lines.push('');
@@ -218,12 +229,20 @@ function renderDocs(m) {
     }
     lines.push('');
   }
-
   lines.push('## Demo deck');
   lines.push('');
   lines.push(`See [${m.name}.gallery.light.pdf](./${m.name}.gallery.light.pdf) for rendered examples of every variant.`);
   lines.push('');
+}
 
+function renderDocs(m) {
+  const lines = [];
+  emitDocsHeader(m, lines);
+  emitDocsBudgets(m, lines);
+  emitDocsGuidance(m, lines);
+  emitDocsAuthoring(m, lines);
+  emitDocsVariants(m, lines);
+  emitDocsPointers(m, lines);
   return lines.join('\n');
 }
 
