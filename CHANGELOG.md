@@ -205,6 +205,19 @@ in patch versions.
 
 ### Fixed
 
+- **map: keyed (with-legend) maps no longer shove the basemap off its slot.** The
+  world map read as badly misaligned — dead space at the top-left, the southern
+  edge clipped, and the continents jammed into the legend. The keyed compositor
+  builds a combined `viewBox` starting at `0 0` and placed the region paths in a
+  `<g>` translated only by the legend's diagram offset — but the baked paths carry
+  their native projected origin (`67, 37` for the world map), so every region
+  landed that far off inside its box (~7% for the world; the US origin `−64, 8`
+  falls in empty ocean, which is why only the world map looked broken). The group
+  transform now subtracts the basemap's native viewBox origin, so the map fills
+  its slot exactly with an even gap to the key, in every variant (choropleth /
+  highlight / grouped) and both projections (Equal Earth / Robinson). The keyless
+  path was already correct. Map and legend remain vertically co-centered.
+
 - **Studio: the Deck settings panel collapses from its own header, not only the
   top bar.** The collapsed rail expands the panel with a `‹` chevron, but the
   expanded panel had no matching control — you had to reach up to the top-bar
