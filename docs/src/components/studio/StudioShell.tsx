@@ -222,7 +222,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	// One-click Undo for the LAST panel settings change — a light complement to ⌘Z /
 	// Version history. Each change captures the pre-change source; Undo restores it.
-	const [undo, setUndo] = React.useState<{ label: string; prev: string } | null>(null);
+	// `prev` = source before the change (what Undo restores); `next` = source right
+	// after it, so Undo can tell whether anything was typed since (and stay out of the
+	// way if so — it must never silently swallow edits the user made afterward).
+	const [undo, setUndo] = React.useState<{ label: string; prev: string; next: string } | null>(null);
 	const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [palette, setPalette] = React.useState(() => {
 		try {
@@ -315,21 +318,31 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// source, applies the (pure) update to the FRESHEST source, and raises a brief
 	// Undo toast. Palette / light-dark are runtime toggles that reverse instantly on
 	// their own, so they don't route here. `undoTimer` auto-dismisses the toast.
-	const showUndo = React.useCallback((label: string, prev: string) => {
-		setUndo({ label, prev });
+	const showUndo = React.useCallback((label: string, prev: string, next: string) => {
+		setUndo({ label, prev, next });
 		if (undoTimer.current) clearTimeout(undoTimer.current);
 		undoTimer.current = setTimeout(() => setUndo(null), 5000);
 	}, []);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
 		const prev = sourceRef.current;
-		if (updater(prev) === prev) return; // no-op (e.g. re-picking the current value) → no toast
-		setSource((s) => updater(s)); // functional: composes with any pending editor flush
-		showUndo(label, prev);
+		const next = updater(prev); // updaters are pure string→string; compute once
+		if (next === prev) return; // no-op (e.g. re-picking the current value) → no toast
+		// Apply the precomputed result; fall back to re-running on the freshest source
+		// only if an editor flush landed between snapshot and commit.
+		setSource((s) => (s === prev ? next : updater(s)));
+		showUndo(label, prev, next);
 	}, [showUndo]);
-	// Plain closure (not memoized) so it reads the CURRENT `undo` each render.
+	// Auto-dismiss the Undo toast the instant the source moves on its own — the user
+	// typed, switched decks, restored a checkpoint — so Undo only ever reverts the
+	// single last settings change, never edits made after it.
+	React.useEffect(() => {
+		if (undo && source !== undo.next) setUndo(null);
+	}, [source, undo]);
+	// Plain closure (not memoized) so it reads the CURRENT `undo` each render. Restore
+	// ONLY when nothing has changed since the write (belt-and-suspenders with the effect
+	// above) — otherwise just dismiss, never clobber intervening edits.
 	const applyUndo = () => {
-		if (!undo) return;
-		setSource(undo.prev);
+		if (undo && sourceRef.current === undo.next) setSource(undo.prev);
 		setUndo(null);
 		if (undoTimer.current) clearTimeout(undoTimer.current);
 	};

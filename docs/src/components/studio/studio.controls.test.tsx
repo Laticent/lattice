@@ -389,6 +389,20 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
 	});
 
+	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('switch', { name: 'Page numbers' }));
+		expect(await screen.findByRole('button', { name: 'Undo' })).toBeInTheDocument();
+		// Edit the source AFTER the settings change — the pending Undo must bow out so it
+		// can never revert (clobber) this edit. A whole-document restore would lose it.
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste('<!-- keep-me-marker -->\n\n');
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument());
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/keep-me-marker/);
+	});
+
 	it('the Header/Footer fields declare running text into the source (blank clears it)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
