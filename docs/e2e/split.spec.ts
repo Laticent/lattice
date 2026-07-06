@@ -45,7 +45,7 @@ function settleFrames(page: Page): Promise<void> {
  * — the engine bundle loads on idle, so this can take a while on first hit.
  */
 async function gotoPlayground(page: Page): Promise<void> {
-	await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' }); // the split is Edit-mode chrome; Explore is single-pane (PR 6)
 	await expect(statusLine(page)).toHaveText(/Rendered \d+ slide/, { timeout: 45_000 });
 }
 
@@ -200,7 +200,7 @@ test('the ratio survives a reload; collapse survives a reload but not a new tab'
 });
 
 test('@mobile below the tab breakpoint the split is inert and tabs own the layout', async ({ page }) => {
-	await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' }); // the split is Edit-mode chrome; Explore is single-pane (PR 6)
 	// Hydration signal: the pane effect mirrors React state onto <body>.
 	await expect(page.locator('body')).toHaveAttribute('data-pane', /edit|preview/);
 
@@ -217,7 +217,7 @@ test('@mobile below the tab breakpoint the split is inert and tabs own the layou
 	await page.getByRole('tab', { name: 'Preview' }).click();
 	await expect(page.locator('body')).toHaveAttribute('data-pane', 'preview');
 	await expect(page.locator('#pg-pane-editor')).toBeHidden();
-	await page.getByRole('tab', { name: 'Edit' }).click();
+	await page.getByRole('tab', { name: 'Markdown' }).click();
 	await expect(page.locator('body')).toHaveAttribute('data-pane', 'edit');
 	await expect(page.locator('#pg-pane-editor')).toBeVisible();
 	await expect(page.locator('#pg-pane-preview')).toBeHidden();

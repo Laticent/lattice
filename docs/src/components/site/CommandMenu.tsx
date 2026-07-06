@@ -181,6 +181,12 @@ export function CommandMenu({
 		return !q || a.label.toLowerCase().includes(q);
 	});
 
+	// "Start walkthrough" — the Explore surface's front door (Specimen Book §4,
+	// PR 6): jump to the Playground in Explore and walk the catalog end to end.
+	const playgroundHref = links.find((l) => /playground/i.test(l.label))?.href ?? null;
+	const walkQ = query.trim().toLowerCase();
+	const showWalkthrough = playgroundHref != null && (!walkQ || 'start walkthrough explore components'.includes(walkQ));
+
 	return (
 		<CommandDialog
 			open={open}
@@ -249,6 +255,14 @@ export function CommandMenu({
 									<CommandShortcut>colour-blind safe</CommandShortcut>
 								</CommandItem>
 							))}
+						</CommandGroup>
+					),
+					showWalkthrough && playgroundHref != null && (
+						<CommandGroup heading="Playground" key="walk">
+							<CommandItem value="start-walkthrough" onSelect={() => go(`${playgroundHref}${playgroundHref.includes('?') ? '&' : '?'}view=read`)}>
+								<Play />
+								Start walkthrough
+							</CommandItem>
 						</CommandGroup>
 					),
 					apprRows.length > 0 && (

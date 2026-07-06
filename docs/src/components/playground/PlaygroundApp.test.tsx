@@ -146,7 +146,7 @@ async function mountPlayground() {
 	return user;
 }
 
-async function clickTab(user: ReturnType<typeof userEvent.setup>, name: 'Edit' | 'Preview') {
+async function clickTab(user: ReturnType<typeof userEvent.setup>, name: 'Markdown' | 'Preview') {
 	await user.click(screen.getByRole('tab', { name }));
 }
 
@@ -201,7 +201,7 @@ describe('PlaygroundApp — gallery load shows the rendered deck (regression)', 
 		const user = await mountPlayground();
 		await clickTab(user, 'Preview');
 		expectPaneInSync();
-		await clickTab(user, 'Edit');
+		await clickTab(user, 'Markdown');
 		expectPaneInSync();
 	});
 
@@ -242,7 +242,7 @@ const paneCommand = (label: string, act: (u: Ctx['user']) => Promise<void>): fc.
 });
 
 const allCommands = [
-	fc.constant(paneCommand('Edit tab', (u) => clickTab(u, 'Edit'))),
+	fc.constant(paneCommand('Markdown tab', (u) => clickTab(u, 'Markdown'))),
 	fc.constant(paneCommand('Preview tab', (u) => clickTab(u, 'Preview'))),
 	fc.constant(paneCommand('load Jargon gallery', (u) => loadGallery(u, 'Jargon'))),
 	fc.constant(paneCommand('load Survey gallery', (u) => loadGallery(u, 'Survey'))),
@@ -269,4 +269,55 @@ describe('PlaygroundApp — fuzz: the pane never desyncs across random journeys'
 			{ numRuns: 25, endOnFailure: true },
 		);
 	}, 60_000);
+});
+
+// ── Tour-step reachability (decision §4, PR 6) ───────────────────────────────
+// Every tour step that names an element must resolve in the MODE it declares —
+// in BOTH directions — or the tour would spotlight nothing (the handoff entry
+// path arrives in Edit; Explore steps must still mount). #palette lives in the
+// site topbar, outside this component — exempt here, covered by the e2e drive.
+import { STEPS } from '@/playground/playground-tour.js';
+
+describe('PlaygroundApp — every tour step is reachable in its declared mode', () => {
+	const OUTSIDE = new Set(['#palette']);
+
+	it('mounts every step target in read AND edit harnesses', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({
+				ok: true,
+				text: async () =>
+					JSON.stringify({
+						name: 'verdict-grid',
+						slides: [
+							{ kind: 'title', caption: 'c', md: '<!-- _class: title -->\n# t' },
+							{ kind: 'default', caption: 'c', md: '<!-- _class: verdict-grid -->\n# d' },
+						],
+					}),
+			})),
+		);
+		try {
+			const user = userEvent.setup({ pointerEventsCheck: 0 });
+			render(<PlaygroundApp data={{ ...data, plansBase: '/plans/' } as PlaygroundData} />);
+			await waitFor(() => expect(visiblePane()).not.toBeNull());
+			// The warm-up walk mounts #pg-walk even in Edit.
+			await waitFor(() => expect(document.querySelector('#pg-walk')).not.toBeNull());
+
+			const targets = STEPS.filter((s: { element?: string }) => s.element && !OUTSIDE.has(s.element));
+			// Edit mode (startup default here: pristine → read? starter is recorded
+			// pristine only in real flow; harness starts edit b/c localStorage empty
+			// hash + starter source → dirty → edit).
+			for (const s of targets) {
+				expect(document.querySelector(s.element as string), `unreachable in edit: ${s.element}`).not.toBeNull();
+			}
+			// Flip to Explore via the pill and re-walk the list.
+			await user.click(screen.getByRole('tab', { name: 'Explore' }));
+			await waitFor(() => expect(document.body.getAttribute('data-view')).toBe('read'));
+			for (const s of targets) {
+				expect(document.querySelector(s.element as string), `unreachable in read: ${s.element}`).not.toBeNull();
+			}
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
 });

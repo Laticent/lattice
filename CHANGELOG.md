@@ -34,6 +34,28 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **The Playground opens on Explore — the Specimen Book's reader (PR 6).** The
+  generated component galleries are now walkable in place: an Explore | Edit
+  mode pill, a Walk bar with Prev/Next, "slide N of M", the slide's own caption,
+  and full-word labeled step chips (Title, Default, each variant by name, Stress
+  test, compositions, Anti-patterns, See also); the last slide flows into the
+  next component so the whole catalog reads as one continuous walk (Shift+←/→
+  jumps components). The Variant select becomes a jump list while exploring;
+  "Edit this slide" drops the current slide into the editor (arm-to-confirm over
+  a dirty draft, backed up with Undo); phones get thumb-size stepping and a
+  "Read this slide's copy" transcript at body size. Walk plans ship as
+  `plans/<name>.json`, generated from the same `galleryPlan(m)` the committed
+  PDFs render — the walk order cannot fork — and a deploy mid-session surfaces a
+  "site updated — reload" toast instead of a dead Next button. New URL scheme
+  `?c=<component>&view=read&s=<step>` (stale keys fall back with a notice, never
+  a blank frame); docs-reference variant buttons deep-link into the walk; the
+  site command menu gains "Start walkthrough"; the tour is rewritten mode-aware
+  and ends inside the Playground. Explore never writes the draft. A pristine or
+  first visit opens Explore; a dirty draft, a handoff, or `?view=edit` opens the
+  editor. The phone pane tabs are relabeled Markdown | Preview.
+
 ### Fixed
 
 - **The Playground now remembers where you were and never destroys a draft

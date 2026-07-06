@@ -21,7 +21,9 @@ test.beforeEach(async ({ context }) => {
 });
 
 test('@crosswidth playground: loading a gallery flips to Preview and the deck paints', async ({ page }) => {
-	await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
+	// Pin the editor surface: a pristine profile opens Explore by design (PR 6);
+	// this spec guards the EDIT-mode gallery→Preview paint regression.
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 
 	// Open the Galleries sheet and load the first gallery deck (the reported flow).
 	await page.locator('#pg-galleries-trigger').click();

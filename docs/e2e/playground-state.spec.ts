@@ -21,14 +21,17 @@ test.beforeEach(async ({ context }) => {
 });
 
 async function gotoPlayground(page: import('@playwright/test').Page) {
-	await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
+	// This spec tests the EDITOR contract; a pristine fresh profile now opens
+	// Explore by design (PR 6), so pin the surface. The Explore default itself
+	// is covered in playground-explore.spec.ts.
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('#pg-template-trigger')).toBeVisible();
 }
 
 // On phones the playground shows one pane at a time and flips to Preview after
 // an insert; the editor lives behind the Edit tab. No-op on desktop (tabs hidden).
 async function ensureEditorPane(page: import('@playwright/test').Page) {
-	const editTab = page.getByRole('tab', { name: 'Edit', exact: true });
+	const editTab = page.getByRole('tab', { name: 'Markdown', exact: true });
 	if (await editTab.isVisible()) await editTab.click();
 }
 
