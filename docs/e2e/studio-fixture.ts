@@ -50,9 +50,12 @@ export function persistedByPrefix(page: Page, prefix: string): Promise<string | 
 	}, `lattice-studio-${prefix}-`);
 }
 
-/** The single live toast text (role=status), or '' if none is showing. */
+/** The app toast text — the centered, fixed bottom-of-screen status pill.
+ *  Scoped to the fixed toast so it never collides with the Inspector's scope-echo
+ *  region (also role=status) or the settings Undo toast (role=status, bottom-left)
+ *  when the panel is open. */
 export function toastText(page: Page): Locator {
-	return page.getByRole('status');
+	return page.locator('[role="status"].fixed.inset-x-0');
 }
 
 /**

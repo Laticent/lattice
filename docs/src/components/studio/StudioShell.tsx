@@ -42,7 +42,7 @@ import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
-import { useBreakpoint } from './use-breakpoint';
+import { useBreakpoint, useNarrowDesktop } from './use-breakpoint';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
 import { isEvictionProneBrowser } from './workspace-backup';
@@ -350,10 +350,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const bp = useBreakpoint();
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile'; // single swappable pane
+	// At the narrow end of desktop the rail can't share the row with BOTH open panels
+	// without breaking the split's zero-void invariant (#721: pair-space ≥ 560). There
+	// it collapses to 48px icons (when shown), and — when both panels are open — folds
+	// away entirely, the scope switch falling back to the panel-top segment (the tablet
+	// pattern). A display adaptation, not a preference change.
+	const narrowDesktop = useNarrowDesktop();
+	const railIconsOnly = railCollapsed || narrowDesktop;
 	// Desktop switches scope with the persistent rail (72px). Tablet has no room for a
 	// rail once the 296px column is docked, so it (and mobile) switch via a segment at
-	// the panel top. rail = desktop only.
-	const railVisible = bp === 'desktop';
+	// the panel top. rail = desktop, except the narrow-desktop both-panels case above.
+	const railVisible = bp === 'desktop' && !(narrowDesktop && inspectorOpen && architectOpen);
 
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
@@ -1803,7 +1810,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							...(bp === 'desktop' && architectOpen ? ['232px'] : []),
 							...splitTracks(split.collapsed),
 							...(inspectorOpen ? ['296px'] : []),
-							...(railVisible ? [railCollapsed ? '48px' : '72px'] : []),
+							...(railVisible ? [railIconsOnly ? '48px' : '72px'] : []),
 						].join(' '),
 					}}
 					{...split.containerProps}
@@ -1839,15 +1846,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 									const active = inspectorOpen && inspectorScope === key;
 									return (
 										<button key={key} type="button" aria-pressed={active} onClick={() => { setInspectorScope(key); setInspectorOpen(true); setInspectorPulse(false); }} title={key === 'slide' ? 'Slide settings — this slide only' : 'Deck settings — the whole deck'} aria-label={key === 'slide' ? 'Slide scope' : 'Deck scope'} className={cn('flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-semibold transition-colors', active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]', key === 'deck' && inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}>
-											<Icon className="size-[18px]" />{!railCollapsed && label}
+											<Icon className="size-[18px]" />{!railIconsOnly && label}
 										</button>
 									);
 								})}
 								<span className="flex-1" />
 								{inspectorOpen && <button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings panel" title="Collapse" className="grid place-items-center rounded-lg py-1.5 text-muted-foreground hover:text-[var(--accent)]"><ChevronRight className="size-4" /></button>}
-								{/* Width toggle — 72px labels ⇄ 48px icons, sticky per user. */}
-									<button type="button" aria-pressed={railCollapsed} onClick={() => setRailCollapsed((v) => !v)} aria-label={railCollapsed ? 'Show scope labels' : 'Collapse rail to icons'} title={railCollapsed ? 'Show labels' : 'Collapse to icons'} className="grid place-items-center rounded-lg py-1.5 text-muted-foreground hover:text-[var(--accent)]">{railCollapsed ? <ArrowLeftToLine className="size-4" /> : <ArrowRightToLine className="size-4" />}</button>
-									{!railCollapsed && <span className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>Scope</span>}
+								{/* Width toggle — 72px labels ⇄ 48px icons, sticky per user. Hidden when the
+								    viewport forces icons-only (nothing to toggle until there's room). */}
+									{!narrowDesktop && <button type="button" aria-pressed={railCollapsed} onClick={() => setRailCollapsed((v) => !v)} aria-label={railCollapsed ? 'Show scope labels' : 'Collapse rail to icons'} title={railCollapsed ? 'Show labels' : 'Collapse to icons'} className="grid place-items-center rounded-lg py-1.5 text-muted-foreground hover:text-[var(--accent)]">{railCollapsed ? <ArrowLeftToLine className="size-4" /> : <ArrowRightToLine className="size-4" />}</button>}
+									{!railIconsOnly && <span className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>Scope</span>}
 							</aside>
 							)}
 						</>

@@ -398,6 +398,12 @@ in patch versions.
 
 ### Fixed
 
+- **Studio: no horizontal overflow at the narrow desktop width.** At 1100–1160px
+  with both the Architect and the Inspector open, the 72px scope rail no longer
+  forces the split grid past the viewport (nor reopens the #721 zero-void band):
+  in that band the rail falls back to icons and, when both panels are open, folds
+  into the panel-top scope segment (the tablet pattern) — the column it needs is
+  reclaimed. A display adaptation; the stored rail preference is untouched.
 - **map demo: the "Naming a region" slide no longer overflows the frame.** A
   trailing clause on the second bullet pushed the slide a hair past the frame
   height (flagged at export, though nothing visibly clipped). Trimmed it — which
