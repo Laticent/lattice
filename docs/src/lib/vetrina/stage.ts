@@ -162,7 +162,9 @@ export function createStage(opts: StageOptions): Stage {
 	// wins via the cascade — the layer inherits from the document root.
 	const layer = doc.createElement('div');
 	layer.className = 'vetrina-stage';
-	layer.setAttribute('aria-hidden', 'true');
+	// The layer is NOT aria-hidden: the Exit button must reach the a11y tree — it's the only
+	// escape from the demo for an assistive-tech user, and the narration caption is a live
+	// region. The purely decorative nodes (cursor, effect rings) are aria-hidden individually.
 	for (const [k, v] of Object.entries(TOKEN_DEFAULTS)) layer.style.setProperty(k, v);
 	// JS Theme convenience: write resolved token VALUES over the defaults (host CSS still wins
 	// via the cascade for anything it styles — these are just JS-supplied defaults).
@@ -173,6 +175,7 @@ export function createStage(opts: StageOptions): Stage {
 
 	const cursor = doc.createElement('div');
 	cursor.className = 'vetrina-cursor';
+	cursor.setAttribute('aria-hidden', 'true');
 	cursor.style.cssText =
 		'position:absolute;top:0;left:0;z-index:8;width:28px;height:28px;' +
 		'transform:translate(-50%,-50%);will-change:transform,left,top;transition:opacity .25s ease;opacity:0;';
@@ -180,6 +183,13 @@ export function createStage(opts: StageOptions): Stage {
 
 	const caption = doc.createElement('div');
 	caption.className = 'vetrina-caption';
+	// The narration IS the accessible spine of a self-driving demo, so the caption is a
+	// polite, atomic live region — each `say` is announced once the prior beat settles
+	// (steps settle at human pace, so it reads, not floods). Decoration stays silent
+	// (cursor/rings aria-hidden); this speaks.
+	caption.setAttribute('role', 'status');
+	caption.setAttribute('aria-live', 'polite');
+	caption.setAttribute('aria-atomic', 'true');
 	caption.style.cssText =
 		'position:absolute;left:50%;bottom:76px;z-index:9;transform:translateX(-50%);' +
 		'max-width:min(640px,86vw);padding:11px 20px;border-radius:999px;background:var(--vt-caption-bg);' +
@@ -241,6 +251,7 @@ export function createStage(opts: StageOptions): Stage {
 	function spawnFx(x: number, y: number, css: string, frames: Keyframe[], timing: KeyframeAnimationOptions, life: number, z = 4): void {
 		if (destroyed) return;
 		const el = doc.createElement('div');
+		el.setAttribute('aria-hidden', 'true');
 		el.style.cssText = `position:absolute;left:${x}px;top:${y}px;z-index:${z};transform:translate(-50%,-50%);pointer-events:none;${css}`;
 		layer.appendChild(el);
 		el.animate(frames, timing);

@@ -33,9 +33,10 @@ test('the demo builds a board deck and completes — leaving "My First Deck" beh
 	expect(await firstDeckCount(page)).toBe(0); // fresh context — no deck yet
 
 	await page.locator(WATCH).click();
-	// The stage mounts and the Watch-demo button hides while it runs.
+	// The stage mounts and the Watch-demo button hides while it runs (rendered `invisible`,
+	// so it stays in the DOM — assert hidden, not removed).
 	await expect(page.locator(STAGE)).toBeVisible();
-	await expect(page.locator(WATCH)).toHaveCount(0);
+	await expect(page.locator(WATCH)).toBeHidden();
 
 	// It drives: the storyboard mints "My First Deck" and types a 6-slide board deck into it.
 	await expect.poll(() => railButtons(page).count(), { timeout: 70_000 }).toBe(6);
