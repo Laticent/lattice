@@ -9,8 +9,8 @@
 //
 // See engineering/decisions/2026-07-05-vetrina-walkthrough-library.md for the contract.
 
-export type { LoopOpts, RetryOpts, WaitForOpts } from './recipes';
-export { loop, retry, waitFor } from './recipes';
+export type { HoldUntilOpts, LoopOpts, RetryOpts, WaitForOpts } from './recipes';
+export { holdUntil, loop, retry, waitFor } from './recipes';
 export type { AwaitUserOpts, RunContext, RunHandle, RunOptions, StopReason, TypeOps, TypeOpts, Walkthrough } from './runner';
 export { run } from './runner';
 export type { SceneBuilder } from './scene';

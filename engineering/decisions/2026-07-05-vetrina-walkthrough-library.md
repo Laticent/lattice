@@ -520,16 +520,23 @@ function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data 
   invariant). *(A failed `act` is exactly where a `cross`/`shake` is honest, if the author wants it.)*
 - `seed` and per-step `cadence` are **first-class** (the candidate dropped them; both are load-bearing
   for the migrated Studio demo — §14/checker).
-- **`instant` + advance control (2026-07-06 follow-up).** Not every beat should be *performed*: setup,
-  closing an overlay, jumping ahead are plumbing. `instant` applies a beat's `act`/`type` with **no
-  cursor move, no typing animation, no gesture, no settle** — the declarative equivalent of a raw
-  `Walkthrough` calling `ctx.actions.foo()` with no `stage.*` motion (`say` still shows; positioning/
-  gesture verbs are ignored; the trust invariant holds — `act` is still awaited). Advancement is
-  controlled two ways, orthogonal to `instant`: **`settle`** (fixed pause) and **`until: () => boolean`**
-  (hold, abort-safe-polling via the `waitFor` recipe, until the app signals ready — then settle). An
-  async `act` is the third gate — the step already awaits it. This stays within the human-not-machine
-  tenet (§2): `instant` is a discrete "skip the theater" choice, not a free speed dial, and `until` is a
-  readiness predicate, not a raw millisecond knob.
+- **`instant` + advance control (2026-07-06 follow-up; hardened by a third adversarial trio — §14-3).**
+  Not every beat should be *performed*: setup, closing an overlay, jumping ahead are plumbing. `instant`
+  applies a beat's `act`/`type` with **no cursor move, no typing animation, no gesture, no settle** — the
+  declarative equivalent of a raw `Walkthrough` calling `ctx.actions.foo()` with no `stage.*` motion
+  (`say` still shows; the trust invariant holds — `act` is still awaited). It **ignores** any `point`/
+  `click`/`drag`/`gesture` on the same step and **warns** (they'd be silently dropped). **Advance is
+  gated by what the app exposes** — the three-flavor rule: a fixed pause is **`settle`**; a **promise**
+  readiness is an **async `act`** (already awaited — reach for this first); a **non-async / pollable**
+  readiness (a DOM flag with no promise) is **`until: () => boolean`**. `until` is the DESCRIPTOR-layer
+  surfacing of the `holdUntil` recipe — deliberately declarative so an author never drops to the raw API
+  for a wait (the DSL › descriptor › raw layering: raw is the last resort, not the home of a common
+  need). It is **throw-safe** (a predicate that throws while its element is null = "not ready yet") and
+  on a ~15s timeout it **ENDS the run** (`onStop('error')`) rather than silently advancing onto an
+  unready app. This stays within the human-not-machine tenet (§2): `instant` is a discrete "skip the
+  theater" choice (not a free speed dial), and `until` is a readiness predicate (not a raw millisecond
+  knob). **Authoring tenet:** a walkthrough that is *mostly* `instant` is a defect — it's a silent state
+  machine, not a walkthrough; `instant` is for the plumbing *between* the taught beats.
 - Type inference: annotate once — `storyboard<StudioActions>(seed, [...])` — or let `A` bind from
   `run({ actions })`; without it, `act` params fall back to `any` (§14/checker).
 
@@ -732,6 +739,35 @@ battery** (§15.6, §16) rather than defer. What it changed:
   gap), the JS `Theme` stays as convenience. Matches the repo's own palette-blind doctrine (#3/#11).
 - **Consistency sweep** — `storyboard` two-arg call sites, `effects`/`cues`/`theme` naming, an undefined
   `TypeOpts`, the `drag`-in-order gap, `scene()` added to the §12 coverage table.
+
+### §14-3 — the THIRD trio (on the `instant` + `until` follow-up)
+
+A red-team + Munger-inversion + independent-checker pass ran on the `instant`/`until` addition (it had
+gone straight to code — the process miss that prompted the trio). Verdict: **the invariants held** (red
+team + checker both traced I1/I2/I6/I8 through both new paths — take-over stays live during an `until`
+poll, abort is terminal, the trust gate survives; no import cycle — `recipes` imports `runner`
+*type-only*). `instant` was sound and earns its declarative slot. The findings were on `until`'s
+robustness and `instant`'s ergonomics; all folded in:
+
+- **`until` advanced SILENTLY on a hardcoded timeout** (red team #1) → desync onto an unready app. **Fixed:**
+  `until` now uses a new STRICT `holdUntil` recipe that **throws on timeout** → `onStop('error')`, never a
+  silent advance.
+- **A throwing `until` predicate KILLED the run** (red team #2) — the idiomatic `() => el.dataset.ready`
+  throws while `el` is null, exactly the state it waits through. **Fixed:** `holdUntil` (and `waitFor`) are
+  **throw-safe** — a throwing predicate = "not ready yet".
+- **`instant` silently voided `point`/`gesture`** (red team #3) → authored intent dropped with no signal.
+  **Fixed:** the interpreter **warns** when an `instant` beat carries a positioning/gesture verb.
+- **Munger: `until` duplicates `waitFor` / defer-until-a-consumer (§11).** Resolved by the owner's layering
+  law — DSL › descriptor › **raw is the last resort**: a common need ("wait for a NON-async pollable
+  condition") belongs in the descriptor so authors never reach for the low-level API. `until` is kept as the
+  declarative surfacing of `holdUntil`; the "duplication" is the layering doing its job. The **non-async
+  case is the justifying consumer**: an async `act` covers promise-readiness, but only polling covers a DOM
+  flag with no promise.
+- **Munger: a mostly-`instant` walkthrough betrays the "learn by watching" thesis.** Named as an **authoring
+  tenet** (§2/§10): mostly-instant is a defect. (No gate — judgment.)
+- **Coverage (checker):** added the normal-path `until` test, the throw-safe + timeout-throws tests, and the
+  `instant`-warn assertion. Config knobs (custom `until` timeout / `onTimeout`) are **deferred** until a
+  consumer needs them — the same §11 discipline, applied honestly this time.
 
 ---
 

@@ -95,8 +95,10 @@ scene()
 
 Not every beat should be *performed*. Setup, closing an overlay, or jumping ahead
 are plumbing — mark them **`instant`** and the substance applies with **no cursor
-movement, no typing animation, no gesture, no settle**. (The raw `Walkthrough`
-gets this for free — just call `ctx.actions.foo()` without any `stage.*` motion.)
+movement, no typing animation, no gesture, no settle**. (An `instant` beat that
+also carries a `point`/`gesture` warns — those verbs have no theater to hang on.)
+A walkthrough that is *mostly* instant isn't a walkthrough — it's a silent state
+machine; instant is for the plumbing *between* the beats you actually teach.
 
 ```ts
 scene()
@@ -104,20 +106,24 @@ scene()
   .say('Now the real beat…').point('#next').click().act((a) => a.next())
 ```
 
-Two ways to control **when the next beat starts**:
+**Controlling when the next beat starts** — three gates, by what your app exposes:
 
-- **Fixed pause** — `settle` (or `.hold(ms)`): wait a set duration after the beat.
-  Works with `instant` too: `{ act, instant: true, settle: 500 }`.
-- **Advance when ready** — `until(() => cond)`: hold (abort-safe polling) until the
-  app signals ready — e.g. a render or animation has settled — *then* continue.
-  Pair it with `instant` to fire an action and wait for its effect to land:
+- **Fixed pause** — `settle` (or `.hold(ms)`): wait a set duration. Works with
+  `instant` too: `{ act, instant: true, settle: 500 }`.
+- **A promise (async readiness)** — an **async `act`**: the step already `await`s
+  it, so returning a promise that resolves when you're ready holds the beat. Reach
+  for this first when the app can hand you a "done" promise.
+- **A pollable condition (non-async readiness)** — `until(() => cond)`: when the
+  app only exposes a *synchronous* flag (a DOM attribute, a state bool) with no
+  promise, hold (abort-safe polling) until it's true, *then* continue. It's the
+  declarative equivalent of the `holdUntil` recipe, so you never drop to the raw
+  layer for a wait. It is **throw-safe** — a predicate that throws while its
+  element is still null counts as "not ready yet" — and on a ~15s timeout it
+  **ends the run** rather than silently advancing onto an app that never got ready.
 
   ```ts
   scene().act((a) => a.loadDeck()).instant().until(() => deckIsRendered())
   ```
-
-  An **async `act`** is the other advance gate — the step already `await`s it, so
-  returning a promise that resolves when you're ready holds the beat too.
 
 ## Gestures — the cursor's body language
 
