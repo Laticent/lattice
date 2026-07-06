@@ -16,7 +16,7 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 ## When NOT to use
 
 - **Not a team roster.** One card is one person. For a set of people use an inventory layout; a contact card is a single identity.
-- **Don't bold the field values.** The value leads and the key is a trailing inline-code tag — `- Sharmarke Aden `name``. Don't write `- **Name:** Sharmarke Aden`; the transform reads the postfix key, not a bold label.
+- **Don't bold the field values.** The value leads and the key trails as a small tag — name last, never first. Writing the key first, bolded, breaks the transform's postfix read.
 
 ## Authoring
 

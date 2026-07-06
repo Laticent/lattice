@@ -1,13 +1,36 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "q-and-a",
-  "focusAxes": ["item"],
+  "focusAxes": [
+    "item"
+  ],
   "function": "inventory",
   "form": "stack",
   "substance": "structure",
-  "capacity": { "axis": "item", "min": 2, "sweet": 4, "soft": 5, "hard": 6, "escalateTo": ["split across slides (auto with autosplit: on)"], "note": "past six Q/A pairs the column overflows a portrait box" },
-  "density": { "axis": "item", "soft": 12, "hard": 16, "note": "a one-line question and a short answer" },
-  "split": { "strategy": "cover-paginate", "axis": "item", "perPage": 3, "intro": "The questions, answered", "note": "Overflowing Q&A splits as an accent cover → its own native pairs paginated (never flattened). lib/core/carousel.js cover-paginate." },
+  "capacity": {
+    "axis": "item",
+    "min": 2,
+    "sweet": 4,
+    "soft": 5,
+    "hard": 6,
+    "escalateTo": [
+      "split across slides (auto with autosplit: on)"
+    ],
+    "note": "past six Q/A pairs the column overflows a portrait box"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 12,
+    "hard": 16,
+    "note": "a one-line question and a short answer"
+  },
+  "split": {
+    "strategy": "cover-paginate",
+    "axis": "item",
+    "perPage": 3,
+    "intro": "The questions, answered",
+    "note": "Overflowing Q&A splits as an accent cover → its own native pairs paginated (never flattened). lib/core/carousel.js cover-paginate."
+  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -24,11 +47,23 @@
       "question+answer"
     ]
   },
-  "tags": ["pitch", "board-deck", "recommendation"],
+  "tags": [
+    "pitch",
+    "board-deck",
+    "recommendation"
+  ],
   "description": "Anticipated questions paired with prepared answers — the end-of-pitch 'what we expect to be asked' slide.",
   "purpose": "Use to pre-empt the room: line up the three or four hardest questions the audience will raise and answer each one before it is asked. The question reads as a prompt; the prepared answer carries the substance. Distinct from a reference FAQ (many terse look-up pairs) — this is a few weighty defenses of a recommendation.",
-  "variants": ["spine", "rail", "tab", "grid", "solo"],
-  "excludes": ["accent"],
+  "variants": [
+    "spine",
+    "rail",
+    "tab",
+    "grid",
+    "solo"
+  ],
+  "excludes": [
+    "accent"
+  ],
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",
@@ -53,8 +88,11 @@
   },
   "skeleton": "<!-- _class: q-and-a -->\n\n## What we expect to be asked.\n\n- First question the audience will raise?\n  - The prepared answer — two or three sentences that close it down.\n- Second question?\n  - The prepared answer.\n- Third question?\n  - The prepared answer.\n",
   "anatomyBlock": "q-and-a",
-  "sample": "<!-- _class: q-and-a -->\n\n## What the board will press on.\n\n- Why not extend the current vendor one more year?\n  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.\n- What happens to the team mid-migration?\n  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.\n- How confident are we in the savings?\n  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.\n",
-  "stressSample": "<!-- _class: q-and-a compact -->\n\n`Anticipated questions`\n\n## Five we expect, numbered and tightened.\n\n1. Why now rather than next fiscal year?\n   1. The incentive credits expire in December; waiting forfeits $400K.\n2. What is the rollback plan?\n   1. A one-command revert to the pinned release, rehearsed weekly in staging.\n3. Who signs off on go-live?\n   1. The change-advisory board, the Thursday before each wave.\n4. How does this affect the SLA?\n   1. The 99.9% target holds — the migration runs behind a feature flag.\n5. What if adoption stalls?\n   1. Usage is opt-in for thirty days with a fallback, so a stall costs time, not money.\n",
+  "sample": "<!-- _class: q-and-a -->\n\n## The Q&A pairs questions with short answers.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n- What if answers run long?\n  - Use solo, one per slide.\n",
+  "stressDoc": {
+    "caption": "Six pairs — the hard ceiling.",
+    "sample": "<!-- _class: q-and-a compact -->\n\n## Six pairs is the most one slide answers.\n\n- Why six pairs and not seven?\n  - The column overflows a portrait box.\n- Do answers shrink at the ceiling?\n  - To one breath each.\n- Where does the eye tire?\n  - Pair four; park risk there.\n- Can compact buy a seventh?\n  - No — six is structural.\n- What about longer answers?\n  - Fewer pairs, or solo.\n- And past six?\n  - Autosplit divides the slide.\n"
+  },
   "whenToUse": [
     {
       "title": "The questions are the point",
@@ -85,36 +123,52 @@
   ],
   "variantDocs": {
     "spine": {
-      "label": "Spine — sequential walkthrough",
-      "caption": "Threads the questions down a vertical spine with accent nodes, for when you want to walk the room through the objections in order. Drops the index for a narrative, one-after-another read.",
-      "sample": "<!-- _class: q-and-a spine -->\n\n## What the board will press on.\n\n- Why not extend the current vendor one more year?\n  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.\n- What happens to the team mid-migration?\n  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.\n- How confident are we in the savings?\n  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.\n"
+      "label": "spine",
+      "caption": "Pairs threaded down an accent spine.",
+      "sample": "<!-- _class: q-and-a spine -->\n\n## spine threads the pairs down an accent spine.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n"
     },
     "rail": {
-      "label": "Rail — question / answer columns",
-      "caption": "Sets each pair as a numbered exhibit row — question and answer in parallel columns, separated by a hairline. Scannable when the answers are short and you want them lined up for comparison.",
-      "sample": "<!-- _class: q-and-a rail -->\n\n## What the board will press on.\n\n- Why not extend the current vendor one more year?\n  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.\n- What happens to the team mid-migration?\n  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.\n- How confident are we in the savings?\n  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.\n"
+      "label": "rail",
+      "caption": "Numbered exhibit rows in columns.",
+      "sample": "<!-- _class: q-and-a rail -->\n\n## rail hangs the questions on a left rail.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n"
     },
     "tab": {
-      "label": "Tab — underlined prompts",
-      "caption": "The most editorial, minimal look: a short accent underline sits tight beneath each question, then the answer drops below it. Generous whitespace, no enumeration — best for three or four pairs.",
-      "sample": "<!-- _class: q-and-a tab -->\n\n## What the board will press on.\n\n- Why not extend the current vendor one more year?\n  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.\n- What happens to the team mid-migration?\n  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.\n- How confident are we in the savings?\n  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.\n"
+      "label": "tab",
+      "caption": "Underlined prompts; answers hang below.",
+      "sample": "<!-- _class: q-and-a tab -->\n\n## tab folds each answer under a question tab.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n"
     },
     "grid": {
-      "label": "Grid — two-up density",
-      "caption": "Packs four pairs into a 2×2 grid split by a gradient hairline cross — the density treatment for when you have more pairs than the stack holds comfortably. Each header reserves two lines so questions and answers align across a row.",
-      "sample": "<!-- _class: q-and-a grid -->\n\n## What the board will press on.\n\n- Why not extend the current vendor one more year?\n  - The renewal lands in Q3 and locks us in through 2028; after renewal it costs three quarters.\n- What happens to the team mid-migration?\n  - No headcount change. Four engineers run both stacks through the eight-week overlap.\n- How confident are we in the savings?\n  - The $1.2M is contracted, not projected — the signed rate differential.\n- What is the rollback plan?\n  - A one-command revert to the pinned release, rehearsed weekly in staging.\n"
+      "label": "grid",
+      "caption": "Four pairs in a two-by-two.",
+      "sample": "<!-- _class: q-and-a grid -->\n\n## grid deals the pairs into two columns.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n- Why four pairs here?\n  - Grids want even counts.\n"
     },
     "solo": {
-      "label": "Solo — one question, one answer",
-      "caption": "Gives a single question and its answer the whole slide, at display weight — for the one objection you know is coming and want to meet head-on. The question runs large as a prompt; the prepared answer sits below it in message type.",
-      "sample": "<!-- _class: q-and-a solo -->\n\n## The one question we know is coming.\n\n- If the pilot fails, what have we actually lost?\n  - One quarter and $180K, fully recoverable. The contract caps exposure at the pilot scope, with no auto-renewal and a thirty-day exit. The downside is bounded; the upside is the whole thesis.\n"
+      "label": "solo",
+      "caption": "One pair, the whole slide.",
+      "sample": "<!-- _class: q-and-a solo -->\n\n## solo gives one question the whole slide.\n\n- What does solo change?\n  - One pair, full canvas.\n"
     }
   },
   "related": [
-    { "name": "faq", "when": "many terse reference questions to flip back to, not a few weighty defenses" },
-    { "name": "glossary", "when": "term/definition reference pairs rather than question/answer pairs" },
-    { "name": "list-criteria", "when": "numbered criteria with rationale — evaluation, not anticipated objections" },
-    { "name": "cards-stack", "when": "parallel co-equal cards with no question/answer role split" },
-    { "name": "decision", "when": "a single verdict to state rather than a set of questions to defend" }
-  ]
+    {
+      "name": "faq",
+      "when": "many terse reference questions to flip back to, not a few weighty defenses"
+    },
+    {
+      "name": "glossary",
+      "when": "term/definition reference pairs rather than question/answer pairs"
+    },
+    {
+      "name": "list-criteria",
+      "when": "numbered criteria with rationale — evaluation, not anticipated objections"
+    },
+    {
+      "name": "cards-stack",
+      "when": "parallel co-equal cards with no question/answer role split"
+    },
+    {
+      "name": "decision",
+      "when": "a single verdict to state rather than a set of questions to defend"
+    }
+  ],
+  "specimenVoice": true
 }

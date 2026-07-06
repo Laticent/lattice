@@ -10,147 +10,145 @@ Inventory — parallel sets of related items.
 ---
 
 <!-- _class: actors -->
+<!-- _footer: "actors · inventory survey" -->
 
-## Who owns each part of the framework, and who answers for it.
+## The actors ledger names who owns what.
 
-- Owns the scoring model `Head of Product`
-  - Sets the weights and signs off changes after each calibration, then retunes them until the output agrees with the roadmap.
-- Runs the weekly signal review `Chief of Staff`
-  - Chairs the thirty minutes and keeps the decision log current, in the sense of opening it weekly.
-- Maintains the decision log `Program Manager`
-  - Every call recorded with its bet; chases the missing predicted outcomes.
-- Owns adoption `Enablement Lead`
-  - Onboards each team — the reason attendance is merely aspirational.
-- Clears blockers `Executive Sponsor`
-  - Approves the operating rhythm; stays out of the scoring debates, and out of the room when the outcomes are reviewed.
+- Owns one row `Each actor`
+  - A verb-first responsibility, twelve words at most.
+- Reads top to bottom `The ledger`
+  - Order carries seniority or sequence.
+- Answers by name `The role chip`
+  - The inline code names the seat.
+- Stops at six rows `This layout`
+  - Past six, reach for list-tabular.
 
 ---
 
 <!-- _class: agenda -->
+<!-- _footer: "agenda · inventory survey" -->
 
-## What this review covers.
+## The agenda numbers the deck's stops and pages.
 
-1. Where Q2 landed against plan `p.3`
-2. The enterprise renewal shortfall `p.8`
-3. What we are changing in Q3 `p.14`
-4. The resourcing ask `p.21`
-5. Risks we are watching `p.27`
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 ---
 
 <!-- _class: cards-grid -->
+<!-- _footer: "cards-grid · inventory survey" -->
 
-## The framework has four components.
+## A cards grid gives equal weight to peers.
 
-- Signal Intake.
-  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema before scoring.
-- Scoring Model.
-  - Each signal scored on three dimensions — confidence, recency, and strategic relevance. Weights are team-configurable and reviewed quarterly.
-- Decision Log.
-  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied. Feeds the calibration loop.
-- Calibration Loop.
-  - Monthly retrospective that compares predicted outcomes to actual outcomes and adjusts scoring weights accordingly.
+- Parallel titles.
+  - Noun phrases of similar weight, never mixed.
+- Short bodies.
+  - One clause each; a long card collapses the grid.
+- Rank order.
+  - Left to right reads strongest first.
+- Four cards.
+  - The hard ceiling; five means a new slide.
 
 ---
 
 <!-- _class: cards-stack -->
+<!-- _footer: "cards-stack · inventory survey" -->
 
-## Three forces are compressing the differentiation window.
+## The stack ranks three cards top to bottom.
 
-- Infrastructure has commoditized.
-  - The platform work that took us two years is now a managed service a competitor can switch on in an afternoon. The moat is no longer the stack.
-- Release cycles have collapsed.
-  - What used to ship annually now ships monthly. A visible advantage is matched before the next board meeting.
-- Switching costs are rising.
-  - Customers consolidate vendors and sign longer contracts. The window to win an account is shorter, and losing one lasts longer.
+- Order is the argument.
+  - The stack reads as priority; the top card wins.
+- Three is the sweet spot.
+  - Bodies run a short paragraph at most.
+- Sixteen words per card.
+  - The budget that keeps rows breathing.
 
 ---
 
 <!-- _class: checklist -->
+<!-- _footer: "checklist · inventory survey" -->
 
-## Go-live readiness for the framework rollout.
+## The checklist tracks readiness in four states.
 
-- [x] Signal taxonomy ratified, in workshop four of three
-- [x] Scoring weights agreed by the steering committee
-- [x] Decision log live in staging
-- [-] Pilot teams trained, two still "circling back"
-- [-] Operating rhythm on the calendar, attendance optional in practice
-- [ ] Exec sponsor confirmed for the launch comms
-- [/] Per-team weighting UI, descoped to next half
+- [x] Done rows take a solid check
+- [x] Keep each line under ten words
+- [-] Half-done rows show the dash
+- [ ] Open rows stay empty boxes
+- [/] Descoped rows get the slash
+- [ ] Eight rows is the soft ceiling
 
 ---
 
 <!-- _class: glossary -->
+<!-- _footer: "glossary · inventory survey" -->
 
 ## Glossary
 
-- Consent
-  - A freely given, specific, informed agreement to processing — pre-ticked boxes don't count.
-- Controller
-  - The party that decides why and how personal data is processed, and carries the legal accountability for it.
-- DSAR
-  - Data Subject Access Request — a person's demand to see, correct, or delete the data held on them, on a 45-day clock under CCPA.
-- PII
-  - Personal information that identifies a person, now read broadly enough to cover device IDs, cookies, and IP addresses.
-- Processor
-  - A party that processes data on the controller's instructions — a vendor, not the decision-maker.
+- Component
+  - A slide layout with a manifest, styles, and docs.
+- Variant
+  - A named modifier that changes one layout decision.
+- Modifier
+  - A universal class — dark, compact, accent — any layout accepts.
+- Stress test
+  - The slide that shows a layout's upper limit.
 
 ---
 
 <!-- _class: inventory -->
+<!-- _footer: "inventory · inventory survey" -->
 
-`Framework · Four Components`
+`inventory · the parts ledger`
 
-## The system has four moving parts.
+## The inventory lists a system's parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
 ---
 
 <!-- _class: list -->
+<!-- _footer: "list · inventory survey" -->
 
-## What the first six months of pilots taught us.
+## The list states one point per line.
 
-- Teams log roughly one decision for every twenty they actually make.
-- The scoring weights get re-tuned after almost every retrospective.
-- Predicted outcomes are the field most often left blank.
-- Alignment scores rose fastest on the teams that reviewed the log weekly.
-- No pilot team has asked to go back to the old process.
+- A line is a complete statement, not a fragment.
+- Fourteen words is the budget a line may spend.
+- Six lines fill the canvas comfortably.
+- Parallel openings keep the scan honest.
+- Nesting belongs to card layouts, not here.
 
 ---
 
 <!-- _class: list-tabular -->
+<!-- _footer: "list-tabular · inventory survey" -->
 
-## The five workstreams carrying the transformation.
+## The tabular list rules rows into a register.
 
-1. Framework
-   - The scoring model, the signal taxonomy, and the weights nobody quite agrees on.
-   - _Two analysts · ships Q3_
-2. Adoption
-   - Onboarding every team to the weekly ritual and the decision log.
-   - _One enablement lead · ships Q3_
-3. Governance
-   - The operating rhythm, the review cadence, and the escalation path.
-   - _One chief of staff · ships Q4_
-4. Tooling
-   - The intake form, the dashboards, and the exports for the board.
-   - _One PM · ships Q4_
-5. Change
-   - Comms, exec sponsorship, and the people who preferred the old way.
-   - _One comms partner · ships Q4_
+1. Rows
+   - Label, clause, optional meta line.
+   - _Twelve soft · sixteen hard_
+2. Looks
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
+3. Escalation
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 ---
 
 <!-- _class: logo-wall -->
+<!-- _footer: "logo-wall · inventory survey" -->
 
-`Trusted by`
+`inventory · logo-wall`
 
-## 400+ teams run board prep on Lattice.
+## The logo wall seats the marks with captions.
 
 - ![Acme](logo-wall/acme.svg)
   - Acme
@@ -180,12 +178,15 @@ Inventory — parallel sets of related items.
 ---
 
 <!-- _class: q-and-a -->
+<!-- _footer: "q-and-a · inventory survey" -->
 
-## What the board will press on.
+## The Q&A pairs questions with short answers.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
+- What if answers run long?
+  - Use solo, one per slide.

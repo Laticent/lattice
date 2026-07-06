@@ -18,10 +18,22 @@ Single oversized number as the focal claim.
 <!-- _class: big-number -->
 <!-- _footer: "Default · big-number" -->
 
-`Net new ARR · FY26 through Q3`
+`big-number · one number, the whole canvas`
 
-- $48M
-  - booked against a $42M full-year plan, with a quarter still to close.
+- 1
+  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.
+
+
+---
+
+<!-- _class: big-number -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · big-number — Ten digits is the practical ceiling." -->
+
+`big-number · stress — the longest number that still lands`
+
+- $1,248,500,000
+  - ten digits with separators, scaled down to fit; past this width the claim stops reading at the back of the room.
 
 
 ---
@@ -29,10 +41,10 @@ Single oversized number as the focal claim.
 <!-- _class: big-number dark -->
 <!-- _footer: "Composition: dark · big-number dark" -->
 
-`Net new ARR · FY26 through Q3`
+`big-number · one number, the whole canvas`
 
-- $48M
-  - booked against a $42M full-year plan, with a quarter still to close.
+- 1
+  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.
 
 
 ---
@@ -40,10 +52,10 @@ Single oversized number as the focal claim.
 <!-- _class: big-number compact -->
 <!-- _footer: "Composition: compact · big-number compact" -->
 
-`Net new ARR · FY26 through Q3`
+`big-number · one number, the whole canvas`
 
-- $48M
-  - booked against a $42M full-year plan, with a quarter still to close.
+- 1
+  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.
 
 
 ---
@@ -51,10 +63,10 @@ Single oversized number as the focal claim.
 <!-- _class: big-number accent -->
 <!-- _footer: "Composition: accent · big-number accent" -->
 
-`Net new ARR · FY26 through Q3`
+`big-number · one number, the whole canvas`
 
-- $48M
-  - booked against a $42M full-year plan, with a quarter still to close.
+- 1
+  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.
 
 
 ---

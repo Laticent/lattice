@@ -4,32 +4,32 @@
 
 `2 components`
 
-connect
+Connect — cards the room can scan: join the network, save the speaker.
 
 
 ---
 
 <!-- _class: contact -->
+<!-- _footer: "contact · connect survey" -->
 
-## Add me.
-
-- Sharmarke Aden `name`
-- Founder & CEO `title`
+- Ada Slide `name`
+- One scan saves the speaker `title`
 - SlideWright `org`
-- sharmarke@slidewright.dev `email`
+- hello@slidewright.dev `email`
 - +1-555-0142 `phone`
 - slidewright.dev `url`
-- Scan to add me `caption`
+- The QR encodes this card as a vCard `caption`
 
 ---
 
 <!-- _class: wifi -->
+<!-- _footer: "wifi · connect survey" -->
 
-`Room Wi-Fi`
+`connect · wifi`
 
-## Join the room.
+## The credentials you can read, the QR joins for you.
 
-- Offsite-Guest `ssid`
-- boardroom2026 `password`
+- Lattice-Demo `ssid`
+- specimen2026 `password`
 - WPA2 `security`
-- Scan to connect `caption`
+- One scan connects the room `caption`

@@ -72,7 +72,7 @@
   },
   "skeleton": "<!-- _class: split-panel -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",
   "anatomyBlock": "split-panel",
-  "sample": "<!-- _class: split-panel -->\n\n`Q2 board review`\n\n## Renewals held; the gap is new logos.\n\nThe quarter closed on plan for retention, and three findings explain the new-business shortfall.\n\n- Net retention beat plan\n  - 114% against a 108% target; the installed base is healthy and expanding.\n- New-logo pipeline thinned\n  - Top-of-funnel fell 22% after the field reorg; coverage is the constraint, not conversion.\n- The fix is coverage, not price\n  - Two reps moved onto the gap close most of it before the Q4 cutover.\n",
+  "sample": "<!-- _class: split-panel -->\n\n`statement · split-panel`\n\n## The featured panel makes the claim; this side supports it.\n\nA dark left panel carries the headline, and the bright right column holds up to three supporting items.\n\n- Two zones, one argument\n  - The split is hierarchy, not decoration — the panel claims, the column proves.\n- Three items is the comfort zone\n  - A short title and one supporting line each, like this.\n- Prose stays on a budget\n  - Sixteen words per item keeps the column scannable.\n",
   "whenToUse": [
     {
       "title": "One feature, supporting points",
@@ -121,34 +121,39 @@
   ],
   "variantDocs": {
     "metric": {
-      "label": "Metric — hero number owns the room",
-      "caption": "Flips the polarity: light left panel with one hero number (wrap a unit in an `<em>`, e.g. `114<em>%</em>`, to render it smaller — note plain `*%*` is not CommonMark emphasis next to a digit), dark right panel with the supporting findings. The `h2` is the number; the inline-code eyebrow is the unit label; the lede is the measurement context. Was the standalone `split-metric` component before 2026-06-07.",
-      "sample": "<!-- _class: split-panel metric -->\n\n`Net Revenue Retention`\n\n## 114<em>%</em>\n\nTrailing twelve months, top-50 accounts, versus a 108% target.\n\n- Expansion outran churn\n  - Seat growth in the installed base more than covered the two logos lost to consolidation.\n- Concentration is the watch-item\n  - The top ten accounts drive 41% of the number; a single departure swings it three points.\n"
+      "label": "metric",
+      "caption": "Light panel behind one hero number.",
+      "sample": "<!-- _class: split-panel metric -->\n\n`split-panel metric`\n\n## 16<em>wpi</em>\n\nWords per item — the budget this layout holds its supporting column to.\n\n- The panel flips light\n  - metric flips the panel light behind one hero number.\n- The number claims\n  - Keep support brief — two items beside a figure.\n"
     },
     "pullquote": {
-      "label": "Quote — pull-quote feature",
-      "caption": "The left panel commits half the slide to one quotation (display italic on a dark canvas) with an optional inline-code attribution; the right panel spells out the implications. Write a `>` blockquote instead of an `h2`. Was the standalone `split-statement` component before 2026-06-07.",
-      "sample": "<!-- _class: split-panel pullquote -->\n\n> We do not have a demand problem. We have a coverage problem.\n\n`VP Sales · Q2 board review`\n\n- Reframes the miss\n  - The pipeline gap is structural, not a market signal — it followed the field reorg.\n- Points at the fix\n  - Coverage is a staffing decision the room can make today, not a quarter-long bet.\n"
+      "label": "pullquote",
+      "caption": "Half the slide to one quotation.",
+      "sample": "<!-- _class: split-panel pullquote -->\n\n> pullquote gives half the slide to one voice, and the other half to what it means.\n\n`split-panel pullquote · the layout, quoted`\n\n- The quote claims\n  - Display italic on the dark panel; keep it under twenty-five words.\n- The column interprets\n  - Two items that say why the words matter, not who said them again.\n"
     },
     "steps": {
-      "label": "Steps — numbered step-timeline",
-      "caption": "The left panel anchors a phase (inline-code phase number as a watermark + heading + summary); the right panel renders an ordered list as a numbered step-timeline with a connecting line. Use `ol` for numbered discs. Was the standalone `split-steps` component before 2026-06-07.",
-      "sample": "<!-- _class: split-panel steps -->\n\n`02`\n\n## Calibrate\n\nWhat the second phase produces before rollout begins.\n\n1. Tune the weights\n   - Score real outcomes against the model and adjust until the error band is acceptable.\n2. Make the log mandatory\n   - Every decision is recorded with its signals; the audit trail starts here.\n3. Sign off the baseline\n   - Written agreement on scope before the rollout phase opens.\n"
+      "label": "steps",
+      "caption": "The panel anchors a numbered phase.",
+      "sample": "<!-- _class: split-panel steps -->\n\n`02`\n\n## steps\n\nThe left panel anchors a phase; the column numbers its moves.\n\n1. Watermark the phase\n   - The inline-code number becomes the panel's backdrop.\n2. Number the column\n   - An ordered list reads as sequence — three steps fit.\n3. Keep steps parallel\n   - Verb-first titles, one supporting line each.\n"
     },
     "watermark": {
-      "label": "Watermark — accent panel + letterform",
-      "caption": "An accent left panel with a large letterform watermark (the heading's first letter), an `h3` section rubric in the right panel, and an optional `Audience · / Intent ·` metadata footer on the right. Use for an overview/showcase panel. Was the standalone `split-list` component before 2026-06-07.",
-      "sample": "<!-- _class: split-panel watermark -->\n\n## Scorecard\n\n### What the framework measures\n\n- Signal quality\n  - Whether the inputs are trustworthy enough to act on without re-checking.\n- Decision latency\n  - How long from signal to a logged, owned decision.\n- Reversal rate\n  - How often a logged decision is later overturned, and why.\n"
+      "label": "watermark",
+      "caption": "Accent panel, letterform, h3 rubric.",
+      "sample": "<!-- _class: split-panel watermark -->\n\n## Watermark\n\n### The heading's first letter becomes the panel\n\n- The accent panel decorates\n  - A large letterform behind the heading — presence without a photo.\n- The h3 subtitles\n  - One line naming what the slide surveys.\n- The column carries the content\n  - Same three-item budget as the default split.\n"
     },
     "mirror": {
-      "label": "Mirror — swap left and right",
-      "caption": "Flips the featured panel to the right and the supporting zone to the left. Use when the deck's reading rhythm wants the panel on the trailing side.",
-      "sample": "<!-- _class: split-panel mirror -->\n\n`Eyebrow context`\n\n## Headline on the right-hand panel.\n\nOne-sentence framing paragraph.\n\n- First point\n  - Supporting detail.\n- Second point\n  - Supporting detail.\n"
+      "label": "mirror",
+      "caption": "Featured panel moves right.",
+      "sample": "<!-- _class: split-panel mirror -->\n\n`split-panel mirror`\n\n## mirror puts the featured panel on the right.\n\nSame anatomy, flipped — for when the deck's rhythm wants the claim to land late.\n\n- Reading order still works\n  - The eye crosses support first, then lands on the panel's claim.\n- Use it sparingly\n  - One mirror per section keeps the flip meaningful.\n"
     },
     "qr": {
-      "label": "QR — companion: claim beside a scannable code",
-      "caption": "The `qr` variant adds a scannable code from a payload bullet — a bare URL auto-resolves, or force a non-URL with `` `qr` ``; an optional `` `caption` `` bullet labels it. Reuses the shared QR encoder; the code is a fixed light-paper/dark-ink tile so it scans on any ground.",
-      "sample": "<!-- _class: split-panel qr -->\n\n`Revenue model`\n\n## The full build is in the workbook.\n\nEvery line traces to a driver you can open — three scenarios off one shared set of assumptions.\n\n- https://slidewright.dev/appendix/revenue-model `qr`\n- Scan for the live model `caption`\n"
+      "label": "qr",
+      "caption": "Payload bullet becomes a code.",
+      "sample": "<!-- _class: split-panel qr -->\n\n`split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://slidewright.dev/components/split-panel `qr`\n- Scan for this layout's docs `caption`\n"
     }
-  }
+  },
+  "stressDoc": {
+    "caption": "Three items at full budget.",
+    "sample": "<!-- _class: split-panel -->\n\n`split-panel · stress`\n\n## Three full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item closes the set\n  - A fourth would push past the footer — split the slide instead.\n"
+  },
+  "specimenVoice": true
 }

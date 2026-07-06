@@ -1,14 +1,45 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "agenda",
-  "adapt": { "mode": "native", "priority": ["title", "items"], "keepTogether": ["item"] },
-  "focusAxes": ["item"],
-  "capacity": { "axis": "item", "min": 3, "sweet": 4, "soft": 6, "hard": 7, "escalateTo": ["split across slides"], "note": "past six sections the list crowds" },
-  "density": { "axis": "item", "soft": 10, "hard": 16, "note": "a short agenda line, not a description" },
+  "adapt": {
+    "mode": "native",
+    "priority": [
+      "title",
+      "items"
+    ],
+    "keepTogether": [
+      "item"
+    ]
+  },
+  "focusAxes": [
+    "item"
+  ],
+  "capacity": {
+    "axis": "item",
+    "min": 3,
+    "sweet": 4,
+    "soft": 6,
+    "hard": 7,
+    "escalateTo": [
+      "split across slides"
+    ],
+    "note": "past six sections the list crowds"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 10,
+    "hard": 16,
+    "note": "a short agenda line, not a description"
+  },
   "function": "inventory",
   "form": "stack",
   "substance": "structure",
-  "tags": ["agenda-setting", "overview", "onboarding", "kickoff"],
+  "tags": [
+    "agenda-setting",
+    "overview",
+    "onboarding",
+    "kickoff"
+  ],
   "description": "Auto-numbered table of contents for the deck.",
   "purpose": "Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Five interchangeable styles — the default `ledger` (a contents page with optional page references), plus `circles`, `rail`, `cards`, and `checks` — all compose with the `progress-N` 'you are here' modifier.",
   "variants": [
@@ -37,8 +68,11 @@
   },
   "skeleton": "<!-- _class: agenda -->\n\n## What this deck covers.\n\n1. First section title\n2. Second section title\n3. Third section title\n4. Fourth section title\n",
   "anatomyBlock": "agenda",
-  "sample": "<!-- _class: agenda -->\n\n## What this review covers.\n\n1. Where Q2 landed against plan `p.3`\n2. The enterprise renewal shortfall `p.8`\n3. What we are changing in Q3 `p.14`\n4. The resourcing ask `p.21`\n5. Risks we are watching `p.27`\n",
-  "stressSample": "<!-- _class: agenda progress-4 -->\n\n## Where we are now.\n\n1. Why we're here — the problem we set out to solve `p.3`\n2. Where the business landed against plan `p.9`\n3. The proposal on the table `p.16`\n4. Migration plan and sequencing `p.24`\n5. Risks and the mitigations we're funding `p.31`\n6. The decision and immediate next steps `p.38`\n",
+  "sample": "<!-- _class: agenda -->\n\n## The agenda numbers the deck's stops and pages.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n",
+  "stressDoc": {
+    "caption": "Seven stops — the hard ceiling.",
+    "sample": "<!-- _class: agenda progress-4 -->\n\n## Seven stops is the most one agenda holds.\n\n1. The opening stop states the meeting's one question `p.2`\n2. Sixteen words is the hard budget for a stop `p.6`\n3. Even at seven, every line stays scannable `p.11`\n4. The current stop still reads at a glance `p.15`\n5. Late stops shorten as attention thins `p.19`\n6. The soft ceiling passed one stop ago `p.23`\n7. Seven is the stop sign `p.27`\n"
+  },
   "whenToUse": [
     {
       "title": "Second slide of the deck",
@@ -76,12 +110,14 @@
     }
   ],
   "related": [
-    
     {
       "name": "divider",
       "when": "marking a section boundary without restating the menu"
     },
-    { "name": "list", "when": "single-line takeaways — the `takeaway` variant" },
+    {
+      "name": "list",
+      "when": "single-line takeaways — the `takeaway` variant"
+    },
     {
       "name": "title",
       "when": "the slide immediately preceding the agenda"
@@ -89,54 +125,55 @@
   ],
   "variantDocs": {
     "progress-2": {
-      "label": "Progress · section 2",
-      "caption": "The same agenda dropped between sections one and two — the second item is marked as the current position.",
-      "sample": "<!-- _class: agenda progress-2 -->\n\n## Where we are now.\n\n1. The four-layer model — Function · Form · Substance · Finish\n2. Component manifests — the single source of truth\n3. The forty-five shipped components, grouped by function\n4. Discovery — scaffolder, snippets, this gallery\n5. What ships next — open questions and follow-ups\n"
+      "label": "progress-2",
+      "caption": "Stop 2 is current; the rest dim or wait.",
+      "sample": "<!-- _class: agenda progress-2 -->\n\n## progress-2 marks stop 2 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
     },
     "progress-3": {
-      "label": "Progress · section 3",
-      "caption": "Same wayfinding pattern, current position moved to the third item.",
-      "sample": "<!-- _class: agenda progress-3 -->\n\n## Where we are now.\n\n1. The four-layer model — Function · Form · Substance · Finish\n2. Component manifests — the single source of truth\n3. The forty-five shipped components, grouped by function\n4. Discovery — scaffolder, snippets, this gallery\n5. What ships next — open questions and follow-ups\n"
+      "label": "progress-3",
+      "caption": "Stop 3 is current; the rest dim or wait.",
+      "sample": "<!-- _class: agenda progress-3 -->\n\n## progress-3 marks stop 3 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
     },
     "progress-4": {
-      "label": "Progress · section 4",
-      "caption": "Current position on the fourth item — three sections done, two to go.",
-      "sample": "<!-- _class: agenda progress-4 -->\n\n## Where we are now.\n\n1. The four-layer model — Function · Form · Substance · Finish\n2. Component manifests — the single source of truth\n3. The forty-five shipped components, grouped by function\n4. Discovery — scaffolder, snippets, this gallery\n5. What ships next — open questions and follow-ups\n"
+      "label": "progress-4",
+      "caption": "Stop 4 is current; the rest dim or wait.",
+      "sample": "<!-- _class: agenda progress-4 -->\n\n## progress-4 marks stop 4 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
     },
     "progress-5": {
-      "label": "Progress · section 5",
-      "caption": "Current position on the fifth item — the last section opening, used as a final wayfinder before the closing.",
-      "sample": "<!-- _class: agenda progress-5 -->\n\n## Where we are now.\n\n1. The four-layer model — Function · Form · Substance · Finish\n2. Component manifests — the single source of truth\n3. The forty-five shipped components, grouped by function\n4. Discovery — scaffolder, snippets, this gallery\n5. What ships next — open questions and follow-ups\n"
+      "label": "progress-5",
+      "caption": "Stop 5 is current; the rest dim or wait.",
+      "sample": "<!-- _class: agenda progress-5 -->\n\n## progress-5 marks stop 5 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
     },
     "progress-1": {
-      "label": "Progress · section 1",
-      "caption": "Wayfinding for the start of the deck — the first item is current, the rest are dimmed ahead.",
-      "sample": "<!-- _class: agenda progress-1 -->\n\n## Where we are now.\n\n1. The four-layer model — Function · Form · Substance · Finish\n2. Component manifests — the single source of truth\n3. The shipped components, grouped by function\n4. Discovery — scaffolder, snippets, this gallery\n5. What ships next — open questions and follow-ups\n"
+      "label": "progress-1",
+      "caption": "Stop 1 is current; the rest dim or wait.",
+      "sample": "<!-- _class: agenda progress-1 -->\n\n## progress-1 marks stop 1 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
     },
     "progress-6": {
-      "label": "Progress · section 6",
-      "caption": "Same wayfinding pattern on a six-section agenda — current position at the sixth and final item.",
-      "sample": "<!-- _class: agenda progress-6 -->\n\n## Where we are now.\n\n1. Why we're here — the problem\n2. Where we are today\n3. The proposal\n4. Migration plan\n5. Risks and mitigations\n6. Decision and next steps\n"
+      "label": "progress-6",
+      "caption": "Stop 6 is current; the rest dim or wait.",
+      "sample": "<!-- _class: agenda progress-6 -->\n\n## progress-6 marks stop 6 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
     },
     "circles": {
       "label": "Style · circles",
-      "caption": "Each section number sits in a drawn ring; with `progress-N` the current ring fills with the accent. A calmer, more graphic take on the contents page.",
-      "sample": "<!-- _class: agenda circles progress-3 -->\n\n## Where we are now.\n\n1. The four-layer model\n2. Component manifests\n3. The shipped components\n4. Discovery — scaffolder & snippets\n5. What ships next\n"
+      "caption": "Numbers become rings; current fills.",
+      "sample": "<!-- _class: agenda circles progress-3 -->\n\n## circles swaps the numbers for filled dots.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
     },
     "rail": {
       "label": "Style · rail",
-      "caption": "Numbered nodes threaded on a vertical journey line — reads as moving down the deck. The active node fills with the accent.",
-      "sample": "<!-- _class: agenda rail progress-3 -->\n\n## Where we are now.\n\n1. The four-layer model\n2. Component manifests\n3. The shipped components\n4. Discovery — scaffolder & snippets\n5. What ships next\n"
+      "caption": "Nodes on a vertical rail; active fills.",
+      "sample": "<!-- _class: agenda rail progress-3 -->\n\n## rail runs the progress down a side rail.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
     },
     "cards": {
       "label": "Style · cards",
-      "caption": "Each section is a boxed row; the current card fills with the accent wash and takes the accent border.",
-      "sample": "<!-- _class: agenda cards progress-3 -->\n\n## Where we are now.\n\n1. The four-layer model\n2. Component manifests\n3. The shipped components\n4. Discovery — scaffolder & snippets\n5. What ships next\n"
+      "caption": "Boxed stops; the current takes accent.",
+      "sample": "<!-- _class: agenda cards progress-3 -->\n\n## cards deals each stop its own card.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
     },
     "checks": {
       "label": "Style · checks",
-      "caption": "A progress checklist: with `progress-N`, sections already covered get a tick, the current one an arrow, and upcoming ones an empty box — the whole journey-state at a glance.",
-      "sample": "<!-- _class: agenda checks progress-3 -->\n\n## Where we are now.\n\n1. The four-layer model\n2. Component manifests\n3. The shipped components\n4. Discovery — scaffolder & snippets\n5. What ships next\n"
+      "caption": "Done gets a tick, current an arrow.",
+      "sample": "<!-- _class: agenda checks progress-3 -->\n\n## checks ticks the stops already behind you.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

@@ -243,6 +243,17 @@ describe('deck linter', () => {
     }
   });
 
+
+  test('stress-slide marker suppresses capacity-crowd but never capacity-overflow', () => {
+    // A slide in the crowd band (soft < n <= hard) with the marker: no warning.
+    const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 6 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
+    assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd warning');
+    assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd warns as before');
+    // Past hard, the marker does NOT save it — overflow still fires.
+    const over = `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n<!-- stress-slide -->\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
+    assert.equal(lintText(over, { vocab }).filter((x) => x.rule === 'capacity-overflow').length, 1, 'overflow ignores the marker');
+  });
+
   test('every committed deck is completely lint-clean (no errors, no warnings)', () => {
     // The deck tree is clean and the gate is --strict, so warnings count too.
     // Locks in the fixes for the baseline gallery (cards-stack inline-title),

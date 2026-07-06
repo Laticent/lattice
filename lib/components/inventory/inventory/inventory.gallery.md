@@ -18,67 +18,76 @@ A parallel set of related items of similar weight — one content shape, four in
 <!-- _class: inventory -->
 <!-- _footer: "Default · inventory" -->
 
-`Framework · Four Components`
+`inventory · the parts ledger`
 
-## The system has four moving parts.
+## The inventory lists a system's parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
 
 ---
 
 <!-- _class: inventory cards -->
-<!-- _footer: "Cards · inventory cards" -->
+<!-- _footer: "Cards · inventory cards — The register as tiles with a pull-quote." -->
 
-`Framework · Four Components`
+`inventory cards`
 
-## The system has four moving parts.
+## cards deals the parts into tiles.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
 
 ---
 
 <!-- _class: inventory timeline -->
-<!-- _footer: "Timeline · inventory timeline" -->
+<!-- _footer: "Timeline · inventory timeline — A numbered run along a line." -->
 
-`Framework · Four Components`
+`inventory timeline`
 
-## The system has four moving parts.
+## timeline strings the parts along a line.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
 
 ---
 
 <!-- _class: inventory editorial -->
-<!-- _footer: "Editorial · inventory editorial" -->
+<!-- _footer: "Editorial · inventory editorial — A magazine split with a sidebar takeaway." -->
 
-`Framework · Four Components`
+`inventory editorial`
 
-## The system has four moving parts.
+## editorial sets the parts as a column.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** Same content, magazine form.
 
-> Signals without decisions are just noise.
+> The sidebar carries the register's one takeaway.
+
+
+---
+
+<!-- _class: inventory compact -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · inventory — Five full rows seat; the declared six-row ceiling clips." -->
+
+## The ledger clips past five full rows.
+
+- **Part one.** Bodies stay short when the count is maxed.
+- **Part two.** Matched shapes keep five rows scannable.
+- **Part three.** The middle rows forgive the least.
+- **Part four.** The sweet spot ended here.
+- **Part five.** The last row that seats whole — the declared ceiling of six clips its body.
 
 
 ---
@@ -86,16 +95,14 @@ A parallel set of related items of similar weight — one content shape, four in
 <!-- _class: inventory dark -->
 <!-- _footer: "Composition: dark · inventory dark" -->
 
-`Framework · Four Components`
+`inventory · the parts ledger`
 
-## The system has four moving parts.
+## The inventory lists a system's parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
 
 ---
@@ -103,16 +110,14 @@ A parallel set of related items of similar weight — one content shape, four in
 <!-- _class: inventory compact -->
 <!-- _footer: "Composition: compact · inventory compact" -->
 
-`Framework · Four Components`
+`inventory · the parts ledger`
 
-## The system has four moving parts.
+## The inventory lists a system's parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
 
 ---
@@ -120,16 +125,14 @@ A parallel set of related items of similar weight — one content shape, four in
 <!-- _class: inventory accent -->
 <!-- _footer: "Composition: accent · inventory accent" -->
 
-`Framework · Four Components`
+`inventory · the parts ledger`
 
-## The system has four moving parts.
+## The inventory lists a system's parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
-
-> Signals without decisions are just noise.
+- **One part per row.** A name and one clause of body.
+- **Four parts reads best.** Five fits; six is the hard stop.
+- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
+- **Looks reskin the list.** cards, timeline, editorial change form, not content.
 
 
 ---

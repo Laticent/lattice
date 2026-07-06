@@ -6,10 +6,22 @@
   "substance": "prose",
   "adapt": {
     "mode": "reflow",
-    "families": ["wide", "square", "tall", "strip"],
-    "priority": ["heading", "body"]
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "heading",
+      "body"
+    ]
   },
-  "tags": ["walkthrough", "overview", "summary"],
+  "tags": [
+    "walkthrough",
+    "overview",
+    "summary"
+  ],
   "description": "Generic prose slide — heading plus paragraphs or a short list.",
   "purpose": "The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better.",
   "slots": {
@@ -26,7 +38,11 @@
   },
   "skeleton": "<!-- _class: content -->\n\n## Slide heading.\n\nThe explanatory paragraph that develops the heading goes here. Keep the slide under forty words.\n\n- Optional supporting point one.\n- Optional supporting point two.\n",
   "anatomyBlock": "content-canvas",
-  "sample": "<!-- _class: content -->\n\n`Context · Competitive Dynamics`\n\n## The window for differentiation is narrowing.\n\nThree converging forces — commoditized infrastructure, compressed release cycles, and rising switching costs — have cut the average durable-advantage window from 36 months to under 14. The teams that win the next two years can tell signal from noise inside it.\n",
+  "sample": "<!-- _class: content -->\n\n`statement · content`\n\n## The content slide is the plainest tool in the box.\n\nA heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.\n",
+  "stressDoc": {
+    "caption": "Two paragraphs and a list — the ceiling.",
+    "sample": "<!-- _class: content -->\n\n`content · stress — the ceiling for prose`\n\n## This is as much text as one slide should ever carry.\n\nTwo paragraphs is the working limit. This first one runs three full lines to show where the measure sits, how the leading holds, and why anything denser belongs in a document instead of a deck.\n\nThe second paragraph stays shorter — because by now the audience is reading, not listening.\n\n- One list is allowed after prose\n- Three items is its comfortable end\n- A fourth begins to crowd the footer\n"
+  },
   "whenToUse": [
     {
       "title": "Explanatory prose that doesn't shape",
@@ -76,5 +92,6 @@
       "name": "list-steps",
       "when": "the prose IS an ordered sequence"
     }
-  ]
+  ],
+  "specimenVoice": true
 }

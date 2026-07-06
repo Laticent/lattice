@@ -64,165 +64,170 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 ## Variants (component-specific)
 
-### `progress-1` — Progress · section 1
+### `progress-1` — progress-1
 
-Wayfinding for the start of the deck — the first item is current, the rest are dimmed ahead.
+Stop 1 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-1 -->
 
-## Where we are now.
+## progress-1 marks stop 1 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-### `progress-2` — Progress · section 2
+### `progress-2` — progress-2
 
-The same agenda dropped between sections one and two — the second item is marked as the current position.
+Stop 2 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-2 -->
 
-## Where we are now.
+## progress-2 marks stop 2 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-### `progress-3` — Progress · section 3
+### `progress-3` — progress-3
 
-Same wayfinding pattern, current position moved to the third item.
+Stop 3 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-3 -->
 
-## Where we are now.
+## progress-3 marks stop 3 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-### `progress-4` — Progress · section 4
+### `progress-4` — progress-4
 
-Current position on the fourth item — three sections done, two to go.
+Stop 4 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-4 -->
 
-## Where we are now.
+## progress-4 marks stop 4 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-### `progress-5` — Progress · section 5
+### `progress-5` — progress-5
 
-Current position on the fifth item — the last section opening, used as a final wayfinder before the closing.
+Stop 5 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-5 -->
 
-## Where we are now.
+## progress-5 marks stop 5 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
-### `progress-6` — Progress · section 6
+### `progress-6` — progress-6
 
-Same wayfinding pattern on a six-section agenda — current position at the sixth and final item.
+Stop 6 is current; the rest dim or wait.
 
 ```markdown
 <!-- _class: agenda progress-6 -->
 
-## Where we are now.
+## progress-6 marks stop 6 as the current one.
 
-1. Why we're here — the problem
-2. Where we are today
-3. The proposal
-4. Migration plan
-5. Risks and mitigations
-6. Decision and next steps
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 ```
 
 ### `circles` — Style · circles
 
-Each section number sits in a drawn ring; with `progress-N` the current ring fills with the accent. A calmer, more graphic take on the contents page.
+Numbers become rings; current fills.
 
 ```markdown
 <!-- _class: agenda circles progress-3 -->
 
-## Where we are now.
+## circles swaps the numbers for filled dots.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 ```
 
 ### `rail` — Style · rail
 
-Numbered nodes threaded on a vertical journey line — reads as moving down the deck. The active node fills with the accent.
+Nodes on a vertical rail; active fills.
 
 ```markdown
 <!-- _class: agenda rail progress-3 -->
 
-## Where we are now.
+## rail runs the progress down a side rail.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 ```
 
 ### `cards` — Style · cards
 
-Each section is a boxed row; the current card fills with the accent wash and takes the accent border.
+Boxed stops; the current takes accent.
 
 ```markdown
 <!-- _class: agenda cards progress-3 -->
 
-## Where we are now.
+## cards deals each stop its own card.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 ```
 
 ### `checks` — Style · checks
 
-A progress checklist: with `progress-N`, sections already covered get a tick, the current one an arrow, and upcoming ones an empty box — the whole journey-state at a glance.
+Done gets a tick, current an arrow.
 
 ```markdown
 <!-- _class: agenda checks progress-3 -->
 
-## Where we are now.
+## checks ticks the stops already behind you.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 ```
 
 ## Universal modifiers

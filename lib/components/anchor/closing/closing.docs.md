@@ -58,32 +58,32 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 ## Variants (component-specific)
 
-### `numbered` — Numbered — independent closing counter
+### `numbered` — numbered
 
-Stamps an auto-incrementing closing number, independent of the divider section counter. Useful for serialized deck families where each deck closes on numbered note `Closing 04`.
+Counts closings apart from dividers.
 
 ```markdown
 <!-- _class: closing silent numbered -->
 
-## Take this away.
+## The closing counts itself, apart from the dividers.
 
 `Closing 04`
 ```
 
-### `qr` — QR — scan to take the deck
+### `qr` — qr
 
-The `qr` variant adds a scannable code from a payload bullet — a bare URL auto-resolves, or force a non-URL with `` `qr` ``; an optional `` `caption` `` bullet labels it. Reuses the shared QR encoder; the code is a fixed light-paper/dark-ink tile so it scans on any ground.
+Scan to take the deck with you.
 
 ```markdown
 <!-- _class: closing qr -->
 
-`Q3 Board Review`
+`closing qr`
 
-## Take the deck with you.
+## Leave a scannable takeaway behind.
 
-Every slide, the appendix, and the workbook — before you go.
+The payload bullet renders as a QR code sized for the back row.
 
-- https://slidewright.dev/decks/q3
+- https://slidewright.dev/components/closing
 - Scan to open `caption`
 ```
 

@@ -16,7 +16,12 @@
     ],
     "note": "the ledger/editorial looks take a couple more rows than the cards or timeline looks; past six entries, escalate"
   },
-  "density": { "axis": "item", "soft": 14, "hard": 22, "note": "one clause of body per part" },
+  "density": {
+    "axis": "item",
+    "soft": 14,
+    "hard": 22,
+    "note": "one clause of body per part"
+  },
   "function": "inventory",
   "form": "ledger",
   "substance": "structure",
@@ -67,7 +72,9 @@
   ],
   "description": "A parallel set of related items of similar weight — one content shape, four interchangeable looks.",
   "purpose": "Use for a small register of related items where each carries similar weight. Author the content once (a bold lead + detail per item, optional trailing insight) and pick the look with a variant: the default numbered ledger, a cards grid, a horizontal timeline, or a magazine-style editorial split — no re-authoring. For more than six items, escalate to list-tabular or split across slides.",
-  "excludes": ["claim-bleed"],
+  "excludes": [
+    "claim-bleed"
+  ],
   "variants": [
     "cards",
     "timeline",
@@ -96,7 +103,11 @@
     }
   },
   "skeleton": "<!-- _class: inventory -->\n\n`Eyebrow`\n\n## Slide heading.\n\n- **First entry.** One-sentence description.\n- **Second entry.** One-sentence description.\n- **Third entry.** One-sentence description.\n- **Fourth entry.** One-sentence description.\n\n> Optional trailing insight.\n",
-  "sample": "<!-- _class: inventory -->\n\n`Framework · Four Components`\n\n## The system has four moving parts.\n\n- **Signal Intake.** Weekly structured collection across conversations and market data.\n- **Scoring Model.** Each signal scored on confidence, recency, and relevance.\n- **Decision Log.** Every call recorded with the signals that informed it.\n- **Calibration Loop.** Outcomes compared to predictions each cycle.\n\n> Signals without decisions are just noise.\n",
+  "sample": "<!-- _class: inventory -->\n\n`inventory · the parts ledger`\n\n## The inventory lists a system's parts.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n",
+  "stressDoc": {
+    "caption": "Five full rows seat; the declared six-row ceiling clips.",
+    "sample": "<!-- _class: inventory compact -->\n\n## The ledger clips past five full rows.\n\n- **Part one.** Bodies stay short when the count is maxed.\n- **Part two.** Matched shapes keep five rows scannable.\n- **Part three.** The middle rows forgive the least.\n- **Part four.** The sweet spot ended here.\n- **Part five.** The last row that seats whole — the declared ceiling of six clips its body.\n"
+  },
   "anatomyBlock": "T7-card-grid-2x2",
   "whenToUse": [
     {
@@ -155,21 +166,22 @@
   "variantDocs": {
     "cards": {
       "label": "Cards",
-      "caption": "The same register as an equal grid of cards, with the insight as a centred pull-quote. Best when the items read as parallel options scanned at a glance.",
-      "sample": "<!-- _class: inventory cards -->\n\n`Framework · Four Components`\n\n## The system has four moving parts.\n\n- **Signal Intake.** Weekly structured collection across conversations and market data.\n- **Scoring Model.** Each signal scored on confidence, recency, and relevance.\n- **Decision Log.** Every call recorded with the signals that informed it.\n- **Calibration Loop.** Outcomes compared to predictions each cycle.\n\n> Signals without decisions are just noise.\n"
+      "caption": "The register as tiles with a pull-quote.",
+      "sample": "<!-- _class: inventory cards -->\n\n`inventory cards`\n\n## cards deals the parts into tiles.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n"
     },
     "timeline": {
       "label": "Timeline",
-      "caption": "A horizontal numbered run with connectors, the insight as a kicker above. Reads the register as a left-to-right progression.",
-      "sample": "<!-- _class: inventory timeline -->\n\n`Framework · Four Components`\n\n## The system has four moving parts.\n\n- **Signal Intake.** Weekly structured collection across conversations and market data.\n- **Scoring Model.** Each signal scored on confidence, recency, and relevance.\n- **Decision Log.** Every call recorded with the signals that informed it.\n- **Calibration Loop.** Outcomes compared to predictions each cycle.\n\n> Signals without decisions are just noise.\n"
+      "caption": "A numbered run along a line.",
+      "sample": "<!-- _class: inventory timeline -->\n\n`inventory timeline`\n\n## timeline strings the parts along a line.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n"
     },
     "editorial": {
       "label": "Editorial",
-      "caption": "A magazine split — the insight as an accent-ruled sidebar beside a ruled item column (the title rides the masthead band). For a feature-statement register.",
-      "sample": "<!-- _class: inventory editorial -->\n\n`Framework · Four Components`\n\n## The system has four moving parts.\n\n- **Signal Intake.** Weekly structured collection across conversations and market data.\n- **Scoring Model.** Each signal scored on confidence, recency, and relevance.\n- **Decision Log.** Every call recorded with the signals that informed it.\n- **Calibration Loop.** Outcomes compared to predictions each cycle.\n\n> Signals without decisions are just noise.\n"
+      "caption": "A magazine split with a sidebar takeaway.",
+      "sample": "<!-- _class: inventory editorial -->\n\n`inventory editorial`\n\n## editorial sets the parts as a column.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** Same content, magazine form.\n\n> The sidebar carries the register's one takeaway.\n"
     }
   },
   "showcase": {
     "featured": true
-  }
+  },
+  "specimenVoice": true
 }

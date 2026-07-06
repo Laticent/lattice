@@ -16,7 +16,7 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 ## When NOT to use
 
 - **Not for secrets that outlive the room.** A rendered deck is persistent and shareable. Use it for guest/offsite networks, not for credentials that must not leak.
-- **Don't bold the field values.** The value leads and the key is a trailing inline-code tag — `- Offsite-Guest `ssid``. Don't write `- **SSID:** Offsite-Guest`; the transform reads the postfix key, not a bold label.
+- **Don't bold the field values.** The value leads and the key trails as a small tag — ssid last, never first. Writing the key first, bolded, breaks the transform's postfix read.
 
 ## Authoring
 

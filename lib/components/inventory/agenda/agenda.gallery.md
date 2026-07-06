@@ -18,169 +18,177 @@ Auto-numbered table of contents for the deck.
 <!-- _class: agenda -->
 <!-- _footer: "Default · agenda" -->
 
-## What this review covers.
+## The agenda numbers the deck's stops and pages.
 
-1. Where Q2 landed against plan `p.3`
-2. The enterprise renewal shortfall `p.8`
-3. What we are changing in Q3 `p.14`
-4. The resourcing ask `p.21`
-5. Risks we are watching `p.27`
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
 
 <!-- _class: agenda progress-1 -->
-<!-- _footer: "Progress · section 1 · agenda progress-1" -->
+<!-- _footer: "progress-1 · agenda progress-1 — Stop 1 is current; the rest dim or wait." -->
 
-## Where we are now.
+## progress-1 marks stop 1 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
 
 <!-- _class: agenda progress-2 -->
-<!-- _footer: "Progress · section 2 · agenda progress-2" -->
+<!-- _footer: "progress-2 · agenda progress-2 — Stop 2 is current; the rest dim or wait." -->
 
-## Where we are now.
+## progress-2 marks stop 2 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
 
 <!-- _class: agenda progress-3 -->
-<!-- _footer: "Progress · section 3 · agenda progress-3" -->
+<!-- _footer: "progress-3 · agenda progress-3 — Stop 3 is current; the rest dim or wait." -->
 
-## Where we are now.
+## progress-3 marks stop 3 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
 
 <!-- _class: agenda progress-4 -->
-<!-- _footer: "Progress · section 4 · agenda progress-4" -->
+<!-- _footer: "progress-4 · agenda progress-4 — Stop 4 is current; the rest dim or wait." -->
 
-## Where we are now.
+## progress-4 marks stop 4 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
 
 <!-- _class: agenda progress-5 -->
-<!-- _footer: "Progress · section 5 · agenda progress-5" -->
+<!-- _footer: "progress-5 · agenda progress-5 — Stop 5 is current; the rest dim or wait." -->
 
-## Where we are now.
+## progress-5 marks stop 5 as the current one.
 
-1. The four-layer model — Function · Form · Substance · Finish
-2. Component manifests — the single source of truth
-3. The forty-five shipped components, grouped by function
-4. Discovery — scaffolder, snippets, this gallery
-5. What ships next — open questions and follow-ups
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
 
 <!-- _class: agenda progress-6 -->
-<!-- _footer: "Progress · section 6 · agenda progress-6" -->
+<!-- _footer: "progress-6 · agenda progress-6 — Stop 6 is current; the rest dim or wait." -->
 
-## Where we are now.
+## progress-6 marks stop 6 as the current one.
 
-1. Why we're here — the problem
-2. Where we are today
-3. The proposal
-4. Migration plan
-5. Risks and mitigations
-6. Decision and next steps
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
 
 <!-- _class: agenda circles progress-3 -->
-<!-- _footer: "Style · circles · agenda circles" -->
+<!-- _footer: "Style · circles · agenda circles — Numbers become rings; current fills." -->
 
-## Where we are now.
+## circles swaps the numbers for filled dots.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 
 
 ---
 
 <!-- _class: agenda rail progress-3 -->
-<!-- _footer: "Style · rail · agenda rail" -->
+<!-- _footer: "Style · rail · agenda rail — Nodes on a vertical rail; active fills." -->
 
-## Where we are now.
+## rail runs the progress down a side rail.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 
 
 ---
 
 <!-- _class: agenda cards progress-3 -->
-<!-- _footer: "Style · cards · agenda cards" -->
+<!-- _footer: "Style · cards · agenda cards — Boxed stops; the current takes accent." -->
 
-## Where we are now.
+## cards deals each stop its own card.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 
 
 ---
 
 <!-- _class: agenda checks progress-3 -->
-<!-- _footer: "Style · checks · agenda checks" -->
+<!-- _footer: "Style · checks · agenda checks — Done gets a tick, current an arrow." -->
 
-## Where we are now.
+## checks ticks the stops already behind you.
 
-1. The four-layer model
-2. Component manifests
-3. The shipped components
-4. Discovery — scaffolder & snippets
-5. What ships next
+1. The four marker styles share one anatomy
+2. Numbers are the default
+3. This variant swaps the marker
+4. Progress still tracks the current stop
+5. Five stops keep the demo honest
 
 
 ---
 
 <!-- _class: agenda progress-4 -->
-<!-- _footer: "Stress test · agenda" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · agenda — Seven stops — the hard ceiling." -->
 
-## Where we are now.
+## Seven stops is the most one agenda holds.
 
-1. Why we're here — the problem we set out to solve `p.3`
-2. Where the business landed against plan `p.9`
-3. The proposal on the table `p.16`
-4. Migration plan and sequencing `p.24`
-5. Risks and the mitigations we're funding `p.31`
-6. The decision and immediate next steps `p.38`
+1. The opening stop states the meeting's one question `p.2`
+2. Sixteen words is the hard budget for a stop `p.6`
+3. Even at seven, every line stays scannable `p.11`
+4. The current stop still reads at a glance `p.15`
+5. Late stops shorten as attention thins `p.19`
+6. The soft ceiling passed one stop ago `p.23`
+7. Seven is the stop sign `p.27`
 
 
 ---
@@ -188,13 +196,14 @@ Auto-numbered table of contents for the deck.
 <!-- _class: agenda dark -->
 <!-- _footer: "Composition: dark · agenda dark" -->
 
-## What this review covers.
+## The agenda numbers the deck's stops and pages.
 
-1. Where Q2 landed against plan `p.3`
-2. The enterprise renewal shortfall `p.8`
-3. What we are changing in Q3 `p.14`
-4. The resourcing ask `p.21`
-5. Risks we are watching `p.27`
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
@@ -202,13 +211,14 @@ Auto-numbered table of contents for the deck.
 <!-- _class: agenda compact -->
 <!-- _footer: "Composition: compact · agenda compact" -->
 
-## What this review covers.
+## The agenda numbers the deck's stops and pages.
 
-1. Where Q2 landed against plan `p.3`
-2. The enterprise renewal shortfall `p.8`
-3. What we are changing in Q3 `p.14`
-4. The resourcing ask `p.21`
-5. Risks we are watching `p.27`
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---
@@ -216,13 +226,14 @@ Auto-numbered table of contents for the deck.
 <!-- _class: agenda accent -->
 <!-- _footer: "Composition: accent · agenda accent" -->
 
-## What this review covers.
+## The agenda numbers the deck's stops and pages.
 
-1. Where Q2 landed against plan `p.3`
-2. The enterprise renewal shortfall `p.8`
-3. What we are changing in Q3 `p.14`
-4. The resourcing ask `p.21`
-5. Risks we are watching `p.27`
+1. One line per stop, ten words max `p.2`
+2. Page references ride as inline code `p.5`
+3. Six stops is the soft ceiling `p.9`
+4. The progress variants mark the current stop `p.14`
+5. Markers come as circles, rail, cards, checks `p.18`
+6. Past seven stops, split the agenda `p.22`
 
 
 ---

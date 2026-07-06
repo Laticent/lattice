@@ -1,12 +1,25 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "glossary",
-  "focusAxes": ["row"],
+  "focusAxes": [
+    "row"
+  ],
   "function": "inventory",
   "form": "ledger",
   "substance": "structure",
-  "density": { "axis": "item", "soft": 16, "hard": 24, "note": "a term and a one-sentence definition" },
-  "split": { "strategy": "cover-paginate", "axis": "row", "perPage": 8, "intro": "The terms, defined", "note": "Overflowing glossary splits as an accent cover → its own native rows paginated (thead repeats; never flattened). No capacity contract: it authors as a list but renders as a table, so the row axis is not measurable at authoring time. lib/core/carousel.js cover-paginate." },
+  "density": {
+    "axis": "item",
+    "soft": 16,
+    "hard": 24,
+    "note": "a term and a one-sentence definition"
+  },
+  "split": {
+    "strategy": "cover-paginate",
+    "axis": "row",
+    "perPage": 8,
+    "intro": "The terms, defined",
+    "note": "Overflowing glossary splits as an accent cover → its own native rows paginated (thead repeats; never flattened). No capacity contract: it authors as a list but renders as a table, so the row axis is not measurable at authoring time. lib/core/carousel.js cover-paginate."
+  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -23,8 +36,14 @@
       "term+definition"
     ]
   },
-  "excludes": ["claim-bleed"],
-  "tags": ["definition", "reference", "onboarding"],
+  "excludes": [
+    "claim-bleed"
+  ],
+  "tags": [
+    "definition",
+    "reference",
+    "onboarding"
+  ],
   "description": "Two-column term/definition table with auto-derived alphabetic range pill.",
   "purpose": "Use for jargon-heavy decks where the audience needs a reference page. The runtime auto-adds a range pill (e.g. 'A – G') to the heading.",
   "slots": {
@@ -41,7 +60,11 @@
   },
   "skeleton": "<!-- _class: glossary -->\n\n## Glossary\n\n- Adjacency\n  - The relationship between two slides that share an audience or context.\n- Anchor\n  - A title, divider, or closing slide that orients the audience.\n- Cadence\n  - The deck's pacing — how much new information per slide.\n",
   "anatomyBlock": "glossary",
-  "sample": "<!-- _class: glossary -->\n\n## Glossary\n\n- Consent\n  - A freely given, specific, informed agreement to processing — pre-ticked boxes don't count.\n- Controller\n  - The party that decides why and how personal data is processed, and carries the legal accountability for it.\n- DSAR\n  - Data Subject Access Request — a person's demand to see, correct, or delete the data held on them, on a 45-day clock under CCPA.\n- PII\n  - Personal information that identifies a person, now read broadly enough to cover device IDs, cookies, and IP addresses.\n- Processor\n  - A party that processes data on the controller's instructions — a vendor, not the decision-maker.\n",
+  "sample": "<!-- _class: glossary -->\n\n## Glossary\n\n- Component\n  - A slide layout with a manifest, styles, and docs.\n- Variant\n  - A named modifier that changes one layout decision.\n- Modifier\n  - A universal class — dark, compact, accent — any layout accepts.\n- Stress test\n  - The slide that shows a layout's upper limit.\n",
+  "stressDoc": {
+    "caption": "Eight terms at the definition ceiling.",
+    "sample": "<!-- _class: glossary -->\n\n## Glossary, at capacity\n\n- Bucket\n  - One of thirteen functional families a component lives in; the bucket gallery surveys its members.\n- Capacity\n  - How many elements a layout seats before it overflows — sweet, soft, and hard marks.\n- Caption channel\n  - The footer sentence that carries the lesson.\n- Density budget\n  - The soft and hard word counts a sample element may spend, enforced by the contract test.\n- Ledger\n  - The named debt list that tracks migration honestly.\n- Manifest\n  - The JSON file that owns a component's samples, variants, budgets, and docs.\n- Specimen voice\n  - Gallery copy that teaches the layout by describing it.\n- Walk order\n  - The fixed slide sequence every gallery follows.\n"
+  },
   "whenToUse": [
     {
       "title": "Jargon-heavy decks",
@@ -75,11 +98,18 @@
       "name": "list-tabular",
       "when": "rows are key/value reference, not term/definition"
     },
-    { "name": "divider", "when": "lighter mid-section orientation — the bright-canvas `light` variant" },
+    {
+      "name": "divider",
+      "when": "lighter mid-section orientation — the bright-canvas `light` variant"
+    },
     {
       "name": "actors",
       "when": "the left column is a named person, not a term"
     },
-    { "name": "list", "when": "declared statements — the `principles` variant" }
-  ]
+    {
+      "name": "list",
+      "when": "declared statements — the `principles` variant"
+    }
+  ],
+  "specimenVoice": true
 }

@@ -68,36 +68,36 @@ Use when the items want vertical reading order — sequential exploration rather
 
 ### `horizontal` — Horizontal cards
 
-Stacked rows pivot to a left-aligned title column with the body to its right — useful when the card titles are short labels and the body carries the weight.
+The stack pivots sideways.
 
 ```markdown
 <!-- _class: cards-stack horizontal -->
 
-## Three patterns, each with its own pull.
+## horizontal lays the stack on its side.
 
-- Inventory.
-  - Equal-weight items the audience scans without ordering. The cards-grid family lives here — grid, stack, wide, side.
-- Comparison.
-  - Two or more items weighed against shared criteria. The verdict and compare families live here — they take sides.
-- Progression.
-  - Items that carry an explicit sequence. The list-steps and timeline families live here — order is load-bearing.
+- Rows become columns.
+  - The ranking now reads left to right.
+- Same card anatomy.
+  - Title, body, optional status pill.
+- Use for timelines.
+  - Sequence feels natural sideways.
 ```
 
 ### `numbered` — Numbered stack
 
-Authored as `ol` (`1.` source). Each row carries a flush corner number — use when the stack carries an implicit count ("three options", "four phases") even if the order is interchangeable.
+Corner numbers make rank explicit.
 
 ```markdown
 <!-- _class: cards-stack -->
 
-## Three reasons to keep cards-stack at three items.
+## An ordered list makes the ranking explicit.
 
-1. Cognitive load
-   - Three is the threshold the audience can hold without effort. Past three, the slide demands working memory the room shouldn't have to spend.
-2. Vertical real estate
-   - Each stacked card needs ~30% of the slide height to breathe. Four cards force you to shrink the cards until they stop reading as cards.
-3. Build path symmetry
-   - cards-stack pairs with cards-grid (3-4 items) for at-a-glance comparison. One stack layout, not two, keeps the family's choices clean.
+1. Numbers stamp the rank
+   - The stack's order stops being implicit.
+2. Three still rules
+   - Numbering does not raise the ceiling.
+3. Parallel or nothing
+   - Ranked cards must match shapes.
 ```
 
 ## Universal modifiers

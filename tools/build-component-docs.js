@@ -388,10 +388,20 @@ ${m.description}`,
   if (stress) {
     const base = `Stress test · ${m.name}`;
     const footer = specimen && stress.caption ? `${base} — ${stress.caption}` : base;
+    let md = injectFooter(stress.sample, footer);
+    // Specimen stress slides sit in the crowd band by contract; the marker
+    // tells lint-core to hold the capacity-crowd warning (overflow still
+    // fires). Gated on specimenVoice so unmigrated decks stay byte-identical.
+    if (specimen) {
+      md = md.replace(
+        /^(<!--\s*_class:[^>]*-->)/,
+        '$1\n<!-- stress-slide -->'
+      );
+    }
     slides.push({
       kind: 'stress',
       caption: stress.caption || '',
-      md: injectFooter(stress.sample, footer),
+      md,
     });
   }
 

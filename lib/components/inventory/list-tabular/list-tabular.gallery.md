@@ -18,141 +18,138 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 <!-- _class: list-tabular -->
 <!-- _footer: "Default · list-tabular" -->
 
-## The five workstreams carrying the transformation.
+## The tabular list rules rows into a register.
 
-1. Framework
-   - The scoring model, the signal taxonomy, and the weights nobody quite agrees on.
-   - _Two analysts · ships Q3_
-2. Adoption
-   - Onboarding every team to the weekly ritual and the decision log.
-   - _One enablement lead · ships Q3_
-3. Governance
-   - The operating rhythm, the review cadence, and the escalation path.
-   - _One chief of staff · ships Q4_
-4. Tooling
-   - The intake form, the dashboards, and the exports for the board.
-   - _One PM · ships Q4_
-5. Change
-   - Comms, exec sponsorship, and the people who preferred the old way.
-   - _One comms partner · ships Q4_
+1. Rows
+   - Label, clause, optional meta line.
+   - _Twelve soft · sixteen hard_
+2. Looks
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
+3. Escalation
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 
 ---
 
 <!-- _class: list-tabular def -->
-<!-- _footer: "Editorial (def) · list-tabular def" -->
+<!-- _footer: "Editorial (def) · list-tabular def — Counter spans rows; eyebrow above." -->
 
-## The four layers of the design system.
+## def pairs each term with its role.
 
-1. Function `Purpose`
-   - Why the slide exists — the communication job it does. Seven families.
-2. Form `Composition`
-   - The spatial shape the slide takes. Eleven shapes.
-3. Substance `Data`
-   - The kind of content that fills the shape. Four contracts.
-4. Finish `Treatment`
-   - The palette, typography, and chrome applied last. Theme-controlled.
+1. Label `Term`
+   - def styles the register as definitions.
+2. Chip `Role`
+   - The inline code becomes a right-hand chip.
+3. Body `Clause`
+   - One clause under each term.
 
 
 ---
 
 <!-- _class: list-tabular metric -->
-<!-- _footer: "Tile (metric) · list-tabular metric" -->
+<!-- _footer: "Tile (metric) · list-tabular metric — Values in bordered tiles." -->
 
-## Renderer parity — current scoreboard.
+## metric turns the chips into figures.
 
-1. Marp CLI build path `334 / 334`
-2. lattice-emulator inline path `334 / 334`
-3. marp-vscode runtime DOM path `327 / 334`
-4. Cross-renderer page-count parity `pass`
+1. Rows carry values `12 / 16`
+2. Figures right-align `100%`
+3. Labels stay short `4 rows`
 
 
 ---
 
 <!-- _class: list-tabular spec -->
-<!-- _footer: "Technical key (spec) · list-tabular spec" -->
+<!-- _footer: "spec · list-tabular spec — Mono keys for flags and params." -->
 
-## Environment flags the build path reads.
+## spec documents flags and their types.
 
 1. `LATTICE_THEME` `string`
-   - Override the deck's declared theme at build time. Default: theme from front-matter.
-2. `LATTICE_CACHE` `0 | 1`
-   - Toggle the render helper's hash-keyed cache. Default: 1 locally, 0 on CI.
-3. `LATTICE_TRACE` `0 | 1`
-   - Emit per-slide transform timing to stderr. Default: 0.
+   - spec sets code labels beside type chips.
+2. `LATTICE_DEBUG` `bool`
+   - One clause explains each flag.
 
 
 ---
 
 <!-- _class: list-tabular register -->
-<!-- _footer: "Tagged pill (register) · list-tabular register" -->
+<!-- _footer: "register · list-tabular register — Status pills on each row." -->
 
-## Active components — release status.
+## register pairs names with status chips.
 
 1. cards-grid `stable`
 2. split-panel `stable`
-3. radar-chart `beta`
-4. quadrant-chart `beta`
-5. kanban-board `alpha`
+3. radar `beta`
+4. word-cloud `preview`
 
 
 ---
 
 <!-- _class: list-tabular def rule -->
-<!-- _footer: "def + rule · list-tabular rule" -->
+<!-- _footer: "def + rule · list-tabular rule — Accent rail down the left edge." -->
 
-## The four layers of the design system.
+## rule draws a hairline under every row.
 
-1. Function `Purpose`
-   - Why the slide exists — the communication job it does. Seven families.
-2. Form `Composition`
-   - The spatial shape the slide takes. Eleven shapes.
-3. Substance `Data`
-   - The kind of content that fills the shape. Four contracts.
-4. Finish `Treatment`
-   - The palette, typography, and chrome applied last. Theme-controlled.
+1. Hairlines `On`
+   - rule adds the horizontal separators.
+2. Density `Same`
+   - Budgets do not change with the look.
 
 
 ---
 
 <!-- _class: list-tabular metric solid -->
-<!-- _footer: "metric + solid · list-tabular solid" -->
+<!-- _footer: "metric + solid · list-tabular solid — Filled value tiles for headlines." -->
 
-## Quarterly headline metrics.
+## solid fills the register with panel color.
 
-1. Net new ARR `$4.2M`
-2. Logo retention `94%`
-3. Time-to-value (median) `11d`
-4. Pipeline coverage `3.2x`
+1. Net new rows `4`
+2. Panel fill `on`
+3. Best for `headline metrics`
 
 
 ---
 
 <!-- _class: list-tabular spec stacked -->
-<!-- _footer: "spec + stacked · list-tabular stacked" -->
+<!-- _footer: "spec + stacked · list-tabular stacked — Clause drops below the name." -->
 
-## API endpoints exposed by the deck-server.
+## stacked drops the clause under its label.
 
-1. `GET /decks/:id` `200 | 404`
-   - Returns the rendered deck metadata, slide manifest, and signed PDF URL.
-2. `POST /decks/:id/render` `202 | 409`
-   - Enqueues a re-render. 409 if a render is already in flight for this deck.
-3. `DELETE /decks/:id/cache` `204 | 404`
-   - Evicts the cached PDF and forces a cold re-render on the next read.
+1. `GET /plans/:name` `200 | 404`
+   - stacked gives each row two decks of text.
+2. `GET /gallery/:name` `200`
+   - The clause wraps below, full width.
 
 
 ---
 
 <!-- _class: list-tabular register outline -->
-<!-- _footer: "register + outline · list-tabular outline" -->
+<!-- _footer: "register + outline · list-tabular outline — Outline pills — a lighter register." -->
 
-## Active components — release status.
+## outline boxes each row in a keyline.
 
 1. cards-grid `stable`
 2. split-panel `stable`
-3. radar-chart `beta`
-4. quadrant-chart `beta`
-5. kanban-board `alpha`
+3. quote `stable`
+
+
+---
+
+<!-- _class: list-tabular register -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · list-tabular — Eight rows — the register's page." -->
+
+## Eight rows is the register's practical page.
+
+1. title `stable`
+2. big-number `stable`
+3. cards-grid `stable`
+4. split-panel `stable`
+5. funnel `stable`
+6. map `stable`
+7. radar `beta`
+8. word-cloud `preview`
 
 
 ---
@@ -160,23 +157,17 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 <!-- _class: list-tabular dark -->
 <!-- _footer: "Composition: dark · list-tabular dark" -->
 
-## The five workstreams carrying the transformation.
+## The tabular list rules rows into a register.
 
-1. Framework
-   - The scoring model, the signal taxonomy, and the weights nobody quite agrees on.
-   - _Two analysts · ships Q3_
-2. Adoption
-   - Onboarding every team to the weekly ritual and the decision log.
-   - _One enablement lead · ships Q3_
-3. Governance
-   - The operating rhythm, the review cadence, and the escalation path.
-   - _One chief of staff · ships Q4_
-4. Tooling
-   - The intake form, the dashboards, and the exports for the board.
-   - _One PM · ships Q4_
-5. Change
-   - Comms, exec sponsorship, and the people who preferred the old way.
-   - _One comms partner · ships Q4_
+1. Rows
+   - Label, clause, optional meta line.
+   - _Twelve soft · sixteen hard_
+2. Looks
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
+3. Escalation
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 
 ---
@@ -184,23 +175,17 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 <!-- _class: list-tabular compact -->
 <!-- _footer: "Composition: compact · list-tabular compact" -->
 
-## The five workstreams carrying the transformation.
+## The tabular list rules rows into a register.
 
-1. Framework
-   - The scoring model, the signal taxonomy, and the weights nobody quite agrees on.
-   - _Two analysts · ships Q3_
-2. Adoption
-   - Onboarding every team to the weekly ritual and the decision log.
-   - _One enablement lead · ships Q3_
-3. Governance
-   - The operating rhythm, the review cadence, and the escalation path.
-   - _One chief of staff · ships Q4_
-4. Tooling
-   - The intake form, the dashboards, and the exports for the board.
-   - _One PM · ships Q4_
-5. Change
-   - Comms, exec sponsorship, and the people who preferred the old way.
-   - _One comms partner · ships Q4_
+1. Rows
+   - Label, clause, optional meta line.
+   - _Twelve soft · sixteen hard_
+2. Looks
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
+3. Escalation
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 
 ---
@@ -208,23 +193,17 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 <!-- _class: list-tabular accent -->
 <!-- _footer: "Composition: accent · list-tabular accent" -->
 
-## The five workstreams carrying the transformation.
+## The tabular list rules rows into a register.
 
-1. Framework
-   - The scoring model, the signal taxonomy, and the weights nobody quite agrees on.
-   - _Two analysts · ships Q3_
-2. Adoption
-   - Onboarding every team to the weekly ritual and the decision log.
-   - _One enablement lead · ships Q3_
-3. Governance
-   - The operating rhythm, the review cadence, and the escalation path.
-   - _One chief of staff · ships Q4_
-4. Tooling
-   - The intake form, the dashboards, and the exports for the board.
-   - _One PM · ships Q4_
-5. Change
-   - Comms, exec sponsorship, and the people who preferred the old way.
-   - _One comms partner · ships Q4_
+1. Rows
+   - Label, clause, optional meta line.
+   - _Twelve soft · sixteen hard_
+2. Looks
+   - Eight named looks reskin the rows.
+   - _def · spec · register_
+3. Escalation
+   - Long content leaves for a table.
+   - _split past eight rows_
 
 
 ---

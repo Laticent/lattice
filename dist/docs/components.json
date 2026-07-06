@@ -1634,13 +1634,11 @@
         "qr"
       ],
       "effectiveVariants": [
-        "accent",
         "archived",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -2379,7 +2377,6 @@
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -2448,7 +2445,7 @@
         },
         {
           "title": "Don't bold the field values",
-          "body": "The value leads and the key is a trailing inline-code tag — `- Sharmarke Aden `name``. Don't write `- **Name:** Sharmarke Aden`; the transform reads the postfix key, not a bold label."
+          "body": "The value leads and the key trails as a small tag — name last, never first. Writing the key first, bolded, breaks the transform's postfix read."
         }
       ],
       "related": [
@@ -2930,13 +2927,11 @@
         "qr"
       ],
       "effectiveVariants": [
-        "accent",
         "archived",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -5148,7 +5143,7 @@
         },
         {
           "title": "Mismatched raster art",
-          "body": "The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; colour is supplied by the palette token, not the file."
+          "body": "The mark is rendered as a silhouette (a CSS mask / inline SVG), so it must be clean vector with real transparency — a raster PNG or a logo whose negative space is a white fill won't read. Source SVG marks drawn as filled shapes; color is supplied by the palette token, not the file."
         }
       ],
       "related": [
@@ -8478,13 +8473,11 @@
       "purpose": "First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).",
       "variants": [],
       "effectiveVariants": [
-        "accent",
         "archived",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -8941,7 +8934,6 @@
         "claim-framed",
         "claim-hero",
         "claim-quiet",
-        "compact",
         "confidential",
         "dark",
         "draft",
@@ -9015,7 +9007,7 @@
         },
         {
           "title": "Don't bold the field values",
-          "body": "The value leads and the key is a trailing inline-code tag — `- Offsite-Guest `ssid``. Don't write `- **SSID:** Offsite-Guest`; the transform reads the postfix key, not a bold label."
+          "body": "The value leads and the key trails as a small tag — ssid last, never first. Writing the key first, bolded, breaks the transform's postfix read."
         }
       ],
       "related": [

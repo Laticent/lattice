@@ -18,61 +18,62 @@ Parallel items stacked vertically, full-width cards.
 <!-- _class: cards-stack -->
 <!-- _footer: "Default · cards-stack" -->
 
-## Three forces are compressing the differentiation window.
+## The stack ranks three cards top to bottom.
 
-- Infrastructure has commoditized.
-  - The platform work that took us two years is now a managed service a competitor can switch on in an afternoon. The moat is no longer the stack.
-- Release cycles have collapsed.
-  - What used to ship annually now ships monthly. A visible advantage is matched before the next board meeting.
-- Switching costs are rising.
-  - Customers consolidate vendors and sign longer contracts. The window to win an account is shorter, and losing one lasts longer.
+- Order is the argument.
+  - The stack reads as priority; the top card wins.
+- Three is the sweet spot.
+  - Bodies run a short paragraph at most.
+- Sixteen words per card.
+  - The budget that keeps rows breathing.
 
 
 ---
 
 <!-- _class: cards-stack horizontal -->
-<!-- _footer: "Horizontal cards · cards-stack horizontal" -->
+<!-- _footer: "Horizontal cards · cards-stack horizontal — The stack pivots sideways." -->
 
-## Three patterns, each with its own pull.
+## horizontal lays the stack on its side.
 
-- Inventory.
-  - Equal-weight items the audience scans without ordering. The cards-grid family lives here — grid, stack, wide, side.
-- Comparison.
-  - Two or more items weighed against shared criteria. The verdict and compare families live here — they take sides.
-- Progression.
-  - Items that carry an explicit sequence. The list-steps and timeline families live here — order is load-bearing.
+- Rows become columns.
+  - The ranking now reads left to right.
+- Same card anatomy.
+  - Title, body, optional status pill.
+- Use for timelines.
+  - Sequence feels natural sideways.
 
 
 ---
 
 <!-- _class: cards-stack -->
-<!-- _footer: "Numbered stack · cards-stack numbered" -->
+<!-- _footer: "Numbered stack · cards-stack numbered — Corner numbers make rank explicit." -->
 
-## Three reasons to keep cards-stack at three items.
+## An ordered list makes the ranking explicit.
 
-1. Cognitive load
-   - Three is the threshold the audience can hold without effort. Past three, the slide demands working memory the room shouldn't have to spend.
-2. Vertical real estate
-   - Each stacked card needs ~30% of the slide height to breathe. Four cards force you to shrink the cards until they stop reading as cards.
-3. Build path symmetry
-   - cards-stack pairs with cards-grid (3-4 items) for at-a-glance comparison. One stack layout, not two, keeps the family's choices clean.
+1. Numbers stamp the rank
+   - The stack's order stops being implicit.
+2. Three still rules
+   - Numbering does not raise the ceiling.
+3. Parallel or nothing
+   - Ranked cards must match shapes.
 
 
 ---
 
 <!-- _class: cards-stack compact -->
-<!-- _footer: "Stress test · cards-stack" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · cards-stack — Four rows with pills — the limit." -->
 
-## Four workstreams, each with a current status pill.
+## Four rows with pills is the stack's ceiling.
 
-- Signal intake `shipped`
-  - Connector v1 and multi-source dedupe are live across all three regions. Anomaly auto-routing lands next sprint.
-- Scoring model `in review`
-  - The equal-weights baseline is calibrated; per-team weighting is in security review before the pilot opens.
-- Retrospective loop `at risk`
-  - Outcome classification is still too coarse to score reliably. The owner is reworking the rubric this week.
-- Rollout `not started`
-  - Gated on the scoring model clearing review, then sequenced for the following quarter.
+- Row one `shipped`
+  - A body at the hard budget holds two sentences; the pill carries the status so the prose does not have to.
+- Row two `on track`
+  - compact is doing quiet work here — without it, four bodies this size would crowd the footer before the last row lands.
+- Row three `at risk`
+  - Keep the densest row third; the eye expects trouble near the bottom and reads it with full attention.
+- Row four `blocked`
+  - The hard stop. A fifth row overflows; split the stack or drop to list-tabular.
 
 
 ---
@@ -80,14 +81,14 @@ Parallel items stacked vertically, full-width cards.
 <!-- _class: cards-stack dark -->
 <!-- _footer: "Composition: dark · cards-stack dark" -->
 
-## Three forces are compressing the differentiation window.
+## The stack ranks three cards top to bottom.
 
-- Infrastructure has commoditized.
-  - The platform work that took us two years is now a managed service a competitor can switch on in an afternoon. The moat is no longer the stack.
-- Release cycles have collapsed.
-  - What used to ship annually now ships monthly. A visible advantage is matched before the next board meeting.
-- Switching costs are rising.
-  - Customers consolidate vendors and sign longer contracts. The window to win an account is shorter, and losing one lasts longer.
+- Order is the argument.
+  - The stack reads as priority; the top card wins.
+- Three is the sweet spot.
+  - Bodies run a short paragraph at most.
+- Sixteen words per card.
+  - The budget that keeps rows breathing.
 
 
 ---
@@ -95,14 +96,14 @@ Parallel items stacked vertically, full-width cards.
 <!-- _class: cards-stack compact -->
 <!-- _footer: "Composition: compact · cards-stack compact" -->
 
-## Three forces are compressing the differentiation window.
+## The stack ranks three cards top to bottom.
 
-- Infrastructure has commoditized.
-  - The platform work that took us two years is now a managed service a competitor can switch on in an afternoon. The moat is no longer the stack.
-- Release cycles have collapsed.
-  - What used to ship annually now ships monthly. A visible advantage is matched before the next board meeting.
-- Switching costs are rising.
-  - Customers consolidate vendors and sign longer contracts. The window to win an account is shorter, and losing one lasts longer.
+- Order is the argument.
+  - The stack reads as priority; the top card wins.
+- Three is the sweet spot.
+  - Bodies run a short paragraph at most.
+- Sixteen words per card.
+  - The budget that keeps rows breathing.
 
 
 ---
@@ -110,14 +111,14 @@ Parallel items stacked vertically, full-width cards.
 <!-- _class: cards-stack accent -->
 <!-- _footer: "Composition: accent · cards-stack accent" -->
 
-## Three forces are compressing the differentiation window.
+## The stack ranks three cards top to bottom.
 
-- Infrastructure has commoditized.
-  - The platform work that took us two years is now a managed service a competitor can switch on in an afternoon. The moat is no longer the stack.
-- Release cycles have collapsed.
-  - What used to ship annually now ships monthly. A visible advantage is matched before the next board meeting.
-- Switching costs are rising.
-  - Customers consolidate vendors and sign longer contracts. The window to win an account is shorter, and losing one lasts longer.
+- Order is the argument.
+  - The stack reads as priority; the top card wins.
+- Three is the sweet spot.
+  - Bodies run a short paragraph at most.
+- Sixteen words per card.
+  - The budget that keeps rows breathing.
 
 
 ---

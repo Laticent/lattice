@@ -18,35 +18,11 @@ Opening slide. Dark canvas, centered, no chrome.
 <!-- _class: title silent -->
 <!-- _footer: "Default · title" -->
 
-# From Signal to Strategy
+# The title slide opens on the dark canvas.
 
-`Product Strategy · Q3 2025`
+`anchor · title · the deck's first breath`
 
-A decision framework for product leaders navigating market uncertainty.
-
-
----
-
-<!-- _class: title silent compact -->
-<!-- _footer: "Composition: compact · title compact" -->
-
-# From Signal to Strategy
-
-`Product Strategy · Q3 2025`
-
-A decision framework for product leaders navigating market uncertainty.
-
-
----
-
-<!-- _class: title silent accent -->
-<!-- _footer: "Composition: accent · title accent" -->
-
-# From Signal to Strategy
-
-`Product Strategy · Q3 2025`
-
-A decision framework for product leaders navigating market uncertainty.
+One heading, an eyebrow, one line of context — centered, chrome-free, quickly gone.
 
 
 ---

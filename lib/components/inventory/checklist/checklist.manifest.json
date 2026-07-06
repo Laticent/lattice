@@ -1,15 +1,48 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "checklist",
-  "adapt": { "mode": "native", "priority": ["title", "items"], "keepTogether": ["item"] },
-  "focusAxes": ["item"],
-  "capacity": { "axis": "item", "min": 4, "sweet": 6, "soft": 8, "hard": 9, "escalateTo": ["split across slides"], "note": "past eight items the checklist overflows" },
-  "density": { "axis": "item", "soft": 10, "hard": 16, "note": "a short readiness line" },
-  "families": ["state-markers"],
+  "adapt": {
+    "mode": "native",
+    "priority": [
+      "title",
+      "items"
+    ],
+    "keepTogether": [
+      "item"
+    ]
+  },
+  "focusAxes": [
+    "item"
+  ],
+  "capacity": {
+    "axis": "item",
+    "min": 4,
+    "sweet": 6,
+    "soft": 8,
+    "hard": 9,
+    "escalateTo": [
+      "split across slides"
+    ],
+    "note": "past eight items the checklist overflows"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 10,
+    "hard": 16,
+    "note": "a short readiness line"
+  },
+  "families": [
+    "state-markers"
+  ],
   "function": "inventory",
   "form": "stack",
   "substance": "structure",
-  "tags": ["status", "stoplight", "process", "requirements"],
+  "tags": [
+    "status",
+    "stoplight",
+    "process",
+    "requirements"
+  ],
   "description": "Items with state markers — done, partial, todo.",
   "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (colour-blind-safe).",
   "slots": {
@@ -26,7 +59,11 @@
   },
   "skeleton": "<!-- _class: checklist -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [ ] Fourth item that is not yet started.\n",
   "anatomyBlock": "checklist",
-  "sample": "<!-- _class: checklist -->\n\n## Go-live readiness for the framework rollout.\n\n- [x] Signal taxonomy ratified, in workshop four of three\n- [x] Scoring weights agreed by the steering committee\n- [x] Decision log live in staging\n- [-] Pilot teams trained, two still \"circling back\"\n- [-] Operating rhythm on the calendar, attendance optional in practice\n- [ ] Exec sponsor confirmed for the launch comms\n- [/] Per-team weighting UI, descoped to next half\n",
+  "sample": "<!-- _class: checklist -->\n\n## The checklist tracks readiness in four states.\n\n- [x] Done rows take a solid check\n- [x] Keep each line under ten words\n- [-] Half-done rows show the dash\n- [ ] Open rows stay empty boxes\n- [/] Descoped rows get the slash\n- [ ] Eight rows is the soft ceiling\n",
+  "stressDoc": {
+    "caption": "Nine rows, all four states — the ceiling.",
+    "sample": "<!-- _class: checklist -->\n\n## Nine rows is where the checklist overflows.\n\n- [x] The first rows land while attention is fresh\n- [x] Sixteen words is the budget a stress row may spend\n- [x] Three checks in a row read as momentum\n- [-] A dash admits the honest middle state\n- [-] Two dashes together flag where the risk lives\n- [ ] Open boxes pull the eye forward\n- [ ] Late rows stay short; the audience is counting now\n- [/] The slash records what was cut, visibly\n- [x] Nine is the last row this layout seats\n"
+  },
   "whenToUse": [
     {
       "title": "Completion reports",
@@ -60,7 +97,6 @@
       "name": "list",
       "when": "items have no state — just bullets"
     },
-    
     {
       "name": "list-tabular",
       "when": "rows need a label-plus-description structure, not state"
@@ -70,5 +106,8 @@
       "when": "each item needs two sentences of body"
     }
   ],
-  "showcase": { "featured": true }
+  "showcase": {
+    "featured": true
+  },
+  "specimenVoice": true
 }

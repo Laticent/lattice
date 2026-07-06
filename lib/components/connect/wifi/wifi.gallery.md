@@ -18,14 +18,14 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 <!-- _class: wifi -->
 <!-- _footer: "Default · wifi" -->
 
-`Room Wi-Fi`
+`connect · wifi`
 
-## Join the room.
+## The credentials you can read, the QR joins for you.
 
-- Offsite-Guest `ssid`
-- boardroom2026 `password`
+- Lattice-Demo `ssid`
+- specimen2026 `password`
 - WPA2 `security`
-- Scan to connect `caption`
+- One scan connects the room `caption`
 
 
 ---
@@ -33,29 +33,14 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 <!-- _class: wifi dark -->
 <!-- _footer: "Composition: dark · wifi dark" -->
 
-`Room Wi-Fi`
+`connect · wifi`
 
-## Join the room.
+## The credentials you can read, the QR joins for you.
 
-- Offsite-Guest `ssid`
-- boardroom2026 `password`
+- Lattice-Demo `ssid`
+- specimen2026 `password`
 - WPA2 `security`
-- Scan to connect `caption`
-
-
----
-
-<!-- _class: wifi compact -->
-<!-- _footer: "Composition: compact · wifi compact" -->
-
-`Room Wi-Fi`
-
-## Join the room.
-
-- Offsite-Guest `ssid`
-- boardroom2026 `password`
-- WPA2 `security`
-- Scan to connect `caption`
+- One scan connects the room `caption`
 
 
 ---
@@ -63,14 +48,14 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 <!-- _class: wifi accent -->
 <!-- _footer: "Composition: accent · wifi accent" -->
 
-`Room Wi-Fi`
+`connect · wifi`
 
-## Join the room.
+## The credentials you can read, the QR joins for you.
 
-- Offsite-Guest `ssid`
-- boardroom2026 `password`
+- Lattice-Demo `ssid`
+- specimen2026 `password`
 - WPA2 `security`
-- Scan to connect `caption`
+- One scan connects the room `caption`
 
 
 ---
@@ -81,7 +66,7 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 ## When NOT to reach for wifi.
 
 - **Not for secrets that outlive the room.** A rendered deck is persistent and shareable. Use it for guest/offsite networks, not for credentials that must not leak.
-- **Don't bold the field values.** The value leads and the key is a trailing inline-code tag — `- Offsite-Guest `ssid``. Don't write `- **SSID:** Offsite-Guest`; the transform reads the postfix key, not a bold label.
+- **Don't bold the field values.** The value leads and the key trails as a small tag — ssid last, never first. Writing the key first, bolded, breaks the transform's postfix read.
 
 ---
 

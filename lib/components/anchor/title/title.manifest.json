@@ -1,11 +1,23 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "title",
-  "adapt": { "mode": "native", "priority": ["heading", "subtitle", "eyebrow"] },
+  "adapt": {
+    "mode": "native",
+    "priority": [
+      "heading",
+      "subtitle",
+      "eyebrow"
+    ]
+  },
   "function": "anchor",
   "form": "bookend",
   "substance": "prose",
-  "tags": ["pitch", "board-deck", "showcase", "kickoff"],
+  "tags": [
+    "pitch",
+    "board-deck",
+    "showcase",
+    "kickoff"
+  ],
   "description": "Opening slide. Dark canvas, centered, no chrome.",
   "purpose": "First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).",
   "slots": {
@@ -27,7 +39,7 @@
   },
   "skeleton": "<!-- _class: title -->\n<!-- _paginate: false -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n# Deck title goes here\n\n`Category · Date or audience`\n\nOne-line subtitle that frames the deck.\n",
   "anatomyBlock": "T1-title-bookend",
-  "sample": "<!-- _class: title silent -->\n\n# From Signal to Strategy\n\n`Product Strategy · Q3 2025`\n\nA decision framework for product leaders navigating market uncertainty.\n",
+  "sample": "<!-- _class: title silent -->\n\n# The title slide opens on the dark canvas.\n\n`anchor · title · the deck's first breath`\n\nOne heading, an eyebrow, one line of context — centered, chrome-free, quickly gone.\n",
   "whenToUse": [
     {
       "title": "First slide of every deck",
@@ -57,7 +69,18 @@
     }
   ],
   "related": [
-    { "name": "divider", "when": "mid-deck section breaks — same dark-bookend chrome" },
-    { "name": "closing", "when": "the final slide — closes the bookend pair" }
+    {
+      "name": "divider",
+      "when": "mid-deck section breaks — same dark-bookend chrome"
+    },
+    {
+      "name": "closing",
+      "when": "the final slide — closes the bookend pair"
+    }
+  ],
+  "specimenVoice": true,
+  "excludes": [
+    "accent",
+    "compact"
   ]
 }

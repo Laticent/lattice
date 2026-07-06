@@ -67,87 +67,87 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 ## Variants (component-specific)
 
-### `spine` — Spine — sequential walkthrough
+### `spine` — spine
 
-Threads the questions down a vertical spine with accent nodes, for when you want to walk the room through the objections in order. Drops the index for a narrative, one-after-another read.
+Pairs threaded down an accent spine.
 
 ```markdown
 <!-- _class: q-and-a spine -->
 
-## What the board will press on.
+## spine threads the pairs down an accent spine.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 ```
 
-### `rail` — Rail — question / answer columns
+### `rail` — rail
 
-Sets each pair as a numbered exhibit row — question and answer in parallel columns, separated by a hairline. Scannable when the answers are short and you want them lined up for comparison.
+Numbered exhibit rows in columns.
 
 ```markdown
 <!-- _class: q-and-a rail -->
 
-## What the board will press on.
+## rail hangs the questions on a left rail.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 ```
 
-### `tab` — Tab — underlined prompts
+### `tab` — tab
 
-The most editorial, minimal look: a short accent underline sits tight beneath each question, then the answer drops below it. Generous whitespace, no enumeration — best for three or four pairs.
+Underlined prompts; answers hang below.
 
 ```markdown
 <!-- _class: q-and-a tab -->
 
-## What the board will press on.
+## tab folds each answer under a question tab.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 ```
 
-### `grid` — Grid — two-up density
+### `grid` — grid
 
-Packs four pairs into a 2×2 grid split by a gradient hairline cross — the density treatment for when you have more pairs than the stack holds comfortably. Each header reserves two lines so questions and answers align across a row.
+Four pairs in a two-by-two.
 
 ```markdown
 <!-- _class: q-and-a grid -->
 
-## What the board will press on.
+## grid deals the pairs into two columns.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028; after renewal it costs three quarters.
-- What happens to the team mid-migration?
-  - No headcount change. Four engineers run both stacks through the eight-week overlap.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential.
-- What is the rollback plan?
-  - A one-command revert to the pinned release, rehearsed weekly in staging.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
+- Why four pairs here?
+  - Grids want even counts.
 ```
 
-### `solo` — Solo — one question, one answer
+### `solo` — solo
 
-Gives a single question and its answer the whole slide, at display weight — for the one objection you know is coming and want to meet head-on. The question runs large as a prompt; the prepared answer sits below it in message type.
+One pair, the whole slide.
 
 ```markdown
 <!-- _class: q-and-a solo -->
 
-## The one question we know is coming.
+## solo gives one question the whole slide.
 
-- If the pilot fails, what have we actually lost?
-  - One quarter and $180K, fully recoverable. The contract caps exposure at the pilot scope, with no auto-renewal and a thirty-day exit. The downside is bounded; the upside is the whole thesis.
+- What does solo change?
+  - One pair, full canvas.
 ```
 
 ## Universal modifiers

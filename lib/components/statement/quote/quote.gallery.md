@@ -18,9 +18,20 @@ A pulled quotation, centered, with attribution.
 <!-- _class: quote -->
 <!-- _footer: "Default · quote" -->
 
-> The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
+> A quotation earns the whole slide, or it does not belong on one.
 
-— Head of Product, Pilot Team 3
+— the quote layout, stating its own rule
+
+
+---
+
+<!-- _class: quote -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · quote — Forty words; the type steps down once." -->
+
+> This is the longest quotation the layout will treat kindly: about forty words, three lines at the reduced scale, enough for one complete thought with a turn in the middle — and not one clause more than a listener can hold.
+
+— quote · stress, at the forty-word ceiling
 
 
 ---
@@ -28,9 +39,9 @@ A pulled quotation, centered, with attribution.
 <!-- _class: quote dark -->
 <!-- _footer: "Composition: dark · quote dark" -->
 
-> The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
+> A quotation earns the whole slide, or it does not belong on one.
 
-— Head of Product, Pilot Team 3
+— the quote layout, stating its own rule
 
 
 ---
@@ -38,9 +49,9 @@ A pulled quotation, centered, with attribution.
 <!-- _class: quote compact -->
 <!-- _footer: "Composition: compact · quote compact" -->
 
-> The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
+> A quotation earns the whole slide, or it does not belong on one.
 
-— Head of Product, Pilot Team 3
+— the quote layout, stating its own rule
 
 
 ---
@@ -48,9 +59,9 @@ A pulled quotation, centered, with attribution.
 <!-- _class: quote accent -->
 <!-- _footer: "Composition: accent · quote accent" -->
 
-> The signal was always there. We just didn't have a system that forced us to look at it before we'd already decided.
+> A quotation earns the whole slide, or it does not belong on one.
 
-— Head of Product, Pilot Team 3
+— the quote layout, stating its own rule
 
 
 ---

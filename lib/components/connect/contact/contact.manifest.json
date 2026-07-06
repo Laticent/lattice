@@ -37,7 +37,7 @@
     }
   },
   "skeleton": "<!-- _class: contact -->\n\n## Add me.\n\n- Full Name `name`\n- Title `title`\n- Organization `org`\n- name@example.com `email`\n- Scan to add me `caption`\n",
-  "sample": "<!-- _class: contact -->\n\n## Add me.\n\n- Sharmarke Aden `name`\n- Founder & CEO `title`\n- SlideWright `org`\n- sharmarke@slidewright.dev `email`\n- +1-555-0142 `phone`\n- slidewright.dev `url`\n- Scan to add me `caption`\n",
+  "sample": "<!-- _class: contact -->\n\n- Ada Slide `name`\n- One scan saves the speaker `title`\n- SlideWright `org`\n- hello@slidewright.dev `email`\n- +1-555-0142 `phone`\n- slidewright.dev `url`\n- The QR encodes this card as a vCard `caption`\n",
   "whenToUse": [
     {
       "title": "The scan-to-add-me close",
@@ -55,7 +55,7 @@
     },
     {
       "title": "Don't bold the field values",
-      "body": "The value leads and the key is a trailing inline-code tag — `- Sharmarke Aden `name``. Don't write `- **Name:** Sharmarke Aden`; the transform reads the postfix key, not a bold label."
+      "body": "The value leads and the key trails as a small tag — name last, never first. Writing the key first, bolded, breaks the transform's postfix read."
     }
   ],
   "related": [
@@ -63,5 +63,9 @@
       "name": "wifi",
       "when": "the card is a network to join rather than a person"
     }
+  ],
+  "specimenVoice": true,
+  "excludes": [
+    "compact"
   ]
 }

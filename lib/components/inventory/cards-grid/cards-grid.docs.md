@@ -75,55 +75,55 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 
 ### `four` — Four columns
 
-Four equal columns instead of two. Pair with `compact` so the cards retain breathing room.
+Four columns; pair with compact.
 
 ```markdown
 <!-- _class: cards-grid four compact -->
 
-## Four phases, four owners.
+## four locks a two-by-two, compact tightens it.
 
-- Intake.
-  - PM. Collect raw signals.
-- Score.
-  - Analyst. Apply weights.
-- Decide.
-  - Lead. Pick the call.
-- Calibrate.
-  - Team. Compare to actuals.
+- Quadrant read.
+  - Four cells scan as a loop.
+- Compact pairing.
+  - Padding shrinks so labels stay whole.
+- Named corners.
+  - Position carries meaning; place cards deliberately.
+- Still four.
+  - The ceiling does not move.
 ```
 
 ### `three` — Three columns
 
-Three equal columns instead of the default two. The 2+1 last-child span rule is reset to `auto`.
+Three equal columns.
 
 ```markdown
 <!-- _class: cards-grid three -->
 
-## The framework has three components.
+## three widens the grid to three columns.
 
-- Signal Intake.
-  - Weekly structured collection across customer conversations, market data, and competitive moves. Normalized into a common schema.
-- Scoring Model.
-  - Each signal scored on three dimensions — confidence, recency, strategic relevance. Weights are reviewed quarterly.
-- Decision Log.
-  - Every decision recorded with the signals that informed it, the options considered, and the criteria applied.
+- Wider cards.
+  - Each card earns a third of the row.
+- Same budget.
+  - Bodies stay one clause, titles stay parallel.
+- Sweet spot.
+  - Three peers is the count this grid loves.
 ```
 
 ### `numbered` — Numbered cards
 
-Authored as `ol` (`1.` source), the grid stamps a flush top-left accent corner tag on each card. Sublist must be indented 3 spaces to clear the `1. ` prefix.
+Ordered source stamps corner tags.
 
 ```markdown
 <!-- _class: cards-grid -->
 
-## Signal Intake produces three outputs.
+## An ordered list numbers the cards.
 
-1. Weekly Signal Brief
-   - A ranked list of the top 10 signals from the prior week, with confidence scores and source attribution. Distributed to product leads every Monday.
-2. Anomaly Alerts
-   - Real-time flags when a signal exceeds the 2σ threshold on any dimension. Routed to the accountable PM with a 4-hour response SLA.
-3. Monthly Signal Index
-   - The source of truth for the calibration loop. Required reading before each retrospective.
+1. Numbers appear
+   - Markdown's ordered list turns cards into steps.
+2. Sequence reads
+   - The grid now implies order, so mean it.
+3. Budget holds
+   - Same one-clause bodies as the unnumbered grid.
 ```
 
 ## Universal modifiers

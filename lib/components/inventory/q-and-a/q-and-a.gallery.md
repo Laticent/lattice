@@ -18,108 +18,111 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 <!-- _class: q-and-a -->
 <!-- _footer: "Default · q-and-a" -->
 
-## What the board will press on.
+## The Q&A pairs questions with short answers.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
+- What if answers run long?
+  - Use solo, one per slide.
 
 
 ---
 
 <!-- _class: q-and-a spine -->
-<!-- _footer: "Spine — sequential walkthrough · q-and-a spine" -->
+<!-- _footer: "spine · q-and-a spine — Pairs threaded down an accent spine." -->
 
-## What the board will press on.
+## spine threads the pairs down an accent spine.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 
 
 ---
 
 <!-- _class: q-and-a rail -->
-<!-- _footer: "Rail — question / answer columns · q-and-a rail" -->
+<!-- _footer: "rail · q-and-a rail — Numbered exhibit rows in columns." -->
 
-## What the board will press on.
+## rail hangs the questions on a left rail.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 
 
 ---
 
 <!-- _class: q-and-a tab -->
-<!-- _footer: "Tab — underlined prompts · q-and-a tab" -->
+<!-- _footer: "tab · q-and-a tab — Underlined prompts; answers hang below." -->
 
-## What the board will press on.
+## tab folds each answer under a question tab.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
 
 
 ---
 
 <!-- _class: q-and-a grid -->
-<!-- _footer: "Grid — two-up density · q-and-a grid" -->
+<!-- _footer: "grid · q-and-a grid — Four pairs in a two-by-two." -->
 
-## What the board will press on.
+## grid deals the pairs into two columns.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028; after renewal it costs three quarters.
-- What happens to the team mid-migration?
-  - No headcount change. Four engineers run both stacks through the eight-week overlap.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential.
-- What is the rollback plan?
-  - A one-command revert to the pinned release, rehearsed weekly in staging.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
+- Why four pairs here?
+  - Grids want even counts.
 
 
 ---
 
 <!-- _class: q-and-a solo -->
-<!-- _footer: "Solo — one question, one answer · q-and-a solo" -->
+<!-- _footer: "solo · q-and-a solo — One pair, the whole slide." -->
 
-## The one question we know is coming.
+## solo gives one question the whole slide.
 
-- If the pilot fails, what have we actually lost?
-  - One quarter and $180K, fully recoverable. The contract caps exposure at the pilot scope, with no auto-renewal and a thirty-day exit. The downside is bounded; the upside is the whole thesis.
+- What does solo change?
+  - One pair, full canvas.
 
 
 ---
 
 <!-- _class: q-and-a compact -->
-<!-- _footer: "Stress test · q-and-a" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · q-and-a — Six pairs — the hard ceiling." -->
 
-`Anticipated questions`
+## Six pairs is the most one slide answers.
 
-## Five we expect, numbered and tightened.
-
-1. Why now rather than next fiscal year?
-   1. The incentive credits expire in December; waiting forfeits $400K.
-2. What is the rollback plan?
-   1. A one-command revert to the pinned release, rehearsed weekly in staging.
-3. Who signs off on go-live?
-   1. The change-advisory board, the Thursday before each wave.
-4. How does this affect the SLA?
-   1. The 99.9% target holds — the migration runs behind a feature flag.
-5. What if adoption stalls?
-   1. Usage is opt-in for thirty days with a fallback, so a stall costs time, not money.
+- Why six pairs and not seven?
+  - The column overflows a portrait box.
+- Do answers shrink at the ceiling?
+  - To one breath each.
+- Where does the eye tire?
+  - Pair four; park risk there.
+- Can compact buy a seventh?
+  - No — six is structural.
+- What about longer answers?
+  - Fewer pairs, or solo.
+- And past six?
+  - Autosplit divides the slide.
 
 
 ---
@@ -127,14 +130,16 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 <!-- _class: q-and-a dark -->
 <!-- _footer: "Composition: dark · q-and-a dark" -->
 
-## What the board will press on.
+## The Q&A pairs questions with short answers.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
+- What if answers run long?
+  - Use solo, one per slide.
 
 
 ---
@@ -142,14 +147,16 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 <!-- _class: q-and-a compact -->
 <!-- _footer: "Composition: compact · q-and-a compact" -->
 
-## What the board will press on.
+## The Q&A pairs questions with short answers.
 
-- Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter of migration; switching after renewal costs three.
-- What happens to the team mid-migration?
-  - No headcount change. The same four engineers run both stacks through the eight-week overlap, then the legacy stack is decommissioned.
-- How confident are we in the savings?
-  - The $1.2M is contracted, not projected — the signed rate differential, before any usage growth.
+- How long may a question run?
+  - One line.
+- And the answer?
+  - Four words or so.
+- How many pairs fit?
+  - Five; six is the ceiling.
+- What if answers run long?
+  - Use solo, one per slide.
 
 
 ---

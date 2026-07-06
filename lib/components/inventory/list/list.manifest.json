@@ -7,7 +7,12 @@
   "function": "inventory",
   "form": "stack",
   "substance": "prose",
-  "density": { "axis": "item", "soft": 14, "hard": 20, "note": "one statement per line, not a paragraph" },
+  "density": {
+    "axis": "item",
+    "soft": 14,
+    "hard": 20,
+    "note": "one statement per line, not a paragraph"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -74,7 +79,11 @@
   },
   "skeleton": "<!-- _class: list -->\n\n## Slide heading.\n\n- First short bullet point.\n- Second short bullet point.\n- Third short bullet point.\n- Fourth short bullet point.\n- Fifth short bullet point.\n",
   "anatomyBlock": "list",
-  "sample": "<!-- _class: list -->\n\n## What the first six months of pilots taught us.\n\n- Teams log roughly one decision for every twenty they actually make.\n- The scoring weights get re-tuned after almost every retrospective.\n- Predicted outcomes are the field most often left blank.\n- Alignment scores rose fastest on the teams that reviewed the log weekly.\n- No pilot team has asked to go back to the old process.\n",
+  "sample": "<!-- _class: list -->\n\n## The list states one point per line.\n\n- A line is a complete statement, not a fragment.\n- Fourteen words is the budget a line may spend.\n- Six lines fill the canvas comfortably.\n- Parallel openings keep the scan honest.\n- Nesting belongs to card layouts, not here.\n",
+  "stressDoc": {
+    "caption": "Eight lines at the hard ceiling.",
+    "sample": "<!-- _class: list -->\n\n## Eight lines is the most a list should carry.\n\n- A stress line may spend twenty words, and this one spends them to show where the wrap lands.\n- Even at the ceiling every line stays one complete statement with a single clause of support.\n- The third line is where a reading audience starts skimming instead.\n- Vary sentence length or eight dense lines blur into one.\n- The fifth line should carry something worth the fatigue.\n- Numbers and names hold attention better than abstractions here.\n- The seventh line is the last one anyone quotes.\n- Eight is the stop; nine becomes a memo.\n"
+  },
   "whenToUse": [
     {
       "title": "Genuinely a list",
@@ -127,34 +136,35 @@
   ],
   "variantDocs": {
     "takeaway": {
-      "label": "Takeaway — hairline single-line points",
-      "caption": "Renders each item as a hairline-ruled single line at message weight. Use at the end of a section or deck to restate the headline points, one complete claim per line. Was the standalone `tldr` component before 2026-06-07.",
-      "sample": "<!-- _class: list takeaway -->\n\n## What this review showed, in five lines.\n\n- Q2 revenue missed plan by 9%, and three structural factors explain almost all of it.\n- The shortfall is in enterprise renewals, not new logos.\n- Every one of the three causes is fixable before the Q4 close.\n- The Q3 plan moves two engineers and one rep onto the gaps.\n- We are not asking for more headcount — only to move what we have.\n"
+      "label": "takeaway",
+      "caption": "Ruled single lines for conclusions.",
+      "sample": "<!-- _class: list takeaway -->\n\n## takeaway boxes the list as findings.\n\n- The box frames the lines as conclusions.\n- Lead with the strongest finding.\n- Five lines read as a verdict.\n- Longer sets go back to plain list.\n"
     },
     "principles": {
-      "label": "Principles — display-weight declarations",
-      "caption": "Renders an ordered list of single-sentence declarations at display weight with a large accent counter. For design tenets, working agreements, or decision rules. Was the standalone `principles` component before 2026-06-07.",
-      "sample": "<!-- _class: list principles -->\n\n## How we make calls when the spec is silent.\n\n1. Default to the choice that is cheaper to reverse.\n2. Name the actor, never the system.\n3. Write the bet on the same slide as the choice.\n4. Disagree in the room, then commit outside it.\n5. Optimise for the reader who wasn't there.\n"
+      "label": "principles",
+      "caption": "Numbered declarations at display weight.",
+      "sample": "<!-- _class: list principles -->\n\n## principles numbers the house rules.\n\n1. State each rule as an imperative.\n2. Keep rules under ten words.\n3. Order them by how often they apply.\n4. Retire a rule you keep breaking.\n"
     },
     "numbered": {
-      "label": "Numbered — accent counter on takeaways",
-      "caption": "Adds a large accent counter (01, 02, …) to the `takeaway` variant.",
-      "sample": "<!-- _class: list takeaway numbered -->\n\n## What this review showed, in five lines.\n\n- Q2 revenue missed plan by 9%, and three structural factors explain it.\n- The shortfall is in enterprise renewals, not new logos.\n- Every one of the three causes is fixable before the Q4 close.\n"
+      "label": "numbered",
+      "caption": "Accent counters on the takeaway box.",
+      "sample": "<!-- _class: list takeaway numbered -->\n\n## numbered ranks the boxed findings.\n\n- Ranks turn findings into priorities.\n- The top line owns the meeting.\n- Three ranked lines beat six flat ones.\n"
     },
     "lettered": {
-      "label": "Lettered — A, B, C counter on principles",
-      "caption": "Switches the `principles` counter to upper-alpha.",
-      "sample": "<!-- _class: list principles lettered -->\n\n## Working agreements.\n\n1. Default to the choice that is cheaper to reverse.\n2. Name the actor, never the system.\n3. Write the bet on the same slide as the choice.\n"
+      "label": "lettered",
+      "caption": "Letters replace the counters.",
+      "sample": "<!-- _class: list principles lettered -->\n\n## lettered counts the rules with letters.\n\n1. Letters read as options, not sequence.\n2. Use them when order is arbitrary.\n3. Three options is a decision; six is a menu.\n"
     },
     "roman": {
-      "label": "Roman — I, II, III counter on principles",
-      "caption": "Switches the `principles` counter to upper-roman.",
-      "sample": "<!-- _class: list principles roman -->\n\n## Working agreements.\n\n1. Default to the choice that is cheaper to reverse.\n2. Name the actor, never the system.\n3. Write the bet on the same slide as the choice.\n"
+      "label": "roman",
+      "caption": "Roman numerals replace counters.",
+      "sample": "<!-- _class: list principles roman -->\n\n## roman sets the rules in numerals.\n\n1. Numerals lend formal weight.\n2. Reserve them for charters and mandates.\n3. Past five, the gravitas becomes parody.\n"
     },
     "bullet": {
-      "label": "Bullet — dot instead of a counter on principles",
-      "caption": "Replaces the `principles` counter with a centered dot.",
-      "sample": "<!-- _class: list principles bullet -->\n\n## Working agreements.\n\n1. Default to the choice that is cheaper to reverse.\n2. Name the actor, never the system.\n3. Write the bet on the same slide as the choice.\n"
+      "label": "bullet",
+      "caption": "Dots replace the counters.",
+      "sample": "<!-- _class: list principles bullet -->\n\n## bullet strips the markers back to dots.\n\n1. Dots drop the counting entirely.\n2. The principles frame stays.\n3. Use when rules are peers.\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

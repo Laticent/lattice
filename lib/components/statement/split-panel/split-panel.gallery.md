@@ -18,118 +18,138 @@ Featured left panel + supporting right zone — one prominent claim beside the p
 <!-- _class: split-panel -->
 <!-- _footer: "Default · split-panel" -->
 
-`Q2 board review`
+`statement · split-panel`
 
-## Renewals held; the gap is new logos.
+## The featured panel makes the claim; this side supports it.
 
-The quarter closed on plan for retention, and three findings explain the new-business shortfall.
+A dark left panel carries the headline, and the bright right column holds up to three supporting items.
 
-- Net retention beat plan
-  - 114% against a 108% target; the installed base is healthy and expanding.
-- New-logo pipeline thinned
-  - Top-of-funnel fell 22% after the field reorg; coverage is the constraint, not conversion.
-- The fix is coverage, not price
-  - Two reps moved onto the gap close most of it before the Q4 cutover.
+- Two zones, one argument
+  - The split is hierarchy, not decoration — the panel claims, the column proves.
+- Three items is the comfort zone
+  - A short title and one supporting line each, like this.
+- Prose stays on a budget
+  - Sixteen words per item keeps the column scannable.
 
 
 ---
 
 <!-- _class: split-panel metric -->
-<!-- _footer: "Metric — hero number owns the room · split-panel metric" -->
+<!-- _footer: "metric · split-panel metric — Light panel behind one hero number." -->
 
-`Net Revenue Retention`
+`split-panel metric`
 
-## 114<em>%</em>
+## 16<em>wpi</em>
 
-Trailing twelve months, top-50 accounts, versus a 108% target.
+Words per item — the budget this layout holds its supporting column to.
 
-- Expansion outran churn
-  - Seat growth in the installed base more than covered the two logos lost to consolidation.
-- Concentration is the watch-item
-  - The top ten accounts drive 41% of the number; a single departure swings it three points.
+- The panel flips light
+  - metric flips the panel light behind one hero number.
+- The number claims
+  - Keep support brief — two items beside a figure.
 
 
 ---
 
 <!-- _class: split-panel pullquote -->
-<!-- _footer: "Quote — pull-quote feature · split-panel pullquote" -->
+<!-- _footer: "pullquote · split-panel pullquote — Half the slide to one quotation." -->
 
-> We do not have a demand problem. We have a coverage problem.
+> pullquote gives half the slide to one voice, and the other half to what it means.
 
-`VP Sales · Q2 board review`
+`split-panel pullquote · the layout, quoted`
 
-- Reframes the miss
-  - The pipeline gap is structural, not a market signal — it followed the field reorg.
-- Points at the fix
-  - Coverage is a staffing decision the room can make today, not a quarter-long bet.
+- The quote claims
+  - Display italic on the dark panel; keep it under twenty-five words.
+- The column interprets
+  - Two items that say why the words matter, not who said them again.
 
 
 ---
 
 <!-- _class: split-panel steps -->
-<!-- _footer: "Steps — numbered step-timeline · split-panel steps" -->
+<!-- _footer: "steps · split-panel steps — The panel anchors a numbered phase." -->
 
 `02`
 
-## Calibrate
+## steps
 
-What the second phase produces before rollout begins.
+The left panel anchors a phase; the column numbers its moves.
 
-1. Tune the weights
-   - Score real outcomes against the model and adjust until the error band is acceptable.
-2. Make the log mandatory
-   - Every decision is recorded with its signals; the audit trail starts here.
-3. Sign off the baseline
-   - Written agreement on scope before the rollout phase opens.
+1. Watermark the phase
+   - The inline-code number becomes the panel's backdrop.
+2. Number the column
+   - An ordered list reads as sequence — three steps fit.
+3. Keep steps parallel
+   - Verb-first titles, one supporting line each.
 
 
 ---
 
 <!-- _class: split-panel watermark -->
-<!-- _footer: "Watermark — accent panel + letterform · split-panel watermark" -->
+<!-- _footer: "watermark · split-panel watermark — Accent panel, letterform, h3 rubric." -->
 
-## Scorecard
+## Watermark
 
-### What the framework measures
+### The heading's first letter becomes the panel
 
-- Signal quality
-  - Whether the inputs are trustworthy enough to act on without re-checking.
-- Decision latency
-  - How long from signal to a logged, owned decision.
-- Reversal rate
-  - How often a logged decision is later overturned, and why.
+- The accent panel decorates
+  - A large letterform behind the heading — presence without a photo.
+- The h3 subtitles
+  - One line naming what the slide surveys.
+- The column carries the content
+  - Same three-item budget as the default split.
 
 
 ---
 
 <!-- _class: split-panel mirror -->
-<!-- _footer: "Mirror — swap left and right · split-panel mirror" -->
+<!-- _footer: "mirror · split-panel mirror — Featured panel moves right." -->
 
-`Eyebrow context`
+`split-panel mirror`
 
-## Headline on the right-hand panel.
+## mirror puts the featured panel on the right.
 
-One-sentence framing paragraph.
+Same anatomy, flipped — for when the deck's rhythm wants the claim to land late.
 
-- First point
-  - Supporting detail.
-- Second point
-  - Supporting detail.
+- Reading order still works
+  - The eye crosses support first, then lands on the panel's claim.
+- Use it sparingly
+  - One mirror per section keeps the flip meaningful.
 
 
 ---
 
 <!-- _class: split-panel qr -->
-<!-- _footer: "QR — companion: claim beside a scannable code · split-panel qr" -->
+<!-- _footer: "qr · split-panel qr — Payload bullet becomes a code." -->
 
-`Revenue model`
+`split-panel qr`
 
-## The full build is in the workbook.
+## The payload bullet becomes a code on the panel.
 
-Every line traces to a driver you can open — three scenarios off one shared set of assumptions.
+A bare URL auto-resolves; the caption line labels the scan.
 
-- https://slidewright.dev/appendix/revenue-model `qr`
-- Scan for the live model `caption`
+- https://slidewright.dev/components/split-panel `qr`
+- Scan for this layout's docs `caption`
+
+
+---
+
+<!-- _class: split-panel -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · split-panel — Three items at full budget." -->
+
+`split-panel · stress`
+
+## Three full items is this column's ceiling.
+
+The framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.
+
+- First item at full width
+  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.
+- Second item, same weight
+  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.
+- Third item closes the set
+  - A fourth would push past the footer — split the slide instead.
 
 
 ---
@@ -137,18 +157,18 @@ Every line traces to a driver you can open — three scenarios off one shared se
 <!-- _class: split-panel dark -->
 <!-- _footer: "Composition: dark · split-panel dark" -->
 
-`Q2 board review`
+`statement · split-panel`
 
-## Renewals held; the gap is new logos.
+## The featured panel makes the claim; this side supports it.
 
-The quarter closed on plan for retention, and three findings explain the new-business shortfall.
+A dark left panel carries the headline, and the bright right column holds up to three supporting items.
 
-- Net retention beat plan
-  - 114% against a 108% target; the installed base is healthy and expanding.
-- New-logo pipeline thinned
-  - Top-of-funnel fell 22% after the field reorg; coverage is the constraint, not conversion.
-- The fix is coverage, not price
-  - Two reps moved onto the gap close most of it before the Q4 cutover.
+- Two zones, one argument
+  - The split is hierarchy, not decoration — the panel claims, the column proves.
+- Three items is the comfort zone
+  - A short title and one supporting line each, like this.
+- Prose stays on a budget
+  - Sixteen words per item keeps the column scannable.
 
 
 ---
@@ -156,18 +176,18 @@ The quarter closed on plan for retention, and three findings explain the new-bus
 <!-- _class: split-panel compact -->
 <!-- _footer: "Composition: compact · split-panel compact" -->
 
-`Q2 board review`
+`statement · split-panel`
 
-## Renewals held; the gap is new logos.
+## The featured panel makes the claim; this side supports it.
 
-The quarter closed on plan for retention, and three findings explain the new-business shortfall.
+A dark left panel carries the headline, and the bright right column holds up to three supporting items.
 
-- Net retention beat plan
-  - 114% against a 108% target; the installed base is healthy and expanding.
-- New-logo pipeline thinned
-  - Top-of-funnel fell 22% after the field reorg; coverage is the constraint, not conversion.
-- The fix is coverage, not price
-  - Two reps moved onto the gap close most of it before the Q4 cutover.
+- Two zones, one argument
+  - The split is hierarchy, not decoration — the panel claims, the column proves.
+- Three items is the comfort zone
+  - A short title and one supporting line each, like this.
+- Prose stays on a budget
+  - Sixteen words per item keeps the column scannable.
 
 
 ---
@@ -175,18 +195,18 @@ The quarter closed on plan for retention, and three findings explain the new-bus
 <!-- _class: split-panel accent -->
 <!-- _footer: "Composition: accent · split-panel accent" -->
 
-`Q2 board review`
+`statement · split-panel`
 
-## Renewals held; the gap is new logos.
+## The featured panel makes the claim; this side supports it.
 
-The quarter closed on plan for retention, and three findings explain the new-business shortfall.
+A dark left panel carries the headline, and the bright right column holds up to three supporting items.
 
-- Net retention beat plan
-  - 114% against a 108% target; the installed base is healthy and expanding.
-- New-logo pipeline thinned
-  - Top-of-funnel fell 22% after the field reorg; coverage is the constraint, not conversion.
-- The fix is coverage, not price
-  - Two reps moved onto the gap close most of it before the Q4 cutover.
+- Two zones, one argument
+  - The split is hierarchy, not decoration — the panel claims, the column proves.
+- Three items is the comfort zone
+  - A short title and one supporting line each, like this.
+- Prose stays on a budget
+  - Sixteen words per item keeps the column scannable.
 
 
 ---
