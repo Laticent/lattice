@@ -17,6 +17,12 @@ summary: >
   whose net effect was to CUT surface (function-valued cues, cursor factory, a dishonest determinism
   seam, an unserializable "serializable" claim) and make safety structural rather than a discipline.
   v1 ships the contract + migrates the Studio demo onto it (behavior-preserving) as the proof.
+  A SECOND trio (on the grown design: layers, scene(), gestures/drag, theming) found the growth had
+  outrun its proof and reintroduced local holes (a false setProperty security claim, an invisible-accent
+  gap, typing state not shared across composed segments, drag on the wrong side of the trust gate,
+  scene()/Step[] not actually isomorphic); all folded in (§14-2). Two decisions: KEEP the full v1
+  surface and prove it by an exhaustive exemplar + stress battery (not defer); THEMING reconciled to
+  CSS-first --vt-* tokens + a JS convenience (light/dark via the host cascade).
 ---
 
 # Vetrina — a self-driving walkthrough library
@@ -86,7 +92,7 @@ sit ergonomic layers that **compile down to it**:
   Branch, loop, wait, react-to-events are plain JavaScript — *no invented primitives*. **Total and
   always reachable** (I9). It is the escape hatch *and* the foundation.
 - **The data model — `Step[]`.** A linear walkthrough as data (fixed order say→point→click→act→
-  type→gesture→settle). Serializable and programmatically **generable** (you `.map()` data) — this is
+  say→(point+click|drag)→act→type→gesture→settle). Serializable and programmatically **generable** — this is
   what the wire / runtime-generation cases use.
 - **The fluent builder — `scene()`.** A *recording* builder (it **constructs**, it does not execute)
   that emits the `Step[]` data. The **recommended surface for hand-authoring**: it reads as intent and
@@ -108,17 +114,21 @@ the *language*, while the ergonomic default stays declarative data.
 ## 4. Invariants (non-negotiable; hardened by the trio)
 
 - **I1 — The engine emits no synthetic input.** Vetrina never dispatches a real pointer/keyboard
-  event at the host. *(This is why §9 forbids callback-valued effects: a cue that received the live
-  element could call `.click()` and break I1 — see §14/C2.)*
+  event at the host — including every gesture and the `drag` mechanic, which animate but never fire a
+  real drag/click event. *(This is why §9 forbids callback-valued cues and §6.1 forbids custom-gesture
+  callbacks: a callback that received the live element could call `.click()` and break I1 — §14/C2.)*
 - **I2 — Unambiguous, instant take-over.** The first real off-stage input aborts the run and falls
   through. Instant because **every await races the abort signal** (I6). Opt-out per beat only via
   `awaitUser` (§8), which keeps a classifier guard live — it never blinds the engine.
 - **I3 — Framework-free core.** `runner` + `stage` + `storyboard` depend on the DOM only. React/Vue/…
   adapters are thin and live outside the core. *(Enforced by an import-boundary gate — §12.)*
-- **I4 — Captions are text; the engine injects no host HTML.** Captions set `textContent`, never
-  `innerHTML`. Host-supplied rich content that reaches a frame is the host's to sanitize (lattice
-  HARD RULE #22). The `accent` token is applied via `style.setProperty('--accent', v)` — **never**
-  concatenated into `cssText` (which would be a CSS-injection / `url()`-exfil sink; §14/H3).
+- **I4 — Captions are text; color values are validated; no HTML/`url()` injection.** Captions set
+  `textContent`, never `innerHTML`. Host rich content reaching a frame is the host's to sanitize (lattice
+  HARD RULE #22). Token values are applied via `style.setProperty` (no `cssText` concatenation) AND are
+  **validated** — `url(`/`image(`/control chars rejected — because `setProperty` alone does NOT stop a
+  `url()` value from being fetched by a `url()`-accepting sink; the engine also keeps **sink discipline**
+  (never consumes a `--vt-*` token in `background`/`mask`/`cursor`). `Theme`/token values are
+  **host-trusted** — never from wire/shared/AI content (§9; corrected §14-2/F3).
 - **I5 — Reduced motion is honored.** `prefers-reduced-motion` collapses glide + typing to instant
   placement; the run still completes and narrates. *(It shortens the **default** settle only — an
   explicit `settle: 3200` is still honored; §14/checker.)*
@@ -126,8 +136,12 @@ the *language*, while the ergonomic default stays declarative data.
   exit / unmount / error / sync-throw / abort-mid-await) routes through one `stop(reason)`. The
   runner: (a) **races every host await** (`act`, `awaitUser`) against the abort signal, so a
   taken-over run can never resume onto a destroyed stage; (b) wraps `play()` so a **synchronous
-  throw** still tears down; (c) makes **Stage methods no-op after `destroy()`**; (d) is
-  **single-flight** — a second `run()` while one is active is refused. Teardown removes every node,
+  throw** still tears down; (c) **abort is terminal for narration, not just actuation** — after abort,
+  every Stage method (`say`/`point`/`press`/`gesture`/`drag`) no-ops AND the next `await` re-rejects
+  `AbortError`, so a `Walkthrough` that *catches* the abort and keeps going can neither drive **nor
+  narrate** onto a dead stage (§14-2/Munger — the interleave-safety guarantee, tested directly); (d) is
+  **single-flight** — a second `run()` while one is active **throws a named error** (never a silent inert
+  handle — §14-2/F10; compose with `segment(ctx)`, never a nested `run()`). Teardown removes every node,
   listener, and timer the engine created, and is safe to call twice.
 - **I7 — The host owns substance and restore; the engine owns theater + sequencing + take-over.**
   The engine restores nothing it did not create. It calls `onStop(reason)` **after** `stage.destroy()`
@@ -143,6 +157,13 @@ the *language*, while the ergonomic default stays declarative data.
   and raw `ctx.stage`/`ctx.actions` calls sit freely between built segments. **No authoring layer is a
   walled garden:** whatever a layer can't express, the primitive can, from the same `ctx`, mid-run. This
   is what lets a DSL optimize for ergonomics over completeness without ever trapping the author.
+  **For interleaving to be seamless, run-scoped state lives on `ctx`, not per-segment (§14-2/F2, F6):**
+  the typed-source baseline + seed (the `commonPrefix` diff basis) and the `TypeOps` capability are
+  owned by the run and shared across every segment and raw beat — a composed segment reads the *live*
+  document, never its own stale seed, and `ctx.type`'s presence is decided once at `run()` (a
+  `run()` given no `TypeOps` rejects a `play` that types, at the type level, on **every** surface — not
+  a mid-run throw). The **opening flourish (`intro`) is a runner responsibility, played once per
+  `run()`** — never per compiled segment — so composing two segments doesn't replay the wave (§14-2/F7).
 
 ---
 
@@ -162,9 +183,9 @@ interface RunContext<A> {
 interface RunOptions<A> {
   root: HTMLElement;                       // the app subtree the walkthrough drives
   actions: A;                              // the host's setters (bound to real state)
-  play: Walkthrough<A>;                    // usually storyboard([...]) (§10)
+  play: Walkthrough<A>;                    // usually scene(...).build() or storyboard(seed, [...]) (§10)
   onStop?: (reason: StopReason) => void;   // host restore, called AFTER destroy (I7)
-  theme?: Theme;                           // JS token values; omit for the house look (§9)
+  theme?: Theme;                           // JS convenience over the --vt-* CSS tokens; omit for house look (§9)
   type?: TypeOps;                          // omit if this host never types (§7)
   takeover?: {                             // §8 — defaults are the full-page demo case
     scope?: 'root' | 'window';            // 'window' = Studio default; 'root' for embedded consumers
@@ -249,12 +270,26 @@ The rules that keep it an alphabet, not a sticker pack:
   instant cue or skips it. `intro` = materialize + `gesture('wave')`; `circle:`/`.circle()` in the data
   model & builder (§10) are sugar for `gesture('circle', target)`, so the Studio demo migrates unchanged.
 
-**`drag(from, to)` is a MECHANIC, not a gesture** — it *demonstrates a UI operation* (a move/reorder)
-rather than conveying a meaning, and it takes **two** targets, so it sits with `point`/`press`, outside
-the expressive alphabet. Like every mechanic it is pure theater (I1): the cursor shows the pick-up →
-glide → release; the **real** move flows through the paired `act`, so a taken-over run never actually
-drags. A null `from`/`to` is a no-op (as with `point`). It was the one genuine capability gap the
-alphabet couldn't cover; `nod`/`pulse`/`underline` remain *unbuilt* until a consumer needs the meaning.
+**`drag(from, to)` is a MECHANIC, not a gesture** — it *demonstrates a UI operation* (a move/reorder),
+takes **two** targets, and sits with `point`/`press` outside the expressive alphabet. Pure theater (I1):
+the cursor animates pick-up → glide → drop; the **real** move flows through the paired `act`, dispatching
+no drag/pointer events, so a taken-over run never actually drags. Pinned after the second trio
+(§14-2/F5, F9):
+- **Slot & exclusivity:** `drag` occupies the *positioning* phase — a step has **either** `point`(+`click`)
+  **or** `drag`, never both (enforced). Canonical order: `say → (point+click | drag) → act → type →
+  gesture → settle`.
+- **Success-gated drop (the trust invariant):** pick-up + glide play *before* `act`, but the **drop is
+  gated on `act` succeeding** — the real move fires through `act`, and only on success does the item
+  settle at `to`; a rejected `act` snaps it back, which is exactly where a `cross`/`shake` is honest.
+  The theater never shows a completed move that didn't happen.
+- **Rects re-read at glide time** (and `to` scrolled into view): drag runs *before* the reorder reflow,
+  so a one-shot early rect would land on a stale/off-screen slot (§14/D4.1). A null `from`/`to` = no-op.
+
+`nod`/`pulse`/`underline` remain *unbuilt* until a consumer needs the meaning — and the alphabet is
+frozen by a build-failing gate (§14-2/Munger): a `SANCTIONED_GESTURES` registry (each entry a required
+*meaning* string, budget 5), the same `check-ownership` pattern this repo already trusts for margins /
+hex / tokens (HARD RULE #15). Adding a gesture is an allowlist edit that forces the "what meaning?"
+question — not a drive-by feature PR.
 
 ---
 
@@ -264,16 +299,21 @@ alphabet couldn't cover; `nod`/`pulse`/`underline` remain *unbuilt* until a cons
 human cadence, honoring reduced motion:
 
 ```ts
-interface TypeOps { set(text: string): void; append(text: string): void; }
+interface TypeOps  { set(text: string): void; append(text: string): void; }  // how text LANDS (host)
+interface TypeOpts { cadence?: number; }                                      // per-call ms/char (§14-2: was undefined)
 ```
 
 - The cadence, whitespace-chunking, ±40% jitter, and the **"render breath"** (a longer pause every
   ~38 chars, past a preview's ~140 ms debounce, so editor and preview stay in sync) live in the
   engine. *How text lands* is the host's `TypeOps`. Preserves Studio's native-editor-insert exactly.
-- **Typing is coupled to `TypeOps` at the type level**: a `play` that uses `type` is only accepted by
-  a `run()` given `TypeOps`. No mid-run "throws if called" bomb (§14/M4).
-- The `commonPrefix` diff keys prior text **per target**, so an imperative walkthrough may type into
-  two fields without cross-contamination (§14/checker).
+- **Typing is coupled to `TypeOps` at the type level on EVERY surface (§14-2/F6):** a `play` that types
+  is only accepted by a `run()` given `TypeOps` — and because the requirement is carried on the
+  `Walkthrough`/builder type, `scene().type(...).build()` and composed segments propagate it too, so the
+  "throws if called" bomb can't be laundered away through the new layers (§14/M4, hardened).
+- **The typed-source baseline is run-scoped, on `ctx` (§14-2/F2):** the `commonPrefix` diff basis (and
+  `seed`) is shared across every segment and raw beat, so a composed segment types against the *live*
+  document — never its own stale seed. Route all typing through `ctx.type` (which keys prior text per
+  target); a raw `actions.typeTail` that bypasses it is the author's own to reconcile.
 
 ---
 
@@ -312,60 +352,83 @@ interface AwaitUserOpts {
 
 ---
 
-## 9. Customizable effects — the Rams seam (smaller after the trio)
+## 9. Theming & effects — CSS-first `--vt-*` tokens, JS convenience (the Rams seam)
 
-Zero config = the house look. Every field is **description, never a callback, and never a free
-numeric a caller could set to a useless value** (the human-not-machine tenet, §2). Customization is
-exactly this:
+Zero config = the house look. **Two surfaces, one token contract** — a CSS surface (first-class, the
+repo's palette-blind doctrine) and a JS convenience over it — and every field is **description, never a
+callback, and never a free value the eye can't use** (the human-not-machine tenet, §2). *(Reconciled
+after the second trio — §14-2: JS-only was the wrong bet for CSS-design-system hosts, shipped a false
+security claim, and its per-mode value sets reintroduced a mode-switch race. CSS-first fixes all three.)*
+
+**Surface 1 — the `--vt-*` token contract (first-class CSS).** The engine renders every color through a
+`var(--vt-*)` role token with a sensible default — no hex literals in its own theater CSS (HARD RULE #3
+applied to itself), named by role not scheme (HARD RULE #11). These are a **documented, public** surface:
+a host styles them in its own stylesheet, and its **existing light/dark cascade re-resolves them for
+free** — no JS, no mid-run mode-switch mechanism, no flip race.
+
+```css
+:root                     { --vt-accent: #2b6ef2; /* … sane defaults … */ }
+:root[data-theme="dark"]  { --vt-accent: #4b82ff; --vt-caption-bg: #0c0e13cc; }  /* the HOST's cascade */
+```
+
+The set covers **every color the stage draws**, so a host can fully rebrand (§14-2/checker — the old
+6-token set couldn't express the chrome or the distinct co-strokes):
+
+```
+--vt-accent                                   brand hue: pointer + cues + glow
+--vt-cursor-fill  --vt-cursor-stroke          the cursor
+--vt-caption-bg   --vt-caption-ink            the narration caption
+--vt-ring-halo    --vt-glow-halo  --vt-tick-halo   cue co-strokes (legibility floor; sane fixed defaults)
+--vt-chrome-bg    --vt-chrome-ink  --vt-chrome-hint   the "Live demo" scrim + hint
+--vt-exit-bg      --vt-exit-ink                the Exit control
+```
+
+**Surface 2 — the JS `Theme` object (the zero-CSS convenience).** For hosts that would rather not touch
+CSS, a small object that *writes the tokens for you*. It is **mode-agnostic** — it sets tokens once;
+light/dark stays the host's cascade job (Surface 1), so the engine needs no per-mode value sets and no
+mode-switch mechanism.
 
 ```ts
+type Color = string;                          // a CSS color; VALIDATED (see below) — not a raw sink
+type VtToken = 'accent' | 'cursorFill' | 'cursorStroke' | 'captionBg' | 'captionInk'
+             | 'ringHalo' | 'glowHalo' | 'tickHalo' | 'chromeBg' | 'chromeInk' | 'chromeHint'
+             | 'exitBg' | 'exitInk';
+
 interface Theme {
-  // COLOR — token VALUES passed via JS (never CSS you author). `accent` is the one-line shortcut
-  // (both modes); `light`/`dark` are full per-mode overrides. Vetrina writes these into its own
-  // custom properties for you — you never touch a stylesheet, class, or @media block.
-  accent?: string;                          // brand hue for pointer + cues + glow (both modes)
-  light?: Partial<ColorTokens>;             // per-mode overrides, as VALUES
-  dark?: Partial<ColorTokens>;
-  // NON-COLOR — curated, human-not-machine (no free numerics)
-  speed?: 'slow' | 'moderate' | 'fast';     // guaranteed-followable pacing (default 'moderate')
-  pointer?: 'arrow' | 'ring' | 'dot';       // curated cursor SHAPE (default 'arrow')
+  accent?: Color;                             // brand hue → --vt-accent (validated)
+  speed?: 'slow' | 'moderate' | 'fast';       // guaranteed-followable pacing (default 'moderate')
+  pointer?: 'arrow' | 'ring' | 'dot';         // curated cursor SHAPE (default 'arrow')
   cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>; // SILENCE a cue
-  // MOUNTING
-  portalRoot?: HTMLElement;                 // where the overlay mounts (default document.body)
-  zIndex?: number;
-}
-interface ColorTokens {                     // the token CONTRACT — the names Vetrina defines
-  accent: string; cursorFill: string; cursorStroke: string;
-  captionBg: string; captionInk: string; ringHalo: string;
+  tokens?: Partial<Record<VtToken, Color>>;   // escape hatch: set any --vt-* value directly, in JS
+  portalRoot?: HTMLElement; zIndex?: number;
 }
 ```
 
-A token value may itself be a CSS-var reference — `accent: 'var(--brand-accent)'` — so a host with
-existing design tokens can point at them without Vetrina ever reading their stylesheet. Still JS, still
-one surface.
+**Color values are VALIDATED — the human-not-machine tenet applied to color (§14-2/F3, F4).**
+- **Legibility floor:** `accent` (and cursor/cue colors) are checked against a luminance/contrast bound,
+  and the cue co-stroke is chosen to contrast with the *accent*, not always white — so a pale or
+  same-hue `accent` can never render the cursor invisible. A color the eye can't use is exactly what §2
+  forbids for `speed`; color gets the same discipline (normalize or reject, never silently invisible).
+- **No exfiltration sink:** any value containing `url(` / `image(` / control chars is **rejected**.
 
-**Palette-blind under the hood (carries lattice's DNA), but JS is the only surface.** Internally the
-engine renders every color through a `var(--vt-*)` role token with a sensible default — **no hex
-literals in its own theater CSS** (HARD RULE #3 applied to itself), named by role not scheme (HARD RULE
-#11): `--vt-accent`, `--vt-cursor-fill`, `--vt-cursor-stroke`, `--vt-caption-bg`, `--vt-caption-ink`,
-`--vt-ring-halo`. But those properties are a **mechanism, not a public authoring surface** — Vetrina
-writes your JS `Theme` values into them via `setProperty` (never string concatenation — I4). **The
-consumer's only surface is the JS `Theme` object; there is no CSS to author, no class, no `@media`
-block.** Configure nothing → the house look; pass `accent` → one line; pass `light`/`dark` value sets
-→ full control.
+**Light/dark: the host's CSS cascade owns it — no mode-switch mechanism in the engine (§14-2/F8, D).**
+Because every color resolves through `--vt-*`, a host that themes for dark just redefines those tokens
+under its own dark selector (`[data-theme="dark"]`, `prefers-color-scheme`, whatever it already uses).
+When the host flips mode mid-run (the Studio's `toggleMode` beat — the flagship migration does exactly
+this), the cascade re-resolves the tokens **automatically and atomically** — no `data-vt-mode` signal to
+wire, no observer, no value-set swap, no flip race. (The JS per-mode `light`/`dark` value sets that
+*reintroduced* that race are **cut**.) Beneath it sits the **mode-agnostic legibility floor**: the
+default `--vt-*-halo` co-strokes + dark caption scrim keep the theater readable on either ground even if
+a host themes neither mode (proven by the Studio demo flipping light↔dark mid-run). The **host owns the
+app's palette**; Vetrina only reads what the cascade resolves.
 
-**Light/dark: you supply both palettes as JS values; Vetrina switches.** Vetrina ships sensible
-defaults for both modes; you override by passing `light` and/or `dark` value sets on the `Theme`
-object — **as data, not CSS.** Vetrina applies whichever set matches the active mode. The one pinned
-decision — **what counts as "dark":** an app's mode ≠ the OS's (the Studio flips its own mode
-independent of `prefers-color-scheme`), so the active mode is **host-authoritative** — Vetrina reads
-it from a signal the host controls (a `data-vt-mode` on the overlay root, or the host tells the
-engine), falling back to `prefers-color-scheme` **only when the host gives no signal.** Beneath it
-sits a **legibility floor**: the baseline defaults read on either ground (accent + white co-stroke +
-dark caption scrim — proven by the Studio demo flipping light↔dark mid-run without washing out), so a
-missing or wrong mode signal never makes the overlay illegible. The **host owns the app's palette** —
-Vetrina drives the mode toggle via a host action (the demo's `toggleMode` beat), never managing the
-app's theme itself.
+**Security (I4, corrected — §14-2/F3).** `setProperty('--vt-*', v)` prevents CSS *rule/selector* escape,
+but does **NOT** stop a `url()` value from being fetched by a `url()`-accepting sink
+(`background`/`mask`/`cursor`) — the exfil happens at the sink regardless of how the property was set.
+The real defenses, now the contract: **(1) sink discipline** — the engine never consumes a `--vt-*`
+token in a `url()`-accepting property; **(2) value validation** — reject `url(`/`image(`/control chars;
+**(3) trust boundary** — `Theme`/token values are **host-trusted** and must never be populated from
+wire / shared / AI-generated content. Captions stay `textContent`-only (I4 unchanged).
 
 **Pointer & glow ARE customizable — as shape + color, from curated choices:**
 - **Color** — the pointer, the cue rings, and the `circle` glow all tint from `accent`. One token
@@ -391,10 +454,13 @@ What the trio (and this refinement) **cut**, and why it's *more* Rams:
 - **No `clock`/`random` determinism knob.** It governed none of the real timing (rAF / WAAPI /
   `setTimeout`) — a dishonest "looks configurable but isn't" (§14/H3). Added *with* the record
   consumer (out of v1, §11), done honestly (all time through one injected clock), not a decoy now.
+- **No JS per-mode `light`/`dark` value sets, no `data-vt-mode` signal (§14-2/F8).** They reintroduced
+  a mode-switch race the mode-agnostic design didn't have; the host's CSS cascade owns light/dark instead.
 
-Result: house look → pass nothing; brand → set `accent` (one line); slower/faster → `speed: 'slow'`;
-a different cursor → `pointer: 'ring'`; drop a cue → `cues: { intro: false }`. Every field optional,
-honest, and human-followable by construction.
+Result: house look → pass nothing; brand via **CSS** → style `--vt-accent` (light/dark for free via your
+cascade); brand via **JS** → `theme: { accent }`; slower/faster → `speed: 'slow'`; a different cursor →
+`pointer: 'ring'`; drop a cue → `cues: { intro: false }`. Two honest surfaces, one token contract, every
+color legible by construction.
 
 ---
 
@@ -404,11 +470,13 @@ honest, and human-followable by construction.
 
 ```ts
 interface Step<A> {
-  say?: string; point?: Target; click?: boolean;
-  drag?: { from: Target; to: Target };     // mechanic: demonstrate a move (mechanic phase, before act) — §6.1
-  act?: (a: A) => void | Promise<void>;   // async allowed; the runner awaits it (races abort — I6)
-  type?: string; cadence?: number;         // per-step ms/char (load-bearing: 7 vs 24 drives the pace)
-  gesture?: Gesture | { kind: Gesture; target?: Target };  // §6.1 body language; runs after act
+  say?: string;
+  // POSITIONING — a step has EITHER point(+click) OR drag, never both (§6.1)
+  point?: Target; click?: boolean;
+  drag?: { from: Target; to: Target };
+  act?: (a: A) => void | Promise<void>;    // async allowed; the runner awaits it (races abort — I6)
+  type?: { target: Target; text: string; cadence?: number };  // typing carries its TARGET (§14-2/B) + per-step ms/char
+  gesture?: Gesture | { kind: Gesture; target?: Target };      // §6.1 body language; gated on act success
   circle?: Target;                         // sugar for gesture: { kind: 'circle', target } (§6.1)
   settle?: number;
 }
@@ -416,8 +484,9 @@ interface Step<A> {
 function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data → primitive
 ```
 
-- Fixed interpretation order per step: **say → point → click → act → type → gesture → settle** — so a
-  storyboard reads top-to-bottom as intent.
+- Fixed interpretation order per step: **say → (point+click | drag) → act → type → gesture → settle** —
+  a step reads top-to-bottom as intent. A step sets **either** `point`(+`click`) **or** `drag`, never
+  both; `drag`'s drop and the outcome `gesture` are both gated on `act` success (§6.1).
 - **`act` runs (awaited) BEFORE the `gesture` confirm**, and a **rejected `act` suppresses the
   success narration + any outcome gesture** and routes to `onStop('error')` — the theater must never
   play `check`/`circle` "look what rendered" around a change that failed (§14/Munger, the trust
@@ -428,30 +497,39 @@ function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data 
   `run({ actions })`; without it, `act` params fall back to `any` (§14/checker).
 
 **The fluent builder — `scene()`** (the recommended hand-authoring surface). A **recording** builder:
-each verb call appends a step and returns `this`; nothing executes until the built `Walkthrough` is
-passed to `run()`. It emits the same `Step[]`, so serialization/generation survive.
+verbs set slots on the *current* step and return `this`; nothing executes until the built `Walkthrough`
+runs. It emits the same `Step[]`, so serialization/generation survive.
 
 ```ts
-function scene<A>(): SceneBuilder<A>;
+function scene<A>(seed?: string): SceneBuilder<A>;   // seed = the typing baseline (default '')
 interface SceneBuilder<A> {
   say(text: string): this;
   point(t: Target): this;  click(): this;  drag(from: Target, to: Target): this;
   act(fn: (a: A) => void | Promise<void>): this;
-  type(t: Target, text: string, opts?: { cadence?: number }): this;
+  type(t: Target, text: string, opts?: TypeOpts): this;          // carries the TARGET (matches Step.type)
   gesture(kind: Gesture, target?: Target): this;                 // §6.1 body language
   wave(): this;  circle(t: Target): this;  check(): this;  cross(): this;  shake(): this; // sugar
-  hold(ms: number): this;                 // = a step's `settle`
-  build(): Walkthrough<A>;                 // → primitive; compose via `await scene(...).build()(ctx)`
+  hold(ms: number): this;                 // sets the current step's `settle` AND closes it
+  step(): this;                           // explicit step boundary (rarely needed — see rule)
+  build(): Walkthrough<A>;                 // ≡ storyboard(seed, this.toData()) — ONE interpreter (§14-2)
   toData(): Step<A>[];                     // → the data model (wire / inspection / generation)
 }
 ```
 
-- **`scene()` is sugar over `Step[]`, which is sugar over the primitive** — three views of one thing,
-  not three semantics. `scene().build()` and `storyboard(seed, steps)` both return a `Walkthrough`.
-- It stays **linear by construction** (a recording chain can't hold an `if`). That is deliberate: the
-  moment a walkthrough needs branch/loop/`awaitUser`, you drop to the primitive `Walkthrough(ctx)` and
-  `await` built `scene` segments between the raw beats (I9). The builder never has to be complete
-  because the primitive always is.
+- **Step-boundary rule (§14-2/F1, B — the ambiguity the second trio caught).** A verb fills its slot on
+  the *current* step; a **new step opens** when you would overwrite a filled slot (a second `say`, a
+  second positioning verb) or call `.hold()` / `.step()`. So `.say().point().click().act().hold(900)` is
+  **one** fused step with a single `settle` — identical pacing to the equivalent `storyboard` step — and
+  the next `.say()` begins the next. This makes "emits the same `Step[]`" precise and testable (it was
+  undefined before, so the round-trip claim was unverifiable).
+- **One interpreter, provably no drift.** `build()` is **defined as** `storyboard(seed, this.toData())` —
+  never a second interpreter — and a **parity test** asserts `scene(...).build()` and
+  `storyboard(seed, scene(...).toData())` produce byte-identical run traces (§14-2/Munger). Every `Step`
+  field has a builder verb and vice versa (type-derived: a new `Step` field is a compile error until the
+  builder covers it), so `scene()` and `Step[]` cannot diverge.
+- It stays **linear by construction** (a recording chain can't hold an `if`) — deliberate: the moment a
+  walkthrough needs branch/loop/`awaitUser`, drop to the primitive `Walkthrough(ctx)` and `await` built
+  segments between the raw beats (I9). The builder never has to be complete because the primitive is.
 - Docs **lead with `scene()`** for hand-authoring; reach for `Step[]` directly when *generating* a
   walkthrough from data; reach for the raw `Walkthrough` when control flow is dynamic.
 
@@ -491,16 +569,18 @@ not a primitive. Only `awaitUser` failed that test.
 
 | Consumer | Front door | New primitive? |
 |---|---|---|
-| **Studio demo (v1 migration)** | `storyboard(seed, [...])` + actions + `TypeOps` | none |
-| **Show-don't-tell docs** | `storyboard([...])` + a docs actions bag | none |
-| **Emailed-deck presenter** | `storyboard([...])`, no `TypeOps`, host loops via `loop` recipe | none |
+| **Studio demo (v1 migration)** | `scene(seed)` / `storyboard(seed, [...])` + actions + `TypeOps` | none |
+| **Show-don't-tell docs** | `scene()` + a docs actions bag | none |
+| **Emailed-deck presenter** | `storyboard(seed, [...])` (data), no `TypeOps`, host loops via `loop` recipe | none |
 | **Narrate AI edits** | `Walkthrough` fn; `act` awaits the real edit (runner races abort) | none |
 | Guided support / tutorial | `Walkthrough` fn + `awaitUser` + `takeover.scope: 'root'` | `awaitUser` |
-| Trust-preview "confirm before commit" | `Walkthrough` fn + `awaitUser` + host `if` | `awaitUser` |
-| Kiosk attract-loop | `loop` recipe + `storyboard`; reset in `onStop` | none |
+| Trust-preview "confirm before commit" | `Walkthrough` fn + `awaitUser` + `drag` (gated drop) + `cross`/`check` | `awaitUser` |
+| Kiosk attract-loop | `loop` recipe + `scene()`; reset in `onStop` | none |
 
-The four named consumers need only `storyboard` + async `act`. The hardest wild cases need at most
-`awaitUser`. None needs a graph engine.
+The named consumers need only `scene()`/`storyboard` + async `act`; the wild cases need at most
+`awaitUser`. None needs a graph engine. **Every surface (incl. `scene()`, `drag`, all five gestures,
+the theming tokens) is exercised by the v1 exemplar + stress battery (§15) — proof by exhaustive
+exemplar, not by waiting for an outside consumer** (the scope decision, §16).
 
 ---
 
@@ -573,6 +653,40 @@ The trio's net effect was to **subtract and harden** — exactly the Saint-Exup�
   visibility-pause; a "lifecycle torture" test asserting I6 across unmount/background/resize/double-start/
   abort-mid-await.
 
+### §14-2 — the SECOND trio (on the grown design: layers, `scene()`, gestures/`drag`, theming)
+
+A second red-team + Munger-inversion + independent-checker pass ran after the design grew. Verdict: the
+**core held; the growth had outrun its proof and reintroduced holes** — but the fixes were local, not
+architectural. The owner chose to keep the full surface and prove it by an **exhaustive exemplar + stress
+battery** (§15.6, §16) rather than defer. What it changed:
+
+**Correctness / safety (hardened structurally):**
+- **F3 (security, was FALSE): I4 corrected.** `setProperty` does *not* stop `url()`-exfil at a sink → real
+  defense is sink discipline + value validation + a host-trusted `Theme` trust boundary (I4, §9).
+- **F4: `accent` validated to a legibility floor** — a pale/same-hue value can't render the cursor
+  invisible (the co-stroke contrasts with the accent). The human-not-machine tenet applied to color (§9).
+- **F2/F6: run-scoped typing state on `ctx`.** The typed-source baseline + `seed` + the `TypeOps`
+  requirement live on the run, shared across segments — so I9 interleaving can't corrupt the type diff and
+  the `TypeOps` coupling can't be laundered away through `scene()`/composition (I9, §7).
+- **Munger: abort is terminal for NARRATION, not just actuation** — a caught `AbortError` can neither
+  drive nor narrate onto a dead stage (I6c).
+- **F5/F9: `drag` pinned** — its slot (positioning phase, `point`+`click` XOR `drag`), a **success-gated
+  drop** (a failed `act` snaps back — the trust invariant), rects re-read at glide time (§6.1, §10).
+- **F7: `intro` is a runner responsibility** (once per `run()`), so composition doesn't replay the wave (I9).
+- **F10: nested `run()` throws a named error** (never a silent inert handle) (I6d).
+- **F1/B: `scene()` step-boundary rule defined + `build()` ≡ `storyboard(seed, toData())` (one interpreter)
+  + a parity test** — `scene()` and `Step[]` are now *provably* isomorphic; `Step.type` carries its
+  target; `scene()` takes a seed (§10).
+
+**Structure / longevity:**
+- **Munger: a build-failing `SANCTIONED_GESTURES` gate** freezes the alphabet at 5 (each entry a required
+  *meaning*), the same `check-ownership` pattern the repo trusts for margins/hex/tokens (§6.1; HARD RULE #15).
+- **Theming reconciled to CSS-first `--vt-*` + JS convenience** (§9): the token contract is a first-class
+  CSS surface, the host cascade owns light/dark (dissolving the mode-switch race F8 and the chrome-color
+  gap), the JS `Theme` stays as convenience. Matches the repo's own palette-blind doctrine (#3/#11).
+- **Consistency sweep** — `storyboard` two-arg call sites, `effects`/`cues`/`theme` naming, an undefined
+  `TypeOpts`, the `drag`-in-order gap, `scene()` added to the §12 coverage table.
+
 ---
 
 ## 15. Migration plan — behavior-preserving, the proof of the seam
@@ -580,30 +694,57 @@ The trio's net effect was to **subtract and harden** — exactly the Saint-Exup�
 1. Land `docs/src/lib/vetrina/` with the API above; port `demo-stage`→`stage`, `demo-director`→
    `runner`+`storyboard`+`scene`, `theme`, `recipes`. Behavior byte-identical where it should be.
 2. Rewrite `use-studio-demo.ts` as a thin `react.ts` consumer of `run()`: pass the Studio actions bag,
-   `TypeOps` (`typeTail`/`resetDoc`), `takeover: { scope: 'window' }`, and `onStop` (palette/mode
-   restore + close stages) — **after** destroy.
-3. `demo-storyboard.ts` becomes `storyboard(seed, [...])` input — the data is unchanged.
-4. Tests: `e2e/demo.spec.ts` (3 exit paths leave "My First Deck" behind, dedup) rides the real Studio —
-   **unchanged**. `demo-director.test.ts` is **retargeted** (honestly: fusing anticipate+glide into
-   `point()` changes its literal-log assertion) and gains **timing** assertions for the register beat +
-   render breath. New engine tests: await-races-abort, `awaitUser` classifier + timeout + no-double-act,
-   abort-guarded actions proxy, single-flight, reduced-motion, effects silence, and the lifecycle torture.
-5. Add the non-Studio vanilla reference tour + the import-boundary gate + isolated build job.
+   `TypeOps`, `takeover: { scope: 'window' }`, and `onStop` (palette/mode restore + close stages) —
+   **after** destroy. Theming: the Studio's existing `--accent`/mode cascade feeds the `--vt-*` tokens
+   directly (CSS-first), so the `toggleMode` beat re-resolves them for free — no mode-switch code.
+3. `demo-storyboard.ts` becomes `storyboard(seed, [...])` input (data unchanged) — plus a parallel
+   `scene(seed)…build()` authoring of the same deck with a **parity test** (byte-identical run trace)
+   proving the `scene`↔`Step[]` isomorphism (§14-2).
+4. **Engine test suite — each guarantee gets a direct test:** await-races-abort; abort-**terminal
+   narration** (a `Walkthrough` that catches `AbortError` can neither drive nor narrate); `awaitUser`
+   classifier + timeout + no-double-act; abort-guarded actions proxy; single-flight **named throw** +
+   nested-`run()` refusal; reduced motion; cue silence; `accent` **validation** (invisible → normalized/
+   rejected, `url()` → rejected); `drag` **success-gated drop** (failing `act` → snap-back); the
+   `SANCTIONED_GESTURES` gate; and the **lifecycle + interleave torture** (unmount / background / resize /
+   double-start / abort-mid-await, AND an interleaved raw `Walkthrough` + built segment + mid-run take-over).
+5. Existing tests: `e2e/demo.spec.ts` (3 exit paths leave "My First Deck" behind, dedup) rides the real
+   Studio — **unchanged**. `demo-director.test.ts` is **retargeted** (fusing anticipate+glide into
+   `point()` changes its literal-log assertion) + **timing** assertions (register beat, render breath).
+6. **The exemplar + stress battery — the v1 PROOF (the scope decision, §16).** v1 ships the full surface,
+   so every surface is proven by a comprehensive in-repo exemplar with edge cases + stress — not by
+   waiting for an outside consumer (HARD RULE #23: the exemplar *is* the exercising artifact):
+   - **`scene()` linear demo** (+ the parity test, step 3).
+   - **`Walkthrough` interleave** — branch + loop + built segments + a mid-run take-over.
+   - **`awaitUser` hand-off** — the buildless, non-slide, framework-free vanilla reference tour: correct
+     input, wrong input (still take-over), timeout.
+   - **`drag` reorder** — portalled + scrolled targets, and a **failing `act`** (gated drop → snap-back + `cross`).
+   - **gesture alphabet** — all five with their meanings, plus the reduced-motion collapse.
+   - **theming** — a full CSS `--vt-*` rebrand across light/dark via the host cascade; the JS `Theme`
+     convenience; an **invalid** `accent` (pale/same-hue + `url()`) proving validation + the legibility floor.
+   - **generic-host + stress** — a non-Studio host (two widgets + a shadow root) proving decoupling; rapid
+     take-over, backgrounding, resize, a long deck.
+7. Ship the import-boundary gate + isolated build job + the `SANCTIONED_GESTURES` gate.
 
 ---
 
-## 16. Open forks for the human
+## 16. Decisions & open forks
 
-1. **Name** — `Vetrina` is the working name (chosen). Lock it, or revisit before anything is published.
-2. **The builder verb — `scene()`?** The fluent authoring layer needs a name; `scene()` fits the
-   theater metaphor and doesn't collide with `run`/`storyboard`. Alternatives: `flow()`, `walkthrough()`,
-   `tour()`. *(Recommendation: `scene()`.)*
-3. **Ship `awaitUser` in v1, or defer it?** It is the one new primitive and the Studio demo doesn't
-   exercise it; shipping it means also shipping the vanilla reference consumer that does (so it isn't
-   unproven). Deferring keeps v1 to exactly the Studio migration. *(Recommendation: ship it with the
-   reference tour — the seam is the point of the whole exercise, and an unexercised primitive rots.)*
-4. **First-party recipes in v1, or wait for a second consumer to prove the need?** *(Recommendation:
-   ship `waitFor` + `loop`; hold `retry` until asked — subtract until needed.)*
-5. **Publish now or later?** v1 lands the package in-repo, decoupled and gated, but does not `npm
-   publish`. *(Recommendation: prove it in-repo through the Studio migration + the reference tour,
-   publish once a second real consumer exists.)*
+**Decided (after the second trio):**
+- **v1 scope — keep the FULL surface, prove by exhaustive exemplar.** `scene()`, `drag`, all five
+  gestures, `awaitUser`, the recipes, and the theming tokens **all ship in v1**; each is proven by the
+  exemplar + stress battery (§15.6), not deferred. The owner's call — *"build it even if they won't come;
+  prove it with comprehensive exemplars, edge cases, and stress tests"* — over the trio's
+  defer-until-a-consumer recommendation. It satisfies the same standard (HARD RULE #23) a different way:
+  the exemplars *are* the exercising artifact. The correctness fixes the trio found are folded in
+  regardless (§14-2).
+- **Theming — CSS-first `--vt-*` + JS convenience** (§9): the token contract is a first-class documented
+  CSS surface; the JS `Theme` object is the zero-CSS convenience; light/dark rides the host's cascade.
+
+**Still open (genuinely the human's):**
+1. **Name** — `Vetrina` is the working name (chosen). Lock it, or revisit before publishing.
+2. **The builder verb — `scene()`** (recommended; fits the theater metaphor, no collision with
+   `run`/`storyboard`). Alternatives: `flow()`, `tour()`, `walkthrough()`. Worth locking before the
+   exemplars are written — they use it throughout.
+3. **Publish now or later?** v1 lands the package in-repo, decoupled and gated, but does not `npm
+   publish`. *(Recommendation: prove it in-repo through the migration + the exemplar battery; publish once
+   the API has settled under real use.)*
