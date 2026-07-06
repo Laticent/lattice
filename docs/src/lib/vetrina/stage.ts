@@ -22,6 +22,13 @@ export type Target = string | HTMLElement | (() => HTMLElement | null);
  *  Frozen at five; extending it is an allowlist edit gated in check-ownership. */
 export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake';
 
+export interface DragHandle {
+	/** Release/settle the dragged item at `to` (call on `act` success). */
+	drop(signal?: AbortSignal): Promise<void>;
+	/** Snap the item back to `from` (call on `act` failure) — the honest "it didn't happen". */
+	snapBack(signal?: AbortSignal): Promise<void>;
+}
+
 export interface Stage {
 	/** Narration caption (textContent only; '' clears, unchanged text is kept). */
 	say(text: string): void;
@@ -29,6 +36,9 @@ export interface Stage {
 	point(target: Target, signal?: AbortSignal): Promise<void>;
 	/** Click burst at the cursor's current position (theater; pair with a real `act`). */
 	press(signal?: AbortSignal): Promise<void>;
+	/** Demonstrate a move (mechanic): glide pick-up → hold at `to`. The caller gates the drop
+	 *  on the real `act` (drop on success, snapBack on failure) so the theater never lies. */
+	drag(from: Target, to: Target, signal?: AbortSignal): Promise<DragHandle>;
 	/** Body language (§6.1). `circle` needs a target; the rest play at the cursor or a target. */
 	gesture(kind: Gesture, target?: Target, signal?: AbortSignal): Promise<void>;
 	/** Opening flourish: the cursor materializes at center + waves hello (once per run). */
@@ -329,6 +339,84 @@ export function createStage(opts: StageOptions): Stage {
 		return wait(reduced ? 80 : 480, signal);
 	}
 
+	async function drag(from: Target, to: Target, signal?: AbortSignal): Promise<DragHandle> {
+		const fromEl = resolve(from);
+		const toEl = resolve(to);
+		// Pick up: glide to `from` + a grab pulse.
+		if (fromEl) {
+			await moveToEl(fromEl, signal);
+			if (!reduced)
+				spawnFx(
+					cx,
+					cy,
+					`width:30px;height:30px;border-radius:50%;border:2.5px solid ${A};box-shadow:${RING_SHADOW};`,
+					[
+						{ transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0 },
+						{ transform: 'translate(-50%,-50%) scale(.5)', opacity: 1 },
+					],
+					{ duration: 360, easing: 'ease-out' },
+					400,
+				);
+			await wait(reduced ? 60 : 240, signal);
+		}
+		// A carried chip rides with the cursor (reads as "holding", not a plain move).
+		const carried = doc.createElement('div');
+		carried.style.cssText =
+			`position:absolute;left:${cx}px;top:${cy}px;z-index:7;width:14px;height:14px;border-radius:4px;background:${A};` +
+			'box-shadow:0 4px 10px rgba(0,0,0,.3),0 0 0 2px var(--vt-cursor-stroke);transform:translate(-50%,-50%);pointer-events:none;opacity:.92;';
+		layer.appendChild(carried);
+		let carrying = true;
+		const followLoop = () => {
+			if (!carrying || destroyed) return;
+			carried.style.left = `${cx}px`;
+			carried.style.top = `${cy}px`;
+			requestAnimationFrame(followLoop);
+		};
+		requestAnimationFrame(followLoop);
+		// Glide to `to` — re-read the rect at glide time + scroll it into view (D4.1), since the
+		// reorder reflow hasn't happened yet (that waits on the gated drop).
+		if (toEl) {
+			toEl.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+			const r = toEl.getBoundingClientRect();
+			const tx = r.left + Math.min(r.width * 0.5, 22);
+			const ty = r.top + Math.min(r.height * 0.5, 18);
+			if (reduced) place(tx, ty);
+			else await tween(tx, ty, Math.max(300, Math.min(820, Math.hypot(tx - cx, ty - cy))), signal);
+		}
+		const stopCarry = () => {
+			carrying = false;
+			carried.remove();
+		};
+		return {
+			async drop(sig?: AbortSignal) {
+				if (destroyed) return;
+				if (!reduced)
+					spawnFx(
+						cx,
+						cy,
+						`width:36px;height:36px;border-radius:50%;border:3px solid ${A};box-shadow:${RING_SHADOW};`,
+						[
+							{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 1 },
+							{ transform: 'translate(-50%,-50%) scale(2)', opacity: 0 },
+						],
+						{ duration: 600, easing: 'ease-out' },
+						650,
+					);
+				stopCarry();
+				await wait(reduced ? 40 : 240, sig ?? signal);
+			},
+			async snapBack(sig?: AbortSignal) {
+				// Glide back to `from` + a shake — the honest "the move didn't happen".
+				if (fromEl && !reduced) {
+					const r = fromEl.getBoundingClientRect();
+					await tween(r.left + Math.min(r.width * 0.5, 22), r.top + Math.min(r.height * 0.5, 18), 360, sig ?? signal).catch(() => {});
+				}
+				stopCarry();
+				await shake(sig ?? signal).catch(() => {});
+			},
+		};
+	}
+
 	// A small SVG glyph that blooms at a point — used by check / cross.
 	function glyphBloom(x: number, y: number, path: string): void {
 		spawnFx(
@@ -523,6 +611,7 @@ export function createStage(opts: StageOptions): Stage {
 		say,
 		point,
 		press,
+		drag,
 		gesture,
 		intro,
 		resolve,
