@@ -1381,7 +1381,7 @@ See [cards-stack.gallery.light.pdf](../../lib/components/inventory/cards-stack/c
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short readiness line.
 
-Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (colour-blind-safe).
+Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).
 
 #### When to use
 
@@ -1575,7 +1575,7 @@ Use for a small register of related items where each carries similar weight. Aut
 | `eyebrow` | `p:first-child > code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
 | `title` | `h2` | yes | Slide heading. |
 | `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
-| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centred pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
+| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 #### Anatomy
 
@@ -2040,12 +2040,12 @@ See [list-tabular.gallery.light.pdf](../../lib/components/inventory/list-tabular
 
 **Tags** `visual` · `showcase` · `pitch`
 
-Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-coloured silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and colour-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.
+Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-colored silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and color-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.
 
 #### When to use
 
 - **The proof is the logos.** Customers, partners, funders, accreditations, participating agencies — anywhere a set of recognisable marks carries more weight than a sentence. The audience scans the wall and concludes 'serious company keeps this company.'
-- **Marks read as one texture.** Every mark is filled with the same palette token, so a loud red logo can't outshout a quiet one — the wall reads as a single credential, not a ransom note of competing brand colours. Because the fill is a token, it re-tones for theme + dark mode and stays AA on any ground.
+- **Marks read as one texture.** Every mark is filled with the same palette token, so a loud red logo can't outshout a quiet one — the wall reads as a single credential, not a ransom note of competing brand colors. Because the fill is a token, it re-tones for theme + dark mode and stays AA on any ground.
 - **Eight to eighteen marks.** Enough to signal breadth, few enough that each is legible. Fewer than six looks thin; past eighteen the marks shrink below recognition — curate to the most recognisable names or split across two slides.
 
 #### When NOT to use
@@ -2081,7 +2081,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 | `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`. |
 | `title` | `h2` | no | Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not. |
 | `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. |
-| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centred. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
+| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
 
 #### Anatomy
 
@@ -2710,7 +2710,7 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 
 - **Categorical 2×2 reasoning.** SWOT, Eisenhower, BCG growth-share, risk × impact, build-vs-buy. The two axes are discrete labels and you place each item by judgement.
 - **Fixed, author-placed items.** You know which cell each item belongs in and the placement is the editorial argument. Data-plotted scatter on continuous axes belongs in `quadrant`.
-- **Bottom-right accent matters.** The fourth cell carries the accent ring as the conventional outcome or high-priority quadrant. Place the items you want emphasised there.
+- **Bottom-right accent matters.** The fourth cell carries the accent ring as the conventional outcome or high-priority quadrant. Place the items you want emphasized there.
 
 #### When NOT to use
 
@@ -3581,7 +3581,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 #### When NOT to use
 
 - **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words.
-- **More than four KPIs in attention or spotlight.** `attention` highlights the metric that needs the room; `spotlight` monumentalises one number. Past four KPIs the visual hierarchy collapses — split into two slides.
+- **More than four KPIs in attention or spotlight.** `attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Past four KPIs the visual hierarchy collapses — split into two slides.
 - **No targets, no trends.** If the KPIs carry only current values, the slide is a stats row, not a kpi dashboard. Use stats and reclaim the room.
 
 #### Authoring

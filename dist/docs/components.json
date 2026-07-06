@@ -1304,7 +1304,7 @@
         "requirements"
       ],
       "description": "Items with state markers — done, partial, todo.",
-      "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (colour-blind-safe).",
+      "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).",
       "variants": [],
       "effectiveVariants": [
         "accent",
@@ -3761,7 +3761,7 @@
         "insight": {
           "selector": "blockquote",
           "required": false,
-          "description": "Optional trailing insight or takeaway. Renders as an accent band (ledger), a centred pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial)."
+          "description": "Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial)."
         }
       },
       "skeleton": "<!-- _class: inventory -->\n\n`Eyebrow`\n\n## Slide heading.\n\n- **First entry.** One-sentence description.\n- **Second entry.** One-sentence description.\n- **Third entry.** One-sentence description.\n- **Fourth entry.** One-sentence description.\n\n> Optional trailing insight.\n",
@@ -4297,7 +4297,7 @@
         },
         {
           "title": "More than four KPIs in attention or spotlight",
-          "body": "`attention` highlights the metric that needs the room; `spotlight` monumentalises one number. Past four KPIs the visual hierarchy collapses — split into two slides."
+          "body": "`attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Past four KPIs the visual hierarchy collapses — split into two slides."
         },
         {
           "title": "No targets, no trends",
@@ -5048,7 +5048,7 @@
         "pitch"
       ],
       "description": "A grid of customer, partner, or funder logos as social proof.",
-      "purpose": "Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-coloured silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and colour-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.",
+      "purpose": "Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-colored silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and color-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.",
       "variants": [
         "color",
         "dense"
@@ -5114,7 +5114,7 @@
         "caption": {
           "selector": "ul > li > ul > li",
           "required": false,
-          "description": "Optional name + pill stacked below a mark, centred. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark."
+          "description": "Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark."
         }
       },
       "skeleton": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## The headline claim the logos back up.\n\n- ![First brand](logo-1.svg)\n  - First brand\n  - `Series B`\n- ![Second brand](logo-2.svg)\n  - Second brand\n- ![Third brand](logo-3.svg)\n- ![Fourth brand](logo-4.svg)\n- ![Fifth brand](logo-5.svg)\n- ![Sixth brand](logo-6.svg)\n",
@@ -5125,7 +5125,7 @@
         },
         {
           "title": "Marks read as one texture",
-          "body": "Every mark is filled with the same palette token, so a loud red logo can't outshout a quiet one — the wall reads as a single credential, not a ransom note of competing brand colours. Because the fill is a token, it re-tones for theme + dark mode and stays AA on any ground."
+          "body": "Every mark is filled with the same palette token, so a loud red logo can't outshout a quiet one — the wall reads as a single credential, not a ransom note of competing brand colors. Because the fill is a token, it re-tones for theme + dark mode and stays AA on any ground."
         },
         {
           "title": "Eight to eighteen marks",
@@ -5647,7 +5647,7 @@
         },
         {
           "title": "Bottom-right accent matters",
-          "body": "The fourth cell carries the accent ring as the conventional outcome or high-priority quadrant. Place the items you want emphasised there."
+          "body": "The fourth cell carries the accent ring as the conventional outcome or high-priority quadrant. Place the items you want emphasized there."
         }
       ],
       "antiPatterns": [

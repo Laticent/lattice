@@ -44,7 +44,7 @@
     "requirements"
   ],
   "description": "Items with state markers — done, partial, todo.",
-  "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (colour-blind-safe).",
+  "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).",
   "slots": {
     "title": {
       "selector": "h2",
