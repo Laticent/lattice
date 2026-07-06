@@ -720,6 +720,29 @@ describe('markdown-it-plugins', () => {
     }
   });
 
+  test('slotLabelLift: fires on the list-steps staged-flow variants (chevron, converge, ghost)', () => {
+    // These variants style `li > strong` as the stage label, so the lift is
+    // load-bearing — nested `- Problem` MUST become <strong>Problem</strong>.
+    for (const cls of ['chevron', 'converge', 'ghost']) {
+      const m = makeMarp(plugins.slotLabelLift);
+      const md = `<!-- _class: list-steps ${cls} -->\n- Lead\n  - body`;
+      const { html } = m.render(md);
+      assert.match(html, /<strong>Lead<\/strong>/, `expected lift on list-steps ${cls} but got: ${html}`);
+    }
+  });
+
+  test('slotLabelLift: staged-flow variants are scoped to a list-steps host (generic words do NOT lift alone)', () => {
+    // chevron/converge/ghost are generic English words, so they only trigger the
+    // lift ON a list-steps section — a bare `.ghost` section (some future
+    // unrelated component) must NOT have its lead silently wrapped.
+    for (const cls of ['chevron', 'converge', 'ghost']) {
+      const m = makeMarp(plugins.slotLabelLift);
+      const md = `<!-- _class: ${cls} -->\n- Lead\n  - body`;
+      const { html } = m.render(md);
+      assert.doesNotMatch(html, /<strong>Lead<\/strong>/, `should not lift on bare .${cls}`);
+    }
+  });
+
   test('slotLabelLift: fires on q-and-a (wraps the question so flex can size it)', () => {
     for (const cls of ['q-and-a', 'q-and-a rail', 'q-and-a grid']) {
       const m = makeMarp(plugins.slotLabelLift);

@@ -4705,6 +4705,9 @@
       "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.",
       "variants": [
         "vertical",
+        "chevron",
+        "converge",
+        "ghost",
         "timeline",
         "phase",
         "milestone",
@@ -4717,15 +4720,18 @@
       "effectiveVariants": [
         "accent",
         "archived",
+        "chevron",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
         "claim-quiet",
         "compact",
         "confidential",
+        "converge",
         "dark",
         "draft",
         "form",
+        "ghost",
         "lettered",
         "mark-orbit",
         "mark-threads",
@@ -4842,6 +4848,10 @@
         {
           "name": "list",
           "when": "tenets or values (the `principles` variant) rather than a sequence"
+        },
+        {
+          "name": "funnel",
+          "when": "a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant"
         }
       ],
       "galleryHref": "../../lib/components/progression/list-steps/list-steps.gallery.light.pdf"

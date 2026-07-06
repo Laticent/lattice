@@ -46,6 +46,18 @@ in patch versions.
 
 ### Added
 
+- **Three `list-steps` variants for a vertical staged-argument flow —
+  `chevron`, `converge`, `ghost`.** A labelled sequence that cascades *down* the
+  frame (Problem → Vision → … → Plan), authored as a plain numbered list with a
+  one-line body per stage. `chevron` gives an accent down-chevron tab keyed into
+  a description card (a boardroom-clean take on the classic persuasion frame);
+  `converge` renders one continuous tapering silhouette narrowing onto the final
+  stage — the qualitative sibling of the chart `funnel`, use it when the stages
+  narrow onto a decision; `ghost` is an editorial treatment with a faint chevron
+  watermark, an eyebrow label, and a hero one-line description. All three are
+  palette-blind (verified light + dark) and self-contained (no companion
+  `vertical` needed); the stage label is slot-label-lifted so no `**bold**` is
+  required. Demo deck: `examples/staged-flow.md`.
 - **The Playground opens on Explore — the Specimen Book's reader (PR 6).** The
   generated component galleries are now walkable in place: an Explore | Edit
   mode pill, a Walk bar with Prev/Next, "slide N of M", the slide's own caption,

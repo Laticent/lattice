@@ -138,6 +138,98 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) { list-
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li { font-weight:400; }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em { font-size:var(--fs-meta); color:var(--text-body); line-height:var(--lh-snug); font-style:normal; }
 
+/* ── chevron · converge · ghost — vertical staged-flow variants ──
+ * Three looks for a labelled argument cascading DOWN the frame (Problem →
+ * Vision → … → Plan), each riding the same list-steps DOM: `li > strong` is the
+ * stage label (slot-label-lifted from the nested `- Title`), `li > ul > li` is
+ * the one-line description. Added 2026-07-06 from the chevron-cascade design
+ * bake-off (engineering/decisions/2026-07-06-vertical-staged-flow.md).
+ *   chevron  — accent down-chevron tab + accent-keyed description card (the
+ *              boardroom-cleaned version of the reference deck).
+ *   converge — one continuous tapering silhouette narrowing onto the last
+ *              stage; colour deepens top→bottom (the qualitative sibling of the
+ *              value-driven chart `funnel`). Built for 4 stages (3–4 ideal).
+ *   ghost    — editorial: faint chevron watermark, eyebrow label, hero body.
+ * Self-contained: each establishes the vertical column itself, so
+ * `<!-- _class: list-steps chevron -->` needs no companion `vertical`. */
+
+/* shared: centre the flow, stack as a column, strip the default card + STEP
+ * badge (::before) + right-arrow connector (::after) chrome. */
+section.list-steps:is(.chevron, .converge, .ghost) > .cell-stage { justify-content:center; }
+section.list-steps:is(.chevron, .converge, .ghost) ol { flex-direction:column; align-items:stretch; flex:0 1 auto; }
+section.list-steps:is(.chevron, .converge, .ghost) ol > li { flex:0 0 auto; border:none; background:none; padding:0; font-weight:400; }
+section.list-steps:is(.chevron, .converge, .ghost) ol > li::before { content:none; }
+section.list-steps:is(.chevron, .converge, .ghost) ol > li::after  { content:none; }
+section.list-steps:is(.chevron, .converge, .ghost) ol > li > ul { list-style:none; padding:0; }
+
+/* chevron — accent down-chevron tab carries the label; a bordered card holds the
+ * description, tied to the tab by a solid accent left key. The chevron point aims
+ * at the next row so the eye reads a cascade. */
+section.list-steps.chevron ol { gap:1.4cqi; }
+section.list-steps.chevron ol > li {
+  display:grid; grid-template-columns:16cqi 1fr; gap:2cqi; align-items:stretch; min-height:7.4cqi;
+}
+section.list-steps.chevron ol > li > strong {
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  background:var(--accent); color:var(--on-accent);
+  font-family:var(--font-label); font-size:var(--fs-h5); font-weight:700;
+  letter-spacing:0.05em; text-transform:uppercase;
+  padding:0 1cqi 2cqi;
+  clip-path:polygon(0 0, 100% 0, 100% 66%, 50% 100%, 0 66%);
+}
+section.list-steps.chevron ol > li > ul {
+  display:flex; flex-direction:column; justify-content:center;
+  background:var(--bg-alt); border:1px solid var(--border); border-left:0.7cqi solid var(--accent);
+  padding:1cqi 2.2cqi;
+}
+section.list-steps.chevron ol > li > ul > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); }
+
+/* converge — every band is full-width, clipped to a trapezoid whose edges sit on
+ * two continuous converging diagonals; stacked at gap:0 the clips read as ONE
+ * funnel narrowing onto the final stage, capped by a spout point (ol::after).
+ * Colour deepens in four steps via color-mix. Geometry is authored for 4 bands;
+ * a 3rd/4th+ band degrades to the narrowest trapezoid rather than breaking. */
+section.list-steps.converge ol { gap:0; width:100%; }
+section.list-steps.converge ol > li {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; gap:0.4cqi; width:100%; box-sizing:border-box; padding-block:1.5cqi;
+}
+section.list-steps.converge ol > li:nth-child(1)    { clip-path:polygon(0% 0,     100% 0,     93.25% 100%, 6.75% 100%);  padding-inline:6cqi;  background:var(--accent-soft); }
+section.list-steps.converge ol > li:nth-child(2)    { clip-path:polygon(6.75% 0,  93.25% 0,   86.5% 100%,  13.5% 100%);  padding-inline:13cqi; background:color-mix(in srgb, var(--accent) 32%, var(--accent-soft)); }
+section.list-steps.converge ol > li:nth-child(3)    { clip-path:polygon(13.5% 0,  86.5% 0,    79.75% 100%, 20.25% 100%); padding-inline:19cqi; background:color-mix(in srgb, var(--accent) 66%, var(--accent-soft)); }
+section.list-steps.converge ol > li:nth-child(n+4)  { clip-path:polygon(20.25% 0, 79.75% 0,   73% 100%,    27% 100%);    padding-inline:25cqi; background:var(--accent); }
+section.list-steps.converge ol > li:nth-child(-n+2) :is(strong, ul li) { color:var(--accent-soft-body); }
+section.list-steps.converge ol > li:nth-child(n+3)  :is(strong, ul li) { color:var(--on-accent); }
+section.list-steps.converge ol > li > strong {
+  font-family:var(--font-label); font-size:var(--fs-h5); font-weight:700;
+  text-transform:uppercase; letter-spacing:0.05em;
+}
+section.list-steps.converge ol > li > ul > li { font-size:var(--fs-body); line-height:var(--lh-snug); }
+section.list-steps.converge ol::after {
+  content:""; width:100%; height:3.6cqi; background:var(--accent);
+  clip-path:polygon(27% 0, 73% 0, 50% 100%);
+}
+
+/* ghost — a large faint chevron watermarks each row; the label is a small accent
+ * eyebrow and the description is the hero in heading type. Hairline rules imply
+ * the flow. Maximum restraint, maximum type. */
+section.list-steps.ghost ol { gap:0; }
+section.list-steps.ghost ol > li { position:relative; padding:1.55cqi 0 1.55cqi 9cqi; }
+section.list-steps.ghost ol > li + li { border-top:1px solid var(--border); }
+section.list-steps.ghost ol > li::before {
+  content:''; position:absolute; left:1.2cqi; top:50%; transform:translateY(-50%);
+  width:6.2cqi; height:6.2cqi; background:var(--accent); opacity:0.12;
+  clip-path:polygon(50% 88%, 0 34%, 14% 20%, 50% 60%, 86% 20%, 100% 34%);
+}
+section.list-steps.ghost ol > li > strong {
+  display:block; font-family:var(--font-label); font-size:var(--fs-meta); color:var(--accent);
+  font-weight:700; text-transform:uppercase; letter-spacing:0.18em; line-height:var(--lh-snug);
+  padding-bottom:0.7cqi;
+}
+section.list-steps.ghost ol > li > ul > li {
+  font-size:var(--fs-h4); color:var(--text-heading); font-weight:400; line-height:var(--lh-snug);
+}
+
 /* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The default strip is a horizontal flex row of step cards with right-pointing
    connectors; in a tall box those columns crush. Apply the existing `vertical`
@@ -150,11 +242,11 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em
    overflows) nor 3–4 full cards stacked (also overflows), so `square` is left out of
    `adapt.families` and the vertical stack fires only on the taller frames. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.list-steps.list-steps:not(.timeline) ol {
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol {
     flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
   }
-  section.list-steps.list-steps:not(.timeline) ol > li { flex: 0 0 auto; }
-  section.list-steps.list-steps:not(.timeline) ol > li:not(:last-child)::after {
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li { flex: 0 0 auto; }
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li:not(:last-child)::after {
     right: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
     transform: translate(50%, 50%);
     border-top: 10px solid var(--border); border-bottom: none;

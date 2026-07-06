@@ -49,6 +49,9 @@
   "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.",
   "variants": [
     "vertical",
+    "chevron",
+    "converge",
+    "ghost",
     "timeline",
     "phase",
     "milestone",
@@ -121,9 +124,28 @@
     {
       "name": "list",
       "when": "tenets or values (the `principles` variant) rather than a sequence"
+    },
+    {
+      "name": "funnel",
+      "when": "a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant"
     }
   ],
   "variantDocs": {
+    "chevron": {
+      "label": "chevron",
+      "caption": "Down-chevron tabs cascade into keyed description cards.",
+      "sample": "<!-- _class: list-steps chevron -->\n\n## Make the case, one stage at a time.\n\n1. Problem\n   - Define the problem that is causing the pain.\n2. Vision\n   - Show what the world looks like once it is solved.\n3. Approach\n   - Detail the moves that get from here to there.\n4. Plan\n   - Commit to concrete steps, owners, and a date.\n"
+    },
+    "converge": {
+      "label": "converge",
+      "caption": "Tapering bands narrow onto the final stage (a qualitative funnel).",
+      "sample": "<!-- _class: list-steps converge -->\n\n## Many concerns narrow onto one plan.\n\n1. Problem\n   - Define the problem that is causing the pain.\n2. Vision\n   - Show what the world looks like once it is solved.\n3. Approach\n   - Detail the moves that get from here to there.\n4. Plan\n   - Commit to concrete steps, owners, and a date.\n"
+    },
+    "ghost": {
+      "label": "ghost",
+      "caption": "Faint chevron watermark, eyebrow label, hero description — editorial.",
+      "sample": "<!-- _class: list-steps ghost -->\n\n## The argument, stated plainly.\n\n1. Problem\n   - Define the problem that is causing the pain.\n2. Vision\n   - Show what the world looks like once it is solved.\n3. Approach\n   - Detail the moves that get from here to there.\n4. Plan\n   - Commit to concrete steps, owners, and a date.\n"
+    },
     "timeline": {
       "label": "timeline",
       "caption": "Steps string along a line.",
