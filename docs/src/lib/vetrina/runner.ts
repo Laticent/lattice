@@ -107,6 +107,20 @@ function newAbort(): Error {
 	return e;
 }
 
+/** Wrap the host actions so every method is a no-op once `signal` aborts (I8). Pure — unit-tested. */
+export function guardedActions<A>(actions: A, signal: AbortSignal): A {
+	if (typeof actions !== 'object' || actions === null) return actions;
+	return new Proxy(actions as object, {
+		get(t, k, r) {
+			const v = Reflect.get(t, k, r);
+			if (typeof v === 'function') {
+				return (...args: unknown[]) => (signal.aborted ? undefined : (v as (...a: unknown[]) => unknown).apply(t, args));
+			}
+			return v;
+		},
+	}) as A;
+}
+
 export function run<A>(opts: RunOptions<A>): RunHandle {
 	if (activeRun) {
 		// Single-flight: a NAMED throw, never a silent inert handle. Compose with
@@ -182,18 +196,7 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 
 	// The abort-guarded actions proxy (I8): once aborted, every call is a no-op, so
 	// "drive the app after the human took over" is structurally impossible.
-	const actions: A =
-		typeof opts.actions === 'object' && opts.actions !== null
-			? (new Proxy(opts.actions as object, {
-					get(t, k, r) {
-						const v = Reflect.get(t, k, r);
-						if (typeof v === 'function') {
-							return (...args: unknown[]) => (signal.aborted ? undefined : (v as (...a: unknown[]) => unknown).apply(t, args));
-						}
-						return v;
-					},
-				}) as A)
-			: opts.actions;
+	const actions = guardedActions(opts.actions, signal);
 
 	// Run-scoped typing baseline (I9): shared across every segment + raw beat, keyed per
 	// target, so a composed segment diffs against the LIVE document, not a stale seed.
