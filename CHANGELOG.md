@@ -83,7 +83,12 @@ in patch versions.
   low `@layer` on `:root` instead of inline on the overlay, so a host's own
   `:root` theming actually wins (the documented CSS-first contract); and the
   overlay is no longer `aria-hidden` wholesale, so the Exit button reaches the
-  accessibility tree and the narration caption is a polite live region.
+  accessibility tree and the narration caption is a polite live region. The
+  demo chrome is a single consolidated **narration dock** — one pill carrying the
+  live-dot, the narration (falling back to the take-over hint when idle), and Exit
+  — replacing the earlier top-strip + bottom-caption pair; its edge is a curated
+  `placement: 'top' | 'bottom'`, its corner shape the `--vt-caption-radius` token,
+  and its background is translucent so the deck shows through.
 
 ### Changed
 

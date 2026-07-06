@@ -137,9 +137,10 @@
 			};
 			if (board) new MutationObserver(sync).observe(board, { attributes: true, attributeFilter: ['data-vt-phase', 'data-vt-reason'] });
 
+			const placement = params.get('placement') === 'top' ? 'top' : undefined;
 			const begin = () => {
 				if (!board) return;
-				startBoardDemo(demo, board);
+				startBoardDemo(demo, board, { placement });
 				sync();
 			};
 			document.getElementById('start')?.addEventListener('click', begin);

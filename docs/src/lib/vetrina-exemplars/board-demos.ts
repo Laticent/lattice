@@ -167,6 +167,8 @@ const DEMOS: Record<string, () => Walkthrough<BoardHost>> = {
 
 export interface StartOptions {
 	onStop?: (reason: StopReason) => void;
+	/** Which edge the narration dock sits at (proves the curated `placement` option). */
+	placement?: 'top' | 'bottom';
 }
 
 /** Start the named demo over the board `board`. Returns the run handle, or null on a rejected
@@ -204,7 +206,10 @@ export function startBoardDemo(name: string, board: HTMLElement, opts: StartOpti
 	// path with a CONCRETE accent, guarding that both the cursor body AND its cues track it
 	// (the derived --vt-cursor-fill regression the checker caught). Every OTHER demo is also
 	// pure CSS-first — passing a `var(--vt-accent,…)` self-reference would be a no-op cycle.
-	const theme = name === 'theming-js' ? { accent: 'rgb(255, 40, 140)' } : undefined;
+	const base = name === 'theming-js' ? { accent: 'rgb(255, 40, 140)' } : {};
+	// The narration dock's edge is a curated choice — thread it so the page can exercise
+	// `?placement=top` (default 'bottom' when unset).
+	const theme = opts.placement ? { ...base, placement: opts.placement } : name === 'theming-js' ? base : undefined;
 
 	return run<BoardHost>({ root, actions, play: play(), takeover: { scope: 'window' }, theme, onStop: finalize });
 }

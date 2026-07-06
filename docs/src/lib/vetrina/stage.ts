@@ -32,7 +32,8 @@ export interface DragHandle {
 }
 
 export interface Stage {
-	/** Narration caption (textContent only; '' clears, unchanged text is kept). */
+	/** Narration text in the dock (textContent only). '' reverts to the take-over hint — the
+	 *  dock stays up so Exit is always reachable; the narration cross-fades on change. */
 	say(text: string): void;
 	/** Anticipation cue toward a target, then an eased glide to it. Null target = no-op. */
 	point(target: Target, signal?: AbortSignal): Promise<void>;
@@ -104,14 +105,16 @@ const TOKEN_DEFAULTS: Record<string, string> = {
 	'--vt-accent': '#2b6ef2',
 	'--vt-cursor-fill': 'var(--vt-accent)',
 	'--vt-cursor-stroke': '#ffffff',
-	'--vt-caption-bg': 'rgba(12,14,20,.86)',
+	// The narration dock. `-bg` is deliberately translucent (+ a backdrop blur) so the deck
+	// ghosts through instead of being hidden; `-radius` is the corner shape (pill by default,
+	// lower it for a rounded rectangle); `-hint` is the dimmed "take over" fallback text.
+	'--vt-caption-bg': 'rgba(12,14,20,.76)',
 	'--vt-caption-ink': '#f4f6fb',
+	'--vt-caption-hint': 'rgba(244,246,251,.62)',
+	'--vt-caption-radius': '999px',
 	'--vt-ring-halo': 'rgba(255,255,255,.92)',
 	'--vt-glow-halo': 'rgba(255,255,255,.85)',
 	'--vt-tick-halo': 'rgba(255,255,255,.70)',
-	'--vt-chrome-bg': 'rgba(12,14,20,.86)',
-	'--vt-chrome-ink': '#f4f6fb',
-	'--vt-chrome-hint': 'rgba(244,246,251,.60)',
 	'--vt-exit-bg': 'rgba(255,255,255,.14)',
 	'--vt-exit-ink': '#ffffff',
 };
@@ -173,6 +176,7 @@ export function createStage(opts: StageOptions): Stage {
 	const reduced = reducedMotion();
 	const pace = opts.theme?.pace ?? 1;
 	const silenced = opts.theme?.silenced ?? new Set<string>();
+	const placement = opts.theme?.placement ?? 'bottom';
 	let destroyed = false;
 
 	// Token DEFAULTS live in a LOW cascade layer on `:root` (injected once), NOT inline on
@@ -204,52 +208,58 @@ export function createStage(opts: StageOptions): Stage {
 		'transform:translate(-50%,-50%);will-change:transform,left,top;transition:opacity .25s ease;opacity:0;';
 	cursor.innerHTML = cursorInner(opts.theme?.pointer ?? 'arrow');
 
-	const caption = doc.createElement('div');
-	caption.className = 'vetrina-caption';
-	// The narration IS the accessible spine of a self-driving demo, so the caption is a
-	// polite, atomic live region — each `say` is announced once the prior beat settles
-	// (steps settle at human pace, so it reads, not floods). Decoration stays silent
-	// (cursor/rings aria-hidden); this speaks.
-	caption.setAttribute('role', 'status');
-	caption.setAttribute('aria-live', 'polite');
-	caption.setAttribute('aria-atomic', 'true');
-	caption.style.cssText =
-		'position:absolute;left:50%;bottom:76px;z-index:9;transform:translateX(-50%);' +
-		'max-width:min(640px,86vw);padding:11px 20px;border-radius:999px;background:var(--vt-caption-bg);' +
-		'color:var(--vt-caption-ink);line-height:1.45;text-align:center;box-shadow:0 10px 34px rgba(0,0,0,.42);' +
-		'opacity:0;transition:opacity .3s ease;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);';
+	// ── The narration DOCK — one pill, consolidated (§ redesign 2026-07-06). It carries the
+	// live indicator, the narration, and Exit, and stays up the whole run (so Exit is ALWAYS
+	// reachable — it can't hide inside a caption that fades between beats). It replaces the old
+	// split of a top control strip + a bottom caption. Placement is a curated edge (top/bottom);
+	// the corner shape is the `--vt-caption-radius` token; the translucent `--vt-caption-bg` +
+	// backdrop blur let the deck ghost through instead of being hidden.
+	const HINT = 'click anywhere to take over';
+	const edge = placement === 'top' ? 'top:14px' : 'bottom:76px';
+	const dock = doc.createElement('div');
+	dock.className = 'vetrina-caption';
+	dock.style.cssText =
+		`position:absolute;left:50%;${edge};z-index:10;transform:translateX(-50%);` +
+		'display:flex;align-items:center;gap:12px;max-width:min(680px,90vw);' +
+		'padding:7px 8px 7px 16px;border-radius:var(--vt-caption-radius);background:var(--vt-caption-bg);' +
+		'color:var(--vt-caption-ink);box-shadow:0 10px 34px rgba(0,0,0,.40);pointer-events:none;' +
+		'opacity:0;transition:opacity .3s ease;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);';
 
-	const chrome = doc.createElement('div');
-	chrome.className = 'vetrina-chrome';
-	chrome.style.cssText =
-		'position:absolute;top:14px;left:50%;z-index:10;transform:translateX(-50%);display:flex;align-items:center;' +
-		'gap:10px;padding:6px 8px 6px 14px;border-radius:999px;background:var(--vt-chrome-bg);color:var(--vt-chrome-ink);' +
-		'box-shadow:0 8px 26px rgba(0,0,0,.4);pointer-events:none;opacity:0;transition:opacity .3s ease;' +
-		'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);';
-	const badge = doc.createElement('span');
-	badge.textContent = 'Live demo';
-	badge.style.cssText = 'display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:13px;';
-	badge.insertAdjacentHTML(
-		'afterbegin',
-		`<span style="width:8px;height:8px;border-radius:50%;background:${A};box-shadow:0 0 0 0 ${A};animation:vetrinaPulse 1.8s ease-out infinite"></span>`,
-	);
-	const hint = doc.createElement('span');
-	hint.textContent = 'click anywhere to take over';
-	hint.style.cssText = 'font-size:12px;color:var(--vt-chrome-hint);';
+	// Live indicator — the pulsing accent dot (decorative).
+	const dot = doc.createElement('span');
+	dot.setAttribute('aria-hidden', 'true');
+	dot.style.cssText = `flex:none;width:9px;height:9px;border-radius:50%;background:${A};box-shadow:0 0 0 0 ${A};animation:vetrinaPulse 1.8s ease-out infinite;`;
+
+	// Narration — the say() text and the accessible spine (the a11y live region). When idle it
+	// shows the take-over hint (dimmed), so the dock is never empty. Only THIS span is a live
+	// region, so the dot + Exit stay out of the announced text.
+	const narration = doc.createElement('span');
+	narration.className = 'vetrina-narration';
+	narration.setAttribute('role', 'status');
+	narration.setAttribute('aria-live', 'polite');
+	narration.setAttribute('aria-atomic', 'true');
+	narration.style.cssText = 'flex:1 1 auto;min-width:0;line-height:1.4;text-align:center;font-size:14px;transition:opacity .18s ease;';
+	const setNarration = (text: string): void => {
+		narration.textContent = text || HINT;
+		narration.style.color = text ? 'var(--vt-caption-ink)' : 'var(--vt-caption-hint)';
+	};
+	setNarration(''); // start on the hint
+
+	// Exit — the always-reachable escape hatch (the one interactive control on the dock).
 	const exit = doc.createElement('button');
 	exit.type = 'button';
 	exit.textContent = 'Exit';
 	exit.setAttribute('aria-label', 'Exit the demo');
 	exit.style.cssText =
-		'pointer-events:auto;cursor:pointer;border:0;border-radius:999px;padding:5px 13px;' +
+		'flex:none;pointer-events:auto;cursor:pointer;border:0;border-radius:999px;padding:5px 13px;' +
 		'font:600 12px system-ui,sans-serif;background:var(--vt-exit-bg);color:var(--vt-exit-ink);';
 	exit.addEventListener('click', (e) => {
 		e.stopPropagation();
 		onExit();
 	});
-	chrome.append(badge, hint, exit);
+	dock.append(dot, narration, exit);
 
-	// One-time keyframes for the badge pulse (idempotent — id-guarded).
+	// One-time keyframes for the live-dot pulse (idempotent — id-guarded).
 	if (!doc.getElementById('vetrina-keyframes')) {
 		const style = doc.createElement('style');
 		style.id = 'vetrina-keyframes';
@@ -258,7 +268,7 @@ export function createStage(opts: StageOptions): Stage {
 		doc.head.appendChild(style);
 	}
 
-	layer.append(caption, chrome, cursor);
+	layer.append(dock, cursor);
 	portal.appendChild(layer);
 
 	let cx = window.innerWidth / 2;
@@ -285,7 +295,7 @@ export function createStage(opts: StageOptions): Stage {
 
 	requestAnimationFrame(() => {
 		if (destroyed) return;
-		chrome.style.opacity = '1';
+		dock.style.opacity = '1';
 		cursor.style.opacity = '1';
 	});
 
@@ -657,14 +667,22 @@ export function createStage(opts: StageOptions): Stage {
 		await moveToEl(el, signal);
 	}
 
+	// Update the narration with a gentle cross-fade (the DOCK itself stays up — Exit must never
+	// blink out). '' reverts to the take-over hint, so the dock is never empty.
+	let sayTimer = 0;
 	function say(text: string): void {
 		if (destroyed) return;
-		if (!text) {
-			caption.style.opacity = '0';
+		if (reduced) {
+			setNarration(text);
 			return;
 		}
-		caption.textContent = text;
-		caption.style.opacity = '1';
+		narration.style.opacity = '0';
+		window.clearTimeout(sayTimer);
+		sayTimer = window.setTimeout(() => {
+			if (destroyed) return;
+			setNarration(text);
+			narration.style.opacity = '1';
+		}, 140);
 	}
 
 	return {

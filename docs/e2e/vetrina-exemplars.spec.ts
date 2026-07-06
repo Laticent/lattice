@@ -77,6 +77,27 @@ test('theming (JS) — a concrete accent themes the cursor BODY and its cues ali
 	expect(await readCursorFill()).toBe(accent);
 });
 
+test('narration dock — one consolidated pill (dot + narration + Exit), placement:top moves it to the top edge', async ({ page }) => {
+	await goto(page, 'theming'); // holds on the stage so the dock is readable
+	await expect(page.locator('.vetrina-stage')).toBeVisible();
+	await expect.poll(() => attr(page, 'data-vt-phase')).toBe('holding');
+
+	const dock = page.locator('.vetrina-caption');
+	await expect(dock).toBeVisible();
+	// Consolidated: the Exit control lives INSIDE the single dock — there is no separate
+	// top "Live demo" chrome strip anymore.
+	await expect(dock.locator('button[aria-label="Exit the demo"]')).toHaveCount(1);
+	await expect(page.locator('.vetrina-chrome')).toHaveCount(0);
+	// Default edge is the bottom.
+	expect(await dock.evaluate((el) => getComputedStyle(el).bottom)).not.toBe('auto');
+
+	// placement:'top' moves the SAME dock to the top edge (a curated option).
+	await page.goto('/vetrina-exemplars/?demo=theming&placement=top');
+	const topDock = page.locator('.vetrina-caption');
+	await expect(topDock).toBeVisible();
+	expect(await topDock.evaluate((el) => getComputedStyle(el).top)).toBe('14px');
+});
+
 test('bad accent — an exfil-shaped url() accent is rejected; no stage ever mounts', async ({ page }) => {
 	await goto(page, 'bad-accent');
 	// resolveTheme throws synchronously inside run(); the host catches + marks it.

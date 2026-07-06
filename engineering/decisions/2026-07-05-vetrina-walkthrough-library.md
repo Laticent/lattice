@@ -387,17 +387,26 @@ free** — no JS, no mid-run mode-switch mechanism, no flip race.
 :root[data-theme="dark"]  { --vt-accent: #4b82ff; --vt-caption-bg: #0c0e13cc; }  /* the HOST's cascade */
 ```
 
-The set covers **every color the stage draws**, so a host can fully rebrand (§14-2/checker — the old
-6-token set couldn't express the chrome or the distinct co-strokes):
+The set covers **every color the stage draws**, so a host can fully rebrand. *(Consolidation, §16
+"dock redesign" 2026-07-06: the top "Live demo" strip and the bottom caption merged into ONE persistent
+narration DOCK — live-dot + narration + Exit — so the retired `--vt-chrome-bg/ink` tokens are gone and
+the hint color is now `--vt-caption-hint`. Exit stays always-reachable because the dock never fades out.)*
 
 ```
---vt-accent                                   brand hue: pointer + cues + glow
+--vt-accent                                   brand hue: pointer + cues + glow + live dot
 --vt-cursor-fill  --vt-cursor-stroke          the cursor
---vt-caption-bg   --vt-caption-ink            the narration caption
+--vt-caption-bg   --vt-caption-ink            the narration dock surface + text
+--vt-caption-hint                             the idle "take over" fallback text (dimmed)
+--vt-caption-radius                           the dock corner shape (999px pill default; a LENGTH, CSS-only)
 --vt-ring-halo    --vt-glow-halo  --vt-tick-halo   cue co-strokes (legibility floor; sane fixed defaults)
---vt-chrome-bg    --vt-chrome-ink  --vt-chrome-hint   the "Live demo" scrim + hint
 --vt-exit-bg      --vt-exit-ink                the Exit control
 ```
+
+`--vt-caption-radius` is the one non-color token — a length, so it's CSS-first only (a host sets it in
+CSS; it is NOT a JS `Theme` color). "Shape" here means corner rounding, nothing more (a pill by default,
+a smaller radius for a rounded rectangle). The dock's **edge** is a curated JS choice: `placement:
+'top' | 'bottom'` (default `bottom`) — a discrete option, not a free coordinate (the human-not-machine
+tenet, §2).
 
 **Surface 2 — the JS `Theme` object (the zero-CSS convenience).** For hosts that would rather not touch
 CSS, a small object that *writes the tokens for you*. It is **mode-agnostic** — it sets tokens once;
@@ -406,14 +415,14 @@ mode-switch mechanism.
 
 ```ts
 type Color = string;                          // a CSS color; VALIDATED (see below) — not a raw sink
-type VtToken = 'accent' | 'cursorFill' | 'cursorStroke' | 'captionBg' | 'captionInk'
-             | 'ringHalo' | 'glowHalo' | 'tickHalo' | 'chromeBg' | 'chromeInk' | 'chromeHint'
-             | 'exitBg' | 'exitInk';
+type VtToken = 'accent' | 'cursorFill' | 'cursorStroke' | 'captionBg' | 'captionInk' | 'captionHint'
+             | 'ringHalo' | 'glowHalo' | 'tickHalo' | 'exitBg' | 'exitInk';
 
 interface Theme {
   accent?: Color;                             // brand hue → --vt-accent (validated)
   speed?: 'slow' | 'moderate' | 'fast';       // guaranteed-followable pacing (default 'moderate')
   pointer?: 'arrow' | 'ring' | 'dot';         // curated cursor SHAPE (default 'arrow')
+  placement?: 'top' | 'bottom';               // which edge the narration dock sits at (default 'bottom')
   cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>; // SILENCE a cue
   tokens?: Partial<Record<VtToken, Color>>;   // escape hatch: set any --vt-* value directly, in JS
   portalRoot?: HTMLElement; zIndex?: number;

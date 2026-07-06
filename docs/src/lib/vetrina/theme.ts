@@ -15,12 +15,10 @@ export type VtToken =
 	| 'cursorStroke'
 	| 'captionBg'
 	| 'captionInk'
+	| 'captionHint'
 	| 'ringHalo'
 	| 'glowHalo'
 	| 'tickHalo'
-	| 'chromeBg'
-	| 'chromeInk'
-	| 'chromeHint'
 	| 'exitBg'
 	| 'exitInk';
 
@@ -31,6 +29,9 @@ export interface Theme {
 	speed?: 'slow' | 'moderate' | 'fast';
 	/** Curated cursor SHAPE (default 'arrow'). */
 	pointer?: 'arrow' | 'ring' | 'dot';
+	/** Which edge the narration dock sits at (default 'bottom'). A curated choice, not a
+	 *  free coordinate; shape (corner radius) is the CSS `--vt-caption-radius` token. */
+	placement?: 'top' | 'bottom';
 	/** Silence a cue (never replace one with a callback). */
 	cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>;
 	/** Escape hatch: set any --vt-* token value directly, in JS. */
@@ -46,6 +47,7 @@ export interface ResolvedTheme {
 	tokens: Record<string, string>; // --vt-* -> value
 	pace: number; // duration multiplier (slow > 1 > fast)
 	pointer: 'arrow' | 'ring' | 'dot';
+	placement: 'top' | 'bottom'; // which edge the narration dock sits at
 	silenced: Set<string>; // cue names to skip
 }
 
@@ -55,12 +57,10 @@ const TOKEN_VAR: Record<VtToken, string> = {
 	cursorStroke: '--vt-cursor-stroke',
 	captionBg: '--vt-caption-bg',
 	captionInk: '--vt-caption-ink',
+	captionHint: '--vt-caption-hint',
 	ringHalo: '--vt-ring-halo',
 	glowHalo: '--vt-glow-halo',
 	tickHalo: '--vt-tick-halo',
-	chromeBg: '--vt-chrome-bg',
-	chromeInk: '--vt-chrome-ink',
-	chromeHint: '--vt-chrome-hint',
 	exitBg: '--vt-exit-bg',
 	exitInk: '--vt-exit-ink',
 };
@@ -152,6 +152,7 @@ export function resolveTheme(theme: Theme = {}): ResolvedTheme {
 		tokens,
 		pace: SPEED_PACE[theme.speed ?? 'moderate'],
 		pointer: theme.pointer ?? 'arrow',
+		placement: theme.placement ?? 'bottom',
 		silenced: new Set(
 			Object.entries(theme.cues ?? {})
 				.filter(([, v]) => v === false)

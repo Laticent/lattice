@@ -138,12 +138,20 @@ free, with no JavaScript and no mode-switch wiring:
 ```
 
 The token set covers **every color the stage draws** (`--vt-accent`,
-`--vt-cursor-*`, `--vt-caption-*`, the cue halos, the chrome, the Exit control).
-Prefer JS? Pass a `theme: { accent }` object — a convenience that writes the
-tokens for you. Either way accent colors are **validated**: a pale/same-hue value
-is lifted to a legibility floor (the cursor can't go invisible), and any
-`url()` / `image()` / control-char value is **rejected** (token values are
-host-trusted, never wire/AI content).
+`--vt-cursor-*`, the narration dock's `--vt-caption-bg` / `--vt-caption-ink` /
+`--vt-caption-hint`, the cue halos, the Exit control). Prefer JS? Pass a
+`theme: { accent }` object — a convenience that writes the tokens for you. Either
+way accent colors are **validated**: a pale/same-hue value is lifted to a
+legibility floor (the cursor can't go invisible), and any `url()` / `image()` /
+control-char value is **rejected** (token values are host-trusted, never
+wire/AI content).
+
+The **narration dock** — one pill carrying the live-dot, the narration, and Exit —
+sits at the bottom by default; move it with `placement: 'top' | 'bottom'`. Its
+corner **shape** is the one non-color token, `--vt-caption-radius` (CSS-only,
+default `999px` pill — lower it for a rounded rectangle). Its background is
+deliberately translucent (with a backdrop blur) so the deck shows through; retint
+via `--vt-caption-bg`.
 
 Pacing is a curated preset — `speed: 'slow' | 'moderate' | 'fast'` — not a raw
 number the eye can't use. The pointer is a shape from a small legible set
