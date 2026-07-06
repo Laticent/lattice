@@ -786,6 +786,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}
 			document.body.setAttribute('data-view', v);
 			if (v === 'read') {
+				// Reveal the preview pane SYNCHRONOUSLY before the render measures the
+				// iframe (the mobile 0-width FIT trap — same ordering as applyDeck).
+				setPane('preview');
+				document.body.setAttribute('data-pane', 'preview');
 				if (walkRef.current) freshRender();
 				else void startWalk(readerComponent, null);
 			} else {
@@ -912,9 +916,22 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		}
 		const v = exploreAvailable ? resolveStartupView({ hasHandoff, savedView, urlView: url.view, source: src, insertedHash: ih }) : 'edit';
 		document.body.setAttribute('data-view', v);
+		// An explicit ?view= is an explicit choice — persist it, so a reload (the
+		// walk URL-sync strips edit params) and a new tab stay on the chosen surface.
+		if (url.view) {
+			try {
+				localStorage.setItem(VIEW_KEY, url.view);
+			} catch {
+				/* private mode */
+			}
+		}
 		if (v === 'read') {
 			viewRef.current = 'read';
 			setView('read');
+			// Same synchronous pane reveal as setViewMode — the first walk render
+			// must measure a visible iframe on the phone single-pane layout.
+			setPane('preview');
+			document.body.setAttribute('data-pane', 'preview');
 			void startWalkRef.current(target, url.s);
 		} else if (exploreAvailable) {
 			// Warm the walk behind the editor so the Explore chrome (and the tour's
