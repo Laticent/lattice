@@ -18,7 +18,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 <!-- _class: journey -->
 <!-- _footer: "Default · journey" -->
 
-## Customer onboarding · trial to activation.
+## The journey scores each stage of the path.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -35,9 +35,9 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ---
 
 <!-- _class: journey heatmap -->
-<!-- _footer: "Heatmap — mood-tinted chips · journey heatmap" -->
+<!-- _footer: "heatmap · journey heatmap — Stages shade by score." -->
 
-## Heatmap · where the trial drops off.
+## heatmap shades the stages by score.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -53,9 +53,9 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ---
 
 <!-- _class: journey curve -->
-<!-- _footer: "Curve — mood polyline with axis · journey curve" -->
+<!-- _footer: "curve · journey curve — A sentiment line rides the stages." -->
 
-## Curve · the affect contour.
+## curve draws the sentiment line.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -71,9 +71,9 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ---
 
 <!-- _class: journey swimlane -->
-<!-- _footer: "Swimlane — per-actor rows · journey swimlane" -->
+<!-- _footer: "swimlane · journey swimlane — One lane per actor." -->
 
-## Swimlane · who owns each moment.
+## swimlane splits the journey by actor.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -89,9 +89,9 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ---
 
 <!-- _class: journey weighted -->
-<!-- _footer: "Weighted — chip widths by volume · journey weighted" -->
+<!-- _footer: "weighted · journey weighted — Stage size carries weight." -->
 
-## Weighted · where the traffic actually lands.
+## weighted sizes the stages by importance.
 
 - Discover
   - Search `@prospect` `:4` `+45`
@@ -106,10 +106,37 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 
 ---
 
+<!-- _class: journey -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · journey — Five stages, twelve tasks — the ceiling." -->
+
+## Five stages of twelve tasks is the ceiling.
+
+- Discover
+  - Hear of it `@prospect` `:3`
+  - First visit `@prospect` `:4`
+- Evaluate
+  - Read the case `@prospect` `:4`
+  - Book a demo `@prospect` `:3`
+  - Sit the demo `@prospect` `@sales` `:4`
+- Trial
+  - Sign up `@prospect` `:3`
+  - First setup `@user` `:1`
+  - Invite the team `@user` `:2`
+- Adopt
+  - First report `@user` `:4`
+  - Weekly habit `@user` `:5`
+- Expand
+  - Add seats `@buyer` `:4`
+  - Renew early `@buyer` `:5`
+
+
+---
+
 <!-- _class: journey dark -->
 <!-- _footer: "Composition: dark · journey dark" -->
 
-## Customer onboarding · trial to activation.
+## The journey scores each stage of the path.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -128,7 +155,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 <!-- _class: journey compact -->
 <!-- _footer: "Composition: compact · journey compact" -->
 
-## Customer onboarding · trial to activation.
+## The journey scores each stage of the path.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -147,7 +174,7 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 <!-- _class: journey accent -->
 <!-- _footer: "Composition: accent · journey accent" -->
 
-## Customer onboarding · trial to activation.
+## The journey scores each stage of the path.
 
 - Evaluate
   - Read case study `@prospect` `:5`

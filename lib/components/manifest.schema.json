@@ -374,14 +374,9 @@
       "minLength": 1,
       "description": "Full slide markdown (including the `_class` directive line, with no modifier) for the default-appearance slide of <name>.gallery.md. The skeleton field is the placeholder template for the scaffolder; sample is real prose that demonstrates the component."
     },
-    "stressSample": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Optional. Full slide markdown for an extra <name>.gallery.md slide that stress-tests the engine with an edge-case input (high volume, wide value range, long text) past the tidy default sample. Rendered after the variant slides; counted by expectedGallerySlideCount(). DEPRECATED spelling: migrating to stressDoc { caption, sample } (2026-07-05 Specimen Book decision); accepted until the voice migration completes, then removed."
-    },
     "stressDoc": {
       "type": "object",
-      "description": "Optional (required wherever capacity is declared, enforced by the gallery-contract debt ledger during the voice migration). The stress-test slide as { caption, sample }: caption is one sentence naming the limit the slide shows; sample is the full slide markdown at the upper content limit. Replaces the legacy stressSample string.",
+      "description": "Required wherever capacity is declared (validate() error since the migration completed); optional elsewhere. The stress-test slide as { caption, sample }: caption is one sentence naming the limit the slide shows; sample is the full slide markdown at the upper content limit. Replaces the legacy stressSample string.",
       "required": [
         "caption",
         "sample"

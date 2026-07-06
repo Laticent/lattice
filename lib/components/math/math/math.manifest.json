@@ -22,9 +22,13 @@
       "annotations"
     ]
   },
-  "tags": ["formula", "assessment", "reference"],
+  "tags": [
+    "formula",
+    "assessment",
+    "reference"
+  ],
   "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. KaTeX-rendered equations with persona-appropriate surround.",
-  "purpose": "Use when the slide IS the equation. KaTeX renders `$$…$$` as centred display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).",
+  "purpose": "Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).",
   "variants": [
     "feature",
     "derivation",
@@ -49,7 +53,7 @@
     "equation": {
       "selector": "p",
       "required": true,
-      "description": "Display equation wrapped in `$$…$$`. KaTeX renders centred."
+      "description": "Display equation wrapped in `$$…$$`. KaTeX renders centered."
     },
     "legend": {
       "selector": "ul > li",
@@ -59,7 +63,11 @@
   },
   "skeleton": "<!-- _class: math -->\n\n`Eyebrow · context`\n\n## One-sentence framing of what the equation establishes.\n\n$$ y = f(x) $$\n\n- $y$ — what we predict\n- $x$ — input variable\n- $f$ — the relation under study\n",
   "anatomyBlock": "math-canvas",
-  "sample": "<!-- _class: math -->\n\n`Linear regression · OLS`\n\n## The closed-form estimator.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $\\hat\\beta$ — OLS coefficient vector\n- $X$ — design matrix, $n \\times p$\n- $y$ — response vector, length $n$\n- $X^\\top X$ — Gram matrix, $p \\times p$, must be invertible\n",
+  "sample": "<!-- _class: math -->\n\n`Linear regression · OLS`\n\n## One equation, displayed; its symbols named below.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $\\hat\\beta$ — OLS coefficient vector\n- $X$ — design matrix, $n \\times p$\n- $y$ — response vector, length $n$\n- $X^\\top X$ — Gram matrix, $p \\times p$, must be invertible\n",
+  "stressDoc": {
+    "caption": "Three steps — the longest chain.",
+    "sample": "<!-- _class: math derivation -->\n\n`math · stress`\n\n## Three displayed steps is the longest chain.\n\n$$ \\hat\\beta = \\arg\\min_\\beta \\, \\lVert y - X\\beta \\rVert_2^2 $$\n\n$$ X^\\top X \\hat\\beta = X^\\top y $$\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- Step one states the objective\n- Step two takes the gradient to zero\n- Step three is the ceiling — a fourth step means two slides\n"
+  },
   "whenToUse": [
     {
       "title": "The equation IS the argument",
@@ -108,44 +116,45 @@
   ],
   "variantDocs": {
     "feature": {
-      "label": "Feature — hero equation + legend",
-      "caption": "Alias for the base layout — eyebrow, headline, hero equation, legend. Use when you want to make the persona framing explicit in the class list.",
-      "sample": "<!-- _class: math feature -->\n\n`Logistic regression · MLE`\n\n## The log-likelihood we maximise.\n\n$$ \\ell(\\beta) = \\sum_{i=1}^{n} \\left[ y_i \\log \\sigma(x_i^\\top \\beta) + (1 - y_i) \\log\\bigl(1 - \\sigma(x_i^\\top \\beta)\\bigr) \\right] $$\n\n- $\\ell$ — log-likelihood, concave in $\\beta$\n- $\\sigma$ — logistic link, $\\sigma(z) = 1/(1+e^{-z})$\n- $y_i$ — observed label, $\\in \\{0,1\\}$\n- $x_i$ — feature vector for observation $i$\n"
+      "label": "feature",
+      "caption": "Alias for the base layout — eyebrow, headline, hero equation, legend.…",
+      "sample": "<!-- _class: math feature -->\n\n`Logistic regression · MLE`\n\n## feature crowns the equation full-canvas.\n\n$$ \\ell(\\beta) = \\sum_{i=1}^{n} \\left[ y_i \\log \\sigma(x_i^\\top \\beta) + (1 - y_i) \\log\\bigl(1 - \\sigma(x_i^\\top \\beta)\\bigr) \\right] $$\n\n- $\\ell$ — log-likelihood, concave in $\\beta$\n- $\\sigma$ — logistic link, $\\sigma(z) = 1/(1+e^{-z})$\n- $y_i$ — observed label, $\\in \\{0,1\\}$\n- $x_i$ — feature vector for observation $i$\n"
     },
     "derivation": {
-      "label": "Derivation — proof chain with justification column",
-      "caption": "Two-column table: derivation steps on the left, the justification for each step on the right. Best for first-principles proofs, induction arguments, and any chain where every step needs to be defensible.",
-      "sample": "<!-- _class: math derivation -->\n\n## Derivative of $f$ from first principles.\n\n| Step                                                     | Justification             |\n| -------------------------------------------------------- | ------------------------- |\n| $f(x+h) = f(x) + f'(x)\\,h + O(h^2)$                      | Taylor expansion, $n = 2$ |\n| $f(x+h) - f(x) = f'(x)\\,h + O(h^2)$                      | subtract $f(x)$           |\n| $\\dfrac{f(x+h)-f(x)}{h} = f'(x) + O(h)$                  | divide by $h \\neq 0$      |\n| $\\displaystyle\\lim_{h\\to 0} \\dfrac{f(x+h)-f(x)}{h} = f'(x)$ | take the limit            |\n"
+      "label": "derivation",
+      "caption": "Two-column table: derivation steps on the left, the justification for…",
+      "sample": "<!-- _class: math derivation -->\n\n## derivation walks the steps line by line.\n\n| Step                                                     | Justification             |\n| -------------------------------------------------------- | ------------------------- |\n| $f(x+h) = f(x) + f'(x)\\,h + O(h^2)$                      | Taylor expansion, $n = 2$ |\n| $f(x+h) - f(x) = f'(x)\\,h + O(h^2)$                      | subtract $f(x)$           |\n| $\\dfrac{f(x+h)-f(x)}{h} = f'(x) + O(h)$                  | divide by $h \\neq 0$      |\n| $\\displaystyle\\lim_{h\\to 0} \\dfrac{f(x+h)-f(x)}{h} = f'(x)$ | take the limit            |\n"
     },
     "theorem": {
-      "label": "Theorem — Definition / Theorem / Proof cards",
-      "caption": "Stacked colour-coded blockquote cards in the formal-statement vocabulary mathematicians expect — Definition, Theorem, Lemma, Proof. The card boundary preserves the convention that each formal statement is its own atom.",
-      "sample": "<!-- _class: math theorem -->\n\n## Intermediate Value Theorem.\n\n> **Definition.** A function $f : [a,b] \\to \\mathbb{R}$ is *continuous* on $[a,b]$ if $\\lim_{x\\to c} f(x) = f(c)$ for every $c \\in [a,b]$.\n\n> **Theorem.** Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \\in (a,b)$ with $f(c) = y$.\n\n> **Proof.** Set $S = \\{x \\in [a,b] : f(x) < y\\}$. $S$ is non-empty and bounded; let $c = \\sup S$. Continuity at $c$ forces $f(c) = y$. $\\square$\n"
+      "label": "theorem",
+      "caption": "Stacked color-coded blockquote cards in the formal-statement vocabul…",
+      "sample": "<!-- _class: math theorem -->\n\n## theorem boxes the statement and its proof.\n\n> **Definition.** A function $f : [a,b] \\to \\mathbb{R}$ is *continuous* on $[a,b]$ if $\\lim_{x\\to c} f(x) = f(c)$ for every $c \\in [a,b]$.\n\n> **Theorem.** Let $f$ be continuous on $[a,b]$ and let $y$ lie strictly between $f(a)$ and $f(b)$. Then there exists $c \\in (a,b)$ with $f(c) = y$.\n\n> **Proof.** Set $S = \\{x \\in [a,b] : f(x) < y\\}$. $S$ is non-empty and bounded; let $c = \\sup S$. Continuity at $c$ forces $f(c) = y$. $\\square$\n"
     },
     "compare": {
-      "label": "Compare — two- or three-column equations",
-      "caption": "Side-by-side equation comparison. Each column has its own h3 label, display equation, and one-line gloss. Best for frequentist-vs-Bayesian, batch-vs-streaming, primal-vs-dual.",
-      "sample": "<!-- _class: math compare -->\n\n## Frequentist vs Bayesian point estimate.\n\n### Frequentist\n\n$$ \\hat\\theta_{\\text{MLE}} = \\arg\\max_\\theta\\, p(y \\mid \\theta) $$\n\nMaximises the likelihood — no prior. Uncertainty quantified by the sampling distribution of $\\hat\\theta$ across hypothetical repeats.\n\n### Bayesian\n\n$$ \\hat\\theta_{\\text{MAP}} = \\arg\\max_\\theta\\, p(\\theta \\mid y) $$\n\nMaximises the posterior — conditions on the prior $p(\\theta)$. Uncertainty is the posterior itself, no repeated sampling required.\n"
+      "label": "compare",
+      "caption": "Side-by-side equation comparison. Each column has its own h3 label, d…",
+      "sample": "<!-- _class: math compare -->\n\n## compare sets two formulations side by side.\n\n### Frequentist\n\n$$ \\hat\\theta_{\\text{MLE}} = \\arg\\max_\\theta\\, p(y \\mid \\theta) $$\n\nMaximizes the likelihood — no prior. Uncertainty quantified by the sampling distribution of $\\hat\\theta$ across hypothetical repeats.\n\n### Bayesian\n\n$$ \\hat\\theta_{\\text{MAP}} = \\arg\\max_\\theta\\, p(\\theta \\mid y) $$\n\nMaximizes the posterior — conditions on the prior $p(\\theta)$. Uncertainty is the posterior itself, no repeated sampling required.\n"
     },
     "canvas": {
-      "label": "Canvas — equation left, plot right",
-      "caption": "Pairs a hero equation with a `functionplot` graph (rendered by the function-plot library). Best when the shape of the function is half the argument — sigmoids, distributions, decision boundaries.",
-      "sample": "<!-- _class: math canvas -->\n\n## The sigmoid.\n\n$$ \\sigma(x) = \\dfrac{1}{1 + e^{-x}} $$\n\nMaps $\\mathbb{R} \\to (0,1)$. $S$-shaped, $\\sigma(0) = 0.5$, steepest slope at the origin.\n\n```functionplot\n{\n  \"data\": [\n    { \"fn\": \"1 / (1 + exp(-x))\" },\n    { \"fn\": \"tanh(x)\" }\n  ],\n  \"xAxis\": { \"domain\": [-6, 6], \"label\": \"x\" },\n  \"yAxis\": { \"domain\": [-1.1, 1.1], \"label\": \"f(x)\" },\n  \"grid\": true\n}\n```\n"
+      "label": "canvas",
+      "caption": "Pairs a hero equation with a `functionplot` graph (rendered by the fu…",
+      "sample": "<!-- _class: math canvas -->\n\n## canvas gives a long derivation the room.\n\n$$ \\sigma(x) = \\dfrac{1}{1 + e^{-x}} $$\n\nMaps $\\mathbb{R} \\to (0,1)$. $S$-shaped, $\\sigma(0) = 0.5$, steepest slope at the origin.\n\n```functionplot\n{\n  \"data\": [\n    { \"fn\": \"1 / (1 + exp(-x))\" },\n    { \"fn\": \"tanh(x)\" }\n  ],\n  \"xAxis\": { \"domain\": [-6, 6], \"label\": \"x\" },\n  \"yAxis\": { \"domain\": [-1.1, 1.1], \"label\": \"f(x)\" },\n  \"grid\": true\n}\n```\n"
     },
     "matrix": {
-      "label": "Matrix — matrix + properties",
-      "caption": "Hero matrix with a properties / dimensions / interpretation legend. Best for design matrices, transition matrices, covariance matrices — anywhere the structure of the matrix matters as much as its values.",
-      "sample": "<!-- _class: math matrix -->\n\n## The design matrix $X$.\n\n$$\nX = \\begin{pmatrix}\n1 & x_{11} & \\cdots & x_{1p} \\\\\n1 & x_{21} & \\cdots & x_{2p} \\\\\n\\vdots & \\vdots & \\ddots & \\vdots \\\\\n1 & x_{n1} & \\cdots & x_{np}\n\\end{pmatrix}\n$$\n\n- **shape** — $n \\times (p+1)$\n- **rows** — observations\n- **cols** — intercept + $p$ features\n- **rank** — full-rank for OLS to have a unique solution\n- **column 0** — all-ones, absorbs the intercept\n"
+      "label": "matrix",
+      "caption": "Hero matrix with a properties / dimensions / interpretation legend. B…",
+      "sample": "<!-- _class: math matrix -->\n\n## matrix typesets the block structures.\n\n$$\nX = \\begin{pmatrix}\n1 & x_{11} & \\cdots & x_{1p} \\\\\n1 & x_{21} & \\cdots & x_{2p} \\\\\n\\vdots & \\vdots & \\ddots & \\vdots \\\\\n1 & x_{n1} & \\cdots & x_{np}\n\\end{pmatrix}\n$$\n\n- **shape** — $n \\times (p+1)$\n- **rows** — observations\n- **cols** — intercept + $p$ features\n- **rank** — full-rank for OLS to have a unique solution\n- **column 0** — all-ones, absorbs the intercept\n"
     },
     "stats": {
-      "label": "Stats — estimate ± uncertainty",
-      "caption": "Point estimate with uncertainty (CI, $p$-value, $n$) followed by plain-English interpretation. Best for treatment-effect slides, regression coefficients, A/B test readouts.",
-      "sample": "<!-- _class: math stats -->\n\n## Effect of the treatment.\n\n$$ \\hat\\beta = 0.42 \\pm 0.03 $$\n\n> 95% CI: $[0.36,\\; 0.48]$\n> $p < 0.001 \\quad\\cdot\\quad n = 1{,}204$\n\nFor every additional unit of exposure, the outcome rises by 0.42 SD — roughly an **8%** shift on the baseline. Effect size is the headline; the $p$-value just rules out chance.\n"
+      "label": "stats",
+      "caption": "Point estimate with uncertainty (CI, $p$-value, $n$) followed by plai…",
+      "sample": "<!-- _class: math stats -->\n\n## stats pairs the estimator with its variance.\n\n$$ \\hat\\beta = 0.42 \\pm 0.03 $$\n\n> 95% CI: $[0.36,\\; 0.48]$\n> $p < 0.001 \\quad\\cdot\\quad n = 1{,}204$\n\nFor every additional unit of exposure, the outcome rises by 0.42 SD — roughly an **8%** shift on the baseline. Effect size is the headline; the $p$-value just rules out chance.\n"
     },
     "decompose": {
-      "label": "Matrix · decompose — factorisation sequence",
-      "caption": "A compound of `matrix`: lays a factorisation out as a sequence of matrices (LU, QR, SVD). Author it as `math matrix decompose` with the product written out. Use when the structure of the decomposition is the point.",
-      "sample": "<!-- _class: math matrix decompose -->\n\n## LU decomposition.\n\n$$\n\\begin{pmatrix} 2 & 1 \\\\ 4 & 3 \\end{pmatrix}\n=\n\\begin{pmatrix} 1 & 0 \\\\ 2 & 1 \\end{pmatrix}\n\\begin{pmatrix} 2 & 1 \\\\ 0 & 1 \\end{pmatrix}\n$$\n\n- **$A$** — the original matrix being factorised\n- **$L$** — lower-triangular, unit diagonal\n- **$U$** — upper-triangular\n- **use** — solve $Ax = b$ by forward then back substitution\n"
+      "label": "decompose",
+      "caption": "A compound of `matrix`: lays a factorisation out as a sequence of mat…",
+      "sample": "<!-- _class: math matrix decompose -->\n\n## decompose colors the terms it names.\n\n$$\n\\begin{pmatrix} 2 & 1 \\\\ 4 & 3 \\end{pmatrix}\n=\n\\begin{pmatrix} 1 & 0 \\\\ 2 & 1 \\end{pmatrix}\n\\begin{pmatrix} 2 & 1 \\\\ 0 & 1 \\end{pmatrix}\n$$\n\n- **$A$** — the original matrix being factorized\n- **$L$** — lower-triangular, unit diagonal\n- **$U$** — upper-triangular\n- **use** — solve $Ax = b$ by forward then back substitution\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

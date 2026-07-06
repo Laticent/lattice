@@ -22,7 +22,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 - **Single rule's lineage.** If the slide walks one rule from statute through case, use `authority-chain`. regulatory-update is a period digest.
 - **Past six rows.** More than six items compresses the row gap and the citation chips run out of room. Split by jurisdiction.
-- **Missing summary or citation.** Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumour.
+- **Missing summary or citation.** Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumor.
 
 ## Authoring
 
@@ -72,14 +72,14 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 ## Variants (component-specific)
 
-### `timeline` — Timeline — chronological spine instead of ranked ledger
+### `timeline` — timeline
 
-Renders the rows as a chronological spine — effective-date chips align on the right and the chrome reads as a calendar rather than a ranking. Use when chronology is the read, not weight.
+Ordered by effective date.
 
 ```markdown
 <!-- _class: regulatory-update timeline -->
 
-## Privacy and AI motion — Q1 2026 by effective date.
+## timeline orders the changes by effective date.
 
 `Federal · State · International`
 
@@ -101,14 +101,14 @@ Renders the rows as a chronological spine — effective-date chips align on the 
    - `Effective Mar 2026`
 ```
 
-### `priority` — Priority — ranked by exposure rather than chronology
+### `priority` — priority
 
-Stamps a priority rail on the left of each row and ranks by exposure rather than effective date. Use for board updates where the audience needs 'what to do' before 'when it landed'.
+Ranked by exposure.
 
 ```markdown
 <!-- _class: regulatory-update priority -->
 
-## Q1 motion ranked by exposure.
+## priority ranks the changes by exposure.
 
 `Top three · by ARR at risk`
 
@@ -126,14 +126,14 @@ Stamps a priority rail on the left of each row and ranks by exposure rather than
    - `Effective Mar 2026`
 ```
 
-### `cards` — Cards — one panel per item
+### `cards` — cards
 
-Breaks the running list into discrete cards, one per development. Use when each item is independent and the audience may photograph a single card.
+One tile per change.
 
 ```markdown
 <!-- _class: regulatory-update cards -->
 
-## Privacy and AI motion — Q1 2026.
+## cards deals each change its own tile.
 
 `Federal · State · International`
 
@@ -155,14 +155,14 @@ Breaks the running list into discrete cards, one per development. Use when each 
    - `Effective Mar 2026`
 ```
 
-### `diff-bands` — Diff-bands — grouped by change kind
+### `diff-bands` — diff-bands
 
-Groups items under colour-coded h3 bands by the kind of change — Added, Amended, Repealed, Enforced. Use when the type of action matters as much as the instrument.
+Changed versus stayed.
 
 ```markdown
 <!-- _class: regulatory-update diff-bands -->
 
-## What changed this quarter, by kind.
+## diff-bands shades what changed versus stayed.
 
 ### Added
 
@@ -186,7 +186,7 @@ Groups items under colour-coded h3 bands by the kind of change — Added, Amende
 
 4. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order finalised against deceptive privacy branding.
+   - $16.5M consent order finalized against deceptive privacy branding.
 ```
 
 ## Universal modifiers

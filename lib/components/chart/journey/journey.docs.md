@@ -62,14 +62,14 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 ## Variants (component-specific)
 
-### `heatmap` — Heatmap — mood-tinted chips
+### `heatmap` — heatmap
 
-Task chips are tinted by their mood score; plumb lines and faces are suppressed. The fastest variant to scan when the audience only needs to see which moments hurt.
+Stages shade by score.
 
 ```markdown
 <!-- _class: journey heatmap -->
 
-## Heatmap · where the trial drops off.
+## heatmap shades the stages by score.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -82,14 +82,14 @@ Task chips are tinted by their mood score; plumb lines and faces are suppressed.
   - Daily use `@user` `:5`
 ```
 
-### `curve` — Curve — mood polyline with axis
+### `curve` — curve
 
-Renders the mood scores as a polyline over the task sequence with a mood gridline scale and section bands behind. Use when the trend across the journey is the headline.
+A sentiment line rides the stages.
 
 ```markdown
 <!-- _class: journey curve -->
 
-## Curve · the affect contour.
+## curve draws the sentiment line.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -102,14 +102,14 @@ Renders the mood scores as a polyline over the task sequence with a mood gridlin
   - Daily use `@user` `:5`
 ```
 
-### `swimlane` — Swimlane — per-actor rows
+### `swimlane` — swimlane
 
-One row per actor; a dot marks every task that actor participates in, coloured by that task's mood. Use when the question is who carries the journey and where the handoffs land.
+One lane per actor.
 
 ```markdown
 <!-- _class: journey swimlane -->
 
-## Swimlane · who owns each moment.
+## swimlane splits the journey by actor.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -122,14 +122,14 @@ One row per actor; a dot marks every task that actor participates in, coloured b
   - Daily use `@user` `:5`
 ```
 
-### `weighted` — Weighted — chip widths by volume
+### `weighted` — weighted
 
-Chip widths scale to the `+volume` token; chip colour still encodes mood. Two dimensions at once — schedule shape and traffic-mix — for journeys with skewed loads.
+Stage size carries weight.
 
 ```markdown
 <!-- _class: journey weighted -->
 
-## Weighted · where the traffic actually lands.
+## weighted sizes the stages by importance.
 
 - Discover
   - Search `@prospect` `:4` `+45`

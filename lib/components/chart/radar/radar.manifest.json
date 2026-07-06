@@ -1,12 +1,24 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "radar",
-  "adapt": { "mode": "reflow", "priority": ["title", "axes", "series", "detail"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "axes",
+      "series",
+      "detail"
+    ]
+  },
   "function": "evidence",
   "bucket": "chart",
   "form": "scatter",
   "substance": "series",
-  "tags": ["spider", "assessment", "positioning"],
+  "tags": [
+    "spider",
+    "assessment",
+    "positioning"
+  ],
   "description": "Native radar / spider chart — items rated across multiple axes.",
   "purpose": "Use to compare 2–4 options across the same 4–8 criteria. Each option becomes a polygon; overlap shows where strengths align.",
   "slots": {
@@ -33,7 +45,11 @@
   },
   "skeleton": "<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## How we stack up across the buying criteria.\n\n- Lattice\n  - Performance `9`\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n- Rival North\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n- Rival West\n  - Performance `6`\n  - Pricing `9`\n  - Support `7`\n  - Ecosystem `8`\n  - Security `8`\n",
   "anatomyBlock": "radar-canvas",
-  "sample": "<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## How we stack up across the buying criteria.\n\n- Meridian\n  - Performance `9`\n    - Measured as p95 latency; lower is better\n    - Our strongest axis against the field\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n- Vantage\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n- Helios\n  - Performance `6`\n  - Pricing `9`\n  - Support `7`\n  - Ecosystem `8`\n  - Security `8`\n",
+  "sample": "<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## The radar maps strengths around the compass.\n\n- Meridian\n  - Performance `9`\n    - Measured as p95 latency; lower is better\n    - Our strongest axis against the field\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n- Vantage\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n- Helios\n  - Performance `6`\n  - Pricing `9`\n  - Support `7`\n  - Ecosystem `8`\n  - Security `8`\n",
+  "stressDoc": {
+    "caption": "Many axes, many shapes — the ceiling.",
+    "sample": "<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## Stress test — eight criteria, three vendors.\n\n- Lattice\n  - Performance `9`\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n  - Documentation `8`\n  - Onboarding `7`\n  - Reliability `9`\n- Rival North\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n  - Documentation `6`\n  - Onboarding `8`\n  - Reliability `7`\n- Rival West\n  - Performance `6`\n  - Pricing `9`\n  - Support `7`\n  - Ecosystem `8`\n  - Security `8`\n  - Documentation `7`\n  - Onboarding `6`\n  - Reliability `8`\n"
+  },
   "whenToUse": [
     {
       "title": "Same criteria, multiple options",
@@ -94,36 +110,38 @@
   ],
   "variantDocs": {
     "target": {
-      "label": "Target — actual vs reference ring",
-      "caption": "Reads the series named `Target` (or `Goal`/`Plan`) as a dashed reference polygon; each axis where the actual falls short gets a rose gap segment along the spoke, surplus a quiet green one. The shortfall is the read.",
-      "sample": "<!-- _class: radar target -->\n\n`Scale · 0–100`\n\n## Where we are against the quarter plan.\n\n- Actual\n  - Hiring `72`\n  - Runway `88`\n  - Pipeline `54`\n  - Retention `91`\n  - Compliance `66`\n  - Velocity `78`\n- Target\n  - Hiring `90`\n  - Runway `85`\n  - Pipeline `80`\n  - Retention `90`\n  - Compliance `95`\n  - Velocity `75`\n"
+      "label": "target",
+      "caption": "The bar the shape must clear.",
+      "sample": "<!-- _class: radar target -->\n\n`Scale · 0–100`\n\n## target draws the bar the shape must clear.\n\n- Actual\n  - Hiring `72`\n  - Runway `88`\n  - Pipeline `54`\n  - Retention `91`\n  - Compliance `66`\n  - Velocity `78`\n- Target\n  - Hiring `90`\n  - Runway `85`\n  - Pipeline `80`\n  - Retention `90`\n  - Compliance `95`\n  - Velocity `75`\n"
     },
     "delta": {
-      "label": "Delta — before vs after",
-      "caption": "Takes exactly two series — before, then after. The before polygon is muted; a change segment rides each spoke, green where the metric rose, rose where it fell. Built for the period-over-period QBR story.",
-      "sample": "<!-- _class: radar delta -->\n\n`Scale · 0–10`\n\n## What moved over the half, and which way.\n\n- H1\n  - Velocity `5`\n  - Quality `6`\n  - Morale `4`\n  - Coverage `5`\n  - Onboarding `3`\n- H2\n  - Velocity `8`\n  - Quality `7`\n  - Morale `4`\n  - Coverage `6`\n  - Onboarding `7`\n"
+      "label": "delta",
+      "caption": "The gap between two shapes, shaded.",
+      "sample": "<!-- _class: radar delta -->\n\n`Scale · 0–10`\n\n## delta shades the gap between two shapes.\n\n- H1\n  - Velocity `5`\n  - Quality `6`\n  - Morale `4`\n  - Coverage `5`\n  - Onboarding `3`\n- H2\n  - Velocity `8`\n  - Quality `7`\n  - Morale `4`\n  - Coverage `6`\n  - Onboarding `7`\n"
     },
     "benchmark": {
-      "label": "Benchmark — hero vs envelope",
-      "caption": "Draws the first series as the hero line and collapses every other series into a single min–max envelope band — one shape and your line instead of five tangled polygons. Strong where you clear the band, exposed where you sit inside it.",
-      "sample": "<!-- _class: radar benchmark -->\n\n`Scale · 0–10`\n\n## Are we inside the pack, or outside it.\n\n- Us\n  - Performance `9`\n  - Price `6`\n  - Support `8`\n  - Ecosystem `7`\n  - Docs `9`\n  - Security `8`\n- Competitor A\n  - Performance `7`\n  - Price `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Docs `5`\n  - Security `7`\n- Competitor B\n  - Performance `6`\n  - Price `9`\n  - Support `7`\n  - Ecosystem `6`\n  - Docs `6`\n  - Security `6`\n- Competitor C\n  - Performance `8`\n  - Price `5`\n  - Support `5`\n  - Ecosystem `8`\n  - Docs `7`\n  - Security `9`\n"
+      "label": "benchmark",
+      "caption": "A reference shape overlaid.",
+      "sample": "<!-- _class: radar benchmark -->\n\n`Scale · 0–10`\n\n## benchmark overlays the reference shape.\n\n- Us\n  - Performance `9`\n  - Price `6`\n  - Support `8`\n  - Ecosystem `7`\n  - Docs `9`\n  - Security `8`\n- Competitor A\n  - Performance `7`\n  - Price `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Docs `5`\n  - Security `7`\n- Competitor B\n  - Performance `6`\n  - Price `9`\n  - Support `7`\n  - Ecosystem `6`\n  - Docs `6`\n  - Security `6`\n- Competitor C\n  - Performance `8`\n  - Price `5`\n  - Support `5`\n  - Ecosystem `8`\n  - Docs `7`\n  - Security `9`\n"
     },
     "quadrant": {
-      "label": "Quadrant — axes grouped into sectors",
-      "caption": "Takes a three-level list (series → group → axis); each group becomes a tinted sector with its name on the rim and a dashed mean arc. For boards that think in themes, not twelve loose axes.",
-      "sample": "<!-- _class: radar quadrant -->\n\n`Scale · 0–5`\n\n## Our capability profile, read by theme.\n\n- Our capability\n  - People\n    - Hiring `4`\n    - Retention `3`\n    - Bench depth `2`\n  - Process\n    - Cadence `5`\n    - Rigor `4`\n  - Technology\n    - Platform `4`\n    - Tooling `3`\n    - Automation `2`\n  - Risk\n    - Compliance `3`\n    - Resilience `4`\n"
+      "label": "quadrant",
+      "caption": "The compass quarters, shaded.",
+      "sample": "<!-- _class: radar quadrant -->\n\n`Scale · 0–5`\n\n## quadrant shades the compass quarters.\n\n- Our capability\n  - People\n    - Hiring `4`\n    - Retention `3`\n    - Bench depth `2`\n  - Process\n    - Cadence `5`\n    - Rigor `4`\n  - Technology\n    - Platform `4`\n    - Tooling `3`\n    - Automation `2`\n  - Risk\n    - Compliance `3`\n    - Resilience `4`\n"
     },
     "small-multiples": {
-      "label": "Small-multiples — one mini radar per series",
-      "caption": "Gives each series its own mini radar on a shared scale, laid out in a row — the honest read when an overlay of four-plus series would be mush. Scan the shapes, spot the outlier.",
-      "sample": "<!-- _class: radar small-multiples -->\n\n`Scale · 0–10`\n\n## Four product lines, the same five criteria.\n\n- Atlas\n  - Adoption `8`\n  - Margin `6`\n  - NPS `7`\n  - Velocity `9`\n  - Risk `4`\n- Beacon\n  - Adoption `5`\n  - Margin `9`\n  - NPS `6`\n  - Velocity `5`\n  - Risk `7`\n- Cinder\n  - Adoption `7`\n  - Margin `4`\n  - NPS `8`\n  - Velocity `6`\n  - Risk `5`\n- Drift\n  - Adoption `6`\n  - Margin `7`\n  - NPS `5`\n  - Velocity `7`\n  - Risk `8`\n"
+      "label": "small-multiples",
+      "caption": "One radar per option.",
+      "sample": "<!-- _class: radar small-multiples -->\n\n`Scale · 0–10`\n\n## small-multiples deals one radar per option.\n\n- Atlas\n  - Adoption `8`\n  - Margin `6`\n  - NPS `7`\n  - Velocity `9`\n  - Risk `4`\n- Beacon\n  - Adoption `5`\n  - Margin `9`\n  - NPS `6`\n  - Velocity `5`\n  - Risk `7`\n- Cinder\n  - Adoption `7`\n  - Margin `4`\n  - NPS `8`\n  - Velocity `6`\n  - Risk `5`\n- Drift\n  - Adoption `6`\n  - Margin `7`\n  - NPS `5`\n  - Velocity `7`\n  - Risk `8`\n"
     },
     "minimal": {
-      "label": "Minimal — stroke-only",
-      "caption": "Composable modifier: drops the polygon fills for a stroke-only read on a faint grid. Layers on the default or any radar variant when the fills would muddy the comparison.",
-      "sample": "<!-- _class: radar minimal -->\n\n`Scale · 0–10`\n\n## The same comparison, fills dropped.\n\n- Lattice\n  - Performance `9`\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n- Rival North\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n"
+      "label": "minimal",
+      "caption": "Rings stripped to the shape.",
+      "sample": "<!-- _class: radar minimal -->\n\n`Scale · 0–10`\n\n## minimal strips the rings to the shape.\n\n- Lattice\n  - Performance `9`\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n- Rival North\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n"
     }
   },
-  "stressSample": "<!-- _class: radar -->\n\n`Scale · 0–10`\n\n## Stress test — eight criteria, three vendors.\n\n- Lattice\n  - Performance `9`\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n  - Documentation `8`\n  - Onboarding `7`\n  - Reliability `9`\n- Rival North\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n  - Documentation `6`\n  - Onboarding `8`\n  - Reliability `7`\n- Rival West\n  - Performance `6`\n  - Pricing `9`\n  - Support `7`\n  - Ecosystem `8`\n  - Security `8`\n  - Documentation `7`\n  - Onboarding `6`\n  - Reliability `8`\n",
-  "showcase": { "featured": true }
+  "showcase": {
+    "featured": true
+  },
+  "specimenVoice": true
 }

@@ -18,7 +18,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 <!-- _class: map -->
 <!-- _footer: "Default · map" -->
 
-## Where our programs reached — unevenly.
+## The map fills regions by value.
 
 - India `48.2`
   - Largest by volume, thinnest by margin
@@ -35,9 +35,9 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 ---
 
 <!-- _class: map us -->
-<!-- _footer: "us · map us" -->
+<!-- _footer: "us · map us — The US-states basemap, with insets." -->
 
-## Grant dollars by state — unevenly.
+## us swaps in the US-states basemap.
 
 - California `48.2`
 - Texas `36.4`
@@ -52,7 +52,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 ---
 
 <!-- _class: map world -->
-<!-- _footer: "world · map world" -->
+<!-- _footer: "world · map world — The Basemap axis default, spelled out." -->
 
 ## The same engine, pinned to the world basemap.
 
@@ -69,9 +69,9 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 ---
 
 <!-- _class: map highlight -->
-<!-- _footer: "highlight · map highlight" -->
+<!-- _footer: "highlight · map highlight — Category fills instead of values." -->
 
-## The regions we serve.
+## highlight fills by category, not value.
 
 - Kenya `East Africa`
 - Nigeria `West Africa`
@@ -82,9 +82,9 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 ---
 
 <!-- _class: map robinson -->
-<!-- _footer: "robinson · map robinson" -->
+<!-- _footer: "robinson · map robinson — The Robinson projection swap." -->
 
-## Where our field offices operate.
+## robinson swaps the projection.
 
 - United States `42`
 - Brazil `31`
@@ -99,9 +99,9 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 ---
 
 <!-- _class: map highlight grouped -->
-<!-- _footer: "grouped · map grouped" -->
+<!-- _footer: "grouped · map grouped — Whole blocs fill as one." -->
 
-## Coverage by economic bloc.
+## grouped fills whole blocs at once.
 
 - European Union `Tier 1`
 - ASEAN `Tier 1`
@@ -112,7 +112,8 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 ---
 
 <!-- _class: map us -->
-<!-- _footer: "Stress test · map" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · map — A wide-range choropleth — the ceiling." -->
 
 ## A wide spread across fifteen states.
 
@@ -138,7 +139,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 <!-- _class: map dark -->
 <!-- _footer: "Composition: dark · map dark" -->
 
-## Where our programs reached — unevenly.
+## The map fills regions by value.
 
 - India `48.2`
   - Largest by volume, thinnest by margin
@@ -157,7 +158,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 <!-- _class: map compact -->
 <!-- _footer: "Composition: compact · map compact" -->
 
-## Where our programs reached — unevenly.
+## The map fills regions by value.
 
 - India `48.2`
   - Largest by volume, thinnest by margin
@@ -176,7 +177,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 <!-- _class: map accent -->
 <!-- _footer: "Composition: accent · map accent" -->
 
-## Where our programs reached — unevenly.
+## The map fills regions by value.
 
 - India `48.2`
   - Largest by volume, thinnest by margin
@@ -198,8 +199,8 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 ## When NOT to reach for map.
 
 - **A map as decoration.** If the regions aren't the comparison — you just want a US-shaped graphic behind some numbers — drop the basemap. An `image` scrim or a `stats` row carries headline figures without implying the geography is the message.
-- **Too many shades to read.** A choropleth past a dozen distinct values asks the eye to rank colours it can't separate. Bucket the values, switch to `highlight` for a categorical read, or lead with a `progress` ranking and keep the map as support.
-- **Sub-region precision the basemap doesn't have.** The basemaps draw US states and world countries — not counties, districts, sub-national regions, or city pins, and the world cut (110m) omits the smallest city-states. If the story lives below that line, a labelled `image` of the real map serves better than forcing it onto the basemap.
+- **Too many shades to read.** A choropleth past a dozen distinct values asks the eye to rank colors it can't separate. Bucket the values, switch to `highlight` for a categorical read, or lead with a `progress` ranking and keep the map as support.
+- **Sub-region precision the basemap doesn't have.** The basemaps draw US states and world countries — not counties, districts, sub-national regions, or city pins, and the world cut (110m) omits the smallest city-states. If the story lives below that line, a labeled `image` of the real map serves better than forcing it onto the basemap.
 
 ---
 
@@ -209,7 +210,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 
 `Related components`
 
-- `progress` — the regions are really a ranking — labelled bars compare magnitudes faster than shades
+- `progress` — the regions are really a ranking — labeled bars compare magnitudes faster than shades
 - `stats` — a few headline figures with no geography to place them on
 - `piechart` — regional shares of a single whole rather than a value per place
 - `image` — the geography needs detail (counties, cities, routes) the basemap can't draw

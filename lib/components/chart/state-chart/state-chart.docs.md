@@ -78,12 +78,12 @@ How a draft moves from author to archive.
 
 ### `lr` — Left-to-right
 
-Lays the machine out horizontally (Mermaid `direction LR`) instead of the default top-to-bottom column. Forward skips bow below the row, back-edges above. Compose with `inline` for a horizontal chip row.
+States flow left to right.
 
 ```markdown
 <!-- _class: state-chart lr -->
 
-## Build pipeline.
+## lr flows the states left to right.
 
 1. Source `start`
    - `compile => 2`
@@ -97,12 +97,12 @@ Lays the machine out horizontally (Mermaid `direction LR`) instead of the defaul
 
 ### `inline` — Inline
 
-Drops the SVG edge layer; transitions render inline as chips inside each state node. Pure HTML — graceful fallback if the SVG layer is undesirable, or for very dense decks.
+The chart sits beside its prose.
 
 ```markdown
 <!-- _class: state-chart inline -->
 
-## Connection retry.
+## inline sets the chart beside its prose.
 
 1. Connecting `start`
    - `retry => self`
@@ -115,12 +115,12 @@ Drops the SVG edge layer; transitions render inline as chips inside each state n
 
 ### `curved` — Curved
 
-Routes skip and back edges as single Bézier arcs instead of the default orthogonal racetracks (round-out, straight run, round-in). Each curve's peak is solved so its arc still clears the widest node in its span. Orthogonal to direction — compose with `lr`.
+Eased arrows between states.
 
 ```markdown
 <!-- _class: state-chart curved -->
 
-## Document approval (curved).
+## curved eases the arrows between states.
 
 1. Draft `start`
    - `submit => 2`

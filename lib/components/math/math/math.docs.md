@@ -6,7 +6,7 @@
 
 **Tags** `formula` · `assessment` · `reference`
 
-Use when the slide IS the equation. KaTeX renders `$$…$$` as centred display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).
+Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).
 
 ## When to use
 
@@ -42,7 +42,7 @@ $$ y = f(x) $$
 |---|---|---|---|
 | `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
 | `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
-| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centred. |
+| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centered. |
 | `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
 
 ## Anatomy
@@ -62,16 +62,16 @@ $$ y = f(x) $$
 
 ## Variants (component-specific)
 
-### `feature` — Feature — hero equation + legend
+### `feature` — feature
 
-Alias for the base layout — eyebrow, headline, hero equation, legend. Use when you want to make the persona framing explicit in the class list.
+Alias for the base layout — eyebrow, headline, hero equation, legend.…
 
 ```markdown
 <!-- _class: math feature -->
 
 `Logistic regression · MLE`
 
-## The log-likelihood we maximise.
+## feature crowns the equation full-canvas.
 
 $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_i) \log\bigl(1 - \sigma(x_i^\top \beta)\bigr) \right] $$
 
@@ -81,14 +81,14 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 - $x_i$ — feature vector for observation $i$
 ```
 
-### `derivation` — Derivation — proof chain with justification column
+### `derivation` — derivation
 
-Two-column table: derivation steps on the left, the justification for each step on the right. Best for first-principles proofs, induction arguments, and any chain where every step needs to be defensible.
+Two-column table: derivation steps on the left, the justification for…
 
 ```markdown
 <!-- _class: math derivation -->
 
-## Derivative of $f$ from first principles.
+## derivation walks the steps line by line.
 
 | Step                                                     | Justification             |
 | -------------------------------------------------------- | ------------------------- |
@@ -98,14 +98,14 @@ Two-column table: derivation steps on the left, the justification for each step 
 | $\displaystyle\lim_{h\to 0} \dfrac{f(x+h)-f(x)}{h} = f'(x)$ | take the limit            |
 ```
 
-### `theorem` — Theorem — Definition / Theorem / Proof cards
+### `theorem` — theorem
 
-Stacked colour-coded blockquote cards in the formal-statement vocabulary mathematicians expect — Definition, Theorem, Lemma, Proof. The card boundary preserves the convention that each formal statement is its own atom.
+Stacked color-coded blockquote cards in the formal-statement vocabul…
 
 ```markdown
 <!-- _class: math theorem -->
 
-## Intermediate Value Theorem.
+## theorem boxes the statement and its proof.
 
 > **Definition.** A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
 
@@ -114,36 +114,36 @@ Stacked colour-coded blockquote cards in the formal-statement vocabulary mathema
 > **Proof.** Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
 ```
 
-### `compare` — Compare — two- or three-column equations
+### `compare` — compare
 
-Side-by-side equation comparison. Each column has its own h3 label, display equation, and one-line gloss. Best for frequentist-vs-Bayesian, batch-vs-streaming, primal-vs-dual.
+Side-by-side equation comparison. Each column has its own h3 label, d…
 
 ```markdown
 <!-- _class: math compare -->
 
-## Frequentist vs Bayesian point estimate.
+## compare sets two formulations side by side.
 
 ### Frequentist
 
 $$ \hat\theta_{\text{MLE}} = \arg\max_\theta\, p(y \mid \theta) $$
 
-Maximises the likelihood — no prior. Uncertainty quantified by the sampling distribution of $\hat\theta$ across hypothetical repeats.
+Maximizes the likelihood — no prior. Uncertainty quantified by the sampling distribution of $\hat\theta$ across hypothetical repeats.
 
 ### Bayesian
 
 $$ \hat\theta_{\text{MAP}} = \arg\max_\theta\, p(\theta \mid y) $$
 
-Maximises the posterior — conditions on the prior $p(\theta)$. Uncertainty is the posterior itself, no repeated sampling required.
+Maximizes the posterior — conditions on the prior $p(\theta)$. Uncertainty is the posterior itself, no repeated sampling required.
 ```
 
-### `canvas` — Canvas — equation left, plot right
+### `canvas` — canvas
 
-Pairs a hero equation with a `functionplot` graph (rendered by the function-plot library). Best when the shape of the function is half the argument — sigmoids, distributions, decision boundaries.
+Pairs a hero equation with a `functionplot` graph (rendered by the fu…
 
 ```markdown
 <!-- _class: math canvas -->
 
-## The sigmoid.
+## canvas gives a long derivation the room.
 
 $$ \sigma(x) = \dfrac{1}{1 + e^{-x}} $$
 
@@ -162,14 +162,14 @@ Maps $\mathbb{R} \to (0,1)$. $S$-shaped, $\sigma(0) = 0.5$, steepest slope at th
 ```
 ```
 
-### `matrix` — Matrix — matrix + properties
+### `matrix` — matrix
 
-Hero matrix with a properties / dimensions / interpretation legend. Best for design matrices, transition matrices, covariance matrices — anywhere the structure of the matrix matters as much as its values.
+Hero matrix with a properties / dimensions / interpretation legend. B…
 
 ```markdown
 <!-- _class: math matrix -->
 
-## The design matrix $X$.
+## matrix typesets the block structures.
 
 $$
 X = \begin{pmatrix}
@@ -187,14 +187,14 @@ $$
 - **column 0** — all-ones, absorbs the intercept
 ```
 
-### `stats` — Stats — estimate ± uncertainty
+### `stats` — stats
 
-Point estimate with uncertainty (CI, $p$-value, $n$) followed by plain-English interpretation. Best for treatment-effect slides, regression coefficients, A/B test readouts.
+Point estimate with uncertainty (CI, $p$-value, $n$) followed by plai…
 
 ```markdown
 <!-- _class: math stats -->
 
-## Effect of the treatment.
+## stats pairs the estimator with its variance.
 
 $$ \hat\beta = 0.42 \pm 0.03 $$
 
@@ -204,14 +204,14 @@ $$ \hat\beta = 0.42 \pm 0.03 $$
 For every additional unit of exposure, the outcome rises by 0.42 SD — roughly an **8%** shift on the baseline. Effect size is the headline; the $p$-value just rules out chance.
 ```
 
-### `decompose` — Matrix · decompose — factorisation sequence
+### `decompose` — decompose
 
-A compound of `matrix`: lays a factorisation out as a sequence of matrices (LU, QR, SVD). Author it as `math matrix decompose` with the product written out. Use when the structure of the decomposition is the point.
+A compound of `matrix`: lays a factorisation out as a sequence of mat…
 
 ```markdown
 <!-- _class: math matrix decompose -->
 
-## LU decomposition.
+## decompose colors the terms it names.
 
 $$
 \begin{pmatrix} 2 & 1 \\ 4 & 3 \end{pmatrix}
@@ -220,7 +220,7 @@ $$
 \begin{pmatrix} 2 & 1 \\ 0 & 1 \end{pmatrix}
 $$
 
-- **$A$** — the original matrix being factorised
+- **$A$** — the original matrix being factorized
 - **$L$** — lower-triangular, unit diagonal
 - **$U$** — upper-triangular
 - **use** — solve $Ax = b$ by forward then back substitution

@@ -18,7 +18,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 <!-- _class: authority-chain -->
 <!-- _footer: "Default · authority-chain" -->
 
-## COPPA — the chain, tier by tier.
+## The chain descends from statute to practice.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -31,15 +31,15 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
    - Staff guidance — non-binding, but cited in every consent order.
 4. Case
    - `In re Epic Games · 2022`
-   - $245M consent order — operationalised "actual knowledge" standard.
+   - $245M consent order — operationalized "actual knowledge" standard.
 
 
 ---
 
 <!-- _class: authority-chain branching -->
-<!-- _footer: "Branching — statute root with child branches · authority-chain branching" -->
+<!-- _footer: "branching · authority-chain branching — The chain forks." -->
 
-## COPPA — one statute, many branches.
+## branching forks the chain where authority splits.
 
 1. Statute
    - `15 U.S.C. §6501` COPPA, 1998
@@ -52,9 +52,9 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain trail -->
-<!-- _footer: "Trail — horizontal numbered trail with arrows · authority-chain trail" -->
+<!-- _footer: "trail · authority-chain trail — A breadcrumb walk." -->
 
-## COPPA — statute through case, left to right.
+## trail walks the chain as a breadcrumb.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -73,9 +73,9 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain pyramid -->
-<!-- _footer: "Pyramid — hierarchy by tier weight · authority-chain pyramid" -->
+<!-- _footer: "pyramid · authority-chain pyramid — Tiers weighted by force." -->
 
-## COPPA — the authority pyramid.
+## pyramid weights the tiers by force.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -94,9 +94,9 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: authority-chain bracket -->
-<!-- _footer: "Bracket — connected cards · authority-chain bracket" -->
+<!-- _footer: "bracket · authority-chain bracket — Tiers grouped by actor." -->
 
-## How the GDPR fine traces back to the treaty.
+## bracket groups the tiers by actor.
 
 1. Treaty
    - `Charter of Fundamental Rights, Art. 8`
@@ -106,7 +106,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
    - Directly applicable across all member states; sets the Art. 83 fine tiers.
 3. Guidance
    - `EDPB Guidelines 04/2022`
-   - Harmonised methodology for calculating administrative fines.
+   - Harmonized methodology for calculating administrative fines.
 4. Decision
    - `DPC v. Meta · 2023`
    - €1.2B fine — the largest GDPR penalty to date.
@@ -114,10 +114,32 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 
 ---
 
+<!-- _class: authority-chain -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · authority-chain — Six tiers — the ceiling." -->
+
+## Six tiers is the chain's ceiling.
+
+1. Statute
+   - `15 U.S.C. §6501`
+2. Regulation
+   - `16 C.F.R. 312`
+3. Guidance
+   - `FTC guidance`
+4. Enforcement
+   - `Consent decrees`
+5. Case law
+   - `Circuit reads`
+6. Contract
+   - `DPAs — the stop`
+
+
+---
+
 <!-- _class: authority-chain dark -->
 <!-- _footer: "Composition: dark · authority-chain dark" -->
 
-## COPPA — the chain, tier by tier.
+## The chain descends from statute to practice.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -130,7 +152,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
    - Staff guidance — non-binding, but cited in every consent order.
 4. Case
    - `In re Epic Games · 2022`
-   - $245M consent order — operationalised "actual knowledge" standard.
+   - $245M consent order — operationalized "actual knowledge" standard.
 
 
 ---
@@ -138,7 +160,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 <!-- _class: authority-chain compact -->
 <!-- _footer: "Composition: compact · authority-chain compact" -->
 
-## COPPA — the chain, tier by tier.
+## The chain descends from statute to practice.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -151,7 +173,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
    - Staff guidance — non-binding, but cited in every consent order.
 4. Case
    - `In re Epic Games · 2022`
-   - $245M consent order — operationalised "actual knowledge" standard.
+   - $245M consent order — operationalized "actual knowledge" standard.
 
 
 ---
@@ -159,7 +181,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 <!-- _class: authority-chain accent -->
 <!-- _footer: "Composition: accent · authority-chain accent" -->
 
-## COPPA — the chain, tier by tier.
+## The chain descends from statute to practice.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -172,7 +194,7 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
    - Staff guidance — non-binding, but cited in every consent order.
 4. Case
    - `In re Epic Games · 2022`
-   - $245M consent order — operationalised "actual knowledge" standard.
+   - $245M consent order — operationalized "actual knowledge" standard.
 
 
 ---

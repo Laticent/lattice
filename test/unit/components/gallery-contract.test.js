@@ -35,22 +35,12 @@ const { countPrimaryCollection } = require('../../../lib/authoring/lint-core');
 // ---- the ledger: NAMED debt, measured at PR 1 (re-run this file to re-measure) ----
 const VOICE_DEBT = {
   stressDoc: [
-    'authority-chain', 'citation-card', 'code', 'compare-code', 'diagram', 'journey', 'math',
-    'obligation-matrix', 'regulatory-update', 'roadmap', 'statute-stack'
   ],
   density: [
-    'citation-card', 'code', 'compare-code', 'diagram', 'funnel', 'gantt', 'journey', 'map',
-    'math', 'obligation-matrix', 'piechart', 'progress', 'quadrant', 'radar', 'roadmap',
-    'state-chart', 'word-cloud'
   ],
   voice: [
-    'authority-chain', 'citation-card', 'code', 'compare-code', 'diagram', 'funnel', 'gantt',
-    'journey', 'kanban', 'map', 'math', 'obligation-matrix', 'piechart', 'progress',
-    'quadrant', 'radar', 'regulatory-update', 'roadmap', 'state-chart', 'statute-stack',
-    'timeline-list', 'word-cloud'
   ],
   budget: [
-    'kanban', 'statute-stack', 'timeline-list'
   ],
   band: [
     // inventory: measured truth — the register look seats five full rows, but
@@ -58,7 +48,6 @@ const VOICE_DEBT = {
     // The stress slide ships at the honest n=5 and says so; resolving the
     // mismatch is a capacity recalibration follow-up, not a copy edit.
     'inventory',
-    'kanban',
   ],
 };
 
@@ -85,6 +74,25 @@ const VOICE_EXEMPT = {
   // Density awaits calibration where the axis is unusual (tracked follow-ups).
   redline: { rules: ['density'], reason: 'tracked-changes prose; no item/row axis' },
   pricing: { rules: ['density'], reason: 'tier cards pending a calibrated axis' },
+  // Charts, math, and code: the data/notation/source IS the content — no prose axis to budget.
+  funnel: { rules: ['density'], reason: 'chart data; no prose axis' },
+  gantt: { rules: ['density'], reason: 'chart data; no prose axis' },
+  journey: { rules: ['density'], reason: 'chart data; no prose axis' },
+  map: { rules: ['density'], reason: 'chart data; no prose axis' },
+  piechart: { rules: ['density'], reason: 'chart data; no prose axis' },
+  progress: { rules: ['density'], reason: 'chart data; no prose axis' },
+  quadrant: { rules: ['density'], reason: 'chart data; no prose axis' },
+  radar: { rules: ['density'], reason: 'chart data; no prose axis' },
+  roadmap: { rules: ['density'], reason: 'grid cells; no prose axis' },
+  'state-chart': { rules: ['density'], reason: 'chart data; no prose axis' },
+  'word-cloud': { rules: ['density'], reason: 'chart data; no prose axis' },
+  math: { rules: ['density'], reason: 'typeset notation; no prose axis' },
+  code: { rules: ['density'], reason: 'source lines; no prose axis' },
+  'compare-code': { rules: ['density'], reason: 'source lines; no prose axis' },
+  'citation-card': { rules: ['density'], reason: 'verbatim quotation; no item axis' },
+  'obligation-matrix': { rules: ['density'], reason: 'check-cell grid; no prose axis' },
+  // Diagram: galleryAuthored — the hand-curated deck is its own contract.
+  diagram: { rules: ['stressDoc', 'density', 'voice'], reason: 'galleryAuthored hand-curated deck' },
 };
 
 function measure(m) {

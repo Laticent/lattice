@@ -76,16 +76,16 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 
 ## Variants (component-specific)
 
-### `target` — Target — actual vs reference ring
+### `target` — target
 
-Reads the series named `Target` (or `Goal`/`Plan`) as a dashed reference polygon; each axis where the actual falls short gets a rose gap segment along the spoke, surplus a quiet green one. The shortfall is the read.
+The bar the shape must clear.
 
 ```markdown
 <!-- _class: radar target -->
 
 `Scale · 0–100`
 
-## Where we are against the quarter plan.
+## target draws the bar the shape must clear.
 
 - Actual
   - Hiring `72`
@@ -103,16 +103,16 @@ Reads the series named `Target` (or `Goal`/`Plan`) as a dashed reference polygon
   - Velocity `75`
 ```
 
-### `delta` — Delta — before vs after
+### `delta` — delta
 
-Takes exactly two series — before, then after. The before polygon is muted; a change segment rides each spoke, green where the metric rose, rose where it fell. Built for the period-over-period QBR story.
+The gap between two shapes, shaded.
 
 ```markdown
 <!-- _class: radar delta -->
 
 `Scale · 0–10`
 
-## What moved over the half, and which way.
+## delta shades the gap between two shapes.
 
 - H1
   - Velocity `5`
@@ -128,16 +128,16 @@ Takes exactly two series — before, then after. The before polygon is muted; a 
   - Onboarding `7`
 ```
 
-### `benchmark` — Benchmark — hero vs envelope
+### `benchmark` — benchmark
 
-Draws the first series as the hero line and collapses every other series into a single min–max envelope band — one shape and your line instead of five tangled polygons. Strong where you clear the band, exposed where you sit inside it.
+A reference shape overlaid.
 
 ```markdown
 <!-- _class: radar benchmark -->
 
 `Scale · 0–10`
 
-## Are we inside the pack, or outside it.
+## benchmark overlays the reference shape.
 
 - Us
   - Performance `9`
@@ -169,16 +169,16 @@ Draws the first series as the hero line and collapses every other series into a 
   - Security `9`
 ```
 
-### `quadrant` — Quadrant — axes grouped into sectors
+### `quadrant` — quadrant
 
-Takes a three-level list (series → group → axis); each group becomes a tinted sector with its name on the rim and a dashed mean arc. For boards that think in themes, not twelve loose axes.
+The compass quarters, shaded.
 
 ```markdown
 <!-- _class: radar quadrant -->
 
 `Scale · 0–5`
 
-## Our capability profile, read by theme.
+## quadrant shades the compass quarters.
 
 - Our capability
   - People
@@ -197,16 +197,16 @@ Takes a three-level list (series → group → axis); each group becomes a tinte
     - Resilience `4`
 ```
 
-### `small-multiples` — Small-multiples — one mini radar per series
+### `small-multiples` — small-multiples
 
-Gives each series its own mini radar on a shared scale, laid out in a row — the honest read when an overlay of four-plus series would be mush. Scan the shapes, spot the outlier.
+One radar per option.
 
 ```markdown
 <!-- _class: radar small-multiples -->
 
 `Scale · 0–10`
 
-## Four product lines, the same five criteria.
+## small-multiples deals one radar per option.
 
 - Atlas
   - Adoption `8`
@@ -234,16 +234,16 @@ Gives each series its own mini radar on a shared scale, laid out in a row — th
   - Risk `8`
 ```
 
-### `minimal` — Minimal — stroke-only
+### `minimal` — minimal
 
-Composable modifier: drops the polygon fills for a stroke-only read on a faint grid. Layers on the default or any radar variant when the fills would muddy the comparison.
+Rings stripped to the shape.
 
 ```markdown
 <!-- _class: radar minimal -->
 
 `Scale · 0–10`
 
-## The same comparison, fills dropped.
+## minimal strips the rings to the shape.
 
 - Lattice
   - Performance `9`

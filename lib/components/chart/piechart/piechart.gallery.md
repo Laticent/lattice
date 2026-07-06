@@ -20,7 +20,7 @@ Pie or donut chart with legend — proportional wedges.
 
 `H1 2026 · 1,840 person-hours`
 
-## Where the planning quarter actually went.
+## The pie gives each share one wedge.
 
 Nearly half went to producing decks; the deciding itself was the smallest slice.
 
@@ -36,11 +36,11 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 ---
 
 <!-- _class: piechart donut -->
-<!-- _footer: "Donut — hollow centre · piechart donut" -->
+<!-- _footer: "donut · piechart donut — The center carries the total." -->
 
 `H1 2026 · 1,840 person-hours`
 
-## Where the engineering quarter actually went.
+## donut opens the center for the total.
 
 The toil-and-on-call slice is the one nobody put in the roadmap.
 
@@ -56,7 +56,8 @@ Refreshed weekly · figures from the time-tracking export
 ---
 
 <!-- _class: piechart -->
-<!-- _footer: "Stress test · piechart" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · piechart — Eleven slices — the legend's limit." -->
 
 `FY2026 · 1,840 person-hours`
 
@@ -82,7 +83,7 @@ Refreshed weekly · figures from the time-tracking export
 
 `H1 2026 · 1,840 person-hours`
 
-## Where the planning quarter actually went.
+## The pie gives each share one wedge.
 
 Nearly half went to producing decks; the deciding itself was the smallest slice.
 
@@ -102,7 +103,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 `H1 2026 · 1,840 person-hours`
 
-## Where the planning quarter actually went.
+## The pie gives each share one wedge.
 
 Nearly half went to producing decks; the deciding itself was the smallest slice.
 
@@ -122,7 +123,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 `H1 2026 · 1,840 person-hours`
 
-## Where the planning quarter actually went.
+## The pie gives each share one wedge.
 
 Nearly half went to producing decks; the deciding itself was the smallest slice.
 

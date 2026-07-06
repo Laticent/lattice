@@ -20,7 +20,7 @@ Gantt chart — task bars across a date axis.
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## What ships in each phase, by workstream.
+## The gantt lays the work against the calendar.
 
 Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
 
@@ -39,7 +39,8 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 ---
 
 <!-- _class: gantt -->
-<!-- _footer: "Stress test · gantt" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · gantt — A full quarter of overlapping tracks." -->
 
 `2026 Q1 .. 2026 Q4`
 
@@ -70,7 +71,7 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## What ships in each phase, by workstream.
+## The gantt lays the work against the calendar.
 
 Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
 
@@ -93,7 +94,7 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## What ships in each phase, by workstream.
+## The gantt lays the work against the calendar.
 
 Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
 
@@ -116,7 +117,7 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## What ships in each phase, by workstream.
+## The gantt lays the work against the calendar.
 
 Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
 

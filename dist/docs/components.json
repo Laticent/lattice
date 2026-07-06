@@ -2003,7 +2003,7 @@
           "when": "the change is state, not code"
         },
         {
-          "name": "compare-prose",
+          "name": "redline",
           "when": "the comparison is prose-versus-prose"
         },
         {
@@ -3149,7 +3149,7 @@
       "related": [
         {
           "name": "progress",
-          "when": "independent metrics as labelled bars, not a narrowing pipeline"
+          "when": "independent metrics as labeled bars, not a narrowing pipeline"
         },
         {
           "name": "stats",
@@ -3992,7 +3992,7 @@
         "ownership"
       ],
       "description": "Kanban board — columns of cards by stage.",
-      "purpose": "Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends colour only on STATUS, so a flagged card is the focal point; opt into `keyline` (colour-code cards by category) or `tinted` (colour-code columns by stage) when colour coding earns its keep.",
+      "purpose": "Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends color only on STATUS, so a flagged card is the focal point; opt into `keyline` (color-code cards by category) or `tinted` (color-code columns by stage) when color coding earns its keep.",
       "variants": [
         "keyline",
         "tinted"
@@ -5201,7 +5201,7 @@
         "visual"
       ],
       "description": "A world-countries (or US-states) basemap that fills regions by value (choropleth) or category (highlight) so the audience leaves knowing where.",
-      "purpose": "Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical colour. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.",
+      "purpose": "Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical color. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.",
       "variants": [
         "us",
         "world",
@@ -5315,17 +5315,17 @@
         },
         {
           "title": "Too many shades to read",
-          "body": "A choropleth past a dozen distinct values asks the eye to rank colours it can't separate. Bucket the values, switch to `highlight` for a categorical read, or lead with a `progress` ranking and keep the map as support."
+          "body": "A choropleth past a dozen distinct values asks the eye to rank colors it can't separate. Bucket the values, switch to `highlight` for a categorical read, or lead with a `progress` ranking and keep the map as support."
         },
         {
           "title": "Sub-region precision the basemap doesn't have",
-          "body": "The basemaps draw US states and world countries — not counties, districts, sub-national regions, or city pins, and the world cut (110m) omits the smallest city-states. If the story lives below that line, a labelled `image` of the real map serves better than forcing it onto the basemap."
+          "body": "The basemaps draw US states and world countries — not counties, districts, sub-national regions, or city pins, and the world cut (110m) omits the smallest city-states. If the story lives below that line, a labeled `image` of the real map serves better than forcing it onto the basemap."
         }
       ],
       "related": [
         {
           "name": "progress",
-          "when": "the regions are really a ranking — labelled bars compare magnitudes faster than shades"
+          "when": "the regions are really a ranking — labeled bars compare magnitudes faster than shades"
         },
         {
           "name": "stats",
@@ -5381,7 +5381,7 @@
         "reference"
       ],
       "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. KaTeX-rendered equations with persona-appropriate surround.",
-      "purpose": "Use when the slide IS the equation. KaTeX renders `$$…$$` as centred display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).",
+      "purpose": "Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).",
       "variants": [
         "feature",
         "derivation",
@@ -5455,7 +5455,7 @@
         "equation": {
           "selector": "p",
           "required": true,
-          "description": "Display equation wrapped in `$$…$$`. KaTeX renders centred."
+          "description": "Display equation wrapped in `$$…$$`. KaTeX renders centered."
         },
         "legend": {
           "selector": "ul > li",
@@ -6610,7 +6610,7 @@
         },
         {
           "title": "Categorical grouping clusters the dots",
-          "body": "Items grouped under list headings (`Strategic Bets`, `Quick Wins`, `Defer`, `Time Sinks`) share a colour, so the eye can read the cluster before the individual point. The grouping is editorial, not derived from coordinates."
+          "body": "Items grouped under list headings (`Strategic Bets`, `Quick Wins`, `Defer`, `Time Sinks`) share a color, so the eye can read the cluster before the individual point. The grouping is editorial, not derived from coordinates."
         },
         {
           "title": "Six to twelve items",
@@ -7257,7 +7257,7 @@
         },
         {
           "title": "Missing summary or citation",
-          "body": "Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumour."
+          "body": "Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumor."
         }
       ],
       "related": [
@@ -9110,7 +9110,7 @@
         "words": {
           "selector": "ul > li",
           "required": true,
-          "description": "One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and coloured RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent."
+          "description": "One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent."
         }
       },
       "skeleton": "<!-- _class: word-cloud -->\n\n## What the team called out this quarter.\n\n- velocity `12`\n- ownership `9`\n- handoffs `7`\n- review `5`\n",

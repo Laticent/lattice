@@ -10,7 +10,7 @@
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a terse card title.
 
-Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends colour only on STATUS, so a flagged card is the focal point; opt into `keyline` (colour-code cards by category) or `tinted` (colour-code columns by stage) when colour coding earns its keep.
+Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends color only on STATUS, so a flagged card is the focal point; opt into `keyline` (color-code cards by category) or `tinted` (color-code columns by stage) when color coding earns its keep.
 
 ## When to use
 
@@ -71,74 +71,42 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 
 ## Variants (component-specific)
 
-### `keyline` — Keyline — colour by category
+### `keyline` — keyline
 
-Restores category coding as ONE disciplined cue: every card is the same neutral tile marked by a single crisp coloured left edge, so a reader can scan one workstream's load down a column without the old per-card paint-swatch. Status stays on the chip.
+Hairlines rule the lanes apart.
 
 ```markdown
 <!-- _class: kanban keyline -->
 
-`Delivery · week 30`
+`kanban keyline`
 
-## Same board, now you can see who owns what.
-
-The left edge colour-codes each card by workstream, so one team's load reads down a column at a glance — without the surface turning into a patchwork.
+## keyline rules the lanes apart.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Ruled lanes `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
-- Review
-  - Weekly signal review `S`
-    - adoption
+  - Same board `M`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - New look `L`
 ```
 
-### `tinted` — Tinted — colour by stage
+### `tinted` — tinted
 
-Moves colour off the cards and onto the COLUMNS: each lane is whisper-tinted by pipeline stage with a hue-keyed header underline, while cards stay uniformly neutral and lift off the lane. Reinforces the left-to-right flow; status stays the one accent chip.
+Each lane takes a colored wash.
 
 ```markdown
 <!-- _class: kanban tinted -->
 
-`Delivery · week 30`
+`kanban tinted`
 
-## Colour tracks the pipeline, so the eye reads left to right.
-
-Each lane is tinted by stage — backlog through done — so the shape of the flow registers before any single card does.
+## tinted colors each lane's wash.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Lane wash `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
-- Review
-  - Weekly signal review `S`
-    - adoption
+  - Color coded `M`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - Reads faster `L`
 ```
 
 ## Universal modifiers

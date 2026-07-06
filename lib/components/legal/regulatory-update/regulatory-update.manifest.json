@@ -3,21 +3,60 @@
   "name": "regulatory-update",
   "adapt": {
     "mode": "reflow",
-    "families": ["wide", "square", "tall", "strip"],
-    "priority": ["heading", "scope", "items"],
-    "keepTogether": ["item"]
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "heading",
+      "scope",
+      "items"
+    ],
+    "keepTogether": [
+      "item"
+    ]
   },
   "function": "progression",
   "bucket": "legal",
   "form": "ledger",
   "substance": "structure",
-  "capacity": { "axis": "item", "min": 2, "sweet": 4, "soft": 5, "hard": 6, "escalateTo": ["split across slides (auto with autosplit: on)", "list-tabular"], "note": "past six changes the vertical list overflows a portrait box" },
-  "density": { "axis": "item", "soft": 14, "hard": 22, "note": "one clause per item" },
-  "split": { "strategy": "cover-paginate", "axis": "item", "perPage": 4, "intro": "What changed, and when", "note": "Overflowing list splits as an accent cover → its own native rows paginated (never flattened). lib/core/carousel.js cover-paginate." },
-  "tags": ["changelog", "compliance", "regulation"],
+  "capacity": {
+    "axis": "item",
+    "min": 2,
+    "sweet": 4,
+    "soft": 5,
+    "hard": 6,
+    "escalateTo": [
+      "split across slides (auto with autosplit: on)",
+      "list-tabular"
+    ],
+    "note": "past six changes the vertical list overflows a portrait box"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 14,
+    "hard": 22,
+    "note": "one clause per item"
+  },
+  "split": {
+    "strategy": "cover-paginate",
+    "axis": "item",
+    "perPage": 4,
+    "intro": "What changed, and when",
+    "note": "Overflowing list splits as an accent cover → its own native rows paginated (never flattened). lib/core/carousel.js cover-paginate."
+  },
+  "tags": [
+    "changelog",
+    "compliance",
+    "regulation"
+  ],
   "description": "Change log against a baseline — numbered list of statutes/cases/rules with citation, summary, and effective date.",
   "purpose": "Use when a quarter's regulatory motion needs a single-slide digest. Each row carries the change name, the citation (inline code), the summary, and the effective-date marker (inline code).",
-  "excludes": ["claim-bleed"],
+  "excludes": [
+    "claim-bleed"
+  ],
   "variants": [
     "timeline",
     "priority",
@@ -43,7 +82,11 @@
   },
   "skeleton": "<!-- _class: regulatory-update -->\n\n## Headline naming the period or theme.\n\n`Scope label · jurisdiction tier`\n\n1. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `Effective Mon YYYY`\n2. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `Effective Mon YYYY`\n3. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `Effective Mon YYYY`\n",
   "anatomyBlock": "regulatory-update",
-  "sample": "<!-- _class: regulatory-update -->\n\n## Privacy and AI motion — Q1 2026.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n",
+  "sample": "<!-- _class: regulatory-update -->\n\n## The update ledger tracks regulatory motion.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n",
+  "stressDoc": {
+    "caption": "Six changes — the ceiling.",
+    "sample": "<!-- _class: regulatory-update -->\n\n## Six changes is the ledger's ceiling.\n\n1. First instrument\n   - `Title cite`\n   - One clause states the duty.\n2. Second instrument\n   - `Bill number`\n   - Entries stay three lines here.\n3. Third instrument\n   - `Regulation cite`\n   - The middle carries the exposure.\n4. Fourth instrument\n   - `Directive cite`\n   - Shorter as the ledger descends.\n5. Fifth instrument\n   - `Rule cite`\n   - The soft ceiling passed above.\n6. Sixth instrument\n   - `Order cite`\n   - The stop.\n"
+  },
   "whenToUse": [
     {
       "title": "Period-bounded digest",
@@ -69,7 +112,7 @@
     },
     {
       "title": "Missing summary or citation",
-      "body": "Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumour."
+      "body": "Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumor."
     }
   ],
   "related": [
@@ -81,7 +124,10 @@
       "name": "list-criteria",
       "when": "flat enumeration of requirements without dates or citations"
     },
-    { "name": "list-steps", "when": "lighter dots-on-a-spine sequence — the `timeline` variant" },
+    {
+      "name": "list-steps",
+      "when": "lighter dots-on-a-spine sequence — the `timeline` variant"
+    },
     {
       "name": "list-tabular",
       "when": "structured metadata per row but no regulatory framing"
@@ -89,24 +135,25 @@
   ],
   "variantDocs": {
     "timeline": {
-      "label": "Timeline — chronological spine instead of ranked ledger",
-      "caption": "Renders the rows as a chronological spine — effective-date chips align on the right and the chrome reads as a calendar rather than a ranking. Use when chronology is the read, not weight.",
-      "sample": "<!-- _class: regulatory-update timeline -->\n\n## Privacy and AI motion — Q1 2026 by effective date.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n"
+      "label": "timeline",
+      "caption": "Ordered by effective date.",
+      "sample": "<!-- _class: regulatory-update timeline -->\n\n## timeline orders the changes by effective date.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n"
     },
     "priority": {
-      "label": "Priority — ranked by exposure rather than chronology",
-      "caption": "Stamps a priority rail on the left of each row and ranks by exposure rather than effective date. Use for board updates where the audience needs 'what to do' before 'when it landed'.",
-      "sample": "<!-- _class: regulatory-update priority -->\n\n## Q1 motion ranked by exposure.\n\n`Top three · by ARR at risk`\n\n1. EU AI Act\n   - `Title III`\n   - High-risk system inventory due before April.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Deployer disclosures required; copy in flight.\n   - `Effective Feb 2026`\n3. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory.\n   - `Effective Mar 2026`\n"
+      "label": "priority",
+      "caption": "Ranked by exposure.",
+      "sample": "<!-- _class: regulatory-update priority -->\n\n## priority ranks the changes by exposure.\n\n`Top three · by ARR at risk`\n\n1. EU AI Act\n   - `Title III`\n   - High-risk system inventory due before April.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Deployer disclosures required; copy in flight.\n   - `Effective Feb 2026`\n3. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory.\n   - `Effective Mar 2026`\n"
     },
     "cards": {
-      "label": "Cards — one panel per item",
-      "caption": "Breaks the running list into discrete cards, one per development. Use when each item is independent and the audience may photograph a single card.",
-      "sample": "<!-- _class: regulatory-update cards -->\n\n## Privacy and AI motion — Q1 2026.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n"
+      "label": "cards",
+      "caption": "One tile per change.",
+      "sample": "<!-- _class: regulatory-update cards -->\n\n## cards deals each change its own tile.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n"
     },
     "diff-bands": {
-      "label": "Diff-bands — grouped by change kind",
-      "caption": "Groups items under colour-coded h3 bands by the kind of change — Added, Amended, Repealed, Enforced. Use when the type of action matters as much as the instrument.",
-      "sample": "<!-- _class: regulatory-update diff-bands -->\n\n## What changed this quarter, by kind.\n\n### Added\n\n1. Colorado AI Act\n   - `SB 24-205`\n   - New developer and deployer duties for consequential-decision systems.\n\n### Amended\n\n2. CCPA regulations\n   - `§7027`\n   - Opt-out preference signal handling clarified and tightened.\n\n### Repealed\n\n3. Small-business carve-out\n   - `§541.107`\n   - The blanket exemption was narrowed and partially repealed.\n\n### Enforced\n\n4. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order finalised against deceptive privacy branding.\n"
+      "label": "diff-bands",
+      "caption": "Changed versus stayed.",
+      "sample": "<!-- _class: regulatory-update diff-bands -->\n\n## diff-bands shades what changed versus stayed.\n\n### Added\n\n1. Colorado AI Act\n   - `SB 24-205`\n   - New developer and deployer duties for consequential-decision systems.\n\n### Amended\n\n2. CCPA regulations\n   - `§7027`\n   - Opt-out preference signal handling clarified and tightened.\n\n### Repealed\n\n3. Small-business carve-out\n   - `§541.107`\n   - The blanket exemption was narrowed and partially repealed.\n\n### Enforced\n\n4. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order finalized against deceptive privacy branding.\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

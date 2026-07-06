@@ -18,43 +18,44 @@ Date-stamped event list rendered as a horizontal spine — a dot per event with 
 <!-- _class: timeline-list -->
 <!-- _footer: "Default · timeline-list" -->
 
-`Decision framework`
+`chart · timeline-list`
 
-## How the framework arrived in production.
+## The timeline pins events to their dates.
 
-Four stages over eighteen months, from the first workshop to the operating rhythm.
+Four milestones show the shape; the date chips carry the when.
 
-1. `2024 Q3` First workshop
-   - The one where we agreed to agree on a definition of "signal." Output: a fifth workshop.
-2. `2025 Q1` Framework approved `decision`
-   - The steering committee accepts the scoring model. Build approved; the build team is the steering committee.
-3. `2025 Q3` Pilot live `live`
-   - Four product teams onboarded; the decision log opens. Eighteen entries to date, against roughly three hundred decisions made.
-4. `2026 Q1` Operating rhythm `live`
-   - The weekly review lands on every team's calendar. Attendance, like the calibration step, remains aspirational.
+1. `Q1` The first milestone
+   - One clause says what changed here.
+2. `Q2` The second, marked `decision`
+   - A tag names the milestone's kind.
+3. `Q3` The third milestone
+   - Sixteen words is each entry's budget.
+4. `Q4` The fourth milestone
+   - Four to six entries reads best.
 
 
 ---
 
 <!-- _class: timeline-list -->
-<!-- _footer: "Stress test · timeline-list" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · timeline-list — Six milestones at the word ceiling." -->
 
-`Decision framework`
+`timeline-list · stress`
 
-## Stress test — six milestones over three years, each described as inevitable in hindsight.
+## Six milestones is the line's honest length.
 
-1. `2023 Q4` Quarterly re-litigation
-   - Every prioritisation argued from first principles in a recurring meeting. Average close 4 hours, and the worst one ran an entire offsite, precisely when the board joined.
-2. `2024 Q2` Framework proposal `decision`
-   - Architecture review accepts the scoring model. The review board and the build team are the same six people.
-3. `2024 Q4` Scoring policy GA `live`
-   - Phase 1 rollout complete; twelve product teams onboarded, all of whom asked to go back to the spreadsheet once.
-4. `2025 Q2` Per-team calibration `live`
-   - Per-team scoring weights shipped; the calibration loop cut p99 decision close to 18 minutes. The slide does not mention what the cold path costs.
-5. `2025 Q4` Org-wide enablement `at-risk`
-   - Org-wide adoption enters pilot. "Org-wide" remains one pilot team with ambitions.
-6. `2026 Q2` Auditor export
-   - Decision-log export and the auditor evidence pack in build — demoed once, never yet run in anger.
+1. `Y1 Q1` The opening milestone
+   - An entry at the hard budget carries one full clause and its consequence.
+2. `Y1 Q3` The second marker
+   - Twenty-four words is the ceiling; spend them on what changed, not context.
+3. `Y2 Q1` The midpoint
+   - The middle of a timeline is where attention sags — anchor it.
+4. `Y2 Q3` The fourth marker
+   - Entries shorten as the line descends.
+5. `Y3 Q1` The fifth marker
+   - The soft ceiling passed one entry ago.
+6. `Y3 Q3` The last marker
+   - Six is the stop; a seventh becomes a gantt.
 
 
 ---
@@ -62,20 +63,20 @@ Four stages over eighteen months, from the first workshop to the operating rhyth
 <!-- _class: timeline-list dark -->
 <!-- _footer: "Composition: dark · timeline-list dark" -->
 
-`Decision framework`
+`chart · timeline-list`
 
-## How the framework arrived in production.
+## The timeline pins events to their dates.
 
-Four stages over eighteen months, from the first workshop to the operating rhythm.
+Four milestones show the shape; the date chips carry the when.
 
-1. `2024 Q3` First workshop
-   - The one where we agreed to agree on a definition of "signal." Output: a fifth workshop.
-2. `2025 Q1` Framework approved `decision`
-   - The steering committee accepts the scoring model. Build approved; the build team is the steering committee.
-3. `2025 Q3` Pilot live `live`
-   - Four product teams onboarded; the decision log opens. Eighteen entries to date, against roughly three hundred decisions made.
-4. `2026 Q1` Operating rhythm `live`
-   - The weekly review lands on every team's calendar. Attendance, like the calibration step, remains aspirational.
+1. `Q1` The first milestone
+   - One clause says what changed here.
+2. `Q2` The second, marked `decision`
+   - A tag names the milestone's kind.
+3. `Q3` The third milestone
+   - Sixteen words is each entry's budget.
+4. `Q4` The fourth milestone
+   - Four to six entries reads best.
 
 
 ---
@@ -83,20 +84,20 @@ Four stages over eighteen months, from the first workshop to the operating rhyth
 <!-- _class: timeline-list compact -->
 <!-- _footer: "Composition: compact · timeline-list compact" -->
 
-`Decision framework`
+`chart · timeline-list`
 
-## How the framework arrived in production.
+## The timeline pins events to their dates.
 
-Four stages over eighteen months, from the first workshop to the operating rhythm.
+Four milestones show the shape; the date chips carry the when.
 
-1. `2024 Q3` First workshop
-   - The one where we agreed to agree on a definition of "signal." Output: a fifth workshop.
-2. `2025 Q1` Framework approved `decision`
-   - The steering committee accepts the scoring model. Build approved; the build team is the steering committee.
-3. `2025 Q3` Pilot live `live`
-   - Four product teams onboarded; the decision log opens. Eighteen entries to date, against roughly three hundred decisions made.
-4. `2026 Q1` Operating rhythm `live`
-   - The weekly review lands on every team's calendar. Attendance, like the calibration step, remains aspirational.
+1. `Q1` The first milestone
+   - One clause says what changed here.
+2. `Q2` The second, marked `decision`
+   - A tag names the milestone's kind.
+3. `Q3` The third milestone
+   - Sixteen words is each entry's budget.
+4. `Q4` The fourth milestone
+   - Four to six entries reads best.
 
 
 ---
@@ -104,20 +105,20 @@ Four stages over eighteen months, from the first workshop to the operating rhyth
 <!-- _class: timeline-list accent -->
 <!-- _footer: "Composition: accent · timeline-list accent" -->
 
-`Decision framework`
+`chart · timeline-list`
 
-## How the framework arrived in production.
+## The timeline pins events to their dates.
 
-Four stages over eighteen months, from the first workshop to the operating rhythm.
+Four milestones show the shape; the date chips carry the when.
 
-1. `2024 Q3` First workshop
-   - The one where we agreed to agree on a definition of "signal." Output: a fifth workshop.
-2. `2025 Q1` Framework approved `decision`
-   - The steering committee accepts the scoring model. Build approved; the build team is the steering committee.
-3. `2025 Q3` Pilot live `live`
-   - Four product teams onboarded; the decision log opens. Eighteen entries to date, against roughly three hundred decisions made.
-4. `2026 Q1` Operating rhythm `live`
-   - The weekly review lands on every team's calendar. Attendance, like the calibration step, remains aspirational.
+1. `Q1` The first milestone
+   - One clause says what changed here.
+2. `Q2` The second, marked `decision`
+   - A tag names the milestone's kind.
+3. `Q3` The third milestone
+   - Sixteen words is each entry's budget.
+4. `Q4` The fourth milestone
+   - Four to six entries reads best.
 
 
 ---

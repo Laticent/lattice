@@ -18,7 +18,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 <!-- _class: funnel -->
 <!-- _footer: "Default · funnel" -->
 
-## Where the signup pipeline leaks.
+## The funnel narrows; the width is the story.
 
 - Visitors `12,000`
   - Two-thirds arrive from inbound, not outbound
@@ -32,7 +32,8 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 ---
 
 <!-- _class: funnel -->
-<!-- _footer: "Stress test · funnel" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · funnel — Seven stages, one steep early drop." -->
 
 ## Seven stages, a steep early drop.
 
@@ -50,7 +51,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 <!-- _class: funnel dark -->
 <!-- _footer: "Composition: dark · funnel dark" -->
 
-## Where the signup pipeline leaks.
+## The funnel narrows; the width is the story.
 
 - Visitors `12,000`
   - Two-thirds arrive from inbound, not outbound
@@ -66,7 +67,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 <!-- _class: funnel compact -->
 <!-- _footer: "Composition: compact · funnel compact" -->
 
-## Where the signup pipeline leaks.
+## The funnel narrows; the width is the story.
 
 - Visitors `12,000`
   - Two-thirds arrive from inbound, not outbound
@@ -82,7 +83,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 <!-- _class: funnel accent -->
 <!-- _footer: "Composition: accent · funnel accent" -->
 
-## Where the signup pipeline leaks.
+## The funnel narrows; the width is the story.
 
 - Visitors `12,000`
   - Two-thirds arrive from inbound, not outbound
@@ -112,7 +113,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 `Related components`
 
-- `progress` — independent metrics as labelled bars, not a narrowing pipeline
+- `progress` — independent metrics as labeled bars, not a narrowing pipeline
 - `stats` — a row of headline figures with no drop-off relationship
 - `piechart` — parts of a single whole rather than sequential stages
 - `list-steps` — the stages are a process to walk through, not values to compare

@@ -20,7 +20,7 @@ Boardroom-quality math layouts for mathematicians, quants, ML researchers, physi
 
 `Linear regression · OLS`
 
-## The closed-form estimator.
+## One equation, displayed; its symbols named below.
 
 $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
@@ -33,11 +33,11 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 ---
 
 <!-- _class: math feature -->
-<!-- _footer: "Feature — hero equation + legend · math feature" -->
+<!-- _footer: "feature · math feature — Alias for the base layout — eyebrow, headline, hero equation, legend.…" -->
 
 `Logistic regression · MLE`
 
-## The log-likelihood we maximise.
+## feature crowns the equation full-canvas.
 
 $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_i) \log\bigl(1 - \sigma(x_i^\top \beta)\bigr) \right] $$
 
@@ -50,9 +50,9 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 ---
 
 <!-- _class: math derivation -->
-<!-- _footer: "Derivation — proof chain with justification column · math derivation" -->
+<!-- _footer: "derivation · math derivation — Two-column table: derivation steps on the left, the justification for…" -->
 
-## Derivative of $f$ from first principles.
+## derivation walks the steps line by line.
 
 | Step                                                     | Justification             |
 | -------------------------------------------------------- | ------------------------- |
@@ -65,9 +65,9 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 ---
 
 <!-- _class: math theorem -->
-<!-- _footer: "Theorem — Definition / Theorem / Proof cards · math theorem" -->
+<!-- _footer: "theorem · math theorem — Stacked color-coded blockquote cards in the formal-statement vocabul…" -->
 
-## Intermediate Value Theorem.
+## theorem boxes the statement and its proof.
 
 > **Definition.** A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
 
@@ -79,29 +79,29 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 ---
 
 <!-- _class: math compare -->
-<!-- _footer: "Compare — two- or three-column equations · math compare" -->
+<!-- _footer: "compare · math compare — Side-by-side equation comparison. Each column has its own h3 label, d…" -->
 
-## Frequentist vs Bayesian point estimate.
+## compare sets two formulations side by side.
 
 ### Frequentist
 
 $$ \hat\theta_{\text{MLE}} = \arg\max_\theta\, p(y \mid \theta) $$
 
-Maximises the likelihood — no prior. Uncertainty quantified by the sampling distribution of $\hat\theta$ across hypothetical repeats.
+Maximizes the likelihood — no prior. Uncertainty quantified by the sampling distribution of $\hat\theta$ across hypothetical repeats.
 
 ### Bayesian
 
 $$ \hat\theta_{\text{MAP}} = \arg\max_\theta\, p(\theta \mid y) $$
 
-Maximises the posterior — conditions on the prior $p(\theta)$. Uncertainty is the posterior itself, no repeated sampling required.
+Maximizes the posterior — conditions on the prior $p(\theta)$. Uncertainty is the posterior itself, no repeated sampling required.
 
 
 ---
 
 <!-- _class: math canvas -->
-<!-- _footer: "Canvas — equation left, plot right · math canvas" -->
+<!-- _footer: "canvas · math canvas — Pairs a hero equation with a `functionplot` graph (rendered by the fu…" -->
 
-## The sigmoid.
+## canvas gives a long derivation the room.
 
 $$ \sigma(x) = \dfrac{1}{1 + e^{-x}} $$
 
@@ -123,9 +123,9 @@ Maps $\mathbb{R} \to (0,1)$. $S$-shaped, $\sigma(0) = 0.5$, steepest slope at th
 ---
 
 <!-- _class: math matrix -->
-<!-- _footer: "Matrix — matrix + properties · math matrix" -->
+<!-- _footer: "matrix · math matrix — Hero matrix with a properties / dimensions / interpretation legend. B…" -->
 
-## The design matrix $X$.
+## matrix typesets the block structures.
 
 $$
 X = \begin{pmatrix}
@@ -146,9 +146,9 @@ $$
 ---
 
 <!-- _class: math stats -->
-<!-- _footer: "Stats — estimate ± uncertainty · math stats" -->
+<!-- _footer: "stats · math stats — Point estimate with uncertainty (CI, $p$-value, $n$) followed by plai…" -->
 
-## Effect of the treatment.
+## stats pairs the estimator with its variance.
 
 $$ \hat\beta = 0.42 \pm 0.03 $$
 
@@ -161,9 +161,9 @@ For every additional unit of exposure, the outcome rises by 0.42 SD — roughly 
 ---
 
 <!-- _class: math matrix decompose -->
-<!-- _footer: "Matrix · decompose — factorisation sequence · math decompose" -->
+<!-- _footer: "decompose · math decompose — A compound of `matrix`: lays a factorisation out as a sequence of mat…" -->
 
-## LU decomposition.
+## decompose colors the terms it names.
 
 $$
 \begin{pmatrix} 2 & 1 \\ 4 & 3 \end{pmatrix}
@@ -172,10 +172,31 @@ $$
 \begin{pmatrix} 2 & 1 \\ 0 & 1 \end{pmatrix}
 $$
 
-- **$A$** — the original matrix being factorised
+- **$A$** — the original matrix being factorized
 - **$L$** — lower-triangular, unit diagonal
 - **$U$** — upper-triangular
 - **use** — solve $Ax = b$ by forward then back substitution
+
+
+---
+
+<!-- _class: math derivation -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · math — Three steps — the longest chain." -->
+
+`math · stress`
+
+## Three displayed steps is the longest chain.
+
+$$ \hat\beta = \arg\min_\beta \, \lVert y - X\beta \rVert_2^2 $$
+
+$$ X^\top X \hat\beta = X^\top y $$
+
+$$ \hat\beta = (X^\top X)^{-1} X^\top y $$
+
+- Step one states the objective
+- Step two takes the gradient to zero
+- Step three is the ceiling — a fourth step means two slides
 
 
 ---
@@ -185,7 +206,7 @@ $$
 
 `Linear regression · OLS`
 
-## The closed-form estimator.
+## One equation, displayed; its symbols named below.
 
 $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
@@ -202,7 +223,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 `Linear regression · OLS`
 
-## The closed-form estimator.
+## One equation, displayed; its symbols named below.
 
 $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
@@ -219,7 +240,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 `Linear regression · OLS`
 
-## The closed-form estimator.
+## One equation, displayed; its symbols named below.
 
 $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 

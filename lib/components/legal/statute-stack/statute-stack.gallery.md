@@ -18,28 +18,25 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 <!-- _class: statute-stack -->
 <!-- _footer: "Default · statute-stack" -->
 
-## Children's data — three jurisdictions, three obligations.
+## Three jurisdictions, one obligation each.
 
 - Federal `15 U.S.C. §6501`
-  - Verifiable parental consent for under-13 personal data.
-  - Operators must post a clear notice and a deletion route.
+  - Parental consent for under-13 data.
   - `In effect since 2000`
 - State `Cal. Civ. §1798.120`
-  - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-  - DSAR handling within 45 days; deletion verified.
-  - `Enforced 2023`
-- Local `NYC §22-1201`
-  - Bias-audit obligation for AEDTs used in employment decisions.
-  - Annual audit + candidate notice + public summary.
-  - `Effective 2023`
+  - The right to opt out of sale.
+  - `In effect since 2020`
+- International `GDPR Art. 8`
+  - Member-state consent age, 13 to 16.
+  - `In effect since 2018`
 
 
 ---
 
 <!-- _class: statute-stack hierarchy -->
-<!-- _footer: "Authority pyramid · statute-stack hierarchy" -->
+<!-- _footer: "hierarchy · statute-stack hierarchy — Ordered by supremacy." -->
 
-## Children's data — authority cascades downward.
+## hierarchy orders the stack by supremacy.
 
 - Federal `15 U.S.C. §6501` `In effect since 2000`
   - Verifiable parental consent for under-13 personal data.
@@ -52,9 +49,9 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 ---
 
 <!-- _class: statute-stack bands -->
-<!-- _footer: "Horizontal bands · statute-stack bands" -->
+<!-- _footer: "Horizontal bands · statute-stack bands — Full-width strips." -->
 
-## Children's data — at-a-glance scorecard.
+## bands strips each jurisdiction full-width.
 
 - Federal `15 U.S.C. §6501` `In effect since 2000`
   - Verifiable parental consent for under-13 personal data.
@@ -67,9 +64,9 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 ---
 
 <!-- _class: statute-stack preemption -->
-<!-- _footer: "Preemption cascade · statute-stack preemption" -->
+<!-- _footer: "preemption · statute-stack preemption — Which law yields." -->
 
-## Federal preemption — how the cascade flows.
+## preemption marks which law yields.
 
 - Federal `15 U.S.C. §6501` `Preempts state rules`
   - Sets the floor for under-13 personal data collection.
@@ -82,9 +79,9 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 ---
 
 <!-- _class: statute-stack lane -->
-<!-- _footer: "Markdown table · statute-stack lane" -->
+<!-- _footer: "Markdown table · statute-stack lane — One column stack." -->
 
-## Children's data — register view.
+## lane runs the stack in one column.
 
 | Jurisdiction | Citation              | Headline obligation       | Status      |
 | ------------ | --------------------- | ------------------------- | ----------- |
@@ -95,23 +92,45 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 
 ---
 
+<!-- _class: statute-stack -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · statute-stack — Five jurisdictions — the ceiling." -->
+
+## Five jurisdictions is the rail's hard ceiling.
+
+- Federal `COPPA §6501`
+  - The anchor tier reads first.
+  - `2000`
+- State `CCPA §1798`
+  - Twenty-four words is each tier's line.
+  - `2020`
+- State `Tex. 541`
+  - Parallel tiers must match shapes.
+  - `2024`
+- Intl `GDPR 8`
+  - The fourth passed the soft mark.
+  - `2018`
+- Intl `PIPL 31`
+  - The stop; six collapses the rail.
+  - `2021`
+
+
+---
+
 <!-- _class: statute-stack dark -->
 <!-- _footer: "Composition: dark · statute-stack dark" -->
 
-## Children's data — three jurisdictions, three obligations.
+## Three jurisdictions, one obligation each.
 
 - Federal `15 U.S.C. §6501`
-  - Verifiable parental consent for under-13 personal data.
-  - Operators must post a clear notice and a deletion route.
+  - Parental consent for under-13 data.
   - `In effect since 2000`
 - State `Cal. Civ. §1798.120`
-  - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-  - DSAR handling within 45 days; deletion verified.
-  - `Enforced 2023`
-- Local `NYC §22-1201`
-  - Bias-audit obligation for AEDTs used in employment decisions.
-  - Annual audit + candidate notice + public summary.
-  - `Effective 2023`
+  - The right to opt out of sale.
+  - `In effect since 2020`
+- International `GDPR Art. 8`
+  - Member-state consent age, 13 to 16.
+  - `In effect since 2018`
 
 
 ---
@@ -119,20 +138,17 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 <!-- _class: statute-stack compact -->
 <!-- _footer: "Composition: compact · statute-stack compact" -->
 
-## Children's data — three jurisdictions, three obligations.
+## Three jurisdictions, one obligation each.
 
 - Federal `15 U.S.C. §6501`
-  - Verifiable parental consent for under-13 personal data.
-  - Operators must post a clear notice and a deletion route.
+  - Parental consent for under-13 data.
   - `In effect since 2000`
 - State `Cal. Civ. §1798.120`
-  - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-  - DSAR handling within 45 days; deletion verified.
-  - `Enforced 2023`
-- Local `NYC §22-1201`
-  - Bias-audit obligation for AEDTs used in employment decisions.
-  - Annual audit + candidate notice + public summary.
-  - `Effective 2023`
+  - The right to opt out of sale.
+  - `In effect since 2020`
+- International `GDPR Art. 8`
+  - Member-state consent age, 13 to 16.
+  - `In effect since 2018`
 
 
 ---
@@ -140,20 +156,17 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 <!-- _class: statute-stack accent -->
 <!-- _footer: "Composition: accent · statute-stack accent" -->
 
-## Children's data — three jurisdictions, three obligations.
+## Three jurisdictions, one obligation each.
 
 - Federal `15 U.S.C. §6501`
-  - Verifiable parental consent for under-13 personal data.
-  - Operators must post a clear notice and a deletion route.
+  - Parental consent for under-13 data.
   - `In effect since 2000`
 - State `Cal. Civ. §1798.120`
-  - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-  - DSAR handling within 45 days; deletion verified.
-  - `Enforced 2023`
-- Local `NYC §22-1201`
-  - Bias-audit obligation for AEDTs used in employment decisions.
-  - Annual audit + candidate notice + public summary.
-  - `Effective 2023`
+  - The right to opt out of sale.
+  - `In effect since 2020`
+- International `GDPR Art. 8`
+  - Member-state consent age, 13 to 16.
+  - `In effect since 2018`
 
 
 ---

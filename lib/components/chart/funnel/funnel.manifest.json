@@ -1,12 +1,23 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "funnel",
-  "adapt": { "mode": "reflow", "priority": ["title", "stages", "detail"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "stages",
+      "detail"
+    ]
+  },
   "function": "evidence",
   "form": "canvas",
   "substance": "series",
   "bucket": "chart",
-  "tags": ["percentage", "sequence", "pitch"],
+  "tags": [
+    "percentage",
+    "sequence",
+    "pitch"
+  ],
   "description": "Tapering stages that show where a flow drops off, with the conversion rate between each.",
   "purpose": "Use for a pipeline that narrows — a sales / conversion funnel, a hiring or grant pipeline, an onboarding flow. Each stage's band width is proportional to its value; the stage-to-stage conversion % is printed in the gaps so the leak is the read.",
   "slots": {
@@ -28,8 +39,11 @@
   },
   "skeleton": "<!-- _class: funnel -->\n\n## Where the flow drops off.\n\n- First stage `1000`\n- Second stage `600`\n- Third stage `320`\n- Fourth stage `140`\n",
   "anatomyBlock": "funnel",
-  "sample": "<!-- _class: funnel -->\n\n## Where the signup pipeline leaks.\n\n- Visitors `12,000`\n  - Two-thirds arrive from inbound, not outbound\n  - Paid search makes up the rest\n- Signups `4,800`\n- Activated `2,160`\n- Paid `864`\n- Renewed `670`\n",
-  "stressSample": "<!-- _class: funnel -->\n\n## Seven stages, a steep early drop.\n\n- Impressions `240,000`\n- Clicks `38,400`\n- Visits `21,600`\n- Signups `5,400`\n- Activated `2,160`\n- Paid `648`\n- Renewed `512`\n",
+  "sample": "<!-- _class: funnel -->\n\n## The funnel narrows; the width is the story.\n\n- Visitors `12,000`\n  - Two-thirds arrive from inbound, not outbound\n  - Paid search makes up the rest\n- Signups `4,800`\n- Activated `2,160`\n- Paid `864`\n- Renewed `670`\n",
+  "stressDoc": {
+    "caption": "Seven stages, one steep early drop.",
+    "sample": "<!-- _class: funnel -->\n\n## Seven stages, a steep early drop.\n\n- Impressions `240,000`\n- Clicks `38,400`\n- Visits `21,600`\n- Signups `5,400`\n- Activated `2,160`\n- Paid `648`\n- Renewed `512`\n"
+  },
   "whenToUse": [
     {
       "title": "The story is the drop-off",
@@ -59,11 +73,29 @@
     }
   ],
   "related": [
-    { "name": "progress", "when": "independent metrics as labelled bars, not a narrowing pipeline" },
-    { "name": "stats", "when": "a row of headline figures with no drop-off relationship" },
-    { "name": "piechart", "when": "parts of a single whole rather than sequential stages" },
-    { "name": "list-steps", "when": "the stages are a process to walk through, not values to compare" },
-    { "name": "big-number", "when": "a single conversion rate is the whole story" }
+    {
+      "name": "progress",
+      "when": "independent metrics as labeled bars, not a narrowing pipeline"
+    },
+    {
+      "name": "stats",
+      "when": "a row of headline figures with no drop-off relationship"
+    },
+    {
+      "name": "piechart",
+      "when": "parts of a single whole rather than sequential stages"
+    },
+    {
+      "name": "list-steps",
+      "when": "the stages are a process to walk through, not values to compare"
+    },
+    {
+      "name": "big-number",
+      "when": "a single conversion rate is the whole story"
+    }
   ],
-  "showcase": { "featured": true }
+  "showcase": {
+    "featured": true
+  },
+  "specimenVoice": true
 }

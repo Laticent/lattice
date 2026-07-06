@@ -20,7 +20,7 @@ Two fenced code blocks side-by-side, each with a label.
 
 `Query path · report generation`
 
-## The N+1 query that slowed every report.
+## Before and after, the diff you can read aloud.
 
 `Before · one query per row`
 
@@ -44,12 +44,53 @@ return signals;
 
 ---
 
+<!-- _class: compare-code -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · compare-code — Two ten-line panes — the side-by-side ceiling." -->
+
+`compare-code · stress`
+
+## Ten lines a side is the ceiling.
+
+`Before · at the pane budget`
+
+```js
+function beforePane(rows) {
+  const out = [];
+  for (const row of rows) {
+    // ten lines per pane is the most
+    // a side-by-side diff can hold
+    // before the type drops below
+    // back-row legibility
+    out.push(transform(row));
+  }
+  return out;
+}
+```
+
+`After · same budget, same shape`
+
+```js
+function afterPane(rows) {
+  // the panes must stay line-comparable:
+  // the eye pairs line N with line N
+  // across the gutter — pad or trim
+  // until the shapes align
+  return rows.map(transform);
+}
+// past ten lines a side, split the
+// comparison across two slides
+```
+
+
+---
+
 <!-- _class: compare-code dark -->
 <!-- _footer: "Composition: dark · compare-code dark" -->
 
 `Query path · report generation`
 
-## The N+1 query that slowed every report.
+## Before and after, the diff you can read aloud.
 
 `Before · one query per row`
 
@@ -78,7 +119,7 @@ return signals;
 
 `Query path · report generation`
 
-## The N+1 query that slowed every report.
+## Before and after, the diff you can read aloud.
 
 `Before · one query per row`
 
@@ -107,7 +148,7 @@ return signals;
 
 `Query path · report generation`
 
-## The N+1 query that slowed every report.
+## Before and after, the diff you can read aloud.
 
 `Before · one query per row`
 
@@ -149,6 +190,6 @@ return signals;
 `Related components`
 
 - `compare-prose` — the change is state, not code
-- `compare-prose` — the comparison is prose-versus-prose
+- `redline` — the comparison is prose-versus-prose
 - `redline` — the change is in verbatim text or legal language
 - `compare-table` — three or more variants on shared dimensions

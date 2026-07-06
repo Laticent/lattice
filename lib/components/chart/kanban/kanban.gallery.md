@@ -18,143 +18,77 @@ Kanban board — columns of cards by stage.
 <!-- _class: kanban -->
 <!-- _footer: "Default · kanban" -->
 
-`Phase 2 · Sprint 14`
+`chart · kanban`
 
-## Where Phase 2 work stands today.
-
-Eight items across four stages; the scoring-model rewrite is the only card flagged at-risk, which is the polite way of saying it is the only one anyone has looked at.
+## The board tracks cards across lanes.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Waiting cards `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
+  - The active limit `M`
 - Review
-  - Weekly signal review `S`
-    - adoption
+  - Almost done `S`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - Shipped work `L`
 
 
 ---
 
 <!-- _class: kanban keyline -->
-<!-- _footer: "Keyline — colour by category · kanban keyline" -->
+<!-- _footer: "keyline · kanban keyline — Hairlines rule the lanes apart." -->
 
-`Delivery · week 30`
+`kanban keyline`
 
-## Same board, now you can see who owns what.
-
-The left edge colour-codes each card by workstream, so one team's load reads down a column at a glance — without the surface turning into a patchwork.
+## keyline rules the lanes apart.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Ruled lanes `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
-- Review
-  - Weekly signal review `S`
-    - adoption
+  - Same board `M`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - New look `L`
 
 
 ---
 
 <!-- _class: kanban tinted -->
-<!-- _footer: "Tinted — colour by stage · kanban tinted" -->
+<!-- _footer: "tinted · kanban tinted — Each lane takes a colored wash." -->
 
-`Delivery · week 30`
+`kanban tinted`
 
-## Colour tracks the pipeline, so the eye reads left to right.
-
-Each lane is tinted by stage — backlog through done — so the shape of the flow registers before any single card does.
+## tinted colors each lane's wash.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Lane wash `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
-- Review
-  - Weekly signal review `S`
-    - adoption
+  - Color coded `M`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - Reads faster `L`
 
 
 ---
 
-<!-- _class: kanban -->
-<!-- _footer: "Stress test · kanban" -->
+<!-- _class: kanban compact -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · kanban — Six lanes — the board's hard ceiling." -->
 
-`Phase 2 · Sprint 14`
+`kanban · stress`
 
-## Stress test — four lanes, fifteen cards, and a Backlog that grows faster than Done.
+## Six lanes is the board's hard ceiling.
 
+- Intake
+  - New arrivals `S`
+  - Unsorted `S`
 - Backlog
-  - Per-decision profiles `L`
-    - scoring
-  - Recalibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
-  - Anomaly auto-routing `L`
-    - framework
+  - Prioritized queue `M`
 - In progress
-  - Per-team calibration `M`
-    - scoring `at-risk`
-  - Auditor evidence pack v2 `L`
-    - governance
-  - Org-wide enablement `M`
-    - adoption
-  - Decision-log audit trail `S`
-    - governance `blocked`
+  - The WIP limit `L`
 - Review
-  - Outcome auto-pairing `M`
-    - governance
-  - Multi-source signal dedupe `S`
-    - framework
-  - Weekly signal review `S`
-    - adoption
+  - Awaiting eyes `M`
+- Staging
+  - Nearly out `S`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Equal-weights model `S`
-    - scoring
-  - Connector v1 `M`
-    - framework
-  - Append-only schema `S`
-    - governance
+  - The sixth lane `S`
 
 
 ---
@@ -162,32 +96,18 @@ Each lane is tinted by stage — backlog through done — so the shape of the fl
 <!-- _class: kanban dark -->
 <!-- _footer: "Composition: dark · kanban dark" -->
 
-`Phase 2 · Sprint 14`
+`chart · kanban`
 
-## Where Phase 2 work stands today.
-
-Eight items across four stages; the scoring-model rewrite is the only card flagged at-risk, which is the polite way of saying it is the only one anyone has looked at.
+## The board tracks cards across lanes.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Waiting cards `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
+  - The active limit `M`
 - Review
-  - Weekly signal review `S`
-    - adoption
+  - Almost done `S`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - Shipped work `L`
 
 
 ---
@@ -195,32 +115,18 @@ Eight items across four stages; the scoring-model rewrite is the only card flagg
 <!-- _class: kanban compact -->
 <!-- _footer: "Composition: compact · kanban compact" -->
 
-`Phase 2 · Sprint 14`
+`chart · kanban`
 
-## Where Phase 2 work stands today.
-
-Eight items across four stages; the scoring-model rewrite is the only card flagged at-risk, which is the polite way of saying it is the only one anyone has looked at.
+## The board tracks cards across lanes.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Waiting cards `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
+  - The active limit `M`
 - Review
-  - Weekly signal review `S`
-    - adoption
+  - Almost done `S`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - Shipped work `L`
 
 
 ---
@@ -228,32 +134,18 @@ Eight items across four stages; the scoring-model rewrite is the only card flagg
 <!-- _class: kanban accent -->
 <!-- _footer: "Composition: accent · kanban accent" -->
 
-`Phase 2 · Sprint 14`
+`chart · kanban`
 
-## Where Phase 2 work stands today.
-
-Eight items across four stages; the scoring-model rewrite is the only card flagged at-risk, which is the polite way of saying it is the only one anyone has looked at.
+## The board tracks cards across lanes.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Waiting cards `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
+  - The active limit `M`
 - Review
-  - Weekly signal review `S`
-    - adoption
+  - Almost done `S`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - Shipped work `L`
 
 
 ---

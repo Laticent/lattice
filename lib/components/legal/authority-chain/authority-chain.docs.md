@@ -70,14 +70,14 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 ## Variants (component-specific)
 
-### `branching` — Branching — statute root with child branches
+### `branching` — branching
 
-Renders nested children as connected branches off the parent tier. Use when one statute spawns multiple regulations, guidance docs, or cases worth surfacing in the same view.
+The chain forks.
 
 ```markdown
 <!-- _class: authority-chain branching -->
 
-## COPPA — one statute, many branches.
+## branching forks the chain where authority splits.
 
 1. Statute
    - `15 U.S.C. §6501` COPPA, 1998
@@ -87,14 +87,14 @@ Renders nested children as connected branches off the parent tier. Use when one 
    - `In re YouTube/Google · 2019` $170M consent order
 ```
 
-### `trail` — Trail — horizontal numbered trail with arrows
+### `trail` — trail
 
-Transposes the vertical chain into a left-to-right trail of numbered cards joined by arrows. Use when the slide canvas favours a wide read and the tiers fit in four short steps.
+A breadcrumb walk.
 
 ```markdown
 <!-- _class: authority-chain trail -->
 
-## COPPA — statute through case, left to right.
+## trail walks the chain as a breadcrumb.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -110,14 +110,14 @@ Transposes the vertical chain into a left-to-right trail of numbered cards joine
    - $245M consent order.
 ```
 
-### `pyramid` — Pyramid — hierarchy by tier weight
+### `pyramid` — pyramid
 
-Renders the tiers as a weighted pyramid, the controlling authority widest at the base. Use when the point is the hierarchy of authority itself, not the timeline.
+Tiers weighted by force.
 
 ```markdown
 <!-- _class: authority-chain pyramid -->
 
-## COPPA — the authority pyramid.
+## pyramid weights the tiers by force.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -133,14 +133,14 @@ Renders the tiers as a weighted pyramid, the controlling authority widest at the
    - $245M consent order.
 ```
 
-### `bracket` — Bracket — connected cards
+### `bracket` — bracket
 
-Lays the tiers out as bracketed cards joined by strong connectors, emphasising that each rung derives its force from the one above it.
+Tiers grouped by actor.
 
 ```markdown
 <!-- _class: authority-chain bracket -->
 
-## How the GDPR fine traces back to the treaty.
+## bracket groups the tiers by actor.
 
 1. Treaty
    - `Charter of Fundamental Rights, Art. 8`
@@ -150,7 +150,7 @@ Lays the tiers out as bracketed cards joined by strong connectors, emphasising t
    - Directly applicable across all member states; sets the Art. 83 fine tiers.
 3. Guidance
    - `EDPB Guidelines 04/2022`
-   - Harmonised methodology for calculating administrative fines.
+   - Harmonized methodology for calculating administrative fines.
 4. Decision
    - `DPC v. Meta · 2023`
    - €1.2B fine — the largest GDPR penalty to date.

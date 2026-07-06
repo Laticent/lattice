@@ -6,7 +6,7 @@
 
 **Tags** `metric` · `proportion` · `overview` · `visual`
 
-Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical colour. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.
+Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical color. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.
 
 ## When to use
 
@@ -17,8 +17,8 @@ Use when the story is geographic — program reach, service territories, where t
 ## When NOT to use
 
 - **A map as decoration.** If the regions aren't the comparison — you just want a US-shaped graphic behind some numbers — drop the basemap. An `image` scrim or a `stats` row carries headline figures without implying the geography is the message.
-- **Too many shades to read.** A choropleth past a dozen distinct values asks the eye to rank colours it can't separate. Bucket the values, switch to `highlight` for a categorical read, or lead with a `progress` ranking and keep the map as support.
-- **Sub-region precision the basemap doesn't have.** The basemaps draw US states and world countries — not counties, districts, sub-national regions, or city pins, and the world cut (110m) omits the smallest city-states. If the story lives below that line, a labelled `image` of the real map serves better than forcing it onto the basemap.
+- **Too many shades to read.** A choropleth past a dozen distinct values asks the eye to rank colors it can't separate. Bucket the values, switch to `highlight` for a categorical read, or lead with a `progress` ranking and keep the map as support.
+- **Sub-region precision the basemap doesn't have.** The basemaps draw US states and world countries — not counties, districts, sub-national regions, or city pins, and the world cut (110m) omits the smallest city-states. If the story lives below that line, a labeled `image` of the real map serves better than forcing it onto the basemap.
 
 ## Authoring
 
@@ -45,12 +45,12 @@ Use when the story is geographic — program reach, service territories, where t
 
 ### `us` — us
 
-Swaps the default world map for the US-states basemap (d3.geoAlbersUsa, AK/HI insets) — `map us` (alias `map usa`). Same authoring and read modes; names resolve by full name, postal code, or abbreviation (`California` / `CA` / `Calif.`).
+The US-states basemap, with insets.
 
 ```markdown
 <!-- _class: map us -->
 
-## Grant dollars by state — unevenly.
+## us swaps in the US-states basemap.
 
 - California `48.2`
 - Texas `36.4`
@@ -64,7 +64,7 @@ Swaps the default world map for the US-states basemap (d3.geoAlbersUsa, AK/HI in
 
 ### `world` — world
 
-The explicit spelling of the Basemap axis default — `map world` ⥣ `map us`. The bare `map` already renders the world-countries basemap; write `world` to return from `us` or to pin the basemap explicitly in a deck that mixes both.
+The Basemap axis default, spelled out.
 
 ```markdown
 <!-- _class: map world -->
@@ -83,12 +83,12 @@ The explicit spelling of the Basemap axis default — `map world` ⥣ `map us`. 
 
 ### `highlight` — highlight
 
-Categorical mode — each named region takes its own --catN colour and unnamed regions stay neutral. For ‘which ones’, not ‘how much’. Works on either basemap.
+Category fills instead of values.
 
 ```markdown
 <!-- _class: map highlight -->
 
-## The regions we serve.
+## highlight fills by category, not value.
 
 - Kenya `East Africa`
 - Nigeria `West Africa`
@@ -98,12 +98,12 @@ Categorical mode — each named region takes its own --catN colour and unnamed r
 
 ### `robinson` — robinson
 
-Swaps the default Equal Earth projection for Robinson — the familiar boardroom compromise. Same authoring; only the world map's shape changes. Equal Earth (default) preserves relative area; Robinson trades a little area fidelity for the silhouette many audiences expect.
+The Robinson projection swap.
 
 ```markdown
 <!-- _class: map robinson -->
 
-## Where our field offices operate.
+## robinson swaps the projection.
 
 - United States `42`
 - Brazil `31`
@@ -117,12 +117,12 @@ Swaps the default Equal Earth projection for Robinson — the familiar boardroom
 
 ### `grouped` — grouped
 
-Naming a continent or bloc fills every member; `grouped` clusters the legend by continent. For coverage told at bloc scale.
+Whole blocs fill as one.
 
 ```markdown
 <!-- _class: map highlight grouped -->
 
-## Coverage by economic bloc.
+## grouped fills whole blocs at once.
 
 - European Union `Tier 1`
 - ASEAN `Tier 1`
@@ -136,7 +136,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 ## Related components
 
-- [`progress`](../../chart/progress/progress.docs.md) — the regions are really a ranking — labelled bars compare magnitudes faster than shades
+- [`progress`](../../chart/progress/progress.docs.md) — the regions are really a ranking — labeled bars compare magnitudes faster than shades
 - [`stats`](../../evidence/stats/stats.docs.md) — a few headline figures with no geography to place them on
 - [`piechart`](../../chart/piechart/piechart.docs.md) — regional shares of a single whole rather than a value per place
 - [`image`](../../imagery/image/image.docs.md) — the geography needs detail (counties, cities, routes) the basemap can't draw

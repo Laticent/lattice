@@ -1,13 +1,25 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "code",
-  "adapt": { "mode": "native", "priority": ["title", "code"] },
-  "focusAxes": ["line"],
+  "adapt": {
+    "mode": "native",
+    "priority": [
+      "title",
+      "code"
+    ]
+  },
+  "focusAxes": [
+    "line"
+  ],
   "function": "evidence",
   "bucket": "code",
   "form": "canvas",
   "substance": "prose",
-  "tags": ["snippet", "walkthrough", "reference"],
+  "tags": [
+    "snippet",
+    "walkthrough",
+    "reference"
+  ],
   "description": "Single fenced code block as the slide's centerpiece.",
   "purpose": "Use when the code IS the slide — an API snippet, a config example, a migration. For comparing two versions, use compare-code.",
   "slots": {
@@ -24,7 +36,11 @@
   },
   "skeleton": "<!-- _class: code -->\n\n## What the new endpoint looks like.\n\n```js\napp.post('/api/v2/auth', async (req, res) => {\n  const session = await issueSession(req.body);\n  res.json({ session });\n});\n```\n",
   "anatomyBlock": "code-canvas",
-  "sample": "<!-- _class: code -->\n\n## How a signal earns its score.\n\n```js\nfunction scoreSignal({ confidence, relevance, observedAt }, weights) {\n  const ageDays = (Date.now() - observedAt) / DAY_MS;\n  const recency = Math.exp(-ageDays / weights.halfLife);\n\n  return (\n    confidence * weights.confidence +\n    recency * weights.recency +\n    relevance * weights.relevance\n  );\n}\n```\n",
+  "sample": "<!-- _class: code -->\n\n## One block, syntax lit, sized to be read from the back.\n\n```js\n// The code slide holds ONE idea — a function, not a file.\nfunction fitsOnASlide(block) {\n  const lines = block.split('\\n').length;\n  // Twelve lines reads from the back row; twenty is the wall.\n  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';\n}\n```\n",
+  "stressDoc": {
+    "caption": "Twenty lines — the wall for one block.",
+    "sample": "<!-- _class: code -->\n\n## Twenty lines is the wall.\n\n```js\n// A stress block at the ceiling: every line still earns its place.\nfunction stressTheFrame(lines) {\n  const budget = 20;                      // the hard wall\n  const readable = 12;                    // the comfort line\n  if (lines <= readable) return 'fine';\n  if (lines > budget) return 'split it';  // two slides beat one scroll\n  // Between comfort and the wall, trim ruthlessly:\n  // - drop imports and boilerplate\n  // - elide with ... what the point survives without\n  // - keep the line the talk is about\n  const keep = ['the signature', 'the branch', 'the return'];\n  return keep.join(' + ');\n}\n// The frame does not scroll. The audience does not squint.\n// What does not fit was never the point.\n```\n"
+  },
   "whenToUse": [
     {
       "title": "The code is the argument",
@@ -71,5 +87,8 @@
       "when": "code is one piece of a longer prose explanation"
     }
   ],
-  "showcase": { "featured": true }
+  "showcase": {
+    "featured": true
+  },
+  "specimenVoice": true
 }

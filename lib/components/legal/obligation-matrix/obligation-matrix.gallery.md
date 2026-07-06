@@ -18,7 +18,7 @@ Regulation × obligation grid — state-marker cells encode applies / partial / 
 <!-- _class: obligation-matrix -->
 <!-- _footer: "Default · obligation-matrix" -->
 
-## Privacy obligations across regimes — neutral grid.
+## The matrix grids obligations across regimes.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -35,9 +35,9 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 ---
 
 <!-- _class: obligation-matrix heat -->
-<!-- _footer: "Heat — risk-axis palette · obligation-matrix heat" -->
+<!-- _footer: "heat · obligation-matrix heat — Cells shaded by burden." -->
 
-## Same regimes, read for exposure — heat map.
+## heat shades the cells by burden.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -54,9 +54,9 @@ Red = applies (exposure), green = exempt (relief). Brackets frame the structure.
 ---
 
 <!-- _class: obligation-matrix asymmetric -->
-<!-- _footer: "Asymmetric — card-per-row layout · obligation-matrix asymmetric" -->
+<!-- _footer: "asymmetric · obligation-matrix asymmetric — Regimes differ in kind." -->
 
-## Privacy obligations — card-per-regime layout.
+## asymmetric admits the regimes differ in kind.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -70,9 +70,9 @@ Each row promotes to a card with body-level breathing room.
 ---
 
 <!-- _class: obligation-matrix pills -->
-<!-- _footer: "Pills — neutral state chips · obligation-matrix pills" -->
+<!-- _footer: "pills · obligation-matrix pills — Cells as status words." -->
 
-## Privacy obligations across regimes — same grammar, no heat.
+## pills spell each cell as a status word.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -89,9 +89,9 @@ Same data, neutral chrome — the state pills carry the meaning without the heat
 ---
 
 <!-- _class: obligation-matrix lanes -->
-<!-- _footer: "Lanes — categorical row stripes · obligation-matrix lanes" -->
+<!-- _footer: "lanes · obligation-matrix lanes — One regime per band." -->
 
-## Privacy obligations — categorical row stripes.
+## lanes walks one regime per band.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -107,10 +107,28 @@ Each lane stripe signals that the row is its own regime, not a rank.
 
 ---
 
+<!-- _class: obligation-matrix -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · obligation-matrix — Six regimes by five duties." -->
+
+## Six regimes by five duties is the grid ceiling.
+
+| Regime | Notice | Consent | Retention | Breach | DSAR |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| GDPR | [x] | [x] | [x] | [x] | [x] |
+| CCPA/CPRA | [x] | [-] | [x] | [x] | [x] |
+| LGPD | [x] | [x] | [x] | [x] | [x] |
+| PIPEDA | [x] | [x] | [-] | [x] | [x] |
+| APPI | [x] | [-] | [x] | [x] | [-] |
+| PIPL | [x] | [x] | [x] | [x] | [x] |
+
+
+---
+
 <!-- _class: obligation-matrix dark -->
 <!-- _footer: "Composition: dark · obligation-matrix dark" -->
 
-## Privacy obligations across regimes — neutral grid.
+## The matrix grids obligations across regimes.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -129,7 +147,7 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 <!-- _class: obligation-matrix compact -->
 <!-- _footer: "Composition: compact · obligation-matrix compact" -->
 
-## Privacy obligations across regimes — neutral grid.
+## The matrix grids obligations across regimes.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -148,7 +166,7 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 <!-- _class: obligation-matrix accent -->
 <!-- _footer: "Composition: accent · obligation-matrix accent" -->
 
-## Privacy obligations across regimes — neutral grid.
+## The matrix grids obligations across regimes.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |

@@ -20,7 +20,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 `H2 2026 · Rollout plan`
 
-## What ships in each phase, assuming the phases survive the next planning offsite.
+## The roadmap grids workstreams against phases.
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
@@ -33,11 +33,11 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 ---
 
 <!-- _class: roadmap horizons -->
-<!-- _footer: "Horizons — three-horizon planning framing · roadmap horizons" -->
+<!-- _footer: "horizons · roadmap horizons — Bets spread across three horizons." -->
 
 `Three-horizon planning`
 
-## Where the framework invests across horizons.
+## horizons spreads the bets across three horizons.
 
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
@@ -50,11 +50,11 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 ---
 
 <!-- _class: roadmap status -->
-<!-- _footer: "Status — heavy state treatment · roadmap status" -->
+<!-- _footer: "status · roadmap status — Delivery state at a glance." -->
 
 `Layout · roadmap status`
 
-## Delivery status by workstream, as of the most flattering snapshot.
+## status reads delivery state at a glance.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
@@ -69,11 +69,11 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 ---
 
 <!-- _class: roadmap swimlane -->
-<!-- _footer: "Swimlane — horizontal tracks · roadmap swimlane" -->
+<!-- _footer: "swimlane · roadmap swimlane — One track per team." -->
 
 `Layout · roadmap swimlane`
 
-## Each team's track across the year, momentum implied by the arrows.
+## swimlane gives each team its own track.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
@@ -86,11 +86,11 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 ---
 
 <!-- _class: roadmap milestones -->
-<!-- _footer: "Milestones — calendar-aware · roadmap milestones" -->
+<!-- _footer: "milestones · roadmap milestones — The dated path, pinned." -->
 
 `Layout · roadmap milestones`
 
-## The dated path to GA, dates subject to the usual revision.
+## milestones pins the dated path.
 
 | Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
@@ -101,12 +101,30 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 ---
 
+<!-- _class: roadmap -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · roadmap — The full grid, twelve cells." -->
+
+`roadmap · stress`
+
+## Four workstreams by three phases is the full grid.
+
+| Workstream | Phase one | Phase two | Phase three |
+| --- | --- | --- | --- |
+| First | [x] Done cell | [-] Active cell | [ ] Planned cell |
+| Second | [x] Every cell filled | [-] No blank promises | [ ] The honest grid |
+| Third | [x] Short cell labels | [-] Four words at most | [ ] Or the grid wraps |
+| Fourth | [x] The last row | [-] Twelve cells total | [ ] The ceiling |
+
+
+---
+
 <!-- _class: roadmap dark -->
 <!-- _footer: "Composition: dark · roadmap dark" -->
 
 `H2 2026 · Rollout plan`
 
-## What ships in each phase, assuming the phases survive the next planning offsite.
+## The roadmap grids workstreams against phases.
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
@@ -123,7 +141,7 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 `H2 2026 · Rollout plan`
 
-## What ships in each phase, assuming the phases survive the next planning offsite.
+## The roadmap grids workstreams against phases.
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
@@ -140,7 +158,7 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 `H2 2026 · Rollout plan`
 
-## What ships in each phase, assuming the phases survive the next planning offsite.
+## The roadmap grids workstreams against phases.
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |

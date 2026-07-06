@@ -1,13 +1,29 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "state-chart",
-  "adapt": { "mode": "reflow", "priority": ["title", "states", "transitions", "detail", "eyebrow"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "states",
+      "transitions",
+      "detail",
+      "eyebrow"
+    ]
+  },
   "function": "progression",
   "bucket": "chart",
   "form": "timeline",
   "substance": "graph",
-  "orientation": ["landscape", "portrait"],
-  "tags": ["flowchart", "states", "workflow"],
+  "orientation": [
+    "landscape",
+    "portrait"
+  ],
+  "tags": [
+    "flowchart",
+    "states",
+    "workflow"
+  ],
   "anatomyBlock": "state-chart",
   "description": "Native state machine diagram — states as a numbered list, transitions as nested inline-code refs.",
   "purpose": "Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the layout: state i renders at row i, so there is no auto-layout problem to solve.",
@@ -44,7 +60,11 @@
     }
   },
   "skeleton": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to archive.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 6`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n4. Approved `done`\n   - `publish => 5`\n5. Published `live`\n   - `archive => 6`\n6. Archived `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
-  "sample": "<!-- _class: state-chart lr -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to publication.\n\n1. Draft `start`\n   - `submit => 2`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review `at-risk`\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n   - Two reviewers must sign off before approval.\n4. Approved\n   - `publish => 5`\n5. Published `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
+  "sample": "<!-- _class: state-chart lr -->\n\n`Submission lifecycle`\n\n## States connect; the arrows carry the rules.\n\nHow a draft moves from author to publication.\n\n1. Draft `start`\n   - `submit => 2`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review `at-risk`\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n   - Two reviewers must sign off before approval.\n4. Approved\n   - `publish => 5`\n5. Published `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
+  "stressDoc": {
+    "caption": "A dense machine of states.",
+    "sample": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Stress test — back-edges, skips, self-loop.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 5`\n2. Submitted `on-track`\n   - `review => 3`\n   - `withdraw => 1`\n3. In Review\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n4. Approved `done`\n   - `recall => 3`\n   - `publish => 5`\n5. Published `end`\n   - `amend => 3`\n"
+  },
   "whenToUse": [
     {
       "title": "Finite, named states with discrete events",
@@ -98,19 +118,19 @@
   "variantDocs": {
     "lr": {
       "label": "Left-to-right",
-      "caption": "Lays the machine out horizontally (Mermaid `direction LR`) instead of the default top-to-bottom column. Forward skips bow below the row, back-edges above. Compose with `inline` for a horizontal chip row.",
-      "sample": "<!-- _class: state-chart lr -->\n\n## Build pipeline.\n\n1. Source `start`\n   - `compile => 2`\n2. Compiled\n   - `test => 3`\n3. Tested\n   - `deploy => 4`\n   - `fail => 1`\n4. Deployed `end`\n"
+      "caption": "States flow left to right.",
+      "sample": "<!-- _class: state-chart lr -->\n\n## lr flows the states left to right.\n\n1. Source `start`\n   - `compile => 2`\n2. Compiled\n   - `test => 3`\n3. Tested\n   - `deploy => 4`\n   - `fail => 1`\n4. Deployed `end`\n"
     },
     "inline": {
       "label": "Inline",
-      "caption": "Drops the SVG edge layer; transitions render inline as chips inside each state node. Pure HTML — graceful fallback if the SVG layer is undesirable, or for very dense decks.",
-      "sample": "<!-- _class: state-chart inline -->\n\n## Connection retry.\n\n1. Connecting `start`\n   - `retry => self`\n   - `ok => 2`\n   - `fail => 3`\n2. Connected `live`\n   - `disconnect => 1`\n3. Failed `end`\n"
+      "caption": "The chart sits beside its prose.",
+      "sample": "<!-- _class: state-chart inline -->\n\n## inline sets the chart beside its prose.\n\n1. Connecting `start`\n   - `retry => self`\n   - `ok => 2`\n   - `fail => 3`\n2. Connected `live`\n   - `disconnect => 1`\n3. Failed `end`\n"
     },
     "curved": {
       "label": "Curved",
-      "caption": "Routes skip and back edges as single Bézier arcs instead of the default orthogonal racetracks (round-out, straight run, round-in). Each curve's peak is solved so its arc still clears the widest node in its span. Orthogonal to direction — compose with `lr`.",
-      "sample": "<!-- _class: state-chart curved -->\n\n## Document approval (curved).\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 5`\n2. In Review `at-risk`\n   - `approve => 3`\n   - `revise => self`\n   - `reject => 1`\n3. Approved\n   - `publish => 4`\n4. Published `live`\n   - `archive => 5`\n5. Archived `end`\n"
+      "caption": "Eased arrows between states.",
+      "sample": "<!-- _class: state-chart curved -->\n\n## curved eases the arrows between states.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 5`\n2. In Review `at-risk`\n   - `approve => 3`\n   - `revise => self`\n   - `reject => 1`\n3. Approved\n   - `publish => 4`\n4. Published `live`\n   - `archive => 5`\n5. Archived `end`\n"
     }
   },
-  "stressSample": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Stress test — back-edges, skips, self-loop.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 5`\n2. Submitted `on-track`\n   - `review => 3`\n   - `withdraw => 1`\n3. In Review\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n4. Approved `done`\n   - `recall => 3`\n   - `publish => 5`\n5. Published `end`\n   - `amend => 3`\n"
+  "specimenVoice": true
 }

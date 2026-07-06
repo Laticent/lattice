@@ -1,17 +1,39 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "obligation-matrix",
-  "adapt": { "mode": "native", "priority": ["heading", "matrix", "legend"], "keepTogether": ["row"] },
-  "focusAxes": ["row", "col", "cell"],
-  "families": ["state-markers"],
+  "adapt": {
+    "mode": "native",
+    "priority": [
+      "heading",
+      "matrix",
+      "legend"
+    ],
+    "keepTogether": [
+      "row"
+    ]
+  },
+  "focusAxes": [
+    "row",
+    "col",
+    "cell"
+  ],
+  "families": [
+    "state-markers"
+  ],
   "function": "comparison",
   "bucket": "legal",
   "form": "matrix",
   "substance": "structure",
-  "tags": ["compliance", "regulation", "stoplight"],
+  "tags": [
+    "compliance",
+    "regulation",
+    "stoplight"
+  ],
   "description": "Regulation × obligation grid — state-marker cells encode applies / partial / exempt at a glance.",
   "purpose": "Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [ ] exempt, [/] out of scope) shared with checklist / verdict-grid / roadmap.",
-  "excludes": ["claim-bleed"],
+  "excludes": [
+    "claim-bleed"
+  ],
   "variants": [
     "heat",
     "asymmetric",
@@ -37,7 +59,11 @@
   },
   "skeleton": "<!-- _class: obligation-matrix -->\n\n## Headline framing what the matrix compares.\n\n| Regulation | Obligation A | Obligation B | Obligation C |\n| ---------- | :----------: | :----------: | :----------: |\n| Regime 1   | [x]          | [x]          | [-]          |\n| Regime 2   | [x]          | [-]          | [x]          |\n| Regime 3   | [x]          | [ ]          | [x]          |\n\nFilled = applies, half = partial, empty = exempt.\n",
   "anatomyBlock": "obligation-matrix",
-  "sample": "<!-- _class: obligation-matrix -->\n\n## Privacy obligations across regimes — neutral grid.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nFilled = applies, half = partial, empty = exempt. Neutral ink — data first.\n",
+  "sample": "<!-- _class: obligation-matrix -->\n\n## The matrix grids obligations across regimes.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nFilled = applies, half = partial, empty = exempt. Neutral ink — data first.\n",
+  "stressDoc": {
+    "caption": "Six regimes by five duties.",
+    "sample": "<!-- _class: obligation-matrix -->\n\n## Six regimes by five duties is the grid ceiling.\n\n| Regime | Notice | Consent | Retention | Breach | DSAR |\n| --- | :---: | :---: | :---: | :---: | :---: |\n| GDPR | [x] | [x] | [x] | [x] | [x] |\n| CCPA/CPRA | [x] | [-] | [x] | [x] | [x] |\n| LGPD | [x] | [x] | [x] | [x] | [x] |\n| PIPEDA | [x] | [x] | [-] | [x] | [x] |\n| APPI | [x] | [-] | [x] | [x] | [-] |\n| PIPL | [x] | [x] | [x] | [x] | [x] |\n"
+  },
   "whenToUse": [
     {
       "title": "Many regimes, shared obligations",
@@ -67,31 +93,44 @@
     }
   ],
   "related": [
-    { "name": "compare-table", "when": "cells are textual values, not state markers" },
-    { "name": "verdict-grid", "when": "options scored against criteria with a per-card layout instead of a table" },
-    { "name": "matrix-2x2", "when": "two axes, four cells, qualitative placement" },
-    { "name": "checklist", "when": "one set of obligations against one regime, not many" }
+    {
+      "name": "compare-table",
+      "when": "cells are textual values, not state markers"
+    },
+    {
+      "name": "verdict-grid",
+      "when": "options scored against criteria with a per-card layout instead of a table"
+    },
+    {
+      "name": "matrix-2x2",
+      "when": "two axes, four cells, qualitative placement"
+    },
+    {
+      "name": "checklist",
+      "when": "one set of obligations against one regime, not many"
+    }
   ],
   "variantDocs": {
     "heat": {
-      "label": "Heat — risk-axis palette",
-      "caption": "Flips the palette so applies reads as alarm and exempt reads as relief. Adds cell-background tints so the table reads as a heat map at a glance. Use when the matrix is being scanned for exposure, not coverage.",
-      "sample": "<!-- _class: obligation-matrix heat -->\n\n## Same regimes, read for exposure — heat map.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nRed = applies (exposure), green = exempt (relief). Brackets frame the structure.\n"
+      "label": "heat",
+      "caption": "Cells shaded by burden.",
+      "sample": "<!-- _class: obligation-matrix heat -->\n\n## heat shades the cells by burden.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nRed = applies (exposure), green = exempt (relief). Brackets frame the structure.\n"
     },
     "asymmetric": {
-      "label": "Asymmetric — card-per-row layout",
-      "caption": "Promotes each regulation to its own card with the obligations rendered as inline state discs. Use when row labels need room for a body sentence and the comparison-density of the default grid would crowd them.",
-      "sample": "<!-- _class: obligation-matrix asymmetric -->\n\n## Privacy obligations — card-per-regime layout.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n\nEach row promotes to a card with body-level breathing room.\n"
+      "label": "asymmetric",
+      "caption": "Regimes differ in kind.",
+      "sample": "<!-- _class: obligation-matrix asymmetric -->\n\n## asymmetric admits the regimes differ in kind.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n\nEach row promotes to a card with body-level breathing room.\n"
     },
     "pills": {
-      "label": "Pills — neutral state chips",
-      "caption": "Renders each cell's state marker as a discrete inline pill on neutral chrome — the default grammar without the heat palette's risk colouring. Use when the matrix should read as plain data, less assertive than heat.",
-      "sample": "<!-- _class: obligation-matrix pills -->\n\n## Privacy obligations across regimes — same grammar, no heat.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nSame data, neutral chrome — the state pills carry the meaning without the heat-map alarm.\n"
+      "label": "pills",
+      "caption": "Cells as status words.",
+      "sample": "<!-- _class: obligation-matrix pills -->\n\n## pills spell each cell as a status word.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nSame data, neutral chrome — the state pills carry the meaning without the heat-map alarm.\n"
     },
     "lanes": {
-      "label": "Lanes — categorical row stripes",
-      "caption": "Tints each regulation's row label with a categorical lane stripe so every regime reads as its own track. Use when the rows are independent regimes rather than a ranked or directly comparable set.",
-      "sample": "<!-- _class: obligation-matrix lanes -->\n\n## Privacy obligations — categorical row stripes.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nEach lane stripe signals that the row is its own regime, not a rank.\n"
+      "label": "lanes",
+      "caption": "One regime per band.",
+      "sample": "<!-- _class: obligation-matrix lanes -->\n\n## lanes walks one regime per band.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nEach lane stripe signals that the row is its own regime, not a rank.\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

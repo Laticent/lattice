@@ -2331,7 +2331,7 @@
         "equation": {
           "selector": "p",
           "required": true,
-          "description": "Display equation wrapped in `$$…$$`. KaTeX renders centred."
+          "description": "Display equation wrapped in `$$…$$`. KaTeX renders centered."
         },
         "legend": {
           "selector": "ul > li",
@@ -4059,7 +4059,7 @@
         "words": {
           "selector": "ul > li",
           "required": true,
-          "description": "One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and coloured RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent."
+          "description": "One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent."
         }
       },
       "requiredSlots": [

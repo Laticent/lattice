@@ -63,16 +63,16 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 ## Variants (component-specific)
 
-### `horizons` — Horizons — three-horizon planning framing
+### `horizons` — horizons
 
-Transposes the phase columns into vertical phase cards — each with a `Phase 01 / 02 / …` eyebrow and a categorical accent — so a three-horizon (now / next / later) read comes from the phase names you write. Use when the planning frame is strategic-horizon-aware rather than fiscal-quarter-aware.
+Bets spread across three horizons.
 
 ```markdown
 <!-- _class: roadmap horizons -->
 
 `Three-horizon planning`
 
-## Where the framework invests across horizons.
+## horizons spreads the bets across three horizons.
 
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
@@ -82,16 +82,16 @@ Transposes the phase columns into vertical phase cards — each with a `Phase 01
 | Adoption      | [x] One pilot team       | [/] Second team          | [ ] Org-wide enablement   |
 ```
 
-### `status` — Status — heavy state treatment
+### `status` — status
 
-Promotes the state markers ([x]/[-]/[ ]/[/]) to the dominant read: tinted cell grounds, an uppercase state eyebrow, and a corner state disc. Use for the standing delivery-status review.
+Delivery state at a glance.
 
 ```markdown
 <!-- _class: roadmap status -->
 
 `Layout · roadmap status`
 
-## Delivery status by workstream, as of the most flattering snapshot.
+## status reads delivery state at a glance.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
@@ -103,16 +103,16 @@ Promotes the state markers ([x]/[-]/[ ]/[/]) to the dominant read: tinted cell g
 State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
 
-### `swimlane` — Swimlane — horizontal tracks
+### `swimlane` — swimlane
 
-Renders each workstream as a horizontal track across the phase columns, so a reader scans one team's whole journey left-to-right before moving to the next.
+One track per team.
 
 ```markdown
 <!-- _class: roadmap swimlane -->
 
 `Layout · roadmap swimlane`
 
-## Each team's track across the year, momentum implied by the arrows.
+## swimlane gives each team its own track.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
@@ -122,16 +122,16 @@ Renders each workstream as a horizontal track across the phase columns, so a rea
 | Adoption      | One pilot team       | Second team            | Org-wide enablement       |
 ```
 
-### `milestones` — Milestones — calendar-aware
+### `milestones` — milestones
 
-Softly bands the phase columns so the dated headers read as a calendar cadence; the date stays the header's trailing meta pill (no extra chrome). Use when the cadence of the dates is part of the story, not just the sequence.
+The dated path, pinned.
 
 ```markdown
 <!-- _class: roadmap milestones -->
 
 `Layout · roadmap milestones`
 
-## The dated path to GA, dates subject to the usual revision.
+## milestones pins the dated path.
 
 | Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |
 | ------------- | -------------------- | ---------------------- | ------------------------- |

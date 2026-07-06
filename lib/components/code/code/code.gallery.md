@@ -18,19 +18,42 @@ Single fenced code block as the slide's centerpiece.
 <!-- _class: code -->
 <!-- _footer: "Default · code" -->
 
-## How a signal earns its score.
+## One block, syntax lit, sized to be read from the back.
 
 ```js
-function scoreSignal({ confidence, relevance, observedAt }, weights) {
-  const ageDays = (Date.now() - observedAt) / DAY_MS;
-  const recency = Math.exp(-ageDays / weights.halfLife);
-
-  return (
-    confidence * weights.confidence +
-    recency * weights.recency +
-    relevance * weights.relevance
-  );
+// The code slide holds ONE idea — a function, not a file.
+function fitsOnASlide(block) {
+  const lines = block.split('\n').length;
+  // Twelve lines reads from the back row; twenty is the wall.
+  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
 }
+```
+
+
+---
+
+<!-- _class: code -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · code — Twenty lines — the wall for one block." -->
+
+## Twenty lines is the wall.
+
+```js
+// A stress block at the ceiling: every line still earns its place.
+function stressTheFrame(lines) {
+  const budget = 20;                      // the hard wall
+  const readable = 12;                    // the comfort line
+  if (lines <= readable) return 'fine';
+  if (lines > budget) return 'split it';  // two slides beat one scroll
+  // Between comfort and the wall, trim ruthlessly:
+  // - drop imports and boilerplate
+  // - elide with ... what the point survives without
+  // - keep the line the talk is about
+  const keep = ['the signature', 'the branch', 'the return'];
+  return keep.join(' + ');
+}
+// The frame does not scroll. The audience does not squint.
+// What does not fit was never the point.
 ```
 
 
@@ -39,18 +62,14 @@ function scoreSignal({ confidence, relevance, observedAt }, weights) {
 <!-- _class: code dark -->
 <!-- _footer: "Composition: dark · code dark" -->
 
-## How a signal earns its score.
+## One block, syntax lit, sized to be read from the back.
 
 ```js
-function scoreSignal({ confidence, relevance, observedAt }, weights) {
-  const ageDays = (Date.now() - observedAt) / DAY_MS;
-  const recency = Math.exp(-ageDays / weights.halfLife);
-
-  return (
-    confidence * weights.confidence +
-    recency * weights.recency +
-    relevance * weights.relevance
-  );
+// The code slide holds ONE idea — a function, not a file.
+function fitsOnASlide(block) {
+  const lines = block.split('\n').length;
+  // Twelve lines reads from the back row; twenty is the wall.
+  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
 }
 ```
 
@@ -60,18 +79,14 @@ function scoreSignal({ confidence, relevance, observedAt }, weights) {
 <!-- _class: code compact -->
 <!-- _footer: "Composition: compact · code compact" -->
 
-## How a signal earns its score.
+## One block, syntax lit, sized to be read from the back.
 
 ```js
-function scoreSignal({ confidence, relevance, observedAt }, weights) {
-  const ageDays = (Date.now() - observedAt) / DAY_MS;
-  const recency = Math.exp(-ageDays / weights.halfLife);
-
-  return (
-    confidence * weights.confidence +
-    recency * weights.recency +
-    relevance * weights.relevance
-  );
+// The code slide holds ONE idea — a function, not a file.
+function fitsOnASlide(block) {
+  const lines = block.split('\n').length;
+  // Twelve lines reads from the back row; twenty is the wall.
+  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
 }
 ```
 
@@ -81,18 +96,14 @@ function scoreSignal({ confidence, relevance, observedAt }, weights) {
 <!-- _class: code accent -->
 <!-- _footer: "Composition: accent · code accent" -->
 
-## How a signal earns its score.
+## One block, syntax lit, sized to be read from the back.
 
 ```js
-function scoreSignal({ confidence, relevance, observedAt }, weights) {
-  const ageDays = (Date.now() - observedAt) / DAY_MS;
-  const recency = Math.exp(-ageDays / weights.halfLife);
-
-  return (
-    confidence * weights.confidence +
-    recency * weights.recency +
-    relevance * weights.relevance
-  );
+// The code slide holds ONE idea — a function, not a file.
+function fitsOnASlide(block) {
+  const lines = block.split('\n').length;
+  // Twelve lines reads from the back row; twenty is the wall.
+  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
 }
 ```
 

@@ -10,10 +10,11 @@ Math — typeset equations and proofs.
 ---
 
 <!-- _class: math -->
+<!-- _footer: "math · math survey" -->
 
 `Linear regression · OLS`
 
-## The closed-form estimator.
+## One equation, displayed; its symbols named below.
 
 $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
