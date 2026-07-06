@@ -711,8 +711,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const plan = await fetchPlan(name);
 			if (!plan) {
 				// The designed 404 path: the staged tree was rewritten by a deploy while
-				// this tab sat open — never a dead Next button.
-				setToast({ msg: 'This page is out of date — the site was updated while it sat open.', undo: false, reload: true });
+				// this tab sat open — never a dead Next button. (Silent when the walk is
+				// only warming up behind the editor.)
+				if (viewRef.current === 'read') {
+					setToast({ msg: 'This page is out of date — the site was updated while it sat open.', undo: false, reload: true });
+				}
 				return false;
 			}
 			const at = step === 'LAST' ? { index: plan.slides.length - 1, notice: null } : resolvePlanStep(plan, step);
@@ -721,14 +724,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			setWalk({ kind: 'plan', plan, index: at.index });
 			walkRef.current = { kind: 'plan', plan, index: at.index };
 			setReaderComponent(name);
-			setVariant('default');
+			if (viewRef.current === 'read') setVariant('default');
 			try {
 				localStorage.setItem(COMPONENT_KEY, name);
 			} catch {
 				/* private mode */
 			}
 			exploreSourceRef.current = plan.slides.map((s) => s.md).join('\n\n---\n\n');
-			freshRender();
+			// Warming up behind the editor (tour targets need #pg-walk mounted):
+			// no render — Edit still shows the draft; entering Explore renders.
+			if (viewRef.current === 'read') freshRender();
 			// Prefetch the continuation so "Next component" never stalls.
 			const next = adjacentComponent(walkOrder, name, 1);
 			if (next) void fetchPlan(next);
@@ -911,7 +916,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			viewRef.current = 'read';
 			setView('read');
 			void startWalkRef.current(target, url.s);
-		} else if (url.c && url.v && !hasHandoff) {
+		} else if (exploreAvailable) {
+			// Warm the walk behind the editor so the Explore chrome (and the tour's
+			// read-mode targets) exist before the first mode flip.
+			void startWalkRef.current(target, url.s);
+		}
+		if (v === 'edit' && url.c && url.v && !hasHandoff) {
 			// ?c&view=edit&v=<variant> — a guarded SEED link: route it through the
 			// one-shot handoff pipeline (applies over a pristine draft, parks
 			// otherwise), never a direct source write.
@@ -941,6 +951,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			window.history.replaceState(null, '', pathname + hash);
 		}
 	}, [view, walk]);
+
+	// The tour's mode hook: guided-tour steps declare the mode their target
+	// needs and revealStep dispatches `pg-set-view` (playground-tour.js).
+	React.useEffect(() => {
+		const onSetView = (e: Event) => {
+			const v = (e as CustomEvent).detail;
+			if ((v === 'read' || v === 'edit') && v !== viewRef.current) setViewMode(v);
+		};
+		document.addEventListener('pg-set-view', onSetView);
+		return () => document.removeEventListener('pg-set-view', onSetView);
+	}, [setViewMode]);
 
 	// Keyboard walk: ← / → step, Shift+← / → jump components. Explore only, and
 	// never while typing in a field.
@@ -1188,8 +1209,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				</div>
 			</div>
 
-			{/* The Walk bar — Explore's stepping chrome (decision §4/§6). */}
-			{view === 'read' && walk && (
+			{/* The Walk bar — Explore's stepping chrome (decision §4/§6). Mounted
+			    whenever a walk exists (CSS hides it in Edit) so the tour's reveal
+			    hook can find-and-flip to it from either mode. */}
+			{walk && (
 				<WalkBar
 					index={walk.index}
 					count={walkCount}

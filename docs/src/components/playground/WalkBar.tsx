@@ -40,7 +40,7 @@ export function WalkBar(props: {
 	React.useEffect(() => setTranscriptOpen(false), [index, count]);
 
 	return (
-		<nav className="pg-walk" aria-label="Component walkthrough">
+		<nav id="pg-walk" className="pg-walk" aria-label="Component walkthrough">
 			{notice && <p className="pg-walk-notice">{notice}</p>}
 			<div className="pg-walk-row">
 				<button type="button" className="pg-walk-step" onClick={onPrev} disabled={prevDisabled} aria-label="Previous slide">

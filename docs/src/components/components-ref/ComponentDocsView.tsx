@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table';
 import { joinBase } from '@/lib/base-url.mjs';
 import { inlineMd } from '@/lib/component-inline';
+import { playgroundQuery } from '@/lib/playground-controller';
 
 // Section heading shared across the docs sections (mono, eyebrow-style rule).
 function SectionH2({ children }: { children: React.ReactNode }) {
@@ -182,8 +183,13 @@ export function ComponentDocsView({
 									<Button type="button" variant="outline" size="sm" data-variant-select={v}>
 										Preview <ArrowUp aria-hidden="true" />
 									</Button>
-									<Button type="button" variant="outline" size="sm" data-open-playground={v}>
-										Open in Playground <ArrowRight aria-hidden="true" />
+									{/* A Read deep link, not a handoff (decision §4, PR 6): the docs
+									    reference points AT the walk position — it carries a pointer,
+									    not content, so it can never clobber a draft. */}
+									<Button asChild variant="outline" size="sm">
+										<a href={joinBase(base, 'playground/') + playgroundQuery({ c: m.name, view: 'read', s: `variant:${v}` })}>
+											Explore in Playground <ArrowRight aria-hidden="true" />
+										</a>
 									</Button>
 								</div>
 							</div>

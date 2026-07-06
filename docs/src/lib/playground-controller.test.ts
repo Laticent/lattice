@@ -5,15 +5,22 @@
 
 import { describe, expect, test } from 'vitest';
 import {
+	adjacentComponent,
 	type Catalog,
 	classTokenLine,
 	detectComponent,
 	fingerprint,
 	isPristine,
 	makeHandoff,
+	parsePlaygroundUrl,
+	playgroundQuery,
 	readHandoff,
+	readPlan,
 	resolveComponent,
+	resolvePlanStep,
 	resolveStartupView,
+	slideTranscript,
+	walkChipLabel,
 } from './playground-controller';
 
 const CATALOG: Catalog = {
@@ -131,5 +138,99 @@ describe('detectComponent still anchors the draft state', () => {
 
 	test('returns null for a draft with no recognized component (the clear case)', () => {
 		expect(detectComponent(CATALOG, '## plain markdown, no class line')).toBeNull();
+	});
+});
+
+// ── PR 6: the Explore surface's kernel (plans, URL scheme, walk helpers) ─────
+
+describe('readPlan — plan consumption including the 404/garbage path', () => {
+	const good = JSON.stringify({ name: 'kpi', slides: [{ kind: 'title', caption: 'c', md: '# t' }] });
+
+	test('parses a staged plan payload', () => {
+		expect(readPlan(good)).toEqual({ name: 'kpi', slides: [{ kind: 'title', caption: 'c', md: '# t' }] });
+	});
+
+	test('404 bodies, garbage, and foreign shapes read as no-plan — never a throw', () => {
+		expect(readPlan(null)).toBeNull();
+		expect(readPlan('')).toBeNull();
+		expect(readPlan('<html>404</html>')).toBeNull();
+		expect(readPlan('{"name":"kpi","slides":[]}')).toBeNull();
+		expect(readPlan('{"name":"kpi","slides":[{"kind":"title"}]}')).toBeNull();
+	});
+
+	test('missing captions default to empty, not undefined', () => {
+		const p = readPlan('{"name":"x","slides":[{"kind":"default","md":"m"}]}');
+		expect(p?.slides[0].caption).toBe('');
+	});
+});
+
+describe('resolvePlanStep — the I5 unknown-step fallback', () => {
+	const plan = { name: 'kpi', slides: [{ kind: 'title', caption: '', md: '' }, { kind: 'variant:dense', caption: '', md: '' }] };
+
+	test('a live kind lands on its slide', () => {
+		expect(resolvePlanStep(plan, 'variant:dense')).toEqual({ index: 1, notice: null });
+	});
+
+	test('no step is silently the title slide', () => {
+		expect(resolvePlanStep(plan, null)).toEqual({ index: 0, notice: null });
+	});
+
+	test('a renamed/removed kind falls back to the title slide with a notice', () => {
+		const r = resolvePlanStep(plan, 'variant:retired');
+		expect(r.index).toBe(0);
+		expect(r.notice).toContain('retired');
+		expect(r.notice).toContain('kpi');
+	});
+});
+
+describe('URL scheme — parse and serialize', () => {
+	test('reads ?c&view&s (and accepts view=explore as read)', () => {
+		expect(parsePlaygroundUrl('?c=kpi&view=read&s=variant:dense')).toEqual({ c: 'kpi', view: 'read', s: 'variant:dense', v: null });
+		expect(parsePlaygroundUrl('?view=explore')).toMatchObject({ view: 'read' });
+		expect(parsePlaygroundUrl('?view=nonsense')).toMatchObject({ view: null });
+		expect(parsePlaygroundUrl('')).toEqual({ c: null, view: null, s: null, v: null });
+	});
+
+	test('serializes the walk position, omitting defaults', () => {
+		expect(playgroundQuery({ c: 'kpi', view: 'read', s: 'variant:dense' })).toBe('?c=kpi&view=read&s=variant%3Adense');
+		expect(playgroundQuery({ c: 'kpi', view: 'read', s: 'title' })).toBe('?c=kpi&view=read');
+		expect(playgroundQuery({})).toBe('');
+	});
+
+	test('an explicit ?view= wins over the persisted view, loses to a handoff', () => {
+		expect(resolveStartupView({ hasHandoff: false, savedView: 'edit', urlView: 'read', source: '', insertedHash: null })).toBe('read');
+		expect(resolveStartupView({ hasHandoff: true, savedView: 'edit', urlView: 'read', source: '', insertedHash: null })).toBe('edit');
+	});
+});
+
+describe('walk helpers', () => {
+	test('adjacentComponent walks the picker order and stops at the ends', () => {
+		const order = ['a', 'b', 'c'];
+		expect(adjacentComponent(order, 'a', 1)).toBe('b');
+		expect(adjacentComponent(order, 'c', 1)).toBeNull();
+		expect(adjacentComponent(order, 'a', -1)).toBeNull();
+		expect(adjacentComponent(order, 'zz', 1)).toBeNull();
+	});
+
+	test('walk chips are full words, never single letters (§0.6)', () => {
+		expect(walkChipLabel('title')).toBe('Title');
+		expect(walkChipLabel('stress')).toBe('Stress test');
+		expect(walkChipLabel('anti-patterns')).toBe('Anti-patterns');
+		expect(walkChipLabel('variant:dense', { dense: 'dense rows' })).toBe('dense rows');
+		expect(walkChipLabel('composition:dark')).toBe('+ dark');
+		for (const k of ['title', 'default', 'stress', 'see-also', 'variant:dense', 'composition:dark']) {
+			expect(walkChipLabel(k).length).toBeGreaterThan(1);
+		}
+	});
+
+	test('slideTranscript extracts readable copy, drops directives and syntax', () => {
+		const md = '<!-- _class: kpi -->\n<!-- _footer: "x" -->\n\n## Heading here\n\n1. **42%** metric\n   - detail line\n\n| a | b |\n| --- | --- |\n| c1 | c2 |\n';
+		const t = slideTranscript(md);
+		expect(t).toContain('Heading here');
+		expect(t).toContain('42% metric');
+		expect(t).toContain('detail line');
+		expect(t).toContain('c1 · c2');
+		expect(t).not.toContain('_class');
+		expect(t).not.toContain('**');
 	});
 });

@@ -209,7 +209,7 @@ export function slideTranscript(md: string): string {
 	for (const raw of noComments.split('\n')) {
 		let line = raw.trim();
 		if (!line || /^[-=]{3,}$/.test(line)) continue;
-		if (/^\|[\s:-]+\|/.test(line.replace(/[^|:\s-]/g, ''))) continue; // table rule row
+		if (/^\|[\s|:-]+\|$/.test(line)) continue; // table rule row (| --- | --- |)
 		line = line
 			.replace(/^#{1,6}\s+/, '')
 			.replace(/^>\s?/, '')

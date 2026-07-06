@@ -561,3 +561,9 @@ body[data-view='read'] .pg-pane.preview {
 		padding: 8px 14px;
 	}
 }
+
+/* The Walk bar mounts in both modes (the tour's reveal hook needs it findable);
+   only Explore SHOWS it. */
+body[data-view='edit'] .pg-walk {
+	display: none;
+}
