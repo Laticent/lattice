@@ -148,6 +148,24 @@ function cursorInner(pointer: 'arrow' | 'ring' | 'dot'): string {
 	);
 }
 
+// Inject the `--vt-*` defaults ONCE per document, in a low cascade layer on `:root`.
+// Un-layered host CSS (the normal `:root { --vt-accent }` in §9) beats any layered rule,
+// so the host's own theming — including its light/dark cascade — wins for free, and the
+// stage inherits the resolved token. Id-guarded (idempotent across runs / re-mounts).
+// Assumes `@layer` (all 2022+ browsers — the docs-site/Studio target); a host that instead
+// declares its OWN --vt-* inside a NAMED @layer is off the §9 contract (which is un-layered
+// :root) and would be out-prioritized by this default — pass a JS `theme` for that case.
+function ensureDefaultTokens(doc: Document): void {
+	if (doc.getElementById('vetrina-token-defaults')) return;
+	const style = doc.createElement('style');
+	style.id = 'vetrina-token-defaults';
+	const decls = Object.entries(TOKEN_DEFAULTS)
+		.map(([k, v]) => `${k}:${v}`)
+		.join(';');
+	style.textContent = `@layer vetrina-defaults{:root{${decls}}}`;
+	doc.head.appendChild(style);
+}
+
 export function createStage(opts: StageOptions): Stage {
 	const { root, onExit } = opts;
 	const doc = root.ownerDocument ?? document;
@@ -157,17 +175,22 @@ export function createStage(opts: StageOptions): Stage {
 	const silenced = opts.theme?.silenced ?? new Set<string>();
 	let destroyed = false;
 
-	// Layer host — one fixed, full-viewport, click-through container. Token defaults live
-	// here (so `var(--vt-*)` resolves) but a host's `:root[data-theme=dark]{--vt-*}` still
-	// wins via the cascade — the layer inherits from the document root.
+	// Token DEFAULTS live in a LOW cascade layer on `:root` (injected once), NOT inline on
+	// the stage — so a host's own un-layered `:root { --vt-accent }` / `:root[data-theme=dark]`
+	// cascade OVERRIDES them (CSS-first, §9) and the layer inherits the resolved value.
+	// Inline defaults would beat the host's :root cascade (inline > any selector), silently
+	// breaking pure-CSS theming — the exact bug the exemplar battery caught.
+	ensureDefaultTokens(doc);
+
+	// Layer host — one fixed, full-viewport, click-through container.
 	const layer = doc.createElement('div');
 	layer.className = 'vetrina-stage';
 	// The layer is NOT aria-hidden: the Exit button must reach the a11y tree — it's the only
 	// escape from the demo for an assistive-tech user, and the narration caption is a live
 	// region. The purely decorative nodes (cursor, effect rings) are aria-hidden individually.
-	for (const [k, v] of Object.entries(TOKEN_DEFAULTS)) layer.style.setProperty(k, v);
-	// JS Theme convenience: write resolved token VALUES over the defaults (host CSS still wins
-	// via the cascade for anything it styles — these are just JS-supplied defaults).
+	// JS Theme convenience: an EXPLICIT per-run override, written inline (so it wins over the
+	// default layer). The Studio's `accent: 'var(--accent,…)'` idiom keeps host-cascade-driven
+	// values through the var() indirection — host CSS still leads when the JS value references it.
 	if (opts.theme) for (const [k, v] of Object.entries(opts.theme.tokens)) layer.style.setProperty(k, v);
 	layer.style.cssText +=
 		`position:fixed;inset:0;z-index:${opts.zIndex ?? 2147482000};pointer-events:none;` +

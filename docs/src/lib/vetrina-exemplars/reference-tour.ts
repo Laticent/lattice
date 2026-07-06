@@ -116,7 +116,8 @@ export function startReferenceTour(root: HTMLElement, opts: ReferenceTourOptions
 		type,
 		play: tourPlay(root),
 		takeover: { scope: 'window' },
-		theme: { accent: 'var(--vt-accent, #2b6ef2)' },
+		// Pure CSS-first: the tour page defines --vt-accent on :root, so the stage inherits it
+		// (no JS theme). A `var(--vt-accent,…)` accent here would be a no-op self-reference.
 		onStop: (reason) => {
 			// Report the terminal reason on the panel for the viewer (and the e2e oracle).
 			root.dataset.vtReason = reason;

@@ -33,6 +33,15 @@ describe('resolveTheme — legibility floor (F4: adaptive co-stroke)', () => {
 	it('sets --vt-accent from the accent value', () => {
 		expect(resolveTheme({ accent: '#2b6ef2' }).tokens['--vt-accent']).toBe('#2b6ef2');
 	});
+	it('emits --vt-cursor-fill inline so the cursor BODY tracks a JS accent (not the :root default)', () => {
+		// The derived token defaults to var(--vt-accent) on :root; on the JS-theme path it must
+		// be written inline on the same layer as --vt-accent, or the body stays the house default.
+		expect(resolveTheme({ accent: '#123456' }).tokens['--vt-cursor-fill']).toBe('var(--vt-accent)');
+		expect(resolveTheme().tokens['--vt-cursor-fill']).toBeUndefined(); // no accent → no inline fill (pure CSS-first)
+	});
+	it('an explicit cursorFill override wins over the accent-derived default', () => {
+		expect(resolveTheme({ accent: '#123456', tokens: { cursorFill: '#abcdef' } }).tokens['--vt-cursor-fill']).toBe('#abcdef');
+	});
 });
 
 describe('resolveTheme — pacing / pointer / cues', () => {

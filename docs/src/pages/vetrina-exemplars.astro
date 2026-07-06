@@ -1,0 +1,150 @@
+---
+// Vetrina exemplar + stress battery host (design doc §15.6, §16). A generic,
+// non-Studio task board driven by a family of walkthroughs selected via `?demo=`.
+// Not linked from site nav — a reference/proof surface reached by URL, exercised
+// by docs/e2e/vetrina-exemplars.spec.ts on the real browser (HARD RULE #23).
+---
+
+<!doctype html>
+<html lang="en" data-mode="light">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Vetrina exemplars</title>
+		<style>
+			/* CSS-FIRST theming (§9): the host sets the --vt-* token contract on :root, and its
+			   own light/dark cascade re-resolves it for free — the stage inherits, no JS. The
+			   theming exemplar reads these exact values back off the mounted stage. */
+			:root {
+				--vt-accent: rgb(20, 120, 220);
+				--page-bg: #f5f6fa;
+				--card-bg: #fff;
+				--ink: #14161d;
+				--line: #e2e5ee;
+			}
+			:root[data-mode='dark'] {
+				--vt-accent: rgb(240, 90, 60);
+				--page-bg: #0d0f14;
+				--card-bg: #171a22;
+				--ink: #eef1f8;
+				--line: #2a2f3c;
+			}
+			body {
+				margin: 0;
+				min-height: 100vh;
+				padding: 2rem 1.25rem;
+				background: var(--page-bg);
+				color: var(--ink);
+				font: 15px/1.5 system-ui, -apple-system, sans-serif;
+			}
+			.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
+			h1 { font-size: 1.3rem; margin: 0; }
+			.board { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+			.widget {
+				background: var(--card-bg);
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				padding: 1rem;
+				display: flex;
+				flex-direction: column;
+				gap: 0.75rem;
+			}
+			.widget h2 { font-size: 0.95rem; margin: 0; }
+			ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.4rem; }
+			li { padding: 0.3rem 0.5rem; border: 1px solid var(--line); border-radius: 7px; list-style: none; }
+			.scoped-target { font-size: 0.8rem; color: var(--vt-accent); font-weight: 600; }
+			#g-target {
+				height: 64px;
+				border: 2px dashed var(--vt-accent);
+				border-radius: 10px;
+				display: grid;
+				place-items: center;
+				color: var(--vt-accent);
+				font-weight: 600;
+			}
+			.controls { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+			button {
+				font: 600 0.85rem system-ui, sans-serif;
+				cursor: pointer;
+				border: 1px solid var(--line);
+				border-radius: 999px;
+				padding: 0.45rem 0.9rem;
+				background: var(--card-bg);
+				color: var(--ink);
+			}
+			.readout { font-size: 0.8rem; color: var(--ink); opacity: 0.75; }
+			.readout b { opacity: 1; }
+		</style>
+	</head>
+	<body>
+		<main class="wrap">
+			<h1>Vetrina exemplars</h1>
+			<p class="readout">
+				Demo: <b id="demo-name">—</b> · phase <b id="phase-out">idle</b> · ended <b id="reason-out">—</b>
+			</p>
+
+			<section id="vt-board" class="board" data-vt-phase="idle">
+				<div id="widget-a" class="widget">
+					<h2>Widget A — backlog</h2>
+					<ol>
+						<li id="a1">First</li>
+						<li id="a2">Second</li>
+						<li id="a3">Third</li>
+					</ol>
+					<span class="scoped-target" data-widget="a">scoped ✓ (A)</span>
+					<div id="g-target">gesture target</div>
+				</div>
+
+				<div id="widget-b" class="widget">
+					<h2>Widget B — untouched witness</h2>
+					<p class="readout">A run scoped to A must never resolve into here.</p>
+					<span class="scoped-target" data-widget="b">scoped ✗ (B)</span>
+					<!-- A shadow-root widget: vetrina mounts a document-level overlay and never
+					     injects into shadow trees, so this stays isolated. -->
+					<div id="shadow-host"></div>
+				</div>
+			</section>
+
+			<div class="controls">
+				<button id="start" type="button">Start demo</button>
+				<button id="decoy" type="button">Decoy (take over)</button>
+			</div>
+		</main>
+
+		<script>
+			import { startBoardDemo } from '../lib/vetrina-exemplars/board-demos';
+
+			// A shadow-root widget — an isolation witness for the decouple exemplar.
+			const shadowHost = document.getElementById('shadow-host');
+			if (shadowHost && !shadowHost.shadowRoot) {
+				const sr = shadowHost.attachShadow({ mode: 'open' });
+				sr.innerHTML = '<span class="scoped-target" data-widget="shadow">shadow ✗</span>';
+			}
+
+			const board = document.getElementById('vt-board');
+			const params = new URLSearchParams(location.search);
+			const demo = params.get('demo') || 'gestures';
+
+			const nameOut = document.getElementById('demo-name');
+			const phaseOut = document.getElementById('phase-out');
+			const reasonOut = document.getElementById('reason-out');
+			if (nameOut) nameOut.textContent = demo;
+
+			const sync = () => {
+				if (phaseOut) phaseOut.textContent = board?.dataset.vtPhase ?? 'idle';
+				if (reasonOut) reasonOut.textContent = board?.dataset.vtReason ?? '—';
+			};
+			if (board) new MutationObserver(sync).observe(board, { attributes: true, attributeFilter: ['data-vt-phase', 'data-vt-reason'] });
+
+			const begin = () => {
+				if (!board) return;
+				startBoardDemo(demo, board);
+				sync();
+			};
+			document.getElementById('start')?.addEventListener('click', begin);
+			// Auto-start when a demo is named in the URL (the e2e drives this path).
+			if (params.has('demo')) begin();
+		</script>
+	</body>
+</html>

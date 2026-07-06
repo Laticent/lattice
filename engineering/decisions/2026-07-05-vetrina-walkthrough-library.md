@@ -693,6 +693,15 @@ battery** (§15.6, §16) rather than defer. What it changed:
 - **F1/B: `scene()` step-boundary rule defined + `build()` ≡ `storyboard(seed, toData())` (one interpreter)
   + a parity test** — `scene()` and `Step[]` are now *provably* isomorphic; `Step.type` carries its
   target; `scene()` takes a seed (§10).
+- **Battery-caught (the exemplar proof did its job): CSS-first was BROKEN by inline defaults.** The stage
+  wrote every `--vt-*` default as an INLINE style on the overlay, and inline beats any selector — so a
+  host's documented `:root { --vt-accent }` (§9) was silently ignored, defeating the whole CSS-first
+  contract. **Fixed:** defaults are injected once per document in a low `@layer vetrina-defaults` on
+  `:root`, which un-layered host CSS overrides for free (and the overlay inherits the resolved token);
+  only the explicit JS `theme.tokens` stay inline. Proven by the theming exemplar reading computed
+  `--vt-accent` off the live stage across a light→dark host mode flip. (Also folded in from the migration:
+  the overlay is no longer `aria-hidden` wholesale — the Exit button reaches the a11y tree, the caption is
+  a polite live region.)
 
 **Structure / longevity:**
 - **Munger: a build-failing `SANCTIONED_GESTURES` gate** freezes the alphabet at 5 (each entry a required

@@ -128,6 +128,13 @@ export function resolveTheme(theme: Theme = {}): ResolvedTheme {
 	};
 	if (theme.accent != null) {
 		set('--vt-accent', theme.accent);
+		// The cursor BODY tints from the accent too. It MUST be written inline on the SAME
+		// layer as --vt-accent: `--vt-cursor-fill`'s default lives on :root (in the @layer),
+		// where its `var(--vt-accent)` substitutes :root's accent — an inline accent override
+		// on the layer would NOT re-resolve that already-inherited value, leaving the body
+		// unthemed while the cues track the accent. Emitting it here (it substitutes the
+		// layer's accent) keeps body + cues one color. An explicit tokens.cursorFill wins below.
+		tokens['--vt-cursor-fill'] = 'var(--vt-accent)';
 		// Adaptive co-stroke so a light or same-hue accent stays legible on any ground.
 		const ink = contrastInk(theme.accent);
 		tokens['--vt-cursor-stroke'] = ink;
