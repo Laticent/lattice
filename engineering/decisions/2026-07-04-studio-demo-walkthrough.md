@@ -176,15 +176,75 @@ are also covered by unit tests (`demo-director.test.ts`) and a real-surface e2e
 *Not verified here:* a full recorded video clip — `ffmpeg` (puppeteer's screencast
 backend) isn't installed in this sandbox; the run was captured as frame stills instead.
 
+## Phone-native (single-pane) demo — the preview-first rethink (#758)
+
+The desktop demo's engine is **simultaneity**: editor left, preview right, *watch the slide
+render as you type*. That is the whole "look how easy" beat — and it **does not survive** a
+phone. A phone (≤699px) shows **one pane at a time** (`mobilePane: 'edit' | 'preview'`,
+default `preview`), so simultaneity is physically impossible. You cannot port the
+choreography; you replace simultaneity with a **rhythm**.
+
+**The chosen model — per-slide alternation, preview as the star.** The demo taps the real
+Edit/Preview toggle (a real setter, `setMobilePane` — theater stays honest, no synthetic
+input, no new Vetrina primitive) and the viewer's attention **alternates** instead of
+splitting: *type a slide on Edit → swap to Preview to reveal it → repeat.* The owner picked
+per-slide alternation over a two-act cut (type once, then preview-only) for the maximal
+"you write it, it renders" authoring feel; each swap is a **narrated reveal beat** with a
+**fast** typing burst so the Edit dwell is brief and the flip reads as intentional, not a
+flail.
+
+**A tighter, phone-specific deck — 4 slides, each a showpiece.** A phone viewer's patience
+is short and nobody thumb-types a 6-slide board deck, so the mobile "My First Deck" is its
+own tight deck, not the desktop 6-slider: **title → `big-number` (one punchy metric) →
+`radar` (a chart — the strongest "wait, that came from *Markdown*?" moment, chart-family so
+it's deterministic with no key spend) → `closing`.** Four slides ≈ eight pane-swaps, and
+each slide earns its screen time. (Swap the `radar` for a `matrix-2x2` if a 2×2 reads better
+on a given device — a one-line change.)
+
+**The load-bearing constraint — the editor UNMOUNTS on swap.** The mobile pane is
+conditionally rendered (`mobilePane === 'edit' ? editorPane : previewPane`), so `#studio-pane-editor`
+and its CodeMirror view are **absent while Preview is showing**. Two consequences drive the
+beat grammar:
+
+1. **Typing happens only while Edit is mounted.** After a swap *back* to Edit the editor
+   remounts and re-inits its doc from `value` (the `source` state, which `typeTail`'s
+   `onChange` has been keeping current) — so the accumulated slides survive the unmount. But
+   `editorRef.current` is null until the remount effect runs, so each type beat is gated by
+   **`until(() => editor is mounted)`** (a parent-DOM probe for `#studio-pane-editor .cm-content`)
+   before it calls `typeTail`. This is the exact consumer `until` was built for.
+2. **The "parsed" signal can't be the rail.** On mobile the slide-nav rail
+   (`nav[aria-label="Slide navigator"]`) is replaced by a segment, so desktop's
+   `railReady(k)` predicate has nothing to read. Each **reveal** is therefore timed by a
+   `settle` past the preview's render debounce (parent-DOM only — no preview-iframe coupling,
+   same discipline as the desktop storyboard).
+
+**Selectors — mostly already there.** The pane toggle exposes `aria-label="Edit"` /
+`"Preview"`; the deck switcher (`data-demo="deck-switcher"`) and New-deck item
+(`data-demo="new-deck"`) are not mobile-gated; Present / Share / Toggle Architect / Slide
+settings all carry aria-labels on the mobile pane bar; the theme picker
+(`aria-label="Choose theme"`) renders inside the Inspector **sheet** and is reachable because
+the stage resolves against the whole document. The reskin / mode / Coach / Present / Share
+beats therefore reuse the same setters as desktop — only the pane-swap beats and the deck are
+new.
+
+**Entry point.** The `!mobile` gate on the Watch-demo affordance is lifted for phone (welcome
+banner + pane bar), still hidden while a run is active. `useStudioDemo` selects the mobile vs
+desktop storyboard by breakpoint and resets `mobilePane` on start/stop.
+
+**Verification (HARD RULE #23).** Mount/unmount, typing, pane-swap, and render are **not**
+iOS-specific, so headless Chromium at 390px is *valid* verification of the mechanics — and is
+where the editor-remount timing was nailed down. What Chromium can **not** stand in for is
+real **touch**, iOS sheet behavior, and the nested transform-scaled iframe traps
+(`engineering/gotchas.md`); that sign-off is **owed on a real iPhone** and ships marked
+**UNVERIFIED** until someone drives it on a device — the same standing debt as the iPad
+value-sync race above.
+
 ## Known limitations
 
-- **Desktop + tablet only; phone is backlogged (#758).** The demo choreographs a cursor
-  across the **side-by-side editor + preview** layout. A phone (≤699px) renders a single
-  swappable Edit ⇄ Preview pane, where the storyboard's targets (`#studio-pane-editor`, the
-  `data-demo` Present/Share buttons) don't exist — so the Watch-demo button is `!mobile`-gated
-  (hidden on phone). iPad falls in the tablet band and gets the side-by-side layout, so it
-  works. A phone-native storyboard (drive the pane-swap + the sheets) is tracked in **#758**;
-  it must be verified on a **real iPhone** (HARD RULE #23 — 390px Chromium emulation isn't iOS).
+- **Phone sign-off is owed on a real device.** The phone-native demo (above) is verified for
+  *mechanics* in 390px Chromium; **touch + iOS-layout behavior is UNVERIFIED** until driven on
+  a real iPhone (HARD RULE #23). iPad falls in the tablet band and gets the side-by-side
+  layout, so it uses the desktop storyboard.
 - **Portaled targets are reachable.** The stage resolves selectors against the whole document
   (`root.ownerDocument`), so Radix menus/sheets/dialogs that portal to `<body>` (the deck
   switcher, the Inspector/settings sheets) are found — no longer scoped to the Studio subtree.

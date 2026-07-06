@@ -90,6 +90,20 @@ in patch versions.
   palette-blind (verified light + dark) and self-contained (no companion
   `vertical` needed); the stage label is slot-label-lifted so no `**bold**` is
   required. Demo deck: `examples/staged-flow.md`.
+- **The Studio "Watch demo" now runs on phones — a preview-first single-pane demo.**
+  The self-driving walkthrough previously covered desktop + tablet only; on a phone
+  (≤699px) the Studio shows one swappable Edit/Preview pane, so the side-by-side
+  choreography couldn't play. The phone gets its own storyboard: it taps the real
+  Edit/Preview toggle and **alternates per slide** — type a slide on Edit, tap Preview
+  to reveal it, repeat — building a tight four-slide "My First Deck" (a title, a
+  big-number, a radar chart, and a close) so it stays short and punchy on a small
+  screen. It dogfoods Vetrina's `until` gate to survive the editor unmounting on each
+  pane-swap (typing is held until the editor remounts), and reuses the same reskin →
+  Coach → Present → Share beats as sheets. The launch affordance is re-enabled on
+  phones (first-run banner + a persistent "Watch demo" in the ⋯ menu). Mechanics are
+  verified on real 390px Chromium (two mobile e2e oracles: the four slides land in
+  order across every swap; a real tap takes over); real-iPhone touch/iOS sign-off is
+  still owed (HARD RULE #23).
 - **The Playground opens on Explore — the Specimen Book's reader (PR 6).** The
   generated component galleries are now walkable in place: an Explore | Edit
   mode pill, a Walk bar with Prev/Next, "slide N of M", the slide's own caption,

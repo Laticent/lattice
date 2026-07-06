@@ -802,6 +802,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setWelcomeOpen,
 		setCmdOpen,
 		notify,
+		setMobilePane,
+		mobile,
 	});
 
 	// ── Resizable/collapsible editor|preview split (2026-07-02 decision) ─────
@@ -1708,6 +1710,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    region so a clipped row signals "more below". */}
 						<DropdownMenuContent align="end" className="w-56 overflow-hidden p-0">
 							<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
+								{/* Watch demo — the persistent phone entry point. The welcome-banner button
+								    is the first-run affordance, but it vanishes once dismissed; the topbar
+								    icon is desktop/tablet-only. So on mobile the demo also lives here, so a
+								    newcomer who dismissed the banner can still launch it. */}
+								{mobile && !demoActive && <DropdownMenuItem onSelect={startDemo}><MonitorPlay className="size-4" />Watch demo</DropdownMenuItem>}
 								{onboarded && <DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>}
 								{onboarded && <DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>}
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<span className="ml-auto rounded border border-border bg-background px-1.5 font-mono text-[10px]">⌘K</span></DropdownMenuItem>
@@ -1733,7 +1740,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<p className="min-w-0 flex-1 leading-snug">
 						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away.
 					</p>
-					{!mobile && !demoActive && <button type="button" onClick={startDemo} className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90"><MonitorPlay className="size-3.5" />Watch demo</button>}
+					{!demoActive && <button type="button" onClick={startDemo} aria-label="Watch demo" className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90 sm:px-2.5"><MonitorPlay className="size-3.5" /><span className="hidden sm:inline">Watch demo</span></button>}
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
 					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
 				</div>
@@ -1757,8 +1764,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
 						    and still fit 390px. */}
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<PencilLine className="size-4" />} label="Edit" />
-							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" />
+							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
+							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" demo="pane-preview" />
 						</div>
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
@@ -2015,9 +2022,9 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 // Icon-only segmented button (Edit / Preview). The label rides `aria-label`/`title`
 // (+ aria-pressed for the active side) rather than visible text, so the toggle stays
 // compact — that reclaimed width keeps the deck actions inline instead of behind a ⋯.
-function PaneBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; demo?: string }) {
 	return (
-		<button type="button" onClick={onClick} aria-label={label} title={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button>
+		<button type="button" onClick={onClick} data-demo={demo} aria-label={label} title={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button>
 	);
 }
 function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {

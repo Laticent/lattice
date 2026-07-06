@@ -2,6 +2,7 @@ import * as React from 'react';
 import type { StopReason, TypeOps } from '../../lib/vetrina';
 import { useWalkthrough } from '../../lib/vetrina/react';
 import { type StudioActions, studioWalkthrough } from './demo-storyboard';
+import { studioMobileWalkthrough } from './mobile-demo-storyboard';
 
 // useStudioDemo — the seam that lets the framework-free Vetrina engine drive the live
 // Studio. StudioShell has no ref/context (all state is closure-local), so the demo is
@@ -38,6 +39,11 @@ export type StudioDemoBindings = {
 	setDeckMenuOpen: (open: boolean) => void;
 	/** The slide scope's commit funnel — apply a pure transform to the active slide. */
 	mutateSlide: (fn: (chunk: string) => string) => void;
+	/** Swap the phone's single Edit/Preview pane (mobile only). */
+	setMobilePane: (pane: 'edit' | 'preview') => void;
+	/** True on a phone (≤699px). Selects the phone-native single-pane storyboard, and starts
+	 *  the run on the Preview pane so the fresh deck's editor is minted blank on first swap. */
+	mobile: boolean;
 	fixAll: () => void;
 	setActiveSlide: (index: number) => void;
 	setFocus: (on: boolean) => void;
@@ -79,6 +85,9 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		b.setArchitectOpen(false);
 		b.setInspectorOpen(false);
 		b.setActiveSlide(0);
+		// On a phone, start on Preview — the fresh "My First Deck" then mints its editor doc
+		// blank on the first swap-to-edit (no seed to append onto), and the preview is home.
+		if (b.mobile) b.setMobilePane('preview');
 
 		// The action bag: every step's `act` pokes a live setter through the ref, so a
 		// long-running demo always drives the freshest state.
@@ -104,6 +113,7 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				bindRef.current.setInspectorOpen(o);
 			},
 			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),
+			setMobilePane: (pane) => bindRef.current.setMobilePane(pane),
 		};
 
 		// Typing lands natively in the editor (append per keystroke run; set for the
@@ -115,7 +125,9 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 
 		return {
 			actions,
-			play: studioWalkthrough,
+			// A phone gets the single-pane storyboard (per-slide alternation across the swappable
+			// Edit/Preview pane); desktop + tablet get the side-by-side script.
+			play: b.mobile ? studioMobileWalkthrough : studioWalkthrough,
 			type,
 			takeover: { scope: 'window' },
 			// The cursor + cues track the live app accent (recolor on the reskin beat),

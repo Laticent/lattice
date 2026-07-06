@@ -26,6 +26,9 @@ export type StudioActions = {
 	openShare: (open: boolean) => void;
 	openSlideSettings: (open: boolean) => void;
 	mutateSlide: (fn: (chunk: string) => string) => void;
+	/** Swap the phone's single pane (mobile only). Desktop/tablet ignore it — they show
+	 *  editor + preview side by side, so there is no pane to swap. */
+	setMobilePane: (pane: 'edit' | 'preview') => void;
 };
 
 // The mutually-exclusive per-slide STATE group (lib UNIVERSAL_GROUPS.state) — set
