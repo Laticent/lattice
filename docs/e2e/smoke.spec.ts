@@ -1,6 +1,6 @@
 import { currentSlide, expect, gotoStudio, railButtons, slideCount, test } from './studio-fixture';
 
-test('studio loads: shell mounts and the engine paints the seeded deck', async ({ page }) => {
+test('@smoke studio loads: shell mounts and the engine paints the seeded deck', async ({ page }) => {
 	await gotoStudio(page);
 	// Cause-effect oracle: the seeded deck actually renders (non-empty painted
 	// slide), and the rail exposes one button per slide with the count reflected in

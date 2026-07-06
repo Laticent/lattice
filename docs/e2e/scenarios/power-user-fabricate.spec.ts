@@ -1,4 +1,4 @@
-import { expect, gotoStudio, railButtons, slideCount, test, toastText } from '../studio-fixture';
+import { expect, gotoStudio, openInspector, railButtons, slideCount, test, toastText } from '../studio-fixture';
 
 // Persona: a power user extending the system. Goal: fabricate an artifact, save
 // it, and USE it afterward — the saved thing must round-trip into authoring, not
@@ -56,7 +56,7 @@ test('a fabricated theme saves and is selectable from Look afterward', async ({ 
 	// Round-trip: the saved theme is offered in the Inspector's Look → Theme picker
 	// and picking it makes it the ACTIVE look (the trigger reflects the choice).
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
-	await page.getByRole('button', { name: 'Deck scope' }).click();
+	await openInspector(page);
 	await page.getByRole('button', { name: 'Choose theme' }).click();
 	await page.getByRole('menuitem', { name: 'Boardroom Teal' }).click();
 	await expect(page.getByRole('button', { name: 'Choose theme' })).toContainText('Boardroom Teal');

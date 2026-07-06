@@ -5,6 +5,38 @@ import { test as base, expect, type FrameLocator, type Locator, type Page } from
 // per test — no manual reset needed, and a within-test reload keeps what the app
 // persisted (which the persistence spec relies on).
 
+// ── E2E-critical chrome selector contract ──────────────────────────────────
+// These accessible names are an IMPLICIT CONTRACT between the Studio chrome
+// (docs/src/components/studio/*) and this suite: dozens of specs open panels and
+// read state by targeting controls via their accessible name. Renaming, moving,
+// or retiring one of these WITHOUT updating this map is exactly the drift that
+// silently broke 19 e2e specs after the #771/#773 settings-panel redesign — the
+// unit tier was updated, the e2e tier (nightly, off the PR gate) was not, so
+// nothing failed pre-merge (#780, fixed in #782;
+// engineering/decisions/2026-07-06-e2e-chrome-selector-contract.md).
+//
+// The prevention: this map is the DOCUMENTED LIST a chrome change is required to
+// reconcile, and the highest-traffic opens are additionally wrapped in helpers
+// below (`openInspector`/`openArchitect`) so a rename is a ONE-FILE fix here, not
+// an N-spec sweep. Entries without a dedicated helper (e.g. `versionHistory`) are
+// still targeted by name in individual specs — they live here so the contract is
+// complete and greppable; when you change a control's accessible name/role/
+// presence in the Studio, update its entry here AND grep docs/e2e for stragglers.
+export const CHROME = {
+	/** Scope-rail button that opens the Inspector at DECK scope. */
+	deckScope: 'Deck scope',
+	/** Opens the Inspector pointed at SLIDE scope (editor row / mobile preview bar). */
+	slideSettings: 'Slide settings',
+	/** Top-bar toggle for the Architect (AI coach + chat) panel. */
+	architect: 'Toggle Architect',
+	/** The deck-switcher / workspace launcher in the top bar. */
+	workspaceLauncher: 'Workspace launcher',
+	/** The workspace-settings sheet trigger. */
+	workspaceSettings: 'Workspace settings',
+	/** The version-history sheet trigger. */
+	versionHistory: 'Version history',
+} as const;
+
 // The live compose preview: the engine renders the deck INSIDE this srcdoc
 // iframe; `.lattice` is the slide root. Everything visual the user judges is in
 // here, so most cause-effect oracles read through this frame.
@@ -58,6 +90,10 @@ export function toastText(page: Page): Locator {
 	return page.locator('[role="status"].fixed.inset-x-0');
 }
 
+/** The app toast pill — the canonical name for the centralized toast accessor.
+ *  Prefer this in new specs; `toastText` remains as its long-standing alias. */
+export const appToast = toastText;
+
 /**
  * Navigate to the Studio and wait until the engine has painted. The rendered
  * `.lattice` is the universal ready signal across viewports (the preview pane is
@@ -81,6 +117,17 @@ export async function gotoStudio(page: Page): Promise<void> {
 /** The current slide total (rail buttons), read live so specs don't hard-code the seed deck's size. */
 export function slideCount(page: Page): Promise<number> {
 	return railButtons(page).count();
+}
+
+/**
+ * Open the Deck inspector via the always-visible scope rail (`CHROME.deckScope`).
+ * Centralized so a rename of that control is a one-line fix in `CHROME` above,
+ * not an N-spec sweep — the failure mode of #780. `.first()` keeps it robust once
+ * the panel is open (the in-panel scope segment adds a second "Deck scope"); from
+ * a closed state there is exactly one, so this matches the pre-existing behavior.
+ */
+export async function openInspector(page: Page): Promise<void> {
+	await page.getByRole('button', { name: CHROME.deckScope }).first().click();
 }
 
 /** Focus the CodeMirror editor (the `.cm-content` carries aria-label "Deck source"). */
@@ -116,7 +163,7 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 
 /** Open the Architect panel (collapsed by default) and wait for its tabs. */
 export async function openArchitect(page: Page): Promise<void> {
-	await page.getByRole('button', { name: 'Toggle Architect' }).click();
+	await page.getByRole('button', { name: CHROME.architect }).click();
 	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
 }
 
