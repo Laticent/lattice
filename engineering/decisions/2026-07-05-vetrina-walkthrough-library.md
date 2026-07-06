@@ -6,10 +6,13 @@ summary: >
   REAL app while state advances through the host's own setters (theater vs. substance), and the
   first real human input seamlessly takes over. Designed by SUBTRACTION (Saint-Exupéry) and
   less-but-better (Rams): the control-flow "graph" the ideation demanded is NOT engine primitives —
-  it is the host's own if/while/await inside an optional Walkthrough function; the linear
-  storyboard(data) form is the default front door. ONE runner enforces the invariants (abort-guarded
-  actions proxy, host-await racing against abort, single-flight, idempotent teardown) so both front
-  doors are safe. The only genuinely new primitive is awaitUser (cooperative pause -> user acts ->
+  it is the host's own if/while/await inside a Walkthrough function. That function is the TOTAL,
+  always-reachable primitive; ergonomic layers compile down to it and interleave with it via the shared
+  ctx (a linear Step[] data model, and a fluent recording builder scene() for hand-authoring) — so a
+  layer is free to optimize for authoring over completeness because the substrate is the guarantee. ONE
+  runner enforces the invariants (abort-guarded actions proxy, host-await racing against abort,
+  single-flight, idempotent teardown) so every layer is safe. The only genuinely new primitive is
+  awaitUser (cooperative pause -> user acts ->
   resume). Hardened by the adversarial trio (red team + Munger inversion + independent checker),
   whose net effect was to CUT surface (function-valued cues, cursor factory, a dishonest determinism
   seam, an unserializable "serializable" claim) and make safety structural rather than a discipline.
@@ -69,28 +72,36 @@ determinism, streaming, concurrency. The maximalist reading is "build a state-re
 
 ---
 
-## 3. The architecture — one runner, two front doors
+## 3. The architecture — one total primitive, ergonomic layers over it
 
 > **The control-flow "graph" is not a data structure we invent. It is the host's own
 > `if` / `while` / `await`.**
 
-There is **one core: the runner** (sequencing + take-over + teardown). A walkthrough reaches it
-through one of two front doors:
+There is **one core, and it is *total*: the runner + a `Walkthrough(ctx)` function** over the raw
+`stage`/`actions`. This is the *substrate* — the assembly language of a walkthrough. Anything a
+walkthrough can ever do, it can do here; it is **not** the surface you normally hand-author. Above it
+sit ergonomic layers that **compile down to it**:
 
-- **`storyboard(data)` — the default.** A linear list of steps as data, played in a fixed order.
-  This is what the docs lead with and what ~80% of consumers ever touch. Safe by construction: the
-  runner checks abort between every step.
-- **`Walkthrough(ctx)` — the escape hatch.** An async function the host writes. Branch, loop, wait,
-  react-to-events are plain JavaScript here — *no invented primitives*. You drop to it only when the
-  linear form can't say what you mean.
+- **The primitive — `Walkthrough(ctx)`.** An async function over `stage`/`actions`/`awaitUser`.
+  Branch, loop, wait, react-to-events are plain JavaScript — *no invented primitives*. **Total and
+  always reachable** (I9). It is the escape hatch *and* the foundation.
+- **The data model — `Step[]`.** A linear walkthrough as data (fixed order say→point→click→act→
+  type→circle→settle). Serializable and programmatically **generable** (you `.map()` data) — this is
+  what the wire / runtime-generation cases use.
+- **The fluent builder — `scene()`.** A *recording* builder (it **constructs**, it does not execute)
+  that emits the `Step[]` data. The **recommended surface for hand-authoring**: it reads as intent and
+  autocompletes the verb order, and because it emits the data model it keeps serialization/generation.
 
-Both compile to the same runner. **The runner — not the consumer — enforces the invariants** (§5),
-so the escape hatch is as safe as the data path. `storyboard(data)` is itself defined as a thin
-`Walkthrough` (a `for`-loop over the steps): the sugar cannot do anything the escape hatch can't, and
-the escape hatch inherits every safety guarantee the sugar has.
+**Everything compiles to the primitive, and everything can interleave with it through the shared
+`ctx`** (I9): author the linear 95% with `scene()`, then `await` a built segment inside a raw
+`Walkthrough` for the dynamic 5% (a branch, a loop, a hand-off), then return to `scene()` — same mental
+model, no seam. You never leave the primitive's reach, which is exactly *why an ergonomic layer is free
+to optimize for authoring over completeness*: the substrate is the guarantee, not the DSL. (This is the
+JSX→`createElement` / query-builder→raw-SQL relationship.)
 
-This is the resolution of the graph-engine pull: control flow is subtracted from the *engine* and
-lives in the *language*, while the elegant default stays declarative data.
+The **runner — not the consumer — enforces the invariants** (§5), so every layer is equally safe. This
+is the resolution of the graph-engine pull: control flow is subtracted from the *engine* and lives in
+the *language*, while the ergonomic default stays declarative data.
 
 ---
 
@@ -125,6 +136,13 @@ lives in the *language*, while the elegant default stays declarative data.
   **abort-guarded proxy** of the host actions: once aborted, every `act` is a no-op. "Drive the app
   after the human took over" is structurally impossible, not a discipline we ask authors to keep
   (§14/H1).
+- **I9 — The primitive is total and always reachable; every authoring layer compiles to it and can
+  interleave with it.** A `Walkthrough(ctx)` over raw `stage`/`actions` can express anything the engine
+  can do. `Step[]` and `scene()` (§3, §10) are ergonomic layers that **compile to** it and emit/return
+  a `Walkthrough`, so a built segment is just `await scene(...).build()(ctx)` inside a raw walkthrough —
+  and raw `ctx.stage`/`ctx.actions` calls sit freely between built segments. **No authoring layer is a
+  walled garden:** whatever a layer can't express, the primitive can, from the same `ctx`, mid-run. This
+  is what lets a DSL optimize for ergonomics over completeness without ever trapping the author.
 
 ---
 
@@ -332,7 +350,9 @@ honest, and human-followable by construction.
 
 ---
 
-## 10. The declarative storyboard (the default front door)
+## 10. Authoring — the data model and the fluent builder
+
+**The data model — `Step[]`** (the serializable/generable representation):
 
 ```ts
 interface Step<A> {
@@ -342,7 +362,7 @@ interface Step<A> {
   circle?: Target; settle?: number;
 }
 
-function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>;
+function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data → primitive
 ```
 
 - Fixed interpretation order per step: **say → point → click → act → type → circle → settle** — so a
@@ -354,6 +374,32 @@ function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>;
   for the migrated Studio demo — §14/checker).
 - Type inference: annotate once — `storyboard<StudioActions>(seed, [...])` — or let `A` bind from
   `run({ actions })`; without it, `act` params fall back to `any` (§14/checker).
+
+**The fluent builder — `scene()`** (the recommended hand-authoring surface). A **recording** builder:
+each verb call appends a step and returns `this`; nothing executes until the built `Walkthrough` is
+passed to `run()`. It emits the same `Step[]`, so serialization/generation survive.
+
+```ts
+function scene<A>(): SceneBuilder<A>;
+interface SceneBuilder<A> {
+  say(text: string): this;
+  point(t: Target): this;  click(): this;  circle(t: Target): this;
+  act(fn: (a: A) => void | Promise<void>): this;
+  type(t: Target, text: string, opts?: { cadence?: number }): this;
+  hold(ms: number): this;                 // = a step's `settle`
+  build(): Walkthrough<A>;                 // → primitive; compose via `await scene(...).build()(ctx)`
+  toData(): Step<A>[];                     // → the data model (wire / inspection / generation)
+}
+```
+
+- **`scene()` is sugar over `Step[]`, which is sugar over the primitive** — three views of one thing,
+  not three semantics. `scene().build()` and `storyboard(seed, steps)` both return a `Walkthrough`.
+- It stays **linear by construction** (a recording chain can't hold an `if`). That is deliberate: the
+  moment a walkthrough needs branch/loop/`awaitUser`, you drop to the primitive `Walkthrough(ctx)` and
+  `await` built `scene` segments between the raw beats (I9). The builder never has to be complete
+  because the primitive always is.
+- Docs **lead with `scene()`** for hand-authoring; reach for `Step[]` directly when *generating* a
+  walkthrough from data; reach for the raw `Walkthrough` when control flow is dynamic.
 
 ---
 
@@ -413,12 +459,13 @@ package that consumes the engine. So Vetrina is a **self-contained folder**:
 docs/src/lib/vetrina/
   stage.ts        theater: cursor, cues, chrome, reduced motion   (framework-free)
   runner.ts       run() + take-over + await-racing + teardown     (framework-free)
-  storyboard.ts   the declarative front door over run()           (framework-free)
+  storyboard.ts   Step[] data model → Walkthrough (storyboard())   (framework-free)
+  scene.ts        the fluent recording builder scene() → Step[]    (framework-free)
   theme.ts        Theme token defaults + resolution (both modes)  (framework-free)
   recipes.ts      waitFor / loop / retry                          (framework-free)
   index.ts        the public surface (the tables above)
   react.ts        useWalkthrough(rootRef, opts) — the thin adapter (peer dep react)
-  README.md       leads with storyboard([...]) on a NON-slide, buildless page
+  README.md       leads with scene() on a NON-slide, buildless page
 ```
 
 **Decoupling is mechanical, not aspirational** (§14/Munger D2, the coupling-death antibody):
@@ -477,7 +524,7 @@ The trio's net effect was to **subtract and harden** — exactly the Saint-Exup�
 ## 15. Migration plan — behavior-preserving, the proof of the seam
 
 1. Land `docs/src/lib/vetrina/` with the API above; port `demo-stage`→`stage`, `demo-director`→
-   `runner`+`storyboard`, `effects`, `recipes`. Behavior byte-identical where it should be.
+   `runner`+`storyboard`+`scene`, `theme`, `recipes`. Behavior byte-identical where it should be.
 2. Rewrite `use-studio-demo.ts` as a thin `react.ts` consumer of `run()`: pass the Studio actions bag,
    `TypeOps` (`typeTail`/`resetDoc`), `takeover: { scope: 'window' }`, and `onStop` (palette/mode
    restore + close stages) — **after** destroy.
@@ -494,12 +541,15 @@ The trio's net effect was to **subtract and harden** — exactly the Saint-Exup�
 ## 16. Open forks for the human
 
 1. **Name** — `Vetrina` is the working name (chosen). Lock it, or revisit before anything is published.
-2. **Ship `awaitUser` in v1, or defer it?** It is the one new primitive and the Studio demo doesn't
+2. **The builder verb — `scene()`?** The fluent authoring layer needs a name; `scene()` fits the
+   theater metaphor and doesn't collide with `run`/`storyboard`. Alternatives: `flow()`, `walkthrough()`,
+   `tour()`. *(Recommendation: `scene()`.)*
+3. **Ship `awaitUser` in v1, or defer it?** It is the one new primitive and the Studio demo doesn't
    exercise it; shipping it means also shipping the vanilla reference consumer that does (so it isn't
    unproven). Deferring keeps v1 to exactly the Studio migration. *(Recommendation: ship it with the
    reference tour — the seam is the point of the whole exercise, and an unexercised primitive rots.)*
-2. **First-party recipes in v1, or wait for a second consumer to prove the need?** *(Recommendation:
+4. **First-party recipes in v1, or wait for a second consumer to prove the need?** *(Recommendation:
    ship `waitFor` + `loop`; hold `retry` until asked — subtract until needed.)*
-3. **Publish now or later?** v1 lands the package in-repo, decoupled and gated, but does not `npm
+5. **Publish now or later?** v1 lands the package in-repo, decoupled and gated, but does not `npm
    publish`. *(Recommendation: prove it in-repo through the Studio migration + the reference tour,
    publish once a second real consumer exists.)*
