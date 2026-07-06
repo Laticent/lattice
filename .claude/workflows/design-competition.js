@@ -14,7 +14,11 @@ export const meta = {
 
 // args: { brief: string, tracks?: number, iterations?: number, judges?: number,
 //         angles?: string[] }  — see engineering/orchestration.md §Design competition.
-const brief = args?.brief
+// Args can arrive as a JSON-encoded string depending on the invoking harness
+// (observed 2026-07-06: object passed to the Workflow tool, string in the
+// script) — normalize before reading any field.
+const ARGS = typeof args === 'string' ? JSON.parse(args) : args
+const brief = ARGS?.brief
 if (!brief) throw new Error('design-competition needs args.brief — the design question, with grounding pointers (files/docs to read).')
 
 const MAX_TRACKS = 8
@@ -30,11 +34,11 @@ if (maxAgents !== MAX_TRACKS * 3 + 1 + MAX_JUDGES) {
 	throw new Error(`design-competition maxAgents (${maxAgents}) is stale vs the clamp ceilings — update it`)
 }
 
-const tracks = Math.max(2, Math.min(args?.tracks ?? 5, MAX_TRACKS))
-const iterations = Math.max(1, Math.min(args?.iterations ?? 3, 5))
-const judges = Math.max(1, Math.min(args?.judges ?? 1, MAX_JUDGES))
+const tracks = Math.max(2, Math.min(ARGS?.tracks ?? 5, MAX_TRACKS))
+const iterations = Math.max(1, Math.min(ARGS?.iterations ?? 3, 5))
+const judges = Math.max(1, Math.min(ARGS?.judges ?? 1, MAX_JUDGES))
 
-// Default perspective per track — override with args.angles for a domain-specific split.
+// Default perspective per track — override with ARGS.angles for a domain-specific split.
 const DEFAULT_ANGLES = [
 	'simplest-thing-that-works: minimize moving parts and new concepts',
 	'risk-first: design outward from the worst failure mode',
@@ -46,9 +50,9 @@ const DEFAULT_ANGLES = [
 	'contrarian: invert the brief’s own assumptions and design from there',
 ]
 // Pad caller-supplied angles from the defaults so angle count always equals track
-// count — a short args.angles must not silently shrink the field while the cost
+// count — a short ARGS.angles must not silently shrink the field while the cost
 // estimate and prompts still claim `tracks`.
-const requested = args?.angles ?? []
+const requested = ARGS?.angles ?? []
 const angles = requested.concat(DEFAULT_ANGLES.filter((a) => !requested.includes(a))).slice(0, tracks)
 const effectiveTracks = angles.length // === tracks after padding; guards a tracks > DEFAULT_ANGLES.length ask
 
