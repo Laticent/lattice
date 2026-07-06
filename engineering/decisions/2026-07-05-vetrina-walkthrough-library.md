@@ -146,7 +146,7 @@ interface RunOptions<A> {
   actions: A;                              // the host's setters (bound to real state)
   play: Walkthrough<A>;                    // usually storyboard([...]) (§10)
   onStop?: (reason: StopReason) => void;   // host restore, called AFTER destroy (I7)
-  effects?: EffectsTheme;                  // omit for the house look (§9)
+  theme?: Theme;                           // JS token values; omit for the house look (§9)
   type?: TypeOps;                          // omit if this host never types (§7)
   takeover?: {                             // §8 — defaults are the full-page demo case
     scope?: 'root' | 'window';            // 'window' = Studio default; 'root' for embedded consumers
@@ -253,50 +253,53 @@ numeric a caller could set to a useless value** (the human-not-machine tenet, §
 exactly this:
 
 ```ts
-interface EffectsTheme {
-  accent?: string;                          // brand hue for pointer + cues + glow; setProperty('--accent') ONLY (I4)
-  speed?: 'slow' | 'moderate' | 'fast';     // curated, GUARANTEED-followable pacing (default 'moderate'). Not a number.
-  pointer?: 'arrow' | 'ring' | 'dot';       // curated cursor SHAPE (default 'arrow'); its color follows accent
-  caption?: { className?: string };         // hand caption styling to the host's own CSS
+interface Theme {
+  // COLOR — token VALUES passed via JS (never CSS you author). `accent` is the one-line shortcut
+  // (both modes); `light`/`dark` are full per-mode overrides. Vetrina writes these into its own
+  // custom properties for you — you never touch a stylesheet, class, or @media block.
+  accent?: string;                          // brand hue for pointer + cues + glow (both modes)
+  light?: Partial<ColorTokens>;             // per-mode overrides, as VALUES
+  dark?: Partial<ColorTokens>;
+  // NON-COLOR — curated, human-not-machine (no free numerics)
+  speed?: 'slow' | 'moderate' | 'fast';     // guaranteed-followable pacing (default 'moderate')
+  pointer?: 'arrow' | 'ring' | 'dot';       // curated cursor SHAPE (default 'arrow')
   cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>; // SILENCE a cue
+  // MOUNTING
   portalRoot?: HTMLElement;                 // where the overlay mounts (default document.body)
-  zIndex?: number;                          // for hosts with their own high stacking context
+  zIndex?: number;
+}
+interface ColorTokens {                     // the token CONTRACT — the names Vetrina defines
+  accent: string; cursorFill: string; cursorStroke: string;
+  captionBg: string; captionInk: string; ringHalo: string;
 }
 ```
 
-**Palette-blind by construction — a curated token layer (carries lattice's DNA).** Vetrina is
-themed the way `lattice.css` is: **every color in the stage renders through a `var(--vt-*)` role
-token with a sensible default — no hex literals in the theater layer** (the engine's own equivalent of
-HARD RULE #3). The set is small and **named by role, not by scheme** (per HARD RULE #11):
+A token value may itself be a CSS-var reference — `accent: 'var(--brand-accent)'` — so a host with
+existing design tokens can point at them without Vetrina ever reading their stylesheet. Still JS, still
+one surface.
 
-```
---vt-accent · --vt-cursor-fill · --vt-cursor-stroke · --vt-caption-bg · --vt-caption-ink · --vt-ring-halo
-```
+**Palette-blind under the hood (carries lattice's DNA), but JS is the only surface.** Internally the
+engine renders every color through a `var(--vt-*)` role token with a sensible default — **no hex
+literals in its own theater CSS** (HARD RULE #3 applied to itself), named by role not scheme (HARD RULE
+#11): `--vt-accent`, `--vt-cursor-fill`, `--vt-cursor-stroke`, `--vt-caption-bg`, `--vt-caption-ink`,
+`--vt-ring-halo`. But those properties are a **mechanism, not a public authoring surface** — Vetrina
+writes your JS `Theme` values into them via `setProperty` (never string concatenation — I4). **The
+consumer's only surface is the JS `Theme` object; there is no CSS to author, no class, no `@media`
+block.** Configure nothing → the house look; pass `accent` → one line; pass `light`/`dark` value sets
+→ full control.
 
-There are **two theming paths, and no added surface for the common user**:
-- the `EffectsTheme` JS object (`accent`/`speed`/`pointer`) is the ergonomic 90% path — it just
-  *writes the tokens* (`accent` → `--vt-accent` via `setProperty`, never concatenation — I4);
-- a host wanting brand-deep control **overrides the CSS custom properties directly** — no JS, and
-  light/dark falls out of the host's own token definitions.
-
-Configure nothing → the house look. This is *more* Rams, not more surface: it adds an internal
-discipline (palette-blind) and a power path (CSS override) while the common caller still passes only
-`accent`, or nothing.
-
-**Light/dark: Vetrina owns the contract; you override the tokens; the mode signal is
-host-authoritative.** Vetrina *names* the `--vt-*` tokens and ships documented defaults for **both**
-modes — so out of the box the overlay is themed for light and dark. You re-theme by overriding tokens
-(the `EffectsTheme` object for the common few; a CSS override under your mode selector for per-mode /
-brand-deep control). The one pinned decision — **what counts as "dark":** an app's mode ≠ the OS's (the
-Studio flips its own mode independent of `prefers-color-scheme`), so Vetrina's dark tokens are
-**host-authoritative** — they key off a signal the engine reads from the host (an attribute on the
-overlay root, e.g. `data-vt-mode`, or the host's own theme selector), falling back to
-`prefers-color-scheme` **only when the host gives no signal.** Beneath all of it sits a **legibility
-floor**: the baseline defaults read on either ground (accent + white co-stroke + dark caption scrim —
-proven by the Studio demo flipping light↔dark mid-run without washing out), so a missing or wrong mode
-signal never makes the overlay illegible; mode-awareness is polish on a floor that can't fail. The
-**host owns the app's palette** — Vetrina drives the mode toggle via a host action (the demo's
-`toggleMode` beat), never managing the app's theme itself.
+**Light/dark: you supply both palettes as JS values; Vetrina switches.** Vetrina ships sensible
+defaults for both modes; you override by passing `light` and/or `dark` value sets on the `Theme`
+object — **as data, not CSS.** Vetrina applies whichever set matches the active mode. The one pinned
+decision — **what counts as "dark":** an app's mode ≠ the OS's (the Studio flips its own mode
+independent of `prefers-color-scheme`), so the active mode is **host-authoritative** — Vetrina reads
+it from a signal the host controls (a `data-vt-mode` on the overlay root, or the host tells the
+engine), falling back to `prefers-color-scheme` **only when the host gives no signal.** Beneath it
+sits a **legibility floor**: the baseline defaults read on either ground (accent + white co-stroke +
+dark caption scrim — proven by the Studio demo flipping light↔dark mid-run without washing out), so a
+missing or wrong mode signal never makes the overlay illegible. The **host owns the app's palette** —
+Vetrina drives the mode toggle via a host action (the demo's `toggleMode` beat), never managing the
+app's theme itself.
 
 **Pointer & glow ARE customizable — as shape + color, from curated choices:**
 - **Color** — the pointer, the cue rings, and the `circle` glow all tint from `accent`. One token
@@ -411,7 +414,7 @@ docs/src/lib/vetrina/
   stage.ts        theater: cursor, cues, chrome, reduced motion   (framework-free)
   runner.ts       run() + take-over + await-racing + teardown     (framework-free)
   storyboard.ts   the declarative front door over run()           (framework-free)
-  effects.ts      EffectsTheme defaults + resolution              (framework-free)
+  theme.ts        Theme token defaults + resolution (both modes)  (framework-free)
   recipes.ts      waitFor / loop / retry                          (framework-free)
   index.ts        the public surface (the tables above)
   react.ts        useWalkthrough(rootRef, opts) — the thin adapter (peer dep react)
