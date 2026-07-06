@@ -222,7 +222,7 @@ one concept — *more* Saint-Exupéry, not less. The **curated alphabet** (v1):
 | Gesture | Meaning |
 |---|---|
 | `wave` | greeting / hello (the opening flourish) |
-| `circle` | "look here / this just rendered" (orbits a target) |
+| `circle` | "look here / this just rendered" — a rounded-rect glow on the element's **bounding box** + the cursor orbiting it in an ellipse **proportional to the element** (clamped), so it reads on a big pane or a small control |
 | `check` | success / done / correct |
 | `cross` | wrong / rejected / deleted |
 | `shake` | "no — careful / try again" (universal negation) |
