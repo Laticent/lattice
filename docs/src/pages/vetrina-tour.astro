@@ -1,0 +1,157 @@
+---
+// Vetrina reference tour — the buildless, non-slide, framework-free exemplar
+// (design doc §11, §15.6). A plain DOM "mini dashboard" driven by the vetrina
+// library with NO React and NO slide engine — the honest proof that the core is
+// framework-free and standalone. It showcases the one cooperative primitive,
+// `awaitUser`, across all three outcomes (correct → complete, wrong → take-over,
+// timeout → exit). The awaitUser e2e (docs/e2e/vetrina-tour.spec.ts) drives this
+// exact page. Not linked from site nav — a reference surface, reached by URL.
+---
+
+<!doctype html>
+<html lang="en" data-palette="indaco" data-mode="light">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Vetrina reference tour</title>
+		<style>
+			:root {
+				--vt-page-bg: #f6f7fb;
+				--vt-card-bg: #ffffff;
+				--vt-ink: #14161d;
+				--vt-muted: #5b6170;
+				--vt-line: #e3e6ee;
+				--vt-accent: #2b6ef2;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--vt-page-bg: #0d0f14;
+					--vt-card-bg: #161922;
+					--vt-ink: #eef1f8;
+					--vt-muted: #9aa1b2;
+					--vt-line: #2a2f3c;
+					--vt-accent: #6ea0ff;
+				}
+			}
+			body {
+				margin: 0;
+				min-height: 100vh;
+				display: grid;
+				place-items: center;
+				padding: 2rem 1.25rem;
+				background: var(--vt-page-bg);
+				color: var(--vt-ink);
+				font: 15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+			}
+			.wrap { width: min(560px, 100%); display: flex; flex-direction: column; gap: 1rem; }
+			h1 { font-size: 1.35rem; margin: 0; }
+			.lede { color: var(--vt-muted); margin: 0; }
+			.card {
+				background: var(--vt-card-bg);
+				border: 1px solid var(--vt-line);
+				border-radius: 14px;
+				padding: 1.25rem;
+				display: flex;
+				flex-direction: column;
+				gap: 1rem;
+				box-shadow: 0 8px 30px rgba(10, 14, 25, 0.06);
+			}
+			.row { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
+			.count-box { display: flex; align-items: baseline; gap: 0.5rem; }
+			.count { font-size: 2.5rem; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 2ch; }
+			.count-label { color: var(--vt-muted); font-size: 0.85rem; }
+			label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; color: var(--vt-muted); }
+			input[type='text'] {
+				font: inherit;
+				color: var(--vt-ink);
+				background: transparent;
+				border: 1px solid var(--vt-line);
+				border-radius: 9px;
+				padding: 0.55rem 0.7rem;
+			}
+			button {
+				font: 600 0.9rem system-ui, sans-serif;
+				cursor: pointer;
+				border: 1px solid var(--vt-line);
+				border-radius: 999px;
+				padding: 0.5rem 1rem;
+				background: var(--vt-card-bg);
+				color: var(--vt-ink);
+			}
+			button.primary { background: var(--vt-accent); color: #fff; border-color: transparent; }
+			button[disabled] { opacity: 0.5; cursor: default; }
+			.status { font-size: 0.85rem; color: var(--vt-muted); }
+			.status b { color: var(--vt-ink); font-weight: 600; }
+			[data-vt-done='true'] .badge-done { display: inline; }
+			.badge-done { display: none; color: var(--vt-accent); font-weight: 600; }
+		</style>
+	</head>
+	<body>
+		<main class="wrap">
+			<div>
+				<h1>Vetrina reference tour</h1>
+				<p class="lede">
+					A plain-DOM dashboard — no React, no slide engine. Press <b>Start the tour</b> and watch the
+					cursor drive it, then take the wheel when it hands off.
+				</p>
+			</div>
+
+			<section id="vt-dashboard" class="card" data-vt-phase="idle">
+				<div class="row" style="justify-content: space-between">
+					<div class="count-box">
+						<span id="vt-count" class="count">0</span>
+						<span class="count-label">events logged</span>
+					</div>
+					<button id="vt-bump" type="button">Bump</button>
+				</div>
+
+				<label>
+					Notes
+					<input id="vt-note" type="text" placeholder="…" autocomplete="off" />
+				</label>
+
+				<div class="row" style="justify-content: space-between">
+					<span class="status">
+						Phase: <b id="vt-phase-out">idle</b>
+						<span class="badge-done">· finished ✓</span>
+					</span>
+					<button id="vt-finish" type="button" class="primary">Finish</button>
+				</div>
+			</section>
+
+			<div class="row">
+				<button id="vt-start" type="button" class="primary">Start the tour</button>
+				<span class="status">Ended: <b id="vt-reason-out">—</b></span>
+			</div>
+		</main>
+
+		<script>
+			import { startReferenceTour } from '../lib/vetrina-exemplars/reference-tour';
+
+			const root = document.getElementById('vt-dashboard');
+			const startBtn = document.getElementById('vt-start');
+			const phaseOut = document.getElementById('vt-phase-out');
+			const reasonOut = document.getElementById('vt-reason-out');
+
+			// Mirror the panel's data-attributes (the tour's own oracle channel) into the
+			// human-readable readout, so a viewer sees phase + terminal reason live.
+			const sync = () => {
+				if (phaseOut) phaseOut.textContent = root?.dataset.vtPhase ?? 'idle';
+				if (reasonOut) reasonOut.textContent = root?.dataset.vtReason ?? '—';
+			};
+			if (root) new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ['data-vt-phase', 'data-vt-reason'] });
+
+			startBtn?.addEventListener('click', () => {
+				if (!root) return;
+				// Reset any prior run's readout before starting fresh.
+				delete root.dataset.vtReason;
+				delete root.dataset.vtDone;
+				const finish = root.querySelector('#vt-finish');
+				if (finish) finish.disabled = false;
+				sync();
+				startReferenceTour(root);
+			});
+		</script>
+	</body>
+</html>
