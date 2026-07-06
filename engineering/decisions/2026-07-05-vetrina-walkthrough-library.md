@@ -283,15 +283,20 @@ Configure nothing → the house look. This is *more* Rams, not more surface: it 
 discipline (palette-blind) and a power path (CSS override) while the common caller still passes only
 `accent`, or nothing.
 
-**Light/dark: ground-agnostic by default, mode-responsive by opt-in.** The theater floats *above* the
-host and is styled to stay legible over a **light OR dark ground without switching** — the cue rings
-pair the accent with a white co-stroke + bloom (so a same-hue accent never washes out on a dark
-preview), and the caption is a dark scrim with light text that reads on both. Proof: the Studio demo
-**flips light↔dark mid-run** and the cursor + captions never wash out (like film subtitles — a
-constant legible narrator over any scene). A host that instead wants the overlay to *flip its own
-palette* with the OS/app mode redefines the `--vt-*` tokens under `prefers-color-scheme` /
-`[data-theme]` (the `lattice.css` pattern). The **host owns the app's palette** — Vetrina drives the
-mode toggle via a host action (the demo's `toggleMode` beat), never managing the app's theme itself.
+**Light/dark: Vetrina owns the contract; you override the tokens; the mode signal is
+host-authoritative.** Vetrina *names* the `--vt-*` tokens and ships documented defaults for **both**
+modes — so out of the box the overlay is themed for light and dark. You re-theme by overriding tokens
+(the `EffectsTheme` object for the common few; a CSS override under your mode selector for per-mode /
+brand-deep control). The one pinned decision — **what counts as "dark":** an app's mode ≠ the OS's (the
+Studio flips its own mode independent of `prefers-color-scheme`), so Vetrina's dark tokens are
+**host-authoritative** — they key off a signal the engine reads from the host (an attribute on the
+overlay root, e.g. `data-vt-mode`, or the host's own theme selector), falling back to
+`prefers-color-scheme` **only when the host gives no signal.** Beneath all of it sits a **legibility
+floor**: the baseline defaults read on either ground (accent + white co-stroke + dark caption scrim —
+proven by the Studio demo flipping light↔dark mid-run without washing out), so a missing or wrong mode
+signal never makes the overlay illegible; mode-awareness is polish on a floor that can't fail. The
+**host owns the app's palette** — Vetrina drives the mode toggle via a host action (the demo's
+`toggleMode` beat), never managing the app's theme itself.
 
 **Pointer & glow ARE customizable — as shape + color, from curated choices:**
 - **Color** — the pointer, the cue rings, and the `circle` glow all tint from `accent`. One token
