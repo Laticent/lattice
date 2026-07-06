@@ -11,8 +11,19 @@ import { SplitHandle, SplitRail, useSplit } from '@/components/ui/split';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import {
+	BACKUP_KEY,
 	type Catalog,
+	COMPONENT_KEY,
+	classTokenLine,
 	detectComponent,
+	fingerprint,
+	HANDOFF_KEY,
+	INSERTED_HASH_KEY,
+	isPristine,
+	LENS_KEY,
+	readHandoff,
+	resolveComponent,
+	SEARCH_KEY,
 	SOURCE_KEY,
 	sanitizePalette,
 	variantOptions,
@@ -61,12 +72,60 @@ export type PlaygroundData = {
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, palettes, finishes, lintVocab, starter } = data;
 
-	const [currentName, setCurrentName] = React.useState('');
+	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
+	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
+	// the draft holds no recognized component (the honest "detached" state the old
+	// `currentName` could never reach). `readerComponent` is the PERSISTED pointer —
+	// it changes only on an explicit pick and survives reloads, so a pasted
+	// plain-markdown draft can never wipe the remembered component.
+	const [draftComponent, setDraftComponent] = React.useState('');
+	const [readerComponent, setReaderComponent] = React.useState(() => {
+		try {
+			return resolveComponent(catalog, localStorage.getItem(COMPONENT_KEY)).name;
+		} catch {
+			return resolveComponent(catalog, null).name;
+		}
+	});
 	const [variant, setVariant] = React.useState('default');
 	const [status, setStatus] = React.useState('Ready.');
 	const [isError, setIsError] = React.useState(false);
 	const [pane, setPane] = React.useState<'edit' | 'preview'>('edit');
 	const [sourceVersion, setSourceVersion] = React.useState(0); // drives DeckSetup cue
+	// Picker search + lens survive reopen AND reload (the "search is never
+	// remembered" jank, fixed at its source: state owned here, persisted).
+	const [pickerQuery, setPickerQuery] = React.useState(() => {
+		try {
+			return localStorage.getItem(SEARCH_KEY) ?? '';
+		} catch {
+			return '';
+		}
+	});
+	const [pickerLens, setPickerLens] = React.useState(() => {
+		try {
+			return localStorage.getItem(LENS_KEY) ?? '';
+		} catch {
+			return '';
+		}
+	});
+	// A parked handoff the user has not applied (arrived over a non-pristine
+	// draft). `dismissedTs` hides the bar for THIS payload only — the key stays
+	// parked, so a "no" never destroys the incoming content either.
+	const [pendingHandoff, setPendingHandoff] = React.useState<{ md: string; from: string; ts: number } | null>(null);
+	const [dismissedTs, setDismissedTs] = React.useState<number | null>(null);
+	// Undo toast for draft-replacing actions (backup + one-tap restore).
+	const [toast, setToast] = React.useState<{ msg: string; undo: boolean } | null>(null);
+	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
+	const [errorOpen, setErrorOpen] = React.useState(false);
+	const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	// The variant-sync discriminator: the last seen `_class` token line. The
+	// Variant select snaps only when this actually changes (the mid-edit
+	// "variant resets to default under me" jank, fixed at its source).
+	const lastClassLineRef = React.useRef<string | null>(null);
+	// Filled below (needs applyDeck); called from onEditorReady above it.
+	const consumeHandoffRef = React.useRef<() => void>(() => {});
+	// The picker shows the draft's component when one is detected, else the
+	// persisted pointer — the two never fight because only picks write the pointer.
+	const currentName = draftComponent || readerComponent;
 
 	const frameRef = React.useRef<HTMLIFrameElement>(null);
 	// Live in-preview chart interaction: hover/tap a pie wedge in the rendered
@@ -122,7 +181,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		setDebugOverrideState(getDebugOverride());
 		return onDebugOverrideChange(setDebugOverrideState);
 	}, []);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: sourceVersion is the explicit re-eval trigger.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: sourceVersion is the explicit re-eval trigger; getSource reads the live editor.
 	React.useEffect(() => {
 		setDeckHasDebug(deckDebugOn(getSource()));
@@ -322,13 +380,56 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		};
 	}, []);
 
-	// ── Picker sync (reflect what the editor holds) ─────────────────────────────
+	// ── Picker sync (reflect what the editor holds — honestly) ──────────────────
+	// The clear case is real: detect→null empties draftComponent so the picker
+	// shows the truth instead of the last component it happened to see. It NEVER
+	// writes the persisted pointer. The Variant select snaps only when the
+	// `_class` token line actually changed — a keystroke in a body paragraph can
+	// no longer reset a user-chosen variant to 'default'.
 	const syncPickers = React.useCallback(() => {
-		const det = detectComponent(catalog, getSource());
-		if (!det) return;
-		setCurrentName((prev) => (prev !== det.name ? det.name : prev));
-		setVariant(det.variant);
+		const src = getSource();
+		const det = detectComponent(catalog, src);
+		setDraftComponent(det ? det.name : '');
+		const line = classTokenLine(src);
+		if (lastClassLineRef.current !== line) {
+			lastClassLineRef.current = line;
+			if (det) setVariant(det.variant);
+		}
 	}, [catalog, getSource]);
+
+	// ── Draft protection: backup + undo toast (decision §4, invariant I2) ───────
+	const showToast = React.useCallback((msg: string, undo: boolean) => {
+		setToast({ msg, undo });
+		if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+		toastTimerRef.current = setTimeout(() => setToast(null), 6000);
+	}, []);
+	const recordInsert = React.useCallback((md: string) => {
+		try {
+			localStorage.setItem(INSERTED_HASH_KEY, fingerprint(md));
+		} catch {
+			/* private mode */
+		}
+	}, []);
+	const draftIsPristine = React.useCallback(() => {
+		try {
+			return isPristine(getSource(), localStorage.getItem(INSERTED_HASH_KEY));
+		} catch {
+			return false;
+		}
+	}, [getSource]);
+	/** Park the current draft before a programmatic overwrite; offer undo. */
+	const backupDraft = React.useCallback(
+		(why: string) => {
+			if (draftIsPristine()) return;
+			try {
+				localStorage.setItem(BACKUP_KEY, getSource());
+				showToast(`${why} — your previous draft is backed up.`, true);
+			} catch {
+				/* private mode: nothing to park into */
+			}
+		},
+		[draftIsPristine, getSource, showToast],
+	);
 
 	// ── Edit handler: persist, sync pickers, debounced patch render ─────────────
 	const onEdit = React.useCallback(() => {
@@ -345,11 +446,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			try {
 				const saved = localStorage.getItem(SOURCE_KEY);
 				if (saved != null) adapter.setValue(saved);
+				else {
+					// First visit: the starter is a programmatic insert too — record its
+					// fingerprint so it reads as pristine and a handoff can auto-apply.
+					localStorage.setItem(INSERTED_HASH_KEY, fingerprint(adapter.getValue()));
+				}
 			} catch {
 				/* private mode */
 			}
 			syncPickers();
 			setSourceVersion((v) => v + 1);
+			// An arriving handoff supersedes the restored draft when pristine; when
+			// not, it parks and the restored draft renders untouched. (Ref-indirected:
+			// the consumer is defined below with applyDeck, after this callback.)
+			consumeHandoffRef.current();
 			render(false);
 		},
 		[syncPickers, render],
@@ -396,19 +506,32 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const onPickComponent = React.useCallback(
 		(name: string) => {
 			if (!catalog[name]) return;
-			setCurrentName(name);
+			backupDraft(`Loaded ${name}`);
+			setReaderComponent(name);
+			try {
+				localStorage.setItem(COMPONENT_KEY, name);
+			} catch {
+				/* private mode */
+			}
+			setDraftComponent(name);
 			setVariant('default');
+			recordInsert(catalog[name].sample);
 			applyDeck(catalog[name].sample, { toPreview: true });
 		},
-		[catalog, applyDeck],
+		[catalog, applyDeck, backupDraft, recordInsert],
 	);
 
 	const onVariantChange = React.useCallback(
 		(key: string) => {
 			setVariant(key);
-			if (currentName) applyDeck(variantSource(catalog, currentName, key), { toPreview: true });
+			if (currentName) {
+				const md = variantSource(catalog, currentName, key);
+				backupDraft(`Loaded ${currentName} ${key === 'default' ? '' : key}`.trim());
+				recordInsert(md);
+				applyDeck(md, { toPreview: true });
+			}
 		},
-		[catalog, currentName, applyDeck],
+		[catalog, currentName, applyDeck, backupDraft, recordInsert],
 	);
 
 	const onLoadGallery = React.useCallback(
@@ -418,20 +541,108 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				setStatusLine('Gallery unavailable.', true);
 				return;
 			}
+			backupDraft('Loaded a gallery deck');
+			recordInsert(src);
 			applyDeck(src, { toPreview: true });
 		},
-		[gallerySources, applyDeck, setStatusLine],
+		[gallerySources, applyDeck, setStatusLine, backupDraft, recordInsert],
 	);
 
+	// Reset reads the DRAFT's component at click time; when the draft holds none
+	// (exactly the state the honest clear case creates) it falls back to the
+	// persisted pointer — named in the confirm, never a dead button (decision §4).
+	const resetTarget = draftComponent || readerComponent;
 	const onResetExample = React.useCallback(() => {
-		if (currentName && catalog[currentName]) applyDeck(catalog[currentName].sample);
-		else setStatusLine('Pick a component first.', true);
-	}, [currentName, catalog, applyDeck, setStatusLine]);
+		const name = detectComponent(catalog, getSource())?.name || readerComponent;
+		if (!(name && catalog[name])) {
+			setStatusLine('Pick a component first.', true);
+			return;
+		}
+		backupDraft(`Reset to the ${name} example`);
+		setVariant('default');
+		recordInsert(catalog[name].sample);
+		applyDeck(catalog[name].sample);
+	}, [catalog, getSource, readerComponent, applyDeck, setStatusLine, backupDraft, recordInsert]);
 
-	const onInsertSkeleton = React.useCallback(() => {
-		if (currentName && catalog[currentName]) applyDeck(catalog[currentName].skeleton);
-		else setStatusLine('Pick a component first.', true);
-	}, [currentName, catalog, applyDeck, setStatusLine]);
+	// Undo restores the parked draft (the toast's one-tap escape hatch).
+	const onUndoRestore = React.useCallback(() => {
+		try {
+			const parked = localStorage.getItem(BACKUP_KEY);
+			if (parked == null) return;
+			setSource(parked);
+			saveSource();
+			setSourceVersion((v) => v + 1);
+			syncPickers();
+			freshRender();
+			setToast(null);
+			setStatusLine('Draft restored.');
+		} catch {
+			/* private mode */
+		}
+	}, [setSource, saveSource, syncPickers, freshRender, setStatusLine]);
+
+	// ── The one-shot handoff (all three external writers land here) ─────────────
+	// Applied automatically when the draft is pristine (identical UX on the
+	// common path); otherwise parked with a persistent affordance. The key is
+	// consumed on APPLY, never on load — a "no" destroys nothing (invariant I4).
+	const applyHandoff = React.useCallback(
+		(h: { md: string; from: string; ts: number }) => {
+			backupDraft(`Loaded the deck from ${h.from}`);
+			recordInsert(h.md);
+			try {
+				localStorage.removeItem(HANDOFF_KEY);
+			} catch {
+				/* private mode */
+			}
+			setPendingHandoff(null);
+			applyDeck(h.md, { toPreview: true });
+			setStatusLine(`Loaded the deck handed off from ${h.from}.`);
+		},
+		[applyDeck, backupDraft, recordInsert, setStatusLine],
+	);
+	const consumeHandoffIfAny = React.useCallback(() => {
+		let h: ReturnType<typeof readHandoff> = null;
+		try {
+			h = readHandoff(localStorage.getItem(HANDOFF_KEY));
+		} catch {
+			return;
+		}
+		if (!h) return;
+		if (draftIsPristine()) applyHandoff(h);
+		else setPendingHandoff(h);
+	}, [applyHandoff, draftIsPristine]);
+	consumeHandoffRef.current = consumeHandoffIfAny;
+	// An already-open tab consumes on visibility/focus, so "Open in Playground"
+	// from another tab reaches it without a reload.
+	React.useEffect(() => {
+		const onVis = () => {
+			if (!document.hidden) consumeHandoffIfAny();
+		};
+		window.addEventListener('focus', onVis);
+		document.addEventListener('visibilitychange', onVis);
+		return () => {
+			window.removeEventListener('focus', onVis);
+			document.removeEventListener('visibilitychange', onVis);
+		};
+	}, [consumeHandoffIfAny]);
+
+	// Persist picker search + lens as they change (reopen AND reload restore them).
+	const onPickerQuery = React.useCallback((q: string) => {
+		setPickerQuery(q);
+		try {
+			localStorage.setItem(SEARCH_KEY, q);
+		} catch {
+			/* private mode */
+		}
+	}, []);
+	const onPickerLens = React.useCallback((l: string) => {
+		setPickerLens(l);
+		try {
+			localStorage.setItem(LENS_KEY, l);
+		} catch {
+			/* private mode */
+		}
+	}, []);
 
 	// ── Re-render when <html> data-palette / data-mode change ───────────────────
 	React.useEffect(() => {
@@ -511,7 +722,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						<label className="pg-picker-label" htmlFor="pg-template-trigger">
 							Component
 						</label>
-						<ComponentPicker components={components} lenses={lenses} current={currentName} onPick={onPickComponent} />
+						<ComponentPicker
+							components={components}
+							lenses={lenses}
+							current={currentName}
+							detached={!draftComponent}
+							query={pickerQuery}
+							onQueryChange={onPickerQuery}
+							lensId={pickerLens}
+							onLensChange={onPickerLens}
+							onPick={onPickComponent}
+						/>
 					</div>
 					<div className="pg-picker pg-variant-picker">
 						<label className="pg-picker-label" htmlFor="pg-variant">
@@ -551,6 +772,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					>
 						{status}
 					</span>
+					{/* ≤560px hides .pg-status — render errors must still reach the phone.
+					    The badge appears only when there IS an error (CSS gates it to the
+					    narrow layout); tapping it expands the full message inline. */}
+					{isError && (
+						<button
+							type="button"
+							className="pg-status-badge"
+							aria-expanded={errorOpen}
+							aria-label="Show render error"
+							onClick={() => setErrorOpen((v) => !v)}
+						>
+							!
+						</button>
+					)}
 					<BoundingBoxToggle on={debugOn} onToggle={() => setDebugOverride(debugOn ? 'off' : 'on')} />
 					<DeckSetupSheet
 						getSource={getSource}
@@ -561,13 +796,52 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					/>
 					<GalleriesSheet
 						groups={galleryGroups}
-						hasComponent={Boolean(currentName)}
+						resetTarget={resetTarget && catalog[resetTarget] ? resetTarget : ''}
+						resetArm={!draftIsPristine()}
 						onLoadGallery={onLoadGallery}
 						onResetExample={onResetExample}
-						onInsertSkeleton={onInsertSkeleton}
 					/>
 				</div>
 			</div>
+
+			{/* Parked handoff: an external "Open in Playground" arrived over a dirty
+			    draft. Apply consumes the key; Not now keeps it parked (nothing lost). */}
+			{pendingHandoff && pendingHandoff.ts !== dismissedTs && (
+				<section className="pg-handoff-bar" aria-label="Incoming deck">
+					<span className="pg-handoff-msg">
+						A deck from <strong>{pendingHandoff.from}</strong> is waiting — your current draft is unsaved work.
+					</span>
+					<button type="button" className="pg-handoff-apply" onClick={() => applyHandoff(pendingHandoff)}>
+						Replace draft
+					</button>
+					<button type="button" className="pg-handoff-later" onClick={() => setDismissedTs(pendingHandoff.ts)}>
+						Not now
+					</button>
+				</section>
+			)}
+
+			{/* Mobile error detail: the ≤560px layout hides the status line, so the
+			    badge expands the full message here (visible at every width). */}
+			{isError && errorOpen && (
+				<div className="pg-error-detail" role="alert">
+					{status}
+					<button type="button" onClick={() => setErrorOpen(false)} aria-label="Dismiss error detail">
+						✕
+					</button>
+				</div>
+			)}
+
+			{/* Undo toast for draft-replacing actions (aria-live, one-tap restore). */}
+			{toast && (
+				<output className="pg-toast" aria-live="polite">
+					<span>{toast.msg}</span>
+					{toast.undo && (
+						<button type="button" onClick={onUndoRestore}>
+							Undo
+						</button>
+					)}
+				</output>
+			)}
 
 			{/* Split: rail | editor | handle | preview | rail — five children whose
 			    grid tracks ALWAYS match (a display:none child would desync tracks

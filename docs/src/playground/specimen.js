@@ -188,10 +188,17 @@ export function initSpecimen() {
     else render();
   }
 
-  // Send a specific variant's markdown to the playground as the edit value.
+  // Send a specific variant's markdown to the playground — via the ONE-SHOT
+  // handoff key, never a direct source write (2026-07-05 Specimen Book decision
+  // §4): the playground applies it when the draft is pristine, else parks it,
+  // so a seed can no longer clobber unsaved work. Key + shape mirror
+  // HANDOFF_KEY / makeHandoff in docs/src/lib/playground-controller.ts.
   function openInPlayground(markdown) {
     try {
-      localStorage.setItem(SOURCE_KEY, markdown);
+      localStorage.setItem(
+        'lattice-docs-pg-handoff',
+        JSON.stringify({ md: markdown, from: 'the component reference', ts: Date.now() }),
+      );
     } catch {
       /* non-fatal — playground falls back to its starter */
     }
