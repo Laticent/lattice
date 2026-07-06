@@ -9,25 +9,38 @@ export type GalleryGroup = { key: string; hint: string; items: GalleryItem[] };
 /**
  * "Load a deck" — the galleries drawer, fully rebuilt as a shadcn Sheet
  * (replacing the vanilla pg-drawer + scrim and its open/close/Esc wiring, which
- * Radix Dialog now owns accessibly). Two sections: scaffold the picked component
- * (reset-to-example / blank-skeleton) and load a full showcase / family deck.
- * Selecting either closes the Sheet and hands the action up to the controller.
+ * Radix Dialog now owns accessibly). Two sections: reset to the picked
+ * component's example, and load a full showcase / family deck. Selecting either
+ * closes the Sheet and hands the action up to the controller.
+ *
+ * "Insert blank skeleton" is deliberately GONE (2026-07-05 Specimen Book
+ * decision §0.4): skeleton insertion is an authoring affordance the Studio does
+ * properly; in a playground it produced an empty scaffold that renders badly
+ * and teaches nothing.
+ *
+ * Reset names its target and arm-confirms over a dirty draft (`resetArm`): the
+ * first press arms, the second replaces — and the controller parks a backup
+ * with an undo toast either way.
  */
 export function GalleriesSheet({
 	groups,
-	hasComponent,
+	resetTarget,
+	resetArm,
 	onLoadGallery,
 	onResetExample,
-	onInsertSkeleton,
 }: {
 	groups: GalleryGroup[];
-	hasComponent: boolean;
+	resetTarget: string;
+	resetArm: boolean;
 	onLoadGallery: (id: string) => void;
 	onResetExample: () => void;
-	onInsertSkeleton: () => void;
 }) {
 	const [open, setOpen] = React.useState(false);
-	const close = () => setOpen(false);
+	const [armed, setArmed] = React.useState(false);
+	const close = () => {
+		setOpen(false);
+		setArmed(false);
+	};
 
 	return (
 		<Sheet open={open} onOpenChange={setOpen} modal={false}>
@@ -54,23 +67,31 @@ export function GalleriesSheet({
 						</p>
 						<div className="flex flex-col gap-1.5">
 							<DrawerAction
-								disabled={!hasComponent}
+								disabled={!resetTarget}
 								onClick={() => {
+									if (resetArm && !armed) {
+										setArmed(true);
+										return;
+									}
 									onResetExample();
 									close();
 								}}
 							>
-								Reset to example
+								{armed
+									? `Replace your draft with the ${resetTarget} example?`
+									: resetTarget
+										? `Reset to the ${resetTarget} example`
+										: 'Reset to example'}
 							</DrawerAction>
-							<DrawerAction
-								disabled={!hasComponent}
-								onClick={() => {
-									onInsertSkeleton();
-									close();
-								}}
-							>
-								Insert blank skeleton
-							</DrawerAction>
+							{armed && (
+								<button
+									type="button"
+									onClick={() => setArmed(false)}
+									className="self-start px-2.5 text-xs text-muted-foreground hover:text-foreground"
+								>
+									Keep my draft
+								</button>
+							)}
 						</div>
 					</section>
 					{groups.map((grp) => (

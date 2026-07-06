@@ -160,9 +160,11 @@ async function loadGallery(user: ReturnType<typeof userEvent.setup>, label: stri
 	await user.click(sheet.getByRole('button', { name: new RegExp(label, 'i') }));
 }
 
-async function scaffold(user: ReturnType<typeof userEvent.setup>, name: 'Reset to example' | 'Insert blank skeleton') {
+async function scaffold(user: ReturnType<typeof userEvent.setup>) {
+	// The reset action names its target ("Reset to the <name> example") and
+	// "Insert blank skeleton" is gone (Specimen Book §0.4) — match by prefix.
 	const sheet = await openGalleries(user);
-	await user.click(sheet.getByRole('button', { name }));
+	await user.click(sheet.getByRole('button', { name: /Reset to/ }));
 }
 
 afterEach(() => {
@@ -203,15 +205,13 @@ describe('PlaygroundApp — gallery load shows the rendered deck (regression)', 
 		expectPaneInSync();
 	});
 
-	it('scaffolding (reset / skeleton) does not desync the pane', async () => {
+	it('scaffolding (reset) does not desync the pane', async () => {
 		const user = await mountPlayground();
 		await clickTab(user, 'Preview');
 		expectPaneInSync();
 		// Reset-to-example does not request a pane switch; whatever pane we are on
 		// must remain coherent.
-		await scaffold(user, 'Reset to example');
-		expectPaneInSync();
-		await scaffold(user, 'Insert blank skeleton');
+		await scaffold(user);
 		expectPaneInSync();
 	});
 });
@@ -246,8 +246,7 @@ const allCommands = [
 	fc.constant(paneCommand('Preview tab', (u) => clickTab(u, 'Preview'))),
 	fc.constant(paneCommand('load Jargon gallery', (u) => loadGallery(u, 'Jargon'))),
 	fc.constant(paneCommand('load Survey gallery', (u) => loadGallery(u, 'Survey'))),
-	fc.constant(paneCommand('reset to example', (u) => scaffold(u, 'Reset to example'))),
-	fc.constant(paneCommand('insert skeleton', (u) => scaffold(u, 'Insert blank skeleton'))),
+	fc.constant(paneCommand('reset to example', (u) => scaffold(u))),
 ];
 
 describe('PlaygroundApp — fuzz: the pane never desyncs across random journeys', () => {

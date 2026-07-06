@@ -290,3 +290,109 @@
 		display: none;
 	}
 }
+
+/* ── PR 5 chrome (2026-07-05 Specimen Book decision §4) ──────────────────── */
+
+/* Render-error badge — the phone-width stand-in for the hidden status line.
+   Rendered only while isError; visible only where .pg-status is hidden, so the
+   two never show together. Tapping expands .pg-error-detail below. */
+.pg-status-badge {
+	display: none;
+	flex: none;
+	width: 22px;
+	height: 22px;
+	border: 1px solid var(--fail, #c20000);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--fail, #c20000);
+	font-weight: 700;
+	font-size: 13px;
+	line-height: 1;
+	cursor: pointer;
+}
+@media (max-width: 560px) {
+	.pg-status-badge {
+		display: inline-grid;
+		place-items: center;
+	}
+}
+.pg-error-detail {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	padding: 8px 14px;
+	border-bottom: 1px solid var(--border);
+	background: color-mix(in srgb, var(--fail, #c20000) 8%, var(--bg));
+	color: var(--fail, #c20000);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	overflow-wrap: anywhere;
+}
+.pg-error-detail button {
+	flex: none;
+	border: 0;
+	background: none;
+	color: inherit;
+	cursor: pointer;
+}
+
+/* Parked-handoff bar: an external "Open in Playground" arrived over a dirty
+   draft. Persistent (not a toast) — the choice belongs to the user. */
+.pg-handoff-bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 14px;
+	border-bottom: 1px solid var(--border);
+	background: var(--bg-alt);
+	font-size: 13px;
+}
+.pg-handoff-msg {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.pg-handoff-apply,
+.pg-handoff-later {
+	flex: none;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 5px 11px;
+	font-size: 12.5px;
+	font-weight: 600;
+	background: var(--bg);
+	color: var(--text-body);
+	cursor: pointer;
+}
+.pg-handoff-apply {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+/* Undo toast for draft-replacing actions (backup + one-tap restore). */
+.pg-toast {
+	position: fixed;
+	bottom: 18px;
+	left: 50%;
+	translate: -50% 0;
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: min(92vw, 480px);
+	padding: 10px 16px;
+	border-radius: 10px;
+	background: var(--surface-inverse, #1c2230);
+	color: #fff;
+	font-size: 13.5px;
+	box-shadow: 0 8px 30px rgb(0 0 0 / 0.3);
+}
+.pg-toast button {
+	flex: none;
+	border: 0;
+	border-radius: 7px;
+	padding: 4px 10px;
+	background: rgb(255 255 255 / 0.18);
+	color: #fff;
+	font-weight: 600;
+	cursor: pointer;
+}

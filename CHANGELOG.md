@@ -34,6 +34,26 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **The Playground now remembers where you were and never destroys a draft
+  (Specimen Book, PR 5).** Four long-standing state janks fixed at the source
+  in a new pure kernel (`docs/src/lib/playground-controller.ts`): the picker's
+  search text and lens survive reopening the picker AND a reload; the chosen
+  component is remembered across reloads and stays synchronized with the
+  picker, which now says "(draft differs)" instead of showing a stale name
+  when the draft holds no recognized component; a keystroke in the slide body
+  no longer snaps a chosen variant back to default (the variant only re-syncs
+  when the `_class` line itself changes); and every draft-replacing path is
+  now safe — "Open in Playground" and the landing page hand off through a
+  one-shot key that auto-applies only over a pristine draft and otherwise
+  parks behind a Replace/Not-now bar, Reset names its target and arm-confirms,
+  and both back up the outgoing draft with a one-tap Undo toast. Render
+  errors now surface inline on phones (no more `alert()`), and the Insert
+  blank skeleton button is gone — the Playground carries no authoring
+  scaffold. Covered by 18 kernel unit tests and a six-scenario Playwright
+  spec run at desktop and phone widths against the built site.
+
 ### Changed
 
 - **The Specimen Book content migration is complete (PR 4).** The final 23

@@ -1,15 +1,15 @@
-// The "Edit this deck" handoff: seed a field card's sample into the playground's
-// source key (the SAME key specimen.js / the playground reads) before the <a>
-// navigates, so the playground opens on that deck. Pure-ish (touches
-// localStorage only); wired by FieldCardsLive via event delegation, mirroring
-// the old inline click handler in index.astro.
+// The "Edit this deck" handoff: park a field card's sample under the ONE-SHOT
+// handoff key (2026-07-05 Specimen Book decision §4) before the <a> navigates.
+// The playground applies it when its draft is pristine and parks it otherwise —
+// a landing-page click can no longer clobber someone's unsaved draft. Wired by
+// FieldCardsLive via event delegation, mirroring the old inline click handler.
 
-const SOURCE_KEY = 'lattice-docs-pg-source';
+import { HANDOFF_KEY, makeHandoff } from './playground-controller';
 
-/** Persist `source` as the playground's next deck. Swallows private-mode errors. */
+/** Park `source` as the playground's next deck. Swallows private-mode errors. */
 export function seedPlaygroundSource(source: string) {
 	try {
-		localStorage.setItem(SOURCE_KEY, source);
+		localStorage.setItem(HANDOFF_KEY, makeHandoff(source, 'the landing page', Date.now()));
 	} catch {
 		/* private mode */
 	}

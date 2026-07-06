@@ -13,6 +13,98 @@ export type Catalog = Record<string, CatalogEntry>;
 export type VariantOption = { value: string; label: string; title?: string };
 
 export const SOURCE_KEY = 'lattice-docs-pg-source';
+// ── Persisted-state keys (2026-07-05 Specimen Book decision §4) ──────────────
+// The Playground remembers where you were: the picked component, the picker's
+// last search + lens, and the surface mode. Draft protection: every writer that
+// would replace the one saved draft goes through the one-shot handoff key and
+// the insert-time fingerprint, with the previous draft parked under the backup
+// key (a confirm alone is not sufficient protection for the only copy of user
+// content).
+export const COMPONENT_KEY = 'lattice-docs-pg-component';
+export const SEARCH_KEY = 'lattice-docs-pg-search';
+export const LENS_KEY = 'lattice-docs-pg-lens';
+export const VIEW_KEY = 'lattice-docs-pg-view';
+export const HANDOFF_KEY = 'lattice-docs-pg-handoff';
+export const BACKUP_KEY = 'lattice-docs-pg-source-backup';
+export const INSERTED_HASH_KEY = 'lattice-docs-pg-inserted-hash';
+
+export type Handoff = { md: string; from: string; ts: number };
+
+/**
+ * Insert-time fingerprint (djb2, hex). Pristine-ness is "the draft still hashes
+ * to what the last programmatic writer recorded" — NEVER equality against the
+ * current catalog, which would break fleet-wide on every voice-migration deploy
+ * (an untouched old-bytes sample would suddenly read as a dirty draft).
+ */
+export function fingerprint(text: string): string {
+	let h = 5381;
+	for (let i = 0; i < text.length; i++) {
+		h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+	}
+	return (h >>> 0).toString(16);
+}
+
+/** A draft is pristine when it is empty or still matches the recorded insert hash. */
+export function isPristine(source: string, insertedHash: string | null): boolean {
+	if (!source || !source.trim()) return true;
+	return insertedHash != null && fingerprint(source) === insertedHash;
+}
+
+/** Parse a raw handoff payload; malformed/foreign shapes read as "no handoff". */
+export function readHandoff(raw: string | null): Handoff | null {
+	if (!raw) return null;
+	try {
+		const v = JSON.parse(raw) as Partial<Handoff>;
+		if (typeof v.md !== 'string' || !v.md) return null;
+		return { md: v.md, from: typeof v.from === 'string' && v.from ? v.from : 'link', ts: typeof v.ts === 'number' ? v.ts : 0 };
+	} catch {
+		return null;
+	}
+}
+
+/** Serialize a handoff payload (the writers' half of the contract). */
+export function makeHandoff(md: string, from: string, ts: number): string {
+	return JSON.stringify({ md, from, ts } satisfies Handoff);
+}
+
+/**
+ * Resolve an externally-persisted component pointer against the live catalog —
+ * a renamed/retired component (stale localStorage, old link) falls back to the
+ * first catalog entry instead of a blank frame or a throw (decision §4 I5).
+ */
+export function resolveComponent(catalog: Catalog, persisted: string | null): { name: string; fallback: boolean } {
+	if (persisted && catalog[persisted]) return { name: persisted, fallback: false };
+	const first = Object.keys(catalog).sort()[0] ?? '';
+	return { name: first, fallback: Boolean(persisted) };
+}
+
+/**
+ * Mode on load — one precedence rule (decision §4): an incoming handoff forces
+ * Edit; an explicit persisted view wins next; otherwise a pristine/empty draft
+ * opens the walkthrough surface and a dirty draft opens the editor (a constant
+ * walkthrough default would ambush every returning editor user). The Explore
+ * surface itself lands in PR 6 — until then callers clamp 'read' to 'edit'.
+ */
+export function resolveStartupView(opts: {
+	hasHandoff: boolean;
+	savedView: string | null;
+	source: string;
+	insertedHash: string | null;
+}): 'read' | 'edit' {
+	if (opts.hasHandoff) return 'edit';
+	if (opts.savedView === 'read' || opts.savedView === 'edit') return opts.savedView;
+	return isPristine(opts.source, opts.insertedHash) ? 'read' : 'edit';
+}
+
+/**
+ * The first `<!-- _class: ... -->` token line of a source — the variant-sync
+ * discriminator. The Variant select may snap only when THIS changes (the user
+ * actually edited the class line), never on every keystroke elsewhere.
+ */
+export function classTokenLine(src: string): string {
+	const m = /<!--\s*_class:\s*([^>]*?)\s*-->/.exec(src || '');
+	return m ? m[1].trim().replace(/\s+/g, ' ') : '';
+}
 
 /**
  * Detect which component (and variant) a deck source is, from the first

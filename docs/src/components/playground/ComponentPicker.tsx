@@ -13,23 +13,36 @@ import { cn } from '@/lib/utils';
  * the shared search-core so there's one taxonomy. Selecting a component reports
  * its name to the controller, which loads its sample + fresh-renders.
  *
- * cmdk owns its own keyboard nav / type-ahead, so this is far less code than the
- * hand-rolled listbox it replaces — and accessible by construction.
+ * Search + lens are CONTROLLED (2026-07-05 Specimen Book decision §4): the
+ * controller owns and persists them, so reopening the picker — or reloading the
+ * page — restores your last search instead of starting blank. Selecting a
+ * component deliberately does NOT clear the query.
+ *
+ * `detached` is the honest sync state: the editor's draft holds no recognized
+ * component, so the trigger says so instead of showing a stale name.
  */
 export function ComponentPicker({
 	components,
 	lenses,
 	current,
+	detached,
+	query,
+	onQueryChange,
+	lensId,
+	onLensChange,
 	onPick,
 }: {
 	components: CatalogItem[];
 	lenses: Lens[];
 	current: string;
+	detached?: boolean;
+	query: string;
+	onQueryChange: (q: string) => void;
+	lensId: string;
+	onLensChange: (id: string) => void;
 	onPick: (name: string) => void;
 }) {
 	const [open, setOpen] = React.useState(false);
-	const [query, setQuery] = React.useState('');
-	const [lensId, setLensId] = React.useState(lenses[0]?.id ?? 'function');
 	const fuse = React.useMemo(() => makeFuse(components), [components]);
 
 	const ranked = rankedFor(components, fuse, query); // flat ranked list while searching
@@ -39,7 +52,7 @@ export function ComponentPicker({
 	const select = (name: string) => {
 		onPick(name);
 		setOpen(false);
-		setQuery('');
+		// The query survives — reopening resumes the last search (decision §4).
 	};
 
 	// cmdk filters internally on its own value; we feed it a precise, pre-ordered
@@ -55,7 +68,9 @@ export function ComponentPicker({
 					aria-label="Pick a component"
 					className="w-full justify-between font-normal"
 				>
-					<span className="truncate">{current || 'Pick a component…'}</span>
+					<span className={cn('truncate', detached && 'text-muted-foreground italic')}>
+						{current ? (detached ? `${current} (draft differs)` : current) : 'Pick a component…'}
+					</span>
 					<ChevronsUpDown className="opacity-50" />
 				</Button>
 			</PopoverTrigger>
@@ -64,7 +79,7 @@ export function ComponentPicker({
 					<CommandInput
 						placeholder="Search components — name, tag, or description…"
 						value={query}
-						onValueChange={setQuery}
+						onValueChange={onQueryChange}
 					/>
 					<div className="flex items-center gap-2 border-b border-border px-2 py-1.5">
 						<span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Group</span>
@@ -72,10 +87,10 @@ export function ComponentPicker({
 							<button
 								key={l.id}
 								type="button"
-								onClick={() => setLensId(l.id)}
+								onClick={() => onLensChange(l.id)}
 								className={cn(
 									'rounded px-1.5 py-0.5 text-[11px] font-medium',
-									l.id === lensId ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
+									l.id === (lens?.id ?? '') ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
 								)}
 							>
 								{l.label}
