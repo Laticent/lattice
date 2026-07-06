@@ -1334,6 +1334,94 @@ function checkOpenRouterBudget(errors) {
   }
 }
 
+// ── Vetrina (docs/src/lib/vetrina) — the walkthrough library ────────────────
+// Two structural antibodies from the design's Munger-inversion pass
+// (engineering/decisions/2026-07-05-vetrina-walkthrough-library.md §13, §6.1):
+// keep the open-sourceable core mechanically decoupled, and freeze the gesture
+// alphabet so it can't sprawl into a sticker pack. Same allowlist + anti-rot
+// shape the repo already trusts for margins / hex / preview-sinks (HARD RULE #15).
+
+const VETRINA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'vetrina');
+// The core is framework-free and self-contained: every import must resolve
+// INSIDE the folder (`./x`). A bare specifier (npm dep) or a `../` escape couples
+// it to the host and breaks the "standalone, zero host deps" promise (§13). The
+// one sanctioned outside dep is `react`/`react-dom` in the thin adapter, which
+// §13 designates the peer-dep seam — keyed to that filename so nothing else can
+// launder a host import through it.
+const VETRINA_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
+const VETRINA_ADAPTER = 'react.ts'; // the sole file allowed to import the peer framework
+const VETRINA_ADAPTER_DEPS = new Set(['react', 'react-dom']);
+
+function checkVetrinaBoundary(errors) {
+  if (!fs.existsSync(VETRINA_DIR)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(VETRINA_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const base = path.basename(file);
+    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev test runner (a devDep, not host coupling)
+    const isAdapter = base === VETRINA_ADAPTER;
+    const src = fs.readFileSync(file, 'utf8');
+    for (const m of src.matchAll(VETRINA_IMPORT)) {
+      const spec = m[1];
+      if (spec.startsWith('./')) continue; // in-folder relative — fine
+      if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+      if (isAdapter && VETRINA_ADAPTER_DEPS.has(spec)) continue; // the sanctioned peer-dep seam
+      errors.push(
+        `${rel} imports '${spec}', which escapes the Vetrina folder. The walkthrough library is ` +
+        `open-sourceable and MUST stay self-contained (design doc §13): imports resolve inside ` +
+        `docs/src/lib/vetrina/ (\`./x\`) only. The one exception is react/react-dom in the ${VETRINA_ADAPTER} ` +
+        `adapter (the peer-dep seam). Move shared code into the folder, or route host glue through the adapter.`,
+      );
+    }
+  }
+}
+
+// The gesture alphabet is a CURATED vocabulary, not a motion library: a gesture
+// earns its place by carrying a distinct MEANING the eye reads (§6.1), so the
+// `Gesture` union in stage.ts is frozen to exactly this registry. Adding one is
+// an allowlist edit that forces the "what meaning?" question — a NEW member in
+// the type that isn't sanctioned fails, and a stale sanction the type dropped
+// fails, so the two can't drift.
+const SANCTIONED_GESTURES = {
+  wave: 'greeting / hello (the opening flourish)',
+  circle: '"look here / this just rendered" — a glow on the bounding box + the cursor orbiting it',
+  check: 'success / done / correct',
+  cross: 'wrong / rejected / deleted',
+  shake: '"no — careful / try again" (universal negation)',
+};
+
+function checkSanctionedGestures(errors) {
+  const stage = path.join(VETRINA_DIR, 'stage.ts');
+  if (!fs.existsSync(stage)) return; // library not present
+  const src = fs.readFileSync(stage, 'utf8');
+  const decl = src.match(/export\s+type\s+Gesture\s*=\s*([^;]+);/);
+  if (!decl) {
+    errors.push(
+      `Vetrina: could not find the \`export type Gesture = …\` union in docs/src/lib/vetrina/stage.ts — ` +
+      `the SANCTIONED_GESTURES gate can't verify the frozen alphabet (§6.1). Restore the declaration.`,
+    );
+    return;
+  }
+  const declared = new Set((decl[1].match(/'([a-z]+)'/g) || []).map((s) => s.replace(/'/g, '')));
+  const sanctioned = new Set(Object.keys(SANCTIONED_GESTURES));
+  for (const g of declared) {
+    if (!sanctioned.has(g)) {
+      errors.push(
+        `Vetrina: gesture '${g}' is declared in the Gesture union but not in SANCTIONED_GESTURES ` +
+        `(§6.1 / HARD RULE #15). A gesture earns its place by carrying a distinct MEANING — add '${g}' ` +
+        `to SANCTIONED_GESTURES in tools/check-ownership.js with the meaning it says, or drop it.`,
+      );
+    }
+  }
+  for (const g of sanctioned) {
+    if (!declared.has(g)) {
+      errors.push(
+        `Vetrina: SANCTIONED_GESTURES lists '${g}', but the Gesture union in stage.ts no longer declares ` +
+        `it — remove the stale entry so the frozen alphabet stays honest (§6.1).`,
+      );
+    }
+  }
+}
+
 // ── Runner ────────────────────────────────────────────────────────────────
 
 // Prose-density coverage — every TEXT-BEARING layout declares a `density` word
@@ -1434,6 +1522,8 @@ function run() {
   checkDensityCoverage(manifests, errors);
   checkPreviewHtmlSinks(errors);
   checkOpenRouterBudget(errors);
+  checkVetrinaBoundary(errors);
+  checkSanctionedGestures(errors);
   return {
     errors,
     counts: {
@@ -1512,4 +1602,10 @@ module.exports = {
   SHARED_SELECTORS,
   REQUIRED_THEME_TOKENS,
   SINGLETON_TAGS,
+  checkVetrinaBoundary,
+  checkSanctionedGestures,
+  SANCTIONED_GESTURES,
+  VETRINA_DIR,
+  VETRINA_ADAPTER,
+  VETRINA_IMPORT,
 };
