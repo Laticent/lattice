@@ -11,7 +11,7 @@ import { expect, gotoStudio, railButtons, readStorage, test, toastText } from '.
 // share → polish → present) at ~85s, so the completion test needs generous headroom.
 test.describe.configure({ timeout: 180_000 });
 
-const STAGE = '.studio-demo-stage';
+const STAGE = '.vetrina-stage';
 const WATCH = 'button[aria-label="Watch demo"]';
 const FIRST_DECK = 'My First Deck';
 

@@ -1,12 +1,32 @@
-// The STUDIO WALKTHROUGH storyboard — the script the demo director plays. It reuses
-// the exec-board-update journey (a Q4 board deck the Coach scores board-ready), so
-// the demo showcases a REAL, deterministic success path: compose → coach → present
-// → export, with no AI call and no key spend (HARD RULE #24). Every `act` closure
-// pokes a real Studio setter; the selectors only tell the cursor where to point.
+// The STUDIO WALKTHROUGH storyboard — the script Vetrina plays. It reuses the
+// exec-board-update journey (a Q4 board deck the Coach scores board-ready), so the
+// demo showcases a REAL, deterministic success path: compose → coach → present →
+// export, with no AI call and no key spend (HARD RULE #24). Every `act` closure pokes
+// a real Studio setter; the selectors only tell the cursor where to point.
+//
+// Vetrina consumer: the walkthrough is `storyboard(seed, steps)`, a Walkthrough the
+// hook hands to run(). Selectors resolve ROOT-scoped by default; the one portalled
+// target (the New Deck menu item, which Radix mounts on <body>) uses a thunk.
 
-import type { DemoStep, Storyboard } from './demo-director';
+import { type Step, storyboard, type Walkthrough } from '../../lib/vetrina';
 import { setGroupToken } from './slide-directives';
 import { setFinish, setStampStyle } from './slide-provenance';
+
+/** The Studio setters the demo's `act` closures drive (each bound to real state in the hook). */
+export type StudioActions = {
+	openDeckMenu: (open: boolean) => void;
+	createFirstDeck: () => void;
+	gotoSlide: (index: number) => void;
+	openInspector: (open: boolean) => void;
+	setPalette: (name: string) => void;
+	toggleMode: () => void;
+	openArchitect: (open: boolean) => void;
+	setArchitectTab: (tab: 'coach' | 'chat') => void;
+	openPresent: (open: boolean) => void;
+	openShare: (open: boolean) => void;
+	openSlideSettings: (open: boolean) => void;
+	mutateSlide: (fn: (chunk: string) => string) => void;
+};
 
 // The mutually-exclusive per-slide STATE group (lib UNIVERSAL_GROUPS.state) — set
 // `wip` and the others are cleared. Hardcoded here so the storyboard stays a plain
@@ -40,10 +60,14 @@ const SEL = {
 	share: '[data-demo="share"]',
 	slideSettings: '[aria-label="Slide settings"]',
 	deckSwitcher: '[data-demo="deck-switcher"]',
-	newDeck: '[data-demo="new-deck"]',
 } as const;
+/** The New Deck item lives in a Radix menu portalled to <body> (outside the Studio root),
+ *  so it needs a whole-document thunk rather than a root-scoped selector. */
+const newDeckItem = () => document.querySelector<HTMLElement>('[data-demo="new-deck"]');
+/** Type into the editor. */
+const type = (text: string, cadence: number): Step<StudioActions>['type'] => ({ target: SEL.editor, text, cadence });
 
-const steps: DemoStep[] = [
+const steps: Step<StudioActions>[] = [
 	{
 		say: 'The Studio — a ~90-second live demo that drives itself: it builds a board deck, coaches it, and ships it.',
 		settle: 1800,
@@ -51,14 +75,14 @@ const steps: DemoStep[] = [
 	// The first-time experience starts where every deck does — the deck switcher.
 	{
 		say: 'Every deck starts the same way — from the deck menu.',
-		moveTo: SEL.deckSwitcher,
+		point: SEL.deckSwitcher,
 		click: true,
 		act: (a) => a.openDeckMenu(true),
 		settle: 950,
 	},
 	{
 		say: 'New deck — a blank canvas, titled “My First Deck.”',
-		moveTo: SEL.newDeck,
+		point: newDeckItem,
 		click: true,
 		// A real, persisted deck (deduped first, so a re-run never doubles it). It
 		// blanks the canvas, switches to it, and closes the menu — the newcomer keeps it.
@@ -70,42 +94,39 @@ const steps: DemoStep[] = [
 	},
 	{
 		say: 'You write in plain Markdown on the left…',
-		moveTo: SEL.editor,
+		point: SEL.editor,
 		click: true,
 		settle: 300,
 	},
 	// Slide 1 is the hero — typed at a readable pace so the eye can follow it land.
 	{
 		say: '…and the engine renders it live on the right, as you type.',
-		type: upTo(1),
-		cadence: 24,
+		type: type(upTo(1), 24),
 		settle: 550,
 	},
 	// The first "look what it made" beat — circle the preview while its frame glows.
 	{
-		moveTo: SEL.preview,
+		point: SEL.preview,
 		circle: SEL.preview,
 		say: 'Every slide is a boardroom-grade layout — no fiddling with boxes.',
 		settle: 900,
 	},
 	// Build the rest slide by slide. Each slide is typed, then held past the preview's
 	// ~140ms render debounce, so the preview repaints THAT slide before the next —
-	// editor and preview stay in sync (a single fast burst freezes the preview on the
-	// last-rendered slide until it settles). Reads as "watch the deck build."
+	// editor and preview stay in sync. Reads as "watch the deck build."
 	{
 		say: 'Now watch the rest build — slide by slide.',
-		moveTo: SEL.editor,
+		point: SEL.editor,
 		click: true,
-		type: upTo(2),
-		cadence: 7,
+		type: type(upTo(2), 7),
 		settle: 340,
 	},
-	{ type: upTo(3), cadence: 6, settle: 380 },
-	{ type: upTo(4), cadence: 6, settle: 320 },
-	{ type: upTo(5), cadence: 6, settle: 320 },
-	{ type: upTo(6), cadence: 6, settle: 420 },
+	{ type: type(upTo(3), 6), settle: 380 },
+	{ type: type(upTo(4), 6), settle: 320 },
+	{ type: type(upTo(5), 6), settle: 320 },
+	{ type: type(upTo(6), 6), settle: 420 },
 	{
-		moveTo: SEL.rail,
+		point: SEL.rail,
 		say: 'Six slides, drafted in seconds. Jump to any of them.',
 		act: (a) => a.gotoSlide(2),
 		click: true,
@@ -118,21 +139,21 @@ const steps: DemoStep[] = [
 	},
 	// Circle the preview again on the reskin, so the eye catches the whole deck reshade.
 	{
-		moveTo: SEL.theme,
+		point: SEL.theme,
 		click: true,
 		act: (a) => a.setPalette('cuoio'),
 		circle: SEL.preview,
 		settle: 900,
 	},
 	{
-		moveTo: SEL.mode,
+		point: SEL.mode,
 		say: 'Light or dark, instantly — the theme carries both.',
 		click: true,
 		act: (a) => a.toggleMode(),
 		settle: 1100,
 	},
 	{
-		moveTo: SEL.architect,
+		point: SEL.architect,
 		say: 'The Architect Coach scores the deck against a boardroom rubric.',
 		click: true,
 		act: (a) => {
@@ -143,7 +164,7 @@ const steps: DemoStep[] = [
 	},
 	{
 		say: 'Board-ready. Now present it full-screen…',
-		moveTo: SEL.present,
+		point: SEL.present,
 		click: true,
 		act: (a) => a.openPresent(true),
 		settle: 1650,
@@ -154,7 +175,7 @@ const steps: DemoStep[] = [
 	},
 	{
 		say: '…or export a pixel-perfect PDF, ready for the boardroom.',
-		moveTo: SEL.share,
+		point: SEL.share,
 		click: true,
 		act: (a) => a.openShare(true),
 		settle: 1750,
@@ -166,14 +187,14 @@ const steps: DemoStep[] = [
 	// ── The closing flourish: polish the hero via its own settings, then present it. ──
 	{
 		say: 'One last thing — let’s make the title unmistakably yours.',
-		moveTo: SEL.rail,
+		point: SEL.rail,
 		act: (a) => a.gotoSlide(0),
 		click: true,
 		settle: 900,
 	},
 	{
 		say: 'Every slide has its own controls.',
-		moveTo: SEL.slideSettings,
+		point: SEL.slideSettings,
 		click: true,
 		act: (a) => a.openSlideSettings(true),
 		settle: 800,
@@ -207,14 +228,11 @@ const steps: DemoStep[] = [
 	// Slam into Present, full-screen, on the glowing hero.
 	{
 		say: 'This is the Studio. Now go build yours.',
-		moveTo: SEL.present,
+		point: SEL.present,
 		click: true,
 		act: (a) => a.openPresent(true),
 		settle: 3200,
 	},
 ];
 
-export const studioWalkthrough: Storyboard = {
-	seed: '',
-	steps,
-};
+export const studioWalkthrough: Walkthrough<StudioActions> = storyboard<StudioActions>('', steps);
