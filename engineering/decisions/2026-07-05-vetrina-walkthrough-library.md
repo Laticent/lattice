@@ -264,6 +264,35 @@ interface EffectsTheme {
 }
 ```
 
+**Palette-blind by construction — a curated token layer (carries lattice's DNA).** Vetrina is
+themed the way `lattice.css` is: **every color in the stage renders through a `var(--vt-*)` role
+token with a sensible default — no hex literals in the theater layer** (the engine's own equivalent of
+HARD RULE #3). The set is small and **named by role, not by scheme** (per HARD RULE #11):
+
+```
+--vt-accent · --vt-cursor-fill · --vt-cursor-stroke · --vt-caption-bg · --vt-caption-ink · --vt-ring-halo
+```
+
+There are **two theming paths, and no added surface for the common user**:
+- the `EffectsTheme` JS object (`accent`/`speed`/`pointer`) is the ergonomic 90% path — it just
+  *writes the tokens* (`accent` → `--vt-accent` via `setProperty`, never concatenation — I4);
+- a host wanting brand-deep control **overrides the CSS custom properties directly** — no JS, and
+  light/dark falls out of the host's own token definitions.
+
+Configure nothing → the house look. This is *more* Rams, not more surface: it adds an internal
+discipline (palette-blind) and a power path (CSS override) while the common caller still passes only
+`accent`, or nothing.
+
+**Light/dark: ground-agnostic by default, mode-responsive by opt-in.** The theater floats *above* the
+host and is styled to stay legible over a **light OR dark ground without switching** — the cue rings
+pair the accent with a white co-stroke + bloom (so a same-hue accent never washes out on a dark
+preview), and the caption is a dark scrim with light text that reads on both. Proof: the Studio demo
+**flips light↔dark mid-run** and the cursor + captions never wash out (like film subtitles — a
+constant legible narrator over any scene). A host that instead wants the overlay to *flip its own
+palette* with the OS/app mode redefines the `--vt-*` tokens under `prefers-color-scheme` /
+`[data-theme]` (the `lattice.css` pattern). The **host owns the app's palette** — Vetrina drives the
+mode toggle via a host action (the demo's `toggleMode` beat), never managing the app's theme itself.
+
 **Pointer & glow ARE customizable — as shape + color, from curated choices:**
 - **Color** — the pointer, the cue rings, and the `circle` glow all tint from `accent`. One token
   brands the whole theater. (Applied via `setProperty`, never concatenated into `cssText` — I4.)
