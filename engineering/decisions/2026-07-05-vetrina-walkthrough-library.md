@@ -86,7 +86,7 @@ sit ergonomic layers that **compile down to it**:
   Branch, loop, wait, react-to-events are plain JavaScript — *no invented primitives*. **Total and
   always reachable** (I9). It is the escape hatch *and* the foundation.
 - **The data model — `Step[]`.** A linear walkthrough as data (fixed order say→point→click→act→
-  type→circle→settle). Serializable and programmatically **generable** (you `.map()` data) — this is
+  type→gesture→settle). Serializable and programmatically **generable** (you `.map()` data) — this is
   what the wire / runtime-generation cases use.
 - **The fluent builder — `scene()`.** A *recording* builder (it **constructs**, it does not execute)
   that emits the `Step[]` data. The **recommended surface for hand-authoring**: it reads as intent and
@@ -186,13 +186,17 @@ function run<A>(opts: RunOptions<A>): RunHandle;   // mounts stage, installs gua
 
 ```ts
 type Target = string | HTMLElement | (() => HTMLElement | null); // selector | node | fn
+type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake';  // the cursor's body language (§6.1)
 
 interface Stage {
+  // MECHANICS — functional cursor ops
   say(text: string): void;              // caption; textContent only; '' CLEARS, undefined LEAVES it
   point(target: Target): Promise<void>; // anticipation cue -> (register beat) -> eased glide
   press(): Promise<void>;               // click burst at the cursor (theater; pair with act)
-  circle(target: Target): Promise<void>;// frame glow + orbit — the "look what rendered" confirm
-  intro(): Promise<void>;               // opening flourish (cursor materializes, waves)
+  // GESTURES — expressive choreography that carries MEANING (pure theater; never actuates)
+  gesture(kind: Gesture, target?: Target): Promise<void>;
+  intro(): Promise<void>;               // opening flourish = cursor materializes + gesture('wave')
+  // INTROSPECTION / LIFECYCLE
   resolve(target: Target): HTMLElement | null; // scoped to root by DEFAULT; portals opt-in (§12)
   readonly reduced: boolean;
   contains(node: EventTarget | null): boolean; // is this the stage's own chrome (Exit)?
@@ -201,12 +205,47 @@ interface Stage {
 ```
 
 Semantics pinned against the shipping code so a port can't silently regress:
-- **A null-resolving `point`/`circle` is a NO-OP** — no wait, no throw, no hang (selectors *do* miss
-  on portal timing). *(§14/checker.)*
+- **A null-resolving `point` / `gesture(..., target)` is a NO-OP** — no wait, no throw, no hang
+  (selectors *do* miss on portal timing). *(§14/checker.)*
 - **`point` preserves the register beat** — the ~480 ms pause between the anticipation cue and the
   glide that lets the eye lead the cursor. Fused into `point()` but not dropped; asserted by a
   *timing* test, not just an order test (§14/M3).
 - Every Stage animation races the run's `AbortSignal` and rejects `AbortError` on take-over.
+
+### 6.1 Gestures — the cursor's body language (a first-class, curated concept)
+
+A **gesture** is a small piece of cursor choreography that the viewer **reads as meaning something** —
+the theater metaphor taken to its end: the cursor is an actor, and gestures are its body language. This
+unifies motions that were ad-hoc special cases (the hello `wave` buried in `intro`, the `circle`) under
+one concept — *more* Saint-Exupéry, not less. The **curated alphabet** (v1):
+
+| Gesture | Meaning |
+|---|---|
+| `wave` | greeting / hello (the opening flourish) |
+| `circle` | "look here / this just rendered" (orbits a target) |
+| `check` | success / done / correct |
+| `cross` | wrong / rejected / deleted |
+| `shake` | "no — careful / try again" (universal negation) |
+
+Greet, direct attention, confirm, reject, negate — the semantic range a silent narrator needs. This
+lights up real consumers: `check` on a completed guided-support step; `check`/`shake` for
+correct-vs-try-again in a teach-then-test tutorial; `check`/`cross` for approve-vs-reject in the
+trust-preview beat (§12).
+
+The rules that keep it an alphabet, not a sticker pack:
+- **A gesture earns its place by carrying a distinct MEANING the eye can read** — not by being a
+  different motion (the human-not-machine tenet, §2). `wave`/`circle`/`check`/`cross`/`shake` each
+  *say* something; `spin`/`bounce`/`wiggle` don't — they stay out. Extend the set only when a genuinely
+  missing *meaning* appears, never for a new animation.
+- **A gesture is pure theater (I1).** `check` does not mark anything done in the app — it only *shows*
+  success; the `act` did the deed. Gestures never dispatch a real action.
+- **No custom-gesture callbacks.** Same hole the trio closed on cues (§14/C2): a custom gesture that's a
+  *function receiving the target element* could call `.click()` and break take-over. If gestures ever
+  become extensible, a custom one is a **rendered motion description** (a keyframe/path spec the engine
+  draws), never a callback with DOM access. v1 ships the curated set, no custom-gesture API.
+- Pace follows the `speed` preset (no per-gesture dials); reduced motion collapses a gesture to an
+  instant cue or skips it. `intro` = materialize + `gesture('wave')`; `circle:`/`.circle()` in the data
+  model & builder (§10) are sugar for `gesture('circle', target)`, so the Studio demo migrates unchanged.
 
 ---
 
@@ -359,17 +398,20 @@ interface Step<A> {
   say?: string; point?: Target; click?: boolean;
   act?: (a: A) => void | Promise<void>;   // async allowed; the runner awaits it (races abort — I6)
   type?: string; cadence?: number;         // per-step ms/char (load-bearing: 7 vs 24 drives the pace)
-  circle?: Target; settle?: number;
+  gesture?: Gesture | { kind: Gesture; target?: Target };  // §6.1 body language; runs after act
+  circle?: Target;                         // sugar for gesture: { kind: 'circle', target } (§6.1)
+  settle?: number;
 }
 
 function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data → primitive
 ```
 
-- Fixed interpretation order per step: **say → point → click → act → type → circle → settle** — so a
+- Fixed interpretation order per step: **say → point → click → act → type → gesture → settle** — so a
   storyboard reads top-to-bottom as intent.
-- **`act` runs (awaited) BEFORE the `circle` confirm**, and a **rejected `act` suppresses the
-  success narration** and routes to `onStop('error')` — the theater must never circle "look what
-  rendered" around a change that failed (§14/Munger, the trust invariant).
+- **`act` runs (awaited) BEFORE the `gesture` confirm**, and a **rejected `act` suppresses the
+  success narration + any outcome gesture** and routes to `onStop('error')` — the theater must never
+  play `check`/`circle` "look what rendered" around a change that failed (§14/Munger, the trust
+  invariant). *(A failed `act` is exactly where a `cross`/`shake` is honest, if the author wants it.)*
 - `seed` and per-step `cadence` are **first-class** (the candidate dropped them; both are load-bearing
   for the migrated Studio demo — §14/checker).
 - Type inference: annotate once — `storyboard<StudioActions>(seed, [...])` — or let `A` bind from
@@ -383,9 +425,11 @@ passed to `run()`. It emits the same `Step[]`, so serialization/generation survi
 function scene<A>(): SceneBuilder<A>;
 interface SceneBuilder<A> {
   say(text: string): this;
-  point(t: Target): this;  click(): this;  circle(t: Target): this;
+  point(t: Target): this;  click(): this;
   act(fn: (a: A) => void | Promise<void>): this;
   type(t: Target, text: string, opts?: { cadence?: number }): this;
+  gesture(kind: Gesture, target?: Target): this;                 // §6.1 body language
+  wave(): this;  circle(t: Target): this;  check(): this;  cross(): this;  shake(): this; // sugar
   hold(ms: number): this;                 // = a step's `settle`
   build(): Walkthrough<A>;                 // → primitive; compose via `await scene(...).build()(ctx)`
   toData(): Step<A>[];                     // → the data model (wire / inspection / generation)
