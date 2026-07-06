@@ -25,6 +25,8 @@ export interface TypeOps {
 /** Per-`type` options (distinct from `TypeOps`). */
 export interface TypeOpts {
 	cadence?: number;
+	/** Set the whole text at once with NO keystroke animation (the instant-beat path). */
+	instant?: boolean;
 }
 
 export type StopReason = 'complete' | 'takeover' | 'exit' | 'error';
@@ -222,11 +224,12 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		if (current === text) return;
 		const cadence = (o?.cadence ?? 22) * stage.pace;
 		const keep = commonPrefix(current, text);
-		// Reduced motion (or a huge insert) -> set the whole target at once.
-		if (stage.reduced || text.length - keep > 1600) {
+		// Instant (no animation at all), reduced motion, or a huge insert -> set the whole target
+		// at once. Instant skips even the settle wait; the others keep a short beat.
+		if (o?.instant || stage.reduced || text.length - keep > 1600) {
 			ops.set(text);
 			typed.set(key, text);
-			await wait(stage.reduced ? 60 : 260, signal);
+			if (!o?.instant) await wait(stage.reduced ? 60 : 260, signal);
 			return;
 		}
 		if (keep < current.length) {

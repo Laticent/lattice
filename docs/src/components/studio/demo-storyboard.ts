@@ -169,9 +169,11 @@ const steps: Step<StudioActions>[] = [
 		act: (a) => a.openPresent(true),
 		settle: 1650,
 	},
+	// Close the present overlay instantly — a silent bit of plumbing, no theater.
 	{
 		act: (a) => a.openPresent(false),
-		settle: 400,
+		instant: true,
+		settle: 250,
 	},
 	{
 		say: '…or export a pixel-perfect PDF, ready for the boardroom.',
@@ -182,7 +184,8 @@ const steps: Step<StudioActions>[] = [
 	},
 	{
 		act: (a) => a.openShare(false),
-		settle: 350,
+		instant: true,
+		settle: 250,
 	},
 	// ── The closing flourish: polish the hero via its own settings, then present it. ──
 	{

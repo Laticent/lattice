@@ -155,10 +155,34 @@ function interleavePlay(): Walkthrough<BoardHost> {
 	};
 }
 
+/** An INSTANT beat: the reorder applies now — no cursor glide, no drop animation, no gesture —
+ *  followed by an `until` gate that holds until the reorder is visible in the DOM (proving the
+ *  non-async advance gate end-to-end on the real browser). Holds afterward so the e2e can
+ *  confirm the cursor never traveled to the list. */
+function instantPlay(): Walkthrough<BoardHost> {
+	return async (ctx) => {
+		ctx.actions.setPhase('touring');
+		await storyboard<BoardHost>('', [
+			{
+				act: (a) => a.reorder('a3', 'a1'),
+				instant: true,
+				// Non-async readiness: hold until the reordered DOM shows a3 first (a pollable
+				// condition, no promise) — the declarative `until` gate on a real surface.
+				until: () => ctx.stage.resolve('#widget-a ol li')?.id === 'a3',
+				settle: 0,
+			},
+		])(ctx);
+		ctx.actions.setPhase('holding');
+		await ctx.awaitUser({ match: () => false, timeout: 5000, onTimeout: 'resume' });
+		ctx.actions.setPhase('done');
+	};
+}
+
 const DEMOS: Record<string, () => Walkthrough<BoardHost>> = {
 	gestures: gesturesPlay,
 	'drag-ok': dragOkPlay,
 	'drag-fail': dragFailPlay,
+	instant: instantPlay,
 	theming: themingPlay, // pure CSS-first (no JS theme) — inherits the host :root cascade
 	'theming-js': themingPlay, // same hold, but started with a concrete JS accent (below)
 	decouple: decouplePlay,

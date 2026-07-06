@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { loop, retry, waitFor } from './recipes';
+import { describe, expect, it, vi } from 'vitest';
+import { holdUntil, loop, retry, waitFor } from './recipes';
 import type { RunContext } from './runner';
 
 const fakeCtx = () => ({ signal: new AbortController().signal, stage: { resolve: () => null } }) as unknown as RunContext<unknown>;
+const abortedCtx = () => {
+	const c = new AbortController();
+	c.abort();
+	return { signal: c.signal, stage: { resolve: () => null } } as unknown as RunContext<unknown>;
+};
 
 describe('recipes — loop', () => {
 	it('runs `times`', async () => {
@@ -56,5 +61,67 @@ describe('recipes — waitFor', () => {
 	it('returns undefined on timeout (no throw)', async () => {
 		const r = await waitFor(fakeCtx(), () => false, { timeout: 20, interval: 5 });
 		expect(r).toBeUndefined();
+	});
+	it('is throw-safe — a throwing predicate is treated as "not ready yet"', async () => {
+		let n = 0;
+		await waitFor(
+			fakeCtx(),
+			() => {
+				if (++n < 3) throw new Error('el is null');
+				return true;
+			},
+			{ interval: 5 },
+		);
+		expect(n).toBe(3);
+	});
+});
+
+describe('recipes — holdUntil (the internal advance gate behind Step.until)', () => {
+	it('resolves when the predicate turns true', async () => {
+		let ready = false;
+		setTimeout(() => {
+			ready = true;
+		}, 25);
+		await holdUntil(fakeCtx(), () => ready, { interval: 5 });
+		expect(ready).toBe(true);
+	});
+	it('is throw-safe — a throwing predicate means "not ready", not a crash', async () => {
+		let n = 0;
+		await holdUntil(
+			fakeCtx(),
+			() => {
+				if (++n < 3) throw new Error('el is null');
+				return true;
+			},
+			{ interval: 5 },
+		);
+		expect(n).toBe(3);
+	});
+	it('on timeout ADVANCES with a console.warn — never throws (not fatal), never silent', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await expect(holdUntil(fakeCtx(), () => false, { timeout: 20, interval: 5 })).resolves.toBeUndefined();
+		expect(warn).toHaveBeenCalledWith(expect.stringMatching(/until\(\) advanced/i));
+		warn.mockRestore();
+	});
+	it('names the LAST predicate error in the timeout warning (diagnoses a broken predicate)', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await holdUntil(
+			fakeCtx(),
+			() => {
+				throw new Error('boom-typo');
+			},
+			{ timeout: 20, interval: 5 },
+		);
+		expect(warn).toHaveBeenCalledWith(expect.stringContaining('boom-typo'));
+		warn.mockRestore();
+	});
+	it('aborts on an already-aborted signal (before the first poll)', async () => {
+		await expect(holdUntil(abortedCtx(), () => false, { interval: 5 })).rejects.toThrow(/abort/i);
+	});
+	it('aborts MID-poll — a take-over fired while waiting rejects, does not advance', async () => {
+		const c = new AbortController();
+		const ctx = { signal: c.signal, stage: { resolve: () => null } } as unknown as RunContext<unknown>;
+		setTimeout(() => c.abort(), 10); // fire the take-over after polling has started
+		await expect(holdUntil(ctx, () => false, { timeout: 5000, interval: 5 })).rejects.toThrow(/abort/i);
 	});
 });

@@ -91,6 +91,43 @@ scene()
   .hold(400)
 ```
 
+## Instant beats & advance control
+
+Not every beat should be *performed*. Setup, closing an overlay, or jumping ahead
+are plumbing — mark them **`instant`** and the substance applies with **no cursor
+movement, no typing animation, no gesture, no settle**. (An `instant` beat that
+also carries a `point`/`gesture` warns at build — those verbs have no theater to
+hang on.)
+A walkthrough that is *mostly* instant isn't a walkthrough — it's a silent state
+machine; instant is for the plumbing *between* the beats you actually teach.
+
+```ts
+scene()
+  .act((a) => a.closeOverlay()).instant()          // fires now, silently — no theater
+  .say('Now the real beat…').point('#next').click().act((a) => a.next())
+```
+
+**Controlling when the next beat starts** — three gates, by what your app exposes:
+
+- **Fixed pause** — `settle` (or `.hold(ms)`): wait a set duration. Works with
+  `instant` too: `{ act, instant: true, settle: 500 }`.
+- **A promise (async readiness)** — an **async `act`**: the step already `await`s
+  it, so returning a promise that resolves when you're ready holds the beat. Reach
+  for this first when the app can hand you a "done" promise.
+- **A pollable condition (non-async readiness)** — `until(() => cond)`: when the
+  app only exposes a *synchronous* flag (a DOM attribute, a state bool) with no
+  promise, hold (abort-safe polling) until it's true, *then* continue. It keeps
+  that wait in the declarative layer, so you never drop to the raw API for it. It
+  is **throw-safe** — a predicate that throws while its element is still null
+  counts as "not ready yet" — and on a ~15s timeout it **advances with a
+  `console.warn`** (naming the last predicate error, if any): never silent, but
+  never fatal either, so a backgrounded tab or a slow app can't self-destruct the
+  run. For a hard "fail if not ready," gate inside an async `act` and throw there.
+
+  ```ts
+  scene().act((a) => a.loadDeck()).instant().until(() => deckIsRendered())
+  ```
+
 ## Gestures — the cursor's body language
 
 A curated **five-gesture alphabet**, each carrying a distinct *meaning* the eye
