@@ -15,7 +15,8 @@ function deckSwitcher(page: import('@playwright/test').Page) {
 test('creating a new deck adds it to the index and switches to it', async ({ page }) => {
 	await gotoStudio(page);
 
-	await page.getByRole('button', { name: 'Workspace launcher' }).click();
+	// Deck CRUD lives in the deck switcher (not the Workspace launcher).
+	await deckSwitcher(page).click();
 	await page.getByRole('menuitem', { name: 'New deck' }).click();
 
 	await expect(toastText(page)).toContainText('New deck created');

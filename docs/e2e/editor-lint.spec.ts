@@ -21,7 +21,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 	await expect(fixAll(page)).toBeEnabled();
 
 	// Turning inline validation off makes nothing "unknown" → Fix-all disabled again.
-	await page.getByRole('button', { name: 'Toggle Deck inspector' }).click();
+	await page.getByRole('button', { name: 'Deck scope' }).click();
 	await page.getByRole('switch', { name: 'Inline validation' }).click();
 	await expect(fixAll(page)).toBeDisabled();
 });

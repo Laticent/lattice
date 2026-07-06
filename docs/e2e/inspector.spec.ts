@@ -6,7 +6,7 @@ import { expect, gotoStudio, persistedByPrefix, persistedSource, test, toastText
 
 test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
-	await page.getByRole('button', { name: 'Toggle Deck inspector' }).click();
+	await page.getByRole('button', { name: 'Deck scope' }).click();
 });
 
 test('size control writes the size front-matter', async ({ page }) => {

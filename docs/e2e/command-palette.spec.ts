@@ -14,14 +14,14 @@ test('Meta/Control+K opens the command palette', async ({ page }) => {
 	await expect(page.getByPlaceholder('Search or run a command…')).toBeHidden();
 });
 
-test('"Reshape for a reader" opens the inspector', async ({ page }) => {
+test('"Reshape for a reader" opens the Architect coach', async ({ page }) => {
 	await page.keyboard.press('ControlOrMeta+k');
 	const search = page.getByPlaceholder('Search or run a command…');
 	await search.fill('Reshape');
 	await page.getByRole('option', { name: 'Reshape for a reader' }).click();
 
-	// The Deck inspector panel is now open.
-	await expect(page.getByRole('button', { name: 'Save a version' })).toBeVisible();
+	// The command reveals the Architect coach (home of the Reshape card).
+	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
 });
 
 test('"Present" opens the present overlay', async ({ page }) => {

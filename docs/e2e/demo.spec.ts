@@ -138,7 +138,9 @@ test('the Exit button hands the wheel back, leaving "My First Deck" behind', asy
 	await expect(page.locator(STAGE)).toBeVisible();
 	await expect.poll(() => firstDeckCount(page), { timeout: 70_000 }).toBe(1);
 
-	await page.getByRole('button', { name: 'Exit the demo' }).click();
+	// The demo stage is aria-hidden (decorative auto-play; Escape is the a11y exit),
+	// so the on-screen Exit button is reached with includeHidden.
+	await page.getByRole('button', { name: 'Exit the demo', includeHidden: true }).click();
 
 	await expect(page.locator(STAGE)).toHaveCount(0);
 	await expect(toastText(page)).toContainText('yours to edit');

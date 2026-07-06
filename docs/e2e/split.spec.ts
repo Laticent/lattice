@@ -320,8 +320,9 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 		// Inspector defaults to its 46px rail).
 		await page.getByRole('button', { name: 'Toggle Architect' }).click();
 		await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
-		await page.getByRole('button', { name: 'Open Deck inspector' }).click();
-		await expect(page.getByRole('button', { name: 'Open Deck inspector' })).toHaveCount(0);
+		// The Inspector is opened from the always-visible scope rail (Deck scope).
+		await page.getByRole('button', { name: 'Deck scope' }).click();
+		await expect(page.getByText('Editing the whole deck')).toBeVisible();
 
 		// The split is live in this configuration…
 		await expect(separator(page)).toBeVisible();
@@ -354,7 +355,8 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 		await gotoStudio(page);
 		await page.getByRole('button', { name: 'Toggle Architect' }).click();
 		await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
-		await page.getByRole('button', { name: 'Open Deck inspector' }).click();
+		await page.getByRole('button', { name: 'Deck scope' }).click();
+		await expect(page.getByText('Editing the whole deck')).toBeVisible();
 		await expect(separator(page)).toBeVisible();
 		await expect
 			.poll(async () =>

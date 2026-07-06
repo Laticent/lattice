@@ -33,3 +33,28 @@ export function useBreakpoint(): Breakpoint {
 
 	return bp;
 }
+
+// The scope rail shows icon + caption at 72px, but at the NARROW end of desktop
+// (1100–1160px) that column can't share the row with an open Architect + Inspector
+// without breaking the split's zero-void invariant (#721: pair-space ≥ 2×minB =
+// 560px). In that band the rail falls back to 48px icons (when shown) and folds away
+// entirely when both panels are open — a display override, not a preference change.
+// 1160 is the width at which the 72px rail + both panels first meets pair-space=560.
+export function useNarrowDesktop(): boolean {
+	const read = React.useCallback((): boolean => {
+		if (typeof window === 'undefined' || !window.matchMedia) return false;
+		return window.matchMedia('(min-width: 1100px) and (max-width: 1160px)').matches;
+	}, []);
+
+	const [narrow, setNarrow] = React.useState<boolean>(read);
+
+	React.useEffect(() => {
+		const mq = window.matchMedia('(min-width: 1100px) and (max-width: 1160px)');
+		const update = () => setNarrow(mq.matches);
+		update();
+		mq.addEventListener('change', update);
+		return () => mq.removeEventListener('change', update);
+	}, []);
+
+	return narrow;
+}
