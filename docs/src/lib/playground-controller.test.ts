@@ -234,3 +234,13 @@ describe('walk helpers', () => {
 		expect(t).not.toContain('**');
 	});
 });
+
+describe('slideTranscript — comment stripping reaches a fixed point', () => {
+	test('a nested/crafted comment cannot survive one pass and leak through', () => {
+		const crafted = '<!<!-- x -->-- <script>alert(1)</script> -->\n\n# Real heading\n';
+		const t = slideTranscript(crafted);
+		expect(t).not.toContain('<!--');
+		expect(t).not.toContain('script');
+		expect(t).toContain('Real heading');
+	});
+});

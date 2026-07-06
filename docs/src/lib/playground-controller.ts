@@ -204,7 +204,15 @@ export function walkChipLabel(kind: string, variantLabels: Record<string, string
  * Plain-text extraction rendered as React text — no HTML, no #22 surface.
  */
 export function slideTranscript(md: string): string {
-	const noComments = (md || '').replace(/<!--[\s\S]*?-->/g, '');
+	// Strip directive comments to a FIXED POINT: one pass over crafted input
+	// like `<!<!-- x -->-- y -->` leaves a live `<!-- … -->` behind (CodeQL
+	// "incomplete multi-character sanitization"). The transcript renders as
+	// React text — never HTML — so this is defense in depth, not a sink fix.
+	let noComments = md || '';
+	for (let prev = ''; prev !== noComments; ) {
+		prev = noComments;
+		noComments = noComments.replace(/<!--[\s\S]*?-->/g, '');
+	}
 	const lines: string[] = [];
 	for (const raw of noComments.split('\n')) {
 		let line = raw.trim();
