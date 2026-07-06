@@ -20,7 +20,7 @@ Native 2×2 scatter chart — items plotted on two continuous axes.
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next quarter, before someone reorganises the teams again.
+## The quadrant scatters items on two axes.
 
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
@@ -43,11 +43,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: quadrant bubble -->
-<!-- _footer: "Bubble — third value sizes the dot · quadrant bubble" -->
+<!-- _footer: "bubble · quadrant bubble — A third value sizes each point." -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — sized by revenue nobody has booked yet.
+## bubble sizes each point by a third value.
 
 - Strategic Bets
   - Scoring model v2 `3, 70, 2.4`
@@ -64,11 +64,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: quadrant trail -->
-<!-- _footer: "Trail — before → after · quadrant trail" -->
+<!-- _footer: "trail · quadrant trail — Arrows show where points moved from." -->
 
 `Effort 0–10 → Reach 0–100`
 
-## How each bet moved after one quarter — mostly to the left, where the work is cheaper to describe.
+## trail shows where each point moved from.
 
 - Strategic Bets
   - Scoring model v2 `5, 60` `3, 78`
@@ -82,11 +82,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: quadrant cohort -->
-<!-- _footer: "Cohort — convex-hull tint per group · quadrant cohort" -->
+<!-- _footer: "cohort · quadrant cohort — Points color by group." -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — clustered by theme, themed by whoever owns the slide.
+## cohort colors the points by group.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`
@@ -105,11 +105,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: quadrant threshold -->
-<!-- _footer: "Threshold — target lines + zones · quadrant threshold" -->
+<!-- _footer: "threshold · quadrant threshold — The lines that matter, drawn." -->
 
 `Effort 0–10 → Reach 0–100 · targets 5, 50`
 
-## Against the go/no-go thresholds nobody has agreed to enforce.
+## threshold draws the lines that matter.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`
@@ -125,11 +125,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: quadrant magic -->
-<!-- _footer: "Magic — MQ tribute · quadrant magic" -->
+<!-- _footer: "magic · quadrant magic — Four named corners." -->
 
 `Completeness of vision 0–100 → Ability to execute 0–100`
 
-## The decision-tooling Magic Quadrant, in which the tool we built is a Leader.
+## magic draws the four named corners.
 
 - Challengers
   - Productboard `30, 82`
@@ -145,11 +145,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: quadrant minimal -->
-<!-- _footer: "Minimal — no fill, faint grid · quadrant minimal" -->
+<!-- _footer: "minimal · quadrant minimal — Just the points." -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — unadorned, like the budget that funds it.
+## minimal strips the chart to its points.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`
@@ -166,7 +166,8 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: quadrant -->
-<!-- _footer: "Stress test · quadrant" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · quadrant — A crowded field of points — the ceiling." -->
 
 `Effort 0–10 → Reach 0–100`
 
@@ -199,7 +200,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next quarter, before someone reorganises the teams again.
+## The quadrant scatters items on two axes.
 
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
@@ -226,7 +227,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next quarter, before someone reorganises the teams again.
+## The quadrant scatters items on two axes.
 
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
@@ -253,7 +254,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next quarter, before someone reorganises the teams again.
+## The quadrant scatters items on two axes.
 
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 

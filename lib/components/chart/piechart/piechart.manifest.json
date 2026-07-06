@@ -1,12 +1,23 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "piechart",
-  "adapt": { "mode": "reflow", "priority": ["title", "slices", "detail"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "slices",
+      "detail"
+    ]
+  },
   "function": "evidence",
   "bucket": "chart",
   "form": "canvas",
   "substance": "series",
-  "tags": ["donut", "proportion", "percentage"],
+  "tags": [
+    "donut",
+    "proportion",
+    "percentage"
+  ],
   "description": "Pie or donut chart with legend — proportional wedges.",
   "purpose": "Use for part-to-whole breakdowns with three to six slices. Add the `donut` modifier for a hole in the middle — visually cleaner for executive decks.",
   "variants": [
@@ -31,7 +42,11 @@
   },
   "skeleton": "<!-- _class: piechart donut -->\n\n`Eyebrow · context`\n\n## What the breakdown shows.\n\n- First slice `40%`\n- Second slice `30%`\n- Third slice `20%`\n- Fourth slice `10%`\n",
   "anatomyBlock": "piechart-canvas",
-  "sample": "<!-- _class: piechart -->\n\n`H1 2026 · 1,840 person-hours`\n\n## Where the planning quarter actually went.\n\nNearly half went to producing decks; the deciding itself was the smallest slice.\n\n- Deck production `46%`\n  - 92 decks, averaging 18 slides each\n  - Most of it review-cycle churn\n- Meetings about meetings `22%`\n- Realigning on priorities `18%`\n- Stakeholder management `9%`\n- Actually deciding `5%`\n",
+  "sample": "<!-- _class: piechart -->\n\n`H1 2026 · 1,840 person-hours`\n\n## The pie gives each share one wedge.\n\nNearly half went to producing decks; the deciding itself was the smallest slice.\n\n- Deck production `46%`\n  - 92 decks, averaging 18 slides each\n  - Most of it review-cycle churn\n- Meetings about meetings `22%`\n- Realigning on priorities `18%`\n- Stakeholder management `9%`\n- Actually deciding `5%`\n",
+  "stressDoc": {
+    "caption": "Eleven slices — the legend's limit.",
+    "sample": "<!-- _class: piechart -->\n\n`FY2026 · 1,840 person-hours`\n\n## Stress test — eleven slices, long-tail distribution, none of it on the roadmap.\n\n- Signal Intake engineering `28%`\n- Scoring policy work `16%`\n- Decision Log integration `13%`\n- Per-team calibration `11%`\n- Explaining the framework to stakeholders `9%`\n- Pilot and team support `7%`\n- Documentation and gallery `5%`\n- Adoption dashboard `4%`\n- Auditor export `3%`\n- Incident response `2%`\n- Miscellaneous toil `2%`\n"
+  },
   "whenToUse": [
     {
       "title": "Three to six parts of a whole",
@@ -80,10 +95,10 @@
   ],
   "variantDocs": {
     "donut": {
-      "label": "Donut — hollow centre",
-      "caption": "Hollows the pie into a donut. Visually cleaner for executive decks; the centre is left blank for a calmer read. Default pick for board and investor material.",
-      "sample": "<!-- _class: piechart donut -->\n\n`H1 2026 · 1,840 person-hours`\n\n## Where the engineering quarter actually went.\n\nThe toil-and-on-call slice is the one nobody put in the roadmap.\n\n- Signal Intake build `46%`\n- Scoring policy work `22%`\n- Decision Log integration `18%`\n- Explaining the framework to stakeholders `9%`\n- Toil and on-call `5%`\n\nRefreshed weekly · figures from the time-tracking export\n"
+      "label": "donut",
+      "caption": "The center carries the total.",
+      "sample": "<!-- _class: piechart donut -->\n\n`H1 2026 · 1,840 person-hours`\n\n## donut opens the center for the total.\n\nThe toil-and-on-call slice is the one nobody put in the roadmap.\n\n- Signal Intake build `46%`\n- Scoring policy work `22%`\n- Decision Log integration `18%`\n- Explaining the framework to stakeholders `9%`\n- Toil and on-call `5%`\n\nRefreshed weekly · figures from the time-tracking export\n"
     }
   },
-  "stressSample": "<!-- _class: piechart -->\n\n`FY2026 · 1,840 person-hours`\n\n## Stress test — eleven slices, long-tail distribution, none of it on the roadmap.\n\n- Signal Intake engineering `28%`\n- Scoring policy work `16%`\n- Decision Log integration `13%`\n- Per-team calibration `11%`\n- Explaining the framework to stakeholders `9%`\n- Pilot and team support `7%`\n- Documentation and gallery `5%`\n- Adoption dashboard `4%`\n- Auditor export `3%`\n- Incident response `2%`\n- Miscellaneous toil `2%`\n"
+  "specimenVoice": true
 }

@@ -20,7 +20,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 `Scale · 0–10`
 
-## How we stack up across the buying criteria.
+## The radar maps strengths around the compass.
 
 - Meridian
   - Performance `9`
@@ -47,11 +47,11 @@ Native radar / spider chart — items rated across multiple axes.
 ---
 
 <!-- _class: radar target -->
-<!-- _footer: "Target — actual vs reference ring · radar target" -->
+<!-- _footer: "target · radar target — The bar the shape must clear." -->
 
 `Scale · 0–100`
 
-## Where we are against the quarter plan.
+## target draws the bar the shape must clear.
 
 - Actual
   - Hiring `72`
@@ -72,11 +72,11 @@ Native radar / spider chart — items rated across multiple axes.
 ---
 
 <!-- _class: radar delta -->
-<!-- _footer: "Delta — before vs after · radar delta" -->
+<!-- _footer: "delta · radar delta — The gap between two shapes, shaded." -->
 
 `Scale · 0–10`
 
-## What moved over the half, and which way.
+## delta shades the gap between two shapes.
 
 - H1
   - Velocity `5`
@@ -95,11 +95,11 @@ Native radar / spider chart — items rated across multiple axes.
 ---
 
 <!-- _class: radar benchmark -->
-<!-- _footer: "Benchmark — hero vs envelope · radar benchmark" -->
+<!-- _footer: "benchmark · radar benchmark — A reference shape overlaid." -->
 
 `Scale · 0–10`
 
-## Are we inside the pack, or outside it.
+## benchmark overlays the reference shape.
 
 - Us
   - Performance `9`
@@ -134,11 +134,11 @@ Native radar / spider chart — items rated across multiple axes.
 ---
 
 <!-- _class: radar quadrant -->
-<!-- _footer: "Quadrant — axes grouped into sectors · radar quadrant" -->
+<!-- _footer: "quadrant · radar quadrant — The compass quarters, shaded." -->
 
 `Scale · 0–5`
 
-## Our capability profile, read by theme.
+## quadrant shades the compass quarters.
 
 - Our capability
   - People
@@ -160,11 +160,11 @@ Native radar / spider chart — items rated across multiple axes.
 ---
 
 <!-- _class: radar small-multiples -->
-<!-- _footer: "Small-multiples — one mini radar per series · radar small-multiples" -->
+<!-- _footer: "small-multiples · radar small-multiples — One radar per option." -->
 
 `Scale · 0–10`
 
-## Four product lines, the same five criteria.
+## small-multiples deals one radar per option.
 
 - Atlas
   - Adoption `8`
@@ -195,11 +195,11 @@ Native radar / spider chart — items rated across multiple axes.
 ---
 
 <!-- _class: radar minimal -->
-<!-- _footer: "Minimal — stroke-only · radar minimal" -->
+<!-- _footer: "minimal · radar minimal — Rings stripped to the shape." -->
 
 `Scale · 0–10`
 
-## The same comparison, fills dropped.
+## minimal strips the rings to the shape.
 
 - Lattice
   - Performance `9`
@@ -218,7 +218,8 @@ Native radar / spider chart — items rated across multiple axes.
 ---
 
 <!-- _class: radar -->
-<!-- _footer: "Stress test · radar" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · radar — Many axes, many shapes — the ceiling." -->
 
 `Scale · 0–10`
 
@@ -260,7 +261,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 `Scale · 0–10`
 
-## How we stack up across the buying criteria.
+## The radar maps strengths around the compass.
 
 - Meridian
   - Performance `9`
@@ -291,7 +292,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 `Scale · 0–10`
 
-## How we stack up across the buying criteria.
+## The radar maps strengths around the compass.
 
 - Meridian
   - Performance `9`
@@ -322,7 +323,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 `Scale · 0–10`
 
-## How we stack up across the buying criteria.
+## The radar maps strengths around the compass.
 
 - Meridian
   - Performance `9`

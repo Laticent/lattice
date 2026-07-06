@@ -64,14 +64,14 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ## Variants (component-specific)
 
-### `pull-quote` — Pull-quote treatment
+### `pull-quote` — pull-quote
 
-Promotes the blockquote to a pull-quote scale — the verbatim language reads as the headline; the gloss compresses to the actionable item.
+The operative phrase, lifted.
 
 ```markdown
 <!-- _class: citation-card pull-quote -->
 
-## "Personal information" includes the household, not just the person.
+## pull-quote lifts the operative phrase.
 
 `Cal. Civ. Code §1798.140(o) · CCPA/CPRA`
 
@@ -81,14 +81,14 @@ Promotes the blockquote to a pull-quote scale — the verbatim language reads as
   - Audit pixel inventory; treat household IDs as PI in DSAR workflows.
 ```
 
-### `split` — Split — quote | gloss columns
+### `split` — split
 
-Puts the verbatim quotation in the left column and the plain-English gloss in the right, with the citation spanning the top. Use when quote and interpretation deserve equal weight.
+Quote beside plain reading.
 
 ```markdown
 <!-- _class: citation-card split -->
 
-## CCPA defines "sale" broadly.
+## split pairs the quote with its plain reading.
 
 `Cal. Civ. Code §1798.140(ad) · CCPA/CPRA`
 
@@ -98,14 +98,14 @@ Puts the verbatim quotation in the left column and the plain-English gloss in th
   - Data-for-service swaps and ad-tech cookie syncs can qualify as sales even when no money changes hands.
 ```
 
-### `margin` — Margin — annotated quotation
+### `margin` — margin
 
-Sets the quotation as the body with the gloss running as margin notes alongside. Use for close reading where each clause earns its own annotation.
+The cite in the gutter.
 
 ```markdown
 <!-- _class: citation-card margin -->
 
-## The GDPR lawful-basis test.
+## margin hangs the cite in the gutter.
 
 `GDPR Art. 6(1)(f) · legitimate interests`
 
@@ -115,14 +115,14 @@ Sets the quotation as the body with the gloss running as margin notes alongside.
   - Necessity first, then a balancing exercise against the data subject's rights. Document both halves or the basis fails on audit.
 ```
 
-### `triptych` — Triptych — three panels
+### `triptych` — triptych
 
-Frames the verbatim quote and the gloss items as three panels, with the citation spanning above, for a formal presentation of a single authority. Keep the quotation short so it sits comfortably in its panel.
+Three authorities abreast.
 
 ```markdown
 <!-- _class: citation-card triptych -->
 
-## What "personal data" covers under GDPR.
+## triptych sets three authorities abreast.
 
 `GDPR Art. 4(1) · definitions`
 

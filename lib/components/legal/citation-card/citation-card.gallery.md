@@ -18,7 +18,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 <!-- _class: citation-card -->
 <!-- _footer: "Default · citation-card" -->
 
-## What counts as "personal information" under CCPA.
+## The card quotes the law verbatim, cited.
 
 `Cal. Civ. Code §1798.140(o) · CCPA/CPRA`
 
@@ -32,9 +32,9 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 ---
 
 <!-- _class: citation-card pull-quote -->
-<!-- _footer: "Pull-quote treatment · citation-card pull-quote" -->
+<!-- _footer: "pull-quote · citation-card pull-quote — The operative phrase, lifted." -->
 
-## "Personal information" includes the household, not just the person.
+## pull-quote lifts the operative phrase.
 
 `Cal. Civ. Code §1798.140(o) · CCPA/CPRA`
 
@@ -47,9 +47,9 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 ---
 
 <!-- _class: citation-card split -->
-<!-- _footer: "Split — quote | gloss columns · citation-card split" -->
+<!-- _footer: "split · citation-card split — Quote beside plain reading." -->
 
-## CCPA defines "sale" broadly.
+## split pairs the quote with its plain reading.
 
 `Cal. Civ. Code §1798.140(ad) · CCPA/CPRA`
 
@@ -62,9 +62,9 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 ---
 
 <!-- _class: citation-card margin -->
-<!-- _footer: "Margin — annotated quotation · citation-card margin" -->
+<!-- _footer: "margin · citation-card margin — The cite in the gutter." -->
 
-## The GDPR lawful-basis test.
+## margin hangs the cite in the gutter.
 
 `GDPR Art. 6(1)(f) · legitimate interests`
 
@@ -77,9 +77,9 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 ---
 
 <!-- _class: citation-card triptych -->
-<!-- _footer: "Triptych — three panels · citation-card triptych" -->
+<!-- _footer: "triptych · citation-card triptych — Three authorities abreast." -->
 
-## What "personal data" covers under GDPR.
+## triptych sets three authorities abreast.
 
 `GDPR Art. 4(1) · definitions`
 
@@ -93,10 +93,25 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 ---
 
+<!-- _class: citation-card -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · citation-card — The longest quotable block." -->
+
+## The longest quote one card should carry.
+
+`Cal. Civ. Code §1798.140(o)(1) · CCPA/CPRA`
+
+> "Personal information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household. Personal information includes, but is not limited to, the following if it identifies, relates to, describes, is reasonably capable of being associated with, or could be reasonably linked, directly or indirectly, with a particular consumer or household: identifiers such as a real name, alias, postal address, unique personal identifier, online identifier, Internet Protocol address, email address, account name, social security number, driver's license number, passport number, or other similar identifiers.
+
+- Past this length, the quote stops being read and starts being trusted — excerpt with the `pull-quote` variant instead.
+
+
+---
+
 <!-- _class: citation-card dark -->
 <!-- _footer: "Composition: dark · citation-card dark" -->
 
-## What counts as "personal information" under CCPA.
+## The card quotes the law verbatim, cited.
 
 `Cal. Civ. Code §1798.140(o) · CCPA/CPRA`
 
@@ -112,7 +127,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 <!-- _class: citation-card compact -->
 <!-- _footer: "Composition: compact · citation-card compact" -->
 
-## What counts as "personal information" under CCPA.
+## The card quotes the law verbatim, cited.
 
 `Cal. Civ. Code §1798.140(o) · CCPA/CPRA`
 
@@ -128,7 +143,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 <!-- _class: citation-card accent -->
 <!-- _footer: "Composition: accent · citation-card accent" -->
 
-## What counts as "personal information" under CCPA.
+## The card quotes the law verbatim, cited.
 
 `Cal. Civ. Code §1798.140(o) · CCPA/CPRA`
 

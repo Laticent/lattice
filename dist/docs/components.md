@@ -4184,7 +4184,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 #### Related components
 
-- [`progress`](#progress) — independent metrics as labelled bars, not a narrowing pipeline
+- [`progress`](#progress) — independent metrics as labeled bars, not a narrowing pipeline
 - [`stats`](#stats) — a row of headline figures with no drop-off relationship
 - [`piechart`](#piechart) — parts of a single whole rather than sequential stages
 - [`list-steps`](#list-steps) — the stages are a process to walk through, not values to compare
@@ -4336,14 +4336,14 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 #### Variants (component-specific)
 
-##### `heatmap` — Heatmap — mood-tinted chips
+##### `heatmap` — heatmap
 
-Task chips are tinted by their mood score; plumb lines and faces are suppressed. The fastest variant to scan when the audience only needs to see which moments hurt.
+Stages shade by score.
 
 ```markdown
 <!-- _class: journey heatmap -->
 
-## Heatmap · where the trial drops off.
+## heatmap shades the stages by score.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -4356,14 +4356,14 @@ Task chips are tinted by their mood score; plumb lines and faces are suppressed.
   - Daily use `@user` `:5`
 ```
 
-##### `curve` — Curve — mood polyline with axis
+##### `curve` — curve
 
-Renders the mood scores as a polyline over the task sequence with a mood gridline scale and section bands behind. Use when the trend across the journey is the headline.
+A sentiment line rides the stages.
 
 ```markdown
 <!-- _class: journey curve -->
 
-## Curve · the affect contour.
+## curve draws the sentiment line.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -4376,14 +4376,14 @@ Renders the mood scores as a polyline over the task sequence with a mood gridlin
   - Daily use `@user` `:5`
 ```
 
-##### `swimlane` — Swimlane — per-actor rows
+##### `swimlane` — swimlane
 
-One row per actor; a dot marks every task that actor participates in, coloured by that task's mood. Use when the question is who carries the journey and where the handoffs land.
+One lane per actor.
 
 ```markdown
 <!-- _class: journey swimlane -->
 
-## Swimlane · who owns each moment.
+## swimlane splits the journey by actor.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -4396,14 +4396,14 @@ One row per actor; a dot marks every task that actor participates in, coloured b
   - Daily use `@user` `:5`
 ```
 
-##### `weighted` — Weighted — chip widths by volume
+##### `weighted` — weighted
 
-Chip widths scale to the `+volume` token; chip colour still encodes mood. Two dimensions at once — schedule shape and traffic-mix — for journeys with skewed loads.
+Stage size carries weight.
 
 ```markdown
 <!-- _class: journey weighted -->
 
-## Weighted · where the traffic actually lands.
+## weighted sizes the stages by importance.
 
 - Discover
   - Search `@prospect` `:4` `+45`
@@ -4442,7 +4442,7 @@ See [journey.gallery.light.pdf](../../lib/components/chart/journey/journey.galle
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a terse card title.
 
-Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends colour only on STATUS, so a flagged card is the focal point; opt into `keyline` (colour-code cards by category) or `tinted` (colour-code columns by stage) when colour coding earns its keep.
+Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends color only on STATUS, so a flagged card is the focal point; opt into `keyline` (color-code cards by category) or `tinted` (color-code columns by stage) when color coding earns its keep.
 
 #### When to use
 
@@ -4503,74 +4503,42 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 
 #### Variants (component-specific)
 
-##### `keyline` — Keyline — colour by category
+##### `keyline` — keyline
 
-Restores category coding as ONE disciplined cue: every card is the same neutral tile marked by a single crisp coloured left edge, so a reader can scan one workstream's load down a column without the old per-card paint-swatch. Status stays on the chip.
+Hairlines rule the lanes apart.
 
 ```markdown
 <!-- _class: kanban keyline -->
 
-`Delivery · week 30`
+`kanban keyline`
 
-## Same board, now you can see who owns what.
-
-The left edge colour-codes each card by workstream, so one team's load reads down a column at a glance — without the surface turning into a patchwork.
+## keyline rules the lanes apart.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Ruled lanes `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
-- Review
-  - Weekly signal review `S`
-    - adoption
+  - Same board `M`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - New look `L`
 ```
 
-##### `tinted` — Tinted — colour by stage
+##### `tinted` — tinted
 
-Moves colour off the cards and onto the COLUMNS: each lane is whisper-tinted by pipeline stage with a hue-keyed header underline, while cards stay uniformly neutral and lift off the lane. Reinforces the left-to-right flow; status stays the one accent chip.
+Each lane takes a colored wash.
 
 ```markdown
 <!-- _class: kanban tinted -->
 
-`Delivery · week 30`
+`kanban tinted`
 
-## Colour tracks the pipeline, so the eye reads left to right.
-
-Each lane is tinted by stage — backlog through done — so the shape of the flow registers before any single card does.
+## tinted colors each lane's wash.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Lane wash `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
-- Review
-  - Weekly signal review `S`
-    - adoption
+  - Color coded `M`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - Reads faster `L`
 ```
 
 #### Universal modifiers
@@ -4596,7 +4564,7 @@ See [kanban.gallery.light.pdf](../../lib/components/chart/kanban/kanban.gallery.
 
 **Tags** `metric` · `proportion` · `overview` · `visual`
 
-Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical colour. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.
+Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical color. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.
 
 #### When to use
 
@@ -4607,8 +4575,8 @@ Use when the story is geographic — program reach, service territories, where t
 #### When NOT to use
 
 - **A map as decoration.** If the regions aren't the comparison — you just want a US-shaped graphic behind some numbers — drop the basemap. An `image` scrim or a `stats` row carries headline figures without implying the geography is the message.
-- **Too many shades to read.** A choropleth past a dozen distinct values asks the eye to rank colours it can't separate. Bucket the values, switch to `highlight` for a categorical read, or lead with a `progress` ranking and keep the map as support.
-- **Sub-region precision the basemap doesn't have.** The basemaps draw US states and world countries — not counties, districts, sub-national regions, or city pins, and the world cut (110m) omits the smallest city-states. If the story lives below that line, a labelled `image` of the real map serves better than forcing it onto the basemap.
+- **Too many shades to read.** A choropleth past a dozen distinct values asks the eye to rank colors it can't separate. Bucket the values, switch to `highlight` for a categorical read, or lead with a `progress` ranking and keep the map as support.
+- **Sub-region precision the basemap doesn't have.** The basemaps draw US states and world countries — not counties, districts, sub-national regions, or city pins, and the world cut (110m) omits the smallest city-states. If the story lives below that line, a labeled `image` of the real map serves better than forcing it onto the basemap.
 
 #### Authoring
 
@@ -4635,12 +4603,12 @@ Use when the story is geographic — program reach, service territories, where t
 
 ##### `us` — us
 
-Swaps the default world map for the US-states basemap (d3.geoAlbersUsa, AK/HI insets) — `map us` (alias `map usa`). Same authoring and read modes; names resolve by full name, postal code, or abbreviation (`California` / `CA` / `Calif.`).
+The US-states basemap, with insets.
 
 ```markdown
 <!-- _class: map us -->
 
-## Grant dollars by state — unevenly.
+## us swaps in the US-states basemap.
 
 - California `48.2`
 - Texas `36.4`
@@ -4654,7 +4622,7 @@ Swaps the default world map for the US-states basemap (d3.geoAlbersUsa, AK/HI in
 
 ##### `world` — world
 
-The explicit spelling of the Basemap axis default — `map world` ⥣ `map us`. The bare `map` already renders the world-countries basemap; write `world` to return from `us` or to pin the basemap explicitly in a deck that mixes both.
+The Basemap axis default, spelled out.
 
 ```markdown
 <!-- _class: map world -->
@@ -4673,12 +4641,12 @@ The explicit spelling of the Basemap axis default — `map world` ⥣ `map us`. 
 
 ##### `highlight` — highlight
 
-Categorical mode — each named region takes its own --catN colour and unnamed regions stay neutral. For ‘which ones’, not ‘how much’. Works on either basemap.
+Category fills instead of values.
 
 ```markdown
 <!-- _class: map highlight -->
 
-## The regions we serve.
+## highlight fills by category, not value.
 
 - Kenya `East Africa`
 - Nigeria `West Africa`
@@ -4688,12 +4656,12 @@ Categorical mode — each named region takes its own --catN colour and unnamed r
 
 ##### `robinson` — robinson
 
-Swaps the default Equal Earth projection for Robinson — the familiar boardroom compromise. Same authoring; only the world map's shape changes. Equal Earth (default) preserves relative area; Robinson trades a little area fidelity for the silhouette many audiences expect.
+The Robinson projection swap.
 
 ```markdown
 <!-- _class: map robinson -->
 
-## Where our field offices operate.
+## robinson swaps the projection.
 
 - United States `42`
 - Brazil `31`
@@ -4707,12 +4675,12 @@ Swaps the default Equal Earth projection for Robinson — the familiar boardroom
 
 ##### `grouped` — grouped
 
-Naming a continent or bloc fills every member; `grouped` clusters the legend by continent. For coverage told at bloc scale.
+Whole blocs fill as one.
 
 ```markdown
 <!-- _class: map highlight grouped -->
 
-## Coverage by economic bloc.
+## grouped fills whole blocs at once.
 
 - European Union `Tier 1`
 - ASEAN `Tier 1`
@@ -4726,7 +4694,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 #### Related components
 
-- [`progress`](#progress) — the regions are really a ranking — labelled bars compare magnitudes faster than shades
+- [`progress`](#progress) — the regions are really a ranking — labeled bars compare magnitudes faster than shades
 - [`stats`](#stats) — a few headline figures with no geography to place them on
 - [`piechart`](#piechart) — regional shares of a single whole rather than a value per place
 - [`image`](#image) — the geography needs detail (counties, cities, routes) the basemap can't draw
@@ -4798,16 +4766,16 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 
 #### Variants (component-specific)
 
-##### `donut` — Donut — hollow centre
+##### `donut` — donut
 
-Hollows the pie into a donut. Visually cleaner for executive decks; the centre is left blank for a calmer read. Default pick for board and investor material.
+The center carries the total.
 
 ```markdown
 <!-- _class: piechart donut -->
 
 `H1 2026 · 1,840 person-hours`
 
-## Where the engineering quarter actually went.
+## donut opens the center for the total.
 
 The toil-and-on-call slice is the one nobody put in the roadmap.
 
@@ -4924,7 +4892,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 #### When to use
 
 - **Two numeric axes carry the analysis.** Effort × impact, cost × value, probability × severity, reach × confidence. Both axes are continuous and the position on each genuinely matters — that's the argument quadrant is built to make.
-- **Categorical grouping clusters the dots.** Items grouped under list headings (`Strategic Bets`, `Quick Wins`, `Defer`, `Time Sinks`) share a colour, so the eye can read the cluster before the individual point. The grouping is editorial, not derived from coordinates.
+- **Categorical grouping clusters the dots.** Items grouped under list headings (`Strategic Bets`, `Quick Wins`, `Defer`, `Time Sinks`) share a color, so the eye can read the cluster before the individual point. The grouping is editorial, not derived from coordinates.
 - **Six to twelve items.** Below six the chart wastes the canvas — write it as prose. Past twelve the labels overlap and the quadrant becomes a constellation. Trim the long tail or break it across two slides.
 
 #### When NOT to use
@@ -4986,16 +4954,16 @@ Effort estimated in story-points; reach as percent of addressable teams.
 
 #### Variants (component-specific)
 
-##### `bubble` — Bubble — third value sizes the dot
+##### `bubble` — bubble
 
-A third number in each pill (`x, y, size`) scales the dot by honest √-area. Use when a magnitude — revenue, headcount, spend — rides alongside the two positioning axes.
+A third value sizes each point.
 
 ```markdown
 <!-- _class: quadrant bubble -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — sized by revenue nobody has booked yet.
+## bubble sizes each point by a third value.
 
 - Strategic Bets
   - Scoring model v2 `3, 70, 2.4`
@@ -5009,16 +4977,16 @@ A third number in each pill (`x, y, size`) scales the dot by honest √-area. Us
   - Custom audit log UI `7, 18, 1.3`
 ```
 
-##### `trail` — Trail — before → after
+##### `trail` — trail
 
-Two coordinate pills per item (`x, y` then `x2, y2`) draw a trail from the old position to the new one. Use to show how initiatives moved across a period.
+Arrows show where points moved from.
 
 ```markdown
 <!-- _class: quadrant trail -->
 
 `Effort 0–10 → Reach 0–100`
 
-## How each bet moved after one quarter — mostly to the left, where the work is cheaper to describe.
+## trail shows where each point moved from.
 
 - Strategic Bets
   - Scoring model v2 `5, 60` `3, 78`
@@ -5029,16 +4997,16 @@ Two coordinate pills per item (`x, y` then `x2, y2`) draw a trail from the old p
   - Custom audit log UI `6, 25` `7, 16`
 ```
 
-##### `cohort` — Cohort — convex-hull tint per group
+##### `cohort` — cohort
 
-Tints a convex hull behind each top-level group so the clusters read as cohorts, not just loose dots. Use when group membership is part of the argument.
+Points color by group.
 
 ```markdown
 <!-- _class: quadrant cohort -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — clustered by theme, themed by whoever owns the slide.
+## cohort colors the points by group.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`
@@ -5054,16 +5022,16 @@ Tints a convex hull behind each top-level group so the clusters read as cohorts,
   - Bespoke board export `9, 28`
 ```
 
-##### `threshold` — Threshold — target lines + zones
+##### `threshold` — threshold
 
-Replaces the centre midlines with target lines declared in the eyebrow (`· targets tx, ty`) and labels the resulting zones. Use for go/no-go reads against an explicit bar.
+The lines that matter, drawn.
 
 ```markdown
 <!-- _class: quadrant threshold -->
 
 `Effort 0–10 → Reach 0–100 · targets 5, 50`
 
-## Against the go/no-go thresholds nobody has agreed to enforce.
+## threshold draws the lines that matter.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`
@@ -5076,16 +5044,16 @@ Replaces the centre midlines with target lines declared in the eyebrow (`· targ
   - Custom audit log UI `7, 18`
 ```
 
-##### `magic` — Magic — MQ tribute
+##### `magic` — magic
 
-A Gartner-style Magic Quadrant tribute: vendor labels and the iconic Leaders / Challengers / Visionaries / Niche Players quadrant names. Order the groups TL → TR → BL → BR.
+Four named corners.
 
 ```markdown
 <!-- _class: quadrant magic -->
 
 `Completeness of vision 0–100 → Ability to execute 0–100`
 
-## The decision-tooling Magic Quadrant, in which the tool we built is a Leader.
+## magic draws the four named corners.
 
 - Challengers
   - Productboard `30, 82`
@@ -5098,16 +5066,16 @@ A Gartner-style Magic Quadrant tribute: vendor labels and the iconic Leaders / C
   - Spreadsheet `82, 34`
 ```
 
-##### `minimal` — Minimal — no fill, faint grid
+##### `minimal` — minimal
 
-Composable modifier: drops the quadrant fills for a faint grid and bare dots. Layers on the default or any quadrant variant when the tinting would compete with the dots.
+Just the points.
 
 ```markdown
 <!-- _class: quadrant minimal -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — unadorned, like the budget that funds it.
+## minimal strips the chart to its points.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`
@@ -5215,16 +5183,16 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 
 #### Variants (component-specific)
 
-##### `target` — Target — actual vs reference ring
+##### `target` — target
 
-Reads the series named `Target` (or `Goal`/`Plan`) as a dashed reference polygon; each axis where the actual falls short gets a rose gap segment along the spoke, surplus a quiet green one. The shortfall is the read.
+The bar the shape must clear.
 
 ```markdown
 <!-- _class: radar target -->
 
 `Scale · 0–100`
 
-## Where we are against the quarter plan.
+## target draws the bar the shape must clear.
 
 - Actual
   - Hiring `72`
@@ -5242,16 +5210,16 @@ Reads the series named `Target` (or `Goal`/`Plan`) as a dashed reference polygon
   - Velocity `75`
 ```
 
-##### `delta` — Delta — before vs after
+##### `delta` — delta
 
-Takes exactly two series — before, then after. The before polygon is muted; a change segment rides each spoke, green where the metric rose, rose where it fell. Built for the period-over-period QBR story.
+The gap between two shapes, shaded.
 
 ```markdown
 <!-- _class: radar delta -->
 
 `Scale · 0–10`
 
-## What moved over the half, and which way.
+## delta shades the gap between two shapes.
 
 - H1
   - Velocity `5`
@@ -5267,16 +5235,16 @@ Takes exactly two series — before, then after. The before polygon is muted; a 
   - Onboarding `7`
 ```
 
-##### `benchmark` — Benchmark — hero vs envelope
+##### `benchmark` — benchmark
 
-Draws the first series as the hero line and collapses every other series into a single min–max envelope band — one shape and your line instead of five tangled polygons. Strong where you clear the band, exposed where you sit inside it.
+A reference shape overlaid.
 
 ```markdown
 <!-- _class: radar benchmark -->
 
 `Scale · 0–10`
 
-## Are we inside the pack, or outside it.
+## benchmark overlays the reference shape.
 
 - Us
   - Performance `9`
@@ -5308,16 +5276,16 @@ Draws the first series as the hero line and collapses every other series into a 
   - Security `9`
 ```
 
-##### `quadrant` — Quadrant — axes grouped into sectors
+##### `quadrant` — quadrant
 
-Takes a three-level list (series → group → axis); each group becomes a tinted sector with its name on the rim and a dashed mean arc. For boards that think in themes, not twelve loose axes.
+The compass quarters, shaded.
 
 ```markdown
 <!-- _class: radar quadrant -->
 
 `Scale · 0–5`
 
-## Our capability profile, read by theme.
+## quadrant shades the compass quarters.
 
 - Our capability
   - People
@@ -5336,16 +5304,16 @@ Takes a three-level list (series → group → axis); each group becomes a tinte
     - Resilience `4`
 ```
 
-##### `small-multiples` — Small-multiples — one mini radar per series
+##### `small-multiples` — small-multiples
 
-Gives each series its own mini radar on a shared scale, laid out in a row — the honest read when an overlay of four-plus series would be mush. Scan the shapes, spot the outlier.
+One radar per option.
 
 ```markdown
 <!-- _class: radar small-multiples -->
 
 `Scale · 0–10`
 
-## Four product lines, the same five criteria.
+## small-multiples deals one radar per option.
 
 - Atlas
   - Adoption `8`
@@ -5373,16 +5341,16 @@ Gives each series its own mini radar on a shared scale, laid out in a row — th
   - Risk `8`
 ```
 
-##### `minimal` — Minimal — stroke-only
+##### `minimal` — minimal
 
-Composable modifier: drops the polygon fills for a stroke-only read on a faint grid. Layers on the default or any radar variant when the fills would muddy the comparison.
+Rings stripped to the shape.
 
 ```markdown
 <!-- _class: radar minimal -->
 
 `Scale · 0–10`
 
-## The same comparison, fills dropped.
+## minimal strips the rings to the shape.
 
 - Lattice
   - Performance `9`
@@ -5479,16 +5447,16 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 #### Variants (component-specific)
 
-##### `horizons` — Horizons — three-horizon planning framing
+##### `horizons` — horizons
 
-Transposes the phase columns into vertical phase cards — each with a `Phase 01 / 02 / …` eyebrow and a categorical accent — so a three-horizon (now / next / later) read comes from the phase names you write. Use when the planning frame is strategic-horizon-aware rather than fiscal-quarter-aware.
+Bets spread across three horizons.
 
 ```markdown
 <!-- _class: roadmap horizons -->
 
 `Three-horizon planning`
 
-## Where the framework invests across horizons.
+## horizons spreads the bets across three horizons.
 
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
@@ -5498,16 +5466,16 @@ Transposes the phase columns into vertical phase cards — each with a `Phase 01
 | Adoption      | [x] One pilot team       | [/] Second team          | [ ] Org-wide enablement   |
 ```
 
-##### `status` — Status — heavy state treatment
+##### `status` — status
 
-Promotes the state markers ([x]/[-]/[ ]/[/]) to the dominant read: tinted cell grounds, an uppercase state eyebrow, and a corner state disc. Use for the standing delivery-status review.
+Delivery state at a glance.
 
 ```markdown
 <!-- _class: roadmap status -->
 
 `Layout · roadmap status`
 
-## Delivery status by workstream, as of the most flattering snapshot.
+## status reads delivery state at a glance.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
@@ -5519,16 +5487,16 @@ Promotes the state markers ([x]/[-]/[ ]/[/]) to the dominant read: tinted cell g
 State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
 
-##### `swimlane` — Swimlane — horizontal tracks
+##### `swimlane` — swimlane
 
-Renders each workstream as a horizontal track across the phase columns, so a reader scans one team's whole journey left-to-right before moving to the next.
+One track per team.
 
 ```markdown
 <!-- _class: roadmap swimlane -->
 
 `Layout · roadmap swimlane`
 
-## Each team's track across the year, momentum implied by the arrows.
+## swimlane gives each team its own track.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
@@ -5538,16 +5506,16 @@ Renders each workstream as a horizontal track across the phase columns, so a rea
 | Adoption      | One pilot team       | Second team            | Org-wide enablement       |
 ```
 
-##### `milestones` — Milestones — calendar-aware
+##### `milestones` — milestones
 
-Softly bands the phase columns so the dated headers read as a calendar cadence; the date stays the header's trailing meta pill (no extra chrome). Use when the cadence of the dates is part of the story, not just the sequence.
+The dated path, pinned.
 
 ```markdown
 <!-- _class: roadmap milestones -->
 
 `Layout · roadmap milestones`
 
-## The dated path to GA, dates subject to the usual revision.
+## milestones pins the dated path.
 
 | Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
@@ -5652,12 +5620,12 @@ How a draft moves from author to archive.
 
 ##### `lr` — Left-to-right
 
-Lays the machine out horizontally (Mermaid `direction LR`) instead of the default top-to-bottom column. Forward skips bow below the row, back-edges above. Compose with `inline` for a horizontal chip row.
+States flow left to right.
 
 ```markdown
 <!-- _class: state-chart lr -->
 
-## Build pipeline.
+## lr flows the states left to right.
 
 1. Source `start`
    - `compile => 2`
@@ -5671,12 +5639,12 @@ Lays the machine out horizontally (Mermaid `direction LR`) instead of the defaul
 
 ##### `inline` — Inline
 
-Drops the SVG edge layer; transitions render inline as chips inside each state node. Pure HTML — graceful fallback if the SVG layer is undesirable, or for very dense decks.
+The chart sits beside its prose.
 
 ```markdown
 <!-- _class: state-chart inline -->
 
-## Connection retry.
+## inline sets the chart beside its prose.
 
 1. Connecting `start`
    - `retry => self`
@@ -5689,12 +5657,12 @@ Drops the SVG edge layer; transitions render inline as chips inside each state n
 
 ##### `curved` — Curved
 
-Routes skip and back edges as single Bézier arcs instead of the default orthogonal racetracks (round-out, straight run, round-in). Each curve's peak is solved so its arc still clears the widest node in its span. Orthogonal to direction — compose with `lr`.
+Eased arrows between states.
 
 ```markdown
 <!-- _class: state-chart curved -->
 
-## Document approval (curved).
+## curved eases the arrows between states.
 
 1. Draft `start`
    - `submit => 2`
@@ -5845,7 +5813,7 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the cloud. |
-| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and coloured RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
+| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
 
 #### Anatomy
 
@@ -5864,14 +5832,14 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 
 #### Variants (component-specific)
 
-##### `constellation` — Constellation — airy, two-tone
+##### `constellation` — constellation
 
-A wider size spread with no rotation — words sit like a constellation with generous spacing. Built for a small, high-impact vocabulary; keep it to six or eight terms.
+Words scattered like stars.
 
 ```markdown
 <!-- _class: word-cloud constellation -->
 
-## What this branch named, by weight.
+## constellation scatters the words like stars.
 
 - component `5`
 - manifest `4`
@@ -5881,14 +5849,14 @@ A wider size spread with no rotation — words sit like a constellation with gen
 - gallery `1`
 ```
 
-##### `dense` — Dense — tight pack
+##### `dense` — dense
 
-A tighter spiral, narrower size spread, and more rotation pack many terms into the canvas. Use for a long tail of vocabulary where coverage matters more than any single word.
+The cloud packed tight.
 
 ```markdown
 <!-- _class: word-cloud dense -->
 
-## Every term this branch touched.
+## dense packs the cloud tight.
 
 - component `5`
 - manifest `5`
@@ -5907,14 +5875,14 @@ A tighter spiral, narrower size spread, and more rotation pack many terms into t
 - palette `1`
 ```
 
-##### `spectrum` — Spectrum — heat ramp
+##### `spectrum` — spectrum
 
-Colours words along a heat ramp by weight instead of cycling the categorical palette — the hottest terms read first. No rotation, so the ramp stays legible.
+Words colored along a scale.
 
 ```markdown
 <!-- _class: word-cloud spectrum -->
 
-## What this branch named, by weight.
+## spectrum colors the words along a scale.
 
 - component `5`
 - manifest `4`
@@ -5926,14 +5894,14 @@ Colours words along a heat ramp by weight instead of cycling the categorical pal
 - universal `1`
 ```
 
-##### `focal` — Focal — one dominant term
+##### `focal` — focal
 
-The widest size spread and steepest curve make the top term tower over the rest. Use when one word IS the message and the others are brief supporting context — keep the list short.
+One word crowned the center.
 
 ```markdown
 <!-- _class: word-cloud focal -->
 
-## The one word that defined the branch.
+## focal crowns one word the center.
 
 - variants `5`
 - gallery `2`
@@ -6052,7 +6020,7 @@ See [diagram.gallery.light.pdf](../../lib/components/diagram/diagram/diagram.gal
 
 **Tags** `formula` · `assessment` · `reference`
 
-Use when the slide IS the equation. KaTeX renders `$$…$$` as centred display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).
+Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).
 
 #### When to use
 
@@ -6088,7 +6056,7 @@ $$ y = f(x) $$
 |---|---|---|---|
 | `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
 | `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
-| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centred. |
+| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centered. |
 | `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
 
 #### Anatomy
@@ -6108,16 +6076,16 @@ $$ y = f(x) $$
 
 #### Variants (component-specific)
 
-##### `feature` — Feature — hero equation + legend
+##### `feature` — feature
 
-Alias for the base layout — eyebrow, headline, hero equation, legend. Use when you want to make the persona framing explicit in the class list.
+Alias for the base layout — eyebrow, headline, hero equation, legend.…
 
 ```markdown
 <!-- _class: math feature -->
 
 `Logistic regression · MLE`
 
-## The log-likelihood we maximise.
+## feature crowns the equation full-canvas.
 
 $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_i) \log\bigl(1 - \sigma(x_i^\top \beta)\bigr) \right] $$
 
@@ -6127,14 +6095,14 @@ $$ \ell(\beta) = \sum_{i=1}^{n} \left[ y_i \log \sigma(x_i^\top \beta) + (1 - y_
 - $x_i$ — feature vector for observation $i$
 ```
 
-##### `derivation` — Derivation — proof chain with justification column
+##### `derivation` — derivation
 
-Two-column table: derivation steps on the left, the justification for each step on the right. Best for first-principles proofs, induction arguments, and any chain where every step needs to be defensible.
+Two-column table: derivation steps on the left, the justification for…
 
 ```markdown
 <!-- _class: math derivation -->
 
-## Derivative of $f$ from first principles.
+## derivation walks the steps line by line.
 
 | Step                                                     | Justification             |
 | -------------------------------------------------------- | ------------------------- |
@@ -6144,14 +6112,14 @@ Two-column table: derivation steps on the left, the justification for each step 
 | $\displaystyle\lim_{h\to 0} \dfrac{f(x+h)-f(x)}{h} = f'(x)$ | take the limit            |
 ```
 
-##### `theorem` — Theorem — Definition / Theorem / Proof cards
+##### `theorem` — theorem
 
-Stacked colour-coded blockquote cards in the formal-statement vocabulary mathematicians expect — Definition, Theorem, Lemma, Proof. The card boundary preserves the convention that each formal statement is its own atom.
+Stacked color-coded blockquote cards in the formal-statement vocabul…
 
 ```markdown
 <!-- _class: math theorem -->
 
-## Intermediate Value Theorem.
+## theorem boxes the statement and its proof.
 
 > **Definition.** A function $f : [a,b] \to \mathbb{R}$ is *continuous* on $[a,b]$ if $\lim_{x\to c} f(x) = f(c)$ for every $c \in [a,b]$.
 
@@ -6160,36 +6128,36 @@ Stacked colour-coded blockquote cards in the formal-statement vocabulary mathema
 > **Proof.** Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
 ```
 
-##### `compare` — Compare — two- or three-column equations
+##### `compare` — compare
 
-Side-by-side equation comparison. Each column has its own h3 label, display equation, and one-line gloss. Best for frequentist-vs-Bayesian, batch-vs-streaming, primal-vs-dual.
+Side-by-side equation comparison. Each column has its own h3 label, d…
 
 ```markdown
 <!-- _class: math compare -->
 
-## Frequentist vs Bayesian point estimate.
+## compare sets two formulations side by side.
 
 ### Frequentist
 
 $$ \hat\theta_{\text{MLE}} = \arg\max_\theta\, p(y \mid \theta) $$
 
-Maximises the likelihood — no prior. Uncertainty quantified by the sampling distribution of $\hat\theta$ across hypothetical repeats.
+Maximizes the likelihood — no prior. Uncertainty quantified by the sampling distribution of $\hat\theta$ across hypothetical repeats.
 
 ### Bayesian
 
 $$ \hat\theta_{\text{MAP}} = \arg\max_\theta\, p(\theta \mid y) $$
 
-Maximises the posterior — conditions on the prior $p(\theta)$. Uncertainty is the posterior itself, no repeated sampling required.
+Maximizes the posterior — conditions on the prior $p(\theta)$. Uncertainty is the posterior itself, no repeated sampling required.
 ```
 
-##### `canvas` — Canvas — equation left, plot right
+##### `canvas` — canvas
 
-Pairs a hero equation with a `functionplot` graph (rendered by the function-plot library). Best when the shape of the function is half the argument — sigmoids, distributions, decision boundaries.
+Pairs a hero equation with a `functionplot` graph (rendered by the fu…
 
 ```markdown
 <!-- _class: math canvas -->
 
-## The sigmoid.
+## canvas gives a long derivation the room.
 
 $$ \sigma(x) = \dfrac{1}{1 + e^{-x}} $$
 
@@ -6208,14 +6176,14 @@ Maps $\mathbb{R} \to (0,1)$. $S$-shaped, $\sigma(0) = 0.5$, steepest slope at th
 ```
 ```
 
-##### `matrix` — Matrix — matrix + properties
+##### `matrix` — matrix
 
-Hero matrix with a properties / dimensions / interpretation legend. Best for design matrices, transition matrices, covariance matrices — anywhere the structure of the matrix matters as much as its values.
+Hero matrix with a properties / dimensions / interpretation legend. B…
 
 ```markdown
 <!-- _class: math matrix -->
 
-## The design matrix $X$.
+## matrix typesets the block structures.
 
 $$
 X = \begin{pmatrix}
@@ -6233,14 +6201,14 @@ $$
 - **column 0** — all-ones, absorbs the intercept
 ```
 
-##### `stats` — Stats — estimate ± uncertainty
+##### `stats` — stats
 
-Point estimate with uncertainty (CI, $p$-value, $n$) followed by plain-English interpretation. Best for treatment-effect slides, regression coefficients, A/B test readouts.
+Point estimate with uncertainty (CI, $p$-value, $n$) followed by plai…
 
 ```markdown
 <!-- _class: math stats -->
 
-## Effect of the treatment.
+## stats pairs the estimator with its variance.
 
 $$ \hat\beta = 0.42 \pm 0.03 $$
 
@@ -6250,14 +6218,14 @@ $$ \hat\beta = 0.42 \pm 0.03 $$
 For every additional unit of exposure, the outcome rises by 0.42 SD — roughly an **8%** shift on the baseline. Effect size is the headline; the $p$-value just rules out chance.
 ```
 
-##### `decompose` — Matrix · decompose — factorisation sequence
+##### `decompose` — decompose
 
-A compound of `matrix`: lays a factorisation out as a sequence of matrices (LU, QR, SVD). Author it as `math matrix decompose` with the product written out. Use when the structure of the decomposition is the point.
+A compound of `matrix`: lays a factorisation out as a sequence of mat…
 
 ```markdown
 <!-- _class: math matrix decompose -->
 
-## LU decomposition.
+## decompose colors the terms it names.
 
 $$
 \begin{pmatrix} 2 & 1 \\ 4 & 3 \end{pmatrix}
@@ -6266,7 +6234,7 @@ $$
 \begin{pmatrix} 2 & 1 \\ 0 & 1 \end{pmatrix}
 $$
 
-- **$A$** — the original matrix being factorised
+- **$A$** — the original matrix being factorized
 - **$L$** — lower-triangular, unit diagonal
 - **$U$** — upper-triangular
 - **use** — solve $Ax = b$ by forward then back substitution
@@ -6444,7 +6412,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 #### Related components
 
 - [`compare-prose`](#compare-prose) — the change is state, not code
-- [`compare-prose`](#compare-prose) — the comparison is prose-versus-prose
+- [`redline`](#redline) — the comparison is prose-versus-prose
 - [`redline`](#redline) — the change is in verbatim text or legal language
 - [`compare-table`](#compare-table) — three or more variants on shared dimensions
 
@@ -6528,14 +6496,14 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 #### Variants (component-specific)
 
-##### `branching` — Branching — statute root with child branches
+##### `branching` — branching
 
-Renders nested children as connected branches off the parent tier. Use when one statute spawns multiple regulations, guidance docs, or cases worth surfacing in the same view.
+The chain forks.
 
 ```markdown
 <!-- _class: authority-chain branching -->
 
-## COPPA — one statute, many branches.
+## branching forks the chain where authority splits.
 
 1. Statute
    - `15 U.S.C. §6501` COPPA, 1998
@@ -6545,14 +6513,14 @@ Renders nested children as connected branches off the parent tier. Use when one 
    - `In re YouTube/Google · 2019` $170M consent order
 ```
 
-##### `trail` — Trail — horizontal numbered trail with arrows
+##### `trail` — trail
 
-Transposes the vertical chain into a left-to-right trail of numbered cards joined by arrows. Use when the slide canvas favours a wide read and the tiers fit in four short steps.
+A breadcrumb walk.
 
 ```markdown
 <!-- _class: authority-chain trail -->
 
-## COPPA — statute through case, left to right.
+## trail walks the chain as a breadcrumb.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -6568,14 +6536,14 @@ Transposes the vertical chain into a left-to-right trail of numbered cards joine
    - $245M consent order.
 ```
 
-##### `pyramid` — Pyramid — hierarchy by tier weight
+##### `pyramid` — pyramid
 
-Renders the tiers as a weighted pyramid, the controlling authority widest at the base. Use when the point is the hierarchy of authority itself, not the timeline.
+Tiers weighted by force.
 
 ```markdown
 <!-- _class: authority-chain pyramid -->
 
-## COPPA — the authority pyramid.
+## pyramid weights the tiers by force.
 
 1. Statute
    - `15 U.S.C. §6501`
@@ -6591,14 +6559,14 @@ Renders the tiers as a weighted pyramid, the controlling authority widest at the
    - $245M consent order.
 ```
 
-##### `bracket` — Bracket — connected cards
+##### `bracket` — bracket
 
-Lays the tiers out as bracketed cards joined by strong connectors, emphasising that each rung derives its force from the one above it.
+Tiers grouped by actor.
 
 ```markdown
 <!-- _class: authority-chain bracket -->
 
-## How the GDPR fine traces back to the treaty.
+## bracket groups the tiers by actor.
 
 1. Treaty
    - `Charter of Fundamental Rights, Art. 8`
@@ -6608,7 +6576,7 @@ Lays the tiers out as bracketed cards joined by strong connectors, emphasising t
    - Directly applicable across all member states; sets the Art. 83 fine tiers.
 3. Guidance
    - `EDPB Guidelines 04/2022`
-   - Harmonised methodology for calculating administrative fines.
+   - Harmonized methodology for calculating administrative fines.
 4. Decision
    - `DPC v. Meta · 2023`
    - €1.2B fine — the largest GDPR penalty to date.
@@ -6694,14 +6662,14 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 #### Variants (component-specific)
 
-##### `pull-quote` — Pull-quote treatment
+##### `pull-quote` — pull-quote
 
-Promotes the blockquote to a pull-quote scale — the verbatim language reads as the headline; the gloss compresses to the actionable item.
+The operative phrase, lifted.
 
 ```markdown
 <!-- _class: citation-card pull-quote -->
 
-## "Personal information" includes the household, not just the person.
+## pull-quote lifts the operative phrase.
 
 `Cal. Civ. Code §1798.140(o) · CCPA/CPRA`
 
@@ -6711,14 +6679,14 @@ Promotes the blockquote to a pull-quote scale — the verbatim language reads as
   - Audit pixel inventory; treat household IDs as PI in DSAR workflows.
 ```
 
-##### `split` — Split — quote | gloss columns
+##### `split` — split
 
-Puts the verbatim quotation in the left column and the plain-English gloss in the right, with the citation spanning the top. Use when quote and interpretation deserve equal weight.
+Quote beside plain reading.
 
 ```markdown
 <!-- _class: citation-card split -->
 
-## CCPA defines "sale" broadly.
+## split pairs the quote with its plain reading.
 
 `Cal. Civ. Code §1798.140(ad) · CCPA/CPRA`
 
@@ -6728,14 +6696,14 @@ Puts the verbatim quotation in the left column and the plain-English gloss in th
   - Data-for-service swaps and ad-tech cookie syncs can qualify as sales even when no money changes hands.
 ```
 
-##### `margin` — Margin — annotated quotation
+##### `margin` — margin
 
-Sets the quotation as the body with the gloss running as margin notes alongside. Use for close reading where each clause earns its own annotation.
+The cite in the gutter.
 
 ```markdown
 <!-- _class: citation-card margin -->
 
-## The GDPR lawful-basis test.
+## margin hangs the cite in the gutter.
 
 `GDPR Art. 6(1)(f) · legitimate interests`
 
@@ -6745,14 +6713,14 @@ Sets the quotation as the body with the gloss running as margin notes alongside.
   - Necessity first, then a balancing exercise against the data subject's rights. Document both halves or the basis fails on audit.
 ```
 
-##### `triptych` — Triptych — three panels
+##### `triptych` — triptych
 
-Frames the verbatim quote and the gloss items as three panels, with the citation spanning above, for a formal presentation of a single authority. Keep the quotation short so it sits comfortably in its panel.
+Three authorities abreast.
 
 ```markdown
 <!-- _class: citation-card triptych -->
 
-## What "personal data" covers under GDPR.
+## triptych sets three authorities abreast.
 
 `GDPR Art. 4(1) · definitions`
 
@@ -6845,14 +6813,14 @@ Filled = applies, half = partial, empty = exempt.
 
 #### Variants (component-specific)
 
-##### `heat` — Heat — risk-axis palette
+##### `heat` — heat
 
-Flips the palette so applies reads as alarm and exempt reads as relief. Adds cell-background tints so the table reads as a heat map at a glance. Use when the matrix is being scanned for exposure, not coverage.
+Cells shaded by burden.
 
 ```markdown
 <!-- _class: obligation-matrix heat -->
 
-## Same regimes, read for exposure — heat map.
+## heat shades the cells by burden.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -6866,14 +6834,14 @@ Flips the palette so applies reads as alarm and exempt reads as relief. Adds cel
 Red = applies (exposure), green = exempt (relief). Brackets frame the structure.
 ```
 
-##### `asymmetric` — Asymmetric — card-per-row layout
+##### `asymmetric` — asymmetric
 
-Promotes each regulation to its own card with the obligations rendered as inline state discs. Use when row labels need room for a body sentence and the comparison-density of the default grid would crowd them.
+Regimes differ in kind.
 
 ```markdown
 <!-- _class: obligation-matrix asymmetric -->
 
-## Privacy obligations — card-per-regime layout.
+## asymmetric admits the regimes differ in kind.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -6884,14 +6852,14 @@ Promotes each regulation to its own card with the obligations rendered as inline
 Each row promotes to a card with body-level breathing room.
 ```
 
-##### `pills` — Pills — neutral state chips
+##### `pills` — pills
 
-Renders each cell's state marker as a discrete inline pill on neutral chrome — the default grammar without the heat palette's risk colouring. Use when the matrix should read as plain data, less assertive than heat.
+Cells as status words.
 
 ```markdown
 <!-- _class: obligation-matrix pills -->
 
-## Privacy obligations across regimes — same grammar, no heat.
+## pills spell each cell as a status word.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -6905,14 +6873,14 @@ Renders each cell's state marker as a discrete inline pill on neutral chrome —
 Same data, neutral chrome — the state pills carry the meaning without the heat-map alarm.
 ```
 
-##### `lanes` — Lanes — categorical row stripes
+##### `lanes` — lanes
 
-Tints each regulation's row label with a categorical lane stripe so every regime reads as its own track. Use when the rows are independent regimes rather than a ranked or directly comparable set.
+One regime per band.
 
 ```markdown
 <!-- _class: obligation-matrix lanes -->
 
-## Privacy obligations — categorical row stripes.
+## lanes walks one regime per band.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -6965,7 +6933,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 - **Single rule's lineage.** If the slide walks one rule from statute through case, use `authority-chain`. regulatory-update is a period digest.
 - **Past six rows.** More than six items compresses the row gap and the citation chips run out of room. Split by jurisdiction.
-- **Missing summary or citation.** Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumour.
+- **Missing summary or citation.** Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumor.
 
 #### Authoring
 
@@ -7015,14 +6983,14 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 #### Variants (component-specific)
 
-##### `timeline` — Timeline — chronological spine instead of ranked ledger
+##### `timeline` — timeline
 
-Renders the rows as a chronological spine — effective-date chips align on the right and the chrome reads as a calendar rather than a ranking. Use when chronology is the read, not weight.
+Ordered by effective date.
 
 ```markdown
 <!-- _class: regulatory-update timeline -->
 
-## Privacy and AI motion — Q1 2026 by effective date.
+## timeline orders the changes by effective date.
 
 `Federal · State · International`
 
@@ -7044,14 +7012,14 @@ Renders the rows as a chronological spine — effective-date chips align on the 
    - `Effective Mar 2026`
 ```
 
-##### `priority` — Priority — ranked by exposure rather than chronology
+##### `priority` — priority
 
-Stamps a priority rail on the left of each row and ranks by exposure rather than effective date. Use for board updates where the audience needs 'what to do' before 'when it landed'.
+Ranked by exposure.
 
 ```markdown
 <!-- _class: regulatory-update priority -->
 
-## Q1 motion ranked by exposure.
+## priority ranks the changes by exposure.
 
 `Top three · by ARR at risk`
 
@@ -7069,14 +7037,14 @@ Stamps a priority rail on the left of each row and ranks by exposure rather than
    - `Effective Mar 2026`
 ```
 
-##### `cards` — Cards — one panel per item
+##### `cards` — cards
 
-Breaks the running list into discrete cards, one per development. Use when each item is independent and the audience may photograph a single card.
+One tile per change.
 
 ```markdown
 <!-- _class: regulatory-update cards -->
 
-## Privacy and AI motion — Q1 2026.
+## cards deals each change its own tile.
 
 `Federal · State · International`
 
@@ -7098,14 +7066,14 @@ Breaks the running list into discrete cards, one per development. Use when each 
    - `Effective Mar 2026`
 ```
 
-##### `diff-bands` — Diff-bands — grouped by change kind
+##### `diff-bands` — diff-bands
 
-Groups items under colour-coded h3 bands by the kind of change — Added, Amended, Repealed, Enforced. Use when the type of action matters as much as the instrument.
+Changed versus stayed.
 
 ```markdown
 <!-- _class: regulatory-update diff-bands -->
 
-## What changed this quarter, by kind.
+## diff-bands shades what changed versus stayed.
 
 ### Added
 
@@ -7129,7 +7097,7 @@ Groups items under colour-coded h3 bands by the kind of change — Added, Amende
 
 4. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order finalised against deceptive privacy branding.
+   - $16.5M consent order finalized against deceptive privacy branding.
 ```
 
 #### Universal modifiers
@@ -7218,14 +7186,14 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 
 #### Variants (component-specific)
 
-##### `hierarchy` — Authority pyramid
+##### `hierarchy` — hierarchy
 
-Stacks the rows vertically with descending row heights — Federal tallest, State mid, Local shortest. Use when the jurisdictions are nested in authority, not peers.
+Ordered by supremacy.
 
 ```markdown
 <!-- _class: statute-stack hierarchy -->
 
-## Children's data — authority cascades downward.
+## hierarchy orders the stack by supremacy.
 
 - Federal `15 U.S.C. §6501` `In effect since 2000`
   - Verifiable parental consent for under-13 personal data.
@@ -7237,12 +7205,12 @@ Stacks the rows vertically with descending row heights — Federal tallest, Stat
 
 ##### `bands` — Horizontal bands
 
-Each jurisdiction is a full-width card stacked at equal height — an at-a-glance scorecard. A row card: both pills ride the header line (citation left, status right). Only the arrangement differs from the default.
+Full-width strips.
 
 ```markdown
 <!-- _class: statute-stack bands -->
 
-## Children's data — at-a-glance scorecard.
+## bands strips each jurisdiction full-width.
 
 - Federal `15 U.S.C. §6501` `In effect since 2000`
   - Verifiable parental consent for under-13 personal data.
@@ -7252,14 +7220,14 @@ Each jurisdiction is a full-width card stacked at equal height — an at-a-glanc
   - Bias-audit obligation for AEDTs used in employment decisions.
 ```
 
-##### `preemption` — Preemption cascade
+##### `preemption` — preemption
 
-Vertical stack with a downward arrow between each card. Use when the slide must show that the upper jurisdiction preempts or supersedes the one below.
+Which law yields.
 
 ```markdown
 <!-- _class: statute-stack preemption -->
 
-## Federal preemption — how the cascade flows.
+## preemption marks which law yields.
 
 - Federal `15 U.S.C. §6501` `Preempts state rules`
   - Sets the floor for under-13 personal data collection.
@@ -7271,12 +7239,12 @@ Vertical stack with a downward arrow between each card. Use when the slide must 
 
 ##### `lane` — Markdown table
 
-Pivots to a markdown table — columns for jurisdiction, citation, obligation, status. Use for register-style briefings where the audience scans down each column.
+One column stack.
 
 ```markdown
 <!-- _class: statute-stack lane -->
 
-## Children's data — register view.
+## lane runs the stack in one column.
 
 | Jurisdiction | Citation              | Headline obligation       | Status      |
 | ------------ | --------------------- | ------------------------- | ----------- |

@@ -64,14 +64,14 @@ Filled = applies, half = partial, empty = exempt.
 
 ## Variants (component-specific)
 
-### `heat` — Heat — risk-axis palette
+### `heat` — heat
 
-Flips the palette so applies reads as alarm and exempt reads as relief. Adds cell-background tints so the table reads as a heat map at a glance. Use when the matrix is being scanned for exposure, not coverage.
+Cells shaded by burden.
 
 ```markdown
 <!-- _class: obligation-matrix heat -->
 
-## Same regimes, read for exposure — heat map.
+## heat shades the cells by burden.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -85,14 +85,14 @@ Flips the palette so applies reads as alarm and exempt reads as relief. Adds cel
 Red = applies (exposure), green = exempt (relief). Brackets frame the structure.
 ```
 
-### `asymmetric` — Asymmetric — card-per-row layout
+### `asymmetric` — asymmetric
 
-Promotes each regulation to its own card with the obligations rendered as inline state discs. Use when row labels need room for a body sentence and the comparison-density of the default grid would crowd them.
+Regimes differ in kind.
 
 ```markdown
 <!-- _class: obligation-matrix asymmetric -->
 
-## Privacy obligations — card-per-regime layout.
+## asymmetric admits the regimes differ in kind.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -103,14 +103,14 @@ Promotes each regulation to its own card with the obligations rendered as inline
 Each row promotes to a card with body-level breathing room.
 ```
 
-### `pills` — Pills — neutral state chips
+### `pills` — pills
 
-Renders each cell's state marker as a discrete inline pill on neutral chrome — the default grammar without the heat palette's risk colouring. Use when the matrix should read as plain data, less assertive than heat.
+Cells as status words.
 
 ```markdown
 <!-- _class: obligation-matrix pills -->
 
-## Privacy obligations across regimes — same grammar, no heat.
+## pills spell each cell as a status word.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |
@@ -124,14 +124,14 @@ Renders each cell's state marker as a discrete inline pill on neutral chrome —
 Same data, neutral chrome — the state pills carry the meaning without the heat-map alarm.
 ```
 
-### `lanes` — Lanes — categorical row stripes
+### `lanes` — lanes
 
-Tints each regulation's row label with a categorical lane stripe so every regime reads as its own track. Use when the rows are independent regimes rather than a ranked or directly comparable set.
+One regime per band.
 
 ```markdown
 <!-- _class: obligation-matrix lanes -->
 
-## Privacy obligations — categorical row stripes.
+## lanes walks one regime per band.
 
 | Regulation | Notice | Consent | Retention | Breach | DSAR  |
 | ---------- | :----: | :-----: | :-------: | :----: | :---: |

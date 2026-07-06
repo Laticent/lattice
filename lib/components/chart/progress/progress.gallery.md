@@ -20,7 +20,7 @@ Horizontal progress bars — one row per item, percentage filled.
 
 `H1 2026 · Phase 1 readiness`
 
-## Phase 1 readiness, by workstream.
+## Progress bars race toward their targets.
 
 Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.
 
@@ -34,7 +34,8 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 ---
 
 <!-- _class: progress -->
-<!-- _footer: "Stress test · progress" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · progress — A full wall of tracks — the ceiling." -->
 
 `H1 2026 · Phase 1 readiness`
 
@@ -57,7 +58,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 `H1 2026 · Phase 1 readiness`
 
-## Phase 1 readiness, by workstream.
+## Progress bars race toward their targets.
 
 Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.
 
@@ -75,7 +76,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 `H1 2026 · Phase 1 readiness`
 
-## Phase 1 readiness, by workstream.
+## Progress bars race toward their targets.
 
 Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.
 
@@ -93,7 +94,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 `H1 2026 · Phase 1 readiness`
 
-## Phase 1 readiness, by workstream.
+## Progress bars race toward their targets.
 
 Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.
 

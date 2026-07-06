@@ -3,9 +3,19 @@
   "name": "statute-stack",
   "adapt": {
     "mode": "reflow",
-    "families": ["wide", "square", "tall", "strip"],
-    "priority": ["heading", "rows"],
-    "keepTogether": ["row"]
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "heading",
+      "rows"
+    ],
+    "keepTogether": [
+      "row"
+    ]
   },
   "function": "inventory",
   "bucket": "legal",
@@ -17,10 +27,18 @@
     "sweet": 3,
     "soft": 4,
     "hard": 5,
-    "escalateTo": ["split across slides (auto with autosplit: on)", "list-tabular"],
+    "escalateTo": [
+      "split across slides (auto with autosplit: on)",
+      "list-tabular"
+    ],
     "note": "past four jurisdictions the three-column rail collapses"
   },
-  "density": { "axis": "item", "soft": 16, "hard": 24, "note": "one obligation line per statute" },
+  "density": {
+    "axis": "item",
+    "soft": 16,
+    "hard": 24,
+    "note": "one obligation line per statute"
+  },
   "split": {
     "strategy": "cover-paginate",
     "axis": "item",
@@ -28,10 +46,16 @@
     "intro": "What each jurisdiction requires",
     "note": "Overflowing stack splits as an accent cover → its own native cards paginated (never flattened). lib/core/carousel.js cover-paginate."
   },
-  "tags": ["citation", "reference", "compliance"],
+  "tags": [
+    "citation",
+    "reference",
+    "compliance"
+  ],
   "description": "Citation hierarchy — federal / state / local rows with citation, headline obligation, and status.",
   "purpose": "Use when three or four parallel jurisdictions need to read at a glance: each row carries the jurisdiction label, the citation, the obligation summary, and an effective-date marker.",
-  "excludes": ["claim-bleed"],
+  "excludes": [
+    "claim-bleed"
+  ],
   "variants": [
     "hierarchy",
     "bands",
@@ -52,7 +76,11 @@
   },
   "skeleton": "<!-- _class: statute-stack -->\n\n## Jurisdiction comparison framing the three obligations.\n\n- Federal `Citation`\n  - Headline obligation in one sentence.\n  - `Status or effective date`\n- State `Citation`\n  - Headline obligation in one sentence.\n  - `Status or effective date`\n- Local `Citation`\n  - Headline obligation in one sentence.\n  - `Status or effective date`\n",
   "anatomyBlock": "statute-stack",
-  "sample": "<!-- _class: statute-stack -->\n\n## Children's data — three jurisdictions, three obligations.\n\n- Federal `15 U.S.C. §6501`\n  - Verifiable parental consent for under-13 personal data.\n  - Operators must post a clear notice and a deletion route.\n  - `In effect since 2000`\n- State `Cal. Civ. §1798.120`\n  - Opt-in for selling or sharing under-16 data; opt-out for over-16.\n  - DSAR handling within 45 days; deletion verified.\n  - `Enforced 2023`\n- Local `NYC §22-1201`\n  - Bias-audit obligation for AEDTs used in employment decisions.\n  - Annual audit + candidate notice + public summary.\n  - `Effective 2023`\n",
+  "sample": "<!-- _class: statute-stack -->\n\n## Three jurisdictions, one obligation each.\n\n- Federal `15 U.S.C. §6501`\n  - Parental consent for under-13 data.\n  - `In effect since 2000`\n- State `Cal. Civ. §1798.120`\n  - The right to opt out of sale.\n  - `In effect since 2020`\n- International `GDPR Art. 8`\n  - Member-state consent age, 13 to 16.\n  - `In effect since 2018`\n",
+  "stressDoc": {
+    "caption": "Five jurisdictions — the ceiling.",
+    "sample": "<!-- _class: statute-stack -->\n\n## Five jurisdictions is the rail's hard ceiling.\n\n- Federal `COPPA §6501`\n  - The anchor tier reads first.\n  - `2000`\n- State `CCPA §1798`\n  - Twenty-four words is each tier's line.\n  - `2020`\n- State `Tex. 541`\n  - Parallel tiers must match shapes.\n  - `2024`\n- Intl `GDPR 8`\n  - The fourth passed the soft mark.\n  - `2018`\n- Intl `PIPL 31`\n  - The stop; six collapses the rail.\n  - `2021`\n"
+  },
   "whenToUse": [
     {
       "title": "Three parallel jurisdictions",
@@ -101,24 +129,25 @@
   ],
   "variantDocs": {
     "hierarchy": {
-      "label": "Authority pyramid",
-      "caption": "Stacks the rows vertically with descending row heights — Federal tallest, State mid, Local shortest. Use when the jurisdictions are nested in authority, not peers.",
-      "sample": "<!-- _class: statute-stack hierarchy -->\n\n## Children's data — authority cascades downward.\n\n- Federal `15 U.S.C. §6501` `In effect since 2000`\n  - Verifiable parental consent for under-13 personal data.\n- State `Cal. Civ. §1798.120` `Enforced 2023`\n  - Opt-in for selling or sharing under-16 data; opt-out for over-16.\n- Local `NYC §22-1201` `Effective 2023`\n  - Bias-audit obligation for AEDTs used in employment decisions.\n"
+      "label": "hierarchy",
+      "caption": "Ordered by supremacy.",
+      "sample": "<!-- _class: statute-stack hierarchy -->\n\n## hierarchy orders the stack by supremacy.\n\n- Federal `15 U.S.C. §6501` `In effect since 2000`\n  - Verifiable parental consent for under-13 personal data.\n- State `Cal. Civ. §1798.120` `Enforced 2023`\n  - Opt-in for selling or sharing under-16 data; opt-out for over-16.\n- Local `NYC §22-1201` `Effective 2023`\n  - Bias-audit obligation for AEDTs used in employment decisions.\n"
     },
     "bands": {
       "label": "Horizontal bands",
-      "caption": "Each jurisdiction is a full-width card stacked at equal height — an at-a-glance scorecard. A row card: both pills ride the header line (citation left, status right). Only the arrangement differs from the default.",
-      "sample": "<!-- _class: statute-stack bands -->\n\n## Children's data — at-a-glance scorecard.\n\n- Federal `15 U.S.C. §6501` `In effect since 2000`\n  - Verifiable parental consent for under-13 personal data.\n- State `Cal. Civ. §1798.120` `Enforced 2023`\n  - Opt-in for selling or sharing under-16 data; opt-out for over-16.\n- Local `NYC §22-1201` `Effective 2023`\n  - Bias-audit obligation for AEDTs used in employment decisions.\n"
+      "caption": "Full-width strips.",
+      "sample": "<!-- _class: statute-stack bands -->\n\n## bands strips each jurisdiction full-width.\n\n- Federal `15 U.S.C. §6501` `In effect since 2000`\n  - Verifiable parental consent for under-13 personal data.\n- State `Cal. Civ. §1798.120` `Enforced 2023`\n  - Opt-in for selling or sharing under-16 data; opt-out for over-16.\n- Local `NYC §22-1201` `Effective 2023`\n  - Bias-audit obligation for AEDTs used in employment decisions.\n"
     },
     "preemption": {
-      "label": "Preemption cascade",
-      "caption": "Vertical stack with a downward arrow between each card. Use when the slide must show that the upper jurisdiction preempts or supersedes the one below.",
-      "sample": "<!-- _class: statute-stack preemption -->\n\n## Federal preemption — how the cascade flows.\n\n- Federal `15 U.S.C. §6501` `Preempts state rules`\n  - Sets the floor for under-13 personal data collection.\n- State `Cal. Civ. §1798.120` `Survives preemption`\n  - Stricter opt-in regime on top of COPPA's baseline.\n- Local `NYC §22-1201` `Independent of preemption`\n  - Bias-audit obligation distinct from privacy preemption scope.\n"
+      "label": "preemption",
+      "caption": "Which law yields.",
+      "sample": "<!-- _class: statute-stack preemption -->\n\n## preemption marks which law yields.\n\n- Federal `15 U.S.C. §6501` `Preempts state rules`\n  - Sets the floor for under-13 personal data collection.\n- State `Cal. Civ. §1798.120` `Survives preemption`\n  - Stricter opt-in regime on top of COPPA's baseline.\n- Local `NYC §22-1201` `Independent of preemption`\n  - Bias-audit obligation distinct from privacy preemption scope.\n"
     },
     "lane": {
       "label": "Markdown table",
-      "caption": "Pivots to a markdown table — columns for jurisdiction, citation, obligation, status. Use for register-style briefings where the audience scans down each column.",
-      "sample": "<!-- _class: statute-stack lane -->\n\n## Children's data — register view.\n\n| Jurisdiction | Citation              | Headline obligation       | Status      |\n| ------------ | --------------------- | ------------------------- | ----------- |\n| Federal      | 15 U.S.C. §6501       | Parental consent <13 data | In effect   |\n| State        | Cal. Civ. Code §1798  | Notice + opt-out + DSAR   | Enforced    |\n| Local        | NYC §22-1201          | Annual AEDT bias audit    | Effective   |\n"
+      "caption": "One column stack.",
+      "sample": "<!-- _class: statute-stack lane -->\n\n## lane runs the stack in one column.\n\n| Jurisdiction | Citation              | Headline obligation       | Status      |\n| ------------ | --------------------- | ------------------------- | ----------- |\n| Federal      | 15 U.S.C. §6501       | Parental consent <13 data | In effect   |\n| State        | Cal. Civ. Code §1798  | Notice + opt-out + DSAR   | Enforced    |\n| Local        | NYC §22-1201          | Annual AEDT bias audit    | Effective   |\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

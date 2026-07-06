@@ -1,13 +1,29 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "timeline-list",
-  "adapt": { "mode": "reflow", "priority": ["title", "events"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "events"
+    ]
+  },
   "function": "evidence",
   "bucket": "chart",
   "form": "timeline",
   "substance": "series",
-  "density": { "axis": "item", "soft": 16, "hard": 24, "note": "one stage in a sentence" },
-  "tags": ["changelog", "milestones", "status", "retrospective"],
+  "density": {
+    "axis": "item",
+    "soft": 16,
+    "hard": 24,
+    "note": "one stage in a sentence"
+  },
+  "tags": [
+    "changelog",
+    "milestones",
+    "status",
+    "retrospective"
+  ],
   "description": "Date-stamped event list rendered as a horizontal spine — a dot per event with its date pill above and title, status pill, and body stacked below.",
   "purpose": "Use for milestone history or annotated timelines. Each event sits on a left-to-right spine: a dot with its date pill above it, then the title, an optional status pill, and a short body stacked beneath.",
   "slots": {
@@ -24,7 +40,11 @@
   },
   "skeleton": "<!-- _class: timeline-list -->\n\n`Eyebrow · context`\n\n## How it unfolded.\n\n1. `2024 Q3` First milestone\n   - One-sentence description of what shipped.\n2. `2025 Q1` Second milestone `decision`\n   - One-sentence description.\n3. `2025 Q3` Third milestone `live`\n   - One-sentence description.\n",
   "anatomyBlock": "timeline-list",
-  "sample": "<!-- _class: timeline-list -->\n\n`Decision framework`\n\n## How the framework arrived in production.\n\nFour stages over eighteen months, from the first workshop to the operating rhythm.\n\n1. `2024 Q3` First workshop\n   - The one where we agreed to agree on a definition of \"signal.\" Output: a fifth workshop.\n2. `2025 Q1` Framework approved `decision`\n   - The steering committee accepts the scoring model. Build approved; the build team is the steering committee.\n3. `2025 Q3` Pilot live `live`\n   - Four product teams onboarded; the decision log opens. Eighteen entries to date, against roughly three hundred decisions made.\n4. `2026 Q1` Operating rhythm `live`\n   - The weekly review lands on every team's calendar. Attendance, like the calibration step, remains aspirational.\n",
+  "sample": "<!-- _class: timeline-list -->\n\n`chart · timeline-list`\n\n## The timeline pins events to their dates.\n\nFour milestones show the shape; the date chips carry the when.\n\n1. `Q1` The first milestone\n   - One clause says what changed here.\n2. `Q2` The second, marked `decision`\n   - A tag names the milestone's kind.\n3. `Q3` The third milestone\n   - Sixteen words is each entry's budget.\n4. `Q4` The fourth milestone\n   - Four to six entries reads best.\n",
+  "stressDoc": {
+    "caption": "Six milestones at the word ceiling.",
+    "sample": "<!-- _class: timeline-list -->\n\n`timeline-list · stress`\n\n## Six milestones is the line's honest length.\n\n1. `Y1 Q1` The opening milestone\n   - An entry at the hard budget carries one full clause and its consequence.\n2. `Y1 Q3` The second marker\n   - Twenty-four words is the ceiling; spend them on what changed, not context.\n3. `Y2 Q1` The midpoint\n   - The middle of a timeline is where attention sags — anchor it.\n4. `Y2 Q3` The fourth marker\n   - Entries shorten as the line descends.\n5. `Y3 Q1` The fifth marker\n   - The soft ceiling passed one entry ago.\n6. `Y3 Q3` The last marker\n   - Six is the stop; a seventh becomes a gantt.\n"
+  },
   "whenToUse": [
     {
       "title": "Milestones in time",
@@ -75,5 +95,5 @@
       "when": "the events are parallel workstreams with completion percentages"
     }
   ],
-  "stressSample": "<!-- _class: timeline-list -->\n\n`Decision framework`\n\n## Stress test — six milestones over three years, each described as inevitable in hindsight.\n\n1. `2023 Q4` Quarterly re-litigation\n   - Every prioritisation argued from first principles in a recurring meeting. Average close 4 hours, and the worst one ran an entire offsite, precisely when the board joined.\n2. `2024 Q2` Framework proposal `decision`\n   - Architecture review accepts the scoring model. The review board and the build team are the same six people.\n3. `2024 Q4` Scoring policy GA `live`\n   - Phase 1 rollout complete; twelve product teams onboarded, all of whom asked to go back to the spreadsheet once.\n4. `2025 Q2` Per-team calibration `live`\n   - Per-team scoring weights shipped; the calibration loop cut p99 decision close to 18 minutes. The slide does not mention what the cold path costs.\n5. `2025 Q4` Org-wide enablement `at-risk`\n   - Org-wide adoption enters pilot. \"Org-wide\" remains one pilot team with ambitions.\n6. `2026 Q2` Auditor export\n   - Decision-log export and the auditor evidence pack in build — demoed once, never yet run in anger.\n"
+  "specimenVoice": true
 }

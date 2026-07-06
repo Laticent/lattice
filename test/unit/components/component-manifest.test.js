@@ -76,9 +76,16 @@ describe('component-manifest', () => {
       assert.deepEqual(validate(GOOD), []);
     });
 
-    test('stressSample: accepts a non-empty string, rejects empty', () => {
-      assert.deepEqual(validate({ ...GOOD, stressSample: '<!-- _class: x -->\n\n## …\n' }), []);
-      assert.ok(validate({ ...GOOD, stressSample: '' }).some((e) => /stressSample/.test(e)));
+    test('stressSample is retired — validate() rejects it', () => {
+      assert.ok(validate({ ...GOOD, stressSample: '<!-- _class: x -->\n\n## …\n' }).some((e) => /retired/.test(e)));
+    });
+
+    test('capacity without stressDoc is rejected (graduated gate)', () => {
+      const itemsSample = '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n';
+      const cap = { axis: 'item', min: 2, sweet: 3, soft: 4, hard: 5, escalateTo: ['split across slides'] };
+      assert.ok(validate({ ...GOOD, sample: itemsSample, capacity: cap }).some((e) => /stressDoc is missing/.test(e)));
+      const sd = { caption: 'Five items — the ceiling.', sample: itemsSample };
+      assert.deepEqual(validate({ ...GOOD, sample: itemsSample, capacity: cap, stressDoc: sd }), []);
     });
 
     test('stressDoc: accepts { caption, sample }, rejects malformed and dual spellings', () => {
@@ -87,7 +94,7 @@ describe('component-manifest', () => {
       assert.ok(validate({ ...GOOD, stressDoc: { sample: sd.sample } }).some((e) => /stressDoc\.caption/.test(e)));
       assert.ok(validate({ ...GOOD, stressDoc: { caption: sd.caption } }).some((e) => /stressDoc\.sample/.test(e)));
       assert.ok(
-        validate({ ...GOOD, stressDoc: sd, stressSample: sd.sample }).some((e) => /not both/.test(e))
+        validate({ ...GOOD, stressDoc: sd, stressSample: sd.sample }).some((e) => /retired/.test(e))
       );
     });
 
@@ -158,6 +165,7 @@ describe('component-manifest', () => {
         focusAxes: ['item'],
         sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n',
         capacity: { axis: 'item', min: 2, sweet: 3, soft: 4, hard: 5, escalateTo: ['list-tabular', 'split across slides'], note: 'crowds past four' },
+        stressDoc: { caption: 'Five items — the ceiling.', sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n- D\n  - d\n- E\n  - e\n' },
       };
       assert.deepEqual(validate(m), []);
     });
@@ -190,7 +198,12 @@ describe('component-manifest', () => {
     // Prose-density budget (phase 2) — 2026-06-30-prose-density-budget.md.
     const WITH_ITEMS = { ...GOOD, sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - body\n- B\n  - body\n' };
     test('density: accepts a well-formed block (axis inherited from capacity)', () => {
-      const m = { ...WITH_ITEMS, capacity: { axis: 'item', soft: 4, hard: 6 }, density: { soft: 12, hard: 20, note: 'one clause' } };
+      const m = {
+        ...WITH_ITEMS,
+        capacity: { axis: 'item', soft: 4, hard: 6 },
+        density: { soft: 12, hard: 20, note: 'one clause' },
+        stressDoc: { caption: 'Six items — the ceiling.', sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n- B\n- C\n- D\n- E\n- F\n' },
+      };
       assert.deepEqual(validate(m), []);
     });
     test('density: requires soft and hard', () => {

@@ -55,7 +55,11 @@
   },
   "skeleton": "<!-- _class: compare-code -->\n\n## Heading framing the comparison.\n\n### Before\n\n```js\nfunction before() {\n  return 'old';\n}\n```\n\n### After\n\n```js\nfunction after() {\n  return 'new';\n}\n```\n",
   "anatomyBlock": "compare-code",
-  "sample": "<!-- _class: compare-code -->\n\n`Query path · report generation`\n\n## The N+1 query that slowed every report.\n\n`Before · one query per row`\n\n```js\nconst signals = await db.signals.findAll();\nfor (const s of signals) {\n  s.owner = await db.users.find(s.ownerId);\n}\nreturn signals;\n```\n\n`After · one batched join`\n\n```js\nconst signals = await db.signals.findAll({\n  include: { owner: true },\n});\nreturn signals;\n```\n",
+  "sample": "<!-- _class: compare-code -->\n\n`Query path · report generation`\n\n## Before and after, the diff you can read aloud.\n\n`Before · one query per row`\n\n```js\nconst signals = await db.signals.findAll();\nfor (const s of signals) {\n  s.owner = await db.users.find(s.ownerId);\n}\nreturn signals;\n```\n\n`After · one batched join`\n\n```js\nconst signals = await db.signals.findAll({\n  include: { owner: true },\n});\nreturn signals;\n```\n",
+  "stressDoc": {
+    "caption": "Two ten-line panes — the side-by-side ceiling.",
+    "sample": "<!-- _class: compare-code -->\n\n`compare-code · stress`\n\n## Ten lines a side is the ceiling.\n\n`Before · at the pane budget`\n\n```js\nfunction beforePane(rows) {\n  const out = [];\n  for (const row of rows) {\n    // ten lines per pane is the most\n    // a side-by-side diff can hold\n    // before the type drops below\n    // back-row legibility\n    out.push(transform(row));\n  }\n  return out;\n}\n```\n\n`After · same budget, same shape`\n\n```js\nfunction afterPane(rows) {\n  // the panes must stay line-comparable:\n  // the eye pairs line N with line N\n  // across the gutter — pad or trim\n  // until the shapes align\n  return rows.map(transform);\n}\n// past ten lines a side, split the\n// comparison across two slides\n```\n"
+  },
   "whenToUse": [
     {
       "title": "Concrete code on both sides",
@@ -90,7 +94,7 @@
       "when": "the change is state, not code"
     },
     {
-      "name": "compare-prose",
+      "name": "redline",
       "when": "the comparison is prose-versus-prose"
     },
     {
@@ -101,5 +105,6 @@
       "name": "compare-table",
       "when": "three or more variants on shared dimensions"
     }
-  ]
+  ],
+  "specimenVoice": true
 }

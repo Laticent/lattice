@@ -38,7 +38,7 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the cloud. |
-| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and coloured RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
+| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
 
 ## Anatomy
 
@@ -57,14 +57,14 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 
 ## Variants (component-specific)
 
-### `constellation` — Constellation — airy, two-tone
+### `constellation` — constellation
 
-A wider size spread with no rotation — words sit like a constellation with generous spacing. Built for a small, high-impact vocabulary; keep it to six or eight terms.
+Words scattered like stars.
 
 ```markdown
 <!-- _class: word-cloud constellation -->
 
-## What this branch named, by weight.
+## constellation scatters the words like stars.
 
 - component `5`
 - manifest `4`
@@ -74,14 +74,14 @@ A wider size spread with no rotation — words sit like a constellation with gen
 - gallery `1`
 ```
 
-### `dense` — Dense — tight pack
+### `dense` — dense
 
-A tighter spiral, narrower size spread, and more rotation pack many terms into the canvas. Use for a long tail of vocabulary where coverage matters more than any single word.
+The cloud packed tight.
 
 ```markdown
 <!-- _class: word-cloud dense -->
 
-## Every term this branch touched.
+## dense packs the cloud tight.
 
 - component `5`
 - manifest `5`
@@ -100,14 +100,14 @@ A tighter spiral, narrower size spread, and more rotation pack many terms into t
 - palette `1`
 ```
 
-### `spectrum` — Spectrum — heat ramp
+### `spectrum` — spectrum
 
-Colours words along a heat ramp by weight instead of cycling the categorical palette — the hottest terms read first. No rotation, so the ramp stays legible.
+Words colored along a scale.
 
 ```markdown
 <!-- _class: word-cloud spectrum -->
 
-## What this branch named, by weight.
+## spectrum colors the words along a scale.
 
 - component `5`
 - manifest `4`
@@ -119,14 +119,14 @@ Colours words along a heat ramp by weight instead of cycling the categorical pal
 - universal `1`
 ```
 
-### `focal` — Focal — one dominant term
+### `focal` — focal
 
-The widest size spread and steepest curve make the top term tower over the rest. Use when one word IS the message and the others are brief supporting context — keep the list short.
+One word crowned the center.
 
 ```markdown
 <!-- _class: word-cloud focal -->
 
-## The one word that defined the branch.
+## focal crowns one word the center.
 
 - variants `5`
 - gallery `2`

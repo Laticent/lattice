@@ -36,6 +36,21 @@ in patch versions.
 
 ### Changed
 
+- **The Specimen Book content migration is complete (PR 4).** The final 23
+  components — the whole chart family plus diagram, math, code, and legal —
+  now teach themselves: specimen headings on every sample and variant, short
+  caption footers, and stress slides at the honest ceiling everywhere one is
+  meaningful (journey's five-stage/twelve-task path, roadmap's full grid,
+  math's three-step derivation, the six-tier authority chain, code's
+  twenty-line wall). Legal decks keep their real statutes; charts keep their
+  real data shapes. The `VOICE_DEBT` ledger is empty except inventory's
+  recorded capacity mismatch, and the contract graduates: `stressSample` is
+  retired and `validate()` now errors on any capacity-bearing manifest
+  without its `stressDoc`. **Breaking:** manifests still carrying
+  `stressSample` are rejected — spell it `stressDoc { caption, sample }`.
+
+### Changed
+
 - **Group-2 galleries speak the specimen voice (Specimen Book, PR 3).** All 14
   components across comparison, progression, evidence, and imagery now teach
   themselves within their word budgets, with one-line captions and short

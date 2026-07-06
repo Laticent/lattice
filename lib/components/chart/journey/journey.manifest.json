@@ -1,13 +1,26 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "journey",
-  "adapt": { "mode": "reflow", "priority": ["heading", "sections"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "heading",
+      "sections"
+    ]
+  },
   "function": "progression",
   "bucket": "chart",
   "form": "timeline",
   "substance": "structure",
-  "orientation": ["landscape", "portrait"],
-  "tags": ["process", "assessment", "walkthrough"],
+  "orientation": [
+    "landscape",
+    "portrait"
+  ],
+  "tags": [
+    "process",
+    "assessment",
+    "walkthrough"
+  ],
   "description": "Native user-journey chart — sections of tasks, each tagged with actor(s) and a 1-5 mood. Renders as section bars, task chips, plumb lines, and mood faces.",
   "purpose": "Use when a process or experience needs charting as a horizontal sequence of moments, each scored for affect. Five variants reshape the same source list: default (Mermaid-style classic), heatmap (mood-tinted chips), curve (mood polyline with axis), swimlane (per-actor rows), weighted (chip widths proportional to `+volume`).",
   "variants": [
@@ -30,7 +43,11 @@
   },
   "skeleton": "<!-- _class: journey -->\n\n## Walking through my Tuesday morning.\n\n- Wake up\n  - Hit snooze `@me` `:2`\n  - Make coffee `@me` `:4`\n- Commute\n  - Subway `@me` `:1`\n  - Walk `@me` `:5`\n- Work\n  - Standup `@team` `:3`\n  - Deep work `@me` `:5`\n",
   "anatomyBlock": "journey",
-  "sample": "<!-- _class: journey -->\n\n## Customer onboarding · trial to activation.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n  - Live demo `@prospect` `@sales` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `@onboarding` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n",
+  "sample": "<!-- _class: journey -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n  - Live demo `@prospect` `@sales` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `@onboarding` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n",
+  "stressDoc": {
+    "caption": "Five stages, twelve tasks — the ceiling.",
+    "sample": "<!-- _class: journey -->\n\n## Five stages of twelve tasks is the ceiling.\n\n- Discover\n  - Hear of it `@prospect` `:3`\n  - First visit `@prospect` `:4`\n- Evaluate\n  - Read the case `@prospect` `:4`\n  - Book a demo `@prospect` `:3`\n  - Sit the demo `@prospect` `@sales` `:4`\n- Trial\n  - Sign up `@prospect` `:3`\n  - First setup `@user` `:1`\n  - Invite the team `@user` `:2`\n- Adopt\n  - First report `@user` `:4`\n  - Weekly habit `@user` `:5`\n- Expand\n  - Add seats `@buyer` `:4`\n  - Renew early `@buyer` `:5`\n"
+  },
   "whenToUse": [
     {
       "title": "Affect is part of the story",
@@ -60,7 +77,6 @@
     }
   ],
   "related": [
-    
     {
       "name": "list-steps",
       "when": "process needs descriptive body per step, no chart"
@@ -76,24 +92,25 @@
   ],
   "variantDocs": {
     "heatmap": {
-      "label": "Heatmap — mood-tinted chips",
-      "caption": "Task chips are tinted by their mood score; plumb lines and faces are suppressed. The fastest variant to scan when the audience only needs to see which moments hurt.",
-      "sample": "<!-- _class: journey heatmap -->\n\n## Heatmap · where the trial drops off.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
+      "label": "heatmap",
+      "caption": "Stages shade by score.",
+      "sample": "<!-- _class: journey heatmap -->\n\n## heatmap shades the stages by score.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
     },
     "curve": {
-      "label": "Curve — mood polyline with axis",
-      "caption": "Renders the mood scores as a polyline over the task sequence with a mood gridline scale and section bands behind. Use when the trend across the journey is the headline.",
-      "sample": "<!-- _class: journey curve -->\n\n## Curve · the affect contour.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
+      "label": "curve",
+      "caption": "A sentiment line rides the stages.",
+      "sample": "<!-- _class: journey curve -->\n\n## curve draws the sentiment line.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
     },
     "swimlane": {
-      "label": "Swimlane — per-actor rows",
-      "caption": "One row per actor; a dot marks every task that actor participates in, coloured by that task's mood. Use when the question is who carries the journey and where the handoffs land.",
-      "sample": "<!-- _class: journey swimlane -->\n\n## Swimlane · who owns each moment.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Live demo `@prospect` `@sales` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `@onboarding` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
+      "label": "swimlane",
+      "caption": "One lane per actor.",
+      "sample": "<!-- _class: journey swimlane -->\n\n## swimlane splits the journey by actor.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Live demo `@prospect` `@sales` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `@onboarding` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
     },
     "weighted": {
-      "label": "Weighted — chip widths by volume",
-      "caption": "Chip widths scale to the `+volume` token; chip colour still encodes mood. Two dimensions at once — schedule shape and traffic-mix — for journeys with skewed loads.",
-      "sample": "<!-- _class: journey weighted -->\n\n## Weighted · where the traffic actually lands.\n\n- Discover\n  - Search `@prospect` `:4` `+45`\n  - Referral `@prospect` `:5` `+18`\n- Convert\n  - Pricing page `@prospect` `:3` `+12`\n  - Checkout `@prospect` `:2` `+10`\n- Support\n  - Settings `@user` `:3` `+8`\n  - Help docs `@user` `:4` `+7`\n"
+      "label": "weighted",
+      "caption": "Stage size carries weight.",
+      "sample": "<!-- _class: journey weighted -->\n\n## weighted sizes the stages by importance.\n\n- Discover\n  - Search `@prospect` `:4` `+45`\n  - Referral `@prospect` `:5` `+18`\n- Convert\n  - Pricing page `@prospect` `:3` `+12`\n  - Checkout `@prospect` `:2` `+10`\n- Support\n  - Settings `@user` `:3` `+8`\n  - Help docs `@user` `:4` `+7`\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

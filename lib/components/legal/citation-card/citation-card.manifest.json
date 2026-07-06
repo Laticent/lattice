@@ -3,9 +3,21 @@
   "name": "citation-card",
   "adapt": {
     "mode": "reflow",
-    "families": ["wide", "square", "tall", "strip"],
-    "priority": ["heading", "citation", "quotation", "gloss"],
-    "keepTogether": ["citation+quotation"]
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "heading",
+      "citation",
+      "quotation",
+      "gloss"
+    ],
+    "keepTogether": [
+      "citation+quotation"
+    ]
   },
   "function": "evidence",
   "bucket": "legal",
@@ -48,7 +60,11 @@
   },
   "skeleton": "<!-- _class: citation-card -->\n\n## Headline framing what this citation establishes.\n\n`Citation reference · short name`\n\n> Verbatim quotation of the cited language.\n\n- Plain-English interpretation of what the language covers.\n- **What we must do.**\n  - The concrete action this citation argues for.\n",
   "anatomyBlock": "citation-card",
-  "sample": "<!-- _class: citation-card -->\n\n## What counts as \"personal information\" under CCPA.\n\n`Cal. Civ. Code §1798.140(o) · CCPA/CPRA`\n\n> \"Personal information\" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.\n\n- In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.\n- **What we must do.**\n  - Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.\n",
+  "sample": "<!-- _class: citation-card -->\n\n## The card quotes the law verbatim, cited.\n\n`Cal. Civ. Code §1798.140(o) · CCPA/CPRA`\n\n> \"Personal information\" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.\n\n- In plain English: any data tied to a household or device, not just a named person — IP addresses, cookie IDs, and device fingerprints are all in scope.\n- **What we must do.**\n  - Treat household-level identifiers as PI in our notice, retention, and DSAR workflows. Audit pixel and tag inventory next quarter.\n",
+  "stressDoc": {
+    "caption": "The longest quotable block.",
+    "sample": "<!-- _class: citation-card -->\n\n## The longest quote one card should carry.\n\n`Cal. Civ. Code §1798.140(o)(1) · CCPA/CPRA`\n\n> \"Personal information\" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household. Personal information includes, but is not limited to, the following if it identifies, relates to, describes, is reasonably capable of being associated with, or could be reasonably linked, directly or indirectly, with a particular consumer or household: identifiers such as a real name, alias, postal address, unique personal identifier, online identifier, Internet Protocol address, email address, account name, social security number, driver's license number, passport number, or other similar identifiers.\n\n- Past this length, the quote stops being read and starts being trusted — excerpt with the `pull-quote` variant instead.\n"
+  },
   "whenToUse": [
     {
       "title": "One citation carries the slide",
@@ -101,24 +117,25 @@
   ],
   "variantDocs": {
     "pull-quote": {
-      "label": "Pull-quote treatment",
-      "caption": "Promotes the blockquote to a pull-quote scale — the verbatim language reads as the headline; the gloss compresses to the actionable item.",
-      "sample": "<!-- _class: citation-card pull-quote -->\n\n## \"Personal information\" includes the household, not just the person.\n\n`Cal. Civ. Code §1798.140(o) · CCPA/CPRA`\n\n> Information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.\n\n- **What we must do.**\n  - Audit pixel inventory; treat household IDs as PI in DSAR workflows.\n"
+      "label": "pull-quote",
+      "caption": "The operative phrase, lifted.",
+      "sample": "<!-- _class: citation-card pull-quote -->\n\n## pull-quote lifts the operative phrase.\n\n`Cal. Civ. Code §1798.140(o) · CCPA/CPRA`\n\n> Information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household.\n\n- **What we must do.**\n  - Audit pixel inventory; treat household IDs as PI in DSAR workflows.\n"
     },
     "split": {
-      "label": "Split — quote | gloss columns",
-      "caption": "Puts the verbatim quotation in the left column and the plain-English gloss in the right, with the citation spanning the top. Use when quote and interpretation deserve equal weight.",
-      "sample": "<!-- _class: citation-card split -->\n\n## CCPA defines \"sale\" broadly.\n\n`Cal. Civ. Code §1798.140(ad) · CCPA/CPRA`\n\n> \"Sale\" means selling, renting, releasing, disclosing, disseminating, making available, transferring, or otherwise communicating a consumer's personal information to a third party for monetary or other valuable consideration.\n\n- The catch is \"other valuable consideration.\"\n  - Data-for-service swaps and ad-tech cookie syncs can qualify as sales even when no money changes hands.\n"
+      "label": "split",
+      "caption": "Quote beside plain reading.",
+      "sample": "<!-- _class: citation-card split -->\n\n## split pairs the quote with its plain reading.\n\n`Cal. Civ. Code §1798.140(ad) · CCPA/CPRA`\n\n> \"Sale\" means selling, renting, releasing, disclosing, disseminating, making available, transferring, or otherwise communicating a consumer's personal information to a third party for monetary or other valuable consideration.\n\n- The catch is \"other valuable consideration.\"\n  - Data-for-service swaps and ad-tech cookie syncs can qualify as sales even when no money changes hands.\n"
     },
     "margin": {
-      "label": "Margin — annotated quotation",
-      "caption": "Sets the quotation as the body with the gloss running as margin notes alongside. Use for close reading where each clause earns its own annotation.",
-      "sample": "<!-- _class: citation-card margin -->\n\n## The GDPR lawful-basis test.\n\n`GDPR Art. 6(1)(f) · legitimate interests`\n\n> Processing is lawful only if and to the extent that processing is necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights of the data subject.\n\n- Two-part test.\n  - Necessity first, then a balancing exercise against the data subject's rights. Document both halves or the basis fails on audit.\n"
+      "label": "margin",
+      "caption": "The cite in the gutter.",
+      "sample": "<!-- _class: citation-card margin -->\n\n## margin hangs the cite in the gutter.\n\n`GDPR Art. 6(1)(f) · legitimate interests`\n\n> Processing is lawful only if and to the extent that processing is necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights of the data subject.\n\n- Two-part test.\n  - Necessity first, then a balancing exercise against the data subject's rights. Document both halves or the basis fails on audit.\n"
     },
     "triptych": {
-      "label": "Triptych — three panels",
-      "caption": "Frames the verbatim quote and the gloss items as three panels, with the citation spanning above, for a formal presentation of a single authority. Keep the quotation short so it sits comfortably in its panel.",
-      "sample": "<!-- _class: citation-card triptych -->\n\n## What \"personal data\" covers under GDPR.\n\n`GDPR Art. 4(1) · definitions`\n\n> 'Personal data' means any information relating to an identified or identifiable natural person.\n\n- In plain English.\n  - Any online identifier that can single out a person — IP address, cookie ID, device fingerprint.\n- **What we must do.**\n  - Scope notice and retention to cover online identifiers, not just named-person records.\n"
+      "label": "triptych",
+      "caption": "Three authorities abreast.",
+      "sample": "<!-- _class: citation-card triptych -->\n\n## triptych sets three authorities abreast.\n\n`GDPR Art. 4(1) · definitions`\n\n> 'Personal data' means any information relating to an identified or identifiable natural person.\n\n- In plain English.\n  - Any online identifier that can single out a person — IP address, cookie ID, device fingerprint.\n- **What we must do.**\n  - Scope notice and retention to cover online identifiers, not just named-person records.\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

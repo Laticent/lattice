@@ -1,21 +1,60 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "kanban",
-  "adapt": { "mode": "reflow", "priority": ["title", "lanes"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "lanes"
+    ]
+  },
   "function": "progression",
   "bucket": "chart",
   "form": "timeline",
   "substance": "series",
-  "capacity": { "axis": "item", "min": 2, "sweet": 3, "soft": 5, "hard": 6, "escalateTo": ["split across slides"], "note": "past five lanes the cards compress" },
-  "density": { "axis": "item", "soft": 8, "hard": 14, "note": "a terse card title" },
-  "split": { "strategy": "kanban-lanes", "note": "In a portrait box the side-by-side lanes can't fit, so each LANE gets its own slide — the chart-header repeats and the board re-emits holding one .kanban-column, giving that lane the whole slide for its cards. Needs >=2 lanes; a single lane taller than the slide rings (card-level pagination is a future pass). lib/core/carousel.js kanban-lanes; 2026-06-25-retire-landscape-locks-portrait-everything.md." },
-  "tags": ["swimlane", "workflow", "status", "agile", "ownership"],
-  "variants": ["keyline", "tinted"],
+  "capacity": {
+    "axis": "item",
+    "min": 2,
+    "sweet": 3,
+    "soft": 5,
+    "hard": 6,
+    "escalateTo": [
+      "split across slides"
+    ],
+    "note": "past five lanes the cards compress"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 8,
+    "hard": 14,
+    "note": "a terse card title"
+  },
+  "split": {
+    "strategy": "kanban-lanes",
+    "note": "In a portrait box the side-by-side lanes can't fit, so each LANE gets its own slide — the chart-header repeats and the board re-emits holding one .kanban-column, giving that lane the whole slide for its cards. Needs >=2 lanes; a single lane taller than the slide rings (card-level pagination is a future pass). lib/core/carousel.js kanban-lanes; 2026-06-25-retire-landscape-locks-portrait-everything.md."
+  },
+  "tags": [
+    "swimlane",
+    "workflow",
+    "status",
+    "agile",
+    "ownership"
+  ],
+  "variants": [
+    "keyline",
+    "tinted"
+  ],
   "variantAxes": [
-    { "label": "Colour coding", "members": ["keyline", "tinted"] }
+    {
+      "label": "Colour coding",
+      "members": [
+        "keyline",
+        "tinted"
+      ]
+    }
   ],
   "description": "Kanban board — columns of cards by stage.",
-  "purpose": "Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends colour only on STATUS, so a flagged card is the focal point; opt into `keyline` (colour-code cards by category) or `tinted` (colour-code columns by stage) when colour coding earns its keep.",
+  "purpose": "Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends color only on STATUS, so a flagged card is the focal point; opt into `keyline` (color-code cards by category) or `tinted` (color-code columns by stage) when color coding earns its keep.",
   "slots": {
     "title": {
       "selector": "h2",
@@ -30,17 +69,21 @@
   },
   "skeleton": "<!-- _class: kanban -->\n\n`Eyebrow · context`\n\n## Board status today.\n\n- Backlog\n  - First card `S`\n    - team-a\n  - Second card `M`\n    - team-b `at-risk`\n- In progress\n  - Third card `M`\n    - team-a\n- Done\n  - Fourth card `S`\n    - team-b\n",
   "anatomyBlock": "kanban",
-  "sample": "<!-- _class: kanban -->\n\n`Phase 2 · Sprint 14`\n\n## Where Phase 2 work stands today.\n\nEight items across four stages; the scoring-model rewrite is the only card flagged at-risk, which is the polite way of saying it is the only one anyone has looked at.\n\n- Backlog\n  - Per-team weighting `S`\n    - framework\n  - Calibration playbook `M`\n    - governance\n  - Adoption dashboard `S`\n    - adoption\n- In progress\n  - Scoring model v2 `M`\n    - framework `at-risk`\n  - Board reporting pack `L`\n    - governance\n- Review\n  - Weekly signal review `S`\n    - adoption\n- Done\n  - Signal taxonomy `M`\n    - framework\n  - Pilot onboarding `S`\n    - adoption\n",
+  "sample": "<!-- _class: kanban -->\n\n`chart · kanban`\n\n## The board tracks cards across lanes.\n\n- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n- Done\n  - Shipped work `L`\n",
+  "stressDoc": {
+    "caption": "Six lanes — the board's hard ceiling.",
+    "sample": "<!-- _class: kanban compact -->\n\n`kanban · stress`\n\n## Six lanes is the board's hard ceiling.\n\n- Intake\n  - New arrivals `S`\n  - Unsorted `S`\n- Backlog\n  - Prioritized queue `M`\n- In progress\n  - The WIP limit `L`\n- Review\n  - Awaiting eyes `M`\n- Staging\n  - Nearly out `S`\n- Done\n  - The sixth lane `S`\n"
+  },
   "variantDocs": {
     "keyline": {
-      "label": "Keyline — colour by category",
-      "caption": "Restores category coding as ONE disciplined cue: every card is the same neutral tile marked by a single crisp coloured left edge, so a reader can scan one workstream's load down a column without the old per-card paint-swatch. Status stays on the chip.",
-      "sample": "<!-- _class: kanban keyline -->\n\n`Delivery · week 30`\n\n## Same board, now you can see who owns what.\n\nThe left edge colour-codes each card by workstream, so one team's load reads down a column at a glance — without the surface turning into a patchwork.\n\n- Backlog\n  - Per-team weighting `S`\n    - framework\n  - Calibration playbook `M`\n    - governance\n  - Adoption dashboard `S`\n    - adoption\n- In progress\n  - Scoring model v2 `M`\n    - framework `at-risk`\n  - Board reporting pack `L`\n    - governance\n- Review\n  - Weekly signal review `S`\n    - adoption\n- Done\n  - Signal taxonomy `M`\n    - framework\n  - Pilot onboarding `S`\n    - adoption\n"
+      "label": "keyline",
+      "caption": "Hairlines rule the lanes apart.",
+      "sample": "<!-- _class: kanban keyline -->\n\n`kanban keyline`\n\n## keyline rules the lanes apart.\n\n- Backlog\n  - Ruled lanes `S`\n- In progress\n  - Same board `M`\n- Done\n  - New look `L`\n"
     },
     "tinted": {
-      "label": "Tinted — colour by stage",
-      "caption": "Moves colour off the cards and onto the COLUMNS: each lane is whisper-tinted by pipeline stage with a hue-keyed header underline, while cards stay uniformly neutral and lift off the lane. Reinforces the left-to-right flow; status stays the one accent chip.",
-      "sample": "<!-- _class: kanban tinted -->\n\n`Delivery · week 30`\n\n## Colour tracks the pipeline, so the eye reads left to right.\n\nEach lane is tinted by stage — backlog through done — so the shape of the flow registers before any single card does.\n\n- Backlog\n  - Per-team weighting `S`\n    - framework\n  - Calibration playbook `M`\n    - governance\n  - Adoption dashboard `S`\n    - adoption\n- In progress\n  - Scoring model v2 `M`\n    - framework `at-risk`\n  - Board reporting pack `L`\n    - governance\n- Review\n  - Weekly signal review `S`\n    - adoption\n- Done\n  - Signal taxonomy `M`\n    - framework\n  - Pilot onboarding `S`\n    - adoption\n"
+      "label": "tinted",
+      "caption": "Each lane takes a colored wash.",
+      "sample": "<!-- _class: kanban tinted -->\n\n`kanban tinted`\n\n## tinted colors each lane's wash.\n\n- Backlog\n  - Lane wash `S`\n- In progress\n  - Color coded `M`\n- Done\n  - Reads faster `L`\n"
     }
   },
   "whenToUse": [
@@ -89,5 +132,5 @@
       "when": "options scored against shared criteria, not stage-tracked"
     }
   ],
-  "stressSample": "<!-- _class: kanban -->\n\n`Phase 2 · Sprint 14`\n\n## Stress test — four lanes, fifteen cards, and a Backlog that grows faster than Done.\n\n- Backlog\n  - Per-decision profiles `L`\n    - scoring\n  - Recalibration playbook `M`\n    - governance\n  - Adoption dashboard `S`\n    - adoption\n  - Anomaly auto-routing `L`\n    - framework\n- In progress\n  - Per-team calibration `M`\n    - scoring `at-risk`\n  - Auditor evidence pack v2 `L`\n    - governance\n  - Org-wide enablement `M`\n    - adoption\n  - Decision-log audit trail `S`\n    - governance `blocked`\n- Review\n  - Outcome auto-pairing `M`\n    - governance\n  - Multi-source signal dedupe `S`\n    - framework\n  - Weekly signal review `S`\n    - adoption\n- Done\n  - Signal taxonomy `M`\n    - framework\n  - Equal-weights model `S`\n    - scoring\n  - Connector v1 `M`\n    - framework\n  - Append-only schema `S`\n    - governance\n"
+  "specimenVoice": true
 }

@@ -64,7 +64,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 ## Related components
 
-- [`progress`](../../chart/progress/progress.docs.md) — independent metrics as labelled bars, not a narrowing pipeline
+- [`progress`](../../chart/progress/progress.docs.md) — independent metrics as labeled bars, not a narrowing pipeline
 - [`stats`](../../evidence/stats/stats.docs.md) — a row of headline figures with no drop-off relationship
 - [`piechart`](../../chart/piechart/piechart.docs.md) — parts of a single whole rather than sequential stages
 - [`list-steps`](../../progression/list-steps/list-steps.docs.md) — the stages are a process to walk through, not values to compare

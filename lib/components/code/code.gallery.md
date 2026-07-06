@@ -10,29 +10,27 @@ Code — syntax-highlighted source code blocks.
 ---
 
 <!-- _class: code -->
+<!-- _footer: "code · code survey" -->
 
-## How a signal earns its score.
+## One block, syntax lit, sized to be read from the back.
 
 ```js
-function scoreSignal({ confidence, relevance, observedAt }, weights) {
-  const ageDays = (Date.now() - observedAt) / DAY_MS;
-  const recency = Math.exp(-ageDays / weights.halfLife);
-
-  return (
-    confidence * weights.confidence +
-    recency * weights.recency +
-    relevance * weights.relevance
-  );
+// The code slide holds ONE idea — a function, not a file.
+function fitsOnASlide(block) {
+  const lines = block.split('\n').length;
+  // Twelve lines reads from the back row; twenty is the wall.
+  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
 }
 ```
 
 ---
 
 <!-- _class: compare-code -->
+<!-- _footer: "compare-code · code survey" -->
 
 `Query path · report generation`
 
-## The N+1 query that slowed every report.
+## Before and after, the diff you can read aloud.
 
 `Before · one query per row`
 

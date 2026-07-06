@@ -61,16 +61,16 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 
 ## Variants (component-specific)
 
-### `donut` — Donut — hollow centre
+### `donut` — donut
 
-Hollows the pie into a donut. Visually cleaner for executive decks; the centre is left blank for a calmer read. Default pick for board and investor material.
+The center carries the total.
 
 ```markdown
 <!-- _class: piechart donut -->
 
 `H1 2026 · 1,840 person-hours`
 
-## Where the engineering quarter actually went.
+## donut opens the center for the total.
 
 The toil-and-on-call slice is the one nobody put in the roadmap.
 

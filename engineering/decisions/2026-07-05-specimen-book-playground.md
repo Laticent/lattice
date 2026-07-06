@@ -228,3 +228,14 @@ Logged here for their own fixes; none are pulled into the migration PRs:
    twice, stacked, under the code (both moods). Component render defect.
 9. **video's attribution caption is low-contrast on the navy canvas** —
    borderline legible from a distance in dark mood. Component token choice.
+10. **state-chart clips its first/last state nodes** in the `curved` variant
+    and on dense machines — endpoint states render as label-less slivers
+    (both moods). Component layout defect, pre-existing (heading-only edits
+    in PR 4 did not touch those bodies).
+11. **roadmap's `status` variant clips mid-table** — only two of four
+    workstream rows render before the table's bottom edge. Pre-existing.
+12. **quadrant's `trail` variant mislabels a corner** ("Time sinks" in the
+    Defer cell, one cell unlabeled) and **`cohort` renders no hull tint**
+    despite its caption. Pre-existing component defects.
+13. **journey's pain→delight legend loses its hue ramp in dark mood** —
+    the 1–5 swatches read as uniform pale squares. Pre-existing.

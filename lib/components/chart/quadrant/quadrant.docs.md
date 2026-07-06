@@ -11,7 +11,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 ## When to use
 
 - **Two numeric axes carry the analysis.** Effort × impact, cost × value, probability × severity, reach × confidence. Both axes are continuous and the position on each genuinely matters — that's the argument quadrant is built to make.
-- **Categorical grouping clusters the dots.** Items grouped under list headings (`Strategic Bets`, `Quick Wins`, `Defer`, `Time Sinks`) share a colour, so the eye can read the cluster before the individual point. The grouping is editorial, not derived from coordinates.
+- **Categorical grouping clusters the dots.** Items grouped under list headings (`Strategic Bets`, `Quick Wins`, `Defer`, `Time Sinks`) share a color, so the eye can read the cluster before the individual point. The grouping is editorial, not derived from coordinates.
 - **Six to twelve items.** Below six the chart wastes the canvas — write it as prose. Past twelve the labels overlap and the quadrant becomes a constellation. Trim the long tail or break it across two slides.
 
 ## When NOT to use
@@ -73,16 +73,16 @@ Effort estimated in story-points; reach as percent of addressable teams.
 
 ## Variants (component-specific)
 
-### `bubble` — Bubble — third value sizes the dot
+### `bubble` — bubble
 
-A third number in each pill (`x, y, size`) scales the dot by honest √-area. Use when a magnitude — revenue, headcount, spend — rides alongside the two positioning axes.
+A third value sizes each point.
 
 ```markdown
 <!-- _class: quadrant bubble -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — sized by revenue nobody has booked yet.
+## bubble sizes each point by a third value.
 
 - Strategic Bets
   - Scoring model v2 `3, 70, 2.4`
@@ -96,16 +96,16 @@ A third number in each pill (`x, y, size`) scales the dot by honest √-area. Us
   - Custom audit log UI `7, 18, 1.3`
 ```
 
-### `trail` — Trail — before → after
+### `trail` — trail
 
-Two coordinate pills per item (`x, y` then `x2, y2`) draw a trail from the old position to the new one. Use to show how initiatives moved across a period.
+Arrows show where points moved from.
 
 ```markdown
 <!-- _class: quadrant trail -->
 
 `Effort 0–10 → Reach 0–100`
 
-## How each bet moved after one quarter — mostly to the left, where the work is cheaper to describe.
+## trail shows where each point moved from.
 
 - Strategic Bets
   - Scoring model v2 `5, 60` `3, 78`
@@ -116,16 +116,16 @@ Two coordinate pills per item (`x, y` then `x2, y2`) draw a trail from the old p
   - Custom audit log UI `6, 25` `7, 16`
 ```
 
-### `cohort` — Cohort — convex-hull tint per group
+### `cohort` — cohort
 
-Tints a convex hull behind each top-level group so the clusters read as cohorts, not just loose dots. Use when group membership is part of the argument.
+Points color by group.
 
 ```markdown
 <!-- _class: quadrant cohort -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — clustered by theme, themed by whoever owns the slide.
+## cohort colors the points by group.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`
@@ -141,16 +141,16 @@ Tints a convex hull behind each top-level group so the clusters read as cohorts,
   - Bespoke board export `9, 28`
 ```
 
-### `threshold` — Threshold — target lines + zones
+### `threshold` — threshold
 
-Replaces the centre midlines with target lines declared in the eyebrow (`· targets tx, ty`) and labels the resulting zones. Use for go/no-go reads against an explicit bar.
+The lines that matter, drawn.
 
 ```markdown
 <!-- _class: quadrant threshold -->
 
 `Effort 0–10 → Reach 0–100 · targets 5, 50`
 
-## Against the go/no-go thresholds nobody has agreed to enforce.
+## threshold draws the lines that matter.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`
@@ -163,16 +163,16 @@ Replaces the centre midlines with target lines declared in the eyebrow (`· targ
   - Custom audit log UI `7, 18`
 ```
 
-### `magic` — Magic — MQ tribute
+### `magic` — magic
 
-A Gartner-style Magic Quadrant tribute: vendor labels and the iconic Leaders / Challengers / Visionaries / Niche Players quadrant names. Order the groups TL → TR → BL → BR.
+Four named corners.
 
 ```markdown
 <!-- _class: quadrant magic -->
 
 `Completeness of vision 0–100 → Ability to execute 0–100`
 
-## The decision-tooling Magic Quadrant, in which the tool we built is a Leader.
+## magic draws the four named corners.
 
 - Challengers
   - Productboard `30, 82`
@@ -185,16 +185,16 @@ A Gartner-style Magic Quadrant tribute: vendor labels and the iconic Leaders / C
   - Spreadsheet `82, 34`
 ```
 
-### `minimal` — Minimal — no fill, faint grid
+### `minimal` — minimal
 
-Composable modifier: drops the quadrant fills for a faint grid and bare dots. Layers on the default or any quadrant variant when the tinting would compete with the dots.
+Just the points.
 
 ```markdown
 <!-- _class: quadrant minimal -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next dollar — unadorned, like the budget that funds it.
+## minimal strips the chart to its points.
 
 - Strategic Bets
   - Scoring model v2 `3, 70`

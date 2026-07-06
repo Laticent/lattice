@@ -10,8 +10,9 @@ Chart — series-substance data visualizations (SVG kernel).
 ---
 
 <!-- _class: funnel -->
+<!-- _footer: "funnel · chart survey" -->
 
-## Where the signup pipeline leaks.
+## The funnel narrows; the width is the story.
 
 - Visitors `12,000`
   - Two-thirds arrive from inbound, not outbound
@@ -24,10 +25,11 @@ Chart — series-substance data visualizations (SVG kernel).
 ---
 
 <!-- _class: gantt -->
+<!-- _footer: "gantt · chart survey" -->
 
 `2026 Q1 .. 2026 Q4` `today Q3`
 
-## What ships in each phase, by workstream.
+## The gantt lays the work against the calendar.
 
 Three workstreams across four quarters; the one at-risk bar quietly gates the rollout, GA is a milestone, and the today line marks where the plan stands.
 
@@ -45,8 +47,9 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 ---
 
 <!-- _class: journey -->
+<!-- _footer: "journey · chart survey" -->
 
-## Customer onboarding · trial to activation.
+## The journey scores each stage of the path.
 
 - Evaluate
   - Read case study `@prospect` `:5`
@@ -62,39 +65,27 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 ---
 
 <!-- _class: kanban -->
+<!-- _footer: "kanban · chart survey" -->
 
-`Phase 2 · Sprint 14`
+`chart · kanban`
 
-## Where Phase 2 work stands today.
-
-Eight items across four stages; the scoring-model rewrite is the only card flagged at-risk, which is the polite way of saying it is the only one anyone has looked at.
+## The board tracks cards across lanes.
 
 - Backlog
-  - Per-team weighting `S`
-    - framework
-  - Calibration playbook `M`
-    - governance
-  - Adoption dashboard `S`
-    - adoption
+  - Waiting cards `S`
 - In progress
-  - Scoring model v2 `M`
-    - framework `at-risk`
-  - Board reporting pack `L`
-    - governance
+  - The active limit `M`
 - Review
-  - Weekly signal review `S`
-    - adoption
+  - Almost done `S`
 - Done
-  - Signal taxonomy `M`
-    - framework
-  - Pilot onboarding `S`
-    - adoption
+  - Shipped work `L`
 
 ---
 
 <!-- _class: map -->
+<!-- _footer: "map · chart survey" -->
 
-## Where our programs reached — unevenly.
+## The map fills regions by value.
 
 - India `48.2`
   - Largest by volume, thinnest by margin
@@ -110,10 +101,11 @@ Eight items across four stages; the scoring-model rewrite is the only card flagg
 ---
 
 <!-- _class: piechart -->
+<!-- _footer: "piechart · chart survey" -->
 
 `H1 2026 · 1,840 person-hours`
 
-## Where the planning quarter actually went.
+## The pie gives each share one wedge.
 
 Nearly half went to producing decks; the deciding itself was the smallest slice.
 
@@ -128,10 +120,11 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 ---
 
 <!-- _class: progress -->
+<!-- _footer: "progress · chart survey" -->
 
 `H1 2026 · Phase 1 readiness`
 
-## Phase 1 readiness, by workstream.
+## Progress bars race toward their targets.
 
 Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.
 
@@ -144,10 +137,11 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 ---
 
 <!-- _class: quadrant -->
+<!-- _footer: "quadrant · chart survey" -->
 
 `Effort 0–10 → Reach 0–100`
 
-## Where to put the next quarter, before someone reorganises the teams again.
+## The quadrant scatters items on two axes.
 
 Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
 
@@ -169,10 +163,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: radar -->
+<!-- _footer: "radar · chart survey" -->
 
 `Scale · 0–10`
 
-## How we stack up across the buying criteria.
+## The radar maps strengths around the compass.
 
 - Meridian
   - Performance `9`
@@ -198,10 +193,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: roadmap -->
+<!-- _footer: "roadmap · chart survey" -->
 
 `H2 2026 · Rollout plan`
 
-## What ships in each phase, assuming the phases survive the next planning offsite.
+## The roadmap grids workstreams against phases.
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
@@ -213,10 +209,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: state-chart lr -->
+<!-- _footer: "state-chart · chart survey" -->
 
 `Submission lifecycle`
 
-## Document approval flow.
+## States connect; the arrows carry the rules.
 
 How a draft moves from author to publication.
 
@@ -238,27 +235,29 @@ How a draft moves from author to publication.
 ---
 
 <!-- _class: timeline-list -->
+<!-- _footer: "timeline-list · chart survey" -->
 
-`Decision framework`
+`chart · timeline-list`
 
-## How the framework arrived in production.
+## The timeline pins events to their dates.
 
-Four stages over eighteen months, from the first workshop to the operating rhythm.
+Four milestones show the shape; the date chips carry the when.
 
-1. `2024 Q3` First workshop
-   - The one where we agreed to agree on a definition of "signal." Output: a fifth workshop.
-2. `2025 Q1` Framework approved `decision`
-   - The steering committee accepts the scoring model. Build approved; the build team is the steering committee.
-3. `2025 Q3` Pilot live `live`
-   - Four product teams onboarded; the decision log opens. Eighteen entries to date, against roughly three hundred decisions made.
-4. `2026 Q1` Operating rhythm `live`
-   - The weekly review lands on every team's calendar. Attendance, like the calibration step, remains aspirational.
+1. `Q1` The first milestone
+   - One clause says what changed here.
+2. `Q2` The second, marked `decision`
+   - A tag names the milestone's kind.
+3. `Q3` The third milestone
+   - Sixteen words is each entry's budget.
+4. `Q4` The fourth milestone
+   - Four to six entries reads best.
 
 ---
 
 <!-- _class: word-cloud -->
+<!-- _footer: "word-cloud · chart survey" -->
 
-## What 38 win/loss interviews kept saying, by frequency.
+## Weight is meaning in a word cloud.
 
 - time-to-value `5`
 - security `4`

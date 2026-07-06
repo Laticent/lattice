@@ -69,14 +69,14 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 
 ## Variants (component-specific)
 
-### `hierarchy` — Authority pyramid
+### `hierarchy` — hierarchy
 
-Stacks the rows vertically with descending row heights — Federal tallest, State mid, Local shortest. Use when the jurisdictions are nested in authority, not peers.
+Ordered by supremacy.
 
 ```markdown
 <!-- _class: statute-stack hierarchy -->
 
-## Children's data — authority cascades downward.
+## hierarchy orders the stack by supremacy.
 
 - Federal `15 U.S.C. §6501` `In effect since 2000`
   - Verifiable parental consent for under-13 personal data.
@@ -88,12 +88,12 @@ Stacks the rows vertically with descending row heights — Federal tallest, Stat
 
 ### `bands` — Horizontal bands
 
-Each jurisdiction is a full-width card stacked at equal height — an at-a-glance scorecard. A row card: both pills ride the header line (citation left, status right). Only the arrangement differs from the default.
+Full-width strips.
 
 ```markdown
 <!-- _class: statute-stack bands -->
 
-## Children's data — at-a-glance scorecard.
+## bands strips each jurisdiction full-width.
 
 - Federal `15 U.S.C. §6501` `In effect since 2000`
   - Verifiable parental consent for under-13 personal data.
@@ -103,14 +103,14 @@ Each jurisdiction is a full-width card stacked at equal height — an at-a-glanc
   - Bias-audit obligation for AEDTs used in employment decisions.
 ```
 
-### `preemption` — Preemption cascade
+### `preemption` — preemption
 
-Vertical stack with a downward arrow between each card. Use when the slide must show that the upper jurisdiction preempts or supersedes the one below.
+Which law yields.
 
 ```markdown
 <!-- _class: statute-stack preemption -->
 
-## Federal preemption — how the cascade flows.
+## preemption marks which law yields.
 
 - Federal `15 U.S.C. §6501` `Preempts state rules`
   - Sets the floor for under-13 personal data collection.
@@ -122,12 +122,12 @@ Vertical stack with a downward arrow between each card. Use when the slide must 
 
 ### `lane` — Markdown table
 
-Pivots to a markdown table — columns for jurisdiction, citation, obligation, status. Use for register-style briefings where the audience scans down each column.
+One column stack.
 
 ```markdown
 <!-- _class: statute-stack lane -->
 
-## Children's data — register view.
+## lane runs the stack in one column.
 
 | Jurisdiction | Citation              | Headline obligation       | Status      |
 | ------------ | --------------------- | ------------------------- | ----------- |

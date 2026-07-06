@@ -20,7 +20,7 @@ Native state machine diagram — states as a numbered list, transitions as neste
 
 `Submission lifecycle`
 
-## Document approval flow.
+## States connect; the arrows carry the rules.
 
 How a draft moves from author to publication.
 
@@ -43,9 +43,9 @@ How a draft moves from author to publication.
 ---
 
 <!-- _class: state-chart lr -->
-<!-- _footer: "Left-to-right · state-chart lr" -->
+<!-- _footer: "Left-to-right · state-chart lr — States flow left to right." -->
 
-## Build pipeline.
+## lr flows the states left to right.
 
 1. Source `start`
    - `compile => 2`
@@ -60,9 +60,9 @@ How a draft moves from author to publication.
 ---
 
 <!-- _class: state-chart inline -->
-<!-- _footer: "Inline · state-chart inline" -->
+<!-- _footer: "Inline · state-chart inline — The chart sits beside its prose." -->
 
-## Connection retry.
+## inline sets the chart beside its prose.
 
 1. Connecting `start`
    - `retry => self`
@@ -76,9 +76,9 @@ How a draft moves from author to publication.
 ---
 
 <!-- _class: state-chart curved -->
-<!-- _footer: "Curved · state-chart curved" -->
+<!-- _footer: "Curved · state-chart curved — Eased arrows between states." -->
 
-## Document approval (curved).
+## curved eases the arrows between states.
 
 1. Draft `start`
    - `submit => 2`
@@ -97,7 +97,8 @@ How a draft moves from author to publication.
 ---
 
 <!-- _class: state-chart -->
-<!-- _footer: "Stress test · state-chart" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · state-chart — A dense machine of states." -->
 
 `Submission lifecycle`
 
@@ -127,7 +128,7 @@ How a draft moves from author to publication.
 
 `Submission lifecycle`
 
-## Document approval flow.
+## States connect; the arrows carry the rules.
 
 How a draft moves from author to publication.
 
@@ -154,7 +155,7 @@ How a draft moves from author to publication.
 
 `Submission lifecycle`
 
-## Document approval flow.
+## States connect; the arrows carry the rules.
 
 How a draft moves from author to publication.
 
@@ -181,7 +182,7 @@ How a draft moves from author to publication.
 
 `Submission lifecycle`
 
-## Document approval flow.
+## States connect; the arrows carry the rules.
 
 How a draft moves from author to publication.
 

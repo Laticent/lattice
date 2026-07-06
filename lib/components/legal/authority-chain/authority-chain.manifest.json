@@ -3,18 +3,54 @@
   "name": "authority-chain",
   "adapt": {
     "mode": "reflow",
-    "families": ["wide", "square", "tall", "strip"],
-    "priority": ["heading", "tiers"],
-    "keepTogether": ["tier"]
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "heading",
+      "tiers"
+    ],
+    "keepTogether": [
+      "tier"
+    ]
   },
   "function": "progression",
   "bucket": "legal",
   "form": "timeline",
   "substance": "structure",
-  "capacity": { "axis": "item", "min": 2, "sweet": 4, "soft": 5, "hard": 6, "escalateTo": ["split across slides (auto with autosplit: on)", "statute-stack"], "note": "past six tiers the chain overflows a portrait box" },
-  "density": { "axis": "item", "soft": 14, "hard": 22, "note": "one clause per tier" },
-  "split": { "strategy": "cover-paginate", "axis": "item", "perPage": 4, "intro": "From statute to case law", "note": "Overflowing chain splits as an accent cover → its own native tiers paginated (never flattened). lib/core/carousel.js cover-paginate." },
-  "tags": ["regulation", "citation", "sequence"],
+  "capacity": {
+    "axis": "item",
+    "min": 2,
+    "sweet": 4,
+    "soft": 5,
+    "hard": 6,
+    "escalateTo": [
+      "split across slides (auto with autosplit: on)",
+      "statute-stack"
+    ],
+    "note": "past six tiers the chain overflows a portrait box"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 14,
+    "hard": 22,
+    "note": "one clause per tier"
+  },
+  "split": {
+    "strategy": "cover-paginate",
+    "axis": "item",
+    "perPage": 4,
+    "intro": "From statute to case law",
+    "note": "Overflowing chain splits as an accent cover → its own native tiers paginated (never flattened). lib/core/carousel.js cover-paginate."
+  },
+  "tags": [
+    "regulation",
+    "citation",
+    "sequence"
+  ],
   "description": "Provenance chain — statute to regulation to guidance to case, walked in order.",
   "purpose": "Use when the audience needs to see how a rule descends: what the statute says, how the agency implemented it, what guidance interpreted it, and what cases have applied it. Ordered list because the order is the argument.",
   "variants": [
@@ -37,7 +73,11 @@
   },
   "skeleton": "<!-- _class: authority-chain -->\n\n## Rule name — the chain, tier by tier.\n\n1. Statute\n   - `Citation reference`\n   - One-line gloss naming the body that issued it and what it does.\n2. Regulation\n   - `Citation reference`\n   - One-line gloss naming the agency rule.\n3. Guidance\n   - `Citation reference`\n   - One-line gloss naming the staff guidance.\n4. Case\n   - `Citation reference`\n   - One-line gloss naming the precedent.\n",
   "anatomyBlock": "authority-chain",
-  "sample": "<!-- _class: authority-chain -->\n\n## COPPA — the chain, tier by tier.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Congress, 1998 — verifiable parental consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule; 2013 rewrite expanded covered identifiers.\n3. Guidance\n   - `FTC Six-Step Compliance Plan`\n   - Staff guidance — non-binding, but cited in every consent order.\n4. Case\n   - `In re Epic Games · 2022`\n   - $245M consent order — operationalised \"actual knowledge\" standard.\n",
+  "sample": "<!-- _class: authority-chain -->\n\n## The chain descends from statute to practice.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Congress, 1998 — verifiable parental consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule; 2013 rewrite expanded covered identifiers.\n3. Guidance\n   - `FTC Six-Step Compliance Plan`\n   - Staff guidance — non-binding, but cited in every consent order.\n4. Case\n   - `In re Epic Games · 2022`\n   - $245M consent order — operationalized \"actual knowledge\" standard.\n",
+  "stressDoc": {
+    "caption": "Six tiers — the ceiling.",
+    "sample": "<!-- _class: authority-chain -->\n\n## Six tiers is the chain's ceiling.\n\n1. Statute\n   - `15 U.S.C. §6501`\n2. Regulation\n   - `16 C.F.R. 312`\n3. Guidance\n   - `FTC guidance`\n4. Enforcement\n   - `Consent decrees`\n5. Case law\n   - `Circuit reads`\n6. Contract\n   - `DPAs — the stop`\n"
+  },
   "whenToUse": [
     {
       "title": "Provenance is the argument",
@@ -75,7 +115,6 @@
       "name": "list-criteria",
       "when": "flat enumeration of requirements without tier hierarchy"
     },
-    
     {
       "name": "list-steps",
       "when": "the rows are procedural steps rather than authority tiers"
@@ -83,24 +122,25 @@
   ],
   "variantDocs": {
     "branching": {
-      "label": "Branching — statute root with child branches",
-      "caption": "Renders nested children as connected branches off the parent tier. Use when one statute spawns multiple regulations, guidance docs, or cases worth surfacing in the same view.",
-      "sample": "<!-- _class: authority-chain branching -->\n\n## COPPA — one statute, many branches.\n\n1. Statute\n   - `15 U.S.C. §6501` COPPA, 1998\n   - `16 C.F.R. Part 312` FTC implementing rule\n   - `FTC Six-Step Compliance Plan` staff guidance\n   - `In re Epic Games · 2022` $245M consent order\n   - `In re YouTube/Google · 2019` $170M consent order\n"
+      "label": "branching",
+      "caption": "The chain forks.",
+      "sample": "<!-- _class: authority-chain branching -->\n\n## branching forks the chain where authority splits.\n\n1. Statute\n   - `15 U.S.C. §6501` COPPA, 1998\n   - `16 C.F.R. Part 312` FTC implementing rule\n   - `FTC Six-Step Compliance Plan` staff guidance\n   - `In re Epic Games · 2022` $245M consent order\n   - `In re YouTube/Google · 2019` $170M consent order\n"
     },
     "trail": {
-      "label": "Trail — horizontal numbered trail with arrows",
-      "caption": "Transposes the vertical chain into a left-to-right trail of numbered cards joined by arrows. Use when the slide canvas favours a wide read and the tiers fit in four short steps.",
-      "sample": "<!-- _class: authority-chain trail -->\n\n## COPPA — statute through case, left to right.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Verifiable parental consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule.\n3. Guidance\n   - `FTC Six-Step Plan`\n   - Cited in every consent order.\n4. Case\n   - `Epic Games · 2022`\n   - $245M consent order.\n"
+      "label": "trail",
+      "caption": "A breadcrumb walk.",
+      "sample": "<!-- _class: authority-chain trail -->\n\n## trail walks the chain as a breadcrumb.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Verifiable parental consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule.\n3. Guidance\n   - `FTC Six-Step Plan`\n   - Cited in every consent order.\n4. Case\n   - `Epic Games · 2022`\n   - $245M consent order.\n"
     },
     "pyramid": {
-      "label": "Pyramid — hierarchy by tier weight",
-      "caption": "Renders the tiers as a weighted pyramid, the controlling authority widest at the base. Use when the point is the hierarchy of authority itself, not the timeline.",
-      "sample": "<!-- _class: authority-chain pyramid -->\n\n## COPPA — the authority pyramid.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Congress, 1998 — consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule.\n3. Guidance\n   - `FTC Six-Step Plan`\n   - Staff guidance, non-binding.\n4. Case\n   - `In re Epic Games · 2022`\n   - $245M consent order.\n"
+      "label": "pyramid",
+      "caption": "Tiers weighted by force.",
+      "sample": "<!-- _class: authority-chain pyramid -->\n\n## pyramid weights the tiers by force.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Congress, 1998 — consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule.\n3. Guidance\n   - `FTC Six-Step Plan`\n   - Staff guidance, non-binding.\n4. Case\n   - `In re Epic Games · 2022`\n   - $245M consent order.\n"
     },
     "bracket": {
-      "label": "Bracket — connected cards",
-      "caption": "Lays the tiers out as bracketed cards joined by strong connectors, emphasising that each rung derives its force from the one above it.",
-      "sample": "<!-- _class: authority-chain bracket -->\n\n## How the GDPR fine traces back to the treaty.\n\n1. Treaty\n   - `Charter of Fundamental Rights, Art. 8`\n   - EU primary law — protection of personal data is a fundamental right.\n2. Regulation\n   - `GDPR (EU) 2016/679`\n   - Directly applicable across all member states; sets the Art. 83 fine tiers.\n3. Guidance\n   - `EDPB Guidelines 04/2022`\n   - Harmonised methodology for calculating administrative fines.\n4. Decision\n   - `DPC v. Meta · 2023`\n   - €1.2B fine — the largest GDPR penalty to date.\n"
+      "label": "bracket",
+      "caption": "Tiers grouped by actor.",
+      "sample": "<!-- _class: authority-chain bracket -->\n\n## bracket groups the tiers by actor.\n\n1. Treaty\n   - `Charter of Fundamental Rights, Art. 8`\n   - EU primary law — protection of personal data is a fundamental right.\n2. Regulation\n   - `GDPR (EU) 2016/679`\n   - Directly applicable across all member states; sets the Art. 83 fine tiers.\n3. Guidance\n   - `EDPB Guidelines 04/2022`\n   - Harmonized methodology for calculating administrative fines.\n4. Decision\n   - `DPC v. Meta · 2023`\n   - €1.2B fine — the largest GDPR penalty to date.\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

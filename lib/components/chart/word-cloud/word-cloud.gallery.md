@@ -18,7 +18,7 @@ Spiral-packed word cloud — items sized by weight.
 <!-- _class: word-cloud -->
 <!-- _footer: "Default · word-cloud" -->
 
-## What 38 win/loss interviews kept saying, by frequency.
+## Weight is meaning in a word cloud.
 
 - time-to-value `5`
 - security `4`
@@ -34,9 +34,9 @@ Spiral-packed word cloud — items sized by weight.
 ---
 
 <!-- _class: word-cloud constellation -->
-<!-- _footer: "Constellation — airy, two-tone · word-cloud constellation" -->
+<!-- _footer: "constellation · word-cloud constellation — Words scattered like stars." -->
 
-## What this branch named, by weight.
+## constellation scatters the words like stars.
 
 - component `5`
 - manifest `4`
@@ -49,9 +49,9 @@ Spiral-packed word cloud — items sized by weight.
 ---
 
 <!-- _class: word-cloud dense -->
-<!-- _footer: "Dense — tight pack · word-cloud dense" -->
+<!-- _footer: "dense · word-cloud dense — The cloud packed tight." -->
 
-## Every term this branch touched.
+## dense packs the cloud tight.
 
 - component `5`
 - manifest `5`
@@ -73,9 +73,9 @@ Spiral-packed word cloud — items sized by weight.
 ---
 
 <!-- _class: word-cloud spectrum -->
-<!-- _footer: "Spectrum — heat ramp · word-cloud spectrum" -->
+<!-- _footer: "spectrum · word-cloud spectrum — Words colored along a scale." -->
 
-## What this branch named, by weight.
+## spectrum colors the words along a scale.
 
 - component `5`
 - manifest `4`
@@ -90,9 +90,9 @@ Spiral-packed word cloud — items sized by weight.
 ---
 
 <!-- _class: word-cloud focal -->
-<!-- _footer: "Focal — one dominant term · word-cloud focal" -->
+<!-- _footer: "focal · word-cloud focal — One word crowned the center." -->
 
-## The one word that defined the branch.
+## focal crowns one word the center.
 
 - variants `5`
 - gallery `2`
@@ -104,7 +104,8 @@ Spiral-packed word cloud — items sized by weight.
 ---
 
 <!-- _class: word-cloud dense -->
-<!-- _footer: "Stress test · word-cloud" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · word-cloud — The densest cloud that still reads." -->
 
 ## Stress test — 20 terms, raw frequency counts (512 → 5).
 
@@ -135,7 +136,7 @@ Spiral-packed word cloud — items sized by weight.
 <!-- _class: word-cloud dark -->
 <!-- _footer: "Composition: dark · word-cloud dark" -->
 
-## What 38 win/loss interviews kept saying, by frequency.
+## Weight is meaning in a word cloud.
 
 - time-to-value `5`
 - security `4`
@@ -153,7 +154,7 @@ Spiral-packed word cloud — items sized by weight.
 <!-- _class: word-cloud compact -->
 <!-- _footer: "Composition: compact · word-cloud compact" -->
 
-## What 38 win/loss interviews kept saying, by frequency.
+## Weight is meaning in a word cloud.
 
 - time-to-value `5`
 - security `4`
@@ -171,7 +172,7 @@ Spiral-packed word cloud — items sized by weight.
 <!-- _class: word-cloud accent -->
 <!-- _footer: "Composition: accent · word-cloud accent" -->
 
-## What 38 win/loss interviews kept saying, by frequency.
+## Weight is meaning in a word cloud.
 
 - time-to-value `5`
 - security `4`
