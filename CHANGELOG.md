@@ -70,8 +70,10 @@ in patch versions.
   `--vt-*` token contract a host styles on its own `:root` (light/dark rides the
   host's existing cascade — no engine mode-switch), with a JS `Theme` convenience
   over it; accent colors are validated to a legibility floor and reject
-  `url()` / `image()` / control chars. The Studio demo is migrated onto it with
-  identical behavior. Proven on the real browser (HARD RULE #23) by an
+  `url()` / `image()` / control chars. Drive it from React through the thin
+  `useWalkthrough` peer-dep adapter (`vetrina/react`); the framework-free core
+  stays zero-dependency. The Studio demo is migrated onto it (via that adapter)
+  with identical behavior. Proven on the real browser (HARD RULE #23) by an
   exemplar/stress e2e battery — a buildless non-slide `awaitUser` reference tour
   and a generic-host board (gestures, drag success/rejection, CSS-first theming
   across light/dark, accent rejection, root-scoping, interleave + take-over) —

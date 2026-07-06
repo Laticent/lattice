@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true
   },
+  "//exclude": "react.ts is the peer-dep adapter (imports react) — NOT part of the zero-dep core, so it's excluded from the standalone (types:[]) typecheck. The full docs `typecheck` covers it against @types/react.",
   "include": ["src/lib/vetrina/**/*.ts"],
-  "exclude": ["src/lib/vetrina/**/*.test.ts"]
+  "exclude": ["src/lib/vetrina/**/*.test.ts", "src/lib/vetrina/react.ts"]
 }

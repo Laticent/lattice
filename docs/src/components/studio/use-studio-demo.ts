@@ -1,14 +1,15 @@
 import * as React from 'react';
-import { type RunHandle, run, type StopReason, type TypeOps } from '../../lib/vetrina';
+import type { StopReason, TypeOps } from '../../lib/vetrina';
+import { useWalkthrough } from '../../lib/vetrina/react';
 import { type StudioActions, studioWalkthrough } from './demo-storyboard';
 
 // useStudioDemo — the seam that lets the framework-free Vetrina engine drive the live
 // Studio. StudioShell has no ref/context (all state is closure-local), so the demo is
-// BORN HERE, inside the component, closing over the real setters. The hook owns the
-// run lifecycle: snapshot the global flourishes, mount + play via run(), and — on
-// completion, Exit, OR the first real click/keystroke ("take over") — restore. The
-// take-over guard, abort-racing, and teardown now live inside run(); this hook just
-// binds the Studio's setters and restores its global flourishes on stop.
+// BORN HERE, inside the component, closing over the real setters. The generic run
+// lifecycle (single-flight start/stop, active state, unmount teardown) lives in Vetrina's
+// shared `useWalkthrough` React adapter; this hook is the Studio-SPECIFIC configuration it
+// drives — snapshot the global flourishes, clear the shell, bind the setters, and restore
+// the flourishes on stop (completion, Exit, OR the first real click/keystroke: "take over").
 
 /** The Studio setters the demo drives (each already bound to real state). */
 export type StudioDemoBindings = {
@@ -52,21 +53,15 @@ export type StudioDemo = {
 };
 
 export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bindings: StudioDemoBindings): StudioDemo {
-	const [demoActive, setDemoActive] = React.useState(false);
 	// Keep the latest bindings in a ref so the run loop never closes over stale setters,
-	// and startDemo/stopDemo stay stable (no re-subscribe churn).
+	// and start/stop stay stable (no re-subscribe churn).
 	const bindRef = React.useRef(bindings);
 	bindRef.current = bindings;
-	const handleRef = React.useRef<RunHandle | null>(null);
 
-	const stopDemo = React.useCallback(() => {
-		handleRef.current?.stop();
-	}, []);
-
-	const startDemo = React.useCallback(() => {
-		if (handleRef.current?.active) return; // already running
-		const root = rootRef.current;
-		if (!root) return;
+	// The generic run lifecycle (single-flight start, stop, active state, unmount teardown)
+	// lives in the shared `useWalkthrough` adapter. This hook supplies only the Studio-specific
+	// configuration — snapshot the global look, clear the shell, bind the setters — at start().
+	const demo = useWalkthrough<StudioActions>(rootRef, () => {
 		const b = bindRef.current;
 
 		// Snapshot only the GLOBAL look the demo flourishes with — palette (from state, so
@@ -118,14 +113,12 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 			append: (t) => bindRef.current.typeTail(t),
 		};
 
-		setDemoActive(true);
-		handleRef.current = run<StudioActions>({
-			root,
+		return {
 			actions,
 			play: studioWalkthrough,
 			type,
 			takeover: { scope: 'window' },
-			// The cursor + cues track the live app accent (recolour on the reskin beat),
+			// The cursor + cues track the live app accent (recolor on the reskin beat),
 			// falling back to the house blue — exactly as the old stage did.
 			theme: { accent: 'var(--accent, #2b6ef2)' },
 			onStop: (reason: StopReason) => {
@@ -134,7 +127,7 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				// global flourishes are undone — close any stage the demo left open, and put
 				// the palette + mode back the way we found them (the demo reskins to cuoio and
 				// flips mode purely for show). Every terminal path routes here; the reason
-				// only picks the toast. Runs AFTER teardown (I7).
+				// only picks the toast. Runs AFTER teardown (I7); the hook resets `active`.
 				cur.setPresentOpen(false);
 				cur.setShareOpen(false);
 				cur.setInspectorOpen(false);
@@ -142,14 +135,9 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				cur.applyPalette(snap.palette);
 				if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
 				cur.notify(reason === 'complete' ? 'Demo complete — “My First Deck” is yours to edit.' : 'Demo ended — “My First Deck” is yours to edit.');
-				handleRef.current = null;
-				setDemoActive(false);
 			},
-		});
-	}, [rootRef]);
+		};
+	});
 
-	// Safety net: tear down if the Studio unmounts mid-demo.
-	React.useEffect(() => () => handleRef.current?.stop(), []);
-
-	return { demoActive, startDemo, stopDemo };
+	return { demoActive: demo.active, startDemo: demo.start, stopDemo: demo.stop };
 }

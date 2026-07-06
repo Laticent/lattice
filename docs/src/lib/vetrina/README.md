@@ -150,6 +150,34 @@ number the eye can't use. The pointer is a shape from a small legible set
 (`arrow` / `ring` / `dot`). Cues can be silenced (`cues: { intro: false }`) but
 never replaced by DOM-touching callbacks.
 
+## Driving from React
+
+The core is framework-free; the one thin React binding is a peer-dep adapter in `./react`.
+`useWalkthrough` owns the component lifecycle — single-flight start, stop, an `active` flag,
+and teardown on unmount — while you supply the run config at `start()` time (so it closes
+over the freshest state):
+
+```tsx
+import { useWalkthrough } from '…/lib/vetrina/react';
+
+function Panel() {
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const demo = useWalkthrough(rootRef, () => ({
+    actions, play: tour, type,
+    onStop: () => restoreMyChrome(),   // fires after teardown; the hook resets `active`
+  }));
+  return (
+    <div ref={rootRef}>
+      <button onClick={demo.start} disabled={demo.active}>Watch the demo</button>
+      {/* … */}
+    </div>
+  );
+}
+```
+
+The Studio's `use-studio-demo.ts` is the reference consumer. Import `./react` directly — it
+is **not** re-exported through `index.ts`, which stays zero-dependency.
+
 ## Accessibility & reduced motion
 
 The overlay's decoration is `aria-hidden`, but the **Exit** control reaches the
@@ -167,7 +195,8 @@ vetrina/
   scene.ts       the fluent recorder → Step[]
   theme.ts       token defaults + color validation
   recipes.ts     waitFor / loop / retry
-  index.ts       the public surface
+  index.ts       the public surface (framework-free — zero deps)
+  react.ts       the React adapter — useWalkthrough (peer dep react; not via index)
 ```
 
 The core is mechanically kept self-contained (an import-boundary gate fails the
