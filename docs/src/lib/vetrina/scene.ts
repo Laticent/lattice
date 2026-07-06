@@ -26,6 +26,12 @@ export interface SceneBuilder<A> {
 	check(): this;
 	cross(): this;
 	shake(): this;
+	/** Mark the current step INSTANT — its `act`/`type` apply now with no cursor / typing
+	 *  animation / gesture / settle. For setup / close / jump beats that don't need teaching. */
+	instant(): this;
+	/** Advance GATE — hold on this step until `pred` is true (abort-safe). The "callback for
+	 *  when to move on"; pairs with `.instant()` to fire, then wait for the app to be ready. */
+	until(pred: () => boolean): this;
 	/** Sets the current step's `settle` AND closes it. */
 	hold(ms: number): this;
 	/** Explicit step boundary (rarely needed — see the boundary rule). */
@@ -97,6 +103,14 @@ export function scene<A>(seed = ''): SceneBuilder<A> {
 		},
 		shake() {
 			return b.gesture('shake');
+		},
+		instant() {
+			(cur ?? open([])).instant = true;
+			return b;
+		},
+		until(pred) {
+			open(['until']).until = pred;
+			return b;
 		},
 		hold(ms) {
 			(cur ?? open([])).settle = ms;

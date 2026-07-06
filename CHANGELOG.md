@@ -55,6 +55,17 @@ in patch versions.
   and ends inside the Playground. Explore never writes the draft. A pristine or
   first visit opens Explore; a dirty draft, a handoff, or `?view=edit` opens the
   editor. The phone pane tabs are relabeled Markdown | Preview.
+- **Vetrina: instant beats + advance control.** A storyboard/`scene()` beat can be
+  marked `instant` — its `act`/`type` apply immediately with **no cursor movement,
+  no typing animation, no gesture, no settle** (the declarative equivalent of a raw
+  `Walkthrough` poking a setter directly); ideal for setup, closing an overlay, or
+  jumping ahead. Two orthogonal ways to control when the next beat starts: `settle`
+  (a fixed pause, now honored on instant beats too) and `until(() => cond)` — an
+  abort-safe advance gate that holds until the app signals ready (a render/animation
+  settled), then continues. An async `act` is a third gate (the step already awaits
+  it). The Studio demo's silent "close overlay" beats now use `instant`. Fluent
+  verbs `.instant()` / `.until(pred)`; the trust invariant (act is awaited, its
+  failure still routes to `onStop('error')`) is unchanged.
 
 ### Fixed
 

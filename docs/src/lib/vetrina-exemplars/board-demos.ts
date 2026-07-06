@@ -155,10 +155,23 @@ function interleavePlay(): Walkthrough<BoardHost> {
 	};
 }
 
+/** An INSTANT beat: the reorder applies now — no cursor glide, no drop animation, no gesture.
+ *  Holds afterward so the e2e can confirm the cursor never traveled to the list. */
+function instantPlay(): Walkthrough<BoardHost> {
+	return async (ctx) => {
+		ctx.actions.setPhase('touring');
+		await storyboard<BoardHost>('', [{ act: (a) => a.reorder('a3', 'a1'), instant: true, settle: 0 }])(ctx);
+		ctx.actions.setPhase('holding');
+		await ctx.awaitUser({ match: () => false, timeout: 5000, onTimeout: 'resume' });
+		ctx.actions.setPhase('done');
+	};
+}
+
 const DEMOS: Record<string, () => Walkthrough<BoardHost>> = {
 	gestures: gesturesPlay,
 	'drag-ok': dragOkPlay,
 	'drag-fail': dragFailPlay,
+	instant: instantPlay,
 	theming: themingPlay, // pure CSS-first (no JS theme) — inherits the host :root cascade
 	'theming-js': themingPlay, // same hold, but started with a concrete JS accent (below)
 	decouple: decouplePlay,

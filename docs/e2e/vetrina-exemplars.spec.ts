@@ -60,6 +60,21 @@ test('theming — CSS-first: the mounted stage inherits the host :root --vt-* ac
 	await expect.poll(readAccent).toBe('rgb(240, 90, 60)');
 });
 
+test('instant beat — the act applies with NO cursor glide, typing, or gesture (no theater)', async ({ page }) => {
+	await goto(page, 'instant');
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect.poll(() => attr(page, 'data-vt-phase')).toBe('holding');
+
+	// The instant reorder took effect — a3 moved above a1 — so the act ran.
+	await expect.poll(() => page.locator('#widget-a ol li').evaluateAll((els) => els.map((e) => e.id))).toEqual(['a3', 'a1', 'a2']);
+
+	// …but the cursor never traveled to widget A (no `point` glide): it stays near its center
+	// spawn. Had the beat used the normal path, the cursor would have glided left to the list.
+	const cursorLeft = await page.locator('.vetrina-cursor').evaluate((el) => el.getBoundingClientRect().left);
+	const mid = await page.evaluate(() => window.innerWidth / 2);
+	expect(cursorLeft).toBeGreaterThan(mid - 100);
+});
+
 test('theming (JS) — a concrete accent themes the cursor BODY and its cues alike', async ({ page }) => {
 	// Regression guard (the derived --vt-cursor-fill bug): the cursor body tints from
 	// var(--vt-cursor-fill), whose default lives on :root — so a JS accent set inline on the

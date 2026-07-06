@@ -5,6 +5,7 @@
 // so it composes with the primitive and the fluent builder (scene() is defined as
 // storyboard(seed, this.toData()) — one interpreter, no drift).
 
+import { waitFor } from './recipes';
 import type { RunContext, Walkthrough } from './runner';
 import { type Gesture, isAbortError, type Target, wait } from './stage';
 
@@ -19,7 +20,18 @@ export interface Step<A> {
 	type?: { target: Target; text: string; cadence?: number };
 	gesture?: Gesture | { kind: Gesture; target?: Target };
 	circle?: Target; // sugar for gesture: { kind: 'circle', target }
+	/** Advance GATE — before settling, WAIT (abort-safe poll) until this returns true. The
+	 *  "callback for when to move on": pair with `instant` to fire an action then hold until the
+	 *  app is ready (e.g. a render/animation settled). Bounded by a timeout so it can't hang. An
+	 *  async `act` is the other way to gate — the step already awaits it. */
+	until?: () => boolean;
+	/** Fixed pause AFTER the beat (ms), before the next step. Works with `instant` too. */
 	settle?: number;
+	/** INSTANT beat — the substance happens now with NO theater: no cursor move, no typing
+	 *  animation, no gesture, no settle. Only `act` (and `type`, set at once) run; positioning
+	 *  verbs are ignored. `say` still shows (narration ≠ motion), but instant beats are usually
+	 *  silent — the deliberate plumbing between the taught beats. */
+	instant?: boolean;
 }
 
 const STEP_SETTLE = 900;
@@ -37,6 +49,27 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 		for (const step of steps) {
 			if (signal.aborted) return;
 			if (step.say != null) stage.say(step.say);
+
+			// INSTANT beat — skip ALL theater (cursor / typing animation / gesture / settle) and
+			// just apply the substance. Positioning + gesture verbs are ignored; `type` is set at
+			// once. `say` (above) still shows. The escape hatch for setup / close / jump beats that
+			// don't need teaching — and it keeps the trust invariant (act is still awaited).
+			if (step.instant) {
+				let actErr: unknown = null;
+				if (step.act) {
+					try {
+						await step.act(actions);
+					} catch (e) {
+						if (isAbortError(e)) throw e;
+						actErr = e;
+					}
+				}
+				if (!actErr && step.type) await ctx.type(step.type.target, step.type.text, { cadence: step.type.cadence, instant: true });
+				if (actErr) throw actErr;
+				if (step.until) await waitFor(ctx, step.until);
+				await wait((step.settle ?? 0) * stage.pace, signal);
+				continue;
+			}
 
 			// Positioning: point(+click) XOR drag. A drag LIFTS now; its drop is gated on `act`.
 			let drag: Awaited<ReturnType<typeof stage.drag>> | null = null;
@@ -76,6 +109,8 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			}
 			if (step.circle != null) await stage.gesture('circle', step.circle, signal);
 
+			// Advance gate — hold until the app signals ready, THEN settle (both optional).
+			if (step.until) await waitFor(ctx, step.until);
 			await wait((step.settle ?? (stage.reduced ? 300 : STEP_SETTLE)) * stage.pace, signal);
 		}
 	};

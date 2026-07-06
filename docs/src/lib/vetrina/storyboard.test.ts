@@ -24,7 +24,7 @@ function recorder() {
 		stage,
 		actions,
 		signal: new AbortController().signal,
-		type: async (target: unknown, text: string) => void log.push(`type:${String(target)}:${text.length}`),
+		type: async (target: unknown, text: string, opts?: { instant?: boolean }) => void log.push(`type:${String(target)}:${text.length}${opts?.instant ? ':instant' : ''}`),
 		awaitUser: async () => new Event('x'),
 	} as unknown as RunContext<Actions>;
 	return { log, ctx };
@@ -44,6 +44,53 @@ describe('storyboard interpreter — fixed order', () => {
 	});
 	it('circle sugar dispatches gesture(circle, target)', async () => {
 		expect(await drive(storyboard<Actions>('', [{ circle: '#p', settle: 0 }]))).toEqual(['gesture:circle:#p']);
+	});
+});
+
+describe('storyboard interpreter — instant beat (no theater)', () => {
+	it('skips cursor + gesture, runs act, and sets type at once', async () => {
+		const board = storyboard<Actions>('', [
+			{ say: 'setup', point: '#x', click: true, act: (a) => a.go(), type: { target: '#e', text: 'ABCD' }, gesture: 'check', instant: true, settle: 0 },
+		]);
+		// `say` still shows (narration); point/press/gesture are SKIPPED; act runs; type is instant.
+		expect(await drive(board)).toEqual(['say:setup', 'act:go', 'type:#e:4:instant']);
+	});
+	it('a silent instant beat is just its act', async () => {
+		expect(await drive(storyboard<Actions>('', [{ act: (a) => a.go(), instant: true }]))).toEqual(['act:go']);
+	});
+	it('`until` holds the beat until the predicate turns true, THEN advances', async () => {
+		let polls = 0;
+		let ready = false;
+		const board = storyboard<Actions>('', [
+			{
+				act: (a) => a.go(),
+				instant: true,
+				until: () => {
+					if (++polls >= 2) ready = true;
+					return ready;
+				},
+				settle: 0,
+			},
+			{ say: 'next' },
+		]);
+		const log = await drive(board);
+		expect(polls).toBeGreaterThanOrEqual(2); // it actually waited/polled before advancing
+		expect(log).toEqual(['act:go', 'say:next']); // advanced to the next step only after `until`
+	});
+	it('a failing act still throws and skips the type (trust invariant holds)', async () => {
+		const { log, ctx } = recorder();
+		const board = storyboard<Actions>('', [
+			{
+				act: () => {
+					throw new Error('nope');
+				},
+				type: { target: '#e', text: 'x' },
+				instant: true,
+				settle: 0,
+			},
+		]);
+		await expect(board(ctx)).rejects.toThrow('nope');
+		expect(log.some((l) => l.startsWith('type:'))).toBe(false);
 	});
 });
 

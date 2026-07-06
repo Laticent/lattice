@@ -503,7 +503,9 @@ interface Step<A> {
   type?: { target: Target; text: string; cadence?: number };  // typing carries its TARGET (§14-2/B) + per-step ms/char
   gesture?: Gesture | { kind: Gesture; target?: Target };      // §6.1 body language; gated on act success
   circle?: Target;                         // sugar for gesture: { kind: 'circle', target } (§6.1)
-  settle?: number;
+  instant?: boolean;                       // NO theater: act/type apply now, cursor/typing/gesture/settle skipped
+  until?: () => boolean;                   // advance GATE: hold (abort-safe poll) until true, then settle
+  settle?: number;                         // fixed pause after the beat; honored with `instant` too
 }
 
 function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data → primitive
@@ -518,6 +520,16 @@ function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data 
   invariant). *(A failed `act` is exactly where a `cross`/`shake` is honest, if the author wants it.)*
 - `seed` and per-step `cadence` are **first-class** (the candidate dropped them; both are load-bearing
   for the migrated Studio demo — §14/checker).
+- **`instant` + advance control (2026-07-06 follow-up).** Not every beat should be *performed*: setup,
+  closing an overlay, jumping ahead are plumbing. `instant` applies a beat's `act`/`type` with **no
+  cursor move, no typing animation, no gesture, no settle** — the declarative equivalent of a raw
+  `Walkthrough` calling `ctx.actions.foo()` with no `stage.*` motion (`say` still shows; positioning/
+  gesture verbs are ignored; the trust invariant holds — `act` is still awaited). Advancement is
+  controlled two ways, orthogonal to `instant`: **`settle`** (fixed pause) and **`until: () => boolean`**
+  (hold, abort-safe-polling via the `waitFor` recipe, until the app signals ready — then settle). An
+  async `act` is the third gate — the step already awaits it. This stays within the human-not-machine
+  tenet (§2): `instant` is a discrete "skip the theater" choice, not a free speed dial, and `until` is a
+  readiness predicate, not a raw millisecond knob.
 - Type inference: annotate once — `storyboard<StudioActions>(seed, [...])` — or let `A` bind from
   `run({ actions })`; without it, `act` params fall back to `any` (§14/checker).
 

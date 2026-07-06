@@ -91,6 +91,34 @@ scene()
   .hold(400)
 ```
 
+## Instant beats & advance control
+
+Not every beat should be *performed*. Setup, closing an overlay, or jumping ahead
+are plumbing — mark them **`instant`** and the substance applies with **no cursor
+movement, no typing animation, no gesture, no settle**. (The raw `Walkthrough`
+gets this for free — just call `ctx.actions.foo()` without any `stage.*` motion.)
+
+```ts
+scene()
+  .act((a) => a.closeOverlay()).instant()          // fires now, silently — no theater
+  .say('Now the real beat…').point('#next').click().act((a) => a.next())
+```
+
+Two ways to control **when the next beat starts**:
+
+- **Fixed pause** — `settle` (or `.hold(ms)`): wait a set duration after the beat.
+  Works with `instant` too: `{ act, instant: true, settle: 500 }`.
+- **Advance when ready** — `until(() => cond)`: hold (abort-safe polling) until the
+  app signals ready — e.g. a render or animation has settled — *then* continue.
+  Pair it with `instant` to fire an action and wait for its effect to land:
+
+  ```ts
+  scene().act((a) => a.loadDeck()).instant().until(() => deckIsRendered())
+  ```
+
+  An **async `act`** is the other advance gate — the step already `await`s it, so
+  returning a promise that resolves when you're ready holds the beat too.
+
 ## Gestures — the cursor's body language
 
 A curated **five-gesture alphabet**, each carrying a distinct *meaning* the eye

@@ -59,6 +59,28 @@ describe('scene() — the step-boundary rule', () => {
 		expect(scene('').gesture('circle', '#p').toData()[0].gesture).toEqual({ kind: 'circle', target: '#p' });
 		expect(scene('').drag('#a', '#b').toData()[0].drag).toEqual({ from: '#a', to: '#b' });
 	});
+	it('.instant() flags the current step (composes with act, fuses into one step)', () => {
+		const d = scene<Actions>('')
+			.act((x) => x.go())
+			.instant()
+			.toData();
+		expect(d).toHaveLength(1);
+		expect(d[0].instant).toBe(true);
+		expect(typeof d[0].act).toBe('function');
+	});
+	it('.instant().until() compose on one step — fire now, hold until ready', () => {
+		let ready = false;
+		const d = scene<Actions>('')
+			.act((x) => x.go())
+			.instant()
+			.until(() => ready)
+			.toData();
+		expect(d).toHaveLength(1);
+		expect(d[0].instant).toBe(true);
+		expect(typeof d[0].until).toBe('function');
+		ready = true;
+		expect(d[0].until?.()).toBe(true);
+	});
 });
 
 describe('scene().build() === storyboard(seed, toData()) — provable isomorphism', () => {
