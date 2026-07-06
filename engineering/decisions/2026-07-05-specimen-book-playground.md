@@ -224,3 +224,7 @@ Logged here for their own fixes; none are pulled into the migration PRs:
    but the register look clips the sixth row's body even under `compact`
    (measured in PR 2; the stress slide ships at the honest n=5 and the ledger
    carries a `band` entry until capacity is recalibrated).
+8. **video's qr placard duplicates its caption** — the scan caption renders
+   twice, stacked, under the code (both moods). Component render defect.
+9. **video's attribution caption is low-contrast on the navy canvas** —
+   borderline legible from a distance in dark mood. Component token choice.

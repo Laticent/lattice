@@ -18,20 +18,46 @@ Static 2×2 quadrant grid with author-placed items per cell.
 <!-- _class: matrix-2x2 -->
 <!-- _footer: "Default · matrix-2x2" -->
 
-## Where the transformation bets land on effort and impact.
+## The matrix places items on two named axes.
 
 - **High impact · Low effort.**
-  - Weekly signal review
-  - Decision-log template
+  - Quick wins
+  - Two per cell
 - **High impact · High effort.**
-  - Scoring-model rewrite
-  - Org-wide rollout
+  - Strategic bets
+  - Named plainly
 - **Low impact · Low effort.**
-  - Renaming the framework, again
-  - A new Confluence space
+  - Habit fillers
+  - Prune here
 - **Low impact · High effort.**
-  - Dashboards nobody opens
-  - The maturity-model self-assessment
+  - Time sinks
+  - One suffices
+
+
+---
+
+<!-- _class: matrix-2x2 -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · matrix-2x2 — Three items per cell — the ceiling." -->
+
+## Three items per cell is the matrix ceiling.
+
+- **High impact · Low effort.**
+  - Three short items
+  - Fit each cell
+  - At the ceiling
+- **High impact · High effort.**
+  - Labels stay short
+  - Sixteen words hard
+  - Per cell entry
+- **Low impact · Low effort.**
+  - Past three items
+  - The quadrants crowd
+  - Split the story
+- **Low impact · High effort.**
+  - A fourth entry
+  - Does not fit
+  - Stop at three
 
 
 ---
@@ -39,20 +65,20 @@ Static 2×2 quadrant grid with author-placed items per cell.
 <!-- _class: matrix-2x2 dark -->
 <!-- _footer: "Composition: dark · matrix-2x2 dark" -->
 
-## Where the transformation bets land on effort and impact.
+## The matrix places items on two named axes.
 
 - **High impact · Low effort.**
-  - Weekly signal review
-  - Decision-log template
+  - Quick wins
+  - Two per cell
 - **High impact · High effort.**
-  - Scoring-model rewrite
-  - Org-wide rollout
+  - Strategic bets
+  - Named plainly
 - **Low impact · Low effort.**
-  - Renaming the framework, again
-  - A new Confluence space
+  - Habit fillers
+  - Prune here
 - **Low impact · High effort.**
-  - Dashboards nobody opens
-  - The maturity-model self-assessment
+  - Time sinks
+  - One suffices
 
 
 ---
@@ -60,20 +86,20 @@ Static 2×2 quadrant grid with author-placed items per cell.
 <!-- _class: matrix-2x2 compact -->
 <!-- _footer: "Composition: compact · matrix-2x2 compact" -->
 
-## Where the transformation bets land on effort and impact.
+## The matrix places items on two named axes.
 
 - **High impact · Low effort.**
-  - Weekly signal review
-  - Decision-log template
+  - Quick wins
+  - Two per cell
 - **High impact · High effort.**
-  - Scoring-model rewrite
-  - Org-wide rollout
+  - Strategic bets
+  - Named plainly
 - **Low impact · Low effort.**
-  - Renaming the framework, again
-  - A new Confluence space
+  - Habit fillers
+  - Prune here
 - **Low impact · High effort.**
-  - Dashboards nobody opens
-  - The maturity-model self-assessment
+  - Time sinks
+  - One suffices
 
 
 ---
@@ -81,20 +107,20 @@ Static 2×2 quadrant grid with author-placed items per cell.
 <!-- _class: matrix-2x2 accent -->
 <!-- _footer: "Composition: accent · matrix-2x2 accent" -->
 
-## Where the transformation bets land on effort and impact.
+## The matrix places items on two named axes.
 
 - **High impact · Low effort.**
-  - Weekly signal review
-  - Decision-log template
+  - Quick wins
+  - Two per cell
 - **High impact · High effort.**
-  - Scoring-model rewrite
-  - Org-wide rollout
+  - Strategic bets
+  - Named plainly
 - **Low impact · Low effort.**
-  - Renaming the framework, again
-  - A new Confluence space
+  - Habit fillers
+  - Prune here
 - **Low impact · High effort.**
-  - Dashboards nobody opens
-  - The maturity-model self-assessment
+  - Time sinks
+  - One suffices
 
 
 ---

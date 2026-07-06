@@ -18,105 +18,117 @@ Two prose options side-by-side with a labeled corner tag on each.
 <!-- _class: compare-prose -->
 <!-- _footer: "Default · compare-prose" -->
 
-## Renew at list price, or hold the discount.
+## Two options, equal footing, corner tags.
 
-- Hold the published rate
-  - Protect the list price and signal pricing discipline to the rest of the base. Risks four at-risk accounts worth $2.1M ARR walking at renewal.
-- Extend the legacy discount
-  - Keep the four accounts by carrying their 2023 pricing one more year. Buys retention now, but the discount has already leaked to two prospects in the same segment.
+- The left option
+  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.
+- The right option
+  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.
 
 
 ---
 
 <!-- _class: compare-prose transition -->
-<!-- _footer: "Transition — before/after state change · compare-prose transition" -->
+<!-- _footer: "transition · compare-prose transition — Left reads as before, right as after." -->
 
-## What writing decisions down actually changed.
+## transition reads left as before, right as after.
 
 - Before
-  - Decisions lived in the room they were made in. Six months on, nobody could say why we killed the project — only that someone senior had felt strongly.
+  - The arrow between the panes turns comparison into change over time.
 - After
-  - Every decision is logged with its signals, its options, and the bet it made. We still relitigate, but now there is a record showing we already decided this in March.
+  - Use it for state changes, not preferences — the arrow implies causation.
 
 
 ---
 
 <!-- _class: compare-prose mirror -->
-<!-- _footer: "Mirror — swap left and right · compare-prose mirror" -->
+<!-- _footer: "mirror · compare-prose mirror — Swaps the reading order." -->
 
-## Same comparison, columns swapped.
+## mirror swaps the reading order.
 
-- First option
-  - Now rendered on the right, second in the reading order. Useful when the natural argument flow wants the alternative considered before the lead.
 - Second option
-  - Now rendered on the left. Pair with `chosen` to mark the swapped position as the verdict.
+  - mirror renders this pane first — for when the deck's rhythm lands on the left.
+- First option
+  - Same anatomy, flipped; the corner tags travel with their panes.
 
 
 ---
 
 <!-- _class: compare-prose chosen -->
-<!-- _footer: "Chosen — second card is the winner · compare-prose chosen" -->
+<!-- _footer: "chosen · compare-prose chosen — Crowns the right pane the winner." -->
 
-## The right card is the verdict.
+## chosen crowns the right pane the winner.
 
-- Build in-house
-  - Full control of the schema and roadmap, but 2–3 engineer-quarters before feature parity. Maintenance burden stays internal.
-- Buy + configure
-  - Ships in 6 weeks, not 9 months. Engineering capacity redirects to product-layer features; exit risk is manageable via contractual data export.
+- The road not taken
+  - The losing option keeps its full case — an honest comparison shows real strength.
+- The verdict
+  - The accent treatment marks this pane as the pick; pair with a reason, not a repeat.
 
 
 ---
 
 <!-- _class: compare-prose decision -->
-<!-- _footer: "Decision — left rejected, right chosen, connector labelled · compare-prose decision" -->
+<!-- _footer: "decision · compare-prose decision — Stamps the verdict banner across the pair." -->
 
-## Build vs buy — decided.
+## decision stamps the verdict banner across the pair.
 
-- Build in-house
-  - Full control of the schema and roadmap, but 2–3 engineer-quarters before feature parity. Maintenance burden stays internal.
-- Buy + configure
-  - Ships in 6 weeks, not 9 months. Engineering capacity redirects to product-layer features; exit risk is manageable via contractual data export.
+- Option one
+  - Both panes stay equal; the banner above carries the call.
+- Option two
+  - Use when the decision is made and the slide is the record.
 
 
 ---
 
 <!-- _class: compare-prose vertical -->
-<!-- _footer: "Vertical — stack cards top-to-bottom · compare-prose vertical" -->
+<!-- _footer: "vertical · compare-prose vertical — Stacks the panes for longer cases." -->
 
-## Long-body options stacked for room.
+## vertical stacks the panes for longer cases.
 
-- Build in-house
-  - Full control over the schema and the roadmap, with 2–3 engineer-quarters before feature parity. Ongoing maintenance burden stays internal; the team owns every escalation, every migration, every breaking change. Worth it when the data model is the differentiation; expensive when it isn't.
-- Buy + configure
-  - Ships in 6 weeks rather than 9 months, with engineering capacity redirecting to product-layer features the customer actually pays for. Exit risk is bounded by contractual data export; switching cost is a known number rather than a moving target. The right call when the data layer is plumbing rather than differentiation.
+- The top option
+  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.
+- The bottom option
+  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.
 
 
 ---
 
 <!-- _class: compare-prose banner-tag -->
-<!-- _footer: "Banner tag — slot label as full-width header strip · compare-prose banner-tag" -->
+<!-- _footer: "banner-tag · compare-prose banner-tag — Corner tags become banners." -->
 
-## Three reasons we are building.
+## banner-tag fills the corner tags at banner weight.
 
-- BUILD
-  - The platform is the product. Owning it owns the roadmap.
-- WHY NOT BUY
-  - No vendor matches our compliance posture without surrender of control.
-- WHY NOT DELAY
-  - Cost of waiting compounds: each quarter spent on workarounds is one fewer quarter on the platform.
+- OPTION A
+  - The tag takes the accent fill and full contrast.
+- OPTION B
+  - Use for short, loud labels — verdicts, camps, teams.
 
 
 ---
 
 <!-- _class: compare-prose rejected -->
-<!-- _footer: "Rejected · compare-prose rejected" -->
+<!-- _footer: "Rejected · compare-prose rejected — Strikes the losing pane." -->
 
-## We went with managed Postgres, not the self-hosted cluster.
+## rejected strikes the losing pane.
 
-- Managed Postgres
-  - Higher monthly spend, but zero on-call burden and automatic failover. The team ships features instead of babysitting replication.
-- Self-hosted cluster
-  - Cheaper raw compute, but the operational tax — patching, backups, 3am pages — falls on a four-person team that can't absorb it.
+- The pick
+  - The surviving option reads at full strength.
+- The rejected pane
+  - Dimmed and struck — the record of what was considered and declined.
+
+
+---
+
+<!-- _class: compare-prose vertical -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · compare-prose — Both panes at the ceiling." -->
+
+## Two full cases is the most this pair holds.
+
+- The stressed top pane
+  - A case at the hard budget runs about this long: two full sentences that state the option, its strongest argument, and the cost it accepts — and then stops.
+- The stressed bottom pane
+  - Symmetry matters most at the ceiling; when one pane runs half the other's length, the slide reads as a verdict the author did not intend to give.
 
 
 ---
@@ -124,12 +136,12 @@ Two prose options side-by-side with a labeled corner tag on each.
 <!-- _class: compare-prose dark -->
 <!-- _footer: "Composition: dark · compare-prose dark" -->
 
-## Renew at list price, or hold the discount.
+## Two options, equal footing, corner tags.
 
-- Hold the published rate
-  - Protect the list price and signal pricing discipline to the rest of the base. Risks four at-risk accounts worth $2.1M ARR walking at renewal.
-- Extend the legacy discount
-  - Keep the four accounts by carrying their 2023 pricing one more year. Buys retention now, but the discount has already leaked to two prospects in the same segment.
+- The left option
+  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.
+- The right option
+  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.
 
 
 ---
@@ -137,12 +149,12 @@ Two prose options side-by-side with a labeled corner tag on each.
 <!-- _class: compare-prose compact -->
 <!-- _footer: "Composition: compact · compare-prose compact" -->
 
-## Renew at list price, or hold the discount.
+## Two options, equal footing, corner tags.
 
-- Hold the published rate
-  - Protect the list price and signal pricing discipline to the rest of the base. Risks four at-risk accounts worth $2.1M ARR walking at renewal.
-- Extend the legacy discount
-  - Keep the four accounts by carrying their 2023 pricing one more year. Buys retention now, but the discount has already leaked to two prospects in the same segment.
+- The left option
+  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.
+- The right option
+  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.
 
 
 ---
@@ -150,12 +162,12 @@ Two prose options side-by-side with a labeled corner tag on each.
 <!-- _class: compare-prose accent -->
 <!-- _footer: "Composition: accent · compare-prose accent" -->
 
-## Renew at list price, or hold the discount.
+## Two options, equal footing, corner tags.
 
-- Hold the published rate
-  - Protect the list price and signal pricing discipline to the rest of the base. Risks four at-risk accounts worth $2.1M ARR walking at renewal.
-- Extend the legacy discount
-  - Keep the four accounts by carrying their 2023 pricing one more year. Buys retention now, but the discount has already leaked to two prospects in the same segment.
+- The left option
+  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.
+- The right option
+  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.
 
 
 ---

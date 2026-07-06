@@ -1,15 +1,33 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "video",
-  "adapt": { "mode": "reflow", "priority": ["heading", "video", "body"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "heading",
+      "video",
+      "body"
+    ]
+  },
   "function": "imagery",
   "form": "canvas",
   "substance": "prose",
-  "orientation": ["landscape", "portrait"],
-  "tags": ["visual", "showcase", "pitch"],
+  "orientation": [
+    "landscape",
+    "portrait"
+  ],
+  "tags": [
+    "visual",
+    "showcase",
+    "pitch"
+  ],
   "description": "A video as a static, PDF-safe embed: a poster that links to the clip, a play badge, the provider's name, and a scannable QR to the same URL — never a live iframe.",
   "purpose": "Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the deck renders to a static PDF (and the engine bars iframes), a `video` slide shows a POSTER with a play badge + provider label — the poster is a clickable link in the HTML/PDF — and, when you add the `qr` modifier, a scannable code the room can scan to watch. Two compositions: `companion` (a claim leads on the left, the clip proves it on the right) and `gallery` (a contained, matted exhibit). Author the URL as a bare bullet; add an optional `caption` and an optional `poster` override. Provider is auto-detected.",
-  "variants": ["companion", "gallery", "qr"],
+  "variants": [
+    "companion",
+    "gallery",
+    "qr"
+  ],
   "slots": {
     "heading": {
       "selector": "h2",
@@ -28,7 +46,7 @@
     }
   },
   "skeleton": "<!-- _class: video companion -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- A guided walkthrough `caption`\n",
-  "sample": "<!-- _class: video companion -->\n\n## Onboarding that sticks — watch a customer do it live.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Ree A., Head of Ops at Northwind `caption`\n",
+  "sample": "<!-- _class: video companion -->\n\n## The video card plays beside its context.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Ree A., Head of Ops at Northwind `caption`\n",
   "whenToUse": [
     {
       "title": "A clip makes the point better than a screenshot",
@@ -73,20 +91,23 @@
   ],
   "variantDocs": {
     "companion": {
-      "label": "Companion — claim leads, the clip proves it",
-      "caption": "A split: the claim + one lead line lead on the left, the poster proves it on the right (mirrors split-panel's companion). The narrative+proof layout. `qr` reveals a code beneath the poster.",
-      "sample": "<!-- _class: video companion -->\n\n## Onboarding that sticks — watch a customer do it live.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Ree A., Head of Ops at Northwind `caption`\n- video-poster.svg `poster`\n"
+      "label": "companion",
+      "caption": "The player beside the claim it proves.",
+      "sample": "<!-- _class: video companion -->\n\n## companion seats the player beside its pitch.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Ree A., Head of Ops at Northwind `caption`\n- video-poster.svg `poster`\n"
     },
     "gallery": {
-      "label": "Gallery — a contained, matted exhibit",
-      "caption": "The still CONTAINED on a matte (zero-crop, letterboxed) with a placard caption below — for a diagram-ish or vertical clip where the whole frame matters. `qr` adds a code beside the placard.",
-      "sample": "<!-- _class: video gallery -->\n\n## Exhibit 1 — the onboarding flow, end to end.\n\n- https://vimeo.com/1084537\n- The reference onboarding walkthrough, contained on its matte. `caption`\n- video-poster.svg `poster`\n"
+      "label": "gallery",
+      "caption": "A contained, matted exhibit.",
+      "sample": "<!-- _class: video gallery -->\n\n## gallery mats the player like an exhibit.\n\n- https://vimeo.com/1084537\n- The reference onboarding walkthrough, contained on its matte. `caption`\n- video-poster.svg `poster`\n"
     },
     "qr": {
-      "label": "qr — add a scannable code (a modifier, combine with any composition)",
-      "caption": "An OPT-IN modifier, not a composition. Add `qr` to either composition (`video companion qr`, `video gallery qr`) and a scannable QR to the clip appears; without it the poster is a plain link + provider label. Reuses the palette-blind QR engine.",
-      "sample": "<!-- _class: video companion qr -->\n\n## Scan to watch the walkthrough.\n\nThe full 90-second tour — scan to open it on your phone.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Scan to watch `caption`\n- video-poster.svg `poster`\n"
+      "label": "qr",
+      "caption": "Adds a scannable code; combines with any look.",
+      "sample": "<!-- _class: video companion qr -->\n\n## qr hands the video to the room’s phones.\n\nThe full 90-second tour — scan to open it on your phone.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Scan to watch `caption`\n- video-poster.svg `poster`\n"
     }
   },
-  "showcase": { "featured": false }
+  "showcase": {
+    "featured": false
+  },
+  "specimenVoice": true
 }

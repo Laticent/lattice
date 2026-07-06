@@ -18,75 +18,72 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 <!-- _class: pricing -->
 <!-- _footer: "Default · pricing" -->
 
-## Pick the plan that fits the team.
+## Three tiers, one recommended column.
 
 - Starter `$0`
-  - [x] Up to 3 seats
-  - [/] SSO
-  - [/] Dedicated support
-  - For evaluating, one team.
+  - [x] The checklist rows compare
+  - [/] Slashed rows mean not included
+  - [/] Same rows on every tier
+  - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
-  - [x] Up to 25 seats
-  - [x] SSO
-  - [/] Dedicated support
-  - For scaling teams.
+  - [x] The starred tier gets the accent
+  - [x] Checks accumulate up the ladder
+  - [/] One gap keeps it honest
+  - The column buyers should read first.
 - Enterprise `Custom`
-  - [x] Unlimited seats
-  - [x] SSO + SCIM
-  - [x] Dedicated support
-  - For procurement and compliance.
+  - [x] The top tier checks every row
+  - [x] Custom replaces a number
+  - [x] Nothing slashed up here
+  - The ceiling of the ladder.
 
 
 ---
 
 <!-- _class: pricing two -->
-<!-- _footer: "Two — a pair of tiers · pricing two" -->
+<!-- _footer: "two · pricing two — A pair of plans, head to head." -->
 
-## Two ways to buy.
+## two sets a pair of plans head to head.
 
 - Self-serve `$49 / mo`
-  - [x] Up to 25 seats
-  - [x] SSO
-  - [/] Dedicated CSM
-  - [/] Custom contract
-  - For teams that onboard themselves.
-- Enterprise `Custom` *Recommended*
-  - [x] Unlimited seats
-  - [x] SSO + SCIM
-  - [x] Dedicated CSM
-  - [x] Custom contract
-  - For procurement, security review, and scale.
+  - [x] Wider columns, more feature rows
+  - [/] The gap that motivates upgrading
+  - The simple path.
+- Enterprise `Custom`
+  - [x] Everything in self-serve
+  - [x] The rows that close deals
+  - The guided path.
 
 
 ---
 
 <!-- _class: pricing four compact -->
-<!-- _footer: "Four — a full ladder · pricing four" -->
+<!-- _footer: "four · pricing four — The whole ladder, compact." -->
 
-## The full ladder, free to enterprise.
+## four compact fits the whole ladder.
 
 - Free `$0`
-  - [x] 1 seat
-  - [/] SSO
-  - For trying it out.
+  - [x] One seat
+  - [/] The rest
+  - For trying.
 - Team `$29`
-  - [x] 10 seats
+  - [x] Five seats
   - [/] SSO
-  - For small teams.
+  - For starting.
 - Growth `$49` *Most popular*
-  - [x] 25 seats
   - [x] SSO
-  - For scaling teams.
+  - [/] Support
+  - For scaling.
 - Enterprise `Custom`
-  - [x] Unlimited
-  - [x] SSO + SCIM
-  - For procurement.
+  - [x] Everything
+  - [x] Support
+  - For fleets.
 
 
 ---
 
 <!-- _class: pricing -->
-<!-- _footer: "Stress test · pricing" -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · pricing — Six feature rows per tier." -->
 
 ## Six lines of features per tier still hold.
 
@@ -121,23 +118,23 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 <!-- _class: pricing dark -->
 <!-- _footer: "Composition: dark · pricing dark" -->
 
-## Pick the plan that fits the team.
+## Three tiers, one recommended column.
 
 - Starter `$0`
-  - [x] Up to 3 seats
-  - [/] SSO
-  - [/] Dedicated support
-  - For evaluating, one team.
+  - [x] The checklist rows compare
+  - [/] Slashed rows mean not included
+  - [/] Same rows on every tier
+  - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
-  - [x] Up to 25 seats
-  - [x] SSO
-  - [/] Dedicated support
-  - For scaling teams.
+  - [x] The starred tier gets the accent
+  - [x] Checks accumulate up the ladder
+  - [/] One gap keeps it honest
+  - The column buyers should read first.
 - Enterprise `Custom`
-  - [x] Unlimited seats
-  - [x] SSO + SCIM
-  - [x] Dedicated support
-  - For procurement and compliance.
+  - [x] The top tier checks every row
+  - [x] Custom replaces a number
+  - [x] Nothing slashed up here
+  - The ceiling of the ladder.
 
 
 ---
@@ -145,23 +142,23 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 <!-- _class: pricing compact -->
 <!-- _footer: "Composition: compact · pricing compact" -->
 
-## Pick the plan that fits the team.
+## Three tiers, one recommended column.
 
 - Starter `$0`
-  - [x] Up to 3 seats
-  - [/] SSO
-  - [/] Dedicated support
-  - For evaluating, one team.
+  - [x] The checklist rows compare
+  - [/] Slashed rows mean not included
+  - [/] Same rows on every tier
+  - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
-  - [x] Up to 25 seats
-  - [x] SSO
-  - [/] Dedicated support
-  - For scaling teams.
+  - [x] The starred tier gets the accent
+  - [x] Checks accumulate up the ladder
+  - [/] One gap keeps it honest
+  - The column buyers should read first.
 - Enterprise `Custom`
-  - [x] Unlimited seats
-  - [x] SSO + SCIM
-  - [x] Dedicated support
-  - For procurement and compliance.
+  - [x] The top tier checks every row
+  - [x] Custom replaces a number
+  - [x] Nothing slashed up here
+  - The ceiling of the ladder.
 
 
 ---

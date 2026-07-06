@@ -62,111 +62,109 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 
 ## Variants (component-specific)
 
-### `transition` — Transition — before/after state change
+### `transition` — transition
 
-The state-change reading: an arrow connector and an accent ring on the second ("after") card. Write Before / After (or any prior → new pair) as the two labels. Reads as a story, not a debate. Absorbed the standalone `before-after` component on 2026-06-07.
+Left reads as before, right as after.
 
 ```markdown
 <!-- _class: compare-prose transition -->
 
-## What writing decisions down actually changed.
+## transition reads left as before, right as after.
 
 - Before
-  - Decisions lived in the room they were made in. Six months on, nobody could say why we killed the project — only that someone senior had felt strongly.
+  - The arrow between the panes turns comparison into change over time.
 - After
-  - Every decision is logged with its signals, its options, and the bet it made. We still relitigate, but now there is a record showing we already decided this in March.
+  - Use it for state changes, not preferences — the arrow implies causation.
 ```
 
-### `mirror` — Mirror — swap left and right
+### `mirror` — mirror
 
-Flips the two cards left-to-right. Use when the deck's visual rhythm or the natural reading order wants the second option on the left.
+Swaps the reading order.
 
 ```markdown
 <!-- _class: compare-prose mirror -->
 
-## Same comparison, columns swapped.
+## mirror swaps the reading order.
 
-- First option
-  - Now rendered on the right, second in the reading order. Useful when the natural argument flow wants the alternative considered before the lead.
 - Second option
-  - Now rendered on the left. Pair with `chosen` to mark the swapped position as the verdict.
+  - mirror renders this pane first — for when the deck's rhythm lands on the left.
+- First option
+  - Same anatomy, flipped; the corner tags travel with their panes.
 ```
 
-### `chosen` — Chosen — second card is the winner
+### `chosen` — chosen
 
-Marks the right card as the verdict with an accent left edge and tinted background. The post-processor always emits left-then-right; put the considered option first and the choice second.
+Crowns the right pane the winner.
 
 ```markdown
 <!-- _class: compare-prose chosen -->
 
-## The right card is the verdict.
+## chosen crowns the right pane the winner.
 
-- Build in-house
-  - Full control of the schema and roadmap, but 2–3 engineer-quarters before feature parity. Maintenance burden stays internal.
-- Buy + configure
-  - Ships in 6 weeks, not 9 months. Engineering capacity redirects to product-layer features; exit risk is manageable via contractual data export.
+- The road not taken
+  - The losing option keeps its full case — an honest comparison shows real strength.
+- The verdict
+  - The accent treatment marks this pane as the pick; pair with a reason, not a repeat.
 ```
 
-### `decision` — Decision — left rejected, right chosen, connector labelled
+### `decision` — decision
 
-The full editorial composition: left card de-emphasised (struck title + muted body), right card emphasised, the connector amplified and labelled DECISION. The most common variant in real decks.
+Stamps the verdict banner across the pair.
 
 ```markdown
 <!-- _class: compare-prose decision -->
 
-## Build vs buy — decided.
+## decision stamps the verdict banner across the pair.
 
-- Build in-house
-  - Full control of the schema and roadmap, but 2–3 engineer-quarters before feature parity. Maintenance burden stays internal.
-- Buy + configure
-  - Ships in 6 weeks, not 9 months. Engineering capacity redirects to product-layer features; exit risk is manageable via contractual data export.
+- Option one
+  - Both panes stay equal; the banner above carries the call.
+- Option two
+  - Use when the decision is made and the slide is the record.
 ```
 
-### `vertical` — Vertical — stack cards top-to-bottom
+### `vertical` — vertical
 
-Stacks the two cards vertically and rotates the connector 90°. Use for long-body comparisons where the side-by-side format would crowd the prose.
+Stacks the panes for longer cases.
 
 ```markdown
 <!-- _class: compare-prose vertical -->
 
-## Long-body options stacked for room.
+## vertical stacks the panes for longer cases.
 
-- Build in-house
-  - Full control over the schema and the roadmap, with 2–3 engineer-quarters before feature parity. Ongoing maintenance burden stays internal; the team owns every escalation, every migration, every breaking change. Worth it when the data model is the differentiation; expensive when it isn't.
-- Buy + configure
-  - Ships in 6 weeks rather than 9 months, with engineering capacity redirecting to product-layer features the customer actually pays for. Exit risk is bounded by contractual data export; switching cost is a known number rather than a moving target. The right call when the data layer is plumbing rather than differentiation.
+- The top option
+  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.
+- The bottom option
+  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.
 ```
 
-### `banner-tag` — Banner tag — slot label as full-width header strip
+### `banner-tag` — banner-tag
 
-Flips each card from a flush-corner label tag into a full-width header strip. Use when the slot label is the architectural signal of the card (categorical case: BUILD / WHY NOT BUY / WHY NOT DELAY), not a quiet marker.
+Corner tags become banners.
 
 ```markdown
 <!-- _class: compare-prose banner-tag -->
 
-## Three reasons we are building.
+## banner-tag fills the corner tags at banner weight.
 
-- BUILD
-  - The platform is the product. Owning it owns the roadmap.
-- WHY NOT BUY
-  - No vendor matches our compliance posture without surrender of control.
-- WHY NOT DELAY
-  - Cost of waiting compounds: each quarter spent on workarounds is one fewer quarter on the platform.
+- OPTION A
+  - The tag takes the accent fill and full contrast.
+- OPTION B
+  - Use for short, loud labels — verdicts, camps, teams.
 ```
 
 ### `rejected` — Rejected
 
-Strikes the second option's title and dims its card — the inverse of `chosen`. Use when the slide's job is to record the path NOT taken and why.
+Strikes the losing pane.
 
 ```markdown
 <!-- _class: compare-prose rejected -->
 
-## We went with managed Postgres, not the self-hosted cluster.
+## rejected strikes the losing pane.
 
-- Managed Postgres
-  - Higher monthly spend, but zero on-call burden and automatic failover. The team ships features instead of babysitting replication.
-- Self-hosted cluster
-  - Cheaper raw compute, but the operational tax — patching, backups, 3am pages — falls on a four-person team that can't absorb it.
+- The pick
+  - The surviving option reads at full strength.
+- The rejected pane
+  - Dimmed and struck — the record of what was considered and declined.
 ```
 
 ## Universal modifiers

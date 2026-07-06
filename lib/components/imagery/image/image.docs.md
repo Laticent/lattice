@@ -58,84 +58,84 @@ Swap the bg image below for your own asset — any aspect. The layout reads its 
 
 ## Variants (component-specific)
 
-### `clean` — Clean — the default floated card (auto)
+### `clean` — clean
 
-The standing default for a moderate-aspect photo. A floated card whose ASPECT adapts to the asset (a square photo → square card, a wide photo → wide card), beside a text panel (landscape) or stacked above it (portrait). Cover-fill of a card shaped like the photo means ≈ zero crop. Auto-resolves for `square` and `wide` assets; name it to force a card on any asset.
+Drops the caption chrome.
 
 ```markdown
 <!-- _class: image clean -->
 
-## Activation is where the trial is won or lost.
+## clean drops the caption chrome.
 
 Two-thirds of trials that reach the first generated report convert; the ones that stall almost never do.
 
 ![bg](sample-photo-wide.svg)
 ```
 
-### `split` — Split — an extreme-aspect photo, shown whole (auto)
+### `split` — split
 
-For a `tall`/`column` asset on a landscape deck (a full-height image column + text) or a `wide`/`pano` asset on a portrait deck (a full-width image band + text below). Shows the whole photo with ≈ zero crop and fills the canvas a moderate card would leave empty.
+A portrait gets its full column.
 
 ```markdown
 <!-- _class: image split -->
 
-## Built for the long climb.
+## split gives a portrait its full column.
 
 A portrait photo wants its full height. We give it a column and let the argument run alongside.
 
 ![bg](sample-photo-tall.svg)
 ```
 
-### `spotlight` — Spotlight — full-bleed cover + a solid card (auto)
+### `spotlight` — spotlight
 
-For an asset whose aspect already MATCHES the canvas (a `pano` on landscape, a `tall` on portrait): the photo goes full-bleed and the text rides a SOLID card, so legibility never depends on the photo. Name it to force a full-bleed cover on any asset (accepting the crop).
+A panorama owns the frame.
 
 ```markdown
 <!-- _class: image spotlight -->
 
-## A panorama earns the full frame.
+## spotlight lets a panorama own the frame.
 
 When the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.
 
 ![bg](sample-photo-pano.svg)
 ```
 
-### `gallery` — Gallery — contain on a matte + placard (opt-in)
+### `gallery` — gallery
 
-Opt-in. Contains the WHOLE asset on a matte with a centered placard caption — zero crop, letterboxed. For diagrams, screenshots, and plots where the whitespace is meaningful and every pixel matters. Never auto-resolved (we can't detect a diagram from aspect alone), so name it.
+The exhibit on a matte with a placard.
 
 ```markdown
 <!-- _class: image gallery -->
 
-## Exhibit 1 — the network, contained.
+## gallery mats the exhibit with a placard.
 
 The whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.
 
 ![bg](sample-photo-square.svg)
 ```
 
-### `statement` — Statement — full-bleed + scrim + editorial title (opt-in)
+### `statement` — statement
 
-Opt-in. The title rides the photo on a diagonal scrim — a deliberate, editorial moment for an opener or closer. White text over an unknown photo is a legibility gamble, so it is never auto-resolved; reach for it when you know the photo carries it.
+The title rides the photo on a scrim.
 
 ```markdown
 <!-- _class: image statement -->
 
-## The setup step is the real funnel.
+## statement rides the title on a scrim.
 
 The title rides the photo on a scrim — a deliberate, editorial choice.
 
 ![bg](sample-photo-wide.svg)
 ```
 
-### `mirror` — Mirror — flip the image to the other side
+### `mirror` — mirror
 
-Flips the image/text side for the `clean` and `split` compositions (image left, text right). Equivalent to `![bg left]`. Use when the surrounding spread reads right-to-left or when the page-turn cue lands on the image side.
+The image lands on the left.
 
 ```markdown
 <!-- _class: image mirror -->
 
-## Mirror lands the image on the left.
+## mirror lands the image on the left.
 
 Text leads from the right; image anchors from the left.
 

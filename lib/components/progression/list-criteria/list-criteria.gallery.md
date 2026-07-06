@@ -18,18 +18,34 @@ Numbered criteria list — each requirement is a row with rationale.
 <!-- _class: list-criteria -->
 <!-- _footer: "Default · list-criteria" -->
 
-## What a vendor must clear before procurement signs.
+## Criteria are gates: clear them in order.
 
-1. SOC 2 Type II
-   - A current report with no exceptions in the security or availability criteria.
-2. Data residency
-   - Customer data stays in-region; every sub-processor is disclosed and contractually bound.
-3. Exit guarantee
-   - Full data export in a documented format, available without opening a support ticket.
-4. Breach notification
-   - A 72-hour notice obligation written into the contract, not the marketing page.
-5. Uptime history
-   - Twelve months of published status at 99.9% or better, verifiable independently.
+1. State the bar
+   - Each criterion is a pass-or-fail line, not a preference.
+2. Order by veto power
+   - The criterion most likely to kill goes first.
+3. Keep the list short
+   - Three gates decide; six gates stall.
+
+
+---
+
+<!-- _class: list-criteria -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · list-criteria — Five gates — the ceiling." -->
+
+## Five gates is the most one decision should clear.
+
+1. The first gate
+   - A criterion at the hard budget states the bar and the evidence that clears it, in one breath.
+2. The second gate
+   - Twenty-two words is the ceiling; this clause is written to sit just under it, deliberately.
+3. The third gate
+   - Middle gates read fastest — put the contested one here.
+4. The fourth gate
+   - Attention thins; shorten the clauses as the list descends.
+5. The fifth gate
+   - The stop. A sixth gate means the bar is a rubric, not a decision.
 
 
 ---
@@ -37,18 +53,14 @@ Numbered criteria list — each requirement is a row with rationale.
 <!-- _class: list-criteria dark -->
 <!-- _footer: "Composition: dark · list-criteria dark" -->
 
-## What a vendor must clear before procurement signs.
+## Criteria are gates: clear them in order.
 
-1. SOC 2 Type II
-   - A current report with no exceptions in the security or availability criteria.
-2. Data residency
-   - Customer data stays in-region; every sub-processor is disclosed and contractually bound.
-3. Exit guarantee
-   - Full data export in a documented format, available without opening a support ticket.
-4. Breach notification
-   - A 72-hour notice obligation written into the contract, not the marketing page.
-5. Uptime history
-   - Twelve months of published status at 99.9% or better, verifiable independently.
+1. State the bar
+   - Each criterion is a pass-or-fail line, not a preference.
+2. Order by veto power
+   - The criterion most likely to kill goes first.
+3. Keep the list short
+   - Three gates decide; six gates stall.
 
 
 ---
@@ -56,18 +68,14 @@ Numbered criteria list — each requirement is a row with rationale.
 <!-- _class: list-criteria compact -->
 <!-- _footer: "Composition: compact · list-criteria compact" -->
 
-## What a vendor must clear before procurement signs.
+## Criteria are gates: clear them in order.
 
-1. SOC 2 Type II
-   - A current report with no exceptions in the security or availability criteria.
-2. Data residency
-   - Customer data stays in-region; every sub-processor is disclosed and contractually bound.
-3. Exit guarantee
-   - Full data export in a documented format, available without opening a support ticket.
-4. Breach notification
-   - A 72-hour notice obligation written into the contract, not the marketing page.
-5. Uptime history
-   - Twelve months of published status at 99.9% or better, verifiable independently.
+1. State the bar
+   - Each criterion is a pass-or-fail line, not a preference.
+2. Order by veto power
+   - The criterion most likely to kill goes first.
+3. Keep the list short
+   - Three gates decide; six gates stall.
 
 
 ---
@@ -75,18 +83,14 @@ Numbered criteria list — each requirement is a row with rationale.
 <!-- _class: list-criteria accent -->
 <!-- _footer: "Composition: accent · list-criteria accent" -->
 
-## What a vendor must clear before procurement signs.
+## Criteria are gates: clear them in order.
 
-1. SOC 2 Type II
-   - A current report with no exceptions in the security or availability criteria.
-2. Data residency
-   - Customer data stays in-region; every sub-processor is disclosed and contractually bound.
-3. Exit guarantee
-   - Full data export in a documented format, available without opening a support ticket.
-4. Breach notification
-   - A 72-hour notice obligation written into the contract, not the marketing page.
-5. Uptime history
-   - Twelve months of published status at 99.9% or better, verifiable independently.
+1. State the bar
+   - Each criterion is a pass-or-fail line, not a preference.
+2. Order by veto power
+   - The criterion most likely to kill goes first.
+3. Keep the list short
+   - Three gates decide; six gates stall.
 
 
 ---

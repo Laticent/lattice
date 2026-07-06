@@ -4,14 +4,43 @@
   "function": "evidence",
   "form": "stack",
   "substance": "structure",
-  "capacity": { "axis": "item", "min": 3, "sweet": 4, "soft": 5, "hard": 6, "escalateTo": ["kpi","split across slides"], "note": "the row compresses and numbers shrink past five tiles" },
-  "density": { "axis": "item", "soft": 8, "hard": 14, "note": "a metric label, not a sentence" },
+  "capacity": {
+    "axis": "item",
+    "min": 3,
+    "sweet": 4,
+    "soft": 5,
+    "hard": 6,
+    "escalateTo": [
+      "kpi",
+      "split across slides"
+    ],
+    "note": "the row compresses and numbers shrink past five tiles"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 8,
+    "hard": 14,
+    "note": "a metric label, not a sentence"
+  },
   "adapt": {
     "mode": "reflow",
-    "families": ["wide", "square", "tall", "strip"],
-    "priority": ["title", "subtitle", "stats"],
-    "droppable": ["subtitle"],
-    "keepTogether": ["stat"]
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "title",
+      "subtitle",
+      "stats"
+    ],
+    "droppable": [
+      "subtitle"
+    ],
+    "keepTogether": [
+      "stat"
+    ]
   },
   "tags": [
     "dashboard",
@@ -39,7 +68,11 @@
   },
   "skeleton": "<!-- _class: stats -->\n\n`Impact · Pilot Results`\n\n## Six months of results across four product teams.\n\n`Measured against pre-framework baseline, same teams, same market conditions.`\n\n1. 73%\n   - faster close\n2. 4.2×\n   - signal recall\n3. $1.2M\n   - prevented losses\n4. −18d\n   - avg cycle time\n",
   "anatomyBlock": "stats",
-  "sample": "<!-- _class: stats -->\n\n`Impact · Pilot Results`\n\n## Six months of results across four product teams.\n\n`Measured against pre-framework baseline, same teams, same market conditions.`\n\n1. 73%\n   - faster close\n2. 4.2×\n   - signal recall\n3. $1.2M\n   - prevented losses\n4. −18d\n   - avg cycle time\n",
+  "sample": "<!-- _class: stats -->\n\n`evidence · stats`\n\n## A row of stats, equal weight, no chrome.\n\n`Each stat is a number and a two-word label — the row does the arguing.`\n\n1. 4\n   - stats per row\n2. 8\n   - words, soft\n3. 5\n   - the soft ceiling\n4. 0\n   - decoration allowed\n",
+  "stressDoc": {
+    "caption": "Six stats — the hard ceiling.",
+    "sample": "<!-- _class: stats -->\n\n`stats · stress`\n\n## Six stats is the row's hard ceiling.\n\n1. 6\n   - stats seated\n2. 14\n   - words, hard\n3. 2\n   - lines per label\n4. 1\n   - row, always\n5. 5\n   - was the soft mark\n6. 0\n   - room for seven\n"
+  },
   "whenToUse": [
     {
       "title": "Three to five headline metrics",
@@ -89,5 +122,6 @@
       "name": "progress",
       "when": "the metrics are completion percentages across workstreams"
     }
-  ]
+  ],
+  "specimenVoice": true
 }

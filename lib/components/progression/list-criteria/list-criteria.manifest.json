@@ -1,13 +1,33 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "list-criteria",
-  "adapt": { "mode": "native", "priority": ["title", "criteria"], "keepTogether": ["criterion"] },
-  "focusAxes": ["item"],
+  "adapt": {
+    "mode": "native",
+    "priority": [
+      "title",
+      "criteria"
+    ],
+    "keepTogether": [
+      "criterion"
+    ]
+  },
+  "focusAxes": [
+    "item"
+  ],
   "function": "progression",
   "form": "ledger",
   "substance": "structure",
-  "density": { "axis": "item", "soft": 14, "hard": 22, "note": "one criterion with a short proof, not a spec" },
-  "tags": ["requirements", "assessment", "okr"],
+  "density": {
+    "axis": "item",
+    "soft": 14,
+    "hard": 22,
+    "note": "one criterion with a short proof, not a spec"
+  },
+  "tags": [
+    "requirements",
+    "assessment",
+    "okr"
+  ],
   "description": "Numbered criteria list — each requirement is a row with rationale.",
   "purpose": "Use to enumerate the criteria a decision must meet, in priority order. Numbering signals weight; each row reads as a complete requirement.",
   "slots": {
@@ -24,7 +44,11 @@
   },
   "skeleton": "<!-- _class: list-criteria -->\n\n## What every decision must satisfy.\n\n1. First criterion\n   - Short rationale for why this matters.\n2. Second criterion\n   - Short rationale.\n3. Third criterion\n   - Short rationale.\n4. Fourth criterion\n   - Short rationale.\n",
   "anatomyBlock": "list-criteria",
-  "sample": "<!-- _class: list-criteria -->\n\n## What a vendor must clear before procurement signs.\n\n1. SOC 2 Type II\n   - A current report with no exceptions in the security or availability criteria.\n2. Data residency\n   - Customer data stays in-region; every sub-processor is disclosed and contractually bound.\n3. Exit guarantee\n   - Full data export in a documented format, available without opening a support ticket.\n4. Breach notification\n   - A 72-hour notice obligation written into the contract, not the marketing page.\n5. Uptime history\n   - Twelve months of published status at 99.9% or better, verifiable independently.\n",
+  "sample": "<!-- _class: list-criteria -->\n\n## Criteria are gates: clear them in order.\n\n1. State the bar\n   - Each criterion is a pass-or-fail line, not a preference.\n2. Order by veto power\n   - The criterion most likely to kill goes first.\n3. Keep the list short\n   - Three gates decide; six gates stall.\n",
+  "stressDoc": {
+    "caption": "Five gates — the ceiling.",
+    "sample": "<!-- _class: list-criteria -->\n\n## Five gates is the most one decision should clear.\n\n1. The first gate\n   - A criterion at the hard budget states the bar and the evidence that clears it, in one breath.\n2. The second gate\n   - Twenty-two words is the ceiling; this clause is written to sit just under it, deliberately.\n3. The third gate\n   - Middle gates read fastest — put the contested one here.\n4. The fourth gate\n   - Attention thins; shorten the clauses as the list descends.\n5. The fifth gate\n   - The stop. A sixth gate means the bar is a rubric, not a decision.\n"
+  },
   "whenToUse": [
     {
       "title": "Criteria that must all be satisfied",
@@ -66,10 +90,14 @@
       "name": "verdict-grid",
       "when": "options scored against shared criteria"
     },
-    { "name": "list", "when": "declared statements — the `principles` variant" },
+    {
+      "name": "list",
+      "when": "declared statements — the `principles` variant"
+    },
     {
       "name": "list-tabular",
       "when": "rows carry structured metadata alongside the name and description"
     }
-  ]
+  ],
+  "specimenVoice": true
 }

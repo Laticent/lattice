@@ -35,27 +35,22 @@ const { countPrimaryCollection } = require('../../../lib/authoring/lint-core');
 // ---- the ledger: NAMED debt, measured at PR 1 (re-run this file to re-measure) ----
 const VOICE_DEBT = {
   stressDoc: [
-    'authority-chain', 'citation-card', 'code', 'compare-code', 'compare-prose',
-    'compare-table', 'decision', 'diagram', 'image', 'journey', 'kpi', 'list-criteria',
-    'list-steps', 'math', 'matrix-2x2', 'obligation-matrix', 'redline', 'regulatory-update',
-    'roadmap', 'split-compare', 'stats', 'statute-stack', 'verdict-grid', 'video'
+    'authority-chain', 'citation-card', 'code', 'compare-code', 'diagram', 'journey', 'math',
+    'obligation-matrix', 'regulatory-update', 'roadmap', 'statute-stack'
   ],
   density: [
-    'citation-card', 'code', 'compare-code', 'diagram', 'funnel', 'gantt', 'image', 'journey',
-    'map', 'math', 'obligation-matrix', 'piechart', 'pricing', 'progress', 'quadrant', 'radar',
-    'redline', 'roadmap', 'state-chart', 'video', 'word-cloud'
+    'citation-card', 'code', 'compare-code', 'diagram', 'funnel', 'gantt', 'journey', 'map',
+    'math', 'obligation-matrix', 'piechart', 'progress', 'quadrant', 'radar', 'roadmap',
+    'state-chart', 'word-cloud'
   ],
   voice: [
-    'authority-chain', 'citation-card', 'code', 'compare-code', 'compare-prose',
-    'compare-table', 'decision', 'diagram', 'funnel', 'gantt', 'image', 'journey', 'kanban',
-    'kpi', 'list-criteria', 'list-steps', 'map', 'math', 'matrix-2x2', 'obligation-matrix',
-    'piechart', 'pricing', 'progress', 'quadrant', 'radar', 'redline', 'regulatory-update',
-    'roadmap', 'split-compare', 'state-chart', 'stats', 'statute-stack', 'timeline-list',
-    'verdict-grid', 'video', 'word-cloud'
+    'authority-chain', 'citation-card', 'code', 'compare-code', 'diagram', 'funnel', 'gantt',
+    'journey', 'kanban', 'map', 'math', 'obligation-matrix', 'piechart', 'progress',
+    'quadrant', 'radar', 'regulatory-update', 'roadmap', 'state-chart', 'statute-stack',
+    'timeline-list', 'word-cloud'
   ],
   budget: [
-    'compare-prose', 'decision', 'kanban', 'kpi', 'list-criteria', 'list-steps', 'matrix-2x2',
-    'split-compare', 'statute-stack', 'timeline-list', 'verdict-grid'
+    'kanban', 'statute-stack', 'timeline-list'
   ],
   band: [
     // inventory: measured truth — the register look seats five full rows, but
@@ -84,6 +79,12 @@ const VOICE_EXEMPT = {
   'big-number': { rules: ['density'], reason: 'one number and a caption — no countable axis' },
   content: { rules: ['density'], reason: 'freeform prose — no item/row axis' },
   quote: { rules: ['density'], reason: 'a single quotation — no countable axis' },
+  // Imagery: the asset is the content; prose is a caption at most.
+  image: { rules: ['stressDoc', 'density'], reason: 'photo compositions; no prose axis, no scalable collection' },
+  video: { rules: ['stressDoc', 'density'], reason: 'a single embed; no scalable collection' },
+  // Density awaits calibration where the axis is unusual (tracked follow-ups).
+  redline: { rules: ['density'], reason: 'tracked-changes prose; no item/row axis' },
+  pricing: { rules: ['density'], reason: 'tier cards pending a calibrated axis' },
 };
 
 function measure(m) {

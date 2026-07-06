@@ -1,12 +1,26 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "image",
-  "adapt": { "mode": "reflow", "priority": ["image", "heading", "body"] },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "image",
+      "heading",
+      "body"
+    ]
+  },
   "function": "imagery",
   "form": "canvas",
   "substance": "prose",
-  "orientation": ["landscape", "portrait"],
-  "tags": ["visual", "showcase", "pitch"],
+  "orientation": [
+    "landscape",
+    "portrait"
+  ],
+  "tags": [
+    "visual",
+    "showcase",
+    "pitch"
+  ],
   "description": "Image as the slide's anchor, with optional text alongside — composition adapts to the asset and the deck.",
   "purpose": "Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).",
   "variants": [
@@ -36,7 +50,7 @@
   },
   "skeleton": "<!-- _class: image -->\n\n## Text leads; the image earns its place.\n\nSwap the bg image below for your own asset — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.\n\n![bg](sample-photo-wide.svg)\n",
   "anatomyBlock": "image-canvas",
-  "sample": "<!-- _class: image -->\n\n## Activation is where the trial is won or lost.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.\n\n![bg](sample-photo-wide.svg)\n",
+  "sample": "<!-- _class: image -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.\n\n![bg](sample-photo-wide.svg)\n",
   "whenToUse": [
     {
       "title": "The visual carries meaning",
@@ -85,35 +99,38 @@
   ],
   "variantDocs": {
     "clean": {
-      "label": "Clean — the default floated card (auto)",
-      "caption": "The standing default for a moderate-aspect photo. A floated card whose ASPECT adapts to the asset (a square photo → square card, a wide photo → wide card), beside a text panel (landscape) or stacked above it (portrait). Cover-fill of a card shaped like the photo means ≈ zero crop. Auto-resolves for `square` and `wide` assets; name it to force a card on any asset.",
-      "sample": "<!-- _class: image clean -->\n\n## Activation is where the trial is won or lost.\n\nTwo-thirds of trials that reach the first generated report convert; the ones that stall almost never do.\n\n![bg](sample-photo-wide.svg)\n"
+      "label": "clean",
+      "caption": "Drops the caption chrome.",
+      "sample": "<!-- _class: image clean -->\n\n## clean drops the caption chrome.\n\nTwo-thirds of trials that reach the first generated report convert; the ones that stall almost never do.\n\n![bg](sample-photo-wide.svg)\n"
     },
     "split": {
-      "label": "Split — an extreme-aspect photo, shown whole (auto)",
-      "caption": "For a `tall`/`column` asset on a landscape deck (a full-height image column + text) or a `wide`/`pano` asset on a portrait deck (a full-width image band + text below). Shows the whole photo with ≈ zero crop and fills the canvas a moderate card would leave empty.",
-      "sample": "<!-- _class: image split -->\n\n## Built for the long climb.\n\nA portrait photo wants its full height. We give it a column and let the argument run alongside.\n\n![bg](sample-photo-tall.svg)\n"
+      "label": "split",
+      "caption": "A portrait gets its full column.",
+      "sample": "<!-- _class: image split -->\n\n## split gives a portrait its full column.\n\nA portrait photo wants its full height. We give it a column and let the argument run alongside.\n\n![bg](sample-photo-tall.svg)\n"
     },
     "spotlight": {
-      "label": "Spotlight — full-bleed cover + a solid card (auto)",
-      "caption": "For an asset whose aspect already MATCHES the canvas (a `pano` on landscape, a `tall` on portrait): the photo goes full-bleed and the text rides a SOLID card, so legibility never depends on the photo. Name it to force a full-bleed cover on any asset (accepting the crop).",
-      "sample": "<!-- _class: image spotlight -->\n\n## A panorama earns the full frame.\n\nWhen the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.\n\n![bg](sample-photo-pano.svg)\n"
+      "label": "spotlight",
+      "caption": "A panorama owns the frame.",
+      "sample": "<!-- _class: image spotlight -->\n\n## spotlight lets a panorama own the frame.\n\nWhen the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.\n\n![bg](sample-photo-pano.svg)\n"
     },
     "gallery": {
-      "label": "Gallery — contain on a matte + placard (opt-in)",
-      "caption": "Opt-in. Contains the WHOLE asset on a matte with a centered placard caption — zero crop, letterboxed. For diagrams, screenshots, and plots where the whitespace is meaningful and every pixel matters. Never auto-resolved (we can't detect a diagram from aspect alone), so name it.",
-      "sample": "<!-- _class: image gallery -->\n\n## Exhibit 1 — the network, contained.\n\nThe whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.\n\n![bg](sample-photo-square.svg)\n"
+      "label": "gallery",
+      "caption": "The exhibit on a matte with a placard.",
+      "sample": "<!-- _class: image gallery -->\n\n## gallery mats the exhibit with a placard.\n\nThe whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.\n\n![bg](sample-photo-square.svg)\n"
     },
     "statement": {
-      "label": "Statement — full-bleed + scrim + editorial title (opt-in)",
-      "caption": "Opt-in. The title rides the photo on a diagonal scrim — a deliberate, editorial moment for an opener or closer. White text over an unknown photo is a legibility gamble, so it is never auto-resolved; reach for it when you know the photo carries it.",
-      "sample": "<!-- _class: image statement -->\n\n## The setup step is the real funnel.\n\nThe title rides the photo on a scrim — a deliberate, editorial choice.\n\n![bg](sample-photo-wide.svg)\n"
+      "label": "statement",
+      "caption": "The title rides the photo on a scrim.",
+      "sample": "<!-- _class: image statement -->\n\n## statement rides the title on a scrim.\n\nThe title rides the photo on a scrim — a deliberate, editorial choice.\n\n![bg](sample-photo-wide.svg)\n"
     },
     "mirror": {
-      "label": "Mirror — flip the image to the other side",
-      "caption": "Flips the image/text side for the `clean` and `split` compositions (image left, text right). Equivalent to `![bg left]`. Use when the surrounding spread reads right-to-left or when the page-turn cue lands on the image side.",
-      "sample": "<!-- _class: image mirror -->\n\n## Mirror lands the image on the left.\n\nText leads from the right; image anchors from the left.\n\n![bg left](sample-photo-wide.svg)\n"
+      "label": "mirror",
+      "caption": "The image lands on the left.",
+      "sample": "<!-- _class: image mirror -->\n\n## mirror lands the image on the left.\n\nText leads from the right; image anchors from the left.\n\n![bg left](sample-photo-wide.svg)\n"
     }
   },
-  "showcase": { "featured": true }
+  "showcase": {
+    "featured": true
+  },
+  "specimenVoice": true
 }

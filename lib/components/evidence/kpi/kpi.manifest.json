@@ -4,7 +4,12 @@
   "function": "evidence",
   "form": "ledger",
   "substance": "structure",
-  "density": { "axis": "item", "soft": 8, "hard": 14, "note": "a metric label, not a sentence" },
+  "density": {
+    "axis": "item",
+    "soft": 8,
+    "hard": 14,
+    "note": "a metric label, not a sentence"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -85,7 +90,11 @@
   },
   "skeleton": "<!-- _class: kpi -->\n\n`Financial · Q4 2026`\n\n## Revenue ahead of plan; margin and cash both expanded.\n\n1. $2.4B\n   - Total revenue\n   - target $2.2B · +9% `On plan` `Board`\n2. 42%\n   - Gross margin\n   - +2pp QoQ `On plan` `Audit`\n3. $1.1B\n   - Cash & equivalents\n   - +$180M QoQ `On plan` `Investor`\n",
   "anatomyBlock": "kpi",
-  "sample": "<!-- _class: kpi -->\n\n`Financial · Q4 2026`\n\n## Revenue ahead of plan; margin and cash both expanded.\n\n1. $2.4B\n   - Total revenue\n   - target $2.2B · +9% `On plan` `Board`\n2. 42%\n   - Gross margin\n   - +2pp QoQ `On plan` `Audit`\n3. $1.1B\n   - Cash & equivalents\n   - +$180M QoQ `On plan` `Investor`\n4. +18%\n   - YoY revenue growth\n   - vs 14% prior year `Ahead` `Board`\n",
+  "sample": "<!-- _class: kpi -->\n\n`evidence · kpi`\n\n## Four tiles the eye sweeps in one pass.\n\n1. 4\n   - tiles per row\n   - the ceiling `On plan`\n2. 8\n   - words per tile\n   - soft budget `Board`\n3. 5s\n   - scan time\n   - the target `On plan`\n4. 0\n   - prose sentences\n   - allowed here `Audit`\n",
+  "stressDoc": {
+    "caption": "Four tiles at the fourteen-word line.",
+    "sample": "<!-- _class: kpi -->\n\n`kpi · stress`\n\n## Four tiles at full word weight is the ceiling.\n\n1. 4\n   - tiles is the grid's seat count\n   - a fifth never renders `Max`\n2. 14\n   - words per tile, the hard budget\n   - this tile spends its whole allowance `Budget`\n3. 1\n   - line per label before wrapping\n   - wrapping ends the five-second scan `Rule`\n4. 2\n   - slides beat one crowded grid\n   - split past this point `Advice`\n"
+  },
   "whenToUse": [
     {
       "title": "Status framing matters as much as the number",
@@ -103,7 +112,7 @@
   "antiPatterns": [
     {
       "title": "Decorative pills without status semantics",
-      "body": "The pills read as status, not freeform tags. Status colour is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a colour that has nothing to do with the words."
+      "body": "The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words."
     },
     {
       "title": "More than four KPIs in attention or spotlight",
@@ -138,32 +147,33 @@
   ],
   "variantDocs": {
     "attention": {
-      "label": "Attention — the slipping metric leads",
-      "caption": "Promotes the one KPI in trouble to hero scale, with the supporting three holding their normal rank. Use when one number needs the room and the others provide reassurance.",
-      "sample": "<!-- _class: kpi attention -->\n\n`Framework · Q4 2026`\n\n## One metric below target; remediation under way.\n\n1. 94%\n   - Signal-classification success\n   - target 99% · -5pp `At risk` `Board`\n2. 18 min\n   - p99 decision close\n   - target 20 min `On plan` `Ops`\n3. 0\n   - Auditor findings\n   - target 0 `On plan` `Audit`\n4. 3.2×\n   - Calibration headroom\n   - target 2× `On plan` `Framework`\n"
+      "label": "attention",
+      "caption": "Flags the tile that misses.",
+      "sample": "<!-- _class: kpi attention -->\n\n`kpi attention`\n\n## attention flags the tile that misses.\n\n1. 1\n   - tile flagged\n   - the miss `Attention`\n2. 3\n   - tiles steady\n   - for context `On plan`\n3. 0\n   - alarms hidden\n   - honesty `Board`\n4. 4\n   - tiles total\n   - the row `On plan`\n"
     },
     "ops": {
-      "label": "Ops — SLO / SLA grid",
-      "caption": "2×2 grid optimised for SRE-style SLO review. Breaching metrics tint to `--warn`; the layout is designed to be scanned quickly during an incident review or on-call hand-off.",
-      "sample": "<!-- _class: kpi ops -->\n\n`Platform · Q4 2026`\n\n## One latency target slipping; everything else inside SLO, for now.\n\n1. 99.92%\n   - API availability\n   - SLO 99.95% · -0.03pp `At risk` `SRE`\n2. 42 ms\n   - p99 read latency\n   - SLO 50 ms · -16% headroom `On track` `SRE`\n3. 18 ms\n   - p99 write latency\n   - SLO 15 ms · +20% `Breaching` `Platform`\n4. 0.04%\n   - Error budget burn (28d)\n   - SLO 1% · 4% consumed `On track` `Reliability`\n"
+      "label": "ops",
+      "caption": "Reads the tiles against SLOs.",
+      "sample": "<!-- _class: kpi ops -->\n\n`kpi ops`\n\n## ops reads the tiles against SLOs.\n\n1. 99.9%\n   - the SLO frame\n   - target line `SLO`\n2. 4\n   - tiles per row\n   - unchanged `On plan`\n3. 1\n   - breach shown\n   - never hidden `Ops`\n4. 30d\n   - the window\n   - rolling `SLO`\n"
     },
     "compliance": {
-      "label": "Compliance — binary state",
-      "caption": "Binary-state pills (`Compliant`, `Remediating`, `Open`) with a source footer for the regulatory register. Best for audit committee packs, examiner reviews, and quarterly compliance walk-throughs.",
-      "sample": "<!-- _class: kpi compliance -->\n\n`Compliance · Q4 2026`\n\n## Three frameworks clean; one finding under remediation.\n\n1. 0\n   - SOC 2 Type II open findings\n   - 2026 audit complete `Compliant` `Auditor`\n2. 0\n   - PCI-DSS open findings\n   - QSA review Oct 2026 `Compliant` `QSA`\n3. 1\n   - GDPR open findings\n   - remediation due Q1 2027 `Remediating` `DPO`\n4. 0\n   - Internal audit material findings\n   - quarterly review complete `Compliant` `Audit Committee`\n\nSource · regulatory register · weekly export\n"
+      "label": "compliance",
+      "caption": "Tallies findings per framework.",
+      "sample": "<!-- _class: kpi compliance -->\n\n`kpi compliance`\n\n## compliance tallies findings per framework.\n\n1. 0\n   - open findings\n   - the goal `Clean`\n2. 4\n   - frameworks tracked\n   - one row `Audit`\n3. 1\n   - in remediation\n   - dated `Watch`\n"
     },
     "trajectory": {
-      "label": "Trajectory — year-over-year cards",
-      "caption": "Four-up cards with categorical stripes that read as period-over-period movement. Best for investor letters, year-end reviews, and any deck where the YoY delta is the headline.",
-      "sample": "<!-- _class: kpi trajectory -->\n\n`Growth · FY26 vs FY25`\n\n## Every growth lever moved forward this year, in the cut of the data we are showing.\n\n1. $420M\n   - ARR\n   - +28% YoY `YoY +28%` `Investor`\n2. 94%\n   - Net dollar retention\n   - +3pp YoY `YoY +3pp` `Investor`\n3. 2,840\n   - Enterprise logos\n   - +540 net new `YoY +23%` `Board`\n4. $148K\n   - Average contract value\n   - +$22K vs FY25 `YoY +18%` `Board`\n"
+      "label": "trajectory",
+      "caption": "Pairs each tile with its delta.",
+      "sample": "<!-- _class: kpi trajectory -->\n\n`kpi trajectory`\n\n## trajectory pairs each tile with its delta.\n\n1. +9%\n   - the delta leads\n   - vs plan `Up`\n2. 4\n   - tiles still rule\n   - per row `On plan`\n3. −2\n   - down is shown\n   - not spun `Honest`\n"
     },
     "spotlight": {
-      "label": "Spotlight — monumentalised hero metric",
-      "caption": "Hero KPI gets a paragraph of body copy and a row of context pills; the supporting three render at normal weight underneath. Best for the headline slide of an investor update or earnings narrative.",
-      "sample": "<!-- _class: kpi spotlight -->\n\n`Headline · Q4 2026`\n\n## The number behind the quarter, and the one in every headline slide.\n\n1. $420M\n   - Annual recurring revenue\n   - First quarter past the $400M threshold; up 28% year-over-year and ahead of the FY26 plan by $18M, which is the figure we will quote until it stops flattering us.\n   - `Headline` `Board` `Investor`\n2. 94%\n   - Net dollar retention\n   - +3pp YoY `On plan`\n3. 2,840\n   - Enterprise logos\n   - +540 net new `On plan`\n4. $148K\n   - Average contract value\n   - +$22K vs prior year `On plan`\n"
+      "label": "spotlight",
+      "caption": "One tile earns double width.",
+      "sample": "<!-- _class: kpi spotlight -->\n\n`kpi spotlight`\n\n## spotlight gives one tile double width.\n\n1. 1\n   - tile promoted\n   - the headline `Spotlight`\n2. 2\n   - support tiles\n   - beside it `On plan`\n3. 0\n   - competing heroes\n   - one only `Rule`\n"
     }
   },
   "showcase": {
     "featured": true
-  }
+  },
+  "specimenVoice": true
 }

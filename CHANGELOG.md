@@ -36,6 +36,21 @@ in patch versions.
 
 ### Changed
 
+- **Group-2 galleries speak the specimen voice (Specimen Book, PR 3).** All 14
+  components across comparison, progression, evidence, and imagery now teach
+  themselves within their word budgets, with one-line captions and short
+  labels on variant/stress footers. New stress slides land for compare-prose,
+  compare-table (8 rows), decision, matrix-2x2 (3 per cell), redline,
+  split-compare, verdict-grid (5 options), list-criteria (5 gates), list-steps
+  (6 steps), kpi, and stats (6 stats); pricing's stress converts to the
+  captioned spelling. kpi's stress records a measured truth: the grid seats
+  four tiles, so the stress shows four at the word ceiling. Bucket surveys for
+  the four buckets carry attribution footers; redline's duplicate see-also
+  entry now points at state-chart; British spellings in visible gallery copy
+  corrected (HARD RULE #21).
+
+### Changed
+
 - **Group-1 galleries speak the specimen voice (Specimen Book, PR 2).** All 20
   components across anchor, statement, inventory, and connect now teach
   themselves: samples and variant slides describe the layout they demonstrate,

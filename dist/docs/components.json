@@ -2312,7 +2312,7 @@
         },
         {
           "title": "More than 6 rows",
-          "body": "Past 6 rows the table density crowds the slide. Split into two slides or summarise the rows that don't differentiate."
+          "body": "Past 6 rows the table density crowds the slide. Split into two slides or summarize the rows that don't differentiate."
         },
         {
           "title": "State-marker rows",
@@ -4293,7 +4293,7 @@
       "antiPatterns": [
         {
           "title": "Decorative pills without status semantics",
-          "body": "The pills read as status, not freeform tags. Status colour is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a colour that has nothing to do with the words."
+          "body": "The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words."
         },
         {
           "title": "More than four KPIs in attention or spotlight",
@@ -7096,7 +7096,7 @@
           "when": "two narrative alternatives, not verbatim amendments"
         },
         {
-          "name": "compare-prose",
+          "name": "state-chart",
           "when": "the change is structural state, not text"
         },
         {
@@ -8718,7 +8718,7 @@
           "body": "Two options with shared criteria belong in `compare-prose` or `split-compare`. verdict-grid earns its layout at 3+ options."
         },
         {
-          "title": "Missing the rationale line",
+          "title": "No rationale line",
           "body": "Every option must end with a marker-less prose line — the verdict for that card. Omit it and the card renders empty below the badges, and the focal last card has nothing to recommend. The rationale is required, not optional."
         },
         {

@@ -1,12 +1,28 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "redline",
-  "adapt": { "mode": "reflow", "priority": ["heading", "redline", "citation", "implications"] },
-  "split": { "strategy": "redline-blocks", "note": "Portrait SPLIT after the CSS collapse: when the stacked .split/.three-col still overflows, OLD gets its own slide and NEW (with the note/why list riding) gets the next — heading + citation repeat; OLD/NEW identity rides rl-old/rl-new. Needs >=2 blockquotes (a single-passage redline rings, never splits a passage mid-sentence). lib/core/carousel.js redline-blocks; 2026-06-25-retire-landscape-locks-portrait-everything.md." },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "heading",
+      "redline",
+      "citation",
+      "implications"
+    ]
+  },
+  "split": {
+    "strategy": "redline-blocks",
+    "note": "Portrait SPLIT after the CSS collapse: when the stacked .split/.three-col still overflows, OLD gets its own slide and NEW (with the note/why list riding) gets the next — heading + citation repeat; OLD/NEW identity rides rl-old/rl-new. Needs >=2 blockquotes (a single-passage redline rings, never splits a passage mid-sentence). lib/core/carousel.js redline-blocks; 2026-06-25-retire-landscape-locks-portrait-everything.md."
+  },
   "function": "comparison",
   "form": "canvas",
   "substance": "prose",
-  "tags": ["contract", "contrast", "compliance", "transformation"],
+  "tags": [
+    "contract",
+    "contrast",
+    "compliance",
+    "transformation"
+  ],
   "description": "Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracking the amendment.",
   "purpose": "Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally.",
   "variants": [
@@ -39,7 +55,11 @@
   },
   "skeleton": "<!-- _class: redline -->\n\n## Headline naming the amendment.\n\n`Citation reference · amendment name (year)`\n\n> Verbatim language with <del>old wording</del> <ins>new wording</ins> inline so the diff reads cleanly.\n\n- **Why this matters.** What the amendment changes in operational terms, in one sentence.\n",
   "anatomyBlock": "redline",
-  "sample": "<!-- _class: redline -->\n\n## SB-362 rewrote the opt-out link rule.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled \"Your Privacy Choices,\"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.\n\n- **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.\n",
+  "sample": "<!-- _class: redline -->\n\n## The redline tracks an amendment verbatim.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled \"Your Privacy Choices,\"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.\n\n- **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.\n",
+  "stressDoc": {
+    "caption": "The marking ceiling for one clause.",
+    "sample": "<!-- _class: redline -->\n\n## Edit density has a ceiling too.\n\n`Specimen clause · the most marking one blockquote should carry`\n\n> A clause that <del>keeps</del> <ins>tracks</ins> every change becomes <del>hard</del> <ins>impossible</ins> to read aloud when <del>more than half</del> <ins>a third</ins> of its words carry markup; past that, <del>annotate inline</del> <ins>split the amendment across slides</ins> so each edit <ins>still</ins> reads <del>quickly</del> <ins>as language, not markup</ins>.\n"
+  },
   "whenToUse": [
     {
       "title": "Verbatim text matters",
@@ -78,7 +98,7 @@
       "when": "two narrative alternatives, not verbatim amendments"
     },
     {
-      "name": "compare-prose",
+      "name": "state-chart",
       "when": "the change is structural state, not text"
     },
     {
@@ -88,24 +108,25 @@
   ],
   "variantDocs": {
     "annotated": {
-      "label": "Annotated — numbered margin notes",
-      "caption": "Adds numbered sup markers in the quoted passage and renders the trailing list as numbered annotations. Use when the diff has several distinct changes that each need their own reviewer rationale.",
-      "sample": "<!-- _class: redline annotated -->\n\n## SB-362 rewrote the opt-out link rule — annotated.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that <del>collects</del> <ins>collects, sells, or shares</ins><sup>1</sup> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins><sup>2</sup> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled \"Your Privacy Choices,\"</ins><sup>3</sup> for use by consumers.\n\n- **Scope expansion.** Collapses sale and sharing into one duty.\n- **Method floor.** One method is now sufficient; previously two were required.\n- **Link mandate.** Pins a uniform link title across all businesses.\n"
+      "label": "annotated",
+      "caption": "Adds the why beside each edit.",
+      "sample": "<!-- _class: redline annotated -->\n\n## annotated adds the why beside each edit.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that <del>collects</del> <ins>collects, sells, or shares</ins><sup>1</sup> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins><sup>2</sup> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled \"Your Privacy Choices,\"</ins><sup>3</sup> for use by consumers.\n\n- **Scope expansion.** Collapses sale and sharing into one duty.\n- **Method floor.** One method is now sufficient; previously two were required.\n- **Link mandate.** Pins a uniform link title across all businesses.\n"
     },
     "three-col": {
-      "label": "Three-col — old | new | rationale",
-      "caption": "Splits the passage into three columns: prior text on the left, new text in the middle, reviewer rationale on the right. Use when both the diff and the why need to be on-screen together.",
-      "sample": "<!-- _class: redline three-col -->\n\n## SB-362 — old, new, and why side-by-side.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that collects consumers' personal information shall provide two or more designated methods for submitting requests to opt out of the sale of their personal information.\n\n> A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled \"Your Privacy Choices.\"\n\n- **Scope.** Sale and sharing fold into one duty.\n- **Method floor.** One method now suffices.\n- **Link title.** Homepage label is mandatory and standardised.\n"
+      "label": "three-col",
+      "caption": "Old, new, and why side by side.",
+      "sample": "<!-- _class: redline three-col -->\n\n## three-col sets old, new, and why side by side.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that collects consumers' personal information shall provide two or more designated methods for submitting requests to opt out of the sale of their personal information.\n\n> A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled \"Your Privacy Choices.\"\n\n- **Scope.** Sale and sharing fold into one duty.\n- **Method floor.** One method now suffices.\n- **Link title.** Homepage label is mandatory and standardized.\n"
     },
     "split": {
-      "label": "Split — old | new side by side",
-      "caption": "Two blockquotes laid out in columns: prior text on the left under an OLD label, amended text on the right under NEW. Use when the passages are short enough to read across.",
-      "sample": "<!-- _class: redline split -->\n\n## SB-362 — before and after, side by side.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that collects consumers' personal information shall provide two or more designated methods for submitting requests to opt out of the sale of their personal information.\n\n> A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled \"Your Privacy Choices.\"\n\n- **Why this matters.** The left column is the prior text; the right is the amendment. Reading across makes the scope expansion obvious.\n"
+      "label": "split",
+      "caption": "Before and after in parallel.",
+      "sample": "<!-- _class: redline split -->\n\n## split shows before and after in parallel.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that collects consumers' personal information shall provide two or more designated methods for submitting requests to opt out of the sale of their personal information.\n\n> A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled \"Your Privacy Choices.\"\n\n- **Why this matters.** The left column is the prior text; the right is the amendment. Reading across makes the scope expansion obvious.\n"
     },
     "stacked": {
-      "label": "Stacked — old block atop new",
-      "caption": "Stacks the prior text (struck, labelled OLD — prior text) above the current text (labelled NEW · current). Use when the passages are too long to sit side by side.",
-      "sample": "<!-- _class: redline stacked -->\n\n## SB-362 — prior text struck, current below.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that collects consumers' personal information shall provide two or more designated methods for submitting requests to opt out of the sale of their personal information.\n\n> A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled \"Your Privacy Choices.\"\n\n- **Why this matters.** Stacking keeps the reading order vertical when each passage is a full sentence or more.\n"
+      "label": "stacked",
+      "caption": "Prior text struck above the current.",
+      "sample": "<!-- _class: redline stacked -->\n\n## stacked strikes the prior text above the current.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that collects consumers' personal information shall provide two or more designated methods for submitting requests to opt out of the sale of their personal information.\n\n> A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled \"Your Privacy Choices.\"\n\n- **Why this matters.** Stacking keeps the reading order vertical when each passage is a full sentence or more.\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

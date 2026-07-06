@@ -2399,111 +2399,109 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 
 #### Variants (component-specific)
 
-##### `transition` — Transition — before/after state change
+##### `transition` — transition
 
-The state-change reading: an arrow connector and an accent ring on the second ("after") card. Write Before / After (or any prior → new pair) as the two labels. Reads as a story, not a debate. Absorbed the standalone `before-after` component on 2026-06-07.
+Left reads as before, right as after.
 
 ```markdown
 <!-- _class: compare-prose transition -->
 
-## What writing decisions down actually changed.
+## transition reads left as before, right as after.
 
 - Before
-  - Decisions lived in the room they were made in. Six months on, nobody could say why we killed the project — only that someone senior had felt strongly.
+  - The arrow between the panes turns comparison into change over time.
 - After
-  - Every decision is logged with its signals, its options, and the bet it made. We still relitigate, but now there is a record showing we already decided this in March.
+  - Use it for state changes, not preferences — the arrow implies causation.
 ```
 
-##### `mirror` — Mirror — swap left and right
+##### `mirror` — mirror
 
-Flips the two cards left-to-right. Use when the deck's visual rhythm or the natural reading order wants the second option on the left.
+Swaps the reading order.
 
 ```markdown
 <!-- _class: compare-prose mirror -->
 
-## Same comparison, columns swapped.
+## mirror swaps the reading order.
 
-- First option
-  - Now rendered on the right, second in the reading order. Useful when the natural argument flow wants the alternative considered before the lead.
 - Second option
-  - Now rendered on the left. Pair with `chosen` to mark the swapped position as the verdict.
+  - mirror renders this pane first — for when the deck's rhythm lands on the left.
+- First option
+  - Same anatomy, flipped; the corner tags travel with their panes.
 ```
 
-##### `chosen` — Chosen — second card is the winner
+##### `chosen` — chosen
 
-Marks the right card as the verdict with an accent left edge and tinted background. The post-processor always emits left-then-right; put the considered option first and the choice second.
+Crowns the right pane the winner.
 
 ```markdown
 <!-- _class: compare-prose chosen -->
 
-## The right card is the verdict.
+## chosen crowns the right pane the winner.
 
-- Build in-house
-  - Full control of the schema and roadmap, but 2–3 engineer-quarters before feature parity. Maintenance burden stays internal.
-- Buy + configure
-  - Ships in 6 weeks, not 9 months. Engineering capacity redirects to product-layer features; exit risk is manageable via contractual data export.
+- The road not taken
+  - The losing option keeps its full case — an honest comparison shows real strength.
+- The verdict
+  - The accent treatment marks this pane as the pick; pair with a reason, not a repeat.
 ```
 
-##### `decision` — Decision — left rejected, right chosen, connector labelled
+##### `decision` — decision
 
-The full editorial composition: left card de-emphasised (struck title + muted body), right card emphasised, the connector amplified and labelled DECISION. The most common variant in real decks.
+Stamps the verdict banner across the pair.
 
 ```markdown
 <!-- _class: compare-prose decision -->
 
-## Build vs buy — decided.
+## decision stamps the verdict banner across the pair.
 
-- Build in-house
-  - Full control of the schema and roadmap, but 2–3 engineer-quarters before feature parity. Maintenance burden stays internal.
-- Buy + configure
-  - Ships in 6 weeks, not 9 months. Engineering capacity redirects to product-layer features; exit risk is manageable via contractual data export.
+- Option one
+  - Both panes stay equal; the banner above carries the call.
+- Option two
+  - Use when the decision is made and the slide is the record.
 ```
 
-##### `vertical` — Vertical — stack cards top-to-bottom
+##### `vertical` — vertical
 
-Stacks the two cards vertically and rotates the connector 90°. Use for long-body comparisons where the side-by-side format would crowd the prose.
+Stacks the panes for longer cases.
 
 ```markdown
 <!-- _class: compare-prose vertical -->
 
-## Long-body options stacked for room.
+## vertical stacks the panes for longer cases.
 
-- Build in-house
-  - Full control over the schema and the roadmap, with 2–3 engineer-quarters before feature parity. Ongoing maintenance burden stays internal; the team owns every escalation, every migration, every breaking change. Worth it when the data model is the differentiation; expensive when it isn't.
-- Buy + configure
-  - Ships in 6 weeks rather than 9 months, with engineering capacity redirecting to product-layer features the customer actually pays for. Exit risk is bounded by contractual data export; switching cost is a known number rather than a moving target. The right call when the data layer is plumbing rather than differentiation.
+- The top option
+  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.
+- The bottom option
+  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.
 ```
 
-##### `banner-tag` — Banner tag — slot label as full-width header strip
+##### `banner-tag` — banner-tag
 
-Flips each card from a flush-corner label tag into a full-width header strip. Use when the slot label is the architectural signal of the card (categorical case: BUILD / WHY NOT BUY / WHY NOT DELAY), not a quiet marker.
+Corner tags become banners.
 
 ```markdown
 <!-- _class: compare-prose banner-tag -->
 
-## Three reasons we are building.
+## banner-tag fills the corner tags at banner weight.
 
-- BUILD
-  - The platform is the product. Owning it owns the roadmap.
-- WHY NOT BUY
-  - No vendor matches our compliance posture without surrender of control.
-- WHY NOT DELAY
-  - Cost of waiting compounds: each quarter spent on workarounds is one fewer quarter on the platform.
+- OPTION A
+  - The tag takes the accent fill and full contrast.
+- OPTION B
+  - Use for short, loud labels — verdicts, camps, teams.
 ```
 
 ##### `rejected` — Rejected
 
-Strikes the second option's title and dims its card — the inverse of `chosen`. Use when the slide's job is to record the path NOT taken and why.
+Strikes the losing pane.
 
 ```markdown
 <!-- _class: compare-prose rejected -->
 
-## We went with managed Postgres, not the self-hosted cluster.
+## rejected strikes the losing pane.
 
-- Managed Postgres
-  - Higher monthly spend, but zero on-call burden and automatic failover. The team ships features instead of babysitting replication.
-- Self-hosted cluster
-  - Cheaper raw compute, but the operational tax — patching, backups, 3am pages — falls on a four-person team that can't absorb it.
+- The pick
+  - The surviving option reads at full strength.
+- The rejected pane
+  - Dimmed and struck — the record of what was considered and declined.
 ```
 
 #### Universal modifiers
@@ -2544,7 +2542,7 @@ Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-pro
 #### When NOT to use
 
 - **Cells full of prose.** Long sentences in a table cell wrap awkwardly and force the column wider. Move to `verdict-grid` for criteria with body text, or `cards-stack` for full prose rows.
-- **More than 6 rows.** Past 6 rows the table density crowds the slide. Split into two slides or summarise the rows that don't differentiate.
+- **More than 6 rows.** Past 6 rows the table density crowds the slide. Split into two slides or summarize the rows that don't differentiate.
 - **State-marker rows.** When most cells are pass/fail/partial badges, the right layout is `obligation-matrix` or `verdict-grid`. compare-table is for textual values.
 
 #### Authoring
@@ -2666,21 +2664,19 @@ Use after a comparison slide to land the decision. The justifications render as 
 
 #### Variants (component-specific)
 
-##### `banner-tag` — Banner tag — slot label as full-width header strip
+##### `banner-tag` — banner-tag
 
-Flips each card from a flush-corner label tag into a full-width header strip. Use when the slot label is the architectural signal of the card (categorical case: BUILD / WHY NOT BUY / WHY NOT DELAY), not a quiet marker.
+Headlines each card with its camp.
 
 ```markdown
 <!-- _class: decision banner-tag -->
 
-## Three reasons we are building.
+## banner-tag headlines each card with its camp.
 
-- BUILD
-  - The platform is the product. Owning it owns the roadmap.
-- WHY NOT BUY
-  - No vendor matches our compliance posture without surrender of control.
-- WHY NOT DELAY
-  - Cost of waiting compounds: each quarter spent on workarounds is one fewer quarter on the platform.
+- DECIDE
+  - The banner carries the stance; the body carries the reason.
+- RECORD
+  - Use when the slide is the decision log's public face.
 ```
 
 #### Universal modifiers
@@ -2851,54 +2847,50 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 
 #### Variants (component-specific)
 
-##### `two` — Two — a pair of tiers
+##### `two` — two
 
-Two columns instead of three — self-serve vs. enterprise, monthly vs. annual, the classic good/better pair. The recommended marker still elevates whichever tier carries it.
+A pair of plans, head to head.
 
 ```markdown
 <!-- _class: pricing two -->
 
-## Two ways to buy.
+## two sets a pair of plans head to head.
 
 - Self-serve `$49 / mo`
-  - [x] Up to 25 seats
-  - [x] SSO
-  - [/] Dedicated CSM
-  - [/] Custom contract
-  - For teams that onboard themselves.
-- Enterprise `Custom` *Recommended*
-  - [x] Unlimited seats
-  - [x] SSO + SCIM
-  - [x] Dedicated CSM
-  - [x] Custom contract
-  - For procurement, security review, and scale.
+  - [x] Wider columns, more feature rows
+  - [/] The gap that motivates upgrading
+  - The simple path.
+- Enterprise `Custom`
+  - [x] Everything in self-serve
+  - [x] The rows that close deals
+  - The guided path.
 ```
 
-##### `four` — Four — a full ladder
+##### `four` — four
 
-Four columns for a complete ladder from free to enterprise. Pair with `compact` if the feature lists run long; past four tiers reach for `compare-table` instead.
+The whole ladder, compact.
 
 ```markdown
 <!-- _class: pricing four compact -->
 
-## The full ladder, free to enterprise.
+## four compact fits the whole ladder.
 
 - Free `$0`
-  - [x] 1 seat
-  - [/] SSO
-  - For trying it out.
+  - [x] One seat
+  - [/] The rest
+  - For trying.
 - Team `$29`
-  - [x] 10 seats
+  - [x] Five seats
   - [/] SSO
-  - For small teams.
+  - For starting.
 - Growth `$49` *Most popular*
-  - [x] 25 seats
   - [x] SSO
-  - For scaling teams.
+  - [/] Support
+  - For scaling.
 - Enterprise `Custom`
-  - [x] Unlimited
-  - [x] SSO + SCIM
-  - For procurement.
+  - [x] Everything
+  - [x] Support
+  - For fleets.
 ```
 
 #### Universal modifiers
@@ -2980,14 +2972,14 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 #### Variants (component-specific)
 
-##### `annotated` — Annotated — numbered margin notes
+##### `annotated` — annotated
 
-Adds numbered sup markers in the quoted passage and renders the trailing list as numbered annotations. Use when the diff has several distinct changes that each need their own reviewer rationale.
+Adds the why beside each edit.
 
 ```markdown
 <!-- _class: redline annotated -->
 
-## SB-362 rewrote the opt-out link rule — annotated.
+## annotated adds the why beside each edit.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -2998,14 +2990,14 @@ Adds numbered sup markers in the quoted passage and renders the trailing list as
 - **Link mandate.** Pins a uniform link title across all businesses.
 ```
 
-##### `three-col` — Three-col — old | new | rationale
+##### `three-col` — three-col
 
-Splits the passage into three columns: prior text on the left, new text in the middle, reviewer rationale on the right. Use when both the diff and the why need to be on-screen together.
+Old, new, and why side by side.
 
 ```markdown
 <!-- _class: redline three-col -->
 
-## SB-362 — old, new, and why side-by-side.
+## three-col sets old, new, and why side by side.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -3015,17 +3007,17 @@ Splits the passage into three columns: prior text on the left, new text in the m
 
 - **Scope.** Sale and sharing fold into one duty.
 - **Method floor.** One method now suffices.
-- **Link title.** Homepage label is mandatory and standardised.
+- **Link title.** Homepage label is mandatory and standardized.
 ```
 
-##### `split` — Split — old | new side by side
+##### `split` — split
 
-Two blockquotes laid out in columns: prior text on the left under an OLD label, amended text on the right under NEW. Use when the passages are short enough to read across.
+Before and after in parallel.
 
 ```markdown
 <!-- _class: redline split -->
 
-## SB-362 — before and after, side by side.
+## split shows before and after in parallel.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -3036,14 +3028,14 @@ Two blockquotes laid out in columns: prior text on the left under an OLD label, 
 - **Why this matters.** The left column is the prior text; the right is the amendment. Reading across makes the scope expansion obvious.
 ```
 
-##### `stacked` — Stacked — old block atop new
+##### `stacked` — stacked
 
-Stacks the prior text (struck, labelled OLD — prior text) above the current text (labelled NEW · current). Use when the passages are too long to sit side by side.
+Prior text struck above the current.
 
 ```markdown
 <!-- _class: redline stacked -->
 
-## SB-362 — prior text struck, current below.
+## stacked strikes the prior text above the current.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -3062,7 +3054,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 - [`compare-code`](#compare-code) — the diff is source code, not natural language
 - [`compare-prose`](#compare-prose) — two narrative alternatives, not verbatim amendments
-- [`compare-prose`](#compare-prose) — the change is structural state, not text
+- [`state-chart`](#state-chart) — the change is structural state, not text
 - [`obligation-matrix`](#obligation-matrix) — comparing many regimes against shared obligations
 
 #### Demo deck
@@ -3178,7 +3170,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 #### When NOT to use
 
 - **Exactly two options.** Two options with shared criteria belong in `compare-prose` or `split-compare`. verdict-grid earns its layout at 3+ options.
-- **Missing the rationale line.** Every option must end with a marker-less prose line — the verdict for that card. Omit it and the card renders empty below the badges, and the focal last card has nothing to recommend. The rationale is required, not optional.
+- **No rationale line.** Every option must end with a marker-less prose line — the verdict for that card. Omit it and the card renders empty below the badges, and the focal last card has nothing to recommend. The rationale is required, not optional.
 - **Badge longer than two words.** The text after the marker is a badge, not a sentence — two words at most (`Residency`, `Self-serve`). A sentence on a badge line breaks the row scan; prose belongs only on the final rationale line.
 - **Cards with different criteria.** When each option needs its own criteria list, the comparison fails — use `cards-stack` so each card has full prose breathing room instead.
 
@@ -3396,161 +3388,157 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 #### Variants (component-specific)
 
-##### `vertical` — Vertical — strip flips row to column
+##### `vertical` — vertical
 
-Flips the step strip from the default horizontal row into a vertical stack; arrow connectors rotate to down-arrows. Pairs well with `compact` for three-step decks where each step needs body-paragraph room.
+Steps stack down the page.
 
 ```markdown
 <!-- _class: list-steps vertical compact -->
 
-## Three phases, vertically arranged.
+## vertical stacks the steps down the page.
 
-1. Discover
-   - Interview eight stakeholders. Open questions only — listening for friction, not confirming the assumptions we arrived with.
-2. Frame
-   - Half-day workshop to align on root cause. Output is a ranked problem statement and a request for a second workshop.
-3. Decide
-   - Written sign-off on what is in scope, what is out, and what requires a separate decision we will defer.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
-##### `timeline` — Timeline — dots on a horizontal spine
+##### `timeline` — timeline
 
-Renders the steps as labelled nodes along a single horizontal axis — `ol` gives numbered discs, `ul` gives plain dots. Lighter than the default step cards: use when each stage needs only a short label and a one-line description. Absorbed the standalone `timeline` component on 2026-06-07.
+Steps string along a line.
 
 ```markdown
 <!-- _class: list-steps timeline -->
 
-## From first pilot to general availability.
+## timeline strings the steps along a line.
 
-1. Pilot
-   - *Four product teams run the framework for a quarter against a shared baseline.*
-2. Calibrate
-   - *Scoring weights are tuned against real outcomes; the decision log becomes mandatory.*
-3. Roll out
-   - *Every product team onboards and the weekly signal review joins the operating rhythm.*
-4. GA
-   - *The framework leaves pilot status and ships as the default for new initiatives.*
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
-##### `phase` — Phase — badge prefix becomes PHASE
+##### `phase` — phase
 
-Swaps the default `STEP` prefix for `PHASE`. Use when the process is a sequence of phases rather than individual actions — common for rollout plans, release trains, and engagement models.
+Each step blocks as an era.
 
 ```markdown
 <!-- _class: list-steps phase -->
 
-## A four-phase engagement model.
+## phase blocks each step as an era.
 
-1. Discovery
-   - Eight weeks. Stakeholder interviews, current-state audit, and a problem-framing workshop produce a signed scope nobody rereads.
-2. Design
-   - Six weeks. Two design partners co-build the operating model and the change-management plan that survives until contact with the org.
-3. Pilot
-   - Twelve weeks. One business unit runs the model end-to-end with weekly retrospectives held biweekly.
-4. Rollout
-   - Phased by region. Pilot learnings shape the rollout cadence; the central team owns the playbook and the pager.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
-##### `milestone` — Milestone — badge prefix becomes MILESTONE
+##### `milestone` — milestone
 
-Swaps the prefix to `MILESTONE`. Use when each row is a discrete delivery checkpoint rather than an ongoing activity. Pairs with `lettered` for milestones tracked by letter rather than number.
+Steps mark as checkpoints.
 
 ```markdown
 <!-- _class: list-steps milestone lettered -->
 
-## Three milestones to GA.
+## milestone marks the steps as checkpoints.
 
-1. Closed beta
-   - Five design-partner accounts live on the platform. Daily standups; weekly retros; one account that actually logs in.
-2. Open beta
-   - Self-serve signup at the marketing site. Pricing visible but not enforced, which everyone treats as the real pricing.
-3. GA
-   - Billing enforcement on. SLA enters effect. Support escalation paths published, then immediately bypassed by the Slack DM.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
-##### `lettered` — Lettered — counter format becomes A, B, C
+##### `lettered` — lettered
 
-Replaces the leading-zero decimal counter with letters. Composes with any prefix; useful when the rows are options or tracks rather than ordered work.
+Letters count the steps.
 
 ```markdown
 <!-- _class: list-steps lettered -->
 
-## Three tracks for the next quarter.
+## lettered counts the steps with letters.
 
-1. Scoring hardening
-   - Per-team calibration, automated weight updates, and the recalibration playbook nobody has had to run land in this track.
-2. Audit posture
-   - Auditor evidence pack v2 and the decision-log audit trail ship for the Q3 audit window, give or take a window.
-3. Developer surface
-   - Signal-SDK parity and the new CLI flags close out an API roadmap that reopens every quarter.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ##### `stage` — Stage
 
-Badge prefix becomes `STAGE 01`, `STAGE 02`, …
+Stage tags prefix each step.
 
 ```markdown
 <!-- _class: list-steps stage -->
 
-## Three stages, with explicit stage prefixes.
+## stage prefixes each step with its stage tag.
 
-1. Plan
-   - Define the work and the artifacts each stage produces.
-2. Execute
-   - Run the work against the plan; track variance.
-3. Review
-   - Compare actuals to plan; capture lessons for the next cycle.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ##### `rank` — Rank
 
-Badge prefix becomes `RANK 01`, `RANK 02`, … Use for ordered lists where each position is a competitive rank.
+Numbers read as standings.
 
 ```markdown
 <!-- _class: list-steps rank -->
 
-## Top three risks, ranked by exposure, owned by nobody in particular.
+## rank reads the numbers as standings.
 
-1. Renewal cohort
-   - $2.1M ARR at risk if the pricing comp gap persists, which it has, comfortably.
-2. Pipeline conversion
-   - 11 pp below Q1; legal review is the chokepoint, as it was last quarter.
-3. Competitive displacement
-   - Seven losses to one competitor in the $80-200K tier, all to the same deck.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ##### `tier` — Tier
 
-Badge prefix becomes `TIER 01`, `TIER 02`, … Use for stratified groupings where each tier is qualitatively distinct.
+Steps render as service tiers.
 
 ```markdown
 <!-- _class: list-steps tier roman -->
 
-## Three engagement tiers.
+## tier renders the steps as service tiers.
 
-1. Strategic
-   - Quarterly executive review, dedicated success manager, and a roadmap they are shown but not promised.
-2. Growth
-   - Monthly check-in, shared success pool, success defined later.
-3. Self-serve
-   - Async docs, community support, and the hope that the docs are current.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ##### `roman` — Roman numerals
 
-Counter format becomes `I`, `II`, `III` (composes with any prefix).
+Numerals count the phases.
 
 ```markdown
 <!-- _class: list-steps phase roman -->
 
-## Three phases, roman-numeral counter.
+## roman counts the phases in numerals.
 
-1. Discovery
-   - Identify the constraints and the success criteria.
-2. Design
-   - Sketch options against the constraints; pick one.
-3. Delivery
-   - Build, ship, measure.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 #### Universal modifiers
@@ -3592,7 +3580,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 #### When NOT to use
 
-- **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status colour is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a colour that has nothing to do with the words.
+- **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words.
 - **More than four KPIs in attention or spotlight.** `attention` highlights the metric that needs the room; `spotlight` monumentalises one number. Past four KPIs the visual hierarchy collapses — split into two slides.
 - **No targets, no trends.** If the KPIs carry only current values, the slide is a stats row, not a kpi dashboard. Use stats and reclaim the room.
 
@@ -3640,132 +3628,120 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 #### Variants (component-specific)
 
-##### `attention` — Attention — the slipping metric leads
+##### `attention` — attention
 
-Promotes the one KPI in trouble to hero scale, with the supporting three holding their normal rank. Use when one number needs the room and the others provide reassurance.
+Flags the tile that misses.
 
 ```markdown
 <!-- _class: kpi attention -->
 
-`Framework · Q4 2026`
+`kpi attention`
 
-## One metric below target; remediation under way.
+## attention flags the tile that misses.
 
-1. 94%
-   - Signal-classification success
-   - target 99% · -5pp `At risk` `Board`
-2. 18 min
-   - p99 decision close
-   - target 20 min `On plan` `Ops`
+1. 1
+   - tile flagged
+   - the miss `Attention`
+2. 3
+   - tiles steady
+   - for context `On plan`
 3. 0
-   - Auditor findings
-   - target 0 `On plan` `Audit`
-4. 3.2×
-   - Calibration headroom
-   - target 2× `On plan` `Framework`
+   - alarms hidden
+   - honesty `Board`
+4. 4
+   - tiles total
+   - the row `On plan`
 ```
 
-##### `ops` — Ops — SLO / SLA grid
+##### `ops` — ops
 
-2×2 grid optimised for SRE-style SLO review. Breaching metrics tint to `--warn`; the layout is designed to be scanned quickly during an incident review or on-call hand-off.
+Reads the tiles against SLOs.
 
 ```markdown
 <!-- _class: kpi ops -->
 
-`Platform · Q4 2026`
+`kpi ops`
 
-## One latency target slipping; everything else inside SLO, for now.
+## ops reads the tiles against SLOs.
 
-1. 99.92%
-   - API availability
-   - SLO 99.95% · -0.03pp `At risk` `SRE`
-2. 42 ms
-   - p99 read latency
-   - SLO 50 ms · -16% headroom `On track` `SRE`
-3. 18 ms
-   - p99 write latency
-   - SLO 15 ms · +20% `Breaching` `Platform`
-4. 0.04%
-   - Error budget burn (28d)
-   - SLO 1% · 4% consumed `On track` `Reliability`
+1. 99.9%
+   - the SLO frame
+   - target line `SLO`
+2. 4
+   - tiles per row
+   - unchanged `On plan`
+3. 1
+   - breach shown
+   - never hidden `Ops`
+4. 30d
+   - the window
+   - rolling `SLO`
 ```
 
-##### `compliance` — Compliance — binary state
+##### `compliance` — compliance
 
-Binary-state pills (`Compliant`, `Remediating`, `Open`) with a source footer for the regulatory register. Best for audit committee packs, examiner reviews, and quarterly compliance walk-throughs.
+Tallies findings per framework.
 
 ```markdown
 <!-- _class: kpi compliance -->
 
-`Compliance · Q4 2026`
+`kpi compliance`
 
-## Three frameworks clean; one finding under remediation.
+## compliance tallies findings per framework.
 
 1. 0
-   - SOC 2 Type II open findings
-   - 2026 audit complete `Compliant` `Auditor`
-2. 0
-   - PCI-DSS open findings
-   - QSA review Oct 2026 `Compliant` `QSA`
+   - open findings
+   - the goal `Clean`
+2. 4
+   - frameworks tracked
+   - one row `Audit`
 3. 1
-   - GDPR open findings
-   - remediation due Q1 2027 `Remediating` `DPO`
-4. 0
-   - Internal audit material findings
-   - quarterly review complete `Compliant` `Audit Committee`
-
-Source · regulatory register · weekly export
+   - in remediation
+   - dated `Watch`
 ```
 
-##### `trajectory` — Trajectory — year-over-year cards
+##### `trajectory` — trajectory
 
-Four-up cards with categorical stripes that read as period-over-period movement. Best for investor letters, year-end reviews, and any deck where the YoY delta is the headline.
+Pairs each tile with its delta.
 
 ```markdown
 <!-- _class: kpi trajectory -->
 
-`Growth · FY26 vs FY25`
+`kpi trajectory`
 
-## Every growth lever moved forward this year, in the cut of the data we are showing.
+## trajectory pairs each tile with its delta.
 
-1. $420M
-   - ARR
-   - +28% YoY `YoY +28%` `Investor`
-2. 94%
-   - Net dollar retention
-   - +3pp YoY `YoY +3pp` `Investor`
-3. 2,840
-   - Enterprise logos
-   - +540 net new `YoY +23%` `Board`
-4. $148K
-   - Average contract value
-   - +$22K vs FY25 `YoY +18%` `Board`
+1. +9%
+   - the delta leads
+   - vs plan `Up`
+2. 4
+   - tiles still rule
+   - per row `On plan`
+3. −2
+   - down is shown
+   - not spun `Honest`
 ```
 
-##### `spotlight` — Spotlight — monumentalised hero metric
+##### `spotlight` — spotlight
 
-Hero KPI gets a paragraph of body copy and a row of context pills; the supporting three render at normal weight underneath. Best for the headline slide of an investor update or earnings narrative.
+One tile earns double width.
 
 ```markdown
 <!-- _class: kpi spotlight -->
 
-`Headline · Q4 2026`
+`kpi spotlight`
 
-## The number behind the quarter, and the one in every headline slide.
+## spotlight gives one tile double width.
 
-1. $420M
-   - Annual recurring revenue
-   - First quarter past the $400M threshold; up 28% year-over-year and ahead of the FY26 plan by $18M, which is the figure we will quote until it stops flattering us.
-   - `Headline` `Board` `Investor`
-2. 94%
-   - Net dollar retention
-   - +3pp YoY `On plan`
-3. 2,840
-   - Enterprise logos
-   - +540 net new `On plan`
-4. $148K
-   - Average contract value
-   - +$22K vs prior year `On plan`
+1. 1
+   - tile promoted
+   - the headline `Spotlight`
+2. 2
+   - support tiles
+   - beside it `On plan`
+3. 0
+   - competing heroes
+   - one only `Rule`
 ```
 
 #### Universal modifiers
@@ -3934,84 +3910,84 @@ Swap the bg image below for your own asset — any aspect. The layout reads its 
 
 #### Variants (component-specific)
 
-##### `clean` — Clean — the default floated card (auto)
+##### `clean` — clean
 
-The standing default for a moderate-aspect photo. A floated card whose ASPECT adapts to the asset (a square photo → square card, a wide photo → wide card), beside a text panel (landscape) or stacked above it (portrait). Cover-fill of a card shaped like the photo means ≈ zero crop. Auto-resolves for `square` and `wide` assets; name it to force a card on any asset.
+Drops the caption chrome.
 
 ```markdown
 <!-- _class: image clean -->
 
-## Activation is where the trial is won or lost.
+## clean drops the caption chrome.
 
 Two-thirds of trials that reach the first generated report convert; the ones that stall almost never do.
 
 ![bg](sample-photo-wide.svg)
 ```
 
-##### `split` — Split — an extreme-aspect photo, shown whole (auto)
+##### `split` — split
 
-For a `tall`/`column` asset on a landscape deck (a full-height image column + text) or a `wide`/`pano` asset on a portrait deck (a full-width image band + text below). Shows the whole photo with ≈ zero crop and fills the canvas a moderate card would leave empty.
+A portrait gets its full column.
 
 ```markdown
 <!-- _class: image split -->
 
-## Built for the long climb.
+## split gives a portrait its full column.
 
 A portrait photo wants its full height. We give it a column and let the argument run alongside.
 
 ![bg](sample-photo-tall.svg)
 ```
 
-##### `spotlight` — Spotlight — full-bleed cover + a solid card (auto)
+##### `spotlight` — spotlight
 
-For an asset whose aspect already MATCHES the canvas (a `pano` on landscape, a `tall` on portrait): the photo goes full-bleed and the text rides a SOLID card, so legibility never depends on the photo. Name it to force a full-bleed cover on any asset (accepting the crop).
+A panorama owns the frame.
 
 ```markdown
 <!-- _class: image spotlight -->
 
-## A panorama earns the full frame.
+## spotlight lets a panorama own the frame.
 
 When the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.
 
 ![bg](sample-photo-pano.svg)
 ```
 
-##### `gallery` — Gallery — contain on a matte + placard (opt-in)
+##### `gallery` — gallery
 
-Opt-in. Contains the WHOLE asset on a matte with a centered placard caption — zero crop, letterboxed. For diagrams, screenshots, and plots where the whitespace is meaningful and every pixel matters. Never auto-resolved (we can't detect a diagram from aspect alone), so name it.
+The exhibit on a matte with a placard.
 
 ```markdown
 <!-- _class: image gallery -->
 
-## Exhibit 1 — the network, contained.
+## gallery mats the exhibit with a placard.
 
 The whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.
 
 ![bg](sample-photo-square.svg)
 ```
 
-##### `statement` — Statement — full-bleed + scrim + editorial title (opt-in)
+##### `statement` — statement
 
-Opt-in. The title rides the photo on a diagonal scrim — a deliberate, editorial moment for an opener or closer. White text over an unknown photo is a legibility gamble, so it is never auto-resolved; reach for it when you know the photo carries it.
+The title rides the photo on a scrim.
 
 ```markdown
 <!-- _class: image statement -->
 
-## The setup step is the real funnel.
+## statement rides the title on a scrim.
 
 The title rides the photo on a scrim — a deliberate, editorial choice.
 
 ![bg](sample-photo-wide.svg)
 ```
 
-##### `mirror` — Mirror — flip the image to the other side
+##### `mirror` — mirror
 
-Flips the image/text side for the `clean` and `split` compositions (image left, text right). Equivalent to `![bg left]`. Use when the surrounding spread reads right-to-left or when the page-turn cue lands on the image side.
+The image lands on the left.
 
 ```markdown
 <!-- _class: image mirror -->
 
-## Mirror lands the image on the left.
+## mirror lands the image on the left.
 
 Text leads from the right; image anchors from the left.
 
@@ -4078,14 +4054,14 @@ One screen, one story — the fastest way to see the product work.
 
 #### Variants (component-specific)
 
-##### `companion` — Companion — claim leads, the clip proves it
+##### `companion` — companion
 
-A split: the claim + one lead line lead on the left, the poster proves it on the right (mirrors split-panel's companion). The narrative+proof layout. `qr` reveals a code beneath the poster.
+The player beside the claim it proves.
 
 ```markdown
 <!-- _class: video companion -->
 
-## Onboarding that sticks — watch a customer do it live.
+## companion seats the player beside its pitch.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
@@ -4094,28 +4070,28 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 - video-poster.svg `poster`
 ```
 
-##### `gallery` — Gallery — a contained, matted exhibit
+##### `gallery` — gallery
 
-The still CONTAINED on a matte (zero-crop, letterboxed) with a placard caption below — for a diagram-ish or vertical clip where the whole frame matters. `qr` adds a code beside the placard.
+A contained, matted exhibit.
 
 ```markdown
 <!-- _class: video gallery -->
 
-## Exhibit 1 — the onboarding flow, end to end.
+## gallery mats the player like an exhibit.
 
 - https://vimeo.com/1084537
 - The reference onboarding walkthrough, contained on its matte. `caption`
 - video-poster.svg `poster`
 ```
 
-##### `qr` — qr — add a scannable code (a modifier, combine with any composition)
+##### `qr` — qr
 
-An OPT-IN modifier, not a composition. Add `qr` to either composition (`video companion qr`, `video gallery qr`) and a scannable QR to the clip appears; without it the poster is a plain link + provider label. Reuses the palette-blind QR engine.
+Adds a scannable code; combines with any look.
 
 ```markdown
 <!-- _class: video companion qr -->
 
-## Scan to watch the walkthrough.
+## qr hands the video to the room’s phones.
 
 The full 90-second tour — scan to open it on your phone.
 

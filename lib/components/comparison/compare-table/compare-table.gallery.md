@@ -18,13 +18,33 @@ Multi-row comparison table with consistent columns.
 <!-- _class: compare-table -->
 <!-- _footer: "Default · compare-table" -->
 
-## How the three planning rituals compare.
+## The table compares rows on consistent columns.
 
-| Ritual | Cadence | Output | Read after the meeting |
-| --- | --- | --- | --- |
-| Strategy offsite | Yearly | An 80-slide deck | The title slide |
-| Quarterly business review | Quarterly | A scorecard | The red cells |
-| Weekly signal review | Weekly | A decision-log entry | Whoever wrote it |
+| Row | Holds | Budget |
+| --- | --- | --- |
+| A label | One cell per column | Twelve words |
+| Every row | The same column set | Twelve words |
+| Six rows | The comfortable page | Twelve words |
+
+
+---
+
+<!-- _class: compare-table -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · compare-table — Eight rows — the hard ceiling." -->
+
+## Eight rows is the table's hard ceiling.
+
+| Row | Reads | At the ceiling |
+| --- | --- | --- |
+| One | First | Fresh attention |
+| Two | Fast | Keep cells short |
+| Three | Steady | Parallel phrasing |
+| Four | Mid-page | The pivot row |
+| Five | Slower | Trim adjectives |
+| Six | The soft mark | Past comfort |
+| Seven | Strained | Nearly done |
+| Eight | Last | The hard stop |
 
 
 ---
@@ -32,13 +52,13 @@ Multi-row comparison table with consistent columns.
 <!-- _class: compare-table dark -->
 <!-- _footer: "Composition: dark · compare-table dark" -->
 
-## How the three planning rituals compare.
+## The table compares rows on consistent columns.
 
-| Ritual | Cadence | Output | Read after the meeting |
-| --- | --- | --- | --- |
-| Strategy offsite | Yearly | An 80-slide deck | The title slide |
-| Quarterly business review | Quarterly | A scorecard | The red cells |
-| Weekly signal review | Weekly | A decision-log entry | Whoever wrote it |
+| Row | Holds | Budget |
+| --- | --- | --- |
+| A label | One cell per column | Twelve words |
+| Every row | The same column set | Twelve words |
+| Six rows | The comfortable page | Twelve words |
 
 
 ---
@@ -46,13 +66,13 @@ Multi-row comparison table with consistent columns.
 <!-- _class: compare-table compact -->
 <!-- _footer: "Composition: compact · compare-table compact" -->
 
-## How the three planning rituals compare.
+## The table compares rows on consistent columns.
 
-| Ritual | Cadence | Output | Read after the meeting |
-| --- | --- | --- | --- |
-| Strategy offsite | Yearly | An 80-slide deck | The title slide |
-| Quarterly business review | Quarterly | A scorecard | The red cells |
-| Weekly signal review | Weekly | A decision-log entry | Whoever wrote it |
+| Row | Holds | Budget |
+| --- | --- | --- |
+| A label | One cell per column | Twelve words |
+| Every row | The same column set | Twelve words |
+| Six rows | The comfortable page | Twelve words |
 
 
 ---
@@ -60,13 +80,13 @@ Multi-row comparison table with consistent columns.
 <!-- _class: compare-table accent -->
 <!-- _footer: "Composition: accent · compare-table accent" -->
 
-## How the three planning rituals compare.
+## The table compares rows on consistent columns.
 
-| Ritual | Cadence | Output | Read after the meeting |
-| --- | --- | --- | --- |
-| Strategy offsite | Yearly | An 80-slide deck | The title slide |
-| Quarterly business review | Quarterly | A scorecard | The red cells |
-| Weekly signal review | Weekly | A decision-log entry | Whoever wrote it |
+| Row | Holds | Budget |
+| --- | --- | --- |
+| A label | One cell per column | Twelve words |
+| Every row | The same column set | Twelve words |
+| Six rows | The comfortable page | Twelve words |
 
 
 ---
@@ -77,7 +97,7 @@ Multi-row comparison table with consistent columns.
 ## When NOT to reach for compare-table.
 
 - **Cells full of prose.** Long sentences in a table cell wrap awkwardly and force the column wider. Move to `verdict-grid` for criteria with body text, or `cards-stack` for full prose rows.
-- **More than 6 rows.** Past 6 rows the table density crowds the slide. Split into two slides or summarise the rows that don't differentiate.
+- **More than 6 rows.** Past 6 rows the table density crowds the slide. Split into two slides or summarize the rows that don't differentiate.
 - **State-marker rows.** When most cells are pass/fail/partial badges, the right layout is `obligation-matrix` or `verdict-grid`. compare-table is for textual values.
 
 ---

@@ -61,14 +61,14 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 ## Variants (component-specific)
 
-### `annotated` — Annotated — numbered margin notes
+### `annotated` — annotated
 
-Adds numbered sup markers in the quoted passage and renders the trailing list as numbered annotations. Use when the diff has several distinct changes that each need their own reviewer rationale.
+Adds the why beside each edit.
 
 ```markdown
 <!-- _class: redline annotated -->
 
-## SB-362 rewrote the opt-out link rule — annotated.
+## annotated adds the why beside each edit.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -79,14 +79,14 @@ Adds numbered sup markers in the quoted passage and renders the trailing list as
 - **Link mandate.** Pins a uniform link title across all businesses.
 ```
 
-### `three-col` — Three-col — old | new | rationale
+### `three-col` — three-col
 
-Splits the passage into three columns: prior text on the left, new text in the middle, reviewer rationale on the right. Use when both the diff and the why need to be on-screen together.
+Old, new, and why side by side.
 
 ```markdown
 <!-- _class: redline three-col -->
 
-## SB-362 — old, new, and why side-by-side.
+## three-col sets old, new, and why side by side.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -96,17 +96,17 @@ Splits the passage into three columns: prior text on the left, new text in the m
 
 - **Scope.** Sale and sharing fold into one duty.
 - **Method floor.** One method now suffices.
-- **Link title.** Homepage label is mandatory and standardised.
+- **Link title.** Homepage label is mandatory and standardized.
 ```
 
-### `split` — Split — old | new side by side
+### `split` — split
 
-Two blockquotes laid out in columns: prior text on the left under an OLD label, amended text on the right under NEW. Use when the passages are short enough to read across.
+Before and after in parallel.
 
 ```markdown
 <!-- _class: redline split -->
 
-## SB-362 — before and after, side by side.
+## split shows before and after in parallel.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -117,14 +117,14 @@ Two blockquotes laid out in columns: prior text on the left under an OLD label, 
 - **Why this matters.** The left column is the prior text; the right is the amendment. Reading across makes the scope expansion obvious.
 ```
 
-### `stacked` — Stacked — old block atop new
+### `stacked` — stacked
 
-Stacks the prior text (struck, labelled OLD — prior text) above the current text (labelled NEW · current). Use when the passages are too long to sit side by side.
+Prior text struck above the current.
 
 ```markdown
 <!-- _class: redline stacked -->
 
-## SB-362 — prior text struck, current below.
+## stacked strikes the prior text above the current.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -143,7 +143,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 - [`compare-code`](../../code/compare-code/compare-code.docs.md) — the diff is source code, not natural language
 - [`compare-prose`](../../comparison/compare-prose/compare-prose.docs.md) — two narrative alternatives, not verbatim amendments
-- [`compare-prose`](../../comparison/compare-prose/compare-prose.docs.md) — the change is structural state, not text
+- [`state-chart`](../../chart/state-chart/state-chart.docs.md) — the change is structural state, not text
 - [`obligation-matrix`](../../legal/obligation-matrix/obligation-matrix.docs.md) — comparing many regimes against shared obligations
 
 ## Demo deck

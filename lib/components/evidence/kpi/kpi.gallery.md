@@ -18,140 +18,152 @@ Executive KPI system — one base, five layout modifiers.
 <!-- _class: kpi -->
 <!-- _footer: "Default · kpi" -->
 
-`Financial · Q4 2026`
+`evidence · kpi`
 
-## Revenue ahead of plan; margin and cash both expanded.
+## Four tiles the eye sweeps in one pass.
 
-1. $2.4B
-   - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
-2. 42%
-   - Gross margin
-   - +2pp QoQ `On plan` `Audit`
-3. $1.1B
-   - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
-4. +18%
-   - YoY revenue growth
-   - vs 14% prior year `Ahead` `Board`
+1. 4
+   - tiles per row
+   - the ceiling `On plan`
+2. 8
+   - words per tile
+   - soft budget `Board`
+3. 5s
+   - scan time
+   - the target `On plan`
+4. 0
+   - prose sentences
+   - allowed here `Audit`
 
 
 ---
 
 <!-- _class: kpi attention -->
-<!-- _footer: "Attention — the slipping metric leads · kpi attention" -->
+<!-- _footer: "attention · kpi attention — Flags the tile that misses." -->
 
-`Framework · Q4 2026`
+`kpi attention`
 
-## One metric below target; remediation under way.
+## attention flags the tile that misses.
 
-1. 94%
-   - Signal-classification success
-   - target 99% · -5pp `At risk` `Board`
-2. 18 min
-   - p99 decision close
-   - target 20 min `On plan` `Ops`
+1. 1
+   - tile flagged
+   - the miss `Attention`
+2. 3
+   - tiles steady
+   - for context `On plan`
 3. 0
-   - Auditor findings
-   - target 0 `On plan` `Audit`
-4. 3.2×
-   - Calibration headroom
-   - target 2× `On plan` `Framework`
+   - alarms hidden
+   - honesty `Board`
+4. 4
+   - tiles total
+   - the row `On plan`
 
 
 ---
 
 <!-- _class: kpi ops -->
-<!-- _footer: "Ops — SLO / SLA grid · kpi ops" -->
+<!-- _footer: "ops · kpi ops — Reads the tiles against SLOs." -->
 
-`Platform · Q4 2026`
+`kpi ops`
 
-## One latency target slipping; everything else inside SLO, for now.
+## ops reads the tiles against SLOs.
 
-1. 99.92%
-   - API availability
-   - SLO 99.95% · -0.03pp `At risk` `SRE`
-2. 42 ms
-   - p99 read latency
-   - SLO 50 ms · -16% headroom `On track` `SRE`
-3. 18 ms
-   - p99 write latency
-   - SLO 15 ms · +20% `Breaching` `Platform`
-4. 0.04%
-   - Error budget burn (28d)
-   - SLO 1% · 4% consumed `On track` `Reliability`
+1. 99.9%
+   - the SLO frame
+   - target line `SLO`
+2. 4
+   - tiles per row
+   - unchanged `On plan`
+3. 1
+   - breach shown
+   - never hidden `Ops`
+4. 30d
+   - the window
+   - rolling `SLO`
 
 
 ---
 
 <!-- _class: kpi compliance -->
-<!-- _footer: "Compliance — binary state · kpi compliance" -->
+<!-- _footer: "compliance · kpi compliance — Tallies findings per framework." -->
 
-`Compliance · Q4 2026`
+`kpi compliance`
 
-## Three frameworks clean; one finding under remediation.
+## compliance tallies findings per framework.
 
 1. 0
-   - SOC 2 Type II open findings
-   - 2026 audit complete `Compliant` `Auditor`
-2. 0
-   - PCI-DSS open findings
-   - QSA review Oct 2026 `Compliant` `QSA`
+   - open findings
+   - the goal `Clean`
+2. 4
+   - frameworks tracked
+   - one row `Audit`
 3. 1
-   - GDPR open findings
-   - remediation due Q1 2027 `Remediating` `DPO`
-4. 0
-   - Internal audit material findings
-   - quarterly review complete `Compliant` `Audit Committee`
-
-Source · regulatory register · weekly export
+   - in remediation
+   - dated `Watch`
 
 
 ---
 
 <!-- _class: kpi trajectory -->
-<!-- _footer: "Trajectory — year-over-year cards · kpi trajectory" -->
+<!-- _footer: "trajectory · kpi trajectory — Pairs each tile with its delta." -->
 
-`Growth · FY26 vs FY25`
+`kpi trajectory`
 
-## Every growth lever moved forward this year, in the cut of the data we are showing.
+## trajectory pairs each tile with its delta.
 
-1. $420M
-   - ARR
-   - +28% YoY `YoY +28%` `Investor`
-2. 94%
-   - Net dollar retention
-   - +3pp YoY `YoY +3pp` `Investor`
-3. 2,840
-   - Enterprise logos
-   - +540 net new `YoY +23%` `Board`
-4. $148K
-   - Average contract value
-   - +$22K vs FY25 `YoY +18%` `Board`
+1. +9%
+   - the delta leads
+   - vs plan `Up`
+2. 4
+   - tiles still rule
+   - per row `On plan`
+3. −2
+   - down is shown
+   - not spun `Honest`
 
 
 ---
 
 <!-- _class: kpi spotlight -->
-<!-- _footer: "Spotlight — monumentalised hero metric · kpi spotlight" -->
+<!-- _footer: "spotlight · kpi spotlight — One tile earns double width." -->
 
-`Headline · Q4 2026`
+`kpi spotlight`
 
-## The number behind the quarter, and the one in every headline slide.
+## spotlight gives one tile double width.
 
-1. $420M
-   - Annual recurring revenue
-   - First quarter past the $400M threshold; up 28% year-over-year and ahead of the FY26 plan by $18M, which is the figure we will quote until it stops flattering us.
-   - `Headline` `Board` `Investor`
-2. 94%
-   - Net dollar retention
-   - +3pp YoY `On plan`
-3. 2,840
-   - Enterprise logos
-   - +540 net new `On plan`
-4. $148K
-   - Average contract value
-   - +$22K vs prior year `On plan`
+1. 1
+   - tile promoted
+   - the headline `Spotlight`
+2. 2
+   - support tiles
+   - beside it `On plan`
+3. 0
+   - competing heroes
+   - one only `Rule`
+
+
+---
+
+<!-- _class: kpi -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · kpi — Four tiles at the fourteen-word line." -->
+
+`kpi · stress`
+
+## Four tiles at full word weight is the ceiling.
+
+1. 4
+   - tiles is the grid's seat count
+   - a fifth never renders `Max`
+2. 14
+   - words per tile, the hard budget
+   - this tile spends its whole allowance `Budget`
+3. 1
+   - line per label before wrapping
+   - wrapping ends the five-second scan `Rule`
+4. 2
+   - slides beat one crowded grid
+   - split past this point `Advice`
 
 
 ---
@@ -159,22 +171,22 @@ Source · regulatory register · weekly export
 <!-- _class: kpi dark -->
 <!-- _footer: "Composition: dark · kpi dark" -->
 
-`Financial · Q4 2026`
+`evidence · kpi`
 
-## Revenue ahead of plan; margin and cash both expanded.
+## Four tiles the eye sweeps in one pass.
 
-1. $2.4B
-   - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
-2. 42%
-   - Gross margin
-   - +2pp QoQ `On plan` `Audit`
-3. $1.1B
-   - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
-4. +18%
-   - YoY revenue growth
-   - vs 14% prior year `Ahead` `Board`
+1. 4
+   - tiles per row
+   - the ceiling `On plan`
+2. 8
+   - words per tile
+   - soft budget `Board`
+3. 5s
+   - scan time
+   - the target `On plan`
+4. 0
+   - prose sentences
+   - allowed here `Audit`
 
 
 ---
@@ -182,22 +194,22 @@ Source · regulatory register · weekly export
 <!-- _class: kpi compact -->
 <!-- _footer: "Composition: compact · kpi compact" -->
 
-`Financial · Q4 2026`
+`evidence · kpi`
 
-## Revenue ahead of plan; margin and cash both expanded.
+## Four tiles the eye sweeps in one pass.
 
-1. $2.4B
-   - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
-2. 42%
-   - Gross margin
-   - +2pp QoQ `On plan` `Audit`
-3. $1.1B
-   - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
-4. +18%
-   - YoY revenue growth
-   - vs 14% prior year `Ahead` `Board`
+1. 4
+   - tiles per row
+   - the ceiling `On plan`
+2. 8
+   - words per tile
+   - soft budget `Board`
+3. 5s
+   - scan time
+   - the target `On plan`
+4. 0
+   - prose sentences
+   - allowed here `Audit`
 
 
 ---
@@ -205,22 +217,22 @@ Source · regulatory register · weekly export
 <!-- _class: kpi accent -->
 <!-- _footer: "Composition: accent · kpi accent" -->
 
-`Financial · Q4 2026`
+`evidence · kpi`
 
-## Revenue ahead of plan; margin and cash both expanded.
+## Four tiles the eye sweeps in one pass.
 
-1. $2.4B
-   - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
-2. 42%
-   - Gross margin
-   - +2pp QoQ `On plan` `Audit`
-3. $1.1B
-   - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
-4. +18%
-   - YoY revenue growth
-   - vs 14% prior year `Ahead` `Board`
+1. 4
+   - tiles per row
+   - the ceiling `On plan`
+2. 8
+   - words per tile
+   - soft budget `Board`
+3. 5s
+   - scan time
+   - the target `On plan`
+4. 0
+   - prose sentences
+   - allowed here `Audit`
 
 
 ---
@@ -230,7 +242,7 @@ Source · regulatory register · weekly export
 
 ## When NOT to reach for kpi.
 
-- **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status colour is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a colour that has nothing to do with the words.
+- **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words.
 - **More than four KPIs in attention or spotlight.** `attention` highlights the metric that needs the room; `spotlight` monumentalises one number. Past four KPIs the visual hierarchy collapses — split into two slides.
 - **No targets, no trends.** If the KPIs carry only current values, the slide is a stats row, not a kpi dashboard. Use stats and reclaim the room.
 

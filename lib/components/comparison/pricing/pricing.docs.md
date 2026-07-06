@@ -69,54 +69,50 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 
 ## Variants (component-specific)
 
-### `two` — Two — a pair of tiers
+### `two` — two
 
-Two columns instead of three — self-serve vs. enterprise, monthly vs. annual, the classic good/better pair. The recommended marker still elevates whichever tier carries it.
+A pair of plans, head to head.
 
 ```markdown
 <!-- _class: pricing two -->
 
-## Two ways to buy.
+## two sets a pair of plans head to head.
 
 - Self-serve `$49 / mo`
-  - [x] Up to 25 seats
-  - [x] SSO
-  - [/] Dedicated CSM
-  - [/] Custom contract
-  - For teams that onboard themselves.
-- Enterprise `Custom` *Recommended*
-  - [x] Unlimited seats
-  - [x] SSO + SCIM
-  - [x] Dedicated CSM
-  - [x] Custom contract
-  - For procurement, security review, and scale.
+  - [x] Wider columns, more feature rows
+  - [/] The gap that motivates upgrading
+  - The simple path.
+- Enterprise `Custom`
+  - [x] Everything in self-serve
+  - [x] The rows that close deals
+  - The guided path.
 ```
 
-### `four` — Four — a full ladder
+### `four` — four
 
-Four columns for a complete ladder from free to enterprise. Pair with `compact` if the feature lists run long; past four tiers reach for `compare-table` instead.
+The whole ladder, compact.
 
 ```markdown
 <!-- _class: pricing four compact -->
 
-## The full ladder, free to enterprise.
+## four compact fits the whole ladder.
 
 - Free `$0`
-  - [x] 1 seat
-  - [/] SSO
-  - For trying it out.
+  - [x] One seat
+  - [/] The rest
+  - For trying.
 - Team `$29`
-  - [x] 10 seats
+  - [x] Five seats
   - [/] SSO
-  - For small teams.
+  - For starting.
 - Growth `$49` *Most popular*
-  - [x] 25 seats
   - [x] SSO
-  - For scaling teams.
+  - [/] Support
+  - For scaling.
 - Enterprise `Custom`
-  - [x] Unlimited
-  - [x] SSO + SCIM
-  - For procurement.
+  - [x] Everything
+  - [x] Support
+  - For fleets.
 ```
 
 ## Universal modifiers

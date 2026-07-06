@@ -62,161 +62,157 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ## Variants (component-specific)
 
-### `vertical` — Vertical — strip flips row to column
+### `vertical` — vertical
 
-Flips the step strip from the default horizontal row into a vertical stack; arrow connectors rotate to down-arrows. Pairs well with `compact` for three-step decks where each step needs body-paragraph room.
+Steps stack down the page.
 
 ```markdown
 <!-- _class: list-steps vertical compact -->
 
-## Three phases, vertically arranged.
+## vertical stacks the steps down the page.
 
-1. Discover
-   - Interview eight stakeholders. Open questions only — listening for friction, not confirming the assumptions we arrived with.
-2. Frame
-   - Half-day workshop to align on root cause. Output is a ranked problem statement and a request for a second workshop.
-3. Decide
-   - Written sign-off on what is in scope, what is out, and what requires a separate decision we will defer.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
-### `timeline` — Timeline — dots on a horizontal spine
+### `timeline` — timeline
 
-Renders the steps as labelled nodes along a single horizontal axis — `ol` gives numbered discs, `ul` gives plain dots. Lighter than the default step cards: use when each stage needs only a short label and a one-line description. Absorbed the standalone `timeline` component on 2026-06-07.
+Steps string along a line.
 
 ```markdown
 <!-- _class: list-steps timeline -->
 
-## From first pilot to general availability.
+## timeline strings the steps along a line.
 
-1. Pilot
-   - *Four product teams run the framework for a quarter against a shared baseline.*
-2. Calibrate
-   - *Scoring weights are tuned against real outcomes; the decision log becomes mandatory.*
-3. Roll out
-   - *Every product team onboards and the weekly signal review joins the operating rhythm.*
-4. GA
-   - *The framework leaves pilot status and ships as the default for new initiatives.*
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
-### `phase` — Phase — badge prefix becomes PHASE
+### `phase` — phase
 
-Swaps the default `STEP` prefix for `PHASE`. Use when the process is a sequence of phases rather than individual actions — common for rollout plans, release trains, and engagement models.
+Each step blocks as an era.
 
 ```markdown
 <!-- _class: list-steps phase -->
 
-## A four-phase engagement model.
+## phase blocks each step as an era.
 
-1. Discovery
-   - Eight weeks. Stakeholder interviews, current-state audit, and a problem-framing workshop produce a signed scope nobody rereads.
-2. Design
-   - Six weeks. Two design partners co-build the operating model and the change-management plan that survives until contact with the org.
-3. Pilot
-   - Twelve weeks. One business unit runs the model end-to-end with weekly retrospectives held biweekly.
-4. Rollout
-   - Phased by region. Pilot learnings shape the rollout cadence; the central team owns the playbook and the pager.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
-### `milestone` — Milestone — badge prefix becomes MILESTONE
+### `milestone` — milestone
 
-Swaps the prefix to `MILESTONE`. Use when each row is a discrete delivery checkpoint rather than an ongoing activity. Pairs with `lettered` for milestones tracked by letter rather than number.
+Steps mark as checkpoints.
 
 ```markdown
 <!-- _class: list-steps milestone lettered -->
 
-## Three milestones to GA.
+## milestone marks the steps as checkpoints.
 
-1. Closed beta
-   - Five design-partner accounts live on the platform. Daily standups; weekly retros; one account that actually logs in.
-2. Open beta
-   - Self-serve signup at the marketing site. Pricing visible but not enforced, which everyone treats as the real pricing.
-3. GA
-   - Billing enforcement on. SLA enters effect. Support escalation paths published, then immediately bypassed by the Slack DM.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
-### `lettered` — Lettered — counter format becomes A, B, C
+### `lettered` — lettered
 
-Replaces the leading-zero decimal counter with letters. Composes with any prefix; useful when the rows are options or tracks rather than ordered work.
+Letters count the steps.
 
 ```markdown
 <!-- _class: list-steps lettered -->
 
-## Three tracks for the next quarter.
+## lettered counts the steps with letters.
 
-1. Scoring hardening
-   - Per-team calibration, automated weight updates, and the recalibration playbook nobody has had to run land in this track.
-2. Audit posture
-   - Auditor evidence pack v2 and the decision-log audit trail ship for the Q3 audit window, give or take a window.
-3. Developer surface
-   - Signal-SDK parity and the new CLI flags close out an API roadmap that reopens every quarter.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ### `stage` — Stage
 
-Badge prefix becomes `STAGE 01`, `STAGE 02`, …
+Stage tags prefix each step.
 
 ```markdown
 <!-- _class: list-steps stage -->
 
-## Three stages, with explicit stage prefixes.
+## stage prefixes each step with its stage tag.
 
-1. Plan
-   - Define the work and the artifacts each stage produces.
-2. Execute
-   - Run the work against the plan; track variance.
-3. Review
-   - Compare actuals to plan; capture lessons for the next cycle.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ### `rank` — Rank
 
-Badge prefix becomes `RANK 01`, `RANK 02`, … Use for ordered lists where each position is a competitive rank.
+Numbers read as standings.
 
 ```markdown
 <!-- _class: list-steps rank -->
 
-## Top three risks, ranked by exposure, owned by nobody in particular.
+## rank reads the numbers as standings.
 
-1. Renewal cohort
-   - $2.1M ARR at risk if the pricing comp gap persists, which it has, comfortably.
-2. Pipeline conversion
-   - 11 pp below Q1; legal review is the chokepoint, as it was last quarter.
-3. Competitive displacement
-   - Seven losses to one competitor in the $80-200K tier, all to the same deck.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ### `tier` — Tier
 
-Badge prefix becomes `TIER 01`, `TIER 02`, … Use for stratified groupings where each tier is qualitatively distinct.
+Steps render as service tiers.
 
 ```markdown
 <!-- _class: list-steps tier roman -->
 
-## Three engagement tiers.
+## tier renders the steps as service tiers.
 
-1. Strategic
-   - Quarterly executive review, dedicated success manager, and a roadmap they are shown but not promised.
-2. Growth
-   - Monthly check-in, shared success pool, success defined later.
-3. Self-serve
-   - Async docs, community support, and the hope that the docs are current.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ### `roman` — Roman numerals
 
-Counter format becomes `I`, `II`, `III` (composes with any prefix).
+Numerals count the phases.
 
 ```markdown
 <!-- _class: list-steps phase roman -->
 
-## Three phases, roman-numeral counter.
+## roman counts the phases in numerals.
 
-1. Discovery
-   - Identify the constraints and the success criteria.
-2. Design
-   - Sketch options against the constraints; pick one.
-3. Delivery
-   - Build, ship, measure.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 ```
 
 ## Universal modifiers

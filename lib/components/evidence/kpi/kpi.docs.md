@@ -18,7 +18,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 ## When NOT to use
 
-- **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status colour is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a colour that has nothing to do with the words.
+- **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words.
 - **More than four KPIs in attention or spotlight.** `attention` highlights the metric that needs the room; `spotlight` monumentalises one number. Past four KPIs the visual hierarchy collapses — split into two slides.
 - **No targets, no trends.** If the KPIs carry only current values, the slide is a stats row, not a kpi dashboard. Use stats and reclaim the room.
 
@@ -66,132 +66,120 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 ## Variants (component-specific)
 
-### `attention` — Attention — the slipping metric leads
+### `attention` — attention
 
-Promotes the one KPI in trouble to hero scale, with the supporting three holding their normal rank. Use when one number needs the room and the others provide reassurance.
+Flags the tile that misses.
 
 ```markdown
 <!-- _class: kpi attention -->
 
-`Framework · Q4 2026`
+`kpi attention`
 
-## One metric below target; remediation under way.
+## attention flags the tile that misses.
 
-1. 94%
-   - Signal-classification success
-   - target 99% · -5pp `At risk` `Board`
-2. 18 min
-   - p99 decision close
-   - target 20 min `On plan` `Ops`
+1. 1
+   - tile flagged
+   - the miss `Attention`
+2. 3
+   - tiles steady
+   - for context `On plan`
 3. 0
-   - Auditor findings
-   - target 0 `On plan` `Audit`
-4. 3.2×
-   - Calibration headroom
-   - target 2× `On plan` `Framework`
+   - alarms hidden
+   - honesty `Board`
+4. 4
+   - tiles total
+   - the row `On plan`
 ```
 
-### `ops` — Ops — SLO / SLA grid
+### `ops` — ops
 
-2×2 grid optimised for SRE-style SLO review. Breaching metrics tint to `--warn`; the layout is designed to be scanned quickly during an incident review or on-call hand-off.
+Reads the tiles against SLOs.
 
 ```markdown
 <!-- _class: kpi ops -->
 
-`Platform · Q4 2026`
+`kpi ops`
 
-## One latency target slipping; everything else inside SLO, for now.
+## ops reads the tiles against SLOs.
 
-1. 99.92%
-   - API availability
-   - SLO 99.95% · -0.03pp `At risk` `SRE`
-2. 42 ms
-   - p99 read latency
-   - SLO 50 ms · -16% headroom `On track` `SRE`
-3. 18 ms
-   - p99 write latency
-   - SLO 15 ms · +20% `Breaching` `Platform`
-4. 0.04%
-   - Error budget burn (28d)
-   - SLO 1% · 4% consumed `On track` `Reliability`
+1. 99.9%
+   - the SLO frame
+   - target line `SLO`
+2. 4
+   - tiles per row
+   - unchanged `On plan`
+3. 1
+   - breach shown
+   - never hidden `Ops`
+4. 30d
+   - the window
+   - rolling `SLO`
 ```
 
-### `compliance` — Compliance — binary state
+### `compliance` — compliance
 
-Binary-state pills (`Compliant`, `Remediating`, `Open`) with a source footer for the regulatory register. Best for audit committee packs, examiner reviews, and quarterly compliance walk-throughs.
+Tallies findings per framework.
 
 ```markdown
 <!-- _class: kpi compliance -->
 
-`Compliance · Q4 2026`
+`kpi compliance`
 
-## Three frameworks clean; one finding under remediation.
+## compliance tallies findings per framework.
 
 1. 0
-   - SOC 2 Type II open findings
-   - 2026 audit complete `Compliant` `Auditor`
-2. 0
-   - PCI-DSS open findings
-   - QSA review Oct 2026 `Compliant` `QSA`
+   - open findings
+   - the goal `Clean`
+2. 4
+   - frameworks tracked
+   - one row `Audit`
 3. 1
-   - GDPR open findings
-   - remediation due Q1 2027 `Remediating` `DPO`
-4. 0
-   - Internal audit material findings
-   - quarterly review complete `Compliant` `Audit Committee`
-
-Source · regulatory register · weekly export
+   - in remediation
+   - dated `Watch`
 ```
 
-### `trajectory` — Trajectory — year-over-year cards
+### `trajectory` — trajectory
 
-Four-up cards with categorical stripes that read as period-over-period movement. Best for investor letters, year-end reviews, and any deck where the YoY delta is the headline.
+Pairs each tile with its delta.
 
 ```markdown
 <!-- _class: kpi trajectory -->
 
-`Growth · FY26 vs FY25`
+`kpi trajectory`
 
-## Every growth lever moved forward this year, in the cut of the data we are showing.
+## trajectory pairs each tile with its delta.
 
-1. $420M
-   - ARR
-   - +28% YoY `YoY +28%` `Investor`
-2. 94%
-   - Net dollar retention
-   - +3pp YoY `YoY +3pp` `Investor`
-3. 2,840
-   - Enterprise logos
-   - +540 net new `YoY +23%` `Board`
-4. $148K
-   - Average contract value
-   - +$22K vs FY25 `YoY +18%` `Board`
+1. +9%
+   - the delta leads
+   - vs plan `Up`
+2. 4
+   - tiles still rule
+   - per row `On plan`
+3. −2
+   - down is shown
+   - not spun `Honest`
 ```
 
-### `spotlight` — Spotlight — monumentalised hero metric
+### `spotlight` — spotlight
 
-Hero KPI gets a paragraph of body copy and a row of context pills; the supporting three render at normal weight underneath. Best for the headline slide of an investor update or earnings narrative.
+One tile earns double width.
 
 ```markdown
 <!-- _class: kpi spotlight -->
 
-`Headline · Q4 2026`
+`kpi spotlight`
 
-## The number behind the quarter, and the one in every headline slide.
+## spotlight gives one tile double width.
 
-1. $420M
-   - Annual recurring revenue
-   - First quarter past the $400M threshold; up 28% year-over-year and ahead of the FY26 plan by $18M, which is the figure we will quote until it stops flattering us.
-   - `Headline` `Board` `Investor`
-2. 94%
-   - Net dollar retention
-   - +3pp YoY `On plan`
-3. 2,840
-   - Enterprise logos
-   - +540 net new `On plan`
-4. $148K
-   - Average contract value
-   - +$22K vs prior year `On plan`
+1. 1
+   - tile promoted
+   - the headline `Spotlight`
+2. 2
+   - support tiles
+   - beside it `On plan`
+3. 0
+   - competing heroes
+   - one only `Rule`
 ```
 
 ## Universal modifiers

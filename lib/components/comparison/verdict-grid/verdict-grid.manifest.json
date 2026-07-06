@@ -1,19 +1,52 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "verdict-grid",
-  "families": ["state-markers"],
+  "families": [
+    "state-markers"
+  ],
   "function": "comparison",
   "form": "grid",
   "substance": "structure",
-  "capacity": { "axis": "item", "min": 2, "sweet": 3, "soft": 4, "hard": 5, "escalateTo": ["compare-table","split across slides"], "note": "the cards crowd and badges lose legibility past four" },
-  "density": { "axis": "item", "soft": 12, "hard": 18, "note": "a verdict card is a label plus its criteria, not prose" },
+  "capacity": {
+    "axis": "item",
+    "min": 2,
+    "sweet": 3,
+    "soft": 4,
+    "hard": 5,
+    "escalateTo": [
+      "compare-table",
+      "split across slides"
+    ],
+    "note": "the cards crowd and badges lose legibility past four"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 12,
+    "hard": 18,
+    "note": "a verdict card is a label plus its criteria, not prose"
+  },
   "adapt": {
     "mode": "reflow",
-    "families": ["wide", "square", "tall", "strip"],
-    "priority": ["title", "options"],
-    "keepTogether": ["option"]
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "title",
+      "options"
+    ],
+    "keepTogether": [
+      "option"
+    ]
   },
-  "tags": ["scorecard", "ranking", "prioritize", "assessment"],
+  "tags": [
+    "scorecard",
+    "ranking",
+    "prioritize",
+    "assessment"
+  ],
   "description": "Options scored against criteria as a verdict matrix.",
   "purpose": "Use to evaluate 2–4 options against the same set of criteria, with pass/partial/fail badges. Each card represents one option; badges per criterion.",
   "slots": {
@@ -35,7 +68,11 @@
   },
   "skeleton": "<!-- _class: verdict-grid -->\n\n## Which option meets the criteria.\n\n- **First option.**\n  - [x] First badge\n  - [-] Second badge\n  - [ ] Third badge\n  - One-line rationale giving the verdict for this option.\n- **Second option.**\n  - [x] First badge\n  - [x] Second badge\n  - [-] Third badge\n  - One-line rationale giving the verdict for this option.\n- **Third option.**\n  - [x] First badge\n  - [x] Second badge\n  - [x] Third badge\n  - One-line rationale; the last option is the focal verdict. Recommended.\n",
   "anatomyBlock": "verdict-grid",
-  "sample": "<!-- _class: verdict-grid -->\n\n## Which data platform clears the bar.\n\n- **Build in-house.**\n  - [ ] Certified\n  - [-] Residency\n  - [ ] Export\n  - Full control of every axis, and three engineer-quarters from having any of it.\n- **Vendor North.**\n  - [x] Certified\n  - [x] Residency\n  - [-] Export\n  - Certified and in-region, but data export is support-gated, not self-serve.\n- **Vendor West.**\n  - [x] Certified\n  - [x] Residency\n  - [x] Export\n  - Certified, in-region, and self-serve on every axis. Recommended.\n",
+  "sample": "<!-- _class: verdict-grid -->\n\n## The grid scores options against shared criteria.\n\n- **Option one.**\n  - [ ] Criterion\n  - [-] Criterion\n  - Why the checks land this way.\n- **Option two.**\n  - [x] Criterion\n  - [-] Criterion\n  - Same criteria, same order, always.\n- **Option three.**\n  - [x] Criterion\n  - [x] Criterion\n  - The sweep is the verdict. Recommended.\n",
+  "stressDoc": {
+    "caption": "Five options — the hard ceiling.",
+    "sample": "<!-- _class: verdict-grid -->\n\n## Five options is the verdict grid's ceiling.\n\n- **First.**\n  - [ ] Check\n  - [ ] Check\n  - Early cards set the criteria order.\n- **Second.**\n  - [-] Check\n  - [ ] Check\n  - Partial marks keep the grid honest.\n- **Third.**\n  - [x] Check\n  - [-] Check\n  - The middle card is read most carefully.\n- **Fourth.**\n  - [x] Check\n  - [x] Check\n  - Late cards inherit the reader's fatigue.\n- **Fifth.**\n  - [x] Check\n  - [x] Check\n  - The hard stop; six wants compare-table.\n"
+  },
   "whenToUse": [
     {
       "title": "Two to four options",
@@ -60,7 +97,7 @@
       "body": "Two options with shared criteria belong in `compare-prose` or `split-compare`. verdict-grid earns its layout at 3+ options."
     },
     {
-      "title": "Missing the rationale line",
+      "title": "No rationale line",
       "body": "Every option must end with a marker-less prose line — the verdict for that card. Omit it and the card renders empty below the badges, and the focal last card has nothing to recommend. The rationale is required, not optional."
     },
     {
@@ -73,11 +110,29 @@
     }
   ],
   "related": [
-    { "name": "compare-prose", "when": "exactly two options with prose bodies" },
-    { "name": "split-compare", "when": "two options with a bottom verdict bar" },
-    { "name": "obligation-matrix", "when": "many regimes scored on shared obligations in a table" },
-    { "name": "compare-table", "when": "cells are textual values, not state markers" },
-    { "name": "checklist", "when": "one set of criteria, not many options against them" }
+    {
+      "name": "compare-prose",
+      "when": "exactly two options with prose bodies"
+    },
+    {
+      "name": "split-compare",
+      "when": "two options with a bottom verdict bar"
+    },
+    {
+      "name": "obligation-matrix",
+      "when": "many regimes scored on shared obligations in a table"
+    },
+    {
+      "name": "compare-table",
+      "when": "cells are textual values, not state markers"
+    },
+    {
+      "name": "checklist",
+      "when": "one set of criteria, not many options against them"
+    }
   ],
-  "showcase": { "hero": true }
+  "showcase": {
+    "hero": true
+  },
+  "specimenVoice": true
 }

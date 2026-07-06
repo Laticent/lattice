@@ -43,14 +43,14 @@ One screen, one story — the fastest way to see the product work.
 
 ## Variants (component-specific)
 
-### `companion` — Companion — claim leads, the clip proves it
+### `companion` — companion
 
-A split: the claim + one lead line lead on the left, the poster proves it on the right (mirrors split-panel's companion). The narrative+proof layout. `qr` reveals a code beneath the poster.
+The player beside the claim it proves.
 
 ```markdown
 <!-- _class: video companion -->
 
-## Onboarding that sticks — watch a customer do it live.
+## companion seats the player beside its pitch.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
@@ -59,28 +59,28 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 - video-poster.svg `poster`
 ```
 
-### `gallery` — Gallery — a contained, matted exhibit
+### `gallery` — gallery
 
-The still CONTAINED on a matte (zero-crop, letterboxed) with a placard caption below — for a diagram-ish or vertical clip where the whole frame matters. `qr` adds a code beside the placard.
+A contained, matted exhibit.
 
 ```markdown
 <!-- _class: video gallery -->
 
-## Exhibit 1 — the onboarding flow, end to end.
+## gallery mats the player like an exhibit.
 
 - https://vimeo.com/1084537
 - The reference onboarding walkthrough, contained on its matte. `caption`
 - video-poster.svg `poster`
 ```
 
-### `qr` — qr — add a scannable code (a modifier, combine with any composition)
+### `qr` — qr
 
-An OPT-IN modifier, not a composition. Add `qr` to either composition (`video companion qr`, `video gallery qr`) and a scannable QR to the clip appears; without it the poster is a plain link + provider label. Reuses the palette-blind QR engine.
+Adds a scannable code; combines with any look.
 
 ```markdown
 <!-- _class: video companion qr -->
 
-## Scan to watch the walkthrough.
+## qr hands the video to the room’s phones.
 
 The full 90-second tour — scan to open it on your phone.
 

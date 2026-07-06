@@ -4,7 +4,12 @@
   "function": "comparison",
   "form": "split",
   "substance": "structure",
-  "density": { "axis": "item", "soft": 20, "hard": 32, "note": "each side's case in a sentence or two" },
+  "density": {
+    "axis": "item",
+    "soft": 20,
+    "hard": 32,
+    "note": "each side's case in a sentence or two"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -64,7 +69,11 @@
   },
   "skeleton": "<!-- _class: compare-prose -->\n\n## Heading framing the comparison.\n\n- First option\n  - Two-sentence description of the first option, including the strongest argument for it.\n- Second option\n  - Two-sentence description of the second option, including the strongest argument for it.\n",
   "anatomyBlock": "T11-comparison",
-  "sample": "<!-- _class: compare-prose -->\n\n## Renew at list price, or hold the discount.\n\n- Hold the published rate\n  - Protect the list price and signal pricing discipline to the rest of the base. Risks four at-risk accounts worth $2.1M ARR walking at renewal.\n- Extend the legacy discount\n  - Keep the four accounts by carrying their 2023 pricing one more year. Buys retention now, but the discount has already leaked to two prospects in the same segment.\n",
+  "sample": "<!-- _class: compare-prose -->\n\n## Two options, equal footing, corner tags.\n\n- The left option\n  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.\n- The right option\n  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.\n",
+  "stressDoc": {
+    "caption": "Both panes at the ceiling.",
+    "sample": "<!-- _class: compare-prose vertical -->\n\n## Two full cases is the most this pair holds.\n\n- The stressed top pane\n  - A case at the hard budget runs about this long: two full sentences that state the option, its strongest argument, and the cost it accepts — and then stops.\n- The stressed bottom pane\n  - Symmetry matters most at the ceiling; when one pane runs half the other's length, the slide reads as a verdict the author did not intend to give.\n"
+  },
   "whenToUse": [
     {
       "title": "Two prose alternatives",
@@ -113,39 +122,40 @@
   ],
   "variantDocs": {
     "transition": {
-      "label": "Transition — before/after state change",
-      "caption": "The state-change reading: an arrow connector and an accent ring on the second (\"after\") card. Write Before / After (or any prior → new pair) as the two labels. Reads as a story, not a debate. Absorbed the standalone `before-after` component on 2026-06-07.",
-      "sample": "<!-- _class: compare-prose transition -->\n\n## What writing decisions down actually changed.\n\n- Before\n  - Decisions lived in the room they were made in. Six months on, nobody could say why we killed the project — only that someone senior had felt strongly.\n- After\n  - Every decision is logged with its signals, its options, and the bet it made. We still relitigate, but now there is a record showing we already decided this in March.\n"
+      "label": "transition",
+      "caption": "Left reads as before, right as after.",
+      "sample": "<!-- _class: compare-prose transition -->\n\n## transition reads left as before, right as after.\n\n- Before\n  - The arrow between the panes turns comparison into change over time.\n- After\n  - Use it for state changes, not preferences — the arrow implies causation.\n"
     },
     "mirror": {
-      "label": "Mirror — swap left and right",
-      "caption": "Flips the two cards left-to-right. Use when the deck's visual rhythm or the natural reading order wants the second option on the left.",
-      "sample": "<!-- _class: compare-prose mirror -->\n\n## Same comparison, columns swapped.\n\n- First option\n  - Now rendered on the right, second in the reading order. Useful when the natural argument flow wants the alternative considered before the lead.\n- Second option\n  - Now rendered on the left. Pair with `chosen` to mark the swapped position as the verdict.\n"
+      "label": "mirror",
+      "caption": "Swaps the reading order.",
+      "sample": "<!-- _class: compare-prose mirror -->\n\n## mirror swaps the reading order.\n\n- Second option\n  - mirror renders this pane first — for when the deck's rhythm lands on the left.\n- First option\n  - Same anatomy, flipped; the corner tags travel with their panes.\n"
     },
     "chosen": {
-      "label": "Chosen — second card is the winner",
-      "caption": "Marks the right card as the verdict with an accent left edge and tinted background. The post-processor always emits left-then-right; put the considered option first and the choice second.",
-      "sample": "<!-- _class: compare-prose chosen -->\n\n## The right card is the verdict.\n\n- Build in-house\n  - Full control of the schema and roadmap, but 2–3 engineer-quarters before feature parity. Maintenance burden stays internal.\n- Buy + configure\n  - Ships in 6 weeks, not 9 months. Engineering capacity redirects to product-layer features; exit risk is manageable via contractual data export.\n"
+      "label": "chosen",
+      "caption": "Crowns the right pane the winner.",
+      "sample": "<!-- _class: compare-prose chosen -->\n\n## chosen crowns the right pane the winner.\n\n- The road not taken\n  - The losing option keeps its full case — an honest comparison shows real strength.\n- The verdict\n  - The accent treatment marks this pane as the pick; pair with a reason, not a repeat.\n"
     },
     "decision": {
-      "label": "Decision — left rejected, right chosen, connector labelled",
-      "caption": "The full editorial composition: left card de-emphasised (struck title + muted body), right card emphasised, the connector amplified and labelled DECISION. The most common variant in real decks.",
-      "sample": "<!-- _class: compare-prose decision -->\n\n## Build vs buy — decided.\n\n- Build in-house\n  - Full control of the schema and roadmap, but 2–3 engineer-quarters before feature parity. Maintenance burden stays internal.\n- Buy + configure\n  - Ships in 6 weeks, not 9 months. Engineering capacity redirects to product-layer features; exit risk is manageable via contractual data export.\n"
+      "label": "decision",
+      "caption": "Stamps the verdict banner across the pair.",
+      "sample": "<!-- _class: compare-prose decision -->\n\n## decision stamps the verdict banner across the pair.\n\n- Option one\n  - Both panes stay equal; the banner above carries the call.\n- Option two\n  - Use when the decision is made and the slide is the record.\n"
     },
     "vertical": {
-      "label": "Vertical — stack cards top-to-bottom",
-      "caption": "Stacks the two cards vertically and rotates the connector 90°. Use for long-body comparisons where the side-by-side format would crowd the prose.",
-      "sample": "<!-- _class: compare-prose vertical -->\n\n## Long-body options stacked for room.\n\n- Build in-house\n  - Full control over the schema and the roadmap, with 2–3 engineer-quarters before feature parity. Ongoing maintenance burden stays internal; the team owns every escalation, every migration, every breaking change. Worth it when the data model is the differentiation; expensive when it isn't.\n- Buy + configure\n  - Ships in 6 weeks rather than 9 months, with engineering capacity redirecting to product-layer features the customer actually pays for. Exit risk is bounded by contractual data export; switching cost is a known number rather than a moving target. The right call when the data layer is plumbing rather than differentiation.\n"
+      "label": "vertical",
+      "caption": "Stacks the panes for longer cases.",
+      "sample": "<!-- _class: compare-prose vertical -->\n\n## vertical stacks the panes for longer cases.\n\n- The top option\n  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.\n- The bottom option\n  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.\n"
     },
     "banner-tag": {
-      "label": "Banner tag — slot label as full-width header strip",
-      "caption": "Flips each card from a flush-corner label tag into a full-width header strip. Use when the slot label is the architectural signal of the card (categorical case: BUILD / WHY NOT BUY / WHY NOT DELAY), not a quiet marker.",
-      "sample": "<!-- _class: compare-prose banner-tag -->\n\n## Three reasons we are building.\n\n- BUILD\n  - The platform is the product. Owning it owns the roadmap.\n- WHY NOT BUY\n  - No vendor matches our compliance posture without surrender of control.\n- WHY NOT DELAY\n  - Cost of waiting compounds: each quarter spent on workarounds is one fewer quarter on the platform.\n"
+      "label": "banner-tag",
+      "caption": "Corner tags become banners.",
+      "sample": "<!-- _class: compare-prose banner-tag -->\n\n## banner-tag fills the corner tags at banner weight.\n\n- OPTION A\n  - The tag takes the accent fill and full contrast.\n- OPTION B\n  - Use for short, loud labels — verdicts, camps, teams.\n"
     },
     "rejected": {
       "label": "Rejected",
-      "caption": "Strikes the second option's title and dims its card — the inverse of `chosen`. Use when the slide's job is to record the path NOT taken and why.",
-      "sample": "<!-- _class: compare-prose rejected -->\n\n## We went with managed Postgres, not the self-hosted cluster.\n\n- Managed Postgres\n  - Higher monthly spend, but zero on-call burden and automatic failover. The team ships features instead of babysitting replication.\n- Self-hosted cluster\n  - Cheaper raw compute, but the operational tax — patching, backups, 3am pages — falls on a four-person team that can't absorb it.\n"
+      "caption": "Strikes the losing pane.",
+      "sample": "<!-- _class: compare-prose rejected -->\n\n## rejected strikes the losing pane.\n\n- The pick\n  - The surviving option reads at full strength.\n- The rejected pane\n  - Dimmed and struck — the record of what was considered and declined.\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

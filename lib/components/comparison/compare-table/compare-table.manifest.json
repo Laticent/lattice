@@ -1,16 +1,56 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "compare-table",
-  "adapt": { "mode": "reflow", "priority": ["title", "table"], "keepTogether": ["row"] },
-  "focusAxes": ["row", "col", "cell"],
-  "capacity": { "axis": "row", "min": 2, "sweet": 4, "soft": 6, "hard": 8, "escalateTo": ["split across slides"], "note": "the table density crowds past six rows" },
-  "density": { "axis": "row", "soft": 12, "hard": 18, "note": "a few words per cell" },
-  "split": { "strategy": "cover-cards", "axis": "row", "perPage": 3, "intro": "The full comparison", "note": "In a PORTRAIT box a wide read-across table can't paginate out of HORIZONTAL overflow, so it RESHAPES: each row becomes a card (column headers → in-card labels), then the cards cover-paginate (accent cover → card pages). Landscape renders the native table. lib/core/carousel.js cover-cards; engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md." },
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "table"
+    ],
+    "keepTogether": [
+      "row"
+    ]
+  },
+  "focusAxes": [
+    "row",
+    "col",
+    "cell"
+  ],
+  "capacity": {
+    "axis": "row",
+    "min": 2,
+    "sweet": 4,
+    "soft": 6,
+    "hard": 8,
+    "escalateTo": [
+      "split across slides"
+    ],
+    "note": "the table density crowds past six rows"
+  },
+  "density": {
+    "axis": "row",
+    "soft": 12,
+    "hard": 18,
+    "note": "a few words per cell"
+  },
+  "split": {
+    "strategy": "cover-cards",
+    "axis": "row",
+    "perPage": 3,
+    "intro": "The full comparison",
+    "note": "In a PORTRAIT box a wide read-across table can't paginate out of HORIZONTAL overflow, so it RESHAPES: each row becomes a card (column headers → in-card labels), then the cards cover-paginate (accent cover → card pages). Landscape renders the native table. lib/core/carousel.js cover-cards; engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md."
+  },
   "function": "comparison",
   "form": "ledger",
   "substance": "prose",
-  "excludes": ["claim-bleed"],
-  "tags": ["tradeoff", "ranking", "assessment"],
+  "excludes": [
+    "claim-bleed"
+  ],
+  "tags": [
+    "tradeoff",
+    "ranking",
+    "assessment"
+  ],
   "description": "Multi-row comparison table with consistent columns.",
   "purpose": "Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-prose can hold legibly.",
   "slots": {
@@ -27,7 +67,11 @@
   },
   "skeleton": "<!-- _class: compare-table -->\n\n## Heading framing the comparison.\n\n| Criterion | Option A | Option B | Option C |\n| --- | --- | --- | --- |\n| First criterion | Value | Value | Value |\n| Second criterion | Value | Value | Value |\n| Third criterion | Value | Value | Value |\n",
   "anatomyBlock": "T22-compare-table",
-  "sample": "<!-- _class: compare-table -->\n\n## How the three planning rituals compare.\n\n| Ritual | Cadence | Output | Read after the meeting |\n| --- | --- | --- | --- |\n| Strategy offsite | Yearly | An 80-slide deck | The title slide |\n| Quarterly business review | Quarterly | A scorecard | The red cells |\n| Weekly signal review | Weekly | A decision-log entry | Whoever wrote it |\n",
+  "sample": "<!-- _class: compare-table -->\n\n## The table compares rows on consistent columns.\n\n| Row | Holds | Budget |\n| --- | --- | --- |\n| A label | One cell per column | Twelve words |\n| Every row | The same column set | Twelve words |\n| Six rows | The comfortable page | Twelve words |\n",
+  "stressDoc": {
+    "caption": "Eight rows — the hard ceiling.",
+    "sample": "<!-- _class: compare-table -->\n\n## Eight rows is the table's hard ceiling.\n\n| Row | Reads | At the ceiling |\n| --- | --- | --- |\n| One | First | Fresh attention |\n| Two | Fast | Keep cells short |\n| Three | Steady | Parallel phrasing |\n| Four | Mid-page | The pivot row |\n| Five | Slower | Trim adjectives |\n| Six | The soft mark | Past comfort |\n| Seven | Strained | Nearly done |\n| Eight | Last | The hard stop |\n"
+  },
   "whenToUse": [
     {
       "title": "Wider than compare-prose",
@@ -49,7 +93,7 @@
     },
     {
       "title": "More than 6 rows",
-      "body": "Past 6 rows the table density crowds the slide. Split into two slides or summarise the rows that don't differentiate."
+      "body": "Past 6 rows the table density crowds the slide. Split into two slides or summarize the rows that don't differentiate."
     },
     {
       "title": "State-marker rows",
@@ -57,9 +101,22 @@
     }
   ],
   "related": [
-    { "name": "compare-prose", "when": "exactly two options with prose bodies" },
-    { "name": "verdict-grid", "when": "options scored against criteria with pass/partial/fail badges" },
-    { "name": "obligation-matrix", "when": "many regimes compared against shared obligations" },
-    { "name": "cards-stack", "when": "each row needs full-prose breathing room rather than a tabular cell" }
-  ]
+    {
+      "name": "compare-prose",
+      "when": "exactly two options with prose bodies"
+    },
+    {
+      "name": "verdict-grid",
+      "when": "options scored against criteria with pass/partial/fail badges"
+    },
+    {
+      "name": "obligation-matrix",
+      "when": "many regimes compared against shared obligations"
+    },
+    {
+      "name": "cards-stack",
+      "when": "each row needs full-prose breathing room rather than a tabular cell"
+    }
+  ],
+  "specimenVoice": true
 }
