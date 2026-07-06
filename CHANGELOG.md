@@ -53,6 +53,42 @@ in patch versions.
   blank skeleton button is gone — the Playground carries no authoring
   scaffold. Covered by 18 kernel unit tests and a six-scenario Playwright
   spec run at desktop and phone widths against the built site.
+### Added
+
+- **Vetrina — the self-driving walkthrough library (`docs/src/lib/vetrina/`).**
+  The Studio's "Watch demo" is now a general, open-sourceable engine: a
+  framework-free fake-cursor "stage" that narrates and drives a host app through
+  the host's OWN setters — never synthetic input, so the first real click/keystroke
+  is an unambiguous take-over. Three authoring layers over one total primitive
+  (`run(ctx)`): a declarative `Step[]` `storyboard()`, a fluent `scene()` recorder
+  (`build()` ≡ `storyboard(seed, toData())`, so they're provably isomorphic), and
+  the raw `Walkthrough`. A curated five-gesture alphabet (wave / circle / check /
+  cross / shake, each a required *meaning*), a `drag` mechanic with a
+  success-gated drop (a rejected move snaps back — the theater never shows what
+  didn't happen), a cooperative `awaitUser` hand-off, and first-party
+  `waitFor` / `loop` / `retry` recipes. **Theming is CSS-first:** a documented
+  `--vt-*` token contract a host styles on its own `:root` (light/dark rides the
+  host's existing cascade — no engine mode-switch), with a JS `Theme` convenience
+  over it; accent colors are validated to a legibility floor and reject
+  `url()` / `image()` / control chars. Drive it from React through the thin
+  `useWalkthrough` peer-dep adapter (`vetrina/react`); the framework-free core
+  stays zero-dependency. The Studio demo is migrated onto it (via that adapter)
+  with identical behavior. Proven on the real browser (HARD RULE #23) by an
+  exemplar/stress e2e battery — a buildless non-slide `awaitUser` reference tour
+  and a generic-host board (gestures, drag success/rejection, CSS-first theming
+  across light/dark, accent rejection, root-scoping, interleave + take-over) —
+  plus a unit tier and two ownership gates (an import-boundary gate keeping the
+  core self-contained, and a `SANCTIONED_GESTURES` gate freezing the alphabet).
+  Two fixes fell out of the proof: the stage's `--vt-*` defaults now live in a
+  low `@layer` on `:root` instead of inline on the overlay, so a host's own
+  `:root` theming actually wins (the documented CSS-first contract); and the
+  overlay is no longer `aria-hidden` wholesale, so the Exit button reaches the
+  accessibility tree and the narration caption is a polite live region. The
+  demo chrome is a single consolidated **narration dock** — one pill carrying the
+  live-dot, the narration (falling back to the take-over hint when idle), and Exit
+  — replacing the earlier top-strip + bottom-caption pair; its edge is a curated
+  `placement: 'top' | 'bottom'`, its corner shape the `--vt-caption-radius` token,
+  and its background is translucent so the deck shows through.
 
 ### Changed
 

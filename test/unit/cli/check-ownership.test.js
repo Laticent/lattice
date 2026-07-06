@@ -52,6 +52,11 @@ const {
   SANITIZE_CALL,
   checkDensityCoverage,
   SANCTIONED_DENSITY_EXEMPT,
+  checkVetrinaBoundary,
+  checkSanctionedGestures,
+  SANCTIONED_GESTURES,
+  VETRINA_DIR,
+  VETRINA_IMPORT,
   run,
 } = require('../../../tools/check-ownership');
 const { loadAll } = require('../../../lib/components');
@@ -449,6 +454,81 @@ describe('check-ownership', () => {
       const errors = [];
       checkDensityCoverage(mutated, errors);
       assert.ok(errors.some((e) => new RegExp(`'${exemptName}', but it now HAS a density block`).test(e)));
+    });
+  });
+
+  // The Vetrina walkthrough library's two structural antibodies
+  // (engineering/decisions/2026-07-05-vetrina-walkthrough-library.md §13, §6.1).
+  describe('Vetrina import-boundary gate (§13 — open-sourceable, zero host deps)', () => {
+    const scan = (src) => [...src.matchAll(new RegExp(VETRINA_IMPORT.source, 'g'))].map((m) => m[1]);
+
+    test('the live tree is clean — the core imports nothing outside the folder', () => {
+      const errors = [];
+      checkVetrinaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('every core (non-test) file imports only in-folder `./` specifiers', () => {
+      for (const file of listSourceFiles(VETRINA_DIR)) {
+        if (/\.test\.[tj]s$/.test(file)) continue;
+        if (path.basename(file) === 'react.ts') continue; // the sanctioned peer-dep adapter
+        for (const spec of scan(fs.readFileSync(file, 'utf8'))) {
+          assert.ok(spec.startsWith('./') || spec.startsWith('node:'), `${path.relative(VETRINA_DIR, file)} imports '${spec}' — must be in-folder`);
+        }
+      }
+    });
+
+    test('the gate bites: a `../` host escape is a non-`./` specifier', () => {
+      const specs = scan("import { foo } from '../../lib/host';\nimport { bar } from './stage';");
+      assert.ok(specs.includes('../../lib/host'), 'the escape is detected');
+      assert.ok(!'../../lib/host'.startsWith('./'), 'and would fail the in-folder rule');
+      assert.ok('./stage'.startsWith('./'), 'the in-folder import passes');
+    });
+
+    test('the gate bites: a bare npm specifier (e.g. lodash) is caught', () => {
+      const specs = scan("import _ from 'lodash';");
+      assert.deepEqual(specs, ['lodash']);
+      assert.ok(!'lodash'.startsWith('./') && !'lodash'.startsWith('node:'), 'bare dep would fail');
+    });
+  });
+
+  describe('SANCTIONED_GESTURES gate (§6.1 — the frozen alphabet)', () => {
+    const stageSrc = () => fs.readFileSync(path.join(VETRINA_DIR, 'stage.ts'), 'utf8');
+    const declaredGestures = (src) => {
+      const decl = src.match(/export\s+type\s+Gesture\s*=\s*([^;]+);/);
+      return new Set((decl[1].match(/'([a-z]+)'/g) || []).map((s) => s.replace(/'/g, '')));
+    };
+
+    test('the live tree is clean — the Gesture union matches the registry exactly', () => {
+      const errors = [];
+      checkSanctionedGestures(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('the alphabet is frozen at five, each carrying a meaning', () => {
+      const keys = Object.keys(SANCTIONED_GESTURES);
+      assert.equal(keys.length, 5, 'exactly five gestures');
+      assert.deepEqual(keys.sort(), ['check', 'circle', 'cross', 'shake', 'wave']);
+      for (const [g, meaning] of Object.entries(SANCTIONED_GESTURES)) {
+        assert.ok(typeof meaning === 'string' && meaning.length > 0, `${g} declares a meaning`);
+      }
+    });
+
+    test('the registry and the stage.ts union are isomorphic', () => {
+      assert.deepEqual(declaredGestures(stageSrc()), new Set(Object.keys(SANCTIONED_GESTURES)));
+    });
+
+    test('the gate bites: a new unsanctioned member (spin) in the union is flagged', () => {
+      const declared = declaredGestures("export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake' | 'spin';");
+      const sanctioned = new Set(Object.keys(SANCTIONED_GESTURES));
+      const orphans = [...declared].filter((g) => !sanctioned.has(g));
+      assert.deepEqual(orphans, ['spin'], 'spin has no sanctioned meaning → gate flags it');
+    });
+
+    test('the gate bites: a stale registry entry the union dropped is flagged', () => {
+      const declared = declaredGestures("export type Gesture = 'wave' | 'circle' | 'check' | 'cross';"); // shake removed
+      const stale = Object.keys(SANCTIONED_GESTURES).filter((g) => !declared.has(g));
+      assert.deepEqual(stale, ['shake'], 'the registry keeps shake the type no longer declares → gate flags it');
     });
   });
 });

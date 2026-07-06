@@ -11,7 +11,7 @@ import { expect, gotoStudio, railButtons, readStorage, test, toastText } from '.
 // share → polish → present) at ~85s, so the completion test needs generous headroom.
 test.describe.configure({ timeout: 180_000 });
 
-const STAGE = '.studio-demo-stage';
+const STAGE = '.vetrina-stage';
 const WATCH = 'button[aria-label="Watch demo"]';
 const FIRST_DECK = 'My First Deck';
 
@@ -33,9 +33,10 @@ test('the demo builds a board deck and completes — leaving "My First Deck" beh
 	expect(await firstDeckCount(page)).toBe(0); // fresh context — no deck yet
 
 	await page.locator(WATCH).click();
-	// The stage mounts and the Watch-demo button hides while it runs.
+	// The stage mounts and the Watch-demo button hides while it runs (rendered `invisible`,
+	// so it stays in the DOM — assert hidden, not removed).
 	await expect(page.locator(STAGE)).toBeVisible();
-	await expect(page.locator(WATCH)).toHaveCount(0);
+	await expect(page.locator(WATCH)).toBeHidden();
 
 	// It drives: the storyboard mints "My First Deck" and types a 6-slide board deck into it.
 	await expect.poll(() => railButtons(page).count(), { timeout: 70_000 }).toBe(6);

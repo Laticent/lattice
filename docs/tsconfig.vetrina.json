@@ -1,0 +1,18 @@
+{
+  "//": "Isolated STANDALONE typecheck for the Vetrina library (design doc §13). It compiles ONLY the framework-free core with DOM libs and `types: []` — no repo tsconfig, no @types/node, no React. If the core ever grows a dependency on the host, or on a non-DOM ambient type, this fails: the mechanical proof that Vetrina is publishable as-is. Run: `npm run check:vetrina`. The import-boundary gate (tools/check-ownership.js) guards runtime imports; this guards the type surface.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "types": [],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "//exclude": "react.ts is the peer-dep adapter (imports react) — NOT part of the zero-dep core, so it's excluded from the standalone (types:[]) typecheck. The full docs `typecheck` covers it against @types/react.",
+  "include": ["src/lib/vetrina/**/*.ts"],
+  "exclude": ["src/lib/vetrina/**/*.test.ts", "src/lib/vetrina/react.ts"]
+}

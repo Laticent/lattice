@@ -1,14 +1,15 @@
 import * as React from 'react';
-import { type DemoActions, runStoryboard } from './demo-director';
-import { createDemoStage, isAbortError } from './demo-stage';
-import { studioWalkthrough } from './demo-storyboard';
+import type { StopReason, TypeOps } from '../../lib/vetrina';
+import { useWalkthrough } from '../../lib/vetrina/react';
+import { type StudioActions, studioWalkthrough } from './demo-storyboard';
 
-// useStudioDemo — the seam that lets a framework-free director drive the live
-// Studio. StudioShell has no ref/context (all state is closure-local), so the demo
-// is BORN HERE, inside the component, closing over the real setters. The hook owns
-// the run lifecycle: snapshot the viewer's deck, mount the stage, play the
-// storyboard, and — on completion, Exit, OR the first real click/keystroke
-// ("take over") — tear the stage down and restore exactly what was on screen.
+// useStudioDemo — the seam that lets the framework-free Vetrina engine drive the live
+// Studio. StudioShell has no ref/context (all state is closure-local), so the demo is
+// BORN HERE, inside the component, closing over the real setters. The generic run
+// lifecycle (single-flight start/stop, active state, unmount teardown) lives in Vetrina's
+// shared `useWalkthrough` React adapter; this hook is the Studio-SPECIFIC configuration it
+// drives — snapshot the global flourishes, clear the shell, bind the setters, and restore
+// the flourishes on stop (completion, Exit, OR the first real click/keystroke: "take over").
 
 /** The Studio setters the demo drives (each already bound to real state). */
 export type StudioDemoBindings = {
@@ -51,43 +52,22 @@ export type StudioDemo = {
 	stopDemo: () => void;
 };
 
-export function useStudioDemo(
-	rootRef: React.RefObject<HTMLElement | null>,
-	bindings: StudioDemoBindings,
-): StudioDemo {
-	const [demoActive, setDemoActive] = React.useState(false);
-	// Keep the latest bindings in a ref so the run loop never closes over stale
-	// setters, and startDemo/stopDemo stay stable (no re-subscribe churn).
+export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bindings: StudioDemoBindings): StudioDemo {
+	// Keep the latest bindings in a ref so the run loop never closes over stale setters,
+	// and start/stop stay stable (no re-subscribe churn).
 	const bindRef = React.useRef(bindings);
 	bindRef.current = bindings;
-	// Live run handle: the abort controller, the mounted stage, the take-over
-	// listeners, and the snapshot to restore. Null when no demo is running.
-	const runRef = React.useRef<{
-		controller: AbortController;
-		stop: (reason: 'complete' | 'takeover' | 'exit') => void;
-	} | null>(null);
 
-	const stopDemo = React.useCallback(() => {
-		runRef.current?.stop('exit');
-	}, []);
-
-	const startDemo = React.useCallback(() => {
-		if (runRef.current) return; // already running
-		const root = rootRef.current;
-		if (!root) return;
+	// The generic run lifecycle (single-flight start, stop, active state, unmount teardown)
+	// lives in the shared `useWalkthrough` adapter. This hook supplies only the Studio-specific
+	// configuration — snapshot the global look, clear the shell, bind the setters — at start().
+	const demo = useWalkthrough<StudioActions>(rootRef, () => {
 		const b = bindRef.current;
 
-		// Snapshot only the GLOBAL look the demo flourishes with — palette (from state,
-		// so a saved theme keeps its name) and mode (from the DOM, a settled read). The
-		// deck itself is NOT snapshotted: the demo builds a real, persisted "My First
-		// Deck" and leaves it behind, so there's nothing to restore there.
-		const snap = {
-			palette: b.palette,
-			mode: document.documentElement.dataset.mode || 'light',
-		};
-
-		const controller = new AbortController();
-		let stopped = false;
+		// Snapshot only the GLOBAL look the demo flourishes with — palette (from state, so
+		// a saved theme keeps its name) and mode (from the DOM, a settled read). The deck
+		// itself is NOT snapshotted: the demo builds a real, persisted "My First Deck".
+		const snap = { palette: b.palette, mode: document.documentElement.dataset.mode || 'light' };
 
 		// Clear the shell to a clean compose canvas before the cursor appears.
 		b.setCmdOpen(false);
@@ -100,55 +80,12 @@ export function useStudioDemo(
 		b.setInspectorOpen(false);
 		b.setActiveSlide(0);
 
-		const stage = createDemoStage(root, () => runRef.current?.stop('exit'));
-
-		// Any REAL pointer/keydown that isn't on the demo chrome = the viewer taking
-		// over. Capture phase so we see it before the Studio does; the click still
-		// falls through to the control the viewer aimed at.
-		const onUserInput = (e: Event) => {
-			if (stage.contains(e.target)) return;
-			runRef.current?.stop('takeover');
-		};
-
-		const stop = (reason: 'complete' | 'takeover' | 'exit') => {
-			if (stopped) return;
-			stopped = true;
-			controller.abort();
-			window.removeEventListener('pointerdown', onUserInput, true);
-			window.removeEventListener('keydown', onUserInput, true);
-			stage.destroy();
-			runRef.current = null;
-			setDemoActive(false);
-
-			const cur = bindRef.current;
-			// The deck is NOT restored: the demo built a real, persisted "My First Deck"
-			// and the newcomer keeps it. Only the GLOBAL flourishes are undone — close any
-			// stage the demo left open, and put the palette + mode back the way we found
-			// them (the demo reskins to cuoio and flips mode purely for show). Take-over,
-			// Escape, and natural completion all route here; the reason only picks the toast.
-			cur.setPresentOpen(false);
-			cur.setShareOpen(false);
-			cur.setInspectorOpen(false);
-			cur.setDeckMenuOpen(false);
-			cur.applyPalette(snap.palette);
-			if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
-			cur.notify(reason === 'complete' ? 'Demo complete — “My First Deck” is yours to edit.' : 'Demo ended — “My First Deck” is yours to edit.');
-		};
-
-		runRef.current = { controller, stop };
-		setDemoActive(true);
-		window.addEventListener('pointerdown', onUserInput, true);
-		window.addEventListener('keydown', onUserInput, true);
-
-		// The action bag: every step's `act` pokes a live setter through this ref, so
-		// a long-running demo always drives the freshest state.
-		const actions: DemoActions = {
-			setSource: (s) => bindRef.current.setSource(s),
-			typeTail: (t) => bindRef.current.typeTail(t),
+		// The action bag: every step's `act` pokes a live setter through the ref, so a
+		// long-running demo always drives the freshest state.
+		const actions: StudioActions = {
+			openDeckMenu: (o) => bindRef.current.setDeckMenuOpen(o),
+			createFirstDeck: () => bindRef.current.createFirstDeck(),
 			gotoSlide: (i) => bindRef.current.goToSlide(i),
-			setView: (v) => bindRef.current.setView(v),
-			openArchitect: (o) => bindRef.current.setArchitectOpen(o),
-			setArchitectTab: (t) => bindRef.current.setArchitectTab(t),
 			// The reskin beat is deck-wide — point the real Inspector at deck scope.
 			openInspector: (o) => {
 				if (o) bindRef.current.setInspectorScope('deck');
@@ -156,6 +93,8 @@ export function useStudioDemo(
 			},
 			setPalette: (n) => bindRef.current.applyPalette(n),
 			toggleMode: () => bindRef.current.toggleMode(),
+			openArchitect: (o) => bindRef.current.setArchitectOpen(o),
+			setArchitectTab: (t) => bindRef.current.setArchitectTab(t),
 			openPresent: (o) => bindRef.current.setPresentOpen(o),
 			openShare: (o) => bindRef.current.setShareOpen(o),
 			// "Every slide has its own controls" — the SAME right-hand panel the author
@@ -164,23 +103,41 @@ export function useStudioDemo(
 				if (o) bindRef.current.setInspectorScope('slide');
 				bindRef.current.setInspectorOpen(o);
 			},
-			openDeckMenu: (o) => bindRef.current.setDeckMenuOpen(o),
-			createFirstDeck: () => bindRef.current.createFirstDeck(),
 			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),
-			notify: (m) => bindRef.current.notify(m),
-			fixAll: () => bindRef.current.fixAll(),
 		};
 
-		runStoryboard(stage, actions, studioWalkthrough, controller.signal)
-			.then(() => stop('complete'))
-			.catch((err) => {
-				if (isAbortError(err)) return; // stop() already ran (takeover / exit)
-				stop('exit');
-			});
-	}, [rootRef]);
+		// Typing lands natively in the editor (append per keystroke run; set for the
+		// reduced-motion / large-insert path). The diff baseline is run-scoped in Vetrina.
+		const type: TypeOps = {
+			set: (t) => bindRef.current.setSource(t),
+			append: (t) => bindRef.current.typeTail(t),
+		};
 
-	// Safety net: tear down if the Studio unmounts mid-demo.
-	React.useEffect(() => () => runRef.current?.stop('exit'), []);
+		return {
+			actions,
+			play: studioWalkthrough,
+			type,
+			takeover: { scope: 'window' },
+			// The cursor + cues track the live app accent (recolor on the reskin beat),
+			// falling back to the house blue — exactly as the old stage did.
+			theme: { accent: 'var(--accent, #2b6ef2)' },
+			onStop: (reason: StopReason) => {
+				const cur = bindRef.current;
+				// The deck is NOT restored (the newcomer keeps "My First Deck"). Only the
+				// global flourishes are undone — close any stage the demo left open, and put
+				// the palette + mode back the way we found them (the demo reskins to cuoio and
+				// flips mode purely for show). Every terminal path routes here; the reason
+				// only picks the toast. Runs AFTER teardown (I7); the hook resets `active`.
+				cur.setPresentOpen(false);
+				cur.setShareOpen(false);
+				cur.setInspectorOpen(false);
+				cur.setDeckMenuOpen(false);
+				cur.applyPalette(snap.palette);
+				if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
+				cur.notify(reason === 'complete' ? 'Demo complete — “My First Deck” is yours to edit.' : 'Demo ended — “My First Deck” is yours to edit.');
+			},
+		};
+	});
 
-	return { demoActive, startDemo, stopDemo };
+	return { demoActive: demo.active, startDemo: demo.start, stopDemo: demo.stop };
 }
