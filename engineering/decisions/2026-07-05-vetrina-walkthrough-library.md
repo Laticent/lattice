@@ -193,6 +193,8 @@ interface Stage {
   say(text: string): void;              // caption; textContent only; '' CLEARS, undefined LEAVES it
   point(target: Target): Promise<void>; // anticipation cue -> (register beat) -> eased glide
   press(): Promise<void>;               // click burst at the cursor (theater; pair with act)
+  drag(from: Target, to: Target): Promise<void>; // demonstrate a move/reorder: glide to `from`,
+                                        // pick-up, glide to `to`, release (theater; real move via act)
   // GESTURES — expressive choreography that carries MEANING (pure theater; never actuates)
   gesture(kind: Gesture, target?: Target): Promise<void>;
   intro(): Promise<void>;               // opening flourish = cursor materializes + gesture('wave')
@@ -246,6 +248,13 @@ The rules that keep it an alphabet, not a sticker pack:
 - Pace follows the `speed` preset (no per-gesture dials); reduced motion collapses a gesture to an
   instant cue or skips it. `intro` = materialize + `gesture('wave')`; `circle:`/`.circle()` in the data
   model & builder (§10) are sugar for `gesture('circle', target)`, so the Studio demo migrates unchanged.
+
+**`drag(from, to)` is a MECHANIC, not a gesture** — it *demonstrates a UI operation* (a move/reorder)
+rather than conveying a meaning, and it takes **two** targets, so it sits with `point`/`press`, outside
+the expressive alphabet. Like every mechanic it is pure theater (I1): the cursor shows the pick-up →
+glide → release; the **real** move flows through the paired `act`, so a taken-over run never actually
+drags. A null `from`/`to` is a no-op (as with `point`). It was the one genuine capability gap the
+alphabet couldn't cover; `nod`/`pulse`/`underline` remain *unbuilt* until a consumer needs the meaning.
 
 ---
 
@@ -396,6 +405,7 @@ honest, and human-followable by construction.
 ```ts
 interface Step<A> {
   say?: string; point?: Target; click?: boolean;
+  drag?: { from: Target; to: Target };     // mechanic: demonstrate a move (mechanic phase, before act) — §6.1
   act?: (a: A) => void | Promise<void>;   // async allowed; the runner awaits it (races abort — I6)
   type?: string; cadence?: number;         // per-step ms/char (load-bearing: 7 vs 24 drives the pace)
   gesture?: Gesture | { kind: Gesture; target?: Target };  // §6.1 body language; runs after act
@@ -425,7 +435,7 @@ passed to `run()`. It emits the same `Step[]`, so serialization/generation survi
 function scene<A>(): SceneBuilder<A>;
 interface SceneBuilder<A> {
   say(text: string): this;
-  point(t: Target): this;  click(): this;
+  point(t: Target): this;  click(): this;  drag(from: Target, to: Target): this;
   act(fn: (a: A) => void | Promise<void>): this;
   type(t: Target, text: string, opts?: { cadence?: number }): this;
   gesture(kind: Gesture, target?: Target): this;                 // §6.1 body language
