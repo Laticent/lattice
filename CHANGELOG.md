@@ -34,6 +34,16 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **The Studio demo's "watch it build" beats sync on the real parse, not a timer.**
+  Each slide the demo types now waits on `until(() => railReady(k))` — the slide rail
+  gaining its Kth button — before typing the next, instead of a fixed settle that
+  raced the ~400ms editor→deck debounce. Editor and preview stay in sync regardless
+  of machine speed (a slow box no longer risks the next slide typing before the
+  previous one renders). Dogfoods Vetrina's `until` advance gate in the flagship
+  walkthrough; verified by the six-scenario demo e2e on real Chromium.
+
 ### Added
 
 - **The Playground opens on Explore — the Specimen Book's reader (PR 6).** The

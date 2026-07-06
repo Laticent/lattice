@@ -66,6 +66,11 @@ const SEL = {
 const newDeckItem = () => document.querySelector<HTMLElement>('[data-demo="new-deck"]');
 /** Type into the editor. */
 const type = (text: string, cadence: number): Step<StudioActions>['type'] => ({ target: SEL.editor, text, cadence });
+/** True once the deck has PARSED into ≥ `k` slides — the rail (slide navigator) shows one button
+ *  per slide. The `until` predicate for the build beats: wait for the actual parse (the editor→deck
+ *  debounce is ~400ms) instead of racing it with a fixed settle, so editor↔preview stay in sync even
+ *  on slow hardware. Parent-DOM only (no preview-iframe coupling); it's the same signal the e2e trusts. */
+const railReady = (k: number) => document.querySelectorAll(`${SEL.rail} button`).length >= k;
 
 const steps: Step<StudioActions>[] = [
 	{
@@ -98,11 +103,13 @@ const steps: Step<StudioActions>[] = [
 		click: true,
 		settle: 300,
 	},
-	// Slide 1 is the hero — typed at a readable pace so the eye can follow it land.
+	// Slide 1 is the hero — typed at a readable pace so the eye can follow it land. Wait for it
+	// to parse before the "look what it made" circle beat, so the preview is really there.
 	{
 		say: '…and the engine renders it live on the right, as you type.',
 		type: type(upTo(1), 24),
-		settle: 550,
+		until: () => railReady(1),
+		settle: 450,
 	},
 	// The first "look what it made" beat — circle the preview while its frame glows.
 	{
@@ -111,20 +118,23 @@ const steps: Step<StudioActions>[] = [
 		say: 'Every slide is a boardroom-grade layout — no fiddling with boxes.',
 		settle: 900,
 	},
-	// Build the rest slide by slide. Each slide is typed, then held past the preview's
-	// ~140ms render debounce, so the preview repaints THAT slide before the next —
-	// editor and preview stay in sync. Reads as "watch the deck build."
+	// Build the rest slide by slide. Each slide is typed, then we WAIT for it to actually
+	// parse (`until: railReady(k)` — the rail gains its Kth button) before the next slide
+	// types, so editor and preview stay in sync no matter the machine speed. The old fixed
+	// settles raced the ~400ms editor→deck debounce; `until` replaces that guess with the real
+	// signal, and the trailing settle is now just the pacing beat. Reads as "watch it build."
 	{
 		say: 'Now watch the rest build — slide by slide.',
 		point: SEL.editor,
 		click: true,
 		type: type(upTo(2), 7),
-		settle: 340,
+		until: () => railReady(2),
+		settle: 200,
 	},
-	{ type: type(upTo(3), 6), settle: 380 },
-	{ type: type(upTo(4), 6), settle: 320 },
-	{ type: type(upTo(5), 6), settle: 320 },
-	{ type: type(upTo(6), 6), settle: 420 },
+	{ type: type(upTo(3), 6), until: () => railReady(3), settle: 220 },
+	{ type: type(upTo(4), 6), until: () => railReady(4), settle: 180 },
+	{ type: type(upTo(5), 6), until: () => railReady(5), settle: 180 },
+	{ type: type(upTo(6), 6), until: () => railReady(6), settle: 260 },
 	{
 		point: SEL.rail,
 		say: 'Six slides, drafted in seconds. Jump to any of them.',

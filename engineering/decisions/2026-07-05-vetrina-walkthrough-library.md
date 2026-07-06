@@ -538,7 +538,9 @@ function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data 
   worse regression than the silent advance it replaced; §14-4/red-team). This stays within the human-not-machine tenet (§2): `instant` is a discrete "skip the
   theater" choice (not a free speed dial), and `until` is a readiness predicate (not a raw millisecond
   knob). **Authoring tenet:** a walkthrough that is *mostly* `instant` is a defect — it's a silent state
-  machine, not a walkthrough; `instant` is for the plumbing *between* the taught beats.
+  machine, not a walkthrough; `instant` is for the plumbing *between* the taught beats. *(Dogfood: the
+  Studio demo uses BOTH — `instant` for its silent close-overlay beats, and `until(railReady(k))` for the
+  "watch it build" beats, replacing fixed settles that raced the ~400ms editor→deck parse debounce.)*
 - Type inference: annotate once — `storyboard<StudioActions>(seed, [...])` — or let `A` bind from
   `run({ actions })`; without it, `act` params fall back to `any` (§14/checker).
 
