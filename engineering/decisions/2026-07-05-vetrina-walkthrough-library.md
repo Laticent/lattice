@@ -109,6 +109,22 @@ The **runner — not the consumer — enforces the invariants** (§5), so every 
 is the resolution of the graph-engine pull: control flow is subtracted from the *engine* and lives in
 the *language*, while the ergonomic default stays declarative data.
 
+**Why three layers is not "more design" (the Rams test — read before proposing to collapse them).**
+"As little design as possible" measures **non-essential burden on the person doing a job**, not the
+*count* of surfaces. These are not three parallel ways to do one thing — they are **one semantic model
+at three altitudes**, each a pure function of the one below (`scene()` *generates* `Step[]` which
+*drives* the primitive), and each is the **essential** answer to a *distinct* need that cannot be
+collapsed without failing one of them: hand-authoring (the fluent builder), machine
+generation/serialization (the descriptor), dynamic control flow (the raw primitive). Crucially **a given
+consumer touches exactly one** — a hand-author never sees the descriptor; a generator never sees the
+builder — so the *per-user* concept count is low and the layers below are invisible until wanted (the
+JSX→`createElement`, SQL-builder→SQL relationship). This passes the Rams test *only because the layers
+collapse to one semantics*: `build()` ≡ `storyboard(seed, toData())` with a parity test (§10), so there
+is no second interpreter to diverge — remove that identity and the layering *would* become non-essential
+design. The layers are **leverage, not burden**; they are load-bearing, so there is nothing to take away
+*at the layer level* (§16 scope; the residual subtraction questions are horizontal — gesture count,
+recipes — not this vertical stack).
+
 ---
 
 ## 4. Invariants (non-negotiable; hardened by the trio)
