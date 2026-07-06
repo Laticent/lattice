@@ -741,6 +741,21 @@ battery** (§15.6, §16) rather than defer. What it changed:
      take-over, backgrounding, resize, a long deck.
 7. Ship the import-boundary gate + isolated build job + the `SANCTIONED_GESTURES` gate.
 
+**Test tiers & what gates (the exemplar/stress battery is Playwright suites — but only the deterministic
+ones block per-PR).** The repo's own discipline forbids flaky wall-clock gates in the merge train (why
+`bench:check` is on-demand, why live-key E2E is nightly — HARD RULE #19/#24). So:
+- **Unit tier (`node --test`, fast, always blocking):** the framework-free logic needing no browser —
+  `scene()`≡`storyboard` parity, `accent` validation, the abort-guarded proxy, single-flight throw, the
+  step-boundary rule, `TypeOps` coupling, the `SANCTIONED_GESTURES` registry.
+- **Playwright e2e tier (real browser — HARD RULE #23):** the exemplars + stress. **Blocking per-PR = the
+  DETERMINISTIC ones** that assert cause→effect on *state* (the `demo.spec.ts` idiom): the Studio
+  migration, the `awaitUser` tour (correct/wrong/timeout), `drag` reorder + failing-act snap-back, gesture
+  *presence*, the theming rebrand (assert computed `--vt-*`), generic-host decoupling, take-over paths,
+  and the interleave+take-over torture. **Nightly / on-demand, NOT per-PR blocking = the timing/pixel
+  stress** (exact cadence, tab-backgrounding, visual appearance) — made deterministic where possible
+  (assert state, not pixels/wall-clock), else run off the merge train so it can't thrash the queue.
+- **build:check ownership gates (blocking):** import-boundary, `SANCTIONED_GESTURES`, isolated-build.
+
 ---
 
 ## 16. Decisions & open forks
