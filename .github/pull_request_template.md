@@ -25,7 +25,18 @@ NOT verified. A small before → after table helps when several things shifted.
 ## Tests
 
 <!-- What you ran or added, and which gates passed (unit / integration / biome).
-     "None — docs only" is a fine answer. -->
+     "None — docs only" is a fine answer.
+
+     CHANGING SHARED STUDIO UI CHROME? (a control's accessible name, role,
+     presence, or location) The Studio e2e suite is NIGHTLY — off this PR gate —
+     so a chrome change can pass every gating tier and still break specs that
+     only run overnight (the #780 drift). Before merging:
+       - update the `CHROME` map + helpers in docs/e2e/studio-fixture.ts;
+       - `grep -rn "<old accessible name>" docs/e2e` — sweep EVERY hit, not the
+         one line a reviewer flagged;
+       - run `npm run test:e2e:smoke` (or the touched specs) and STATE whether
+         the e2e suite was actually run.
+     Full checklist: engineering/development.md § "Studio e2e suite". -->
 
 ## Performance
 

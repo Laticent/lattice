@@ -1,4 +1,4 @@
-import { appendToEditor, expect, gotoStudio, test } from './studio-fixture';
+import { appendToEditor, expect, gotoStudio, openInspector, test } from './studio-fixture';
 
 // The editor's real grammar lint (shared lint-core). An unknown component makes
 // Fix-all actionable and surfaces an inline-issue count in the Coach; turning
@@ -21,7 +21,7 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 	await expect(fixAll(page)).toBeEnabled();
 
 	// Turning inline validation off makes nothing "unknown" → Fix-all disabled again.
-	await page.getByRole('button', { name: 'Deck scope' }).click();
+	await openInspector(page);
 	await page.getByRole('switch', { name: 'Inline validation' }).click();
 	await expect(fixAll(page)).toBeDisabled();
 });

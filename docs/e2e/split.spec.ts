@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, openInspector, test } from './studio-fixture';
 
 // The resizable/collapsible editor|preview split (2026-07-02 decision doc,
 // §Verification plan). One primitive (ui/split.tsx) serves both surfaces, so
@@ -313,7 +313,7 @@ test.describe('no grid void when a pane clamps at its minimum (iPad width)', () 
 test.describe('studio split at the 1100px desktop threshold', () => {
 	test.use({ viewport: { width: 1100, height: 800 } });
 
-	test('both panels open with the default split — no horizontal overflow', async ({ page }) => {
+	test('@smoke both panels open with the default split — no horizontal overflow', async ({ page }) => {
 		await gotoStudio(page);
 
 		// Open the two side panels (Architect starts closed for newcomers; the
@@ -321,7 +321,7 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 		await page.getByRole('button', { name: 'Toggle Architect' }).click();
 		await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
 		// The Inspector is opened from the always-visible scope rail (Deck scope).
-		await page.getByRole('button', { name: 'Deck scope' }).click();
+		await openInspector(page);
 		await expect(page.getByText('Editing the whole deck')).toBeVisible();
 
 		// The split is live in this configuration…
@@ -355,7 +355,7 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 		await gotoStudio(page);
 		await page.getByRole('button', { name: 'Toggle Architect' }).click();
 		await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
-		await page.getByRole('button', { name: 'Deck scope' }).click();
+		await openInspector(page);
 		await expect(page.getByText('Editing the whole deck')).toBeVisible();
 		await expect(separator(page)).toBeVisible();
 		await expect

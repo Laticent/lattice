@@ -1,4 +1,4 @@
-import { expect, gotoStudio, persistedByPrefix, persistedSource, test, toastText } from './studio-fixture';
+import { expect, gotoStudio, openInspector, persistedByPrefix, persistedSource, test, toastText } from './studio-fixture';
 
 // The Deck inspector's front-matter controls, speaker notes, and version history.
 // Front-matter writes are asserted both on the immediate outer-DOM signal
@@ -6,10 +6,10 @@ import { expect, gotoStudio, persistedByPrefix, persistedSource, test, toastText
 
 test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
-	await page.getByRole('button', { name: 'Deck scope' }).click();
+	await openInspector(page);
 });
 
-test('size control writes the size front-matter', async ({ page }) => {
+test('@smoke size control writes the size front-matter', async ({ page }) => {
 	await page.getByRole('button', { name: /Widescreen 16 . 9/ }).click();
 	await page.getByRole('menuitem', { name: /Standard 4 . 3/ }).click();
 

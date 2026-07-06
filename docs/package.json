@@ -24,6 +24,7 @@
     "build:e2e": "npm run sync:portal && npm run sync:playground && astro build",
     "preview:e2e": "astro preview --port 4321",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test --project=desktop --grep @smoke",
     "test:e2e:bless": "playwright test --update-snapshots --grep @visual",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report"

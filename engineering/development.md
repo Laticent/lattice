@@ -396,6 +396,58 @@ locally from `docs/`:
 These live in `docs/package.json` (a separate package), so they are **not** in
 the root capability index that `tools/build-capabilities.js` generates.
 
+### Studio e2e suite (Playwright) — and running it in the sandbox
+
+The Studio's real-browser e2e suite (`docs/e2e/*.spec.ts`, driven by
+`docs/playwright.config.ts`) is **nightly, off the per-PR gate**
+(`studio-e2e-nightly.yml`) — deliberately, per
+`engineering/decisions/2026-06-28-experience-gating-playwright.md`. That
+asymmetry is a footgun: a change to shared Studio chrome can pass every
+PR-gating tier (unit/build/lint) while silently breaking specs that only the
+nightly runs (the #780 drift; `2026-07-06-e2e-chrome-selector-contract.md`). So
+**run the real specs when you touch Studio chrome** — the sandbox can, contrary
+to the old assumption:
+
+```
+cd docs
+npm ci                       # docs is a SEPARATE package; root install misses it
+npm run build:e2e            # astro build (+ portal/playground sync) → dist/
+npm run preview:e2e &        # astro preview on :4321 (playwright reuses it locally)
+npm run test:e2e             # full suite, all three projects
+npm run test:e2e:smoke       # the @smoke chrome subset only (desktop, ~20s)
+npm run test:e2e -- e2e/inspector.spec.ts --project=desktop   # one spec
+```
+
+The pinned Chromium is **pre-installed** at `PLAYWRIGHT_BROWSERS_PATH=
+/opt/pw-browsers` (build 1194 ↔ `@playwright/test` 1.56.1) — do **NOT** run
+`playwright install`. Two things genuinely can't run here: the `@visual`
+snapshot bless (runner-specific AA) and the PDF-export journeys (need the
+Google-Fonts CDN the sandbox blocks) — those stay nightly/UNVERIFIED locally,
+per HARD RULE #23. `CHROME_PATH` is the *Puppeteer* cache and is irrelevant to
+Playwright.
+
+**Changing shared Studio chrome — the selector-drift checklist.** Many specs
+target controls by accessible name (`getByRole('button', { name: 'Deck scope' })`,
+`getByRole('status')`), an implicit contract centralized in
+`docs/e2e/studio-fixture.ts` (the `CHROME` map + `openInspector` / `appToast`
+helpers). Before merging any change to a control's **accessible name, role,
+presence, or location**:
+
+1. Update the `CHROME` map (and helpers) in `studio-fixture.ts` — route the
+   selector through it so a rename is a one-file fix, not an N-spec sweep.
+2. `grep -rn "<old accessible name>" docs/e2e` — repoint or retire **every** hit
+   (sweep the class, not the one line a reviewer flagged).
+3. Watch for **role collisions** — a new `role="status"` / `role="dialog"` can
+   make an existing `getByRole` ambiguous (this is what forced `appToast` to
+   scope to `.fixed.inset-x-0`).
+4. Update **both** tiers — unit **and** e2e — and run `npm run test:e2e:smoke`
+   (or the touched specs). State in the PR whether the e2e suite was actually run.
+
+The `@smoke`-tagged subset is a stable, fast (~20s) chrome sanity net; it is a
+promotion candidate for the PR gate once it holds an observed green streak
+(the experience-gating doc's §3 condition), wired as
+`test:e2e:smoke`. Until then it runs in the nightly like the rest.
+
 ---
 
 ## Cross-cutting rules
