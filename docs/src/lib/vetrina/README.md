@@ -96,7 +96,8 @@ scene()
 Not every beat should be *performed*. Setup, closing an overlay, or jumping ahead
 are plumbing — mark them **`instant`** and the substance applies with **no cursor
 movement, no typing animation, no gesture, no settle**. (An `instant` beat that
-also carries a `point`/`gesture` warns — those verbs have no theater to hang on.)
+also carries a `point`/`gesture` warns at build — those verbs have no theater to
+hang on.)
 A walkthrough that is *mostly* instant isn't a walkthrough — it's a silent state
 machine; instant is for the plumbing *between* the beats you actually teach.
 

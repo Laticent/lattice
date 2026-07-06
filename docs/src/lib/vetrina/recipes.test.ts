@@ -115,7 +115,13 @@ describe('recipes — holdUntil (the internal advance gate behind Step.until)', 
 		expect(warn).toHaveBeenCalledWith(expect.stringContaining('boom-typo'));
 		warn.mockRestore();
 	});
-	it('aborts on signal (take-over during the poll)', async () => {
+	it('aborts on an already-aborted signal (before the first poll)', async () => {
 		await expect(holdUntil(abortedCtx(), () => false, { interval: 5 })).rejects.toThrow(/abort/i);
+	});
+	it('aborts MID-poll — a take-over fired while waiting rejects, does not advance', async () => {
+		const c = new AbortController();
+		const ctx = { signal: c.signal, stage: { resolve: () => null } } as unknown as RunContext<unknown>;
+		setTimeout(() => c.abort(), 10); // fire the take-over after polling has started
+		await expect(holdUntil(ctx, () => false, { timeout: 5000, interval: 5 })).rejects.toThrow(/abort/i);
 	});
 });

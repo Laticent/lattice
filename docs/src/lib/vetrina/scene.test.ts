@@ -84,14 +84,19 @@ describe('scene() — the step-boundary rule', () => {
 });
 
 describe('scene().build() === storyboard(seed, toData()) — provable isomorphism', () => {
-	it('both compile to identical run traces', async () => {
+	it('both compile to identical run traces — including instant + until', async () => {
+		// Cover the NEW fields too, so the isomorphism is proven, not just asserted by construction.
 		const s = scene<Actions>('seed')
 			.say('a')
 			.point('#x')
 			.click()
 			.act((x) => x.go())
+			.until(() => true) // resolves on the first poll — no trace, but must round-trip
 			.hold(0)
 			.check()
+			.hold(0)
+			.act((x) => x.go())
+			.instant() // an instant beat: act only, no theater
 			.hold(0);
 		const trace = async (play: (ctx: RunContext<Actions>) => Promise<void>) => {
 			const { log, ctx } = recorder();
