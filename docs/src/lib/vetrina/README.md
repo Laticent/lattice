@@ -115,11 +115,13 @@ scene()
   for this first when the app can hand you a "done" promise.
 - **A pollable condition (non-async readiness)** — `until(() => cond)`: when the
   app only exposes a *synchronous* flag (a DOM attribute, a state bool) with no
-  promise, hold (abort-safe polling) until it's true, *then* continue. It's the
-  declarative equivalent of the `holdUntil` recipe, so you never drop to the raw
-  layer for a wait. It is **throw-safe** — a predicate that throws while its
-  element is still null counts as "not ready yet" — and on a ~15s timeout it
-  **ends the run** rather than silently advancing onto an app that never got ready.
+  promise, hold (abort-safe polling) until it's true, *then* continue. It keeps
+  that wait in the declarative layer, so you never drop to the raw API for it. It
+  is **throw-safe** — a predicate that throws while its element is still null
+  counts as "not ready yet" — and on a ~15s timeout it **advances with a
+  `console.warn`** (naming the last predicate error, if any): never silent, but
+  never fatal either, so a backgrounded tab or a slow app can't self-destruct the
+  run. For a hard "fail if not ready," gate inside an async `act` and throw there.
 
   ```ts
   scene().act((a) => a.loadDeck()).instant().until(() => deckIsRendered())

@@ -59,20 +59,21 @@ in patch versions.
   marked `instant` — its `act`/`type` apply immediately with **no cursor movement,
   no typing animation, no gesture, no settle** (the declarative equivalent of a raw
   `Walkthrough` poking a setter directly); ideal for setup, closing an overlay, or
-  jumping ahead. An `instant` beat that also carries a `point`/`gesture` warns (those
-  verbs are dropped), and a *mostly*-instant walkthrough is a documented anti-pattern.
-  Three ways to gate **when the next beat starts**, by what the app exposes: `settle`
-  (a fixed pause, now honored on instant beats too); an **async `act`** for a promise
-  readiness (the step already awaits it); and `until(() => cond)` for a **non-async,
-  pollable** readiness (a DOM flag with no promise) — a declarative, abort-safe gate
-  (the descriptor surfacing of the new `holdUntil` recipe, so authors never drop to
-  the raw layer for a wait). `until` is **throw-safe** (a predicate that throws while
-  its element is null = "not ready yet") and **ends the run on a ~15s timeout** rather
-  than silently advancing onto an unready app. The Studio demo's silent "close overlay"
-  beats now use `instant`. Fluent verbs `.instant()` / `.until(pred)`; the trust
-  invariant (act is awaited, its failure routes to `onStop('error')`) is unchanged.
-  Hardened by a third adversarial trio (red team + Munger inversion + independent
-  checker) — see the decision doc §14-3.
+  jumping ahead. An `instant` beat that also carries a `point`/`gesture` warns at build
+  time (those verbs are dropped), and a *mostly*-instant walkthrough is a documented
+  anti-pattern. Three ways to gate **when the next beat starts**, by what the app
+  exposes: `settle` (a fixed pause, now honored on instant beats too); an **async
+  `act`** for a promise readiness (the step already awaits it); and `until(() => cond)`
+  for a **non-async, pollable** readiness (a DOM flag with no promise) — a declarative,
+  abort-safe gate that keeps that wait in the descriptor layer so authors never drop to
+  the raw API. `until` is **throw-safe** (a predicate that throws while its element is
+  null = "not ready yet") and on a ~15s timeout **advances with a `console.warn`**
+  (naming the last predicate error) — never silent, but never fatal, so a backgrounded
+  tab or a slow app can't self-destruct the run. The Studio demo's silent "close
+  overlay" beats now use `instant`. Fluent verbs `.instant()` / `.until(pred)`; the
+  trust invariant (act is awaited, its failure routes to `onStop('error')`) is
+  unchanged. Designed and hardened by two adversarial trios (red team + Munger inversion
+  + independent checker) — see decision doc §14-3 and §14-4.
 
 ### Fixed
 

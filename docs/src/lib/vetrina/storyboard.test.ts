@@ -48,15 +48,18 @@ describe('storyboard interpreter — fixed order', () => {
 });
 
 describe('storyboard interpreter — instant beat (no theater)', () => {
-	it('skips cursor + gesture, runs act, sets type at once, and WARNS about the dropped verbs', async () => {
+	it('warns ONCE at construction about dropped verbs; play skips them and never re-warns', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const board = storyboard<Actions>('', [
 			{ say: 'setup', point: '#x', click: true, act: (a) => a.go(), type: { target: '#e', text: 'ABCD' }, gesture: 'check', instant: true, settle: 0 },
 		]);
-		// `say` still shows (narration); point/press/gesture are SKIPPED; act runs; type is instant.
-		expect(await drive(board)).toEqual(['say:setup', 'act:go', 'type:#e:4:instant']);
-		// …and the silently-dropped point/gesture are surfaced to the author (footgun guard).
+		// The warn fires at BUILD (not per play — a kiosk loop replays forever).
+		expect(warn).toHaveBeenCalledTimes(1);
 		expect(warn).toHaveBeenCalledWith(expect.stringMatching(/instant.*ignores/i));
+		// `say` still shows; point/press/gesture are SKIPPED; act runs; type is instant.
+		expect(await drive(board)).toEqual(['say:setup', 'act:go', 'type:#e:4:instant']);
+		await drive(board); // replay
+		expect(warn).toHaveBeenCalledTimes(1); // still once — not per play
 		warn.mockRestore();
 	});
 	it('a silent instant beat is just its act', async () => {
@@ -81,7 +84,7 @@ describe('storyboard interpreter — instant beat (no theater)', () => {
 		expect(polls).toBeGreaterThanOrEqual(2); // it actually waited/polled before advancing
 		expect(log).toEqual(['act:go', 'say:next']); // advanced to the next step only after `until`
 	});
-	it('`until` also gates the NORMAL (non-instant) path — after gesture, before the next step', async () => {
+	it('`until` also gates the NORMAL (non-instant) path — after act/type, before the confirm gesture', async () => {
 		let polls = 0;
 		let ready = false;
 		const board = storyboard<Actions>('', [

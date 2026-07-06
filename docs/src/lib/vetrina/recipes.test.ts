@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { holdUntil, loop, retry, waitFor } from './recipes';
 import type { RunContext } from './runner';
 
@@ -76,7 +76,7 @@ describe('recipes — waitFor', () => {
 	});
 });
 
-describe('recipes — holdUntil (the STRICT advance gate)', () => {
+describe('recipes — holdUntil (the internal advance gate behind Step.until)', () => {
 	it('resolves when the predicate turns true', async () => {
 		let ready = false;
 		setTimeout(() => {
@@ -97,8 +97,23 @@ describe('recipes — holdUntil (the STRICT advance gate)', () => {
 		);
 		expect(n).toBe(3);
 	});
-	it('THROWS on timeout — ends the run, never silently advances onto an unready app', async () => {
-		await expect(holdUntil(fakeCtx(), () => false, { timeout: 20, interval: 5 })).rejects.toThrow(/timed out/i);
+	it('on timeout ADVANCES with a console.warn — never throws (not fatal), never silent', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await expect(holdUntil(fakeCtx(), () => false, { timeout: 20, interval: 5 })).resolves.toBeUndefined();
+		expect(warn).toHaveBeenCalledWith(expect.stringMatching(/until\(\) advanced/i));
+		warn.mockRestore();
+	});
+	it('names the LAST predicate error in the timeout warning (diagnoses a broken predicate)', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await holdUntil(
+			fakeCtx(),
+			() => {
+				throw new Error('boom-typo');
+			},
+			{ timeout: 20, interval: 5 },
+		);
+		expect(warn).toHaveBeenCalledWith(expect.stringContaining('boom-typo'));
+		warn.mockRestore();
 	});
 	it('aborts on signal (take-over during the poll)', async () => {
 		await expect(holdUntil(abortedCtx(), () => false, { interval: 5 })).rejects.toThrow(/abort/i);

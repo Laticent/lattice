@@ -9,8 +9,10 @@
 //
 // See engineering/decisions/2026-07-05-vetrina-walkthrough-library.md for the contract.
 
-export type { HoldUntilOpts, LoopOpts, RetryOpts, WaitForOpts } from './recipes';
-export { holdUntil, loop, retry, waitFor } from './recipes';
+export type { LoopOpts, RetryOpts, WaitForOpts } from './recipes';
+export { loop, retry, waitFor } from './recipes';
+// `holdUntil` is intentionally NOT public — it's the internal gate behind the descriptor's
+// `Step.until`. Authors use `until` (declarative) or `waitFor` (raw). One public poll-wait.
 export type { AwaitUserOpts, RunContext, RunHandle, RunOptions, StopReason, TypeOps, TypeOpts, Walkthrough } from './runner';
 export { run } from './runner';
 export type { SceneBuilder } from './scene';

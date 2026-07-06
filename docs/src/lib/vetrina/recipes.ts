@@ -49,33 +49,42 @@ export async function waitFor<A>(ctx: RunContext<A>, probe: Target | (() => bool
 }
 
 export interface HoldUntilOpts {
-	/** How long to wait before giving up and ENDING the run (default 15000ms). */
+	/** How long to wait before giving up and ADVANCING with a warning (default 15000ms). */
 	timeout?: number;
 	interval?: number;
 }
 
 /**
- * STRICT advance gate: resolve when `pred` becomes true; on timeout **throw** (which ends the run
- * via `onStop('error')`) rather than silently advancing onto an app that never got ready. Throw-safe
- * (a throwing `pred` = "not ready yet") and abort-aware (a take-over rejects mid-poll). This is what
- * the descriptor layer's `Step.until` uses, so authors get a safe declarative wait for a NON-async /
- * pollable readiness condition without ever reaching for the low-level API.
+ * The advance gate behind the descriptor layer's `Step.until` — NOT part of the public surface
+ * (the only public poll-wait is `waitFor`; a descriptor author reaches `until`, a raw author reaches
+ * `waitFor`). Resolve when `pred` becomes true. On timeout it **advances with a `console.warn`** —
+ * never silently (the author gets a signal) and never fatally (a backgrounded tab or a slow app must
+ * not self-destruct the demo). Throw-safe (a throwing `pred` = "not ready yet"), and if the predicate
+ * kept throwing the warning names the last error, so a genuinely broken predicate is diagnosed rather
+ * than misattributed to app readiness. Abort-aware (a take-over rejects mid-poll).
  */
 export async function holdUntil<A>(ctx: RunContext<A>, pred: () => boolean, opts: HoldUntilOpts = {}): Promise<void> {
 	const { timeout = 15000, interval = 80 } = opts;
 	const { signal } = ctx;
 	const start = performance.now();
+	let lastErr: unknown;
 	for (;;) {
 		if (signal.aborted) throw newAbort();
 		let ready = false;
 		try {
 			ready = pred() === true;
-		} catch {
-			ready = false; // still loading (e.g. the element isn't there yet) — keep waiting
+		} catch (e) {
+			lastErr = e; // still loading (e.g. the element isn't there yet) — keep waiting, but remember why
+			ready = false;
 		}
 		if (ready) return;
 		if (performance.now() - start > timeout) {
-			throw new Error(`vetrina: until() timed out after ${timeout}ms — the app never signaled ready`);
+			// Advance (don't end the run): a slow app / a backgrounded tab must not self-destruct the
+			// demo. But say so — and if a broken predicate is the reason, name it so it isn't misread
+			// as "app not ready".
+			const why = lastErr ? `last predicate error: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}` : 'the app never signaled ready';
+			console.warn(`vetrina: until() advanced after ${timeout}ms — ${why}`);
+			return;
 		}
 		await wait(interval, signal);
 	}

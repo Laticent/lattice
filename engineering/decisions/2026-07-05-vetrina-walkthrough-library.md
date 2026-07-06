@@ -520,20 +520,22 @@ function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A>; // data 
   invariant). *(A failed `act` is exactly where a `cross`/`shake` is honest, if the author wants it.)*
 - `seed` and per-step `cadence` are **first-class** (the candidate dropped them; both are load-bearing
   for the migrated Studio demo — §14/checker).
-- **`instant` + advance control (2026-07-06 follow-up; hardened by a third adversarial trio — §14-3).**
+- **`instant` + advance control (2026-07-06 follow-up; hardened by TWO adversarial trios — §14-3, §14-4).**
   Not every beat should be *performed*: setup, closing an overlay, jumping ahead are plumbing. `instant`
   applies a beat's `act`/`type` with **no cursor move, no typing animation, no gesture, no settle** — the
   declarative equivalent of a raw `Walkthrough` calling `ctx.actions.foo()` with no `stage.*` motion
   (`say` still shows; the trust invariant holds — `act` is still awaited). It **ignores** any `point`/
-  `click`/`drag`/`gesture` on the same step and **warns** (they'd be silently dropped). **Advance is
-  gated by what the app exposes** — the three-flavor rule: a fixed pause is **`settle`**; a **promise**
-  readiness is an **async `act`** (already awaited — reach for this first); a **non-async / pollable**
-  readiness (a DOM flag with no promise) is **`until: () => boolean`**. `until` is the DESCRIPTOR-layer
-  surfacing of the `holdUntil` recipe — deliberately declarative so an author never drops to the raw API
-  for a wait (the DSL › descriptor › raw layering: raw is the last resort, not the home of a common
-  need). It is **throw-safe** (a predicate that throws while its element is null = "not ready yet") and
-  on a ~15s timeout it **ENDS the run** (`onStop('error')`) rather than silently advancing onto an
-  unready app. This stays within the human-not-machine tenet (§2): `instant` is a discrete "skip the
+  `click`/`drag`/`gesture` on the same step and **warns at build time** (they'd be silently dropped).
+  **Advance is gated by what the app exposes** — the three-flavor rule: a fixed pause is **`settle`**; a
+  **promise** readiness is an **async `act`** (already awaited — reach for this first); a **non-async /
+  pollable** readiness (a DOM flag with no promise) is **`until: () => boolean`**. `until` is the
+  DESCRIPTOR-layer gate — deliberately declarative so an author never drops to the raw API for a wait (the
+  DSL > descriptor > raw layering: raw is the last resort, not the home of a common need); its internal
+  engine is the **un-exported** `holdUntil` (the one PUBLIC poll-wait is `waitFor`). It is **throw-safe** (a
+  predicate that throws while its element is null = "not ready yet") and on a ~15s timeout it **ADVANCES
+  with a `console.warn`** (naming the last predicate error, if any) — never silent (the author gets a
+  signal), never fatal (a backgrounded tab or slow app must not self-destruct the run — ENDING it was a
+  worse regression than the silent advance it replaced; §14-4/red-team). This stays within the human-not-machine tenet (§2): `instant` is a discrete "skip the
   theater" choice (not a free speed dial), and `until` is a readiness predicate (not a raw millisecond
   knob). **Authoring tenet:** a walkthrough that is *mostly* `instant` is a defect — it's a silent state
   machine, not a walkthrough; `instant` is for the plumbing *between* the taught beats.
@@ -694,8 +696,10 @@ The trio's net effect was to **subtract and harden** — exactly the Saint-Exup�
   don't fragment across userland.
 - **Munger D2 / D4 / D7** — the coupling gate + isolated build + generic-host fixture (§13); root-scoped
   `resolve`; injectable `portalRoot`/`zIndex`; single-flight; SSR-safe (no DOM at import);
-  visibility-pause; a "lifecycle torture" test asserting I6 across unmount/background/resize/double-start/
-  abort-mid-await.
+  a "lifecycle torture" test asserting I6 across unmount/background/resize/double-start/abort-mid-await.
+  *(NB: a `visibilitychange` pause was DESIGNED here but is NOT implemented — corrected in §14-4. With
+  the `until` timeout advancing-not-ending, the acute backgrounded-tab harm is defused; a real
+  visibility-pause remains a future item, §16.)*
 
 ### §14-2 — the SECOND trio (on the grown design: layers, `scene()`, gestures/`drag`, theming)
 
@@ -768,6 +772,36 @@ robustness and `instant`'s ergonomics; all folded in:
 - **Coverage (checker):** added the normal-path `until` test, the throw-safe + timeout-throws tests, and the
   `instant`-warn assertion. Config knobs (custom `until` timeout / `onTimeout`) are **deferred** until a
   consumer needs them — the same §11 discipline, applied honestly this time.
+
+### §14-4 — the FOURTH trio (re-verifying the §14-3 hardening)
+
+A FINAL red-team + Munger-inversion + independent-checker pass ran on the §14-3 fixes themselves (the
+user's call: re-verify the hardened winner). The **checker** found the code correct, tests non-vacuous, no
+regression. But red team + Munger converged on the fact that the §14-3 *policy* choices, though correctly
+implemented, were wrong — a case of fixing the bug and mis-choosing the default:
+
+- **The `until` timeout policy was flipped again — this time to the right endpoint.** §14-3 made it THROW
+  (end the run). Red team: that is **strictly worse** than the original silent-advance for the commonest
+  real case — a viewer switches tabs for 15s (wall-clock elapses while polls are throttled), the gate
+  throws, and the demo **self-destructs**; a legitimately slow/CI render also dies with no author escape.
+  **Fixed:** on timeout `until` now **ADVANCES with a `console.warn`** — not silent (the original bug), not
+  fatal (the §14-3 over-correction). The stable endpoint: advance + name the reason.
+- **Throw-safety was misdiagnosing broken predicates.** The blanket `catch` swallowed a real `TypeError`
+  as "not ready" → a 15s hang then a message blaming app-readiness. **Fixed:** the timeout warning now
+  **names the last predicate error**, so a typo is diagnosed, not misattributed.
+- **`holdUntil` was public — contradicting the very layering law used to keep `until`.** Munger: "keep
+  `until` so authors don't reach for the low-level API," then the same commit EXPORTED a low-level poll-wait,
+  leaving THREE public spellings (`until`, `waitFor`, `holdUntil`). **Fixed:** `holdUntil` is **un-exported**
+  — the one public poll-wait is `waitFor`; `until` is the descriptor face; the layering claim is now true.
+- **The `instant` verb-warn moved to BUILD time** (was per-play) — a kiosk attract-loop no longer spams it
+  forever in the shipped bundle (red team).
+- **Ordering:** on the normal path `until` now runs BEFORE the confirm gesture — a "look what rendered"
+  gesture can't play before the thing it confirms exists.
+- **Doc-drift corrected:** §14/D-family listed a "visibility-pause" as shipped; it was never implemented.
+  With advance-on-timeout the backgrounded-tab harm is defused, so visibility-pause is recorded as a **real
+  future item, NOT a shipped one** (see §16). `instant` stays ungated (a runtime instant-ratio warn would
+  false-positive on legitimately setup-heavy kiosk paths — Munger's own counter-inversion); the "mostly-
+  instant is a defect" tenet stays prose, to be surfaced in the visual-review report, not a runtime alarm.
 
 ---
 
@@ -845,3 +879,8 @@ ones block per-PR).** The repo's own discipline forbids flaky wall-clock gates i
 3. **Publish now or later?** v1 lands the package in-repo, decoupled and gated, but does not `npm
    publish`. *(Recommendation: prove it in-repo through the migration + the exemplar battery; publish once
    the API has settled under real use.)*
+4. **Visibility-pause (future item, §14-4).** A `visibilitychange` pause — freeze the run's timers while
+   the tab is hidden — was designed (§14/D7) but never built; with the `until` timeout advancing-not-ending
+   the acute harm is gone, but a long backgrounded run still burns wall-clock. Worth adding when a real
+   consumer runs long unattended (a kiosk/attract-loop). Config knobs for `until` (`timeout`/`onTimeout`)
+   are deferred with it, per §11.

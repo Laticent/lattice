@@ -20,12 +20,14 @@ export interface Step<A> {
 	type?: { target: Target; text: string; cadence?: number };
 	gesture?: Gesture | { kind: Gesture; target?: Target };
 	circle?: Target; // sugar for gesture: { kind: 'circle', target }
-	/** Advance GATE for a NON-async / pollable readiness condition — before settling, hold
-	 *  (abort-safe poll) until this returns true. The declarative "callback for when to move on":
-	 *  pair with `instant` to fire an action then wait until the app is ready (a render/animation
-	 *  settled, a DOM flag flipped). Throw-safe (a predicate that throws while its element is still
-	 *  null = "not ready yet"); on a ~15s timeout it ENDS the run (never silently advances onto an
-	 *  unready app). For a PROMISE-based readiness, use an async `act` — the step already awaits it. */
+	/** Advance GATE for a NON-async / pollable readiness condition — before the confirm gesture +
+	 *  settle, hold (abort-safe poll) until this returns true. The declarative "callback for when to
+	 *  move on": pair with `instant` to fire an action then wait until the app is ready (a render/
+	 *  animation settled, a DOM flag flipped). Throw-safe (a predicate that throws while its element
+	 *  is still null = "not ready yet"). On a ~15s timeout it ADVANCES with a `console.warn` (naming
+	 *  the last predicate error, if any) — never silent (the author gets a signal), never fatal (a
+	 *  backgrounded tab or slow app must not self-destruct the demo). For a PROMISE-based readiness,
+	 *  use an async `act` — the step already awaits it. */
 	until?: () => boolean;
 	/** Fixed pause AFTER the beat (ms), before the next step. Works with `instant` too. */
 	settle?: number;
@@ -45,6 +47,14 @@ const STEP_SETTLE = 900;
  */
 export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 	void seed; // baseline is run-scoped (ctx.type); non-empty seeds want TypeOps.read()
+	// Validate ONCE at build (not on every play — a kiosk attract-loop replays forever): an
+	// `instant` beat has no theater to hang a positioning/gesture verb on, so warn if one is set
+	// (it would be silently dropped — a real footgun).
+	for (const s of steps) {
+		if (s.instant && (s.point != null || s.drag || s.click || s.gesture != null || s.circle != null)) {
+			console.warn('vetrina: an `instant` beat ignores point/click/drag/gesture — remove them, or drop `instant` to perform the beat.');
+		}
+	}
 	return async (ctx: RunContext<A>) => {
 		const { stage, actions, signal } = ctx;
 
@@ -57,11 +67,6 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			// once. `say` (above) still shows. The escape hatch for setup / close / jump beats that
 			// don't need teaching — and it keeps the trust invariant (act is still awaited).
 			if (step.instant) {
-				// An instant beat has no theater to hang a positioning/gesture verb on — warn if the
-				// author set one (it would be silently dropped, a real footgun — red-team #3).
-				if (step.point != null || step.drag || step.click || step.gesture != null || step.circle != null) {
-					console.warn('vetrina: an `instant` beat ignores point/click/drag/gesture — remove them, or drop `instant` to perform the beat.');
-				}
 				let actErr: unknown = null;
 				if (step.act) {
 					try {
@@ -109,6 +114,10 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 				await ctx.type(step.type.target, step.type.text, { cadence: step.type.cadence });
 			}
 
+			// Advance gate — wait for the app to be ready BEFORE the confirm gesture, so a "look what
+			// rendered" gesture can't play before the thing it confirms exists.
+			if (step.until) await holdUntil(ctx, step.until);
+
 			// gesture — the outcome/confirm, AFTER act (reached only on success: a failed act threw).
 			if (step.gesture != null) {
 				const g = typeof step.gesture === 'string' ? { kind: step.gesture, target: undefined as Target | undefined } : step.gesture;
@@ -116,8 +125,6 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			}
 			if (step.circle != null) await stage.gesture('circle', step.circle, signal);
 
-			// Advance gate — hold until the app signals ready, THEN settle (both optional).
-			if (step.until) await holdUntil(ctx, step.until);
 			await wait((step.settle ?? (stage.reduced ? 300 : STEP_SETTLE)) * stage.pace, signal);
 		}
 	};
