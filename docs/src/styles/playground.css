@@ -396,3 +396,168 @@
 	font-weight: 600;
 	cursor: pointer;
 }
+
+/* ── The Explore surface (2026-07-05 Specimen Book decision §4, PR 6) ─────────
+   Explore is single-pane: the walked deck fills the width and the Walk bar
+   narrates. The editor pane, its handle, and both rails collapse to 0px tracks
+   (tracks stay in the grid — a display:none child would desync tracks from
+   items, the Studio grid lesson). The inline gridVars lose to this by design:
+   mode is a HIGHER authority than the drag ratio, which is preserved for the
+   return to Edit. */
+body[data-view='read'] .pg-split {
+	grid-template-columns: 0px 0px 0px minmax(0, 1fr) 0px !important;
+}
+body[data-view='read'] .pg-pane.editor,
+body[data-view='read'] .pg-split [data-slot='split-handle'],
+body[data-view='read'] .pg-split [data-slot='split-rail'] {
+	visibility: hidden;
+}
+/* Explore has no Edit/Preview panes to tab between on phones. */
+body[data-view='read'] .pg-mobile-tabs {
+	display: none;
+}
+/* The mobile single-pane rule must never hide the walked deck. */
+body[data-view='read'] .pg-pane.preview {
+	display: flex !important;
+}
+
+.pg-view-tabs {
+	flex: 0 0 auto;
+	align-self: end;
+	padding-block-end: 2px;
+}
+
+/* Walk bar: position · caption · chips · transcript. Pinned under the toolbar
+   on wide screens; at phone width it reads bottom-first (reader-first). */
+.pg-walk {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 16px 10px;
+	border-block-end: 1px solid var(--border);
+	background: var(--surface-raised, var(--background));
+}
+.pg-walk-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+.pg-walk-step {
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 4px 12px;
+	font-size: 13px;
+	font-weight: 600;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+.pg-walk-step:hover:not(:disabled),
+.pg-walk-step:focus-visible {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.pg-walk-step:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+.pg-walk-step.cross {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.pg-walk-pos {
+	font-size: 12.5px;
+	color: var(--muted-foreground, inherit);
+	font-variant-numeric: tabular-nums;
+}
+.pg-walk-spacer {
+	flex: 1 1 0;
+}
+.pg-walk-edit {
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 4px 12px;
+	font-size: 12.5px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+.pg-walk-edit.armed {
+	border-color: var(--destructive, #b3261e);
+	color: var(--destructive, #b3261e);
+	font-weight: 600;
+}
+.pg-walk-caption {
+	font-size: 13px;
+	line-height: 1.45;
+	color: var(--muted-foreground, inherit);
+}
+.pg-walk-notice {
+	font-size: 12.5px;
+	color: var(--accent);
+}
+.pg-walk-chips {
+	display: flex;
+	gap: 6px;
+	overflow-x: auto;
+	padding-block: 2px;
+	scrollbar-width: thin;
+}
+.pg-walk-chip {
+	flex: 0 0 auto;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	padding: 3px 11px;
+	font-size: 12px;
+	font-weight: 600;
+	background: transparent;
+	color: var(--muted-foreground, inherit);
+	cursor: pointer;
+	white-space: nowrap;
+}
+.pg-walk-chip.is-active {
+	border-color: var(--accent);
+	color: var(--accent);
+	background: var(--accent-soft, transparent);
+}
+.pg-walk-transcript button {
+	border: 0;
+	background: none;
+	padding: 0;
+	font-size: 12.5px;
+	font-weight: 600;
+	color: var(--accent);
+	cursor: pointer;
+}
+.pg-walk-transcript-body {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 8px 0 2px;
+	max-height: 40vh;
+	overflow-y: auto;
+}
+.pg-walk-transcript-body p {
+	font-size: 14px;
+	line-height: 1.55;
+}
+/* The transcript disclosure earns its place only where the slide is a preview,
+   not a reading surface (~0.28 scale at phone width). */
+@media not (max-width: 560px) {
+	.pg-walk-transcript {
+		display: none;
+	}
+}
+@media (max-width: 560px) {
+	.pg-walk {
+		padding-inline: 12px;
+	}
+	.pg-walk-row {
+		gap: 8px;
+	}
+	/* Thumb-sized stepping targets. */
+	.pg-walk-step {
+		padding: 8px 14px;
+	}
+}

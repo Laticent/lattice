@@ -1,5 +1,6 @@
 import { PanelLeftClose, PanelRightClose } from 'lucide-react';
 import * as React from 'react';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import {
 	Select,
 	SelectContent,
@@ -11,6 +12,7 @@ import { SplitHandle, SplitRail, useSplit } from '@/components/ui/split';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import {
+	adjacentComponent,
 	BACKUP_KEY,
 	type Catalog,
 	COMPONENT_KEY,
@@ -21,13 +23,21 @@ import {
 	INSERTED_HASH_KEY,
 	isPristine,
 	LENS_KEY,
+	type Plan,
+	parsePlaygroundUrl,
+	playgroundQuery,
 	readHandoff,
+	readPlan,
 	resolveComponent,
+	resolvePlanStep,
+	resolveStartupView,
 	SEARCH_KEY,
 	SOURCE_KEY,
 	sanitizePalette,
+	VIEW_KEY,
 	variantOptions,
 	variantSource,
+	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
 import { applyDebug, deckDebugOn } from '@/playground/debug-overlay.js';
@@ -40,6 +50,7 @@ import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
 import { GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
+import { WalkBar } from './WalkBar';
 
 const DEBOUNCE_MS = 220;
 
@@ -58,7 +69,17 @@ export type PlaygroundData = {
 	// the test harness can omit it). Passed straight to EditorHost → createEditor.
 	lintVocab?: unknown;
 	starter: string;
+	// Base URL of the staged plans/<name>.json walk plans (Explore surface).
+	// Optional so the test harness (and any host without staged assets) degrades
+	// to the editor-only playground.
+	plansBase?: string;
 };
+
+// The Explore surface's walk position: a component's gallery plan (stable step
+// kinds) or a full gallery deck (slide-index positions — no plan exists).
+type Walk =
+	| { kind: 'plan'; plan: Plan; index: number }
+	| { kind: 'deck'; label: string; index: number; count: number };
 
 /**
  * The playground controller — the React port of the old inline IIFE
@@ -70,7 +91,7 @@ export type PlaygroundData = {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, palettes, finishes, lintVocab, starter } = data;
+	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -112,8 +133,29 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// parked, so a "no" never destroys the incoming content either.
 	const [pendingHandoff, setPendingHandoff] = React.useState<{ md: string; from: string; ts: number } | null>(null);
 	const [dismissedTs, setDismissedTs] = React.useState<number | null>(null);
-	// Undo toast for draft-replacing actions (backup + one-tap restore).
-	const [toast, setToast] = React.useState<{ msg: string; undo: boolean } | null>(null);
+	// Undo toast for draft-replacing actions (backup + one-tap restore); the
+	// `reload` variant is the Explore plan-fetch 404 path ("site updated").
+	const [toast, setToast] = React.useState<{ msg: string; undo: boolean; reload?: boolean } | null>(null);
+	// ── The Explore surface (decision §4, PR 6) ────────────────────────────────
+	// `view` is the mode ('read' internally; the UI says "Explore" — §0.6);
+	// `walk` is the position. Explore NEVER writes the draft: it renders
+	// `exploreSourceRef` through the same engine/iframe, leaving the editor's
+	// source (and SOURCE_KEY) untouched.
+	const [view, setView] = React.useState<'read' | 'edit'>('edit');
+	const [walk, setWalk] = React.useState<Walk | null>(null);
+	const [walkNotice, setWalkNotice] = React.useState<string | null>(null);
+	const [editSlideArm, setEditSlideArm] = React.useState(false);
+	const viewRef = React.useRef<'read' | 'edit'>('edit');
+	const walkRef = React.useRef<Walk | null>(null);
+	walkRef.current = walk;
+	const exploreSourceRef = React.useRef<string | null>(null);
+	const planCacheRef = React.useRef(new Map<string, Plan>());
+	const urlSyncReadyRef = React.useRef(false);
+	// Ref-indirected: render() (defined above the walk machinery) lands the walk
+	// position after each paint; the real scroller is assigned below. Same for
+	// startWalk — the pick/variant handlers are defined above it.
+	const scrollWalkRef = React.useRef<(smooth: boolean) => void>(() => {});
+	const startWalkRef = React.useRef<(name: string, step: string | null) => Promise<boolean>>(async () => false);
 	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
 	const [errorOpen, setErrorOpen] = React.useState(false);
 	const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -124,8 +166,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Filled below (needs applyDeck); called from onEditorReady above it.
 	const consumeHandoffRef = React.useRef<() => void>(() => {});
 	// The picker shows the draft's component when one is detected, else the
-	// persisted pointer — the two never fight because only picks write the pointer.
-	const currentName = draftComponent || readerComponent;
+	// persisted pointer — the two never fight because only picks write the
+	// pointer. While EXPLORING, the walked component is the truth (the draft may
+	// hold something else entirely — it is not on screen).
+	const currentName = view === 'read' ? readerComponent : draftComponent || readerComponent;
 
 	const frameRef = React.useRef<HTMLIFrameElement>(null);
 	// Live in-preview chart interaction: hover/tap a pie wedge in the rendered
@@ -246,7 +290,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}
 			const mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
 			setStatusLine('Rendering…');
-			const r = await engine.renderInto(frame, getSource(), palette, mode, previewStateRef.current, fresh);
+			// Explore renders the walk deck; Edit renders the draft. Ref-read so the
+			// render loop sees a mode/walk change the moment it commits.
+			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
+			const r = await engine.renderInto(frame, src, palette, mode, previewStateRef.current, fresh);
 			if (r.status === 'pending') {
 				timerRef.current = setTimeout(() => render(fresh), 60);
 			} else if (r.status === 'error') {
@@ -254,6 +301,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} else {
 				previewStateRef.current = r.state;
 				setStatusLine(`Rendered ${r.count} slide(s).`);
+				// A full-deck walk learns its slide count from the render itself
+				// (no plan exists for authored gallery decks — slide-index positions).
+				const w = walkRef.current;
+				if (viewRef.current === 'read' && w?.kind === 'deck' && w.count !== r.count) {
+					setWalk({ ...w, index: Math.min(w.index, Math.max(0, r.count - 1)), count: r.count });
+				}
+				// Land the walk position after a fresh paint (instant; stepping smooths).
+				if (viewRef.current === 'read') scrollWalkRef.current(false);
 				// Drop the loading skeleton once real slides have painted (the iframe
 				// is opaque and covers the host; this removes the placeholder behind it).
 				frame.parentElement?.classList.add('is-live');
@@ -506,6 +561,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const onPickComponent = React.useCallback(
 		(name: string) => {
 			if (!catalog[name]) return;
+			// Exploring: a pick walks that component's gallery — no draft writes.
+			if (viewRef.current === 'read') {
+				void startWalkRef.current(name, null);
+				return;
+			}
 			backupDraft(`Loaded ${name}`);
 			setReaderComponent(name);
 			try {
@@ -524,6 +584,21 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const onVariantChange = React.useCallback(
 		(key: string) => {
 			setVariant(key);
+			// Exploring: the Variant select is a JUMP LIST — picking `dense` snaps the
+			// walk to its plan slide. The draft (and Edit-mode behavior) is untouched.
+			if (viewRef.current === 'read') {
+				const w = walkRef.current;
+				if (w?.kind === 'plan') {
+					const at = resolvePlanStep(w.plan, key === 'default' ? 'default' : `variant:${key}`);
+					setWalkNotice(at.notice);
+					const moved: Walk = { ...w, index: at.index };
+					setWalk(moved);
+					walkRef.current = moved;
+					setEditSlideArm(false);
+					scrollWalkRef.current(true);
+				}
+				return;
+			}
 			if (currentName) {
 				const md = variantSource(catalog, currentName, key);
 				backupDraft(`Loaded ${currentName} ${key === 'default' ? '' : key}`.trim());
@@ -541,11 +616,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				setStatusLine('Gallery unavailable.', true);
 				return;
 			}
+			// Exploring: walk the full deck in place — slide-index positions (no plan
+			// exists for authored decks), same Walk bar, zero draft writes.
+			if (viewRef.current === 'read') {
+				const w: Walk = { kind: 'deck', label: id, index: 0, count: 0 };
+				setWalk(w);
+				walkRef.current = w;
+				setWalkNotice(null);
+				setEditSlideArm(false);
+				exploreSourceRef.current = src;
+				freshRender();
+				return;
+			}
 			backupDraft('Loaded a gallery deck');
 			recordInsert(src);
 			applyDeck(src, { toPreview: true });
 		},
-		[gallerySources, applyDeck, setStatusLine, backupDraft, recordInsert],
+		[gallerySources, applyDeck, setStatusLine, backupDraft, recordInsert, freshRender],
 	);
 
 	// Reset reads the DRAFT's component at click time; when the draft holds none
@@ -581,6 +668,149 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		}
 	}, [setSource, saveSource, syncPickers, freshRender, setStatusLine]);
 
+	// ── The Explore walk machinery (decision §4, PR 6) ──────────────────────────
+	// Picker order IS the walk order (bucket, then A–Z — the same list the user
+	// sees), so "next component" is never a surprise.
+	const walkOrder = React.useMemo(() => components.map((c) => c.name), [components]);
+	const fetchPlan = React.useCallback(
+		async (name: string): Promise<Plan | null> => {
+			const cached = planCacheRef.current.get(name);
+			if (cached) return cached;
+			if (!plansBase) return null;
+			try {
+				const res = await fetch(`${plansBase}${encodeURIComponent(name)}.json`);
+				if (!res.ok) return null;
+				const p = readPlan(await res.text());
+				if (p) planCacheRef.current.set(name, p);
+				return p;
+			} catch {
+				return null;
+			}
+		},
+		[plansBase],
+	);
+	// Scroll the preview filmstrip to the walk position — instant by default,
+	// smooth as an enhancement on stepping (prefers-reduced-motion honored).
+	// Same-origin srcdoc + the FIT agent's own `.lattice > section` geometry.
+	const scrollWalk = React.useCallback((smooth: boolean) => {
+		const frame = frameRef.current;
+		const w = walkRef.current;
+		if (!frame || !w || viewRef.current !== 'read') return;
+		const win = frame.contentWindow;
+		const secs = frame.contentDocument?.querySelectorAll('.lattice > section');
+		const target = secs?.[w.index] as HTMLElement | undefined;
+		if (!win || !target) return;
+		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+		win.scrollTo({ top: Math.max(0, target.offsetTop - 16), behavior: smooth && !reduce ? 'smooth' : 'auto' });
+	}, []);
+	scrollWalkRef.current = scrollWalk;
+	/** Enter (or move) the component walk. `step` is a stable plan kind (or null →
+	 * title; 'LAST' → the closing slide, for walking backwards across components). */
+	const startWalk = React.useCallback(
+		async (name: string, step: string | null): Promise<boolean> => {
+			const plan = await fetchPlan(name);
+			if (!plan) {
+				// The designed 404 path: the staged tree was rewritten by a deploy while
+				// this tab sat open — never a dead Next button.
+				setToast({ msg: 'This page is out of date — the site was updated while it sat open.', undo: false, reload: true });
+				return false;
+			}
+			const at = step === 'LAST' ? { index: plan.slides.length - 1, notice: null } : resolvePlanStep(plan, step);
+			setWalkNotice(at.notice);
+			setEditSlideArm(false);
+			setWalk({ kind: 'plan', plan, index: at.index });
+			walkRef.current = { kind: 'plan', plan, index: at.index };
+			setReaderComponent(name);
+			setVariant('default');
+			try {
+				localStorage.setItem(COMPONENT_KEY, name);
+			} catch {
+				/* private mode */
+			}
+			exploreSourceRef.current = plan.slides.map((s) => s.md).join('\n\n---\n\n');
+			freshRender();
+			// Prefetch the continuation so "Next component" never stalls.
+			const next = adjacentComponent(walkOrder, name, 1);
+			if (next) void fetchPlan(next);
+			return true;
+		},
+		[fetchPlan, freshRender, walkOrder],
+	);
+	startWalkRef.current = startWalk;
+	const stepWalk = React.useCallback(
+		(dir: 1 | -1) => {
+			const w = walkRef.current;
+			if (!w) return;
+			const count = w.kind === 'plan' ? w.plan.slides.length : w.count;
+			const ni = w.index + dir;
+			if (ni >= 0 && ni < count) {
+				setWalk({ ...w, index: ni });
+				walkRef.current = { ...w, index: ni };
+				setEditSlideArm(false);
+				scrollWalk(true);
+				return;
+			}
+			// Off either end of a component plan: the continuous read crosses into
+			// the adjacent component (forward → its title; backward → its close).
+			if (w.kind === 'plan') {
+				const adj = adjacentComponent(walkOrder, w.plan.name, dir);
+				if (adj) void startWalk(adj, dir === 1 ? null : 'LAST');
+			}
+		},
+		[scrollWalk, startWalk, walkOrder],
+	);
+	const jumpComponent = React.useCallback(
+		(dir: 1 | -1) => {
+			const w = walkRef.current;
+			const current = w?.kind === 'plan' ? w.plan.name : readerComponent;
+			const adj = adjacentComponent(walkOrder, current, dir);
+			if (adj) void startWalk(adj, null);
+		},
+		[readerComponent, startWalk, walkOrder],
+	);
+	/** Flip the surface. Entering Explore walks the remembered component; leaving
+	 * re-renders the untouched draft. Read mode never wrote it (invariant). */
+	const setViewMode = React.useCallback(
+		(v: 'read' | 'edit') => {
+			viewRef.current = v;
+			setView(v);
+			try {
+				localStorage.setItem(VIEW_KEY, v);
+			} catch {
+				/* private mode */
+			}
+			document.body.setAttribute('data-view', v);
+			if (v === 'read') {
+				if (walkRef.current) freshRender();
+				else void startWalk(readerComponent, null);
+			} else {
+				setEditSlideArm(false);
+				freshRender();
+			}
+			// The pane the frame lives in changed width (Explore is single-pane) —
+			// re-fit after layout so the filmstrip scales to the new box.
+			requestAnimationFrame(() => frameRef.current?.contentWindow?.__latticeFit?.());
+		},
+		[freshRender, readerComponent, startWalk],
+	);
+	// "Edit this slide" — the escape hatch INTO the editor. Arm-to-confirm over a
+	// non-pristine draft (Studio pattern); the backup + undo toast still guards
+	// the confirmed replace (a confirm alone is not sufficient protection).
+	const onEditSlide = React.useCallback(() => {
+		const w = walkRef.current;
+		if (!w || w.kind !== 'plan') return;
+		const md = w.plan.slides[w.index]?.md;
+		if (!md) return;
+		if (!draftIsPristine() && !editSlideArm) {
+			setEditSlideArm(true);
+			return;
+		}
+		backupDraft(`Loaded this ${w.plan.name} slide into the editor`);
+		recordInsert(md);
+		setViewMode('edit');
+		applyDeck(md);
+	}, [applyDeck, backupDraft, draftIsPristine, editSlideArm, recordInsert, setViewMode]);
+
 	// ── The one-shot handoff (all three external writers land here) ─────────────
 	// Applied automatically when the draft is pristine (identical UX on the
 	// common path); otherwise parked with a persistent affordance. The key is
@@ -595,10 +825,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				/* private mode */
 			}
 			setPendingHandoff(null);
+			// An incoming handoff carries content to EDIT — it forces the editor
+			// surface (the startup precedence rule, live for an already-open tab too).
+			if (viewRef.current !== 'edit') setViewMode('edit');
 			applyDeck(h.md, { toPreview: true });
 			setStatusLine(`Loaded the deck handed off from ${h.from}.`);
 		},
-		[applyDeck, backupDraft, recordInsert, setStatusLine],
+		[applyDeck, backupDraft, recordInsert, setStatusLine, setViewMode],
 	);
 	const consumeHandoffIfAny = React.useCallback(() => {
 		let h: ReturnType<typeof readHandoff> = null;
@@ -643,6 +876,114 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			/* private mode */
 		}
 	}, []);
+
+	// ── Startup: URL scheme + the mode precedence rule (decision §4/§6) ─────────
+	// view = handoff → Edit; explicit ?view= → that; persisted view → that; else
+	// pristine draft → Explore, dirty draft → Edit. Target = URL > localStorage,
+	// resolved through the tested fallbacks (never a blank frame). A host with
+	// no staged plans (the test harness) degrades to the editor-only playground.
+	const exploreAvailable = !!plansBase;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: mount-once by design — startup reads persisted state exactly once.
+	React.useEffect(() => {
+		const url = parsePlaygroundUrl(window.location.search);
+		let savedView: string | null = null;
+		let src = '';
+		let ih: string | null = null;
+		let hasHandoff = false;
+		try {
+			savedView = localStorage.getItem(VIEW_KEY);
+			src = localStorage.getItem(SOURCE_KEY) ?? '';
+			ih = localStorage.getItem(INSERTED_HASH_KEY);
+			hasHandoff = !!readHandoff(localStorage.getItem(HANDOFF_KEY));
+		} catch {
+			/* private mode */
+		}
+		let target = readerComponent;
+		if (url.c) {
+			const r = resolveComponent(catalog, url.c);
+			target = r.name;
+			setReaderComponent(r.name);
+			if (r.fallback) setWalkNotice(`“${url.c}” is not a component any more — showing ${r.name}.`);
+		}
+		const v = exploreAvailable ? resolveStartupView({ hasHandoff, savedView, urlView: url.view, source: src, insertedHash: ih }) : 'edit';
+		document.body.setAttribute('data-view', v);
+		if (v === 'read') {
+			viewRef.current = 'read';
+			setView('read');
+			void startWalkRef.current(target, url.s);
+		} else if (url.c && url.v && !hasHandoff) {
+			// ?c&view=edit&v=<variant> — a guarded SEED link: route it through the
+			// one-shot handoff pipeline (applies over a pristine draft, parks
+			// otherwise), never a direct source write.
+			const md = variantSource(catalog, target, url.v);
+			if (md) {
+				try {
+					localStorage.setItem(HANDOFF_KEY, JSON.stringify({ md, from: 'a shared link', ts: Date.now() }));
+				} catch {
+					/* private mode */
+				}
+				consumeHandoffRef.current();
+			}
+		}
+		urlSyncReadyRef.current = true;
+	}, []);
+	React.useEffect(() => () => document.body.removeAttribute('data-view'), []);
+
+	// Walking writes the address bar (replaceState — shareable position, no
+	// history spam); leaving Explore strips our params.
+	React.useEffect(() => {
+		if (!urlSyncReadyRef.current) return;
+		const { pathname, hash, search } = window.location;
+		if (view === 'read' && walk?.kind === 'plan') {
+			const s = walk.plan.slides[walk.index]?.kind ?? null;
+			window.history.replaceState(null, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
+		} else if (search) {
+			window.history.replaceState(null, '', pathname + hash);
+		}
+	}, [view, walk]);
+
+	// Keyboard walk: ← / → step, Shift+← / → jump components. Explore only, and
+	// never while typing in a field.
+	React.useEffect(() => {
+		if (view !== 'read') return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+			const t = e.target as HTMLElement | null;
+			if (t?.closest('input, textarea, select, [contenteditable], .cm-content')) return;
+			if (e.key === 'ArrowRight') {
+				e.preventDefault();
+				if (e.shiftKey) jumpComponent(1);
+				else stepWalk(1);
+			} else if (e.key === 'ArrowLeft') {
+				e.preventDefault();
+				if (e.shiftKey) jumpComponent(-1);
+				else stepWalk(-1);
+			}
+		};
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [view, stepWalk, jumpComponent]);
+
+	// Keep the Variant select honest while walking: it mirrors the slide under
+	// the reader (a jump list, not a loader — Edit-mode behavior untouched).
+	React.useEffect(() => {
+		if (view !== 'read' || walk?.kind !== 'plan') return;
+		const kind = walk.plan.slides[walk.index]?.kind || '';
+		const v = /^variant:(.+)$/.exec(kind);
+		setVariant(v ? v[1] : 'default');
+	}, [view, walk]);
+
+	// Deck setup operates on whatever deck the reader is walking (§0 amendment):
+	// in Explore it reads/writes the walk deck (ephemeral — regenerated on the
+	// next walk); in Edit it stays wired to the editor.
+	const exploreGetSource = React.useCallback(() => exploreSourceRef.current ?? getSource(), [getSource]);
+	const exploreSetSource = React.useCallback(
+		(text: string) => {
+			exploreSourceRef.current = text;
+			freshRender();
+		},
+		[freshRender],
+	);
 
 	// ── Re-render when <html> data-palette / data-mode change ───────────────────
 	React.useEffect(() => {
@@ -713,10 +1054,51 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	}, [pane]);
 	React.useEffect(() => () => document.body.removeAttribute('data-pane'), []);
 
+	// ── Walk bar derivations (cheap; recomputed per render) ─────────────────────
+	const walkVariantLabels = React.useMemo(() => {
+		if (walk?.kind !== 'plan') return {};
+		const out: Record<string, string> = {};
+		for (const v of catalog[walk.plan.name]?.variants || []) out[v.key] = v.label;
+		return out;
+	}, [walk, catalog]);
+	const walkChips = walk?.kind === 'plan' ? walk.plan.slides.map((s) => ({ key: s.kind, label: walkChipLabel(s.kind, walkVariantLabels) })) : [];
+	const walkCount = walk ? (walk.kind === 'plan' ? walk.plan.slides.length : walk.count) : 0;
+	const walkSlide = walk?.kind === 'plan' ? walk.plan.slides[walk.index] : null;
+	const walkAtEnd = walk != null && walk.index >= walkCount - 1;
+	const walkNextComp = walk?.kind === 'plan' && walkAtEnd ? adjacentComponent(walkOrder, walk.plan.name, 1) : null;
+	const walkPrevComp = walk?.kind === 'plan' && walk.index === 0 ? adjacentComponent(walkOrder, walk.plan.name, -1) : null;
+	const onWalkChip = React.useCallback(
+		(key: string) => {
+			const w = walkRef.current;
+			if (w?.kind !== 'plan') return;
+			const at = resolvePlanStep(w.plan, key);
+			const moved: Walk = { ...w, index: at.index };
+			setWalk(moved);
+			walkRef.current = moved;
+			setEditSlideArm(false);
+			scrollWalkRef.current(true);
+		},
+		[],
+	);
+
 	return (
 		<div className="lx-ui contents">
 			{/* Toolbar */}
 			<div className="pg-bar">
+				{/* Explore | Edit — the mode pill (§0.6: the walkthrough ships as
+				    "Explore"; internal keys keep 'read'). */}
+				{exploreAvailable && (
+				<PillTabs
+					className="pg-view-tabs"
+					ariaLabel="Playground mode"
+					value={view}
+					onValueChange={(v) => setViewMode(v as 'read' | 'edit')}
+					tabs={[
+						{ value: 'read', label: 'Explore' },
+						{ value: 'edit', label: 'Edit' },
+					]}
+				/>
+				)}
 				<div className="pg-bar-pickers">
 					<div className="pg-picker pg-template-picker">
 						<label className="pg-picker-label" htmlFor="pg-template-trigger">
@@ -761,7 +1143,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					    Manual mode also fits tabs whose switch drives an expensive re-render. */}
 					<Tabs value={pane} onValueChange={(v) => onTab(v as 'edit' | 'preview')} activationMode="manual" className="pg-mobile-tabs">
 						<TabsList>
-							<TabsTrigger value="edit">Edit</TabsTrigger>
+							{/* "Markdown", not "Edit": the mode pill owns the word Edit; this
+							    names the PANE (matching the pane label it reveals). */}
+							<TabsTrigger value="edit">Markdown</TabsTrigger>
 							<TabsTrigger value="preview">Preview</TabsTrigger>
 						</TabsList>
 					</Tabs>
@@ -788,8 +1172,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					)}
 					<BoundingBoxToggle on={debugOn} onToggle={() => setDebugOverride(debugOn ? 'off' : 'on')} />
 					<DeckSetupSheet
-						getSource={getSource}
-						setSource={setSource}
+						getSource={view === 'read' ? exploreGetSource : getSource}
+						setSource={view === 'read' ? exploreSetSource : setSource}
 						palettes={palettes}
 						finishes={finishes}
 						configured={configured}
@@ -803,6 +1187,27 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					/>
 				</div>
 			</div>
+
+			{/* The Walk bar — Explore's stepping chrome (decision §4/§6). */}
+			{view === 'read' && walk && (
+				<WalkBar
+					index={walk.index}
+					count={walkCount}
+					caption={walkSlide?.caption || ''}
+					chips={walkChips}
+					activeChip={walkSlide?.kind ?? null}
+					onChip={onWalkChip}
+					onPrev={() => stepWalk(-1)}
+					onNext={() => stepWalk(1)}
+					nextLabel={walkNextComp ? `Next component: ${walkNextComp} →` : null}
+					prevDisabled={walk.index === 0 && !walkPrevComp}
+					nextDisabled={walkAtEnd && !walkNextComp}
+					slideMd={walkSlide?.md ?? null}
+					onEditSlide={walk.kind === 'plan' ? onEditSlide : null}
+					editArmed={editSlideArm}
+					notice={walkNotice}
+				/>
+			)}
 
 			{/* Parked handoff: an external "Open in Playground" arrived over a dirty
 			    draft. Apply consumes the key; Not now keeps it parked (nothing lost). */}
@@ -838,6 +1243,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					{toast.undo && (
 						<button type="button" onClick={onUndoRestore}>
 							Undo
+						</button>
+					)}
+					{toast.reload && (
+						<button type="button" onClick={() => window.location.reload()}>
+							Reload
 						</button>
 					)}
 				</output>

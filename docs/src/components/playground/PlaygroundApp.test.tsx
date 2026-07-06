@@ -146,7 +146,7 @@ async function mountPlayground() {
 	return user;
 }
 
-async function clickTab(user: ReturnType<typeof userEvent.setup>, name: 'Edit' | 'Preview') {
+async function clickTab(user: ReturnType<typeof userEvent.setup>, name: 'Markdown' | 'Preview') {
 	await user.click(screen.getByRole('tab', { name }));
 }
 
@@ -201,7 +201,7 @@ describe('PlaygroundApp — gallery load shows the rendered deck (regression)', 
 		const user = await mountPlayground();
 		await clickTab(user, 'Preview');
 		expectPaneInSync();
-		await clickTab(user, 'Edit');
+		await clickTab(user, 'Markdown');
 		expectPaneInSync();
 	});
 
@@ -242,7 +242,7 @@ const paneCommand = (label: string, act: (u: Ctx['user']) => Promise<void>): fc.
 });
 
 const allCommands = [
-	fc.constant(paneCommand('Edit tab', (u) => clickTab(u, 'Edit'))),
+	fc.constant(paneCommand('Markdown tab', (u) => clickTab(u, 'Markdown'))),
 	fc.constant(paneCommand('Preview tab', (u) => clickTab(u, 'Preview'))),
 	fc.constant(paneCommand('load Jargon gallery', (u) => loadGallery(u, 'Jargon'))),
 	fc.constant(paneCommand('load Survey gallery', (u) => loadGallery(u, 'Survey'))),

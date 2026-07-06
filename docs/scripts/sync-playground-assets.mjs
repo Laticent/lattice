@@ -39,7 +39,7 @@
 // rewritten each run, so only the current hash survives.
 
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -130,12 +130,30 @@ for (const [, src] of assets) {
   }
 }
 
+// The Explore surface's walk plans (2026-07-05 Specimen Book decision §4):
+// plans/<name>.json, one per component, generated from the SAME exported
+// `galleryPlan(m)` the PDF renderer and page-count contract consume — the walk
+// order cannot fork between the reader and the committed galleries. Generated
+// content (not copied files), hashed alongside the file assets so a prose
+// change to any gallery slide changes the bytes → the hash → the URL.
+const componentRequire = createRequire(import.meta.url);
+const { loadAll } = componentRequire(join(repoRoot, 'lib', 'components', 'index.js'));
+const { galleryPlan } = componentRequire(join(repoRoot, 'tools', 'build-component-docs.js'));
+const generated = loadAll().map((m) => [
+  `plans/${m.name}.json`,
+  JSON.stringify({ name: m.name, slides: galleryPlan(m) }),
+]);
+
 // Content hash over (relPath + bytes) for every asset, in a stable order, so
 // the directory name changes iff any asset's content (or set) changes.
 const hash = createHash('sha256');
-for (const [rel, src] of [...assets].sort((a, b) => a[0].localeCompare(b[0]))) {
+const hashed = [
+  ...assets.map(([rel, src]) => [rel, () => readFileSync(src)]),
+  ...generated.map(([rel, content]) => [rel, () => content]),
+];
+for (const [rel, bytes] of hashed.sort((a, b) => a[0].localeCompare(b[0]))) {
   hash.update(rel);
-  hash.update(readFileSync(src));
+  hash.update(bytes());
 }
 const version = hash.digest('hex').slice(0, 12);
 
@@ -148,5 +166,12 @@ for (const [rel, src] of assets) {
   mkdirSync(dirname(dest), { recursive: true });
   copyFileSync(src, dest);
 }
+for (const [rel, content] of generated) {
+  const dest = join(versionedRoot, version, rel);
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(dest, content);
+}
 
-console.log(`sync-playground-assets: staged ${assets.length} asset(s) into public/playground/v/${version}/.`);
+console.log(
+  `sync-playground-assets: staged ${assets.length + generated.length} asset(s) (${generated.length} generated plans) into public/playground/v/${version}/.`,
+);

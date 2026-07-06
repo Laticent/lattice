@@ -90,10 +90,146 @@ export function resolveStartupView(opts: {
 	savedView: string | null;
 	source: string;
 	insertedHash: string | null;
+	/** An explicit `?view=` in the URL — wins over the persisted view, loses to a handoff. */
+	urlView?: string | null;
 }): 'read' | 'edit' {
 	if (opts.hasHandoff) return 'edit';
+	if (opts.urlView === 'read' || opts.urlView === 'edit') return opts.urlView;
 	if (opts.savedView === 'read' || opts.savedView === 'edit') return opts.savedView;
 	return isPristine(opts.source, opts.insertedHash) ? 'read' : 'edit';
+}
+
+// ── The Explore surface (decision §4, PR 6) ──────────────────────────────────
+
+/** One slide of a component's walk plan, as emitted into plans/<name>.json by
+ * sync-playground-assets.mjs from the SAME exported `galleryPlan(m)` the PDF
+ * renderer consumes — the walk order cannot fork between them. `kind` is the
+ * STABLE step key (`title`, `default`, `variant:<key>`, `stress`,
+ * `composition:<mod>`, `anti-patterns`, `see-also`) — never an index, so links
+ * survive variant additions. */
+export type PlanSlide = { kind: string; caption: string; md: string };
+export type Plan = { name: string; slides: PlanSlide[] };
+
+/** Parse a fetched plan payload; malformed/foreign shapes read as "no plan"
+ * (the caller's 404 path — never a throw, never a dead Next button). */
+export function readPlan(raw: string | null): Plan | null {
+	if (!raw) return null;
+	try {
+		const v = JSON.parse(raw) as Partial<Plan>;
+		if (typeof v.name !== 'string' || !Array.isArray(v.slides) || !v.slides.length) return null;
+		const slides: PlanSlide[] = [];
+		for (const s of v.slides) {
+			if (!s || typeof s.md !== 'string' || typeof s.kind !== 'string') return null;
+			slides.push({ kind: s.kind, caption: typeof s.caption === 'string' ? s.caption : '', md: s.md });
+		}
+		return { name: v.name, slides };
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Resolve a persisted step key (`?s=`) against a live plan — the I5 fallback:
+ * an exact kind match lands on its slide; a renamed/removed kind (stale
+ * bookmark) lands on the title slide with a non-blocking notice; no key at all
+ * is silently the title slide. Never a blank frame or a throw.
+ */
+export function resolvePlanStep(plan: Plan, step: string | null): { index: number; notice: string | null } {
+	if (!step) return { index: 0, notice: null };
+	const i = plan.slides.findIndex((s) => s.kind === step);
+	if (i >= 0) return { index: i, notice: null };
+	return { index: 0, notice: `“${step.replace(/^variant:/, '')}” no longer exists in ${plan.name} — showing its title slide.` };
+}
+
+export type PlaygroundUrlState = { c: string | null; view: 'read' | 'edit' | null; s: string | null; v: string | null };
+
+/** Read the playground's URL params (`?c=<component>&view=read&s=<kind>` /
+ * `?c&view=edit&v=<variant>`). Unknown values pass through here; resolution
+ * against the catalog/plan happens in resolveComponent / resolvePlanStep. */
+export function parsePlaygroundUrl(search: string): PlaygroundUrlState {
+	const q = new URLSearchParams(search || '');
+	const rawView = q.get('view');
+	return {
+		c: q.get('c'),
+		view: rawView === 'read' || rawView === 'explore' ? 'read' : rawView === 'edit' ? 'edit' : null,
+		s: q.get('s'),
+		v: q.get('v'),
+	};
+}
+
+/** Serialize the walk position back into a query string (for replaceState and
+ * the docs-reference deep links). Empty/default fields are omitted. */
+export function playgroundQuery(state: Partial<PlaygroundUrlState>): string {
+	const q = new URLSearchParams();
+	if (state.c) q.set('c', state.c);
+	if (state.view) q.set('view', state.view);
+	if (state.s && state.s !== 'title') q.set('s', state.s);
+	if (state.v && state.v !== 'default') q.set('v', state.v);
+	const s = q.toString();
+	return s ? `?${s}` : '';
+}
+
+/**
+ * The next/previous component in the continuous walk (catalog order: the
+ * caller passes the same ordered list the picker renders — bucket, then A–Z).
+ * Returns null at either end so the Walk bar can say so instead of wrapping.
+ */
+export function adjacentComponent(order: string[], current: string, dir: 1 | -1): string | null {
+	const i = order.indexOf(current);
+	if (i < 0) return null;
+	const j = i + dir;
+	return j >= 0 && j < order.length ? order[j] : null;
+}
+
+/** The Walk bar's step chips are FULL-WORD labels, never single letters (the
+ * §0.6 amendment — abbreviating to a letter is an AA anti-pattern). Variant
+ * kinds resolve through the catalog's own labels. */
+export function walkChipLabel(kind: string, variantLabels: Record<string, string> = {}): string {
+	if (kind === 'title') return 'Title';
+	if (kind === 'default') return 'Default';
+	if (kind === 'stress') return 'Stress test';
+	if (kind === 'anti-patterns') return 'Anti-patterns';
+	if (kind === 'see-also') return 'See also';
+	const v = /^variant:(.+)$/.exec(kind);
+	if (v) return variantLabels[v[1]] || v[1];
+	const c = /^composition:(.+)$/.exec(kind);
+	if (c) return `+ ${c[1]}`;
+	return kind;
+}
+
+/**
+ * A slide's copy as plain text — the ≤560px "Read this slide's copy"
+ * disclosure. A 1280×720 slide at phone width is a preview, not a reading
+ * surface (~0.28 scale); the transcript carries the words at body size.
+ * Plain-text extraction rendered as React text — no HTML, no #22 surface.
+ */
+export function slideTranscript(md: string): string {
+	const noComments = (md || '').replace(/<!--[\s\S]*?-->/g, '');
+	const lines: string[] = [];
+	for (const raw of noComments.split('\n')) {
+		let line = raw.trim();
+		if (!line || /^[-=]{3,}$/.test(line)) continue;
+		if (/^\|[\s:-]+\|/.test(line.replace(/[^|:\s-]/g, ''))) continue; // table rule row
+		line = line
+			.replace(/^#{1,6}\s+/, '')
+			.replace(/^>\s?/, '')
+			.replace(/^(?:[-*+]|\d+\.)\s+/, '')
+			.replace(/^\|(.*)\|$/, (_, cells: string) =>
+				cells
+					.split('|')
+					.map((c) => c.trim())
+					.filter(Boolean)
+					.join(' · '),
+			)
+			.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+			.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+			.replace(/\*\*([^*]+)\*\*/g, '$1')
+			.replace(/\*([^*]+)\*/g, '$1')
+			.replace(/`([^`]+)`/g, '$1')
+			.trim();
+		if (line) lines.push(line);
+	}
+	return lines.join('\n');
 }
 
 /**
