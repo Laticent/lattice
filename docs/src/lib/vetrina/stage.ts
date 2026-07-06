@@ -16,6 +16,8 @@
 // those tokens in CSS (light/dark rides its own cascade — the layer inherits from :root)
 // or via the JS `Theme` convenience (theme.ts writes the tokens onto the layer).
 
+import type { ResolvedTheme } from './theme';
+
 export type Target = string | HTMLElement | (() => HTMLElement | null);
 
 /** The cursor's body language — a curated alphabet, each carrying a distinct MEANING.
@@ -47,6 +49,8 @@ export interface Stage {
 	resolve(target: Target): HTMLElement | null;
 	/** True if reduced motion is in effect (the runner shortens its pacing). */
 	readonly reduced: boolean;
+	/** Pacing multiplier from the theme's speed — storyboard settle + typing cadence scale by it. */
+	readonly pace: number;
 	/** True if the event target belongs to the stage's own chrome (the Exit button). */
 	contains(node: EventTarget | null): boolean;
 	/** Remove every node. Idempotent; all methods no-op afterward (I6 / interleave safety). */
@@ -62,6 +66,8 @@ export interface StageOptions {
 	portalRoot?: HTMLElement;
 	/** Stacking context for hosts that go higher than the default. */
 	zIndex?: number;
+	/** Resolved theme — token values + pace + pointer shape + silenced cues (from theme.ts). */
+	theme?: ResolvedTheme;
 }
 
 // ── Abort plumbing ───────────────────────────────────────────────────────────
@@ -129,11 +135,26 @@ function reducedMotion(): boolean {
 
 // ── The stage ─────────────────────────────────────────────────────────────────
 
+function cursorInner(pointer: 'arrow' | 'ring' | 'dot'): string {
+	const fill = 'var(--vt-cursor-fill)';
+	const stroke = 'var(--vt-cursor-stroke)';
+	if (pointer === 'ring')
+		return `<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="8" fill="none" stroke="${fill}" stroke-width="3.5"/><circle cx="13" cy="13" r="8" fill="none" stroke="${stroke}" stroke-width="1"/></svg>`;
+	if (pointer === 'dot')
+		return `<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="6.5" fill="${fill}" stroke="${stroke}" stroke-width="2"/></svg>`;
+	return (
+		'<svg width="28" height="28" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+		`<path d="M5 3 L5 20 L9.5 15.8 L12.4 22.5 L15.4 21.2 L12.5 14.6 L18.6 14.4 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.4" stroke-linejoin="round"/></svg>`
+	);
+}
+
 export function createStage(opts: StageOptions): Stage {
 	const { root, onExit } = opts;
 	const doc = root.ownerDocument ?? document;
 	const portal = opts.portalRoot ?? doc.body;
 	const reduced = reducedMotion();
+	const pace = opts.theme?.pace ?? 1;
+	const silenced = opts.theme?.silenced ?? new Set<string>();
 	let destroyed = false;
 
 	// Layer host — one fixed, full-viewport, click-through container. Token defaults live
@@ -143,6 +164,9 @@ export function createStage(opts: StageOptions): Stage {
 	layer.className = 'vetrina-stage';
 	layer.setAttribute('aria-hidden', 'true');
 	for (const [k, v] of Object.entries(TOKEN_DEFAULTS)) layer.style.setProperty(k, v);
+	// JS Theme convenience: write resolved token VALUES over the defaults (host CSS still wins
+	// via the cascade for anything it styles — these are just JS-supplied defaults).
+	if (opts.theme) for (const [k, v] of Object.entries(opts.theme.tokens)) layer.style.setProperty(k, v);
 	layer.style.cssText +=
 		`position:fixed;inset:0;z-index:${opts.zIndex ?? 2147482000};pointer-events:none;` +
 		'font:500 14px system-ui,-apple-system,sans-serif;';
@@ -152,10 +176,7 @@ export function createStage(opts: StageOptions): Stage {
 	cursor.style.cssText =
 		'position:absolute;top:0;left:0;z-index:8;width:28px;height:28px;' +
 		'transform:translate(-50%,-50%);will-change:transform,left,top;transition:opacity .25s ease;opacity:0;';
-	cursor.innerHTML =
-		'<svg width="28" height="28" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-		'<path d="M5 3 L5 20 L9.5 15.8 L12.4 22.5 L15.4 21.2 L12.5 14.6 L18.6 14.4 Z" ' +
-		`fill="${A}" stroke="var(--vt-cursor-stroke)" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+	cursor.innerHTML = cursorInner(opts.theme?.pointer ?? 'arrow');
 
 	const caption = doc.createElement('div');
 	caption.className = 'vetrina-caption';
@@ -297,12 +318,13 @@ export function createStage(opts: StageOptions): Stage {
 			place(tx, ty);
 			return wait(160, signal);
 		}
-		const dur = Math.max(300, Math.min(820, Math.hypot(tx - cx, ty - cy)));
+		const dur = Math.max(300, Math.min(820, Math.hypot(tx - cx, ty - cy))) * pace;
 		return tween(tx, ty, dur, signal);
 	}
 
 	async function press(signal?: AbortSignal): Promise<void> {
 		if (destroyed) return;
+		if (silenced.has('press')) return wait(reduced ? 80 : 300 * pace, signal);
 		cursor.animate(
 			[
 				{ transform: 'translate(-50%,-50%) scale(1)' },
@@ -524,6 +546,10 @@ export function createStage(opts: StageOptions): Stage {
 
 	async function intro(signal?: AbortSignal): Promise<void> {
 		if (destroyed) return;
+		if (silenced.has('intro')) {
+			cursor.style.opacity = '1';
+			return wait(200, signal);
+		}
 		place(window.innerWidth / 2, window.innerHeight * 0.46);
 		if (reduced) {
 			cursor.style.opacity = '1';
@@ -559,7 +585,7 @@ export function createStage(opts: StageOptions): Stage {
 			case 'wave':
 				return wave(signal);
 			case 'circle':
-				if (!el) return; // circle needs a target; null-resolve is a no-op
+				if (!el || silenced.has('circle')) return; // circle needs a target; null-resolve/silenced = no-op
 				return circleGesture(el, signal);
 			case 'shake':
 				return shake(signal);
@@ -592,8 +618,8 @@ export function createStage(opts: StageOptions): Stage {
 		if (destroyed) return;
 		const el = resolve(target);
 		if (!el) return; // null-resolve = no-op (no wait, no throw)
-		anticipate(el);
-		await wait(reduced ? 0 : 480, signal); // the register beat — let the eye lead
+		if (!silenced.has('anticipate')) anticipate(el);
+		await wait(reduced ? 0 : 480 * pace, signal); // the register beat — let the eye lead
 		await moveToEl(el, signal);
 	}
 
@@ -616,6 +642,7 @@ export function createStage(opts: StageOptions): Stage {
 		intro,
 		resolve,
 		reduced,
+		pace,
 		contains: (node) => node instanceof Node && layer.contains(node),
 		destroy: () => {
 			destroyed = true;

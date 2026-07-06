@@ -76,7 +76,7 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			}
 			if (step.circle != null) await stage.gesture('circle', step.circle, signal);
 
-			await wait(step.settle ?? (stage.reduced ? 300 : STEP_SETTLE), signal);
+			await wait((step.settle ?? (stage.reduced ? 300 : STEP_SETTLE)) * stage.pace, signal);
 		}
 	};
 }

@@ -12,6 +12,7 @@
 // return a Walkthrough.
 
 import { createStage, isAbortError, type Stage, type Target, wait } from './stage';
+import { resolveTheme, type Theme } from './theme';
 
 /** How typed text LANDS in the host (native editor inserts). Omit if a host never types. */
 export interface TypeOps {
@@ -67,6 +68,8 @@ export interface RunOptions<A> {
 	play: Walkthrough<A>;
 	/** How text lands, if this host types. */
 	type?: TypeOps;
+	/** Theming — CSS-first --vt-* tokens, or this JS convenience (accent/speed/pointer/cues) (§9). */
+	theme?: Theme;
 	/** Called AFTER teardown (I7) - the host restores whatever it wants. */
 	onStop?: (reason: StopReason) => void;
 	/** Play the opening flourish (materialize + wave) once at the start. Default true. */
@@ -117,7 +120,14 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 	const scope: 'root' | 'window' = opts.takeover?.scope ?? 'window';
 	const scopeNode: EventTarget = scope === 'root' ? root : window;
 
-	const stage = createStage({ root, onExit: () => stop('exit'), portalRoot: opts.portalRoot, zIndex: opts.zIndex });
+	const resolved = resolveTheme(opts.theme); // validates colors up front (throws on url()/invisible)
+	const stage = createStage({
+		root,
+		onExit: () => stop('exit'),
+		portalRoot: opts.portalRoot ?? opts.theme?.portalRoot,
+		zIndex: opts.zIndex ?? opts.theme?.zIndex,
+		theme: resolved,
+	});
 
 	let stopped = false;
 	// awaitUser state: when set, the guard classifies input instead of aborting on a match.
@@ -207,7 +217,7 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		const key = keyOf(target);
 		const current = ops.read ? ops.read() : (typed.get(key) ?? '');
 		if (current === text) return;
-		const cadence = o?.cadence ?? 22;
+		const cadence = (o?.cadence ?? 22) * stage.pace;
 		const keep = commonPrefix(current, text);
 		// Reduced motion (or a huge insert) -> set the whole target at once.
 		if (stage.reduced || text.length - keep > 1600) {
