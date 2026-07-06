@@ -10,7 +10,7 @@
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short readiness line.
 
-Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (colour-blind-safe).
+Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).
 
 ## When to use
 

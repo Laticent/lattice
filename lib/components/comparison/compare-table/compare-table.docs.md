@@ -21,7 +21,7 @@ Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-pro
 ## When NOT to use
 
 - **Cells full of prose.** Long sentences in a table cell wrap awkwardly and force the column wider. Move to `verdict-grid` for criteria with body text, or `cards-stack` for full prose rows.
-- **More than 6 rows.** Past 6 rows the table density crowds the slide. Split into two slides or summarise the rows that don't differentiate.
+- **More than 6 rows.** Past 6 rows the table density crowds the slide. Split into two slides or summarize the rows that don't differentiate.
 - **State-marker rows.** When most cells are pass/fail/partial badges, the right layout is `obligation-matrix` or `verdict-grid`. compare-table is for textual values.
 
 ## Authoring

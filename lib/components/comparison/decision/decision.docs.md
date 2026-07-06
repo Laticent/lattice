@@ -60,21 +60,19 @@ Use after a comparison slide to land the decision. The justifications render as 
 
 ## Variants (component-specific)
 
-### `banner-tag` — Banner tag — slot label as full-width header strip
+### `banner-tag` — banner-tag
 
-Flips each card from a flush-corner label tag into a full-width header strip. Use when the slot label is the architectural signal of the card (categorical case: BUILD / WHY NOT BUY / WHY NOT DELAY), not a quiet marker.
+Headlines each card with its camp.
 
 ```markdown
 <!-- _class: decision banner-tag -->
 
-## Three reasons we are building.
+## banner-tag headlines each card with its camp.
 
-- BUILD
-  - The platform is the product. Owning it owns the roadmap.
-- WHY NOT BUY
-  - No vendor matches our compliance posture without surrender of control.
-- WHY NOT DELAY
-  - Cost of waiting compounds: each quarter spent on workarounds is one fewer quarter on the platform.
+- DECIDE
+  - The banner carries the stance; the body carries the reason.
+- RECORD
+  - Use when the slide is the decision log's public face.
 ```
 
 ## Universal modifiers

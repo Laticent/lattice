@@ -6,12 +6,12 @@
 
 **Tags** `visual` · `showcase` · `pitch`
 
-Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-coloured silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and colour-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.
+Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-colored silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and color-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.
 
 ## When to use
 
 - **The proof is the logos.** Customers, partners, funders, accreditations, participating agencies — anywhere a set of recognisable marks carries more weight than a sentence. The audience scans the wall and concludes 'serious company keeps this company.'
-- **Marks read as one texture.** Every mark is filled with the same palette token, so a loud red logo can't outshout a quiet one — the wall reads as a single credential, not a ransom note of competing brand colours. Because the fill is a token, it re-tones for theme + dark mode and stays AA on any ground.
+- **Marks read as one texture.** Every mark is filled with the same palette token, so a loud red logo can't outshout a quiet one — the wall reads as a single credential, not a ransom note of competing brand colors. Because the fill is a token, it re-tones for theme + dark mode and stays AA on any ground.
 - **Eight to eighteen marks.** Enough to signal breadth, few enough that each is legible. Fewer than six looks thin; past eighteen the marks shrink below recognition — curate to the most recognisable names or split across two slides.
 
 ## When NOT to use
@@ -47,7 +47,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 | `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`. |
 | `title` | `h2` | no | Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not. |
 | `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. |
-| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centred. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
+| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
 
 ## Anatomy
 

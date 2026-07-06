@@ -6,15 +6,34 @@
   "substance": "structure",
   "adapt": {
     "mode": "reflow",
-    "families": ["wide", "square", "tall", "strip"],
-    "priority": ["title", "tiers"],
-    "keepTogether": ["tier"]
+    "families": [
+      "wide",
+      "square",
+      "tall",
+      "strip"
+    ],
+    "priority": [
+      "title",
+      "tiers"
+    ],
+    "keepTogether": [
+      "tier"
+    ]
   },
-  "tags": ["pitch", "tradeoff", "recommendation"],
+  "tags": [
+    "pitch",
+    "tradeoff",
+    "recommendation"
+  ],
   "description": "Side-by-side plan tiers with prices, feature checklists, and one recommended column.",
   "purpose": "Use for the plans / packages slide — two to four tiers compared on price and features, with one tier elevated as the recommendation. The recommended tier is marked explicitly (it is usually the middle one, not the last), so the eye lands where you want it.",
-  "variants": ["two", "four"],
-  "excludes": ["accent"],
+  "variants": [
+    "two",
+    "four"
+  ],
+  "excludes": [
+    "accent"
+  ],
   "slots": {
     "title": {
       "selector": "h2",
@@ -34,8 +53,11 @@
   },
   "skeleton": "<!-- _class: pricing -->\n\n## Pick the plan that fits the team.\n\n- Starter `$0`\n  - [x] First feature\n  - [/] Second feature\n  - For evaluating, one team.\n- Growth `$49 / mo` *Most popular*\n  - [x] First feature\n  - [x] Second feature\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] First feature\n  - [x] Second feature\n  - For procurement and compliance.\n",
   "anatomyBlock": "pricing",
-  "sample": "<!-- _class: pricing -->\n\n## Pick the plan that fits the team.\n\n- Starter `$0`\n  - [x] Up to 3 seats\n  - [/] SSO\n  - [/] Dedicated support\n  - For evaluating, one team.\n- Growth `$49 / mo` *Most popular*\n  - [x] Up to 25 seats\n  - [x] SSO\n  - [/] Dedicated support\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] Unlimited seats\n  - [x] SSO + SCIM\n  - [x] Dedicated support\n  - For procurement and compliance.\n",
-  "stressSample": "<!-- _class: pricing -->\n\n## Six lines of features per tier still hold.\n\n- Starter `$0`\n  - [x] Up to 3 seats\n  - [x] Community support\n  - [/] SSO\n  - [/] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For evaluating, one team.\n- Growth `$49 / mo` *Most popular*\n  - [x] Up to 25 seats\n  - [x] Priority support\n  - [x] SSO\n  - [-] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] Unlimited seats\n  - [x] Dedicated support\n  - [x] SSO + SCIM\n  - [x] Audit log\n  - [x] Dedicated CSM\n  - [x] 99.9% uptime SLA\n  - For procurement and compliance.\n",
+  "sample": "<!-- _class: pricing -->\n\n## Three tiers, one recommended column.\n\n- Starter `$0`\n  - [x] The checklist rows compare\n  - [/] Slashed rows mean not included\n  - [/] Same rows on every tier\n  - One line positions the tier.\n- Growth `$49 / mo` *Most popular*\n  - [x] The starred tier gets the accent\n  - [x] Checks accumulate up the ladder\n  - [/] One gap keeps it honest\n  - The column buyers should read first.\n- Enterprise `Custom`\n  - [x] The top tier checks every row\n  - [x] Custom replaces a number\n  - [x] Nothing slashed up here\n  - The ceiling of the ladder.\n",
+  "stressDoc": {
+    "caption": "Six feature rows per tier.",
+    "sample": "<!-- _class: pricing -->\n\n## Six lines of features per tier still hold.\n\n- Starter `$0`\n  - [x] Up to 3 seats\n  - [x] Community support\n  - [/] SSO\n  - [/] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For evaluating, one team.\n- Growth `$49 / mo` *Most popular*\n  - [x] Up to 25 seats\n  - [x] Priority support\n  - [x] SSO\n  - [-] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] Unlimited seats\n  - [x] Dedicated support\n  - [x] SSO + SCIM\n  - [x] Audit log\n  - [x] Dedicated CSM\n  - [x] 99.9% uptime SLA\n  - For procurement and compliance.\n"
+  },
   "whenToUse": [
     {
       "title": "Two to four tiers",
@@ -73,23 +95,41 @@
     }
   ],
   "related": [
-    { "name": "compare-table", "when": "a dense feature-by-plan matrix with many rows, not a few highlighted features" },
-    { "name": "verdict-grid", "when": "options scored on shared criteria, not priced tiers" },
-    { "name": "cards-grid", "when": "parallel items with no price and no shared feature checklist" },
-    { "name": "decision", "when": "the slide recommends one option outright rather than presenting a price ladder" },
-    { "name": "big-number", "when": "a single headline price, not a tiered comparison" }
+    {
+      "name": "compare-table",
+      "when": "a dense feature-by-plan matrix with many rows, not a few highlighted features"
+    },
+    {
+      "name": "verdict-grid",
+      "when": "options scored on shared criteria, not priced tiers"
+    },
+    {
+      "name": "cards-grid",
+      "when": "parallel items with no price and no shared feature checklist"
+    },
+    {
+      "name": "decision",
+      "when": "the slide recommends one option outright rather than presenting a price ladder"
+    },
+    {
+      "name": "big-number",
+      "when": "a single headline price, not a tiered comparison"
+    }
   ],
   "variantDocs": {
     "two": {
-      "label": "Two — a pair of tiers",
-      "caption": "Two columns instead of three — self-serve vs. enterprise, monthly vs. annual, the classic good/better pair. The recommended marker still elevates whichever tier carries it.",
-      "sample": "<!-- _class: pricing two -->\n\n## Two ways to buy.\n\n- Self-serve `$49 / mo`\n  - [x] Up to 25 seats\n  - [x] SSO\n  - [/] Dedicated CSM\n  - [/] Custom contract\n  - For teams that onboard themselves.\n- Enterprise `Custom` *Recommended*\n  - [x] Unlimited seats\n  - [x] SSO + SCIM\n  - [x] Dedicated CSM\n  - [x] Custom contract\n  - For procurement, security review, and scale.\n"
+      "label": "two",
+      "caption": "A pair of plans, head to head.",
+      "sample": "<!-- _class: pricing two -->\n\n## two sets a pair of plans head to head.\n\n- Self-serve `$49 / mo`\n  - [x] Wider columns, more feature rows\n  - [/] The gap that motivates upgrading\n  - The simple path.\n- Enterprise `Custom`\n  - [x] Everything in self-serve\n  - [x] The rows that close deals\n  - The guided path.\n"
     },
     "four": {
-      "label": "Four — a full ladder",
-      "caption": "Four columns for a complete ladder from free to enterprise. Pair with `compact` if the feature lists run long; past four tiers reach for `compare-table` instead.",
-      "sample": "<!-- _class: pricing four compact -->\n\n## The full ladder, free to enterprise.\n\n- Free `$0`\n  - [x] 1 seat\n  - [/] SSO\n  - For trying it out.\n- Team `$29`\n  - [x] 10 seats\n  - [/] SSO\n  - For small teams.\n- Growth `$49` *Most popular*\n  - [x] 25 seats\n  - [x] SSO\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] Unlimited\n  - [x] SSO + SCIM\n  - For procurement.\n"
+      "label": "four",
+      "caption": "The whole ladder, compact.",
+      "sample": "<!-- _class: pricing four compact -->\n\n## four compact fits the whole ladder.\n\n- Free `$0`\n  - [x] One seat\n  - [/] The rest\n  - For trying.\n- Team `$29`\n  - [x] Five seats\n  - [/] SSO\n  - For starting.\n- Growth `$49` *Most popular*\n  - [x] SSO\n  - [/] Support\n  - For scaling.\n- Enterprise `Custom`\n  - [x] Everything\n  - [x] Support\n  - For fleets.\n"
     }
   },
-  "showcase": { "featured": true }
+  "showcase": {
+    "featured": true
+  },
+  "specimenVoice": true
 }

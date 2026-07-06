@@ -18,7 +18,7 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 <!-- _class: redline -->
 <!-- _footer: "Default · redline" -->
 
-## SB-362 rewrote the opt-out link rule.
+## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -30,9 +30,9 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 ---
 
 <!-- _class: redline annotated -->
-<!-- _footer: "Annotated — numbered margin notes · redline annotated" -->
+<!-- _footer: "annotated · redline annotated — Adds the why beside each edit." -->
 
-## SB-362 rewrote the opt-out link rule — annotated.
+## annotated adds the why beside each edit.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -46,9 +46,9 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 ---
 
 <!-- _class: redline three-col -->
-<!-- _footer: "Three-col — old | new | rationale · redline three-col" -->
+<!-- _footer: "three-col · redline three-col — Old, new, and why side by side." -->
 
-## SB-362 — old, new, and why side-by-side.
+## three-col sets old, new, and why side by side.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -58,15 +58,15 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 
 - **Scope.** Sale and sharing fold into one duty.
 - **Method floor.** One method now suffices.
-- **Link title.** Homepage label is mandatory and standardised.
+- **Link title.** Homepage label is mandatory and standardized.
 
 
 ---
 
 <!-- _class: redline split -->
-<!-- _footer: "Split — old | new side by side · redline split" -->
+<!-- _footer: "split · redline split — Before and after in parallel." -->
 
-## SB-362 — before and after, side by side.
+## split shows before and after in parallel.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -80,9 +80,9 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 ---
 
 <!-- _class: redline stacked -->
-<!-- _footer: "Stacked — old block atop new · redline stacked" -->
+<!-- _footer: "stacked · redline stacked — Prior text struck above the current." -->
 
-## SB-362 — prior text struck, current below.
+## stacked strikes the prior text above the current.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -95,10 +95,23 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 
 ---
 
+<!-- _class: redline -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · redline — The marking ceiling for one clause." -->
+
+## Edit density has a ceiling too.
+
+`Specimen clause · the most marking one blockquote should carry`
+
+> A clause that <del>keeps</del> <ins>tracks</ins> every change becomes <del>hard</del> <ins>impossible</ins> to read aloud when <del>more than half</del> <ins>a third</ins> of its words carry markup; past that, <del>annotate inline</del> <ins>split the amendment across slides</ins> so each edit <ins>still</ins> reads <del>quickly</del> <ins>as language, not markup</ins>.
+
+
+---
+
 <!-- _class: redline dark -->
 <!-- _footer: "Composition: dark · redline dark" -->
 
-## SB-362 rewrote the opt-out link rule.
+## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -112,7 +125,7 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 <!-- _class: redline compact -->
 <!-- _footer: "Composition: compact · redline compact" -->
 
-## SB-362 rewrote the opt-out link rule.
+## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -126,7 +139,7 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 <!-- _class: redline accent -->
 <!-- _footer: "Composition: accent · redline accent" -->
 
-## SB-362 rewrote the opt-out link rule.
+## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -156,5 +169,5 @@ Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracki
 
 - `compare-code` — the diff is source code, not natural language
 - `compare-prose` — two narrative alternatives, not verbatim amendments
-- `compare-prose` — the change is structural state, not text
+- `state-chart` — the change is structural state, not text
 - `obligation-matrix` — comparing many regimes against shared obligations

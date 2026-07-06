@@ -1,9 +1,27 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "list-steps",
-  "focusAxes": ["item"],
-  "capacity": { "axis": "item", "min": 3, "sweet": 4, "soft": 5, "hard": 6, "escalateTo": ["timeline-list","split across slides"], "note": "past five steps the row begins to crowd" },
-  "density": { "axis": "item", "soft": 14, "hard": 22, "note": "one sentence per step, not a paragraph" },
+  "focusAxes": [
+    "item"
+  ],
+  "capacity": {
+    "axis": "item",
+    "min": 3,
+    "sweet": 4,
+    "soft": 5,
+    "hard": 6,
+    "escalateTo": [
+      "timeline-list",
+      "split across slides"
+    ],
+    "note": "past five steps the row begins to crowd"
+  },
+  "density": {
+    "axis": "item",
+    "soft": 14,
+    "hard": 22,
+    "note": "one sentence per step, not a paragraph"
+  },
   "function": "progression",
   "form": "timeline",
   "substance": "structure",
@@ -54,7 +72,11 @@
   },
   "skeleton": "<!-- _class: list-steps -->\n\n## How to roll this out.\n\n1. First step — a sentence describing what you do here.\n2. Second step — a sentence describing what you do here.\n3. Third step — a sentence describing what you do here.\n4. Fourth step — a sentence describing what you do here.\n",
   "anatomyBlock": "list-steps",
-  "sample": "<!-- _class: list-steps -->\n\n## What happens in the first hour of an incident, in theory.\n\n1. Declare and page\n   - Whoever notices opens the incident channel and pages on-call. Declaring is cheap; a missed page is the line item in the post-mortem.\n2. Assign a commander\n   - One person owns coordination and communication. They direct the response — they do not debug it, though they will be asked why they aren't.\n3. Stop the bleeding\n   - Mitigate before diagnosing. Roll back, fail over, or shed load first; find the root cause once customers are safe and the board has logged off.\n4. Communicate on a clock\n   - A status update every 30 minutes, even when it is \"still investigating.\" Silence is what the retrospective remembers.\n",
+  "sample": "<!-- _class: list-steps -->\n\n## Steps promise an order and keep it.\n\n1. Name the step\n   - A verb-first title and one clause of body.\n2. Keep steps parallel\n   - Same shape every step, or sequence breaks.\n3. Number honestly\n   - Order is the promise this layout makes.\n4. Stop at five\n   - Six fits; seven is two slides.\n",
+  "stressDoc": {
+    "caption": "Six steps — the last honest sequence.",
+    "sample": "<!-- _class: list-steps -->\n\n## Six steps is the last honest sequence.\n\n1. Open at full strength\n   - A step at the hard budget carries a verb, its object, and the one condition that matters.\n2. Hold the parallel line\n   - Six steps survive only when every title starts with a verb and every body stays one clause.\n3. Front-load the risk\n   - The contested step belongs in the top half.\n4. Shorten as you descend\n   - The reader is walking, not studying.\n5. Mark the soft ceiling\n   - Five was it; this row is borrowed room.\n6. Stop\n   - A seventh step is a second slide.\n"
+  },
   "whenToUse": [
     {
       "title": "Steps need a sentence each",
@@ -103,49 +125,50 @@
   ],
   "variantDocs": {
     "timeline": {
-      "label": "Timeline — dots on a horizontal spine",
-      "caption": "Renders the steps as labelled nodes along a single horizontal axis — `ol` gives numbered discs, `ul` gives plain dots. Lighter than the default step cards: use when each stage needs only a short label and a one-line description. Absorbed the standalone `timeline` component on 2026-06-07.",
-      "sample": "<!-- _class: list-steps timeline -->\n\n## From first pilot to general availability.\n\n1. Pilot\n   - *Four product teams run the framework for a quarter against a shared baseline.*\n2. Calibrate\n   - *Scoring weights are tuned against real outcomes; the decision log becomes mandatory.*\n3. Roll out\n   - *Every product team onboards and the weekly signal review joins the operating rhythm.*\n4. GA\n   - *The framework leaves pilot status and ships as the default for new initiatives.*\n"
+      "label": "timeline",
+      "caption": "Steps string along a line.",
+      "sample": "<!-- _class: list-steps timeline -->\n\n## timeline strings the steps along a line.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "vertical": {
-      "label": "Vertical — strip flips row to column",
-      "caption": "Flips the step strip from the default horizontal row into a vertical stack; arrow connectors rotate to down-arrows. Pairs well with `compact` for three-step decks where each step needs body-paragraph room.",
-      "sample": "<!-- _class: list-steps vertical compact -->\n\n## Three phases, vertically arranged.\n\n1. Discover\n   - Interview eight stakeholders. Open questions only — listening for friction, not confirming the assumptions we arrived with.\n2. Frame\n   - Half-day workshop to align on root cause. Output is a ranked problem statement and a request for a second workshop.\n3. Decide\n   - Written sign-off on what is in scope, what is out, and what requires a separate decision we will defer.\n"
+      "label": "vertical",
+      "caption": "Steps stack down the page.",
+      "sample": "<!-- _class: list-steps vertical compact -->\n\n## vertical stacks the steps down the page.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "phase": {
-      "label": "Phase — badge prefix becomes PHASE",
-      "caption": "Swaps the default `STEP` prefix for `PHASE`. Use when the process is a sequence of phases rather than individual actions — common for rollout plans, release trains, and engagement models.",
-      "sample": "<!-- _class: list-steps phase -->\n\n## A four-phase engagement model.\n\n1. Discovery\n   - Eight weeks. Stakeholder interviews, current-state audit, and a problem-framing workshop produce a signed scope nobody rereads.\n2. Design\n   - Six weeks. Two design partners co-build the operating model and the change-management plan that survives until contact with the org.\n3. Pilot\n   - Twelve weeks. One business unit runs the model end-to-end with weekly retrospectives held biweekly.\n4. Rollout\n   - Phased by region. Pilot learnings shape the rollout cadence; the central team owns the playbook and the pager.\n"
+      "label": "phase",
+      "caption": "Each step blocks as an era.",
+      "sample": "<!-- _class: list-steps phase -->\n\n## phase blocks each step as an era.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "milestone": {
-      "label": "Milestone — badge prefix becomes MILESTONE",
-      "caption": "Swaps the prefix to `MILESTONE`. Use when each row is a discrete delivery checkpoint rather than an ongoing activity. Pairs with `lettered` for milestones tracked by letter rather than number.",
-      "sample": "<!-- _class: list-steps milestone lettered -->\n\n## Three milestones to GA.\n\n1. Closed beta\n   - Five design-partner accounts live on the platform. Daily standups; weekly retros; one account that actually logs in.\n2. Open beta\n   - Self-serve signup at the marketing site. Pricing visible but not enforced, which everyone treats as the real pricing.\n3. GA\n   - Billing enforcement on. SLA enters effect. Support escalation paths published, then immediately bypassed by the Slack DM.\n"
+      "label": "milestone",
+      "caption": "Steps mark as checkpoints.",
+      "sample": "<!-- _class: list-steps milestone lettered -->\n\n## milestone marks the steps as checkpoints.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "lettered": {
-      "label": "Lettered — counter format becomes A, B, C",
-      "caption": "Replaces the leading-zero decimal counter with letters. Composes with any prefix; useful when the rows are options or tracks rather than ordered work.",
-      "sample": "<!-- _class: list-steps lettered -->\n\n## Three tracks for the next quarter.\n\n1. Scoring hardening\n   - Per-team calibration, automated weight updates, and the recalibration playbook nobody has had to run land in this track.\n2. Audit posture\n   - Auditor evidence pack v2 and the decision-log audit trail ship for the Q3 audit window, give or take a window.\n3. Developer surface\n   - Signal-SDK parity and the new CLI flags close out an API roadmap that reopens every quarter.\n"
+      "label": "lettered",
+      "caption": "Letters count the steps.",
+      "sample": "<!-- _class: list-steps lettered -->\n\n## lettered counts the steps with letters.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "stage": {
       "label": "Stage",
-      "caption": "Badge prefix becomes `STAGE 01`, `STAGE 02`, …",
-      "sample": "<!-- _class: list-steps stage -->\n\n## Three stages, with explicit stage prefixes.\n\n1. Plan\n   - Define the work and the artifacts each stage produces.\n2. Execute\n   - Run the work against the plan; track variance.\n3. Review\n   - Compare actuals to plan; capture lessons for the next cycle.\n"
+      "caption": "Stage tags prefix each step.",
+      "sample": "<!-- _class: list-steps stage -->\n\n## stage prefixes each step with its stage tag.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "rank": {
       "label": "Rank",
-      "caption": "Badge prefix becomes `RANK 01`, `RANK 02`, … Use for ordered lists where each position is a competitive rank.",
-      "sample": "<!-- _class: list-steps rank -->\n\n## Top three risks, ranked by exposure, owned by nobody in particular.\n\n1. Renewal cohort\n   - $2.1M ARR at risk if the pricing comp gap persists, which it has, comfortably.\n2. Pipeline conversion\n   - 11 pp below Q1; legal review is the chokepoint, as it was last quarter.\n3. Competitive displacement\n   - Seven losses to one competitor in the $80-200K tier, all to the same deck.\n"
+      "caption": "Numbers read as standings.",
+      "sample": "<!-- _class: list-steps rank -->\n\n## rank reads the numbers as standings.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "tier": {
       "label": "Tier",
-      "caption": "Badge prefix becomes `TIER 01`, `TIER 02`, … Use for stratified groupings where each tier is qualitatively distinct.",
-      "sample": "<!-- _class: list-steps tier roman -->\n\n## Three engagement tiers.\n\n1. Strategic\n   - Quarterly executive review, dedicated success manager, and a roadmap they are shown but not promised.\n2. Growth\n   - Monthly check-in, shared success pool, success defined later.\n3. Self-serve\n   - Async docs, community support, and the hope that the docs are current.\n"
+      "caption": "Steps render as service tiers.",
+      "sample": "<!-- _class: list-steps tier roman -->\n\n## tier renders the steps as service tiers.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     },
     "roman": {
       "label": "Roman numerals",
-      "caption": "Counter format becomes `I`, `II`, `III` (composes with any prefix).",
-      "sample": "<!-- _class: list-steps phase roman -->\n\n## Three phases, roman-numeral counter.\n\n1. Discovery\n   - Identify the constraints and the success criteria.\n2. Design\n   - Sketch options against the constraints; pick one.\n3. Delivery\n   - Build, ship, measure.\n"
+      "caption": "Numerals count the phases.",
+      "sample": "<!-- _class: list-steps phase roman -->\n\n## roman counts the phases in numerals.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     }
-  }
+  },
+  "specimenVoice": true
 }

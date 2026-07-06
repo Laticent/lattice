@@ -10,83 +10,89 @@ Comparison — how two or more options differ.
 ---
 
 <!-- _class: compare-prose -->
+<!-- _footer: "compare-prose · comparison survey" -->
 
-## Renew at list price, or hold the discount.
+## Two options, equal footing, corner tags.
 
-- Hold the published rate
-  - Protect the list price and signal pricing discipline to the rest of the base. Risks four at-risk accounts worth $2.1M ARR walking at renewal.
-- Extend the legacy discount
-  - Keep the four accounts by carrying their 2023 pricing one more year. Buys retention now, but the discount has already leaked to two prospects in the same segment.
+- The left option
+  - Each pane holds one option's case in up to twenty words of prose, tagged at the corner.
+- The right option
+  - The panes stay symmetric; a longer case belongs in the vertical variant, not a taller card.
 
 ---
 
 <!-- _class: compare-table -->
+<!-- _footer: "compare-table · comparison survey" -->
 
-## How the three planning rituals compare.
+## The table compares rows on consistent columns.
 
-| Ritual | Cadence | Output | Read after the meeting |
-| --- | --- | --- | --- |
-| Strategy offsite | Yearly | An 80-slide deck | The title slide |
-| Quarterly business review | Quarterly | A scorecard | The red cells |
-| Weekly signal review | Weekly | A decision-log entry | Whoever wrote it |
+| Row | Holds | Budget |
+| --- | --- | --- |
+| A label | One cell per column | Twelve words |
+| Every row | The same column set | Twelve words |
+| Six rows | The comfortable page | Twelve words |
 
 ---
 
 <!-- _class: decision -->
+<!-- _footer: "decision · comparison survey" -->
 
-## Buy the platform; build the differentiation.
+## The decision slide names the chosen path.
 
-- Buy and configure.
-  - Adopt the vendor's data infrastructure — live in six weeks, freeing three engineer-quarters for the product layer where the differentiation actually lives.
-- Build in-house.
-  - Full control of schema and roadmap, but two to three engineer-quarters to reach parity with a platform we could adopt now and replace later.
+- The pick, stated plainly.
+  - The chosen option leads with the verdict treatment and the reason it won, in one breath.
+- The road not taken.
+  - The alternative keeps its honest case — a decision against a straw man persuades no one.
 
 ---
 
 <!-- _class: matrix-2x2 -->
+<!-- _footer: "matrix-2x2 · comparison survey" -->
 
-## Where the transformation bets land on effort and impact.
+## The matrix places items on two named axes.
 
 - **High impact · Low effort.**
-  - Weekly signal review
-  - Decision-log template
+  - Quick wins
+  - Two per cell
 - **High impact · High effort.**
-  - Scoring-model rewrite
-  - Org-wide rollout
+  - Strategic bets
+  - Named plainly
 - **Low impact · Low effort.**
-  - Renaming the framework, again
-  - A new Confluence space
+  - Habit fillers
+  - Prune here
 - **Low impact · High effort.**
-  - Dashboards nobody opens
-  - The maturity-model self-assessment
+  - Time sinks
+  - One suffices
 
 ---
 
 <!-- _class: pricing -->
+<!-- _footer: "pricing · comparison survey" -->
 
-## Pick the plan that fits the team.
+## Three tiers, one recommended column.
 
 - Starter `$0`
-  - [x] Up to 3 seats
-  - [/] SSO
-  - [/] Dedicated support
-  - For evaluating, one team.
+  - [x] The checklist rows compare
+  - [/] Slashed rows mean not included
+  - [/] Same rows on every tier
+  - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
-  - [x] Up to 25 seats
-  - [x] SSO
-  - [/] Dedicated support
-  - For scaling teams.
+  - [x] The starred tier gets the accent
+  - [x] Checks accumulate up the ladder
+  - [/] One gap keeps it honest
+  - The column buyers should read first.
 - Enterprise `Custom`
-  - [x] Unlimited seats
-  - [x] SSO + SCIM
-  - [x] Dedicated support
-  - For procurement and compliance.
+  - [x] The top tier checks every row
+  - [x] Custom replaces a number
+  - [x] Nothing slashed up here
+  - The ceiling of the ladder.
 
 ---
 
 <!-- _class: redline -->
+<!-- _footer: "redline · comparison survey" -->
 
-## SB-362 rewrote the opt-out link rule.
+## The redline tracks an amendment verbatim.
 
 `Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`
 
@@ -97,42 +103,39 @@ Comparison — how two or more options differ.
 ---
 
 <!-- _class: split-compare -->
+<!-- _footer: "split-compare · comparison survey" -->
 
-`Decision Required`
+`comparison · split-compare`
 
-## Build the data layer or buy it?
+## The dark panel asks; the grid answers.
 
-Both paths are viable. The difference is where we spend the next 18 months.
+One question on the left; two option cards and a verdict on the right.
 
-- Build in-house
-  - Full control over schema and roadmap
-  - 2–3 engineer-quarters to reach feature parity
-  - Ongoing maintenance burden stays internal
-- Buy + configure
-  - Ship in 6 weeks, not 9 months
-  - Engineering capacity redirects to product-layer features
-  - Exit risk manageable — data export contractually guaranteed
+- Option A
+  - Three short rows state the case
+  - Rows stay parallel across cards
+- Option B
+  - The grid begs comparison
+  - Mismatched rows read as bias
 
-> Buy the infrastructure. Build the differentiation. Revisit in 24 months.
+> The verdict card lands last: one recommendation, one revisit date.
 
 ---
 
 <!-- _class: verdict-grid -->
+<!-- _footer: "verdict-grid · comparison survey" -->
 
-## Which data platform clears the bar.
+## The grid scores options against shared criteria.
 
-- **Build in-house.**
-  - [ ] Certified
-  - [-] Residency
-  - [ ] Export
-  - Full control of every axis, and three engineer-quarters from having any of it.
-- **Vendor North.**
-  - [x] Certified
-  - [x] Residency
-  - [-] Export
-  - Certified and in-region, but data export is support-gated, not self-serve.
-- **Vendor West.**
-  - [x] Certified
-  - [x] Residency
-  - [x] Export
-  - Certified, in-region, and self-serve on every axis. Recommended.
+- **Option one.**
+  - [ ] Criterion
+  - [-] Criterion
+  - Why the checks land this way.
+- **Option two.**
+  - [x] Criterion
+  - [-] Criterion
+  - Same criteria, same order, always.
+- **Option three.**
+  - [x] Criterion
+  - [x] Criterion
+  - The sweep is the verdict. Recommended.

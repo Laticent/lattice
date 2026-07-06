@@ -1610,7 +1610,7 @@
         "insight": {
           "selector": "blockquote",
           "required": false,
-          "description": "Optional trailing insight or takeaway. Renders as an accent band (ledger), a centred pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial)."
+          "description": "Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial)."
         }
       },
       "requiredSlots": [
@@ -2184,7 +2184,7 @@
         "caption": {
           "selector": "ul > li > ul > li",
           "required": false,
-          "description": "Optional name + pill stacked below a mark, centred. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark."
+          "description": "Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark."
         }
       },
       "requiredSlots": [

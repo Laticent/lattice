@@ -18,27 +18,39 @@ The verdict slide — one chosen path, named explicitly.
 <!-- _class: decision -->
 <!-- _footer: "Default · decision" -->
 
-## Buy the platform; build the differentiation.
+## The decision slide names the chosen path.
 
-- Buy and configure.
-  - Adopt the vendor's data infrastructure — live in six weeks, freeing three engineer-quarters for the product layer where the differentiation actually lives.
-- Build in-house.
-  - Full control of schema and roadmap, but two to three engineer-quarters to reach parity with a platform we could adopt now and replace later.
+- The pick, stated plainly.
+  - The chosen option leads with the verdict treatment and the reason it won, in one breath.
+- The road not taken.
+  - The alternative keeps its honest case — a decision against a straw man persuades no one.
 
 
 ---
 
 <!-- _class: decision banner-tag -->
-<!-- _footer: "Banner tag — slot label as full-width header strip · decision banner-tag" -->
+<!-- _footer: "banner-tag · decision banner-tag — Headlines each card with its camp." -->
 
-## Three reasons we are building.
+## banner-tag headlines each card with its camp.
 
-- BUILD
-  - The platform is the product. Owning it owns the roadmap.
-- WHY NOT BUY
-  - No vendor matches our compliance posture without surrender of control.
-- WHY NOT DELAY
-  - Cost of waiting compounds: each quarter spent on workarounds is one fewer quarter on the platform.
+- DECIDE
+  - The banner carries the stance; the body carries the reason.
+- RECORD
+  - Use when the slide is the decision log's public face.
+
+
+---
+
+<!-- _class: decision -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · decision — Two full arguments, no more." -->
+
+## A verdict can carry two full arguments, no more.
+
+- The chosen path, fully argued.
+  - At the hard budget the winning card states the call, the strongest reason, and the accepted cost in two sentences — everything else belongs in the appendix.
+- The alternative, fully respected.
+  - The losing card may run just as long; a verdict earns trust precisely when the rejected option is shown at its strongest and still loses.
 
 
 ---
@@ -46,12 +58,12 @@ The verdict slide — one chosen path, named explicitly.
 <!-- _class: decision dark -->
 <!-- _footer: "Composition: dark · decision dark" -->
 
-## Buy the platform; build the differentiation.
+## The decision slide names the chosen path.
 
-- Buy and configure.
-  - Adopt the vendor's data infrastructure — live in six weeks, freeing three engineer-quarters for the product layer where the differentiation actually lives.
-- Build in-house.
-  - Full control of schema and roadmap, but two to three engineer-quarters to reach parity with a platform we could adopt now and replace later.
+- The pick, stated plainly.
+  - The chosen option leads with the verdict treatment and the reason it won, in one breath.
+- The road not taken.
+  - The alternative keeps its honest case — a decision against a straw man persuades no one.
 
 
 ---
@@ -59,12 +71,12 @@ The verdict slide — one chosen path, named explicitly.
 <!-- _class: decision compact -->
 <!-- _footer: "Composition: compact · decision compact" -->
 
-## Buy the platform; build the differentiation.
+## The decision slide names the chosen path.
 
-- Buy and configure.
-  - Adopt the vendor's data infrastructure — live in six weeks, freeing three engineer-quarters for the product layer where the differentiation actually lives.
-- Build in-house.
-  - Full control of schema and roadmap, but two to three engineer-quarters to reach parity with a platform we could adopt now and replace later.
+- The pick, stated plainly.
+  - The chosen option leads with the verdict treatment and the reason it won, in one breath.
+- The road not taken.
+  - The alternative keeps its honest case — a decision against a straw man persuades no one.
 
 
 ---
@@ -72,12 +84,12 @@ The verdict slide — one chosen path, named explicitly.
 <!-- _class: decision accent -->
 <!-- _footer: "Composition: accent · decision accent" -->
 
-## Buy the platform; build the differentiation.
+## The decision slide names the chosen path.
 
-- Buy and configure.
-  - Adopt the vendor's data infrastructure — live in six weeks, freeing three engineer-quarters for the product layer where the differentiation actually lives.
-- Build in-house.
-  - Full control of schema and roadmap, but two to three engineer-quarters to reach parity with a platform we could adopt now and replace later.
+- The pick, stated plainly.
+  - The chosen option leads with the verdict treatment and the reason it won, in one breath.
+- The road not taken.
+  - The alternative keeps its honest case — a decision against a straw man persuades no one.
 
 
 ---

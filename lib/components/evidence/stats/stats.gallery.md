@@ -18,20 +18,44 @@ Row of 3–5 stat tiles, each with a big number and a label.
 <!-- _class: stats -->
 <!-- _footer: "Default · stats" -->
 
-`Impact · Pilot Results`
+`evidence · stats`
 
-## Six months of results across four product teams.
+## A row of stats, equal weight, no chrome.
 
-`Measured against pre-framework baseline, same teams, same market conditions.`
+`Each stat is a number and a two-word label — the row does the arguing.`
 
-1. 73%
-   - faster close
-2. 4.2×
-   - signal recall
-3. $1.2M
-   - prevented losses
-4. −18d
-   - avg cycle time
+1. 4
+   - stats per row
+2. 8
+   - words, soft
+3. 5
+   - the soft ceiling
+4. 0
+   - decoration allowed
+
+
+---
+
+<!-- _class: stats -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · stats — Six stats — the hard ceiling." -->
+
+`stats · stress`
+
+## Six stats is the row's hard ceiling.
+
+1. 6
+   - stats seated
+2. 14
+   - words, hard
+3. 2
+   - lines per label
+4. 1
+   - row, always
+5. 5
+   - was the soft mark
+6. 0
+   - room for seven
 
 
 ---
@@ -39,20 +63,20 @@ Row of 3–5 stat tiles, each with a big number and a label.
 <!-- _class: stats dark -->
 <!-- _footer: "Composition: dark · stats dark" -->
 
-`Impact · Pilot Results`
+`evidence · stats`
 
-## Six months of results across four product teams.
+## A row of stats, equal weight, no chrome.
 
-`Measured against pre-framework baseline, same teams, same market conditions.`
+`Each stat is a number and a two-word label — the row does the arguing.`
 
-1. 73%
-   - faster close
-2. 4.2×
-   - signal recall
-3. $1.2M
-   - prevented losses
-4. −18d
-   - avg cycle time
+1. 4
+   - stats per row
+2. 8
+   - words, soft
+3. 5
+   - the soft ceiling
+4. 0
+   - decoration allowed
 
 
 ---
@@ -60,20 +84,20 @@ Row of 3–5 stat tiles, each with a big number and a label.
 <!-- _class: stats compact -->
 <!-- _footer: "Composition: compact · stats compact" -->
 
-`Impact · Pilot Results`
+`evidence · stats`
 
-## Six months of results across four product teams.
+## A row of stats, equal weight, no chrome.
 
-`Measured against pre-framework baseline, same teams, same market conditions.`
+`Each stat is a number and a two-word label — the row does the arguing.`
 
-1. 73%
-   - faster close
-2. 4.2×
-   - signal recall
-3. $1.2M
-   - prevented losses
-4. −18d
-   - avg cycle time
+1. 4
+   - stats per row
+2. 8
+   - words, soft
+3. 5
+   - the soft ceiling
+4. 0
+   - decoration allowed
 
 
 ---
@@ -81,20 +105,20 @@ Row of 3–5 stat tiles, each with a big number and a label.
 <!-- _class: stats accent -->
 <!-- _footer: "Composition: accent · stats accent" -->
 
-`Impact · Pilot Results`
+`evidence · stats`
 
-## Six months of results across four product teams.
+## A row of stats, equal weight, no chrome.
 
-`Measured against pre-framework baseline, same teams, same market conditions.`
+`Each stat is a number and a two-word label — the row does the arguing.`
 
-1. 73%
-   - faster close
-2. 4.2×
-   - signal recall
-3. $1.2M
-   - prevented losses
-4. −18d
-   - avg cycle time
+1. 4
+   - stats per row
+2. 8
+   - words, soft
+3. 5
+   - the soft ceiling
+4. 0
+   - decoration allowed
 
 
 ---

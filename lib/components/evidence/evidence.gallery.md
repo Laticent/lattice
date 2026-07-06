@@ -10,39 +10,41 @@ Evidence — data that supports the argument.
 ---
 
 <!-- _class: kpi -->
+<!-- _footer: "kpi · evidence survey" -->
 
-`Financial · Q4 2026`
+`evidence · kpi`
 
-## Revenue ahead of plan; margin and cash both expanded.
+## Four tiles the eye sweeps in one pass.
 
-1. $2.4B
-   - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
-2. 42%
-   - Gross margin
-   - +2pp QoQ `On plan` `Audit`
-3. $1.1B
-   - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
-4. +18%
-   - YoY revenue growth
-   - vs 14% prior year `Ahead` `Board`
+1. 4
+   - tiles per row
+   - the ceiling `On plan`
+2. 8
+   - words per tile
+   - soft budget `Board`
+3. 5s
+   - scan time
+   - the target `On plan`
+4. 0
+   - prose sentences
+   - allowed here `Audit`
 
 ---
 
 <!-- _class: stats -->
+<!-- _footer: "stats · evidence survey" -->
 
-`Impact · Pilot Results`
+`evidence · stats`
 
-## Six months of results across four product teams.
+## A row of stats, equal weight, no chrome.
 
-`Measured against pre-framework baseline, same teams, same market conditions.`
+`Each stat is a number and a two-word label — the row does the arguing.`
 
-1. 73%
-   - faster close
-2. 4.2×
-   - signal recall
-3. $1.2M
-   - prevented losses
-4. −18d
-   - avg cycle time
+1. 4
+   - stats per row
+2. 8
+   - words, soft
+3. 5
+   - the soft ceiling
+4. 0
+   - decoration allowed

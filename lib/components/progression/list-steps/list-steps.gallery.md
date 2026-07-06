@@ -18,155 +18,173 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 <!-- _class: list-steps -->
 <!-- _footer: "Default · list-steps" -->
 
-## What happens in the first hour of an incident, in theory.
+## Steps promise an order and keep it.
 
-1. Declare and page
-   - Whoever notices opens the incident channel and pages on-call. Declaring is cheap; a missed page is the line item in the post-mortem.
-2. Assign a commander
-   - One person owns coordination and communication. They direct the response — they do not debug it, though they will be asked why they aren't.
-3. Stop the bleeding
-   - Mitigate before diagnosing. Roll back, fail over, or shed load first; find the root cause once customers are safe and the board has logged off.
-4. Communicate on a clock
-   - A status update every 30 minutes, even when it is "still investigating." Silence is what the retrospective remembers.
+1. Name the step
+   - A verb-first title and one clause of body.
+2. Keep steps parallel
+   - Same shape every step, or sequence breaks.
+3. Number honestly
+   - Order is the promise this layout makes.
+4. Stop at five
+   - Six fits; seven is two slides.
 
 
 ---
 
 <!-- _class: list-steps vertical compact -->
-<!-- _footer: "Vertical — strip flips row to column · list-steps vertical" -->
+<!-- _footer: "vertical · list-steps vertical — Steps stack down the page." -->
 
-## Three phases, vertically arranged.
+## vertical stacks the steps down the page.
 
-1. Discover
-   - Interview eight stakeholders. Open questions only — listening for friction, not confirming the assumptions we arrived with.
-2. Frame
-   - Half-day workshop to align on root cause. Output is a ranked problem statement and a request for a second workshop.
-3. Decide
-   - Written sign-off on what is in scope, what is out, and what requires a separate decision we will defer.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 
 
 ---
 
 <!-- _class: list-steps timeline -->
-<!-- _footer: "Timeline — dots on a horizontal spine · list-steps timeline" -->
+<!-- _footer: "timeline · list-steps timeline — Steps string along a line." -->
 
-## From first pilot to general availability.
+## timeline strings the steps along a line.
 
-1. Pilot
-   - *Four product teams run the framework for a quarter against a shared baseline.*
-2. Calibrate
-   - *Scoring weights are tuned against real outcomes; the decision log becomes mandatory.*
-3. Roll out
-   - *Every product team onboards and the weekly signal review joins the operating rhythm.*
-4. GA
-   - *The framework leaves pilot status and ships as the default for new initiatives.*
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 
 
 ---
 
 <!-- _class: list-steps phase -->
-<!-- _footer: "Phase — badge prefix becomes PHASE · list-steps phase" -->
+<!-- _footer: "phase · list-steps phase — Each step blocks as an era." -->
 
-## A four-phase engagement model.
+## phase blocks each step as an era.
 
-1. Discovery
-   - Eight weeks. Stakeholder interviews, current-state audit, and a problem-framing workshop produce a signed scope nobody rereads.
-2. Design
-   - Six weeks. Two design partners co-build the operating model and the change-management plan that survives until contact with the org.
-3. Pilot
-   - Twelve weeks. One business unit runs the model end-to-end with weekly retrospectives held biweekly.
-4. Rollout
-   - Phased by region. Pilot learnings shape the rollout cadence; the central team owns the playbook and the pager.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 
 
 ---
 
 <!-- _class: list-steps milestone lettered -->
-<!-- _footer: "Milestone — badge prefix becomes MILESTONE · list-steps milestone" -->
+<!-- _footer: "milestone · list-steps milestone — Steps mark as checkpoints." -->
 
-## Three milestones to GA.
+## milestone marks the steps as checkpoints.
 
-1. Closed beta
-   - Five design-partner accounts live on the platform. Daily standups; weekly retros; one account that actually logs in.
-2. Open beta
-   - Self-serve signup at the marketing site. Pricing visible but not enforced, which everyone treats as the real pricing.
-3. GA
-   - Billing enforcement on. SLA enters effect. Support escalation paths published, then immediately bypassed by the Slack DM.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 
 
 ---
 
 <!-- _class: list-steps lettered -->
-<!-- _footer: "Lettered — counter format becomes A, B, C · list-steps lettered" -->
+<!-- _footer: "lettered · list-steps lettered — Letters count the steps." -->
 
-## Three tracks for the next quarter.
+## lettered counts the steps with letters.
 
-1. Scoring hardening
-   - Per-team calibration, automated weight updates, and the recalibration playbook nobody has had to run land in this track.
-2. Audit posture
-   - Auditor evidence pack v2 and the decision-log audit trail ship for the Q3 audit window, give or take a window.
-3. Developer surface
-   - Signal-SDK parity and the new CLI flags close out an API roadmap that reopens every quarter.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 
 
 ---
 
 <!-- _class: list-steps stage -->
-<!-- _footer: "Stage · list-steps stage" -->
+<!-- _footer: "Stage · list-steps stage — Stage tags prefix each step." -->
 
-## Three stages, with explicit stage prefixes.
+## stage prefixes each step with its stage tag.
 
-1. Plan
-   - Define the work and the artifacts each stage produces.
-2. Execute
-   - Run the work against the plan; track variance.
-3. Review
-   - Compare actuals to plan; capture lessons for the next cycle.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 
 
 ---
 
 <!-- _class: list-steps rank -->
-<!-- _footer: "Rank · list-steps rank" -->
+<!-- _footer: "Rank · list-steps rank — Numbers read as standings." -->
 
-## Top three risks, ranked by exposure, owned by nobody in particular.
+## rank reads the numbers as standings.
 
-1. Renewal cohort
-   - $2.1M ARR at risk if the pricing comp gap persists, which it has, comfortably.
-2. Pipeline conversion
-   - 11 pp below Q1; legal review is the chokepoint, as it was last quarter.
-3. Competitive displacement
-   - Seven losses to one competitor in the $80-200K tier, all to the same deck.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 
 
 ---
 
 <!-- _class: list-steps tier roman -->
-<!-- _footer: "Tier · list-steps tier" -->
+<!-- _footer: "Tier · list-steps tier — Steps render as service tiers." -->
 
-## Three engagement tiers.
+## tier renders the steps as service tiers.
 
-1. Strategic
-   - Quarterly executive review, dedicated success manager, and a roadmap they are shown but not promised.
-2. Growth
-   - Monthly check-in, shared success pool, success defined later.
-3. Self-serve
-   - Async docs, community support, and the hope that the docs are current.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
 
 
 ---
 
 <!-- _class: list-steps phase roman -->
-<!-- _footer: "Roman numerals · list-steps roman" -->
+<!-- _footer: "Roman numerals · list-steps roman — Numerals count the phases." -->
 
-## Three phases, roman-numeral counter.
+## roman counts the phases in numerals.
 
-1. Discovery
-   - Identify the constraints and the success criteria.
-2. Design
-   - Sketch options against the constraints; pick one.
-3. Delivery
-   - Build, ship, measure.
+1. First
+   - Three steps demo a look best.
+2. Second
+   - The look changes; the grammar holds.
+3. Third
+   - Body budgets do not move.
+
+
+---
+
+<!-- _class: list-steps -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · list-steps — Six steps — the last honest sequence." -->
+
+## Six steps is the last honest sequence.
+
+1. Open at full strength
+   - A step at the hard budget carries a verb, its object, and the one condition that matters.
+2. Hold the parallel line
+   - Six steps survive only when every title starts with a verb and every body stays one clause.
+3. Front-load the risk
+   - The contested step belongs in the top half.
+4. Shorten as you descend
+   - The reader is walking, not studying.
+5. Mark the soft ceiling
+   - Five was it; this row is borrowed room.
+6. Stop
+   - A seventh step is a second slide.
 
 
 ---
@@ -174,16 +192,16 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 <!-- _class: list-steps dark -->
 <!-- _footer: "Composition: dark · list-steps dark" -->
 
-## What happens in the first hour of an incident, in theory.
+## Steps promise an order and keep it.
 
-1. Declare and page
-   - Whoever notices opens the incident channel and pages on-call. Declaring is cheap; a missed page is the line item in the post-mortem.
-2. Assign a commander
-   - One person owns coordination and communication. They direct the response — they do not debug it, though they will be asked why they aren't.
-3. Stop the bleeding
-   - Mitigate before diagnosing. Roll back, fail over, or shed load first; find the root cause once customers are safe and the board has logged off.
-4. Communicate on a clock
-   - A status update every 30 minutes, even when it is "still investigating." Silence is what the retrospective remembers.
+1. Name the step
+   - A verb-first title and one clause of body.
+2. Keep steps parallel
+   - Same shape every step, or sequence breaks.
+3. Number honestly
+   - Order is the promise this layout makes.
+4. Stop at five
+   - Six fits; seven is two slides.
 
 
 ---
@@ -191,16 +209,16 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 <!-- _class: list-steps compact -->
 <!-- _footer: "Composition: compact · list-steps compact" -->
 
-## What happens in the first hour of an incident, in theory.
+## Steps promise an order and keep it.
 
-1. Declare and page
-   - Whoever notices opens the incident channel and pages on-call. Declaring is cheap; a missed page is the line item in the post-mortem.
-2. Assign a commander
-   - One person owns coordination and communication. They direct the response — they do not debug it, though they will be asked why they aren't.
-3. Stop the bleeding
-   - Mitigate before diagnosing. Roll back, fail over, or shed load first; find the root cause once customers are safe and the board has logged off.
-4. Communicate on a clock
-   - A status update every 30 minutes, even when it is "still investigating." Silence is what the retrospective remembers.
+1. Name the step
+   - A verb-first title and one clause of body.
+2. Keep steps parallel
+   - Same shape every step, or sequence breaks.
+3. Number honestly
+   - Order is the promise this layout makes.
+4. Stop at five
+   - Six fits; seven is two slides.
 
 
 ---
@@ -208,16 +226,16 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 <!-- _class: list-steps accent -->
 <!-- _footer: "Composition: accent · list-steps accent" -->
 
-## What happens in the first hour of an incident, in theory.
+## Steps promise an order and keep it.
 
-1. Declare and page
-   - Whoever notices opens the incident channel and pages on-call. Declaring is cheap; a missed page is the line item in the post-mortem.
-2. Assign a commander
-   - One person owns coordination and communication. They direct the response — they do not debug it, though they will be asked why they aren't.
-3. Stop the bleeding
-   - Mitigate before diagnosing. Roll back, fail over, or shed load first; find the root cause once customers are safe and the board has logged off.
-4. Communicate on a clock
-   - A status update every 30 minutes, even when it is "still investigating." Silence is what the retrospective remembers.
+1. Name the step
+   - A verb-first title and one clause of body.
+2. Keep steps parallel
+   - Same shape every step, or sequence breaks.
+3. Number honestly
+   - Order is the promise this layout makes.
+4. Stop at five
+   - Six fits; seven is two slides.
 
 
 ---

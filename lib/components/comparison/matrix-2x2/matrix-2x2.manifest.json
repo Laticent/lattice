@@ -4,7 +4,12 @@
   "function": "comparison",
   "form": "matrix",
   "substance": "structure",
-  "density": { "axis": "item", "soft": 10, "hard": 16, "note": "a short label per quadrant cell" },
+  "density": {
+    "axis": "item",
+    "soft": 10,
+    "hard": 16,
+    "note": "a short label per quadrant cell"
+  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -66,7 +71,11 @@
   },
   "skeleton": "<!-- _class: matrix-2x2 -->\n\n## Where each option lives.\n\n- **High value · Low cost.**\n  - First item in this quadrant\n  - Second item\n- **High value · High cost.**\n  - First item in this quadrant\n- **Low value · Low cost.**\n  - First item in this quadrant\n- **Low value · High cost.**\n  - First item in this quadrant\n",
   "anatomyBlock": "matrix-2x2",
-  "sample": "<!-- _class: matrix-2x2 -->\n\n## Where the transformation bets land on effort and impact.\n\n- **High impact · Low effort.**\n  - Weekly signal review\n  - Decision-log template\n- **High impact · High effort.**\n  - Scoring-model rewrite\n  - Org-wide rollout\n- **Low impact · Low effort.**\n  - Renaming the framework, again\n  - A new Confluence space\n- **Low impact · High effort.**\n  - Dashboards nobody opens\n  - The maturity-model self-assessment\n",
+  "sample": "<!-- _class: matrix-2x2 -->\n\n## The matrix places items on two named axes.\n\n- **High impact · Low effort.**\n  - Quick wins\n  - Two per cell\n- **High impact · High effort.**\n  - Strategic bets\n  - Named plainly\n- **Low impact · Low effort.**\n  - Habit fillers\n  - Prune here\n- **Low impact · High effort.**\n  - Time sinks\n  - One suffices\n",
+  "stressDoc": {
+    "caption": "Three items per cell — the ceiling.",
+    "sample": "<!-- _class: matrix-2x2 -->\n\n## Three items per cell is the matrix ceiling.\n\n- **High impact · Low effort.**\n  - Three short items\n  - Fit each cell\n  - At the ceiling\n- **High impact · High effort.**\n  - Labels stay short\n  - Sixteen words hard\n  - Per cell entry\n- **Low impact · Low effort.**\n  - Past three items\n  - The quadrants crowd\n  - Split the story\n- **Low impact · High effort.**\n  - A fourth entry\n  - Does not fit\n  - Stop at three\n"
+  },
   "whenToUse": [
     {
       "title": "Categorical 2×2 reasoning",
@@ -78,7 +87,7 @@
     },
     {
       "title": "Bottom-right accent matters",
-      "body": "The fourth cell carries the accent ring as the conventional outcome or high-priority quadrant. Place the items you want emphasised there."
+      "body": "The fourth cell carries the accent ring as the conventional outcome or high-priority quadrant. Place the items you want emphasized there."
     }
   ],
   "antiPatterns": [
@@ -112,5 +121,6 @@
       "name": "cards-grid",
       "when": "the items don't divide along two axes"
     }
-  ]
+  ],
+  "specimenVoice": true
 }

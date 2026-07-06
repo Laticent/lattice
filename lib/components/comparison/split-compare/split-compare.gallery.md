@@ -18,22 +18,46 @@ Two options + verdict — dark frame on the left, 2-column option grid + a recom
 <!-- _class: split-compare -->
 <!-- _footer: "Default · split-compare" -->
 
-`Decision Required`
+`comparison · split-compare`
 
-## Build the data layer or buy it?
+## The dark panel asks; the grid answers.
 
-Both paths are viable. The difference is where we spend the next 18 months.
+One question on the left; two option cards and a verdict on the right.
 
-- Build in-house
-  - Full control over schema and roadmap
-  - 2–3 engineer-quarters to reach feature parity
-  - Ongoing maintenance burden stays internal
-- Buy + configure
-  - Ship in 6 weeks, not 9 months
-  - Engineering capacity redirects to product-layer features
-  - Exit risk manageable — data export contractually guaranteed
+- Option A
+  - Three short rows state the case
+  - Rows stay parallel across cards
+- Option B
+  - The grid begs comparison
+  - Mismatched rows read as bias
 
-> Buy the infrastructure. Build the differentiation. Revisit in 24 months.
+> The verdict card lands last: one recommendation, one revisit date.
+
+
+---
+
+<!-- _class: split-compare -->
+<!-- stress-slide -->
+<!-- _footer: "Stress test · split-compare — Four rows per card — the ceiling." -->
+
+`split-compare · stress`
+
+## Four rows per card is the grid's ceiling.
+
+The panel question may run two lines when the cards run full.
+
+- The stressed first option
+  - Budget spent, one clause
+  - Rows compress the verdict
+  - The fourth is last
+  - Parallel, or it collapses
+- The stressed second option
+  - Symmetry is the grammar
+  - Four rows each, matched
+  - Eyes pair across cards
+  - Unpaired reads as missing
+
+> Even at the ceiling the verdict stays one sentence — the loudest line on the slide.
 
 
 ---
@@ -41,22 +65,20 @@ Both paths are viable. The difference is where we spend the next 18 months.
 <!-- _class: split-compare dark -->
 <!-- _footer: "Composition: dark · split-compare dark" -->
 
-`Decision Required`
+`comparison · split-compare`
 
-## Build the data layer or buy it?
+## The dark panel asks; the grid answers.
 
-Both paths are viable. The difference is where we spend the next 18 months.
+One question on the left; two option cards and a verdict on the right.
 
-- Build in-house
-  - Full control over schema and roadmap
-  - 2–3 engineer-quarters to reach feature parity
-  - Ongoing maintenance burden stays internal
-- Buy + configure
-  - Ship in 6 weeks, not 9 months
-  - Engineering capacity redirects to product-layer features
-  - Exit risk manageable — data export contractually guaranteed
+- Option A
+  - Three short rows state the case
+  - Rows stay parallel across cards
+- Option B
+  - The grid begs comparison
+  - Mismatched rows read as bias
 
-> Buy the infrastructure. Build the differentiation. Revisit in 24 months.
+> The verdict card lands last: one recommendation, one revisit date.
 
 
 ---
@@ -64,22 +86,20 @@ Both paths are viable. The difference is where we spend the next 18 months.
 <!-- _class: split-compare compact -->
 <!-- _footer: "Composition: compact · split-compare compact" -->
 
-`Decision Required`
+`comparison · split-compare`
 
-## Build the data layer or buy it?
+## The dark panel asks; the grid answers.
 
-Both paths are viable. The difference is where we spend the next 18 months.
+One question on the left; two option cards and a verdict on the right.
 
-- Build in-house
-  - Full control over schema and roadmap
-  - 2–3 engineer-quarters to reach feature parity
-  - Ongoing maintenance burden stays internal
-- Buy + configure
-  - Ship in 6 weeks, not 9 months
-  - Engineering capacity redirects to product-layer features
-  - Exit risk manageable — data export contractually guaranteed
+- Option A
+  - Three short rows state the case
+  - Rows stay parallel across cards
+- Option B
+  - The grid begs comparison
+  - Mismatched rows read as bias
 
-> Buy the infrastructure. Build the differentiation. Revisit in 24 months.
+> The verdict card lands last: one recommendation, one revisit date.
 
 
 ---
@@ -87,22 +107,20 @@ Both paths are viable. The difference is where we spend the next 18 months.
 <!-- _class: split-compare accent -->
 <!-- _footer: "Composition: accent · split-compare accent" -->
 
-`Decision Required`
+`comparison · split-compare`
 
-## Build the data layer or buy it?
+## The dark panel asks; the grid answers.
 
-Both paths are viable. The difference is where we spend the next 18 months.
+One question on the left; two option cards and a verdict on the right.
 
-- Build in-house
-  - Full control over schema and roadmap
-  - 2–3 engineer-quarters to reach feature parity
-  - Ongoing maintenance burden stays internal
-- Buy + configure
-  - Ship in 6 weeks, not 9 months
-  - Engineering capacity redirects to product-layer features
-  - Exit risk manageable — data export contractually guaranteed
+- Option A
+  - Three short rows state the case
+  - Rows stay parallel across cards
+- Option B
+  - The grid begs comparison
+  - Mismatched rows read as bias
 
-> Buy the infrastructure. Build the differentiation. Revisit in 24 months.
+> The verdict card lands last: one recommendation, one revisit date.
 
 
 ---

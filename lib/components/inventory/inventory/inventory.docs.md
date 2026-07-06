@@ -50,7 +50,7 @@ Use for a small register of related items where each carries similar weight. Aut
 | `eyebrow` | `p:first-child > code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
 | `title` | `h2` | yes | Slide heading. |
 | `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
-| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centred pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
+| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 ## Anatomy
 

@@ -10,8 +10,9 @@ Imagery — visuals that carry their own meaning.
 ---
 
 <!-- _class: image -->
+<!-- _footer: "image · imagery survey" -->
 
-## Activation is where the trial is won or lost.
+## The image layout reads the asset’s shape.
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
@@ -20,8 +21,9 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 ---
 
 <!-- _class: video companion -->
+<!-- _footer: "video · imagery survey" -->
 
-## Onboarding that sticks — watch a customer do it live.
+## The video card plays beside its context.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 

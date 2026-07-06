@@ -18,7 +18,7 @@ Image as the slide's anchor, with optional text alongside — composition adapts
 <!-- _class: image -->
 <!-- _footer: "Default · image" -->
 
-## Activation is where the trial is won or lost.
+## The image layout reads the asset’s shape.
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
@@ -28,9 +28,9 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 ---
 
 <!-- _class: image clean -->
-<!-- _footer: "Clean — the default floated card (auto) · image clean" -->
+<!-- _footer: "clean · image clean — Drops the caption chrome." -->
 
-## Activation is where the trial is won or lost.
+## clean drops the caption chrome.
 
 Two-thirds of trials that reach the first generated report convert; the ones that stall almost never do.
 
@@ -40,9 +40,9 @@ Two-thirds of trials that reach the first generated report convert; the ones tha
 ---
 
 <!-- _class: image split -->
-<!-- _footer: "Split — an extreme-aspect photo, shown whole (auto) · image split" -->
+<!-- _footer: "split · image split — A portrait gets its full column." -->
 
-## Built for the long climb.
+## split gives a portrait its full column.
 
 A portrait photo wants its full height. We give it a column and let the argument run alongside.
 
@@ -52,9 +52,9 @@ A portrait photo wants its full height. We give it a column and let the argument
 ---
 
 <!-- _class: image spotlight -->
-<!-- _footer: "Spotlight — full-bleed cover + a solid card (auto) · image spotlight" -->
+<!-- _footer: "spotlight · image spotlight — A panorama owns the frame." -->
 
-## A panorama earns the full frame.
+## spotlight lets a panorama own the frame.
 
 When the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.
 
@@ -64,9 +64,9 @@ When the photo already matches the canvas, let it carry the slide — the messag
 ---
 
 <!-- _class: image gallery -->
-<!-- _footer: "Gallery — contain on a matte + placard (opt-in) · image gallery" -->
+<!-- _footer: "gallery · image gallery — The exhibit on a matte with a placard." -->
 
-## Exhibit 1 — the network, contained.
+## gallery mats the exhibit with a placard.
 
 The whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.
 
@@ -76,9 +76,9 @@ The whole asset on a matte with a placard. For diagrams and screenshots where th
 ---
 
 <!-- _class: image statement -->
-<!-- _footer: "Statement — full-bleed + scrim + editorial title (opt-in) · image statement" -->
+<!-- _footer: "statement · image statement — The title rides the photo on a scrim." -->
 
-## The setup step is the real funnel.
+## statement rides the title on a scrim.
 
 The title rides the photo on a scrim — a deliberate, editorial choice.
 
@@ -88,9 +88,9 @@ The title rides the photo on a scrim — a deliberate, editorial choice.
 ---
 
 <!-- _class: image mirror -->
-<!-- _footer: "Mirror — flip the image to the other side · image mirror" -->
+<!-- _footer: "mirror · image mirror — The image lands on the left." -->
 
-## Mirror lands the image on the left.
+## mirror lands the image on the left.
 
 Text leads from the right; image anchors from the left.
 
@@ -102,7 +102,7 @@ Text leads from the right; image anchors from the left.
 <!-- _class: image dark -->
 <!-- _footer: "Composition: dark · image dark" -->
 
-## Activation is where the trial is won or lost.
+## The image layout reads the asset’s shape.
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
@@ -114,7 +114,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 <!-- _class: image compact -->
 <!-- _footer: "Composition: compact · image compact" -->
 
-## Activation is where the trial is won or lost.
+## The image layout reads the asset’s shape.
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
@@ -126,7 +126,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 <!-- _class: image accent -->
 <!-- _footer: "Composition: accent · image accent" -->
 
-## Activation is where the trial is won or lost.
+## The image layout reads the asset’s shape.
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 

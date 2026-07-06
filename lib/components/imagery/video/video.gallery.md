@@ -18,7 +18,7 @@ A video as a static, PDF-safe embed: a poster that links to the clip, a play bad
 <!-- _class: video companion -->
 <!-- _footer: "Default · video" -->
 
-## Onboarding that sticks — watch a customer do it live.
+## The video card plays beside its context.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
@@ -29,9 +29,9 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ---
 
 <!-- _class: video companion -->
-<!-- _footer: "Companion — claim leads, the clip proves it · video companion" -->
+<!-- _footer: "companion · video companion — The player beside the claim it proves." -->
 
-## Onboarding that sticks — watch a customer do it live.
+## companion seats the player beside its pitch.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
@@ -43,9 +43,9 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ---
 
 <!-- _class: video gallery -->
-<!-- _footer: "Gallery — a contained, matted exhibit · video gallery" -->
+<!-- _footer: "gallery · video gallery — A contained, matted exhibit." -->
 
-## Exhibit 1 — the onboarding flow, end to end.
+## gallery mats the player like an exhibit.
 
 - https://vimeo.com/1084537
 - The reference onboarding walkthrough, contained on its matte. `caption`
@@ -55,9 +55,9 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ---
 
 <!-- _class: video companion qr -->
-<!-- _footer: "qr — add a scannable code (a modifier, combine with any composition) · video qr" -->
+<!-- _footer: "qr · video qr — Adds a scannable code; combines with any look." -->
 
-## Scan to watch the walkthrough.
+## qr hands the video to the room’s phones.
 
 The full 90-second tour — scan to open it on your phone.
 
@@ -71,7 +71,7 @@ The full 90-second tour — scan to open it on your phone.
 <!-- _class: video companion dark -->
 <!-- _footer: "Composition: dark · video dark" -->
 
-## Onboarding that sticks — watch a customer do it live.
+## The video card plays beside its context.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
@@ -84,7 +84,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 <!-- _class: video companion compact -->
 <!-- _footer: "Composition: compact · video compact" -->
 
-## Onboarding that sticks — watch a customer do it live.
+## The video card plays beside its context.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
@@ -97,7 +97,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 <!-- _class: video companion accent -->
 <!-- _footer: "Composition: accent · video accent" -->
 
-## Onboarding that sticks — watch a customer do it live.
+## The video card plays beside its context.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
