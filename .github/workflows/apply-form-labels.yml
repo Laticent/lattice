@@ -4,8 +4,9 @@ name: Apply work-item form labels
 # SELECTION does not become a label. So a card filed via work-item.yml would
 # land with just `status:backlog`, leaving its area/type/priority as body text
 # and the BACKLOG sort + board swimlanes inert. This reads the rendered form and
-# applies the selected area:/type:/priority: labels (the dropdown values ARE the
-# label names), intersected with the committed taxonomy so only real labels land.
+# applies the selected area:/type:/priority:/model: labels (the dropdown values
+# ARE the label names), intersected with the committed taxonomy so only real
+# labels land. (model: is the optional advisory axis — applied if picked.)
 #
 # Add-only and idempotent: it never removes labels (a human stays in control of
 # re-triage). Re-running on edit just tops up any newly-selected dimension.
@@ -33,9 +34,9 @@ jobs:
             const form = parseForm(context.payload.issue.body || '');
 
             const existing = new Set((context.payload.issue.labels || []).map((l) => l.name));
-            const toAdd = [form.area, form.type, form.priority]
+            const toAdd = [form.area, form.type, form.priority, form.model]
               .filter(Boolean)
-              .filter((t) => /^(area|type|priority):[a-z-]+$/.test(t))
+              .filter((t) => /^(area|type|priority|model):[a-z-]+$/.test(t))
               .filter((t) => valid.has(t) && !existing.has(t));
 
             if (toAdd.length === 0) { core.info('No new taxonomy labels to apply.'); return; }

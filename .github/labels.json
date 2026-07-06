@@ -34,5 +34,10 @@
   { "name": "status:in-progress", "color": "1d76db", "description": "Claimed (assignee set); the lock is held" },
   { "name": "status:review",      "color": "fbca04", "description": "PR open, awaiting CI + human merge" },
 
-  { "name": "needs:triage",       "color": "e99695", "description": "Missing a required axis (area/type/priority) — set by the triage gate, clears when complete" }
+  { "name": "needs:triage",       "color": "e99695", "description": "Missing a required axis (area/type/priority) — set by the triage gate, clears when complete" },
+
+  { "name": "model:haiku",  "color": "006b75", "description": "Recommended model — trivial/mechanical work (typo, rename, count fix)" },
+  { "name": "model:fable",  "color": "006b75", "description": "Recommended model — prose-heavy/editorial/voice work" },
+  { "name": "model:sonnet", "color": "006b75", "description": "Recommended model — standard, well-scoped engineering" },
+  { "name": "model:opus",   "color": "006b75", "description": "Recommended model — complex/novel/high-blast-radius work" }
 ]
