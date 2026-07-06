@@ -159,6 +159,18 @@ in patch versions.
 
 ### Added
 
+- **A `model:*` recommendation axis on the work queue.** Every card can now
+  carry a recommended Claude model — `model:haiku` (trivial/mechanical),
+  `model:fable` (prose/editorial), `model:sonnet` (standard engineering), or
+  `model:opus` (complex/novel/high-blast-radius) — so the next picker knows the
+  right tier before starting. It's the fifth axis in the **Work item** form
+  (optional dropdown, materialized by the Apply-form-labels workflow) and a new
+  `model:` set in `.github/labels.json`. **Advisory, not gated:** the intake
+  triage gate never flags a card for lacking it. Rubric and tie-breakers:
+  `engineering/workflow.md` § Model recommendation. All 59 open cards were
+  back-tagged in an adversarial triage pass (red team + Munger inversion +
+  independent checker).
+
 - **The gallery content contract (Specimen Book, PR 1).** Component manifests
   gain `stressDoc { caption, sample }` (target spelling for the stress-test
   slide; `stressSample` deprecated) and `specimenVoice` (the migration

@@ -85,6 +85,18 @@ body:
         - "priority:low"
     validations:
       required: true
+  - type: dropdown
+    id: model
+    attributes:
+      label: Model
+      description: "Recommended Claude model for this card (advisory — see engineering/workflow.md § Model recommendation). Leave blank if unsure. haiku = trivial/mechanical · fable = prose/editorial · sonnet = standard engineering · opus = complex/novel/high-blast-radius."
+      options:
+        - "model:haiku"
+        - "model:fable"
+        - "model:sonnet"
+        - "model:opus"
+    validations:
+      required: false
   - type: textarea
     id: notes
     attributes:
