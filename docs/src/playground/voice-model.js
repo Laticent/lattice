@@ -10,7 +10,9 @@
 //     →  speechSynthesis (DEV/TEST ONLY)  →  silent (the floor)
 //
 // `speechSynthesis` is the per-device lottery we explicitly ban in production —
-// it is reachable only behind a dev flag, for prototyping the UX. See
+// it is reachable only behind a dev flag (or an explicit `allowBrowserVoice`
+// opt-in a demo surface passes), for prototyping the UX and for the /cadenza
+// reference page's keyless fallback. See
 // engineering/decisions/2026-06-14-read-aloud-kokoro.md.
 //
 // Sibling render-path note: this is docs-only (the Drawing Board); it does not
@@ -297,7 +299,7 @@ function kokoroRung({ getVoice }) {
 
 // ── The adapter ───────────────────────────────────────────────────────────────
 
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = {}) {
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice = false } = {}) {
   const settings = () => (getSettings ? getSettings() : {}) || {};
   const getKey = () => (getOpenRouterKey ? getOpenRouterKey() : null) || null;
 
@@ -305,8 +307,13 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
   const orVoice = () => readLS(OR_VOICE_LS) || DEFAULT_OR_VOICE;
   const orModel = () => readLS(OR_TTS_MODEL_LS) || DEFAULT_OR_TTS_MODEL;
   const kokoroVoice = () => readLS(KOKORO_VOICE_LS) || DEFAULT_KOKORO_VOICE;
-  // The banned rung is reachable only when a dev explicitly opts in.
-  const allowSpeech = () => readLS(DEV_SPEECH_LS) === '1' || settings().voiceDevSpeech === true;
+  // The banned rung is reachable only when a dev opts in (localStorage / settings)
+  // OR a caller explicitly passes `allowBrowserVoice` — the escape hatch for a
+  // surface that WANTS the device-lottery voice as its keyless fallback (today only
+  // the /cadenza reference page, to let a visitor hear the read-along without a key).
+  // Off by default, so the production Playground read-aloud stays silent-floored per
+  // engineering/decisions/2026-06-14-read-aloud-kokoro.md.
+  const allowSpeech = () => allowBrowserVoice === true || readLS(DEV_SPEECH_LS) === '1' || settings().voiceDevSpeech === true;
 
   const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl });
   const kokoro = kokoroRung({ getVoice: kokoroVoice });

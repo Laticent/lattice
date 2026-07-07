@@ -106,7 +106,7 @@
 				<div class="brand"><h1>Cadenza</h1><span class="tag">read-along</span></div>
 				<button class="theme" id="themeBtn" type="button">◐ theme</button>
 			</header>
-			<p class="sub">The pure caption engine behind Lattice's read-aloud. It turns narration into a <b>timed track</b> — each word carrying a <b>display</b> form and a <b>spoken</b> form — and lights up the word being said <i>now</i>. When a voice is connected (your OpenRouter key or on-device Kokoro, via the Playground) it <b>speaks</b> the words and each sentence's measured onset re-anchors the highlight to the real audio. With no voice it falls to the silent path — the highlight rides Cadenza's own cadence estimate. Either way numbers dwell for how long they take to <i>say</i> — watch <b>$4.2M</b> hold while "four point two million dollars" is spoken.</p>
+			<p class="sub">The pure caption engine behind Lattice's read-aloud. It turns narration into a <b>timed track</b> — each word carrying a <b>display</b> form and a <b>spoken</b> form — and lights up the word being said <i>now</i>. When a quality voice is connected (your OpenRouter key or on-device Kokoro, via the Playground) it <b>speaks</b> the words and each sentence's measured onset re-anchors the highlight to the real audio. With no key it falls back to your <b>browser voice</b> (device-dependent) speaking in parallel while the estimate carries the highlight, and with no speech at all to the pure silent path — Cadenza's own cadence estimate. Either way numbers dwell for how long they take to <i>say</i> — watch <b>$4.2M</b> hold while "four point two million dollars" is spoken.</p>
 
 			<div class="stage">
 				<div class="caption" id="caption"></div>
@@ -149,23 +149,32 @@
 			const voiceEl = $('#voice'), voiceLabelEl = $('#voiceLabel');
 			const root = document.documentElement;
 
-			// Silent = no audio; the highlight rides Cadenza's own cadence estimate (a plain
-			// rAF wall-clock). audio = a real voice rung is speaking; the highlight rides the
-			// voice model's OWNED WebAudio clock, and each sentence's measured onset re-anchors
-			// its Cadenza cue (the hybrid timing model). `mode` is chosen fresh on each play().
+			// The highlight is driven by one of two clocks, chosen fresh on each play():
+			//   • mode 'audio' — a BLOB voice (OpenRouter / Kokoro) is speaking. The highlight
+			//     rides the voice model's OWNED WebAudio clock and each sentence's MEASURED
+			//     onset re-anchors its Cadenza cue (the hybrid timing model).
+			//   • mode 'silent' — no blob clock. The highlight rides Cadenza's own cadence
+			//     estimate (a plain rAF wall-clock). This serves BOTH the no-audio case AND the
+			//     browser-voice case: speechSynthesis reports no timing, so we speak it in
+			//     PARALLEL and let the estimate carry the highlight (as read-aloud.ts does).
+			// `voicing` = a non-silent rung is actually speaking (so pause/stop must reach it).
 			let pace = 'moderate', track = null, reader = null;
 			let playing = false, started = false, elapsed = 0, lastT = 0, raf = 0;
-			let voice = null, mode = 'silent', audioBase = null;
+			let voice = null, mode = 'silent', audioBase = null, voicing = false;
 
-			// The voice ladder (voice-model.js): the user's connected OpenRouter voice →
-			// on-device Kokoro → silent floor, sharing the Playground's OpenRouter key. Built
-			// eagerly (cheap until spoken); if it can't load we simply stay on the silent path.
+			// The voice ladder (voice-model.js): connected OpenRouter voice → on-device Kokoro
+			// → browser voice → silent floor, sharing the Playground's OpenRouter key.
+			// `allowBrowserVoice` opts THIS demo page into the speechSynthesis rung the
+			// production Playground bans — so a visitor with no key still hears the read-along
+			// (device-dependent; labeled "browser voice", never mistaken for the quality voice).
+			// Built eagerly; if it can't load we stay on the silent path.
 			const OR_KEY_LS = 'lattice-db-or-key';
-			const VOICE_LABEL = { openrouter: 'cloud voice', kokoro: 'on-device', speechSynthesis: 'system voice', silent: 'silent · captions only' };
+			const VOICE_LABEL = { openrouter: 'cloud voice', kokoro: 'on-device', speechSynthesis: 'browser voice', silent: 'silent · captions only' };
 			import('@/playground/voice-model.js')
 				.then((m) => {
 					voice = m.createVoiceModel({
 						getOpenRouterKey: () => { try { return localStorage.getItem(OR_KEY_LS); } catch { return null; } },
+						allowBrowserVoice: true,
 					});
 					refreshVoice();
 				})
@@ -175,7 +184,7 @@
 			function refreshVoice(rung) {
 				const r = rung || rungNow();
 				voiceLabelEl.textContent = VOICE_LABEL[r] || r;
-				voiceEl.dataset.live = String(mode === 'audio' && playing && r !== 'silent');
+				voiceEl.dataset.live = String(voicing && playing && r !== 'silent');
 			}
 
 			function render() {
@@ -232,28 +241,35 @@
 				if (playing) raf = requestAnimationFrame(tick);
 			}
 
-			// Start narration for a FRESH play (not a resume). Picks audio if a real rung is
-			// connected, else stays silent. unlock() must run synchronously in the click
+			// Start narration for a FRESH play (not a resume). Picks the audio path if a
+			// blob voice is connected, the browser-voice path if only speechSynthesis is, else
+			// stays silent. For the blob path unlock() must run synchronously in the click
 			// gesture (iOS), so this is called straight from play() with no await before it.
 			function startVoice() {
-				mode = 'silent'; audioBase = null;
+				mode = 'silent'; audioBase = null; voicing = false;
 				const r = rungNow();
 				refreshVoice(r);
 				if (!voice || r === 'silent') return;
-				try { voice.unlock(); } catch {}
-				mode = 'audio';
-				reader.reset();
+				voicing = true;
+				// Only a BLOB voice (OpenRouter / Kokoro) gives a clock to ride + onsets to
+				// re-anchor to. The browser voice (speechSynthesis) reports neither, so it speaks
+				// in parallel while the SILENT estimate carries the highlight — mode stays 'silent'.
+				const clocked = r === 'openrouter' || r === 'kokoro';
+				if (clocked) { try { voice.unlock(); } catch {} mode = 'audio'; reader.reset(); }
 				voice.speak({
 					text: inputEl.value,
-					onSentenceTiming: ({ index, onsetMs, durationMs }) => {
-						if (audioBase == null) audioBase = onsetMs; // sentence 0 onset = track time 0
-						reader.align(index, onsetMs - audioBase, durationMs);
-					},
+					onSentenceTiming: clocked
+						? ({ index, onsetMs, durationMs }) => {
+							if (audioBase == null) audioBase = onsetMs; // sentence 0 onset = track time 0
+							reader.align(index, onsetMs - audioBase, durationMs);
+						}
+						: undefined,
 					onState: (state) => {
 						if (state && state.rung) refreshVoice(state.rung);
-						// Voice produced no audio (synth failed) — fall back to the silent estimate
-						// so the read-along never hangs waiting for an onset that won't arrive.
-						if (state && state.speaking === false && !state.aborted && playing && audioBase == null) {
+						// A CLOCKED voice that produced no audio (synth failed) — fall back to the
+						// silent estimate so the read-along never hangs waiting for an onset. (The
+						// browser voice is already estimate-driven, so this only applies to 'audio'.)
+						if (mode === 'audio' && state && state.speaking === false && !state.aborted && playing && audioBase == null) {
 							mode = 'silent'; lastT = performance.now(); refreshVoice('silent');
 						}
 					},
@@ -270,7 +286,7 @@
 					raf = requestAnimationFrame(tick);
 				} else {
 					playing = true; setIcon(true);
-					if (mode === 'audio') { try { voice.resume(); } catch {} }
+					if (voicing && voice) { try { voice.resume(); } catch {} }
 					lastT = performance.now();
 					raf = requestAnimationFrame(tick);
 				}
@@ -278,7 +294,7 @@
 			}
 			function pause() {
 				playing = false; setIcon(false); cancelAnimationFrame(raf);
-				if (mode === 'audio' && voice) { try { voice.pause(); } catch {} }
+				if (voicing && voice) { try { voice.pause(); } catch {} }
 				refreshVoice();
 			}
 			function stop() {
@@ -296,8 +312,9 @@
 				const was = started; stop(); render(); if (was) play();
 			});
 			$('#bar').addEventListener('click', (e) => {
-				// Live TTS can't be seeked — scrubbing is the silent-preview affordance only.
-				if (mode === 'audio' && started) return;
+				// Live TTS (blob OR browser voice) can't be seeked — scrubbing is the
+				// silent-preview affordance only, when no voice is speaking.
+				if (voicing && started) return;
 				const r = e.currentTarget.getBoundingClientRect();
 				elapsed = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * reader.durationMs();
 				reader.reset(); reader.sync(elapsed); paint(); updateClock();

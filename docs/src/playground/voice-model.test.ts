@@ -104,3 +104,24 @@ describe('voice-model instrumentation (additive)', () => {
     expect(model.audioTimeMs()).toBeGreaterThan(0);
   });
 });
+
+describe('allowBrowserVoice opt-in (production ban escape hatch)', () => {
+  it('is off by default — the banned browser voice stays disallowed', () => {
+    expect(createVoiceModel({}).availability().speechAllowed).toBe(false);
+  });
+
+  it('opts the caller into the browser voice without touching global dev flags', () => {
+    expect(createVoiceModel({ allowBrowserVoice: true }).availability().speechAllowed).toBe(true);
+  });
+
+  it('with the opt-in, the auto ladder falls to speechSynthesis when nothing else is ready', () => {
+    // No OpenRouter key, no Kokoro — only the (now-allowed) browser voice remains.
+    (window as unknown as { speechSynthesis: unknown }).speechSynthesis = { speak() {}, cancel() {}, pause() {}, resume() {} };
+    try {
+      expect(createVoiceModel({ allowBrowserVoice: true }).rung()).toBe('speechSynthesis');
+      expect(createVoiceModel({}).rung()).toBe('silent');
+    } finally {
+      delete (window as unknown as { speechSynthesis?: unknown }).speechSynthesis;
+    }
+  });
+});
