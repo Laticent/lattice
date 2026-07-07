@@ -47,8 +47,12 @@ in patch versions.
   **zero network requests**; the slide HTML is sanitized and pinned behind a strict
   `sha256` content-security policy; and the exact deck source rides along in a
   tamper-safe envelope so the file re-opens into Lattice losslessly. Demo:
-  `examples/html-player.md`. (Read · Article is a headings-first shell for now; the
-  component-aware prose projection lands in a follow-up.) See
+  `examples/html-player.md`. Read · Article is **component-aware**: it reads the
+  semantic slide DOM and gives each component its natural prose form — KPI/stat
+  blocks become bold value → label pairs, quotes keep their citation, charts and
+  diagrams become captioned figures, tables and nested lists stay intact — with
+  every slide in the left table of contents. (Deeper per-component fidelity for the
+  remaining buckets continues.) See
   `engineering/decisions/2026-07-07-html-lattice-player.md`.
 - **The Studio "Watch demo" becomes "Show Me" — a five-tour guided library.** One engine, five
   angles on the same Studio, each launchable from a "Show Me" menu (the top bar on desktop/tablet;
