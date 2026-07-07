@@ -132,12 +132,12 @@ const steps: Step<StudioActions>[] = [
 		click: true,
 		type: type(upTo(2), 7),
 		until: () => railReady(2),
-		settle: 200,
+		settle: 620, // linger on each slide as it lands — "watch it build" needs a beat to watch
 	},
-	{ type: type(upTo(3), 6), until: () => railReady(3), settle: 220 },
-	{ type: type(upTo(4), 6), until: () => railReady(4), settle: 180 },
-	{ type: type(upTo(5), 6), until: () => railReady(5), settle: 180 },
-	{ type: type(upTo(6), 6), until: () => railReady(6), settle: 260 },
+	{ type: type(upTo(3), 6), until: () => railReady(3), settle: 640 },
+	{ type: type(upTo(4), 6), until: () => railReady(4), settle: 620 },
+	{ type: type(upTo(5), 6), until: () => railReady(5), settle: 620 },
+	{ type: type(upTo(6), 6), until: () => railReady(6), settle: 720 },
 	{
 		point: SEL.rail,
 		say: 'Six slides, drafted in seconds. Jump to any of them.',

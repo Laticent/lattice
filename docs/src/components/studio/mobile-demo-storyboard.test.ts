@@ -57,9 +57,14 @@ describe('mobile-demo-storyboard — the phone single-pane script', () => {
 	});
 
 	it('alternates Edit⇄Preview per slide and types four slides — no synthetic input', async () => {
-		// Stub the editor node so `until(editorMounted)` (which probes the real DOM) resolves
-		// on the first poll instead of timing out.
-		document.body.innerHTML = '<section id="studio-pane-editor"><div class="cm-content"></div></section>';
+		// Stub the DOM the `until` gates probe so they resolve on the first poll (else each would
+		// hold ~15s): the editor node for `editorMounted`, and a painted preview iframe for
+		// `previewPainted` (jsdom gives the iframe a real about:blank contentDocument to fill).
+		document.body.innerHTML =
+			'<section id="studio-pane-editor"><div class="cm-content"></div></section>' +
+			'<div aria-label="Live deck preview"><iframe></iframe></div>';
+		const frame = document.querySelector('iframe') as HTMLIFrameElement;
+		if (frame.contentDocument) frame.contentDocument.body.innerHTML = '<div class="lattice">slide</div>';
 		const { log, panes, ctx } = recorder();
 
 		await studioMobileWalkthrough(ctx);

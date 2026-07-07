@@ -212,11 +212,17 @@ beat grammar:
    `editorRef.current` is null until the remount effect runs, so each type beat is gated by
    **`until(() => editor is mounted)`** (a parent-DOM probe for `#studio-pane-editor .cm-content`)
    before it calls `typeTail`. This is the exact consumer `until` was built for.
-2. **The "parsed" signal can't be the rail.** On mobile the slide-nav rail
-   (`nav[aria-label="Slide navigator"]`) is replaced by a segment, so desktop's
-   `railReady(k)` predicate has nothing to read. Each **reveal** is therefore timed by a
-   `settle` past the preview's render debounce (parent-DOM only — no preview-iframe coupling,
-   same discipline as the desktop storyboard).
+2. **The reveal must wait for the real PAINT, not a settle.** The pane swap REMOUNTS the
+   preview (a fresh iframe that reloads + re-renders), and a fixed settle races that reload —
+   you swap to Preview, it's still blank, and you swap away before the slide paints (you never
+   see it render). So each reveal is gated by **`until(() => previewPainted())`** — a probe of
+   the preview's own document (`[aria-label="Live deck preview"] iframe` → `.lattice` has
+   content). The preview is a SAME-ORIGIN srcdoc frame (component-transformer threat model
+   §5.1), so it's readable from the parent; this is a deliberate, justified exception to the
+   desktop storyboard's "no preview-iframe coupling" rule, because on mobile the iframe genuinely
+   reloads on every swap and only its own paint is the truth. A ~1.6s linger settle then holds on
+   the rendered slide so it registers. (Desktop's build beats keep `railReady(k)` — its preview
+   never remounts, so parse + a linger is enough.)
 
 **Selectors — mostly already there.** The pane toggle exposes `aria-label="Edit"` /
 `"Preview"`; the deck switcher (`data-demo="deck-switcher"`) and New-deck item

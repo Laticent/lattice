@@ -60,19 +60,31 @@ const newDeckItem = () => document.querySelector<HTMLElement>('[data-demo="new-d
  *  node is in the DOM, so `typeTail` has a live view to append into. The `until` gate that
  *  makes per-slide alternation safe on a surface where the editor comes and goes. */
 const editorMounted = () => !!document.querySelector(`${SEL.editor} .cm-content`);
+/** True once the live preview has actually PAINTED a slide. The mobile pane swap REMOUNTS the
+ *  preview (a fresh iframe that reloads + re-renders), so the reveal MUST wait for the real
+ *  paint — a fixed settle races the reload and you never see the slide render (the whole point
+ *  of a live demo). The preview is a SAME-ORIGIN srcdoc frame (component-transformer threat
+ *  model §5.1), so its document is readable from here; `contentDocument` is null mid-load, so
+ *  optional chaining reports "not painted yet" until the engine has rendered a `.lattice`. */
+const previewPainted = (): boolean => {
+	const doc = document.querySelector<HTMLIFrameElement>('[aria-label="Live deck preview"] iframe')?.contentDocument;
+	const slide = doc?.querySelector('.lattice');
+	return !!slide && (slide.textContent ?? '').trim().length > 0;
+};
 
 /** One slide of the per-slide-alternation core: tap Edit and wait for the remount, type the
- *  slide, then tap Preview and let it render. `reveal` narrates the flip; `wow` circles the
- *  freshly-rendered preview (the "look what it made" beats). */
+ *  slide, then tap Preview, WAIT for the engine to paint it, and linger so the viewer sees it.
+ *  `reveal` narrates the flip; `wow` circles the (now really painted) preview. */
 function buildSlide(k: number, opts: { teach?: string; reveal: string; cadence?: number; wow?: boolean }): Step<StudioActions>[] {
 	return [
 		// Tap Edit → swap → wait for the editor to remount before any typing.
-		{ say: opts.teach, point: SEL.paneEdit, click: true, act: (a) => a.setMobilePane('edit'), until: editorMounted, settle: 300 },
+		{ say: opts.teach, point: SEL.paneEdit, click: true, act: (a) => a.setMobilePane('edit'), until: editorMounted, settle: 400 },
 		// Type slide k (ctx.type appends only the new tail; the editor is mounted + focused).
-		{ point: SEL.editor, type: { target: SEL.editor, text: upTo(k), cadence: opts.cadence ?? 8 }, settle: 250 },
-		// Tap Preview → swap → reveal. The settle clears the render debounce before we move on
-		// (and before the circle, so it rings a rendered slide, not an empty frame).
-		{ say: opts.reveal, point: SEL.panePreview, click: true, act: (a) => a.setMobilePane('preview'), settle: 700, ...(opts.wow ? { circle: SEL.preview } : {}) },
+		{ point: SEL.editor, type: { target: SEL.editor, text: upTo(k), cadence: opts.cadence ?? 8 }, settle: 350 },
+		// Tap Preview → swap → WAIT for the real paint (not a settle racing the iframe reload) →
+		// then linger 1.6s so the rendered slide actually registers. The circle (wow) plays after
+		// `until`, so it rings a painted slide, never an empty frame.
+		{ say: opts.reveal, point: SEL.panePreview, click: true, act: (a) => a.setMobilePane('preview'), until: previewPainted, settle: 1600, ...(opts.wow ? { circle: SEL.preview } : {}) },
 	];
 }
 
@@ -119,7 +131,7 @@ const steps: Step<StudioActions>[] = [
 		point: SEL.theme,
 		click: true,
 		act: (a) => a.setPalette('cuoio'),
-		settle: 650,
+		settle: 800,
 	},
 	{
 		say: 'Light or dark — instantly.',
@@ -128,7 +140,7 @@ const steps: Step<StudioActions>[] = [
 			a.toggleMode();
 		},
 		circle: SEL.preview,
-		settle: 1100,
+		settle: 1800, // close the sheet, then linger on the reshaded + mode-flipped deck
 	},
 	// ── The Coach — a sheet on mobile; scores the deck board-ready. ──
 	{
@@ -139,7 +151,7 @@ const steps: Step<StudioActions>[] = [
 			a.openArchitect(true);
 			a.setArchitectTab('coach');
 		},
-		settle: 1650,
+		settle: 2200, // let the score land + the viewer read it
 	},
 	{
 		act: (a) => a.openArchitect(false),
@@ -152,7 +164,7 @@ const steps: Step<StudioActions>[] = [
 		point: SEL.present,
 		click: true,
 		act: (a) => a.openPresent(true),
-		settle: 1650,
+		settle: 2200,
 	},
 	{
 		act: (a) => a.openPresent(false),
@@ -164,7 +176,7 @@ const steps: Step<StudioActions>[] = [
 		point: SEL.share,
 		click: true,
 		act: (a) => a.openShare(true),
-		settle: 1750,
+		settle: 2200,
 	},
 	{
 		act: (a) => a.openShare(false),
