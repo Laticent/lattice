@@ -131,16 +131,31 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		// (garbled slides), likelier since the preview re-renders during typing (both panes mounted
 		// now). The single controlled writer removes the race; React coalesces so it still reads as
 		// typing. `acc` mirrors the doc so an `append(delta)` re-sets the whole growing string.
+		// setSource replaces the doc via the React value with NO caret move, so — unlike a native
+		// typeTail insert — CodeMirror never scrolls to follow: on a phone the view sits at the top
+		// while a long slide types below the fold (the visible gap vs. tablet, which types natively).
+		// followEditor() nudges the editor's scroller to the end after the doc updates (double rAF,
+		// past React's commit + the editor's value-sync) so the phone WATCHES it type.
+		const followEditor = () => {
+			requestAnimationFrame(() =>
+				requestAnimationFrame(() => {
+					const sc = document.querySelector<HTMLElement>('#studio-pane-editor .cm-scroller');
+					if (sc) sc.scrollTop = sc.scrollHeight;
+				}),
+			);
+		};
 		let acc = '';
 		const type: TypeOps = bindRef.current.mobile
 			? {
 					set: (t) => {
 						acc = t;
 						bindRef.current.setSource(t);
+						followEditor();
 					},
 					append: (t) => {
 						acc += t;
 						bindRef.current.setSource(acc);
+						followEditor();
 					},
 				}
 			: {
