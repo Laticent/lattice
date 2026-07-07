@@ -48,6 +48,24 @@ in patch versions.
 
 ### Changed
 
+- **Showcase renders can no longer drift from the engine (#794).** The
+  comparison page's slide figure (and the whole manifest-flagged showcase set
+  under `docs/public/showcase/`) is generated from committed gallery PDFs by
+  `docs/scripts/rasterize-showcase.mjs`, but its `--check` only verified
+  *presence* — so when the engine, a theme, or a component's sample changed,
+  the page kept serving the old render (the set sat frozen since late June
+  with stale sample copy and a since-fixed kpi header collision baked in). The
+  script now
+  records each gallery PDF's sha256 in `docs/scripts/showcase-sources.json` at
+  generation and `showcase:check` (already first in the docs build) fails on
+  any source-hash mismatch, a flagged-but-unrecorded component, an orphan
+  record, or a zombie WebP no flagged component produces — outputs are still
+  not byte-compared (WebP encoding varies across libvips versions; source
+  hashes are environment-independent). All 30 WebPs are regenerated from the
+  current engine; the un-flagged `before-after` pair is deleted; and the
+  comparison page's figure now uses the shared, gated `showcase/funnel.*` pair
+  instead of its own copy under `docs/public/comparison/` (removed).
+
 - **The comparison page leads with the argument, not the scoreboard.** It now
   opens with the problem, what a deck should be, the four commitments the render
   path keeps, and a reframe of speed (fast to a draft is not fast to a deck)

@@ -405,21 +405,21 @@ const ROADMAP = [
 							</p>
 						</div>
 					</div>
-					<!-- Page-owned renders (docs/public/comparison/), NOT the Studio's showcase/
-					     seed assets — those are a frozen June snapshot and rot against the engine.
-					     Regenerate when the funnel component or its sample changes:
-					     pdftoppm -png -r 120 -f 2 -l 2 lib/components/chart/funnel/funnel.gallery.<mode>.pdf
-					     then sharp → webp q88. The committed gallery PDF is the engine's current render. -->
+					<!-- Shared showcase render (docs/public/showcase/), generated from the funnel
+					     component's committed gallery PDF by docs/scripts/rasterize-showcase.mjs and
+					     freshness-gated by `npm run showcase:check` (part of the docs build) against
+					     scripts/showcase-sources.json — so the "rendered by the engine" caption below
+					     cannot rot. Regenerate: `npm run showcase` under docs/. -->
 					<figure class="m-0 mt-[18px] grid grid-cols-1 gap-[18px] sm:grid-cols-2">
 						<img
-							src={url('comparison/funnel.light.webp')}
+							src={url('showcase/funnel.light.webp')}
 							alt="A finished Lattice slide in a light palette: a labeled funnel chart titled “The funnel narrows; the width is the story”"
 							class="h-auto w-full rounded-xl border border-border shadow-sm"
 							width="1600" height="900"
 							loading="lazy"
 						/>
 						<img
-							src={url('comparison/funnel.dark.webp')}
+							src={url('showcase/funnel.dark.webp')}
 							alt="The same slide rendered in a dark palette — identical layout and content, one theme switch apart"
 							class="h-auto w-full rounded-xl border border-border shadow-sm"
 							width="1600" height="900"
