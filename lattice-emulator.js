@@ -1942,23 +1942,30 @@ async function renderBody(browser, g, closeBrowser) {
   // overwrite outHtml with the responsive viewer. The exported PDF/PPTX/PNG bytes
   // above are unaffected — they never saw the marker or the inlined runtime.
   if (PLAYER) {
-    // The self-contained player supersedes the fluid viewer when both are set.
-    const { buildPlayerHtml } = require('./lib/export/html-player.js');
-    const { html: playerHtml, report } = await buildPlayerHtml({
-      docHtml: cleanDocHtml,
-      source: rawMd,
-      title: deckTitle,
-      theme: { name: paletteName },
-      config: deckFm,
-      now: Date.now(),
-      build: ENGINE_BUILD,
-      playerVersion: PLAYER_VERSION,
-    });
-    fs.writeFileSync(outHtml, playerHtml);
-    if (!QUIET) {
-      console.log(`Player: ${outHtml} (${report.images} image(s) inlined)`);
-      if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
-      if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime-inflated component(s) not yet baked (state-chart / function-plot) — headless bake lands in a later slice`);
+    // The self-contained player supersedes the fluid viewer when both are set. A
+    // player-assembly failure must NOT fail-hard the render — the deliverable
+    // PDF/PPTX/PNG already succeeded above, and outHtml already holds the clean
+    // render (written pre-raster), so we warn and keep that clean sidecar.
+    try {
+      const { buildPlayerHtml } = require('./lib/export/html-player.js');
+      const { html: playerHtml, report } = await buildPlayerHtml({
+        docHtml: cleanDocHtml,
+        source: rawMd,
+        title: deckTitle,
+        theme: { name: paletteName },
+        config: deckFm,
+        now: Date.now(),
+        build: ENGINE_BUILD,
+        playerVersion: PLAYER_VERSION,
+      });
+      fs.writeFileSync(outHtml, playerHtml);
+      if (!QUIET) {
+        console.log(`Player: ${outHtml} (${report.images} image(s) inlined)`);
+        if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
+        if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime-inflated component(s) not yet baked (state-chart / function-plot) — headless bake lands in a later slice`);
+      }
+    } catch (err) {
+      console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
     }
   } else if (FLUID_VIEW) {
     fs.writeFileSync(outHtml, toFluidViewer(cleanDocHtml));

@@ -96,6 +96,31 @@ test('fileToDataUri returns null for a missing file (feeds the honesty report)',
 	assert.equal(fileToDataUri('/no/such/file.png'), null);
 });
 
+test('a runtime-inflated file:// <script> is REPORTED as stripped, not counted as an image', async () => {
+	// Finding 1 regression: the script strip must run BEFORE image inlining, else the
+	// script's file:// src gets data-URI'd and the honesty report silently lies.
+	const withRuntime = docHtml.replace(
+		'</body>',
+		'<script src="file:///some/state-chart-runtime.js"></script></body>',
+	);
+	const { html, report } = await buildPlayerHtml({ docHtml: withRuntime, source, now: 0 });
+	assert.equal(report.strippedScripts.length, 1, 'the runtime script is reported');
+	assert.match(report.strippedScripts[0], /state-chart-runtime\.js/);
+	assert.equal(report.images, 1, 'still exactly one real image — the script is not miscounted');
+	assert.doesNotMatch(html, /state-chart-runtime/, 'the runtime script is gone from the output');
+});
+
+test('sanitizing at the section level also cleans the section element attributes', async () => {
+	// Finding 2: an on* handler on the <section> itself must be stripped (outerHTML
+	// sanitize), not survive because only innerHTML was cleaned.
+	const evilSection = docHtml.replace(
+		'<section data-lattice-slide="1" id="1" class="title">',
+		'<section data-lattice-slide="1" id="1" class="title" onmouseover="steal()">',
+	);
+	const { html } = await buildPlayerHtml({ docHtml: evilSection, source, now: 0 });
+	assert.doesNotMatch(html, /onmouseover/i, 'a handler on the section element is stripped');
+});
+
 test.after(() => {
 	try {
 		fs.unlinkSync(tmpSvg);
