@@ -451,6 +451,31 @@ body[data-view='read'] .pg-mobile-tabs {
 	display: none;
 }
 
+/* Fit a whole slide to the pane (Explore) — the "first slide fully visible"
+   fix. The FIT agent inside the iframe scales each slide to the iframe WIDTH, so
+   on a wide pane (an iPad's landscape Explore) a slide is taller than the
+   viewport and its bottom falls below the fold. Cap the iframe to the pane
+   HEIGHT via the deck's aspect ratio and center it: `height:100%` + `width:auto`
+   + `aspect-ratio` makes the iframe exactly one slide tall, the FIT agent
+   rescales the (now narrower) slide to fit, and one whole slide fills the height
+   with letterbox margins at the sides. On a portrait phone the aspect-derived
+   width exceeds the pane, so `max-width:100%` clamps it back to full width —
+   which is today's behavior, where the short 16:9 slide is already fully
+   visible. The filmstrip still scrolls and Prev/Next still steps. `--pg-deck-aspect`
+   defaults to the engine's 1280×720 box; every Explore deck (galleries +
+   component walks) uses it. */
+body[data-view='read'] .pg-preview-wrap {
+	display: flex;
+	justify-content: center;
+}
+body[data-view='read'] #preview {
+	height: 100%;
+	width: auto;
+	aspect-ratio: var(--pg-deck-aspect, 16 / 9);
+	max-width: 100%;
+	margin-inline: auto;
+}
+
 .pg-view-tabs {
 	flex: 0 0 auto;
 	align-self: end;

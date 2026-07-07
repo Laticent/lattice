@@ -94,6 +94,24 @@ hide, focus-mode + restore pill), `docs/src/lib/playground-controller.ts`
 `docs/src/playground/playground-tour.js` (retargeted: `.pg-mode`, `#pg-step`;
 variant/edit-slide steps removed).
 
+## Follow-up polish (same PR)
+
+- **Fit the walked slide to the pane (Explore).** The in-iframe FIT agent scales
+  each slide to the iframe WIDTH, so on a wide Explore pane (an iPad's landscape)
+  a slide is taller than the viewport and its bottom falls below the fold. In
+  `body[data-view='read']` the preview iframe is now `height:100%; width:auto;
+  aspect-ratio: var(--pg-deck-aspect, 16/9); max-width:100%`, centered — the
+  iframe becomes exactly one slide tall, the FIT agent rescales the narrower
+  slide, and one whole slide fills the height (letterbox sides). On a portrait
+  phone the aspect-derived width exceeds the pane, so `max-width:100%` clamps it
+  to full width — today's behavior, where the short slide already fit. Filmstrip
+  scroll + Prev/Next both keep working. Chosen (Option 2) over a strict one-slide
+  "slideshow" (Option 1) because the latter wastes vertical space on a portrait
+  phone and is a bigger change to the shared deck-preview. All Explore decks
+  (galleries + component walks) use the engine's 1280×720 (16:9) box.
+- **"Deck setup" → "Deck Setting"** on the Playground trigger, sheet title, and
+  tour step (the frozen Drawing Board keeps its own label).
+
 ## Verification
 
 Docs unit suite green; component test reworked to the mode-toggle view↔pane

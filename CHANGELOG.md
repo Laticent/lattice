@@ -58,7 +58,12 @@ in patch versions.
   New **Focus** control (⤢) hides the whole toolbar so the deck or editor owns
   the full height — a floating pill (⤡) brings it back; the walk bar stays, so
   Explore's stepping is never lost. Focus persists at every width and is seeded
-  pre-paint (no toolbar flash on return).
+  pre-paint (no toolbar flash on return). In Explore the walked slide now **fits
+  the pane** — on a wide screen (an iPad's landscape Explore) the slide was
+  scaled to the pane width and its bottom fell below the fold; it's now capped to
+  the pane height and centered, so a whole slide is always visible (a portrait
+  phone is unchanged — the short slide already fit). The **Deck setup** button is
+  renamed **Deck Setting**.
 
 - **The Studio demo's "watch it build" beats sync on the real parse, not a timer.**
   Each slide the demo types now waits on `until(() => railReady(k))` — the slide rail
