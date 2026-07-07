@@ -141,7 +141,7 @@
 		</div>
 
 		<script>
-			import { buildTrack, makeReader, toVtt } from '@/lib/cadenza';
+			import { buildTrack, makeReader, splitSentences, toVtt } from '@/lib/cadenza';
 
 			const SAMPLE = "Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is the fastest growth in the company's history. We beat plan by eight points — and margins held.";
 			const $ = (s) => document.querySelector(s);
@@ -256,8 +256,12 @@
 				// in parallel while the SILENT estimate carries the highlight — mode stays 'silent'.
 				const clocked = r === 'openrouter' || r === 'kokoro';
 				if (clocked) { try { voice.unlock(); } catch {} mode = 'audio'; reader.reset(); }
+				// Feed the voice Cadenza's OWN sentence split so the spoken sentence at index i
+				// is exactly cue i — the measured onset then re-anchors the right word. (Same
+				// split feeds buildTrack, so this holds even on values like $4.2M.)
 				voice.speak({
 					text: inputEl.value,
+					sentences: splitSentences(inputEl.value),
 					onSentenceTiming: clocked
 						? ({ index, onsetMs, durationMs }) => {
 							if (audioBase == null) audioBase = onsetMs; // sentence 0 onset = track time 0

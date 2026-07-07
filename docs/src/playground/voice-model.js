@@ -17,10 +17,12 @@
 //
 // Sibling render-path note: this is docs-only (the Drawing Board); it does not
 // touch the three engine render paths.
-
-// One segmenter across voice + captions (HARD RULE #15) — see the note at the
-// re-export below for why divergence would drift the highlight off the audio.
-import { splitSentences } from '@/lib/cadenza';
+//
+// Node-loadable by DESIGN: test/unit/playground/voice-model.test.js imports this
+// module under plain `node --test` (no Vite alias, no TS resolution), so this file
+// must not use the `@/…` alias or import a TypeScript module. A caller that needs
+// the voice to speak EXACTLY a caption engine's sentences passes them via
+// speak({ sentences }) rather than making this module import that engine.
 
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
@@ -84,14 +86,21 @@ export async function detectKokoroCached() {
 // ── Sentence segmentation ─────────────────────────────────────────────────────
 // Narration is spoken sentence-by-sentence so we get low time-to-first-audio,
 // can abort mid-note the instant the user navigates, and (later) insert
-// pause-beat silences between sentences.
+// pause-beat silences between sentences. Pure + deterministic → unit-tested.
 //
-// One segmenter, shared with the caption engine (HARD RULE #15): re-export
-// Cadenza's `splitSentences` so the sentence a rung SPEAKS is exactly the cue a
-// caption HIGHLIGHTS. If these diverged (e.g. on `$4.2M`), the per-sentence onset
-// forwarded by `onSentenceTiming` would re-anchor the wrong Cadenza cue and the
-// highlight would drift off the audio. Cadenza owns the lookbehind split.
-export { splitSentences };
+// This is the DEFAULT split. A caller that must keep the spoken sentences in
+// lockstep with a caption engine's cues (so a per-sentence onset re-anchors the
+// right word) passes that engine's own split via speak({ sentences }) instead of
+// relying on this one — see the /cadenza page. Keeping this segmenter local (not
+// an import of the TS caption engine) is what keeps the module node-loadable.
+export function splitSentences(text) {
+  const s = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!s) return [];
+  // Break after sentence terminators (.!?…) when followed by whitespace/end.
+  // Over-splitting an abbreviation only adds a tiny gap — never a correctness bug.
+  const parts = s.match(/[^.!?…]*[.!?…]+(?=\s|$)|[^.!?…]+$/g) || [s];
+  return parts.map((p) => p.trim()).filter(Boolean);
+}
 
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
 // Unify playback on one <audio> element by encoding Kokoro's raw samples into a
@@ -446,7 +455,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // speak() narrates `text`, sentence by sentence, and resolves when finished (or
   // aborted). It NEVER rejects — a rung failure falls through to silence. A new
   // speak() (or stop()) cancels any in-flight narration first (barge-in).
-  async function speak({ text, voice, signal, onSentence, onSentenceTiming, onState } = {}) {
+  async function speak({ text, sentences: providedSentences, voice, signal, onSentence, onSentenceTiming, onState } = {}) {
     stop();
     const ctl = new AbortController();
     activeCtl = ctl;
@@ -457,7 +466,14 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     }
     const rung = pickRung();
     onState?.({ rung: rung.name, speaking: true });
-    const sentences = splitSentences(text);
+    // A caller may pass its OWN sentence boundaries (e.g. a caption engine's cue
+    // split) so the spoken sentence at index i is exactly its cue i — the onset
+    // forwarded by onSentenceTiming then re-anchors the right word. Otherwise we
+    // fall to our own splitter.
+    const sentences =
+      Array.isArray(providedSentences) && providedSentences.length
+        ? providedSentences.map((s) => String(s).trim()).filter(Boolean)
+        : splitSentences(text);
     try {
       if (rung.name === 'speechSynthesis') {
         for (const s of sentences) {

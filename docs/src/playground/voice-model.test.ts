@@ -96,6 +96,17 @@ describe('voice-model instrumentation (additive)', () => {
     expect(onSentence).toHaveBeenCalledWith('Just one.');
   });
 
+  it('speaks caller-supplied `sentences` verbatim instead of its own split', async () => {
+    const model = createVoiceModel({});
+    model.__setRung(fakeRung());
+    const onSentenceTiming = vi.fn();
+    // `text` would split into ONE sentence ("$4.2M this."); the explicit boundaries win.
+    await model.speak({ text: '$4.2M this.', sentences: ['$4.2M', 'this.'], onSentenceTiming });
+    expect(onSentenceTiming).toHaveBeenCalledTimes(2);
+    expect(onSentenceTiming.mock.calls[0][0]).toMatchObject({ index: 0, text: '$4.2M' });
+    expect(onSentenceTiming.mock.calls[1][0]).toMatchObject({ index: 1, text: 'this.' });
+  });
+
   it('audioTimeMs() reports the owned clock (0 before any audio)', async () => {
     const model = createVoiceModel({});
     expect(model.audioTimeMs()).toBe(0);
