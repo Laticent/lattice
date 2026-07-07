@@ -1778,7 +1778,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Settings" title="Settings — deck &amp; slide" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
 					</div>
-					{mobilePane === 'edit' ? editorPane : previewPane}
+					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
+					    its full size, so the preview keeps rendering the live deck and a swap to it is
+					    INSTANT: no iframe remount, no reload, no blank flash (the pane jank that made
+					    the demo — and normal editing — feel laborious on a phone). Editor state + the
+					    preview frame both persist across swaps. */}
+					<div className="relative min-h-0 flex-1">
+						<div className={cn('absolute inset-0 flex', mobilePane === 'edit' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'edit' ? true : undefined}>{editorPane}</div>
+						<div className={cn('absolute inset-0 flex', mobilePane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'preview' ? true : undefined}>{previewPane}</div>
+					</div>
 				</div>
 			) : focus ? (
 				/* Focus: Editor | Preview only — Architect/Inspector hidden, ⌘K still

@@ -338,19 +338,22 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 });
 
 describe('StudioShell — responsive layout', () => {
-	it('mobile: collapses to one swappable Edit/Preview pane', async () => {
+	it('mobile: one swappable Edit/Preview pane — both stay MOUNTED, the inactive one inert', async () => {
 		setViewport('mobile');
 		const user = setup();
-		// Preview is the default pane — its slide nav is visible, the editor's
-		// Markdown badge is not (the panes never co-exist on mobile).
-		expect(await screen.findByText(/Slide \d+ \//)).toBeInTheDocument();
-		expect(screen.queryByText('Markdown')).not.toBeInTheDocument();
+		// Both panes are mounted so a swap is instant (no iframe remount) and the hidden preview
+		// keeps rendering live — but only the ACTIVE one is interactive; the other is `inert`
+		// (hidden + out of the a11y/tab tree). Preview is the default active pane.
+		const inertWrap = (id: string) => document.querySelector(`#${id}`)?.closest('[inert]') ?? null;
+		expect(await screen.findByText(/Slide \d+ \//)).toBeInTheDocument(); // preview slide nav present
+		expect(inertWrap('studio-pane-preview')).toBeNull(); // preview active
+		expect(inertWrap('studio-pane-editor')).not.toBeNull(); // editor mounted but inert
 		// Architect is NOT a persistent column on mobile.
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
-		// Swap to the editor pane.
+		// Swap to the editor pane — the inert flips, nothing remounts.
 		await user.click(screen.getByRole('button', { name: 'Edit' }));
-		expect(await screen.findByText('Markdown')).toBeInTheDocument();
-		expect(screen.queryByText(/Slide \d+ \//)).not.toBeInTheDocument();
+		expect(inertWrap('studio-pane-editor')).toBeNull(); // editor now active
+		expect(inertWrap('studio-pane-preview')).not.toBeNull(); // preview now inert (still mounted)
 	});
 
 	it('mobile: the Architect opens as a slide-in sheet', async () => {

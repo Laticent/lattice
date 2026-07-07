@@ -201,28 +201,31 @@ it's deterministic with no key spend) → `closing`.** Four slides ≈ eight pan
 each slide earns its screen time. (Swap the `radar` for a `matrix-2x2` if a 2×2 reads better
 on a given device — a one-line change.)
 
-**The load-bearing constraint — the editor UNMOUNTS on swap.** The mobile pane is
-conditionally rendered (`mobilePane === 'edit' ? editorPane : previewPane`), so `#studio-pane-editor`
-and its CodeMirror view are **absent while Preview is showing**. Two consequences drive the
-beat grammar:
+**The load-bearing decision — both mobile panes stay MOUNTED (revised).** Originally the
+mobile pane was conditionally rendered (`mobilePane === 'edit' ? editorPane : previewPane`),
+which UNMOUNTED the inactive pane. That made every swap to Preview **remount + reload the
+preview iframe** — a blank flash + a repaint the demo raced, so you never saw the slide render
+(and normal phone editing felt laborious too). The fix: render **both** panes, stacked
+(`absolute inset-0`), and toggle the inactive one with `visibility:hidden` + `inert` instead
+of unmounting it. The hidden pane keeps its full size, so **the preview keeps rendering the
+live deck while hidden and a swap is instant** (~85 ms, no reload) — verified on the real stage.
+Editor state + the preview frame both persist across swaps. (Desktop already mounts both panes
+side by side; mobile now matches that load — one hidden.)
 
-1. **Typing happens only while Edit is mounted.** After a swap *back* to Edit the editor
-   remounts and re-inits its doc from `value` (the `source` state, which `typeTail`'s
-   `onChange` has been keeping current) — so the accumulated slides survive the unmount. But
-   `editorRef.current` is null until the remount effect runs, so each type beat is gated by
-   **`until(() => editor is mounted)`** (a parent-DOM probe for `#studio-pane-editor .cm-content`)
-   before it calls `typeTail`. This is the exact consumer `until` was built for.
-2. **The reveal must wait for the real PAINT, not a settle.** The pane swap REMOUNTS the
-   preview (a fresh iframe that reloads + re-renders), and a fixed settle races that reload —
-   you swap to Preview, it's still blank, and you swap away before the slide paints (you never
-   see it render). So each reveal is gated by **`until(() => previewPainted())`** — a probe of
-   the preview's own document (`[aria-label="Live deck preview"] iframe` → `.lattice` has
-   content). The preview is a SAME-ORIGIN srcdoc frame (component-transformer threat model
-   §5.1), so it's readable from the parent; this is a deliberate, justified exception to the
-   desktop storyboard's "no preview-iframe coupling" rule, because on mobile the iframe genuinely
-   reloads on every swap and only its own paint is the truth. A ~1.6s linger settle then holds on
-   the rendered slide so it registers. (Desktop's build beats keep `railReady(k)` — its preview
-   never remounts, so parse + a linger is enough.)
+The beat grammar that follows:
+
+1. **Typing is always ready** (the editor never unmounts now). The type beats still carry
+   **`until(() => editorMounted)`** as a cheap safety — it resolves on the first poll — so the
+   storyboard stays correct even if the layout ever reverts to conditional rendering.
+2. **The reveal shows the SLIDE JUST TYPED.** Because the preview renders live while hidden, a
+   swap paints instantly — but the reveal still gates on **`until(() => previewShowsSlide(k))`**:
+   the preview's "Slide N / M" header reads N === k AND its `.lattice` has painted. That guards
+   against the preview lagging a beat behind on a slow device (and, historically, a stale
+   first-slide flash on the old remount). The preview is a SAME-ORIGIN srcdoc frame
+   (component-transformer threat model §5.1), so the parent can read it — a deliberate, justified
+   exception to the desktop storyboard's "no preview-iframe coupling" rule. A ~2.2s linger then
+   holds on the rendered slide. (Desktop's build beats keep `railReady(k)` + a ~620 ms linger —
+   its preview never remounted in the first place.)
 
 **Selectors — mostly already there.** The pane toggle exposes `aria-label="Edit"` /
 `"Preview"`; the deck switcher (`data-demo="deck-switcher"`) and New-deck item

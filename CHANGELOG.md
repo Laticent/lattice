@@ -76,6 +76,15 @@ in patch versions.
   previous one renders). Dogfoods Vetrina's `until` advance gate in the flagship
   walkthrough; verified by the six-scenario demo e2e on real Chromium.
 
+### Changed
+
+- **Studio mobile: swapping Edit ⇄ Preview is now instant.** The two panes previously
+  unmounted each other, so every swap to Preview **remounted and reloaded** the preview
+  iframe — a blank flash and a repaint. Both panes now stay mounted (the inactive one
+  hidden with `visibility:hidden` + `inert`), so the preview keeps rendering the live deck
+  while hidden and a swap shows it immediately (~85 ms, no reload). This also makes the
+  phone Watch-demo's per-slide reveal snap in instead of racing an iframe reload.
+
 ### Added
 
 <<<<<<< HEAD
