@@ -54,6 +54,28 @@ test('ladder: a connected OpenRouter key selects the openrouter-tts rung', async
   assert.equal(v.availability().openRouterReady, true);
 });
 
+test('openrouter synth: POSTs the OpenAI-compatible /audio/speech route and returns the raw blob', async () => {
+  const { createVoiceModel } = await load();
+  let captured = null;
+  const fetchImpl = async (url, opts) => {
+    captured = { url, method: opts.method, body: JSON.parse(opts.body) };
+    // The real route returns a raw mp3 byte stream, not JSON — mimic a Blob.
+    return { ok: true, status: 200, blob: async () => ({ size: 256, type: 'audio/mpeg' }) };
+  };
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
+  // speak() drives the rung's synth (no audio device in node → playback is a no-op).
+  await v.speak({ text: 'Revenue grew to $4.2M.' });
+  assert.ok(captured, 'the rung called fetch');
+  assert.equal(captured.method, 'POST');
+  assert.equal(captured.url, 'https://openrouter.ai/api/v1/audio/speech');
+  // The dedicated route takes `input` (not chat `messages`) + a `response_format`.
+  assert.equal(captured.body.input, 'Revenue grew to $4.2M.');
+  assert.equal(captured.body.response_format, 'mp3');
+  assert.ok(captured.body.model, 'sends a model slug');
+  assert.ok(captured.body.voice, 'sends a voice');
+  assert.equal(captured.body.messages, undefined, 'not the chat-completions shape');
+});
+
 test('speak(): drives the active rung once per sentence, in order', async () => {
   const { createVoiceModel, MockRung } = await load();
   const rung = MockRung();

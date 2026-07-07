@@ -28,15 +28,21 @@
 // first time the user summons the local voice). Mirrors architect-model.js.
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
-// Cloud voice = OpenRouter audio OUTPUT via chat-completions (NOT a `/audio/speech`
-// route — OpenRouter has no TTS models). An audio-output model speaks the text back
-// as a streamed, base64 audio delta. CORS-enabled for the browser, authenticated
-// with the SAME key the architect model already holds.
-// Docs: https://openrouter.ai/docs/guides/overview/multimodal/audio
-const OR_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
+// Cloud voice = OpenRouter's dedicated TTS endpoint (/api/v1/audio/speech), the
+// OpenAI-compatible speech route. It takes { model, input, voice, response_format }
+// and returns a RAW audio byte stream (mp3) — NOT a chat message with base64 deltas.
+// (An earlier version wrongly went through chat-completions with a non-TTS model, so
+// no audio ever came back.) CORS-enabled for the browser, authenticated with the SAME
+// key the architect model already holds.
+// Docs: https://openrouter.ai/docs/guides/overview/multimodal/tts
+// TTS models: https://openrouter.ai/api/v1/models?output_modalities=speech
+const OR_SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
 
-const DEFAULT_OR_TTS_MODEL = 'openai/gpt-audio-mini'; // cheapest audio-output model
-const DEFAULT_OR_VOICE = 'nova'; // warm, boardroom-neutral (alloy/echo/fable/onyx/nova/shimmer)
+// Voices are MODEL-specific (OpenAI-style alloy/nova only work with an OpenAI TTS
+// model). The default pairs a real speech-output model with one of its voice ids;
+// both are overridable via the localStorage prefs below.
+const DEFAULT_OR_TTS_MODEL = 'microsoft/mai-voice-2';
+const DEFAULT_OR_VOICE = 'en-US-Harper:MAI-Voice-2';
 const DEFAULT_KOKORO_VOICE = 'af_heart';
 
 // localStorage prefs (the lattice-db-* namespace the Drawing Board uses).
@@ -88,18 +94,19 @@ export async function detectKokoroCached() {
 // can abort mid-note the instant the user navigates, and (later) insert
 // pause-beat silences between sentences. Pure + deterministic → unit-tested.
 //
-// This is the DEFAULT split. A caller that must keep the spoken sentences in
-// lockstep with a caption engine's cues (so a per-sentence onset re-anchors the
-// right word) passes that engine's own split via speak({ sentences }) instead of
-// relying on this one — see the /cadenza page. Keeping this segmenter local (not
-// an import of the TS caption engine) is what keeps the module node-loadable.
+// This MIRRORS Cadenza's canonical splitSentences (docs/src/lib/cadenza/segment.ts)
+// exactly — a deliberate LOCAL COPY, not an import, because this module must stay
+// node-loadable (no `@/` alias / TS import; see the file header). A cross-check test
+// pins the two byte-identical so they can't drift. Break AFTER a terminator (.!?…)
+// followed by whitespace (lookbehind), so a mid-token dot ($4.2M, 3.5x) never splits.
+//
+// A caller that must keep the spoken sentences in lockstep with a caption engine's
+// cues can still pass that engine's own split via speak({ sentences }); with the two
+// splitters identical it's belt-and-suspenders, not a correctness requirement.
 export function splitSentences(text) {
-  const s = String(text || '').replace(/\s+/g, ' ').trim();
+  const s = String(text ?? '').replace(/\s+/g, ' ').trim();
   if (!s) return [];
-  // Break after sentence terminators (.!?…) when followed by whitespace/end.
-  // Over-splitting an abbreviation only adds a tiny gap — never a correctness bug.
-  const parts = s.match(/[^.!?…]*[.!?…]+(?=\s|$)|[^.!?…]+$/g) || [s];
-  return parts.map((p) => p.trim()).filter(Boolean);
+  return s.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
 }
 
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
@@ -138,10 +145,8 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
     async synth({ text, voice, signal }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
-      // Audio OUTPUT goes through chat-completions with modalities:['text','audio'];
-      // stream:true is MANDATORY (the audio arrives as base64 deltas). A short system
-      // prompt pins the model to verbatim narration, not conversation.
-      const res = await (fetchImpl || fetch)(OR_CHAT_URL, {
+      // OpenAI-compatible speech route: POST the text, get a raw mp3 byte stream back.
+      const res = await (fetchImpl || fetch)(OR_SPEECH_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,65 +156,23 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         },
         body: JSON.stringify({
           model: getModel(),
-          modalities: ['text', 'audio'],
-          audio: { voice: voice || getVoice(), format: 'wav' },
-          stream: true,
-          messages: [
-            { role: 'system', content: 'You are a text-to-speech engine. Speak the user\'s message aloud verbatim, in a natural, measured boardroom delivery. Do not add, omit, summarize, answer, or comment — read the exact text and nothing else.' },
-            { role: 'user', content: text },
-          ],
+          input: text,
+          voice: voice || getVoice(),
+          response_format: 'mp3',
         }),
         signal,
       });
       if (!res.ok) {
-        let detail = ''; try { detail = (await res.text()).slice(0, 160); } catch {}
+        // Surface the API's reason (bad model slug, unknown voice, no credit) instead
+        // of a silent fall-through — the only way to diagnose without the console.
+        let detail = ''; try { detail = (await res.text()).slice(0, 200); } catch {}
         throw new Error('OpenRouter TTS error ' + res.status + (detail ? ': ' + detail : ''));
       }
-      const b64 = await readAudioStream(res);
-      if (!b64) throw new Error('no audio in response (model may not support audio output)');
-      return b64ToBlob(b64, 'audio/wav');
+      const blob = await res.blob();
+      if (!blob || !blob.size) throw new Error('OpenRouter returned empty audio');
+      return blob; // mp3; playBlob's decodeAudioData handles it
     },
   };
-}
-
-// Read OpenRouter's SSE stream and concatenate the base64 audio deltas
-// (choices[0].delta.audio.data). Falls back to a non-streamed message.audio.data.
-async function readAudioStream(res) {
-  if (!res.body || !res.body.getReader) {
-    try { const j = await res.json(); return j?.choices?.[0]?.message?.audio?.data || ''; } catch { return ''; }
-  }
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = '';
-  let b64 = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    let nl;
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (payload === '[DONE]') return b64;
-      try {
-        const j = JSON.parse(payload);
-        const c = j?.choices?.[0];
-        const d = c?.delta?.audio?.data || c?.message?.audio?.data;
-        if (d) b64 += d;
-      } catch {}
-    }
-  }
-  return b64;
-}
-
-// base64 → Blob, browser-safe (atob; no Buffer dependency).
-function b64ToBlob(b64, type) {
-  const bin = atob(b64);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], { type });
 }
 
 // Kokoro in-browser rung. Prefers a SAME-ORIGIN module Worker (see kokoro-worker.js

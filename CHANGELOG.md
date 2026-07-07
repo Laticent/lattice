@@ -274,6 +274,17 @@ in patch versions.
 
 ### Fixed
 
+- **The OpenRouter cloud voice now actually produces audio.** The read-aloud
+  voice ladder (`docs/src/playground/voice-model.js`) called OpenRouter through
+  `chat/completions` with a non-existent audio-output model, on the assumption
+  that "OpenRouter has no TTS models" — so no audio ever came back and the voice
+  silently fell to the estimate/silent floor. It now uses OpenRouter's dedicated
+  OpenAI-compatible speech route (`POST /api/v1/audio/speech` → `{ model, input,
+  voice, response_format }`, returning a raw mp3 stream), defaults to a real
+  speech-output model, and surfaces the API's error text instead of failing
+  silently. Same fix also unified `voice-model`'s sentence splitter with Cadenza's
+  (lookbehind) so narration no longer mis-splits a decimal like `$4.2M`.
+
 - **The Playground now remembers where you were and never destroys a draft
   (Specimen Book, PR 5).** Four long-standing state janks fixed at the source
   in a new pure kernel (`docs/src/lib/playground-controller.ts`): the picker's

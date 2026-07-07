@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createVoiceModel } from './voice-model.js';
+import { splitSentences as cadenzaSplit } from '@/lib/cadenza';
+import { createVoiceModel, splitSentences as voiceSplit } from './voice-model.js';
 
 // A minimal fake WebAudio context: enough for playBlob to decode, start, fire
 // onended, and expose a monotonic currentTime. Real audio timing is device-verified;
@@ -113,6 +114,30 @@ describe('voice-model instrumentation (additive)', () => {
     model.__setRung(fakeRung());
     await model.speak({ text: 'One. Two.' });
     expect(model.audioTimeMs()).toBeGreaterThan(0);
+  });
+});
+
+describe('splitSentences mirrors Cadenza exactly (node-loadable local copy, HARD RULE #15)', () => {
+  // voice-model can't import the TS caption engine (it must load under plain node),
+  // so it keeps a local copy. This pins the copy byte-identical to Cadenza's so the
+  // sentence a voice SPEAKS never diverges from the cue a caption HIGHLIGHTS.
+  const corpus = [
+    'Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is our best.',
+    'We shipped 3.5x faster. Margins held at 30%.',
+    'Acme Inc. beat plan. Done?',
+    'One\n\ntwo three',
+    'Trailing no punct',
+    'A finished one. And an unfinished one',
+    '',
+    '   ',
+  ];
+  for (const text of corpus) {
+    it(`agrees on: ${JSON.stringify(text).slice(0, 40)}`, () => {
+      expect(voiceSplit(text)).toEqual(cadenzaSplit(text));
+    });
+  }
+  it('keeps a mid-token decimal intact (the bug the old regex had)', () => {
+    expect(voiceSplit('Revenue grew to $4.2M.')).toEqual(['Revenue grew to $4.2M.']);
   });
 });
 
