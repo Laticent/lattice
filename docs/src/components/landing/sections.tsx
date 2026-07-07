@@ -36,7 +36,7 @@ export function SectionHead({
 			<div className="mb-3">
 				<Eyebrow>{eyebrow}</Eyebrow>
 			</div>
-			<h2 className="mb-3.5 font-[var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+			<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
 				{title}
 			</h2>
 			{children && <p className="m-0 text-[17px] text-foreground">{children}</p>}
@@ -150,7 +150,7 @@ export function FieldCards({ playgroundHref, layoutCount }: { playgroundHref: st
 							className="live-host relative mb-[18px] aspect-video overflow-hidden rounded-md border border-border bg-muted"
 							data-live-card={c.live}
 						/>
-						<h3 className="mb-2 font-[var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
+						<h3 className="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
 							{c.title}
 						</h3>
 						<p className="m-0 text-[15px] text-foreground">{c.body}</p>
@@ -227,7 +227,7 @@ export function WhyCards() {
 					className="gap-0 py-0"
 				>
 					<CardContent className="px-6 py-[26px]">
-						<h3 className="mb-2 font-[var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
+						<h3 className="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
 							{c.title}
 						</h3>
 						<p className="m-0 text-[15px] text-foreground">{c.body}</p>
@@ -246,7 +246,7 @@ export function WhyCards() {
 export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 	return (
 		<div className="mx-auto max-w-[62ch] text-center">
-			<h2 className="mb-4 font-[var(--font-display)] text-[clamp(26px,3vw,38px)] leading-[1.12] tracking-[-0.02em] text-[var(--text-heading)]">
+			<h2 className="mb-4 font-[family-name:var(--font-display)] text-[clamp(26px,3vw,38px)] leading-[1.12] tracking-[-0.02em] text-[var(--text-heading)]">
 				The artsy deck wins the demo. The deterministic deck wins the boardroom.
 			</h2>
 			<p className="m-0 mb-5 text-[16.5px] leading-[1.6] text-foreground">
@@ -274,7 +274,7 @@ export function ByomSection({ featuresHref }: { featuresHref: string }) {
 			<div className="mb-3">
 				<Eyebrow>Bring your own model</Eyebrow>
 			</div>
-			<h2 className="mb-3.5 font-[var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+			<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
 				Point your copilot at Lattice.
 			</h2>
 			<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
@@ -350,7 +350,7 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 						key={l.href + l.title}
 						className="flex flex-col rounded-xl border border-border bg-card p-[26px] text-card-foreground shadow-sm"
 					>
-						<h3 className="mb-2 font-[var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
+						<h3 className="mb-2 font-[family-name:var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
 							{l.title}
 						</h3>
 						<p className="m-0 mb-3.5 text-[15px] text-foreground">{l.body}</p>
@@ -368,7 +368,7 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 						href={l.href}
 						className="group block rounded-xl border border-border bg-card p-[26px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
 					>
-						<h3 className="mb-2 font-[var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
+						<h3 className="mb-2 font-[family-name:var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
 							{l.title}
 						</h3>
 						<p className="m-0 mb-3.5 text-[15px] text-foreground">{l.body}</p>

@@ -117,8 +117,8 @@ const CATALOG = [
 		rows: [
 			['git-diffable', 'A deck is a text file. Revisions read like code review — line by line.'],
 			['Built-in linter', 'One deterministic checker runs in the editor, the CLI, and the browser, with stable rule IDs and a published diagnostic spec.'],
-			['Drawing Board', 'An in-browser editor with a live filmstrip preview.'],
-			['The Architect', 'A deterministic Coach (lints and scores, spends no tokens) alongside a generative Converse chat.'],
+			['The Studio', 'An in-browser workspace: editor with live preview, deck library, finish designer, present mode.'],
+			['The Architect', 'A deterministic Coach (lints and scores, spends no tokens) alongside a generative Converse chat that applies fixes as reviewable diffs.'],
 			['Regression-tested', 'Every component carries a semantic-invariant baseline that gates each release.'],
 		],
 	},
@@ -127,7 +127,7 @@ const CATALOG = [
 		id: 'ai-authoring',
 		rows: [
 			['Machine catalog + spec', 'A machine-readable component catalog and a published authoring spec let an agent compose valid, on-brand decks.'],
-			['Bring your own model', 'Drive 300+ models through OpenRouter on your own account. Default: Claude Sonnet.'],
+			['Bring your own model', 'Drive 500+ models through OpenRouter on your own account. Default: Claude Sonnet.'],
 			['Cost controls', 'Deterministic-first checks, prompt caching, a session budget cap, and live spend + balance on screen.'],
 		],
 	},
@@ -207,7 +207,7 @@ const CATALOG = [
 					<p class="m-0 mb-4 font-mono text-[12px] font-medium uppercase tracking-[0.16em] text-primary">
 						Features
 					</p>
-					<h1 class="m-0 mb-4 font-[var(--font-display)] text-[clamp(32px,4.6vw,52px)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--text-heading)]">
+					<h1 class="m-0 mb-4 font-[family-name:var(--font-display)] text-[clamp(32px,4.6vw,52px)] font-bold leading-[1.05] tracking-[-0.02em] text-[var(--text-heading)]">
 						Everything Lattice does, in one place.
 					</h1>
 					<p class="m-0 text-[clamp(16px,1.8vw,18px)] leading-[1.5] text-foreground">
@@ -261,21 +261,21 @@ const CATALOG = [
 							href={url('playground/')}
 							class="group block rounded-xl border border-border bg-card p-[24px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
 						>
-							<h3 class="mb-2 font-[var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Open the playground</h3>
+							<h3 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Open the playground</h3>
 							<p class="m-0 text-[14.5px] text-foreground">Write a slide, switch every palette, export a real PDF — in the browser.</p>
 						</a>
 						<a
 							href={url('components/')}
 							class="group block rounded-xl border border-border bg-card p-[24px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
 						>
-							<h3 class="mb-2 font-[var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Browse the components</h3>
+							<h3 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Browse the components</h3>
 							<p class="m-0 text-[14.5px] text-foreground">All {componentCount} components, live and themable in every palette.</p>
 						</a>
 						<a
 							href={url('getting-started/')}
 							class="group block rounded-xl border border-border bg-card p-[24px] text-card-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
 						>
-							<h3 class="mb-2 font-[var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Render your first deck</h3>
+							<h3 class="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Render your first deck</h3>
 							<p class="m-0 text-[14.5px] text-foreground">Install the toolchain and ship a boardroom-grade PDF in minutes.</p>
 						</a>
 					</div>
@@ -294,8 +294,7 @@ const CATALOG = [
 					<a href={url('story/')}>Story</a>
 					<a href={url('getting-started/')}>Get started</a>
 					<a href={url('playground/')}>Playground</a>
-					<a href={url('drawing-board/')}>Drawing Board</a>
-					<a href={url('workbench/')}>Workbench</a>
+					<a href={url('studio/')}>Studio</a>
 					<a href={url('guides/authoring/')}>Authoring</a>
 					<a href={url('components/')}>Components</a>
 					<a href={url('features/')}>Features</a>

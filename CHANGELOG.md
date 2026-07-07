@@ -48,6 +48,33 @@ in patch versions.
 
 ### Changed
 
+- **The comparison page leads with the argument, not the scoreboard.** It now
+  opens with the problem, what a deck should be, the four commitments the render
+  path keeps, and a reframe of speed (fast to a draft is not fast to a deck)
+  before the honest, sourced field comparison — so Lattice reads as a
+  deterministic-craft position, not one more slide tool. Competitor claims are
+  re-verified against primary sources (the Deloitte figure is the contract value,
+  not the refund; the fact-check receipt names the tools that scored higher), the
+  git framing is demoted so it reads as manageability rather than developer-only,
+  and `features.astro` is reconciled to "500+ models."
+  A follow-up integrity + capability pass: the unsourceable "Marp's own docs say"
+  quotation becomes an honest paraphrase (the root claim in the competitive-analysis
+  decision doc is corrected too); the flat-image PPTX export is disclosed as its own
+  weakness card since we ding Gamma for the same shape; the Studio, Fabricate, and
+  the finish layer join the page (a new "Deck review built in" matrix row, Studio
+  mentions in the warts and the Marp answer); the matrix's ○ marks use a text token
+  so they survive dark mode; the mobile matrix gets a right-edge fade and a swipe
+  hint; the display-font classes are repaired (they compiled to an invalid
+  `font-weight`); the Tome receipt no longer contradicts its neighbor's timeline;
+  "Send a correction" is now a link; and the marketing footers point at the Studio
+  instead of the frozen Drawing Board and Workbench.
+  The page also shows the product — a funnel slide pair (light + dark, same
+  Markdown, one palette line apart) in "What we believe." The pair is page-owned
+  (`docs/public/comparison/`) and rasterized from the component's committed
+  gallery PDF, so it is the *current* engine's render: the Studio's `showcase/`
+  seed assets turned out to be a frozen late-June snapshot that had drifted from
+  the engine (stale sample copy and styling, caught by the owner on a real phone).
+
 - **Vetrina: a caption can be a lesson, not a subtitle — the Teaching Beat.** A storyboard beat can
   set `read: true`: after the caption shows, the cursor dips to the narration dock and the words
   glow-pulse (drawing the eye — the teacher underlining what they said), and the beat DWELLS long

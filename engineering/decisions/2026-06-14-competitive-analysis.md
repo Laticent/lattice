@@ -92,9 +92,12 @@ CHANGELOG.md, dist/docs/components.json, themes/).
   use Keynote/Slides for that).
 
 **"Isn't this just Marp?" — the honest answer (technical-reader credibility):**
-Vanilla Marp's *own docs* state it has **"no component system, design tokens, slots, or
-layout primitives"** (marpit theme-css.md), ships **three generic themes**
-(default/gaia/uncover), and produces **environment-dependent** PDF (Chromium-version-coupled,
+Vanilla Marp has **no component system, no design tokens, no slots, no layout
+primitives** — theming is raw CSS per marpit's theme-css.md (CORRECTION 2026-07-07: this is
+a true characterization but NOT a verbatim quote; marpit's docs never say that sentence, and
+an earlier revision of this doc — and the live comparison page built from it — wrongly
+presented it inside quotation marks. Never quote it.) It ships **three generic themes**
+(default/gaia/uncover) and produces **environment-dependent** PDF (Chromium-version-coupled,
 font-substitution-prone). So:
 - **Genuinely above Marp:** the 53-component/12-bucket system, the token system, the 14
   palettes, palette-blind layouts, boardroom-grade defaults, agent-authorability, and the
@@ -372,3 +375,38 @@ Contested / verify-before-publishing: all Gamma/Decktopus/Presentations.ai/Magic
 pricing & credit figures (trackers disagree; live pages 403); self-reported growth
 superlatives ("1M in 84 days", "fastest to 1M"); the Charles Hudson VC quote; the Octigen
 bank-rollout numbers; exact Tome dates.
+
+---
+
+## Addendum — 2026-07-07 receipt refresh (kept in sync with the live comparison page)
+
+The comparison page cites this doc as its method link, so the figures the page
+carries that post-date the June survey are recorded here with their sources.
+Where this addendum and the June body disagree, the addendum is current.
+
+- **Lattice engine counts:** the June body says 53 components / 12 buckets; as of
+  v1.0.0+ the engine ships **56 components / 13 buckets** (the `connect` bucket
+  landed after the survey; counts verified against `lib/components/` and
+  `dist/docs/components.json`).
+- **Gamma sizing:** the June body's ~50M users is superseded — **$2.1B valuation,
+  ~70M users** (Series B coverage, Nov 2025; TechCrunch/Reuters reporting).
+- **Copilot adoption:** paid Copilot seats estimated at roughly **3% of eligible
+  Microsoft 365 seats** (analyst estimates reported by Bloomberg/The Information,
+  2025 — an estimate, not a Microsoft disclosure; the page says "about 3%").
+- **"Slop":** Merriam-Webster's **2025 Word of the Year** — the cultural marker
+  the page uses for AI-generated sameness.
+- **KPMG receipt:** KPMG's 2025 agentic-AI report cited 45 sources; **5 were
+  correct**; the report was pulled (GPTZero investigation, corroborated by The
+  Register and the OECD AI Incidents monitor).
+- **Deloitte receipt precision:** AU$440k is the **contract value**; the refund
+  was the **final installment only** (Fortune / The Register / CFO Dive, Oct 2025).
+- **Fact-check receipt scope:** the Feb 2026 six-tool fact-check is one author,
+  one prompt per tool — directional. Mainstream tools scored ≤20% (Gamma 20%,
+  Beautiful.ai/Canva 17%); two lesser-known tools scored 44% and 43%. The page's
+  stat card is scoped to the mainstream names. Tome's 0% datum is omitted on the
+  page to avoid a timeline collision with its 2025 shutdown.
+- **License:** the June body says MIT; the engine relicensed to **AGPL-3.0-only
+  with the Lattice Output Exception** (decks you produce carry no license;
+  `LICENSE` + `LICENSE-EXCEPTIONS`, `package.json`). The page is correct.
+- **Marp characterization** (restating the correction above): describe, never
+  quote — marpit's docs do not contain the sentence an earlier revision quoted.
