@@ -18,12 +18,21 @@
 //   node docs/scripts/rasterize-showcase.mjs            # (re)write the WebPs
 //   node docs/scripts/rasterize-showcase.mjs --check    # gate: every output exists
 //
-// --check verifies presence (the real failure mode: a component was flagged
-// but its image was never generated), not byte-equality — WebP encoding is
-// not guaranteed stable across libvips versions.
+// --check verifies presence (a component was flagged but its image was never
+// generated) AND source freshness: scripts/showcase-sources.json records the
+// sha256 of each gallery PDF at generation time, so an engine/theme/sample
+// change that rebuilds a gallery PDF fails the gate until the WebPs are
+// regenerated (issue #794 — the set silently drifted for a week and shipped a
+// stale, defective render). Outputs are still not byte-compared — WebP
+// encoding is not guaranteed stable across libvips versions; the SOURCE
+// hashes are environment-independent. The chain above this gate: the gallery
+// PDFs themselves are kept current with the engine by the staged-PDFs
+// pre-commit gate and the integration tier — this check trusts them and only
+// proves the WebPs were cut from the committed PDFs.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,16 +61,40 @@ function srcPdf(m, mode) {
 	return join(componentsDir, manifestBucket(m), m.name, `${m.name}.gallery.${mode}.pdf`);
 }
 const outFile = (name, mode) => join(outDir, `${name}.${mode}.webp`);
+const SOURCES = join(here, 'showcase-sources.json');
+const sha256 = (file) => createHash('sha256').update(readFileSync(file)).digest('hex');
 
 function check() {
-	const missing = [];
+	const stale = [];
+	const sources = existsSync(SOURCES) ? JSON.parse(readFileSync(SOURCES, 'utf8')) : null;
+	if (!sources) stale.push(`${SOURCES.replace(`${repoRoot}/`, '')} missing`);
+	const expected = new Set();
 	for (const m of showcaseComponents()) {
-		for (const mode of MODES) if (!existsSync(outFile(m.name, mode))) missing.push(outFile(m.name, mode));
-	}
-	if (missing.length) {
-		for (const f of missing) {
-			process.stderr.write(`stale: ${f.replace(`${repoRoot}/`, '')} — run \`node docs/scripts/rasterize-showcase.mjs\`.\n`);
+		const page = m.showcase?.page || 2;
+		for (const mode of MODES) {
+			const key = `${m.name}.${mode}`;
+			expected.add(key);
+			if (!existsSync(outFile(m.name, mode))) {
+				stale.push(`${outFile(m.name, mode).replace(`${repoRoot}/`, '')} missing`);
+				continue;
+			}
+			if (!sources) continue;
+			const rec = sources[key];
+			const pdf = srcPdf(m, mode);
+			if (!rec) stale.push(`${key}: no source record`);
+			else if (rec.page !== page) stale.push(`${key}: showcase page changed (${rec.page} → ${page})`);
+			else if (!existsSync(pdf)) stale.push(`${key}: gallery PDF missing`);
+			else if (sha256(pdf) !== rec.srcSha256)
+				stale.push(`${key}: gallery PDF changed since the WebP was generated (drifted render)`);
 		}
+	}
+	if (sources) for (const key of Object.keys(sources)) if (!expected.has(key)) stale.push(`${key}: orphan source record (component un-flagged? remove its WebP too)`);
+	if (existsSync(outDir))
+		for (const f of readdirSync(outDir))
+			if (f.endsWith('.webp') && !expected.has(f.replace(/\.webp$/, '')))
+				stale.push(`public/showcase/${f}: zombie asset — no flagged component produces it; delete it`);
+	if (stale.length) {
+		for (const f of stale) process.stderr.write(`stale: ${f} — run \`node docs/scripts/rasterize-showcase.mjs\`.\n`);
 		process.exit(1);
 	}
 	process.stdout.write('showcase images up to date.\n');
@@ -72,6 +105,7 @@ async function build() {
 	const tmp = join(here, '..', '.showcase-tmp');
 	mkdirSync(tmp, { recursive: true });
 
+	const sources = {};
 	let wrote = 0;
 	for (const m of showcaseComponents()) {
 		const page = m.showcase?.page || 2;
@@ -87,12 +121,14 @@ async function build() {
 				.resize({ width: TARGET_WIDTH, withoutEnlargement: true })
 				.webp({ quality: 82 })
 				.toFile(outFile(m.name, mode));
+			sources[`${m.name}.${mode}`] = { src: pdf.replace(`${repoRoot}/`, ''), page, srcSha256: sha256(pdf) };
 			wrote++;
 		}
 		process.stdout.write(`  ${m.name} ← ${manifestBucket(m)}/${m.name} p${page}\n`);
 	}
 	rmSync(tmp, { recursive: true, force: true });
-	process.stdout.write(`rasterize-showcase: wrote ${wrote} WebP into public/showcase/.\n`);
+	writeFileSync(SOURCES, `${JSON.stringify(sources, null, '\t')}\n`);
+	process.stdout.write(`rasterize-showcase: wrote ${wrote} WebP into public/showcase/ + showcase-sources.json.\n`);
 }
 
 if (process.argv.includes('--check')) check();
