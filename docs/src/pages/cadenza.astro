@@ -1,0 +1,220 @@
+---
+// Cadenza read-along — a standalone, framework-free reference page driven by the
+// REAL engine (docs/src/lib/cadenza): buildTrack → a timed track, makeReader → the
+// clock→word driver, toVtt → the caption export. No React, no slide engine — the
+// honest proof that the caption core is a self-contained library. Silent path (no
+// audio): the highlight rides Cadenza's own cadence estimate. Not in site nav — a
+// reference surface reached by URL (/cadenza), the Vetrina-exemplar pattern.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Cadenza — read-along</title>
+		<!-- Global (unscoped): the caption words/cues are created in JS at runtime, so
+		     Astro's default scoping (a hash attribute added only to template elements)
+		     would never match them and the highlight styles would silently not apply. -->
+		<style is:global>
+			:root {
+				--paper: #f6f3ec; --stage: #efeae0; --ink: #201d18; --muted: #9d968a; --spent: #c3bcae;
+				--line: #ded7c8; --accent: #3f3d8f; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6d9a4;
+				--panel: #fbf9f4; --shadow: 0 1px 2px rgba(32,29,24,.06), 0 8px 24px rgba(32,29,24,.05);
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--paper: #121118; --stage: #191824; --ink: #ece7dd; --muted: #5f5d70; --spent: #46445a;
+					--line: #272637; --accent: #9491f2; --accent-ink: #14121c; --glow: #f6b64a; --glow-bg: #3a2f1c;
+					--panel: #16151f; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				}
+			}
+			:root[data-theme="light"] {
+				--paper: #f6f3ec; --stage: #efeae0; --ink: #201d18; --muted: #9d968a; --spent: #c3bcae;
+				--line: #ded7c8; --accent: #3f3d8f; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6d9a4; --panel: #fbf9f4;
+			}
+			:root[data-theme="dark"] {
+				--paper: #121118; --stage: #191824; --ink: #ece7dd; --muted: #5f5d70; --spent: #46445a;
+				--line: #272637; --accent: #9491f2; --accent-ink: #14121c; --glow: #f6b64a; --glow-bg: #3a2f1c; --panel: #16151f;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 860px; margin: 0 auto; }
+			header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: baseline; gap: 12px; }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+			.sub { color: var(--muted); font-size: 14px; max-width: 62ch; margin: 6px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+			.stage { margin: 28px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(24px, 5vw, 44px); min-height: 220px; display: flex; flex-direction: column; justify-content: center; }
+			.caption { font-family: var(--stage-serif); font-size: clamp(22px, 3.4vw, 30px); line-height: 1.6; text-wrap: balance; }
+			.caption .w { color: var(--muted); transition: color .12s ease, background-color .12s ease; border-radius: 5px; padding: 0 .04em; }
+			.caption .w.spent { color: var(--spent); }
+			.caption .w.on { color: var(--glow); background: var(--glow-bg); font-weight: 600; box-shadow: 0 0 0 3px var(--glow-bg); }
+			.caption .cue { display: block; }
+			.caption .cue.future { opacity: .35; }
+			.caption .cue.done { opacity: .5; }
+			.spoken { margin-top: 22px; display: flex; align-items: center; gap: 12px; min-height: 28px; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+			.spoken .lbl { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+			.spoken .disp { color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font-weight: 600; }
+			.spoken .arrow { color: var(--accent); }
+			.spoken .say { color: var(--glow); }
+			.transport { margin-top: 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+			.play { width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer; background: var(--accent);
+				color: var(--accent-ink); display: grid; place-items: center; flex-shrink: 0; transition: transform .08s ease; }
+			.play:hover { transform: scale(1.05); } .play:active { transform: scale(.96); }
+			.play svg { width: 22px; height: 22px; }
+			.bar { flex: 1; min-width: 160px; height: 8px; background: var(--line); border-radius: 999px; position: relative; overflow: hidden; cursor: pointer; }
+			.bar > i { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--accent); border-radius: 999px; }
+			.clock { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; }
+			.pace { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--panel); }
+			.pace button { border: none; background: transparent; color: var(--muted); font-family: var(--sans); font-size: 12px; padding: 7px 13px; cursor: pointer; font-weight: 600; }
+			.pace button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+			details { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+			summary { cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; list-style: none; }
+			summary::-webkit-details-marker { display: none; }
+			summary .chev { color: var(--muted); transition: transform .15s ease; }
+			details[open] summary .chev { transform: rotate(90deg); }
+			summary .hint { color: var(--muted); font-weight: 400; font-size: 12px; }
+			.panel-body { padding: 0 16px 16px; }
+			textarea { width: 100%; min-height: 96px; resize: vertical; font-family: var(--stage-serif); font-size: 15px; line-height: 1.5;
+				color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+			pre { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--ink); background: var(--paper);
+				border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; max-height: 260px; }
+			pre .ts { color: var(--accent); }
+			.foot { margin-top: 28px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot code { font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px; cursor: pointer; font-family: var(--sans); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand"><h1>Cadenza</h1><span class="tag">read-along</span></div>
+				<button class="theme" id="themeBtn" type="button">◐ theme</button>
+			</header>
+			<p class="sub">The pure caption engine behind Lattice's read-aloud. It turns narration into a <b>timed track</b> — each word carrying a <b>display</b> form and a <b>spoken</b> form — and lights up the word being said <i>now</i>. This is the silent path (no audio): the highlight rides Cadenza's own cadence estimate. Numbers dwell for how long they take to <i>say</i> — watch <b>$4.2M</b> hold while "four point two million dollars" is spoken.</p>
+
+			<div class="stage">
+				<div class="caption" id="caption"></div>
+				<div class="spoken" id="spoken"></div>
+			</div>
+
+			<div class="transport">
+				<button class="play" id="play" type="button" aria-label="Play">
+					<svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+				</button>
+				<div class="bar" id="bar" role="slider" aria-label="Seek" tabindex="0"><i id="fill"></i></div>
+				<span class="clock" id="clock">0.0s / 0.0s</span>
+				<div class="pace" id="pace" role="group" aria-label="Pace">
+					<button type="button" data-pace="slow">Slow</button>
+					<button type="button" data-pace="moderate" aria-pressed="true">Moderate</button>
+					<button type="button" data-pace="fast">Fast</button>
+				</div>
+			</div>
+
+			<details id="textPanel">
+				<summary><span class="chev">▸</span> Your narration <span class="hint">— paste anything and it re-times live</span></summary>
+				<div class="panel-body"><textarea id="input" spellcheck="false"></textarea></div>
+			</details>
+
+			<details id="vttPanel">
+				<summary><span class="chev">▸</span> Generated WebVTT <span class="hint">— captions + karaoke word timings, the real export</span></summary>
+				<div class="panel-body"><pre id="vtt"></pre></div>
+			</details>
+
+			<p class="foot">Driven by the real engine (<code>@/lib/cadenza</code>): <code>buildTrack</code> → a timed track, <code>makeReader</code> → the clock→word driver, <code>toVtt</code> → this export. A plain DOM page, no framework — the proof the core is standalone. With real TTS, each sentence's measured onset re-anchors its words so the highlight tracks the actual voice.</p>
+		</div>
+
+		<script>
+			import { buildTrack, makeReader, toVtt } from '@/lib/cadenza';
+
+			const SAMPLE = "Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is the fastest growth in the company's history. We beat plan by eight points — and margins held.";
+			const $ = (s) => document.querySelector(s);
+			const capEl = $('#caption'), spokenEl = $('#spoken'), fillEl = $('#fill'), clockEl = $('#clock'), vttEl = $('#vtt'), inputEl = $('#input');
+			const root = document.documentElement;
+
+			let pace = 'moderate', track = null, reader = null, playing = false, elapsed = 0, lastT = 0, raf = 0;
+
+			function render() {
+				track = buildTrack(inputEl.value, { pace });
+				reader = makeReader({ track, onEnd: () => stop() });
+				capEl.innerHTML = '';
+				track.cues.forEach((cue, ci) => {
+					const c = document.createElement('span'); c.className = 'cue'; c.dataset.ci = String(ci);
+					cue.words.forEach((w, wi) => {
+						const el = document.createElement('span'); el.className = 'w'; el.textContent = w.display;
+						el.dataset.ci = String(ci); el.dataset.wi = String(wi); c.appendChild(el);
+						c.appendChild(document.createTextNode(' '));
+					});
+					capEl.appendChild(c);
+				});
+				const esc = (s) => s.replace(/</g, '&lt;');
+				vttEl.innerHTML = esc(toVtt(track)).replace(/&lt;(\d{2}:\d{2}:\d{2}\.\d{3})>/g, '<span class="ts">&lt;$1></span>');
+				elapsed = 0; paint(); updateClock();
+			}
+
+			function paint() {
+				const a = reader.current(); // { cueIndex, wordIndex } | null
+				document.querySelectorAll('.caption .w').forEach((el) => {
+					const ci = Number(el.dataset.ci), wi = Number(el.dataset.wi), w = track.cues[ci].words[wi];
+					const on = !!a && a.cueIndex === ci && a.wordIndex === wi;
+					el.classList.toggle('on', on);
+					el.classList.toggle('spent', elapsed >= w.endMs && !on);
+				});
+				document.querySelectorAll('.caption .cue').forEach((el, ci) => {
+					el.classList.toggle('done', track.cues[ci].endMs < elapsed);
+					el.classList.toggle('future', track.cues[ci].startMs > elapsed && (!a || a.cueIndex !== ci));
+				});
+				if (a) {
+					const w = track.cues[a.cueIndex].words[a.wordIndex];
+					spokenEl.innerHTML = `<span class="lbl">speaking</span><span class="disp">${w.display}</span><span class="arrow">→</span><span class="say">${w.spoken}</span>`;
+				} else {
+					spokenEl.innerHTML = playing ? '<span class="lbl">…</span>' : '<span class="lbl">press play</span>';
+				}
+				fillEl.style.width = (reader.durationMs() ? Math.min(100, (elapsed / reader.durationMs()) * 100) : 0) + '%';
+			}
+			function updateClock() { clockEl.textContent = (elapsed / 1000).toFixed(1) + 's / ' + (reader.durationMs() / 1000).toFixed(1) + 's'; }
+
+			function tick(now) {
+				if (!playing) return;
+				elapsed += now - lastT; lastT = now;
+				reader.sync(elapsed); paint(); updateClock();
+				if (playing) raf = requestAnimationFrame(tick);
+			}
+			function play() { if (!reader.durationMs()) return; if (elapsed >= reader.durationMs()) { elapsed = 0; reader.reset(); } playing = true; setIcon(true); lastT = performance.now(); raf = requestAnimationFrame(tick); }
+			function pause() { playing = false; setIcon(false); cancelAnimationFrame(raf); }
+			function stop() { playing = false; setIcon(false); cancelAnimationFrame(raf); paint(); }
+			function setIcon(on) { $('#playIcon').innerHTML = on ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"></path>' : '<path d="M8 5v14l11-7z"></path>'; $('#play').setAttribute('aria-label', on ? 'Pause' : 'Play'); }
+
+			$('#play').addEventListener('click', () => (playing ? pause() : play()));
+			$('#pace').addEventListener('click', (e) => {
+				const b = e.target.closest('button'); if (!b) return; pace = b.dataset.pace;
+				[...e.currentTarget.children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+				const was = playing; pause(); render(); if (was) play();
+			});
+			$('#bar').addEventListener('click', (e) => {
+				const r = e.currentTarget.getBoundingClientRect();
+				elapsed = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * reader.durationMs();
+				reader.reset(); reader.sync(elapsed); paint(); updateClock();
+			});
+			let deb; inputEl.addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(() => { pause(); render(); }, 250); });
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme');
+				root.setAttribute('data-theme', cur === 'dark' ? 'light' : cur === 'light' ? 'dark' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
+			});
+
+			inputEl.value = SAMPLE;
+			render();
+		</script>
+	</body>
+</html>
