@@ -62,8 +62,11 @@ in patch versions.
   the pane** — on a wide screen (an iPad's landscape Explore) the slide was
   scaled to the pane width and its bottom fell below the fold; it's now capped to
   the pane height and centered, so a whole slide is always visible (a portrait
-  phone is unchanged — the short slide already fit). The **Deck setup** button is
-  renamed **Deck Setting**.
+  phone is unchanged — the short slide already fit). Explore now reads
+  **bottom-first at every width** (mobile → tablet → desktop): the walk bar
+  (Prev · N/M · Next + caption) pins to the bottom, the deck fills the band
+  above, and the only scroll is inside the deck iframe. The **Deck setup** button
+  is renamed **Deck Setting**.
 
 - **The Studio demo's "watch it build" beats sync on the real parse, not a timer.**
   Each slide the demo types now waits on `until(() => railReady(k))` — the slide rail

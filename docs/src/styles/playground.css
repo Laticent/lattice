@@ -666,13 +666,17 @@ body[data-view='edit'] .pg-walk {
 	}
 }
 
-/* Mobile Explore: pin the walk bar to the bottom (reader-first — the deck fills
-   the band above it). On a phone the walk bar carries `order` too, so give it a
-   value past the toolbar clusters (max order 3) to keep it last. */
-@media (max-width: 820px) {
-	body[data-view='read'] .pg-walk {
-		order: 10;
-	}
+/* Explore reads bottom-first at EVERY width — one visual language, mobile →
+   tablet → desktop (the quality bar's cross-width consistency). The Walk bar
+   (‹ Prev · N / M · Next › + the slide's caption) pins to the bottom of the page
+   column; the deck preview fills the band above it, so the ONLY scroll is inside
+   the deck iframe. `order:10` clears the toolbar clusters (max order 3) so the
+   walk bar is always last. A top border reads it as a footer separator now that
+   the deck sits above it rather than below. */
+body[data-view='read'] .pg-walk {
+	order: 10;
+	border-block-start: 1px solid var(--border);
+	border-block-end: 0;
 }
 
 /* ── Focus mode (2026-07-06) — the user-controllable space reclaim ────────────

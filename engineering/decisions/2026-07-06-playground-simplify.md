@@ -109,6 +109,13 @@ variant/edit-slide steps removed).
   "slideshow" (Option 1) because the latter wastes vertical space on a portrait
   phone and is a bigger change to the shared deck-preview. All Explore decks
   (galleries + component walks) use the engine's 1280×720 (16:9) box.
+- **Explore reads bottom-first at every width.** The walk bar's `order:10`
+  bottom-pin (was mobile-only) now applies at all widths, so desktop and the
+  landscape iPad match the phone: toolbar on top, deck preview filling the middle,
+  `‹ Prev · N/M · Next ›` + caption pinned at the bottom, and the only scroll
+  inside the deck iframe — one visual language across mobile → tablet → desktop
+  (real-device confirmed on iPhone). A `border-block-start` reads the bar as a
+  footer separator now that the deck sits above it.
 - **"Deck setup" → "Deck Setting"** on the Playground trigger, sheet title, and
   tour step (the frozen Drawing Board keeps its own label).
 
