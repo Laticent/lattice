@@ -58,6 +58,21 @@ test('the Show Me menu lists every tour, and a tour builds a deck and completes'
 	await expect(page.locator(SHOW_ME)).toBeVisible();
 });
 
+// The full walkthrough (above) exercises every toolkit helper; these prove the OTHER four tours
+// run their opening beats without a crash (a bad selector / content would abort the run, detaching
+// the stage). Each gets a fresh page — launch, confirm it mints the deck (the newDeck beat ran
+// past the preamble) and the stage is still live (no error abort). Cheaper than four full
+// completions, and no flaky menu-reuse within one session.
+for (const id of ['first-look', 'board-deck', 'just-markdown', 'quiet']) {
+	test(`@smoke the "${id}" tour launches and builds without erroring out`, async ({ page }) => {
+		await gotoStudio(page);
+		await startTour(page, id);
+		await expect(page.locator(STAGE)).toBeVisible();
+		await expect.poll(() => firstDeckCount(page), { timeout: 45_000 }).toBe(1); // opening beats ran, no crash
+		await expect(page.locator(STAGE)).toBeVisible(); // still live — the run didn't abort on an error
+	});
+}
+
 test('re-running a tour never duplicates "My First Deck" (beforeSetup dedup)', async ({ page }) => {
 	await gotoStudio(page);
 

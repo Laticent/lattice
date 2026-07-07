@@ -10,16 +10,16 @@ import { resolveTheme } from './theme';
 // emphasizeCaption is safe on a real stage across caption styles.
 
 describe('readMs — dwell scales with word count, clamped', () => {
-	it('a one-word caption still lands (floor 1600ms)', () => {
-		expect(readMs('Watch.')).toBe(1600);
+	it('a short caption still lands (floor 1200ms)', () => {
+		expect(readMs('Watch.')).toBe(1200);
 	});
-	it('mid-length scales linearly (400 + 240/word)', () => {
-		// 10 words → 400 + 2400 = 2800
-		expect(readMs('one two three four five six seven eight nine ten')).toBe(2800);
+	it('mid-length scales linearly (300 + 200/word)', () => {
+		// 10 words → 300 + 2000 = 2300
+		expect(readMs('one two three four five six seven eight nine ten')).toBe(2300);
 	});
-	it('a long caption is capped (ceiling 5000ms)', () => {
+	it('a long caption is capped (ceiling 4500ms)', () => {
 		const long = Array.from({ length: 40 }, (_, i) => `w${i}`).join(' ');
-		expect(readMs(long)).toBe(5000);
+		expect(readMs(long)).toBe(4500);
 	});
 	it('ignores extra whitespace when counting words', () => {
 		expect(readMs('  two   words  ')).toBe(readMs('two words'));

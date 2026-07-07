@@ -118,7 +118,12 @@ export function revealSlide(
 		return [
 			{ say: opts.teach, read: true, point: SEL.paneEdit, click: true, act: (a) => a.setMobilePane('edit'), until: editorMounted, settle: 250 },
 			{ point: SEL.editor, type: mkType(SEL.editor, src, cadence), settle: 300 },
-			{ say: opts.reveal, read: true, point: SEL.panePreview, click: true, act: (a) => a.setMobilePane('preview'), until: previewShowsSlide(k), settle: opts.land ?? 1500, ...wow },
+			// Reveal: swap to Preview AND navigate to the slide just typed. The controlled setSource
+			// path resets the active slide to 1, so without this the preview would stay on slide 1 —
+			// the viewer would never see the new slide, and `previewShowsSlide(k)` would spin to its
+			// timeout. gotoSlide(k-1) shows slide k and resolves the gate at once. The reveal caption
+			// rides the `land` linger (no separate read-dwell — one read per slide, on the teach line).
+			{ say: opts.reveal, point: SEL.panePreview, click: true, act: (a) => { a.setMobilePane('preview'); a.gotoSlide(k - 1); }, until: previewShowsSlide(k), settle: opts.land ?? 1500, ...wow },
 		];
 	}
 	return [

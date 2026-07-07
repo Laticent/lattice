@@ -48,12 +48,12 @@ export interface Step<A> {
 const STEP_SETTLE = 900;
 
 /** Reading dwell for a caption, scaled to its length — the DWELL in a teaching beat. A human
- *  reads ~3–4 words/sec; we budget generously (a newcomer, glancing between caption and canvas)
- *  and clamp so a one-word beat still lands and a long one doesn't stall. Multiply by `stage.pace`
- *  at the call site so a slow/fast theme scales reading time too. */
+ *  reads ~4 words/sec; we budget a little slower (a newcomer, glancing between caption and canvas)
+ *  and clamp so a short beat still lands and a long one doesn't stall. Multiply by `stage.pace` at
+ *  the call site so a slow/fast theme scales reading time too. */
 export function readMs(text: string): number {
 	const words = text.trim().split(/\s+/).filter(Boolean).length;
-	return Math.min(5000, Math.max(1600, 400 + 240 * words));
+	return Math.min(4500, Math.max(1200, 300 + 200 * words));
 }
 
 /**
