@@ -166,8 +166,7 @@ const steps: Step<StudioActions>[] = [
 	},
 	{
 		act: (a) => a.openArchitect(false),
-		instant: true,
-		settle: 250,
+		settle: 550,
 	},
 	// ── Present, then Share — both full-screen/sheet from the pane bar. ──
 	{
@@ -179,8 +178,7 @@ const steps: Step<StudioActions>[] = [
 	},
 	{
 		act: (a) => a.openPresent(false),
-		instant: true,
-		settle: 250,
+		settle: 550,
 	},
 	{
 		say: '…or export a pixel-perfect PDF, ready for the boardroom.',
@@ -191,8 +189,7 @@ const steps: Step<StudioActions>[] = [
 	},
 	{
 		act: (a) => a.openShare(false),
-		instant: true,
-		settle: 250,
+		settle: 550,
 	},
 	// ── Land on the finished deck in the preview. ──
 	{

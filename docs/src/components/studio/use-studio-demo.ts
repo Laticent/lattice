@@ -118,10 +118,29 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 
 		// Typing lands natively in the editor (append per keystroke run; set for the
 		// reduced-motion / large-insert path). The diff baseline is run-scoped in Vetrina.
-		const type: TypeOps = {
-			set: (t) => bindRef.current.setSource(t),
-			append: (t) => bindRef.current.typeTail(t),
-		};
+		// DESKTOP types NATIVELY (typeTail) for real caret + scroll-follow. MOBILE routes typing
+		// through the CONTROLLED setSource path: a native typeTail insert makes the CodeMirror doc
+		// run AHEAD of the React `value` prop, and the editor's value-sync then diffs against the
+		// lagging value and DELETES the chars typed since — intermittent DROPPED CHARACTERS
+		// (garbled slides), likelier since the preview re-renders during typing (both panes mounted
+		// now). The single controlled writer removes the race; React coalesces so it still reads as
+		// typing. `acc` mirrors the doc so an `append(delta)` re-sets the whole growing string.
+		let acc = '';
+		const type: TypeOps = bindRef.current.mobile
+			? {
+					set: (t) => {
+						acc = t;
+						bindRef.current.setSource(t);
+					},
+					append: (t) => {
+						acc += t;
+						bindRef.current.setSource(acc);
+					},
+				}
+			: {
+					set: (t) => bindRef.current.setSource(t),
+					append: (t) => bindRef.current.typeTail(t),
+				};
 
 		return {
 			actions,
