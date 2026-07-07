@@ -133,32 +133,25 @@ export function revealSlide(
 }
 
 /** Reskin the deck via a theme, then flip light/dark — the "layouts hold, only the palette moves"
- *  beat. On a phone the theme picker lives in the Inspector sheet, so it opens the sheet first. */
+ *  beat. The theme picker (`[aria-label="Choose theme"]`) lives INSIDE the deck-scope Inspector on
+ *  BOTH surfaces (a docked column on desktop, a sheet on a phone), so open it first — otherwise the
+ *  cursor would point at nothing and the deck would reshade with no visible cause. Drives the same
+ *  panel the author uses, at deck scope. Close it on the mode flip. */
 export function reskin(mobile: boolean, say: string, modeSay: string): TourStep[] {
-	const steps: TourStep[] = [];
-	if (mobile) steps.push({ say, read: true, act: (a) => a.openInspector(true), settle: 500 });
-	steps.push({
-		say: mobile ? undefined : say,
-		read: !mobile,
-		point: SEL.theme,
-		click: true,
-		act: (a) => a.setPalette('cuoio'),
-		circle: SEL.preview,
-		settle: 800,
-	});
-	steps.push({
-		say: modeSay,
-		read: true,
-		point: mobile ? undefined : SEL.mode,
-		click: !mobile,
-		act: (a) => {
-			if (mobile) a.openInspector(false);
-			a.toggleMode();
+	return [
+		{ say, read: true, act: (a) => a.openInspector(true), settle: mobile ? 500 : 400 },
+		{ point: SEL.theme, click: true, act: (a) => a.setPalette('cuoio'), circle: SEL.preview, settle: 800 },
+		{
+			say: modeSay,
+			read: true,
+			act: (a) => {
+				a.openInspector(false);
+				a.toggleMode();
+			},
+			circle: SEL.preview,
+			settle: 1200,
 		},
-		circle: SEL.preview,
-		settle: 1200,
-	});
-	return steps;
+	];
 }
 
 /** The Architect Coach scores the deck board-ready — open, let the score land + read, close. */

@@ -881,7 +881,9 @@ export function createStage(opts: StageOptions): Stage {
 		const tx = Math.min(Math.max(nr.left + nr.width / 2, 40), window.innerWidth - 40);
 		const ty = placement === 'top' ? nr.bottom + 16 : nr.top - 16;
 		if (reduced) place(tx, ty);
-		else await tween(tx, ty, Math.max(280, Math.min(640, Math.hypot(tx - cx, ty - cy))), signal).catch(() => {});
+		// Let a take-over abort propagate straight out (as point()/moveToEl do) — don't swallow it,
+		// or the glow-pulse below would fire during teardown and the abort would surface ~220ms late.
+		else await tween(tx, ty, Math.max(280, Math.min(640, Math.hypot(tx - cx, ty - cy))), signal);
 		if (!still) {
 			narration.animate(
 				[

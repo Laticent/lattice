@@ -58,6 +58,16 @@ test('the Show Me menu lists every tour, and a tour builds a deck and completes'
 	await expect(page.locator(SHOW_ME)).toBeVisible();
 });
 
+test('the walkthrough reskin drives the REAL deck Inspector (not a phantom point)', async ({ page }) => {
+	// Regression guard: the reskin beat points at the theme picker, which lives INSIDE the
+	// deck-scope Inspector. If the tour forgets to open it, the cursor points at nothing and the
+	// deck reshades with no visible cause. Assert the docked <aside> at deck scope actually opens.
+	await gotoStudio(page);
+	await startTour(page); // the full walkthrough
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect(page.locator('aside').filter({ hasText: 'Editing the whole deck' })).toBeVisible({ timeout: 100_000 });
+});
+
 // The full walkthrough (above) exercises every toolkit helper; these prove the OTHER four tours
 // run their opening beats without a crash (a bad selector / content would abort the run, detaching
 // the stage). Each gets a fresh page — launch, confirm it mints the deck (the newDeck beat ran
