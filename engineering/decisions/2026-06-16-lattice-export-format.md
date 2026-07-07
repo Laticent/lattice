@@ -245,6 +245,11 @@ JSON + a `grammar.json` pointer).
    the inlined JSON) so a literal `</script>` in a code fence or `-->` in a
    comment can't terminate the envelope. Golden test:
    `parseManifest(buildManifest(deck))` reproduces the deck byte-for-byte.
+   **Correction (2026-07-07, `2026-07-07-html-lattice-player.md` §Security):** the
+   §3b schema above base64s **only** `source`, but `deck`/`config`/`theme.name`/
+   `assets` keys inline as plaintext JSON — a hostile deck *title* with `</script>`
+   is then stored XSS. Base64 (or entity-encode) the **entire** envelope, and make
+   this a hostile-field golden, not just source-verbatim.
 2. **Versioning is the forward-compat hinge.** `format` + provenance let an old
    `.html` reopen: migrate known-older versions; refuse newer-than-known with a
    clear message.
