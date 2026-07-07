@@ -47,7 +47,10 @@ in patch versions.
   browser-drawn **state machines and plotted functions**, baked to static SVG at
   export), so it makes **zero network requests**; the slide HTML is sanitized and
   pinned behind a strict
-  `sha256` content-security policy; and the exact deck source rides along in a
+  `sha256` content-security policy; **the CSS is minified and the embedded fonts are
+  glyph-subset to the deck's characters (optional `subset-font` dependency; full
+  fonts if it isn't installed), roughly halving the file** (~1.8 MB → ~0.8 MB for a
+  typical deck); and the exact deck source rides along in a
   tamper-safe envelope so the file re-opens into Lattice losslessly. Demo:
   `examples/html-player.md`. Read · Article is **component-aware**: it reads the
   semantic slide DOM and gives each component its natural prose form — KPI/stat

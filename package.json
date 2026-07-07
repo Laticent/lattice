@@ -204,5 +204,8 @@
     "knip": "^6.24.0",
     "lefthook": "^2.1.6",
     "tinybench": "^6.0.2"
+  },
+  "optionalDependencies": {
+    "subset-font": "^2.5.0"
   }
 }

@@ -360,6 +360,14 @@ a security defect in the player JS lives **forever** in every file already sent.
   enhancement (from parent §2d). Feature-detect and **degrade silently to single-window** — `file://`
   `window.open`/COOP rules are brittle and unpatchable once shipped; don't market dual-screen as reliable
   for the offline artifact.
+> **Size finding (2026-07-07, when the lever was actually measured).** The "glyph-subsetting is the
+> single biggest lever / ~6× → ~300 KB" call above was WRONG: Lattice already ships *latin-subset*
+> woff2, so glyph-subsetting is only ~28 % on fonts. The real bloat was that the player inlined the
+> **UNMINIFIED `lattice.css` (~955 KB)** — minifying it (lossless) is the bigger lever (~518 KB). Shipped
+> in the size slice: minify the inlined CSS **and** glyph-subset the fonts (`subset-font`, optional dep
+> + graceful fallback) → **~1.8 MB → ~0.8 MB (≈56 %)** for a typical deck, verified. The ~300 KB
+> "Minimal" tier would need **used-selector CSS pruning** (P6) — the last, riskier lever.
+
 - **P6 — further size minimisation.** Used-selector CSS prune (glyph-subsetting moved to P2) → toward the
   Minimal tier.
 - **Separate track — the app-hosted `lattice.style/deck/{id}` player** (Decision C): its own decision doc,
