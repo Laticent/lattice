@@ -178,6 +178,7 @@
   },
   "dependencies": {
     "@mermaid-js/mermaid-cli": "^11.0.0",
+    "dompurify": "^3.4.11",
     "function-plot": "^1.25.4",
     "highlight.js": "^11.11.1",
     "katex": "^0.16.46",
