@@ -71,6 +71,14 @@ const previewPainted = (): boolean => {
 	const slide = doc?.querySelector('.lattice');
 	return !!slide && (slide.textContent ?? '').trim().length > 0;
 };
+/** True once the preview is DISPLAYING slide `k` — its "Slide N / M" header reads N === k — AND
+ *  has painted. Gating on the specific slide (not just "something painted") means the reveal
+ *  shows the slide JUST TYPED, never the stale first slide the remount can flash before it
+ *  advances. The counter is parent-DOM; the paint is the same-origin frame check above. */
+const previewShowsSlide = (k: number) => (): boolean => {
+	const m = document.querySelector(SEL.preview)?.textContent?.match(/Slide\s+(\d+)\s*\/\s*(\d+)/);
+	return !!m && Number(m[1]) === k && previewPainted();
+};
 
 /** One slide of the per-slide-alternation core: tap Edit and wait for the remount, type the
  *  slide, then tap Preview, WAIT for the engine to paint it, and linger so the viewer sees it.
@@ -81,10 +89,11 @@ function buildSlide(k: number, opts: { teach?: string; reveal: string; cadence?:
 		{ say: opts.teach, point: SEL.paneEdit, click: true, act: (a) => a.setMobilePane('edit'), until: editorMounted, settle: 400 },
 		// Type slide k (ctx.type appends only the new tail; the editor is mounted + focused).
 		{ point: SEL.editor, type: { target: SEL.editor, text: upTo(k), cadence: opts.cadence ?? 8 }, settle: 350 },
-		// Tap Preview → swap → WAIT for the real paint (not a settle racing the iframe reload) →
-		// then linger 1.6s so the rendered slide actually registers. The circle (wow) plays after
-		// `until`, so it rings a painted slide, never an empty frame.
-		{ say: opts.reveal, point: SEL.panePreview, click: true, act: (a) => a.setMobilePane('preview'), until: previewPainted, settle: 1600, ...(opts.wow ? { circle: SEL.preview } : {}) },
+		// Tap Preview → swap → WAIT until the preview is actually SHOWING slide k, painted (not a
+		// settle racing the iframe reload, not a stale first-slide flash) → then linger ~2.2s so
+		// the rendered slide really registers. The circle (wow) plays after `until`, so it rings
+		// the right, painted slide.
+		{ say: opts.reveal, point: SEL.panePreview, click: true, act: (a) => a.setMobilePane('preview'), until: previewShowsSlide(k), settle: 2200, ...(opts.wow ? { circle: SEL.preview } : {}) },
 	];
 }
 

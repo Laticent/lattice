@@ -35,7 +35,17 @@ function recorder() {
 		openShare: () => {},
 		openSlideSettings: () => {},
 		mutateSlide: () => {},
-		setMobilePane: (p) => void panes.push(p),
+		setMobilePane: (p) => {
+			panes.push(p);
+			// Simulate the real preview advancing to the just-typed slide: on a swap to Preview,
+			// set the "Slide N / M" counter to the number of slides typed so far, so the reveal's
+			// `until(previewShowsSlide(k))` gate resolves (else it would poll for ~15s).
+			if (p === 'preview') {
+				const typed = log.filter((l) => l.startsWith('type:')).length;
+				const pane = document.querySelector('#studio-pane-preview');
+				if (pane) pane.textContent = `Slide ${typed} / ${typed}`;
+			}
+		},
 	};
 	const ctx = {
 		stage,
@@ -62,6 +72,7 @@ describe('mobile-demo-storyboard — the phone single-pane script', () => {
 		// `previewPainted` (jsdom gives the iframe a real about:blank contentDocument to fill).
 		document.body.innerHTML =
 			'<section id="studio-pane-editor"><div class="cm-content"></div></section>' +
+			'<section id="studio-pane-preview"></section>' +
 			'<div aria-label="Live deck preview"><iframe></iframe></div>';
 		const frame = document.querySelector('iframe') as HTMLIFrameElement;
 		if (frame.contentDocument) frame.contentDocument.body.innerHTML = '<div class="lattice">slide</div>';
