@@ -40,19 +40,19 @@ const SOURCE_DOC = `${GITHUB_URL}/blob/main/engineering/decisions/2026-06-14-com
 const COMMITMENTS = [
 	{
 		head: 'Deterministic by contract',
-		body: 'The same Markdown and the same theme render the same pixels — on your laptop, a colleague’s, a build server, this year and next. In regulated work that’s not a nicety: reproducibility and auditability are what standards like ISO/IEC 42001 now ask for. It’s also just how you put your name on a deck without re-reading every slide. The version you approved is the version that opens in the room.',
+		body: 'The same Markdown and the same theme render the same pixels — on your laptop, a colleague’s machine, a build server — this year, next year. In regulated work that’s not a nicety: reproducibility and auditability are what standards like ISO/IEC 42001 now ask for. It’s how you put your name on a deck without re-reading every slide: sign it off once, and that’s what ships — not a fresh render that drifted overnight.',
 	},
 	{
 		head: 'The AI writes; the engine renders',
-		body: 'A model can draft the words. It never touches the pixels. Probabilistic reasoning, reproducible output — the way regulated work already keeps its reasoning layer and its record layer apart. AI generators fuse content, facts, and design into one roll of the dice and get each one only mostly right.',
+		body: 'A model can draft the words; it never touches the pixels. Probabilistic reasoning upstream, reproducible output down — the way regulated work keeps its reasoning layer and its record layer apart. AI generators fuse content, facts, and design into one roll of the dice and get each one only mostly right.',
 	},
 	{
 		head: 'Your model, your account, your spend',
-		body: 'Drive any of 500+ models through your own OpenRouter account, switch whenever you like, and watch the meter the whole time. We don’t own the AI layer — you do. The tool that generates your deck should not also be the tool that bills you for it and swaps the model out from under you.',
+		body: 'Drive any of 500+ models through your own OpenRouter account, switch whenever you like, and watch the meter the whole time. The AI layer answers to you, not to us. The tool that generates your deck should not also be the one that bills you for it and swaps the model out whenever it likes.',
 	},
 	{
 		head: 'Your work is yours to keep',
-		body: 'Lattice is open source under AGPL-3.0, and a Lattice Output Exception frees every deck you make — no license attaches to your slides, ever. It runs offline, phones home to nobody, and can’t be switched off under you. Leave whenever you like: every deck is still a plain PDF sitting next to the Markdown that built it.',
+		body: 'Lattice is open source under AGPL-3.0, and a Lattice Output Exception frees every deck you make — no license attaches to your slides, ever. It runs offline, phones home to nobody, and can’t be shut down on you. Leave whenever you like: every deck is still a plain PDF sitting next to the Markdown that built it.',
 	},
 ];
 
@@ -65,13 +65,13 @@ const FAMILIES = [
 		name: 'AI generators',
 		tools: 'Gamma · Beautiful.ai · Decktopus · Presentations.ai · Plus AI · (Tome, RIP)',
 		win: 'They are fast to a first draft, and the category is real money — Gamma alone reached a $2.1B valuation and roughly 70 million users. A prompt becomes a presentable draft in about a minute, and it looks modern out of the box. Nothing kills a blank page quicker. For a throwaway internal deck, grab one.',
-		fall: 'The draft is where the work starts, not ends. They roll the dice every time — regenerate one slide and the layout reshuffles under you. Exports break: Gamma flattens its PowerPoint to uneditable images and swaps your fonts for Calibri. Every deck drifts toward the same house style, and the numbers arrive with no sources.',
+		fall: 'The draft is the easy part. They roll the dice every time — regenerate one slide and the layout reshuffles. Exports break: Gamma flattens its PowerPoint to uneditable images and swaps your fonts for Calibri. Every deck drifts toward the same house style, and the numbers arrive with no sources.',
 	},
 	{
 		name: 'Office suites + AI',
 		tools: 'PowerPoint + Copilot · Google Slides + Gemini · Apple Keynote',
 		win: 'These own the boardroom today. PowerPoint is the universal format, Google runs the best live co-editing on the market, and everyone already knows how to drive all three. That reach is a real moat, and it isn’t going anywhere.',
-		fall: 'The file is a binary blob or a cloud object, so you can’t reliably diff two versions — you get final_v3_FINAL.pptx instead. Fonts fall back and layouts reflow on the next machine, so “looks right here” means nothing. The brand guide sits in a folder nobody enforces. And Copilot rolls the dice like the rest — even bundled into Office, it’s paid for by only about 3% of seats.',
+		fall: 'The file is a binary blob or a cloud object, so you can’t reliably compare two versions — you get final_v3_FINAL.pptx instead. Fonts fall back and layouts reflow on the next machine, so “looks right here” means nothing. The brand guide sits in a folder nobody enforces. And Copilot guesses like the rest — even bundled into Office, it’s paid for by only about 3% of seats.',
 	},
 	{
 		name: 'Code engines',
@@ -83,7 +83,7 @@ const FAMILIES = [
 		name: 'Design & collab tools',
 		tools: 'Pitch · Canva · Figma Slides',
 		win: 'Strong on design, strong on collaboration. A marketing team that wants beautiful slides and live multiplayer editing gets both here. Figma’s design control and Canva’s template range are the real thing.',
-		fall: 'The deck lives in someone else’s cloud as a proprietary object. You can’t rebuild it from text, and you steer the brand through a GUI kit instead of a system. Canva output reads as “a Canva template.” Figma Slides still ships PPTX export bugs. Pitch cut roughly two-thirds of its staff in 2024 and pulled back from its hyper-growth bet.',
+		fall: 'The deck lives in someone else’s cloud as a proprietary object. You can’t rebuild it from text, and you steer the brand through a GUI kit instead of a system. Canva output reads as “a Canva template.” Figma Slides still ships PPTX export bugs. And a tool in someone else’s cloud follows its owner’s priorities, not yours — Pitch pulled back sharply in 2024.',
 	},
 ];
 
@@ -98,8 +98,8 @@ const ROWS = [
 		marks: ['yes', 'no', 'part', 'yes', 'no'],
 	},
 	{
-		axis: 'Source you can version and review',
-		why: 'Diff two drafts, review a change, revert a bad edit.',
+		axis: 'A deck you can track and roll back',
+		why: 'Compare two drafts, see what changed, undo a bad edit.',
 		marks: ['yes', 'no', 'no', 'yes', 'no'],
 	},
 	{
@@ -134,7 +134,7 @@ const ROWS = [
 	},
 	{
 		axis: 'No lock-in (your file, offline, open source)',
-		why: 'It runs where you run it and can never be switched off.',
+		why: 'It runs where you run it and can’t be taken away.',
 		marks: ['yes', 'no', 'no', 'yes', 'no'],
 	},
 ];
@@ -166,15 +166,15 @@ const RECEIPTS = [
 	{
 		stat: '0–20%',
 		head: 'How much of an AI deck checks out',
-		body: 'One team fed the same 10-slide prompt to six presentation tools and verified every claim against primary sources. Gamma scored 20%. Beautiful.ai and Canva managed 17%. Tome hit 0%. Canva pinned invented statistics to a real, named school. Speed to a draft is not speed to something true.',
+		body: 'One team fed the same 10-slide prompt to the tools most people would reach for and verified every claim against primary sources. Gamma scored 20%. Beautiful.ai and Canva managed 17%. Tome hit 0%. Canva pinned invented statistics to a real, named school. A fast draft is still a draft full of things to check.',
 		cite: 'Fact-check of 6 AI presentation makers, Feb 2026',
 		href: 'https://medium.com/@neel2108/we-fact-checked-6-ai-presentation-makers-heres-how-often-they-hallucinate-90e6093e42fc',
-		note: 'One author, one prompt per tool — read it as directional, not a large study. The mechanism holds: an LLM predicts plausible text; it does not look facts up.',
+		note: 'One author, one prompt per tool — read it as directional, not a large study. Two lesser-known tools in the same test scored higher (44% and 43%); the mainstream names clustered at the bottom. The mechanism holds: an LLM predicts plausible text; it does not look facts up.',
 	},
 	{
-		stat: '25M',
+		stat: '20M+',
 		head: 'Users whose decks got switched off',
-		body: 'Tome reached 25 million users, then shut its presentation product down in 2025 — “we killed a product used by 25M people,” its co-founder wrote — because almost nobody would pay for the output. Decks nobody exported in time were gone. A Markdown deck in your own folder cannot be switched off under you.',
+		body: 'Tome reached more than 20 million users, then shut its presentation product down in 2025 because almost nobody would pay for the output. Decks nobody exported in time were gone for good. A Markdown deck in your own folder cannot be switched off under you.',
 		cite: 'Founder’s post + VentureBeat, 2025',
 		href: 'https://venturebeat.com/technology/tomes-founders-ditch-viral-presentation-app-with-20m-users-to-build-ai',
 		note: 'Under 2% of users paid, on under ~$4M revenue against $81M raised. Reach is not the same as value — or permanence.',
@@ -193,7 +193,7 @@ const WEAKNESSES = [
 	},
 	{
 		head: 'No real-time co-editing',
-		body: 'Collaboration is asynchronous: you review a change and merge it, rather than sharing five live cursors in one document. That’s how code and serious documents are edited — but if your team lives in Google Slides, it’s a real change of habit.',
+		body: 'Collaboration is asynchronous: you review a change and fold it in, rather than sharing five live cursors in one document. That’s how serious documents get edited everywhere else — but if your team lives in Google Slides, it’s a real change of habit.',
 	},
 	{
 		head: 'Setup, not sign-up',
@@ -222,8 +222,8 @@ const ROADMAP = [
 		accent: false,
 	},
 	{
-		head: 'One we’re not ready to name',
-		body: 'One more capability is coming. It changes what a deterministic deck engine can do. We’ll ship it when it’s ready, on the same engine, with the same guarantees.',
+		head: 'More, held until it’s ready',
+		body: 'We’re building more on this engine, and we’d rather ship it than tease it. Whatever comes next clears the same bar as everything above — deterministic, yours, on brand. That constraint is the point, not a limit.',
 		accent: true,
 	},
 ];
@@ -338,13 +338,14 @@ const ROADMAP = [
 								The fix isn’t a smarter canvas. It’s no canvas at all.
 							</p>
 						</div>
-						<blockquote class="m-0 flex flex-col justify-center rounded-xl border border-border bg-muted p-[26px]">
-							<p class="m-0 mb-2.5 text-[17px] italic leading-[1.5] text-[var(--text-heading)]">
-								“Consistency is the principle that separates professional design from amateur work. When consistency
-								breaks, so does the reader’s trust.”
+						<div class="flex flex-col justify-center rounded-xl border border-border bg-muted p-[26px]">
+							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Consistency is the tell</h3>
+							<p class="m-0 text-[15.5px] leading-[1.6] text-foreground">
+								What separates a professional deck from an amateur one usually isn’t budget or talent — it’s consistency,
+								held on every slide. The moment it breaks, the reader stops trusting the argument. A design system holds
+								it for you, so the trust is never yours to lose.
 							</p>
-							<footer class="text-[13px] text-muted-foreground">— on the typography of professional services</footer>
-						</blockquote>
+						</div>
 					</div>
 				</div>
 			</section>
@@ -366,9 +367,9 @@ const ROADMAP = [
 						<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
 							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Good design, made a default</h3>
 							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">
-								What reads as authoritative isn’t more design — it’s disciplined consistency and restraint. A design
-								system makes that automatic, which means presence stops being a skill you need and becomes a default
-								you get. You don’t have to be a designer.
+								What reads as authoritative isn’t more design — it’s consistency and restraint, held on every slide. A
+								design system makes that automatic: the polish that used to take a designer becomes the place you start
+								from. You bring the judgment; the frame makes sure it looks the part.
 							</p>
 						</div>
 						<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
@@ -398,7 +399,7 @@ const ROADMAP = [
 						eyebrow="On speed"
 						title="Fast to a draft is not fast to a deck."
 					>
-						An AI generator is genuinely fast — to a first draft. That’s the well-documented 80/20 of generative AI:
+						An AI generator is fast — to a first draft. That’s the familiar 80/20 of generative AI:
 						the demo lands in a minute, and the last mile is still yours. Then the real clock starts, and it runs long.
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] lg:grid-cols-[1fr_1fr]">
@@ -407,17 +408,17 @@ const ROADMAP = [
 							<p class="m-0 text-[15px] leading-[1.6] text-foreground">
 								You fact-check the numbers the model invented. You strip the sameness so it doesn’t read as a template.
 								You fix the export that swapped your fonts for Calibri. You force the whole thing back onto the brand.
-								The draft arrived in a minute; the deck you can actually send is hours away — and you feel faster than
-								you are the entire time.
+								The draft arrived in a minute; the deck you can send is hours away — and the same hours come due on the
+								next deck, and the one after that.
 							</p>
 						</div>
 						<div class="rounded-xl border border-primary p-[26px] shadow-sm" style="background: color-mix(in srgb, var(--accent) 7%, transparent);">
 							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-primary">Ours</h3>
 							<p class="m-0 text-[15px] leading-[1.6] text-foreground">
-								Lattice front-loads none of that. The design decisions were made before you arrived; the render you
-								approve is the render you send — no re-brand, no broken PPTX, no fact-checking the layout. The first
-								render is the final render. That’s the speed that matters: not speed to a draft, speed to something you
-								can put your name on.
+								Lattice front-loads the cost once. You learn the tool and you write the words — and after that, every
+								render is final: on brand, correct, identical each time. No re-brand, no broken PPTX, no fact-checking the
+								layout, not on this deck and not on the next fifty. Their draft is fast and the fixing never ends; ours
+								starts slower and the finish comes free.
 							</p>
 						</div>
 					</div>
@@ -458,7 +459,7 @@ const ROADMAP = [
 				<div class="wrap">
 					<SectionHead
 						eyebrow="Now, the field"
-						title="An honest read on every alternative — including where each one wins."
+						title="A fair read on every alternative — including where each one wins."
 					>
 						That’s the argument. Here’s the map. We credit each family’s real strengths and name where Lattice is the
 						wrong call, because a comparison you can’t trust is worth nothing. The presentation world splits into four
@@ -580,7 +581,7 @@ const ROADMAP = [
 							<h3 class="m-0 mb-3 text-[17px] font-semibold text-[var(--text-heading)]">What we started from</h3>
 							<p class="m-0 text-[14.5px] leading-[1.65] text-foreground">
 								One good idea: write a deck in Markdown and render it through headless Chromium to PDF. Plain text
-								buys determinism and reviewable diffs, true of every code engine. We built on Marp’s engine for the
+								buys determinism and a deck you can track and compare, true of every code engine. We built on Marp’s engine for the
 								early versions, then replaced it with our own at v1.0.0.
 							</p>
 						</div>
@@ -594,7 +595,7 @@ const ROADMAP = [
 								<li><strong>More than fifty components</strong> across thirteen buckets. Pick the meaning, get the composition.</li>
 								<li>A <strong>design-token system</strong> and <strong>14 editorial palettes + 4 color-blind-safe</strong>. Layouts never name a color.</li>
 								<li><strong>Boardroom-grade defaults</strong> and WCAG-AA contrast in every palette, light and dark.</li>
-								<li>An <strong>owned, pinned render engine</strong>. We dropped the Marp dependency at v1.0.0 and pinned the toolchain end to end. It renders plain HTML sections, not SVG-wrapped slides, so modern CSS — container queries, counters, masks — works natively and layout holds across browsers.</li>
+								<li>An <strong>owned, pinned render engine</strong>. We dropped the Marp dependency at v1.0.0 and pinned the toolchain end to end. It renders plain HTML sections, not SVG-wrapped slides, so modern CSS works natively — container queries, counters, masks all render — and layout holds across browsers.</li>
 								<li><strong>Agent authoring.</strong> A machine catalog and a shared linter steer an LLM to on-brand decks instead of guesses.</li>
 							</ul>
 						</div>
@@ -672,7 +673,7 @@ const ROADMAP = [
 						eyebrow="Where we’re weaker"
 						title="When Lattice is the wrong tool."
 					>
-						An honest page owns its weak spots. If any of these is a hard requirement, use something else. We’d rather
+						A page you can trust owns its weak spots. If any of these is a hard requirement, use something else. We’d rather
 						lose you here than disappoint you later.
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">

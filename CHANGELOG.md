@@ -48,6 +48,16 @@ in patch versions.
 
 ### Changed
 
+- **The comparison page leads with the argument, not the scoreboard.** It now
+  opens with the problem, what a deck should be, the four commitments the render
+  path keeps, and a reframe of speed (fast to a draft is not fast to a deck)
+  before the honest, sourced field comparison — so Lattice reads as a
+  deterministic-craft position, not one more slide tool. Competitor claims are
+  re-verified against primary sources (the Deloitte figure is the contract value,
+  not the refund; the fact-check receipt names the tools that scored higher), the
+  git framing is demoted so it reads as manageability rather than developer-only,
+  and `features.astro` is reconciled to "500+ models."
+
 - **Vetrina: a caption can be a lesson, not a subtitle — the Teaching Beat.** A storyboard beat can
   set `read: true`: after the caption shows, the cursor dips to the narration dock and the words
   glow-pulse (drawing the eye — the teacher underlining what they said), and the beat DWELLS long
