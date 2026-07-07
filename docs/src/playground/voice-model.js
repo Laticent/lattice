@@ -16,6 +16,10 @@
 // Sibling render-path note: this is docs-only (the Drawing Board); it does not
 // touch the three engine render paths.
 
+// One segmenter across voice + captions (HARD RULE #15) — see the note at the
+// re-export below for why divergence would drift the highlight off the audio.
+import { splitSentences } from '@/lib/cadenza';
+
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
 const KOKORO_URL = 'https://esm.run/kokoro-js';
@@ -78,15 +82,14 @@ export async function detectKokoroCached() {
 // ── Sentence segmentation ─────────────────────────────────────────────────────
 // Narration is spoken sentence-by-sentence so we get low time-to-first-audio,
 // can abort mid-note the instant the user navigates, and (later) insert
-// pause-beat silences between sentences. Pure + deterministic → unit-tested.
-export function splitSentences(text) {
-  const s = String(text || '').replace(/\s+/g, ' ').trim();
-  if (!s) return [];
-  // Break after sentence terminators (.!?…) when followed by whitespace/end.
-  // Over-splitting an abbreviation only adds a tiny gap — never a correctness bug.
-  const parts = s.match(/[^.!?…]*[.!?…]+(?=\s|$)|[^.!?…]+$/g) || [s];
-  return parts.map((p) => p.trim()).filter(Boolean);
-}
+// pause-beat silences between sentences.
+//
+// One segmenter, shared with the caption engine (HARD RULE #15): re-export
+// Cadenza's `splitSentences` so the sentence a rung SPEAKS is exactly the cue a
+// caption HIGHLIGHTS. If these diverged (e.g. on `$4.2M`), the per-sentence onset
+// forwarded by `onSentenceTiming` would re-anchor the wrong Cadenza cue and the
+// highlight would drift off the audio. Cadenza owns the lookbehind split.
+export { splitSentences };
 
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
 // Unify playback on one <audio> element by encoding Kokoro's raw samples into a

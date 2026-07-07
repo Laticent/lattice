@@ -274,6 +274,15 @@ in patch versions.
 
 ### Fixed
 
+- **Read-aloud narration now segments sentences through one shared engine, so
+  it no longer mis-splits mid-number.** The Playground voice
+  (`docs/src/playground/voice-model.js`) had its own sentence splitter that
+  could break a clause at a decimal or abbreviation (`$4.2M` → `4.2M.`); it now
+  re-exports Cadenza's `splitSentences` (HARD RULE #15), the same splitter the
+  captions use. Because the sentence a voice *speaks* is now exactly the cue a
+  caption *highlights*, the two stay in lockstep — the wiring the `/cadenza`
+  reference page relies on to re-anchor its highlight to real spoken audio.
+
 - **The Playground now remembers where you were and never destroys a draft
   (Specimen Book, PR 5).** Four long-standing state janks fixed at the source
   in a new pure kernel (`docs/src/lib/playground-controller.ts`): the picker's
