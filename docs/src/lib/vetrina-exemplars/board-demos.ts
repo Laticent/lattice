@@ -193,6 +193,8 @@ export interface StartOptions {
 	onStop?: (reason: StopReason) => void;
 	/** Which edge the narration dock sits at (proves the curated `placement` option). */
 	placement?: 'top' | 'bottom';
+	/** The narration dock style (proves the curated `caption` option). */
+	caption?: 'bar' | 'split' | 'scrim' | 'progress';
 }
 
 /** Start the named demo over the board `board`. Returns the run handle, or null on a rejected
@@ -231,9 +233,14 @@ export function startBoardDemo(name: string, board: HTMLElement, opts: StartOpti
 	// (the derived --vt-cursor-fill regression the checker caught). Every OTHER demo is also
 	// pure CSS-first — passing a `var(--vt-accent,…)` self-reference would be a no-op cycle.
 	const base = name === 'theming-js' ? { accent: 'rgb(255, 40, 140)' } : {};
-	// The narration dock's edge is a curated choice — thread it so the page can exercise
-	// `?placement=top` (default 'bottom' when unset).
-	const theme = opts.placement ? { ...base, placement: opts.placement } : name === 'theming-js' ? base : undefined;
+	// The narration dock's edge + style are curated choices — thread them so the page can
+	// exercise `?placement=top` and `?caption=bar|split|scrim|progress` (defaults when unset).
+	const overrides = {
+		...base,
+		...(opts.placement ? { placement: opts.placement } : {}),
+		...(opts.caption ? { caption: opts.caption } : {}),
+	};
+	const theme = Object.keys(overrides).length ? overrides : undefined;
 
 	return run<BoardHost>({ root, actions, play: play(), takeover: { scope: 'window' }, theme, onStop: finalize });
 }

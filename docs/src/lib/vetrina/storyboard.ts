@@ -36,9 +36,25 @@ export interface Step<A> {
 	 *  verbs are ignored. `say` still shows (narration ≠ motion), but instant beats are usually
 	 *  silent — the deliberate plumbing between the taught beats. */
 	instant?: boolean;
+	/** TEACHING BEAT — treat the caption as a lesson, not a subtitle. After `say` shows, the
+	 *  cursor dips to the narration dock (drawing the eye — the teacher underlining what they
+	 *  said) and the beat DWELLS long enough to READ, timed to the caption's word count via
+	 *  `readMs`, BEFORE the action runs. So the viewer understands the words first, then watches
+	 *  the thing happen. Needs a `say`; ignored on `instant` beats. Pairs with a short `settle`
+	 *  (the LAND — a brief digest pause on the result). */
+	read?: boolean;
 }
 
 const STEP_SETTLE = 900;
+
+/** Reading dwell for a caption, scaled to its length — the DWELL in a teaching beat. A human
+ *  reads ~4 words/sec; we budget a little slower (a newcomer, glancing between caption and canvas)
+ *  and clamp so a short beat still lands and a long one doesn't stall. Multiply by `stage.pace` at
+ *  the call site so a slow/fast theme scales reading time too. */
+export function readMs(text: string): number {
+	const words = text.trim().split(/\s+/).filter(Boolean).length;
+	return Math.min(4500, Math.max(1200, 300 + 200 * words));
+}
 
 /**
  * Compile a linear storyboard into a Walkthrough.
@@ -58,9 +74,26 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 	return async (ctx: RunContext<A>) => {
 		const { stage, actions, signal } = ctx;
 
-		for (const step of steps) {
+		// Progress counts TAUGHT beats only — the `instant` plumbing beats (setup / close / jump)
+		// teach nothing and flash by, so counting them would make the ring lurch on beats the
+		// viewer never sees. The denominator is the taught-beat total; the ring holds across instant
+		// beats. (Only the `caption:'progress'` dock renders this; every other style ignores it.)
+		const taughtTotal = steps.reduce((n, s) => n + (s.instant ? 0 : 1), 0);
+		let taughtDone = 0;
+		for (let i = 0; i < steps.length; i++) {
+			const step = steps[i];
 			if (signal.aborted) return;
+			if (!step.instant) stage.progress?.(++taughtDone, taughtTotal);
 			if (step.say != null) stage.say(step.say);
+
+			// TEACHING BEAT (read) — after the caption shows, draw the eye to it (cursor dips to the
+			// dock + the words pulse) and DWELL long enough to read, timed to the caption length,
+			// BEFORE the action. The viewer reads first, then watches. Skipped on instant beats (no
+			// theater) and when there's nothing to read. `?.` keeps fake-stage test stubs safe.
+			if (step.read && step.say != null && !step.instant) {
+				await stage.emphasizeCaption?.(signal);
+				await wait(readMs(step.say) * stage.pace, signal);
+			}
 
 			// INSTANT beat — skip ALL theater (cursor / typing animation / gesture / settle) and
 			// just apply the substance. Positioning + gesture verbs are ignored; `type` is set at
@@ -125,7 +158,10 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			}
 			if (step.circle != null) await stage.gesture('circle', step.circle, signal);
 
-			await wait((step.settle ?? (stage.reduced ? 300 : STEP_SETTLE)) * stage.pace, signal);
+			// Reading time: only 'still' shortens the default settle. 'legible' (reduced-motion
+			// device) keeps the FULL settle — a viewer who wants less motion needs MORE time to
+			// read, not less, so rushing here would invert the intent.
+			await wait((step.settle ?? (stage.still ? 300 : STEP_SETTLE)) * stage.pace, signal);
 		}
 	};
 }

@@ -42,6 +42,7 @@ import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
+import { TOURS } from './tours';
 import { useBreakpoint, useNarrowDesktop } from './use-breakpoint';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
@@ -802,6 +803,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setWelcomeOpen,
 		setCmdOpen,
 		notify,
+		setMobilePane,
+		mobile,
 	});
 
 	// ── Resizable/collapsible editor|preview split (2026-07-02 decision) ─────
@@ -1413,7 +1416,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const editorPane = (
 		<section
 			id="studio-pane-editor"
-			inert={split.collapsed === 'a' ? true : undefined}
+			inert={!mobile && split.collapsed === 'a' ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-arming=a]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -1466,7 +1469,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const previewPane = (
 		<section
 			id="studio-pane-preview"
-			inert={split.collapsed === 'b' ? true : undefined}
+			inert={!mobile && split.collapsed === 'b' ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-arming=b]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -1498,7 +1501,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
 				<div className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={activeTheme?.name} extraTheme={extraTheme} extraCss={previewExtraCss} active={split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={activeTheme?.name} extraTheme={extraTheme} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
@@ -1675,7 +1678,24 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    phones they live one row down in the pane bar (with the panel toggles),
 				    which has the free width — the top row spends its width on the deck
 				    title (2026-07-03 decision). */}
-				{!mobile && <Button variant="ghost" size="icon-sm" onClick={startDemo} aria-label="Watch demo" title="Watch demo — the Studio drives itself" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>}
+				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
+				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
+				{!mobile && (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" title="Show me — a guided tour that drives itself" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-64">
+							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
+							{TOURS.map((t) => (
+								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2">
+									<span className="font-medium">{t.label}</span>
+									<span className="text-[12px] text-muted-foreground">{t.description}</span>
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
 				{!mobile && <Button variant="outline" size="sm" data-demo="present" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>}
 				{!mobile && <Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>}
 
@@ -1708,6 +1728,23 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    region so a clipped row signals "more below". */}
 						<DropdownMenuContent align="end" className="w-56 overflow-hidden p-0">
 							<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
+								{/* Show me — the persistent phone entry to the guided tours. The welcome-banner
+								    button is the first-run affordance, but it vanishes once dismissed; the topbar
+								    menu is desktop/tablet-only. So on mobile the tours live here too, inlined (a
+								    nested Radix submenu flies off-screen on a phone), so a newcomer who dismissed
+								    the banner can still pick one. */}
+								{mobile && !demoActive && (
+									<>
+										<DropdownMenuLabel className="flex items-center gap-2"><MonitorPlay className="size-4" />Show me…</DropdownMenuLabel>
+										{TOURS.map((t) => (
+											<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2 pl-8">
+												<span className="font-medium">{t.label}</span>
+												<span className="text-[12px] text-muted-foreground">{t.description}</span>
+											</DropdownMenuItem>
+										))}
+										<DropdownMenuSeparator />
+									</>
+								)}
 								{onboarded && <DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>}
 								{onboarded && <DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>}
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<span className="ml-auto rounded border border-border bg-background px-1.5 font-mono text-[10px]">⌘K</span></DropdownMenuItem>
@@ -1733,7 +1770,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<p className="min-w-0 flex-1 leading-snug">
 						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away.
 					</p>
-					{!mobile && !demoActive && <button type="button" onClick={startDemo} className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90"><MonitorPlay className="size-3.5" />Watch demo</button>}
+					{!demoActive && <button type="button" onClick={() => startDemo()} aria-label="Watch demo" className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90 sm:px-2.5"><MonitorPlay className="size-3.5" /><span className="hidden sm:inline">Watch demo</span></button>}
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
 					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
 				</div>
@@ -1757,8 +1794,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
 						    and still fit 390px. */}
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<PencilLine className="size-4" />} label="Edit" />
-							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" />
+							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
+							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" demo="pane-preview" />
 						</div>
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
@@ -1771,7 +1808,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Settings" title="Settings — deck &amp; slide" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
 					</div>
-					{mobilePane === 'edit' ? editorPane : previewPane}
+					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
+					    its full size, so the preview keeps rendering the live deck and a swap to it is
+					    INSTANT: no iframe remount, no reload, no blank flash (the pane jank that made
+					    the demo — and normal editing — feel laborious on a phone). Editor state + the
+					    preview frame both persist across swaps. */}
+					<div className="relative min-h-0 flex-1">
+						<div className={cn('absolute inset-0 flex', mobilePane === 'edit' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'edit' ? true : undefined}>{editorPane}</div>
+						<div className={cn('absolute inset-0 flex', mobilePane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'preview' ? true : undefined}>{previewPane}</div>
+					</div>
 				</div>
 			) : focus ? (
 				/* Focus: Editor | Preview only — Architect/Inspector hidden, ⌘K still
@@ -2015,9 +2060,9 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 // Icon-only segmented button (Edit / Preview). The label rides `aria-label`/`title`
 // (+ aria-pressed for the active side) rather than visible text, so the toggle stays
 // compact — that reclaimed width keeps the deck actions inline instead of behind a ⋯.
-function PaneBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; demo?: string }) {
 	return (
-		<button type="button" onClick={onClick} aria-label={label} title={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button>
+		<button type="button" onClick={onClick} data-demo={demo} aria-label={label} title={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button>
 	);
 }
 function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {

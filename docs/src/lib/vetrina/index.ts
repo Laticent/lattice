@@ -20,6 +20,6 @@ export { scene } from './scene';
 export type { DragHandle, Gesture, Stage, StageOptions, Target } from './stage';
 export { createStage, isAbortError, wait } from './stage';
 export type { Step } from './storyboard';
-export { storyboard } from './storyboard';
+export { readMs, storyboard } from './storyboard';
 export type { Color, ResolvedTheme, Theme, VtToken } from './theme';
 export { resolveTheme } from './theme';

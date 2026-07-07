@@ -138,9 +138,11 @@
 			if (board) new MutationObserver(sync).observe(board, { attributes: true, attributeFilter: ['data-vt-phase', 'data-vt-reason'] });
 
 			const placement = params.get('placement') === 'top' ? 'top' : undefined;
+			const captionParam = params.get('caption');
+			const caption = ['bar', 'split', 'scrim', 'progress'].includes(captionParam) ? captionParam : undefined;
 			const begin = () => {
 				if (!board) return;
-				startBoardDemo(demo, board, { placement });
+				startBoardDemo(demo, board, { placement, caption });
 				sync();
 			};
 			document.getElementById('start')?.addEventListener('click', begin);

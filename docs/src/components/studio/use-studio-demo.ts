@@ -1,7 +1,8 @@
 import * as React from 'react';
 import type { StopReason, TypeOps } from '../../lib/vetrina';
 import { useWalkthrough } from '../../lib/vetrina/react';
-import { type StudioActions, studioWalkthrough } from './demo-storyboard';
+import type { StudioActions } from './studio-actions';
+import { buildTour, DEFAULT_TOUR } from './tours';
 
 // useStudioDemo — the seam that lets the framework-free Vetrina engine drive the live
 // Studio. StudioShell has no ref/context (all state is closure-local), so the demo is
@@ -38,6 +39,11 @@ export type StudioDemoBindings = {
 	setDeckMenuOpen: (open: boolean) => void;
 	/** The slide scope's commit funnel — apply a pure transform to the active slide. */
 	mutateSlide: (fn: (chunk: string) => string) => void;
+	/** Swap the phone's single Edit/Preview pane (mobile only). */
+	setMobilePane: (pane: 'edit' | 'preview') => void;
+	/** True on a phone (≤699px). Selects the phone-native single-pane storyboard, and starts
+	 *  the run on the Preview pane so the fresh deck's editor is minted blank on first swap. */
+	mobile: boolean;
 	fixAll: () => void;
 	setActiveSlide: (index: number) => void;
 	setFocus: (on: boolean) => void;
@@ -48,7 +54,9 @@ export type StudioDemoBindings = {
 
 export type StudioDemo = {
 	demoActive: boolean;
-	startDemo: () => void;
+	/** Launch a tour by id (from the "Show Me" menu). Omit for the default tour (welcome banner,
+	 *  ⋯ menu, ⌘K all pass nothing). Unknown ids fall back to the default. */
+	startDemo: (tourId?: string) => void;
 	stopDemo: () => void;
 };
 
@@ -57,6 +65,10 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 	// and start/stop stay stable (no re-subscribe churn).
 	const bindRef = React.useRef(bindings);
 	bindRef.current = bindings;
+
+	// Which tour to play — set by startDemo(id) right before the run's `configure` closure reads
+	// it. A ref (not state) so startDemo stays referentially stable and needs no re-render.
+	const tourIdRef = React.useRef<string>(DEFAULT_TOUR);
 
 	// The generic run lifecycle (single-flight start, stop, active state, unmount teardown)
 	// lives in the shared `useWalkthrough` adapter. This hook supplies only the Studio-specific
@@ -79,6 +91,9 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		b.setArchitectOpen(false);
 		b.setInspectorOpen(false);
 		b.setActiveSlide(0);
+		// On a phone, start on Preview — the fresh "My First Deck" then mints its editor doc
+		// blank on the first swap-to-edit (no seed to append onto), and the preview is home.
+		if (b.mobile) b.setMobilePane('preview');
 
 		// The action bag: every step's `act` pokes a live setter through the ref, so a
 		// long-running demo always drives the freshest state.
@@ -104,23 +119,65 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				bindRef.current.setInspectorOpen(o);
 			},
 			mutateSlide: (fn) => bindRef.current.mutateSlide(fn),
+			setMobilePane: (pane) => bindRef.current.setMobilePane(pane),
 		};
 
 		// Typing lands natively in the editor (append per keystroke run; set for the
 		// reduced-motion / large-insert path). The diff baseline is run-scoped in Vetrina.
-		const type: TypeOps = {
-			set: (t) => bindRef.current.setSource(t),
-			append: (t) => bindRef.current.typeTail(t),
+		// DESKTOP types NATIVELY (typeTail) for real caret + scroll-follow. MOBILE routes typing
+		// through the CONTROLLED setSource path: a native typeTail insert makes the CodeMirror doc
+		// run AHEAD of the React `value` prop, and the editor's value-sync then diffs against the
+		// lagging value and DELETES the chars typed since — intermittent DROPPED CHARACTERS
+		// (garbled slides), likelier since the preview re-renders during typing (both panes mounted
+		// now). The single controlled writer removes the race; React coalesces so it still reads as
+		// typing. `acc` mirrors the doc so an `append(delta)` re-sets the whole growing string.
+		// setSource replaces the doc via the React value with NO caret move, so — unlike a native
+		// typeTail insert — CodeMirror never scrolls to follow: on a phone the view sits at the top
+		// while a long slide types below the fold (the visible gap vs. tablet, which types natively).
+		// followEditor() nudges the editor's scroller to the end after the doc updates (double rAF,
+		// past React's commit + the editor's value-sync) so the phone WATCHES it type.
+		const followEditor = () => {
+			requestAnimationFrame(() =>
+				requestAnimationFrame(() => {
+					const sc = document.querySelector<HTMLElement>('#studio-pane-editor .cm-scroller');
+					if (sc) sc.scrollTop = sc.scrollHeight;
+				}),
+			);
 		};
+		let acc = '';
+		const type: TypeOps = bindRef.current.mobile
+			? {
+					set: (t) => {
+						acc = t;
+						bindRef.current.setSource(t);
+						followEditor();
+					},
+					append: (t) => {
+						acc += t;
+						bindRef.current.setSource(acc);
+						followEditor();
+					},
+				}
+			: {
+					set: (t) => bindRef.current.setSource(t),
+					append: (t) => bindRef.current.typeTail(t),
+				};
 
 		return {
 			actions,
-			play: studioWalkthrough,
+			// The selected tour, built responsively — one script adapts to the phone's single pane
+			// (per-slide alternation) vs. the desktop/tablet side-by-side. tourIdRef was set by
+			// startDemo(id) just before this closure ran.
+			play: buildTour(tourIdRef.current, { mobile: b.mobile }),
 			type,
 			takeover: { scope: 'window' },
-			// The cursor + cues track the live app accent (recolor on the reskin beat),
-			// falling back to the house blue — exactly as the old stage did.
-			theme: { accent: 'var(--accent, #2b6ef2)' },
+			// The cursor + cues track the live app accent (recolor on the reskin beat), falling
+			// back to the house blue. Caption style is breakpoint-aware: 'scrim' (film-subtitle,
+			// no box) on a PHONE — its short beats ride the dark bottom of the mobile preview and
+			// it frees the cramped width; 'bar' (a centered pill) on desktop/tablet, where the
+			// preview is light and the narration is longer/multi-line (scrim would drop below AA
+			// contrast on its upper lines there). Both keep Exit an always-reachable icon.
+			theme: { accent: 'var(--accent, #2b6ef2)', caption: b.mobile ? 'scrim' : 'bar' },
 			onStop: (reason: StopReason) => {
 				const cur = bindRef.current;
 				// The deck is NOT restored (the newcomer keeps "My First Deck"). Only the
@@ -139,5 +196,16 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		};
 	});
 
-	return { demoActive: demo.active, startDemo: demo.start, stopDemo: demo.stop };
+	// startDemo(id) records the tour, THEN starts — the run's configure closure reads the ref.
+	const startDemo = React.useCallback(
+		(tourId?: string) => {
+			// Coerce defensively: some entry points wire startDemo straight to onClick/onSelect,
+			// which would pass a DOM event — anything non-string means "the default tour."
+			tourIdRef.current = typeof tourId === 'string' ? tourId : DEFAULT_TOUR;
+			demo.start();
+		},
+		[demo.start],
+	);
+
+	return { demoActive: demo.active, startDemo, stopDemo: demo.stop };
 }

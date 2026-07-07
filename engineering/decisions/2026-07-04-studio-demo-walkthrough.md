@@ -86,7 +86,20 @@ canvas. Two properties follow, both framed like a unit-test fixture:
    not just `data-palette`) and mode, and puts both back. It also closes any stage the demo
    left open (Present / Share / the settings drawer).
 
-`prefers-reduced-motion` collapses the glide/typing animation to instant placement.
+`prefers-reduced-motion` resolves to Vetrina's **`legible`** motion tier (`theme.motion`,
+default `'system'`): it suppresses only *vestibular* motion — cursor glides teleport,
+expanding rings / orbit / drag sweeps skip, the hand-wave becomes an in-place pulse — but
+**keeps the content cadence a viewer reads by**: the typing reveal, caption cross-fades, and
+full reading settles, opened by a motion-safe greeting. This is deliberate: WCAG 2.3.3 /
+Apple HIG target vestibular triggers (sweeps, parallax, spin, zoom), not typing or a
+cross-fade, so a reduced-motion viewer still *watches the deck get typed and rendered* rather
+than seeing it snap past in an instant blur. The old collapse-everything behavior survives as
+the explicit `still` tier a host can opt into; `full` ignores the OS preference. The stage
+splits this into two flags — `stage.reduced` (vestibular suppressed: `legible`/`still`) and
+`stage.still` (content collapsed: `still` only) — so the runner and storyboard gate the
+typing reveal + default settle on `still`, letting `legible` keep them. (This corrected a
+real defect: on a reduced-motion iPhone the demo raced past unwatchably with no greeting —
+the root cause the deep assessment found.)
 
 ## Entry points
 
@@ -176,15 +189,84 @@ are also covered by unit tests (`demo-director.test.ts`) and a real-surface e2e
 *Not verified here:* a full recorded video clip — `ffmpeg` (puppeteer's screencast
 backend) isn't installed in this sandbox; the run was captured as frame stills instead.
 
+## Phone-native (single-pane) demo — the preview-first rethink (#758)
+
+The desktop demo's engine is **simultaneity**: editor left, preview right, *watch the slide
+render as you type*. That is the whole "look how easy" beat — and it **does not survive** a
+phone. A phone (≤699px) shows **one pane at a time** (`mobilePane: 'edit' | 'preview'`,
+default `preview`), so simultaneity is physically impossible. You cannot port the
+choreography; you replace simultaneity with a **rhythm**.
+
+**The chosen model — per-slide alternation, preview as the star.** The demo taps the real
+Edit/Preview toggle (a real setter, `setMobilePane` — theater stays honest, no synthetic
+input, no new Vetrina primitive) and the viewer's attention **alternates** instead of
+splitting: *type a slide on Edit → swap to Preview to reveal it → repeat.* The owner picked
+per-slide alternation over a two-act cut (type once, then preview-only) for the maximal
+"you write it, it renders" authoring feel; each swap is a **narrated reveal beat** with a
+**fast** typing burst so the Edit dwell is brief and the flip reads as intentional, not a
+flail.
+
+**A tighter, phone-specific deck — 4 slides, each a showpiece.** A phone viewer's patience
+is short and nobody thumb-types a 6-slide board deck, so the mobile "My First Deck" is its
+own tight deck, not the desktop 6-slider: **title → `big-number` (one punchy metric) →
+`radar` (a chart — the strongest "wait, that came from *Markdown*?" moment, chart-family so
+it's deterministic with no key spend) → `closing`.** Four slides ≈ eight pane-swaps, and
+each slide earns its screen time. (Swap the `radar` for a `matrix-2x2` if a 2×2 reads better
+on a given device — a one-line change.)
+
+**The load-bearing decision — both mobile panes stay MOUNTED (revised).** Originally the
+mobile pane was conditionally rendered (`mobilePane === 'edit' ? editorPane : previewPane`),
+which UNMOUNTED the inactive pane. That made every swap to Preview **remount + reload the
+preview iframe** — a blank flash + a repaint the demo raced, so you never saw the slide render
+(and normal phone editing felt laborious too). The fix: render **both** panes, stacked
+(`absolute inset-0`), and toggle the inactive one with `visibility:hidden` + `inert` instead
+of unmounting it. The hidden pane keeps its full size, so **the preview keeps rendering the
+live deck while hidden and a swap is instant** (~85 ms, no reload) — verified on the real stage.
+Editor state + the preview frame both persist across swaps. (Desktop already mounts both panes
+side by side; mobile now matches that load — one hidden.)
+
+The beat grammar that follows:
+
+1. **Typing is always ready** (the editor never unmounts now). The type beats still carry
+   **`until(() => editorMounted)`** as a cheap safety — it resolves on the first poll — so the
+   storyboard stays correct even if the layout ever reverts to conditional rendering.
+2. **The reveal shows the SLIDE JUST TYPED.** Because the preview renders live while hidden, a
+   swap paints instantly — but the reveal still gates on **`until(() => previewShowsSlide(k))`**:
+   the preview's "Slide N / M" header reads N === k AND its `.lattice` has painted. That guards
+   against the preview lagging a beat behind on a slow device (and, historically, a stale
+   first-slide flash on the old remount). The preview is a SAME-ORIGIN srcdoc frame
+   (component-transformer threat model §5.1), so the parent can read it — a deliberate, justified
+   exception to the desktop storyboard's "no preview-iframe coupling" rule. A ~2.2s linger then
+   holds on the rendered slide. (Desktop's build beats keep `railReady(k)` + a ~620 ms linger —
+   its preview never remounted in the first place.)
+
+**Selectors — mostly already there.** The pane toggle exposes `aria-label="Edit"` /
+`"Preview"`; the deck switcher (`data-demo="deck-switcher"`) and New-deck item
+(`data-demo="new-deck"`) are not mobile-gated; Present / Share / Toggle Architect / Slide
+settings all carry aria-labels on the mobile pane bar; the theme picker
+(`aria-label="Choose theme"`) renders inside the Inspector **sheet** and is reachable because
+the stage resolves against the whole document. The reskin / mode / Coach / Present / Share
+beats therefore reuse the same setters as desktop — only the pane-swap beats and the deck are
+new.
+
+**Entry point.** The `!mobile` gate on the Watch-demo affordance is lifted for phone (welcome
+banner + pane bar), still hidden while a run is active. `useStudioDemo` selects the mobile vs
+desktop storyboard by breakpoint and resets `mobilePane` on start/stop.
+
+**Verification (HARD RULE #23).** Mount/unmount, typing, pane-swap, and render are **not**
+iOS-specific, so headless Chromium at 390px is *valid* verification of the mechanics — and is
+where the editor-remount timing was nailed down. What Chromium can **not** stand in for is
+real **touch**, iOS sheet behavior, and the nested transform-scaled iframe traps
+(`engineering/gotchas.md`); that sign-off is **owed on a real iPhone** and ships marked
+**UNVERIFIED** until someone drives it on a device — the same standing debt as the iPad
+value-sync race above.
+
 ## Known limitations
 
-- **Desktop + tablet only; phone is backlogged (#758).** The demo choreographs a cursor
-  across the **side-by-side editor + preview** layout. A phone (≤699px) renders a single
-  swappable Edit ⇄ Preview pane, where the storyboard's targets (`#studio-pane-editor`, the
-  `data-demo` Present/Share buttons) don't exist — so the Watch-demo button is `!mobile`-gated
-  (hidden on phone). iPad falls in the tablet band and gets the side-by-side layout, so it
-  works. A phone-native storyboard (drive the pane-swap + the sheets) is tracked in **#758**;
-  it must be verified on a **real iPhone** (HARD RULE #23 — 390px Chromium emulation isn't iOS).
+- **Phone sign-off is owed on a real device.** The phone-native demo (above) is verified for
+  *mechanics* in 390px Chromium; **touch + iOS-layout behavior is UNVERIFIED** until driven on
+  a real iPhone (HARD RULE #23). iPad falls in the tablet band and gets the side-by-side
+  layout, so it uses the desktop storyboard.
 - **Portaled targets are reachable.** The stage resolves selectors against the whole document
   (`root.ownerDocument`), so Radix menus/sheets/dialogs that portal to `<body>` (the deck
   switcher, the Inspector/settings sheets) are found — no longer scoped to the Studio subtree.

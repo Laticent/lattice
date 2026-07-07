@@ -128,6 +128,27 @@ scene()
   scene().act((a) => a.loadDeck()).instant().until(() => deckIsRendered())
   ```
 
+## Teaching beats — read the caption before the action
+
+A caption is easy to treat as a subtitle that rides an action beat — but then it
+flashes by before a newcomer can read it, and the tour feels like a feature
+recital, not a lesson. Mark a beat **`read: true`** and it becomes a *teaching
+beat*: after the caption shows, the cursor **dips to the narration dock and the
+words glow-pulse** (the eye lands on what's being said — the teacher underlining
+it), and the beat **dwells long enough to read** — timed to the caption's length
+via `readMs()` (≈ `300 + 200·words`, clamped 1.2–4.5 s) — **before** the action
+runs. So the viewer understands the words first, *then* watches the thing happen.
+
+```ts
+scene().say('This is all plain Markdown.').read()   // show → point at it → dwell to read → …
+  .point('#editor').type('# Title')                 // …then act, now that it's understood
+```
+
+Pair it with a short `settle` (the **land** — a brief digest pause on the
+result). The emphasis is motion-safe (the glow is opacity, not a transform, so it
+plays under `legible`; the cursor dip teleports when vestibular motion is
+suppressed) — see *Accessibility & reduced motion*.
+
 ## Gestures — the cursor's body language
 
 A curated **five-gesture alphabet**, each carrying a distinct *meaning* the eye
@@ -176,19 +197,33 @@ free, with no JavaScript and no mode-switch wiring:
 
 The token set covers **every color the stage draws** (`--vt-accent`,
 `--vt-cursor-*`, the narration dock's `--vt-caption-bg` / `--vt-caption-ink` /
-`--vt-caption-hint`, the cue halos, the Exit control). Prefer JS? Pass a
+`--vt-caption-hint`, the `scrim` style's `--vt-caption-scrim` darkening — which
+pairs with `--vt-caption-ink`, so darken one and lighten the other — the cue
+halos, the Exit control). Prefer JS? Pass a
 `theme: { accent }` object — a convenience that writes the tokens for you. Either
 way accent colors are **validated**: a pale/same-hue value is lifted to a
 legibility floor (the cursor can't go invisible), and any `url()` / `image()` /
 control-char value is **rejected** (token values are host-trusted, never
 wire/AI content).
 
-The **narration dock** — one pill carrying the live-dot, the narration, and Exit —
-sits at the bottom by default; move it with `placement: 'top' | 'bottom'`. Its
-corner **shape** is the one non-color token, `--vt-caption-radius` (CSS-only,
-default `999px` pill — lower it for a rounded rectangle). Its background is
-deliberately translucent (with a backdrop blur) so the deck shows through; retint
-via `--vt-caption-bg`.
+The **narration dock** carries the narration (a polite live region) and an
+always-reachable **Exit** icon. It sits at the bottom by default; move it with
+`placement: 'top' | 'bottom'`. Its **style** is a curated choice — `caption`:
+
+| `caption` | Look | Best for |
+|---|---|---|
+| `'bar'` *(default)* | full-width bar, leading pulse dot, Exit as a trailing ✕ | legible over **any** ground — the safe default for raw/generic hosts |
+| `'split'` | a clean text-only caption + a separate ✕ chip in the corner | typographic calm |
+| `'scrim'` | no box — a film-subtitle over a soft bottom gradient | busy/dark content (the Studio demo opts into it) |
+| `'progress'` | the bar, with a beat-progress ring in place of the dot | long/kiosk walkthroughs that want a sense of pacing |
+
+Every style keeps Exit inside `.vetrina-caption` (so the take-over guard reads it
+as chrome) and keeps one narration live region. The boxed styles' corner **shape**
+is the `--vt-caption-radius` token (CSS-only, default `16px`; raise to `999px` for
+a stadium pill). Backgrounds are deliberately translucent (with a backdrop blur) so
+the deck shows through; retint via `--vt-caption-bg`. The `'progress'` ring is fed
+by the storyboard interpreter (`stage.progress(beat, total)`); a raw `Walkthrough`
+that never reports progress just leaves the ring empty.
 
 Pacing is a curated preset — `speed: 'slow' | 'moderate' | 'fast'` — not a raw
 number the eye can't use. The pointer is a shape from a small legible set
@@ -227,8 +262,28 @@ is **not** re-exported through `index.ts`, which stays zero-dependency.
 
 The overlay's decoration is `aria-hidden`, but the **Exit** control reaches the
 accessibility tree (it's the only escape) and the narration caption is a polite
-live region. Under `prefers-reduced-motion`, gestures collapse to instant cues and
-pacing shortens — the tour still completes, it just doesn't animate.
+live region.
+
+Motion is a **three-tier policy** (`theme.motion`, default `'system'`), because
+`prefers-reduced-motion` targets *vestibular* motion — sweeps, parallax, spin,
+zoom (WCAG 2.3.3 / Apple HIG) — **not** the content cadence a viewer reads by:
+
+| tier | vestibular motion | content cadence |
+|---|---|---|
+| `full` | plays (glides, rings, orbit, hand-wave, drag sweeps) | plays |
+| `legible` | **suppressed** (glides teleport, rings/orbit/sweeps skip, wave → in-place pulse) | **kept** (typing reveal, caption cross-fades, full reading settles) |
+| `still` | suppressed | **collapsed** (typing snaps in, settles shorten) |
+
+`'system'` reads the OS preference and resolves a reduced-motion device to
+**`legible`, never `still`** — so a reduced-motion viewer loses the disorienting
+sweeps but still *watches the deck get typed and rendered*, at full reading pace,
+opened by a motion-safe in-place greeting. `still` is the maximal-suppression
+escape hatch a host opts into explicitly; `full` ignores the OS preference.
+
+The stage exposes two derived flags: `stage.reduced` (vestibular suppressed —
+`legible` or `still`) and `stage.still` (content collapsed — `still` only). The
+runner and storyboard gate the typing reveal and default settle on `still`, so
+`legible` keeps them.
 
 ## Where things live
 

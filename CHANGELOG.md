@@ -34,7 +34,28 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **The Studio "Watch demo" becomes "Show Me" — a five-tour guided library.** One engine, five
+  angles on the same Studio, each launchable from a "Show Me" menu (the top bar on desktop/tablet;
+  inlined in the ⋯ menu on a phone): **First look** (the sixty-second version), **The full
+  walkthrough** (write · polish · ship, the default), **Build a board deck** (the 4 o'clock meeting,
+  with stakes), **It's just Markdown** (one promise, proven five ways), and **The quiet tour** (few
+  words, let the slides talk). Each is ONE responsive script — the same tour adapts to the phone's
+  single swappable pane vs. the desktop side-by-side — built from a shared tour toolkit and paced by
+  the new Teaching Beat (below). Verified on real Chromium at both widths (full walkthrough builds +
+  completes; every tour smoke-launches). Retires the two single storyboards the tours supersede.
+
 ### Changed
+
+- **Vetrina: a caption can be a lesson, not a subtitle — the Teaching Beat.** A storyboard beat can
+  set `read: true`: after the caption shows, the cursor dips to the narration dock and the words
+  glow-pulse (drawing the eye — the teacher underlining what they said), and the beat DWELLS long
+  enough to READ — timed to the caption's word count via the new `readMs()` — BEFORE the action
+  runs. So a viewer understands the words first, then watches the thing happen, at a human,
+  patient pace instead of a feature-recital rush. The pulse is motion-safe (plays under `legible`);
+  the cursor dip teleports when vestibular motion is suppressed. Backward compatible — a beat
+  without `read` is unchanged.
 
 - **The mobile Playground is stripped back to the deck.** The Explore/Edit pills
   become a compact two-icon toggle (◱ view · ✎ edit); the five toolbar icons
@@ -68,6 +89,19 @@ in patch versions.
   above, and the only scroll is inside the deck iframe. The **Deck setup** button
   is renamed **Deck Setting**.
 
+- **Vetrina: `prefers-reduced-motion` now keeps the demo watchable instead of collapsing
+  it.** Motion is a three-tier policy (`theme.motion`, default `'system'`): `full` plays
+  everything; `legible` suppresses only *vestibular* motion (cursor glides teleport,
+  expanding rings / orbit / drag sweeps skip, the hand-wave becomes an in-place pulse) but
+  keeps the *content cadence* a viewer reads by — the typing reveal, caption cross-fades, and
+  full reading settles — and opens with a motion-safe greeting; `still` collapses everything
+  to instant (the old behavior, now an explicit opt-in). `'system'` resolves a reduced-motion
+  device to **`legible`, never `still`**, because WCAG 2.3.3 / Apple HIG target vestibular
+  triggers, not typing or a cross-fade. Fixes the reduced-motion iPhone demo racing past in an
+  unwatchable instant blur with no greeting. The stage exposes `stage.reduced` (vestibular
+  suppressed) and `stage.still` (content collapsed); the runner/storyboard gate the typing
+  reveal + default settle on `still`, so `legible` keeps them.
+
 - **The Studio demo's "watch it build" beats sync on the real parse, not a timer.**
   Each slide the demo types now waits on `until(() => railReady(k))` — the slide rail
   gaining its Kth button — before typing the next, instead of a fixed settle that
@@ -75,6 +109,15 @@ in patch versions.
   of machine speed (a slow box no longer risks the next slide typing before the
   previous one renders). Dogfoods Vetrina's `until` advance gate in the flagship
   walkthrough; verified by the six-scenario demo e2e on real Chromium.
+
+### Changed
+
+- **Studio mobile: swapping Edit ⇄ Preview is now instant.** The two panes previously
+  unmounted each other, so every swap to Preview **remounted and reloaded** the preview
+  iframe — a blank flash and a repaint. Both panes now stay mounted (the inactive one
+  hidden with `visibility:hidden` + `inert`), so the preview keeps rendering the live deck
+  while hidden and a swap shows it immediately (~85 ms, no reload). This also makes the
+  phone Watch-demo's per-slide reveal snap in instead of racing an iframe reload.
 
 ### Added
 
@@ -90,6 +133,34 @@ in patch versions.
   palette-blind (verified light + dark) and self-contained (no companion
   `vertical` needed); the stage label is slot-label-lifted so no `**bold**` is
   required. Demo deck: `examples/staged-flow.md`.
+- **Vetrina: the narration dock is now a configurable style (`theme.caption`).** Four
+  curated looks — `'bar'` (full-width caption bar, the default), `'split'` (a clean
+  text-only caption + a corner Exit chip), `'scrim'` (no box — a film-subtitle over a
+  soft gradient), and `'progress'` (the bar with a beat-progress ring in place of the
+  live dot, fed by a new `stage.progress(beat, total)` the storyboard interpreter
+  reports). Every style keeps Exit an always-reachable icon **inside** `.vetrina-caption`
+  and one narration live region, so the take-over guard and a11y contract are unchanged.
+  Exit is now an ✕ **icon** in all styles (was a text button), which reclaims the width a
+  phone caption needs. The Studio demo opts into `'scrim'` on **phones** (its short beats ride
+  the dark bottom of the mobile preview) and the centered `'bar'` on desktop/tablet (light
+  preview, longer narration); every other Vetrina consumer keeps the universal `'bar'` default.
+  `'bar'` is responsive — near-full-width on a phone, a centered pill capped at 680px on a wide
+  screen. The scrim's darkening is a themeable `--vt-caption-scrim` token; the boxed styles'
+  corner radius default is now `16px` (raise `--vt-caption-radius` to `999px` for a stadium pill).
+- **The Studio "Watch demo" now runs on phones — a preview-first single-pane demo.**
+  The self-driving walkthrough previously covered desktop + tablet only; on a phone
+  (≤699px) the Studio shows one swappable Edit/Preview pane, so the side-by-side
+  choreography couldn't play. The phone gets its own storyboard: it taps the real
+  Edit/Preview toggle and **alternates per slide** — type a slide on Edit, tap Preview
+  to reveal it, repeat — building a tight four-slide "My First Deck" (a title, a
+  big-number, a radar chart, and a close) so it stays short and punchy on a small
+  screen. It dogfoods Vetrina's `until` gate to survive the editor unmounting on each
+  pane-swap (typing is held until the editor remounts), and reuses the same reskin →
+  Coach → Present → Share beats as sheets. The launch affordance is re-enabled on
+  phones (first-run banner + a persistent "Watch demo" in the ⋯ menu). Mechanics are
+  verified on real 390px Chromium (two mobile e2e oracles: the four slides land in
+  order across every swap; a real tap takes over); real-iPhone touch/iOS sign-off is
+  still owed (HARD RULE #23).
 - **The Playground opens on Explore — the Specimen Book's reader (PR 6).** The
   generated component galleries are now walkable in place: an Explore | Edit
   mode pill, a Walk bar with Prev/Next, "slide N of M", the slide's own caption,

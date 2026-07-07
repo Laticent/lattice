@@ -29,6 +29,10 @@ export interface SceneBuilder<A> {
 	/** Mark the current step INSTANT — its `act`/`type` apply now with no cursor / typing
 	 *  animation / gesture / settle. For setup / close / jump beats that don't need teaching. */
 	instant(): this;
+	/** Mark the current step a TEACHING beat — after `say`, dip the cursor to the caption and
+	 *  the words glow-pulse, then DWELL to read (timed to the caption) BEFORE the action runs.
+	 *  Pairs with a short `hold`/settle (the land — a brief digest pause on the result). */
+	read(): this;
 	/** Advance GATE — hold on this step until `pred` is true (abort-safe). The "callback for
 	 *  when to move on"; pairs with `.instant()` to fire, then wait for the app to be ready. */
 	until(pred: () => boolean): this;
@@ -106,6 +110,10 @@ export function scene<A>(seed = ''): SceneBuilder<A> {
 		},
 		instant() {
 			(cur ?? open([])).instant = true;
+			return b;
+		},
+		read() {
+			(cur ?? open([])).read = true;
 			return b;
 		},
 		until(pred) {

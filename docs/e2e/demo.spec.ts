@@ -1,19 +1,23 @@
 import { expect, gotoStudio, railButtons, readStorage, test, toastText } from './studio-fixture';
 
-// The self-driving "Watch demo" walkthrough. The demo drives the Studio's own
-// setters (not synthetic events), so the oracles are real cause→effect: the stage
-// mounts, the board deck it types grows the slide rail, and each of the three exit
-// paths (complete · take-over · Exit) tears the stage down — LEAVING BEHIND the real
-// "My First Deck" it built (never restoring the viewer's prior deck), and never
-// duplicating it across runs.
+// The "Show Me" guided-tour library. Five tours drive the Studio's own setters (not synthetic
+// events), so the oracles are real cause→effect: the menu lists every tour, launching one mounts
+// the stage and builds a real deck, and each exit path (complete · take-over · Escape · Exit)
+// tears the stage down — LEAVING BEHIND the real "My First Deck" it built, never restoring the
+// viewer's prior deck, never duplicating it across runs. These drive the default "full
+// walkthrough" tour (4 slides: title · big-number · radar · close).
 
-// The full run is the whole first-time arc (new deck → type → coach → present →
-// share → polish → present) at ~85s, so the completion test needs generous headroom.
 test.describe.configure({ timeout: 180_000 });
 
 const STAGE = '.vetrina-stage';
-const WATCH = 'button[aria-label="Watch demo"]';
+const SHOW_ME = 'button[data-demo="show-me"]';
 const FIRST_DECK = 'My First Deck';
+
+/** Open the Show Me menu and launch a tour by id (default: the full walkthrough). */
+async function startTour(page: import('@playwright/test').Page, tourId = 'walkthrough'): Promise<void> {
+	await page.locator(SHOW_ME).click();
+	await page.locator(`[data-tour="${tourId}"]`).first().click();
+}
 
 /** The ids of every deck titled "My First Deck" in the persisted index (empty before any run). */
 async function firstDeckIds(page: import('@playwright/test').Page): Promise<string[]> {
@@ -25,56 +29,65 @@ async function firstDeckIds(page: import('@playwright/test').Page): Promise<stri
 		return [];
 	}
 }
-/** How many decks titled "My First Deck" are in the persisted index (0 before any run). */
 const firstDeckCount = (page: import('@playwright/test').Page) => firstDeckIds(page).then((ids) => ids.length);
 
-test('the demo builds a board deck and completes — leaving "My First Deck" behind', async ({ page }) => {
+test('the Show Me menu lists every tour, and a tour builds a deck and completes', async ({ page }) => {
 	await gotoStudio(page);
 	expect(await firstDeckCount(page)).toBe(0); // fresh context — no deck yet
 
-	await page.locator(WATCH).click();
-	// The stage mounts and the Watch-demo button hides while it runs (rendered `invisible`,
-	// so it stays in the DOM — assert hidden, not removed).
-	await expect(page.locator(STAGE)).toBeVisible();
-	await expect(page.locator(WATCH)).toBeHidden();
+	// The menu offers all five tours.
+	await page.locator(SHOW_ME).click();
+	for (const id of ['first-look', 'walkthrough', 'board-deck', 'just-markdown', 'quiet']) {
+		await expect(page.locator(`[data-tour="${id}"]`)).toBeVisible();
+	}
 
-	// It drives: the storyboard mints "My First Deck" and types a 6-slide board deck into it.
-	await expect.poll(() => railButtons(page).count(), { timeout: 70_000 }).toBe(6);
+	// Launch the full walkthrough. The stage mounts and the Show Me trigger hides while it runs
+	// (rendered `invisible`, so it stays in the DOM — assert hidden, not removed).
+	await page.locator('[data-tour="walkthrough"]').click();
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect(page.locator(SHOW_ME)).toBeHidden();
+
+	// It drives: mints "My First Deck" and types the four-slide deck into it.
+	await expect.poll(() => railButtons(page).count(), { timeout: 90_000 }).toBe(4);
 
 	// It completes on its own: the stage detaches and the built deck is LEFT BEHIND.
-	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 120_000 });
+	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 130_000 });
 	await expect(toastText(page)).toContainText(FIRST_DECK);
-	// The newcomer keeps the full board deck (rail stays at 6 — not restored to a prior deck).
-	await expect.poll(() => railButtons(page).count()).toBe(6);
+	await expect.poll(() => railButtons(page).count()).toBe(4);
 	expect(await firstDeckCount(page)).toBe(1); // persisted, single
-	await expect(page.locator(WATCH)).toBeVisible();
+	await expect(page.locator(SHOW_ME)).toBeVisible();
 });
 
-test('the demo drives the REAL settings panel — deck then slide scope, never a modal', async ({ page }) => {
-	// Regression guard: the walkthrough used to pop the old per-slide modal drawer
-	// (a dimming overlay) to demo settings. It must now drive the SAME non-blocking
-	// Inspector an author uses — the docked column (an <aside>), at the right scope.
+test('the walkthrough reskin drives the REAL deck Inspector (not a phantom point)', async ({ page }) => {
+	// Regression guard: the reskin beat points at the theme picker, which lives INSIDE the
+	// deck-scope Inspector. If the tour forgets to open it, the cursor points at nothing and the
+	// deck reshades with no visible cause. Assert the docked <aside> at deck scope actually opens.
 	await gotoStudio(page);
-	await page.locator(WATCH).click();
+	await startTour(page); // the full walkthrough
 	await expect(page.locator(STAGE)).toBeVisible();
-
-	// After the deck builds, the reskin beat opens the Inspector at DECK scope — in the
-	// docked column, not a dialog. (The blue echo names the scope.)
-	await expect.poll(() => railButtons(page).count(), { timeout: 70_000 }).toBe(6);
-	await expect(page.locator('aside').filter({ hasText: 'Editing the whole deck' })).toBeVisible({ timeout: 60_000 });
-
-	// The closing flourish switches the SAME panel to SLIDE scope (amber echo).
-	await expect(page.locator('aside').filter({ hasText: /Editing Slide \d+ only/ })).toBeVisible({ timeout: 90_000 });
-
-	// The retired modal never appears: no dialog titled "Slide settings" with a slide badge.
-	await expect(page.getByRole('dialog').filter({ hasText: 'Slide settings' })).toHaveCount(0);
+	await expect(page.locator('aside').filter({ hasText: 'Editing the whole deck' })).toBeVisible({ timeout: 100_000 });
 });
 
-test('re-running the demo never duplicates "My First Deck" (beforeSetup dedup)', async ({ page }) => {
+// The full walkthrough (above) exercises every toolkit helper; these prove the OTHER four tours
+// run their opening beats without a crash (a bad selector / content would abort the run, detaching
+// the stage). Each gets a fresh page — launch, confirm it mints the deck (the newDeck beat ran
+// past the preamble) and the stage is still live (no error abort). Cheaper than four full
+// completions, and no flaky menu-reuse within one session.
+for (const id of ['first-look', 'board-deck', 'just-markdown', 'quiet']) {
+	test(`@smoke the "${id}" tour launches and builds without erroring out`, async ({ page }) => {
+		await gotoStudio(page);
+		await startTour(page, id);
+		await expect(page.locator(STAGE)).toBeVisible();
+		await expect.poll(() => firstDeckCount(page), { timeout: 45_000 }).toBe(1); // opening beats ran, no crash
+		await expect(page.locator(STAGE)).toBeVisible(); // still live — the run didn't abort on an error
+	});
+}
+
+test('re-running a tour never duplicates "My First Deck" (beforeSetup dedup)', async ({ page }) => {
 	await gotoStudio(page);
 
 	// First run — stop early via take-over once the deck exists; it's left behind.
-	await page.locator(WATCH).click();
+	await startTour(page);
 	await expect(page.locator(STAGE)).toBeVisible();
 	await expect.poll(() => firstDeckCount(page), { timeout: 70_000 }).toBe(1);
 	const [id1] = await firstDeckIds(page);
@@ -82,13 +95,11 @@ test('re-running the demo never duplicates "My First Deck" (beforeSetup dedup)',
 	await expect(page.locator(STAGE)).toHaveCount(0);
 	expect(await firstDeckIds(page)).toEqual([id1]); // the one deck is left behind
 
-	// Second run — the opening beat must DELETE id1 first, then create a fresh deck. We
-	// wait for a NEW id to appear (proof `createFirstDeck` ran this run), then assert the
-	// count is still exactly one AT THAT MOMENT. If the delete were dropped, run 2 would
-	// create a second "My First Deck" and the index would hold BOTH ids — so this poll's
-	// `length === 1` guard would never be satisfied and the test fails. That's the point:
-	// the oracle can actually observe a dedup regression, which counting leftovers can't.
-	await page.locator(WATCH).click();
+	// Second run — the opening beat must DELETE id1 first, then create a fresh deck. Wait for a
+	// NEW id (proof `createFirstDeck` ran), then assert the count is still exactly one AT THAT
+	// MOMENT. If the delete were dropped, run 2 would create a second "My First Deck" and the
+	// index would hold BOTH ids — so this `length === 1` guard would never be satisfied.
+	await startTour(page);
 	await expect(page.locator(STAGE)).toBeVisible();
 	await expect
 		.poll(async () => {
@@ -101,9 +112,9 @@ test('re-running the demo never duplicates "My First Deck" (beforeSetup dedup)',
 	expect(await firstDeckCount(page)).toBe(1); // still exactly one after the whole cycle
 });
 
-test('a real click mid-demo hands the wheel back, leaving "My First Deck" behind (take over)', async ({ page }) => {
+test('a real click mid-tour hands the wheel back, leaving "My First Deck" behind (take over)', async ({ page }) => {
 	await gotoStudio(page);
-	await page.locator(WATCH).click();
+	await startTour(page);
 	await expect(page.locator(STAGE)).toBeVisible();
 	// Let the opening beat mint the deck before we take over, so we can prove it stays.
 	await expect.poll(() => firstDeckCount(page), { timeout: 70_000 }).toBe(1);
@@ -113,18 +124,16 @@ test('a real click mid-demo hands the wheel back, leaving "My First Deck" behind
 	await page.mouse.click(420, 520);
 
 	await expect(page.locator(STAGE)).toHaveCount(0);
-	// The deck the demo built is the viewer's to edit — left behind, not discarded.
 	await expect(toastText(page)).toContainText('yours to edit');
 	await expect.poll(() => firstDeckCount(page)).toBe(1);
 });
 
 test('pressing Escape hands the wheel back, leaving "My First Deck" behind', async ({ page }) => {
 	await gotoStudio(page);
-	await page.locator(WATCH).click();
+	await startTour(page);
 	await expect(page.locator(STAGE)).toBeVisible();
 	await expect.poll(() => firstDeckCount(page), { timeout: 70_000 }).toBe(1);
 
-	// Escape is the instinctive "cancel" — it routes through take-over.
 	await page.keyboard.press('Escape');
 
 	await expect(page.locator(STAGE)).toHaveCount(0);
@@ -134,7 +143,7 @@ test('pressing Escape hands the wheel back, leaving "My First Deck" behind', asy
 
 test('the Exit button hands the wheel back, leaving "My First Deck" behind', async ({ page }) => {
 	await gotoStudio(page);
-	await page.locator(WATCH).click();
+	await startTour(page);
 	await expect(page.locator(STAGE)).toBeVisible();
 	await expect.poll(() => firstDeckCount(page), { timeout: 70_000 }).toBe(1);
 

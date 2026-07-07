@@ -17,6 +17,7 @@ function recorder() {
 		},
 		gesture: async (k: string, t?: unknown) => void log.push(`gesture:${k}${t != null ? `:${String(t)}` : ''}`),
 		reduced: true,
+		still: true,
 		pace: 1,
 	};
 	const actions: Actions = { go: () => log.push('act:go') };
