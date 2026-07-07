@@ -36,6 +36,18 @@ in patch versions.
 
 ### Changed
 
+- **The mobile Playground is stripped back to the deck.** The Explore/Edit pills
+  become a compact two-icon toggle (◱ view · ✎ edit); the five toolbar icons
+  collapse to two (Deck setup — with the debug overlay folded in — and
+  Galleries); the walk chip strip and the Variant select merge into one **Step**
+  dropdown listing every slide; and "Edit this slide" plus "Read this slide's
+  copy" are removed. Explore and Edit are now two views of the same deck —
+  Explore renders it, ✎ opens its markdown, and editing reflects straight back —
+  so flipping to Edit gives you the slide's source without a dedicated button.
+  Edit is a full-height editor (no Markdown/Preview tabs on mobile; the desktop
+  split stays), and the walk bar pins to the bottom so the deck dominates.
+  Design: `engineering/decisions/2026-07-06-playground-simplify.md`.
+
 - **The Studio demo's "watch it build" beats sync on the real parse, not a timer.**
   Each slide the demo types now waits on `until(() => railReady(k))` — the slide rail
   gaining its Kth button — before typing the next, instead of a fixed settle that

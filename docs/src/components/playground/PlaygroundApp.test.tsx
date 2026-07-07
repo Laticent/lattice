@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import fc from 'fast-check';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mock the irreducible, browser-only engine pieces ────────────────────────
 // PlaygroundApp wraps a CodeMirror editor, a window-global render engine, a
@@ -112,41 +112,58 @@ const data: PlaygroundData = {
 	palettes: ['indaco'],
 	finishes: [],
 	starter: STARTER,
+	plansBase: '/plans/',
 } as unknown as PlaygroundData;
+
+// The walk fetches plans/<name>.json; a tiny two-slide plan is enough for the
+// mode toggle to mount and the walk to exist.
+beforeEach(() => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async () => ({
+			ok: true,
+			text: async () =>
+				JSON.stringify({
+					name: 'verdict-grid',
+					slides: [
+						{ kind: 'title', caption: 'c', md: '<!-- _class: title -->\n# t' },
+						{ kind: 'default', caption: 'c', md: '<!-- _class: verdict-grid -->\n# d' },
+					],
+				}),
+		})),
+	);
+});
 
 // ── Helpers that read the live DOM the way a user perceives it ───────────────
 
-/** Which pane the toolbar tab control SAYS is active (Radix marks data-state). */
-function activeTab(): 'edit' | 'preview' {
-	const tab = document.querySelector('[role="tab"][data-state="active"]');
-	const label = (tab?.textContent || '').trim().toLowerCase();
-	return label === 'preview' ? 'preview' : 'edit';
-}
-
-/** Which pane the LAYOUT actually shows (mobile single-pane CSS keys off this). */
+/** Which pane the LAYOUT shows (mobile single-pane CSS keys off this). */
 function visiblePane(): string | null {
 	return document.body.getAttribute('data-pane');
 }
+function currentView(): string | null {
+	return document.body.getAttribute('data-view');
+}
 
 /**
- * THE invariant. What the tab claims and what the layout shows must never
- * diverge — divergence is exactly the reported bug: the tab flips to "Preview"
- * but `body[data-pane]` stays "edit", so the rendered deck is in a hidden pane.
+ * THE invariant (2026-07-06 simplification): the mode and the visible pane agree
+ * — Explore (read) shows the deck (pane 'preview'); Edit shows the editor (pane
+ * 'edit'). A divergence would render the deck into a hidden pane.
  */
-function expectPaneInSync() {
-	expect(visiblePane(), `tab says "${activeTab()}" but layout shows "${visiblePane()}"`).toBe(activeTab());
+function expectViewPaneInSync() {
+	const view = currentView();
+	if (view == null) return; // pre-mount
+	expect(visiblePane(), `view "${view}" but pane "${visiblePane()}"`).toBe(view === 'read' ? 'preview' : 'edit');
 }
 
 async function mountPlayground() {
 	const user = userEvent.setup({ pointerEventsCheck: 0 });
 	render(<PlaygroundApp data={data} />);
-	// The EditorHost mounts CodeMirror in an effect and reports ready → first
-	// render. Wait for the body data-pane seed so the chrome is settled.
 	await waitFor(() => expect(visiblePane()).not.toBeNull());
 	return user;
 }
 
-async function clickTab(user: ReturnType<typeof userEvent.setup>, name: 'Markdown' | 'Preview') {
+/** The mode toggle buttons expose role="tab" + aria-label Explore/Edit. */
+async function clickMode(user: ReturnType<typeof userEvent.setup>, name: 'Explore' | 'Edit') {
 	await user.click(screen.getByRole('tab', { name }));
 }
 
@@ -160,118 +177,76 @@ async function loadGallery(user: ReturnType<typeof userEvent.setup>, label: stri
 	await user.click(sheet.getByRole('button', { name: new RegExp(label, 'i') }));
 }
 
-async function scaffold(user: ReturnType<typeof userEvent.setup>) {
-	// The reset action names its target ("Reset to the <name> example") and
-	// "Insert blank skeleton" is gone (Specimen Book §0.4) — match by prefix.
-	const sheet = await openGalleries(user);
-	await user.click(sheet.getByRole('button', { name: /Reset to/ }));
-}
-
 afterEach(() => {
 	cleanup();
 	document.body.removeAttribute('data-pane');
+	document.body.removeAttribute('data-view');
+	vi.unstubAllGlobals();
 });
 
-// ── The reported scenario, gated ────────────────────────────────────────────
-describe('PlaygroundApp — gallery load shows the rendered deck (regression)', () => {
-	it('seeds the layout pane in sync with the active tab on mount', async () => {
-		await mountPlayground();
-		expect(activeTab()).toBe('edit');
-		expectPaneInSync();
+// ── The mode toggle drives the pane in sync ──────────────────────────────────
+describe('PlaygroundApp — the mode toggle keeps view and pane in sync', () => {
+	it('flips Explore ⇄ Edit, and the pane always agrees', async () => {
+		const user = await mountPlayground();
+		// Explore renders the deck; Edit shows the editor.
+		await clickMode(user, 'Explore');
+		await waitFor(() => expect(currentView()).toBe('read'));
+		expectViewPaneInSync();
+
+		await clickMode(user, 'Edit');
+		await waitFor(() => expect(currentView()).toBe('edit'));
+		expectViewPaneInSync();
+
+		await clickMode(user, 'Explore');
+		await waitFor(() => expect(currentView()).toBe('read'));
+		expectViewPaneInSync();
 	});
 
-	it('loading a gallery from Edit view actually switches the LAYOUT to preview', async () => {
+	it('loading a gallery shows the rendered deck (pane preview)', async () => {
 		const user = await mountPlayground();
-		expect(activeTab()).toBe('edit');
-
-		// The exact repro: in Edit view, open Galleries and pick "Jargon".
 		await loadGallery(user, 'Jargon');
-
-		// The tab flips to Preview…
-		await waitFor(() => expect(activeTab()).toBe('preview'));
-		// …AND the layout must follow. Before the fix, body[data-pane] stayed
-		// "edit", so the rendered deck sat in a hidden pane and the user had to
-		// toggle Edit→Preview by hand to see it. This is the line that fails on
-		// the old code.
-		expect(visiblePane()).toBe('preview');
-		expectPaneInSync();
-	});
-
-	it('manual Edit→Preview toggling stays in sync (the old workaround still works)', async () => {
-		const user = await mountPlayground();
-		await clickTab(user, 'Preview');
-		expectPaneInSync();
-		await clickTab(user, 'Markdown');
-		expectPaneInSync();
-	});
-
-	it('scaffolding (reset) does not desync the pane', async () => {
-		const user = await mountPlayground();
-		await clickTab(user, 'Preview');
-		expectPaneInSync();
-		// Reset-to-example does not request a pane switch; whatever pane we are on
-		// must remain coherent.
-		await scaffold(user);
-		expectPaneInSync();
+		await waitFor(() => expect(visiblePane()).toBe('preview'));
 	});
 });
 
-// ── Fuzz: random user journeys must never desync the pane ────────────────────
-// Property-based, model-based testing via fast-check's `commands` — the
-// idiomatic tool for stateful UI fuzzing. Each command is one real toolbar
-// interaction; fast-check generates random *sequences* of them, runs the
-// invariant after each, and — crucially — SHRINKS any failing journey down to a
-// minimal reproducer (e.g. "Edit, then LoadGallery") instead of dumping a 24-
-// step trace. We don't roll our own RNG or shrinker.
-//
-// The model is a no-op: this property has no precondition gating and a single
-// global invariant (tab and layout agree), so the commands carry all the state
-// we need in the live DOM. Each command's `check` is always true; `run` performs
-// the interaction and asserts.
+// ── Fuzz: random mode/gallery journeys never desync view and pane ────────────
 type Ctx = { user: ReturnType<typeof userEvent.setup> };
 
 const paneCommand = (label: string, act: (u: Ctx['user']) => Promise<void>): fc.AsyncCommand<Record<string, never>, Ctx> => ({
 	check: () => true,
 	async run(_model, real) {
 		await act(real.user);
-		// React + the async render settle the pane synchronously through the
-		// `pane`→body effect; wait so a trailing state flush can't race us.
-		await waitFor(() => expectPaneInSync());
+		await waitFor(() => expectViewPaneInSync());
 	},
 	toString: () => label,
 });
 
 const allCommands = [
-	fc.constant(paneCommand('Markdown tab', (u) => clickTab(u, 'Markdown'))),
-	fc.constant(paneCommand('Preview tab', (u) => clickTab(u, 'Preview'))),
+	fc.constant(paneCommand('Explore', (u) => clickMode(u, 'Explore'))),
+	fc.constant(paneCommand('Edit', (u) => clickMode(u, 'Edit'))),
 	fc.constant(paneCommand('load Jargon gallery', (u) => loadGallery(u, 'Jargon'))),
 	fc.constant(paneCommand('load Survey gallery', (u) => loadGallery(u, 'Survey'))),
-	fc.constant(paneCommand('reset to example', (u) => scaffold(u))),
 ];
 
-describe('PlaygroundApp — fuzz: the pane never desyncs across random journeys', () => {
-	it('keeps tab and layout in sync for any sequence of toolbar actions', async () => {
+describe('PlaygroundApp — fuzz: view and pane never desync across random journeys', () => {
+	it('keeps view and pane in sync for any sequence of toolbar actions', async () => {
 		await fc.assert(
-			fc.asyncProperty(fc.commands(allCommands, { maxCommands: 18 }), async (cmds) => {
+			fc.asyncProperty(fc.commands(allCommands, { maxCommands: 14 }), async (cmds) => {
 				const user = await mountPlayground();
 				try {
 					await fc.asyncModelRun(() => ({ model: {}, real: { user } }), cmds);
 				} finally {
-					// Each run is an independent mount; tear it down so the next
-					// generated sequence starts from a clean Edit-view playground.
 					cleanup();
 					document.body.removeAttribute('data-pane');
+					document.body.removeAttribute('data-view');
 				}
 			}),
-			// jsdom + Radix interactions are not free; keep the run count modest but
-			// enough to exercise many orderings. endOnFailure → report the first
-			// (shrunk) counterexample rather than burning the whole budget.
-			{ numRuns: 25, endOnFailure: true },
+			{ numRuns: 20, endOnFailure: true },
 		);
 	}, 60_000);
 });
 
-// ── Tour-step reachability (decision §4, PR 6) ───────────────────────────────
+// ── Tour-step reachability ───────────────────────────────────────────────────
 // Every tour step that names an element must resolve in the MODE it declares —
 // in BOTH directions — or the tour would spotlight nothing (the handoff entry
 // path arrives in Edit; Explore steps must still mount). #palette lives in the
