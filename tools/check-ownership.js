@@ -1178,7 +1178,7 @@ function checkPreviewHtmlSinks(errors) {
         `${rel} builds a live preview frame (injects the runtime <script>) but is not a sanctioned ` +
         `preview builder (HARD RULE #22). Untrusted engine HTML in a same-origin srcdoc is XSS / ` +
         `OpenRouter-key theft (#616) — sanitize the slide HTML via sanitizeSlideHtml ` +
-        `(docs/src/lib/sanitize-slide-html.js) before it enters the frame, then add this file to ` +
+        `(lib/core/sanitize-slide-html.js, re-exported by docs/src/lib/sanitize-slide-html.js) before it enters the frame, then add this file to ` +
         `SANCTIONED_PREVIEW_BUILDERS in tools/check-ownership.js with a justification.`,
       );
     } else if (!SANITIZE_CALL.test(src)) {
