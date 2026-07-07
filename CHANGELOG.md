@@ -78,6 +78,7 @@ in patch versions.
 
 ### Added
 
+<<<<<<< HEAD
 - **Three `list-steps` variants for a vertical staged-argument flow —
   `chevron`, `converge`, `ghost`.** A labelled sequence that cascades *down* the
   frame (Problem → Vision → … → Plan), authored as a plain numbered list with a
@@ -90,6 +91,20 @@ in patch versions.
   palette-blind (verified light + dark) and self-contained (no companion
   `vertical` needed); the stage label is slot-label-lifted so no `**bold**` is
   required. Demo deck: `examples/staged-flow.md`.
+- **Vetrina: the narration dock is now a configurable style (`theme.caption`).** Four
+  curated looks — `'bar'` (full-width caption bar, the default), `'split'` (a clean
+  text-only caption + a corner Exit chip), `'scrim'` (no box — a film-subtitle over a
+  soft gradient), and `'progress'` (the bar with a beat-progress ring in place of the
+  live dot, fed by a new `stage.progress(beat, total)` the storyboard interpreter
+  reports). Every style keeps Exit an always-reachable icon **inside** `.vetrina-caption`
+  and one narration live region, so the take-over guard and a11y contract are unchanged.
+  Exit is now an ✕ **icon** in all styles (was a text button), which reclaims the width a
+  phone caption needs. The Studio demo opts into `'scrim'` on **phones** (its short beats ride
+  the dark bottom of the mobile preview) and the centered `'bar'` on desktop/tablet (light
+  preview, longer narration); every other Vetrina consumer keeps the universal `'bar'` default.
+  `'bar'` is responsive — near-full-width on a phone, a centered pill capped at 680px on a wide
+  screen. The scrim's darkening is a themeable `--vt-caption-scrim` token; the boxed styles'
+  corner radius default is now `16px` (raise `--vt-caption-radius` to `999px` for a stadium pill).
 - **The Studio "Watch demo" now runs on phones — a preview-first single-pane demo.**
   The self-driving walkthrough previously covered desktop + tablet only; on a phone
   (≤699px) the Studio shows one swappable Edit/Preview pane, so the side-by-side

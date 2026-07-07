@@ -176,19 +176,33 @@ free, with no JavaScript and no mode-switch wiring:
 
 The token set covers **every color the stage draws** (`--vt-accent`,
 `--vt-cursor-*`, the narration dock's `--vt-caption-bg` / `--vt-caption-ink` /
-`--vt-caption-hint`, the cue halos, the Exit control). Prefer JS? Pass a
+`--vt-caption-hint`, the `scrim` style's `--vt-caption-scrim` darkening — which
+pairs with `--vt-caption-ink`, so darken one and lighten the other — the cue
+halos, the Exit control). Prefer JS? Pass a
 `theme: { accent }` object — a convenience that writes the tokens for you. Either
 way accent colors are **validated**: a pale/same-hue value is lifted to a
 legibility floor (the cursor can't go invisible), and any `url()` / `image()` /
 control-char value is **rejected** (token values are host-trusted, never
 wire/AI content).
 
-The **narration dock** — one pill carrying the live-dot, the narration, and Exit —
-sits at the bottom by default; move it with `placement: 'top' | 'bottom'`. Its
-corner **shape** is the one non-color token, `--vt-caption-radius` (CSS-only,
-default `999px` pill — lower it for a rounded rectangle). Its background is
-deliberately translucent (with a backdrop blur) so the deck shows through; retint
-via `--vt-caption-bg`.
+The **narration dock** carries the narration (a polite live region) and an
+always-reachable **Exit** icon. It sits at the bottom by default; move it with
+`placement: 'top' | 'bottom'`. Its **style** is a curated choice — `caption`:
+
+| `caption` | Look | Best for |
+|---|---|---|
+| `'bar'` *(default)* | full-width bar, leading pulse dot, Exit as a trailing ✕ | legible over **any** ground — the safe default for raw/generic hosts |
+| `'split'` | a clean text-only caption + a separate ✕ chip in the corner | typographic calm |
+| `'scrim'` | no box — a film-subtitle over a soft bottom gradient | busy/dark content (the Studio demo opts into it) |
+| `'progress'` | the bar, with a beat-progress ring in place of the dot | long/kiosk walkthroughs that want a sense of pacing |
+
+Every style keeps Exit inside `.vetrina-caption` (so the take-over guard reads it
+as chrome) and keeps one narration live region. The boxed styles' corner **shape**
+is the `--vt-caption-radius` token (CSS-only, default `16px`; raise to `999px` for
+a stadium pill). Backgrounds are deliberately translucent (with a backdrop blur) so
+the deck shows through; retint via `--vt-caption-bg`. The `'progress'` ring is fed
+by the storyboard interpreter (`stage.progress(beat, total)`); a raw `Walkthrough`
+that never reports progress just leaves the ring empty.
 
 Pacing is a curated preset — `speed: 'slow' | 'moderate' | 'fast'` — not a raw
 number the eye can't use. The pointer is a shape from a small legible set

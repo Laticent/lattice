@@ -130,9 +130,13 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 			play: b.mobile ? studioMobileWalkthrough : studioWalkthrough,
 			type,
 			takeover: { scope: 'window' },
-			// The cursor + cues track the live app accent (recolor on the reskin beat),
-			// falling back to the house blue — exactly as the old stage did.
-			theme: { accent: 'var(--accent, #2b6ef2)' },
+			// The cursor + cues track the live app accent (recolor on the reskin beat), falling
+			// back to the house blue. Caption style is breakpoint-aware: 'scrim' (film-subtitle,
+			// no box) on a PHONE — its short beats ride the dark bottom of the mobile preview and
+			// it frees the cramped width; 'bar' (a centered pill) on desktop/tablet, where the
+			// preview is light and the narration is longer/multi-line (scrim would drop below AA
+			// contrast on its upper lines there). Both keep Exit an always-reachable icon.
+			theme: { accent: 'var(--accent, #2b6ef2)', caption: b.mobile ? 'scrim' : 'bar' },
 			onStop: (reason: StopReason) => {
 				const cur = bindRef.current;
 				// The deck is NOT restored (the newcomer keeps "My First Deck"). Only the

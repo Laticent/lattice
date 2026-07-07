@@ -16,6 +16,7 @@ export type VtToken =
 	| 'captionBg'
 	| 'captionInk'
 	| 'captionHint'
+	| 'captionScrim'
 	| 'ringHalo'
 	| 'glowHalo'
 	| 'tickHalo'
@@ -32,6 +33,14 @@ export interface Theme {
 	/** Which edge the narration dock sits at (default 'bottom'). A curated choice, not a
 	 *  free coordinate; shape (corner radius) is the CSS `--vt-caption-radius` token. */
 	placement?: 'top' | 'bottom';
+	/** The narration dock STYLE — a curated set, not free CSS (default 'bar'):
+	 *   - 'bar'      full-width caption bar, Exit as an icon (the safe, universal default);
+	 *   - 'split'    a clean text-only caption + a separate Exit chip in the corner;
+	 *   - 'scrim'    no box — a film-subtitle over a soft gradient (most premium; best over
+	 *                busy/dark content, which is why the Studio demo opts into it);
+	 *   - 'progress' the bar with a beat-progress ring in place of the live dot.
+	 *  Exit stays reachable in every style (an icon button, always inside `.vetrina-caption`). */
+	caption?: 'bar' | 'split' | 'scrim' | 'progress';
 	/** Silence a cue (never replace one with a callback). */
 	cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>;
 	/** Escape hatch: set any --vt-* token value directly, in JS. */
@@ -48,6 +57,7 @@ export interface ResolvedTheme {
 	pace: number; // duration multiplier (slow > 1 > fast)
 	pointer: 'arrow' | 'ring' | 'dot';
 	placement: 'top' | 'bottom'; // which edge the narration dock sits at
+	caption: 'bar' | 'split' | 'scrim' | 'progress'; // the narration dock style
 	silenced: Set<string>; // cue names to skip
 }
 
@@ -58,6 +68,7 @@ const TOKEN_VAR: Record<VtToken, string> = {
 	captionBg: '--vt-caption-bg',
 	captionInk: '--vt-caption-ink',
 	captionHint: '--vt-caption-hint',
+	captionScrim: '--vt-caption-scrim',
 	ringHalo: '--vt-ring-halo',
 	glowHalo: '--vt-glow-halo',
 	tickHalo: '--vt-tick-halo',
@@ -153,6 +164,7 @@ export function resolveTheme(theme: Theme = {}): ResolvedTheme {
 		pace: SPEED_PACE[theme.speed ?? 'moderate'],
 		pointer: theme.pointer ?? 'arrow',
 		placement: theme.placement ?? 'bottom',
+		caption: theme.caption ?? 'bar',
 		silenced: new Set(
 			Object.entries(theme.cues ?? {})
 				.filter(([, v]) => v === false)

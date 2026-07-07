@@ -58,8 +58,16 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 	return async (ctx: RunContext<A>) => {
 		const { stage, actions, signal } = ctx;
 
-		for (const step of steps) {
+		// Progress counts TAUGHT beats only — the `instant` plumbing beats (setup / close / jump)
+		// teach nothing and flash by, so counting them would make the ring lurch on beats the
+		// viewer never sees. The denominator is the taught-beat total; the ring holds across instant
+		// beats. (Only the `caption:'progress'` dock renders this; every other style ignores it.)
+		const taughtTotal = steps.reduce((n, s) => n + (s.instant ? 0 : 1), 0);
+		let taughtDone = 0;
+		for (let i = 0; i < steps.length; i++) {
+			const step = steps[i];
 			if (signal.aborted) return;
+			if (!step.instant) stage.progress?.(++taughtDone, taughtTotal);
 			if (step.say != null) stage.say(step.say);
 
 			// INSTANT beat — skip ALL theater (cursor / typing animation / gesture / settle) and

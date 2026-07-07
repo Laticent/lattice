@@ -77,15 +77,17 @@ test('@mobile a real tap mid-run takes over — stage detaches, the deck is kept
 	await startMobileDemo(page);
 	await expect(page.locator(STAGE)).toBeVisible();
 
-	// Let it build at least the first slide, then the viewer taps a real control (the
-	// deck switcher in the top bar — always present, not demo chrome). The only real
-	// input during a run is the viewer's, so this unambiguously means "take over".
-	await expect.poll(() => firstDeckSource(page), { timeout: 60_000 }).toContain('_class: title');
+	// Let it type real content, then the viewer taps a real control (the deck switcher in
+	// the top bar — always present, not demo chrome). The only real input during a run is
+	// the viewer's, so this unambiguously means "take over". Poll for TYPED text ("Q4 Board
+	// Update"), not `_class: title` — the fresh deck's seed template carries a `_class: title`
+	// too, so that marker would race the blank-then-type and fire before real content lands.
+	await expect.poll(() => firstDeckSource(page), { timeout: 60_000 }).toContain('Q4 Board Update');
 	await page.locator('[data-demo="deck-switcher"]').click({ force: true });
 
 	// The stage tears down and what was typed is left behind (not restored to a prior deck).
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 15_000 });
-	expect(await firstDeckSource(page)).toContain('_class: title');
+	expect(await firstDeckSource(page)).toContain('Q4 Board Update');
 	// The launch affordance is back.
 	await page.keyboard.press('Escape'); // close the deck menu the tap opened
 	await expect(page.getByRole('button', { name: 'More controls' })).toBeVisible();
