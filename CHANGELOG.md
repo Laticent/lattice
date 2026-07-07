@@ -68,6 +68,12 @@ in patch versions.
   `font-weight`); the Tome receipt no longer contradicts its neighbor's timeline;
   "Send a correction" is now a link; and the marketing footers point at the Studio
   instead of the frozen Drawing Board and Workbench.
+  The page also shows the product — a funnel slide pair (light + dark, same
+  Markdown, one palette line apart) in "What we believe." The pair is page-owned
+  (`docs/public/comparison/`) and rasterized from the component's committed
+  gallery PDF, so it is the *current* engine's render: the Studio's `showcase/`
+  seed assets turned out to be a frozen late-June snapshot that had drifted from
+  the engine (stale sample copy and styling, caught by the owner on a real phone).
 
 - **Vetrina: a caption can be a lesson, not a subtitle — the Teaching Beat.** A storyboard beat can
   set `read: true`: after the caption shows, the cursor dips to the narration dock and the words
