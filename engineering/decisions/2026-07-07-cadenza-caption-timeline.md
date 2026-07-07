@@ -125,6 +125,12 @@ audio re-anchor + the pure `lib/cadenza/` core are **refinement rungs after v1**
 Practice surface (so the dwell coach and the caption highlight can't visibly desync) and retire the
 others; the estimator's constant is that single source.
 
+**A rehearsal *mirror*, not a teleprompter (expert lens, §14).** A live caption's failure mode is the
+*teleprompter crutch* — it induces *reading* over *delivering*, killing the eye contact and authenticity
+that make a talk land (Gallo/Anderson). v1's job is to help the presenter *internalize* the note, so the
+caption should be designed to build independence from the exact words (e.g. a "fades as you master it"
+mode), never to be leaned on during the real delivery.
+
 ## 4. The governing rules (from the adversarial trio)
 
 These constrain *both* products and every later stage. They are the inversion's highest-leverage rules,
@@ -216,6 +222,15 @@ the onset to `onSentence` fire-time makes the highlight **lead the voice** by th
 - **No second note source / no re-defining a note or a description** — `notes-core` owns both boundaries.
 - **No auto-export or auto-speech of unconfirmed AI text to a blind listener** — the confirm gate holds.
 - **No pointer/reveal spectacle** — meaning-bearing + degradable, or cut (narrative-step §8).
+- **Neither product produces the delivered talk (expert lens, §14).** "Slides are not the show" (Reynolds).
+  Product A is a rehearsal *mirror* of the presenter's own note; Product B is a faithful accessible audio
+  *edition*. Read-aloud carries the arc/"so what"/WIIFY/close only insofar as an author wrote them — the
+  machine never invents them. Corollary inversion to state plainly: **the sparser (better) the deck, the
+  more meaning read-aloud loses**, because more of it lived in the speaker.
+- **No "narrate everything" default** — the planner is **SKIP-biased opt-in** (restraint / signal over
+  noise), not `narrate: on` opt-out. READ refuses verbatim bullet lists (prose or a governing sentence);
+  ANNOUNCE must carry real orientation value or degrade to SKIP (reading every title is the agenda-slide
+  antipattern); `emphasize` is capped (over-emphasis is no emphasis).
 
 ## 9. Staged plan (each its own increment / branch — HARD RULE #17)
 
@@ -243,9 +258,35 @@ the onset to `onSentence` fire-time makes the highlight **lead the voice** by th
   sweep/scale; a `still` escape hatch collapses it to a static caption.
 - **Sub-sentence caption lines** — if VTT lines need to be tighter than sentences, define how a measured
   sentence span apportions across child cues (v1 sidesteps via one cue == one sentence).
-- **The descriptor/builder authoring layer** — a serializable narration descriptor + a fluent builder
-  (the Vetrina `Step[]`/`scene()` analog) is deferred until a hand-authoring consumer exists; the pattern
-  is reused, the layer isn't built before its caller.
+- **The narration DSL — its shape, from first principles (four-lens review, §14).** A serializable
+  narration descriptor (`NarrationPlan`) + a fluent builder (the Vetrina `Step[]`/`scene()` analog). The
+  review fixed its shape so it can't become the thing the trio forbade:
+  - **`NarrationPlan` is compile OUTPUT** the (future) planner emits — never hand-written, never persisted
+    (it's `dist/`-class; the deck is always the source, the plan is recompiled).
+  - **`register` / `confirmed` are DERIVED and non-authorable** — set by *which `notes-core` extractor
+    produced the text* (`notesFromHtml` → note, `descriptionFromHtml` → description) + the confirm gate. So
+    the forbidden note+description merge and an unconfirmed EXPLAIN are **unrepresentable**, not merely
+    labeled. No verb turns note text into `description` register.
+  - **One human authoring face** — sparse markdown *overrides* over a working derived default, a bounded
+    closed set `{skip, unskip, correct-spoken, add-`describe:`, coarse hold}`. `spoken` is derived
+    (`normalize.js`); `cadence` is typed/relative (a `hold`, an emphasis mark), **never raw ms** in authored
+    input (baked ms doesn't survive the §2.1 re-anchor); emphasis anchors to the post-normalize spoken token
+    set. The builder is a deferred *code-only* hatch, not a promoted authoring route (a `.pause().emphasize()`
+    chain is the per-element animation pane the narrative-step ADR §8.1 bans).
+  - **A `narrate:` override is a CONSUMED comment, cloned from `describe:`** in `notes-core` (a
+    `NARRATE_MATCHER` + exclusion in `notesFromHtml` + a reader + the Marpit parity-test update) — **or it is
+    spoken aloud as a note** (verified: `notes-core` treats any non-pragma, non-`describe:` comment as a
+    note). **No `` `hush` `` postfix** — it collides with the QR grammar's opposite meaning, reintroduces the
+    invisible-marker anti-pattern that ADR rejected, and is per-element hand-authoring (narrative-step §8.1).
+  - **Anchoring reuses the narrative-step derived structural identity** (document-order/role), because the
+    rendered model has a stable per-*slide* handle (`data-lattice-slide`) but **no per-*element* handle** —
+    a hand-assigned `s3.chart` id is invented and rots on edit.
+- **Rhetoric on the subjective side only (open fork for the owner).** The expert lens (§14) is clear that
+  what makes narration *exceptional* — a deck-level throughline / Big Idea, inter-slide bridges, the turn,
+  the callback, the deliberate hold, the close — is **subjective rhetoric** derivation cannot produce. These
+  could be a Product-A authored "talk-script/throughline" layer, but they must stay **forbidden on Product
+  B's `describe:`-fed accessibility plan** (they'd re-open the merge). Whether to build that authored
+  rhetoric layer at all is an owner call, flagged not decided.
 
 ## 11. Gates (per increment)
 
@@ -299,3 +340,38 @@ fuse**, cut the v1 scope to something real, and drop two overclaims. What it cau
 Verdict carried forward: the split is sound; the shared engine (Cadenza) is buildable now; the anchor is a
 real project on the `describe:` safety rails, not a v1 slice. The screen-off acceptance test (rule 3) is the
 guard that keeps a shipped presenter aid from being mistaken for the accessibility anchor.
+
+## 14. Four-lens review — the DSL + the presentation-expert lens
+
+The narration DSL was put through a second four-lens pass: red team + Munger inversion + independent
+checker + a **presentation-design-expert lens** (how the canon — Reynolds, Duarte, Knaflic, Minto,
+Anderson/Gallo, Tufte, Weissman — judges an *exceptional* presentation).
+
+**Technical trio (converged):**
+1. **`register`/`confirmed` must be DERIVED, not author-written** — else the forbidden merge and an
+   unconfirmed EXPLAIN are hand-signable. Fixed in the DSL shape (§10): derived from which `notes-core`
+   extractor produced the text; the merge is *unrepresentable*.
+2. **One human authoring face** — sparse markdown overrides over a derived default; `NarrationPlan` is
+   compile output (never hand-written/persisted); the builder is a deferred code-only hatch (§10).
+3. **Verified collisions:** `<!-- narrate: skip -->` is spoken aloud today (needs a `describe:`-style
+   consumed matcher); `` `hush` `` collides with the QR grammar + is invisible + is the per-element
+   hand-authoring the narrative-step ADR bans. Dropped (§10).
+4. **No stable per-element handle exists** in the rendered model (only per-slide `data-lattice-slide`) —
+   anchoring must reuse the narrative-step derived structural identity, not invented ids (§10).
+5. **Authored cadence as raw ms is a defect** — mechanics, a second cadence source, and it doesn't survive
+   the §2.1 re-anchor; hints become typed/relative, resolved by the one estimator (§10).
+
+**Presentation-expert lens (the ambition):** the design was *"defensively excellent and rhetorically
+modest"* — safe, but walled off from what makes a talk exceptional (the throughline, the "so what," the
+WIIFY, the turn, the close). "Slides are not the show" (Reynolds); **the sparser/better the deck, the more
+meaning read-aloud loses.** Concrete folds: neither product is the delivered talk (§8); SKIP-biased opt-in,
+READ refuses bullet lists, ANNOUNCE must carry orientation (§8); a rehearsal *mirror* not a teleprompter
+crutch (§3); `describe:` maps almost exactly onto professional audio-description standards (B's strongest
+alignment), with radio/audiobook craft (recap/foreshadow/chapter transport) as the bar above "beat a screen
+reader." The rhetorical moves that make it exceptional are **subjective**, so they belong on the authored
+side only and stay forbidden on B's `describe:`-fed plan (§10 open fork).
+
+*Framing note: this ledger records what the review found against today's code. The owner's direction is to
+build the future clean rather than wire today's half-baked read-aloud surfaces — so the craft + trust
+findings here are kept as the quality bar, while the "defer / smallest-slice / reuse-existing" framing is
+superseded by a forthcoming north-star pass aimed at the expert "exceptional" standard.*
