@@ -379,7 +379,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
     } catch {}
   }
 
-  function playBlob(blob, signal) {
+  // `onStart` (optional, additive) fires at the TRUE audio start with the measured
+  // { onsetMs, durationMs } — the anchors a caption cursor re-anchors to (Cadenza's
+  // hybrid timing). Read at src.start(0), NOT at onSentence fire-time, so the
+  // highlight can't lead the voice by the decode gap. No caller that omits it is affected.
+  function playBlob(blob, signal, onStart) {
     return new Promise((resolve) => {
       const ctx = getCtx();
       if (!ctx) { resolve({ ok: false, error: 'no AudioContext' }); return; }
@@ -410,6 +414,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
             src.onended = () => finish({ ok: true });
             currentSource = src;
             src.start(0);
+            // The measured span, captured at the real start. Best-effort + guarded so
+            // instrumentation can never break playback.
+            if (onStart) { try { onStart({ onsetMs: ctx.currentTime * 1000, durationMs: (audioBuf?.duration || 0) * 1000 }); } catch {} }
           } catch (e) { finish({ ok: false, error: 'play failed: ' + (e?.message || e) }); }
         }, (e) => finish({ ok: false, error: 'decode failed (' + (e?.message || e || 'unsupported audio') + ')' }));
       }).catch((e) => finish({ ok: false, error: 'read failed: ' + (e?.message || e) }));
@@ -429,7 +436,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
   // speak() narrates `text`, sentence by sentence, and resolves when finished (or
   // aborted). It NEVER rejects — a rung failure falls through to silence. A new
   // speak() (or stop()) cancels any in-flight narration first (barge-in).
-  async function speak({ text, voice, signal, onSentence, onState } = {}) {
+  async function speak({ text, voice, signal, onSentence, onSentenceTiming, onState } = {}) {
     stop();
     const ctl = new AbortController();
     activeCtl = ctl;
@@ -461,7 +468,13 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
           if (sig.aborted) break;
           await waitIfPaused(sig);
           onSentence?.(sentences[i]);
-          await playBlob(blob, sig);
+          // Additive: forward the MEASURED onset/duration + the sentence INDEX (so a
+          // consumer never has to infer it from text, which duplicate sentences make
+          // ambiguous) to a caption cursor. Omitted → playBlob's onStart is undefined.
+          const onStart = onSentenceTiming
+            ? ({ onsetMs, durationMs }) => onSentenceTiming({ index: i, text: sentences[i], onsetMs, durationMs })
+            : undefined;
+          await playBlob(blob, sig, onStart);
         }
       }
     } finally {
@@ -509,6 +522,10 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
     unlock,
     speaking() { return !!activeCtl; },
     paused() { return !!pausedGate; },
+    // The owned WebAudio clock, in ms — the monotonic time source a caption cursor
+    // ticks against (onsets from onSentenceTiming are read off the SAME clock). 0
+    // before any audio has played. Read-only; never creates the context.
+    audioTimeMs() { return audioCtx ? audioCtx.currentTime * 1000 : 0; },
     rung() { return pickRung().name },
     kokoroSupported,
     availability() {
