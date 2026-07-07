@@ -145,6 +145,12 @@ OPTIONS
                           phone (swipe between slides), with a toggle back to the
                           fixed deck. PDF/PPTX/PNG outputs are unchanged. Can also
                           be enabled per-deck with a 'fluid: true' front-matter key.
+      --player            Emit the .html as the self-contained PLAYER: a portable,
+                          offline, double-clickable file with three views (Present,
+                          Read Slides, Read Article), all assets inlined, the slide
+                          HTML sanitized under a strict CSP, and the deck source
+                          embedded for lossless re-import. Supersedes --fluid. Can
+                          also be enabled with a 'player: true' front-matter key.
       --present           Mark the PDF to open directly in full-screen
                           presentation mode (Adobe Acrobat/Reader and most desktop
                           viewers honour this; browser-embedded viewers ignore it
@@ -239,6 +245,7 @@ function parseArgs(argv) {
     if (a === '--notes') { flags.notes = true; continue; }
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
+    if (a === '--player') { flags.player = true; continue; }
     if (a === '--present') { flags.present = true; continue; }
     if (a === '--raster') { flags.raster = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
@@ -1022,6 +1029,16 @@ const FLUID_VIEW = !!flags.fluid || /^\s*fluid:\s*(?:true|yes|on)\s*$/im.test(fm
 // view (see applyPresentMode). Enabled by the `--present` flag OR a
 // `present: true` front-matter key, mirroring --fluid. PDF only.
 const PRESENT = !!flags.present || /^\s*present:\s*(?:true|yes|on)\s*$/im.test(fm);
+// Self-contained HTML PLAYER (2026-07-07-html-lattice-player.md): rewrite the .html
+// sidecar into a portable, offline, three-view player (Present · Read·Slides ·
+// Read·Article). Like --fluid, it only affects the written .html, after raster.
+// Enabled by `--player` OR a `player: true` front-matter key. Takes precedence over
+// --fluid (the player is the richer viewer). Frozen player-runtime version stamp.
+const PLAYER = !!flags.player || /^\s*player:\s*(?:true|yes|on)\s*$/im.test(fm);
+const PLAYER_VERSION = '1';
+const ENGINE_BUILD = (() => {
+  try { return require('./package.json').version; } catch { return ''; }
+})();
 // Auto-split (the Fit Ladder SPLIT move) — opt-in per deck. The flag + the capacity
 // map are hoisted to module scope so BOTH passes see them: the cheap STATIC pre-pass
 // in engineSlides() (count > capacity.hard), and the MEASURED loop in the export IIFE
@@ -1924,7 +1941,26 @@ async function renderBody(browser, g, closeBrowser) {
   // Fluid viewer: now that the raster (which loaded the CLEAN outHtml) is done,
   // overwrite outHtml with the responsive viewer. The exported PDF/PPTX/PNG bytes
   // above are unaffected — they never saw the marker or the inlined runtime.
-  if (FLUID_VIEW) {
+  if (PLAYER) {
+    // The self-contained player supersedes the fluid viewer when both are set.
+    const { buildPlayerHtml } = require('./lib/export/html-player.js');
+    const { html: playerHtml, report } = await buildPlayerHtml({
+      docHtml: cleanDocHtml,
+      source: rawMd,
+      title: deckTitle,
+      theme: { name: paletteName },
+      config: deckFm,
+      now: Date.now(),
+      build: ENGINE_BUILD,
+      playerVersion: PLAYER_VERSION,
+    });
+    fs.writeFileSync(outHtml, playerHtml);
+    if (!QUIET) {
+      console.log(`Player: ${outHtml} (${report.images} image(s) inlined)`);
+      if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
+      if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime-inflated component(s) not yet baked (state-chart / function-plot) — headless bake lands in a later slice`);
+    }
+  } else if (FLUID_VIEW) {
     fs.writeFileSync(outHtml, toFluidViewer(cleanDocHtml));
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
