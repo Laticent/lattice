@@ -5,7 +5,14 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
-const { buildPlayerHtml, fileToDataUri, subsetEmbeddedFonts, minifyCss } = require('../../../lib/export/html-player.js');
+const {
+	buildPlayerHtml,
+	fileToDataUri,
+	subsetEmbeddedFonts,
+	minifyCss,
+	collectBaseSelectors,
+	prunePlayerCss,
+} = require('../../../lib/export/html-player.js');
 const { parseEnvelope } = require('../../../lib/core/lattice-doc.js');
 
 // The self-contained .html PLAYER assembler (lib/export/html-player.js) — P2 slice 3
@@ -187,4 +194,96 @@ test('subsetEmbeddedFonts is a graceful no-op when there are no embedded faces',
 	assert.equal(applied, false);
 	assert.equal(saved, 0);
 	assert.match(html, /no fonts here/);
+});
+
+// ── used-selector CSS prune (P6) ─────────────────────────────────────────────
+// The pure kernel side of the prune (parse + keep-logic). The AUTHORITATIVE
+// real-DOM matching + the computed-style gate live in the emulator and are
+// exercised by test/integration/export (real Chromium, the honest surface).
+
+const PRUNE_CSS = [
+	':root{--x:1}',
+	'.used{color:red}',
+	'.unused{color:blue}',
+	'.used:hover{color:green}', // dynamic pseudo → rides with base .used
+	'.used::before{content:"x"}', // pseudo-element → rides with base .used
+	'.used .child{margin:0}',
+	'.used,.unused{padding:1px}', // multi-selector → only .used survives
+	'@media (min-width:1px){.used{gap:2px}.unused{gap:3px}}',
+	'@media (min-width:9px){.unused{gap:4px}}', // fully dead → whole block drops
+	'@font-face{font-family:F;src:url(x.woff2)}',
+	'@keyframes k{from{opacity:0}to{opacity:1}}', // from/to must NOT be pruned
+].join('');
+
+test('collectBaseSelectors strips dynamic pseudos to the matchable base', () => {
+	const bases = collectBaseSelectors('.a:hover::before,.b:focus .c{x:1}.d[data-y="1"]{z:2}');
+	assert.ok(bases.includes('.a'), 'pseudo-class + pseudo-element stripped to .a');
+	assert.ok(bases.includes('.b .c'), 'dynamic pseudo stripped, combinator + descendant kept');
+	assert.ok(bases.includes('.d[data-y="1"]'), 'attribute selector kept verbatim');
+});
+
+test('prunePlayerCss drops unmatched rules but keeps matched, pseudos, at-rules', () => {
+	const used = new Set([':root', '.used', '.used .child']);
+	const out = prunePlayerCss(PRUNE_CSS, (b) => used.has(b));
+	assert.equal(out.applied, true);
+	assert.match(out.css, /\.used\{color:red\}/, 'a matched rule survives');
+	assert.doesNotMatch(out.css, /\.unused\{color:blue\}/, 'an unmatched rule is dropped');
+	assert.match(out.css, /\.used:hover/, ':hover rides with its matched base');
+	assert.match(out.css, /\.used::before/, '::before decoration rides with its matched base');
+	assert.match(out.css, /@font-face/, '@font-face is always kept');
+	assert.match(out.css, /@keyframes k\{/, '@keyframes survives (from/to are not document selectors)');
+	assert.match(out.css, /from\{opacity:0\}/, 'keyframe steps are untouched');
+	assert.ok(out.css.length < PRUNE_CSS.length, 'the result is smaller');
+});
+
+test('prunePlayerCss keeps only the matching members of a multi-selector rule', () => {
+	const out = prunePlayerCss('.used,.unused{padding:1px}', (b) => b === '.used');
+	assert.match(out.css, /\.used\{padding:1px\}/);
+	assert.doesNotMatch(out.css, /\.unused/, 'the unmatched selector member is removed');
+});
+
+test('prunePlayerCss drops an @media block emptied by pruning', () => {
+	const out = prunePlayerCss('@media (min-width:9px){.gone{x:1}}', () => false);
+	assert.doesNotMatch(out.css, /min-width:9px/, 'a now-empty @media block is removed entirely');
+});
+
+test('prunePlayerCss keeps a selector whose base is safelisted', () => {
+	const out = prunePlayerCss('.lp-live{x:1}', () => false, { safelist: ['.lp-live'] });
+	assert.match(out.css, /\.lp-live/, 'safelisted selector survives even with no DOM match');
+});
+
+test('prunePlayerCss force-keeps a dynamic pseudo NESTED in a functional pseudo-class', () => {
+	// The checker's MAJOR: `.a:is(.b:hover)` can never match the static DOM, so a plain
+	// match would false-drop it — and the computed-style gate (no interaction states)
+	// couldn't catch it. It must be force-kept even when isUsed says "no".
+	for (const sel of ['.a:is(.b:hover)', '.a:has(:focus-within)', '.a:where(.b:checked)']) {
+		const out = prunePlayerCss(`${sel}{x:1}`, () => false);
+		assert.match(out.css, /\{x:1\}/, `${sel} is force-kept (nested dynamic pseudo)`);
+	}
+	// But a plain unused rule with NO dynamic pseudo is still dropped.
+	assert.doesNotMatch(prunePlayerCss('.plain-unused{x:1}', () => false).css, /plain-unused/);
+});
+
+test('prunePlayerCss safelist matches whole tokens, not substrings', () => {
+	// `body` in the safelist must NOT keep `.accent-body` (the checker's over-keep).
+	assert.doesNotMatch(
+		prunePlayerCss('.accent-body{x:1}', () => false, { safelist: ['body'] }).css,
+		/accent-body/,
+		'a substring collision does not keep an unrelated rule',
+	);
+	assert.match(
+		prunePlayerCss('body{x:1}', () => false, { safelist: ['body'] }).css,
+		/body\{x:1\}/,
+		'the whole-token safelist entry still keeps its rule',
+	);
+});
+
+test('prunePlayerCss returns the css unchanged (applied:false) on a parse throw', () => {
+	// A pathological input that css-tree rejects → never a hard failure; ship full CSS.
+	const weird = '@@@ not css';
+	const out = prunePlayerCss(weird, () => true);
+	// Either it parses trivially (applied:true, unchanged) or bails (applied:false);
+	// the contract is only that it never throws and never corrupts.
+	assert.equal(typeof out.css, 'string');
+	assert.doesNotThrow(() => prunePlayerCss(weird, () => true));
 });

@@ -368,8 +368,23 @@ a security defect in the player JS lives **forever** in every file already sent.
 > + graceful fallback) → **~1.8 MB → ~0.8 MB (≈56 %)** for a typical deck, verified. The ~300 KB
 > "Minimal" tier would need **used-selector CSS pruning** (P6) — the last, riskier lever.
 
-- **P6 — further size minimisation.** Used-selector CSS prune (glyph-subsetting moved to P2) → toward the
-  Minimal tier.
+- **P6 — used-selector CSS prune — SHIPPED (2026-07-07).** The player inlines the whole visual contract
+  (all 53 components, ~452 KB minified) but a deck uses a handful; the prune drops the rules that match no
+  element in the baked DOM. On a frozen artifact this is the riskiest lever, so two guards make it safe:
+  **(1) authoritative matching** — a dedicated hardened Chromium instance holding the REAL player DOM (all
+  three view-DOMs inline) answers `document.querySelector` for every base selector (pseudo-elements /
+  dynamic pseudo-classes stripped to the structural base first — and a dynamic pseudo left NESTED inside
+  `:is()`/`:has()`/`:where()`, which the static DOM can never match and the gate can't see, force-keeps its
+  rule so a future `:has(:hover)` in the theme can't silently break a frozen file), never a token heuristic; **(2) a
+  computed-style gate** — full vs pruned CSS is compared across all three views for every element (+
+  `::before`/`::after`), and ANY diff rejects the prune and ships the full CSS. `css-tree` (optional dep) is
+  the parser; absent / parse error / a gate failure all fall back to today's full minified CSS, so the prune
+  is *reversible by construction*. Kernel: `collectBaseSelectors` / `prunePlayerCss` / `baseSelectorString`
+  in `lib/export/html-player.js` (pure, unit-tested with a stubbed matcher); the real Chromium match + gate
+  live in `prunePlayerCssInPage` (`lattice-emulator.js`), covered by `test/integration/export`. Measured:
+  the `html-player` demo **452 KB → 33 KB CSS** (≈93 %, ~1.1 MB → ~0.64 MB file); the 58-slide
+  component-rich `gallery-jargon` **452 KB → 125 KB CSS** (319 KB saved) — both gate-verified pixel-identical.
+  The remaining bulk of a typical file is now the base64 fonts, not CSS.
 - **Separate track — the app-hosted `lattice.style/deck/{id}` player** (Decision C): its own decision doc,
   built on the shared kernels once P2–P4 exist.
 

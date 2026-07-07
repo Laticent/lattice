@@ -206,6 +206,7 @@
     "tinybench": "^6.0.2"
   },
   "optionalDependencies": {
+    "css-tree": "^3.2.1",
     "subset-font": "^2.5.0"
   }
 }
