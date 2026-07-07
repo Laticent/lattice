@@ -47,6 +47,57 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
+<!-- _class: list-steps chevron -->
+<!-- _footer: "chevron · list-steps chevron — Down-chevron tabs cascade into keyed description cards." -->
+
+## Make the case, one stage at a time.
+
+1. Problem
+   - Define the problem that is causing the pain.
+2. Vision
+   - Show what the world looks like once it is solved.
+3. Approach
+   - Detail the moves that get from here to there.
+4. Plan
+   - Commit to concrete steps, owners, and a date.
+
+
+---
+
+<!-- _class: list-steps converge -->
+<!-- _footer: "converge · list-steps converge — Tapering bands narrow onto the final stage (a qualitative funnel)." -->
+
+## Many concerns narrow onto one plan.
+
+1. Problem
+   - Define the problem that is causing the pain.
+2. Vision
+   - Show what the world looks like once it is solved.
+3. Approach
+   - Detail the moves that get from here to there.
+4. Plan
+   - Commit to concrete steps, owners, and a date.
+
+
+---
+
+<!-- _class: list-steps ghost -->
+<!-- _footer: "ghost · list-steps ghost — Faint chevron watermark, eyebrow label, hero description — editorial." -->
+
+## The argument, stated plainly.
+
+1. Problem
+   - Define the problem that is causing the pain.
+2. Vision
+   - Show what the world looks like once it is solved.
+3. Approach
+   - Detail the moves that get from here to there.
+4. Plan
+   - Commit to concrete steps, owners, and a date.
+
+
+---
+
 <!-- _class: list-steps timeline -->
 <!-- _footer: "timeline · list-steps timeline — Steps string along a line." -->
 
@@ -261,3 +312,4 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 - `split-panel` — phase label + heading on the left, steps on the right
 - `roadmap` — phased grid across multiple workstreams
 - `list` — tenets or values (the `principles` variant) rather than a sequence
+- `funnel` — a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant
