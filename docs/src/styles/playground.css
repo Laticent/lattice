@@ -22,51 +22,58 @@
 	overflow: hidden;
 }
 
+/* One tidy row, all controls on a single centered baseline (32px tall), tight
+   consistent spacing. Wraps gracefully when the width runs out. The old
+   stacked uppercase picker labels are retired — every control carries its own
+   placeholder + aria-label, so the labels go sr-only at every width and the
+   whole row keeps one clean height. */
 .pg-bar {
 	display: flex;
-	align-items: flex-end;
-	gap: 12px 16px;
+	align-items: center;
+	gap: 8px;
 	flex-wrap: wrap;
-	padding: 10px 16px;
+	padding: 8px 16px;
 	border-bottom: 1px solid var(--border);
 	background: var(--bg-alt);
 }
-/* Pickers cluster: Component + Variant side by side, labels stacked on top so
-   the controls keep the width. Compact on desktop, a full-width row on mobile. */
+/* Pickers cluster: Component + Step side by side, in-line with the mode toggle. */
 .pg-bar-pickers {
 	display: flex;
-	gap: 10px;
-	flex: 0 1 460px;
+	align-items: center;
+	gap: 8px;
+	flex: 0 1 400px;
 	min-width: 0;
 }
-/* Actions cluster: Edit/Preview tabs + status grouped at the left, the
-   Deck-setup / Galleries triggers pushed to the right. */
+/* Actions cluster: status + focus/setup/galleries triggers, pushed to the far
+   right of the row. */
 .pg-bar-actions {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	justify-content: flex-end;
+	gap: 8px;
 	flex: 1 1 auto;
 	min-width: 0;
 }
 .pg-picker {
 	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	gap: 4px;
+	align-items: center;
 	min-width: 0;
 }
 .pg-template-picker {
 	flex: 1.6 1 0;
 }
-.pg-variant-picker {
+.pg-step-picker {
 	flex: 1 1 0;
 }
+/* Labels are sr-only at every width — the controls speak for themselves. */
 .pg-picker-label {
-	font-family: var(--font-mono);
-	font-size: 10.5px;
-	letter-spacing: 0.1em;
-	text-transform: uppercase;
-	color: var(--text-muted);
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 /* Mobile Edit | Preview tabs (the shadcn Tabs island) — visible only on small
@@ -151,6 +158,18 @@
 	padding: 8px 14px;
 	border-bottom: 1px solid var(--border);
 	background: var(--bg-alt);
+}
+/* The pane label earns its place ONLY on the desktop Edit split, where it names
+   two panes and hosts the collapse button. In Explore there's one preview and
+   nothing to collapse to; on a phone only one pane ever shows and the mode
+   toggle already says which — so the label is pure noise. Reclaim its band. */
+body[data-view='read'] .pg-pane-label {
+	display: none;
+}
+@media (max-width: 820px) {
+	.pg-pane-label {
+		display: none;
+	}
 }
 .pg-pane-label-spacer {
 	flex: 1;
@@ -254,10 +273,19 @@
 	.pg-mobile-tabs {
 		display: block;
 	}
-	/* Each cluster takes its own full-width row: pickers on top, actions below
-	   (with the triggers at the true right edge, so their Sheets open cleanly). */
-	.pg-bar-pickers,
+	/* Two tidy rows on a phone: row 1 is the mode toggle (left) + the action
+	   triggers (right); row 2 is the two pickers sharing the full width. `order`
+	   pulls the pickers below the actions despite their DOM position between the
+	   mode toggle and the actions. */
+	.pg-mode {
+		order: 1;
+	}
 	.pg-bar-actions {
+		order: 2;
+		flex: 1 1 auto;
+	}
+	.pg-bar-pickers {
+		order: 3;
 		flex: 1 1 100%;
 	}
 	.pg-split {
@@ -576,7 +604,6 @@ body[data-view='edit'] .pg-walk {
 .pg-mode {
 	display: inline-flex;
 	flex: 0 0 auto;
-	align-self: end;
 	border: 1px solid var(--border);
 	border-radius: 9px;
 	overflow: hidden;
@@ -615,20 +642,53 @@ body[data-view='edit'] .pg-walk {
 }
 
 /* Mobile Explore: pin the walk bar to the bottom (reader-first — the deck fills
-   the band above it) and drop the picker labels to sr-only for space. */
+   the band above it). On a phone the walk bar carries `order` too, so give it a
+   value past the toolbar clusters (max order 3) to keep it last. */
 @media (max-width: 820px) {
 	body[data-view='read'] .pg-walk {
 		order: 10;
 	}
 }
-@media (max-width: 560px) {
-	.pg-picker-label {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
+
+/* ── Focus mode (2026-07-06) — the user-controllable space reclaim ────────────
+   One toggle (⤢) hides the whole toolbar so the deck (Explore) or the editor
+   (Edit) owns the full height; a slim floating pill (⤡) brings it back. The
+   walk bar stays in Explore, so stepping — the function — is never lost. The
+   attribute rides on <html> (seeded pre-paint in playground.astro) so a
+   returning focus-mode visitor never sees the toolbar flash then vanish. */
+:root[data-pg-focus] .pg-bar {
+	display: none;
+}
+.pg-focus-restore {
+	position: fixed;
+	top: calc(var(--pg-topbar-h, 56px) + 10px);
+	right: 12px;
+	z-index: 40;
+	display: grid;
+	place-items: center;
+	width: 34px;
+	height: 34px;
+	border: 1px solid var(--border);
+	border-radius: 9px;
+	background: color-mix(in srgb, var(--bg-alt) 86%, transparent);
+	color: var(--text-muted);
+	cursor: pointer;
+	opacity: 0.65;
+	backdrop-filter: blur(6px);
+	transition: opacity 0.14s ease, color 0.14s ease;
+}
+.pg-focus-restore:hover,
+.pg-focus-restore:focus-visible {
+	opacity: 1;
+	color: var(--accent);
+	border-color: var(--accent);
+}
+.pg-focus-restore svg {
+	width: 17px;
+	height: 17px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.pg-focus-restore {
+		transition: none;
 	}
 }

@@ -51,17 +51,55 @@ Stripped to `‹ Prev · N / M · Next ›` + the plan caption. Chips, Edit-this
 and the transcript are gone. On mobile Explore the walk bar pins to the bottom
 (`order`) so the deck fills the band above it.
 
+## The form pass — "function good, form dog shit"
+
+The strip-back kept every function but left the toolbar ugly: `align-items:
+flex-end` gave ragged baselines, the stacked uppercase mono picker labels
+("COMPONENT" / "STEP") ate a whole row of height and shouted, and the mobile
+layout stacked two full-width chrome rows before the deck. A pure form pass:
+
+- **One tidy row.** `.pg-bar` centers everything on a single 32px baseline with
+  one consistent gap. The stacked picker labels go **sr-only at every width** —
+  each control carries its own placeholder + `aria-label`, so nothing is lost to
+  a screen reader and the row keeps one clean height.
+- **Two tidy rows on a phone.** Row 1 is the mode toggle (left) + the action
+  triggers (right); row 2 is the two pickers sharing the full width (`order`
+  pulls the pickers below the actions). Actions collapse to icon-only ≤560px.
+- **The pane label earns its place only on the desktop Edit split** (two panes +
+  the collapse button). In Explore there's one preview and nothing to collapse
+  to; on a phone only one pane ever shows and the mode toggle already says which
+  — so `RENDERED SLIDES` / `MARKDOWN` is hidden there, reclaiming its band.
+
+## Focus mode — the user-controllable space reclaim
+
+One toggle (`⤢ Focus`, in the actions cluster) hides the whole toolbar via
+`:root[data-pg-focus]` so the deck (Explore) or the editor (Edit) owns the full
+height; a slim floating pill (`⤡`) brings the toolbar back. The walk bar stays
+in Explore, so stepping — the function — is never lost. The state persists
+(`lattice-docs-pg-focus`) at every width and is **seeded pre-paint** on `<html>`
+in `playground.astro`, so a returning focus-mode visitor never sees the SSR
+toolbar flash then vanish. This is the "allow users to reclaim space without
+compromising the functionality" ask — one control, one clear mental model,
+reversible.
+
 ## Files
 
 `docs/src/components/playground/PlaygroundApp.tsx` (mode toggle, unified
-`setViewMode`, step dropdown, `onLoadGallery` → Explore, dead-code removal),
-`WalkBar.tsx` (stripped), `docs/src/styles/playground.css` (`.pg-mode`, mobile
-bottom-pin, sr-only picker labels), `docs/src/playground/playground-tour.js`
-(retargeted: `.pg-mode`, `#pg-step`; variant/edit-slide steps removed).
+`setViewMode`, step dropdown, `onLoadGallery` → Explore, dead-code removal,
+`focusMode` state + toggle + restore pill), `WalkBar.tsx` (stripped),
+`docs/src/styles/playground.css` (`.pg-mode`, centered single-row `.pg-bar`,
+sr-only picker labels, 2-row mobile via `order`, Explore/mobile pane-label
+hide, focus-mode + restore pill), `docs/src/lib/playground-controller.ts`
+(`FOCUS_KEY`), `docs/src/pages/playground.astro` (focus pre-paint seed),
+`docs/src/playground/playground-tour.js` (retargeted: `.pg-mode`, `#pg-step`;
+variant/edit-slide steps removed).
 
 ## Verification
 
-Docs unit suite (770) green; component test reworked to the mode-toggle
-view↔pane invariant + fuzz. Screenshots at 390 (Explore + Edit) and 1440.
-Playground e2e specs updated to the new selectors. iOS Safari UNVERIFIED
-(headless sandbox; tracked with #783).
+Docs unit suite green; component test reworked to the mode-toggle view↔pane
+invariant + fuzz. Real built site (astro preview) screenshotted at **390, 820,
+and 1440** in Explore, Edit, and Focus — the clean single-row bar, the 2-row
+mobile stack, the desktop Edit split (labels retained), and focus mode (toolbar
+hidden, walk bar + restore pill) all confirmed on the real surface. The 24
+playground e2e specs (explore + state + paint) pass on desktop **and** mobile.
+iOS Safari UNVERIFIED (headless sandbox; tracked with #783).

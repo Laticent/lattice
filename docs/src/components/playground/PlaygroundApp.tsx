@@ -1,5 +1,6 @@
-import { Eye, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
+import { Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
+import { Button } from '@/components/ui/button';
 import {
 	Select,
 	SelectContent,
@@ -16,6 +17,7 @@ import {
 	COMPONENT_KEY,
 	classTokenLine,
 	detectComponent,
+	FOCUS_KEY,
 	fingerprint,
 	HANDOFF_KEY,
 	INSERTED_HASH_KEY,
@@ -137,6 +139,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// `exploreSourceRef` through the same engine/iframe, leaving the editor's
 	// source (and SOURCE_KEY) untouched.
 	const [view, setView] = React.useState<'read' | 'edit'>('edit');
+	// Focus mode — the user-controllable space reclaim: one toggle hides the whole
+	// toolbar so the deck/editor owns the height (the walk bar stays, so Explore's
+	// stepping is never lost). Persisted + seeded pre-paint (playground.astro) on
+	// <html> so a returning focus visitor never sees the toolbar flash then vanish.
+	const [focusMode, setFocusMode] = React.useState(() => {
+		try {
+			return localStorage.getItem(FOCUS_KEY) === '1';
+		} catch {
+			return false;
+		}
+	});
 	const [walk, setWalk] = React.useState<Walk | null>(null);
 	const [walkNotice, setWalkNotice] = React.useState<string | null>(null);
 	const viewRef = React.useRef<'read' | 'edit'>('edit');
@@ -910,6 +923,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	}, []);
 	React.useEffect(() => () => document.body.removeAttribute('data-view'), []);
 
+	// Focus mode → <html data-pg-focus> (CSS hides the toolbar) + persistence. On
+	// <html>, not <body>, so the pre-paint seed can set it before <body> exists.
+	React.useEffect(() => {
+		document.documentElement.toggleAttribute('data-pg-focus', focusMode);
+		try {
+			localStorage.setItem(FOCUS_KEY, focusMode ? '1' : '0');
+		} catch {}
+	}, [focusMode]);
+	React.useEffect(() => () => document.documentElement.removeAttribute('data-pg-focus'), []);
+	const toggleFocus = React.useCallback(() => setFocusMode((v) => !v), []);
+
 	// Walking writes the address bar (replaceState — shareable position, no
 	// history spam); leaving Explore strips our params.
 	React.useEffect(() => {
@@ -1135,6 +1159,21 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							!
 						</button>
 					)}
+					{/* Focus — hide the toolbar so the deck (Explore) or editor (Edit) owns
+					    the full height. The walk bar stays, so stepping is never lost; a
+					    floating pill (below) brings the toolbar back. */}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						aria-label="Focus"
+						aria-pressed={focusMode}
+						title="Focus — hide the toolbar to reclaim space"
+						onClick={toggleFocus}
+					>
+						<Maximize2 aria-hidden="true" />
+						<span className="hidden sm:inline">Focus</span>
+					</Button>
 					{/* Debug lives inside Deck setup (Preview · debug) — no separate icon. */}
 					<DeckSetupSheet
 						getSource={view === 'read' ? exploreGetSource : getSource}
@@ -1152,6 +1191,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					/>
 				</div>
 			</div>
+
+			{/* Focus restore — a slim floating pill shown only in focus mode; the one
+			    way back to the toolbar the CSS has hidden. */}
+			{focusMode && (
+				<button
+					type="button"
+					className="pg-focus-restore"
+					aria-label="Exit focus"
+					title="Exit focus — show the toolbar"
+					onClick={toggleFocus}
+				>
+					<Minimize2 aria-hidden="true" />
+				</button>
+			)}
 
 			{/* The Walk bar — Explore's stepping (Prev · N / M · Next + caption).
 			    Mounted whenever a walk exists (CSS hides it in Edit) so the tour's

@@ -28,11 +28,13 @@ async function gotoPlayground(page: import('@playwright/test').Page) {
 	await expect(page.locator('#pg-template-trigger')).toBeVisible();
 }
 
-// On phones the playground shows one pane at a time and flips to Preview after
-// an insert; the editor lives behind the Edit tab. No-op on desktop (tabs hidden).
+// Make sure the editor is showing: flip to ✎ Edit via the mode toggle if the
+// CodeMirror surface isn't visible (a pick can leave the mobile pane on preview).
 async function ensureEditorPane(page: import('@playwright/test').Page) {
-	const editTab = page.getByRole('tab', { name: 'Markdown', exact: true });
-	if (await editTab.isVisible()) await editTab.click();
+	if (!(await page.locator('.cm-content').first().isVisible())) {
+		await page.getByRole('tab', { name: 'Edit', exact: true }).click();
+		await expect(page.locator('.cm-content').first()).toBeVisible();
+	}
 }
 
 async function typeInEditor(page: import('@playwright/test').Page, text: string) {
@@ -78,25 +80,6 @@ test('@crosswidth the picker detaches honestly when the draft holds no recognize
 	await expect(page.locator('#pg-template-trigger')).toContainText('draft differs');
 });
 
-test('@crosswidth a keystroke in the body does not snap a chosen variant back to default', async ({ page }) => {
-	await gotoPlayground(page);
-	await page.locator('#pg-template-trigger').click();
-	await page.getByPlaceholder(/Search components/).fill('kpi');
-	await page.getByRole('option', { name: 'kpi', exact: true }).click();
-	await page.locator('#pg-variant').click();
-	await page.getByRole('option', { name: 'spotlight' }).click();
-	await expect(page.locator('#pg-variant')).toContainText('spotlight');
-
-	// Append body text WITHOUT touching the class line.
-	await ensureEditorPane(page);
-	const cm = page.locator('.cm-content').first();
-	await cm.click();
-	await page.keyboard.press('ControlOrMeta+End');
-	await page.keyboard.type('\nmore body prose');
-
-	// The variant select holds; the class line never changed.
-	await expect(page.locator('#pg-variant')).toContainText('spotlight');
-});
 
 test('@crosswidth a handoff over a pristine draft applies automatically and is consumed', async ({ page }) => {
 	await page.addInitScript(

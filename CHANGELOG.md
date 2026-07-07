@@ -48,6 +48,18 @@ in patch versions.
   split stays), and the walk bar pins to the bottom so the deck dominates.
   Design: `engineering/decisions/2026-07-06-playground-simplify.md`.
 
+- **The Playground toolbar is redesigned clean and responsive (mobile · tablet ·
+  desktop).** One tidy centered row on wide screens — the stacked uppercase
+  picker labels are retired (sr-only; each control carries its own placeholder +
+  aria-label), so the whole bar keeps a single 32px height; two tidy rows on a
+  phone (mode + actions on top, the two pickers below). The `RENDERED SLIDES` /
+  `MARKDOWN` pane label is hidden wherever it's noise (Explore, and mobile
+  single-pane) and kept only on the desktop Edit split where it names two panes.
+  New **Focus** control (⤢) hides the whole toolbar so the deck or editor owns
+  the full height — a floating pill (⤡) brings it back; the walk bar stays, so
+  Explore's stepping is never lost. Focus persists at every width and is seeded
+  pre-paint (no toolbar flash on return).
+
 - **The Studio demo's "watch it build" beats sync on the real parse, not a timer.**
   Each slide the demo types now waits on `until(() => railReady(k))` — the slide rail
   gaining its Kth button — before typing the next, instead of a fixed settle that
