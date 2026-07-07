@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { splitSentences } from '@/lib/cadenza';
 
 // Studio read-aloud — the REAL synchronized read-along.
 //
@@ -120,7 +121,7 @@ function getVoice(): Promise<VoiceModel | null> {
  * on a manual stop/pause or a slide change) — the hook Present's autoplay chains on.
  */
 export function useReadAloud(text: string, opts?: { onFinish?: () => void }): ReadAloudState {
-	const sentences = React.useMemo(() => splitForCaption(text), [text]);
+	const sentences = React.useMemo(() => splitSentences(text), [text]);
 	const [playing, setPlaying] = React.useState(false);
 	const [index, setIndex] = React.useState(-1);
 	const [rung, setRung] = React.useState<string | null>(null);
@@ -231,12 +232,4 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 	React.useEffect(() => stop, [text, stop]);
 
 	return { playing, index, sentences, rung, play, pause, toggle, stop };
-}
-
-/** Sentence split for the teleprompter — mirrors voice-model's splitSentences. */
-function splitForCaption(text: string): string[] {
-	const s = String(text || '').replace(/\s+/g, ' ').trim();
-	if (!s) return [];
-	const parts = s.match(/[^.!?…]*[.!?…]+(?=\s|$)|[^.!?…]+$/g) || [s];
-	return parts.map((p) => p.trim()).filter(Boolean);
 }
