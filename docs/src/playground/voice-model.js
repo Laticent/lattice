@@ -308,7 +308,11 @@ function kokoroRung({ getVoice }) {
 
 // ── The adapter ───────────────────────────────────────────────────────────────
 
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice = false } = {}) {
+// NOTE: no `= false` default on allowBrowserVoice — a defaulted binding here makes
+// tsc (checkJs) infer the param type as ONLY `{ allowBrowserVoice?: boolean }`, which
+// drops getOpenRouterKey and breaks read-aloud.ts's call. `=== true` below is already
+// false for undefined, so the default is unnecessary anyway.
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice } = {}) {
   const settings = () => (getSettings ? getSettings() : {}) || {};
   const getKey = () => (getOpenRouterKey ? getOpenRouterKey() : null) || null;
 
