@@ -76,7 +76,7 @@ const FAMILIES = [
 	{
 		name: 'Code engines',
 		tools: 'Marp · reveal.js · Slidev · Beamer · Quarto · Spectacle',
-		win: 'Our own family. Free, open source, plain text, deterministic, versionable. If you live in a terminal, these are the lock-in-free choice, and Slidev is the sharpest of the lot.',
+		win: 'Our own family. Free, open source, plain text, versionable. If you live in a terminal, these are the lock-in-free choice, and Slidev is the sharpest of the lot.',
 		fall: 'None of them ships a design system. You get a handful of themes and raw CSS, then you build every layout yourself — and boardroom polish takes real design work most people can’t spare. Several use a browser-print PDF path, so the output changes machine to machine. They’re for developers; we’re for anyone who has to make the deck — the Studio runs the whole loop, write to present, in a browser tab.',
 	},
 	{
@@ -170,7 +170,7 @@ const RECEIPTS = [
 	},
 	{
 		stat: '≤20%',
-		head: 'How much of an AI deck checks out',
+		head: 'How much of a mainstream AI deck checks out',
 		body: 'One team fed the same 10-slide prompt to the tools most people would reach for and verified every claim against primary sources. Gamma scored 20%. Beautiful.ai and Canva managed 17%. Canva pinned invented statistics to a real, named school. A fast draft is still a draft full of things to check.',
 		cite: 'Fact-check of 6 AI presentation makers, Feb 2026',
 		href: 'https://medium.com/@neel2108/we-fact-checked-6-ai-presentation-makers-heres-how-often-they-hallucinate-90e6093e42fc',
@@ -178,7 +178,7 @@ const RECEIPTS = [
 	},
 	{
 		stat: '20M+',
-		head: 'Users whose decks got switched off',
+		head: 'Decks that vanished with their platform',
 		body: 'Tome reached more than 20 million users, then shut its presentation product down in 2025 because almost nobody would pay for the output. Decks nobody exported in time were gone for good. A Markdown deck in your own folder cannot be switched off under you.',
 		cite: 'Founder’s post + VentureBeat, 2025',
 		href: 'https://venturebeat.com/technology/tomes-founders-ditch-viral-presentation-app-with-20m-users-to-build-ai',
@@ -223,7 +223,7 @@ const ROADMAP = [
 	},
 	{
 		head: 'Deeper agent authoring',
-		body: 'The machine catalog and the shared linter make Lattice an easy target for an LLM — so an agent drafts a deck that lands on brand instead of guessing at layout.',
+		body: 'The machine catalog and the shared linter make Lattice an easy target for an LLM — so an agent drafts a deck that lands on brand the first time.',
 		accent: false,
 	},
 	{
@@ -277,7 +277,7 @@ const ROADMAP = [
 			.cmp-table th, .cmp-table td { padding: 13px 14px; text-align: center; border-bottom: 1px solid var(--border); }
 			.cmp-table thead th { font-size: 13px; font-weight: 600; color: var(--text-heading); vertical-align: bottom; }
 			.cmp-table thead th.col-lattice { color: var(--accent); }
-			.cmp-table td.axis, .cmp-table th.axis { text-align: left; width: 38%; }
+			.cmp-table td.axis, .cmp-table th.axis { text-align: left; width: 34%; }
 			.cmp-table tbody tr:hover { background: var(--bg-alt); }
 			.cmp-table .col-lattice { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 			/* Below the table's min-width the competitor columns sit off-screen; a
@@ -357,8 +357,8 @@ const ROADMAP = [
 						<div class="flex flex-col justify-center rounded-xl border border-border bg-muted p-[26px]">
 							<h3 class="m-0 mb-3 t-body text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Consistency is the tell</h3>
 							<p class="m-0 text-[15.5px] leading-[1.6] text-foreground">
-								What separates a professional deck from an amateur one usually isn’t budget or talent — it’s consistency,
-								held on every slide. The moment it breaks, the reader stops trusting the argument. A design system holds
+								What separates a professional deck from an amateur one usually isn’t budget or talent — it’s consistency
+								that holds from the first slide to the last. The moment it breaks, the reader stops trusting the argument. A design system keeps
 								it for you, so the trust is never yours to lose.
 							</p>
 						</div>
@@ -405,6 +405,26 @@ const ROADMAP = [
 							</p>
 						</div>
 					</div>
+					<figure class="m-0 mt-[18px] grid grid-cols-1 gap-[18px] sm:grid-cols-2">
+						<img
+							src={url('showcase/funnel.light.webp')}
+							alt="A finished Lattice slide in a light palette: a labeled funnel chart titled “Where the signup pipeline leaks”"
+							class="w-full rounded-xl border border-border shadow-sm"
+							width="1600" height="900"
+							loading="lazy"
+						/>
+						<img
+							src={url('showcase/funnel.dark.webp')}
+							alt="The same slide rendered in a dark palette — identical layout and content, one theme switch apart"
+							class="w-full rounded-xl border border-border shadow-sm"
+							width="1600" height="900"
+							loading="lazy"
+						/>
+						<figcaption class="text-[13px] leading-[1.5] text-muted-foreground sm:col-span-2">
+							Not a mockup: the same slide, rendered by the engine in a light and a dark palette — identical layout, one
+							theme line apart. <a class="font-semibold text-primary hover:underline" href={url('components/')}>Browse all fifty-six components →</a>
+						</figcaption>
+					</figure>
 				</div>
 			</section>
 
@@ -540,7 +560,7 @@ const ROADMAP = [
 						</div>
 						<div class="cmp-fade md:hidden" aria-hidden="true"></div>
 					</div>
-					<p class="mt-2 text-[12.5px] text-muted-foreground md:hidden">Swipe the table sideways for the other four columns. →</p>
+					<p class="mt-2 text-[12.5px] text-muted-foreground md:hidden">Swipe the table sideways for the other four&nbsp;columns&nbsp;→</p>
 					<p class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] text-muted-foreground">
 						<span><span class="mk mk-yes align-middle">●</span> Strong</span>
 						<span><span class="mk mk-part align-middle">◐</span> Partial / conditional</span>
@@ -611,7 +631,7 @@ const ROADMAP = [
 							<li>A <strong>design-token system</strong> and <strong>14 editorial palettes + 4 color-blind-safe</strong>. Layouts never name a color.</li>
 							<li><strong>Boardroom-grade defaults</strong> and WCAG-AA contrast in every palette, light and dark.</li>
 							<li>An <strong>owned, pinned render engine</strong>. It renders plain HTML sections, not SVG-wrapped slides, so modern CSS works natively — container queries, counters, masks — and layout holds across browsers.</li>
-							<li><strong>Agent authoring.</strong> A machine catalog and a shared linter steer an LLM to on-brand decks instead of guesses.</li>
+							<li><strong>Agent authoring.</strong> A machine catalog and a shared linter give an LLM rails, so it composes valid, on-brand decks.</li>
 							<li><strong>The Studio.</strong> The whole loop in a browser tab — write with live preview, get coached, apply fixes from chat, present — nothing to install.</li>
 							<li><strong>A finish layer.</strong> Premium surface treatments — marks, washes, backdrops — applied with one line and tuned visually in Fabricate, the Studio’s finish designer.</li>
 						</ul>
