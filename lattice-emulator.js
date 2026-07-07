@@ -1727,6 +1727,24 @@ async function renderBody(browser, g, closeBrowser) {
       await document.fonts.ready;
     } catch (_e) { /* fonts API unavailable — proceed with whatever loaded */ }
   }), 'load fonts');
+  // Bake dynamic components for the self-contained player: `state-chart` (inline
+  // script) and `function-plot` (file:// script) draw their SVGs in the BROWSER at
+  // load. Capture the inflated DOM NOW — after load, before the raster's SVG-image
+  // swap mutates it — so the player ships static SVG (§A2b) instead of a dead
+  // `file://`/inline script the player would strip (leaving the diagram blank).
+  let inflatedPlayerHtml = null;
+  if (PLAYER && (hasStateChart || hasFunctionPlot)) {
+    try {
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 200))); // let async inflaters settle
+      inflatedPlayerHtml = await page.evaluate(() => {
+        // Clone (never mutate the live page — the raster below still needs it) and
+        // drop the authoring overflow ring the watcher may have toggled on.
+        const root = document.documentElement.cloneNode(true);
+        for (const s of root.querySelectorAll('section.overflow')) s.classList.remove('overflow');
+        return `<!DOCTYPE html>\n${root.outerHTML}`;
+      });
+    } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
+  }
   // Detect sections whose content exceeds the 1280×720 frame, to WARN the
   // author (with exact pages) — but keep the EXPORT itself clean: the red ring
   // + "OVERFLOWS" tab are NOT burned into the deliverable PDF. A loud red box in
@@ -1949,7 +1967,10 @@ async function renderBody(browser, g, closeBrowser) {
     try {
       const { buildPlayerHtml } = require('./lib/export/html-player.js');
       const { html: playerHtml, report } = await buildPlayerHtml({
-        docHtml: cleanDocHtml,
+        // Prefer the browser-inflated DOM when the deck has dynamic components, so
+        // state-chart / function-plot ship as baked static SVG (§A2b); else the
+        // clean static render (fast path, no re-serialize).
+        docHtml: inflatedPlayerHtml || cleanDocHtml,
         source: rawMd,
         title: deckTitle,
         theme: { name: paletteName },
@@ -1962,7 +1983,8 @@ async function renderBody(browser, g, closeBrowser) {
       if (!QUIET) {
         console.log(`Player: ${outHtml} (${report.images} image(s) inlined)`);
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
-        if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime-inflated component(s) not yet baked (state-chart / function-plot) — headless bake lands in a later slice`);
+        if (inflatedPlayerHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
+        else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
       }
     } catch (err) {
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
