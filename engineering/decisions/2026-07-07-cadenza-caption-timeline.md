@@ -1,519 +1,301 @@
 ---
 status: proposed
-summary: Cadenza — a separate, pure, framework-free library (the Vetrina/notes-core shape) that turns a slide's or deck's narration text into a TIMED CAPTION TRACK (readable caption lines, each split into words carrying start/end times) so a consumer can highlight the word being spoken now. One data model, three payoffs — accessibility closed captions (WebVTT/SRT, with WebVTT's own karaoke word-timestamp syntax), a read-along word highlight with NO audio required, and the clock a future text-to-speech feature rides. Timing is a HYBRID two-tier model mirroring the voice ladder: a deterministic text ESTIMATE is the always-available baseline (offline, no audio), and when TTS plays each sentence's MEASURED onset + duration re-anchors its words proportionally within the measured span — no forced-alignment dependency for v1. The library owns NO audio and NO DOM: it emits a timeline plus a pure clock->active-word cursor the consumer ticks off any clock (WebAudio time, a plain timer, or a scrub bar). Reuses the STORYBOARD WINS — the three-layer authoring model Vetrina proved: a low-level total primitive (CaptionTrack + cursor), a declarative DESCRIPTOR (narration + cadence intent as round-trippable data, the Step[] analog), and an ergonomic fluent BUILDER that compiles to it. The CORE is designed to SPIN OFF as its own zero-dependency open-source library — it imports nothing Lattice-specific (import-boundary gate), so the notes-core reuse (HARD RULE #1) lives in a thin Lattice ADAPTER at the edge, never in the core. Lands the read-aloud ADR's two deferred items ("streaming + clock sync", "pause-beats as silences / modeled delivery") and is held to Vetrina's bar (designed by subtraction, hardened by the adversarial trio before the winner ships). Design only; nothing is built yet.
+summary: Read-aloud & captions for Lattice, reshaped by an adversarial trio (red team + Munger inversion + independent checker) into TWO products on one shared engine that must NEVER fuse. (1) CADENZA — a pure, framework-free caption/timeline engine (text → cues → words with start/end ms; hybrid timing: text estimate baseline re-anchored by measured TTS sentence spans; a pure clock→active-word cursor; WebVTT/SRT out). (2) v1 = PRESENTER REHEARSAL CAPTION — a sentence-level caption/highlight on the existing Practice stage, over the note Practice already speaks, VERBATIM, on the existing estimate timer; mostly wiring existing parts + a thin highlight UI, no planner, no derivation, no accessibility claim. (3) the ANCHOR (later, separate) = an ACCESSIBLE self-narrating deck that reads the CONFIRMED describe: channel (objective, structure-first, human-confirmed) on the accessible-descriptions ADR's safety rails — never an auto-derived blend of the subjective speaker note with objective facts (the trio's central finding: merging them re-introduces the exact 'a wrong description is worse than none' defect that ADR fixed). The semantics-aware NARRATION PLANNER (per-element READ/EXPLAIN/GLOSS/ANNOUNCE/SKIP) is the anchor's net-new capability — NOT pure (needs DOM bbox), NOT shipped (deterministic chart-data derivation is deferred), so it is a project, not a v1 slice. Drops the earlier 'same experience blind or driving / audio-complete' and 'deterministic chart-insight' overclaims. Design only; nothing built.
 ---
 
-# Cadenza — the caption-timeline library (2026-07-07)
+# Cadenza — the caption/timeline engine, and the read-aloud products on it (2026-07-07)
 
-> **What it is.** Give Cadenza a slide's narration (its speaker note, or a prose fallback) and it
-> returns a **CaptionTrack**: an ordered list of **cues** (caption lines you'd actually display),
-> each split into **words** with `{ startMs, endMs }`. A tiny, pure **cursor** maps any clock time
-> to "the cue and word that are active right now." That single artifact serves three consumers at
-> once — a screen reader / video player (via a standard **WebVTT** file), a read-along **word
-> highlight** in the UI, and a future **text-to-speech** run that needs to know when to fall silent
-> and which word it's on.
+> **What this is.** A design for reading a Lattice deck aloud with synchronized captions. It began as
+> "caption the speaker-note timeline," widened (with the owner) toward "a deck that presents itself
+> eyes-free," and was then reshaped by the full adversarial trio (HARD RULE #25) into a **cleanly split**
+> plan: one pure engine (**Cadenza**), a small honest **v1** (presenter-rehearsal captions), and a
+> separate, safety-railed **anchor** (an accessible self-narrating deck). **This doc is design only —
+> nothing is built.** The review ledgers are §12 (first critic) + §13 (the trio).
 
-This is the **design contract**, in the shape of the Vetrina ADR: the model, the API surface, the
-timing math, what is deliberately left out, and why. **Scope of this doc is design only** — no code
-lands with it. The build is staged in §11.
-
-The name follows the house aesthetic (Vetrina, Indaco, Cuoio): *cadenza* is Italian for **cadence** —
-the timing-and-pacing curve that is the whole point of the library.
+The name follows the house aesthetic (Vetrina, Indaco, Cuoio): *cadenza* is Italian for **cadence** — the
+timing/pacing curve the engine computes.
 
 ---
 
-## 1. Why this is a middle layer, not a from-scratch build
+## 1. The one load-bearing decision — two products, one engine, never fused
 
-The instinct on hearing "closed captions with word timing and TTS" is that it's a large new
-subsystem. It isn't — because the two hard halves already exist in the tree, and the piece missing
-between them is exactly this timeline. Cadenza is the **connective tissue**, and naming it as its own
-library keeps that tissue pure, testable in Node, and reusable by every render path (the same
-discipline that makes `notes-core.js` and `lint-core.js` load-bearing). The honest framing (after the
-§14 adversarial pass) is **"reuse the sentence split; instrument the clock"** — not "everything
-already exists": the segmenter and the estimate primitive are reusable as-is, but the measured-timing
-half needs a small, well-scoped addition to `voice-model` (§6), not zero.
+The design was quietly **two products fused into one**, and the fusion was a defect. The trio's central
+finding: a self-narrating *accessibility* track and a presenter's *rehearsal* track draw on **opposite
+correctness rules**, and blending them re-introduces the exact hazard the accessible-descriptions ADR
+(`2026-07-04`) spent its whole adversarial budget fixing — *"a wrong description is worse than none"* for
+someone who can't see the slide. So the plan splits, and the two halves **must not fuse**:
 
-| The half that exists | Where | What it already gives us |
-|---|---|---|
-| **The script** — what to speak, per slide | `lib/authoring/notes-core.js` | The single source of truth for the note/non-note boundary (HARD RULE #1). Cadenza **consumes** it; it never re-derives what a note is. |
-| **Playback, sentence by sentence** — *most* of a clock | `docs/src/playground/voice-model.js` | `speak({ onSentence })` already segments into sentences, prefetches one ahead, plays over an owned WebAudio context, and can abort mid-note. **But — corrected by the §14 review — it does NOT yet expose the onset/duration/clock the re-anchor needs:** `onSentence` fires with the sentence *text only*, and *before* `playBlob` (so its fire-time leads the real audio by the decode gap); `audioCtx` and `audioBuf.duration` are private. Stage 4 adds **small, well-scoped instrumentation** to surface them (§6). |
-| **The estimate primitive** — in miniature | `docs/src/lib/vetrina/storyboard.ts` (`readMs`) | A sentence-level reading estimate (`≈ 300 + 200·words`). Cadenza generalizes it to **word granularity** — which is what makes a read-along work with *no audio at all*. |
-
-The read-aloud decision doc (`2026-06-14-read-aloud-kokoro.md`) even names the two open items this
-library closes, in its own §Later:
-
-- **"Streaming + clock sync"** (its Open Q #2) — keep the highlight in lockstep with the per-slide
-  dwell/pause clock over both the OpenRouter response stream and Kokoro's splitter.
-- **"Pause-beats as silences (modeled delivery)"** — thread the rehearsal plan's timed beats
-  (`pause` / `eye` / `breathe`) into the narration so the voice holds its breath where the coach says
-  "let the number land," instead of a flat TTS dump.
-
-Cadenza is where both of those live, because both are fundamentally **"a timeline of when words and
-silences happen"** — a data problem, upstream of any audio.
-
----
-
-## 2. The one idea — a timeline is data; the clock is someone else's
-
-Cadenza **produces a timeline and reads a clock. It never owns audio and never touches the DOM.**
-That single constraint is what keeps it a clean library rather than a tangle bolted onto Practice
-mode, and it is the direct analogue of Vetrina's "theater vs. substance":
-
-- **The timeline is pure data** — `CaptionTrack` is plain objects with millisecond timings and
-  character offsets back into the source text. It computes identically in Node, a CI gate, and the
-  browser (the `notes-core` / `lint-core` property).
-- **The clock is injected.** The consumer decides what drives time: the WebAudio `currentTime` while
-  TTS plays, a plain `requestAnimationFrame` timer for a silent read-along, or a user dragging a
-  scrub bar. Cadenza's `cursor.at(timeMs)` is a pure function of the timeline; it does not start,
-  stop, or know about audio.
-- **Highlighting is the consumer's job.** Cadenza hands back `{ cueIndex, wordIndex }`; the UI
-  toggles a class. Cadenza ships no CSS and imports nothing but its own modules (an import-boundary
-  gate enforces it, exactly as Vetrina's core is fenced to its folder).
-
-Two properties fall out, and they are the entire value:
-
-1. **It works with zero audio.** Captions and a read-along highlight are available the instant you
-   have text — no TTS, no network, no model download. That is a genuine **accessibility** win on its
-   own (a deaf-blind reader gets a WebVTT file; a low-vision reader gets a synced read-along at their
-   own pace), not merely a TTS accessory.
-2. **The same timeline drives real speech.** When TTS *is* playing, the measured audio re-anchors the
-   estimate (§6), so the highlight tracks the actual voice — and the same cue boundaries tell the
-   voice where the authored silences go.
-
----
-
-## 3. Three ways to author, one timeline — the storyboard wins, reused
-
-We are not inventing an authoring model; we are **reusing the one Vetrina proved**. Its
-storyboard/scene/primitive stack (a *low-level total primitive*, a *declarative descriptor as data*,
-and a *fluent recording builder* on top) is a genuine win — it lets a layer optimize for authoring
-without ever losing the escape hatch, because everything compiles down to the same substrate. Cadenza
-adopts the same three layers, one timeline:
-
-| Layer | What it is | Reach for it when |
-|---|---|---|
-| **`CaptionTrack` + `cursor`** (the primitive) | the total substrate — cues/words/times as data + the pure clock→word map. Everything below compiles to this. | you have timings already (a measured track, an imported `.vtt`) and just need to play/scan/export them. |
-| **`Script` descriptor** (the DSL as data) | narration + *cadence intent* as a round-trippable, serializable data model — an ordered list of `Line`s carrying text and typed pacing hints (`emphasis`, `pause`, `beat`, `rate`). The **`Step[]` analog**. Its real v1 consumer is **modeled delivery** (§11 stage 5): the rehearsal plan's beats *are* descriptor pacing hints. | you're describing narration declaratively (a deck's notes + coach beats → a script) and want it to survive a round-trip through storage or the wire. |
-| **`script()…build()`** (the fluent builder) | an ergonomic recorder; `build()` ≡ compile the recorded `Line[]` to a `Script`, then to a `CaptionTrack`. The **`scene()` analog**. **Deferred (§7 Subtraction):** no v1 stage hand-authors cadence, so by our own subtraction rule this layer ships only when a hand-authoring consumer appears — the architecture keeps the seam, not the code. | *(later)* a UI wants to hand-tune a slide's cadence with chaining + readability. |
-
-They **compose and are isomorphic** (Vetrina's discipline: `scene()` is *defined as*
-`storyboard(seed, this.toData())`, one interpreter, no drift). So a `script().say('…').pause(400).build()`
-call *would* lower to the same `Script` descriptor a deck import produces, which lowers to the same
-`CaptionTrack` the cursor plays — but the point of keeping the model is the **descriptor as the
-serialization boundary** (what a `.lattice` project or a future collaboration layer stores, exactly as
-a `Step[]` is for Vetrina), not the builder sugar, which waits for a caller.
-
-The **cadence model (§5.6) is the descriptor's vocabulary** — the typed pacing hints are a small,
-curated set (not raw ms), mirroring how Vetrina froze its five-gesture alphabet. A new hint must earn a
-new *meaning*, or it doesn't join the set.
-
-## 4. Built to spin off — the core is a standalone library
-
-The stated intent is that Cadenza **eventually spins off as its own open-source library**, the way
-Vetrina was designed to. That is a *design constraint now*, not a someday-refactor — it dictates where
-the seams go, so extraction later is a `git mv`, not a rewrite:
-
-- **The core imports nothing Lattice-specific.** `track` · `segment` · `cadence` · `script` · `cursor`
-  · `vtt` depend only on the DOM-free JS runtime (like Vetrina's core, which imports nothing but the DOM — and
-  Cadenza needs even less: it's pure data, no DOM). An **import-boundary gate fails the build** if
-  anything in the core reaches outside the folder, so the fence can't rot (the same mechanism that
-  keeps Vetrina self-contained).
-- **Lattice reuse lives in ADAPTERS at the edge, never in the core.** The `notes-core` reuse (HARD
-  RULE #1) and the rehearsal-beats reuse are **adapters** that feed *plain text and typed hints* into
-  the standalone core — they sit *outside* the fenced core (in the Lattice consumer), so the core has
-  zero Lattice knowledge. Cadenza-the-library takes a string and gives a track; Cadenza-in-Lattice
-  wires the note boundary and the coach beats to it. This is the only way "don't reinvent `notes-core`"
-  and "spin off a clean core" both hold: reuse at the seam, purity at the center.
-- **Framework-free, zero-dep, buildless-friendly, richly documented.** A plain `<script type="module">`
-  is enough; a README carries the contract; the public surface is small and named. The bar is Vetrina's,
-  explicitly (§ the excellence bar, below).
-- **Its own name + license posture.** `cadenza` is a self-titled folder today and an
-  independently-publishable package tomorrow (its own README, its own semver, MIT-or-similar), depending
-  on nothing in this repo.
-
-**The excellence bar.** This is held to the Vetrina standard, not merely "it works": designed by
-**subtraction** (every layer must justify its existence against the primitive), and — because a shared
-timing kernel that a future TTS + accessibility surface both depend on is real blast radius and
-genuinely novel — the *design* is hardened by the **adversarial trio** (red team + Munger inversion +
-independent checker) before the winner ships, per HARD RULE #25. The subtraction targets are already
-visible: no second note source, no player, no renderer, no forced alignment in v1 (§8). If a layer or a
-field can't earn its place against the `CaptionTrack` primitive, it's cut.
-
-## 5. The axes
-
-| Axis | What it decides |
-|---|---|
-| **Granularity** | Word-level vs. line/cue-level vs. both (nested). |
-| **Timing source** | Estimated from text vs. measured from audio vs. hybrid. |
-| **Audio coupling** | Owns playback vs. audio-agnostic (reads an injected clock). |
-| **Input** | Raw text vs. a slide vs. a whole deck; where the script comes from. |
-| **Interop / output** | A bespoke JS object only vs. a standard caption file (WebVTT/SRT). |
-| **Cadence model** | A raw ms-per-word knob vs. a small curated pacing model + authored pauses. |
-| **Placement** | Docs-side (next to voice-model) vs. engine-side pure core (shared, gated). |
-
-### 5.1 Granularity — **both, nested**
-
-Closed captions are displayed as **lines** (a readable phrase — the WebVTT/SRT unit, ~1–2 lines, a
-few seconds each). A karaoke highlight needs **words**. These are not competing choices; they nest.
-A `cue` is a caption line with a start/end; it contains `words[]`, each with its own start/end inside
-the cue. Display renders cues; the highlight walks words within the active cue. One model, both
-consumers.
-
-### 5.2 Timing source — **hybrid (decided)**
-
-The crux, and the decided fork. Three candidates:
-
-| Candidate | Strength | Weakness | Verdict |
+| | **Cadenza** (the engine) | **A — Presenter rehearsal caption** (v1) | **B — Accessible self-narrating deck** (the anchor, later) |
 |---|---|---|---|
-| **Estimate-only** | Pure, deterministic, offline, zero deps; works with no audio. | Word timings drift from the real voice on long/uneven sentences. | The **baseline**, but not the whole answer. |
-| **Measured-only** | Tracks the real voice exactly. | Needs audio to exist *at all* — no captions before playback, nothing offline; and today's engines give sentence spans, not word timestamps. | Rejected as the sole source — it strands the accessibility case. |
-| **Hybrid** | Estimate is always available; measurement refines it when present. | A little more machinery (a re-anchor step). | **Decided.** |
+| What | pure text → timed cues/words + cursor + WebVTT | captions/highlight of the presenter's *own note*, spoken **verbatim**, in Practice | an eyes-free spoken deck that reads the **confirmed `describe:`** channel |
+| Register | none (it times whatever text it's given) | **note** — subjective, "what you'd say" | **description** — objective, "what's on the slide," human-confirmed |
+| Correctness | n/a | verbatim (the voice ladder already enforces it) | structure-first, no hallucination, **confirm gate** (the ADR's apparatus) |
+| Status | net-new, buildable now, pure | **v1** — mostly wiring + a thin highlight surface | a project (needs the planner; not pure; depends on deferred chart work) |
 
-The **hybrid** mirrors the voice ladder's own philosophy ("a great default, refined by reality, never
-owning correctness"). The estimate is computed purely from text and is always present. When TTS
-plays, each sentence reports its **measured onset and duration** — which `voice-model` can compute
-cheaply but does **not** surface today (the §14 review corrected an earlier "already knows" claim; the
-onset is `ctx.currentTime` at `src.start(0)` and the duration is `audioBuf.duration`, both currently
-private — stage 4 exposes them, §6). Cadenza then **rescales that sentence's word estimates to fill the
-measured span** (§6). Words highlight *proportionally within the measured sentence* — accurate to the
-sentence boundary, smoothly interpolated within it. **v1 fixes the anchor unit at one cue == one
-sentence** (segment only at terminators), so "the sentence's words" and "the cue's words" are the same
-set and the re-anchor is unambiguous; sub-sentence caption-line wrapping is deferred (§12), and would
-need a rule for apportioning a measured sentence span across its child cues. This needs **no
-forced-alignment dependency** (WhisperX-class) for v1; true per-word acoustic alignment is a documented
-Later (§12).
+**The rule that falls out of the whole trio:** *never speak an auto-derived blend of the subjective note
+and objective facts to a listener who can't see the slide.* The rehearsal product reads the note; the
+accessibility product reads the confirmed description; Cadenza is the shared clock underneath. Everything
+below serves that split.
 
-### 5.3 Audio coupling — **agnostic** (see §2).
+## 2. Cadenza — the caption/timeline engine (the shared substrate)
 
-### 5.4 Input — **text, with a deck/slide convenience that reuses `notes-core`**
+Cadenza is a pure, framework-free library: **give it text, get back a timed caption track** — an ordered
+list of **cues** (caption lines), each split into **words** with `{ startMs, endMs }` — plus a pure
+**cursor** that maps any clock time to the active `{ cueIndex, wordIndex }`. It **owns no audio and no
+DOM**: it emits a timeline and reads an injected clock (the WebAudio `currentTime` during TTS, a plain
+timer for a silent read-along, or a scrub bar). Highlighting is the consumer's job — Cadenza returns
+indices; the UI toggles a class. This is the `notes-core`/`lint-core` purity discipline, and it's what
+lets both products (and a future `.vtt` export) share one timing core.
 
-The core operates on a **string** (the narration). But authors think in slides and decks, so the
-Lattice **adapter** offers a convenience layer. Note (per the §14 review) exactly what it must supply,
-because none of it is free: `notes-core.extractSlideNotes` takes **rendered `<section>` HTML** (not
-markdown, not a deck object), so the adapter feeds it the render; and the **prose fallback** for a
-note-less slide lives in the rehearsal/plan layer (`drawing-board-practice.js`'s `plan.slides[i].snippet`),
-**not** in `notes-core` — the adapter wires both. What `notes-core` alone guarantees is the one thing
-that matters: the **note/non-note boundary** (HARD RULE #1). A caption is a *projection of the note*,
-so it must agree on what a note is; reusing that boundary is non-negotiable. The adapter then emits a
-**per-slide track** plus a **deck timeline** (tracks concatenated, slide boundaries carried as cue
-metadata).
+### 2.1 The timing model — hybrid (estimate baseline + measured re-anchor)
 
-### 5.5 Interop — **WebVTT is the primary output** (and it is *not* incidental)
-
-WebVTT (`.vtt`) is the web standard for captions — the caption **lines** are universally consumed by
-`<video>`/`<track>`, assistive tech, and any player. WebVTT *also* defines a **native karaoke syntax**
-— inline cue timestamps (`<00:00:01.234>`) with `<c>…</c>` classed spans — which is *exactly* the
-"current word" mechanism, standardized. So one `.vtt` file carries **all three** payloads in one
-artifact:
-
-- the caption **lines** — universally consumed accessibility captions;
-- the **word timings** — the highlight data, as standard cue timestamps. Honest caveat (§14): native
-  `<track>` rendering and most screen readers **ignore** inline cue timestamps for highlighting; the
-  karaoke layer needs a **JS consumer** driving `cuechange` (or our own cursor). The lines are
-  universal; the word highlight is opt-in machinery on top.
-- a **clock** a TTS run can read.
-
-That is a strong reason to make WebVTT a first-class *output shape of the model*, not a lossy
-after-the-fact serializer: the model already holds cues-with-words-with-times, which is precisely
-what a karaoke VTT encodes. **SRT** (`.srt`, line-level only, no word timing) is offered as a lesser
-export for tools that don't speak VTT. This also gives the **engine side** a natural artifact: a
-`.vtt` sidecar next to the exported PDF/HTML (paralleling how `notes-core` already emits per-page PDF
-note annotations), independent of any docs-site UI.
-
-### 5.6 Cadence model — **a small curated pacing model, not a raw knob**
-
-"Cadence" is the pacing curve, and it should be *curated* the way the read-aloud speed is
-(`slow | moderate | fast`), not a raw ms-per-word the eye can't reason about. The estimator is built
-from a few typed inputs:
-
-- a **base rate** (words/min) selected by a curated preset;
-- **punctuation pauses** — a comma < a period < a paragraph break (the natural breath points);
-- **length weighting** — longer/multisyllabic words take proportionally longer (a cheap
-  syllable/character heuristic, not a pronunciation dictionary);
-- **authored silences** — the rehearsal plan's timed beats (`pause` / `eye` / `breathe`) inserted as
-  explicit gaps between cues. This is the "modeled delivery" the read-aloud ADR deferred: Cadenza is
-  the home for it because a beat is just a silent cue in the timeline.
-
-### 5.7 Placement — **engine-side spinnable core (`lib/cadenza/`) + a thin Lattice adapter (`lib/cadenza-deck.js`)**
-
-`notes-core` lives engine-side in `lib/authoring/` because it is pure and shared across render paths;
-`voice-model` lives docs-side because it is a browser-playback concern. Cadenza's **core is pure**
-(text → timeline is fs-free and deterministic) and is needed by **both** the docs-site Practice
-highlight *and* a potential engine-side `.vtt` export — so the pure core belongs **engine-side**, in
-its own gated folder `lib/cadenza/`. The Lattice-coupled `notes-core` reuse is a **separate adapter**
-(`lib/cadenza-deck.js`) *outside* that fence (§4), so the core spins off clean. This is the `notes-core`
-pattern exactly: one pure core, surfaced by each path through its own channel — here with the extra
-discipline that the core carries zero Lattice knowledge, for the eventual extraction.
-
----
-
-## 6. The timing math (the one non-obvious part)
-
-Everything else is plumbing; this is the idea worth pinning down.
-
-**Estimate (always).** For a cue of words `w₁…wₙ`, assign each word a *weight* from the cadence model
-(base duration scaled by length/syllables), add the punctuation pause after the word that carries the
-terminator, and lay the words end-to-end from the cue's start. The cue's estimated duration is the
-sum. This is a pure function of `(text, cadencePreset)` — deterministic, unit-testable, offline. It
-is `readMs` generalized from "how long is this sentence" to "when is each word."
-
-**Re-anchor (when measured).** When TTS reports that sentence *k* actually started at `Tₖ` and lasted
-`Dₖ`, rescale that sentence's words so they exactly fill `[Tₖ, Tₖ + Dₖ]`:
+A pure text **estimate** is always available (offline, no audio) — it *is* the silent read-along and the
+caption clock. When TTS plays, each sentence's **measured onset + duration** re-anchors its words:
 
 ```
 scale = Dₖ / estimatedDurationₖ
-word.startMs = Tₖ + (word.estStart − cueEstStart) · scale
-word.endMs   = Tₖ + (word.estEnd   − cueEstStart) · scale
+word.startMs = Tₖ + (word.estStart − cueStart) · scale     // cueStart == sentence start (v1: one cue == one sentence)
+word.endMs   = Tₖ + (word.estEnd   − cueStart) · scale
 ```
 
-So the *relative* rhythm within a sentence stays the estimate's (which is fine — words inside one
-breath group are close), while the *absolute* anchor and total match the real audio. No per-word
-acoustic timestamps are required; the sentence boundary is the anchor. Because v1 fixes **one cue ==
-one sentence** (§5.2), `cueEstStart` *is* the sentence start, so `align(track, cueIndex, Tₖ, Dₖ)`
-is unambiguous.
+The relative rhythm inside a sentence stays the estimate's; the absolute anchor + total match real audio.
+No forced-alignment dependency (WhisperX-class) for v1. **v1 fixes one cue == one sentence** so the anchor
+unit is unambiguous; sub-sentence caption-line wrapping is deferred (§10).
 
-**Where `Tₖ` and `Dₖ` come from — the voice-model instrumentation (stage 4).** This is the part the
-§14 review corrected: the anchors are *not* free today. Three small, well-scoped additions to
-`voice-model`, none of which change its playback behavior:
+### 2.2 Display form vs spoken form — the normalization gap (trio finding)
 
-1. Capture the onset at the true audio start — `ctx.currentTime` read **inside** the decode callback
-   at `src.start(0)` (`playBlob`, `voice-model.js:412`), not at `onSentence` fire-time (which precedes
-   it by the decode gap).
-2. Read the duration — `audioBuf.duration` (already in hand at `:403`, currently discarded).
-3. Enrich the callback to `onSentence({ index, text, onsetMs, durationMs })` (it passes the bare
-   string today) and expose the context clock, so the cursor can both re-anchor *and* poll `currentTime`.
+A word carries **two forms**: what's **displayed** (`$4.2M`, `Q3`, `18.5%`) and what's **spoken**
+("four point two million dollars," "Q three," "eighteen point five percent"). These diverge in *length* —
+one caption token can be five spoken words — so **the timed word set is the SPOKEN set, and the caption
+renders the DISPLAY glyphs over it.** Normalization (a deterministic, reversible expansion of
+numbers/units/known acronyms) happens **upstream of segmentation**, or the word-highlight mis-maps on
+every number and currency. This is a real gap the first draft missed; the `Word` shape is
+`{ display, spoken, startMs, endMs, charOffset }`, and timing is computed on `spoken`.
 
-**The concrete failure this avoids:** if a consumer treats the *current* `onSentence` fire-time as the
-onset, the highlight **leads the voice** by the per-sentence decode latency (tens of ms, worse on a
-cold decode) and lands on the first word before it's spoken. The instrumentation is what makes the
-highlight honest.
+### 2.3 Interop — WebVTT primary, honestly scoped
 
-**Cursor.** `at(timeMs)` binary-searches the flat word list for the active word and its cue. Because
-the timeline is monotonic and pre-sorted, this is O(log n) per tick — cheap enough for a 60fps
-`requestAnimationFrame` highlight loop.
+WebVTT (`.vtt`) is the standard for captions — the **lines** are universally consumed (`<track>`, AT, any
+player). WebVTT *also* defines karaoke cue-timestamps (`<00:00:01.234>` + `<c>` spans) for word timing —
+but **native players/most screen readers ignore them for highlighting**; the karaoke layer needs a JS
+consumer (our cursor) driving `cuechange`. So: **lines are universal; the word highlight is opt-in
+machinery on top.** SRT is a lesser line-only export.
 
----
-
-## 7. The module shape (design, not built)
-
-A self-contained `lib/cadenza/` (import-boundary gated to its folder, like Vetrina's core), mirroring
-Vetrina's "pure data model + thin runtime" split. **Authoring-format constraint (from the §14 review):
-the core is pure browser ESM, fs-free** — no `module.exports`, no Node built-ins on any re-exported
-path — so Vite serves and bundles it directly (the shape of `lib/core/resolve-spectrum.js`, which the
-docs site *does* import straight). This is deliberately **not** the `notes-core` channel: `notes-core`
-is CJS reached only through a generated esbuild bundle (`authoring-core.generated.js`, because Vite-dev
-can't serve raw CJS), and you cannot cleanly re-export a symbol out of that bundle — so modeling
-cadenza on it would make the `splitSentences` re-export (below) impossible. The one Lattice-coupled
-module — the deck adapter — sits **outside** the fenced core so the core stays spin-off-clean:
+### 2.4 Module shape (pure ESM core; the placement claim, re-grounded)
 
 ```
-lib/cadenza/                     ← the spinnable core (pure browser ESM, zero Lattice deps; gated)
-  track.js     the CaptionTrack PRIMITIVE — cues[] each with words[] { text, startMs, endMs, charOffset }
-  segment.js   the CANONICAL segmenter — text -> cues (lines) -> words. Retires THREE live copies of
-               the sentence split (HARD RULE #15): voice-model.splitSentences AND studio
-               read-aloud.ts's splitForCaption both become re-exports of this.
-  cadence.js   the ESTIMATOR — text -> per-word/per-cue durations from the curated cadence model
-               (WPM preset + punctuation pauses + length weighting + authored beat silences).
-  cursor.js    the pure clock->active-word map: at(timeMs) -> { cueIndex, wordIndex }; and
-               align(track, cueIndex, onsetMs, durationMs) -> re-anchored track (§6; cue == sentence in v1).
-  vtt.js       WebVTT (with karaoke cue timestamps) + SRT serialization.
-  script.js    OPTIONAL, deferred — the DESCRIPTOR (Line[] as data, the Step[] analog) + fluent BUILDER
-               (the scene() analog). Ships only when a consumer needs it (see "Subtraction" below).
-  index.js     the public surface (framework-free — zero deps).
-
-lib/cadenza-deck.js              ← the Lattice ADAPTER (outside the fence; may import lib internals)
-               pull each slide's note via notes-core + the plan-layer prose fallback (§5.4), feed
-               text+hints into cadenza, emit per-slide tracks + a deck timeline. The only notes-core coupling.
+lib/cadenza/                 ← pure browser ESM, fs-free, zero Lattice deps, import-boundary gated
+  track.js     CaptionTrack — cues[] each with words[] { display, spoken, startMs, endMs, charOffset }
+  segment.js   the CANONICAL segmenter — retires THREE live copies (voice-model.splitSentences,
+               read-aloud.ts splitForCaption) to re-exports (HARD RULE #15)
+  normalize.js the deterministic display→spoken expansion (numbers/units/acronyms), reversible
+  cadence.js   the ESTIMATOR — text → per-word/per-cue durations from ONE curated cadence model
+  cursor.js    at(timeMs) → { cueIndex, wordIndex }; align(cueIndex, onsetMs, durationMs) → re-anchor
+  vtt.js       WebVTT (karaoke) + SRT
+  index.js     the public surface (framework-free — zero deps)
 ```
 
-**Public surface (illustrative — the impl PR owns the exact signatures):**
+**Authoring-format constraint (trio fix):** the core is pure browser ESM (no `module.exports`, no Node
+built-ins on any re-exported path) so Vite serves/bundles it directly — deliberately **not** the
+`notes-core` channel (CJS reached only through a generated esbuild bundle, out of which you can't cleanly
+re-export). *The earlier draft cited `lib/core/resolve-spectrum.js` as the "pure ESM" precedent; that was
+wrong — it is CJS and imported only by a Vitest test. The constraint stands; the packaging must be
+validated against a real Vite-served ESM `lib/` module at build time, not asserted from a bad example.*
 
-```js
-import { buildTrack, makeCursor, toVtt, toSrt } from 'lib/cadenza';
+## 3. v1 — the presenter rehearsal caption (the small honest slice)
 
-// text -> timeline (estimate baseline) — the low-level API, the v1 core path
-const track = buildTrack(noteText, { cadence: 'moderate' });
+**Decided (owner, aligned):** v1 is a **sentence-level caption/highlight on the existing Practice stage**,
+over the note Practice already speaks, **verbatim**, driven by the **existing estimate timer**. The
+checker verified this is *mostly wiring existing parts + a thin highlight surface*:
 
-// a pure cursor the consumer ticks off ANY clock
-const cursor = makeCursor(track);
-const { cueIndex, wordIndex } = cursor.at(currentTimeMs);
+- **Already built (wire it):** the audio (`voice.speak`, wired into Practice), the note text
+  (`noteFor` → `notesFromHtml`, with the plan snippet as fallback), a sentence split
+  (`splitForCaption`/`splitSentences`), an estimate teleprompter that already works
+  (`useReadAloud` in `read-aloud.ts`), autoplay/nav.
+- **Net-new (build it):** there is **no synced caption/word-highlight on the Practice stage today** — no
+  timeline, no cursor DOM. v1 adds a thin caption/highlight surface on the Practice stage, riding the note.
 
-// refine against real audio as each sentence plays (from the instrumented voice-model, §6)
-cursor.align(cueIndex, onsetMs, durationMs);
+**What v1 deliberately is NOT** (the trio's scope cut): no narration planner, no per-element policies, no
+chart/`describe:` derivation, no engine-side pure core required yet, no VTT export, no drivers (pointer/
+reveal), no AI polish, and **no accessibility claim** — it is a *presenter aid*, captions of authored
+prose, honestly verifiable on the real Practice surface (HARD RULE #23). Word-level timing + the measured
+audio re-anchor + the pure `lib/cadenza/` core are **refinement rungs after v1**, not the floor.
 
-// export the standard caption artifact (lines are universal; word timings need a JS consumer, §5.5)
-const vtt = toVtt(track);
-```
+**One cadence source of truth (trio fix).** Three reading speeds exist today — `SPEAK_WPM = 135`
+(rehearsal), `WORDS_PER_MINUTE = 155` (read-aloud), and Cadenza's preset. v1 must pick **one** for the
+Practice surface (so the dwell coach and the caption highlight can't visibly desync) and retire the
+others; the estimator's constant is that single source.
 
-**Subtraction — what the three-layer model keeps vs. defers.** The steer was to reuse the storyboard
-wins (the low-level API, the descriptor, the DSL). The §14 review pushed back with the doc's *own*
-subtraction rule (§4): a caption library's real v1 inputs are a note string and measured audio, so the
-pipeline is `note → estimate → re-anchor` — and the **fluent builder** (`script().say().pause()…`)
-serves a *hand-authoring* user that **no v1 stage calls**. The reconciliation:
+## 4. The governing rules (from the adversarial trio)
 
-- **Keep the low-level primitive + the descriptor's vocabulary now.** The `CaptionTrack` primitive is
-  the substrate. The descriptor's *typed pacing hints* (`pause` / `beat` / `emphasis`) are load-bearing
-  because **stage 5 (modeled delivery) is a real consumer** — threading the rehearsal plan's beats in
-  as authored silences *is* producing a descriptor and lowering it. So the descriptor earns its place.
-- **Defer the fluent `script()` builder until a hand-authoring consumer appears.** It is the one layer
-  with no consumer in stages 2–5, so by our own rule it doesn't ship in v1 — the architecture leaves
-  the seam (the descriptor is the compile target) so the builder is a cheap add the day a "hand-tune a
-  slide's cadence" UI wants it. Reuse the *pattern*; don't build the *layer* before its consumer.
+These constrain *both* products and every later stage. They are the inversion's highest-leverage rules,
+kept as binding design constraints:
 
-The docs-side consumer (a follow-on, not this doc) wires `voice-model.speak({ onSentence })` to
-`cursor.align`, runs a `requestAnimationFrame` loop reading the WebAudio `currentTime`, and toggles a
-highlight class on the active word — and, when nothing is connected (the silent floor), drives the
-*same* cursor off a plain timer so the read-along still works with no audio.
+1. **Never fuse the registers.** No auto-derived blend of the subjective note and objective facts is ever
+   spoken to a blind listener. Rehearsal reads the note; accessibility reads the confirmed `describe:` (§1).
+2. **EXPLAIN derives only from structured data or human-confirmed `describe:`.** The model may *smooth*
+   facts the deterministic backbone already produced, never *source* one; polish is span-diffed against
+   the floor (numbers/units/proper-nouns/negations pinned), and a mismatch falls back to the floor.
+3. **The audio track alone must beat a naive screen reader, screen-off, as the anchor's acceptance test.**
+   Visual drivers (highlight, pointer) never count toward the accessibility contract.
+4. **The narration planner is a pure, DOM-free, Node-testable core; its utterance list is the transferable
+   asset; a UI is one consumer** — *except* geometry (`bbox`, for a pointer) which is DOM-only and lives
+   docs-side (§5).
+5. **The deterministic floor ships unedited; no per-slide confidence UI** — surface only the one genuinely
+   under-derivable element to fix ("needs a `describe:`"). Silence means trust.
+6. **One canonical everything** — one segmenter, one cadence constant, one clock, one structural
+   derivation, one gated billing path (reuse the rehearsal planner's `gate`; HARD RULE #24).
+7. **Eyes-free transport (skip/replay/scrub/speed) and non-suppressible boundary ANNOUNCE are anchor v1
+   requirements, not Later** — without them a blind listener is stranded and the anchor is false.
 
----
+## 5. The narration planner (product B's capability — deferred, a project, not a slice)
 
-## 8. Non-goals (what Cadenza is NOT)
+The anchor (B) needs a capability neither product A nor Cadenza provides: turning a *semantically
+structured* slide into an ordered spoken **plan** — utterances each `{ display, spoken, policy,
+sourceElement, kind, bbox? }` — with a **policy per element**:
 
-- **Not a player.** It owns no `AudioContext`, no `<audio>`, no playback. `voice-model` plays; Cadenza
-  times. (If these ever merge, Cadenza stays the pure timeline underneath.)
-- **Not a renderer.** It ships no CSS, no highlight DOM, no caption widget. It returns indices; the
-  consumer paints. (Studio/Practice styling is the consumer's, governed by the visual contract.)
-- **Not forced alignment.** No acoustic word-level timestamping in v1 (no WhisperX / no phoneme
-  model). Sentence-anchored proportional timing is the v1 fidelity; true alignment is §12.
-- **Not a second note source.** It never re-defines what a speaker note is — `notes-core` owns that
-  boundary (HARD RULE #1). A caption is a projection of the note.
-- **Not translation / not authoring.** It times the words that are there; it does not rewrite,
-  translate, or summarize them (the voice model's verbatim-TTS discipline).
+| Policy | Applies to | Behavior |
+|---|---|---|
+| **READ** | title, body, quote, list | speak the words |
+| **EXPLAIN** | chart, big-number, table (data) | speak the confirmed `describe:` / structured equivalent — never pixels, never an invented insight |
+| **GLOSS** | code, complex diagram | speak *about* it ("a 12-line function that…"), not its content |
+| **ANNOUNCE** | slide title, section, chart/table onset | orientation — non-suppressible (rule 7) |
+| **SKIP** | eyebrow, pagination, logo, background, decoration | silent |
 
----
+**Why it is a project, not v1 (checker-verified):**
+- **Not pure.** Per-element *policy + text* can be derived from rendered `<section>` HTML (the
+  `notes-core`/rehearsal shape), but **`bbox` is DOM-only** — it exists only in the live browser after
+  layout. So the planner *splits*: a pure text/policy core + a docs-side geometry layer for any pointer
+  driver. It cannot be the single pure engine-side core the first draft imagined.
+- **Not shipped.** "Accurate deterministic chart narration from the data" is **not achievable today**:
+  the `describe:` ADR **explicitly defers** engine-derived chart data-tables; structure-first is currently
+  "enforced at the prompt" (AI, not deterministic, not `$0`). The *numbers* are derivable; the **insight**
+  (the Q4 spike, the Q3 dip) is not deterministic. So for a chart the honest v1-of-B behavior is
+  **ANNOUNCE + read a confirmed `describe:` if present**, never a synthesized trend.
+- **Not a rehearsal.js reimpl (checker correction).** `drawing-board-rehearsal.js` classifies **whole
+  slides** into a role and weights **time**; the planner descends to **per-element utterances**. The
+  reusable parts are the *role/component→policy idea* and the *two-tier discipline*, not the module.
 
-## 9. Accessibility — this is a first-class a11y feature, not a TTS byproduct
+**Honest scope — not "audio-complete."** The design's own vocabulary (GLOSS/SKIP) concedes the medium
+can't be complete: spatial/comparison layouts (a 2×2 *means* position) don't losslessly linearize, and
+audio is serial-no-backtrack where sight is random-access. So B targets **"a faithful, honestly-scoped
+audio artifact that names what's lost per form,"** not "the same experience blind or driving." The earlier
+"same experience / audio-complete" framing is dropped.
 
-The framing in the ask was "support both accessibility and eventual TTS," and the design deliberately
-makes **accessibility standalone-valuable** so it doesn't wait on TTS:
+## 6. What already exists — the reuse map (and the collisions to resolve)
 
-- **Closed captions as a real artifact.** WebVTT is the WCAG-recognized caption format; a `.vtt`
-  sidecar (or an in-player `<track>`) means a deck's narration is consumable by assistive tech and any
-  standard player — with no audio pipeline in the loop.
-- **Read-along with no audio.** The estimate-driven cursor lets a low-vision or dyslexic reader follow
-  a synced word highlight at their own pace, silently. This is the case measured-only timing would
-  strand, and it is a big part of why hybrid is the decision.
-- **Sibling to `describe:`, not a duplicate of it.** The accessibility-description channel
-  (`2026-07-04-accessible-descriptions.md`) is the *objective* text alternative of what a slide
-  *shows*; a caption is the *timed* rendering of what the presenter *says*. Opposite registers, same
-  spirit — Cadenza captions the note, `describe:` alt-texts the visuals. They compose; neither
-  replaces the other.
+| Surface | What it gives | Reuse / collision |
+|---|---|---|
+| `docs/src/playground/drawing-board-rehearsal.js` | 2-tier planner: per-slide role/dwell/why + timed **beats** (`pause`/`eye`/`breathe`/`transition`/`emphasis`), `SPEAK_WPM=135`, gated AI merge | reuse the **gate** + two-tier discipline; **beats ≠ silences**: an `eye` beat ("look up, read the room") is meaningless eyes-free — only `pause`/`breathe` map to audio silence |
+| `docs/src/components/studio/read-aloud.ts` | `slideToSpeech` (strips markdown to flat prose, **no semantics**), teleprompter highlight `155 wpm`, voice-ladder playback, autoplay | port the *teleprompter approach* to Practice for v1; retire `splitForCaption`; reconcile 155↔135↔preset to one constant |
+| `docs/src/playground/voice-model.js` | the voice ladder (`speak`/`splitSentences`/`onSentence`) | needs onset/duration instrumentation for word-sync (§7); `splitSentences` → re-export of `segment.js` |
+| `lib/authoring/notes-core.js` | the note boundary + `describe:` extraction (HARD RULE #1) | the single source both products consume for "what is a note" / "what is a description" |
+| `2026-07-04-accessible-descriptions.md` | the `describe:` channel (objective, structure-first, confirm gate) | **B reads this, verbatim-confirmed** — the safety rails |
+| `2026-06-16-narrative-step-model.md` | derived-not-authored reveals; the anti-wizbang line §8 | a step boundary is an authored pause in the timeline; one structural derivation feeds both |
+| `docs/src/lib/vetrina/` | the pointer/cursor | the *optional* pointer driver for B — meaning-bearing or cut (§8); never counts as accessibility |
 
----
+## 7. Voice-model instrumentation (a refinement rung, not v1) — small but real plumbing
 
-## 10. Relationships
+For word-accurate sync (post-v1), `voice-model` must surface what it discards today: `onSentence` fires
+with the **text only**, **before** playback (`:463`); `audioBuf.duration` (`:403`) is dropped; `audioCtx`
+(`:351`) is private. The fix reads `ctx.currentTime` at `src.start(0)` (`:412`, the true onset) and
+`audioBuf.duration`, and enriches the callback to `onSentence({ index, text, onsetMs, durationMs })`.
+**Trio correction:** this is **not** a 3-field read — `playBlob` receives only `(blob, signal)` and knows
+nothing of the sentence, so a timing callback must be **threaded into `playBlob`** and keyed to the
+*prefetched* sentence. Localized, but real plumbing across two functions. The failure it prevents: keying
+the onset to `onSentence` fire-time makes the highlight **lead the voice** by the decode gap.
 
-- **Consumes** `lib/authoring/notes-core.js` — the note boundary (HARD RULE #1). Cadenza adds no new
-  note semantics.
-- **Feeds / is fed by** `docs/src/playground/voice-model.js` — it lands that ADR's deferred "streaming
-  + clock sync" and "pause-beats as silences"; and `splitSentences` becomes a re-export of Cadenza's
-  canonical `segment.js` (retires a duplication, HARD RULE #15).
-- **Shaped like** `docs/src/lib/vetrina/` — the pure-data-model + thin-runtime split, the
-  self-contained import-boundary gate, the zero-dep core, the rich README. Generalizes its `readMs`.
-- **Adjacent to** `2026-06-16-narrative-step-model.md` — both put a *time/sequence axis* over a deck.
-  The step model sequences **reveals**; Cadenza sequences **words/silences**. A natural future join:
-  a step boundary is an authored pause-beat in the caption timeline (the presenter advances, the voice
-  waits). Out of scope here; noted so the two don't reinvent a shared clock later.
-- **Sibling to** `2026-07-04-accessible-descriptions.md` — the other half of deck accessibility (§9).
+## 8. Non-goals (what this design refuses)
 
----
+- **No merged "delivery" register** — the blend of subjective note + objective facts is the defect, not a
+  feature (§1, rule 1). Two registers exist *because* they have opposite correctness rules.
+- **No "same experience blind or driving" / "audio-complete" claim** — the medium can't keep it (§5).
+- **No deterministic chart-*insight* narration** — deferred, unbuilt; charts ANNOUNCE + read confirmed
+  `describe:` (§5).
+- **No planner, derivation, drivers, VTT, or AI polish in v1** — v1 is verbatim rehearsal captions (§3).
+- **No forced alignment** — sentence-anchored proportional timing is the fidelity (§2.1).
+- **No second note source / no re-defining a note or a description** — `notes-core` owns both boundaries.
+- **No auto-export or auto-speech of unconfirmed AI text to a blind listener** — the confirm gate holds.
+- **No pointer/reveal spectacle** — meaning-bearing + degradable, or cut (narrative-step §8).
 
-## 11. Staged plan (each its own increment / branch — HARD RULE #17)
+## 9. Staged plan (each its own increment / branch — HARD RULE #17)
 
-1. **This design doc** (here). Design only; no code.
-2. **The spinnable core** — `lib/cadenza/` (`track` · `segment` · `cadence` · `cursor` · `vtt`; the
-   `script` descriptor/builder is deferred, §7) with Node unit tests: estimate determinism, re-anchor
-   math, VTT/SRT round-trip, and a parity test that **all three** sentence-split copies —
-   `voice-model.splitSentences`, studio `read-aloud.ts`'s `splitForCaption`, and `segment.js` — agree,
-   then retire the first two to re-exports (the de-dup, HARD RULE #15). The import-boundary gate (pure
-   ESM, zero Lattice deps) lands here. No UI, no visual surface — fully verifiable in Node.
-3. **The Lattice adapter + convenience** — `lib/cadenza-deck.js` over `notes-core` + the plan-layer
-   prose fallback (§5.4), outside the core fence, + an engine-side `.vtt` sidecar export option next to
-   PDF/HTML.
-4. **Voice-model instrumentation + the docs-side consumer** — first add the small onset/duration/clock
-   surface to `voice-model` (§6), then wire the read-along word highlight into Practice mode over that
-   live clock (and the silent-timer fallback). This one has a real visual surface and needs real-surface
-   verification (HARD RULE #23) + a per-feature demo (HARD RULE #9).
-5. **Modeled delivery** — thread the rehearsal plan's timed beats into the timeline as authored
-   silences (closes the read-aloud ADR's deferred item).
-6. **True per-word alignment** (Later, §12) — only if v1's sentence-anchored fidelity proves
-   insufficient in practice.
+1. **This design doc.** Design only.
+2. **v1 — presenter rehearsal caption** (§3): a sentence caption/highlight on the Practice stage over the
+   verbatim note, on one reconciled cadence constant. Wiring + a thin surface; real-surface verified.
+3. **Cadenza pure core** `lib/cadenza/` (`track`/`segment`/`normalize`/`cadence`/`cursor`/`vtt`) with Node
+   tests: estimate determinism, re-anchor math, display↔spoken normalization round-trip, VTT/SRT, and the
+   3-way segmenter parity (retire `splitSentences` + `splitForCaption`). Import-boundary + ESM gate.
+4. **Word-level sync** — the `voice-model` instrumentation (§7) + swap v1's sentence highlight for the
+   measured word cursor. Real-surface (screen-on) verification.
+5. **The narration planner** (product B, §5) — pure text/policy core + docs-side geometry; charts ANNOUNCE
+   + confirmed `describe:`; **screen-OFF acceptance test** (rule 3); eyes-free transport + boundary
+   ANNOUNCE (rule 7). A project with its own ADR.
+6. **Drivers** (B) — element highlight, the optional Vetrina pointer, narrative-step reveal.
 
-## 12. Later / open questions
+## 10. Later / open questions
 
-- **True acoustic word alignment.** If proportional-within-sentence highlight visibly drifts on real
-  decks, add an optional forced-alignment rung (a WASM aligner, or word-timestamp metadata if a TTS
-  engine ever returns it) — a *refinement rung* on the same cursor, exactly as Kokoro is a rung on the
-  voice ladder. Deliberately deferred; may never be needed.
-- **Segmentation quality.** The v1 segmenter inherits `splitSentences`' simple terminator rule
-  (over-splitting an abbreviation costs only a tiny gap, never a correctness bug). If caption *line*
-  breaks need to be tighter than sentence breaks (VTT lines are often sub-sentence), `segment.js` may
-  grow a line-wrapping pass under the sentence layer.
-- **Cadence preset defaults.** Confirm the base WPM + punctuation-pause constants read naturally
-  against real speaker notes and against measured TTS (tune the estimate so the *unanchored* timeline
-  already feels right, since that's the offline/accessibility experience).
-- **Deck-vs-slide timeline seams.** How a deck timeline handles navigation (does the clock reset per
-  slide, or run continuously?) — a consumer question the adapter + Practice wiring settles in stage
-  3–4, not here.
-- **Non-space-delimited scripts (RTL / CJK / Thai).** The estimator is word-count based and the
-  karaoke split is space-delimited, so CJK/Thai (no word spaces) degrade — a real gap for an
-  *accessibility* feature shipping a "standard" caption file. v1 is honest about being tuned for
-  space-delimited Latin scripts; a segmentation strategy for the rest (an `Intl.Segmenter` `granularity:
-  'word'` pass — now widely available) is the first extension, and it composes cleanly because
-  `segment.js` is the one canonical seam. Flagged, not solved. (Adjacent to
-  `2026-06-16-rtl-vertical-text-support.md`.)
-- **Reduced motion.** A moving word highlight *is* motion. Follow Vetrina's three-tier policy
-  (`2026-06-14-read-aloud-kokoro.md` motion notes / the Vetrina README): the highlight is *content
-  cadence*, not vestibular motion, so it is kept under `legible` (a reduced-motion reader still wants
-  the read-along) but must use a motion-safe treatment (an opacity/weight change, never a sweep/scale),
-  and a `still` escape hatch collapses it to a static caption. The Practice consumer (stage 4) owns this;
-  named here so it isn't discovered late.
-- **Onset instrumentation ordering.** Because `voice-model` prefetches one sentence ahead, the
-  consumer must key the measured onset to the sentence that actually *starts playing*, not the one being
-  synthesized — the enriched `onSentence({ index, … })` (§6) carries the index precisely so a consumer
-  never has to infer it from text (which duplicate sentences make ambiguous).
+- **Deterministic chart data-tables** — the deferred `describe:` work that would let a chart's *numbers*
+  (not insight) narrate without a model; prerequisite for richer EXPLAIN.
+- **Non-space-delimited scripts (RTL / CJK / Thai)** — the estimator/segmenter are Latin/space-delimited;
+  an `Intl.Segmenter` `granularity:'word'` pass is the first extension (one seam, `segment.js`). Flagged,
+  not solved. (Adjacent: `2026-06-16-rtl-vertical-text-support.md`.)
+- **Reduced motion** — the highlight is content cadence, not vestibular motion: opacity/weight only, never
+  sweep/scale; a `still` escape hatch collapses it to a static caption.
+- **Sub-sentence caption lines** — if VTT lines need to be tighter than sentences, define how a measured
+  sentence span apportions across child cues (v1 sidesteps via one cue == one sentence).
+- **The descriptor/builder authoring layer** — a serializable narration descriptor + a fluent builder
+  (the Vetrina `Step[]`/`scene()` analog) is deferred until a hand-authoring consumer exists; the pattern
+  is reused, the layer isn't built before its caller.
 
-## 13. Gates (for each build increment when it lands)
+## 11. Gates (per increment)
 
-Pure-core stages: `lint` · unit · `build:check` green; the segmenter parity test; maker-checker on the
-timing kernel (it's shared, measurement-adjacent logic — real blast radius). The `.vtt` export and the
-Practice consumer add: a per-feature demo deck (#9), CHANGELOG `## Unreleased` (#10), and — for the
-Practice highlight — real-surface visual verification (#23), not a jsdom stand-in. No exported PDF/PPTX
-bytes change in stages 2–3 (the `.vtt` sidecar is additive), so no export sign-off is triggered until
-a stage actually alters an existing artifact's bytes.
+Pure-core stages: `lint` · unit · `build:check` green; the 3-way segmenter parity + normalization
+round-trip tests; maker-checker on the timing kernel (shared, measurement-adjacent — real blast radius).
+v1 + later consumers add: a per-feature demo (#9), CHANGELOG `## Unreleased` (#10), real-surface
+verification (#23) — screen-**on** for the rehearsal highlight, screen-**off** for the anchor's audio
+track (rule 3). No exported PDF/PPTX bytes change until a stage alters an existing artifact, so export
+sign-off triggers only there.
 
-## 14. Adversarial review ledger — what the design critique changed
+## 12. Adversarial review ledger — the first critic pass
 
-The design was put through an independent critic + fact-checker against the real code (HARD RULE #25 /
-the maker-checker disposition), because a shared timing kernel a future TTS **and** accessibility
-surface both depend on is real blast radius. The net effect was to **replace an oversold "reuse,
-nothing new" narrative with an honest "reuse the split, instrument the clock,"** and to cut an
-over-built layer. What it caught and how it was folded in:
+An independent critic + fact-check against the real code (before the trio) corrected the original
+narrow ADR's oversold "reuse, nothing new" framing to "reuse the split, instrument the clock":
+(1) `voice-model` does not expose onset/duration/clock today; (2) the cue-vs-sentence anchor unit was
+conflated → pinned one cue == one sentence; (3) a module-format trap in the `splitSentences` re-export →
+pure ESM core; (4) a third duplicate segmenter (`splitForCaption`) added to the de-dup; (5) the fluent
+builder deferred (no v1 consumer); (6) the confusingly-named adapter folder; (7) overstated WebVTT reach +
+a wrong `notes-core` input claim; (8) RTL/CJK, reduced-motion, onset-ordering added to open questions.
 
-1. **"voice-model already exposes onset/duration/a clock" was FALSE.** `onSentence` fires with the
-   sentence *text only* and *before* playback; the clock and `audioBuf.duration` are private. **Fixed**
-   in §1, §5.2, §6: reframed as a small, well-scoped stage-4 instrumentation, with the concrete
-   failure named (the highlight *leads the voice* by the decode gap if you wire it naively).
-2. **The re-anchor unit (cue vs. sentence) was conflated** — §6's formula used "cue" while the design
-   allowed sub-sentence cues. **Fixed:** v1 pins one cue == one sentence (§5.2, §6); sub-sentence
-   line-wrapping and span-apportioning are deferred (§12).
-3. **The `splitSentences` re-export had a module-format trap** — modeling cadenza on `notes-core`
-   (CJS-behind-a-bundle) would make the re-export impossible. **Fixed** (§7): the core is pure browser
-   ESM (the `resolve-spectrum.js` shape), explicitly not the notes-core channel.
-4. **The de-dup missed a third copy** — studio `read-aloud.ts`'s `splitForCaption`. **Fixed:** §7 and
-   §11 now retire all three.
-5. **The fluent builder failed the doc's own subtraction bar** (no v1 consumer). **Fixed:** §3 and §7
-   keep the low-level primitive and the descriptor (which stage 5 / modeled delivery genuinely
-   consumes) but **defer the `script()` builder** until a hand-authoring consumer appears — reuse the
-   pattern, not the unbuilt layer.
-6. **Two confusingly-named folders** (`lib/cadenza/` + `lib/caption/`). **Fixed:** the adapter is
-   `lib/cadenza-deck.js` — clearly an adapter onto cadenza, not a rival concept.
-7. **Overstated WebVTT reach + a wrong `notes-core` input claim.** **Fixed:** §5.5 (lines universal,
-   word highlight needs a JS consumer) and §5.4 (`extractSlideNotes` takes rendered `<section>` HTML;
-   the prose fallback lives in the plan layer, not notes-core).
-8. **Missing failure modes** — RTL/CJK, reduced motion, prefetch/onset ordering. **Added** to §12.
+## 13. Adversarial trio ledger — what the red team + inversion + checker changed
 
-Verdict carried forward: the load-bearing idea (a pure, audio-agnostic timeline; estimate baseline +
-proportional re-anchor; injected clock; O(log n) cursor) is **sound**; the corrections are to the
-framing and the build order, not the core model. The design competition / full trio on the *shipping*
-code remains a stage-2+ gate (§13), not this doc.
+The widened "presenter for your ears" direction was put through the full trio (HARD RULE #25). It
+reshaped the plan structurally; the net effect was to **split one fused product into two that must not
+fuse**, cut the v1 scope to something real, and drop two overclaims. What it caught:
+
+1. **The merged "delivery" register reversed the accessible-descriptions ADR's central finding** (all
+   three flagged). Merging subjective note + objective facts + auto-derivation + no confirm gate = "a wrong
+   description is worse than none," spoken to the listener who can't catch it. **Fixed:** §1 splits the
+   products; rule 1 forbids the blend; B reads the confirmed `describe:`.
+2. **Rehearsal-first optimizes the *sighted* presenter and validates none of the anchor.** **Fixed:** v1 is
+   scoped as an honest *presenter aid* (§3), not the accessibility path; the anchor (B) is separate with a
+   screen-off acceptance test (rule 3).
+3. **"Accurate `$0` deterministic chart narration" is unachievable today** (checker-verified: chart
+   data-tables deferred; insight isn't deterministic). **Fixed:** claim dropped (§5, §8); charts ANNOUNCE +
+   confirmed `describe:`.
+4. **"Same experience blind or driving / audio-complete" is an overclaim the medium refutes** (GLOSS/SKIP
+   concede it). **Fixed:** reframed to "a faithful, honestly-scoped audio artifact" (§5, §8).
+5. **Three narration systems colliding** — 135/155/preset wpm, three segmenters, two taxonomies, beats≠
+   silences (`eye` is meaningless eyes-free). **Fixed:** one cadence constant (§3), one segmenter (§2.4),
+   the beats/silences distinction (§6).
+6. **Scope creep** — planner/pointer/reveal/VTT/AI-polish/spin-off loaded into "v1." **Fixed:** cut to the
+   verbatim-note caption (§3); everything else staged (§9).
+7. **The planner is genuinely new and NOT pure** (`bbox` is DOM-only) and NOT a rehearsal.js reimpl.
+   **Fixed:** §5 documents it as a split, deferred project.
+8. **Factual fixes:** the `resolve-spectrum.js` ESM precedent was wrong (§2.4); `voice-model`
+   instrumentation needs a callback threaded into `playBlob`, not a field read (§7); and the
+   **display-form vs spoken-form** gap ("$4.2M" = one token, five spoken words) breaks the single-word-set
+   model — added to Cadenza's `Word` shape and normalization (§2.2).
+
+Verdict carried forward: the split is sound; the shared engine (Cadenza) is buildable now; the anchor is a
+real project on the `describe:` safety rails, not a v1 slice. The screen-off acceptance test (rule 3) is the
+guard that keeps a shipped presenter aid from being mistaken for the accessibility anchor.
