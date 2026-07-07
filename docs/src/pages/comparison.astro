@@ -114,7 +114,7 @@ const ROWS = [
 	},
 	{
 		axis: 'Deck review built in',
-		why: 'A deterministic coach lints, scores, and names fixes — before any AI spend.',
+		why: 'The tool itself checks the deck and names the fixes — free, before any AI runs.',
 		marks: ['yes', 'part', 'part', 'no', 'part'],
 	},
 	{
@@ -169,7 +169,7 @@ const RECEIPTS = [
 		note: 'Verified across Fortune, The Register, and CFO Dive. The AU$440k is the contract value; the refund was the final installment, not the whole fee.',
 	},
 	{
-		stat: '0–20%',
+		stat: '≤20%',
 		head: 'How much of an AI deck checks out',
 		body: 'One team fed the same 10-slide prompt to the tools most people would reach for and verified every claim against primary sources. Gamma scored 20%. Beautiful.ai and Canva managed 17%. Canva pinned invented statistics to a real, named school. A fast draft is still a draft full of things to check.',
 		cite: 'Fact-check of 6 AI presentation makers, Feb 2026',
@@ -201,7 +201,7 @@ const WEAKNESSES = [
 		body: 'Collaboration is asynchronous: you review a change and fold it in, rather than sharing five live cursors in one document. That’s how serious documents get edited everywhere else — but if your team lives in Google Slides, it’s a real change of habit.',
 	},
 	{
-		head: 'Young, and local setup asks something',
+		head: 'A young ecosystem, a real install',
 		body: 'The Studio and the playground run in a browser tab with nothing to install, but rendering on your own machine still means installing a toolchain, and the desktop app that removes that last step hasn’t shipped. The engine is at v1 — components and tokens are stable; the tooling around them is young. You’re early.',
 	},
 	{
@@ -282,7 +282,7 @@ const ROADMAP = [
 			.cmp-table .col-lattice { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 			/* Below the table's min-width the competitor columns sit off-screen; a
 			 * right-edge fade + the hint line below make the sideways scroll legible. */
-			.cmp-fade { position: absolute; top: 1px; right: 1px; bottom: 1px; width: 40px; border-radius: 0 12px 12px 0; background: linear-gradient(to left, var(--card), transparent); pointer-events: none; }
+			.cmp-fade { position: absolute; top: 1px; right: 1px; bottom: 1px; width: 40px; border-radius: 0 12px 12px 0; background: linear-gradient(to left, var(--bg-alt), transparent); pointer-events: none; }
 		</style>
 	</head>
 	<body>
@@ -355,7 +355,7 @@ const ROADMAP = [
 							</p>
 						</div>
 						<div class="flex flex-col justify-center rounded-xl border border-border bg-muted p-[26px]">
-							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Consistency is the tell</h3>
+							<h3 class="m-0 mb-3 t-body text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Consistency is the tell</h3>
 							<p class="m-0 text-[15.5px] leading-[1.6] text-foreground">
 								What separates a professional deck from an amateur one usually isn’t budget or talent — it’s consistency,
 								held on every slide. The moment it breaks, the reader stops trusting the argument. A design system holds
@@ -381,7 +381,7 @@ const ROADMAP = [
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] lg:grid-cols-3">
 						<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
-							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Good design, made a default</h3>
+							<h3 class="m-0 mb-3 t-body text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Good design, made a default</h3>
 							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">
 								What reads as authoritative isn’t more design — it’s consistency and restraint, held on every slide. A
 								design system makes that automatic: the polish that used to take a designer becomes the place you start
@@ -389,7 +389,7 @@ const ROADMAP = [
 							</p>
 						</div>
 						<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
-							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">A slide is four decisions</h3>
+							<h3 class="m-0 mb-3 t-body text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">A slide is four decisions</h3>
 							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">
 								Function, Form, Substance, Finish — what the slide is for, the shape that holds it, what fills the
 								shape, and the palette and mood. You make them one at a time instead of fighting all four at once on a
@@ -397,7 +397,7 @@ const ROADMAP = [
 							</p>
 						</div>
 						<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
-							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Built to be read without you</h3>
+							<h3 class="m-0 mb-3 t-body text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Built to be read without you</h3>
 							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">
 								A board deck gets forwarded, attached, opened in a room you were never in. It has to carry its point
 								alone — one clear claim, a heading that says something, a shape that fits the thought. Lattice is built
@@ -420,7 +420,7 @@ const ROADMAP = [
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] lg:grid-cols-[1fr_1fr]">
 						<div class="rounded-xl border border-border bg-card p-[26px] shadow-sm">
-							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Their clock</h3>
+							<h3 class="m-0 mb-3 t-body text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Their clock</h3>
 							<p class="m-0 text-[15px] leading-[1.6] text-foreground">
 								You fact-check the numbers the model invented. You strip the sameness so it doesn’t read as a template.
 								You fix the export that came back with the wrong fonts. You force the whole thing back onto the brand.
@@ -429,7 +429,7 @@ const ROADMAP = [
 							</p>
 						</div>
 						<div class="rounded-xl border border-primary p-[26px] shadow-sm" style="background: color-mix(in srgb, var(--accent) 7%, transparent);">
-							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-primary">Ours</h3>
+							<h3 class="m-0 mb-3 t-body text-[18px] font-semibold tracking-[-0.01em] text-primary">Ours</h3>
 							<p class="m-0 text-[15px] leading-[1.6] text-foreground">
 								Lattice front-loads the cost once. You learn the tool and you write the words — and after that, every
 								render is final: on brand, correct, identical each time. No re-brand, no broken PPTX, no fact-checking the
@@ -460,7 +460,7 @@ const ROADMAP = [
 									{String(i + 1).padStart(2, '0')}
 								</div>
 								<div>
-									<h3 class="m-0 mb-2 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">{c.head}</h3>
+									<h3 class="m-0 mb-2 t-body text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">{c.head}</h3>
 									<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">{c.body}</p>
 								</div>
 							</div>
@@ -540,7 +540,7 @@ const ROADMAP = [
 						</div>
 						<div class="cmp-fade md:hidden" aria-hidden="true"></div>
 					</div>
-					<p class="mt-2 text-[12.5px] text-muted-foreground md:hidden">Swipe the table sideways — the other four columns are waiting. →</p>
+					<p class="mt-2 text-[12.5px] text-muted-foreground md:hidden">Swipe the table sideways for the other four columns. →</p>
 					<p class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] text-muted-foreground">
 						<span><span class="mk mk-yes align-middle">●</span> Strong</span>
 						<span><span class="mk mk-part align-middle">◐</span> Partial / conditional</span>
@@ -582,6 +582,11 @@ const ROADMAP = [
 							</div>
 						))}
 					</div>
+					<p class="mt-6 max-w-[62ch] text-[14px] leading-[1.6] text-muted-foreground">
+						If the receipts land, the proof is one click away — write a slide and watch it render, no sign-up.
+						<a href={url('playground/')} class="font-semibold text-primary hover:underline">Open the playground</a>
+						— or keep reading: our own weaknesses are further down.
+					</p>
 				</div>
 			</section>
 
@@ -592,35 +597,24 @@ const ROADMAP = [
 						eyebrow="The fair question"
 						title="“Isn’t Lattice just Marp with a coat of paint?”"
 					>
-						No. Lattice runs on its own engine and its own design system. Marp is one export path out of a
-						Lattice deck; the engine inside is ours.
+						No. We did start from Marp’s one good idea — write the deck in Markdown, render it through headless
+						Chromium to PDF — building on its engine early, then replacing it with our own at v1.0.0. Plain text buys
+						a deck you can track and compare, true of every code engine; determinism is rarer — several print through
+						the browser and drift from machine to machine. And Marp itself stays deliberately skinny: no component
+						system, no design tokens, no layout primitives — a few generic themes and raw CSS, by design. Fair for a
+						framework; it just isn’t a design system. Lattice brings the rest:
 					</SectionHead>
-					<div class="grid grid-cols-1 gap-[18px] lg:grid-cols-2">
-						<div class="rounded-xl border border-border bg-card p-[26px] shadow-sm">
-							<h3 class="m-0 mb-3 text-[17px] font-semibold text-[var(--text-heading)]">What we started from</h3>
-							<p class="m-0 text-[14.5px] leading-[1.65] text-foreground">
-								One good idea: write a deck in Markdown and render it through headless Chromium to PDF. Plain text
-								buys determinism and a deck you can track and compare, true of every code engine. We built on Marp’s engine for the
-								early versions, then replaced it with our own at v1.0.0.
-							</p>
-						</div>
-						<div class="rounded-xl border border-border bg-card p-[26px] shadow-sm">
-							<h3 class="m-0 mb-3 text-[17px] font-semibold text-[var(--text-heading)]">What Lattice is now</h3>
-							<p class="m-0 mb-3 text-[14.5px] leading-[1.65] text-foreground">
-								Marp stays deliberately skinny: <strong>no component system, no design tokens, no layout
-								primitives</strong> — a few generic themes and raw CSS, by design. Fair for a framework; it just
-								isn’t a design system. Lattice brings the rest:
-							</p>
-							<ul class="m-0 list-disc space-y-1.5 pl-5 text-[14.5px] leading-[1.55] text-foreground">
-								<li><strong>More than fifty components</strong> across thirteen buckets. Pick the meaning, get the composition.</li>
-								<li>A <strong>design-token system</strong> and <strong>14 editorial palettes + 4 color-blind-safe</strong>. Layouts never name a color.</li>
-								<li><strong>Boardroom-grade defaults</strong> and WCAG-AA contrast in every palette, light and dark.</li>
-								<li>An <strong>owned, pinned render engine</strong>. We dropped the Marp dependency at v1.0.0 and pinned the toolchain end to end. It renders plain HTML sections, not SVG-wrapped slides, so modern CSS works natively — container queries, counters, masks all render — and layout holds across browsers.</li>
-								<li><strong>Agent authoring.</strong> A machine catalog and a shared linter steer an LLM to on-brand decks instead of guesses.</li>
-								<li><strong>The Studio.</strong> The whole loop in a browser tab — write with live preview, get coached, apply fixes from chat, present — nothing to install.</li>
-								<li><strong>A finish layer.</strong> Premium surface treatments — marks, washes, backdrops — applied with one line and tuned visually in Fabricate.</li>
-							</ul>
-						</div>
+					<div class="rounded-xl border border-border bg-card p-[26px] shadow-sm">
+						<h3 class="m-0 mb-3 t-body text-[17px] font-semibold text-[var(--text-heading)]">What Lattice is now</h3>
+						<ul class="m-0 list-disc space-y-1.5 pl-5 text-[14.5px] leading-[1.55] text-foreground lg:columns-2 lg:gap-10 [&>li]:break-inside-avoid">
+							<li><strong>More than fifty components</strong> across thirteen buckets. Pick the meaning, get the composition.</li>
+							<li>A <strong>design-token system</strong> and <strong>14 editorial palettes + 4 color-blind-safe</strong>. Layouts never name a color.</li>
+							<li><strong>Boardroom-grade defaults</strong> and WCAG-AA contrast in every palette, light and dark.</li>
+							<li>An <strong>owned, pinned render engine</strong>. It renders plain HTML sections, not SVG-wrapped slides, so modern CSS works natively — container queries, counters, masks — and layout holds across browsers.</li>
+							<li><strong>Agent authoring.</strong> A machine catalog and a shared linter steer an LLM to on-brand decks instead of guesses.</li>
+							<li><strong>The Studio.</strong> The whole loop in a browser tab — write with live preview, get coached, apply fixes from chat, present — nothing to install.</li>
+							<li><strong>A finish layer.</strong> Premium surface treatments — marks, washes, backdrops — applied with one line and tuned visually in Fabricate, the Studio’s finish designer.</li>
+						</ul>
 					</div>
 				</div>
 			</section>
@@ -686,7 +680,7 @@ const ROADMAP = [
 					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
 						{WEAKNESSES.map((w) => (
 							<div class="rounded-xl border border-border bg-card p-[24px] shadow-sm">
-								<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">{w.head}</h3>
+								<h3 class="m-0 mb-2 t-body text-[16px] font-semibold text-[var(--text-heading)]">{w.head}</h3>
 								<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">{w.body}</p>
 							</div>
 						))}
@@ -708,12 +702,12 @@ const ROADMAP = [
 						{ROADMAP.map((r) => (
 							r.accent ? (
 								<div class="rounded-xl border border-primary p-[24px] shadow-sm" style="background: color-mix(in srgb, var(--accent) 7%, transparent);">
-									<h3 class="m-0 mb-2 text-[16px] font-semibold text-primary">{r.head}</h3>
+									<h3 class="m-0 mb-2 t-body text-[16px] font-semibold text-primary">{r.head}</h3>
 									<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">{r.body}</p>
 								</div>
 							) : (
 								<div class="rounded-xl border border-border bg-card p-[24px] shadow-sm">
-									<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">{r.head}</h3>
+									<h3 class="m-0 mb-2 t-body text-[16px] font-semibold text-[var(--text-heading)]">{r.head}</h3>
 									<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">{r.body}</p>
 								</div>
 							)
