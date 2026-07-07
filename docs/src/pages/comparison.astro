@@ -2,15 +2,19 @@
 // Lattice comparison page — a standalone Astro route (NOT a Starlight page), so
 // it renders full-bleed with the engine's own tokens, a sibling to index.astro.
 //
-// This is an HONEST, FAIR, OPINIONATED comparison: it credits each rival's real
-// strengths, makes Lattice's deterministic/boardroom case with sourced evidence,
-// and concedes Lattice's own weaknesses (no WYSIWYG, no live co-editing, a
-// learning curve). The cited source-of-truth for every load-bearing claim is
-// engineering/decisions/2026-06-14-competitive-analysis.md. Keep them in sync.
+// This page LEADS WITH THE ARGUMENT, then compares. Front half is the manifesto
+// (problem → what we believe → on speed → what we commit to), drawn from the
+// same convictions as principles.md and story.md. Back half is the HONEST, FAIR,
+// OPINIONATED comparison: it credits each rival's real strengths, makes the
+// deterministic/craft case with sourced evidence, and concedes Lattice's own
+// weaknesses. The cited source-of-truth for the field survey is
+// engineering/decisions/2026-06-14-competitive-analysis.md; the July-2026 receipt
+// refresh (KPMG, Deloitte, Gamma sizing, Copilot adoption, ISO/IEC 42001, the
+// "slop" cultural signal) lives in the PR that repositioned this page. Keep the
+// load-bearing numbers in sync with those and re-verify before editing.
 //
 // Static content only — rendered to HTML server-side (no client: directive →
-// zero JS). The page shell (head, topbar, footer, nav toggle) mirrors
-// index.astro; SectionHead is reused from the landing for heading consistency.
+// zero JS). The page shell (head, topbar, footer, nav toggle) mirrors index.astro.
 import '../styles/landing.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
@@ -32,8 +36,58 @@ const palettes = [...new Set([...tokensCss.matchAll(/data-palette="([^"]+)"/g)].
 
 const SOURCE_DOC = `${GITHUB_URL}/blob/main/engineering/decisions/2026-06-14-competitive-analysis.md`;
 
-// ── The matrix ──────────────────────────────────────────────────────────────
-// Columns are the axes that actually matter for high-stakes, recurring decks.
+// ── What we commit to (the policy section) ──────────────────────────────────
+const COMMITMENTS = [
+	{
+		head: 'Deterministic by contract',
+		body: 'The same Markdown and the same theme render the same pixels — on your laptop, a colleague’s, a build server, this year and next. In regulated work that’s not a nicety: reproducibility and auditability are what standards like ISO/IEC 42001 now ask for. It’s also just how you put your name on a deck without re-reading every slide. The version you approved is the version that opens in the room.',
+	},
+	{
+		head: 'The AI writes; the engine renders',
+		body: 'A model can draft the words. It never touches the pixels. Probabilistic reasoning, reproducible output — the way regulated work already keeps its reasoning layer and its record layer apart. AI generators fuse content, facts, and design into one roll of the dice and get each one only mostly right.',
+	},
+	{
+		head: 'Your model, your account, your spend',
+		body: 'Drive any of 500+ models through your own OpenRouter account, switch whenever you like, and watch the meter the whole time. We don’t own the AI layer — you do. The tool that generates your deck should not also be the tool that bills you for it and swaps the model out from under you.',
+	},
+	{
+		head: 'Your work is yours to keep',
+		body: 'Lattice is open source under AGPL-3.0, and a Lattice Output Exception frees every deck you make — no license attaches to your slides, ever. It runs offline, phones home to nobody, and can’t be switched off under you. Leave whenever you like: every deck is still a plain PDF sitting next to the Markdown that built it.',
+	},
+];
+
+// ── The four families ───────────────────────────────────────────────────────
+// Credit each family's real strengths; name where each breaks once the deck has
+// to answer to a board. Gamma's scale (verified: $2.1B, ~70M users, Nov 2025)
+// is stated plainly — we do not pretend the rivals are weak.
+const FAMILIES = [
+	{
+		name: 'AI generators',
+		tools: 'Gamma · Beautiful.ai · Decktopus · Presentations.ai · Plus AI · (Tome, RIP)',
+		win: 'They are fast to a first draft, and the category is real money — Gamma alone reached a $2.1B valuation and roughly 70 million users. A prompt becomes a presentable draft in about a minute, and it looks modern out of the box. Nothing kills a blank page quicker. For a throwaway internal deck, grab one.',
+		fall: 'The draft is where the work starts, not ends. They roll the dice every time — regenerate one slide and the layout reshuffles under you. Exports break: Gamma flattens its PowerPoint to uneditable images and swaps your fonts for Calibri. Every deck drifts toward the same house style, and the numbers arrive with no sources.',
+	},
+	{
+		name: 'Office suites + AI',
+		tools: 'PowerPoint + Copilot · Google Slides + Gemini · Apple Keynote',
+		win: 'These own the boardroom today. PowerPoint is the universal format, Google runs the best live co-editing on the market, and everyone already knows how to drive all three. That reach is a real moat, and it isn’t going anywhere.',
+		fall: 'The file is a binary blob or a cloud object, so you can’t reliably diff two versions — you get final_v3_FINAL.pptx instead. Fonts fall back and layouts reflow on the next machine, so “looks right here” means nothing. The brand guide sits in a folder nobody enforces. And Copilot rolls the dice like the rest — even bundled into Office, it’s paid for by only about 3% of seats.',
+	},
+	{
+		name: 'Code engines',
+		tools: 'Marp · reveal.js · Slidev · Beamer · Quarto · Spectacle',
+		win: 'Our own family. Free, open source, plain text, deterministic, versionable. If you live in a terminal, these are the lock-in-free choice, and Slidev is the sharpest of the lot.',
+		fall: 'None of them ships a design system. You get a handful of themes and raw CSS, then you build every layout yourself — and boardroom polish takes real design work most people can’t spare. Several use a browser-print PDF path, so the output changes machine to machine. They’re for developers; we’re for anyone who has to make the deck.',
+	},
+	{
+		name: 'Design & collab tools',
+		tools: 'Pitch · Canva · Figma Slides',
+		win: 'Strong on design, strong on collaboration. A marketing team that wants beautiful slides and live multiplayer editing gets both here. Figma’s design control and Canva’s template range are the real thing.',
+		fall: 'The deck lives in someone else’s cloud as a proprietary object. You can’t rebuild it from text, and you steer the brand through a GUI kit instead of a system. Canva output reads as “a Canva template.” Figma Slides still ships PPTX export bugs. Pitch cut roughly two-thirds of its staff in 2024 and pulled back from its hyper-growth bet.',
+	},
+];
+
+// ── The comparison matrix (capability, not feature count) ────────────────────
 // Marks: 'yes' (strong) · 'part' (partial/conditional) · 'no'. Lattice does NOT
 // win every row — the ❌s are the point; they make the ✅s credible.
 const COLS = ['Lattice', 'AI generators', 'Office + AI', 'Code engines', 'Design / collab'];
@@ -44,8 +98,8 @@ const ROWS = [
 		marks: ['yes', 'no', 'part', 'yes', 'no'],
 	},
 	{
-		axis: 'Plain-text, git-diffable source',
-		why: 'Review a deck like code — line by line.',
+		axis: 'Source you can version and review',
+		why: 'Diff two drafts, review a change, revert a bad edit.',
 		marks: ['yes', 'no', 'no', 'yes', 'no'],
 	},
 	{
@@ -54,7 +108,7 @@ const ROWS = [
 		marks: ['yes', 'part', 'part', 'part', 'part'],
 	},
 	{
-		axis: 'Boardroom polish out of the box',
+		axis: 'Boardroom polish with no design work',
 		why: 'Looks finished before you touch it.',
 		marks: ['yes', 'part', 'part', 'no', 'yes'],
 	},
@@ -69,18 +123,18 @@ const ROWS = [
 		marks: ['no', 'yes', 'yes', 'no', 'yes'],
 	},
 	{
-		axis: 'WYSIWYG, no learning curve',
-		why: 'Drag, drop, done — no syntax to learn.',
+		axis: 'WYSIWYG, no syntax to learn',
+		why: 'Drag, drop, done — nothing to memorize.',
 		marks: ['no', 'yes', 'yes', 'no', 'yes'],
 	},
 	{
 		axis: 'Reliably agent / AI-authorable',
-		why: 'An LLM can drive it to on-brand output, not just guess.',
+		why: 'An LLM drives it to on-brand output, not a guess.',
 		marks: ['yes', 'part', 'part', 'part', 'part'],
 	},
 	{
-		axis: 'No vendor lock-in (your file, offline, open source)',
-		why: 'It runs where your code runs and can never be switched off.',
+		axis: 'No lock-in (your file, offline, open source)',
+		why: 'It runs where you run it and can never be switched off.',
 		marks: ['yes', 'no', 'no', 'yes', 'no'],
 	},
 ];
@@ -90,95 +144,87 @@ const MARK = {
 	no: { glyph: '○', label: 'No', cls: 'mk-no' },
 };
 
-// ── The four families ───────────────────────────────────────────────────────
-const FAMILIES = [
-	{
-		name: 'AI generators',
-		tools: 'Gamma · Beautiful.ai · Decktopus · Presentations.ai · Plus AI · MagicSlides · SlidesAI · (Tome, RIP)',
-		win: 'They are fast. A prompt becomes a presentable first draft in about a minute, and it looks modern out of the box. Nothing kills a blank page quicker. For a throwaway internal deck, grab one.',
-		fall: 'They roll the dice every time. Regenerate one slide and the layout reshuffles under you. Exports break: Gamma flattens its PowerPoint to uneditable images and swaps your fonts for Calibri. Every deck drifts toward the same house style. And the numbers come with no sources.',
-	},
-	{
-		name: 'Office suites + AI',
-		tools: 'PowerPoint + Copilot · Google Slides + Gemini · Apple Keynote',
-		win: 'These own the boardroom today. PowerPoint is the universal format, Google runs the best live co-editing on the market, and everyone already knows how to drive all three. That reach is a real moat.',
-		fall: 'The file is a binary blob or a cloud object, so git cannot diff it. You get final_v3_FINAL.pptx instead. Fonts fall back and layouts reflow on the next machine, so “looks right here” means nothing. The brand guide sits in a folder nobody enforces. And Copilot rolls the dice and hallucinates like the rest.',
-	},
-	{
-		name: 'Code engines',
-		tools: 'Marp · reveal.js · Slidev · Beamer · Quarto · Spectacle',
-		win: 'Our family. Free, open source, plain text, diffable in git, deterministic. If you live in a terminal, these are the lock-in-free choice, and Slidev is the sharpest of the lot.',
-		fall: 'None of them ships a design system. You get a handful of themes and raw CSS, then you build every layout yourself. Boardroom polish takes real design work. Several use a browser-print PDF path, and the output changes machine to machine.',
-	},
-	{
-		name: 'Design & collab tools',
-		tools: 'Pitch · Canva · Figma Slides',
-		win: 'Strong on design, strong on collaboration. A marketing team that wants beautiful slides and live multiplayer editing gets both here. Figma’s design control and Canva’s template range are the real thing.',
-		fall: 'The deck lives in someone else’s cloud as a proprietary object. You cannot diff it, cannot rebuild it from text, and you steer the brand through a GUI kit instead of code. Canva output reads as “a Canva template.” Figma Slides still ships PPTX export bugs. Pitch cut most of its staff in 2024 and walked away from presentations.',
-	},
-];
-
-// ── The receipts (sourced evidence) ─────────────────────────────────────────
+// ── The receipts (sourced evidence, refreshed July 2026) ─────────────────────
+// Every card links out and carries the caveat a skeptical reader should want.
 const RECEIPTS = [
+	{
+		stat: '5 of 45',
+		head: 'Citations correct in a Big Four firm’s own AI report',
+		body: 'KPMG’s 2025 report on agentic AI cited 45 sources. Five were correct. The rest were fabricated or mangled by AI — invented authors, wrong dates, papers that don’t exist. A firm that audits others couldn’t audit its own deck. KPMG pulled the report.',
+		cite: 'GPTZero investigation, 2026',
+		href: 'https://gptzero.me/news/investigations-kpmg/',
+		note: 'GPTZero’s primary analysis, corroborated by The Register and the OECD AI Incidents monitor. The sharpest evidence that a fabricated fact ships at the speed of a draft.',
+	},
+	{
+		stat: 'AU$440k',
+		head: 'A government report that invented its sources',
+		body: 'Deloitte produced a AU$440k report for the Australian government that cited non-existent papers and a fabricated quote attributed to a Federal Court judge. Deloitte refunded the contract’s final installment and reissued a version disclosing it had used GPT-4o.',
+		cite: 'Fortune / The Register, Oct 2025',
+		href: 'https://www.theregister.com/2025/10/06/deloitte_ai_report_australia/',
+		note: 'Verified across Fortune, The Register, and CFO Dive. The AU$440k is the contract value; the refund was the final installment, not the whole fee.',
+	},
 	{
 		stat: '0–20%',
 		head: 'How much of an AI deck checks out',
-		body: 'One team fed the same 10-slide prompt to six tools and verified every claim. Gamma scored 20%. Beautiful.ai and Canva managed 17%. Tome hit 0%. Canva pinned invented statistics to a real, named school. One tool out of six cited a source.',
+		body: 'One team fed the same 10-slide prompt to six presentation tools and verified every claim against primary sources. Gamma scored 20%. Beautiful.ai and Canva managed 17%. Tome hit 0%. Canva pinned invented statistics to a real, named school. Speed to a draft is not speed to something true.',
 		cite: 'Fact-check of 6 AI presentation makers, Feb 2026',
 		href: 'https://medium.com/@neel2108/we-fact-checked-6-ai-presentation-makers-heres-how-often-they-hallucinate-90e6093e42fc',
-		note: 'One prompt, one deck per tool, so read it as directional. The mechanism holds: an LLM predicts plausible text, it does not look facts up.',
-	},
-	{
-		stat: '×3',
-		head: 'Brand violations after a Copilot rollout',
-		body: 'One report tracked a European bank that gave Copilot to 42 of its presentation staff. Six weeks in, 8% still used it, slide quality had dropped, and brand violations had tripled. One slide claimed a “43% funding increase.” The real number was 12%.',
-		cite: 'Octigen, “Why Copilot for PowerPoint fails,” 2026',
-		href: 'https://octigen.com/blog/posts/2026-04-01-copilot-for-powerpoint-reasons-it-fails/',
-		note: 'A vendor-adjacent account, specific but not independently confirmed. Microsoft’s own docs tell you to review Copilot output by hand.',
+		note: 'One author, one prompt per tool — read it as directional, not a large study. The mechanism holds: an LLM predicts plausible text; it does not look facts up.',
 	},
 	{
 		stat: '25M',
 		head: 'Users whose decks got switched off',
-		body: 'Tome reached 25 million users. Then its founders shut it down in April 2025: “We killed a product used by 25M people.” Decks nobody exported in time were deleted for good. A Markdown deck in your own git repo cannot be switched off under you.',
-		cite: 'VentureBeat, on Tome’s shutdown & pivot, 2025',
+		body: 'Tome reached 25 million users, then shut its presentation product down in 2025 — “we killed a product used by 25M people,” its co-founder wrote — because almost nobody would pay for the output. Decks nobody exported in time were gone. A Markdown deck in your own folder cannot be switched off under you.',
+		cite: 'Founder’s post + VentureBeat, 2025',
 		href: 'https://venturebeat.com/technology/tomes-founders-ditch-viral-presentation-app-with-20m-users-to-build-ai',
-		note: 'Under 2% of users paid, on less than $4M in revenue against $81M raised. Reach is not the same as value.',
-	},
-	{
-		stat: 'AU$439k',
-		head: 'A consultancy refunded a report for AI fabrications',
-		body: 'Deloitte refunded part of a AU$439k government report after it surfaced fake references and a made-up court quote. KPMG pulled a report when 40 of its 45 citations were fabricated. The deck is where work like that gets presented.',
-		cite: 'ACS / AI Incident Database, Oct 2025',
-		href: 'https://ia.acs.org.au/article/2025/deloitte-to-refund-government-over-ai-errors.html',
-		note: 'The hardest evidence to argue with: AI deliverables ship with invented facts.',
+		note: 'Under 2% of users paid, on under ~$4M revenue against $81M raised. Reach is not the same as value — or permanence.',
 	},
 ];
 
 // ── Lattice's honest weaknesses ─────────────────────────────────────────────
 const WEAKNESSES = [
 	{
-		head: 'No WYSIWYG editor',
-		body: 'You write Markdown and pick a component. You do not drag a box across a canvas. The Drawing Board shows a live preview, not direct manipulation. If you think in pictures instead of structure, that grates.',
+		head: 'No WYSIWYG canvas',
+		body: 'You write Markdown and pick a component; you don’t drag a box across a canvas. The Drawing Board shows a live preview, not direct manipulation. If you think in pictures instead of structure, that grates.',
 	},
 	{
 		head: 'A real learning curve',
-		body: 'Markdown, a CLI, more than fifty layouts, and an authoring contract with rules. Lattice gives you consistency at scale for that. Your first deck still takes longer than typing a prompt into Gamma.',
+		body: 'Markdown, a vocabulary of layouts, and an authoring contract with rules. The tooling teaches as you go — autocomplete, a live gallery, an inline linter — but your first deck still takes longer than typing a prompt into Gamma.',
 	},
 	{
 		head: 'No real-time co-editing',
-		body: 'Collaboration runs through git: branches, diffs, pull requests. Not five cursors in one live document. If your team lives in Google Slides, that is a real change of habit.',
+		body: 'Collaboration is asynchronous: you review a change and merge it, rather than sharing five live cursors in one document. That’s how code and serious documents are edited — but if your team lives in Google Slides, it’s a real change of habit.',
 	},
 	{
 		head: 'Setup, not sign-up',
-		body: 'You install Node, a headless Chromium, and a Mermaid CLI. It runs offline and phones home to nobody. Clone-and-install still asks more of you than opening a browser tab.',
+		body: 'To render locally you install a toolchain; it runs offline and phones home to nobody. The playground needs none of that — but clone-and-install still asks more of you than opening a browser tab, and the desktop app that removes the last of it hasn’t shipped.',
 	},
 	{
 		head: 'A young ecosystem',
-		body: 'Lattice is at v1.0.0. The components and tokens are stable. The desktop app has not shipped, and the tooling around the engine is young.',
+		body: 'The engine is at v1 and the components and tokens are stable, but the tooling around it is young and the desktop app is still in development. You’re early.',
 	},
 	{
 		head: 'Not for the stage',
-		body: 'No builds, no transitions, no presenter animations. Lattice makes documents you email and archive. For a live keynote, use Keynote.',
+		body: 'No builds, no transitions, no presenter animations. Lattice makes documents you email and archive and that read without you in the room. For a live keynote with stagecraft, use Keynote.',
+	},
+];
+
+// ── Where Lattice is going ──────────────────────────────────────────────────
+const ROADMAP = [
+	{
+		head: 'SlideWright desktop',
+		body: 'A native app wraps the same engine, for people who want the determinism and skip the terminal entirely.',
+		accent: false,
+	},
+	{
+		head: 'Deeper agent authoring',
+		body: 'The machine catalog and the shared linter make Lattice an easy target for an LLM — so an agent drafts a deck that lands on brand instead of guessing at layout.',
+		accent: false,
+	},
+	{
+		head: 'One we’re not ready to name',
+		body: 'One more capability is coming. It changes what a deterministic deck engine can do. We’ll ship it when it’s ready, on the same engine, with the same guarantees.',
+		accent: true,
 	},
 ];
 ---
@@ -189,10 +235,10 @@ const WEAKNESSES = [
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<ResourceHints />
-		<title>Lattice vs. the alternatives — an honest comparison</title>
+		<title>The case for a deterministic deck — Lattice vs. the alternatives</title>
 		<meta
 			name="description"
-			content="An honest, sourced comparison of Lattice against AI deck generators (Gamma, Beautiful.ai), office suites (PowerPoint, Google Slides), code engines (Marp, Slidev), and design tools (Canva, Pitch) — including where Lattice itself falls short."
+			content="Why a serious deck shouldn’t be a gamble, and making one shouldn’t need a designer — the problem, what Lattice believes, what it commits to, and an honest, sourced comparison against AI generators, Office+AI, code engines, and design tools, including where Lattice is the wrong call."
 		/>
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<script is:inline>
@@ -227,24 +273,23 @@ const WEAKNESSES = [
 		<SiteHeader palettes={palettes} />
 
 		<main>
-			<!-- Hero -->
+			<!-- Hero — lead with the belief, not their speed -->
 			<section class="py-[clamp(48px,7vw,96px)] pb-[clamp(32px,4vw,56px)]">
-				<div class="wrap max-w-[52rem]">
+				<div class="wrap max-w-[54rem]">
 					<p class="m-0 mb-4 font-mono text-[12px] font-medium uppercase tracking-[0.16em] text-primary">
-						An honest comparison
+						The case for a deterministic deck
 					</p>
 					<h1 class="m-0 mb-5 font-[var(--font-display)] text-[clamp(34px,5.2vw,60px)] font-bold leading-[1.04] tracking-[-0.02em] text-[var(--text-heading)]">
-						The artsy deck wins the demo. The deterministic deck wins the boardroom.
+						A serious deck shouldn’t be a gamble. Making one shouldn’t need a designer.
 					</h1>
 					<p class="m-0 mb-4 text-[clamp(17px,2vw,20px)] leading-[1.5] text-foreground">
-						AI tools spin up gorgeous slides in seconds. We tested them. We tested the office suites, the design apps,
-						and the code engines too. Some of them do real work. But a board deck answers to investors, regulators, and
-						legal. Beautiful was never the bar. The bar is <strong>correct output, on brand, the same every time</strong>,
-						and most of these tools miss it.
+						Every other tool makes you choose — fast or trustworthy, easy or on brand, beautiful or yours to keep.
+						Lattice is the argument that you shouldn’t have to. A deck is plain text; a design system does the design;
+						and the render you approve is the render that opens in the room.
 					</p>
 					<p class="m-0 text-[15.5px] leading-[1.6] text-muted-foreground">
-						This page names names and shows its sources. It also tells you where Lattice is the wrong call, because a
-						comparison you cannot trust is worth nothing.
+						This page makes that case in full: the problem, what we believe a deck should be, what we commit to — and
+						an honest, sourced read on every alternative, including where Lattice is the wrong call.
 					</p>
 					<div class="mt-8 flex flex-wrap gap-3">
 						<a
@@ -259,99 +304,165 @@ const WEAKNESSES = [
 							class="inline-flex items-center rounded-lg border border-border bg-card px-5 py-2.5 text-[15px] font-semibold transition-colors hover:border-primary"
 							style="color: var(--text-body);"
 						>
-							Jump to the matrix
+							Jump to the comparison
 						</a>
 					</div>
 				</div>
 			</section>
 
-			<!-- Thesis -->
+			<!-- The problem -->
 			<section class="border-t border-border py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead
-						eyebrow="The argument"
-						title="Speed and control are the same coin."
+						eyebrow="The problem"
+						title="Three decades of tools copied PowerPoint’s blank canvas — and its blank check."
 					>
-						The choices that make AI generators fast are the same choices that break them. Auto-layout, web-first
-						rendering, one stochastic roll for the whole deck. Those give you the speed. They also give you broken
-						exports, brand drift, sameness, and output you cannot reproduce. You do not get one without the other.
+						A slide tool hands you an empty rectangle and no guardrails. Nothing stops the drift, enforces the brand,
+						or catches the contrast that fails and the chart that’s unreadable in gray. The burden of consistency falls
+						on you, slide after slide, the night before the meeting — and you can’t even tell what changed between two
+						versions. So we all sit through decks that are worse than they needed to be, not because the author had
+						nothing to say, but because the tool fought them the whole way.
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] lg:grid-cols-[1.15fr_1fr]">
 						<div class="rounded-xl border border-border bg-card p-[26px] shadow-sm">
 							<h3 class="m-0 mb-3 font-[var(--font-body)] text-[19px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">
-								So split the layers.
+								AI didn’t fix the foundation. It automated the drift.
 							</h3>
 							<p class="m-0 mb-3 text-[15.5px] leading-[1.6] text-foreground">
-								Let the model draft the words. Then hand those words to a deterministic engine that owns every visual
-								decision. <strong>The AI writes. The engine renders</strong> — same pixels, on brand, every time.
-								Regulated industries already work this way: probabilistic reasoning, reproducible output.
+								Bolting a model onto the blank canvas made the first draft faster and the finish worse. The output has
+								a name now — “slop,” Merriam-Webster’s word of 2025 — the same gradient, the same font, the same
+								rounded card, on every deck. Sameness is the tax you pay for design-by-generation.
 							</p>
 							<p class="m-0 text-[15.5px] leading-[1.6] text-foreground">
-								AI generators do the opposite. They fuse content, facts, and design into one roll and get each one
-								partly wrong. That is the worst way to fail, because a single invented number poisons trust in
-								everything else on the page.
+								The foundation was wrong for today’s work, and no amount of AI layered on top can mask a flaw that deep.
+								The fix isn’t a smarter canvas. It’s no canvas at all.
 							</p>
 						</div>
-						<div class="flex flex-col gap-[18px]">
-							<blockquote class="m-0 rounded-xl border border-border bg-muted p-[22px]">
-								<p class="m-0 mb-2.5 text-[16px] italic leading-[1.5] text-[var(--text-heading)]">
-									“A beautiful slide with a confident-looking statistic and no citation is just an opinion with good
-									typography.”
-								</p>
-								<footer class="text-[13px] text-muted-foreground">— Fact-check of 6 AI presentation makers, 2026</footer>
-							</blockquote>
-							<blockquote class="m-0 rounded-xl border border-border bg-muted p-[22px]">
-								<p class="m-0 mb-2.5 text-[16px] italic leading-[1.5] text-[var(--text-heading)]">
-									“When a model produces a different output for the same input on consecutive runs, that is not a
-									feature — it is a compliance violation.”
-								</p>
-								<footer class="text-[13px] text-muted-foreground">— MightyBot, <em>What is Deterministic AI</em></footer>
-							</blockquote>
-						</div>
+						<blockquote class="m-0 flex flex-col justify-center rounded-xl border border-border bg-muted p-[26px]">
+							<p class="m-0 mb-2.5 text-[17px] italic leading-[1.5] text-[var(--text-heading)]">
+								“Consistency is the principle that separates professional design from amateur work. When consistency
+								breaks, so does the reader’s trust.”
+							</p>
+							<footer class="text-[13px] text-muted-foreground">— on the typography of professional services</footer>
+						</blockquote>
 					</div>
 				</div>
 			</section>
 
-			<!-- Concession first -->
+			<!-- What we believe -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead
-						eyebrow="Credit where it’s due"
-						title="Where the others beat us."
+						eyebrow="What we believe"
+						title="The system carries the consistency. You carry the judgment."
 					>
-						These tools are not bad, and the people who built them are not fools. If you need one of the things below,
-						use them, not Lattice. Here is what they do better.
+						Most of what goes wrong in a deck is mechanical — contrast, spacing, alignment, a color that’s the only
+						signal a color-blind reader can’t see. None of it is a matter of judgment, and none of it should cost you
+						any. Lattice clears all of it off your desk automatically, so the only thing left in front of you is the
+						thinking: whether the claim is true, whether the slide earns its place, whether the argument lands. The
+						machine owns what’s correct; you own what’s good.
 					</SectionHead>
-					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
-						<div class="rounded-xl border border-border bg-card p-[22px] shadow-sm">
-							<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">Raw speed</h3>
-							<p class="m-0 text-[14.5px] leading-[1.55] text-foreground">One sentence becomes a full draft in under a minute. Nothing beats an AI generator at killing the blank page.</p>
+					<div class="grid grid-cols-1 gap-[18px] lg:grid-cols-3">
+						<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
+							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Good design, made a default</h3>
+							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">
+								What reads as authoritative isn’t more design — it’s disciplined consistency and restraint. A design
+								system makes that automatic, which means presence stops being a skill you need and becomes a default
+								you get. You don’t have to be a designer.
+							</p>
 						</div>
-						<div class="rounded-xl border border-border bg-card p-[22px] shadow-sm">
-							<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">Real-time collaboration</h3>
-							<p class="m-0 text-[14.5px] leading-[1.55] text-foreground">Google Slides runs the best live multiplayer in the business. Several people, one document, right now. Lattice cannot match it.</p>
+						<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
+							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">A slide is four decisions</h3>
+							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">
+								Function, Form, Substance, Finish — what the slide is for, the shape that holds it, what fills the
+								shape, and the palette and mood. You make them one at a time instead of fighting all four at once on a
+								blank canvas. Change one without disturbing the rest.
+							</p>
 						</div>
-						<div class="rounded-xl border border-border bg-card p-[22px] shadow-sm">
-							<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">Ubiquity</h3>
-							<p class="m-0 text-[14.5px] leading-[1.55] text-foreground">Everyone can open a <code class="font-mono text-[0.88em] text-primary">.pptx</code>. PowerPoint runs the boardroom, and that reach is a real moat.</p>
-						</div>
-						<div class="rounded-xl border border-border bg-card p-[22px] shadow-sm">
-							<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">Point-and-click ease</h3>
-							<p class="m-0 text-[14.5px] leading-[1.55] text-foreground">WYSIWYG and template galleries need no syntax at all. For a one-off casual deck, that immediacy is hard to give up.</p>
+						<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
+							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Built to be read without you</h3>
+							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">
+								A board deck gets forwarded, attached, opened in a room you were never in. It has to carry its point
+								alone — one clear claim, a heading that says something, a shape that fits the thought. Lattice is built
+								for the deck that still makes the case after you’ve left.
+							</p>
 						</div>
 					</div>
 				</div>
 			</section>
 
-			<!-- The four families -->
+			<!-- On speed — the reframe -->
 			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead
-						eyebrow="The field"
-						title="Four families. One honest read on each."
+						eyebrow="On speed"
+						title="Fast to a draft is not fast to a deck."
 					>
-						The presentation world splits into four camps. Here is what each one is for, and where each one breaks
-						once the deck has to answer to a board.
+						An AI generator is genuinely fast — to a first draft. That’s the well-documented 80/20 of generative AI:
+						the demo lands in a minute, and the last mile is still yours. Then the real clock starts, and it runs long.
+					</SectionHead>
+					<div class="grid grid-cols-1 gap-[18px] lg:grid-cols-[1fr_1fr]">
+						<div class="rounded-xl border border-border bg-card p-[26px] shadow-sm">
+							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">Their clock</h3>
+							<p class="m-0 text-[15px] leading-[1.6] text-foreground">
+								You fact-check the numbers the model invented. You strip the sameness so it doesn’t read as a template.
+								You fix the export that swapped your fonts for Calibri. You force the whole thing back onto the brand.
+								The draft arrived in a minute; the deck you can actually send is hours away — and you feel faster than
+								you are the entire time.
+							</p>
+						</div>
+						<div class="rounded-xl border border-primary p-[26px] shadow-sm" style="background: color-mix(in srgb, var(--accent) 7%, transparent);">
+							<h3 class="m-0 mb-3 text-[18px] font-semibold tracking-[-0.01em] text-primary">Ours</h3>
+							<p class="m-0 text-[15px] leading-[1.6] text-foreground">
+								Lattice front-loads none of that. The design decisions were made before you arrived; the render you
+								approve is the render you send — no re-brand, no broken PPTX, no fact-checking the layout. The first
+								render is the final render. That’s the speed that matters: not speed to a draft, speed to something you
+								can put your name on.
+							</p>
+						</div>
+					</div>
+					<p class="mt-8 max-w-[46ch] font-[var(--font-display)] text-[clamp(22px,2.6vw,30px)] font-bold leading-[1.15] tracking-[-0.01em] text-[var(--text-heading)]">
+						The artsy deck wins the demo. The deterministic deck wins the boardroom.
+					</p>
+				</div>
+			</section>
+
+			<!-- What we commit to (policy) -->
+			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<SectionHead
+						eyebrow="What we commit to"
+						title="Four promises the render path keeps."
+					>
+						These aren’t features on a list; they’re the guarantees the whole engine is built to hold. Everything else
+						on this page follows from them.
+					</SectionHead>
+					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
+						{COMMITMENTS.map((c, i) => (
+							<div class="flex gap-4 rounded-xl border border-border bg-card p-[26px] shadow-sm">
+								<div class="flex-none font-[var(--font-display)] text-[24px] font-bold leading-none text-primary">
+									{String(i + 1).padStart(2, '0')}
+								</div>
+								<div>
+									<h3 class="m-0 mb-2 text-[18px] font-semibold tracking-[-0.01em] text-[var(--text-heading)]">{c.head}</h3>
+									<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">{c.body}</p>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</section>
+
+			<!-- Now, the field — the honest comparison -->
+			<section class="py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<SectionHead
+						eyebrow="Now, the field"
+						title="An honest read on every alternative — including where each one wins."
+					>
+						That’s the argument. Here’s the map. We credit each family’s real strengths and name where Lattice is the
+						wrong call, because a comparison you can’t trust is worth nothing. The presentation world splits into four
+						camps.
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] lg:grid-cols-2">
 						{FAMILIES.map((f) => (
@@ -380,7 +491,8 @@ const WEAKNESSES = [
 						title="The capabilities that decide a high-stakes deck."
 					>
 						We score capability, not feature count. Lattice loses rows here. It trades live collaboration and
-						point-and-click ease for reproducible output, enforced brand, and a file you own. That is the whole pitch.
+						point-and-click ease for reproducible output, enforced brand, and a file you own. That trade is the whole
+						pitch — and it’s the right one exactly when the deck matters.
 					</SectionHead>
 					<div class="overflow-x-auto rounded-xl border border-border bg-card">
 						<table class="cmp-table">
@@ -426,12 +538,12 @@ const WEAKNESSES = [
 						title="The case, with sources attached."
 					>
 						Strong claims need evidence. Every claim below links out and carries the caveat a skeptical reader should
-						want.
+						want — including where the source is thin.
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
 						{RECEIPTS.map((r) => (
 							<div class="flex flex-col rounded-xl border border-border bg-card p-[26px] shadow-sm">
-								<div class="mb-3 font-[var(--font-display)] text-[clamp(34px,4vw,46px)] font-bold leading-none text-primary">
+								<div class="mb-3 font-[var(--font-display)] text-[clamp(30px,3.6vw,42px)] font-bold leading-none text-primary">
 									{r.stat}
 								</div>
 								<h3 class="m-0 mb-2.5 font-[var(--font-body)] text-[17px] font-semibold leading-[1.3] text-[var(--text-heading)]">
@@ -468,8 +580,8 @@ const WEAKNESSES = [
 							<h3 class="m-0 mb-3 text-[17px] font-semibold text-[var(--text-heading)]">What we started from</h3>
 							<p class="m-0 text-[14.5px] leading-[1.65] text-foreground">
 								One good idea: write a deck in Markdown and render it through headless Chromium to PDF. Plain text
-								buys determinism and git diffs, true of every code engine. We built on Marp’s engine for the early
-								versions, then replaced it with our own at v1.0.0.
+								buys determinism and reviewable diffs, true of every code engine. We built on Marp’s engine for the
+								early versions, then replaced it with our own at v1.0.0.
 							</p>
 						</div>
 						<div class="rounded-xl border border-border bg-card p-[26px] shadow-sm">
@@ -560,8 +672,8 @@ const WEAKNESSES = [
 						eyebrow="Where we’re weaker"
 						title="When Lattice is the wrong tool."
 					>
-						An honest page owns its weak spots. If any of these is a hard requirement, use something else. We would
-						rather lose you here than disappoint you later.
+						An honest page owns its weak spots. If any of these is a hard requirement, use something else. We’d rather
+						lose you here than disappoint you later.
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
 						{WEAKNESSES.map((w) => (
@@ -574,29 +686,30 @@ const WEAKNESSES = [
 				</div>
 			</section>
 
-			<!-- Where Lattice is going (killer-feature slot) -->
+			<!-- Where Lattice is going -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead
 						eyebrow="Where Lattice is going"
 						title="The deterministic core is the floor, not the ceiling."
 					>
-						Everything above ships today at v1.0.0. Every roadmap item runs on the same engine, with the same
-						guarantees, and adds reach without giving any of that up.
+						Everything above ships today at v1. Every roadmap item runs on the same engine, with the same guarantees,
+						and adds reach without giving any of it up.
 					</SectionHead>
 					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
-						<div class="rounded-xl border border-border bg-card p-[24px] shadow-sm">
-							<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">SlideWright desktop</h3>
-							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">A native app wraps the same engine, for people who want the determinism and skip the terminal.</p>
-						</div>
-						<div class="rounded-xl border border-border bg-card p-[24px] shadow-sm">
-							<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">Deeper agent authoring</h3>
-							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">The machine catalog and linter make Lattice an easy target for an LLM, so an agent drafts a deck that lands on brand instead of guessing at layout.</p>
-						</div>
-						<div class="rounded-xl border border-primary p-[24px] shadow-sm" style="background: color-mix(in srgb, var(--accent) 7%, transparent);">
-							<h3 class="m-0 mb-2 text-[16px] font-semibold text-primary">One we’re not ready to name</h3>
-							<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">One more capability is coming. It changes what a deterministic deck engine can do. We will ship it when it is ready.</p>
-						</div>
+						{ROADMAP.map((r) => (
+							r.accent ? (
+								<div class="rounded-xl border border-primary p-[24px] shadow-sm" style="background: color-mix(in srgb, var(--accent) 7%, transparent);">
+									<h3 class="m-0 mb-2 text-[16px] font-semibold text-primary">{r.head}</h3>
+									<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">{r.body}</p>
+								</div>
+							) : (
+								<div class="rounded-xl border border-border bg-card p-[24px] shadow-sm">
+									<h3 class="m-0 mb-2 text-[16px] font-semibold text-[var(--text-heading)]">{r.head}</h3>
+									<p class="m-0 text-[14.5px] leading-[1.6] text-foreground">{r.body}</p>
+								</div>
+							)
+						))}
 					</div>
 				</div>
 			</section>
@@ -604,7 +717,7 @@ const WEAKNESSES = [
 			<!-- CTA -->
 			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<SectionHead eyebrow="See for yourself" title="See it yourself." />
+					<SectionHead eyebrow="See for yourself" title="Don’t take our word for it." />
 					<div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
 						<a
 							href={url('playground/')}
@@ -631,10 +744,10 @@ const WEAKNESSES = [
 						</a>
 					</div>
 					<p class="mt-8 max-w-[62ch] text-[13px] leading-[1.6] text-muted-foreground">
-						Method: we researched 18 tools in June 2026 and leaned on primary sources first, official docs and pricing
-						pages, then recent reviews. These tools move fast, and some claims are contested — pricing and AI features
-						most of all. Where we could not verify a number, we kept it qualitative. The full source ledger lives in
-						the repo. Spot something out of date? Send a correction.
+						Method: we surveyed the field in 2026 and lean on primary sources first — official docs and pricing pages,
+						named studies, first-party postmortems — then recent reviews. These tools move fast and some claims are
+						contested, pricing and AI features most of all. Where we could not verify a number, we kept it qualitative.
+						Spot something out of date? Send a correction.
 					</p>
 				</div>
 			</section>
