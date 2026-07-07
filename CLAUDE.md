@@ -372,8 +372,8 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | The Drawing Board / Workbench (**FROZEN** — no feature work; the Studio succeeds them) | `engineering/decisions/2026-07-03-studio-succession.md` |
 | Durable investigation notes | `engineering/decisions/YYYY-MM-DD-topic.md` |
 
-The 12 component buckets: anchor, statement, inventory, comparison, progression,
-evidence, imagery, chart, diagram, math, code, legal.
+The 13 component buckets: anchor, statement, inventory, comparison, progression,
+evidence, imagery, chart, diagram, math, code, legal, connect.
 
 ---
 

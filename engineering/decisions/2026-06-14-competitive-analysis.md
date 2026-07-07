@@ -92,9 +92,12 @@ CHANGELOG.md, dist/docs/components.json, themes/).
   use Keynote/Slides for that).
 
 **"Isn't this just Marp?" — the honest answer (technical-reader credibility):**
-Vanilla Marp's *own docs* state it has **"no component system, design tokens, slots, or
-layout primitives"** (marpit theme-css.md), ships **three generic themes**
-(default/gaia/uncover), and produces **environment-dependent** PDF (Chromium-version-coupled,
+Vanilla Marp has **no component system, no design tokens, no slots, no layout
+primitives** — theming is raw CSS per marpit's theme-css.md (CORRECTION 2026-07-07: this is
+a true characterization but NOT a verbatim quote; marpit's docs never say that sentence, and
+an earlier revision of this doc — and the live comparison page built from it — wrongly
+presented it inside quotation marks. Never quote it.) It ships **three generic themes**
+(default/gaia/uncover) and produces **environment-dependent** PDF (Chromium-version-coupled,
 font-substitution-prone). So:
 - **Genuinely above Marp:** the 53-component/12-bucket system, the token system, the 14
   palettes, palette-blind layouts, boardroom-grade defaults, agent-authorability, and the

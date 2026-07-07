@@ -57,6 +57,17 @@ in patch versions.
   not the refund; the fact-check receipt names the tools that scored higher), the
   git framing is demoted so it reads as manageability rather than developer-only,
   and `features.astro` is reconciled to "500+ models."
+  A follow-up integrity + capability pass: the unsourceable "Marp's own docs say"
+  quotation becomes an honest paraphrase (the root claim in the competitive-analysis
+  decision doc is corrected too); the flat-image PPTX export is disclosed as its own
+  weakness card since we ding Gamma for the same shape; the Studio, Fabricate, and
+  the finish layer join the page (a new "Deck review built in" matrix row, Studio
+  mentions in the warts and the Marp answer); the matrix's ○ marks use a text token
+  so they survive dark mode; the mobile matrix gets a right-edge fade and a swipe
+  hint; the display-font classes are repaired (they compiled to an invalid
+  `font-weight`); the Tome receipt no longer contradicts its neighbor's timeline;
+  "Send a correction" is now a link; and the marketing footers point at the Studio
+  instead of the frozen Drawing Board and Workbench.
 
 - **Vetrina: a caption can be a lesson, not a subtitle — the Teaching Beat.** A storyboard beat can
   set `read: true`: after the caption shows, the cursor dips to the narration dock and the words

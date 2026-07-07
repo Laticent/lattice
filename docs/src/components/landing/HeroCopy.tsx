@@ -21,7 +21,7 @@ export function HeroCopy({
 			<div className="mb-[18px]">
 				<Eyebrow>A text file in, a polished PDF out</Eyebrow>
 			</div>
-			<h1 className="mb-[22px] font-[var(--font-display)] text-[clamp(38px,5.4vw,68px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+			<h1 className="mb-[22px] font-[family-name:var(--font-display)] text-[clamp(38px,5.4vw,68px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
 				Write the <span className="italic text-primary">words</span>. The deck is already designed.
 			</h1>
 			<p className="m-0 mb-[30px] max-w-[46ch] text-[clamp(17px,1.5vw,20px)] text-foreground">
