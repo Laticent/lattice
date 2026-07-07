@@ -43,8 +43,10 @@ in patch versions.
   navigation), **Read · Slides** (every slide stacked in a scrolling column), and
   **Read · Article** (a Typora-style document with a left table of contents) —
   switchable from a top bar, with a dark/light toggle that re-themes the whole
-  document. Everything is inlined (fonts, images, diagrams as data), so it makes
-  **zero network requests**; the slide HTML is sanitized and pinned behind a strict
+  document. Everything is inlined (fonts, images, and diagrams — including
+  browser-drawn **state machines and plotted functions**, baked to static SVG at
+  export), so it makes **zero network requests**; the slide HTML is sanitized and
+  pinned behind a strict
   `sha256` content-security policy; and the exact deck source rides along in a
   tamper-safe envelope so the file re-opens into Lattice losslessly. Demo:
   `examples/html-player.md`. Read · Article is **component-aware**: it reads the
