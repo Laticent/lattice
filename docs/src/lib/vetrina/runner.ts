@@ -224,12 +224,14 @@ export function run<A>(opts: RunOptions<A>): RunHandle {
 		if (current === text) return;
 		const cadence = (o?.cadence ?? 22) * stage.pace;
 		const keep = commonPrefix(current, text);
-		// Instant (no animation at all), reduced motion, or a huge insert -> set the whole target
-		// at once. Instant skips even the settle wait; the others keep a short beat.
-		if (o?.instant || stage.reduced || text.length - keep > 1600) {
+		// Instant (no animation at all), the 'still' motion tier, or a huge insert -> set the whole
+		// target at once. NOTE: 'legible' (a reduced-motion device) is deliberately NOT here — the
+		// typing reveal is content cadence, not a vestibular trigger, so it keeps playing; only
+		// 'still' collapses it. Instant skips even the settle wait; the others keep a short beat.
+		if (o?.instant || stage.still || text.length - keep > 1600) {
 			ops.set(text);
 			typed.set(key, text);
-			if (!o?.instant) await wait(stage.reduced ? 60 : 260, signal);
+			if (!o?.instant) await wait(stage.still ? 60 : 260, signal);
 			return;
 		}
 		if (keep < current.length) {

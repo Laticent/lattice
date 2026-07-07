@@ -52,8 +52,12 @@ export interface Stage {
 	intro(signal?: AbortSignal): Promise<void>;
 	/** Resolve a Target to an element. Selectors are ROOT-scoped; pass a thunk for portals. */
 	resolve(target: Target): HTMLElement | null;
-	/** True if reduced motion is in effect (the runner shortens its pacing). */
+	/** True when VESTIBULAR motion is suppressed (the 'legible' and 'still' tiers) — glides
+	 *  teleport, sweeps/rings/orbit/wave-translate are skipped. Content cadence is unaffected. */
 	readonly reduced: boolean;
+	/** True ONLY in the 'still' tier — CONTENT cadence collapses too: the runner sets typed text
+	 *  at once (no reveal) and settles run short. 'legible' keeps the reveal, so this stays false. */
+	readonly still: boolean;
 	/** Pacing multiplier from the theme's speed — storyboard settle + typing cadence scale by it. */
 	readonly pace: number;
 	/** True if the event target belongs to the stage's own chrome (the Exit button). */
@@ -335,7 +339,18 @@ export function createStage(opts: StageOptions): Stage {
 	const { root, onExit } = opts;
 	const doc = root.ownerDocument ?? document;
 	const portal = opts.portalRoot ?? doc.body;
-	const reduced = reducedMotion();
+	// Motion policy resolves to one of three tiers, which feed TWO independent flags:
+	//   `reduced` — suppress VESTIBULAR motion (glides, expanding rings, orbit, translate/rotate
+	//               wave, drag sweeps). True for BOTH 'legible' and 'still'.
+	//   `still`   — collapse CONTENT cadence too (typing → instant, caption fades → instant,
+	//               reading settles → short). True ONLY for 'still'.
+	// A reduced-motion DEVICE ('system') lands on 'legible', never 'still': it loses the sweeps
+	// but keeps the typing reveal + cross-fades + full reading time, so the demo stays watchable
+	// (WCAG 2.3.3 / Apple HIG target vestibular motion, not content cadence).
+	const motionPref = opts.theme?.motion ?? 'system';
+	const motionMode: 'full' | 'legible' | 'still' = motionPref === 'system' ? (reducedMotion() ? 'legible' : 'full') : motionPref;
+	const reduced = motionMode !== 'full';
+	const still = motionMode === 'still';
 	const pace = opts.theme?.pace ?? 1;
 	const silenced = opts.theme?.silenced ?? new Set<string>();
 	const placement = opts.theme?.placement ?? 'bottom';
@@ -495,30 +510,36 @@ export function createStage(opts: StageOptions): Stage {
 			],
 			{ duration: 420, easing: 'ease-out' },
 		);
-		spawnFx(
-			cx,
-			cy,
-			`width:44px;height:44px;border-radius:50%;border:3.5px solid ${A};box-shadow:${RING_SHADOW};`,
-			[
-				{ transform: 'translate(-50%,-50%) scale(.25)', opacity: 1 },
-				{ transform: 'translate(-50%,-50%) scale(2.7)', opacity: 0 },
-			],
-			{ duration: 950, easing: 'cubic-bezier(.2,.7,.3,1)' },
-			1000,
-		);
-		for (let i = 0; i < 10; i++) {
-			const a = (i / 10) * Math.PI * 2;
+		// The in-place cursor scale pulse above is the tap's non-vestibular feedback and always
+		// plays. The expanding click ring + 10 radiating spark bars ARE vestibular (an outward
+		// sweep), so the 'legible'/'still' tiers suppress them — same contract intro() honors for
+		// its opening rings. The cursor pulse alone still marks where the tap landed.
+		if (!reduced) {
 			spawnFx(
 				cx,
 				cy,
-				`width:15px;height:3.5px;border-radius:3px;background:${A};box-shadow:${BAR_SHADOW};transform-origin:center;`,
+				`width:44px;height:44px;border-radius:50%;border:3.5px solid ${A};box-shadow:${RING_SHADOW};`,
 				[
-					{ transform: `translate(-50%,-50%) rotate(${a}rad) translateX(10px)`, opacity: 1 },
-					{ transform: `translate(-50%,-50%) rotate(${a}rad) translateX(44px)`, opacity: 0 },
+					{ transform: 'translate(-50%,-50%) scale(.25)', opacity: 1 },
+					{ transform: 'translate(-50%,-50%) scale(2.7)', opacity: 0 },
 				],
-				{ duration: 820, easing: 'ease-out' },
-				860,
+				{ duration: 950, easing: 'cubic-bezier(.2,.7,.3,1)' },
+				1000,
 			);
+			for (let i = 0; i < 10; i++) {
+				const a = (i / 10) * Math.PI * 2;
+				spawnFx(
+					cx,
+					cy,
+					`width:15px;height:3.5px;border-radius:3px;background:${A};box-shadow:${BAR_SHADOW};transform-origin:center;`,
+					[
+						{ transform: `translate(-50%,-50%) rotate(${a}rad) translateX(10px)`, opacity: 1 },
+						{ transform: `translate(-50%,-50%) rotate(${a}rad) translateX(44px)`, opacity: 0 },
+					],
+					{ duration: 820, easing: 'ease-out' },
+					860,
+				);
+			}
 		}
 		return wait(reduced ? 80 : 480, signal);
 	}
@@ -692,7 +713,20 @@ export function createStage(opts: StageOptions): Stage {
 
 	async function wave(signal?: AbortSignal): Promise<void> {
 		if (destroyed) return;
-		if (reduced) return wait(200, signal);
+		if (still) return wait(200, signal);
+		if (reduced) {
+			// Motion-safe hello: a gentle in-place scale pulse — no translateX, no rotate, so it
+			// reads as a friendly greeting without the vestibular sweep of the full hand-wave.
+			cursor.animate(
+				[
+					{ transform: 'translate(-50%,-50%) scale(1)' },
+					{ transform: 'translate(-50%,-50%) scale(1.18)' },
+					{ transform: 'translate(-50%,-50%) scale(1)' },
+				],
+				{ duration: 700, easing: 'ease-in-out' },
+			);
+			return wait(780, signal);
+		}
 		cursor.animate(
 			[
 				{ transform: 'translate(-50%,-50%) translateX(0) rotate(0deg)' },
@@ -713,9 +747,25 @@ export function createStage(opts: StageOptions): Stage {
 			return wait(200, signal);
 		}
 		place(window.innerWidth / 2, window.innerHeight * 0.46);
-		if (reduced) {
+		if (still) {
 			cursor.style.opacity = '1';
 			return wait(300, signal);
+		}
+		if (reduced) {
+			// Legible: the cursor materializes with an opacity/scale fade-in (motion-safe — no
+			// translate, no expanding rings) and gives the in-place greeting, so the run still
+			// opens with a "hello" the viewer registers, minus the vestibular ring sweep.
+			cursor.animate(
+				[
+					{ opacity: 0, transform: 'translate(-50%,-50%) scale(.6)' },
+					{ opacity: 1, transform: 'translate(-50%,-50%) scale(1)' },
+				],
+				{ duration: 460, easing: 'cubic-bezier(.2,.8,.3,1)' },
+			);
+			cursor.style.opacity = '1';
+			await wait(560, signal);
+			await wave(signal);
+			return;
 		}
 		for (let k = 0; k < 3; k++)
 			spawnFx(
@@ -754,12 +804,16 @@ export function createStage(opts: StageOptions): Stage {
 			case 'check': {
 				const p = el ? centerOf(el) : { x: cx, y: cy };
 				glyphBloom(p.x, p.y, 'M5 13 l4 4 l10 -11');
-				return wait(reduced ? 120 : 700, signal);
+				// The dwell is READING time (register the confirm), not motion — only 'still'
+				// shortens it. 'legible' keeps the full 700ms, same as the storyboard settle: a
+				// reduced-motion viewer needs MORE time to read, not less.
+				return wait(still ? 120 : 700, signal);
 			}
 			case 'cross': {
 				const p = el ? centerOf(el) : { x: cx, y: cy };
 				glyphBloom(p.x, p.y, 'M6 6 l12 12 M18 6 l-12 12');
-				return wait(reduced ? 120 : 700, signal);
+				// Reading time, not motion (see 'check') — only 'still' shortens the confirm dwell.
+				return wait(still ? 120 : 700, signal);
 			}
 		}
 	}
@@ -790,7 +844,10 @@ export function createStage(opts: StageOptions): Stage {
 	let sayTimer = 0;
 	function say(text: string): void {
 		if (destroyed) return;
-		if (reduced) {
+		// Only 'still' snaps the caption in place. Under 'legible' the 140ms opacity cross-fade
+		// stays — it is the motion-SAFE swap (Apple HIG cross-fades in place of a slide), not a
+		// vestibular trigger, and it keeps the narration readable rather than flickering.
+		if (still) {
 			setNarration(text);
 			return;
 		}
@@ -815,6 +872,7 @@ export function createStage(opts: StageOptions): Stage {
 		intro,
 		resolve,
 		reduced,
+		still,
 		pace,
 		contains: (node) => node instanceof Node && layer.contains(node),
 		destroy: () => {

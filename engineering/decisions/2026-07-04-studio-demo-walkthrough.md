@@ -86,7 +86,20 @@ canvas. Two properties follow, both framed like a unit-test fixture:
    not just `data-palette`) and mode, and puts both back. It also closes any stage the demo
    left open (Present / Share / the settings drawer).
 
-`prefers-reduced-motion` collapses the glide/typing animation to instant placement.
+`prefers-reduced-motion` resolves to Vetrina's **`legible`** motion tier (`theme.motion`,
+default `'system'`): it suppresses only *vestibular* motion — cursor glides teleport,
+expanding rings / orbit / drag sweeps skip, the hand-wave becomes an in-place pulse — but
+**keeps the content cadence a viewer reads by**: the typing reveal, caption cross-fades, and
+full reading settles, opened by a motion-safe greeting. This is deliberate: WCAG 2.3.3 /
+Apple HIG target vestibular triggers (sweeps, parallax, spin, zoom), not typing or a
+cross-fade, so a reduced-motion viewer still *watches the deck get typed and rendered* rather
+than seeing it snap past in an instant blur. The old collapse-everything behavior survives as
+the explicit `still` tier a host can opt into; `full` ignores the OS preference. The stage
+splits this into two flags — `stage.reduced` (vestibular suppressed: `legible`/`still`) and
+`stage.still` (content collapsed: `still` only) — so the runner and storyboard gate the
+typing reveal + default settle on `still`, letting `legible` keep them. (This corrected a
+real defect: on a reduced-motion iPhone the demo raced past unwatchably with no greeting —
+the root cause the deep assessment found.)
 
 ## Entry points
 

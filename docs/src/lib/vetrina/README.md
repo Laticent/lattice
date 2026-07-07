@@ -241,8 +241,28 @@ is **not** re-exported through `index.ts`, which stays zero-dependency.
 
 The overlay's decoration is `aria-hidden`, but the **Exit** control reaches the
 accessibility tree (it's the only escape) and the narration caption is a polite
-live region. Under `prefers-reduced-motion`, gestures collapse to instant cues and
-pacing shortens — the tour still completes, it just doesn't animate.
+live region.
+
+Motion is a **three-tier policy** (`theme.motion`, default `'system'`), because
+`prefers-reduced-motion` targets *vestibular* motion — sweeps, parallax, spin,
+zoom (WCAG 2.3.3 / Apple HIG) — **not** the content cadence a viewer reads by:
+
+| tier | vestibular motion | content cadence |
+|---|---|---|
+| `full` | plays (glides, rings, orbit, hand-wave, drag sweeps) | plays |
+| `legible` | **suppressed** (glides teleport, rings/orbit/sweeps skip, wave → in-place pulse) | **kept** (typing reveal, caption cross-fades, full reading settles) |
+| `still` | suppressed | **collapsed** (typing snaps in, settles shorten) |
+
+`'system'` reads the OS preference and resolves a reduced-motion device to
+**`legible`, never `still`** — so a reduced-motion viewer loses the disorienting
+sweeps but still *watches the deck get typed and rendered*, at full reading pace,
+opened by a motion-safe in-place greeting. `still` is the maximal-suppression
+escape hatch a host opts into explicitly; `full` ignores the OS preference.
+
+The stage exposes two derived flags: `stage.reduced` (vestibular suppressed —
+`legible` or `still`) and `stage.still` (content collapsed — `still` only). The
+runner and storyboard gate the typing reveal and default settle on `still`, so
+`legible` keeps them.
 
 ## Where things live
 

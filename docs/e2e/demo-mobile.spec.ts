@@ -72,6 +72,28 @@ test('@mobile the phone demo types the 4-slide deck across pane-swaps and comple
 	expect(await firstDeckSource(page)).toContain('_class: closing');
 });
 
+test('@mobile under prefers-reduced-motion the demo still TYPES the full deck (legible tier, not a collapse)', async ({ page }) => {
+	// The reduced-motion regression this guards: a reduced-motion device used to collapse the
+	// whole run to instant placement, so the iPhone demo raced past unwatchably. Vetrina now
+	// resolves reduced-motion to the `legible` tier — vestibular motion off, but the typing
+	// reveal KEPT. Force the OS preference and prove the run still builds the four-slide deck
+	// in order and completes (it neither no-ops nor hangs under reduce). The char-by-char
+	// cadence itself is unit-covered (motion.test.ts: system+reduce → still=false); this is the
+	// real-surface guard that the end-to-end run survives the preference. (Chromium exercises
+	// the media query + flag wiring; iOS Safari specifics remain owed on-device per the doc.)
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	await gotoStudio(page);
+	await startMobileDemo(page);
+
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect.poll(() => firstDeckSource(page), { timeout: 90_000 }).toContain('_class: closing');
+	const src = await firstDeckSource(page);
+	expect(slideClasses(src)).toBe(4);
+	expect(src.indexOf('_class: title')).toBeLessThan(src.indexOf('_class: big-number'));
+	expect(src.indexOf('_class: radar')).toBeLessThan(src.indexOf('_class: closing'));
+	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 120_000 });
+});
+
 test('@mobile a real tap mid-run takes over — stage detaches, the deck is kept', async ({ page }) => {
 	await gotoStudio(page);
 	await startMobileDemo(page);

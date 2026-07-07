@@ -41,6 +41,18 @@ export interface Theme {
 	 *   - 'progress' the bar with a beat-progress ring in place of the live dot.
 	 *  Exit stays reachable in every style (an icon button, always inside `.vetrina-caption`). */
 	caption?: 'bar' | 'split' | 'scrim' | 'progress';
+	/** How to honor motion preference (default 'system'):
+	 *   - 'system'  read `prefers-reduced-motion`: reduce → 'legible', else → 'full';
+	 *   - 'full'    play everything, ignore the OS preference;
+	 *   - 'legible' suppress VESTIBULAR motion (cursor glides, expanding rings, the orbit
+	 *               circle, the translate/rotate wave, drag sweeps) but KEEP the content
+	 *               cadence a viewer reads by — the typing reveal, caption cross-fades, and
+	 *               full reading settles — plus a motion-safe in-place greeting;
+	 *   - 'still'   collapse EVERYTHING to instant (the maximal-suppression escape hatch).
+	 *  The default resolves a reduced-motion device to 'legible', never 'still': WCAG 2.3.3 /
+	 *  Apple HIG target vestibular triggers (sweeps, parallax, spin, zoom), not typing or a
+	 *  cross-fade — so the demo stays watchable instead of flashing past in an instant blur. */
+	motion?: 'full' | 'legible' | 'still' | 'system';
 	/** Silence a cue (never replace one with a callback). */
 	cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>;
 	/** Escape hatch: set any --vt-* token value directly, in JS. */
@@ -58,6 +70,7 @@ export interface ResolvedTheme {
 	pointer: 'arrow' | 'ring' | 'dot';
 	placement: 'top' | 'bottom'; // which edge the narration dock sits at
 	caption: 'bar' | 'split' | 'scrim' | 'progress'; // the narration dock style
+	motion: 'full' | 'legible' | 'still' | 'system'; // motion policy; 'system' resolves against the device in the stage
 	silenced: Set<string>; // cue names to skip
 }
 
@@ -165,6 +178,9 @@ export function resolveTheme(theme: Theme = {}): ResolvedTheme {
 		pointer: theme.pointer ?? 'arrow',
 		placement: theme.placement ?? 'bottom',
 		caption: theme.caption ?? 'bar',
+		// 'system' stays symbolic here — the stage resolves it against the live device (matchMedia),
+		// keeping the one media read in one testable place.
+		motion: theme.motion ?? 'system',
 		silenced: new Set(
 			Object.entries(theme.cues ?? {})
 				.filter(([, v]) => v === false)

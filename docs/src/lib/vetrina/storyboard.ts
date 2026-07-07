@@ -133,7 +133,10 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 			}
 			if (step.circle != null) await stage.gesture('circle', step.circle, signal);
 
-			await wait((step.settle ?? (stage.reduced ? 300 : STEP_SETTLE)) * stage.pace, signal);
+			// Reading time: only 'still' shortens the default settle. 'legible' (reduced-motion
+			// device) keeps the FULL settle — a viewer who wants less motion needs MORE time to
+			// read, not less, so rushing here would invert the intent.
+			await wait((step.settle ?? (stage.still ? 300 : STEP_SETTLE)) * stage.pace, signal);
 		}
 	};
 }

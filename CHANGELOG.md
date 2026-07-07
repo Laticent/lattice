@@ -68,6 +68,19 @@ in patch versions.
   above, and the only scroll is inside the deck iframe. The **Deck setup** button
   is renamed **Deck Setting**.
 
+- **Vetrina: `prefers-reduced-motion` now keeps the demo watchable instead of collapsing
+  it.** Motion is a three-tier policy (`theme.motion`, default `'system'`): `full` plays
+  everything; `legible` suppresses only *vestibular* motion (cursor glides teleport,
+  expanding rings / orbit / drag sweeps skip, the hand-wave becomes an in-place pulse) but
+  keeps the *content cadence* a viewer reads by — the typing reveal, caption cross-fades, and
+  full reading settles — and opens with a motion-safe greeting; `still` collapses everything
+  to instant (the old behavior, now an explicit opt-in). `'system'` resolves a reduced-motion
+  device to **`legible`, never `still`**, because WCAG 2.3.3 / Apple HIG target vestibular
+  triggers, not typing or a cross-fade. Fixes the reduced-motion iPhone demo racing past in an
+  unwatchable instant blur with no greeting. The stage exposes `stage.reduced` (vestibular
+  suppressed) and `stage.still` (content collapsed); the runner/storyboard gate the typing
+  reveal + default settle on `still`, so `legible` keeps them.
+
 - **The Studio demo's "watch it build" beats sync on the real parse, not a timer.**
   Each slide the demo types now waits on `until(() => railReady(k))` — the slide rail
   gaining its Kth button — before typing the next, instead of a fixed settle that
@@ -87,7 +100,6 @@ in patch versions.
 
 ### Added
 
-<<<<<<< HEAD
 - **Three `list-steps` variants for a vertical staged-argument flow —
   `chevron`, `converge`, `ghost`.** A labelled sequence that cascades *down* the
   frame (Problem → Vision → … → Plan), authored as a plain numbered list with a
