@@ -40,12 +40,13 @@ async function firstDeckSource(page: import('@playwright/test').Page): Promise<s
 /** The `_class` slide count in a source string (one per slide). */
 const slideClasses = (src: string) => (src.match(/<!--\s*_class:/g) ?? []).length;
 
-/** Launch the demo from the persistent phone entry — the ⋯ overflow menu's "Watch demo".
- *  This is the affordance that survives welcome dismissal (gotoStudio dismisses the
- *  first-run banner), so it also proves that entry point works. */
-async function startMobileDemo(page: import('@playwright/test').Page): Promise<void> {
+/** Launch a tour from the persistent phone entry — the ⋯ overflow menu's inlined "Show me…"
+ *  tour list. This is the affordance that survives welcome dismissal (gotoStudio dismisses the
+ *  first-run banner), so it also proves that entry point works. Defaults to the full walkthrough
+ *  (4 slides: title · big-number · radar · close). */
+async function startMobileDemo(page: import('@playwright/test').Page, tourId = 'walkthrough'): Promise<void> {
 	await page.getByRole('button', { name: 'More controls' }).click();
-	await page.getByRole('menuitem', { name: 'Watch demo' }).click();
+	await page.locator(`[data-tour="${tourId}"]`).first().click();
 }
 
 test('@mobile the phone demo types the 4-slide deck across pane-swaps and completes', async ({ page }) => {

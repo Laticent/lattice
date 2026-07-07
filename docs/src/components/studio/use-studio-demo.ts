@@ -1,8 +1,8 @@
 import * as React from 'react';
 import type { StopReason, TypeOps } from '../../lib/vetrina';
 import { useWalkthrough } from '../../lib/vetrina/react';
-import { type StudioActions, studioWalkthrough } from './demo-storyboard';
-import { studioMobileWalkthrough } from './mobile-demo-storyboard';
+import type { StudioActions } from './studio-actions';
+import { buildTour, DEFAULT_TOUR } from './tours';
 
 // useStudioDemo — the seam that lets the framework-free Vetrina engine drive the live
 // Studio. StudioShell has no ref/context (all state is closure-local), so the demo is
@@ -54,7 +54,9 @@ export type StudioDemoBindings = {
 
 export type StudioDemo = {
 	demoActive: boolean;
-	startDemo: () => void;
+	/** Launch a tour by id (from the "Show Me" menu). Omit for the default tour (welcome banner,
+	 *  ⋯ menu, ⌘K all pass nothing). Unknown ids fall back to the default. */
+	startDemo: (tourId?: string) => void;
 	stopDemo: () => void;
 };
 
@@ -63,6 +65,10 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 	// and start/stop stay stable (no re-subscribe churn).
 	const bindRef = React.useRef(bindings);
 	bindRef.current = bindings;
+
+	// Which tour to play — set by startDemo(id) right before the run's `configure` closure reads
+	// it. A ref (not state) so startDemo stays referentially stable and needs no re-render.
+	const tourIdRef = React.useRef<string>(DEFAULT_TOUR);
 
 	// The generic run lifecycle (single-flight start, stop, active state, unmount teardown)
 	// lives in the shared `useWalkthrough` adapter. This hook supplies only the Studio-specific
@@ -144,9 +150,10 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 
 		return {
 			actions,
-			// A phone gets the single-pane storyboard (per-slide alternation across the swappable
-			// Edit/Preview pane); desktop + tablet get the side-by-side script.
-			play: b.mobile ? studioMobileWalkthrough : studioWalkthrough,
+			// The selected tour, built responsively — one script adapts to the phone's single pane
+			// (per-slide alternation) vs. the desktop/tablet side-by-side. tourIdRef was set by
+			// startDemo(id) just before this closure ran.
+			play: buildTour(tourIdRef.current, { mobile: b.mobile }),
 			type,
 			takeover: { scope: 'window' },
 			// The cursor + cues track the live app accent (recolor on the reskin beat), falling
@@ -174,5 +181,16 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		};
 	});
 
-	return { demoActive: demo.active, startDemo: demo.start, stopDemo: demo.stop };
+	// startDemo(id) records the tour, THEN starts — the run's configure closure reads the ref.
+	const startDemo = React.useCallback(
+		(tourId?: string) => {
+			// Coerce defensively: some entry points wire startDemo straight to onClick/onSelect,
+			// which would pass a DOM event — anything non-string means "the default tour."
+			tourIdRef.current = typeof tourId === 'string' ? tourId : DEFAULT_TOUR;
+			demo.start();
+		},
+		[demo.start],
+	);
+
+	return { demoActive: demo.active, startDemo, stopDemo: demo.stop };
 }

@@ -42,6 +42,7 @@ import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
+import { TOURS } from './tours';
 import { useBreakpoint, useNarrowDesktop } from './use-breakpoint';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
@@ -1677,7 +1678,24 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    phones they live one row down in the pane bar (with the panel toggles),
 				    which has the free width — the top row spends its width on the deck
 				    title (2026-07-03 decision). */}
-				{!mobile && <Button variant="ghost" size="icon-sm" onClick={startDemo} aria-label="Watch demo" title="Watch demo — the Studio drives itself" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>}
+				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
+				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
+				{!mobile && (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" title="Show me — a guided tour that drives itself" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-64">
+							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
+							{TOURS.map((t) => (
+								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2">
+									<span className="font-medium">{t.label}</span>
+									<span className="text-[12px] text-muted-foreground">{t.description}</span>
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
 				{!mobile && <Button variant="outline" size="sm" data-demo="present" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>}
 				{!mobile && <Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>}
 
@@ -1710,11 +1728,23 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    region so a clipped row signals "more below". */}
 						<DropdownMenuContent align="end" className="w-56 overflow-hidden p-0">
 							<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
-								{/* Watch demo — the persistent phone entry point. The welcome-banner button
-								    is the first-run affordance, but it vanishes once dismissed; the topbar
-								    icon is desktop/tablet-only. So on mobile the demo also lives here, so a
-								    newcomer who dismissed the banner can still launch it. */}
-								{mobile && !demoActive && <DropdownMenuItem onSelect={startDemo}><MonitorPlay className="size-4" />Watch demo</DropdownMenuItem>}
+								{/* Show me — the persistent phone entry to the guided tours. The welcome-banner
+								    button is the first-run affordance, but it vanishes once dismissed; the topbar
+								    menu is desktop/tablet-only. So on mobile the tours live here too, inlined (a
+								    nested Radix submenu flies off-screen on a phone), so a newcomer who dismissed
+								    the banner can still pick one. */}
+								{mobile && !demoActive && (
+									<>
+										<DropdownMenuLabel className="flex items-center gap-2"><MonitorPlay className="size-4" />Show me…</DropdownMenuLabel>
+										{TOURS.map((t) => (
+											<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2 pl-8">
+												<span className="font-medium">{t.label}</span>
+												<span className="text-[12px] text-muted-foreground">{t.description}</span>
+											</DropdownMenuItem>
+										))}
+										<DropdownMenuSeparator />
+									</>
+								)}
 								{onboarded && <DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>}
 								{onboarded && <DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>}
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<span className="ml-auto rounded border border-border bg-background px-1.5 font-mono text-[10px]">⌘K</span></DropdownMenuItem>
@@ -1740,7 +1770,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<p className="min-w-0 flex-1 leading-snug">
 						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away.
 					</p>
-					{!demoActive && <button type="button" onClick={startDemo} aria-label="Watch demo" className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90 sm:px-2.5"><MonitorPlay className="size-3.5" /><span className="hidden sm:inline">Watch demo</span></button>}
+					{!demoActive && <button type="button" onClick={() => startDemo()} aria-label="Watch demo" className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90 sm:px-2.5"><MonitorPlay className="size-3.5" /><span className="hidden sm:inline">Watch demo</span></button>}
 					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
 					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
 				</div>
