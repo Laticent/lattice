@@ -68,15 +68,15 @@ export function DeckSetupSheet({
 	return (
 		<Sheet open={open} onOpenChange={setOpen} modal={false}>
 			<SheetTrigger asChild>
-				<Button id="pg-setup-trigger" variant="outline" size="sm" aria-label="Deck setup" title="Deck setup — front matter for this deck">
+				<Button id="pg-setup-trigger" variant="outline" size="sm" aria-label="Deck Setting" title="Deck Setting — front matter for this deck">
 					<Settings className={configured ? 'text-primary' : undefined} />
-					<span className="hidden sm:inline">Deck setup</span>
+					<span className="hidden sm:inline">Deck Setting</span>
 				</Button>
 			</SheetTrigger>
 			<SheetContent overlay={false} className="w-[360px] max-w-[88vw] gap-0 overflow-y-auto">
 				<SheetHeader>
 					<SheetTitle className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-						Deck setup
+						Deck Setting
 					</SheetTitle>
 					<SheetDescription className="sr-only">
 						Front matter for this deck — applied to the whole deck and exported with the .md.

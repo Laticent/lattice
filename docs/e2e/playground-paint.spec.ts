@@ -31,9 +31,10 @@ test('@crosswidth playground: loading a gallery flips to Preview and the deck pa
 	await expect(dialog).toBeVisible();
 	await dialog.locator('button', { hasText: /\d+\s+slides?/ }).first().click();
 
-	// Pane-sync: both the body attribute and the active tab read "preview".
+	// A gallery is a deck to explore — loading one lands in Explore (view read,
+	// pane preview) and the deck shows (2026-07-06 simplification).
+	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
 	await expect(page.locator('body')).toHaveAttribute('data-pane', 'preview');
-	await expect(page.locator('[role="tab"][data-state="active"]')).toHaveText(/preview/i);
 
 	// The deck genuinely paints inside the preview iframe (visible + real slides).
 	const preview = page.frameLocator('#preview');

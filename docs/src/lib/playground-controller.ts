@@ -24,6 +24,7 @@ export const COMPONENT_KEY = 'lattice-docs-pg-component';
 export const SEARCH_KEY = 'lattice-docs-pg-search';
 export const LENS_KEY = 'lattice-docs-pg-lens';
 export const VIEW_KEY = 'lattice-docs-pg-view';
+export const FOCUS_KEY = 'lattice-docs-pg-focus';
 export const HANDOFF_KEY = 'lattice-docs-pg-handoff';
 export const BACKUP_KEY = 'lattice-docs-pg-source-backup';
 export const INSERTED_HASH_KEY = 'lattice-docs-pg-inserted-hash';

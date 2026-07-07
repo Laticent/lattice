@@ -1,6 +1,6 @@
-import { PanelLeftClose, PanelRightClose } from 'lucide-react';
+import { Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
-import { PillTabs } from '@/components/ui/pill-tabs';
+import { Button } from '@/components/ui/button';
 import {
 	Select,
 	SelectContent,
@@ -9,7 +9,6 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { SplitHandle, SplitRail, useSplit } from '@/components/ui/split';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import {
 	adjacentComponent,
@@ -18,6 +17,7 @@ import {
 	COMPONENT_KEY,
 	classTokenLine,
 	detectComponent,
+	FOCUS_KEY,
 	fingerprint,
 	HANDOFF_KEY,
 	INSERTED_HASH_KEY,
@@ -35,17 +35,15 @@ import {
 	SOURCE_KEY,
 	sanitizePalette,
 	VIEW_KEY,
-	variantOptions,
 	variantSource,
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
-import { applyDebug, deckDebugOn } from '@/playground/debug-overlay.js';
-import { debugEffectiveOn, getDebugOverride, onDebugOverrideChange, setDebugOverride } from '@/playground/debug-prefs.js';
+import { applyDebug } from '@/playground/debug-overlay.js';
+import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
 import { createChartInteract } from '@/playground/drawing-board-chart-interact.js';
 import { createVideoOverlay } from '@/playground/video-overlay.js';
-import { BoundingBoxToggle } from './BoundingBoxToggle';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
@@ -107,7 +105,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			return resolveComponent(catalog, null).name;
 		}
 	});
-	const [variant, setVariant] = React.useState('default');
 	const [status, setStatus] = React.useState('Ready.');
 	const [isError, setIsError] = React.useState(false);
 	const [pane, setPane] = React.useState<'edit' | 'preview'>('edit');
@@ -142,9 +139,19 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// `exploreSourceRef` through the same engine/iframe, leaving the editor's
 	// source (and SOURCE_KEY) untouched.
 	const [view, setView] = React.useState<'read' | 'edit'>('edit');
+	// Focus mode — the user-controllable space reclaim: one toggle hides the whole
+	// toolbar so the deck/editor owns the height (the walk bar stays, so Explore's
+	// stepping is never lost). Persisted + seeded pre-paint (playground.astro) on
+	// <html> so a returning focus visitor never sees the toolbar flash then vanish.
+	const [focusMode, setFocusMode] = React.useState(() => {
+		try {
+			return localStorage.getItem(FOCUS_KEY) === '1';
+		} catch {
+			return false;
+		}
+	});
 	const [walk, setWalk] = React.useState<Walk | null>(null);
 	const [walkNotice, setWalkNotice] = React.useState<string | null>(null);
-	const [editSlideArm, setEditSlideArm] = React.useState(false);
 	const viewRef = React.useRef<'read' | 'edit'>('edit');
 	const walkRef = React.useRef<Walk | null>(null);
 	walkRef.current = walk;
@@ -182,7 +189,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl));
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-	const variants = React.useMemo(() => variantOptions(catalog, currentName), [catalog, currentName]);
 
 	// ── Source accessors (prefer the live editor; safe before it mounts) ────────
 	const getSource = React.useCallback(() => editorRef.current?.getValue() ?? starter, [starter]);
@@ -218,18 +224,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// is what we pass the agent; a ref mirrors it so the iframe onLoad + the render
 	// loop re-apply after a srcdoc rewrite / section patch without a stale closure.
 	const [debugOverride, setDebugOverrideState] = React.useState<'on' | 'off' | null>(null);
-	const [deckHasDebug, setDeckHasDebug] = React.useState(false);
 	const forceRef = React.useRef<'on' | 'off' | null>(null);
 	forceRef.current = debugOverride;
 	React.useEffect(() => {
 		setDebugOverrideState(getDebugOverride());
 		return onDebugOverrideChange(setDebugOverrideState);
 	}, []);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: sourceVersion is the explicit re-eval trigger; getSource reads the live editor.
-	React.useEffect(() => {
-		setDeckHasDebug(deckDebugOn(getSource()));
-	}, [sourceVersion]);
-	const debugOn = debugEffectiveOn(deckHasDebug);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: re-apply on override flip or a deck edit; the agent reads the live force via forceRef.
 	React.useEffect(() => {
 		applyDebug(frameRef.current, { force: forceRef.current });
@@ -448,7 +448,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const line = classTokenLine(src);
 		if (lastClassLineRef.current !== line) {
 			lastClassLineRef.current = line;
-			if (det) setVariant(det.variant);
 		}
 	}, [catalog, getSource]);
 
@@ -574,39 +573,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				/* private mode */
 			}
 			setDraftComponent(name);
-			setVariant('default');
 			recordInsert(catalog[name].sample);
 			applyDeck(catalog[name].sample, { toPreview: true });
 		},
 		[catalog, applyDeck, backupDraft, recordInsert],
-	);
-
-	const onVariantChange = React.useCallback(
-		(key: string) => {
-			setVariant(key);
-			// Exploring: the Variant select is a JUMP LIST — picking `dense` snaps the
-			// walk to its plan slide. The draft (and Edit-mode behavior) is untouched.
-			if (viewRef.current === 'read') {
-				const w = walkRef.current;
-				if (w?.kind === 'plan') {
-					const at = resolvePlanStep(w.plan, key === 'default' ? 'default' : `variant:${key}`);
-					setWalkNotice(at.notice);
-					const moved: Walk = { ...w, index: at.index };
-					setWalk(moved);
-					walkRef.current = moved;
-					setEditSlideArm(false);
-					scrollWalkRef.current(true);
-				}
-				return;
-			}
-			if (currentName) {
-				const md = variantSource(catalog, currentName, key);
-				backupDraft(`Loaded ${currentName} ${key === 'default' ? '' : key}`.trim());
-				recordInsert(md);
-				applyDeck(md, { toPreview: true });
-			}
-		},
-		[catalog, currentName, applyDeck, backupDraft, recordInsert],
 	);
 
 	const onLoadGallery = React.useCallback(
@@ -616,23 +586,30 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				setStatusLine('Gallery unavailable.', true);
 				return;
 			}
-			// Exploring: walk the full deck in place — slide-index positions (no plan
-			// exists for authored decks), same Walk bar, zero draft writes.
-			if (viewRef.current === 'read') {
-				const w: Walk = { kind: 'deck', label: id, index: 0, count: 0 };
-				setWalk(w);
-				walkRef.current = w;
-				setWalkNotice(null);
-				setEditSlideArm(false);
-				exploreSourceRef.current = src;
-				freshRender();
-				return;
+			// A gallery is a deck to explore — walk it in place (slide-index
+			// positions; no plan exists for authored decks). Always land in Explore,
+			// so loading one from Edit flips to the rendered view and the mode/pane
+			// stay in sync. Switch the surface inline (NOT setViewMode, whose Edit→read
+			// save-back would overwrite this gallery with the editor's content).
+			const w: Walk = { kind: 'deck', label: id, index: 0, count: 0 };
+			setWalk(w);
+			walkRef.current = w;
+			setWalkNotice(null);
+			exploreSourceRef.current = src;
+			viewRef.current = 'read';
+			setView('read');
+			try {
+				localStorage.setItem(VIEW_KEY, 'read');
+			} catch {
+				/* private mode */
 			}
-			backupDraft('Loaded a gallery deck');
-			recordInsert(src);
-			applyDeck(src, { toPreview: true });
+			document.body.setAttribute('data-view', 'read');
+			setPane('preview');
+			document.body.setAttribute('data-pane', 'preview');
+			freshRender();
+			requestAnimationFrame(() => frameRef.current?.contentWindow?.__latticeFit?.());
 		},
-		[gallerySources, applyDeck, setStatusLine, backupDraft, recordInsert, freshRender],
+		[gallerySources, setStatusLine, freshRender],
 	);
 
 	// Reset reads the DRAFT's component at click time; when the draft holds none
@@ -646,7 +623,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			return;
 		}
 		backupDraft(`Reset to the ${name} example`);
-		setVariant('default');
 		recordInsert(catalog[name].sample);
 		applyDeck(catalog[name].sample);
 	}, [catalog, getSource, readerComponent, applyDeck, setStatusLine, backupDraft, recordInsert]);
@@ -720,11 +696,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}
 			const at = step === 'LAST' ? { index: plan.slides.length - 1, notice: null } : resolvePlanStep(plan, step);
 			setWalkNotice(at.notice);
-			setEditSlideArm(false);
 			setWalk({ kind: 'plan', plan, index: at.index });
 			walkRef.current = { kind: 'plan', plan, index: at.index };
 			setReaderComponent(name);
-			if (viewRef.current === 'read') setVariant('default');
 			try {
 				localStorage.setItem(COMPONENT_KEY, name);
 			} catch {
@@ -751,7 +725,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (ni >= 0 && ni < count) {
 				setWalk({ ...w, index: ni });
 				walkRef.current = { ...w, index: ni };
-				setEditSlideArm(false);
 				scrollWalk(true);
 				return;
 			}
@@ -786,6 +759,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}
 			document.body.setAttribute('data-view', v);
 			if (v === 'read') {
+				// Leaving Edit: save the edited deck back so Explore renders the edits
+				// (the unified view/source model — 2026-07-06 simplification).
+				if (exploreSourceRef.current != null) exploreSourceRef.current = getSource();
 				// Reveal the preview pane SYNCHRONOUSLY before the render measures the
 				// iframe (the mobile 0-width FIT trap — same ordering as applyDeck).
 				setPane('preview');
@@ -793,32 +769,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (walkRef.current) freshRender();
 				else void startWalk(readerComponent, null);
 			} else {
-				setEditSlideArm(false);
+				// Entering Edit: open the current deck's markdown in the editor. Flipping
+				// back to Explore renders whatever you changed. (Whole-deck edit; Explore
+				// is the preview, so there is no separate preview pane on mobile.)
+				if (exploreSourceRef.current != null) {
+					backupDraft('Opened the deck in the editor');
+					setSource(exploreSourceRef.current);
+				}
+				setPane('edit');
+				document.body.setAttribute('data-pane', 'edit');
 				freshRender();
 			}
 			// The pane the frame lives in changed width (Explore is single-pane) —
 			// re-fit after layout so the filmstrip scales to the new box.
 			requestAnimationFrame(() => frameRef.current?.contentWindow?.__latticeFit?.());
 		},
-		[freshRender, readerComponent, startWalk],
+		[freshRender, readerComponent, startWalk, backupDraft, getSource, setSource],
 	);
-	// "Edit this slide" — the escape hatch INTO the editor. Arm-to-confirm over a
-	// non-pristine draft (Studio pattern); the backup + undo toast still guards
-	// the confirmed replace (a confirm alone is not sufficient protection).
-	const onEditSlide = React.useCallback(() => {
-		const w = walkRef.current;
-		if (!w || w.kind !== 'plan') return;
-		const md = w.plan.slides[w.index]?.md;
-		if (!md) return;
-		if (!draftIsPristine() && !editSlideArm) {
-			setEditSlideArm(true);
-			return;
-		}
-		backupDraft(`Loaded this ${w.plan.name} slide into the editor`);
-		recordInsert(md);
-		setViewMode('edit');
-		applyDeck(md);
-	}, [applyDeck, backupDraft, draftIsPristine, editSlideArm, recordInsert, setViewMode]);
 
 	// ── The one-shot handoff (all three external writers land here) ─────────────
 	// Applied automatically when the draft is pristine (identical UX on the
@@ -956,6 +923,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	}, []);
 	React.useEffect(() => () => document.body.removeAttribute('data-view'), []);
 
+	// Focus mode → <html data-pg-focus> (CSS hides the toolbar) + persistence. On
+	// <html>, not <body>, so the pre-paint seed can set it before <body> exists.
+	React.useEffect(() => {
+		document.documentElement.toggleAttribute('data-pg-focus', focusMode);
+		try {
+			localStorage.setItem(FOCUS_KEY, focusMode ? '1' : '0');
+		} catch {}
+	}, [focusMode]);
+	React.useEffect(() => () => document.documentElement.removeAttribute('data-pg-focus'), []);
+	const toggleFocus = React.useCallback(() => setFocusMode((v) => !v), []);
+
 	// Walking writes the address bar (replaceState — shareable position, no
 	// history spam); leaving Explore strips our params.
 	React.useEffect(() => {
@@ -1002,15 +980,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		return () => window.removeEventListener('keydown', onKey);
 	}, [view, stepWalk, jumpComponent]);
 
-	// Keep the Variant select honest while walking: it mirrors the slide under
-	// the reader (a jump list, not a loader — Edit-mode behavior untouched).
-	React.useEffect(() => {
-		if (view !== 'read' || walk?.kind !== 'plan') return;
-		const kind = walk.plan.slides[walk.index]?.kind || '';
-		const v = /^variant:(.+)$/.exec(kind);
-		setVariant(v ? v[1] : 'default');
-	}, [view, walk]);
-
 	// Deck setup operates on whatever deck the reader is walking (§0 amendment):
 	// in Explore it reads/writes the walk deck (ephemeral — regenerated on the
 	// next walk); in Edit it stays wired to the editor.
@@ -1054,30 +1023,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		};
 	}, []);
 
-	const onTab = (which: 'edit' | 'preview') => {
-		setPane(which);
-		if (which === 'preview') {
-			// Reveal the pane synchronously before render(false) reads the iframe width,
-			// so the FIT measurement runs against a laid-out (non-zero-width) iframe —
-			// same reason as applyDeck's toPreview branch. The effect below still sets
-			// data-pane from state (single source); this pre-set just wins the ordering
-			// so a Safari render into a still-hidden pane can't leave the deck blank.
-			document.body.setAttribute('data-pane', 'preview');
-			// Same intent as applyDeck's toPreview: a collapsed preview expands
-			// before the render (no-op otherwise).
-			splitApiRef.current.expand('b');
-			render(false);
-		}
-	};
 	// `pane` is the SINGLE source of truth for which pane is active; the body
 	// data-pane attribute (the mobile single-pane layout keys off it —
-	// playground.css `body[data-pane='…']`) mirrors it from one effect. Driving it
-	// here — not inside onTab — keeps it in sync no matter HOW the pane changed: a
-	// tab click (onTab) OR a programmatic switch (applyDeck's `toPreview`, fired by
-	// a gallery load). Setting data-pane only in onTab was the bug that left the
-	// body stuck on 'edit' — preview hidden — while the React tab read 'preview'
-	// after loading a gallery (the "flips to preview but the deck isn't shown,
-	// click Edit then Preview to fix it" report).
+	// playground.css `body[data-pane='…']`) mirrors it from one effect. The mode
+	// toggle (setViewMode) drives `pane`: Explore → preview (deck), Edit → edit
+	// (editor). Setting data-pane in one place keeps it in sync no matter how the
+	// pane changed (mode flip OR a gallery load's `toPreview`).
 	React.useEffect(() => {
 		document.body.setAttribute('data-pane', pane);
 		// Reveal a deck that was rendered while this pane was display:none (0-width):
@@ -1099,43 +1050,57 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		for (const v of catalog[walk.plan.name]?.variants || []) out[v.key] = v.label;
 		return out;
 	}, [walk, catalog]);
+	// The step jump list (consolidates the old variant Select + chip strip): one
+	// entry per slide in the plan, labeled by its kind.
 	const walkChips = walk?.kind === 'plan' ? walk.plan.slides.map((s) => ({ key: s.kind, label: walkChipLabel(s.kind, walkVariantLabels) })) : [];
 	const walkCount = walk ? (walk.kind === 'plan' ? walk.plan.slides.length : walk.count) : 0;
 	const walkSlide = walk?.kind === 'plan' ? walk.plan.slides[walk.index] : null;
+	const stepValue = walkSlide?.kind ?? '';
 	const walkAtEnd = walk != null && walk.index >= walkCount - 1;
 	const walkNextComp = walk?.kind === 'plan' && walkAtEnd ? adjacentComponent(walkOrder, walk.plan.name, 1) : null;
 	const walkPrevComp = walk?.kind === 'plan' && walk.index === 0 ? adjacentComponent(walkOrder, walk.plan.name, -1) : null;
-	const onWalkChip = React.useCallback(
-		(key: string) => {
-			const w = walkRef.current;
-			if (w?.kind !== 'plan') return;
-			const at = resolvePlanStep(w.plan, key);
-			const moved: Walk = { ...w, index: at.index };
-			setWalk(moved);
-			walkRef.current = moved;
-			setEditSlideArm(false);
-			scrollWalkRef.current(true);
-		},
-		[],
-	);
+	const onWalkChip = React.useCallback((key: string) => {
+		const w = walkRef.current;
+		if (w?.kind !== 'plan') return;
+		const at = resolvePlanStep(w.plan, key);
+		const moved: Walk = { ...w, index: at.index };
+		setWalk(moved);
+		walkRef.current = moved;
+		scrollWalkRef.current(true);
+	}, []);
 
 	return (
 		<div className="lx-ui contents">
-			{/* Toolbar */}
+			{/* Toolbar — one row: mode toggle · component · step · setup · galleries. */}
 			<div className="pg-bar">
-				{/* Explore | Edit — the mode pill (§0.6: the walkthrough ships as
-				    "Explore"; internal keys keep 'read'). */}
+				{/* Explore / Edit — a compact two-icon toggle (◱ view the deck · ✎ edit
+				    its markdown). Explore renders the deck; Edit opens the current slide's
+				    source in the editor (2026-07-06 simplification). */}
 				{exploreAvailable && (
-				<PillTabs
-					className="pg-view-tabs"
-					ariaLabel="Playground mode"
-					value={view}
-					onValueChange={(v) => setViewMode(v as 'read' | 'edit')}
-					tabs={[
-						{ value: 'read', label: 'Explore' },
-						{ value: 'edit', label: 'Edit' },
-					]}
-				/>
+					<div className="pg-mode" role="tablist" aria-label="Playground mode">
+						<button
+							type="button"
+							role="tab"
+							aria-selected={view === 'read'}
+							aria-label="Explore"
+							title="Explore — view the deck"
+							className={`pg-mode-btn${view === 'read' ? ' is-active' : ''}`}
+							onClick={() => setViewMode('read')}
+						>
+							<Eye aria-hidden="true" />
+						</button>
+						<button
+							type="button"
+							role="tab"
+							aria-selected={view === 'edit'}
+							aria-label="Edit"
+							title="Edit — the current slide's markdown"
+							className={`pg-mode-btn${view === 'edit' ? ' is-active' : ''}`}
+							onClick={() => setViewMode('edit')}
+						>
+							<SquarePen aria-hidden="true" />
+						</button>
+					</div>
 				)}
 				<div className="pg-bar-pickers">
 					<div className="pg-picker pg-template-picker">
@@ -1154,18 +1119,22 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							onPick={onPickComponent}
 						/>
 					</div>
-					<div className="pg-picker pg-variant-picker">
-						<label className="pg-picker-label" htmlFor="pg-variant">
-							Variant
+					<div className="pg-picker pg-step-picker">
+						<label className="pg-picker-label" htmlFor="pg-step">
+							Step
 						</label>
-						<Select value={variants.length ? variant : ''} onValueChange={onVariantChange} disabled={!variants.length}>
-							<SelectTrigger id="pg-variant" size="sm" aria-label="Component variant" className="w-full">
+						{/* Step jump list — consolidates the old variant Select AND the walk
+						    chip strip: every slide in the deck (title, default, each variant,
+						    stress, compositions, anti-patterns, see-also). Prev/Next step; this
+						    jumps. Disabled in Edit or without a walk. */}
+						<Select value={stepValue} onValueChange={onWalkChip} disabled={view !== 'read' || walkChips.length === 0}>
+							<SelectTrigger id="pg-step" size="sm" aria-label="Jump to slide" className="w-full">
 								<SelectValue placeholder="—" />
 							</SelectTrigger>
 							<SelectContent>
-								{variants.map((v) => (
-									<SelectItem key={v.value} value={v.value} title={v.title}>
-										{v.label}
+								{walkChips.map((c) => (
+									<SelectItem key={c.key} value={c.key}>
+										{c.label}
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -1173,25 +1142,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					</div>
 				</div>
 				<div className="pg-bar-actions">
-					{/* activationMode="manual": switch panes ONLY on a real tap/Enter, never on
-					    focus. Radix's default "automatic" activates a tab the instant its
-					    trigger is FOCUSED — so when opening the video player moved focus and it
-					    landed on the Edit trigger, the mobile view silently flipped to Edit
-					    behind the just-opened lightbox (the iOS "tap play → jumps to Edit" bug).
-					    Manual mode also fits tabs whose switch drives an expensive re-render. */}
-					<Tabs value={pane} onValueChange={(v) => onTab(v as 'edit' | 'preview')} activationMode="manual" className="pg-mobile-tabs">
-						<TabsList>
-							{/* "Markdown", not "Edit": the mode pill owns the word Edit; this
-							    names the PANE (matching the pane label it reveals). */}
-							<TabsTrigger value="edit">Markdown</TabsTrigger>
-							<TabsTrigger value="preview">Preview</TabsTrigger>
-						</TabsList>
-					</Tabs>
-					<span
-						className={`pg-status${isError ? ' err' : ''}`}
-						role="status"
-						aria-live="polite"
-					>
+					<span className={`pg-status${isError ? ' err' : ''}`} role="status" aria-live="polite">
 						{status}
 					</span>
 					{/* ≤560px hides .pg-status — render errors must still reach the phone.
@@ -1208,7 +1159,22 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							!
 						</button>
 					)}
-					<BoundingBoxToggle on={debugOn} onToggle={() => setDebugOverride(debugOn ? 'off' : 'on')} />
+					{/* Focus — hide the toolbar so the deck (Explore) or editor (Edit) owns
+					    the full height. The walk bar stays, so stepping is never lost; a
+					    floating pill (below) brings the toolbar back. */}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						aria-label="Focus"
+						aria-pressed={focusMode}
+						title="Focus — hide the toolbar to reclaim space"
+						onClick={toggleFocus}
+					>
+						<Maximize2 aria-hidden="true" />
+						<span className="hidden sm:inline">Focus</span>
+					</Button>
+					{/* Debug lives inside Deck setup (Preview · debug) — no separate icon. */}
 					<DeckSetupSheet
 						getSource={view === 'read' ? exploreGetSource : getSource}
 						setSource={view === 'read' ? exploreSetSource : setSource}
@@ -1226,25 +1192,34 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				</div>
 			</div>
 
-			{/* The Walk bar — Explore's stepping chrome (decision §4/§6). Mounted
-			    whenever a walk exists (CSS hides it in Edit) so the tour's reveal
-			    hook can find-and-flip to it from either mode. */}
+			{/* Focus restore — a slim floating pill shown only in focus mode; the one
+			    way back to the toolbar the CSS has hidden. */}
+			{focusMode && (
+				<button
+					type="button"
+					className="pg-focus-restore"
+					aria-label="Exit focus"
+					title="Exit focus — show the toolbar"
+					onClick={toggleFocus}
+				>
+					<Minimize2 aria-hidden="true" />
+				</button>
+			)}
+
+			{/* The Walk bar — Explore's stepping (Prev · N / M · Next + caption).
+			    Mounted whenever a walk exists (CSS hides it in Edit) so the tour's
+			    reveal hook can find it. Stepping jumps; the step dropdown above jumps
+			    directly. Edit-this-slide and the transcript are gone — flip to Edit. */}
 			{walk && (
 				<WalkBar
 					index={walk.index}
 					count={walkCount}
 					caption={walkSlide?.caption || ''}
-					chips={walkChips}
-					activeChip={walkSlide?.kind ?? null}
-					onChip={onWalkChip}
 					onPrev={() => stepWalk(-1)}
 					onNext={() => stepWalk(1)}
 					nextLabel={walkNextComp ? `Next component: ${walkNextComp} →` : null}
 					prevDisabled={walk.index === 0 && !walkPrevComp}
 					nextDisabled={walkAtEnd && !walkNextComp}
-					slideMd={walkSlide?.md ?? null}
-					onEditSlide={walk.kind === 'plan' ? onEditSlide : null}
-					editArmed={editSlideArm}
 					notice={walkNotice}
 				/>
 			)}

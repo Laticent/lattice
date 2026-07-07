@@ -36,6 +36,38 @@ in patch versions.
 
 ### Changed
 
+- **The mobile Playground is stripped back to the deck.** The Explore/Edit pills
+  become a compact two-icon toggle (◱ view · ✎ edit); the five toolbar icons
+  collapse to two (Deck setup — with the debug overlay folded in — and
+  Galleries); the walk chip strip and the Variant select merge into one **Step**
+  dropdown listing every slide; and "Edit this slide" plus "Read this slide's
+  copy" are removed. Explore and Edit are now two views of the same deck —
+  Explore renders it, ✎ opens its markdown, and editing reflects straight back —
+  so flipping to Edit gives you the slide's source without a dedicated button.
+  Edit is a full-height editor (no Markdown/Preview tabs on mobile; the desktop
+  split stays), and the walk bar pins to the bottom so the deck dominates.
+  Design: `engineering/decisions/2026-07-06-playground-simplify.md`.
+
+- **The Playground toolbar is redesigned clean and responsive (mobile · tablet ·
+  desktop).** One tidy centered row on wide screens — the stacked uppercase
+  picker labels are retired (sr-only; each control carries its own placeholder +
+  aria-label), so the whole bar keeps a single 32px height; two tidy rows on a
+  phone (mode + actions on top, the two pickers below). The `RENDERED SLIDES` /
+  `MARKDOWN` pane label is hidden wherever it's noise (Explore, and mobile
+  single-pane) and kept only on the desktop Edit split where it names two panes.
+  New **Focus** control (⤢) hides the whole toolbar so the deck or editor owns
+  the full height — a floating pill (⤡) brings it back; the walk bar stays, so
+  Explore's stepping is never lost. Focus persists at every width and is seeded
+  pre-paint (no toolbar flash on return). In Explore the walked slide now **fits
+  the pane** — on a wide screen (an iPad's landscape Explore) the slide was
+  scaled to the pane width and its bottom fell below the fold; it's now capped to
+  the pane height and centered, so a whole slide is always visible (a portrait
+  phone is unchanged — the short slide already fit). Explore now reads
+  **bottom-first at every width** (mobile → tablet → desktop): the walk bar
+  (Prev · N/M · Next + caption) pins to the bottom, the deck fills the band
+  above, and the only scroll is inside the deck iframe. The **Deck setup** button
+  is renamed **Deck Setting**.
+
 - **The Studio demo's "watch it build" beats sync on the real parse, not a timer.**
   Each slide the demo types now waits on `until(() => railReady(k))` — the slide rail
   gaining its Kth button — before typing the next, instead of a fixed settle that

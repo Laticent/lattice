@@ -3,13 +3,13 @@
  * editor / preview split and its responsive (tabbed) mobile form.
  *
  * Phase 3 of the shadcn migration moved the interactive chrome (component
- * picker, variant select, mobile Edit/Preview tabs, the Deck-setup + Galleries
- * drawers) into the PlaygroundApp React island, themed via Tailwind utilities +
- * the token bridge. The bespoke CSS for those controls was DELETED here in the
- * same change (the migration's "retire the surface's CSS" rule). What remains is
- * the structural app-shell the surviving DOM still needs: the page column, the
- * toolbar's flex clusters, the editor|preview split, and the mobile `[data-pane]`
- * single-pane rules the React Tabs drive. */
+ * picker, Step dropdown, the Deck-setting + Galleries drawers) into the
+ * PlaygroundApp React island, themed via Tailwind utilities + the token bridge.
+ * The bespoke CSS for those controls was DELETED here in the same change (the
+ * migration's "retire the surface's CSS" rule). What remains is the structural
+ * app-shell the surviving DOM still needs: the page column, the toolbar's flex
+ * clusters, the editor|preview split, and the mobile `[data-pane]` single-pane
+ * rules the island drives. */
 
 /* App-shell: topbar (auto) + bar (auto, may wrap to two rows) + split (fills
    the rest). A flex column means the split height tracks the real bar height —
@@ -22,57 +22,58 @@
 	overflow: hidden;
 }
 
+/* One tidy row, all controls on a single centered baseline (32px tall), tight
+   consistent spacing. Wraps gracefully when the width runs out. The old
+   stacked uppercase picker labels are retired — every control carries its own
+   placeholder + aria-label, so the labels go sr-only at every width and the
+   whole row keeps one clean height. */
 .pg-bar {
 	display: flex;
-	align-items: flex-end;
-	gap: 12px 16px;
+	align-items: center;
+	gap: 8px;
 	flex-wrap: wrap;
-	padding: 10px 16px;
+	padding: 8px 16px;
 	border-bottom: 1px solid var(--border);
 	background: var(--bg-alt);
 }
-/* Pickers cluster: Component + Variant side by side, labels stacked on top so
-   the controls keep the width. Compact on desktop, a full-width row on mobile. */
+/* Pickers cluster: Component + Step side by side, in-line with the mode toggle. */
 .pg-bar-pickers {
 	display: flex;
-	gap: 10px;
-	flex: 0 1 460px;
+	align-items: center;
+	gap: 8px;
+	flex: 0 1 400px;
 	min-width: 0;
 }
-/* Actions cluster: Edit/Preview tabs + status grouped at the left, the
-   Deck-setup / Galleries triggers pushed to the right. */
+/* Actions cluster: status + focus/setup/galleries triggers, pushed to the far
+   right of the row. */
 .pg-bar-actions {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	justify-content: flex-end;
+	gap: 8px;
 	flex: 1 1 auto;
 	min-width: 0;
 }
 .pg-picker {
 	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	gap: 4px;
+	align-items: center;
 	min-width: 0;
 }
 .pg-template-picker {
 	flex: 1.6 1 0;
 }
-.pg-variant-picker {
+.pg-step-picker {
 	flex: 1 1 0;
 }
+/* Labels are sr-only at every width — the controls speak for themselves. */
 .pg-picker-label {
-	font-family: var(--font-mono);
-	font-size: 10.5px;
-	letter-spacing: 0.1em;
-	text-transform: uppercase;
-	color: var(--text-muted);
-}
-
-/* Mobile Edit | Preview tabs (the shadcn Tabs island) — visible only on small
-   screens; the split shows both panes side by side above the breakpoint. */
-.pg-mobile-tabs {
-	display: none;
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 /* Split pane: rail | editor | handle | preview | rail (2026-07-02 decision).
@@ -151,6 +152,18 @@
 	padding: 8px 14px;
 	border-bottom: 1px solid var(--border);
 	background: var(--bg-alt);
+}
+/* The pane label earns its place ONLY on the desktop Edit split, where it names
+   two panes and hosts the collapse button. In Explore there's one preview and
+   nothing to collapse to; on a phone only one pane ever shows and the mode
+   toggle already says which — so the label is pure noise. Reclaim its band. */
+body[data-view='read'] .pg-pane-label {
+	display: none;
+}
+@media (max-width: 820px) {
+	.pg-pane-label {
+		display: none;
+	}
 }
 .pg-pane-label-spacer {
 	flex: 1;
@@ -251,13 +264,19 @@
 }
 
 @media (max-width: 820px) {
-	.pg-mobile-tabs {
-		display: block;
+	/* Two tidy rows on a phone: row 1 is the mode toggle (left) + the action
+	   triggers (right); row 2 is the two pickers sharing the full width. `order`
+	   pulls the pickers below the actions despite their DOM position between the
+	   mode toggle and the actions. */
+	.pg-mode {
+		order: 1;
 	}
-	/* Each cluster takes its own full-width row: pickers on top, actions below
-	   (with the triggers at the true right edge, so their Sheets open cleanly). */
-	.pg-bar-pickers,
 	.pg-bar-actions {
+		order: 2;
+		flex: 1 1 auto;
+	}
+	.pg-bar-pickers {
+		order: 3;
 		flex: 1 1 100%;
 	}
 	.pg-split {
@@ -272,7 +291,8 @@
 	.pg-pane-collapse {
 		display: none;
 	}
-	/* One pane at a time on phones; the active React Tab sets body[data-pane]. */
+	/* One pane at a time on phones; the mode toggle sets body[data-pane]
+	   (Explore → preview, Edit → the editor). */
 	body[data-pane='preview'] .pg-pane.editor {
 		display: none;
 	}
@@ -281,9 +301,9 @@
 	}
 }
 
-/* Phones: the actions row (Edit · Preview · status · Deck setup · Galleries) is
-   too wide once it stacks full-width. Drop the status (low value on a phone);
-   the Deck-setup / Galleries triggers collapse to icon-only via their own
+/* Phones: the actions row (mode · status · Deck Setting · Galleries) is too wide
+   once it stacks full-width. Drop the status (low value on a phone); the
+   Deck-Setting / Galleries triggers collapse to icon-only via their own
    responsive label (`hidden sm:inline`) in the island. */
 @media (max-width: 560px) {
 	.pg-status {
@@ -418,19 +438,34 @@
 		visibility: hidden;
 	}
 }
-/* Explore has no Edit/Preview panes to tab between on phones. */
-body[data-view='read'] .pg-mobile-tabs {
-	display: none;
+/* Fit a whole slide to the pane (Explore) — the "first slide fully visible"
+   fix. The FIT agent inside the iframe scales each slide to the iframe WIDTH, so
+   on a wide pane (an iPad's landscape Explore) a slide is taller than the
+   viewport and its bottom falls below the fold. Cap the iframe to the pane
+   HEIGHT via the deck's aspect ratio and center it: `height:100%` + `width:auto`
+   + `aspect-ratio` makes the iframe exactly one slide tall, the FIT agent
+   rescales the (now narrower) slide to fit, and one whole slide fills the height
+   with letterbox margins at the sides. On a portrait phone the aspect-derived
+   width exceeds the pane, so `max-width:100%` clamps it back to full width —
+   which is today's behavior, where the short 16:9 slide is already fully
+   visible. The filmstrip still scrolls and Prev/Next still steps. `--pg-deck-aspect`
+   defaults to the engine's 1280×720 box; every Explore deck (galleries +
+   component walks) uses it. */
+body[data-view='read'] .pg-preview-wrap {
+	display: flex;
+	justify-content: center;
+}
+body[data-view='read'] #preview {
+	height: 100%;
+	width: auto;
+	aspect-ratio: var(--pg-deck-aspect, 16 / 9);
+	max-width: 100%;
+	margin-inline: auto;
 }
 
-.pg-view-tabs {
-	flex: 0 0 auto;
-	align-self: end;
-	padding-block-end: 2px;
-}
-
-/* Walk bar: position · caption · chips · transcript. Pinned under the toolbar
-   on wide screens; at phone width it reads bottom-first (reader-first). */
+/* Walk bar: Prev · N/M · Next + the slide's caption. Explore-only; pins to the
+   bottom of the page column at every width (the `body[data-view='read']` rule
+   below), so the deck fills the band above it and only the deck iframe scrolls. */
 .pg-walk {
 	display: flex;
 	flex-direction: column;
@@ -473,23 +508,6 @@ body[data-view='read'] .pg-mobile-tabs {
 	color: var(--muted-foreground, inherit);
 	font-variant-numeric: tabular-nums;
 }
-.pg-walk-spacer {
-	flex: 1 1 0;
-}
-.pg-walk-edit {
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	padding: 4px 12px;
-	font-size: 12.5px;
-	background: transparent;
-	color: inherit;
-	cursor: pointer;
-}
-.pg-walk-edit.armed {
-	border-color: var(--destructive, #b3261e);
-	color: var(--destructive, #b3261e);
-	font-weight: 600;
-}
 .pg-walk-caption {
 	font-size: 13px;
 	line-height: 1.45;
@@ -498,58 +516,6 @@ body[data-view='read'] .pg-mobile-tabs {
 .pg-walk-notice {
 	font-size: 12.5px;
 	color: var(--accent);
-}
-.pg-walk-chips {
-	display: flex;
-	gap: 6px;
-	overflow-x: auto;
-	padding-block: 2px;
-	scrollbar-width: thin;
-}
-.pg-walk-chip {
-	flex: 0 0 auto;
-	border: 1px solid var(--border);
-	border-radius: 999px;
-	padding: 3px 11px;
-	font-size: 12px;
-	font-weight: 600;
-	background: transparent;
-	color: var(--muted-foreground, inherit);
-	cursor: pointer;
-	white-space: nowrap;
-}
-.pg-walk-chip.is-active {
-	border-color: var(--accent);
-	color: var(--accent);
-	background: var(--accent-soft, transparent);
-}
-.pg-walk-transcript button {
-	border: 0;
-	background: none;
-	padding: 0;
-	font-size: 12.5px;
-	font-weight: 600;
-	color: var(--accent);
-	cursor: pointer;
-}
-.pg-walk-transcript-body {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	padding: 8px 0 2px;
-	max-height: 40vh;
-	overflow-y: auto;
-}
-.pg-walk-transcript-body p {
-	font-size: 14px;
-	line-height: 1.55;
-}
-/* The transcript disclosure earns its place only where the slide is a preview,
-   not a reading surface (~0.28 scale at phone width). */
-@media not (max-width: 560px) {
-	.pg-walk-transcript {
-		display: none;
-	}
 }
 @media (max-width: 560px) {
 	.pg-walk {
@@ -568,4 +534,103 @@ body[data-view='read'] .pg-mobile-tabs {
    only Explore SHOWS it. */
 body[data-view='edit'] .pg-walk {
 	display: none;
+}
+
+/* ── Mode toggle (2026-07-06 simplification) ─────────────────────────────────
+   Explore / Edit as a compact two-icon segmented control, replacing the pills.
+   ◱ view the deck · ✎ edit its markdown. */
+.pg-mode {
+	display: inline-flex;
+	flex: 0 0 auto;
+	border: 1px solid var(--border);
+	border-radius: 9px;
+	overflow: hidden;
+}
+.pg-mode-btn {
+	display: grid;
+	place-items: center;
+	width: 36px;
+	height: 32px;
+	border: 0;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+.pg-mode-btn + .pg-mode-btn {
+	border-left: 1px solid var(--border);
+}
+.pg-mode-btn:hover,
+.pg-mode-btn:focus-visible {
+	color: var(--accent);
+}
+.pg-mode-btn.is-active {
+	background: var(--accent);
+	color: var(--accent-ink, var(--bg));
+}
+.pg-mode-btn svg {
+	width: 17px;
+	height: 17px;
+}
+@media (max-width: 820px) {
+	/* Bigger touch targets on the phone. */
+	.pg-mode-btn {
+		width: 48px;
+		height: 40px;
+	}
+}
+
+/* Explore reads bottom-first at EVERY width — one visual language, mobile →
+   tablet → desktop (the quality bar's cross-width consistency). The Walk bar
+   (‹ Prev · N / M · Next › + the slide's caption) pins to the bottom of the page
+   column; the deck preview fills the band above it, so the ONLY scroll is inside
+   the deck iframe. `order:10` clears the toolbar clusters (max order 3) so the
+   walk bar is always last. A top border reads it as a footer separator now that
+   the deck sits above it rather than below. */
+body[data-view='read'] .pg-walk {
+	order: 10;
+	border-block-start: 1px solid var(--border);
+	border-block-end: 0;
+}
+
+/* ── Focus mode (2026-07-06) — the user-controllable space reclaim ────────────
+   One toggle (⤢) hides the whole toolbar so the deck (Explore) or the editor
+   (Edit) owns the full height; a slim floating pill (⤡) brings it back. The
+   walk bar stays in Explore, so stepping — the function — is never lost. The
+   attribute rides on <html> (seeded pre-paint in playground.astro) so a
+   returning focus-mode visitor never sees the toolbar flash then vanish. */
+:root[data-pg-focus] .pg-bar {
+	display: none;
+}
+.pg-focus-restore {
+	position: fixed;
+	top: calc(var(--pg-topbar-h, 56px) + 10px);
+	right: 12px;
+	z-index: 40;
+	display: grid;
+	place-items: center;
+	width: 34px;
+	height: 34px;
+	border: 1px solid var(--border);
+	border-radius: 9px;
+	background: color-mix(in srgb, var(--bg-alt) 86%, transparent);
+	color: var(--text-muted);
+	cursor: pointer;
+	opacity: 0.65;
+	backdrop-filter: blur(6px);
+	transition: opacity 0.14s ease, color 0.14s ease;
+}
+.pg-focus-restore:hover,
+.pg-focus-restore:focus-visible {
+	opacity: 1;
+	color: var(--accent);
+	border-color: var(--accent);
+}
+.pg-focus-restore svg {
+	width: 17px;
+	height: 17px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.pg-focus-restore {
+		transition: none;
+	}
 }
