@@ -142,10 +142,12 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
   return {
     name: 'openrouter-tts',
     ready() { return !!getKey(); },
-    async synth({ text, voice, signal }) {
+    async synth({ text, voice, signal, speed }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
       // OpenAI-compatible speech route: POST the text, get a raw mp3 byte stream back.
+      // `speed` is an optional multiplier (default 1.0); models that don't support it
+      // ignore it, so passing it is always safe.
       const res = await (fetchImpl || fetch)(OR_SPEECH_URL, {
         method: 'POST',
         headers: {
@@ -159,6 +161,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
           input: text,
           voice: voice || getVoice(),
           response_format: 'mp3',
+          ...(speed && speed !== 1 ? { speed } : {}),
         }),
         signal,
       });
@@ -433,7 +436,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // speak() narrates `text`, sentence by sentence, and resolves when finished (or
   // aborted). It NEVER rejects — a rung failure falls through to silence. A new
   // speak() (or stop()) cancels any in-flight narration first (barge-in).
-  async function speak({ text, sentences: providedSentences, voice, signal, onSentence, onSentenceTiming, onState } = {}) {
+  async function speak({ text, sentences: providedSentences, voice, speed, signal, onSentence, onSentenceTiming, onState } = {}) {
     stop();
     const ctl = new AbortController();
     activeCtl = ctl;
@@ -459,7 +462,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // playBlob's generic 'no audio', since it's the more diagnostic message.
     let lastError = null;
     const errStr = (e) => (e && e.message) ? e.message : String(e || 'unknown');
-    const synth = (t) => rung.synth({ text: t, voice, signal: sig }).catch((e) => {
+    const synth = (t) => rung.synth({ text: t, voice, speed, signal: sig }).catch((e) => {
       if (!sig.aborted && !lastError) lastError = errStr(e);
       return null;
     });
@@ -549,6 +552,14 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // The AudioContext lifecycle state for diagnostics: 'none' (never created),
     // 'suspended' (needs a gesture / interrupted), or 'running'. Read-only.
     audioState() { return audioCtx ? audioCtx.state : 'none'; },
+    // Audio hardware output latency in ms — the gap between the clock (currentTime)
+    // and what's actually HEARD. A caption cursor subtracts this so the highlight
+    // matches the ear rather than leading it. 0 where the browser doesn't report it.
+    outputLatencyMs() {
+      if (!audioCtx) return 0;
+      const l = audioCtx.outputLatency || audioCtx.baseLatency || 0;
+      return l * 1000;
+    },
     rung() { return pickRung().name },
     kokoroSupported,
     availability() {

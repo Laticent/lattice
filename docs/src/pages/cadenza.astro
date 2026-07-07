@@ -176,6 +176,11 @@
 			// Built eagerly; if it can't load we stay on the silent path.
 			const OR_KEY_LS = 'lattice-db-or-key';
 			const VOICE_LABEL = { openrouter: 'cloud voice', kokoro: 'on-device', speechSynthesis: 'browser voice', silent: 'silent · captions only' };
+			// Pace → a TTS `speed` multiplier so the control actually changes the SPOKEN
+			// tempo (not just the silent estimate). Kept inside the Azure-safe 0.5–2.0 band;
+			// models that don't support speed ignore it (the highlight still re-anchors to
+			// whatever the audio's real duration turns out to be).
+			const PACE_SPEED = { slow: 0.8, moderate: 1.0, fast: 1.25 };
 			import('@/playground/voice-model.js')
 				.then((m) => {
 					voice = m.createVoiceModel({
@@ -238,7 +243,10 @@
 				if (mode === 'audio') {
 					// Ride the voice's owned clock; hold at 0 until the first sentence's audio
 					// actually starts (audioBase is its measured onset off the same clock).
-					elapsed = audioBase == null ? 0 : Math.max(0, voice.audioTimeMs() - audioBase);
+					// Subtract audio output latency so the highlight tracks what's HEARD rather
+					// than leading it by the hardware buffer.
+					const lat = voice.outputLatencyMs ? voice.outputLatencyMs() : 0;
+					elapsed = audioBase == null ? 0 : Math.max(0, voice.audioTimeMs() - audioBase - lat);
 				} else {
 					elapsed += now - lastT;
 				}
@@ -268,6 +276,7 @@
 				voice.speak({
 					text: inputEl.value,
 					sentences: splitSentences(inputEl.value),
+					speed: PACE_SPEED[pace] || 1,
 					onSentenceTiming: clocked
 						? ({ index, onsetMs, durationMs }) => {
 							if (audioBase == null) audioBase = onsetMs; // sentence 0 onset = track time 0

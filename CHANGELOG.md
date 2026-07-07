@@ -282,8 +282,11 @@ in patch versions.
   OpenAI-compatible speech route (`POST /api/v1/audio/speech` → `{ model, input,
   voice, response_format }`, returning a raw mp3 stream), defaults to a real
   speech-output model, and surfaces the API's error text instead of failing
-  silently. Same fix also unified `voice-model`'s sentence splitter with Cadenza's
-  (lookbehind) so narration no longer mis-splits a decimal like `$4.2M`.
+  silently. `speak()` gained an optional `speed` multiplier (forwarded to the
+  route; ignored by models that don't support it) so the pace control changes the
+  actual spoken tempo, not just the silent estimate. Same fix also unified
+  `voice-model`'s sentence splitter with Cadenza's (lookbehind) so narration no
+  longer mis-splits a decimal like `$4.2M`.
 
 - **Read-aloud audio is no longer silently killed by the iPhone's ring/silent
   switch, and failures are now visible.** A bare `AudioContext` plays through iOS's
