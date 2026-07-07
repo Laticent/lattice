@@ -10,6 +10,8 @@ export { estimateWordMs, PACE_WPM, pauseAfter, readMs } from './cadence';
 export type { Active, Cursor } from './cursor';
 export { makeCursor } from './cursor';
 export { integerToWords, numberToWords, spokenWordCount, toSpoken } from './normalize';
+export type { Reader, ReaderOptions } from './reader';
+export { makeReader } from './reader';
 
 export { splitSentences, splitWords } from './segment';
 export type { BuildOptions, CaptionTrack, Cue, Word } from './track';
