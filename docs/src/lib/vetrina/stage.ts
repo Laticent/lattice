@@ -50,6 +50,11 @@ export interface Stage {
 	gesture(kind: Gesture, target?: Target, signal?: AbortSignal): Promise<void>;
 	/** Opening flourish: the cursor materializes at center + waves hello (once per run). */
 	intro(signal?: AbortSignal): Promise<void>;
+	/** TEACHING cue: draw the eye to the narration — the cursor dips to the dock edge and the
+	 *  caption words pulse ("look here, read this"). The storyboard's `read` beat calls this, then
+	 *  dwells `readMs()`. Pulse is opacity/glow-based, so it plays under 'legible'; the cursor dip
+	 *  teleports when vestibular motion is suppressed. */
+	emphasizeCaption(signal?: AbortSignal): Promise<void>;
 	/** Resolve a Target to an element. Selectors are ROOT-scoped; pass a thunk for portals. */
 	resolve(target: Target): HTMLElement | null;
 	/** True when VESTIBULAR motion is suppressed (the 'legible' and 'still' tiers) — glides
@@ -860,8 +865,39 @@ export function createStage(opts: StageOptions): Stage {
 		}, 140);
 	}
 
+	// Draw the eye to the narration — the teacher underlining what they just said. Two cues that
+	// work across all four caption styles + both placements: (1) the cursor dips to the dock's
+	// inner edge (a small "pointing" move), (2) the caption words glow-pulse. The glow is a
+	// text-shadow (no transform, no layout shift), so it plays under 'legible' and never nudges
+	// the text a reader is tracking; only 'still' skips it. The cursor glide teleports when
+	// vestibular motion is suppressed. Non-fatal: if the dock hasn't laid out, it's a no-op.
+	async function emphasizeCaption(signal?: AbortSignal): Promise<void> {
+		if (destroyed) return;
+		const r = dock.getBoundingClientRect();
+		if (!r.width || !r.height) return;
+		// The narration lives at the placement edge; aim just OUTSIDE its inner edge so the cursor
+		// gestures toward the words without covering them.
+		const nr = narration.getBoundingClientRect();
+		const tx = Math.min(Math.max(nr.left + nr.width / 2, 40), window.innerWidth - 40);
+		const ty = placement === 'top' ? nr.bottom + 16 : nr.top - 16;
+		if (reduced) place(tx, ty);
+		else await tween(tx, ty, Math.max(280, Math.min(640, Math.hypot(tx - cx, ty - cy))), signal).catch(() => {});
+		if (!still) {
+			narration.animate(
+				[
+					{ textShadow: '0 0 0 rgba(0,0,0,0)' },
+					{ textShadow: '0 0 15px var(--vt-accent)', offset: 0.4 },
+					{ textShadow: '0 0 0 rgba(0,0,0,0)' },
+				],
+				{ duration: 900, easing: 'ease-in-out' },
+			);
+		}
+		await wait(still ? 40 : 220, signal);
+	}
+
 	return {
 		say,
+		emphasizeCaption,
 		progress: (current, total) => {
 			if (!destroyed) setProgress(current, total);
 		},
