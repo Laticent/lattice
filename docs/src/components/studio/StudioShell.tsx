@@ -1415,7 +1415,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const editorPane = (
 		<section
 			id="studio-pane-editor"
-			inert={split.collapsed === 'a' ? true : undefined}
+			inert={!mobile && split.collapsed === 'a' ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-arming=a]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -1468,7 +1468,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const previewPane = (
 		<section
 			id="studio-pane-preview"
-			inert={split.collapsed === 'b' ? true : undefined}
+			inert={!mobile && split.collapsed === 'b' ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-arming=b]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -1500,7 +1500,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
 				<div className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={activeTheme?.name} extraTheme={extraTheme} extraCss={previewExtraCss} active={split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={activeTheme?.name} extraTheme={extraTheme} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}

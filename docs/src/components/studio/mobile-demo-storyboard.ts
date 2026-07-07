@@ -56,16 +56,17 @@ const SEL = {
 } as const;
 /** The New Deck item lives in a Radix menu portalled to <body> — a whole-document thunk. */
 const newDeckItem = () => document.querySelector<HTMLElement>('[data-demo="new-deck"]');
-/** True once the editor pane has REMOUNTED after a swap-to-edit — its CodeMirror content
- *  node is in the DOM, so `typeTail` has a live view to append into. The `until` gate that
- *  makes per-slide alternation safe on a surface where the editor comes and goes. */
+/** True once the editor's CodeMirror content node is in the DOM, so `typeTail` has a live view
+ *  to append into. Both mobile panes now stay MOUNTED (StudioShell hides the inactive one, it
+ *  doesn't unmount it), so this is effectively always true — a cheap safety kept in case the
+ *  layout ever reverts to conditional rendering; the paired `settle` still lets the swap paint. */
 const editorMounted = () => !!document.querySelector(`${SEL.editor} .cm-content`);
-/** True once the live preview has actually PAINTED a slide. The mobile pane swap REMOUNTS the
- *  preview (a fresh iframe that reloads + re-renders), so the reveal MUST wait for the real
- *  paint — a fixed settle races the reload and you never see the slide render (the whole point
- *  of a live demo). The preview is a SAME-ORIGIN srcdoc frame (component-transformer threat
- *  model §5.1), so its document is readable from here; `contentDocument` is null mid-load, so
- *  optional chaining reports "not painted yet" until the engine has rendered a `.lattice`. */
+/** True once the live preview has PAINTED a slide. The preview stays mounted and keeps rendering
+ *  even while the Edit pane is showing, so a swap to Preview is instant — but the reveal still
+ *  confirms the paint so a slow device can't out-run it. The preview is a SAME-ORIGIN srcdoc
+ *  frame (component-transformer threat model §5.1), so its document is readable from here;
+ *  `contentDocument` is null mid-load, so optional chaining reports "not painted yet" until the
+ *  engine has rendered a `.lattice`. */
 const previewPainted = (): boolean => {
 	const doc = document.querySelector<HTMLIFrameElement>('[aria-label="Live deck preview"] iframe')?.contentDocument;
 	const slide = doc?.querySelector('.lattice');
@@ -80,12 +81,13 @@ const previewShowsSlide = (k: number) => (): boolean => {
 	return !!m && Number(m[1]) === k && previewPainted();
 };
 
-/** One slide of the per-slide-alternation core: tap Edit and wait for the remount, type the
- *  slide, then tap Preview, WAIT for the engine to paint it, and linger so the viewer sees it.
- *  `reveal` narrates the flip; `wow` circles the (now really painted) preview. */
+/** One slide of the per-slide-alternation core: tap Edit, type the slide, then tap Preview,
+ *  confirm it's showing slide k, and linger so the viewer sees it. (Both panes stay mounted, so
+ *  the taps are instant visibility toggles, not remounts.) `reveal` narrates the flip; `wow`
+ *  circles the painted preview. */
 function buildSlide(k: number, opts: { teach?: string; reveal: string; cadence?: number; wow?: boolean }): Step<StudioActions>[] {
 	return [
-		// Tap Edit → swap → wait for the editor to remount before any typing.
+		// Tap Edit → the editor is already mounted; the settle just gives the toggle a beat.
 		{ say: opts.teach, point: SEL.paneEdit, click: true, act: (a) => a.setMobilePane('edit'), until: editorMounted, settle: 400 },
 		// Type slide k (ctx.type appends only the new tail; the editor is mounted + focused).
 		{ point: SEL.editor, type: { target: SEL.editor, text: upTo(k), cadence: opts.cadence ?? 8 }, settle: 350 },
@@ -114,9 +116,9 @@ const steps: Step<StudioActions>[] = [
 		say: 'New deck — a blank canvas, titled “My First Deck.”',
 		point: newDeckItem,
 		click: true,
-		// A real, persisted deck (deduped first, so a re-run never doubles it). Because we're
-		// on the Preview pane the editor is unmounted, so its doc is minted blank on the next
-		// swap-to-edit — no seed to append onto.
+		// A real, persisted deck (deduped first, so a re-run never doubles it). createFirstDeck
+		// blanks the source (state) + resets the editor doc, so the canvas is empty before the
+		// first typeTail — no seed to append onto.
 		act: (a) => {
 			a.createFirstDeck();
 			a.openDeckMenu(false);
