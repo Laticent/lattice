@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
-const { buildPlayerHtml, fileToDataUri } = require('../../../lib/export/html-player.js');
+const { buildPlayerHtml, fileToDataUri, subsetEmbeddedFonts, minifyCss } = require('../../../lib/export/html-player.js');
 const { parseEnvelope } = require('../../../lib/core/lattice-doc.js');
 
 // The self-contained .html PLAYER assembler (lib/export/html-player.js) — P2 slice 3
@@ -126,4 +126,65 @@ test.after(() => {
 	try {
 		fs.unlinkSync(tmpSvg);
 	} catch {}
+});
+
+// ── size levers: CSS minify + font subset ────────────────────────────────────
+
+test('minifyCss strips comments + whitespace but preserves strings, url(), calc, combinators', () => {
+	assert.equal(minifyCss('/* c */ a { color : red ; }'), 'a{color:red}');
+	assert.equal(minifyCss('b{width:calc(1px + 2px)}'), 'b{width:calc(1px + 2px)}', 'calc spaces kept');
+	assert.equal(minifyCss('c::before{content:"a  b"}'), 'c::before{content:"a  b"}', 'string spaces kept');
+	assert.equal(minifyCss('d > e ~ f + g{x:1}'), 'd > e ~ f + g{x:1}', 'combinator spaces kept');
+	assert.equal(minifyCss('h{background:url(  x.svg  )}'), 'h{background:url(  x.svg  )}', 'url() untouched');
+	assert.ok(!minifyCss('/* x */a{b:1}').includes(String.fromCodePoint(0xe000)), 'no sentinel leftover');
+	// Regression: an apostrophe INSIDE a comment must not be read as a string delimiter
+	// and swallow the following rule. (Protect-before-strip deleted half of lattice.css.)
+	assert.equal(minifyCss("/* it's */ .a{x:1} /* don't */ .b{y:2}"), '.a{x:1}.b{y:2}', 'comment apostrophes do not eat rules');
+	// And a `/*` inside a real string must NOT be stripped as a comment.
+	assert.equal(minifyCss('a::before{content:"/* not a comment */"}'), 'a::before{content:"/* not a comment */"}', 'comment-like string literal survives');
+});
+
+test('minifyCss on the REAL lattice.css matches the build minifier (no rules dropped)', () => {
+	// The blocker the checker caught: minifyCss must not silently delete rules from the
+	// actual ~955 KB lattice.css the player inlines. Pin token/brace parity vs the build's
+	// own dist/lattice.min.css so a protect-before-strip regression can never ship again.
+	const cssPath = path.join(__dirname, '..', '..', '..', 'dist', 'lattice.css');
+	const refPath = path.join(__dirname, '..', '..', '..', 'dist', 'lattice.min.css');
+	if (!fs.existsSync(cssPath) || !fs.existsSync(refPath)) return; // dist not built in this env
+	const min = minifyCss(fs.readFileSync(cssPath, 'utf8'));
+	const ref = fs.readFileSync(refPath, 'utf8');
+	const open = (min.match(/\{/g) || []).length;
+	const close = (min.match(/\}/g) || []).length;
+	assert.equal(open, close, 'braces stay balanced');
+	assert.ok(!min.includes(String.fromCodePoint(0xe000)), 'no stray sentinel in the shipped CSS');
+	const count = (s, tok) => s.split(tok).length - 1;
+	for (const tok of ['--fs-', '@font-face', 'aspect-ratio']) {
+		assert.equal(count(min, tok), count(ref, tok), `${tok} count matches the build minifier`);
+	}
+});
+
+test('the player inlines MINIFIED css — no block comments survive (the biggest size lever)', async () => {
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	// The engine inlines unminified lattice.css (1600+ comments); the player must strip them.
+	assert.equal((html.match(/\/\*/g) || []).length, 0, 'no CSS block comments in the shipped player');
+});
+
+test('subsetEmbeddedFonts shrinks each embedded face to valid, smaller woff2 (optional dep)', async () => {
+	// Build a tiny doc with one real embedded face (base64), then subset it.
+	const face = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'dist', 'fonts', 'outfit-400.woff2'));
+	const b64 = face.toString('base64');
+	const doc = `<html><head><style id="lattice-embedded-fonts">@font-face{font-family:'Outfit';src:url(data:font/woff2;base64,${b64}) format('woff2')}</style></head><body><p>Hello 123 — the quick fox.</p></body></html>`;
+	const { html, applied, saved } = await subsetEmbeddedFonts(doc);
+	assert.equal(applied, true, 'subset-font is installed → subsetting applies');
+	assert.ok(saved > 0, 'the face got smaller');
+	const outB64 = (html.match(/data:font\/woff2;base64,([A-Za-z0-9+/=]+)/) || [])[1];
+	assert.ok(outB64.length < b64.length, 'shipped face is smaller than the source face');
+	assert.equal(Buffer.from(outB64, 'base64').slice(0, 4).toString('hex'), '774f4632', 'output is valid woff2 (wOF2 magic)');
+});
+
+test('subsetEmbeddedFonts is a graceful no-op when there are no embedded faces', async () => {
+	const { html, applied, saved } = await subsetEmbeddedFonts('<html><body><p>no fonts here</p></body></html>');
+	assert.equal(applied, false);
+	assert.equal(saved, 0);
+	assert.match(html, /no fonts here/);
 });
