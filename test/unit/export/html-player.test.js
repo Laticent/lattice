@@ -59,7 +59,8 @@ test('the CSP sha256 actually covers the shipped player script (freeze-surviving
 	const cspHash = (html.match(/script-src 'sha256-([^']+)'/) || [])[1];
 	assert.ok(cspHash, 'a sha256 script-src must be present');
 	// Extract the executable player script body and hash it — must match the CSP.
-	const body = html.match(/<script>([\s\S]*?)<\/script>/);
+	// (Case-insensitive so an upper-case tag can't slip past — CodeQL js/bad-tag-filter.)
+	const body = html.match(/<script>([\s\S]*?)<\/script>/i);
 	assert.ok(body, 'the player script block is present');
 	const actual = crypto.createHash('sha256').update(body[1], 'utf8').digest('base64');
 	assert.equal(actual, cspHash, 'CSP hash must match the exact shipped script — else it is blocked or a hole');
