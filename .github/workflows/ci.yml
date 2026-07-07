@@ -406,14 +406,71 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
 
+  # ── Studio E2E smoke (ADVISORY) — fast selector-drift signal on the PR ──
+  # The full Studio Playwright suite is nightly, OFF the PR gate — which is why a
+  # shared-chrome change (accessible-name rename, a retired control) can pass every
+  # gating tier and only break specs overnight (#780). This runs just the tiny
+  # `@smoke` subset (shell paints · Inspector opens + writes front-matter · both
+  # panels no-overflow) on the PR path, so that class of drift fails FAST instead
+  # of next-morning-on-main.
+  #
+  # ADVISORY, deliberately: this job is ABSENT from the required `ci` gate's `needs`
+  # (like `golden-diff`), so a red here reports but does NOT block merge or jam the
+  # queue. Per the experience-gating framework
+  # (engineering/decisions/2026-06-28-experience-gating-playwright.md §3) a browser
+  # check becomes PR-BLOCKING only after an observed nightly green streak proves it
+  # doesn't flap — never on hope. The `@smoke` specs are green in the nightly + local
+  # runs, but promote to blocking (move this into `ci`'s `needs`) only once the streak
+  # is on record. Tracked in #800;
+  # engineering/decisions/2026-07-06-e2e-chrome-selector-contract.md § Decision (4).
+  # `--retries=0` overrides the config's CI retry so a flake shows here, not hidden.
+  studio-smoke:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - name: Install docs deps
+        run: npm ci
+        working-directory: docs
+      - name: Install Playwright browser (pinned to @playwright/test)
+        run: npx playwright install --with-deps chromium
+        working-directory: docs
+      # playwright.config.ts's webServer builds (without the slow showcase:check)
+      # then previews the production site; test:e2e:smoke runs the desktop @smoke
+      # subset against it.
+      - name: Run Studio E2E @smoke subset
+        run: npm run test:e2e:smoke -- --retries=0
+        working-directory: docs
+        env:
+          CI: 'true'
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-smoke-${{ github.run_id }}
+          path: |
+            docs/playwright-report/**
+            docs/test-results/**
+          if-no-files-found: warn
+          retention-days: 7
+
   # ── Single required check ──────────────────────────────────────────────
   # Set THIS as the only required status check in branch protection. It
   # passes when lint succeeds and the test tiers either passed or were
   # skipped (docs-only) — so conditional jobs never leave a PR stuck on a
   # "pending" required check.
-  # NOTE: `golden-diff` is intentionally ABSENT from needs/the failure loop — it
-  # is advisory (see its job comment). It still runs and reports; it just doesn't
-  # gate. Visual correctness gates via the semantic-invariant suite in `integration`.
+  # NOTE: `golden-diff` and `studio-smoke` are intentionally ABSENT from needs/the
+  # failure loop — both are advisory (see their job comments). They still run and
+  # report; they just don't gate. Visual correctness gates via the semantic-invariant
+  # suite in `integration`; `studio-smoke` promotes into `needs` only after a nightly
+  # green streak (#800). Adding a job here makes it merge-BLOCKING — do it deliberately.
   ci:
     if: always()
     needs: [lint, unit, integration, docs-build]

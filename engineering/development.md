@@ -443,10 +443,13 @@ presence, or location**:
 4. Update **both** tiers — unit **and** e2e — and run `npm run test:e2e:smoke`
    (or the touched specs). State in the PR whether the e2e suite was actually run.
 
-The `@smoke`-tagged subset is a stable, fast (~20s) chrome sanity net; it is a
-promotion candidate for the PR gate once it holds an observed green streak
-(the experience-gating doc's §3 condition), wired as
-`test:e2e:smoke`. Until then it runs in the nightly like the rest.
+The `@smoke`-tagged subset is a stable, fast (~1 min incl. build) chrome sanity
+net. It runs on every docs-touching PR via the **`studio-smoke`** job in
+`ci.yml` — but **advisory**: it sits outside the required `ci` gate (like
+`golden-diff`), so a red reports fast but doesn't block merge or jam the queue.
+Promotion to merge-**blocking** (move `studio-smoke` into `ci`'s `needs`) waits
+on an observed nightly green streak per the experience-gating doc's §3 — tracked
+in #800. The full suite still runs in the nightly.
 
 ---
 
