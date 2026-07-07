@@ -1375,6 +1375,37 @@ function checkVetrinaBoundary(errors) {
   }
 }
 
+// ── Cadenza (docs/src/lib/cadenza) — the caption/timeline engine ────────────
+// The same self-containment antibody as Vetrina, and stricter: Cadenza is the
+// pure timing/caption core (engineering/decisions/2026-07-07-cadenza-caption-timeline.md)
+// and is designed to SPIN OFF as a zero-dependency library. It owns no audio and
+// no DOM and has NO peer-dep seam, so EVERY import must resolve inside the folder
+// (`./x`); a bare specifier (npm/Lattice dep) or a `../` escape breaks the "zero
+// Lattice deps / spin-off-able" promise the ADR repeatedly makes.
+const CADENZA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'cadenza');
+const CADENZA_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
+
+function checkCadenzaBoundary(errors) {
+  if (!fs.existsSync(CADENZA_DIR)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(CADENZA_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const base = path.basename(file);
+    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
+    const src = fs.readFileSync(file, 'utf8');
+    for (const m of src.matchAll(CADENZA_IMPORT)) {
+      const spec = m[1];
+      if (spec.startsWith('./')) continue; // in-folder relative — fine
+      if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+      errors.push(
+        `${rel} imports '${spec}', which escapes the Cadenza folder. The caption/timeline engine is ` +
+        `zero-dependency and spin-off-able (2026-07-07-cadenza-caption-timeline.md): every import must ` +
+        `resolve inside docs/src/lib/cadenza/ (\`./x\`). Move shared code into the folder — Cadenza has no ` +
+        `peer-dep seam and must not couple to the host.`,
+      );
+    }
+  }
+}
+
 // The gesture alphabet is a CURATED vocabulary, not a motion library: a gesture
 // earns its place by carrying a distinct MEANING the eye reads (§6.1), so the
 // `Gesture` union in stage.ts is frozen to exactly this registry. Adding one is
@@ -1523,6 +1554,7 @@ function run() {
   checkPreviewHtmlSinks(errors);
   checkOpenRouterBudget(errors);
   checkVetrinaBoundary(errors);
+  checkCadenzaBoundary(errors);
   checkSanctionedGestures(errors);
   return {
     errors,
@@ -1603,6 +1635,7 @@ module.exports = {
   REQUIRED_THEME_TOKENS,
   SINGLETON_TAGS,
   checkVetrinaBoundary,
+  checkCadenzaBoundary,
   checkSanctionedGestures,
   SANCTIONED_GESTURES,
   VETRINA_DIR,
