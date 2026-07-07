@@ -81,6 +81,8 @@
 			.voice .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--spent); flex-shrink: 0; }
 			.voice[data-live="true"] { color: var(--ink); border-color: var(--accent); }
 			.voice[data-live="true"] .dot { background: var(--glow); box-shadow: 0 0 0 3px var(--glow-bg); }
+			.diag { margin-top: 12px; min-height: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-word; }
+			.diag.err { color: var(--glow); font-weight: 600; }
 			details { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
 			summary { cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; list-style: none; }
 			summary::-webkit-details-marker { display: none; }
@@ -127,6 +129,8 @@
 				<span class="voice" id="voice" title="Active voice — connect one in the Playground to hear it"><span class="dot"></span><span id="voiceLabel">silent</span></span>
 			</div>
 
+			<p class="diag" id="diag" role="status" aria-live="polite"></p>
+
 			<details id="textPanel">
 				<summary><span class="chev">▸</span> Your narration <span class="hint">— paste anything and it re-times live</span></summary>
 				<div class="panel-body"><textarea id="input" spellcheck="false"></textarea></div>
@@ -147,6 +151,8 @@
 			const $ = (s) => document.querySelector(s);
 			const capEl = $('#caption'), spokenEl = $('#spoken'), fillEl = $('#fill'), clockEl = $('#clock'), vttEl = $('#vtt'), inputEl = $('#input');
 			const voiceEl = $('#voice'), voiceLabelEl = $('#voiceLabel');
+			const diagEl = $('#diag');
+			function setDiag(msg, isErr) { diagEl.textContent = msg || ''; diagEl.classList.toggle('err', !!isErr); }
 			const root = document.documentElement;
 
 			// The highlight is driven by one of two clocks, chosen fresh on each play():
@@ -270,6 +276,10 @@
 						: undefined,
 					onState: (state) => {
 						if (state && state.rung) refreshVoice(state.rung);
+						// Surface the REAL failure reason instead of falling silently to the estimate
+						// (the blind path the audio review flagged): the API's HTTP status / CORS /
+						// decode message, so a keyless-vs-rejected-vs-muted failure is distinguishable.
+						if (state && state.error) setDiag('\u26a0 ' + (VOICE_LABEL[rungNow()] || rungNow()) + ' failed: ' + state.error, true);
 						// A CLOCKED voice that produced no audio (synth failed) — fall back to the
 						// silent estimate so the read-along never hangs waiting for an onset. (The
 						// browser voice is already estimate-driven, so this only applies to 'audio'.)
@@ -278,6 +288,10 @@
 						}
 					},
 				});
+				// Diagnostic: a beat after start, show the live rung + AudioContext state, so a
+				// silent-but-'running' context (audio muted by the iOS switch) is distinguishable
+				// from a 'suspended' one (gesture/interruption) at a glance.
+				setTimeout(() => { if (voicing && playing && voice) setDiag((VOICE_LABEL[rungNow()] || rungNow()) + ' · audio: ' + (voice.audioState ? voice.audioState() : '?')); }, 500);
 			}
 
 			function play() {
@@ -304,7 +318,8 @@
 			function stop() {
 				playing = false; started = false; setIcon(false); cancelAnimationFrame(raf);
 				if (voice) { try { voice.stop(); } catch {} }
-				mode = 'silent'; audioBase = null;
+				mode = 'silent'; audioBase = null; voicing = false;
+				setDiag('');
 				refreshVoice(); paint();
 			}
 			function setIcon(on) { $('#playIcon').innerHTML = on ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"></path>' : '<path d="M8 5v14l11-7z"></path>'; $('#play').setAttribute('aria-label', on ? 'Pause' : 'Play'); }

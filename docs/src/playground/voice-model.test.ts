@@ -108,6 +108,22 @@ describe('voice-model instrumentation (additive)', () => {
     expect(onSentenceTiming.mock.calls[1][0]).toMatchObject({ index: 1, text: 'this.' });
   });
 
+  it('forwards a synth failure reason through onState.error (no more silent swallow)', async () => {
+    const model = createVoiceModel({});
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async () => {
+        throw new Error('OpenRouter TTS error 402: insufficient credits');
+      },
+    });
+    const states: Array<{ error?: string }> = [];
+    await model.speak({ text: 'Hello there.', onState: (s: { error?: string }) => states.push(s) });
+    const errState = states.find((s) => s?.error);
+    expect(errState).toBeTruthy();
+    expect(errState?.error).toContain('402');
+  });
+
   it('audioTimeMs() reports the owned clock (0 before any audio)', async () => {
     const model = createVoiceModel({});
     expect(model.audioTimeMs()).toBe(0);

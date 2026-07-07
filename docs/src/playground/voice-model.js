@@ -353,9 +353,20 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // synth) is then allowed. Call this SYNCHRONOUSLY from the tap (read-aloud button /
   // play-sample) — resuming + ticking a 1-sample buffer blesses the context. No-op
   // where WebAudio is absent. Idempotent.
+  //
+  // CRITICAL for iOS: a bare AudioContext renders through the "ambient" audio session,
+  // which the hardware silent/ring switch MUTES — so playback succeeds (currentTime
+  // advances, onended fires) yet nothing is heard. (An earlier comment here claimed
+  // WebAudio "ignores the ringer switch"; that was backwards.) Promote the session to
+  // 'playback' (Safari 16.4+, guarded) so audio goes through the media channel that
+  // ignores the mute switch, like an <audio> element. See WebKit bug 237322.
   function unlock() {
     const ctx = getCtx();
     if (!ctx) return;
+    try {
+      const s = typeof navigator !== 'undefined' && navigator.audioSession;
+      if (s) navigator.audioSession.type = 'playback';
+    } catch {}
     try { if (ctx.state === 'suspended') ctx.resume(); } catch {}
     try {
       const s = ctx.createBufferSource();
@@ -441,6 +452,17 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       Array.isArray(providedSentences) && providedSentences.length
         ? providedSentences.map((s) => String(s).trim()).filter(Boolean)
         : splitSentences(text);
+    // Capture the FIRST real failure reason so the caller can show it. Previously the
+    // synth error (a good HTTP-status message) and playBlob's decode/play error were
+    // both discarded, making every failure look like identical silence — the blind
+    // path the audio trio flagged. A synth error (the network/API reason) wins over
+    // playBlob's generic 'no audio', since it's the more diagnostic message.
+    let lastError = null;
+    const errStr = (e) => (e && e.message) ? e.message : String(e || 'unknown');
+    const synth = (t) => rung.synth({ text: t, voice, signal: sig }).catch((e) => {
+      if (!sig.aborted && !lastError) lastError = errStr(e);
+      return null;
+    });
     try {
       if (rung.name === 'speechSynthesis') {
         for (const s of sentences) {
@@ -453,11 +475,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
         // Floor: nothing to play.
       } else {
         // Blob rungs, with one-ahead prefetch for low gap between sentences.
-        let next = sentences.length ? rung.synth({ text: sentences[0], voice, signal: sig }).catch(() => null) : null;
+        let next = sentences.length ? synth(sentences[0]) : null;
         for (let i = 0; i < sentences.length; i++) {
           if (sig.aborted) break;
           const blob = await next;
-          next = i + 1 < sentences.length ? rung.synth({ text: sentences[i + 1], voice, signal: sig }).catch(() => null) : null;
+          next = i + 1 < sentences.length ? synth(sentences[i + 1]) : null;
           if (sig.aborted) break;
           await waitIfPaused(sig);
           onSentence?.(sentences[i]);
@@ -467,12 +489,17 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
           const onStart = onSentenceTiming
             ? ({ onsetMs, durationMs }) => onSentenceTiming({ index: i, text: sentences[i], onsetMs, durationMs })
             : undefined;
-          await playBlob(blob, sig, onStart);
+          const played = await playBlob(blob, sig, onStart);
+          // A decode/play failure (not a mere missing blob, which the synth error above
+          // already explains) is worth surfacing too.
+          if (played && played.ok === false && played.error && played.error !== 'no audio' && !lastError) {
+            lastError = played.error;
+          }
         }
       }
     } finally {
       if (activeCtl === ctl) activeCtl = null;
-      onState?.({ rung: rung.name, speaking: false, aborted: sig.aborted });
+      onState?.({ rung: rung.name, speaking: false, aborted: sig.aborted, error: lastError || undefined });
     }
   }
 
@@ -519,6 +546,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // ticks against (onsets from onSentenceTiming are read off the SAME clock). 0
     // before any audio has played. Read-only; never creates the context.
     audioTimeMs() { return audioCtx ? audioCtx.currentTime * 1000 : 0; },
+    // The AudioContext lifecycle state for diagnostics: 'none' (never created),
+    // 'suspended' (needs a gesture / interrupted), or 'running'. Read-only.
+    audioState() { return audioCtx ? audioCtx.state : 'none'; },
     rung() { return pickRung().name },
     kokoroSupported,
     availability() {
