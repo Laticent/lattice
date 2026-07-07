@@ -34,7 +34,28 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **The Studio "Watch demo" becomes "Show Me" — a five-tour guided library.** One engine, five
+  angles on the same Studio, each launchable from a "Show Me" menu (the top bar on desktop/tablet;
+  inlined in the ⋯ menu on a phone): **First look** (the sixty-second version), **The full
+  walkthrough** (write · polish · ship, the default), **Build a board deck** (the 4 o'clock meeting,
+  with stakes), **It's just Markdown** (one promise, proven five ways), and **The quiet tour** (few
+  words, let the slides talk). Each is ONE responsive script — the same tour adapts to the phone's
+  single swappable pane vs. the desktop side-by-side — built from a shared tour toolkit and paced by
+  the new Teaching Beat (below). Verified on real Chromium at both widths (full walkthrough builds +
+  completes; every tour smoke-launches). Retires the two single storyboards the tours supersede.
+
 ### Changed
+
+- **Vetrina: a caption can be a lesson, not a subtitle — the Teaching Beat.** A storyboard beat can
+  set `read: true`: after the caption shows, the cursor dips to the narration dock and the words
+  glow-pulse (drawing the eye — the teacher underlining what they said), and the beat DWELLS long
+  enough to READ — timed to the caption's word count via the new `readMs()` — BEFORE the action
+  runs. So a viewer understands the words first, then watches the thing happen, at a human,
+  patient pace instead of a feature-recital rush. The pulse is motion-safe (plays under `legible`);
+  the cursor dip teleports when vestibular motion is suppressed. Backward compatible — a beat
+  without `read` is unchanged.
 
 - **The mobile Playground is stripped back to the deck.** The Explore/Edit pills
   become a compact two-icon toggle (◱ view · ✎ edit); the five toolbar icons

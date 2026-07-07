@@ -128,6 +128,27 @@ scene()
   scene().act((a) => a.loadDeck()).instant().until(() => deckIsRendered())
   ```
 
+## Teaching beats — read the caption before the action
+
+A caption is easy to treat as a subtitle that rides an action beat — but then it
+flashes by before a newcomer can read it, and the tour feels like a feature
+recital, not a lesson. Mark a beat **`read: true`** and it becomes a *teaching
+beat*: after the caption shows, the cursor **dips to the narration dock and the
+words glow-pulse** (the eye lands on what's being said — the teacher underlining
+it), and the beat **dwells long enough to read** — timed to the caption's length
+via `readMs()` (≈ `300 + 200·words`, clamped 1.2–4.5 s) — **before** the action
+runs. So the viewer understands the words first, *then* watches the thing happen.
+
+```ts
+scene().say('This is all plain Markdown.').read()   // show → point at it → dwell to read → …
+  .point('#editor').type('# Title')                 // …then act, now that it's understood
+```
+
+Pair it with a short `settle` (the **land** — a brief digest pause on the
+result). The emphasis is motion-safe (the glow is opacity, not a transform, so it
+plays under `legible`; the cursor dip teleports when vestibular motion is
+suppressed) — see *Accessibility & reduced motion*.
+
 ## Gestures — the cursor's body language
 
 A curated **five-gesture alphabet**, each carrying a distinct *meaning* the eye

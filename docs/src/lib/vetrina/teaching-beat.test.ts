@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RunContext } from './runner';
+import { scene } from './scene';
 import { createStage, type Stage } from './stage';
 import { readMs, storyboard } from './storyboard';
 import { resolveTheme } from './theme';
@@ -63,6 +64,11 @@ describe('read beat — order is say → emphasize → (dwell) → act', () => {
 		const { log, ctx } = recorder();
 		await board(ctx);
 		expect(log).toEqual(['say:Just a subtitle.', 'act:go']);
+	});
+	it('scene().read() emits a read step (same fluent shape as .instant())', () => {
+		const [s] = scene<{ go: () => void }>().say('read me').read().point('#x').toData();
+		expect(s.read).toBe(true);
+		expect(s.say).toBe('read me');
 	});
 });
 
