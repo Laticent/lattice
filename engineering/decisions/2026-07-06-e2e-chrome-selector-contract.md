@@ -60,19 +60,28 @@ the eventual promotion.
    (runner-specific AA) and the PDF-export journeys (blocked font CDN) stay
    nightly/UNVERIFIED locally.
 
-4. **A `@smoke` subset as a promotion candidate**, not a new blocking gate.
+4. **A `@smoke` subset, landed on the PR path as an ADVISORY job.**
    Three fast desktop specs tagged `@smoke` — shell mounts + paints, open
    Inspector + write front-matter (the scope-rail chrome), both-panels-open
    no-overflow (the layout invariant the #780 regression tripped) — run via
-   `npm run test:e2e:smoke` (~20s). It stays in the nightly for now; it is the
-   pre-built subset to promote to PR-blocking the moment §3's green-streak
-   condition is met (a one-line CI job then, retries=0), so promotion isn't a
-   from-scratch task under pressure.
+   `npm run test:e2e:smoke` (~1 min incl. build). The `ci.yml` `studio-smoke`
+   job runs them on every docs-touching PR with `--retries=0`, so selector drift
+   fails fast on the PR instead of next-morning-on-main.
+
+   **The two rungs, and why.** §3 forbids a browser check becoming PR-*blocking*
+   "on hope" — only after an observed nightly green streak. So the job ships
+   **advisory** first: absent from the required `ci` gate's `needs` (like
+   `golden-diff`), it reports red/green but does not block merge or jam the merge
+   queue. Promotion to **blocking** is a one-line follow-up — move `studio-smoke`
+   into `ci`'s `needs` — taken once the streak is on record. Tracked in #800.
+   (Evidence so far: the `@smoke` specs are green in the nightly and in local
+   runs; the nightly's *overall* red is unrelated pre-existing failures — demo +
+   PDF-export journeys + a `@mobile` split spec — not the `@smoke` subset.)
 
 ## What this deliberately does NOT do
 
-- It does **not** add a blocking e2e job to `ci.yml` — that's the human/observed-
-  streak gate above, not this PR's call.
+- It does **not** make the e2e job merge-**blocking** — `studio-smoke` is advisory
+  (outside the required `ci` gate) until §3's green-streak condition is met (#800).
 - It does **not** introduce `data-testid`s. The suite's convention is
   accessible-name selectors (which also assert a11y); the contract map preserves
   that while removing the duplication. `data-testid` remains available if a
