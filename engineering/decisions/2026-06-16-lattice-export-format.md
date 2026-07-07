@@ -20,6 +20,14 @@ last-status-update: 2026-06-16
 > player** (Decision 2), the full **theme/asset envelope** (fonts/images/CSS
 > inlining), and LFM `grammar.json` packaging. When this note and a shipped surface
 > disagree, the shipped surface wins.
+>
+> **Extended 2026-07-07** by
+> [`2026-07-07-html-lattice-player.md`](2026-07-07-html-lattice-player.md): adds the read-mode
+> dual view (Present · Read·Slides · Typora-style Read·Article), **resolves the carried open
+> questions** (size = Floor, colour = both + toggle, notes default-in + strip toggle,
+> un-inlinable = warn-and-degrade), and scopes the app-hosted `lattice.style/deck/{id}` player as
+> its own later track. Read that doc for the player + read-mode design; this one remains canonical
+> for the container/envelope/reuse-boundary.
 
 Related: [`2026-06-13-export-to-marp.md`](2026-06-13-export-to-marp.md) (the
 Marp bundle — the dev-render sibling this reframes), [`2026-06-13-lfm-standard.md`](2026-06-13-lfm-standard.md)
