@@ -359,7 +359,7 @@ function escapeAttr(s) {
 }
 function minifyCss(css) {
   const stash = [];
-  const min = css.replace(/\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|url\([^)]*\)/g, (m) => {
+  const min = String(css).replace(/\uE000/g, "").replace(/\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|url\([^)]*\)/g, (m) => {
     if (m.startsWith("/*")) return "";
     stash.push(m);
     return `\uE000${stash.length - 1}\uE000`;
