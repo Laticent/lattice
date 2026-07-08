@@ -8,6 +8,7 @@ import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { shareHtmlPlayer, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintDeck, sharePrintSource } from './share-export';
+import { WebpageOptionsPanel } from './WebpageOptionsPanel';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
 // the rendered ARTIFACT vs hand off the SOURCE. Every row is REAL now: the source
@@ -25,10 +26,10 @@ function Row({ icon, title, desc, dev, busy, status, onClick }: { icon: React.Re
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent, notify }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; notify: (msg: string) => void }) {
 	const close = () => onOpenChange(false);
-	// The sheet has two views: the format MENU, and the pre-export OPTIONS step for
-	// PDF (where comments can ride along as sticky notes). Reset to the menu whenever
-	// the sheet re-opens so it never lands mid-flow.
-	const [view, setView] = React.useState<'menu' | 'pdf'>('menu');
+	// The sheet has three views: the format MENU, and a pre-export OPTIONS step for
+	// PDF (comments as sticky notes) and for the Webpage player (strip speaker notes).
+	// Reset to the menu whenever the sheet re-opens so it never lands mid-flow.
+	const [view, setView] = React.useState<'menu' | 'pdf' | 'html'>('menu');
 	React.useEffect(() => { if (open) setView('menu'); }, [open]);
 	// A saved finish renders via a `finish finish-<slug>` class the engine doesn't know
 	// + its generated CSS. The two handoffs treat it differently:
@@ -81,6 +82,12 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		run('pdf', 'PDF', (onStatus) => sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations));
 	};
 
+	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
+	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
+	const exportHtml = (stripNotes: boolean) => {
+		run('html', 'Webpage', (onStatus) => shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, stripNotes));
+	};
+
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="w-full gap-0 sm:max-w-[440px]">
@@ -91,6 +98,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				<div className="space-y-6 overflow-y-auto p-5">
 					{view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
+					) : view === 'html' ? (
+						<WebpageOptionsPanel busy={busy === 'html'} status={progress} onBack={() => setView('menu')} onExport={exportHtml} />
 					) : (
 						<>
 							<section className="space-y-2">
@@ -100,7 +109,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page — choose what rides along" onClick={() => setView('pdf')} />
 								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', (onStatus) => sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
 								<Row busy={busy === 'print'} icon={<Printer className="size-4" />} title="Print deck" desc="The rendered slides, vector — default print" onClick={() => run('print', 'Print', () => sharePrintDeck(options, artifactSource, name, palette, mode, extraTheme, extraCss))} />
-									<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => run('html', 'Webpage', (onStatus) => shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle))} />
+									<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => setView('html')} />
 							</section>
 							<section className="space-y-2">
 								<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the source</h3>

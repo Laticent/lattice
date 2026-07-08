@@ -149,6 +149,8 @@ type NotesCore = {
 	extractSlideNotes: (sections: string[]) => (string | null)[];
 	extractSlideDescriptions: (sections: string[]) => (string | null)[];
 	stripCommentNodes: (html: string) => string;
+	noteBodiesFromHtml: (sectionHtml: string) => string[];
+	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[]) => string;
 };
 
 /**
@@ -161,9 +163,15 @@ type NotesCore = {
  * notes sheet would find no aside, and screen-reader slide descriptions would vanish
  * — a WCAG 1.1.1 regression vs. the CLI player). `sections` still carry their
  * comments; each is comment-stripped here before the inject.
+ *
+ * `stripNotes` mirrors the CLI `--strip-notes`: it BLANKS the speaker notes (no
+ * `aside` is materialized, so the shared file carries no speaker text) while KEEPING
+ * the accessible descriptions (they are the slide's text alternative, not private
+ * speaker copy). The caller additionally scrubs the note text from the envelope
+ * source — see `shareHtmlPlayer`.
  */
-function materializeNotes(sections: string[], notesCore: NotesCore): string {
-	const notes = notesCore.extractSlideNotes(sections);
+function materializeNotes(sections: string[], notesCore: NotesCore, stripNotes = false): string {
+	const notes = stripNotes ? sections.map(() => null) : notesCore.extractSlideNotes(sections);
 	const descriptions = notesCore.extractSlideDescriptions(sections);
 	return sections
 		.map((sec, i) => {
@@ -243,6 +251,7 @@ export async function shareHtmlPlayer(
 	onStatus?: (m: string) => void,
 	extraCss?: string,
 	deckTitle?: string,
+	stripNotes = false,
 ): Promise<void> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
@@ -269,7 +278,15 @@ export async function shareHtmlPlayer(
 	// materialize speaker notes + a11y descriptions the same way the emulator does, so
 	// the Studio player carries them exactly like the CLI player (notes: true is honest).
 	const tagged = deck.splitSections(out.html).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
-	const slides = materializeNotes(tagged, notesCore);
+	const slides = materializeNotes(tagged, notesCore, stripNotes);
+	// --strip-notes privacy export: the note text must appear NOWHERE in the shipped
+	// file — not the DOM (blanked above) AND not the verbatim envelope source. Scrub
+	// the source with the INDIVIDUAL note bodies lifted from the render (directive-safe:
+	// only exact note bodies are removed, never a `_class`/pragma comment), exactly as
+	// the CLI emulator does. The note/non-note boundary stays the shared notesCore.
+	const envelopeSource = stripNotes
+		? notesCore.stripNotesFromSource(source, new Set(tagged.flatMap((s) => notesCore.noteBodiesFromHtml(s))))
+		: source;
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
 	// `katexCss` cap is SYNCHRONOUS, so pre-fetch the vendored sheet here (only when
@@ -318,11 +335,11 @@ export async function shareHtmlPlayer(
 	const { html } = await coreMod.assemblePlayer(
 		{
 			docHtml,
-			source,
+			source: envelopeSource,
 			title,
 			theme: { name: palette },
 			config: undefined,
-			notes: true,
+			notes: !stripNotes,
 			now: Date.now(),
 			build: 'studio',
 			playerVersion: 'studio',

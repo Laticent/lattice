@@ -45,6 +45,12 @@ in patch versions.
   fonts and full CSS ship today (the used-selector/used-family prune the CLI applies
   is a follow-up, so Studio files are larger than the CLI’s until then). Part of
   `engineering/decisions/2026-07-08-studio-html-player-export.md` (P2).
+- **The webpage export can strip speaker notes.** Its options step gained a **“Strip
+  speaker notes”** toggle (default off — notes ride into the player’s Present-mode
+  notes sheet, matching the CLI). Turned on, it scrubs the note text from every copy
+  in the shared file — the DOM asides and the re-import envelope source — mirroring
+  the CLI `--strip-notes`; accessible slide descriptions are kept. Same decision
+  doc (P3).
 - **The export manifest can now carry a read-along.** The Lattice document manifest
   (`lib/core/lattice-doc.js`) gained an optional `readAlong` section — voice config
   plus an optional per-slide measured caption track — carried through export/import
