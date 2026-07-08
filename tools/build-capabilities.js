@@ -106,6 +106,8 @@ const SCRIPT_META = {
   'a11y-textures:check':      ['Build & bundle', 'Freshness gate for the bundled a11y-textures Playground module.'],
   'player-core:build':        ['Build & bundle', 'Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export.'],
   'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
+  'cadenza-lib:build':        ['Build & bundle', 'Build the Cadenza library dist/ (CJS + .d.ts, esbuild + tsc) so root CJS can require(\'@slidewright/cadenza\') — the workspace package that retires the caption hand-mirrors.'],
+  'cadenza-lib:check':        ['Build & bundle', 'Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts).'],
   'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
   'decisions:index:check':    ['Build & bundle', 'Freshness gate for the decisions-index (stale vs the notes\' front-matter).'],
 

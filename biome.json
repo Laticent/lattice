@@ -22,6 +22,7 @@
       "!docs/src/playground/standalone-svg.generated.js",
       "!docs/src/playground/a11y-textures.generated.js",
       "!docs/src/playground/player-core.generated.js",
+      "!docs/src/lib/cadenza/dist",
       "!**/*.min.js",
       "!mermaid-v11.min.js",
       "!examples/**/*.json",

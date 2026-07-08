@@ -1,0 +1,27 @@
+{
+  "name": "@slidewright/cadenza",
+  "version": "0.1.0",
+  "description": "Framework-free caption + timeline engine — text in, a timed caption track + a clock→word cursor + WebVTT/SRT out. Zero-dependency, no DOM, no audio.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "types": "./index.ts",
+  "module": "./index.ts",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts",
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md"
+  ]
+}

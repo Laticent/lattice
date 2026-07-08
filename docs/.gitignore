@@ -1,5 +1,11 @@
 # build output
 dist/
+# ...except the committed, freshness-gated Cadenza library dist (node-consumable
+# CJS + .d.ts, built by tools/build-cadenza-lib.js; the `dist/` rule above matches
+# at any depth, so re-include the full path — a bare `!dist/` under an ignored
+# parent won't work). See 2026-07-08-library-shape-cadenza-vetrina.md.
+!src/lib/cadenza/dist/
+!src/lib/cadenza/dist/**
 # generated types
 .astro/
 # portal copies staged from ../docs by scripts/sync-portal.mjs

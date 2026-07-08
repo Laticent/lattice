@@ -43,6 +43,9 @@
     "./dist/*": "./dist/*",
     "./package.json": "./package.json"
   },
+  "workspaces": [
+    "docs/src/lib/cadenza"
+  ],
   "files": [
     "lattice-emulator.js",
     "mermaid-v11.min.js",
@@ -100,6 +103,8 @@
     "a11y-textures:check": "node tools/build-a11y-textures.js --check",
     "player-core:build": "node tools/build-player-core.js",
     "player-core:check": "node tools/build-player-core.js --check",
+    "cadenza-lib:build": "node tools/build-cadenza-lib.js",
+    "cadenza-lib:check": "node tools/build-cadenza-lib.js --check",
     "dist-readme:build": "node tools/build-dist-readme.js",
     "dist-readme:check": "node tools/build-dist-readme.js --check",
     "capabilities:build": "node tools/build-capabilities.js",
@@ -210,7 +215,8 @@
     "jszip": "^3.10.1",
     "knip": "^6.24.0",
     "lefthook": "^2.1.6",
-    "tinybench": "^6.0.2"
+    "tinybench": "^6.0.2",
+    "typescript": "^6.0.3"
   },
   "optionalDependencies": {
     "css-tree": "^3.2.1",

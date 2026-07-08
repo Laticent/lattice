@@ -43,6 +43,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `authoring-core:check` | Freshness gate for the authoring-core bundle. |
 | `build` | Regenerate every generated artifact in dependency order, behind the ownership gate. |
 | `build:check` | Freshness gate: regenerate in memory and byte-diff every artifact; fail on drift (CI/pre-push). |
+| `cadenza-lib:build` | Build the Cadenza library dist/ (CJS + .d.ts, esbuild + tsc) so root CJS can require('@slidewright/cadenza') — the workspace package that retires the caption hand-mirrors. |
+| `cadenza-lib:check` | Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
 | `css:build` | Bundle dist/lattice.css (+ .min) — the palette-blind engine stylesheet. |
@@ -289,6 +291,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
 | `tools/build-a11y-textures.js` | Bundle the categorical/chart texture-<defs> kernel for the browser. |
+| `tools/build-cadenza-lib.js` | Build the Cadenza library's node-consumable dist/ — the CJS entry + type |
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
