@@ -186,7 +186,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const chartInteractRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const videoOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const editorRef = React.useRef<EditorAdapter | null>(null);
-	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl));
+	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes));
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
