@@ -306,21 +306,22 @@ test.describe('no grid void when a pane clamps at its minimum (iPad width)', () 
 	});
 });
 
-// The Studio's desktop grid is the one configuration the Playground can't
-// cover: Architect (232px) + editor (min 240px) + handle (1px) + preview
-// (min 280px) + Inspector (300px) = 1053px — the decision doc's worst-case
-// arithmetic at the 1100px desktop threshold, asserted for real here.
+// The Studio's desktop grid is the one configuration the Playground can't cover.
+// With the left activity bar (2026-07-06-studio-activity-bar.md) the worst case at
+// the 1100px threshold is bar (52) + Settings + Architect + editor (min 240) +
+// handle (1) + preview (min 280): at their DEFAULT widths that overflows, so the
+// narrow fold auto-narrows the two docked panels to their mins until the
+// editor+preview pair keeps its zero-void minimum (≥ 560). Asserted for real here.
 test.describe('studio split at the 1100px desktop threshold', () => {
 	test.use({ viewport: { width: 1100, height: 800 } });
 
 	test('@smoke both panels open with the default split — no horizontal overflow', async ({ page }) => {
 		await gotoStudio(page);
 
-		// Open the two side panels (Architect starts closed for newcomers; the
-		// Inspector defaults to its 46px rail).
+		// Open the two side panels from the left activity bar (both start closed).
 		await page.getByRole('button', { name: 'Toggle Architect' }).click();
 		await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
-		// The Inspector is opened from the always-visible scope rail (Deck scope).
+		// The Settings panel opens at deck scope from the bar's Deck icon.
 		await openInspector(page);
 		await expect(page.getByText('Editing the whole deck')).toBeVisible();
 
@@ -341,10 +342,11 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 
 	test('near-0.5 ratio with both panels open — zero grid void (the 7px invariant)', async ({ page }) => {
 		test.slow();
-		// The sum-2 pair's zero-void guarantee needs pair-space ≥ 2×minB; worst
-		// case here is 1100 − 232 − 300 − 1 = 567 ≥ 560 — seven px of headroom
-		// (issue #721, splitTracks invariant comment). A ratio just under 0.5 is
-		// the band a future flank widening would reopen — assert it stays filled.
+		// The sum-2 pair's zero-void guarantee needs pair-space ≥ 2×minB (560). With
+		// the bar + both docked panels the fold narrows Settings/Architect toward
+		// their mins so the pair holds ≥ 560 at 1100 (issue #721, splitTracks +
+		// panelBudget). A ratio just under 0.5 is the band a regression would
+		// reopen — assert it stays filled.
 		await page.addInitScript(() => {
 			try {
 				localStorage.setItem('lattice-docs-split-studio', '{"v":1,"a":0.48}');

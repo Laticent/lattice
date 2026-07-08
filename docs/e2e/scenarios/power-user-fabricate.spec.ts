@@ -57,7 +57,7 @@ test('a fabricated theme saves and is selectable from Look afterward', async ({ 
 	// and picking it makes it the ACTIVE look (the trigger reflects the choice).
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
 	await openInspector(page);
-	await page.getByRole('button', { name: 'Choose theme' }).click();
+	await page.getByRole('button', { name: 'Choose deck theme' }).click();
 	await page.getByRole('menuitem', { name: 'Boardroom Teal' }).click();
-	await expect(page.getByRole('button', { name: 'Choose theme' })).toContainText('Boardroom Teal');
+	await expect(page.getByRole('button', { name: 'Choose deck theme' })).toContainText('Boardroom Teal');
 });

@@ -43,7 +43,10 @@ export const SEL = {
 	paneEdit: '[data-demo="pane-edit"]',
 	panePreview: '[data-demo="pane-preview"]',
 	deckSwitcher: '[data-demo="deck-switcher"]',
-	theme: '[aria-label="Choose theme"]',
+	// The deck-theme control inside the deck-scope Settings panel. (Was
+	// '[aria-label="Choose theme"]', which matched NOTHING — the real label is
+	// "Choose deck theme"; the reskin() cursor pointed at a missing node.)
+	theme: '[aria-label="Choose deck theme"]',
 	architect: '[aria-label="Toggle Architect"]',
 	mode: '[data-demo="mode"]',
 	slideSettings: '[aria-label="Slide settings"]',
@@ -133,7 +136,7 @@ export function revealSlide(
 }
 
 /** Reskin the deck via a theme, then flip light/dark — the "layouts hold, only the palette moves"
- *  beat. The theme picker (`[aria-label="Choose theme"]`) lives INSIDE the deck-scope Inspector on
+ *  beat. The theme picker (`[aria-label="Choose deck theme"]`) lives INSIDE the deck-scope Inspector on
  *  BOTH surfaces (a docked column on desktop, a sheet on a phone), so open it first — otherwise the
  *  cursor would point at nothing and the deck would reshade with no visible cause. Drives the same
  *  panel the author uses, at deck scope. Close it on the mode flip. */

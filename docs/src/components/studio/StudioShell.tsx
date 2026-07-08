@@ -44,7 +44,8 @@ import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
-import { useBreakpoint, useNarrowDesktop } from './use-breakpoint';
+import { useBreakpoint } from './use-breakpoint';
+import { usePanelWidth } from './use-panel-width';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
 import { isEvictionProneBrowser } from './workspace-backup';
@@ -139,6 +140,22 @@ function splitTracks(collapsed: SplitSide | null): string[] {
 		'0px',
 	];
 }
+// ── Activity-bar layout constants (2026-07-06-studio-activity-bar.md) ────────
+// The desktop chrome is: [ bar ][ Settings ][ Architect ][ editor ][ preview ].
+// The bar is a fixed flex rail OUTSIDE the split grid; Settings + Architect are
+// resizable grid columns that dock left. Panel MINs are the narrow-fold floor —
+// below the both-open threshold the panels auto-narrow to these so the pair
+// never clips below PAIR_MIN (the #721 zero-void invariant, = 2×preview-min).
+const BAR_W = 52; // the left activity bar (flex rail, outside the split grid)
+const HANDLE_W = 1; // the editor|preview split handle track
+const PAIR_MIN = 560; // editor+preview zero-void minimum (2 × preview min 280, #721)
+const FOLD_SAFETY = 12; // headroom so sub-pixel rounding / a stray scrollbar never reopens the void
+const ARCH_MIN = 200; // Architect min width (coach cards stay legible)
+const ARCH_DEFAULT = 232; // Architect default (matches the old fixed column)
+const SET_MIN = 260; // Settings min width (the inspector fields stay usable)
+const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
+const PANEL_MAX = 420; // drag ceiling for either panel (the fold caps it further when narrow)
+
 // Theme constants + the grouped picker live in ThemePicker.tsx (every shipped
 // theme, incl. the AA color-blind-safe set). BUILTIN_PALETTES = anything we can
 // drive through `data-palette`.
@@ -172,27 +189,33 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [onboarded, setOnboarded] = React.useState(() => loadSettings().onboarded || hasPriorStudioUse());
 	const onboardedRef = React.useRef(onboarded);
 	onboardedRef.current = onboarded;
-	const [architectOpen, setArchitectOpen] = React.useState(() => onboarded); // newcomers start calm
-	const [inspectorOpen, setInspectorOpen] = React.useState(false); // PM-4: preview is sacred
-	// Inspector scope — DETERMINISTIC (no context inference): Slide-first, most-frequent.
-	// The rail is the scope switch; the column hosts the active scope's body.
-	const [inspectorScope, setInspectorScope] = React.useState<'slide' | 'deck'>('slide');
-	// The desktop scope rail can collapse from 72px (icon + caption) to 48px (icons
-	// only) to reclaim width; the choice is per-user and sticky across sessions.
-	const [railCollapsed, setRailCollapsed] = React.useState(() => {
-		try {
-			return localStorage.getItem('lattice-studio-rail-collapsed') === 'true';
-		} catch {
-			return false;
-		}
-	});
-	React.useEffect(() => {
-		try {
-			localStorage.setItem('lattice-studio-rail-collapsed', String(railCollapsed));
-		} catch {
-			/* private mode / storage disabled — the rail just won't remember. */
-		}
-	}, [railCollapsed]);
+	// Panel state — TWO independent, nullable, per-group slots (the activity-bar
+	// model, engineering/decisions/2026-07-06-studio-activity-bar.md). NOT one
+	// global `activePanel`: the Architect (Assistants group) and the settings scope
+	// (Settings group) are independent, so the coach stays up while you tune.
+	// Merging the old inspectorOpen + inspectorScope into ONE nullable enum makes
+	// the illegal "open with no scope" state unrepresentable.
+	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | null>(() => (onboarded ? 'architect' : null)); // newcomers start calm
+	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
+	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
+	// their old names as pure reads off the two enums (no behavior change).
+	const architectOpen = activeAssistant === 'architect';
+	const inspectorOpen = activeSettings !== null;
+	const inspectorScope: 'slide' | 'deck' = activeSettings ?? 'slide';
+	// Compatibility setters — the demo hook's prop interface and a handful of simple
+	// call sites still speak the old open/scope API; these adapt it onto the enums.
+	// The COMPOUND toggles (the bar's scope icons, the mobile/tablet settings toggle)
+	// call setActiveSettings directly to avoid a two-call batch ordering trap.
+	// setInspectorScope(s) SELECTS scope s and ensures the panel is open — the only
+	// bare-scope caller (the in-panel segment) renders only while open, so this never
+	// spuriously opens it.
+	const setArchitectOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'architect') : v) ? 'architect' : null));
+	}, []);
+	const setInspectorOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveSettings((prev) => ((typeof v === 'function' ? v(prev !== null) : v) ? prev ?? 'slide' : null));
+	}, []);
+	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), []);
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	// One-time welcome banner — shown only to a newcomer; dismiss graduates them.
 	const [welcomeOpen, setWelcomeOpen] = React.useState(() => !onboarded);
@@ -357,12 +380,34 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// it collapses to 48px icons (when shown), and — when both panels are open — folds
 	// away entirely, the scope switch falling back to the panel-top segment (the tablet
 	// pattern). A display adaptation, not a preference change.
-	const narrowDesktop = useNarrowDesktop();
-	const railIconsOnly = railCollapsed || narrowDesktop;
-	// Desktop switches scope with the persistent rail (72px). Tablet has no room for a
-	// rail once the 296px column is docked, so it (and mobile) switch via a segment at
-	// the panel top. rail = desktop, except the narrow-desktop both-panels case above.
-	const railVisible = bp === 'desktop' && !(narrowDesktop && inspectorOpen && architectOpen);
+	// ── Left-docked panel widths (activity-bar model) ────────────────────────
+	// On desktop the Settings panel docks next to the bar and the Architect next to
+	// the editor; both resize by a drag handle and persist. The MINs double as the
+	// narrow-fold floor: below the both-open threshold the panels auto-narrow to
+	// these so the editor+preview pair never clips below its zero-void minimum
+	// (#721: pair-space ≥ 2×minB = 560). Widths only apply on desktop — tablet/mobile
+	// panels are sheets. (`compact` gates the in-panel scope segment; there is no
+	// desktop scope rail any more — the bar's Slide/Deck icons are the switch.)
+	const desktop = bp === 'desktop';
+	const archPanel = usePanelWidth({ storageKey: 'lattice-studio-arch-w', defaultWidth: ARCH_DEFAULT, min: ARCH_MIN, max: PANEL_MAX });
+	const setPanel = usePanelWidth({ storageKey: 'lattice-studio-set-w', defaultWidth: SET_DEFAULT, min: SET_MIN, max: PANEL_MAX });
+	// Live viewport width — drives the narrow fold. Read on mount + resize (not
+	// during a panel drag, so the fold clamp is stable while dragging).
+	const [vw, setVw] = React.useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1440));
+	React.useEffect(() => {
+		const on = () => setVw(window.innerWidth);
+		on();
+		window.addEventListener('resize', on);
+		return () => window.removeEventListener('resize', on);
+	}, []);
+	// px available for the two docked panels combined, leaving the pair its 560px
+	// zero-void minimum (+ a small safety). gridW excludes the 52px bar.
+	const gridW = vw - (desktop ? BAR_W : 0);
+	const panelBudget = Math.max(0, gridW - HANDLE_W - PAIR_MIN - FOLD_SAFETY);
+	// Effective (rendered) widths: the Architect keeps priority (the coach you're
+	// reading), Settings yields first; both floored at their mins. Zero unless open.
+	const archEff = desktop && architectOpen ? Math.max(ARCH_MIN, Math.min(archPanel.width, panelBudget - (inspectorOpen ? SET_MIN : 0))) : 0;
+	const setEff = desktop && inspectorOpen ? Math.max(SET_MIN, Math.min(setPanel.width, panelBudget - archEff)) : 0;
 
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
@@ -398,8 +443,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// A newcomer (read via ref so graduating mid-session doesn't slam panels) keeps
 	// the Architect closed on desktop too — reduced density until they engage.
 	React.useEffect(() => {
-		if (compact) { setArchitectOpen(false); setInspectorOpen(false); }
-		else { setArchitectOpen(onboardedRef.current); setInspectorOpen(false); }
+		if (compact) { setActiveAssistant(null); setActiveSettings(null); }
+		else { setActiveAssistant(onboardedRef.current ? 'architect' : null); setActiveSettings(null); }
 		// The "⋯ More" overflow only exists on compact; close it across any tier flip
 		// so a menu opened on a phone doesn't strand open after a resize to desktop
 		// (where its trigger unmounts) — red-team H4.
@@ -898,11 +943,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const onFirstUserEdit = React.useCallback(() => {
 		if (onboardedRef.current || firstEditRef.current) return;
 		firstEditRef.current = true;
-		if (!compact) setArchitectOpen(true);
-		// Now that they're authoring, nudge them toward the deck Inspector (look,
-		// chrome, running marks) with a one-time pulse — gentler than auto-opening it.
+		if (!compact) setActiveAssistant('architect');
+		// Now that they're authoring, nudge them toward the settings — a one-time pulse
+		// on the bar's Deck icon (desktop) / the tablet Settings toggle — gentler than
+		// auto-opening it.
 		setInspectorPulse(true);
-		notify('Your AI Coach reviews the deck as you write — it just opened on the left.');
+		notify('Your AI Coach reviews the deck as you write — it just opened next to the editor.');
 		graduate();
 	}, [compact, notify, graduate]);
 
@@ -1449,8 +1495,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// (an <aside> on desktop, a <Sheet> on mobile) differs; the innards do not.
 	const inspectorScopeContent = (
 		<>
-			{/* Scope switch when there is no rail (tablet + mobile): a Slide-first segment. */}
-			{!railVisible && (
+			{/* Scope switch on tablet + mobile: a Slide-first segment. On desktop the
+			    activity bar's Slide/Deck icons ARE the switch, so no in-panel segment. */}
+			{compact && (
 				<div className="flex gap-1 border-b border-border p-2">
 					{([{ k: 'slide', label: 'Slide' }, { k: 'deck', label: 'Deck' }] as const).map(({ k, label }) => (
 						<button key={k} type="button" aria-pressed={inspectorScope === k} aria-label={k === 'slide' ? 'Slide scope' : 'Deck scope'} onClick={() => setInspectorScope(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-[12.5px] font-semibold transition-colors', inspectorScope === k ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>{label}</button>
@@ -1534,10 +1581,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				)}
 				{insertComponents.length > 0 && <button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component" title="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button>}
 				<button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues" title="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
-				{/* Version history — deck-level recovery, docked in the editor header beside
-				    the Slide-settings launcher (always visible; not in the top nav). */}
+				{/* Version history — deck-level recovery, docked in the editor header at every
+				    width (an action, not a panel; not in the top nav). */}
 				<Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>
-				<Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>
+				{/* Slide-settings launcher — on DESKTOP the activity bar's Slide icon owns this
+				    (a duplicate here would break the e2e strict 'Slide settings' locator); on
+				    tablet/mobile the editor header is the opener. */}
+				{compact && <Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
 				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
 				{splitUsable && (
 					<Button variant="ghost" size="icon-sm" aria-label="Collapse editor" title="Collapse editor — or drag the divider past its minimum" onClick={() => collapseFromHeader('a')}>
@@ -1647,6 +1697,29 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		<SplitRail direction="left" label="Preview" labelExpand="Expand preview" {...split.railProps('b')}>
 			<span className="font-mono text-[10px] text-muted-foreground">{viewSlides.length}</span>
 		</SplitRail>
+	);
+
+	// ── Left activity bar (desktop) — the ONE launcher for every panel ────────
+	// Assistants (Coach) top · Settings (Slide/Deck) mid · Globals (Library,
+	// Workspace, account) foot. Group labels + dividers make the grouped
+	// exclusivity legible (Coach is independent; Slide/Deck swap one panel). The
+	// accessible names are the e2e/demo contract — 'Toggle Architect', 'Deck scope',
+	// 'Slide settings', 'Open Library', 'Workspace settings' (studio-fixture.ts CHROME
+	// map + tour-kit SEL) — keep them stable.
+	const activityBar = (
+		<nav aria-label="Studio panels" className="flex w-[52px] shrink-0 flex-col items-center gap-0.5 border-r border-border bg-card py-2">
+			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">AI</span>
+			<BarIcon label="Toggle Architect" hint="Architect — AI coach &amp; chat" caption="Coach" active={architectOpen} onClick={() => { graduate(); setActiveAssistant((p) => (p ? null : 'architect')); }}><Sparkles className="size-[18px]" /></BarIcon>
+			<span className="my-1 h-px w-6 bg-border" />
+			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
+			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={activeSettings === 'slide'} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p === 'slide' ? null : 'slide')); }}><FileSliders className="size-[18px]" /></BarIcon>
+			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={activeSettings === 'deck'} pulse={inspectorPulse} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p === 'deck' ? null : 'deck')); }}><SlidersHorizontal className="size-[18px]" /></BarIcon>
+			<span className="flex-1" />
+			<span className="my-1 h-px w-6 bg-border" />
+			{onboarded && <BarIcon label="Open Library" hint="Library — saved themes &amp; components" caption="Library" onClick={() => setLibraryOpen(true)}><FileBox className="size-[18px]" /></BarIcon>}
+			{onboarded && <BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={() => setWorkspaceOpen(true)}><Settings2 className="size-[18px]" /></BarIcon>}
+			<span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-[var(--surface-inverse)] text-[12px] font-bold text-white">SA</span>
+		</nav>
 	);
 
 	return (
@@ -1793,10 +1866,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
 				    they ride the pane bar below with Present + Share. */}
-				{!mobile && <Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>}
-				{/* Settings opener — TABLET only. Desktop owns scope on the always-visible rail
-				    (the toggle moved there); mobile has its own opener on the pane bar below. */}
-				{bp === 'tablet' && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Settings" title="Settings — deck &amp; slide, in the side panel" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
+				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
+				    left activity bar; mobile from the pane bar below. */}
+				{bp === 'tablet' && <Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setActiveAssistant((p) => (p ? null : 'architect')); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>}
+				{bp === 'tablet' && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p ? null : 'deck')); }} aria-label="Settings" title="Settings — deck &amp; slide, in the side panel" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
 				{!compact && <span className="h-5 w-px bg-border" />}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
@@ -1842,11 +1915,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</DropdownMenu>
 				)}
 
-				{/* Library + Workspace + avatar — desktop primary; on compact they live in ⋯
-				    (above). Advanced surfaces — hidden until a newcomer engages. */}
-				{!compact && onboarded && <Button variant="ghost" size="icon-sm" onClick={() => setLibraryOpen(true)} aria-label="Open Library" title="Library — saved themes &amp; components"><FileBox className="size-[18px]" /></Button>}
-				{!compact && onboarded && <Button variant="ghost" size="icon-sm" onClick={() => setWorkspaceOpen(true)} aria-label="Workspace settings"><Settings2 className="size-[18px]" /></Button>}
-				{!compact && <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--surface-inverse)] text-[12px] font-bold text-white">SA</span>}
+				{/* Library + Workspace + account — on DESKTOP these live in the left activity
+				    bar's Globals group; on compact they're in the ⋯ overflow (above). So the
+				    top bar carries neither here. */}
 			</header>
 			)}
 
@@ -1893,7 +1964,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
 						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
-						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); if (!inspectorOpen) setInspectorScope('deck'); setInspectorOpen((v) => !v); }} aria-label="Settings" title="Settings — deck &amp; slide" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p ? null : 'deck')); }} aria-label="Settings" title="Settings — deck &amp; slide" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
 					</div>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
 					    its full size, so the preview keeps rendering the live deck and a swap to it is
@@ -1922,76 +1993,65 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					{splitRailB}
 				</div>
 			) : (
-				/* Desktop: Architect? | split | Inspector · Tablet: just the split
-				   (panels → sheets). The split contributes FIVE children (rail | editor
-				   | handle | preview | rail) via splitTracks() — one helper for every
-				   branch so track lists can't drift. */
-				<div
-					className="group/split grid min-h-0 flex-1"
-					data-studio-split=""
-					data-split-collapsed={split.collapsed ?? undefined}
-					style={{
-						...split.gridVars,
-						// Track count must MATCH the rendered children: the Architect aside is
-						// only present when open, so its column is omitted when closed (a fixed
-						// '0px' track here would push the editor into it and collapse it).
-						// This branch renders for desktop AND tablet (mobile has its own pane).
-						// Architect column + scope rail are desktop-only; the Inspector column
-						// rides both. The rail is 72px (icon + caption) or 48px when collapsed.
-						gridTemplateColumns: [
-							...(bp === 'desktop' && architectOpen ? ['232px'] : []),
-							...splitTracks(split.collapsed),
-							...(inspectorOpen ? ['296px'] : []),
-							...(railVisible ? [railIconsOnly ? '48px' : '72px'] : []),
-						].join(' '),
-					}}
-					{...split.containerProps}
-				>
-					{/* Architect — persistent column only on desktop */}
-					{!compact && architectOpen && (
-						<aside className="flex min-h-0 flex-col overflow-hidden border-r border-border bg-card">
-							<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Architect</div>
-							{architectBody}
-						</aside>
-					)}
-
-					{splitRailA}
-					{editorPane}
-					{splitHandle}
-					{previewPane}
-					{splitRailB}
-
-					{/* Inspector — persistent column/rail on desktop AND tablet (mobile → segment
-					    inside a Sheet). The deck stays visible; no dimming modal. */}
-					{!mobile && (
-						<>
-							{/* The Inspector column — hosts the ACTIVE scope's body; deck stays visible. */}
-							{inspectorOpen && (
-								<aside className="flex min-h-0 flex-col border-l border-border bg-background">
-									{inspectorScopeContent}
-								</aside>
-							)}
-							{/* The scope rail — deterministic Slide-first scope switch, always present. */}
-							{railVisible && (
-							<aside className="flex min-h-0 flex-col items-stretch gap-1 border-l border-border bg-background p-1.5">
-								{([{ key: 'slide', label: 'Slide', Icon: FileSliders }, { key: 'deck', label: 'Deck', Icon: SlidersHorizontal }] as const).map(({ key, label, Icon }) => {
-									const active = inspectorOpen && inspectorScope === key;
-									return (
-										<button key={key} type="button" aria-pressed={active} onClick={() => { setInspectorScope(key); setInspectorOpen(true); setInspectorPulse(false); }} title={key === 'slide' ? 'Slide settings — this slide only' : 'Deck settings — the whole deck'} aria-label={key === 'slide' ? 'Slide scope' : 'Deck scope'} className={cn('flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-semibold transition-colors', active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]', key === 'deck' && inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}>
-											<Icon className="size-[18px]" />{!railIconsOnly && label}
-										</button>
-									);
-								})}
-								<span className="flex-1" />
-								{inspectorOpen && <button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings panel" title="Collapse" className="grid place-items-center rounded-lg py-1.5 text-muted-foreground hover:text-[var(--accent)]"><ChevronRight className="size-4" /></button>}
-								{/* Width toggle — 72px labels ⇄ 48px icons, sticky per user. Hidden when the
-								    viewport forces icons-only (nothing to toggle until there's room). */}
-									{!narrowDesktop && <button type="button" aria-pressed={railCollapsed} onClick={() => setRailCollapsed((v) => !v)} aria-label={railCollapsed ? 'Show scope labels' : 'Collapse rail to icons'} title={railCollapsed ? 'Show labels' : 'Collapse to icons'} className="grid place-items-center rounded-lg py-1.5 text-muted-foreground hover:text-[var(--accent)]">{railCollapsed ? <ArrowLeftToLine className="size-4" /> : <ArrowRightToLine className="size-4" />}</button>}
-									{!railIconsOnly && <span className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', rotate: '180deg' }}>Scope</span>}
+				/* Desktop: [ bar ][ Settings ][ Architect ][ split ] — every panel launches
+				   from the ONE left activity bar and docks beside it, Settings next the bar,
+				   Architect next the editor (2026-07-06-studio-activity-bar.md). Tablet keeps
+				   the Inspector docked on the RIGHT (no bar; Architect is a sheet). The split
+				   always contributes FIVE children (rail | editor | handle | preview | rail)
+				   via splitTracks() so track lists can't drift. */
+				<div className={cn('flex min-h-0 flex-1', desktop && 'flex-row')}>
+					{desktop && activityBar}
+					<div
+						className="group/split grid min-h-0 flex-1"
+						data-studio-split=""
+						data-split-collapsed={split.collapsed ?? undefined}
+						style={{
+							...split.gridVars,
+							// Track count MUST match the rendered children. Desktop docks Settings +
+							// Architect LEFT (before the split), at the FOLD-clamped effective widths
+							// so both-open never overflows (#721/#720 acceptance); tablet docks the
+							// Inspector RIGHT (after) at a fixed 296px. Open panels only → their
+							// tracks only (a fixed '0px' would collapse the editor into it).
+							gridTemplateColumns: [
+								...(desktop && inspectorOpen ? [`${setEff}px`] : []),
+								...(desktop && architectOpen ? [`${archEff}px`] : []),
+								...splitTracks(split.collapsed),
+								...(bp === 'tablet' && inspectorOpen ? ['296px'] : []),
+							].join(' '),
+						}}
+						{...split.containerProps}
+					>
+						{/* Settings — docks next to the bar (desktop). Resizable; close = gone. */}
+						{desktop && inspectorOpen && (
+							<aside className="relative flex min-h-0 flex-col border-r border-border bg-background">
+								{inspectorScopeContent}
+								<PanelGrip dragging={setPanel.dragging} {...setPanel.gripProps} aria-label="Resize settings panel" />
 							</aside>
-							)}
-						</>
-					)}
+						)}
+						{/* Architect — docks next to the editor (desktop). Resizable; close = gone. */}
+						{desktop && architectOpen && (
+							<aside className="relative flex min-h-0 flex-col overflow-hidden border-r border-border bg-card">
+								<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Architect</div>
+								{architectBody}
+								<PanelGrip dragging={archPanel.dragging} {...archPanel.gripProps} aria-label="Resize Architect panel" />
+							</aside>
+						)}
+
+						{splitRailA}
+						{editorPane}
+						{splitHandle}
+						{previewPane}
+						{splitRailB}
+
+						{/* Tablet: the Inspector docks on the RIGHT (no bar below desktop; the
+						    in-panel Slide/Deck segment is its scope switch). The deck stays
+						    visible; no dimming modal. */}
+						{bp === 'tablet' && inspectorOpen && (
+							<aside className="flex min-h-0 flex-col border-l border-border bg-background">
+								{inspectorScopeContent}
+							</aside>
+						)}
+					</div>
 				</div>
 			)}
 
@@ -2150,6 +2210,52 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; demo?: string }) {
 	return (
 		<button type="button" onClick={onClick} data-demo={demo} aria-label={label} title={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button>
+	);
+}
+// One icon on the desktop left activity bar. `caption` is a PERSISTENT label
+// under the glyph (not a hover-only tooltip — those never fire on touch and
+// leave a newcomer facing mystery glyphs; 2026-07-06-studio-activity-bar.md).
+// `active` is passed only for the panel toggles (Coach/Slide/Deck) → aria-pressed;
+// the globals (Library/Workspace) open dialogs, so they get no pressed state.
+function BarIcon({ label, hint, caption, active, pulse, onClick, children }: { label: string; hint: string; caption: string; active?: boolean; pulse?: boolean; onClick: () => void; children: React.ReactNode }) {
+	return (
+		<button
+			type="button"
+			aria-label={label}
+			aria-pressed={active}
+			title={hint}
+			onClick={onClick}
+			className={cn(
+				'group/bar relative flex w-11 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[8.5px] font-semibold leading-none transition-colors',
+				active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
+				pulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse',
+			)}
+		>
+			{/* Active-marker rail, VSCode-style, on the bar's inner edge. */}
+			{active && <span aria-hidden="true" className="absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]" />}
+			{children}
+			<span className="tracking-tight">{caption}</span>
+		</button>
+	);
+}
+// The drag handle on a docked panel's inner (editor-facing) edge — spread the
+// panel's `gripProps` onto it. At rest it's the border line; hover / focus /
+// drag reveal an accent line. Mirrors the SplitHandle idiom for editor|preview.
+function PanelGrip({ dragging, className, ...props }: { dragging?: boolean } & React.ComponentProps<'div'>) {
+	return (
+		<div
+			data-slot="panel-grip"
+			className={cn('group/grip absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize touch-none select-none outline-none', className)}
+			{...props}
+		>
+			<span
+				aria-hidden="true"
+				className={cn(
+					'absolute inset-y-0 right-0 w-px transition-colors',
+					dragging ? 'bg-[var(--accent)]' : 'bg-transparent group-hover/grip:bg-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-focus-visible/grip:bg-[var(--accent)]',
+				)}
+			/>
+		</div>
 	);
 }
 function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {

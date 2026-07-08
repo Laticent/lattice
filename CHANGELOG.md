@@ -114,6 +114,21 @@ in patch versions.
 
 ### Changed
 
+- **The Studio desktop chrome consolidates onto ONE left activity bar.** Every
+  panel now launches from a single VSCode-style activity bar on the left and docks
+  beside it — Settings next to the bar, the Architect next to the editor
+  (`[ bar ][ Settings ][ Architect ][ editor ][ preview ]`). This retires the old
+  five-affordance collapse sprawl (the scope-rail Slide/Deck buttons, the rail
+  collapse chevron, the 72⇄48 width toggle, and two in-panel echo chevrons) and the
+  Architect's homeless top-bar toggle: one collapse rule now governs every panel —
+  click its bar icon to show it, click again to hide it (gone, not a rail stub).
+  The Architect and the settings scopes are independent groups, so the coach stays
+  up while you tune; both docked panels are resizable and their widths persist, and
+  they auto-narrow before the editor+preview pair can clip at narrow desktop widths.
+  Tablet and mobile keep their existing sheet chrome (the bar is a desktop
+  construct). The Architect chat now keeps its history AND its unsent draft through
+  a close (including an in-flight reply), so nothing is lost when the panel goes
+  away. See `engineering/decisions/2026-07-06-studio-activity-bar.md`.
 - **Showcase renders can no longer drift from the engine (#794).** The
   comparison page's slide figure (and the whole manifest-flagged showcase set
   under `docs/public/showcase/`) is generated from committed gallery PDFs by
