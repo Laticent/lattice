@@ -51,6 +51,14 @@ in patch versions.
   the docs-side engine) and is pinned byte-identical to it by a cross-check test, so
   the two can't drift. Not yet wired into an export command.
 
+- **A builder assembles a read-along from a deck's narration.** `buildReadAlong`
+  (`docs/src/lib/read-along-build.ts`) turns per-slide narration text into the
+  `readAlong` section — voice config plus a Cadenza estimate track per narrated slide
+  (blank slides skipped, sparse by index). Pure and offline (no key, no audio); it's
+  the producer that feeds the manifest field and the `.vtt` deriver. An end-to-end
+  test proves the chain (build → manifest round-trip → deck `.vtt`) composes. Not yet
+  wired into an export command.
+
 - **Deck theme + color mode are now independent of the website.** A deck's own
   `theme:` front matter is always respected when previewing or exporting on the docs
   site (Studio, Playground, Present, Share) — the website palette picker only styles
