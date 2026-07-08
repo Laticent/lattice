@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 // then renders once and stays. Off-screen thumbs cost only a lightweight renderer
 // ref, never an iframe.
 
-function Thumb({ options, sample, paletteOverride, extraTheme, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
+function Thumb({ options, sample, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
 	const ref = React.useRef<HTMLButtonElement>(null);
 	const [visible, setVisible] = React.useState(false);
 	React.useEffect(() => {
@@ -44,13 +44,13 @@ function Thumb({ options, sample, paletteOverride, extraTheme, extraCss, current
 		<button type="button" ref={ref} onClick={onClick} aria-current={current ? 'true' : undefined} aria-label={label} className={cn('group relative overflow-hidden rounded-xl border-2 bg-card text-left transition-colors', current ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))]')}>
 			{/* The render is an engine IFRAME — without pointer-events:none it would swallow
 			    the click (a separate document) and the button's onClick would never fire. */}
-			<DeckPreview options={options} sample={sample} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" aria-label={label} />
+			<DeckPreview options={options} sample={sample} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" aria-label={label} />
 			<span className="absolute bottom-1.5 left-1.5 rounded-md bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--text-heading)] backdrop-blur-sm">{label.replace('Slide ', '')}</span>
 		</button>
 	);
 }
 
-export function SlideOverview({ open, onClose, options, set, frontMatter = '', current, onJump, paletteOverride, extraTheme, extraCss }: { open: boolean; onClose: () => void; options: SingleSlideOptions; set: string[]; frontMatter?: string; current: number; onJump: (i: number) => void; paletteOverride?: string; extraTheme?: { name: string; css: string }; extraCss?: string }) {
+export function SlideOverview({ open, onClose, options, set, frontMatter = '', current, onJump, paletteOverride, extraTheme, modeOverride, extraCss }: { open: boolean; onClose: () => void; options: SingleSlideOptions; set: string[]; frontMatter?: string; current: number; onJump: (i: number) => void; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string }) {
 	if (!open) return null;
 	return (
 		<div role="dialog" aria-modal="true" aria-label="Slide overview" className="absolute inset-0 z-20 flex flex-col bg-[color-mix(in_srgb,var(--bg)_94%,transparent)] backdrop-blur-sm">
@@ -68,6 +68,7 @@ export function SlideOverview({ open, onClose, options, set, frontMatter = '', c
 						sample={frontMatter ? frontMatter + s : s}
 						paletteOverride={paletteOverride}
 						extraTheme={extraTheme}
+						modeOverride={modeOverride}
 						extraCss={extraCss}
 						current={i === current}
 						onClick={() => {

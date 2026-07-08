@@ -36,6 +36,21 @@ in patch versions.
 
 ### Added
 
+- **Deck theme + color mode are now independent of the website.** A deck's own
+  `theme:` front matter is always respected when previewing or exporting on the docs
+  site (Studio, Playground, Present, Share) — the website palette picker only styles
+  the app chrome and any deck that declares no `theme:` of its own. Changing the
+  website palette no longer restyles a self-themed deck, and a deck's theme never
+  re-tints the app. Light/dark stays a shared axis, except a deck that pins its mode
+  (`class: dark` / `class: light`, or a `-dark` theme) keeps it regardless of the
+  site. Precedence lives in one shared resolver (`docs/src/lib/deck-theme.ts`). See
+  `engineering/decisions/2026-07-08-deck-theme-independence.md`.
+- **A per-slide (and deck-wide) `light` canvas — the mirror of `dark`.**
+  `<!-- _class: light -->` forces one slide to a light canvas, and `class: light`
+  does it deck-wide — so a bright slide can sit inside a dark deck (and vice-versa).
+  A per-slide pin wins over the deck-wide one. In the Studio, the Inspector's
+  **Appearance** control now sets the deck's color mode (Match site / Light / Dark),
+  writing this front matter; the topbar Sun/Moon remains the website light/dark.
 - **A self-contained HTML player export — `--player`.** `lattice-emulator deck.md
   out.pdf --player` (or a `player: true` front-matter key) now writes the `.html`
   sidecar as a portable, offline, double-clickable **player**: one file that *is*

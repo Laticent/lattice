@@ -16,9 +16,12 @@ import { buildDeckRender, type ExtraTheme } from './share-export';
  * deck markdown (front-matter + the slides currently being presented). Resolves to
  * the self-contained doc string + the slide total. Honors a saved library theme
  * (`extraTheme`) and the active palette/mode, exactly like the live preview.
+ * `modeOverride` pins the render mode (a deck-dark deck stays dark regardless of the
+ * site light/dark), mirroring DeckPreview's own modeOverride.
  */
-export async function buildPresenterStageDoc(options: SingleSlideOptions, source: string, total: number, paletteOverride?: string, extraTheme?: ExtraTheme, extraCss?: string): Promise<{ doc: string; total: number }> {
-	const { palette, mode } = currentPaletteMode(paletteOverride);
+export async function buildPresenterStageDoc(options: SingleSlideOptions, source: string, total: number, paletteOverride?: string, extraTheme?: ExtraTheme, extraCss?: string, modeOverride?: 'light' | 'dark'): Promise<{ doc: string; total: number }> {
+	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
+	const mode = modeOverride ?? docMode;
 	const render = await buildDeckRender(options, source, palette, mode, extraTheme);
 	const bg = mode === 'dark' ? '#0c0c0c' : '#15110d';
 	const doc = buildStageDoc({

@@ -13614,6 +13614,22 @@ section.dark {
 }
 
 
+/* ── LIGHT VARIANT ──
+ * The mirror of `.dark`: a per-slide LIGHT canvas. Forces this section's
+ * color-scheme to light, so the palette's light-dark() surface tokens resolve to
+ * the light side for every descendant — regardless of a dark deck (`class: dark`,
+ * a `-dark` theme, or `:root{color-scheme:dark}`) or a dark website mode. This is
+ * the escape hatch for a bright slide inside a dark deck (and, deck-wide, `class:
+ * light` propagates it to every slide). The base `section` rule already paints
+ * `var(--bg)` + the spectrum border-top, which now resolve light — so flipping the
+ * scheme is all that's needed (no dark-canvas background override like `.dark`).
+ * (`divider.light` is a PRE-EXISTING, unrelated bright-canvas divider variant; a
+ * bright divider IS a light surface, so this forced scheme is consistent with it.) */
+section.light {
+  color-scheme: light;
+}
+
+
 /* ── INLINE-CODE INK on non-flipping dark islands ──
  * title/divider/closing bookends and the split-panel dark rail paint a dark
  * surface via --surface-inverse WITHOUT flipping color-scheme, so --accent (the chip's

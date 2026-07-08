@@ -9,6 +9,7 @@
 // Everything here touches window/fetch, so it lives outside the React tree and
 // the pure controller (playground-controller.ts). PlaygroundApp drives it.
 
+import { resolveDeckTheme } from './deck-theme';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { createThemeFetcher } from './theme-fetch';
@@ -24,8 +25,12 @@ export type RenderResult =
 	| { status: 'error'; message: string }
 	| { status: 'pending' }; // engine not loaded yet — caller should retry
 
-/** Build the per-page engine bridge. `themeBase`/`runtimeUrl`/`engineUrl` come from pgData. */
-export function createEngineBridge(themeBase: string, runtimeUrl: string, engineUrl?: string) {
+/** Build the per-page engine bridge. `themeBase`/`runtimeUrl`/`engineUrl` come from pgData.
+ *  `validPalettes` is the registered-theme vocabulary — it gates whether a deck's own
+ *  `theme:` front matter is honored (an unknown name falls back to the site palette
+ *  instead of 404-ing its theme CSS). */
+export function createEngineBridge(themeBase: string, runtimeUrl: string, engineUrl?: string, validPalettes: string[] = []) {
+	const isKnownTheme = (name: string) => validPalettes.includes(name);
 	// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — see
 	// theme-fetch.ts. The bridge only orchestrates render around it.
 	const themes = createThemeFetcher(themeBase);
@@ -69,17 +74,25 @@ export function createEngineBridge(themeBase: string, runtimeUrl: string, engine
 		const DPref = window.LatticeDeckPreview;
 		if (!PGref || !DPref) return { status: 'pending' };
 		try {
-			await themes.ensure(palette, mode);
-			const theme = resolveThemeName(palette, mode, PGref.hasTheme(palette + '-dark'));
+			// The deck's own `theme:` wins over the site palette; the site palette is
+			// the fallback for an un-themed deck. A deck-dark pin (`-dark` theme /
+			// `class: dark`) overrides the site mode. See deck-theme.ts.
+			const { palette: deckPalette, mode: deckMode } = resolveDeckTheme(source, {
+				sitePalette: palette,
+				siteMode: mode,
+				isKnownTheme,
+			});
+			await themes.ensure(deckPalette, deckMode);
+			const theme = resolveThemeName(deckPalette, deckMode, PGref.hasTheme(deckPalette + '-dark'));
 			const out = PGref.render(source, theme, { baseUrl: samplesBase });
 			const geom = { w: out.width || 1280, h: out.height || 720 };
 			const r = DPref.renderDeck({
 				frame,
 				html: out.html,
 				css: out.css,
-				mode,
+				mode: deckMode,
 				geom,
-				sig: renderSig(theme, mode, geom.w, geom.h),
+				sig: renderSig(theme, deckMode, geom.w, geom.h),
 				state: fresh ? { ...state, frameSig: '' } : state,
 				fresh,
 				runtimeUrl,

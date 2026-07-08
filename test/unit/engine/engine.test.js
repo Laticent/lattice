@@ -77,6 +77,20 @@ describe('lattice-engine: contract', () => {
     assert.equal(secs[1].cls, 'dark title'); // _class title + deck-wide dark, sorted
   });
 
+  test('per-slide color mode wins over the deck-wide one (light slide in a dark deck)', () => {
+    // A deck-wide `class: dark` with a per-slide `_class: light` override: the light
+    // slide must NOT also inherit the deck-wide `dark` (a `dark light` conflict) —
+    // deckClassPropagate drops the deck-wide color-mode token when the slide pins its
+    // own. Mirror case: `class: light` deck with a `_class: dark` slide.
+    const toks = (s) => new Set(s.cls.split(/\s+/).filter(Boolean));
+    const darkDeck = profile(makeEngine().render('---\nclass: dark\n---\n\n# A\n\n---\n\n<!-- _class: light -->\n\n# B\n', 'lattice').html);
+    assert.ok(toks(darkDeck[0]).has('dark'));
+    assert.ok(toks(darkDeck[1]).has('light') && !toks(darkDeck[1]).has('dark')); // per-slide wins, no "dark light"
+    const lightDeck = profile(makeEngine().render('---\nclass: light\n---\n\n# A\n\n---\n\n<!-- _class: dark -->\n\n# B\n', 'lattice').html);
+    assert.ok(toks(lightDeck[0]).has('light'));
+    assert.ok(toks(lightDeck[1]).has('dark') && !toks(lightDeck[1]).has('light')); // per-slide wins, no "light dark"
+  });
+
   test('paginate true emits pagination attrs; false emits none', () => {
     const md = '<!-- paginate: true -->\n\n# A\n\n---\n\n<!-- _paginate: false -->\n\n# B\n';
     const { html } = makeEngine().render(md, 'lattice');

@@ -382,6 +382,21 @@ same layout structure works on either canvas. The dark bookend layouts
 <!-- _class: content dark -->
 ```
 
+### `light`
+
+The mirror of `dark`: forces this slide to a **light** canvas
+(`section.light { color-scheme: light }`), so the palette's `light-dark()`
+surface tokens resolve to the light side no matter what — inside a dark deck
+(`class: dark`, a `-dark` theme, or a dark website mode) or not. Use it for a
+bright slide amid dark ones. Deck-wide, `class: light` pins the whole deck light;
+a per-slide `_class: light` wins over the deck-wide color mode, so light and dark
+slides can coexist. Light is already the default canvas, so `light` is only
+meaningful as an *override* of a darker context.
+
+```markdown
+<!-- _class: content light -->
+```
+
 > **Universal:** `claim-quiet` / `claim-hero` let content claim the stage on
 > **every** component (the `claim` concept, 2026-07-03 decision); `claim-bleed`
 > is a semi-universal opt-out (prose-dense layouts exclude it). A chart at

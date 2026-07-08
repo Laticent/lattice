@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronRight,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, Minimize2, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, Trash2, Upload, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, Minimize2, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -12,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
+import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
@@ -451,6 +452,20 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// propagated to every slide (deckClassPropagate). ON is the default; the toggle
 	// stamps / clears `no-progress`.
 	const deckRail = !(getFrontMatter(source, 'class') || '').split(/\s+/).includes('no-progress');
+	// The DECK's own color mode — a deck-wide `class: dark` / `class: light` pin (the
+	// same `dark`/`light` canvas tokens the per-slide `_class:` uses). 'auto' = no pin,
+	// so the deck follows the website light/dark (the topbar Sun/Moon). Light/Dark are
+	// authoritative: the deck stays that way regardless of the site mode. This is the
+	// deck-scoped sibling of the website mode toggle — it writes front matter, saved
+	// with the deck. Resolution precedence lives in @/lib/deck-theme.
+	const deckClassList = (getFrontMatter(source, 'class') || '').split(/\s+/).filter(Boolean);
+	const deckColorMode: 'auto' | 'light' | 'dark' = deckClassList.includes('dark') ? 'dark' : deckClassList.includes('light') ? 'light' : 'auto';
+	const setDeckColorMode = (value: 'auto' | 'light' | 'dark') =>
+		settingsWrite(`Appearance → ${value === 'auto' ? 'Match site' : value}`, (s) => {
+			// One canvas axis: clear both tokens, then stamp the chosen one (auto = neither).
+			const cleared = removeClassTokens(s, 'dark light');
+			return value === 'auto' ? cleared : mergeClassTokens(cleared, value);
+		});
 	// …and WRITE to it (the editor + every export update in lock-step).
 	const finish = getFrontMatter(source, 'finish') || 'none';
 	// A finish's backdrop is BAKED into its CSS (a 5th finish layer, generateFinishCss →
@@ -1057,6 +1072,33 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		obs.observe(root, { attributes: true, attributeFilter: ['data-mode'] });
 		return () => obs.disconnect();
 	}, []);
+
+	// ── Deck theme independence ──────────────────────────────────────────────
+	// The top-bar/Inspector palette picker is the WEBSITE theme — it tints the
+	// Studio chrome and any deck that declares no `theme:` of its own. A deck that
+	// DOES carry `theme:` front matter owns its palette: it renders in that theme
+	// regardless of the website picker, and flipping the picker never restyles it.
+	// Mode (light/dark) stays a shared axis, except an explicit deck-dark pin
+	// (`class: dark`, a `-dark` theme) wins over the site mode. resolveDeckTheme
+	// (deck-theme.ts) is the one place that precedence lives; here we map its result
+	// onto DeckPreview/Present's paletteOverride / extraTheme / modeOverride props.
+	const preview = React.useMemo(() => {
+		const isKnownTheme = (n: string) => BUILTIN_PALETTES.includes(n) || savedThemes.some((t) => t.name === n);
+		const r = resolveDeckTheme(source, { sitePalette: palette, siteMode: mode === 'dark' ? 'dark' : 'light', isKnownTheme });
+		const modeOverride = pinnedMode(r);
+		if (r.fromDeck) {
+			// The deck names its own theme — pin the preview to it. A deck theme that
+			// names a saved (Fabricated) library theme needs its CSS registered, so
+			// pass it as extraTheme; a built-in is fetched by name (extraTheme none).
+			const saved = savedThemes.find((t) => t.name === r.palette);
+			return { paletteOverride: r.palette, extraTheme: saved ? { name: saved.name, css: saved.css } : undefined, modeOverride };
+		}
+		// Un-themed deck → adopt the website palette (the saved-theme CSS path is the
+		// existing activeTheme/extraTheme behavior). A `class: dark` on an un-themed
+		// deck still pins dark via modeOverride.
+		return { paletteOverride: activeTheme?.name, extraTheme, modeOverride };
+	}, [source, palette, mode, savedThemes, activeTheme, extraTheme]);
+
 	const slideNo = Math.min(activeSlide, viewSlides.length - 1) + 1;
 	// The full-deck index of the slide currently in view (for handing off to Present).
 	const activeFullIndex = composeLens === 'full' ? slideNo - 1 : Math.max(0, slides.indexOf(viewSlides[slideNo - 1]));
@@ -1258,7 +1300,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</div>
 					)}
 				</Field>
-				<Field label="Appearance" desc="Renders the whole deck in light or dark."><Control onClick={toggleMode} aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{mode === 'dark' ? 'Dark' : 'Light'} {mode === 'dark' ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}</Control></Field>
+				<Field label="Appearance" desc="This deck's light or dark canvas. “Match site” follows the website toggle; Light or Dark pins the deck regardless of the site.">
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Control aria-label="Choose deck appearance"><span className="flex min-w-0 items-center gap-2">{deckColorMode === 'dark' ? <Moon className="size-3.5" /> : deckColorMode === 'light' ? <Sun className="size-3.5" /> : <SunMoon className="size-3.5" />}<span className="truncate">{deckColorMode === 'auto' ? 'Match site' : deckColorMode === 'dark' ? 'Dark' : 'Light'}</span></span> <ChevronDown className="size-3.5" /></Control>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="w-48">
+							<DropdownMenuItem onSelect={() => setDeckColorMode('auto')} className="gap-2"><SunMoon className="size-3.5" />Match site{deckColorMode === 'auto' && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+							<DropdownMenuItem onSelect={() => setDeckColorMode('light')} className="gap-2"><Sun className="size-3.5" />Light{deckColorMode === 'light' && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+							<DropdownMenuItem onSelect={() => setDeckColorMode('dark')} className="gap-2"><Moon className="size-3.5" />Dark{deckColorMode === 'dark' && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</Field>
 				<Field label="Size" desc="The slide shape and dimensions (16:9, A4, …).">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
@@ -1501,7 +1554,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
 				<div className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={activeTheme?.name} extraTheme={extraTheme} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
@@ -1940,7 +1993,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={palette} mode={mode === 'dark' ? 'dark' : 'light'} extraTheme={extraTheme} extraCss={previewExtraCss} onPresent={() => setPresentOpen(true)} notify={notify} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={() => setPresentOpen(true)} notify={notify} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
 			    so it lives in its own sheet off the top bar rather than in the inspector
@@ -1982,7 +2035,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
 				notify={notify}
 			/>
-			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} startIndex={activeFullIndex} paletteOverride={activeTheme?.name} extraTheme={extraTheme} extraCss={previewExtraCss} notify={notify} />
+			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 			<CommandPalette
 				open={cmdOpen}
 				onOpenChange={setCmdOpen}
