@@ -36,6 +36,14 @@ in patch versions.
 
 ### Added
 
+- **The export manifest can now carry a read-along.** The Lattice document manifest
+  (`lib/core/lattice-doc.js`) gained an optional `readAlong` section — voice config
+  plus an optional per-slide measured caption track — carried through export/import
+  byte-exact. Additive and forward-compatible: decks without a read-along are
+  unchanged, and older importers ignore it. Plumbing for the read-along export
+  contract (`engineering/decisions/2026-07-08-read-along-export-manifest.md`); no
+  exporter populates it yet.
+
 - **Deck theme + color mode are now independent of the website.** A deck's own
   `theme:` front matter is always respected when previewing or exporting on the docs
   site (Studio, Playground, Present, Share) — the website palette picker only styles

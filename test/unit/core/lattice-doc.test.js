@@ -35,6 +35,47 @@ test('round-trip: parseEnvelope(serializeEnvelope(buildManifest(deck))) recovers
 	assert.equal(m.version, LATTICE_DOC_VERSION);
 });
 
+test('round-trip: the readAlong section survives byte-exact (2026-07-08 export manifest)', () => {
+	// A regenerate-mode read-along: voice config + one narrated slide's MEASURED track,
+	// no embedded audio. The kernel carries it verbatim (the caller, which has Cadenza,
+	// builds it). See engineering/decisions/2026-07-08-read-along-export-manifest.md.
+	const readAlong = {
+		version: '1.0',
+		audioMode: 'regenerate',
+		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
+		pace: 'moderate',
+		slides: [
+			{
+				index: 0,
+				track: {
+					durationMs: 1800,
+					cues: [
+						{
+							display: 'Revenue grew.',
+							startMs: 0,
+							endMs: 1800,
+							words: [
+								{ display: 'Revenue', spoken: 'Revenue', startMs: 0, endMs: 900, charOffset: 0 },
+								{ display: 'grew.', spoken: 'grew.', startMs: 900, endMs: 1800, charOffset: 8 },
+							],
+						},
+					],
+				},
+				audio: null,
+			},
+		],
+	};
+	const deck = { source: '# Deck\n\n<!-- Revenue grew. -->\n', title: 'RA', readAlong };
+	const m = parseEnvelope(buildEnvelope(deck, { now: 1720000000000, build: 'test' }));
+	assert.equal(m.source, deck.source, 'source stays byte-exact');
+	assert.deepEqual(m.readAlong, readAlong, 'readAlong round-trips structurally');
+});
+
+test('a deck without a read-along carries no readAlong key (lean envelope, additive)', () => {
+	const m = parseEnvelope(buildEnvelope(sampleDeck));
+	assert.ok(!('readAlong' in m), 'absent when the deck has no read-along');
+});
+
 test('escape-safety: a hostile </script> title cannot break out of the envelope', () => {
 	const hostile = {
 		source: '# ok\n\n```\n</script><script>alert(1)</script>\n```\n',
