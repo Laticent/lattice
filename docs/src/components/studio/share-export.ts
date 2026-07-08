@@ -95,6 +95,246 @@ function exporters(): Promise<ExportMod> {
 	return import('@/playground/drawing-board-export.js');
 }
 
+// ── Webpage (.html) — the self-contained player, assembled in the browser ────────
+// The APP side of the download the original brief called for (P2 of
+// engineering/decisions/2026-07-08-studio-html-player-export.md). It drives the
+// SAME pure assembler the CLI `--player` uses (lib/export/player-core.mjs, bundled
+// for the browser as player-core.generated.js), supplying browser capabilities in
+// place of the Node ones — no engine byte lives twice (HARD RULE #1).
+
+/** Escape text for an HTML text node / attribute value. */
+function escHtml(s: string): string {
+	return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function escAttr(s: string): string {
+	return escHtml(s).replace(/"/g, '&quot;');
+}
+
+/**
+ * Assemble a self-contained document equivalent to the emulator's `cleanDocHtml`
+ * (the `docHtml` input `assemblePlayer` expects): base64 fonts + the deck CSS +
+ * per-slide sizing + a11y texture defs + the rendered `<section>` slides. This
+ * mirrors the emulator's scaffold (lattice-emulator.js htmlDoc) so the shared
+ * assembler sees the same shape from either host. Offline by construction — the
+ * `#lattice-embedded-fonts` block is data-URI base64, not bundled URLs.
+ */
+function buildSelfContainedDoc(p: {
+	lang: string;
+	title: string;
+	fontCss: string;
+	css: string;
+	w: number;
+	h: number;
+	a11yDefs: string;
+	slides: string;
+	katexLink: string;
+}): string {
+	return `<!DOCTYPE html>
+<html lang="${escAttr(p.lang)}"><head><meta charset="utf-8">
+<title>${escHtml(p.title)}</title>
+<style id="lattice-embedded-fonts">${p.fontCss}</style>
+${p.katexLink}
+<style>
+@page { size: ${p.w}px ${p.h}px; margin: 0; }
+body { margin: 0; padding: 0; }
+${p.css}
+section[data-lattice-slide] { width: ${p.w}px !important; height: ${p.h}px !important; }
+</style></head><body>
+${p.a11yDefs}
+${p.slides}
+</body></html>`;
+}
+
+type NotesCore = {
+	extractSlideNotes: (sections: string[]) => (string | null)[];
+	extractSlideDescriptions: (sections: string[]) => (string | null)[];
+	stripCommentNodes: (html: string) => string;
+};
+
+/**
+ * Materialize speaker notes + accessible descriptions into the (already re-tagged)
+ * sections, mirroring the CLI emulator (lattice-emulator.js): the engine emits notes
+ * ONLY as raw HTML comments, so — like the emulator — lift them via the shared
+ * `notesCore` and inject a `hidden` `aside.lattice-notes` (spoken by the presenter,
+ * kept out of the a11y tree) plus an sr-only `p.lattice-description` referenced by
+ * `aria-describedby`. Without this the Studio player would silently drop both (its
+ * notes sheet would find no aside, and screen-reader slide descriptions would vanish
+ * — a WCAG 1.1.1 regression vs. the CLI player). `sections` still carry their
+ * comments; each is comment-stripped here before the inject.
+ */
+function materializeNotes(sections: string[], notesCore: NotesCore): string {
+	const notes = notesCore.extractSlideNotes(sections);
+	const descriptions = notesCore.extractSlideDescriptions(sections);
+	return sections
+		.map((sec, i) => {
+			const stripped = notesCore.stripCommentNodes(sec);
+			const note = notes[i];
+			const description = descriptions[i];
+			if (!note && !description) return stripped;
+			let inject = '';
+			let sectionAttr = '';
+			if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escHtml(note)}</aside>`;
+			if (description) {
+				const id = `lat-desc-${i + 1}`;
+				inject += `<p class="lattice-description" id="${id}">${escHtml(description)}</p>`;
+				sectionAttr = ` aria-describedby="${id}"`;
+			}
+			return stripped.replace(/^(\s*<section\b)([^>]*>)/i, `$1${sectionAttr}$2${inject}`);
+		})
+		.join('\n');
+}
+
+/** The injected capabilities `assemblePlayer` needs, backed by browser APIs. */
+type PlayerCaps = {
+	parseHtml: (html: string) => Document;
+	sanitize: (html: string) => string;
+	sha256: (s: string) => Promise<string>;
+	inlineAssets: (html: string) => { html: string; count: number; missing: string[] };
+	katexCss?: () => string | null;
+};
+type PlayerCore = {
+	assemblePlayer: (
+		data: {
+			docHtml: string;
+			source: string;
+			title?: string;
+			theme?: unknown;
+			config?: unknown;
+			notes?: boolean;
+			now?: number;
+			build?: string;
+			playerVersion?: string;
+		},
+		caps: PlayerCaps,
+	) => Promise<{ html: string; report: unknown }>;
+};
+
+/**
+ * The browser `sha256` capability: UTF-8 bytes → SHA-256 → base64, matching the
+ * Node adapter's `crypto.createHash('sha256').update(s,'utf8').digest('base64')`
+ * exactly (the value goes into the CSP `script-src 'sha256-…'`, so the encoding
+ * must be identical or the hashed player script is refused).
+ */
+async function sha256Base64(s: string): Promise<string> {
+	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+	const bytes = new Uint8Array(buf);
+	let bin = '';
+	for (let i = 0; i < bytes.length; i += 0x8000) {
+		bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
+	}
+	return btoa(bin);
+}
+
+/**
+ * Download the current deck as a self-contained `.html` player — the app-side
+ * equivalent of the CLI `--player` export. Renders the full deck in-browser,
+ * assembles a self-contained document (base64 fonts, full deck CSS), and runs the
+ * shared `assemblePlayer` with browser capabilities. Full CSS + full fonts for now
+ * (the used-selector / used-family prune is a follow-up, P2b — it needs an
+ * offscreen full-deck frame + the css-tree kernel extracted to the browser).
+ */
+export async function shareHtmlPlayer(
+	options: SingleSlideOptions,
+	source: string,
+	name: string,
+	palette: string,
+	mode: 'light' | 'dark',
+	extra?: ExtraTheme,
+	onStatus?: (m: string) => void,
+	extraCss?: string,
+	deckTitle?: string,
+): Promise<void> {
+	onStatus?.('Rendering the deck…');
+	const PG = await ensureReady(options);
+	const theme = await ensureTheme(options, palette, mode, extra);
+	const out = PG.render(source, theme);
+
+	onStatus?.('Embedding fonts…');
+	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
+		import('@/playground/font-embed.js'),
+		import('@/playground/deck-preview.js'),
+		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
+		import('@/lib/sanitize-slide-html.js'),
+		import('@/playground/authoring-core.generated.js'),
+	]);
+	const fontCss = await fontMod.buildFontEmbedCss();
+	const deck = deckMod as unknown as { A11Y_DEFS: string; splitSections: (html: string) => string[]; KATEX_URL: string };
+	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
+	const a11yDefs = deck.A11Y_DEFS;
+	// The engine omits `data-lattice-slide`; the CLI's emulator re-tags each section
+	// with it (lattice-emulator.js), and the player CSS + transport key off it. Split
+	// the render into per-slide sections and re-tag them the same way, so the assembled
+	// player finds its slides. (The emulator's extra image fixups are preview-parity
+	// concerns handled the same way the Studio preview does — i.e. not here.) Then
+	// materialize speaker notes + a11y descriptions the same way the emulator does, so
+	// the Studio player carries them exactly like the CLI player (notes: true is honest).
+	const tagged = deck.splitSections(out.html).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
+	const slides = materializeNotes(tagged, notesCore);
+
+	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
+	// `katexCss` cap is SYNCHRONOUS, so pre-fetch the vendored sheet here (only when
+	// the deck actually renders math) and hand the core a sync accessor.
+	const needsKatex = out.html.indexOf('class="katex') !== -1;
+	let katexText: string | null = null;
+	if (needsKatex) {
+		// Fall back to the bundled KATEX_URL when the caller didn't pass one (mirrors
+		// studio-presenter) — else a math deck would ship with KaTeX unstyled.
+		const katexUrl = options.katexUrl || deck.KATEX_URL;
+		try {
+			katexText = await (await fetch(katexUrl)).text();
+		} catch {
+			katexText = null; // core drops the link + reports it; math ships unstyled
+		}
+	}
+
+	onStatus?.('Assembling the player…');
+	const w = out.width || 1280;
+	const h = out.height || 720;
+	const lang = getFrontMatter(source, 'lang') || 'en';
+	const title = deckTitle || getFrontMatter(source, 'title') || 'Lattice deck';
+	const css = out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
+	const docHtml = buildSelfContainedDoc({
+		lang,
+		title,
+		fontCss,
+		css,
+		w,
+		h,
+		a11yDefs,
+		slides,
+		katexLink: needsKatex ? '<link rel="stylesheet" href="katex.min.css">' : '',
+	});
+
+	const caps: PlayerCaps = {
+		parseHtml: (html: string) => new DOMParser().parseFromString(html, 'text/html'),
+		sanitize: sanitizeMod.sanitizeSlideHtml,
+		sha256: sha256Base64,
+		// The browser render carries no `file://` refs (a CLI-only concern) — assets are
+		// already data-URIs or same-origin URLs, so there is nothing to inline here.
+		inlineAssets: (html: string) => ({ html, count: 0, missing: [] }),
+		katexCss: () => katexText,
+	};
+
+	const { html } = await coreMod.assemblePlayer(
+		{
+			docHtml,
+			source,
+			title,
+			theme: { name: palette },
+			config: undefined,
+			notes: true,
+			now: Date.now(),
+			build: 'studio',
+			playerVersion: 'studio',
+		},
+		caps,
+	);
+
+	onStatus?.('Downloading…');
+	const { downloadText } = await import('./download');
+	downloadText(`${name}.html`, html, 'text/html');
+}
+
 /**
  * Render the theme's showcase deck → PDF bytes (a Blob), for the Library's
  * theme-share zip. Reuses the same render + PDF path as Share→PDF, so the zip

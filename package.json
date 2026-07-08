@@ -98,6 +98,8 @@
     "standalone-core:check": "node tools/build-standalone-core.js --check",
     "a11y-textures:build": "node tools/build-a11y-textures.js",
     "a11y-textures:check": "node tools/build-a11y-textures.js --check",
+    "player-core:build": "node tools/build-player-core.js",
+    "player-core:check": "node tools/build-player-core.js --check",
     "dist-readme:build": "node tools/build-dist-readme.js",
     "dist-readme:check": "node tools/build-dist-readme.js --check",
     "capabilities:build": "node tools/build-capabilities.js",

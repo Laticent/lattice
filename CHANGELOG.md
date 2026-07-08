@@ -36,6 +36,15 @@ in patch versions.
 
 ### Added
 
+- **The Studio can download a deck as a self-contained webpage.** The Share sheet
+  gained a **“Webpage (.html)”** row (alongside PDF / PPTX / Print) that assembles
+  the same offline `.html` player the CLI `--player` flag produces — three views
+  (Present · Read·Slides · Read·Article), a sha256-pinned CSP, and the verbatim
+  source envelope for lossless re-import — entirely in the browser. It reuses the
+  shared assembler (`lib/export/player-core.mjs`) with browser capabilities; base64
+  fonts and full CSS ship today (the used-selector/used-family prune the CLI applies
+  is a follow-up, so Studio files are larger than the CLI’s until then). Part of
+  `engineering/decisions/2026-07-08-studio-html-player-export.md` (P2).
 - **The export manifest can now carry a read-along.** The Lattice document manifest
   (`lib/core/lattice-doc.js`) gained an optional `readAlong` section — voice config
   plus an optional per-slide measured caption track — carried through export/import

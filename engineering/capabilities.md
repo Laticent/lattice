@@ -73,6 +73,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `fonts:emoji` | Vendor Noto Color Emoji into dist/fonts/ for the opt-in full-offline tier (~25 MB, excluded from the npm tarball). Run once while online; needs network. |
 | `layout-core:build` | Bundle the pure Layout Studio core for the browser (docs site). |
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
+| `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
+| `player-core:check` | Freshness gate for the player-core Playground bundle. |
 | `playground:build` | Build docs/public/playground/lattice-playground.js — the in-browser engine bundle. |
 | `playground:check` | Freshness gate for the playground bundle. |
 | `playground:watch` | Rebuild the playground bundle on change. |
@@ -290,6 +292,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
+| `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |

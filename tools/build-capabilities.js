@@ -104,6 +104,8 @@ const SCRIPT_META = {
   'docs:spec:check':          ['Build & bundle', 'Freshness gate for the generated docs-site spec pages (stale vs spec/).'],
   'a11y-textures:build':      ['Build & bundle', 'Bundle the categorical/chart texture-<defs> kernel (lib/core/accessibility-textures.js) into the docs Playground ESM module.'],
   'a11y-textures:check':      ['Build & bundle', 'Freshness gate for the bundled a11y-textures Playground module.'],
+  'player-core:build':        ['Build & bundle', 'Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export.'],
+  'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
   'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
   'decisions:index:check':    ['Build & bundle', 'Freshness gate for the decisions-index (stale vs the notes\' front-matter).'],
 
