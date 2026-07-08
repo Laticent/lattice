@@ -104,6 +104,13 @@ in patch versions.
   headless kernel (`lib/core/present-transport.mjs`) — the one source of truth for the fit-scale, index/bounds,
   keymap, and swipe maths that the presenter, practice, and export transports had each reimplemented. Desktop
   slide scaling is byte-identical.
+- **Speaker notes in the player — with a `--strip-notes` privacy export.** Present *from* the file: your
+  speaker notes ride along by default and a slide-up notes sheet (toggle: the ☰ control or the `n` key)
+  shows the current slide's note over the stage. For a file you're sharing, `lattice-emulator deck.md out.pdf
+  --player --strip-notes` scrubs the note text from **every** baked copy — the slide DOM, the PDF
+  annotations, and the embedded source envelope — so nothing leaks (a stripped file re-imports without notes,
+  the stated privacy tradeoff). The note/non-note boundary and the source scrub both go through the one
+  `notes-core` module.
 
 ### Changed
 

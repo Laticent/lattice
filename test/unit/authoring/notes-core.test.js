@@ -167,4 +167,57 @@ describe('notes-core: accessible-description channel (describe:)', () => {
     ];
     assert.deepEqual(core.extractSlideDescriptions(slides), ['First. Second.', null, 'Third.']);
   });
+
+  // The privacy strip for the self-contained player's envelope (design doc §Notes on export).
+  test('stripNotesFromSource removes ONLY the known note comments — directives + tooling survive', () => {
+    const source = [
+      '# Slide one',
+      '',
+      '<!-- _class: title -->',
+      '<!-- Remember to pause here. -->',
+      '<!-- prettier-ignore -->',
+      '',
+      'Body.',
+    ].join('\n');
+    const out = core.stripNotesFromSource(source, new Set(['Remember to pause here.']));
+    assert.doesNotMatch(out, /Remember to pause/, 'the note comment is gone');
+    assert.match(out, /_class: title/, 'a directive comment is preserved');
+    assert.match(out, /prettier-ignore/, 'a tooling pragma is preserved');
+    assert.match(out, /# Slide one/, 'body content untouched');
+  });
+
+  test('noteBodiesFromHtml returns INDIVIDUAL bodies — a note with an internal blank line stays whole', () => {
+    // The leak that was: joining then splitting on \n\n shattered a single blank-line
+    // note. noteBodiesFromHtml keeps each comment's full body, so the strip set matches
+    // the source comment and removes it.
+    const html = sec('<!-- Line one.\n\nLine two. --><!-- A second note. -->');
+    assert.deepEqual(core.noteBodiesFromHtml(html), ['Line one.\n\nLine two.', 'A second note.']);
+    // and the strip set built from it removes the blank-line note from source
+    const src = '# S\n\n<!-- Line one.\n\nLine two. -->\n\nBody.';
+    const out = core.stripNotesFromSource(src, new Set(core.noteBodiesFromHtml(html)));
+    assert.doesNotMatch(out, /Line one|Line two/, 'the blank-line note is fully stripped (no leak)');
+  });
+
+  test('stripNotesFromSource strips a MULTI-LINE note in a CRLF source (Windows-authored deck)', () => {
+    // The leak the checker caught: the strip set is \n-normalized (from the render),
+    // but a raw CRLF comment body never matched it → the note shipped. Normalize both.
+    const set = new Set(['Pause here.\nThen ask the room.']); // \n form, as from the render
+    const crlf = '# S\r\n\r\n<!-- Pause here.\r\nThen ask the room. -->\r\n\r\nBody.\r\n';
+    const out = core.stripNotesFromSource(crlf, set);
+    assert.doesNotMatch(out, /ask the room/, 'the CRLF multi-line note is stripped (no leak)');
+    // lone-CR too
+    const cr = '<!-- Pause here.\rThen ask the room. -->';
+    assert.equal(core.stripNotesFromSource(cr, set), '', 'a lone-CR note also strips');
+  });
+
+  test('stripNotesFromSource never strips a directive that happens to read like prose', () => {
+    // Safety: it matches EXACT note bodies, so a "Remember:" directive-shaped comment
+    // that was NOT extracted as a note is never removed.
+    const source = '<!-- Remember: this is a note --><!-- _footer: page -->';
+    const out = core.stripNotesFromSource(source, new Set(['Remember: this is a note']));
+    assert.doesNotMatch(out, /this is a note/);
+    assert.match(out, /_footer: page/, 'the unrelated comment stays');
+    // Empty set → identity (nothing to strip).
+    assert.equal(core.stripNotesFromSource(source, new Set()), source);
+  });
 });

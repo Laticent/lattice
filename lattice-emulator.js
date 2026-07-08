@@ -138,6 +138,9 @@ OPTIONS
   -q, --quiet             Suppress non-error progress output
       --notes             Also write a plaintext speaker-notes sidecar
                           (<output>.notes.txt), one block per slide
+      --strip-notes       Scrub speaker notes from every output copy (the player
+                          DOM, the PDF annotations, AND the embedded source) — a
+                          shareable file with no speaker text
       --notes-icon        Show a clickable sticky-note icon on each slide with
                           a note (default: notes are embedded but hidden)
       --fluid             Emit the .html as the opt-in fluid-box VIEWER: each
@@ -243,6 +246,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '-q' || a === '--quiet') { flags.quiet = true; continue; }
     if (a === '--notes') { flags.notes = true; continue; }
+    if (a === '--strip-notes') { flags['strip-notes'] = true; continue; }
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
     if (a === '--player') { flags.player = true; continue; }
@@ -296,6 +300,11 @@ if (flags.output)  outFile    = flags.output;
 if (flags.palette) paletteArg = flags.palette;
 const QUIET = flags.quiet;
 const NOTES_SIDECAR = !!flags.notes;
+// `--strip-notes`: the privacy strip for the self-contained player. Notes ride by
+// default (present-from-it), but this scrubs them from EVERY baked copy — the slide
+// DOM aside, the PDF text annotation, AND the envelope `source` (design doc §Notes
+// on export) — so a shared file leaks no speaker text.
+const STRIP_NOTES = !!flags['strip-notes'];
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
@@ -1250,16 +1259,25 @@ const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const slideNotes = notesCore.extractSlideNotes(slides);
+// `--strip-notes` blanks every MATERIALIZED note copy (DOM aside, PDF annotation,
+// sidecar) while `slideNotes` stays intact for the envelope source-scrub set below.
+const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
+// The set of INDIVIDUAL note bodies straight from the render — the directive-safe
+// key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
+// attachment). NOT the `\n\n`-joined note split apart, which shatters a single
+// blank-line note and leaks it.
+const noteStripSet = STRIP_NOTES ? new Set(slides.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);
-  const note = slideNotes[i];
+  const note = materializedNotes[i];
   const description = slideDescriptions[i];
   if (!note && !description) return stripped;
   let inject = '';
   let sectionAttr = '';
   // Speaker note: a `hidden` aside — out of layout/print AND out of the a11y tree
-  // (it is spoken by the presenter, not read by a screen reader).
+  // (it is spoken by the presenter, not read by a screen reader). `--strip-notes`
+  // omits it so the shared player's DOM carries no speaker text.
   if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escapeHtml(note)}</aside>`;
   // Accessible description: a visually-hidden but AT-EXPOSED element (sr-only, NOT
   // `hidden`), referenced by `aria-describedby` on the section. It is the slide's
@@ -1884,11 +1902,11 @@ async function renderBody(browser, g, closeBrowser) {
       preferCSSPageSize: true
     }), 'print pdf');
     await closeBrowser();
-    let finalBytes = await embedNotesInPdf(pdfBytes, slideNotes);
+    let finalBytes = await embedNotesInPdf(pdfBytes, materializedNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, finalBytes);
-    const noteCount = slideNotes.filter(Boolean).length;
+    const noteCount = materializedNotes.filter(Boolean).length;
     if (!QUIET) {
       const tags = [];
       if (noteCount) tags.push(`${noteCount} slide${noteCount > 1 ? 's' : ''} with speaker notes`);
@@ -1896,7 +1914,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (EMBED_SOURCE) tags.push('source embedded');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, slideNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else if (OUT_FORMAT === 'pdf') {
     // --raster: one full-bleed slide image per PDF page, from the same per-slide
     // element screenshots the PPTX path takes (2x viewport for crispness). JPEG
@@ -1911,7 +1929,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers);
-    finalBytes = await embedNotesInPdf(finalBytes, slideNotes);
+    finalBytes = await embedNotesInPdf(finalBytes, materializedNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, finalBytes);
@@ -1971,10 +1989,16 @@ async function renderBody(browser, g, closeBrowser) {
         // state-chart / function-plot ship as baked static SVG (§A2b); else the
         // clean static render (fast path, no re-serialize).
         docHtml: inflatedPlayerHtml || cleanDocHtml,
-        source: rawMd,
+        // The envelope carries verbatim source for lossless re-import — but under
+        // `--strip-notes` that source is re-serialized WITHOUT the note comments
+        // (directive-safe: only the exact note bodies lifted from the render are
+        // removed), so the shared file leaks no speaker text. A stripped file
+        // re-imports without notes — the stated privacy tradeoff (§Notes on export).
+        source: STRIP_NOTES ? notesCore.stripNotesFromSource(rawMd, noteStripSet) : rawMd,
         title: deckTitle,
         theme: { name: paletteName },
         config: deckFm,
+        notes: !STRIP_NOTES,
         now: Date.now(),
         build: ENGINE_BUILD,
         playerVersion: PLAYER_VERSION,
@@ -2443,7 +2467,10 @@ async function embedSourceInPdf(pdfBytes) {
   try {
     const { PDFDocument } = require('pdf-lib');
     const doc = await PDFDocument.load(pdfBytes);
-    await doc.attach(Buffer.from(md, 'utf8'), path.basename(mdFile), {
+    // Under --strip-notes the attached source is scrubbed too — else the PDF leaks
+    // the speaker notes the player was careful to remove.
+    const attachSource = STRIP_NOTES ? notesCore.stripNotesFromSource(md, noteStripSet) : md;
+    await doc.attach(Buffer.from(attachSource, 'utf8'), path.basename(mdFile), {
       mimeType: 'text/markdown',
       description: 'Lattice deck source (Markdown). Re-render with: lattice-emulator <this file> out.pdf',
     });
