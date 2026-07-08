@@ -38,10 +38,10 @@ side panels.
 ### Layout (desktop)
 
 ```
-[ activity bar 52px ] [ Architect ] [ Settings ] [ editor ] [ preview ]
-   Assistants (top)      resizable      resizable
-   Settings  (mid)       toggle=gone    toggle=gone
-   Globals   (foot)
+[ activity bar 52px ] [ Settings ] [ Architect ] [ editor ] [ preview ]
+   Assistants (top)     next the bar  next the edit
+   Settings  (mid)      resizable     resizable
+   Globals   (foot)     toggle=gone   toggle=gone
 ```
 
 **ONE bar.** Every panel launches from the single left activity bar, and every
@@ -51,17 +51,25 @@ co-located on the left, so nothing reaches across the screen. The preview stays
 always-visible on the right; settings changes still show live there (it is not
 adjacent, but "preview is sacred" is about presence, not adjacency).
 
+**Fixed docking order** (never reflows): `bar → Settings → Architect → editor →
+preview`. Settings is configuration, so it sits with the launcher spine; the
+Architect is the coach for the words you are writing, so it sits **next to the
+editor**. Whichever of the two is open, the order between them is constant — a
+panel never jumps sides when the other opens or closes.
+
 - **Left activity bar** — the single VSCode-familiar spine:
   - **Assistants group (top):** Architect today; future peers join here.
   - **Settings group (middle):** Slide and Deck — the two settings scopes, as two
     bar icons (the old right-rail scope switch, folded onto the one bar).
   - **Globals group (foot):** Library, Workspace settings, account — these open
     dialogs, not a docked panel, so they sit outside the panel-exclusivity model.
-- **Architect panel** — docks left next to the bar, **resizable** (drag handle,
-  min width, persisted), **toggle-off = gone** (its bar icon is the way back).
-- **Settings inspector** — docks left too, immediately right of the Architect when
-  both are open, **resizable**, **toggle-off = gone**. It is **one** column whose
-  scope swaps Slide⟷Deck; the two bar icons open / switch / close it.
+- **Settings inspector** — docks **next to the bar** (leftmost panel), **resizable**
+  (drag handle, min width, persisted), **toggle-off = gone**. It is **one** column
+  whose scope swaps Slide⟷Deck; the two bar icons open / switch / close it.
+- **Architect panel** — docks **next to the editor** (between Settings and the
+  editor), **resizable like the editor/preview** (a real drag handle, min width,
+  persisted), **collapsing it = closing it** (gone, no rail stub; its bar icon is
+  the way back).
 - **Editor / Preview** — unchanged; they are always present and collapse to a
   **labeled rail** (a panel earns a rail stub only if it has no icon to summon it).
 - **One collapse rule per panel:** click a panel's launcher to toggle it; a closed
