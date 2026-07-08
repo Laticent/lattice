@@ -44,6 +44,13 @@ in patch versions.
   contract (`engineering/decisions/2026-07-08-read-along-export-manifest.md`); no
   exporter populates it yet.
 
+- **The export can derive a WebVTT caption sidecar from a read-along.** A new
+  node-loadable `lib/core/read-along-vtt.js` turns a manifest `readAlong` section
+  into WebVTT — one deck-level `.vtt` (each slide offset by prior durations) or
+  per-slide files. It mirrors Cadenza's `toVtt` (the CJS export pipeline can't import
+  the docs-side engine) and is pinned byte-identical to it by a cross-check test, so
+  the two can't drift. Not yet wired into an export command.
+
 - **Deck theme + color mode are now independent of the website.** A deck's own
   `theme:` front matter is always respected when previewing or exporting on the docs
   site (Studio, Playground, Present, Share) — the website palette picker only styles
