@@ -78,6 +78,13 @@ export type SingleSlideOptions = {
 	 * sync-playground-assets) so previews never depend on a third-party CDN.
 	 */
 	mermaidUrl?: string;
+	/**
+	 * URL of the KaTeX stylesheet for surfaces that render the full deck through the
+	 * presenter/stage path (studio-presenter). Absent → the jsdelivr CDN. A docs
+	 * surface passes the locally-vendored copy (`<assetBase>katex/katex.min.css`,
+	 * staged by sync-playground-assets) so math previews stay off a third-party CDN.
+	 */
+	katexUrl?: string;
 };
 
 /** Resolve `<html data-palette/-mode>` → the palette + mode to render with. */

@@ -357,6 +357,15 @@ in patch versions.
   (`docs/src/styles/fonts.css` → `docs/src/playground/fonts/`), loaded non-blocking
   with `font-display: swap`; the Google preconnect hints are gone. First paint no
   longer waits on a third-party host.
+- **The live preview no longer loads KaTeX / Mermaid from a CDN.** The filmstrip
+  preview injected the jsdelivr KaTeX stylesheet AND Mermaid runtime into *every*
+  deck — even ones with no math or diagrams. Now each is injected only when the deck
+  actually has math (`.katex`) or a mermaid fence (`code.language-mermaid`), and the
+  Playground + Studio presenter render them from self-hosted copies (KaTeX is staged
+  under `katex/` from the `katex` dependency; Mermaid reuses the vendored
+  `mermaid-v11.min.js`). A plain deck's preview now pulls **zero** third-party
+  resources; a math/diagram deck stays on our own origin. Verified end-to-end (plain
+  → nothing, math → self-hosted KaTeX, mermaid → self-hosted Mermaid, no jsdelivr).
 - **Read-aloud now pronounces figures correctly** — the Studio narrator was fed the
   raw slide glyphs, so the voice did its own (wrong) expansion, saying `$4.2M` as
   "four dollars and two cents m". It now speaks Cadenza's spoken form (`$4.2M` →

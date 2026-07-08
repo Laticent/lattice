@@ -118,6 +118,10 @@ const pgData = {
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
 	engineUrl: url(pg + 'lattice-playground.js'),
+	// Self-hosted Mermaid + KaTeX (staged by sync-playground-assets), so a
+	// diagram/math preview renders from our own origin instead of jsdelivr.
+	mermaidUrl: url(pg + 'export/mermaid-v11.min.js'),
+	katexUrl: url(pg + 'katex/katex.min.css'),
 	plansBase: url(pg + 'plans/'),
 	palettes,
 	finishes: FINISH_NAMES,

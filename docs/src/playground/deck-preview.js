@@ -286,9 +286,18 @@ export function buildSrcdoc({
 	// bootstrap guard survives and every later render short-circuits the runtime —
 	// Mermaid/charts added after the first edit never render. A fresh srcdoc resets
 	// the guard. See engineering/gotchas.md "Playground: Mermaid stops rendering".
+	// Inject the heavy third-party assets ONLY when the deck needs them: the KaTeX
+	// stylesheet solely styles `.katex` spans, and the Mermaid runtime renders only
+	// `code.language-mermaid` fences (charts use a separate DOM path). A plain text
+	// deck — the common case — then pulls NEITHER, so a preview never waits on a CDN
+	// (or the vendored copy) it won't use. renderDeck folds the same two flags into
+	// its signature, so an edit that ADDS math/mermaid forces a full rewrite that
+	// injects the asset rather than a section-only patch that would leave it out.
+	const needsKatex = html.indexOf('katex') !== -1;
+	const needsMermaid = html.indexOf('language-mermaid') !== -1;
 	return (
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"><head><meta charset="utf-8">' +
-		'<link rel="stylesheet" href="' + katexUrl + '">' +
+		(needsKatex ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
 		(fontCss ? '<style>' + fontCss + '</style>' : '') +
 		'<style>html,body{margin:0;padding:' + padding + 'px;background:' + bg + ';}' +
 		// Center a short deck in the viewport instead of pinning it to the top with a
@@ -313,7 +322,7 @@ export function buildSrcdoc({
 		'</style></head><body>' +
 		a11yDefs +
 		html +
-		'<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' +
+		(needsMermaid ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>' +
 		'<scr' + 'ipt>' + GEOM_GLOBALS + '</scr' + 'ipt>' +
 		'<scr' + 'ipt>' + fitAgent(gap, clamp) + '</scr' + 'ipt>' +
@@ -364,16 +373,21 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	// re-sanitizes harmlessly). #616 T-CONTENT.
 	html = sanitizeSlideHtml(html);
 	const sections = splitSections(html);
+	// Fold the asset-need flags into the signature: buildSrcdoc injects the KaTeX
+	// stylesheet / Mermaid runtime only when the deck has math / a mermaid fence, so
+	// a transition (a deck GAINS or LOSES either) must force a full srcdoc rewrite —
+	// a section-only patch would leave the newly-needed asset uninjected.
+	const contentSig = sig + (html.indexOf('katex') !== -1 ? 'K' : '') + (html.indexOf('language-mermaid') !== -1 ? 'M' : '');
 	const canPatch =
 		!fresh &&
-		sig === st.frameSig &&
+		contentSig === st.frameSig &&
 		frame.contentDocument &&
 		frame.contentDocument.querySelector('.lattice');
 	let patched = false;
 	if (canPatch) patched = patchSections(frame, sections, st.lastSections);
 	if (!patched) {
 		frame.srcdoc = buildSrcdoc({ html, css, mode, geom, ...opts });
-		st.frameSig = sig;
+		st.frameSig = contentSig;
 	}
 	st.lastSections = sections;
 	return { state: st, count: sections.length, patched };

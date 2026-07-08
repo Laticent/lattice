@@ -29,7 +29,16 @@ export type RenderResult =
  *  `validPalettes` is the registered-theme vocabulary — it gates whether a deck's own
  *  `theme:` front matter is honored (an unknown name falls back to the site palette
  *  instead of 404-ing its theme CSS). */
-export function createEngineBridge(themeBase: string, runtimeUrl: string, engineUrl?: string, validPalettes: string[] = []) {
+export function createEngineBridge(
+	themeBase: string,
+	runtimeUrl: string,
+	engineUrl?: string,
+	validPalettes: string[] = [],
+	// Self-hosted Mermaid / KaTeX (staged assets). Passed through to the filmstrip,
+	// which injects them only when a deck actually has a diagram / math. Omitted →
+	// deck-preview.js falls back to its jsdelivr defaults.
+	assets: { mermaidUrl?: string; katexUrl?: string } = {},
+) {
 	const isKnownTheme = (name: string) => validPalettes.includes(name);
 	// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — see
 	// theme-fetch.ts. The bridge only orchestrates render around it.
@@ -96,6 +105,8 @@ export function createEngineBridge(themeBase: string, runtimeUrl: string, engine
 				state: fresh ? { ...state, frameSig: '' } : state,
 				fresh,
 				runtimeUrl,
+				...(assets.mermaidUrl ? { mermaidUrl: assets.mermaidUrl } : {}),
+				...(assets.katexUrl ? { katexUrl: assets.katexUrl } : {}),
 				gap: 16,
 				contentVisibility: true,
 				center: true,
