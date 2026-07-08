@@ -81,6 +81,9 @@
 			.voice .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--spent); flex-shrink: 0; }
 			.voice[data-live="true"] { color: var(--ink); border-color: var(--accent); }
 			.voice[data-live="true"] .dot { background: var(--glow); box-shadow: 0 0 0 3px var(--glow-bg); }
+			.vsel { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 600; border-radius: 999px; padding: 7px 30px 7px 12px; cursor: pointer; -webkit-appearance: none; appearance: none;
+				background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: right 13px center, right 8px center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+			.vsel:disabled { opacity: .5; cursor: default; }
 			.diag { margin-top: 12px; min-height: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-word; }
 			.diag.err { color: var(--glow); font-weight: 600; }
 			details { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
@@ -126,6 +129,7 @@
 					<button type="button" data-pace="moderate" aria-pressed="true">Moderate</button>
 					<button type="button" data-pace="fast">Fast</button>
 				</div>
+				<select class="vsel" id="voiceSel" aria-label="Cloud voice" title="Cloud (Kokoro) voice — applies when a key is connected"></select>
 				<span class="voice" id="voice" title="Active voice — connect one in the Playground to hear it"><span class="dot"></span><span id="voiceLabel">silent</span></span>
 			</div>
 
@@ -153,6 +157,7 @@
 			const voiceEl = $('#voice'), voiceLabelEl = $('#voiceLabel');
 			const diagEl = $('#diag');
 			function setDiag(msg, isErr) { diagEl.textContent = msg || ''; diagEl.classList.toggle('err', !!isErr); }
+			const voiceSelEl = $('#voiceSel');
 			const root = document.documentElement;
 
 			// The highlight is driven by one of two clocks, chosen fresh on each play():
@@ -181,6 +186,27 @@
 			// models that don't support speed ignore it (the highlight still re-anchors to
 			// whatever the audio's real duration turns out to be).
 			const PACE_SPEED = { slow: 0.8, moderate: 1.0, fast: 1.25 };
+			// Curated Kokoro voices (the af_*/am_*/bf_*/bm_* ids the hosted + on-device Kokoro
+			// rungs share). The picker persists to the same localStorage pref the voice model
+			// reads, and is passed explicitly to speak() so it applies immediately.
+			const OR_VOICE_LS = 'lattice-db-voice-or';
+			const VOICES = [
+				['American — female', [['af_heart','Heart'],['af_bella','Bella'],['af_nicole','Nicole'],['af_sarah','Sarah'],['af_sky','Sky'],['af_nova','Nova'],['af_aoede','Aoede'],['af_kore','Kore']]],
+				['American — male', [['am_michael','Michael'],['am_adam','Adam'],['am_echo','Echo'],['am_onyx','Onyx'],['am_puck','Puck'],['am_fenrir','Fenrir']]],
+				['British — female', [['bf_emma','Emma'],['bf_isabella','Isabella'],['bf_alice','Alice'],['bf_lily','Lily']]],
+				['British — male', [['bm_george','George'],['bm_lewis','Lewis'],['bm_daniel','Daniel'],['bm_fable','Fable']]],
+			];
+			let selVoice = 'af_heart';
+			try { selVoice = localStorage.getItem(OR_VOICE_LS) || 'af_heart'; } catch {}
+			function populateVoices() {
+				voiceSelEl.innerHTML = '';
+				for (const [group, items] of VOICES) {
+					const og = document.createElement('optgroup'); og.label = group;
+					for (const [id, label] of items) { const o = document.createElement('option'); o.value = id; o.textContent = label; og.appendChild(o); }
+					voiceSelEl.appendChild(og);
+				}
+				if ([...voiceSelEl.options].some((o) => o.value === selVoice)) voiceSelEl.value = selVoice;
+			}
 			import('@/playground/voice-model.js')
 				.then((m) => {
 					voice = m.createVoiceModel({
@@ -196,6 +222,9 @@
 				const r = rung || rungNow();
 				voiceLabelEl.textContent = VOICE_LABEL[r] || r;
 				voiceEl.dataset.live = String(voicing && playing && r !== 'silent');
+				// The voice picker drives Kokoro's voice (hosted or on-device); grey it out when
+				// the active rung isn't Kokoro (no key → browser voice → its voice isn't ours).
+				voiceSelEl.disabled = !(r === 'openrouter' || r === 'kokoro');
 			}
 
 			function render() {
@@ -276,6 +305,7 @@
 				voice.speak({
 					text: inputEl.value,
 					sentences: splitSentences(inputEl.value),
+					voice: selVoice,
 					speed: PACE_SPEED[pace] || 1,
 					onSentenceTiming: clocked
 						? ({ index, onsetMs, durationMs }) => {
@@ -353,6 +383,12 @@
 				root.setAttribute('data-theme', cur === 'dark' ? 'light' : cur === 'light' ? 'dark' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
 			});
 
+			voiceSelEl.addEventListener('change', () => {
+				selVoice = voiceSelEl.value;
+				try { localStorage.setItem(OR_VOICE_LS, selVoice); } catch {}
+				const was = started; stop(); if (was) play(); // restart so the new voice is heard
+			});
+			populateVoices();
 			inputEl.value = SAMPLE;
 			render();
 		</script>
