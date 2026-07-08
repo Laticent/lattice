@@ -58,10 +58,15 @@ in patch versions.
   the same offline `.html` player the CLI `--player` flag produces — three views
   (Present · Read·Slides · Read·Article), a sha256-pinned CSP, and the verbatim
   source envelope for lossless re-import — entirely in the browser. It reuses the
-  shared assembler (`lib/export/player-core.mjs`) with browser capabilities; base64
-  fonts and full CSS ship today (the used-selector/used-family prune the CLI applies
-  is a follow-up, so Studio files are larger than the CLI’s until then). Part of
+  shared assembler (`lib/export/player-core.mjs`) with browser capabilities. Part of
   `engineering/decisions/2026-07-08-studio-html-player-export.md` (P2).
+- **The Studio webpage export is now pruned to the deck’s used styles + fonts.** It
+  runs the same used-selector CSS prune and used-family font prune the CLI applies —
+  the shared kernel (`lib/export/player-prune.js`) against an offscreen full-deck
+  render, behind the same computed-style safety gate (any mismatch ships the full
+  stylesheet). A typical deck’s download drops from ~1.6 MB to ~0.55 MB. Fonts ship
+  full (un-subset) in the browser; glyph-subsetting stays CLI-only for now. Same
+  decision doc (P2b).
 - **The webpage export can strip speaker notes.** Its options step gained a **“Strip
   speaker notes”** toggle (default off — notes ride into the player’s Present-mode
   notes sheet, matching the CLI). Turned on, it scrubs the note text from every copy

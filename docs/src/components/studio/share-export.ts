@@ -347,9 +347,23 @@ export async function shareHtmlPlayer(
 		caps,
 	);
 
+	// Prune the inlined CSS + fonts down to what the deck actually uses (P2b) — the
+	// same kernel + computed-style gate the CLI runs, against an offscreen render of the
+	// assembled player. A size lever, never the deliverable: any trouble ships the full
+	// (correct) player. Takes the ~1.6 MB full-contract file toward the CLI's ~0.4 MB.
+	onStatus?.('Optimizing…');
+	let finalHtml = html;
+	try {
+		const { prunePlayerInBrowser } = await import('./player-prune-browser');
+		const pr = await prunePlayerInBrowser(html);
+		if (pr.applied) finalHtml = pr.html;
+	} catch {
+		/* prune skipped — ship the full player */
+	}
+
 	onStatus?.('Downloading…');
 	const { downloadText } = await import('./download');
-	downloadText(`${name}.html`, html, 'text/html');
+	downloadText(`${name}.html`, finalHtml, 'text/html');
 }
 
 /**

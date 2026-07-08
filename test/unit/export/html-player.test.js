@@ -176,6 +176,28 @@ test('sanitizing at the section level also cleans the section element attributes
 	assert.doesNotMatch(html, /onmouseover/i, 'a handler on the section element is stripped');
 });
 
+// ── frozen-artifact golden ────────────────────────────────────────────────────
+// The player is a FROZEN, shared artifact and its assembler is refactored across
+// slices (player-core extraction, prune-kernel extraction). The property tests above
+// each pin ONE aspect; this pins the WHOLE output byte-for-byte for a fixed, external-
+// file-free fixture at now:0, so any unintended byte drift (attribute order, block
+// order, whitespace, report shape) fails loudly and forces intent. Re-bless ONLY with
+// a deliberate player change: update the sha in the SAME commit and say why.
+test('the assembled player is byte-for-byte stable (frozen-artifact golden)', async () => {
+	const goldenDoc = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Golden</title>
+<style id="lattice-embedded-fonts">@font-face{font-family:X;src:url(data:font/woff2;base64,AA)}</style>
+<style>section[data-lattice-slide]{color:red}.unused-x{color:blue}</style>
+</head><body>
+<section data-lattice-slide="1" id="1" class="title"><h1>Golden deck</h1><aside class="lattice-notes" hidden data-slide="1">A note.</aside><p>Body.</p></section>
+<section data-lattice-slide="2" id="2" class="content"><h2>Two</h2><ul><li>a</li></ul></section>
+</body></html>`;
+	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
+	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
+	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
+	assert.equal(sha, '9d220e9af4473e4d4e51f77c57ced4705d5ddbf9f6a79d5fe0934eb0258f56b9', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+});
+
 test.after(() => {
 	try {
 		fs.unlinkSync(tmpSvg);
@@ -190,6 +212,11 @@ test('minifyCss strips comments + whitespace but preserves strings, url(), calc,
 	assert.equal(minifyCss('c::before{content:"a  b"}'), 'c::before{content:"a  b"}', 'string spaces kept');
 	assert.equal(minifyCss('d > e ~ f + g{x:1}'), 'd > e ~ f + g{x:1}', 'combinator spaces kept');
 	assert.equal(minifyCss('h{background:url(  x.svg  )}'), 'h{background:url(  x.svg  )}', 'url() untouched');
+	// A literal U+E000 in the input must be stripped, never mistaken for the internal
+	// stash sentinel (else it would swap in a stashed string / "undefined"). U+E000 is a
+	// Private-Use char absent from real CSS; this guards the pathological deck-authored case.
+	assert.equal(minifyCss('a{content:"0"}'), 'a{content:"0"}', 'a literal U+E000 sentinel char is stripped from input');
+	assert.doesNotMatch(minifyCss('a{x:1}'), //, 'no U+E000 survives into the output');
 	assert.ok(!minifyCss('/* x */a{b:1}').includes(String.fromCodePoint(0xe000)), 'no sentinel leftover');
 	// Regression: an apostrophe INSIDE a comment must not be read as a string delimiter
 	// and swallow the following rule. (Protect-before-strip deleted half of lattice.css.)
