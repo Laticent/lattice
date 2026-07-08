@@ -17,7 +17,6 @@
 // Shared theme registration (WRAP, DON'T REINVENT): walks the transitive
 // `@import` closure so a multi-level theme (a11y-* → a11y-base → onyx → lattice)
 // registers fully — the one tested path, not a re-inlined copy.
-import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { createThemeFetcher } from '../lib/theme-fetch.ts';
 // notes-core is THE single source for the note/non-note boundary (HARD RULE #1) —
 // read it through the canonical extractor, never re-derive. It rides the
@@ -30,8 +29,8 @@ import { isCapableTier } from './drawing-board-chat.js';
 import { initPracticeTour } from './drawing-board-practice-tour.js';
 import { createRehearsalPlanner, metasFromSections, metasFromSource, overBeat } from './drawing-board-rehearsal.js';
 import { budgetStatus, readBudgetCap, readBudgetMode, readSpend, recordSpend } from './drawing-board-settings.js';
-import { slideBox } from './frame-css.js';
 import { toursAllowedHere } from './guided-tour.js';
+import { buildStageDoc } from './presenter-window.js';
 import { toursEnabled } from './tour-prefs.js';
 import { createVoiceModel } from './voice-model.js';
 
@@ -133,50 +132,25 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
   // real `@size`, just like the preview). A no-zoom viewport + touch-action kill
   // the iOS double-tap-to-zoom that used to jolt the stage.
   function frameDoc(html, css, bg, geom) {
-    html = sanitizeSlideHtml(html); // #616 T-CONTENT — strip script before the same-origin rehearsal srcdoc
     const sw = geom?.width || 1280;
     const sh = geom?.height || 720;
-    // Isolated stage (see Present): #latt-stage/#latt-fit (ID-scoped, out.css can't
-    // clobber; wraps .lattice so the slide's transform can't trap our fixed box);
-    // 100dvh flex-center → visual center on mobile Safari.
-    const FIT =
-      '(function(){' +
-      'var stage=document.getElementById("latt-stage"),fitEl=document.getElementById("latt-fit");' +
-      'function secs(){var m=document.querySelector(".lattice");return m?m.querySelectorAll(":scope>section"):[]}' +
-      'var cur=0;' +
-      'function fit(){var s=secs();if(!s.length||!stage||!fitEl)return;' +
-      'var W=stage.clientWidth||window.innerWidth,H=stage.clientHeight||window.innerHeight;' +
-      'var pad=Math.max(14,Math.min(W,H)*0.04);' +
-      'var sc=Math.min((W-pad*2)/' + sw + ',(H-pad*2)/' + sh + ');if(!(sc>0))sc=1;' +
-      'fitEl.style.width=(sc*' + sw + ')+"px";fitEl.style.height=(sc*' + sh + ')+"px";' +
-      // Show/hide WITHOUT forcing display:block — that clobbers the section's CSS
-      // display:flex (title/closing/divider center content with it). "" reverts.
-      'for(var i=0;i<s.length;i++){var on=i===cur;s[i].style.display=on?"":"none";' +
-      'if(on){s[i].style.transformOrigin="top left";s[i].style.transform="scale("+sc+")"}}}' +
-      'function show(n){cur=n|0;fit()}' +
-      'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)show(e.data.pv)});' +
-      'window.addEventListener("resize",fit);window.addEventListener("orientationchange",fit);' +
-      'if(window.visualViewport){try{window.visualViewport.addEventListener("resize",fit)}catch(e){}}' +
-      'if(typeof ResizeObserver!=="undefined"){try{new ResizeObserver(fit).observe(stage)}catch(e){}}' +
-      '[60,300,1200].forEach(function(t){setTimeout(fit,t)});show(0);' +
-      '})();';
-    return (
-      '<!doctype html><html><head><meta charset="utf-8">' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">' +
-      '<link rel="stylesheet" href="' + KATEX_URL + '">' +
-      '<style>html,body{margin:0;padding:0;height:100%;background:' + bg + ';overflow:hidden;touch-action:manipulation;-webkit-text-size-adjust:100%;}' +
-      '#latt-stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;visibility:hidden;}' +
-      '#latt-fit{overflow:hidden;}' +
-      '#latt-fit .lattice{margin:0;padding:0;}' +
-      '#latt-fit .lattice>section{transform-origin:top left;box-shadow:0 18px 60px rgba(0,0,0,.45);border-radius:10px;}' +
-      slideBox(sw, sh) +
-      css + '</style></head><body>' +
-      A11Y_DEFS + '<div id="latt-stage"><div id="latt-fit">' + html + '</div></div>' +
-      '<scr' + 'ipt src="' + MERMAID_URL + '"></scr' + 'ipt>' +
-      '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>' +
-      '<scr' + 'ipt>requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"});</scr' + 'ipt>' +
-      '<scr' + 'ipt>' + FIT + '</scr' + 'ipt></body></html>'
-    );
+    // The rehearsal stage IS the shared dual-screen stage (buildStageDoc, which
+    // sanitizes internally — #616) with a bigger pad and a card shadow, NOT a forked
+    // copy (P3b of 2026-07-07-html-lattice-player.md). The card look rides on the
+    // `css` seam (appended after buildStageDoc's own `transform-origin:top left`).
+    const cardCss = css + '#latt-fit .lattice>section{box-shadow:0 18px 60px rgba(0,0,0,.45);border-radius:10px;}';
+    return buildStageDoc({
+      html,
+      width: sw,
+      height: sh,
+      bg,
+      css: cardCss,
+      runtimeUrl,
+      katexUrl: KATEX_URL,
+      mermaidUrl: MERMAID_URL,
+      a11yDefs: A11Y_DEFS,
+      pad: { factor: 0.04, floor: 14 },
+    });
   }
 
   // ── UI handles ────────────────────────────────────────────────────────────

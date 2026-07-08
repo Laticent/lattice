@@ -363,11 +363,21 @@ a security defect in the player JS lives **forever** in every file already sent.
     since its script is CSP-hashed and can't import) and drives Present through it; the fit is unchanged
     (`scale(0.95625)` at 1280×800, verified) and the keymap gains PageUp/PageDown/Home/End for free.
     Real-surface verified: Present nav + edge-clamping driven in Chromium.
-  - **P3b — docs-side reconciliation (NEXT).** Migrate the docs stage onto the kernel: parameterize
-    `buildStageDoc`'s pad so `drawing-board-practice` imports it instead of its inline copy, and route
-    `drawing-board-present`'s `go`/`onKey` through `createTransport`/`keyAction`. Its own PR (docs vitest +
-    the e2e present specs are the verification surface — the Studio React overlay renders via `DeckPreview`,
-    CSS aspect-ratio, so it forks no fit math and its dual-screen already uses the `presenter-window.js` kernel).
+  - **P3b — docs-side stage reconciliation — SHIPPED (2026-07-08).** The map corrected the plan: the docs
+    `buildStageDoc` was NOT itself on the kernel, and `drawing-board-present` already imported it (no fork
+    there), while `drawing-board-practice` carried its OWN inline copy of the stage doc (pad ×0.04). So P3b:
+    (1) `buildStageDoc` now inlines the kernel's `fitScale`/`padInset` (verbatim, into the iframe FIT script)
+    and takes a `pad` option; (2) `drawing-board-practice` deletes its inline `frameDoc` and delegates to
+    `buildStageDoc({…, pad:{factor:0.04,floor:14}})`, its rehearsal card look riding the `css` seam. That
+    collapses the "stage doc written 3×" to ONE, kernel-backed, shared by the dual-screen presenter, the DB
+    Present player, and the rehearsal stage. `drawing-board-practice` drops off the `SANCTIONED_PREVIEW_BUILDERS`
+    allowlist (it no longer assembles a frame — it delegates to the sanctioned `buildStageDoc`). Verified: the
+    `presenter-window` vitest, and both pad configs driven in real Chromium (slide scales byte-identically to
+    the old formulas, `postMessage({pv:n})` nav toggles slides). The Playwright e2e present specs could not run
+    in-sandbox (Chromium build 1194 vs the pinned Playwright 1.56's 1228 — an environment mismatch, and that
+    suite is nightly/off-PR); the direct real-browser drive covers the same behavior. The `go`/`onKey`
+    keymap dedup (`createTransport`/`keyAction` in DB-present + practice, whose key sets already MATCH) is
+    deferred — it's low-value now that the divergent fork (the export player) is healed.
   - **P3c — the player's richer Present controls (NEXT).** Swipe (via `swipeAction`), fullscreen, the notes
     sheet (default-in + strip-all-copies via `notes-core`), `dvh` viewport-fill + orientation re-fit,
     capability tiers.

@@ -22,6 +22,7 @@
 //     second screen. Framework-agnostic — the Drawing Board (vanilla) and the
 //     Studio (React, via a thin wrapper) both pass closures into their state.
 
+import { fitScale, padInset } from '../../../lib/core/present-transport.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { slideBox } from './frame-css.js';
 
@@ -32,10 +33,19 @@ import { slideBox } from './frame-css.js';
  * `show(n)` is driven from the parent via `postMessage({pv:n})`. A no-zoom
  * viewport + touch-action kill the iOS double-tap jolt.
  */
-export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', a11yDefs = '' }) {
+export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 } }) {
 	html = sanitizeSlideHtml(html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;
+	// The fit factor is the shared transport kernel's `fitScale`/`padInset`
+	// (lib/core/present-transport.mjs) — inlined VERBATIM into the stage script (which
+	// runs in an isolated iframe and can't import), so the docs stage, the rehearsal
+	// stage, and the export player all scale by the identical maths. `pad` selects the
+	// symmetric inset: the dual-screen stage uses ×0.012 (floor 0), rehearsal ×0.04
+	// (floor 14). See P3 of 2026-07-07-html-lattice-player.md.
+	const kernel = `${fitScale.toString()}\n${padInset.toString()}`;
+	const padF = Number(pad.factor);
+	const padFl = Number(pad.floor || 0);
 	// Resolve the runtime URL to ABSOLUTE. The stage doc is set as an iframe
 	// `srcdoc`; in the dual-screen presenter that iframe lives inside an
 	// `about:blank` popup, whose base URL is `about:blank` — a root-relative
@@ -59,13 +69,14 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 	// scales from top-left to fill it.
 	const FIT =
 		'(function(){' +
+		kernel + ';' +
 		'var stage=document.getElementById("latt-stage"),fitEl=document.getElementById("latt-fit");' +
 		'function secs(){var m=document.querySelector(".lattice");return m?m.querySelectorAll(":scope>section"):[]}' +
 		'var cur=0;' +
 		'function fit(){var s=secs();if(!s.length||!stage||!fitEl)return;' +
 		'var W=stage.clientWidth||window.innerWidth,H=stage.clientHeight||window.innerHeight;' +
-		'var pad=Math.max(0,Math.min(W,H)*0.012);' +
-		'var sc=Math.min((W-pad*2)/' + sw + ',(H-pad*2)/' + sh + ');if(!(sc>0))sc=1;' +
+		'var inset=padInset(W,H,{factor:' + padF + ',floor:' + padFl + '});' +
+		'var sc=fitScale({stageW:W,stageH:H,slideW:' + sw + ',slideH:' + sh + ',insetX:inset,insetY:inset});if(!(sc>0))sc=1;' +
 		'fitEl.style.width=(sc*' + sw + ')+"px";fitEl.style.height=(sc*' + sh + ')+"px";' +
 		'for(var i=0;i<s.length;i++){var on=i===cur;s[i].style.display=on?"":"none";' +
 		'if(on){s[i].style.transformOrigin="top left";s[i].style.transform="scale("+sc+")"}}}' +
