@@ -552,6 +552,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// The `_class:` CLASS vocabulary — every finish as its `finish-<x>` class (built-ins
 	// gain the prefix here; saved finishes already carry it).
 	const editorFinishClasses = React.useMemo(() => [...builtinFinishNames.map((b) => `finish-${b}`), ...savedFinishTokens], [builtinFinishNames, savedFinishTokens]);
+	// The `theme:` front-matter VALUE vocabulary — the built-in palettes + the user's
+	// saved (Fabricated) themes, so the editor completes a deck's own theme name.
+	const editorPalettes = React.useMemo(() => [...BUILTIN_PALETTES, ...savedThemes.map((t) => t.name)], [savedThemes]);
 	// Lint accepts BOTH the prefixed token and the bare slug of a saved finish (a deck
 	// authored before the prefix convention shouldn't false-warn).
 	const savedFinishLintNames = React.useMemo(() => savedFinishes.flatMap((f) => [`finish-${f.name}`, f.name]), [savedFinishes]);
@@ -1545,7 +1548,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</Button>
 				)}
 			</div>
-			<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onUserEdit={onFirstUserEdit} className="flex-1" />
+			<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onUserEdit={onFirstUserEdit} className="flex-1" />
 		</section>
 	);
 

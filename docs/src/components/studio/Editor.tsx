@@ -114,6 +114,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	/** `_class:` slide-level CLASS vocabulary — every finish as its `finish-<x>`
 	 *  class. Drives the `_class:`-line completion only (not lint). */
 	completionFinishClasses?: string[];
+	/** `theme:` front-matter VALUE vocabulary — the palettes a deck can name
+	 *  (built-in + saved). Drives the `theme:`-value completion only. */
+	completionPalettes?: string[];
 	/** The deterministic lint vocabulary. When present, the editor runs the FULL
 	 *  shared lint-core (severity tiers + per-finding fixes) instead of the
 	 *  unknown-component-only fallback. */
@@ -131,7 +134,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  an external setSource so callers can react to authoring, not to their own writes. */
 	onUserEdit?: () => void;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], lintVocab, extraComponentNames, onCursorSlide, onSelectionChange, onUserEdit, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], lintVocab, extraComponentNames, onCursorSlide, onSelectionChange, onUserEdit, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -154,6 +157,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const finishKey = (completionFinishValues || []).join(',');
 	const classKey = (completionFinishClasses || []).join(',');
 	const compsKey = (completionComponents || []).map((c) => c.name).join(',');
+	const paletteKey = (completionPalettes || []).join(',');
+	// Universal/base modifiers (`dark`, `light`, `numbered`, …) for the `_class:` /
+	// `class:` completion, from the SAME lint vocabulary the linter validates against
+	// (never a hand-kept list). Absent on vocab-less surfaces → no modifier options.
+	const completionModifiers: string[] = React.useMemo(() => (Array.isArray(lintVocab?.universalModifiers) ? lintVocab.universalModifiers : []), [lintVocab]);
+	const modifierKey = completionModifiers.join(',');
 	// biome-ignore lint/correctness/useExhaustiveDependencies: extraNamesKey / finishKey are the stable content-proxies; depending on the arrays themselves would rebuild every render.
 	const vocabSets = React.useMemo(() => {
 		if (!useRealLint) return null;
@@ -181,7 +190,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const acComp = React.useRef(new Compartment());
 	const lintComp = React.useRef(new Compartment());
 	const buildAutocomplete = () =>
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses)], activateOnTyping: true, icons: false });
+		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes })], activateOnTyping: true, icons: false });
 	const buildLint = () =>
 		useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
@@ -347,10 +356,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: compsKey/finishKey/classKey are the stable content-proxies; buildAutocomplete reads the live props.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: compsKey/finishKey/classKey/paletteKey/modifierKey are the stable content-proxies; buildAutocomplete reads the live props.
 	React.useEffect(() => {
 		viewRef.current?.dispatch({ effects: acComp.current.reconfigure(buildAutocomplete()) });
-	}, [compsKey, finishKey, classKey]);
+	}, [compsKey, finishKey, classKey, paletteKey, modifierKey]);
 
 	// Reconfigure the linter when the vocab set changes, so a freshly-saved finish
 	// stops being flagged `unknown-finish` inline (the Architect panel already reacts).

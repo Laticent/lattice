@@ -55,6 +55,11 @@ in patch versions.
   the deck's own `theme:` front matter with an "Automatic — match site" option that
   clears it (the topbar picker stays the website theme). The Appearance control also
   reflects a deck pinned dark by a `-dark` theme name, not only by `class:`.
+- **The Studio editor autocompletes theme names and slide modifiers.** Typing a
+  `theme:` front-matter value suggests the palettes (built-in + your saved themes); a
+  `class:` (deck-wide) or `<!-- _class: … -->` (per-slide) value suggests the universal
+  modifiers — `dark`, **`light`**, `numbered`, tone/stamp styles, … — pulled from the
+  same lint vocabulary the editor validates against, so they never drift.
 - **A self-contained HTML player export — `--player`.** `lattice-emulator deck.md
   out.pdf --player` (or a `player: true` front-matter key) now writes the `.html`
   sidecar as a portable, offline, double-clickable **player**: one file that *is*

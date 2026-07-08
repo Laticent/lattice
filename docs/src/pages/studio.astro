@@ -75,6 +75,10 @@ try {
 	lintVocab = {
 		names: [...v.names],
 		modifiers: [...v.modifiers],
+		// The cross-component modifier tokens (`dark`, `light`, `numbered`, tone/stamp/
+		// spectrum styles, …) valid on ANY slide — drives the editor's `_class:` /
+		// `class:` modifier completion (never a hand-kept list).
+		universalModifiers: [...(v.universalModifiers || [])],
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
 		finishNames: v.finishNames || [],
 		modeNames: v.modeNames || [],
