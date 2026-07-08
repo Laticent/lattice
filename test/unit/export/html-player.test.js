@@ -12,6 +12,8 @@ const {
 	minifyCss,
 	collectBaseSelectors,
 	prunePlayerCss,
+	prunePlayerFontFaces,
+	normalizeFamily,
 } = require('../../../lib/export/html-player.js');
 const { parseEnvelope } = require('../../../lib/core/lattice-doc.js');
 
@@ -262,6 +264,73 @@ test('prunePlayerCss force-keeps a dynamic pseudo NESTED in a functional pseudo-
 	}
 	// But a plain unused rule with NO dynamic pseudo is still dropped.
 	assert.doesNotMatch(prunePlayerCss('.plain-unused{x:1}', () => false).css, /plain-unused/);
+});
+
+// ── used-family FONT prune (P6) ──────────────────────────────────────────────
+// The embedded font block ships the whole type stack (incl. the `sketch` hand pair);
+// drop the faces whose family the deck never uses. Authoritative detection lives in
+// the emulator (real Chromium); this is the pure filter.
+
+const FONT_BLOCK = [
+	"@font-face{font-family:'Playfair Display';font-weight:700;src:url(data:font/woff2;base64,AA==)}",
+	"@font-face{font-family:'Outfit';font-weight:400;src:url(data:font/woff2;base64,BB==)}",
+	"@font-face{font-family:'Caveat';font-weight:400;src:url(data:font/woff2;base64,CC==)}",
+	"@font-face{font-family:'Shantell Sans';font-weight:500;src:url(data:font/woff2;base64,DD==)}",
+].join('');
+
+test('normalizeFamily strips quotes and trims', () => {
+	assert.equal(normalizeFamily("'Playfair Display'"), 'Playfair Display');
+	assert.equal(normalizeFamily('  "Outfit" '), 'Outfit');
+	assert.equal(normalizeFamily('Caveat'), 'Caveat');
+});
+
+test('prunePlayerFontFaces drops unused families, keeps used ones', () => {
+	const out = prunePlayerFontFaces(FONT_BLOCK, ['Playfair Display', 'Outfit']);
+	assert.equal(out.applied, true);
+	assert.equal(out.total, 4);
+	assert.equal(out.kept, 2);
+	assert.match(out.css, /Playfair Display/);
+	assert.match(out.css, /Outfit/);
+	assert.doesNotMatch(out.css, /Caveat/, 'an unused family is dropped');
+	assert.doesNotMatch(out.css, /Shantell/, 'the other unused family is dropped');
+});
+
+test('prunePlayerFontFaces HONORS sketch — a deck that uses the hand fonts keeps them', () => {
+	// The user contract: assume sketch may be used; if it is, honor it. When the
+	// detected families include the sketch pair, no sketch face may be dropped.
+	const out = prunePlayerFontFaces(FONT_BLOCK, ['Playfair Display', 'Outfit', 'Caveat', 'Shantell Sans']);
+	assert.equal(out.applied, false, 'nothing to drop → not applied');
+	assert.match(out.css, /Caveat/, 'Caveat (sketch display) kept');
+	assert.match(out.css, /Shantell Sans/, 'Shantell (sketch body) kept');
+});
+
+test('prunePlayerFontFaces keeps EVERYTHING when detection is empty (never strand a deck)', () => {
+	const out = prunePlayerFontFaces(FONT_BLOCK, []);
+	assert.equal(out.applied, false);
+	assert.equal(out.css, FONT_BLOCK, 'an empty used-set is a no-op, not a wipe');
+});
+
+test('prunePlayerFontFaces keeps a face whose family it cannot parse (keep-on-doubt)', () => {
+	const weird = '@font-face{src:url(data:font/woff2;base64,ZZ==)}'; // no font-family
+	const out = prunePlayerFontFaces(weird + FONT_BLOCK, ['Outfit']);
+	assert.match(out.css, /ZZ==/, 'the unparseable face is kept, never dropped on doubt');
+});
+
+test('prunePlayerFontFaces keeps ALL faces when the used-set matches none (no wipe)', () => {
+	// Finding A: a non-empty used-set that names no embedded family must be treated
+	// as a detection failure — keep everything, never strand the deck in system fonts.
+	const out = prunePlayerFontFaces(FONT_BLOCK, ['system-ui', 'sans-serif']);
+	assert.equal(out.applied, false, 'kept===0 is a no-op, not a wipe');
+	assert.equal(out.kept, 0);
+	assert.equal(out.css, FONT_BLOCK, 'the full block is preserved');
+});
+
+test('prunePlayerFontFaces matches families case-insensitively', () => {
+	// Finding B: CSS family matching is ASCII case-insensitive.
+	const out = prunePlayerFontFaces(FONT_BLOCK, ['playfair display', 'OUTFIT']);
+	assert.match(out.css, /Playfair Display/, 'lowercase used-family still keeps its face');
+	assert.match(out.css, /Outfit/, 'uppercase used-family still keeps its face');
+	assert.doesNotMatch(out.css, /Caveat/, 'a genuinely unused family is still dropped');
 });
 
 test('prunePlayerCss safelist matches whole tokens, not substrings', () => {

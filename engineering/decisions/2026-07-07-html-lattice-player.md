@@ -384,7 +384,21 @@ a security defect in the player JS lives **forever** in every file already sent.
   live in `prunePlayerCssInPage` (`lattice-emulator.js`), covered by `test/integration/export`. Measured:
   the `html-player` demo **452 KB → 33 KB CSS** (≈93 %, ~1.1 MB → ~0.64 MB file); the 58-slide
   component-rich `gallery-jargon` **452 KB → 125 KB CSS** (319 KB saved) — both gate-verified pixel-identical.
-  The remaining bulk of a typical file is now the base64 fonts, not CSS.
+- **P6b — used-family FONT prune — SHIPPED (2026-07-07).** Once CSS was pruned the file's bulk was the base64
+  fonts: the player embeds the WHOLE type stack (display serif, body sans, mono, AND the two `sketch` hand
+  faces) regardless of the deck — 17 faces, ~632 KB raw, so a boardroom deck ships the ~267 KB Caveat +
+  Shantell pair for nothing. The prune drops the faces whose family the deck never uses. **Authoritative and
+  it HONORS `sketch`** (the standing contract — assume a deck may use the hand finish, and if it does, keep
+  it): a family is USED when the browser actually LOADED a face (lazy — only when an element needs it) OR it
+  appears in any element's resolved `font-family` (so a `sketch` deck keeps Caveat + Shantell; a boardroom
+  deck drops them). Family-level by design — if a family is used at all, all its weights/italics ride along,
+  so no weight surprise. Keep-on-doubt throughout: an unparseable family, or an empty detection, keeps every
+  face (never strand a deck fontless). Kernel `prunePlayerFontFaces` (`lib/export/html-player.js`, pure,
+  unit-tested); detection + drop in `prunePlayerCssInPage` (`lattice-emulator.js`), in the SAME scratch
+  browser as the CSS prune. Verified on the real surface: `examples/sketch.md` keeps its hand fonts (integration
+  test), the boardroom demo drops the sketch pair (**256 KB fonts + 419 KB CSS saved → ~1.1 MB → ~0.38 MB file**).
+  A used family's face is still glyph-subset to the doc charset by `subsetEmbeddedFonts` — a further per-family
+  glyph attribution (subset display faces to heading glyphs only) is the next font lever, not yet taken.
 - **Separate track — the app-hosted `lattice.style/deck/{id}` player** (Decision C): its own decision doc,
   built on the shared kernels once P2–P4 exist.
 
