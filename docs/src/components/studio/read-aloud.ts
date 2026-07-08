@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { splitSentences } from '@/lib/cadenza';
+import { splitSentences, toSpokenText } from '@/lib/cadenza';
 
 // Studio read-aloud — the REAL synchronized read-along.
 //
@@ -87,7 +87,12 @@ export type ReadAloudState = {
 // build it once, only when the user first plays). Dynamic-imported so the engine
 // bundle stays out of the initial island and SSR never touches window.
 type VoiceModel = {
-	speak: (o: { text: string; signal?: AbortSignal; onState?: (s: { rung?: string; speaking?: boolean }) => void }) => void;
+	speak: (o: {
+		text: string;
+		sentences?: string[];
+		signal?: AbortSignal;
+		onState?: (s: { rung?: string; speaking?: boolean }) => void;
+	}) => void;
 	stop: () => void;
 	pause: () => void;
 	resume: () => void;
@@ -122,6 +127,10 @@ function getVoice(): Promise<VoiceModel | null> {
  */
 export function useReadAloud(text: string, opts?: { onFinish?: () => void }): ReadAloudState {
 	const sentences = React.useMemo(() => splitSentences(text), [text]);
+	// The voice SPEAKS Cadenza's spoken expansion (so "$4.2M" is said "four point two
+	// million dollars", not the TTS's own mis-parse); the teleprompter still HIGHLIGHTS
+	// the display sentences. Same count (both from splitSentences), so the index lines up.
+	const spokenSentences = React.useMemo(() => sentences.map(toSpokenText), [sentences]);
 	const [playing, setPlaying] = React.useState(false);
 	const [index, setIndex] = React.useState(-1);
 	const [rung, setRung] = React.useState<string | null>(null);
@@ -206,10 +215,10 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 			}
 			setRung(r);
 			if (r && r !== 'silent') {
-				voice.speak({ text: sentences.join(' '), signal: ctl.signal, onState: (s) => s?.rung && setRung(s.rung) });
+				voice.speak({ text: sentences.join(' '), sentences: spokenSentences, signal: ctl.signal, onState: (s) => s?.rung && setRung(s.rung) });
 			}
 		});
-	}, [sentences, advance]);
+	}, [sentences, spokenSentences, advance]);
 
 	const pause = React.useCallback(() => {
 		clearTimer();
