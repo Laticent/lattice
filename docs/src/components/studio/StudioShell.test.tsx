@@ -377,29 +377,44 @@ describe('StudioShell — responsive layout', () => {
 	});
 });
 
-describe('StudioShell — desktop scope rail', () => {
-	it('the rail owns scope — no redundant toolbar toggle on desktop', async () => {
+describe('StudioShell — desktop activity bar', () => {
+	it('launches scope from the bar; the Slide/Deck icons swap the ONE settings panel, click-active closes it', async () => {
 		const user = setup(); // jsdom defaults to desktop
-		// The toolbar's old "Deck inspector" toggle is gone on desktop (the rail owns it).
+		// No tablet "Settings" toggle on desktop — the bar's Slide/Deck icons own scope.
 		expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
-		// The rail's Slide/Deck buttons open the panel at that scope.
-		expect(screen.getByRole('button', { name: 'Deck scope' })).toBeInTheDocument();
-		await user.click(screen.getByRole('button', { name: 'Slide scope' }));
+		// The bar's Deck icon opens the settings panel at deck scope.
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		expect(await screen.findByText(/Editing the whole deck/)).toBeInTheDocument();
+		// Switching to Slide swaps the one panel in place (grouped exclusivity).
+		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
 		expect(await screen.findByText(/Editing Slide \d+ only/)).toBeInTheDocument();
+		// Clicking the ACTIVE scope icon closes the panel — the one collapse rule.
+		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
+		expect(screen.queryByText(/Editing Slide \d+ only/)).not.toBeInTheDocument();
 	});
 
-	it('collapses from labels to icons and remembers the choice', async () => {
+	it('the Architect stays independent of settings — the coach can be up WHILE you tune (grouped, not global)', async () => {
 		const user = setup();
-		// Expanded by default — the Deck button shows its caption.
-		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveTextContent('Deck');
-		// Collapse → the caption drops (icons only) and the choice persists.
-		await user.click(screen.getByRole('button', { name: 'Collapse rail to icons' }));
-		expect(screen.getByRole('button', { name: 'Deck scope' })).not.toHaveTextContent('Deck');
-		expect(localStorage.getItem('lattice-studio-rail-collapsed')).toBe('true');
-		// Expand again — captions return, flag flips back.
-		await user.click(screen.getByRole('button', { name: 'Show scope labels' }));
-		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveTextContent('Deck');
-		expect(localStorage.getItem('lattice-studio-rail-collapsed')).toBe('false');
+		// Ensure the coach is open (idempotent — a returning user starts with it up).
+		const coach = screen.getByRole('button', { name: 'Toggle Architect' });
+		if (coach.getAttribute('aria-pressed') !== 'true') await user.click(coach);
+		expect(coach).toHaveAttribute('aria-pressed', 'true');
+		// Opening deck settings does NOT close the coach — independent groups, not a
+		// single mutually-exclusive sidebar.
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		expect(await screen.findByText(/Editing the whole deck/)).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Toggle Architect' })).toHaveAttribute('aria-pressed', 'true');
+	});
+
+	it('carries persistent group labels + captions so the icons are self-evident (not hover-only)', () => {
+		setup();
+		const bar = screen.getByRole('navigation', { name: 'Studio panels' });
+		expect(within(bar).getByText('AI')).toBeInTheDocument();
+		expect(within(bar).getByText('Set')).toBeInTheDocument();
+		// Each bar toggle shows a persistent caption under its glyph.
+		expect(within(bar).getByRole('button', { name: 'Toggle Architect' })).toHaveTextContent('Coach');
+		expect(within(bar).getByRole('button', { name: 'Deck scope' })).toHaveTextContent('Deck');
+		expect(within(bar).getByRole('button', { name: 'Slide settings' })).toHaveTextContent('Slide');
 	});
 });
 

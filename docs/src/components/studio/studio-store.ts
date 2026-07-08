@@ -33,6 +33,13 @@ function write(key: string, value: unknown): void {
 		/* storage full / unavailable — non-fatal */
 	}
 }
+function remove(key: string): void {
+	try {
+		localStorage.removeItem(key);
+	} catch {
+		/* storage unavailable — non-fatal */
+	}
+}
 
 /** Derive a deck title from its source — the first heading, else a fallback. */
 export function titleFromSource(source: string, fallback = 'Imported deck'): string {
@@ -212,6 +219,19 @@ export function loadChat(deckId: string): ChatMessage[] {
 }
 export function saveChat(deckId: string, messages: ChatMessage[]): void {
 	write(CHAT_PREFIX + deckId, messages.slice(-CHAT_CAP));
+}
+
+// The unsent chat draft, per deck — so a closed (or unmounted) Architect panel
+// keeps what the author was typing. Paired with the persisted history above, the
+// chat's full state survives the panel going away (the activity-bar model closes
+// it entirely; nothing should be lost on the way out).
+const CHAT_DRAFT_PREFIX = 'lattice-studio-chatdraft-'; // + deckId → string
+export function loadChatDraft(deckId: string): string {
+	return read<string>(CHAT_DRAFT_PREFIX + deckId) ?? '';
+}
+export function saveChatDraft(deckId: string, draft: string): void {
+	if (draft) write(CHAT_DRAFT_PREFIX + deckId, draft);
+	else remove(CHAT_DRAFT_PREFIX + deckId);
 }
 
 // `language` is the BCP-47 output locale for AI deck content (see studio-language).

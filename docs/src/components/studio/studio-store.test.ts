@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DECKS } from './decks';
-import { createDeck, deleteDeck, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, metaFor, renameDeck, saveCheckpoint, saveInstructions, saveSettings, saveSource, titleFromSource } from './studio-store';
+import { createDeck, deleteDeck, loadChatDraft, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, metaFor, renameDeck, saveChatDraft, saveCheckpoint, saveInstructions, saveSettings, saveSource, titleFromSource } from './studio-store';
 
 afterEach(() => localStorage.clear());
 
@@ -113,5 +113,21 @@ describe('studio-store — standing instructions', () => {
 		expect(loadInstructions()).toBe('Be terse.');
 		// Stored verbatim — the format the drawer has always written.
 		expect(localStorage.getItem('lattice-studio-instructions')).toBe('Be terse.');
+	});
+});
+
+describe('studio-store — chat draft (Architect no-lost-work)', () => {
+	it('round-trips a per-deck draft so a closed panel keeps the unsent text', () => {
+		expect(loadChatDraft('deck-a')).toBe('');
+		saveChatDraft('deck-a', 'tighten slide 3');
+		expect(loadChatDraft('deck-a')).toBe('tighten slide 3');
+		// Drafts are isolated per deck — switching decks never bleeds the text.
+		expect(loadChatDraft('deck-b')).toBe('');
+	});
+	it('clears the stored key when the draft goes empty (sent / erased)', () => {
+		saveChatDraft('deck-a', 'half a thought');
+		saveChatDraft('deck-a', '');
+		expect(loadChatDraft('deck-a')).toBe('');
+		expect(localStorage.getItem('lattice-studio-chatdraft-deck-a')).toBeNull();
 	});
 });

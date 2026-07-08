@@ -3,7 +3,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { type ChatTurn, chatComplete } from './architect';
 import { useReferenceDoc } from './reference-doc-ui';
-import { type ChatMessage, loadChat, saveChat } from './studio-store';
+import { type ChatMessage, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
 // The Architect chat — a real conversational thread (not a fixed card panel).
 // Each turn runs through the connected model with the deck in context; when the
@@ -13,7 +13,9 @@ import { type ChatMessage, loadChat, saveChat } from './studio-store';
 
 export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onManageDocs, notify }: { deckId: string; source: string; aiReady: boolean; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
-	const [input, setInput] = React.useState('');
+	// Draft is restored from the store so a closed/unmounted panel keeps what was
+	// being typed (the activity-bar model closes the panel entirely).
+	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
 	const [busy, setBusy] = React.useState(false);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	// A reference doc grounds the whole conversation (#640) — kept across turns (a
@@ -21,34 +23,63 @@ export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onM
 	// removes it. Its tokens are billed each turn, as the chip states.
 	const refDoc = useReferenceDoc(notify, onManageDocs);
 
-	// Reload the thread when the deck changes; persist on every change.
+	// Latest-value refs so an in-flight request can persist its reply to the RIGHT
+	// deck and guard the UI update — a `send` may resolve after the panel unmounts
+	// (bar-closed) or after a deck switch, and the model's reply must not be lost.
+	const deckIdRef = React.useRef(deckId);
+	deckIdRef.current = deckId;
+	const inputRef = React.useRef(input);
+	inputRef.current = input;
+
+	// Reload the thread AND the draft when the deck changes (this component is not
+	// re-keyed on deck switch — deckId changes in place).
 	React.useEffect(() => setMessages(loadChat(deckId)), [deckId]);
+	React.useEffect(() => setInput(loadChatDraft(deckId)), [deckId]);
 	React.useEffect(() => {
 		saveChat(deckId, messages);
 		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
 	}, [deckId, messages]);
+	// Persist the draft as it changes — keyed on `input` ONLY: a deck SWITCH must not
+	// fire this with the outgoing deck's text and clobber the incoming deck's draft
+	// (the reload effect above sets the incoming text). The deck is read via ref so
+	// each save targets the current deck. Also saved on unmount, so closing the panel
+	// mid-type never drops it.
+	React.useEffect(() => { saveChatDraft(deckIdRef.current, input); }, [input]);
+	React.useEffect(() => () => saveChatDraft(deckIdRef.current, inputRef.current), []);
 
 	const send = async () => {
 		const text = input.trim();
 		if (!text || busy) return;
+		const sendDeckId = deckId;
 		setInput('');
+		saveChatDraft(sendDeckId, '');
 		const history: ChatMessage[] = [...messages, { role: 'user', content: text }];
-		setMessages(history);
+		// commit = update the UI IF we're still on this deck AND persist to the store
+		// unconditionally, so an in-flight reply survives the panel unmounting or a
+		// deck switch (the store is the source of truth on reopen).
+		const commit = (next: ChatMessage[]) => {
+			saveChat(sendDeckId, next);
+			if (deckIdRef.current === sendDeckId) setMessages(next);
+		};
+		commit(history);
 		setBusy(true);
 		try {
 			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
 			const out = await chatComplete(turns, source, refDoc.docs);
 			if (out.status === 'offline') {
-				setMessages([...history, { role: 'assistant', content: 'Connect a model in Workspace → AI and I can answer and edit your deck. Until then I can’t generate a reply.' }]);
+				commit([...history, { role: 'assistant', content: 'Connect a model in Workspace → AI and I can answer and edit your deck. Until then I can’t generate a reply.' }]);
 				onConnect();
 			} else if (out.status === 'blocked') {
-				setMessages([...history, { role: 'assistant', content: out.reply }]);
+				commit([...history, { role: 'assistant', content: out.reply }]);
 			} else {
-				setMessages([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.source }]);
+				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.source }]);
 			}
 		} catch {
-			setMessages([...history, { role: 'assistant', content: 'Something went wrong reaching the model — try again.' }]);
+			commit([...history, { role: 'assistant', content: 'Something went wrong reaching the model — try again.' }]);
 		} finally {
+			// `busy` is a single UI-disable flag, not deck-scoped — clear it
+			// unconditionally. Guarding it on the send-time deck would soft-lock the
+			// composer forever if the user switched decks before the reply landed.
 			setBusy(false);
 		}
 	};
