@@ -95,9 +95,18 @@ export function resolveDeckTheme(
 	if (raw) {
 		const isDarkVariant = /-dark$/.test(raw);
 		const base = raw.replace(/-dark$/, '');
-		// Honor the deck theme when EITHER the bare name or its base (sans -dark) is
-		// registered — so `theme: cuoio` and `theme: cuoio-dark` both resolve.
-		if (opts.isKnownTheme(raw) || opts.isKnownTheme(base)) {
+		// Prefer an EXACT-name match before stripping `-dark`. A saved (Fabricated)
+		// theme is registered under its FULL name and may legitimately end in `-dark`
+		// (e.g. `noir-dark`, whose base `noir` is NOT separately registered) — stripping
+		// it would fetch a nonexistent `noir.css` and blank the preview/export. Built-in
+		// `-dark` variants are the opposite: `cuoio-dark` is NOT registered but `cuoio`
+		// is, so it falls to the base branch (unchanged) and the render re-expands the
+		// `-dark` via `hasTheme(palette + '-dark')`.
+		if (opts.isKnownTheme(raw)) {
+			palette = raw;
+			fromDeck = true;
+			if (isDarkVariant) darkTheme = true;
+		} else if (opts.isKnownTheme(base)) {
 			palette = base;
 			fromDeck = true;
 			if (isDarkVariant) darkTheme = true;

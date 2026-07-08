@@ -56,6 +56,17 @@ describe('resolveDeckTheme — palette independence', () => {
 		expect(r.palette).toBe('my-brand');
 		expect(r.fromDeck).toBe(true);
 	});
+
+	it('keeps a registered name that ITSELF ends in -dark (a saved theme whose base is not registered)', () => {
+		// A Fabricated theme saved as `noir-dark` — the base `noir` is NOT registered,
+		// so stripping `-dark` would 404 `noir.css`. The exact name must survive so the
+		// Studio memo finds it and passes its CSS as extraTheme.
+		const known2 = (n: string) => n === 'noir-dark';
+		const r = resolveDeckTheme(fm('theme: noir-dark'), { sitePalette: 'indaco', siteMode: 'light', isKnownTheme: known2 });
+		expect(r.palette).toBe('noir-dark'); // NOT stripped to "noir"
+		expect(r.fromDeck).toBe(true);
+		expect(r.pinnedDark).toBe(true);
+	});
 });
 
 describe('resolveDeckTheme — mode is a shared axis, deck-dark pins win', () => {
