@@ -59,4 +59,28 @@ describe('html-player export (--player)', () => {
 		const source = fs.readFileSync(DECK, 'utf8');
 		assert.equal(parseEnvelope(html).source, source, 'the embedded source is byte-identical to the deck');
 	});
+
+	// P6 — used-selector CSS prune. This asserts the REAL end-to-end result: the
+	// emulator matched selectors in Chromium, pruned, and its computed-style GATE
+	// passed (a gate failure ships the FULL ~452 KB block, so a shrunk block IS the
+	// gate's pass certificate — pruned CSS that renders identically).
+	test('the inlined lattice CSS is pruned to the used selectors (gate passed)', () => {
+		const blocks = [...html.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
+		let css = '';
+		for (const b of blocks) {
+			if (/lattice-embedded-fonts/.test(b[1])) continue;
+			if (b[2].length > css.length) css = b[2];
+		}
+		const fullMin = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.min.css'), 'utf8');
+		assert.ok(css.length > 3000, 'the deck still ships a real stylesheet');
+		assert.ok(
+			css.length < fullMin.length * 0.7,
+			`pruned CSS (${css.length}) is well under the full contract (${fullMin.length}) — prune applied + gate passed`,
+		);
+		// Essentials survive: the token :root in the pruned block, and the embedded
+		// @font-face faces (which live in the un-pruned #lattice-embedded-fonts block).
+		assert.match(css, /:root\{/, 'the token :root block survives (all --tokens kept)');
+		assert.match(html, /id="lattice-embedded-fonts"[^>]*>[\s\S]*?@font-face/, 'the embedded font faces are untouched by the CSS prune');
+		assert.equal((css.match(/\/\*/g) || []).length, 0, 'still comment-free (minify held)');
+	});
 });

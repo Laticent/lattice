@@ -1979,12 +1979,30 @@ async function renderBody(browser, g, closeBrowser) {
         build: ENGINE_BUILD,
         playerVersion: PLAYER_VERSION,
       });
-      fs.writeFileSync(outHtml, playerHtml);
+      // P6 — used-selector CSS prune. Authoritative Chromium matching + a computed-
+      // style gate (see prunePlayerCssInPage); a gate failure or css-tree-absent
+      // silently keeps the full CSS. Never fail-hard — this is a size lever, not the
+      // deliverable.
+      let finalPlayerHtml = playerHtml;
+      let pruneNote = '';
+      try {
+        const pr = await prunePlayerCssInPage(playerHtml);
+        if (pr.applied) {
+          finalPlayerHtml = pr.html;
+          pruneNote = `  pruned unused CSS: ${pr.keptRules}/${pr.totalRules} rules kept, ${(pr.saved / 1024).toFixed(0)} KB saved`;
+        } else if (pr.gateFailed) {
+          pruneNote = '  note: CSS prune skipped — computed-style gate flagged a diff; shipping full CSS';
+        }
+      } catch (e) {
+        pruneNote = `  note: CSS prune skipped (${e?.message}); shipping full CSS`;
+      }
+      fs.writeFileSync(outHtml, finalPlayerHtml);
       if (!QUIET) {
         console.log(`Player: ${outHtml} (${report.images} image(s) inlined)`);
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (inflatedPlayerHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
+        if (pruneNote) console.log(pruneNote);
       }
     } catch (err) {
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
@@ -1992,6 +2010,133 @@ async function renderBody(browser, g, closeBrowser) {
   } else if (FLUID_VIEW) {
     fs.writeFileSync(outHtml, toFluidViewer(cleanDocHtml));
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
+  }
+}
+
+// P6 — used-selector CSS prune for the self-contained player. Drops the rules of
+// the ~47 components a given deck doesn't use from the inlined lattice.css block,
+// toward the "Minimal" size tier. SAFE on a frozen artifact by two guards:
+//   (1) AUTHORITATIVE matching — a scratch Chromium page holding the REAL player
+//       DOM (all three view-DOMs inline) answers `document.querySelector` for every
+//       base selector; no token heuristic.
+//   (2) A COMPUTED-STYLE GATE — full vs pruned CSS is compared across all three
+//       views for every element (+ ::before/::after); ANY diff rejects the prune
+//       and the full CSS ships. css-tree absent / parse error / a smaller-than-nothing
+//       result all fall back to the full CSS. Returns { html, applied, saved, ... }.
+//
+// Runs in its OWN short-lived hardened browser (--disable-dev-shm-usage), NOT the
+// render browser: by the time the player is assembled the render browser has
+// consumed /dev/shm (raster + PDF + SVG twins), and a second 1 MB+ page on top of
+// that crashes the small-container Chromium. A dedicated hardened instance is
+// isolated from that pressure and can't perturb the deliverable render.
+async function prunePlayerCssInPage(playerHtml) {
+  const { collectBaseSelectors, prunePlayerCss } = require('./lib/export/html-player.js');
+  // Target = the largest <style> that is NOT the base64 font block (that's the
+  // inlined lattice.css; the small playerCss/#lattice-embedded-fonts are left alone).
+  const blocks = [...playerHtml.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
+  let target = null;
+  for (const b of blocks) {
+    if (/lattice-embedded-fonts/.test(b[1])) continue;
+    if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
+  }
+  if (!target || target.css.length < 50000) return { applied: false };
+  const bases = collectBaseSelectors(target.css);
+  if (!bases.length) return { applied: false }; // css-tree not installed → keep full CSS
+
+  const pruneOpts = {
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    headless: 'new',
+  };
+  if (CHROME_EXEC) pruneOpts.executablePath = CHROME_EXEC;
+  const pruneBrowser = await puppeteer.launch(pruneOpts);
+  const g = (op, label) => guard(pruneBrowser, op, label, RENDER_WATCHDOG_MS);
+  try {
+    // newPage() inside the try so a failure here still closes the browser.
+    const scratch = await pruneBrowser.newPage();
+    await g(() => scratch.setContent(playerHtml, { waitUntil: 'domcontentloaded', timeout: 60000 }), 'player prune: load');
+    // (1) authoritative match — keep a base on ANY querySelector error (conservative).
+    const used = await scratch.evaluate((sels) => {
+      const out = [];
+      for (const s of sels) {
+        try {
+          if (document.querySelector(s)) out.push(s);
+        } catch {
+          out.push(s);
+        }
+      }
+      return out;
+    }, bases);
+    const usedSet = new Set(used);
+    const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b));
+    if (!pruned.applied || pruned.css.length >= target.css.length) return { applied: false };
+
+    // (2) computed-style gate across all three views (+ pseudo-elements).
+    const identical = await scratch.evaluate(
+      ({ prunedCss }) => {
+        const PROPS = [
+          'display', 'position', 'top', 'left', 'right', 'bottom', 'z-index', 'float',
+          'color', 'background-color', 'background-image', 'background-size', 'background-position',
+          'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing',
+          'text-align', 'text-transform', 'text-decoration-line', 'white-space', 'vertical-align',
+          'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+          'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'box-sizing',
+          'flex-grow', 'flex-shrink', 'flex-basis', 'flex-direction', 'flex-wrap',
+          'grid-template-columns', 'grid-template-rows', 'gap', 'align-items', 'justify-content', 'justify-items',
+          'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+          'border-top-color', 'border-radius', 'border-style', 'opacity', 'transform', 'overflow',
+          'content', 'aspect-ratio', 'order', 'grid-column', 'grid-row',
+        ];
+        // The pruned block is the biggest non-font <style> — same target the Node
+        // side chose, re-found here by size so we swap the right one.
+        const styleEl = [...document.querySelectorAll('style')]
+          .filter((s) => s.id !== 'lattice-embedded-fonts')
+          .sort((a, b) => b.textContent.length - a.textContent.length)[0];
+        const app = document.getElementById('lp-app');
+        const views = ['present', 'read-slides', 'read-article'];
+        const snap = () => {
+          const rows = [];
+          for (const el of document.querySelectorAll('#lp-app *')) {
+            for (const pseudo of [null, '::before', '::after']) {
+              const cs = getComputedStyle(el, pseudo);
+              rows.push(PROPS.map((p) => cs.getPropertyValue(p)).join('|'));
+            }
+          }
+          return rows.join('\n');
+        };
+        const before = {};
+        for (const v of views) {
+          if (app) app.setAttribute('data-lp-view', v);
+          before[v] = snap();
+        }
+        const original = styleEl.textContent;
+        styleEl.textContent = prunedCss;
+        let ok = true;
+        for (const v of views) {
+          if (app) app.setAttribute('data-lp-view', v);
+          if (snap() !== before[v]) {
+            ok = false;
+            break;
+          }
+        }
+        styleEl.textContent = original;
+        if (app) app.setAttribute('data-lp-view', 'present');
+        return ok;
+      },
+      { prunedCss: pruned.css },
+    );
+    if (!identical) return { applied: false, gateFailed: true };
+
+    return {
+      applied: true,
+      // Replacer FUNCTION, not a string — else a `$&`/`$1`/backtick sequence in the
+      // pruned CSS (a data-URI, a `content:"$&"`) would be interpreted by replace().
+      html: playerHtml.replace(target.full, () => `<style>${pruned.css}</style>`),
+      saved: target.css.length - pruned.css.length,
+      keptRules: pruned.keptRules,
+      totalRules: pruned.totalRules,
+    };
+  } finally {
+    await pruneBrowser.close().catch(() => {});
   }
 }
 
