@@ -280,9 +280,10 @@ in patch versions.
   that "OpenRouter has no TTS models" — so no audio ever came back and the voice
   silently fell to the estimate/silent floor. It now uses OpenRouter's dedicated
   OpenAI-compatible speech route (`POST /api/v1/audio/speech` → `{ model, input,
-  voice, response_format }`, returning a raw mp3 stream), defaults to a real
-  speech-output model, and surfaces the API's error text instead of failing
-  silently. `speak()` gained an optional `speed` multiplier (forwarded to the
+  voice, response_format }`, returning a raw mp3 stream), defaults to hosted
+  Kokoro (`hexgrad/kokoro-82m`) — the cheapest speech model (~$0.62/M chars) that
+  still works on mobile without the on-device 80 MB download — and surfaces the
+  API's error text instead of failing silently. `speak()` gained an optional `speed` multiplier (forwarded to the
   route; ignored by models that don't support it) so the pace control changes the
   actual spoken tempo, not just the silent estimate. Same fix also unified
   `voice-model`'s sentence splitter with Cadenza's (lookbehind) so narration no

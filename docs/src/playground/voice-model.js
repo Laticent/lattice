@@ -39,10 +39,13 @@ const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const OR_SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
 
 // Voices are MODEL-specific (OpenAI-style alloy/nova only work with an OpenAI TTS
-// model). The default pairs a real speech-output model with one of its voice ids;
-// both are overridable via the localStorage prefs below.
-const DEFAULT_OR_TTS_MODEL = 'microsoft/mai-voice-2';
-const DEFAULT_OR_VOICE = 'en-US-Harper:MAI-Voice-2';
+// model; Kokoro uses its own af_*/am_* ids). The default is hosted Kokoro — by far
+// the cheapest OpenRouter speech model (~$0.62/M chars vs mai-voice-2's $22/M) and,
+// unlike the on-device Kokoro rung, it needs no 80 MB download so it works on mobile.
+// `af_heart` is the same Kokoro voice the on-device rung defaults to. Both overridable
+// via the localStorage prefs below.
+const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
+const DEFAULT_OR_VOICE = 'af_heart';
 const DEFAULT_KOKORO_VOICE = 'af_heart';
 
 // localStorage prefs (the lattice-db-* namespace the Drawing Board uses).
