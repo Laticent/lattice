@@ -10,25 +10,42 @@
 //     →  speechSynthesis (DEV/TEST ONLY)  →  silent (the floor)
 //
 // `speechSynthesis` is the per-device lottery we explicitly ban in production —
-// it is reachable only behind a dev flag, for prototyping the UX. See
+// it is reachable only behind a dev flag (or an explicit `allowBrowserVoice`
+// opt-in a demo surface passes), for prototyping the UX and for the /cadenza
+// reference page's keyless fallback. See
 // engineering/decisions/2026-06-14-read-aloud-kokoro.md.
 //
 // Sibling render-path note: this is docs-only (the Drawing Board); it does not
 // touch the three engine render paths.
+//
+// Node-loadable by DESIGN: test/unit/playground/voice-model.test.js imports this
+// module under plain `node --test` (no Vite alias, no TS resolution), so this file
+// must not use the `@/…` alias or import a TypeScript module. A caller that needs
+// the voice to speak EXACTLY a caption engine's sentences passes them via
+// speak({ sentences }) rather than making this module import that engine.
 
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
-// Cloud voice = OpenRouter audio OUTPUT via chat-completions (NOT a `/audio/speech`
-// route — OpenRouter has no TTS models). An audio-output model speaks the text back
-// as a streamed, base64 audio delta. CORS-enabled for the browser, authenticated
-// with the SAME key the architect model already holds.
-// Docs: https://openrouter.ai/docs/guides/overview/multimodal/audio
-const OR_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
+// Cloud voice = OpenRouter's dedicated TTS endpoint (/api/v1/audio/speech), the
+// OpenAI-compatible speech route. It takes { model, input, voice, response_format }
+// and returns a RAW audio byte stream (mp3) — NOT a chat message with base64 deltas.
+// (An earlier version wrongly went through chat-completions with a non-TTS model, so
+// no audio ever came back.) CORS-enabled for the browser, authenticated with the SAME
+// key the architect model already holds.
+// Docs: https://openrouter.ai/docs/guides/overview/multimodal/tts
+// TTS models: https://openrouter.ai/api/v1/models?output_modalities=speech
+const OR_SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
 
-const DEFAULT_OR_TTS_MODEL = 'openai/gpt-audio-mini'; // cheapest audio-output model
-const DEFAULT_OR_VOICE = 'nova'; // warm, boardroom-neutral (alloy/echo/fable/onyx/nova/shimmer)
+// Voices are MODEL-specific (OpenAI-style alloy/nova only work with an OpenAI TTS
+// model; Kokoro uses its own af_*/am_* ids). The default is hosted Kokoro — by far
+// the cheapest OpenRouter speech model (~$0.62/M chars vs mai-voice-2's $22/M) and,
+// unlike the on-device Kokoro rung, it needs no 80 MB download so it works on mobile.
+// `af_heart` is the same Kokoro voice the on-device rung defaults to. Both overridable
+// via the localStorage prefs below.
+const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
+const DEFAULT_OR_VOICE = 'af_heart';
 const DEFAULT_KOKORO_VOICE = 'af_heart';
 
 // localStorage prefs (the lattice-db-* namespace the Drawing Board uses).
@@ -79,13 +96,20 @@ export async function detectKokoroCached() {
 // Narration is spoken sentence-by-sentence so we get low time-to-first-audio,
 // can abort mid-note the instant the user navigates, and (later) insert
 // pause-beat silences between sentences. Pure + deterministic → unit-tested.
+//
+// This MIRRORS Cadenza's canonical splitSentences (docs/src/lib/cadenza/segment.ts)
+// exactly — a deliberate LOCAL COPY, not an import, because this module must stay
+// node-loadable (no `@/` alias / TS import; see the file header). A cross-check test
+// pins the two byte-identical so they can't drift. Break AFTER a terminator (.!?…)
+// followed by whitespace (lookbehind), so a mid-token dot ($4.2M, 3.5x) never splits.
+//
+// A caller that must keep the spoken sentences in lockstep with a caption engine's
+// cues can still pass that engine's own split via speak({ sentences }); with the two
+// splitters identical it's belt-and-suspenders, not a correctness requirement.
 export function splitSentences(text) {
-  const s = String(text || '').replace(/\s+/g, ' ').trim();
+  const s = String(text ?? '').replace(/\s+/g, ' ').trim();
   if (!s) return [];
-  // Break after sentence terminators (.!?…) when followed by whitespace/end.
-  // Over-splitting an abbreviation only adds a tiny gap — never a correctness bug.
-  const parts = s.match(/[^.!?…]*[.!?…]+(?=\s|$)|[^.!?…]+$/g) || [s];
-  return parts.map((p) => p.trim()).filter(Boolean);
+  return s.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
 }
 
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
@@ -121,13 +145,13 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
   return {
     name: 'openrouter-tts',
     ready() { return !!getKey(); },
-    async synth({ text, voice, signal }) {
+    async synth({ text, voice, signal, speed }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
-      // Audio OUTPUT goes through chat-completions with modalities:['text','audio'];
-      // stream:true is MANDATORY (the audio arrives as base64 deltas). A short system
-      // prompt pins the model to verbatim narration, not conversation.
-      const res = await (fetchImpl || fetch)(OR_CHAT_URL, {
+      // OpenAI-compatible speech route: POST the text, get a raw mp3 byte stream back.
+      // `speed` is an optional multiplier (default 1.0); models that don't support it
+      // ignore it, so passing it is always safe.
+      const res = await (fetchImpl || fetch)(OR_SPEECH_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -137,65 +161,24 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         },
         body: JSON.stringify({
           model: getModel(),
-          modalities: ['text', 'audio'],
-          audio: { voice: voice || getVoice(), format: 'wav' },
-          stream: true,
-          messages: [
-            { role: 'system', content: 'You are a text-to-speech engine. Speak the user\'s message aloud verbatim, in a natural, measured boardroom delivery. Do not add, omit, summarize, answer, or comment — read the exact text and nothing else.' },
-            { role: 'user', content: text },
-          ],
+          input: text,
+          voice: voice || getVoice(),
+          response_format: 'mp3',
+          ...(speed && speed !== 1 ? { speed } : {}),
         }),
         signal,
       });
       if (!res.ok) {
-        let detail = ''; try { detail = (await res.text()).slice(0, 160); } catch {}
+        // Surface the API's reason (bad model slug, unknown voice, no credit) instead
+        // of a silent fall-through — the only way to diagnose without the console.
+        let detail = ''; try { detail = (await res.text()).slice(0, 200); } catch {}
         throw new Error('OpenRouter TTS error ' + res.status + (detail ? ': ' + detail : ''));
       }
-      const b64 = await readAudioStream(res);
-      if (!b64) throw new Error('no audio in response (model may not support audio output)');
-      return b64ToBlob(b64, 'audio/wav');
+      const blob = await res.blob();
+      if (!blob || !blob.size) throw new Error('OpenRouter returned empty audio');
+      return blob; // mp3; playBlob's decodeAudioData handles it
     },
   };
-}
-
-// Read OpenRouter's SSE stream and concatenate the base64 audio deltas
-// (choices[0].delta.audio.data). Falls back to a non-streamed message.audio.data.
-async function readAudioStream(res) {
-  if (!res.body || !res.body.getReader) {
-    try { const j = await res.json(); return j?.choices?.[0]?.message?.audio?.data || ''; } catch { return ''; }
-  }
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = '';
-  let b64 = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    let nl;
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (payload === '[DONE]') return b64;
-      try {
-        const j = JSON.parse(payload);
-        const c = j?.choices?.[0];
-        const d = c?.delta?.audio?.data || c?.message?.audio?.data;
-        if (d) b64 += d;
-      } catch {}
-    }
-  }
-  return b64;
-}
-
-// base64 → Blob, browser-safe (atob; no Buffer dependency).
-function b64ToBlob(b64, type) {
-  const bin = atob(b64);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], { type });
 }
 
 // Kokoro in-browser rung. Prefers a SAME-ORIGIN module Worker (see kokoro-worker.js
@@ -294,7 +277,11 @@ function kokoroRung({ getVoice }) {
 
 // ── The adapter ───────────────────────────────────────────────────────────────
 
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = {}) {
+// NOTE: no `= false` default on allowBrowserVoice — a defaulted binding here makes
+// tsc (checkJs) infer the param type as ONLY `{ allowBrowserVoice?: boolean }`, which
+// drops getOpenRouterKey and breaks read-aloud.ts's call. `=== true` below is already
+// false for undefined, so the default is unnecessary anyway.
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice } = {}) {
   const settings = () => (getSettings ? getSettings() : {}) || {};
   const getKey = () => (getOpenRouterKey ? getOpenRouterKey() : null) || null;
 
@@ -302,8 +289,13 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
   const orVoice = () => readLS(OR_VOICE_LS) || DEFAULT_OR_VOICE;
   const orModel = () => readLS(OR_TTS_MODEL_LS) || DEFAULT_OR_TTS_MODEL;
   const kokoroVoice = () => readLS(KOKORO_VOICE_LS) || DEFAULT_KOKORO_VOICE;
-  // The banned rung is reachable only when a dev explicitly opts in.
-  const allowSpeech = () => readLS(DEV_SPEECH_LS) === '1' || settings().voiceDevSpeech === true;
+  // The banned rung is reachable only when a dev opts in (localStorage / settings)
+  // OR a caller explicitly passes `allowBrowserVoice` — the escape hatch for a
+  // surface that WANTS the device-lottery voice as its keyless fallback (today only
+  // the /cadenza reference page, to let a visitor hear the read-along without a key).
+  // Off by default, so the production Playground read-aloud stays silent-floored per
+  // engineering/decisions/2026-06-14-read-aloud-kokoro.md.
+  const allowSpeech = () => allowBrowserVoice === true || readLS(DEV_SPEECH_LS) === '1' || settings().voiceDevSpeech === true;
 
   const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl });
   const kokoro = kokoroRung({ getVoice: kokoroVoice });
@@ -367,9 +359,20 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
   // synth) is then allowed. Call this SYNCHRONOUSLY from the tap (read-aloud button /
   // play-sample) — resuming + ticking a 1-sample buffer blesses the context. No-op
   // where WebAudio is absent. Idempotent.
+  //
+  // CRITICAL for iOS: a bare AudioContext renders through the "ambient" audio session,
+  // which the hardware silent/ring switch MUTES — so playback succeeds (currentTime
+  // advances, onended fires) yet nothing is heard. (An earlier comment here claimed
+  // WebAudio "ignores the ringer switch"; that was backwards.) Promote the session to
+  // 'playback' (Safari 16.4+, guarded) so audio goes through the media channel that
+  // ignores the mute switch, like an <audio> element. See WebKit bug 237322.
   function unlock() {
     const ctx = getCtx();
     if (!ctx) return;
+    try {
+      const s = typeof navigator !== 'undefined' && navigator.audioSession;
+      if (s) navigator.audioSession.type = 'playback';
+    } catch {}
     try { if (ctx.state === 'suspended') ctx.resume(); } catch {}
     try {
       const s = ctx.createBufferSource();
@@ -436,7 +439,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
   // speak() narrates `text`, sentence by sentence, and resolves when finished (or
   // aborted). It NEVER rejects — a rung failure falls through to silence. A new
   // speak() (or stop()) cancels any in-flight narration first (barge-in).
-  async function speak({ text, voice, signal, onSentence, onSentenceTiming, onState } = {}) {
+  async function speak({ text, sentences: providedSentences, voice, speed, signal, onSentence, onSentenceTiming, onState } = {}) {
     stop();
     const ctl = new AbortController();
     activeCtl = ctl;
@@ -447,7 +450,25 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
     }
     const rung = pickRung();
     onState?.({ rung: rung.name, speaking: true });
-    const sentences = splitSentences(text);
+    // A caller may pass its OWN sentence boundaries (e.g. a caption engine's cue
+    // split) so the spoken sentence at index i is exactly its cue i — the onset
+    // forwarded by onSentenceTiming then re-anchors the right word. Otherwise we
+    // fall to our own splitter.
+    const sentences =
+      Array.isArray(providedSentences) && providedSentences.length
+        ? providedSentences.map((s) => String(s).trim()).filter(Boolean)
+        : splitSentences(text);
+    // Capture the FIRST real failure reason so the caller can show it. Previously the
+    // synth error (a good HTTP-status message) and playBlob's decode/play error were
+    // both discarded, making every failure look like identical silence — the blind
+    // path the audio trio flagged. A synth error (the network/API reason) wins over
+    // playBlob's generic 'no audio', since it's the more diagnostic message.
+    let lastError = null;
+    const errStr = (e) => (e && e.message) ? e.message : String(e || 'unknown');
+    const synth = (t) => rung.synth({ text: t, voice, speed, signal: sig }).catch((e) => {
+      if (!sig.aborted && !lastError) lastError = errStr(e);
+      return null;
+    });
     try {
       if (rung.name === 'speechSynthesis') {
         for (const s of sentences) {
@@ -460,11 +481,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
         // Floor: nothing to play.
       } else {
         // Blob rungs, with one-ahead prefetch for low gap between sentences.
-        let next = sentences.length ? rung.synth({ text: sentences[0], voice, signal: sig }).catch(() => null) : null;
+        let next = sentences.length ? synth(sentences[0]) : null;
         for (let i = 0; i < sentences.length; i++) {
           if (sig.aborted) break;
           const blob = await next;
-          next = i + 1 < sentences.length ? rung.synth({ text: sentences[i + 1], voice, signal: sig }).catch(() => null) : null;
+          next = i + 1 < sentences.length ? synth(sentences[i + 1]) : null;
           if (sig.aborted) break;
           await waitIfPaused(sig);
           onSentence?.(sentences[i]);
@@ -474,12 +495,17 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
           const onStart = onSentenceTiming
             ? ({ onsetMs, durationMs }) => onSentenceTiming({ index: i, text: sentences[i], onsetMs, durationMs })
             : undefined;
-          await playBlob(blob, sig, onStart);
+          const played = await playBlob(blob, sig, onStart);
+          // A decode/play failure (not a mere missing blob, which the synth error above
+          // already explains) is worth surfacing too.
+          if (played && played.ok === false && played.error && played.error !== 'no audio' && !lastError) {
+            lastError = played.error;
+          }
         }
       }
     } finally {
       if (activeCtl === ctl) activeCtl = null;
-      onState?.({ rung: rung.name, speaking: false, aborted: sig.aborted });
+      onState?.({ rung: rung.name, speaking: false, aborted: sig.aborted, error: lastError || undefined });
     }
   }
 
@@ -526,6 +552,17 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl } = 
     // ticks against (onsets from onSentenceTiming are read off the SAME clock). 0
     // before any audio has played. Read-only; never creates the context.
     audioTimeMs() { return audioCtx ? audioCtx.currentTime * 1000 : 0; },
+    // The AudioContext lifecycle state for diagnostics: 'none' (never created),
+    // 'suspended' (needs a gesture / interrupted), or 'running'. Read-only.
+    audioState() { return audioCtx ? audioCtx.state : 'none'; },
+    // Audio hardware output latency in ms — the gap between the clock (currentTime)
+    // and what's actually HEARD. A caption cursor subtracts this so the highlight
+    // matches the ear rather than leading it. 0 where the browser doesn't report it.
+    outputLatencyMs() {
+      if (!audioCtx) return 0;
+      const l = audioCtx.outputLatency || audioCtx.baseLatency || 0;
+      return l * 1000;
+    },
     rung() { return pickRung().name },
     kokoroSupported,
     availability() {

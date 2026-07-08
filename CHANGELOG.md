@@ -278,6 +278,33 @@ in patch versions.
 
 ### Fixed
 
+- **The OpenRouter cloud voice now actually produces audio.** The read-aloud
+  voice ladder (`docs/src/playground/voice-model.js`) called OpenRouter through
+  `chat/completions` with a non-existent audio-output model, on the assumption
+  that "OpenRouter has no TTS models" — so no audio ever came back and the voice
+  silently fell to the estimate/silent floor. It now uses OpenRouter's dedicated
+  OpenAI-compatible speech route (`POST /api/v1/audio/speech` → `{ model, input,
+  voice, response_format }`, returning a raw mp3 stream), defaults to hosted
+  Kokoro (`hexgrad/kokoro-82m`) — the cheapest speech model (~$0.62/M chars) that
+  still works on mobile without the on-device 80 MB download — and surfaces the
+  API's error text instead of failing silently. `speak()` gained an optional `speed` multiplier (forwarded to the
+  route; ignored by models that don't support it) so the pace control changes the
+  actual spoken tempo, not just the silent estimate. Same fix also unified
+  `voice-model`'s sentence splitter with Cadenza's (lookbehind) so narration no
+  longer mis-splits a decimal like `$4.2M`.
+
+- **Read-aloud audio is no longer silently killed by the iPhone's ring/silent
+  switch, and failures are now visible.** A bare `AudioContext` plays through iOS's
+  "ambient" session, which the hardware mute switch silences — so playback "worked"
+  (the highlight tracked) while nothing was audible (a comment claimed the opposite;
+  WebKit bug 237322). `unlock()` now promotes the session to `playback` (Safari
+  16.4+) so audio uses the media channel that ignores the mute switch. And the voice
+  ladder no longer swallows synth/decode errors: `speak()` forwards the real reason
+  (HTTP status / CORS / decode) through `onState.error`, exposed via a new
+  `audioState()` probe and surfaced on the `/cadenza` page — so a rejected API call,
+  a muted channel, and a suspended context are finally distinguishable. Found by an
+  adversarial trio (red team + Munger inversion + independent checker).
+
 - **The Playground now remembers where you were and never destroys a draft
   (Specimen Book, PR 5).** Four long-standing state janks fixed at the source
   in a new pure kernel (`docs/src/lib/playground-controller.ts`): the picker's
