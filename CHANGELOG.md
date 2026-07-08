@@ -51,6 +51,10 @@ in patch versions.
   A per-slide pin wins over the deck-wide one. In the Studio, the Inspector's
   **Appearance** control now sets the deck's color mode (Match site / Light / Dark),
   writing this front matter; the topbar Sun/Moon remains the website light/dark.
+- **The Studio Inspector's Theme control now sets the DECK's theme.** It reads/writes
+  the deck's own `theme:` front matter with an "Automatic — match site" option that
+  clears it (the topbar picker stays the website theme). The Appearance control also
+  reflects a deck pinned dark by a `-dark` theme name, not only by `class:`.
 - **A self-contained HTML player export — `--player`.** `lattice-emulator deck.md
   out.pdf --player` (or a `player: true` front-matter key) now writes the `.html`
   sidecar as a portable, offline, double-clickable **player**: one file that *is*

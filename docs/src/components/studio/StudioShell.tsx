@@ -459,12 +459,43 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// deck-scoped sibling of the website mode toggle — it writes front matter, saved
 	// with the deck. Resolution precedence lives in @/lib/deck-theme.
 	const deckClassList = (getFrontMatter(source, 'class') || '').split(/\s+/).filter(Boolean);
-	const deckColorMode: 'auto' | 'light' | 'dark' = deckClassList.includes('dark') ? 'dark' : deckClassList.includes('light') ? 'light' : 'auto';
+	// The deck's raw `theme:` (may be a `-dark` variant on an imported deck) and its
+	// base palette (darkness lives on the `class:` axis, not the theme name, in the UI).
+	const deckThemeRaw = (getFrontMatter(source, 'theme') || '').trim();
+	const deckThemeBase = deckThemeRaw.replace(/-dark$/, '');
+	// Reflect a deck pinned dark by a `-dark` THEME name too (not just `class:`), so the
+	// Appearance control never reads "Match site" for a deck that is actually dark.
+	const deckColorMode: 'auto' | 'light' | 'dark' = deckClassList.includes('dark')
+		? 'dark'
+		: deckClassList.includes('light')
+			? 'light'
+			: /-dark$/.test(deckThemeRaw)
+				? 'dark'
+				: 'auto';
 	const setDeckColorMode = (value: 'auto' | 'light' | 'dark') =>
 		settingsWrite(`Appearance → ${value === 'auto' ? 'Match site' : value}`, (s) => {
-			// One canvas axis: clear both tokens, then stamp the chosen one (auto = neither).
-			const cleared = removeClassTokens(s, 'dark light');
+			// Normalize a `-dark` theme name to its base — this axis (the `class:` token)
+			// is the single home for deck darkness, so the theme name and Appearance can't
+			// disagree. Then clear both canvas tokens and stamp the chosen one (auto = none).
+			const t = (getFrontMatter(s, 'theme') || '').trim();
+			const normalized = /-dark$/.test(t) ? setFrontMatter(s, 'theme', t.replace(/-dark$/, '')) : s;
+			const cleared = removeClassTokens(normalized, 'dark light');
 			return value === 'auto' ? cleared : mergeClassTokens(cleared, value);
+		});
+	// The DECK's own THEME (front matter), independent of the website palette. The
+	// prominent/topbar picker is the WEBSITE theme; this Inspector control is the
+	// deck's — 'automatic' (no `theme:`) means the deck adopts the website theme.
+	const setDeckTheme = (name: string | null) =>
+		settingsWrite(name ? `Deck theme → ${name}` : 'Deck theme → Automatic', (s) => {
+			let out = s;
+			// Preserve dark encoded in an OUTGOING `-dark` theme name (import edge) as a
+			// `class: dark` pin before we replace the theme, unless the deck already pins a
+			// canvas via `class:` — so swapping the palette never silently drops the deck's
+			// darkness. The menu only offers base names, so `name` itself is never `-dark`.
+			const cur = (getFrontMatter(s, 'theme') || '').trim();
+			const hasClassMode = deckClassList.includes('dark') || deckClassList.includes('light');
+			if (/-dark$/.test(cur) && !hasClassMode) out = mergeClassTokens(out, 'dark');
+			return setFrontMatter(out, 'theme', name);
 		});
 	// …and WRITE to it (the editor + every export update in lock-step).
 	const finish = getFrontMatter(source, 'finish') || 'none';
@@ -742,7 +773,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const extraTheme = activeTheme ? { name: activeTheme.name, css: activeTheme.css } : undefined;
 	// Saved (Fabricated) themes shaped for the grouped picker.
 	const savedMenu = React.useMemo(() => savedThemes.map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
-	const activePalette = React.useMemo(() => activePaletteLabel(palette, savedMenu), [palette, savedMenu]);
+	// Label + dot for the deck-theme trigger — null when the deck names no theme (Automatic).
+	const deckThemeMenuLabel = React.useMemo(() => (deckThemeBase ? activePaletteLabel(deckThemeBase, savedMenu) : null), [deckThemeBase, savedMenu]);
 	const activeFin = React.useMemo(() => activeFinishLabel(finish, savedFinishMenu), [finish, savedFinishMenu]);
 	const activeMan = React.useMemo(() => activeModeLabel(renderMode), [renderMode]);
 	const activeSpec = React.useMemo(() => activeSpectrumLabel(spectrum), [spectrum]);
@@ -1278,13 +1310,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const inspectorBody = (
 		<>
 			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light or dark, size, and surface.">
-				<Field label="Theme" desc="The color palette every slide draws from.">
+				<Field label="Theme" desc="This deck's color palette. “Automatic” follows the website theme; pick one to pin it to the deck (saved with the deck, kept when the site theme changes).">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Control aria-label="Choose theme"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activePalette.color }} /><span className="truncate">{activePalette.label}</span></span> <ChevronDown className="size-3.5" /></Control>
+							<Control aria-label="Choose deck theme"><span className="flex min-w-0 items-center gap-2">{deckThemeMenuLabel ? <span className="size-3.5 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: deckThemeMenuLabel.color }} /> : <SunMoon className="size-3.5 text-muted-foreground" />}<span className="truncate">{deckThemeMenuLabel ? deckThemeMenuLabel.label : 'Automatic'}</span></span> <ChevronDown className="size-3.5" /></Control>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="max-h-[60vh] w-52 overflow-y-auto">
-							<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
+							<DropdownMenuItem onSelect={() => setDeckTheme(null)} className="gap-2"><SunMoon className="size-3.5" />Automatic — match site{!deckThemeBase && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+							<DropdownMenuSeparator />
+							<ThemeMenuItems palette={deckThemeBase} onPick={setDeckTheme} saved={savedMenu} />
 						</DropdownMenuContent>
 					</DropdownMenu>
 					{savedThemes.length > 0 && (
