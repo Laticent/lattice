@@ -104,6 +104,20 @@ const { STATIC_ASSETS, AGENT_ASSETS } = createRequire(import.meta.url)(join(repo
 for (const { from } of [...STATIC_ASSETS, ...AGENT_ASSETS]) {
   assets.push([`export/${basename(from)}`, join(repoRoot, from)]);
 }
+// KaTeX — the math stylesheet + its woff2 fonts, staged under katex/ so a math
+// deck's `.katex` styling loads SAME-ORIGIN (it was a jsdelivr `<link>` injected
+// into every filmstrip preview). Only the woff2 are staged: katex.min.css lists
+// woff2/woff/ttf per face and the browser fetches only the first supported format
+// (woff2), so the woff/ttf refs are never requested (no 404s). The CSS's relative
+// `url(fonts/…)` resolves against the co-located katex/fonts/. Sourced from the
+// `katex` dependency so it can't drift from the version the engine renders with.
+const katexDist = join(repoRoot, 'node_modules', 'katex', 'dist');
+if (existsSync(katexDist)) {
+  assets.push(['katex/katex.min.css', join(katexDist, 'katex.min.css')]);
+  for (const file of readdirSync(join(katexDist, 'fonts'))) {
+    if (file.endsWith('.woff2')) assets.push([`katex/fonts/${file}`, join(katexDist, 'fonts', file)]);
+  }
+}
 // The worked exemplar decks (exemplars/<bucket>/<slug>.md) — fetched on demand by
 // the Drawing Board's Drafting picker, trimmed to the chosen tier in the browser
 // (lib/exemplars/tier-filter.js). Staged hashed like every other fetched asset so

@@ -61,6 +61,11 @@ export type PlaygroundData = {
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
+	/** Self-hosted Mermaid / KaTeX URLs (staged assets); the filmstrip injects them
+	 *  only when a deck has a diagram / math. Optional — the test harness omits them
+	 *  and the render falls back to the jsdelivr defaults. */
+	mermaidUrl?: string;
+	katexUrl?: string;
 	palettes: string[];
 	finishes: string[];
 	// Deck-grammar lint vocabulary for the editor's inline validation (optional so
@@ -89,7 +94,7 @@ type Walk =
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
+	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, mermaidUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -186,7 +191,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const chartInteractRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const videoOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const editorRef = React.useRef<EditorAdapter | null>(null);
-	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes));
+	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, katexUrl }));
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 

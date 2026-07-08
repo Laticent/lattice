@@ -1,0 +1,108 @@
+/* Self-hosted site-chrome webfonts.
+ * ────────────────────────────────────────────────────────────────────────
+ * The docs-site type pairing — Playfair Display (display), Outfit (body),
+ * JetBrains Mono (code) — served from the woff2 ALREADY vendored under
+ * ../playground/fonts (the same faces font-embed.js inlines into the preview
+ * iframe). Replaces the render-blocking Google-Fonts `@import` that
+ * landing.css / lattice.css used to carry: a remote CSS `@import` blocks first
+ * paint until it resolves, so a slow/flaky Google Fonts response (mobile, cold
+ * cache) left the whole app — Studio preview included — blank for many seconds.
+ * A local `@font-face` is never render-blocking, and `font-display: swap` paints
+ * text in the fallback immediately, then swaps when the woff2 lands.
+ *
+ * Vite rewrites each relative `url()` to the hashed, base-aware bundled asset,
+ * so this works under any deploy base without a manual public/ copy. Weights
+ * mirror exactly what the two stylesheets requested from Google.
+ *
+ * The engine's own `dist/lattice.css` @import (npm consumers / the export
+ * player) is a SEPARATE surface and intentionally untouched here. */
+
+/* ── Playfair Display — display / headings ── */
+@font-face {
+	font-family: 'Playfair Display';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('../playground/fonts/playfair-display-400.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'Playfair Display';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('../playground/fonts/playfair-display-700.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'Playfair Display';
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url('../playground/fonts/playfair-display-400-italic.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'Playfair Display';
+	font-style: italic;
+	font-weight: 700;
+	font-display: swap;
+	src: url('../playground/fonts/playfair-display-700-italic.woff2') format('woff2');
+}
+
+/* ── Outfit — body ── */
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url('../playground/fonts/outfit-300.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('../playground/fonts/outfit-400.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('../playground/fonts/outfit-500.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('../playground/fonts/outfit-600.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('../playground/fonts/outfit-700.woff2') format('woff2');
+}
+
+/* ── JetBrains Mono — code ── */
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('../playground/fonts/jetbrains-mono-400.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('../playground/fonts/jetbrains-mono-500.woff2') format('woff2');
+}
+@font-face {
+	font-family: 'JetBrains Mono';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('../playground/fonts/jetbrains-mono-600.woff2') format('woff2');
+}

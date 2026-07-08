@@ -35,10 +35,12 @@ export async function buildPresenterStageDoc(options: SingleSlideOptions, source
 		// are styled on the second screen too.
 		css: render.fontCss + render.css + (extraCss ? `\n${extraCss}` : ''),
 		runtimeUrl: render.runtimeUrl,
-		katexUrl: KATEX_URL,
-		// Prefer the Studio's locally-vendored Mermaid (studio.astro passes it); the
-		// dual-screen presenter renders diagrams from our own origin, not jsdelivr.
-		mermaidUrl: options.mermaidUrl || MERMAID_URL,
+		// Inject KaTeX / Mermaid only when the deck actually has math / a diagram, and
+		// prefer the Studio's locally-vendored copies (studio.astro passes both) so the
+		// second screen renders from our own origin, never jsdelivr. buildStageDoc omits
+		// each when its URL is '' — so a plain deck's presenter pulls neither.
+		katexUrl: render.html.includes('katex') ? options.katexUrl || KATEX_URL : '',
+		mermaidUrl: render.html.includes('language-mermaid') ? options.mermaidUrl || MERMAID_URL : '',
 		a11yDefs: A11Y_DEFS,
 	});
 	return { doc, total };

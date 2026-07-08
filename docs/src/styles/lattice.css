@@ -14,7 +14,8 @@
  * Mirrors lattice.css / themes/indaco.css and the landing's type pairing
  * (Playfair Display headings, Outfit body, JetBrains Mono code). */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Self-hosted webfonts (was a render-blocking Google-Fonts @import — see fonts.css). */
+@import './fonts.css';
 @import './lattice-tokens.generated.css';
 /* Topbar chrome glyphs (menu / moon / sun) — shared with the standalone pages
  * (landing.css) so the docs topbar can't drift from the rest of the site. */

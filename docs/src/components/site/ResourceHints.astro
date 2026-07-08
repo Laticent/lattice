@@ -1,23 +1,12 @@
 ---
 // Resource hints emitted high in <head> on every page. The webfonts (Playfair
-// Display, Outfit, JetBrains Mono) load via an @import in the site CSS, which
-// is render-blocking AND can't even open the gstatic.com socket until that CSS
-// has parsed. A preconnect opens the TLS handshake to both Google Fonts hosts
-// up front, shaving the font round-trip off first paint.
-//
-//   • fonts.googleapis.com serves the stylesheet (a same-origin-ish CSS fetch)
-//     → a plain preconnect.
-//   • fonts.gstatic.com serves the actual .woff2 files over CORS → preconnect
-//     WITH crossorigin, or the warmed socket can't be reused for the font fetch.
-//
-// Starlight docs pages get the same two hints via the `head` config in
-// astro.config.mjs; this component covers the standalone Astro routes.
+// Display, Outfit, JetBrains Mono) are now SELF-HOSTED (fonts.css → the vendored
+// woff2), so there is no third-party font host to preconnect to and no
+// render-blocking Google-Fonts @import on the critical path. The `@font-face`
+// faces load non-blocking with `font-display: swap`.
 import PerfOverlay from './PerfOverlay.astro';
 import PwaHead from './PwaHead.astro';
 ---
-
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
 {/* Web-app manifest + service-worker registration (docs pages get the same
     via the ThemeProvider override). */}
