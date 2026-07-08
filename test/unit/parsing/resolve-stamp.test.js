@@ -50,13 +50,25 @@ describe('resolve-stamp', () => {
   });
 
   test('STAMP_STYLE_NAMES is the boardroom subset followed by the wider range', () => {
-    assert.deepEqual([...STAMP_STYLE_NAMES], [...STAMP_STYLES.boardroom, ...STAMP_STYLES.range]);
-    // boardroom leads with the curated five.
+    // Pinned to a hand-written literal (NOT re-derived from STAMP_STYLES), so an
+    // accidental edit/reorder in either group must also touch this list to stay
+    // green — a derived-vs-source compare would move in lockstep and prove nothing.
+    assert.deepEqual([...STAMP_STYLE_NAMES], [
+      'tab', 'notch', 'bracket', 'seal', 'pill', // boardroom: the curated five, in order
+      'ribbon', 'flag', 'underline', 'dot', 'mark', 'veil', 'bar', 'pin', // range: the rest
+    ]);
+    // …and the boardroom subset itself leads with exactly those five.
     assert.deepEqual([...STAMP_STYLES.boardroom], ['tab', 'notch', 'bracket', 'seal', 'pill']);
   });
 
   test('STAMP_STYLE_TOKENS is each name stamp-prefixed', () => {
-    assert.deepEqual([...STAMP_STYLE_TOKENS], STAMP_STYLE_NAMES.map((n) => `stamp-${n}`));
+    // Literal pin (not `STAMP_STYLE_NAMES.map(...)`, which recreates the impl's
+    // own derivation): the `stamp-` prefix AND membership are both asserted here.
+    assert.deepEqual([...STAMP_STYLE_TOKENS], [
+      'stamp-tab', 'stamp-notch', 'stamp-bracket', 'stamp-seal', 'stamp-pill',
+      'stamp-ribbon', 'stamp-flag', 'stamp-underline', 'stamp-dot', 'stamp-mark',
+      'stamp-veil', 'stamp-bar', 'stamp-pin',
+    ]);
   });
 
   test('readFrontMatterStamp extracts the value from the front-matter block only', () => {

@@ -73,10 +73,10 @@ describe('theme-cvd', () => {
     assert.ok(distanceUnder('#d12f2f', '#2f9e44', 'tritanopia') > 0.15);
   });
 
-  test('distanceUnder agrees with simulate + oklabDistance', () => {
-    const a = '#e64980';
-    const b = '#0c8599';
-    const expected = oklabDistance(simulate(a, 'protanopia'), simulate(b, 'protanopia'));
-    assert.equal(distanceUnder(a, b, 'protanopia'), expected);
-  });
+  // NOTE: no `distanceUnder === oklabDistance(simulate(a), simulate(b))` test —
+  // that only restates the function's own definition (green by construction).
+  // distanceUnder's real behavior is exercised above against INDEPENDENT
+  // physiological oracles: red↔green must collapse under deuteranopia (< 0.15)
+  // and blue↔yellow under tritanopia (≥ 20% closer), which a broken composition
+  // would fail.
 });

@@ -144,6 +144,11 @@ test('counts are derived from the live catalogs, not stored in the ontology', ()
   assert.equal(counts.frame, live.forms.frames.length);
 });
 
+// STALENESS gate only, NOT a content oracle: renderJson() also generated the
+// committed file, so a bug inside it corrupts both sides equally and passes.
+// The CONTENT is independently checked by the deriveCounts / liveVocabularies
+// tests above. A diff here means a source ontology changed without a rebuild —
+// re-run the generator and commit; treat the diff as expected-on-change.
 test('dist/docs/concepts.json is fresh (regenerating produces no diff)', () => {
   const committed = fs.readFileSync(JSON_FILE, 'utf8');
   assert.equal(renderJson(), committed, 'run `npm run docs:concepts` and commit the result');
