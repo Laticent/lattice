@@ -112,6 +112,21 @@ test('the player inlines the transport kernel with its EXACT fit insets (frozen 
 	assert.match(html, /createTransport\(\{count:slides\.length/, 'nav runs on the shared transport');
 });
 
+test('present mode ships a speaker-notes sheet reading the baked asides (P3d)', async () => {
+	// The player's docHtml carries a hidden aside.lattice-notes per slide (materialized
+	// by the emulator). The sheet reads THAT — it creates no new note copy.
+	const withNote = docHtml.replace(
+		'<h1>Deck</h1>',
+		'<h1>Deck</h1><aside class="lattice-notes" hidden data-slide="1">Pause and breathe.</aside>',
+	);
+	const { html } = await buildPlayerHtml({ docHtml: withNote, source, now: 0 });
+	assert.match(html, /id="lp-notes-btn"/, 'the notes toggle control is present');
+	assert.match(html, /id="lp-notes"/, 'the notes sheet shell is present');
+	assert.match(html, /aside\.lattice-notes/, 'the sheet reads the existing note aside (no new copy)');
+	assert.match(html, /toggleNotes/, 'the sheet has toggle wiring');
+	assert.match(html, /Pause and breathe\./, 'the note aside rides in the baked DOM');
+});
+
 test('present mode ships swipe, fullscreen, and dvh viewport-fill (P3c)', async () => {
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /function swipeAction\(/, 'the swipe kernel is inlined');

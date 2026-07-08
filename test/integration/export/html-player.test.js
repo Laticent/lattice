@@ -171,3 +171,76 @@ describe('html-player export — Present fits the viewport (P3c)', () => {
 		}
 	}, { timeout: TIMEOUT });
 });
+
+// P3d — speaker notes: default-in, with a --strip-notes privacy export that must
+// scrub the note text from EVERY baked copy (the DOM aside AND the envelope source).
+// The grep test is the whole point: a stripped file that leaks note text is a bug.
+describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
+	const TIMEOUT = 120000;
+	const NOTE_A = 'Pause here and make firm eye contact.';
+	const NOTE_B = 'Land the Q3 revenue figure before moving on.';
+	const DECK = ['---', 'theme: indaco', '---', '', '# One', '', `<!-- ${NOTE_A} -->`, '', 'Body A.', '', '---', '', '# Two', '', `<!-- ${NOTE_B} -->`, '', 'Body B.', ''].join('\n');
+
+	function renderPlayer(strip) {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-notes-'));
+		const deck = path.join(dir, 'deck.md');
+		fs.writeFileSync(deck, DECK);
+		const out = path.join(dir, 'deck.pdf');
+		const args = [EMULATOR, deck, out, '--quiet', '--player'];
+		if (strip) args.push('--strip-notes');
+		const r = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		return fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+	}
+
+	test('by DEFAULT the notes ride: aside in the DOM + text in the envelope source', { timeout: TIMEOUT }, () => {
+		const html = renderPlayer(false);
+		assert.match(html, /<aside class="lattice-notes"[^>]*>[^<]*Pause here/, 'the note aside is baked in');
+		assert.equal(parseEnvelope(html).source.includes(NOTE_A), true, 'the note rides in the envelope source');
+	});
+
+	test('--strip-notes scrubs the note text from EVERY baked copy (the privacy grep)', { timeout: TIMEOUT }, () => {
+		const html = renderPlayer(true);
+		// The note text must appear NOWHERE in the shipped bytes — not the DOM, not the
+		// base64 envelope (decode it), not anywhere.
+		for (const note of [NOTE_A, NOTE_B]) {
+			assert.equal(html.includes(note), false, `stripped player must not contain the note text: "${note}"`);
+		}
+		assert.doesNotMatch(html, /<aside class="lattice-notes"/, 'no note aside survives the strip');
+		const src = parseEnvelope(html).source;
+		assert.equal(src.includes(NOTE_A) || src.includes(NOTE_B), false, 'the envelope source is scrubbed of notes');
+		// But the strip is surgical: the deck body + structure survive (still re-imports).
+		assert.match(src, /# One/, 'the deck body is intact — a stripped file still re-imports (without notes)');
+	});
+
+	test('--strip-notes scrubs a note that itself contains a blank line (no shatter-leak)', { timeout: TIMEOUT }, () => {
+		// Regression: a SINGLE note comment with an internal blank line must not survive
+		// (the joined-then-split note-body recovery used to shatter and miss it).
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-blank-'));
+		const deck = path.join(dir, 'd.md');
+		fs.writeFileSync(deck, ['# S', '', '<!-- First line.', '', 'Second line. LEAKMARK -->', '', 'Body.'].join('\n'));
+		const out = path.join(dir, 'd.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player', '--strip-notes'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+		assert.equal(html.includes('LEAKMARK'), false, 'the blank-line note is gone from the DOM/bytes');
+		assert.equal(parseEnvelope(html).source.includes('LEAKMARK'), false, 'and from the decoded envelope source');
+	});
+
+	test('--strip-notes scrubs a MULTI-LINE note in a CRLF (Windows) deck (no newline-mismatch leak)', { timeout: TIMEOUT }, () => {
+		// The checker's blocker: a CRLF source + a multi-line note leaked because the
+		// strip set was \n-normalized. Author the deck with real \r\n endings.
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-crlf-'));
+		const deck = path.join(dir, 'd.md');
+		fs.writeFileSync(deck, ['# S', '', '<!-- Pause here.', 'Then CRLFLEAK ask the room. -->', '', 'Body.'].join('\r\n'));
+		const out = path.join(dir, 'd.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player', '--strip-notes'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+		assert.equal(html.includes('CRLFLEAK'), false, 'CRLF multi-line note gone from the bytes');
+		assert.equal(parseEnvelope(html).source.includes('CRLFLEAK'), false, 'and from the decoded envelope source');
+	});
+});

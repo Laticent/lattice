@@ -1734,7 +1734,7 @@ var require_notes_core = __commonJS({
     function isDescriptionComment(body) {
       return DESCRIBE_MATCHER.test(String(body == null ? "" : body).trim());
     }
-    function notesFromHtml(sectionHtml) {
+    function noteBodiesFromHtml(sectionHtml) {
       const re = new RegExp(COMMENT_SOURCE, "g");
       const bodies = [];
       for (const m of String(sectionHtml == null ? "" : sectionHtml).matchAll(re)) {
@@ -1742,6 +1742,10 @@ var require_notes_core = __commonJS({
         if (!body || isToolingComment(body) || isDescriptionComment(body)) continue;
         bodies.push(body);
       }
+      return bodies;
+    }
+    function notesFromHtml(sectionHtml) {
+      const bodies = noteBodiesFromHtml(sectionHtml);
       return bodies.length ? bodies.join("\n\n") : null;
     }
     function descriptionFromHtml(sectionHtml) {
@@ -1769,15 +1773,26 @@ var require_notes_core = __commonJS({
         ""
       );
     }
+    function stripNotesFromSource(source, noteBodies) {
+      const set = noteBodies instanceof Set ? noteBodies : new Set(noteBodies);
+      if (set.size === 0) return String(source == null ? "" : source);
+      const norm = (s) => String(s).replace(/\r\n?/g, "\n").trim();
+      return String(source == null ? "" : source).replace(
+        new RegExp(COMMENT_SOURCE, "g"),
+        (full, body) => set.has(norm(body)) ? "" : full
+      );
+    }
     module.exports = {
       MAGIC_COMMENT_MATCHERS,
       isToolingComment,
       isDescriptionComment,
+      noteBodiesFromHtml,
       notesFromHtml,
       extractSlideNotes,
       descriptionFromHtml,
       extractSlideDescriptions,
-      stripCommentNodes
+      stripCommentNodes,
+      stripNotesFromSource
     };
   }
 });

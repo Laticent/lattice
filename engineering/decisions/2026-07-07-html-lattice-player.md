@@ -391,8 +391,18 @@ a security defect in the player JS lives **forever** in every file already sent.
     the track equals the viewport). Verified in real Chromium at 1280×800 and 390×844 (a geometry integration
     test locks the slide within the viewport): swipe-left/right navigate, a vertical drag does NOT, fullscreen
     wires, desktop framing unchanged, mobile slide on-screen.
-    Deferred to **P3d**: the notes sheet (default-in + strip-all-copies via `notes-core`) — a distinct
-    feature with its own envelope-scrubbing design (§Notes on export) — and capability tiers.
+  - **P3d — speaker-notes sheet + strip-all-copies — SHIPPED (2026-07-08).** Notes ride by default: the
+    emulator already materializes each note as a hidden `aside.lattice-notes` in the baked DOM, so the player's
+    notes sheet READS that aside (no new copy) — a slide-up panel over the present stage, toggled by the ☰
+    control or `n`, updating per slide. The privacy control is the export-time **`--strip-notes`** flag, which
+    scrubs the note text from EVERY baked copy — the DOM aside + the PDF annotation (`materializedNotes` blanked)
+    AND the envelope `source` (re-serialized via the new `notes-core.stripNotesFromSource`, which is
+    directive-SAFE: it removes only comments whose exact body was lifted as a note from the render, so a
+    `<!-- _class: X -->` can never be stripped). A stripped file re-imports without notes — the stated tradeoff.
+    Verified on the real surface: the sheet shows/advances the right note and hides its control for a note-free
+    deck; a **grep integration test** proves a `--strip-notes` player contains the note text NOWHERE (DOM +
+    decoded envelope), while the deck body still re-imports. Capability tiers remain (folded into later work as
+    needed).
 - **P4 — component-aware prose projection.** Implement the A2 mapping bucket by bucket to the **§A4 exit
   criterion** (per-bucket goldens + whole-document review + WCAG AA/AXE + A2c "asserts nothing false").
 - **P5 — dual-screen presenter.** `window.open` + `postMessage`; Window Management API auto-place as
