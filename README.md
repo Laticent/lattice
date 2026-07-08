@@ -280,6 +280,17 @@ The runtime reads CSS custom properties from the loaded palette, derives
 the Mermaid `themeVariables` object, and fetches the Mermaid CSS section
 from the palette file. Same theme as the build path; one file to edit.
 
+It also composes every slide as **Form** by default — the masthead band, bay,
+progress rail, and section watermarks — matching the engine, so a deck dropped
+into a Marp tool (the marp-vscode preview, or an export-to-Marp bundle's HTML)
+gets the full layout with no per-slide tagging. Opt a single slide out with a
+`no-form` class (DOM-visible, honored everywhere). The deck-wide `form: off`
+opt-out is applied only on Lattice's own engine render paths (the `lattice` CLI,
+the docs playground); a Marp-rendered surface — the marp-vscode preview, or an
+export-to-Marp bundle rendered by the user's `marp` — never runs the toggle, and
+the runtime reads no front matter, so it composes Form there regardless. See
+`design/forms.md` and `engineering/decisions/2026-07-08-runtime-form-default.md`.
+
 ## Project layout
 
 A count-free orientation — exact file lists and component/theme/gallery counts

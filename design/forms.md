@@ -448,10 +448,20 @@ injectors, and the `form:` toggle with its skip-list — **now on by default**
 section composes as Form unless it opts out (`form: off`, or a
 per-slide `no-form`). Chart-frame components compose with the band (the eyebrow +
 title lift into the masthead Cell; the chart's own subtitle/caption and body are
-untouched — see the chart-family in-form rules). The default flip lands in the
-single shared `readFormMode` kernel, so all three render paths inherit it in
-lock-step (HARD RULE 1); the cross-renderer parity gate and per-component
-galleries hold because page counts are section-count-stable.
+untouched — see the chart-family in-form rules). The engine + emulator apply the
+default at render time via `applyFormToggleToHtml` (`readFormMode` → `formToggleClass`);
+the browser **runtime** — which consumes an already-rendered DOM that Marp built
+without our render-time toggle — reproduces the same default on the live DOM via
+`lib/forms/form-default.js`, reusing the shared `formToggleClass` so the skip set +
+`form`/`no-form` opt-outs stay single-sourced (HARD RULE 1). This is what lets a
+raw Marp deck (`lattice.css` + `lattice-runtime.js` + a theme) compose as Form
+by default. The deck-wide `form: off` opt-out is applied only on Lattice's own
+engine render paths; a Marp-rendered surface (the marp-vscode preview, or an
+export-to-Marp bundle rendered by the user's `marp`) doesn't run the toggle at all,
+so the runtime composes Form there regardless — a per-slide `no-form` still opts a
+slide out, since it is DOM-visible. See
+`engineering/decisions/2026-07-08-runtime-form-default.md`. The cross-renderer parity
+gate and per-component galleries hold because page counts are section-count-stable.
 
 ### How bodies are bounded: the flex cell-tree (grid was retired; flex reopened `.cell-stage`)
 
