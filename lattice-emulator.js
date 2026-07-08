@@ -2054,7 +2054,7 @@ async function renderBody(browser, g, closeBrowser) {
 // that crashes the small-container Chromium. A dedicated hardened instance is
 // isolated from that pressure and can't perturb the deliverable render.
 async function prunePlayerCssInPage(playerHtml) {
-  const { collectBaseSelectors, prunePlayerCss, prunePlayerFontFaces } = require('./lib/export/html-player.js');
+  const { collectBaseSelectors, prunePlayerCss, prunePlayerFontFaces, GATE_PROPS } = require('./lib/export/html-player.js');
   // Two targets: the inlined lattice.css (largest non-font <style>) for the selector
   // prune, and the base64 @font-face block (#lattice-embedded-fonts) for the font prune.
   const blocks = [...playerHtml.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
@@ -2136,20 +2136,7 @@ async function prunePlayerCssInPage(playerHtml) {
 
     // (2) computed-style gate across all three views (+ pseudo-elements) — CSS only.
     const identical = !cssResult.applied ? true : await scratch.evaluate(
-      ({ prunedCss }) => {
-        const PROPS = [
-          'display', 'position', 'top', 'left', 'right', 'bottom', 'z-index', 'float',
-          'color', 'background-color', 'background-image', 'background-size', 'background-position',
-          'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing',
-          'text-align', 'text-transform', 'text-decoration-line', 'white-space', 'vertical-align',
-          'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
-          'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'box-sizing',
-          'flex-grow', 'flex-shrink', 'flex-basis', 'flex-direction', 'flex-wrap',
-          'grid-template-columns', 'grid-template-rows', 'gap', 'align-items', 'justify-content', 'justify-items',
-          'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
-          'border-top-color', 'border-radius', 'border-style', 'opacity', 'transform', 'overflow',
-          'content', 'aspect-ratio', 'order', 'grid-column', 'grid-row',
-        ];
+      ({ prunedCss, PROPS }) => {
         // The pruned block is the biggest non-font <style> — same target the Node
         // side chose, re-found here by size so we swap the right one.
         const styleEl = [...document.querySelectorAll('style')]
@@ -2186,7 +2173,7 @@ async function prunePlayerCssInPage(playerHtml) {
         if (app) app.setAttribute('data-lp-view', 'present');
         return ok;
       },
-      { prunedCss: cssResult.css },
+      { prunedCss: cssResult.css, PROPS: GATE_PROPS },
     );
     // A CSS-gate failure drops only the CSS prune; the font prune (independent, no
     // gate needed — it removes faces nothing paints) can still apply.

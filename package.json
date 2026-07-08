@@ -104,6 +104,8 @@
     "a11y-textures:check": "node tools/build-a11y-textures.js --check",
     "player-core:build": "node tools/build-player-core.js",
     "player-core:check": "node tools/build-player-core.js --check",
+    "player-prune:build": "node tools/build-player-prune.js",
+    "player-prune:check": "node tools/build-player-prune.js --check",
     "cadenza-lib:build": "node tools/build-cadenza-lib.js",
     "cadenza-lib:check": "node tools/build-cadenza-lib.js --check",
     "vetrina-lib:build": "node tools/build-vetrina-lib.js",

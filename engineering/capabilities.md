@@ -77,6 +77,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
 | `player-core:check` | Freshness gate for the player-core Playground bundle. |
+| `player-prune:build` | Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces. |
+| `player-prune:check` | Freshness gate for the player-prune Playground bundle. |
 | `playground:build` | Build docs/public/playground/lattice-playground.js — the in-browser engine bundle. |
 | `playground:check` | Freshness gate for the playground bundle. |
 | `playground:watch` | Rebuild the playground bundle on change. |
@@ -298,6 +300,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
+| `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |
