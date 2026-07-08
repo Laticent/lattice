@@ -370,7 +370,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: docs/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
       # setup-chrome has no built-in cache and pulls a full Chrome each run; its
       # Linux install dir is ~/.cache/setup-chrome, so cache that — a hit lets
       # the action reuse the binary instead of downloading. Keyed loosely (the
@@ -385,6 +387,13 @@ jobs:
         id: chrome
         with:
           chrome-version: stable
+      # The docs Vitest suite exercises root CJS (lib/core/read-along-vtt.js) that
+      # `require('@slidewright/cadenza')` — the npm-workspace package whose symlink
+      # lives in ROOT node_modules. Install root deps so npm creates that link; the
+      # docs `npm ci` below only populates docs/node_modules, which isn't on the
+      # resolution path of a require() from lib/core.
+      - name: Install root deps (for the @slidewright/cadenza workspace link)
+        run: npm ci
       - name: Install docs deps
         run: npm ci
         working-directory: docs

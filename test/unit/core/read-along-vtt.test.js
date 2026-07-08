@@ -2,14 +2,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
 	formatTimestamp,
-	trackToVtt,
 	readAlongToVtt,
 	readAlongToVttParts,
 } = require('../../../lib/core/read-along-vtt.js');
 
 // The CJS .vtt derivation the export pipeline uses (2026-07-08 read-along export
-// manifest). trackToVtt is a node-loadable MIRROR of Cadenza's toVtt — see the
-// docs-side parity test that pins them byte-identical.
+// manifest). The single-track serializer is Cadenza's `toVtt`, required from the
+// built @slidewright/cadenza — this module owns only the deck-level offset/split
+// exercised below. (toVtt itself is covered by cadenza/vtt.test.ts.)
 
 // A two-word cue: "Revenue grew." spanning [start, end], the second word karaoke-timed.
 function cue(display, startMs, endMs, words) {
@@ -36,14 +36,6 @@ test('formatTimestamp: HH:MM:SS.mmm, clamped and rounded', () => {
 	assert.equal(formatTimestamp(-5), '00:00:00.000');
 	assert.equal(formatTimestamp(1800), '00:00:01.800');
 	assert.equal(formatTimestamp(3661234), '01:01:01.234');
-});
-
-test('trackToVtt: header + cue span + inline karaoke word timestamps', () => {
-	const vtt = trackToVtt(slide0);
-	assert.match(vtt, /^WEBVTT\n\n/);
-	assert.match(vtt, /00:00:00\.000 --> 00:00:01\.800/);
-	// First word plain; later words carry an inline <timestamp>.
-	assert.match(vtt, /Revenue <00:00:00\.900>grew\./);
 });
 
 test('readAlongToVtt: one deck-level file, later slides offset by prior durations', () => {
