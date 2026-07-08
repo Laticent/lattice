@@ -9,13 +9,21 @@ const {
 	buildPlayerHtml,
 	fileToDataUri,
 	subsetEmbeddedFonts,
-	minifyCss,
 	collectBaseSelectors,
 	prunePlayerCss,
 	prunePlayerFontFaces,
 	normalizeFamily,
 } = require('../../../lib/export/html-player.js');
 const { parseEnvelope } = require('../../../lib/core/lattice-doc.js');
+
+// `minifyCss` moved to the pure player-core (ESM) when the assembler was extracted
+// (2026-07-08-studio-html-player-export.md, P1). Loaded via dynamic import before the
+// suite runs — the adapter no longer re-exports it (a CJS module can't sync-forward an
+// ESM binding), so the tests read it from its new home.
+let minifyCss;
+test.before(async () => {
+	({ minifyCss } = await import('../../../lib/export/player-core.mjs'));
+});
 
 // The self-contained .html PLAYER assembler (lib/export/html-player.js) — P2 slice 3
 // of 2026-07-07-html-lattice-player.md. These pin the §Security v1 gate: the shipped
