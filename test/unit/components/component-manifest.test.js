@@ -28,7 +28,6 @@ const {
   UNIVERSAL_GROUPS,
   UNIVERSAL_VARIANTS,
   SEMI_UNIVERSAL_VARIANTS,
-  FAMILY_MODIFIERS,
   FAMILY_MODIFIER_TOKENS,
   familyModifiersFor,
   TAG_GROUPS,
@@ -479,8 +478,26 @@ describe('component-manifest', () => {
     });
 
     test('TAGS is the flat union of the groups', () => {
-      const expected = Object.values(TAG_GROUPS).flatMap((g) => [...g]);
-      assert.deepEqual([...TAGS], expected);
+      // Pinned to a hand-written literal (like BUCKETS above), NOT re-derived with
+      // the same flatMap the impl uses — otherwise an accidental edit to a group
+      // shifts both sides in lockstep and the assert can never bite. Order = group
+      // insertion order (idiom, occasion, material, task).
+      assert.deepEqual([...TAGS], [
+        // idiom
+        'dashboard', 'scorecard', 'two-by-two', 'swimlane', 'stoplight', 'pull-quote',
+        'flowchart', 'changelog', 'donut', 'spider', 'org-chart', 'hero-number', 'tag-cloud',
+        // occasion
+        'board-deck', 'pitch', 'planning', 'strategy', 'compliance', 'contract', 'regulation',
+        'onboarding', 'retrospective', 'workflow', 'agile', 'okr', 'kickoff',
+        // material
+        'metric', 'percentage', 'milestones', 'quotation', 'ranking', 'proportion', 'formula',
+        'definition', 'ownership', 'status', 'risk', 'process', 'citation', 'reference',
+        'snippet', 'states', 'themes', 'requirements', 'visual',
+        // task
+        'summary', 'takeaway', 'walkthrough', 'prioritize', 'tradeoff', 'recommendation',
+        'overview', 'contrast', 'transformation', 'assessment', 'positioning', 'sequence',
+        'showcase', 'agenda-setting', 'section-break',
+      ]);
     });
 
     test('TAGS has no duplicates across dimensions', () => {
@@ -925,9 +942,20 @@ describe('component-manifest', () => {
     });
 
     test('UNIVERSAL_VARIANTS is the flat union of the groups, deduped', () => {
-      const allGroupValues = Object.values(UNIVERSAL_GROUPS).flatMap((g) => [...g]);
-      const expected = [...new Set(allGroupValues)];
-      assert.deepEqual([...UNIVERSAL_VARIANTS], expected);
+      // Literal pin (not re-derived from UNIVERSAL_GROUPS with the impl's own
+      // flatMap+dedupe): a group edit must touch this list too, or it proves
+      // nothing. Order = group insertion order.
+      assert.deepEqual([...UNIVERSAL_VARIANTS], [
+        'dark', // mood
+        'treatment-none', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette',
+        'tint-edge at-right', 'mark-threads', // decoration
+        'with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl', // typography
+        'silent', 'no-header', 'no-footer', 'no-paginate', 'form', 'no-form', 'no-progress', // chrome
+        'safe', // social
+        'wip', 'draft', 'tbd', 'confidential', 'redacted', 'archived', 'pinned', 'revised', // state
+        'tone-pass', 'tone-warn', 'tone-fail', 'tone-skip', // tone
+        'claim-quiet', 'claim-hero', 'claim-framed', // claim
+      ]);
     });
 
     test('UNIVERSAL_VARIANTS and SEMI_UNIVERSAL_VARIANTS are disjoint', () => {
@@ -946,10 +974,13 @@ describe('component-manifest', () => {
     });
 
     test('FAMILY_MODIFIERS are scoped, not universal, and tokens are their flat union', () => {
-      const expectedTokens = [...new Set(
-        Object.values(FAMILY_MODIFIERS).flatMap((g) => [...g.modifiers]),
-      )];
-      assert.deepEqual([...FAMILY_MODIFIER_TOKENS], expectedTokens);
+      // Literal pin (not re-derived from FAMILY_MODIFIERS): state-markers' six
+      // `checks-*`/`heat` plus chart's `canvas`. A new family/modifier must be
+      // added here deliberately, not slip in via the same flatMap the impl runs.
+      assert.deepEqual([...FAMILY_MODIFIER_TOKENS], [
+        'checks-ringed', 'checks-knockout', 'checks-bold', 'checks-outline', 'checks-tonal', 'heat', // state-markers
+        'canvas', // chart
+      ]);
       // Family modifiers must NOT leak into the universal tier (they're scoped).
       const uni = new Set(UNIVERSAL_VARIANTS);
       const semi = new Set(SEMI_UNIVERSAL_VARIANTS);

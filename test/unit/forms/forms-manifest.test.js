@@ -100,6 +100,12 @@ test('(c) plugins.formToggleClass skips every historical sovereign Frame', () =>
   assert.equal(plugins.formToggleClass('content', 'standard'), 'content form');
 });
 
+// STALENESS gate only, NOT a content oracle: renderJson() also generated the
+// committed file, so a bug INSIDE renderJson would corrupt both sides equally
+// and pass here. The CONTENT of forms.json is independently checked by the
+// loadCatalog integrity + validateFrame/checkIntegrity tests below (real
+// structural oracles). A diff here just means a source manifest changed without
+// a rebuild — re-run the build and commit; treat the diff as expected.
 test('(d) dist/docs/forms.json is fresh (regenerating produces no diff)', () => {
   const current = fs.existsSync(JSON_FILE) ? fs.readFileSync(JSON_FILE, 'utf8') : null;
   assert.equal(current, renderJson(), 'dist/docs/forms.json is stale — run `node tools/build-forms.js`');

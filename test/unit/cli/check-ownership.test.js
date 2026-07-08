@@ -123,8 +123,14 @@ describe('check-ownership', () => {
   });
 
   describe('post-flip token-tier lint (canonical flip, ADR §11.5)', () => {
-    test('RETIRED_TOKEN_NAMES covers the legacy vocabulary (57 names, --prefixed)', () => {
-      assert.equal(RETIRED_TOKEN_NAMES.size, 57);
+    test('RETIRED_TOKEN_NAMES covers the legacy vocabulary (--prefixed)', () => {
+      // Every retired name is a real custom-property token — the `--` prefix is a
+      // load-bearing invariant (checkRetiredTokenNames matches on it), unlike the
+      // old `.size === 57` magic number, which was a pure change-detector that
+      // false-failed on any legitimate retirement. Membership below is the gate.
+      for (const n of RETIRED_TOKEN_NAMES) {
+        assert.ok(n.startsWith('--'), `retired name ${n} must be a --prefixed token`);
+      }
       for (const n of ['--c1-light', '--c12-dark', '--c-stroke', '--c-ink-light',
         '--c-warm-light', '--bg-dark', '--dark-bg', '--scale-500']) {
         assert.ok(RETIRED_TOKEN_NAMES.has(n), `expected ${n} to be retired`);
@@ -144,11 +150,15 @@ describe('check-ownership', () => {
 
   describe('typography token gate (HARD RULE #4)', () => {
     test('CANONICAL_FS_TOKENS is the closed 12-role set + the scale base', () => {
-      assert.equal(CANONICAL_FS_TOKENS.size, 13);
-      for (const n of ['--fs-meta', '--fs-body', '--fs-message', '--fs-emphasis',
-        '--fs-h1', '--fs-h6', '--fs-hero', '--fs-scale']) {
-        assert.ok(CANONICAL_FS_TOKENS.has(n), `expected ${n} canonical`);
-      }
+      // HARD RULE #4: this is a CLOSED set, so pin the exact membership to a
+      // literal (not just `.size === 13`, which named a count but not the roles).
+      // Adding/removing/renaming a role must edit this list — a 14th `--fs-*`
+      // token or a dropped role now fails here, not silently.
+      assert.deepEqual([...CANONICAL_FS_TOKENS].sort(), [
+        '--fs-body', '--fs-body-compact', '--fs-emphasis', '--fs-h1', '--fs-h2',
+        '--fs-h3', '--fs-h4', '--fs-h5', '--fs-h6', '--fs-hero', '--fs-message',
+        '--fs-meta', '--fs-scale',
+      ].sort());
       // t-shirt sizes and ad-hoc names are NOT canonical
       for (const bad of ['--fs-md', '--fs-lg', '--fs-sm', '--fs-xl', '--fs-base']) {
         assert.ok(!CANONICAL_FS_TOKENS.has(bad), `${bad} must not be canonical`);
