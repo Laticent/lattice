@@ -76,6 +76,11 @@ in patch versions.
   single swappable pane vs. the desktop side-by-side — built from a shared tour toolkit and paced by
   the new Teaching Beat (below). Verified on real Chromium at both widths (full walkthrough builds +
   completes; every tour smoke-launches). Retires the two single storyboards the tours supersede.
+- **Present mode in the exported `.html` player gains PageUp / PageDown / Home / End** (previously only
+  ← / → / space). The player's slide transport now runs on the shared headless kernel
+  (`lib/core/present-transport.mjs`) — the one source of truth for the fit-scale, index/bounds, keymap, and
+  swipe maths that the presenter, practice, and export transports had each reimplemented. No visible change
+  to slide scaling (byte-identical fit).
 
 ### Changed
 

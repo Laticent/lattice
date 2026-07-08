@@ -349,11 +349,28 @@ a security defect in the player JS lives **forever** in every file already sent.
   #22 gate to the assembler. **Glyph-subsetting also lands here** (moved up from P6 — the honest ~1.8 MB
   floor makes it v1, not deferred). CSS-only JS-off fit. Ships Read·Slides + the Read·Article *shell*
   (article-from-headings). No Present transport yet.
-- **P3 — the Present player.** Extract the headless transport kernel and **refactor the two already-shipped
-  Present transports onto it** (`presenter-window.js` + the in-app `PresentOverlay`/`drawing-board-present`)
-  in the same change — see the anti-fork note below; contract test. Overlay controls, keyboard/swipe, the
-  universal notes sheet (default-in + strip-all-copies), three capability tiers, `dvh` viewport-fill +
-  orientation re-fit; the three-view toggle.
+- **P3 — the Present player.** Extract the headless transport kernel and **refactor the already-shipped
+  Present transports onto it** (see the anti-fork note below); contract test. Overlay controls,
+  keyboard/swipe, the universal notes sheet (default-in + strip-all-copies), three capability tiers, `dvh`
+  viewport-fill + orientation re-fit; the three-view toggle. Sliced across PRs (HARD RULE #17):
+  - **P3a — transport kernel + export-player adoption — SHIPPED (2026-07-08).** `lib/core/present-transport.mjs`
+    (pure, DOM-free, HARD RULE #1): `fitScale` (the fit factor), `padInset` (the pad-based stages' symmetric
+    inset), `createTransport` (index + bounded next/prev/go/first/last + onShow), `PRESENT_KEYMAP`/`keyAction`
+    (the shared nav keys), `swipeAction` (the `|dx|>45 && |dx|>|dy|·1.3` gesture). The map found the on-stage
+    transport forked 3× (`buildStageDoc` pad ×0.012 top-left; the export player's `fit()` hard-coded 1280×720
+    center; `drawing-board-practice` pad ×0.04) — the contract test pins that `fitScale` reproduces **all
+    three byte-identically**. The export player (`playerJs`) now inlines the kernel VERBATIM (`.toString()`,
+    since its script is CSP-hashed and can't import) and drives Present through it; the fit is unchanged
+    (`scale(0.95625)` at 1280×800, verified) and the keymap gains PageUp/PageDown/Home/End for free.
+    Real-surface verified: Present nav + edge-clamping driven in Chromium.
+  - **P3b — docs-side reconciliation (NEXT).** Migrate the docs stage onto the kernel: parameterize
+    `buildStageDoc`'s pad so `drawing-board-practice` imports it instead of its inline copy, and route
+    `drawing-board-present`'s `go`/`onKey` through `createTransport`/`keyAction`. Its own PR (docs vitest +
+    the e2e present specs are the verification surface — the Studio React overlay renders via `DeckPreview`,
+    CSS aspect-ratio, so it forks no fit math and its dual-screen already uses the `presenter-window.js` kernel).
+  - **P3c — the player's richer Present controls (NEXT).** Swipe (via `swipeAction`), fullscreen, the notes
+    sheet (default-in + strip-all-copies via `notes-core`), `dvh` viewport-fill + orientation re-fit,
+    capability tiers.
 - **P4 — component-aware prose projection.** Implement the A2 mapping bucket by bucket to the **§A4 exit
   criterion** (per-bucket goldens + whole-document review + WCAG AA/AXE + A2c "asserts nothing false").
 - **P5 — dual-screen presenter.** `window.open` + `postMessage`; Window Management API auto-place as
