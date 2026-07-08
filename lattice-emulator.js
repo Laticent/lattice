@@ -1979,22 +1979,22 @@ async function renderBody(browser, g, closeBrowser) {
         build: ENGINE_BUILD,
         playerVersion: PLAYER_VERSION,
       });
-      // P6 — used-selector CSS prune. Authoritative Chromium matching + a computed-
-      // style gate (see prunePlayerCssInPage); a gate failure or css-tree-absent
-      // silently keeps the full CSS. Never fail-hard — this is a size lever, not the
-      // deliverable.
+      // P6 — used-selector CSS prune + used-family FONT prune. Authoritative Chromium
+      // matching (+ a computed-style gate for CSS); a gate failure or css-tree-absent
+      // silently keeps the full CSS, an empty font detection keeps every face. Never
+      // fail-hard — these are size levers, not the deliverable.
       let finalPlayerHtml = playerHtml;
-      let pruneNote = '';
+      const pruneNotes = [];
       try {
         const pr = await prunePlayerCssInPage(playerHtml);
         if (pr.applied) {
           finalPlayerHtml = pr.html;
-          pruneNote = `  pruned unused CSS: ${pr.keptRules}/${pr.totalRules} rules kept, ${(pr.saved / 1024).toFixed(0)} KB saved`;
-        } else if (pr.gateFailed) {
-          pruneNote = '  note: CSS prune skipped — computed-style gate flagged a diff; shipping full CSS';
+          if (pr.saved > 0) pruneNotes.push(`  pruned unused CSS: ${pr.keptRules}/${pr.totalRules} rules kept, ${(pr.saved / 1024).toFixed(0)} KB saved`);
+          if (pr.fontApplied) pruneNotes.push(`  pruned unused fonts: ${pr.fontsKept}/${pr.fontsTotal} faces kept, ${(pr.fontSaved / 1024).toFixed(0)} KB saved`);
         }
+        if (pr.gateFailed) pruneNotes.push('  note: CSS prune skipped — computed-style gate flagged a diff; shipping full CSS');
       } catch (e) {
-        pruneNote = `  note: CSS prune skipped (${e?.message}); shipping full CSS`;
+        pruneNotes.push(`  note: player optimization skipped (${e?.message}); shipping full CSS + fonts`);
       }
       fs.writeFileSync(outHtml, finalPlayerHtml);
       if (!QUIET) {
@@ -2002,7 +2002,7 @@ async function renderBody(browser, g, closeBrowser) {
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (inflatedPlayerHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
-        if (pruneNote) console.log(pruneNote);
+        for (const n of pruneNotes) console.log(n);
       }
     } catch (err) {
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
@@ -2030,18 +2030,22 @@ async function renderBody(browser, g, closeBrowser) {
 // that crashes the small-container Chromium. A dedicated hardened instance is
 // isolated from that pressure and can't perturb the deliverable render.
 async function prunePlayerCssInPage(playerHtml) {
-  const { collectBaseSelectors, prunePlayerCss } = require('./lib/export/html-player.js');
-  // Target = the largest <style> that is NOT the base64 font block (that's the
-  // inlined lattice.css; the small playerCss/#lattice-embedded-fonts are left alone).
+  const { collectBaseSelectors, prunePlayerCss, prunePlayerFontFaces } = require('./lib/export/html-player.js');
+  // Two targets: the inlined lattice.css (largest non-font <style>) for the selector
+  // prune, and the base64 @font-face block (#lattice-embedded-fonts) for the font prune.
   const blocks = [...playerHtml.matchAll(/<style([^>]*)>([\s\S]*?)<\/style>/gi)];
   let target = null;
+  let fontBlock = null;
   for (const b of blocks) {
-    if (/lattice-embedded-fonts/.test(b[1])) continue;
+    if (/lattice-embedded-fonts/.test(b[1])) {
+      fontBlock = { full: b[0], css: b[2] };
+      continue;
+    }
     if (!target || b[2].length > target.css.length) target = { full: b[0], css: b[2] };
   }
-  if (!target || target.css.length < 50000) return { applied: false };
-  const bases = collectBaseSelectors(target.css);
-  if (!bases.length) return { applied: false }; // css-tree not installed → keep full CSS
+  const bases = target && target.css.length >= 50000 ? collectBaseSelectors(target.css) : [];
+  // Nothing to do without a browser-backed pass? Only bail if BOTH prunes are moot.
+  if (!bases.length && !fontBlock) return { applied: false };
 
   const pruneOpts = {
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
@@ -2054,24 +2058,60 @@ async function prunePlayerCssInPage(playerHtml) {
     // newPage() inside the try so a failure here still closes the browser.
     const scratch = await pruneBrowser.newPage();
     await g(() => scratch.setContent(playerHtml, { waitUntil: 'domcontentloaded', timeout: 60000 }), 'player prune: load');
-    // (1) authoritative match — keep a base on ANY querySelector error (conservative).
-    const used = await scratch.evaluate((sels) => {
-      const out = [];
-      for (const s of sels) {
-        try {
-          if (document.querySelector(s)) out.push(s);
-        } catch {
-          out.push(s);
-        }
-      }
-      return out;
-    }, bases);
-    const usedSet = new Set(used);
-    const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b));
-    if (!pruned.applied || pruned.css.length >= target.css.length) return { applied: false };
 
-    // (2) computed-style gate across all three views (+ pseudo-elements).
-    const identical = await scratch.evaluate(
+    // ── FONT prune: which embedded families does the deck actually use? ──────────
+    // Authoritative + honors `sketch`: a family is USED if the browser LOADED a face
+    // (lazy — only when an element needs it) OR it appears in any element's resolved
+    // `font-family` (so a deck applying the sketch hand keeps Caveat + Shantell). All
+    // three views are cycled and every element forced to lay out so no face is missed.
+    let fontResult = { applied: false };
+    if (fontBlock) {
+      const usedFamilies = await scratch.evaluate(async () => {
+        for (const v of ['present', 'read-slides', 'read-article']) {
+          document.getElementById('lp-app')?.setAttribute('data-lp-view', v);
+          for (const el of document.querySelectorAll('#lp-app *')) el.getBoundingClientRect();
+          try {
+            await document.fonts.ready;
+          } catch {
+            /* fonts not ready this cycle — the loaded-status + computed-family nets
+               below still run against whatever HAS loaded; worst case fewer faces
+               are marked used and MORE are kept (never fewer) */
+          }
+        }
+        const strip = (s) => String(s).trim().replace(/^["']|["']$/g, '');
+        const fams = new Set();
+        for (const f of document.fonts) if (f.status === 'loaded') fams.add(strip(f.family));
+        for (const el of document.querySelectorAll('*')) {
+          for (const part of (getComputedStyle(el).fontFamily || '').split(',')) fams.add(strip(part));
+        }
+        document.getElementById('lp-app')?.setAttribute('data-lp-view', 'present');
+        return [...fams];
+      });
+      fontResult = prunePlayerFontFaces(fontBlock.css, usedFamilies);
+    }
+
+    // ── CSS prune (only when the lattice.css block is present + css-tree installed) ─
+    let cssResult = { applied: false };
+    if (bases.length) {
+      // (1) authoritative match — keep a base on ANY querySelector error (conservative).
+      const used = await scratch.evaluate((sels) => {
+        const out = [];
+        for (const s of sels) {
+          try {
+            if (document.querySelector(s)) out.push(s);
+          } catch {
+            out.push(s);
+          }
+        }
+        return out;
+      }, bases);
+      const usedSet = new Set(used);
+      const pruned = prunePlayerCss(target.css, (b) => usedSet.has(b));
+      cssResult = pruned.applied && pruned.css.length < target.css.length ? pruned : { applied: false };
+    }
+
+    // (2) computed-style gate across all three views (+ pseudo-elements) — CSS only.
+    const identical = !cssResult.applied ? true : await scratch.evaluate(
       ({ prunedCss }) => {
         const PROPS = [
           'display', 'position', 'top', 'left', 'right', 'bottom', 'z-index', 'float',
@@ -2122,18 +2162,34 @@ async function prunePlayerCssInPage(playerHtml) {
         if (app) app.setAttribute('data-lp-view', 'present');
         return ok;
       },
-      { prunedCss: pruned.css },
+      { prunedCss: cssResult.css },
     );
-    if (!identical) return { applied: false, gateFailed: true };
+    // A CSS-gate failure drops only the CSS prune; the font prune (independent, no
+    // gate needed — it removes faces nothing paints) can still apply.
+    const cssOk = cssResult.applied && identical;
 
+    if (!cssOk && !fontResult.applied) {
+      return { applied: false, gateFailed: cssResult.applied && !identical };
+    }
+
+    // Apply whichever prunes survived. Replacer FUNCTIONS, not strings — else a
+    // `$&`/`$1`/backtick in the CSS or a data-URI would be interpreted by replace().
+    let html = playerHtml;
+    if (cssOk) html = html.replace(target.full, () => `<style>${cssResult.css}</style>`);
+    if (fontResult.applied) {
+      html = html.replace(fontBlock.full, () => `<style id="lattice-embedded-fonts">${fontResult.css}</style>`);
+    }
     return {
       applied: true,
-      // Replacer FUNCTION, not a string — else a `$&`/`$1`/backtick sequence in the
-      // pruned CSS (a data-URI, a `content:"$&"`) would be interpreted by replace().
-      html: playerHtml.replace(target.full, () => `<style>${pruned.css}</style>`),
-      saved: target.css.length - pruned.css.length,
-      keptRules: pruned.keptRules,
-      totalRules: pruned.totalRules,
+      html,
+      gateFailed: cssResult.applied && !identical,
+      saved: cssOk ? target.css.length - cssResult.css.length : 0,
+      keptRules: cssResult.keptRules,
+      totalRules: cssResult.totalRules,
+      fontApplied: fontResult.applied,
+      fontSaved: fontResult.applied ? fontBlock.css.length - fontResult.css.length : 0,
+      fontsKept: fontResult.kept,
+      fontsTotal: fontResult.total,
     };
   } finally {
     await pruneBrowser.close().catch(() => {});

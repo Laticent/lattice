@@ -80,7 +80,42 @@ describe('html-player export (--player)', () => {
 		// Essentials survive: the token :root in the pruned block, and the embedded
 		// @font-face faces (which live in the un-pruned #lattice-embedded-fonts block).
 		assert.match(css, /:root\{/, 'the token :root block survives (all --tokens kept)');
-		assert.match(html, /id="lattice-embedded-fonts"[^>]*>[\s\S]*?@font-face/, 'the embedded font faces are untouched by the CSS prune');
+		assert.match(html, /id="lattice-embedded-fonts"[^>]*>[\s\S]*?@font-face/, 'the CSS prune leaves the embedded font faces in place');
 		assert.equal((css.match(/\/\*/g) || []).length, 0, 'still comment-free (minify held)');
+	});
+
+	// P6 — used-family FONT prune. A non-sketch deck must NOT ship the sketch hand
+	// faces (Caveat / Shantell). The state-chart deck uses no sketch finish.
+	test('a non-sketch deck drops the unused sketch font faces', () => {
+		const fontBlock = (html.match(/id="lattice-embedded-fonts"[^>]*>([\s\S]*?)<\/style>/) || [])[1] || '';
+		const faces = (fontBlock.match(/@font-face/g) || []).length;
+		assert.ok(faces > 0 && faces < 17, `pruned to the used faces (${faces}/17), sketch pair dropped`);
+		assert.doesNotMatch(fontBlock, /font-family:\s*['"]?Caveat/i, 'Caveat (sketch display) is not shipped');
+		assert.doesNotMatch(fontBlock, /font-family:\s*['"]?Shantell/i, 'Shantell (sketch body) is not shipped');
+	});
+});
+
+// The user contract, on the REAL surface: a deck that USES the sketch finish must
+// keep its hand fonts. Renders examples/sketch.md and asserts Caveat + Shantell ship.
+describe('html-player export — honors sketch fonts', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const DECK = path.join(ROOT, 'examples', 'sketch.md');
+	const TIMEOUT = 120000;
+	let html;
+	test.before(() => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-sketch-'));
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+	}, { timeout: TIMEOUT });
+
+	test('the sketch hand faces (Caveat + Shantell) are kept', () => {
+		const fontBlock = (html.match(/id="lattice-embedded-fonts"[^>]*>([\s\S]*?)<\/style>/) || [])[1] || '';
+		assert.match(fontBlock, /font-family:\s*['"]?Caveat/i, 'Caveat (sketch display) IS shipped for a sketch deck');
+		assert.match(fontBlock, /font-family:\s*['"]?Shantell/i, 'Shantell (sketch body) IS shipped for a sketch deck');
 	});
 });

@@ -47,14 +47,18 @@ in patch versions.
   browser-drawn **state machines and plotted functions**, baked to static SVG at
   export), so it makes **zero network requests**; the slide HTML is sanitized and
   pinned behind a strict
-  `sha256` content-security policy; **the CSS is minified, pruned to only the
-  selectors the deck actually uses, and the embedded fonts are glyph-subset to the
-  deck's characters (optional `subset-font` / `css-tree` dependencies; full fonts /
-  full CSS if they aren't installed)** — a simple deck's inlined stylesheet drops
-  from ~452 KB to ~33 KB and the file from ~1.8 MB to well under 1 MB. The prune is
-  verified safe on a frozen file by a computed-style gate: the pruned CSS must render
-  every element pixel-identically across all three views or the full CSS ships
-  instead. The exact deck source rides along in a
+  `sha256` content-security policy; **the CSS is minified and pruned to only the
+  selectors the deck actually uses, and the embedded fonts are pruned to the families
+  the deck actually uses and glyph-subset to its characters (optional `subset-font` /
+  `css-tree` dependencies; full fonts / full CSS if they aren't installed)** — a
+  boardroom deck drops the inlined stylesheet from ~452 KB to ~33 KB and the ~267 KB
+  hand-drawn `sketch` fonts it never touches, taking the file from ~1.8 MB to ~0.4 MB.
+  Font pruning is **authoritative and honors `sketch`**: a face is kept when the
+  browser actually loaded it or its family is referenced, so a deck that uses the
+  sketch hand keeps Caveat + Shantell while a deck that doesn't, drops them. The CSS
+  prune is verified safe on a frozen file by a computed-style gate: the pruned CSS
+  must render every element pixel-identically across all three views or the full CSS
+  ships instead. The exact deck source rides along in a
   tamper-safe envelope so the file re-opens into Lattice losslessly. Demo:
   `examples/html-player.md`. Read · Article is **component-aware**: it reads the
   semantic slide DOM and gives each component its natural prose form — KPI/stat
