@@ -78,6 +78,15 @@ too. The two axes are orthogonal — `theme: cuoio` in a dark site renders `cuoi
   / Dark), writing the deck's `class:` tokens. The topbar Sun/Moon stays the website
   light/dark.
 
+**Follow-up (same day, PR #2).** The Inspector's **Theme** control became the DECK's
+theme too (mirroring Appearance): it reads/writes the deck's own `theme:` front matter
+with an "Automatic — match site" entry that clears it; the prominent topbar picker stays
+the website theme. To keep the two color-mode homes from disagreeing, the Appearance
+control now also *reflects* a deck pinned dark by a `-dark` theme name (not only by
+`class:`), and setting Appearance normalizes a `-dark` theme to its base (darkness lives
+on the `class:` axis); swapping the palette off a `-dark` theme preserves the dark pin as
+`class: dark`. Fixes the checker's Finding 4.
+
 ## Why not a dedicated `appearance:` directive
 
 `class: dark` already meant deck-wide dark and already rendered everywhere (preview,

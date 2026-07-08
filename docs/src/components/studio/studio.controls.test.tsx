@@ -299,22 +299,37 @@ describe('Studio — Fabricate + Present dock respond', () => {
 });
 
 describe('Studio — Inspector controls respond', () => {
-	it('the Inspector theme dropdown applies the palette', async () => {
+	it('the Inspector deck-theme dropdown pins the deck theme, not the website palette', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		// The Look group's grouped theme dropdown (Curated / AA / More) applies a pick.
-		await user.click(await screen.findByRole('button', { name: 'Choose theme' }));
-		await user.click(await screen.findByRole('menuitem', { name: /Cuoio/ }));
-		expect(document.documentElement.getAttribute('data-palette')).toBe('cuoio');
+		const sitePaletteBefore = document.documentElement.getAttribute('data-palette');
+		// The Look group's grouped theme dropdown (Automatic / Curated / AA / More)
+		// now writes the DECK's own `theme:` front matter — the website palette (the
+		// chrome's `data-palette`) is untouched.
+		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('menuitem', { name: /^Cuoio/ }));
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/theme:\s*cuoio/);
+		expect(document.documentElement.getAttribute('data-palette')).toBe(sitePaletteBefore);
 	});
 
-	it('the Inspector theme dropdown surfaces the AA color-blind-safe palettes', async () => {
+	it('the Inspector deck-theme dropdown surfaces the AA color-blind-safe palettes', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('button', { name: 'Choose theme' }));
-		// An a11y/CVD palette is selectable (it was missing before).
+		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
+		// An a11y/CVD palette is selectable and pins to the deck.
 		await user.click(await screen.findByRole('menuitem', { name: /Deuteranopia/ }));
-		expect(document.documentElement.getAttribute('data-palette')).toBe('a11y-deuteranopia');
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/theme:\s*a11y-deuteranopia/);
+	});
+
+	it('the Inspector deck-theme "Automatic" clears the deck theme (follows the site)', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('menuitem', { name: /^Cuoio/ }));
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/theme:\s*cuoio/);
+		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('menuitem', { name: /Automatic/ }));
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/theme:\s*cuoio/);
 	});
 
 	it('the top-bar control toggles light / dark mode', async () => {
