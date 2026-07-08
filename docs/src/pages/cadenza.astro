@@ -84,6 +84,14 @@
 			.vsel { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 600; border-radius: 999px; padding: 7px 30px 7px 12px; cursor: pointer; -webkit-appearance: none; appearance: none;
 				background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: right 13px center, right 8px center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
 			.vsel:disabled { opacity: .5; cursor: default; }
+			.keyrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+			.keyrow input { flex: 1; min-width: 200px; font-family: var(--mono); font-size: 13px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+			.keyrow button { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-family: var(--sans); font-size: 12px; font-weight: 600; border-radius: 8px; padding: 9px 14px; cursor: pointer; }
+			.keyrow button.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+			.keyhint { color: var(--muted); font-size: 12px; margin: 0 0 4px; }
+			.keyhint a { color: var(--accent); }
+			.keystatus { display: inline-block; margin-top: 8px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			.keystatus.ok { color: var(--glow); font-weight: 600; }
 			.diag { margin-top: 12px; min-height: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-word; }
 			.diag.err { color: var(--glow); font-weight: 600; }
 			details { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
@@ -135,6 +143,19 @@
 
 			<p class="diag" id="diag" role="status" aria-live="polite"></p>
 
+			<details id="keyPanel">
+				<summary><span class="chev">▸</span> Cloud voice <span class="hint">— paste an OpenRouter key to hear Kokoro (and enable the voice picker)</span></summary>
+				<div class="panel-body">
+					<p class="keyhint">Your key is stored only in this browser (localStorage), same as the Playground — it never leaves your device. Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. Without a key this page uses your device’s built-in browser voice.</p>
+					<div class="keyrow">
+						<input id="orKey" type="password" placeholder="sk-or-..." autocomplete="off" spellcheck="false" aria-label="OpenRouter API key" />
+						<button id="orKeyUse" type="button">Use key</button>
+						<button id="orKeyClear" type="button" class="ghost">Clear</button>
+					</div>
+					<span class="keystatus" id="keyStatus"></span>
+				</div>
+			</details>
+
 			<details id="textPanel">
 				<summary><span class="chev">▸</span> Your narration <span class="hint">— paste anything and it re-times live</span></summary>
 				<div class="panel-body"><textarea id="input" spellcheck="false"></textarea></div>
@@ -180,7 +201,7 @@
 			// (device-dependent; labeled "browser voice", never mistaken for the quality voice).
 			// Built eagerly; if it can't load we stay on the silent path.
 			const OR_KEY_LS = 'lattice-db-or-key';
-			const VOICE_LABEL = { openrouter: 'cloud voice', kokoro: 'on-device', speechSynthesis: 'browser voice', silent: 'silent · captions only' };
+			const VOICE_LABEL = { 'openrouter-tts': 'cloud voice', kokoro: 'on-device', speechSynthesis: 'browser voice', silent: 'silent · captions only' };
 			// Pace → a TTS `speed` multiplier so the control actually changes the SPOKEN
 			// tempo (not just the silent estimate). Kept inside the Azure-safe 0.5–2.0 band;
 			// models that don't support speed ignore it (the highlight still re-anchors to
@@ -224,7 +245,7 @@
 				voiceEl.dataset.live = String(voicing && playing && r !== 'silent');
 				// The voice picker drives Kokoro's voice (hosted or on-device); grey it out when
 				// the active rung isn't Kokoro (no key → browser voice → its voice isn't ours).
-				voiceSelEl.disabled = !(r === 'openrouter' || r === 'kokoro');
+				voiceSelEl.disabled = !(r === 'openrouter-tts' || r === 'kokoro');
 			}
 
 			function render() {
@@ -297,7 +318,7 @@
 				// Only a BLOB voice (OpenRouter / Kokoro) gives a clock to ride + onsets to
 				// re-anchor to. The browser voice (speechSynthesis) reports neither, so it speaks
 				// in parallel while the SILENT estimate carries the highlight — mode stays 'silent'.
-				const clocked = r === 'openrouter' || r === 'kokoro';
+				const clocked = r === 'openrouter-tts' || r === 'kokoro';
 				if (clocked) { try { voice.unlock(); } catch {} mode = 'audio'; reader.reset(); }
 				// Feed the voice Cadenza's OWN sentence split so the spoken sentence at index i
 				// is exactly cue i — the measured onset then re-anchors the right word. (Same
@@ -388,6 +409,28 @@
 				try { localStorage.setItem(OR_VOICE_LS, selVoice); } catch {}
 				const was = started; stop(); if (was) play(); // restart so the new voice is heard
 			});
+			// Self-contained key entry: /cadenza reads the SAME localStorage key the Playground
+			// writes, so pasting one here makes the cloud (Kokoro) voice available immediately —
+			// the voice model reads the key live, so refreshVoice() flips the chip + enables the picker.
+			const orKeyEl = $('#orKey'), keyStatusEl = $('#keyStatus'), keyPanelEl = $('#keyPanel');
+			function keyPresent() { try { return !!localStorage.getItem(OR_KEY_LS); } catch { return false; } }
+			function refreshKeyUI() {
+				const has = keyPresent();
+				keyStatusEl.textContent = has ? '\u2713 key connected — cloud voice available' : 'no key — using the browser voice';
+				keyStatusEl.classList.toggle('ok', has);
+			}
+			$('#orKeyUse').addEventListener('click', () => {
+				const v = orKeyEl.value.trim(); if (!v) return;
+				try { localStorage.setItem(OR_KEY_LS, v); } catch {}
+				orKeyEl.value = ''; keyPanelEl.open = false;
+				refreshKeyUI(); refreshVoice();
+			});
+			$('#orKeyClear').addEventListener('click', () => {
+				try { localStorage.removeItem(OR_KEY_LS); } catch {}
+				refreshKeyUI(); refreshVoice();
+			});
+			keyPanelEl.open = !keyPresent();
+			refreshKeyUI();
 			populateVoices();
 			inputEl.value = SAMPLE;
 			render();
