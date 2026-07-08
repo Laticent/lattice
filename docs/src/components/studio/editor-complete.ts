@@ -51,7 +51,17 @@ function inFrontMatter(doc: string, pos: number): boolean {
  * Build a CodeMirror CompletionSource from the component catalog. Returns null
  * when nothing applies, so other sources (none, here) can take over.
  */
-export function makeStudioCompletion(components: CompletionComponent[], finishValues: string[] = [], finishClasses: string[] = []) {
+export function makeStudioCompletion(
+	components: CompletionComponent[],
+	finishValues: string[] = [],
+	finishClasses: string[] = [],
+	// Opt-in vocabularies (existing callers omit → unchanged behaviour):
+	//   modifiers — the universal/base modifier tokens valid on any slide (`dark`,
+	//     `light`, `numbered`, `quiet`, `tone-*`, …), from the shared lint vocabulary
+	//     so they can't drift; offered on `_class:` and the deck-wide `class:` value.
+	//   palettes  — theme names (built-in + saved), offered as `theme:` FM values.
+	opts: { modifiers?: string[]; palettes?: string[] } = {},
+) {
 	const componentOptions: Completion[] = components.map((c) => ({ label: c.name, type: 'class', detail: c.bucket, info: c.description, boost: 1 }));
 	// The `finish:` front-matter VALUE vocabulary — built-in presets (bare, e.g.
 	// `atrium`; the engine adds the prefix) PLUS the user's saved finishes, which
@@ -61,18 +71,38 @@ export function makeStudioCompletion(components: CompletionComponent[], finishVa
 	// class (`_class: closing finish-brand`). Built-ins gain the prefix upstream;
 	// saved finishes already carry it. Offered alongside the component names.
 	const classFinishOptions: Completion[] = finishClasses.map((f) => ({ label: f, type: 'constant', detail: 'finish' }));
-	const classOptions = [...componentOptions, ...classFinishOptions];
+	// Universal/base modifiers offered on any `_class:` / `class:` line — `dark`,
+	// `light`, and the rest of the cross-component vocabulary. Deduped + sorted so
+	// the menu is stable regardless of the source order.
+	const modifierOptions: Completion[] = [...new Set(opts.modifiers || [])].sort().map((m) => ({ label: m, type: 'keyword', detail: 'modifier' }));
+	// The `theme:` front-matter VALUE vocabulary — the palettes a deck can name.
+	const paletteOptions: Completion[] = (opts.palettes || []).map((p) => ({ label: p, type: 'constant', detail: 'theme' }));
+	const classOptions = [...componentOptions, ...classFinishOptions, ...modifierOptions];
 
 	return function studioComplete(context: CompletionContext): CompletionResult | null {
 		const line = context.state.doc.lineAt(context.pos);
 		const before = line.text.slice(0, context.pos - line.from);
 
-		// 1. A `_class:` directive token — component name OR a `finish-<name>` class.
-		// Fires on ANY space-separated token (not just the first), so a finish class
-		// appended after a component (`_class: closing finish-brand`) still completes.
+		// 1. A `_class:` directive token — component name, `finish-<name>` class, or a
+		// universal modifier. Fires on ANY space-separated token (not just the first),
+		// so a modifier appended after a component (`_class: statement dark`) completes.
 		if (/<!--\s*_class:[\w\s-]*$/.test(before) && classOptions.length) {
 			const word = context.matchBefore(/[\w-]*/);
 			return { from: word ? word.from : context.pos, options: classOptions, validFor: /^[\w-]*$/ };
+		}
+
+		// 1b. The deck-wide `class:` front-matter VALUE — the same modifier vocabulary
+		// (+ finish classes), so `class: dark` / `class: light` / `class: no-progress`
+		// complete deck-wide, mirroring the per-slide `_class:` line above.
+		if ((modifierOptions.length || classFinishOptions.length) && /^[ \t]*class:[ \t]*[\w\s-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
+			const word = context.matchBefore(/[\w-]*/);
+			return { from: word ? word.from : context.pos, options: [...modifierOptions, ...classFinishOptions], validFor: /^[\w-]*$/ };
+		}
+
+		// 1c. The `theme:` front-matter VALUE — the deck's own palette.
+		if (paletteOptions.length && /^[ \t]*theme:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
+			const word = context.matchBefore(/[\w-]*/);
+			return { from: word ? word.from : context.pos, options: paletteOptions, validFor: /^[\w-]*$/ };
 		}
 
 		// 2. Fenced-block language right after the opening ``` .

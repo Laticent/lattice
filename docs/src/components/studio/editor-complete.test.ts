@@ -75,6 +75,45 @@ describe('makeStudioCompletion', () => {
 		expect(r?.from).toBe('<!-- _class: quote '.length);
 	});
 
+	it('completes universal modifiers (dark/light) on a _class: line', () => {
+		const withMods = makeStudioCompletion(COMPS, [], [], { modifiers: ['dark', 'light', 'numbered'] });
+		const done = (doc: string, pos = doc.length) => {
+			const r = withMods(new CompletionContext(EditorState.create({ doc }), pos, true));
+			return r ? r.options.map((o) => o.label) : [];
+		};
+		// Modifiers ride alongside component names on the _class: line…
+		expect(done('<!-- _class: ')).toContain('dark');
+		expect(done('<!-- _class: ')).toContain('light');
+		expect(done('<!-- _class: ')).toContain('kpi');
+		// …and on a SECOND token after the component (`_class: statement light`).
+		expect(done('<!-- _class: quote li')).toContain('light');
+	});
+
+	it('completes modifiers on the deck-wide `class:` front-matter value', () => {
+		const withMods = makeStudioCompletion(COMPS, [], [], { modifiers: ['dark', 'light'] });
+		const done = (doc: string, pos = doc.length) => {
+			const r = withMods(new CompletionContext(EditorState.create({ doc }), pos, true));
+			return r ? r.options.map((o) => o.label) : [];
+		};
+		expect(done('---\nclass: da')).toContain('dark');
+		expect(done('---\nclass: dark li')).toContain('light');
+		// Not out in prose (must be inside the front-matter block).
+		expect(done('Body class: da', 14)).toEqual([]);
+	});
+
+	it('completes theme: VALUES from the palette vocabulary', () => {
+		const withThemes = makeStudioCompletion(COMPS, [], [], { palettes: ['indaco', 'cuoio', 'cuoio-dark', 'my-brand'] });
+		const done = (doc: string, pos = doc.length) => {
+			const r = withThemes(new CompletionContext(EditorState.create({ doc }), pos, true));
+			return r ? r.options.map((o) => o.label) : [];
+		};
+		expect(done('---\ntheme: ')).toContain('cuoio');
+		expect(done('---\ntheme: cuoio-d')).toContain('cuoio-dark');
+		expect(done('---\ntheme: my')).toContain('my-brand');
+		// Only on a theme: line inside the block, never in prose.
+		expect(done('Just prose theme: in', 20)).toEqual([]);
+	});
+
 	it('does not fire in plain prose', () => {
 		expect(complete('Just some body text here')).toBeNull();
 	});
