@@ -39,28 +39,37 @@ export function deckDefaults(source: string): { classTokens: string[]; finish: s
 const isFinishToken = (t: string) => /^finish-(.+)$/.test(t) && t !== 'finish-none' && t !== 'finish-preview';
 const finishName = (t: string) => (t.match(/^finish-(.+)$/)?.[1] ?? '');
 
-// ── dark ─────────────────────────────────────────────────────────────────────
-// No engine opt-out token exists for `dark`, so "off" is only meaningful when the
-// deck is NOT dark; when the deck IS dark, the slide can only be inherited-dark.
+// ── canvas (light / dark) ─────────────────────────────────────────────────────
+// The per-slide color canvas is one mutually-exclusive axis with THREE states:
+// Auto (no per-slide token — follows the deck's `class:` / the site), Light
+// (`_class: light`), or Dark (`_class: dark`). Unlike the other axes, a per-slide
+// canvas token ALWAYS wins — even a `light` slide inside a `class: dark` deck, since
+// `section.light` flips the canvas regardless (base.modifiers.css). That override is
+// the whole point: someone reading in dark can still pin one slide to the light
+// palette. So there is no "redundant/inherited-only" clamp here — Light and Dark are
+// always real choices, and Auto reports what it would inherit.
 
-export function darkProvenance(chunk: string, source: string): Provenance {
+export type Canvas = 'auto' | 'light' | 'dark';
+
+/** The slide's own canvas pin plus what Auto would inherit from the deck.
+ *  `state` is the EXPLICIT per-slide pin (`light`/`dark`) or `auto` (no pin);
+ *  `deckValue` is the deck-wide canvas (`class: dark`/`light`) an Auto slide follows,
+ *  or undefined when the deck pins neither (then Auto follows the site light/dark). */
+export function canvasProvenance(chunk: string, source: string): { state: Canvas; deckValue?: Canvas } {
 	const tokens = getClassTokens(chunk);
-	const deckDark = deckDefaults(source).classTokens.includes('dark');
-	// A dark deck always wins: the slide is dark no matter what, so report it as
-	// inherited (a per-slide `dark` token would be redundant) rather than a toggle the
-	// author could seem to switch off. Only when the deck is NOT dark is the per-slide
-	// token a real on/off.
-	if (deckDark) return { state: 'inherited', deckValue: 'dark', inheritable: true };
-	if (tokens.includes('dark')) return { state: 'on', inheritable: false };
-	return { state: 'off', inheritable: false };
+	const deck = deckDefaults(source).classTokens;
+	const deckValue: Canvas | undefined = deck.includes('dark') ? 'dark' : deck.includes('light') ? 'light' : undefined;
+	if (tokens.includes('dark')) return { state: 'dark', deckValue };
+	if (tokens.includes('light')) return { state: 'light', deckValue };
+	return { state: 'auto', deckValue };
 }
 
-/** Set the slide's dark state. `on` adds the token; `off`/`inherited` removes it.
- *  (When the deck is dark, removing the slide token yields inherited-dark, which is
- *  the honest result — the drawer disables the explicit "off" in that case.) */
-export function setDark(chunk: string, on: boolean): string {
-	const tokens = getClassTokens(chunk).filter((t) => t !== 'dark');
-	if (on) tokens.push('dark');
+/** Pin the slide's canvas. `auto` clears both tokens (the slide follows the deck /
+ *  site again); `light` / `dark` set that token, clearing the other (they're one
+ *  mutually-exclusive axis). */
+export function setCanvas(chunk: string, value: Canvas): string {
+	const tokens = getClassTokens(chunk).filter((t) => t !== 'dark' && t !== 'light');
+	if (value !== 'auto') tokens.push(value);
 	return setClassTokens(chunk, tokens);
 }
 

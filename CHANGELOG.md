@@ -74,6 +74,12 @@ in patch versions.
   A per-slide pin wins over the deck-wide one. In the Studio, the Inspector's
   **Appearance** control now sets the deck's color mode (Match site / Light / Dark),
   writing this front matter; the topbar Sun/Moon remains the website light/dark.
+- **The Studio slide drawer pins a slide's canvas with a Light control, not just Dark.**
+  The per-slide **Look → Canvas** control is now a three-way **Auto / Light / Dark**
+  selector (was a Dark-only toggle): Auto follows the deck (or site), while Light or
+  Dark pins *this* slide regardless — so someone reading in dark mode can force one
+  slide to a light surface. Auto shows the deck value it would inherit as a hint, and
+  Light/Dark are mutually exclusive (setting one clears the other).
 - **The Studio Inspector's Theme control now sets the DECK's theme.** It reads/writes
   the deck's own `theme:` front matter with an "Automatic — match site" option that
   clears it (the topbar picker stays the website theme). The Appearance control also
