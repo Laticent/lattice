@@ -278,6 +278,13 @@ in patch versions.
 
 ### Fixed
 
+- **Read-aloud now pronounces figures correctly** — the Studio narrator was fed the
+  raw slide glyphs, so the voice did its own (wrong) expansion, saying `$4.2M` as
+  "four dollars and two cents m". It now speaks Cadenza's spoken form (`$4.2M` →
+  "four point two million dollars", `18.5%` → "eighteen point five percent", `Q3` →
+  "Q three") via a new pure `toSpokenText` helper, while the teleprompter still shows
+  the display glyphs. (Same fix already shipped on the `/cadenza` demo.)
+
 - **The OpenRouter cloud voice now actually produces audio.** The read-aloud
   voice ladder (`docs/src/playground/voice-model.js`) called OpenRouter through
   `chat/completions` with a non-existent audio-output model, on the assumption

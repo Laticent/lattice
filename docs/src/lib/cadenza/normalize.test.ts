@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { integerToWords, numberToWords, spokenWordCount, toSpoken } from './normalize';
+import { integerToWords, numberToWords, spokenWordCount, toSpoken, toSpokenText } from './normalize';
 
 describe('numberToWords', () => {
   it('reads integers with scale groups', () => {
@@ -41,5 +41,23 @@ describe('toSpoken', () => {
     // One displayed token → five spoken words: exactly why timing rides `spoken`.
     expect(spokenWordCount(toSpoken('$4.2M'))).toBe(5);
     expect(spokenWordCount(toSpoken('up'))).toBe(1);
+  });
+});
+
+describe('toSpokenText', () => {
+  it('expands every token in a passage, leaving plain words alone', () => {
+    expect(toSpokenText('Revenue grew to $4.2M this quarter, up 18.5% from Q3.')).toBe(
+      'Revenue grew to four point two million dollars this quarter, up eighteen point five percent from Q three.',
+    );
+  });
+
+  it('is a no-op on prose with no figures', () => {
+    expect(toSpokenText('That is the fastest growth in our history.')).toBe(
+      'That is the fastest growth in our history.',
+    );
+  });
+
+  it('collapses whitespace to single spaces (via splitWords)', () => {
+    expect(toSpokenText('  beat   plan  ')).toBe('beat plan');
   });
 });
