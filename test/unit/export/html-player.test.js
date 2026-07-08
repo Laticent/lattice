@@ -102,6 +102,16 @@ test('carries the three view controls + the Typora TOC shell', async () => {
 	assert.match(html, /id="lp-toc"/, 'the article TOC shell is present');
 });
 
+test('the player inlines the transport kernel with its EXACT fit insets (frozen fit)', async () => {
+	// The fit must stay byte-identical to the historical Math.min((iw-56)/1280,(ih-104)/720).
+	// The kernel is inlined via .toString(), so a silent edit of these insets would pass
+	// the kernel unit suite (integration-only exposure) — pin the wiring here.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /function fitScale\(/, 'the transport kernel is inlined into the player script');
+	assert.match(html, /slideW:1280,slideH:720,insetX:56,insetY:48\+56/, 'the player wires the exact historical insets');
+	assert.match(html, /createTransport\(\{count:slides\.length/, 'nav runs on the shared transport');
+});
+
 test('fileToDataUri returns null for a missing file (feeds the honesty report)', () => {
 	assert.equal(fileToDataUri('/no/such/file.png'), null);
 });
