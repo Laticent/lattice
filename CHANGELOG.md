@@ -34,6 +34,23 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **The browser runtime now composes decks as Form by default, matching the
+  engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
+  adds at render time, so a deck built from `lattice.css` + the runtime + a theme
+  and rendered through Marp (the marp-vscode preview, or an export-to-Marp
+  bundle's HTML opened in a browser) came out Form-**blind** — no masthead band,
+  bay, footer cell, progress rail, or watermark, since that whole chrome layer
+  keys on `section.form`. The runtime now reproduces the render-time default on
+  the live DOM via a shared kernel (`lib/forms/form-default.js`) that reuses the
+  engine's `formToggleClass`, so the sovereign-frame skip set and the
+  `form` / `no-form` opt-outs stay single-sourced across all three render paths.
+  It also stamps `data-lattice-slide` (which the Tiles + overflow probe scope on;
+  Marp omits it). The runtime reads no front matter, so the deck-wide `form: off`
+  opt-out remains a render-time (engine / CLI) key. See
+  `engineering/decisions/2026-07-08-runtime-form-default.md`.
+
 ### Added
 
 - **The Studio can download a deck as a self-contained webpage.** The Share sheet
