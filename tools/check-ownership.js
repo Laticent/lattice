@@ -1147,8 +1147,7 @@ const SANITIZE_CALL = /sanitizeSlideHtml\s*\(/;
 const SANCTIONED_PREVIEW_BUILDERS = [
   { file: 'docs/src/playground/deck-preview.js', why: 'buildSrcdoc + renderDeck (the latter also sanitizes the patchSections innerHTML path).' },
   { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / workbench single-slide preview.' },
-  { file: 'docs/src/playground/presenter-window.js', why: 'buildStageDoc — the shared dual-screen presenter stage.' },
-  { file: 'docs/src/playground/drawing-board-practice.js', why: 'frameDoc — the rehearsal stage.' },
+  { file: 'docs/src/playground/presenter-window.js', why: 'buildStageDoc — the shared dual-screen presenter AND rehearsal stage (drawing-board-practice delegates here, P3b).' },
   { file: 'docs/src/playground/drawing-board-focus.js', why: 'frame — the focus-edit fragment preview.' },
 ];
 
