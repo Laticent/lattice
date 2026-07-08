@@ -82,11 +82,18 @@ describe('SlideContextBody controls', () => {
 		expect(screen.queryByRole('tab', { name: 'Comments' })).toBeNull();
 	});
 
-	it('toggles dark on', () => {
+	it('sets the slide canvas to dark', () => {
 		const { onMutate, applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		fireEvent.click(screen.getByRole('switch', { name: /dark/i }));
+		fireEvent.click(screen.getByRole('radio', { name: 'Dark' }));
 		expect(onMutate).toHaveBeenCalled();
 		expect(applied()).toContain('dark');
+	});
+
+	it('pins the slide canvas to LIGHT even inside a dark deck', () => {
+		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi', '---\nclass: dark\n---\n\n<!-- _class: kpi -->\n\n# Hi');
+		fireEvent.click(screen.getByRole('radio', { name: 'Light' }));
+		expect(applied()).toContain('light');
+		expect(applied()).not.toContain('dark');
 	});
 
 	it('sets a type scale via the segmented control', () => {
@@ -212,13 +219,13 @@ describe('SlideContextBody controls', () => {
 	it('goes read-only on a non-editable class shape', () => {
 		setup('<!-- _class: [kpi, dark] -->\n\n# Hi');
 		expect(screen.getByText(/hand-authored/i)).toBeTruthy();
-		expect(screen.queryByRole('switch', { name: /dark/i })).toBeNull();
+		expect(screen.queryByRole('radio', { name: 'Auto' })).toBeNull();
 	});
 
 	it('editable slide defaults to the Look tab; Notes is behind a tab', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		// Look controls are visible immediately (default tab); the note is NOT (its own tab).
-		expect(screen.getByRole('switch', { name: /dark/i })).toBeTruthy();
+		expect(screen.getByRole('radio', { name: 'Auto' })).toBeTruthy();
 		expect(screen.queryByRole('textbox', { name: 'Speaker note for this slide' })).toBeNull();
 		// The tab bar offers the applicable sections.
 		expect(screen.getByRole('tab', { name: 'Look' })).toBeTruthy();
@@ -237,7 +244,7 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi');
 		// Look tab (default): the group intro + a field-level description are both present.
 		expect(screen.getByText(/how this one slide looks/i)).toBeTruthy();
-		expect(screen.getByText(/theme's dark canvas/i)).toBeTruthy();
+		expect(screen.getByText(/light or dark surface for this one slide/i)).toBeTruthy();
 		// Switching tabs swaps in that tab's own intro.
 		goTab('Chrome');
 		expect(screen.getByText(/the slide's furniture/i)).toBeTruthy();
@@ -324,9 +331,13 @@ describe('SlideContextBody controls', () => {
 		expect(screen.queryByRole('button', { name: /connect a cloud model/i })).toBeNull();
 	});
 
-	it('reads dark as inherited from a dark deck (no misleading off toggle)', () => {
+	it('an un-pinned slide reads Auto and shows the deck canvas it inherits', () => {
 		const src = '---\nclass: dark\n---\n\n<!-- _class: kpi -->\n\n# Hi';
 		setup('<!-- _class: kpi -->\n\n# Hi', src);
-		expect(screen.getByText(/On · deck/i)).toBeTruthy();
+		// The canvas control is a real 3-way selector (Auto/Light/Dark), even under a
+		// dark deck — Light stays a live choice — with an "inherits dark" hint on Auto.
+		expect(screen.getByRole('radio', { name: 'Auto' })).toBeTruthy();
+		expect(screen.getByRole('radio', { name: 'Light' })).toBeTruthy();
+		expect(screen.getByText(/dark · deck/i)).toBeTruthy();
 	});
 });

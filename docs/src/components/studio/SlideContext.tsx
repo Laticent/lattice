@@ -21,7 +21,7 @@ import { SlideComments } from './SlideComments';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { darkProvenance, deckDefaults, finishProvenance, setDark, setFinish, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { type Canvas, canvasProvenance, deckDefaults, finishProvenance, setCanvas, setFinish, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 
 type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
 type LintVocab = {
@@ -255,7 +255,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const toggle = (t: string) => onMutate((c) => toggleToken(c, t));
 
 	// Provenance (needs the whole deck for the deck-wide default).
-	const dark = darkProvenance(chunk, source);
+	const canvas = canvasProvenance(chunk, source);
 	const finish = finishProvenance(chunk, source);
 	const deck = deckDefaults(source);
 
@@ -466,10 +466,13 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					{activeTab === 'look' && (
 						<div className="py-1">
 							<TabIntro>How this one slide looks — its canvas, text size, backdrop, and brand bar. Anything you don't set here is inherited from the deck.</TabIntro>
-							<Row label="Dark" hint={dark.state === 'inherited' ? 'from deck' : undefined} desc="Paints this slide on the theme's dark canvas — light text on a dark surface.">
-								{dark.state === 'inherited'
-									? <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">On · deck</span>
-									: <Switch label="Dark canvas" on={dark.state === 'on'} onClick={() => onMutate((c) => setDark(c, dark.state !== 'on'))} />}
+							<Row label="Canvas" hint={canvas.state === 'auto' && canvas.deckValue ? `${canvas.deckValue} · deck` : undefined} desc="Light or dark surface for this one slide. Auto follows the deck (or the site); Light or Dark pins THIS slide regardless — so a bright slide can sit inside a dark deck, or vice-versa.">
+								<Seg
+									ariaLabel="Slide canvas"
+									value={canvas.state === 'auto' ? null : canvas.state}
+									onChange={(v) => onMutate((c) => setCanvas(c, (v ?? 'auto') as Canvas))}
+									options={[{ label: 'Auto', value: null }, { label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }]}
+								/>
 							</Row>
 							<Row label="Type scale" desc="Sizes all the text on this slide together. M is the deck default; step up to fill a sparse slide or land a big statement.">
 								<Seg

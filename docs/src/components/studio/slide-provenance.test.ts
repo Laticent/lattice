@@ -1,31 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import { getClassTokens } from './slide-directives';
-import { darkProvenance, finishProvenance, modeProvenance, setDark, setFinish, setMode, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { canvasProvenance, finishProvenance, modeProvenance, setCanvas, setFinish, setMode, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 
 const TONE_STYLES = ['tone-rail', 'tone-edge', 'tone-glow'];
 
 const deck = (fm: string, body: string) => `---\n${fm}\n---\n\n${body}`;
 
-describe('dark provenance', () => {
-	it('off when neither slide nor deck is dark', () => {
-		expect(darkProvenance('<!-- _class: kpi -->\n\n# Hi', '# deck').state).toBe('off');
+describe('canvas provenance', () => {
+	it('auto when neither slide nor deck pins a canvas', () => {
+		const p = canvasProvenance('<!-- _class: kpi -->\n\n# Hi', '# deck');
+		expect(p.state).toBe('auto');
+		expect(p.deckValue).toBeUndefined();
 	});
-	it('on when the slide carries dark', () => {
-		expect(darkProvenance('<!-- _class: kpi dark -->\n\n# Hi', '').state).toBe('on');
+	it('dark when the slide carries dark', () => {
+		expect(canvasProvenance('<!-- _class: kpi dark -->\n\n# Hi', '').state).toBe('dark');
 	});
-	it('inherited (not off) when the DECK is dark and the slide is not', () => {
+	it('light when the slide carries light', () => {
+		expect(canvasProvenance('<!-- _class: kpi light -->\n\n# Hi', '').state).toBe('light');
+	});
+	it('auto reports the deck value it would inherit (dark)', () => {
 		const src = deck('class: dark', '<!-- _class: kpi -->\n\n# Hi');
-		const p = darkProvenance('<!-- _class: kpi -->', src);
-		expect(p.state).toBe('inherited');
+		const p = canvasProvenance('<!-- _class: kpi -->', src);
+		expect(p.state).toBe('auto');
 		expect(p.deckValue).toBe('dark');
 	});
-	it('a dark deck reads inherited even when the slide ALSO carries dark (no phantom off)', () => {
-		const src = deck('class: dark', '<!-- _class: kpi dark -->');
-		expect(darkProvenance('<!-- _class: kpi dark -->', src).state).toBe('inherited');
+	it('a per-slide LIGHT pin wins inside a dark deck (the point of the control)', () => {
+		const src = deck('class: dark', '<!-- _class: kpi light -->');
+		const p = canvasProvenance('<!-- _class: kpi light -->', src);
+		expect(p.state).toBe('light'); // explicit — overrides the deck-wide dark
+		expect(p.deckValue).toBe('dark');
 	});
-	it('setDark toggles only the dark token', () => {
-		expect(getClassTokens(setDark('<!-- _class: kpi tint-corner -->', true))).toEqual(['kpi', 'tint-corner', 'dark']);
-		expect(getClassTokens(setDark('<!-- _class: kpi dark tint-corner -->', false))).toEqual(['kpi', 'tint-corner']);
+	it('setCanvas sets one token and clears the other (mutually exclusive)', () => {
+		expect(getClassTokens(setCanvas('<!-- _class: kpi tint-corner -->', 'dark'))).toEqual(['kpi', 'tint-corner', 'dark']);
+		expect(getClassTokens(setCanvas('<!-- _class: kpi dark tint-corner -->', 'light'))).toEqual(['kpi', 'tint-corner', 'light']);
+		expect(getClassTokens(setCanvas('<!-- _class: kpi light tint-corner -->', 'auto'))).toEqual(['kpi', 'tint-corner']);
 	});
 });
 
