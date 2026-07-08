@@ -170,7 +170,7 @@
 		</div>
 
 		<script>
-			import { buildTrack, makeReader, splitSentences, toVtt } from '@/lib/cadenza';
+			import { buildTrack, makeReader, toVtt } from '@/lib/cadenza';
 
 			const SAMPLE = "Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is the fastest growth in the company's history. We beat plan by eight points — and margins held.";
 			const $ = (s) => document.querySelector(s);
@@ -325,7 +325,10 @@
 				// split feeds buildTrack, so this holds even on values like $4.2M.)
 				voice.speak({
 					text: inputEl.value,
-					sentences: splitSentences(inputEl.value),
+					// Speak Cadenza's SPOKEN expansion, not the raw glyphs — so the voice says
+					// "four point two million dollars", not Kokoro's mis-parse of "$4.2M". One
+					// spoken sentence per cue keeps index i aligned with cue i for re-anchoring.
+					sentences: track.cues.map((cue) => cue.words.map((w) => w.spoken).join(' ')),
 					voice: selVoice,
 					speed: PACE_SPEED[pace] || 1,
 					onSentenceTiming: clocked
