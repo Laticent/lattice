@@ -89,6 +89,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
 | `theme-core:check` | Freshness gate for the theme-core bundle. |
+| `vetrina-lib:build` | Build the Vetrina library dist/ (two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
+| `vetrina-lib:check` | Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts). |
 
 ### Galleries & preview
 
@@ -298,6 +300,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
+| `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
 | `tools/component-gen-eval.mjs` | AI component-generation evaluator — runs the FROZEN, held-out adversarial prompt |

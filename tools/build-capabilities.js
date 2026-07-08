@@ -108,6 +108,8 @@ const SCRIPT_META = {
   'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
   'cadenza-lib:build':        ['Build & bundle', 'Build the Cadenza library dist/ (CJS + .d.ts, esbuild + tsc) so root CJS can require(\'@slidewright/cadenza\') — the workspace package that retires the caption hand-mirrors.'],
   'cadenza-lib:check':        ['Build & bundle', 'Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts).'],
+  'vetrina-lib:build':        ['Build & bundle', 'Build the Vetrina library dist/ (two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine.'],
+  'vetrina-lib:check':        ['Build & bundle', 'Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts).'],
   'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
   'decisions:index:check':    ['Build & bundle', 'Freshness gate for the decisions-index (stale vs the notes\' front-matter).'],
 
