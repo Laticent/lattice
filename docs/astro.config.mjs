@@ -65,15 +65,10 @@ export default defineConfig({
 			// lattice-mark-min.svg) are light/dark adaptive via
 			// @media(prefers-color-scheme:dark). See design/logo/README.md.
 			favicon: '/favicon.svg',
-			// Open the TLS handshake to the Google Fonts hosts up front, so the
-			// webfont round-trip doesn't wait on the render-blocking @import in
-			// lattice.css. gstatic serves the .woff2 over CORS → crossorigin.
-			// Standalone (non-Starlight) routes carry the same pair via
-			// <ResourceHints> (src/components/site/).
-			head: [
-				{ tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' } },
-				{ tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' } },
-			],
+			// Webfonts are self-hosted (src/styles/fonts.css → the vendored woff2),
+			// so there is no Google Fonts host to preconnect to and nothing
+			// render-blocking on the critical path. (Was a preconnect pair here +
+			// in <ResourceHints> for the old google-fonts @import.)
 			components: {
 				// Re-skin the docs zone as part of the one website (not a bolted-on
 				// subsite). Header becomes the site topbar (brand · global nav ·

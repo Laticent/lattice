@@ -348,6 +348,15 @@ in patch versions.
 
 ### Fixed
 
+- **The docs site no longer stalls on a render-blocking Google-Fonts request.** The
+  site chrome (`landing.css` / `lattice.css`) pulled Playfair Display / Outfit /
+  JetBrains Mono from Google Fonts via a remote CSS `@import`, which blocks first
+  paint until it resolves — so a slow or flaky Google Fonts response (mobile, cold
+  cache) left the whole app, Studio live preview included, blank for many seconds.
+  Those faces are now self-hosted from the woff2 already vendored for the preview
+  (`docs/src/styles/fonts.css` → `docs/src/playground/fonts/`), loaded non-blocking
+  with `font-display: swap`; the Google preconnect hints are gone. First paint no
+  longer waits on a third-party host.
 - **Read-aloud now pronounces figures correctly** — the Studio narrator was fed the
   raw slide glyphs, so the voice did its own (wrong) expansion, saying `$4.2M` as
   "four dollars and two cents m". It now speaks Cadenza's spoken form (`$4.2M` →
