@@ -119,3 +119,55 @@ describe('html-player export — honors sketch fonts', () => {
 		assert.match(fontBlock, /font-family:\s*['"]?Shantell/i, 'Shantell (sketch body) IS shipped for a sketch deck');
 	});
 });
+
+// P3c — Present geometry on the REAL surface. String-presence tests can't catch a
+// clipped/off-screen slide (the box-sizing regression + the pre-existing mobile
+// horizontal off-screen both hid behind "the CSS shipped"). Drive the actual player
+// in Chromium and assert the active present slide sits WITHIN the stage at desktop
+// AND mobile widths.
+describe('html-player export — Present fits the viewport (P3c)', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const DECK = path.join(ROOT, 'examples', 'html-player.md');
+	const TIMEOUT = 120000;
+	let file;
+	let puppeteer;
+	let browser;
+	test.before(async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-geom-'));
+		const out = path.join(dir, 'deck.pdf');
+		const r = spawnSync(process.execPath, [EMULATOR, DECK, out, '--quiet', '--player'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		file = require('node:url').pathToFileURL(out.replace(/\.pdf$/, '.html')).href;
+		puppeteer = require('puppeteer');
+		browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+	}, { timeout: TIMEOUT });
+	test.after(async () => {
+		if (browser) await browser.close();
+	});
+
+	async function activeSlideRect(w, h) {
+		const page = await browser.newPage();
+		await page.setViewport({ width: w, height: h, deviceScaleFactor: 1, isMobile: w < 800, hasTouch: w < 800 });
+		await page.goto(file, { waitUntil: 'networkidle0' });
+		await new Promise((r) => setTimeout(r, 400)); // let the fit timeouts settle
+		const rect = await page.evaluate(() => {
+			const s = document.querySelector('section.lp-active');
+			const r = s.getBoundingClientRect();
+			return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, iw: window.innerWidth, ih: window.innerHeight };
+		});
+		await page.close();
+		return rect;
+	}
+
+	test('the present slide is on-screen horizontally at desktop AND mobile widths', async () => {
+		for (const [w, h] of [[1280, 800], [390, 844]]) {
+			const r = await activeSlideRect(w, h);
+			// A ~1px scale-rounding bleed is fine; a whole slide off-screen (the mobile bug) is not.
+			assert.ok(r.left >= -1 && r.right <= r.iw + 1, `[${w}×${h}] slide is within the viewport horizontally (left ${r.left.toFixed(0)}, right ${r.right.toFixed(0)} of ${r.iw})`);
+			assert.ok(r.top >= 47, `[${w}×${h}] slide sits below the 48px bar (top ${r.top.toFixed(0)})`);
+		}
+	}, { timeout: TIMEOUT });
+});

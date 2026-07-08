@@ -95,11 +95,15 @@ in patch versions.
   single swappable pane vs. the desktop side-by-side — built from a shared tour toolkit and paced by
   the new Teaching Beat (below). Verified on real Chromium at both widths (full walkthrough builds +
   completes; every tour smoke-launches). Retires the two single storyboards the tours supersede.
-- **Present mode in the exported `.html` player gains PageUp / PageDown / Home / End** (previously only
-  ← / → / space). The player's slide transport now runs on the shared headless kernel
-  (`lib/core/present-transport.mjs`) — the one source of truth for the fit-scale, index/bounds, keymap, and
-  swipe maths that the presenter, practice, and export transports had each reimplemented. No visible change
-  to slide scaling (byte-identical fit).
+- **Present mode in the exported `.html` player gains touch-swipe, fullscreen, PageUp / PageDown / Home / End,
+  and a dynamic-viewport (`dvh`) fit.** You can now present straight from the shared file: swipe left/right to
+  turn slides on a touchscreen, tap the new ⛶ control for true fullscreen, and the stage fills the dynamic
+  mobile viewport (toolbars no longer clip it) with the slide correctly centered on narrow screens (it
+  previously sat off-screen on a phone), re-fitting on orientation change. Keyboard nav adds
+  PageUp/PageDown/Home/End (previously only ← / → / space). The player's slide transport runs on the shared
+  headless kernel (`lib/core/present-transport.mjs`) — the one source of truth for the fit-scale, index/bounds,
+  keymap, and swipe maths that the presenter, practice, and export transports had each reimplemented. Desktop
+  slide scaling is byte-identical.
 
 ### Changed
 

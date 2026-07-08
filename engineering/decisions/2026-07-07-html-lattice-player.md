@@ -378,9 +378,21 @@ a security defect in the player JS lives **forever** in every file already sent.
     suite is nightly/off-PR); the direct real-browser drive covers the same behavior. The `go`/`onKey`
     keymap dedup (`createTransport`/`keyAction` in DB-present + practice, whose key sets already MATCH) is
     deferred — it's low-value now that the divergent fork (the export player) is healed.
-  - **P3c — the player's richer Present controls (NEXT).** Swipe (via `swipeAction`), fullscreen, the notes
-    sheet (default-in + strip-all-copies via `notes-core`), `dvh` viewport-fill + orientation re-fit,
-    capability tiers.
+  - **P3c — the player's richer Present controls — SHIPPED (2026-07-08).** Additive presentation ergonomics
+    on the export player, built on the P3a kernel: **touch-swipe** (the kernel's `swipeAction`, inlined;
+    pointerdown/up on the stage, `touch-action:none` so a horizontal drag turns the slide instead of
+    scrolling), **fullscreen** (a ⛶ control, feature-detected `requestFullscreen`/`webkit-`), and **`dvh`
+    viewport-fill + orientation re-fit** (the present stage is `height:calc(100dvh - 48px)` + `box-sizing:border-box`
+    so mobile toolbars don't clip it and the inherited `padding-top` doesn't overflow/shift; the fit re-runs
+    on `orientationchange` + `visualViewport` resize). The desktop present is **byte-identical** (center 456,
+    `scale(0.95625)` — proven against the pre-P3c player). A `justify-content:center` also **fixes a
+    pre-existing mobile bug** the dvh work surfaced: the 1280-px slide sized the implicit grid column, so on a
+    narrow viewport it sat off-screen (left 473 of 390) — now it centers on-screen (a no-op on desktop, where
+    the track equals the viewport). Verified in real Chromium at 1280×800 and 390×844 (a geometry integration
+    test locks the slide within the viewport): swipe-left/right navigate, a vertical drag does NOT, fullscreen
+    wires, desktop framing unchanged, mobile slide on-screen.
+    Deferred to **P3d**: the notes sheet (default-in + strip-all-copies via `notes-core`) — a distinct
+    feature with its own envelope-scrubbing design (§Notes on export) — and capability tiers.
 - **P4 — component-aware prose projection.** Implement the A2 mapping bucket by bucket to the **§A4 exit
   criterion** (per-bucket goldens + whole-document review + WCAG AA/AXE + A2c "asserts nothing false").
 - **P5 — dual-screen presenter.** `window.open` + `postMessage`; Window Management API auto-place as

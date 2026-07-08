@@ -112,6 +112,18 @@ test('the player inlines the transport kernel with its EXACT fit insets (frozen 
 	assert.match(html, /createTransport\(\{count:slides\.length/, 'nav runs on the shared transport');
 });
 
+test('present mode ships swipe, fullscreen, and dvh viewport-fill (P3c)', async () => {
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /function swipeAction\(/, 'the swipe kernel is inlined');
+	assert.match(html, /pointerdown/, 'the stage is wired for touch/swipe');
+	assert.match(html, /swipeAction\(\{dx:/, 'a decisive horizontal drag turns the slide');
+	assert.match(html, /id="lp-full"/, 'the fullscreen control is present');
+	assert.match(html, /requestFullscreen/, 'fullscreen is wired (feature-detected)');
+	assert.match(html, /height:calc\(100dvh - 48px\);box-sizing:border-box/, 'dvh fill with border-box (no padding overflow / vertical shift)');
+	assert.match(html, /place-items:center;justify-content:center/, 'the oversized slide is centered in a narrow viewport (mobile on-screen)');
+	assert.match(html, /addEventListener\('orientationchange',fit\)/, 'the fit re-runs on orientation change');
+});
+
 test('fileToDataUri returns null for a missing file (feeds the honesty report)', () => {
 	assert.equal(fileToDataUri('/no/such/file.png'), null);
 });
