@@ -195,7 +195,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '9ff9992779a4e327d2db1c726d95f28fbc97fc1eb3efabd58b8fe2772ca098d0', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '9d220e9af4473e4d4e51f77c57ced4705d5ddbf9f6a79d5fe0934eb0258f56b9', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

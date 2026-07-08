@@ -388,16 +388,16 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
 #lp-notes{position:fixed;left:0;right:0;bottom:0;z-index:60;max-height:42dvh;overflow:auto;
  background:var(--bg-alt,#f5f5f5);border-top:1px solid var(--border,#ddd);padding:20px 24px;
  transform:translateY(101%);transition:transform .22s ease;box-shadow:0 -14px 44px -22px rgba(0,0,0,.5);display:none}
-[data-lp-view=present] #lp-notes{display:block}
+.lp-js [data-lp-view=present] #lp-notes{display:block}
 #lp-notes.lp-open{transform:translateY(0)}
 #lp-notes-body{max-width:900px;margin:0 auto;white-space:pre-wrap;line-height:1.6;color:var(--text-body,#222);font-size:15px}
 #lp-notes[data-empty=true] #lp-notes-body::after{content:"No notes for this slide.";color:var(--text-muted,#888);font-style:italic}
 /* PRESENT \u2014 fill the DYNAMIC viewport (dvh) so mobile toolbars don't clip the stage;
    touch-action:none frees a horizontal drag for slide-swipe instead of scroll/zoom. */
-[data-lp-view=present] #lp-stage{position:fixed;top:48px;left:0;right:0;height:calc(100dvh - 48px);box-sizing:border-box;display:grid;place-items:center;justify-content:center;overflow:hidden;background:var(--bg,#fff);touch-action:none}
-[data-lp-view=present] section[data-lattice-slide]{display:none;box-shadow:0 24px 70px -22px rgba(0,0,0,.45)}
-[data-lp-view=present] section[data-lattice-slide].lp-active{display:block;transform-origin:center center}
-[data-lp-view=present] #lp-doc{display:none}
+.lp-js [data-lp-view=present] #lp-stage{position:fixed;top:48px;left:0;right:0;height:calc(100dvh - 48px);box-sizing:border-box;display:grid;place-items:center;justify-content:center;overflow:hidden;background:var(--bg,#fff);touch-action:none}
+.lp-js [data-lp-view=present] section[data-lattice-slide]{display:none;box-shadow:0 24px 70px -22px rgba(0,0,0,.45)}
+.lp-js [data-lp-view=present] section[data-lattice-slide].lp-active{display:block;transform-origin:center center}
+.lp-js [data-lp-view=present] #lp-doc{display:none}
 /* READ \xB7 SLIDES \u2014 stack the real slides, scaled, in a column */
 [data-lp-view=read-slides] #lp-doc{display:none}
 [data-lp-view=read-slides] #lp-stage{max-width:960px;margin:0 auto;padding:28px 18px 120px}
@@ -439,7 +439,15 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
 #lp-article pre{background:var(--bg-alt,#f5f5f5);padding:1em;border-radius:8px;overflow:auto;margin:0 0 1.3em;font-size:.85em}
 #lp-article code{font-family:'JetBrains Mono',monospace;font-size:.88em}
 @media (max-width:820px){[data-lp-view=read-article] #lp-doc{grid-template-columns:1fr}#lp-toc{display:none}}
-/* JS-off floor: with no player, slides just stack and scroll. */
+/* NO-JS / BLOCKED-SCRIPT FLOOR (progressive enhancement). Every present/read rule
+   above is scoped to .lp-js, which the player script adds to <html> only when it
+   actually runs. Without it \u2014 a strict CSP that blocks the inline script (seen on some
+   mobile browsers), scripting disabled, or a script error \u2014 the deck falls back to a
+   readable stacked column instead of a BLANK page (present mode had hidden every slide
+   until JS marked one active). The bar's live-only controls hide in this state. */
+html:not(.lp-js) #lp-stage{max-width:960px;margin:0 auto;padding:68px 16px 90px}
+html:not(.lp-js) section[data-lattice-slide]{width:100%!important;height:auto!important;aspect-ratio:16/9;display:block;margin:0 0 22px;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
+html:not(.lp-js) #lp-notes,html:not(.lp-js) #lp-count,html:not(.lp-js) #lp-notes-btn,html:not(.lp-js) #lp-full{display:none}
 `.trim();
 }
 async function playerJs() {
@@ -452,6 +460,13 @@ ${swipeAction2.toString()}`;
   return `(function(){
 ${kernel}
 var root=document.documentElement,app=document.getElementById('lp-app');
+if(!app)return;
+// Progressive enhancement: mark JS active so the present/read CSS (which hides every
+// slide until one is .lp-active) only engages when this script actually runs. If it is
+// blocked (a strict CSP on some browsers), disabled, or throws, .lp-js is never left
+// set and the slides fall back to a readable stacked column (see playerCss NO-JS FLOOR).
+try{
+root.className+=(root.className?' ':'')+'lp-js';
 var slides=[].slice.call(document.querySelectorAll('section[data-lattice-slide]'));
 var count=document.getElementById('lp-count'),view='present';
 var t=createTransport({count:slides.length,onShow:render});
@@ -501,6 +516,7 @@ if(links.length&&window.IntersectionObserver){var spy=new IntersectionObserver(f
  if(e.isIntersecting)links.forEach(function(l){l.classList.toggle('lp-on',l.getAttribute('href')==='#'+e.target.id);});});},
  {rootMargin:'-48px 0px -70% 0px'});[].forEach.call(document.querySelectorAll('#lp-article [id^=lp-sec-]'),function(h){spy.observe(h);});}
 setView('present');
+}catch(e){if(root){root.className=root.className.replace(/(^|\\s)lp-js\\b/,'');}}
 })();`;
 }
 async function buildArticle(doc) {
