@@ -4,9 +4,26 @@ import { slideToSpeech, useReadAloud } from './read-aloud';
 
 // The spoken-audio rung is irrelevant to the teleprompter timer that drives
 // onFinish — stub the voice model so play() doesn't import the real Kokoro worker.
-const { unlockSpy } = vi.hoisted(() => ({ unlockSpy: vi.fn() }));
+// A configurable stub of the production voice ladder. Default rung 'silent' → the
+// estimate clock carries the highlight (no audio path). Tests can flip `voiceState`
+// to drive the AUDIO clock + capture `onSentenceTiming` to exercise re-anchoring.
+const { unlockSpy, voiceState } = vi.hoisted(() => ({
+	unlockSpy: vi.fn(),
+	voiceState: { rung: 'silent', audioMs: 0, onTiming: null as null | ((t: { index: number; onsetMs: number; durationMs: number }) => void) },
+}));
 vi.mock('@/playground/voice-model.js', () => ({
-	createVoiceModel: () => ({ speak() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent', unlock: unlockSpy }),
+	createVoiceModel: () => ({
+		speak(o: { onSentenceTiming?: (t: { index: number; onsetMs: number; durationMs: number }) => void }) {
+			voiceState.onTiming = o.onSentenceTiming ?? null;
+		},
+		stop() {},
+		pause() {},
+		resume() {},
+		rung: () => voiceState.rung,
+		unlock: unlockSpy,
+		audioTimeMs: () => voiceState.audioMs,
+		outputLatencyMs: () => 0,
+	}),
 }));
 
 // slideToSpeech is the narration extractor — it turns a slide's Markdown into the
@@ -50,8 +67,9 @@ describe('slideToSpeech — Markdown → readable narration', () => {
 	});
 });
 
-// onFinish is the natural-end signal Present's autoplay chains on — it must fire
-// when the read walks off the last sentence, and NOT on a manual stop.
+// onFinish is the natural-end signal Present's autoplay chains on — it must fire when
+// the word cursor walks off the end of the track, and NOT on a manual stop. Fake timers
+// drive the requestAnimationFrame loop; rung 'silent' → the estimate clock runs it.
 describe('useReadAloud — onFinish (autoplay chain signal)', () => {
 	beforeEach(() => vi.useFakeTimers());
 	afterEach(() => vi.useRealTimers());
@@ -61,9 +79,9 @@ describe('useReadAloud — onFinish (autoplay chain signal)', () => {
 		const { result } = renderHook(() => useReadAloud('One. Two.', { onFinish }));
 		act(() => result.current.play());
 		expect(result.current.playing).toBe(true);
-		// Each sentence holds at least MIN_SENTENCE_MS (1100); walk well past both.
+		// Walk the RAF clock well past the track's estimated duration.
 		await act(async () => {
-			await vi.advanceTimersByTimeAsync(8000);
+			await vi.advanceTimersByTimeAsync(12000);
 		});
 		expect(onFinish).toHaveBeenCalledTimes(1);
 		expect(result.current.playing).toBe(false);
@@ -75,9 +93,26 @@ describe('useReadAloud — onFinish (autoplay chain signal)', () => {
 		act(() => result.current.play());
 		act(() => result.current.stop());
 		await act(async () => {
-			await vi.advanceTimersByTimeAsync(8000);
+			await vi.advanceTimersByTimeAsync(12000);
 		});
 		expect(onFinish).not.toHaveBeenCalled();
+	});
+
+	it('highlights word by word — the active cursor advances through the track', async () => {
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie. Delta.'));
+		act(() => result.current.play());
+		expect(result.current.active).toBeNull(); // nothing highlighted at t=0 yet
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(200);
+		});
+		const first = result.current.active;
+		expect(first).toEqual({ cueIndex: 0, wordIndex: 0 }); // FIRST word, not the whole sentence
+		// Advance and the cursor moves to a LATER word (word-level, not block).
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(2000);
+		});
+		const later = result.current.active;
+		expect(later && (later.cueIndex > 0 || later.wordIndex > 0)).toBe(true);
 	});
 });
 
@@ -96,5 +131,50 @@ describe('useReadAloud — iOS audio unlock in the play gesture', () => {
 		});
 		act(() => result.current.play());
 		expect(unlockSpy).toHaveBeenCalled();
+	});
+});
+
+// The audio path: with a clocked voice (Kokoro/OpenRouter) the highlight must HOLD at
+// the first word until the measured onset arrives, then ride the audio clock — not
+// race ahead on the estimate and snap back. Drives the mock's audio clock + onset.
+describe('useReadAloud — audio-clock sync', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		voiceState.rung = 'kokoro';
+		voiceState.audioMs = 0;
+		voiceState.onTiming = null;
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+		voiceState.rung = 'silent';
+		voiceState.onTiming = null;
+	});
+
+	it('holds at word 0 before the first onset (no estimate race), then tracks the onset', async () => {
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie delta. Echo foxtrot.'));
+		await act(async () => {
+			await Promise.resolve(); // warm
+			await Promise.resolve();
+		});
+		act(() => result.current.play());
+		await act(async () => {
+			await Promise.resolve(); // getVoice().then → mode 'audio', speak() captures onTiming
+			await Promise.resolve();
+		});
+		// The audio clock has jumped far, but NO onset yet → elapsed must hold at 0, so the
+		// cursor stays on word 0 instead of racing off the end on wall-clock time.
+		voiceState.audioMs = 9000;
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(3000);
+		});
+		expect(result.current.active).toEqual({ cueIndex: 0, wordIndex: 0 });
+		// Sentence 0's measured onset lands at audio-time 9000 → that becomes t=0.
+		act(() => voiceState.onTiming?.({ index: 0, onsetMs: 9000, durationMs: 1600 }));
+		voiceState.audioMs = 9000 + 800; // mid sentence 0 (of its re-anchored 1600ms span)
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(100);
+		});
+		const a = result.current.active;
+		expect(a && a.cueIndex === 0 && a.wordIndex > 0).toBe(true); // advanced WITHIN sentence 0, on the audio clock
 	});
 });

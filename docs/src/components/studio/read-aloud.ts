@@ -1,28 +1,25 @@
 import * as React from 'react';
-import { splitSentences, toSpokenText } from '@/lib/cadenza';
+import { type Active, buildTrack, type CaptionTrack, makeReader, type Reader } from '@/lib/cadenza';
 
-// Studio read-aloud — the REAL synchronized read-along.
+// Studio read-aloud — the REAL synchronized read-along, WORD by word.
 //
-// Two layers, both real, neither faked:
-//   1. A teleprompter that highlights the current sentence as it is read. This
-//      ALWAYS works, with zero backend — it is the guaranteed deliverable.
-//   2. Spoken audio via the production voice ladder (voice-model.js): the user's
-//      connected OpenRouter voice → in-browser Kokoro → silent floor. We never
-//      use raw speechSynthesis (the per-device lottery banned in production; see
-//      engineering/decisions/2026-06-14-read-aloud-kokoro.md).
+// Same engine as the /cadenza demo (the reference implementation):
+//   buildTrack(text)  → a word-timed CaptionTrack (each word: a display + spoken form)
+//   makeReader(track) → a pure clock→word cursor (emits the active {cueIndex, wordIndex})
+//   a requestAnimationFrame loop ticks the reader against a clock:
+//     • 'audio' — a quality voice (OpenRouter / Kokoro) is speaking: ride its OWN WebAudio
+//       clock (audioTimeMs − outputLatency), and each sentence's MEASURED onset re-anchors
+//       that cue's words via reader.align() — so the highlight tracks the real voice.
+//     • 'silent' — no blob clock (browser voice / no key): a plain wall-clock estimate off
+//       Cadenza's built-in word timings, so the read-along always runs.
 //
-// The teleprompter is driven by a single estimated-cadence timer (≈155 wpm) so
-// the highlight never races a second driver. When a real audio rung is present
-// the spoken track plays in parallel; the estimate tracks natural TTS pace
-// closely enough for a read-along, and the captions are exact regardless.
+// Spoken audio rides the production voice ladder (voice-model.js); we never use raw
+// speechSynthesis (the per-device lottery banned in production; see
+// engineering/decisions/2026-06-14-read-aloud-kokoro.md). This replaced an older
+// sentence-block estimate that ignored the audio entirely (drifted + coarse).
 
 // The OpenRouter key the architect/voice ladder share (lattice-db-* namespace).
 const OR_KEY_LS = 'lattice-db-or-key';
-
-/** Reading speed for the caption cadence — boardroom-narration pace. */
-const WORDS_PER_MINUTE = 155;
-/** Floor so a one-word line still dwells long enough to read. */
-const MIN_SENTENCE_MS = 1100;
 
 /**
  * Strip a slide's Markdown down to the readable prose a narrator would speak:
@@ -62,20 +59,16 @@ export function slideToSpeech(markdown: string): string {
 	return text;
 }
 
-/** ms to read a sentence at the narration cadence (floored). */
-function estimateMs(sentence: string): number {
-	const words = sentence.trim().split(/\s+/).filter(Boolean).length;
-	return Math.max(MIN_SENTENCE_MS, Math.round((words / WORDS_PER_MINUTE) * 60000));
-}
-
 export type ReadAloudState = {
 	/** Read-along active (the play button is in its playing state). */
 	playing: boolean;
-	/** Index of the currently-highlighted sentence, or -1 when idle. */
-	index: number;
-	/** The sentences of the current slide, for the teleprompter. */
-	sentences: string[];
-	/** The active voice rung — 'silent' (captions only) | 'openrouter' | 'kokoro' | … */
+	/** The word-timed track for the current slide — the teleprompter renders its cues/words. */
+	track: CaptionTrack;
+	/** The word being spoken NOW ({cueIndex, wordIndex}), or null when idle / in a gap. */
+	active: Active | null;
+	/** Read progress 0..1 (elapsed / duration), for the transport bar. */
+	progress: number;
+	/** The active voice rung — 'silent' (captions only) | 'openrouter-tts' | 'kokoro' | … */
 	rung: string | null;
 	play: () => void;
 	pause: () => void;
@@ -91,7 +84,8 @@ type VoiceModel = {
 		text: string;
 		sentences?: string[];
 		signal?: AbortSignal;
-		onState?: (s: { rung?: string; speaking?: boolean }) => void;
+		onSentenceTiming?: (t: { index: number; onsetMs: number; durationMs: number }) => void;
+		onState?: (s: { rung?: string; speaking?: boolean; aborted?: boolean; error?: string }) => void;
 	}) => void;
 	stop: () => void;
 	pause: () => void;
@@ -99,6 +93,10 @@ type VoiceModel = {
 	rung: () => string;
 	/** iOS audio unlock — MUST run synchronously inside a user gesture (the play tap). */
 	unlock: () => void;
+	/** The owned WebAudio clock (ms) — the time source the word cursor rides during TTS. */
+	audioTimeMs: () => number;
+	/** Output latency (ms) — subtracted so the highlight tracks what's HEARD, not the buffer. */
+	outputLatencyMs: () => number;
 };
 let voicePromise: Promise<VoiceModel | null> | null = null;
 function getVoice(): Promise<VoiceModel | null> {
@@ -120,37 +118,74 @@ function getVoice(): Promise<VoiceModel | null> {
 	return voicePromise;
 }
 
+function nowMs(): number {
+	return typeof performance !== 'undefined' ? performance.now() : 0;
+}
+
 /**
  * Read-aloud controller for one slide's prose. `text` is the readable narration
- * (run the slide through `slideToSpeech`). Returns transport + the live
- * teleprompter index. Stops automatically when `text` changes (slide nav) and on
- * unmount. `opts.onFinish` fires ONLY when a slide is read to its natural end (not
- * on a manual stop/pause or a slide change) — the hook Present's autoplay chains on.
+ * (run the slide through `slideToSpeech`). Returns transport + the live word cursor
+ * (`active`) over the slide's `track`. Stops automatically when `text` changes (slide
+ * nav) and on unmount. `opts.onFinish` fires ONLY when a slide is read to its natural
+ * end (not on a manual stop/pause or a slide change) — the signal Present's autoplay
+ * chains on.
  */
 export function useReadAloud(text: string, opts?: { onFinish?: () => void }): ReadAloudState {
-	const sentences = React.useMemo(() => splitSentences(text), [text]);
-	// The voice SPEAKS Cadenza's spoken expansion (so "$4.2M" is said "four point two
-	// million dollars", not the TTS's own mis-parse); the teleprompter still HIGHLIGHTS
-	// the display sentences. Same count (both from splitSentences), so the index lines up.
-	const spokenSentences = React.useMemo(() => sentences.map(toSpokenText), [sentences]);
+	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
+	// "$4.2M" is said "four point two million dollars"), while the cursor highlights the
+	// DISPLAY words — the measured onset re-anchors the right cue, so they stay aligned.
+	const track = React.useMemo(() => buildTrack(text), [text]);
 	const [playing, setPlaying] = React.useState(false);
-	const [index, setIndex] = React.useState(-1);
+	const [active, setActive] = React.useState<Active | null>(null);
+	const [progress, setProgress] = React.useState(0);
 	const [rung, setRung] = React.useState<string | null>(null);
-	// Read the latest onFinish through a ref so it never re-creates `advance`.
+
+	// Read the latest onFinish through a ref so it never re-creates the reader effect.
 	const onFinishRef = React.useRef(opts?.onFinish);
 	onFinishRef.current = opts?.onFinish;
 
-	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-	const ctlRef = React.useRef<AbortController | null>(null);
+	const readerRef = React.useRef<Reader | null>(null);
+	const rafRef = React.useRef(0);
+	const playingRef = React.useRef(false);
 	const pausedRef = React.useRef(false);
-	const idxRef = React.useRef(-1);
+	const ctlRef = React.useRef<AbortController | null>(null);
 	const voiceRef = React.useRef<VoiceModel | null>(null);
+	const modeRef = React.useRef<'silent' | 'audio'>('silent');
+	const audioBaseRef = React.useRef<number | null>(null); // sentence-0 measured onset (audio clock origin)
+	const elapsedRef = React.useRef(0);
+	const lastTRef = React.useRef(0);
 
-	// Warm the voice model as soon as the reader mounts (Present opens), so it's
-	// ready to `unlock()` SYNCHRONOUSLY on the first play tap. iOS only grants audio
-	// when the context resumes inside a user gesture; a voice loaded lazily *after*
-	// the tap (via getVoice().then) resumes too late and stays muted — the bug that
-	// left Present silent on iPhone while the eagerly-warmed /cadenza demo played.
+	const cancelRaf = React.useCallback(() => {
+		if (rafRef.current) {
+			cancelAnimationFrame(rafRef.current);
+			rafRef.current = 0;
+		}
+	}, []);
+
+	const stop = React.useCallback(() => {
+		cancelRaf();
+		playingRef.current = false;
+		pausedRef.current = false;
+		ctlRef.current?.abort();
+		ctlRef.current = null;
+		try {
+			voiceRef.current?.stop();
+		} catch {
+			/* best-effort */
+		}
+		elapsedRef.current = 0;
+		audioBaseRef.current = null;
+		modeRef.current = 'silent';
+		readerRef.current?.reset();
+		setActive(null);
+		setProgress(0);
+		setPlaying(false);
+	}, [cancelRaf]);
+
+	// Warm the voice model as soon as the reader mounts (Present opens), so it's ready
+	// to `unlock()` SYNCHRONOUSLY on the first play tap. iOS only grants audio when the
+	// context resumes inside a user gesture; a voice loaded lazily *after* the tap
+	// resumes too late and stays muted.
 	React.useEffect(() => {
 		let live = true;
 		getVoice().then((v) => {
@@ -161,75 +196,116 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 		};
 	}, []);
 
-	const clearTimer = React.useCallback(() => {
-		if (timerRef.current) {
-			clearTimeout(timerRef.current);
-			timerRef.current = null;
+	// (Re)build the reader for each slide's track; tear down any run in flight on slide
+	// nav or unmount (the onFinish latch lives in the reader, so a fresh track re-arms it).
+	React.useEffect(() => {
+		readerRef.current = makeReader({
+			track,
+			onWord: (a) => setActive(a),
+			onEnd: () => {
+				// Natural end — stop the voice too (don't let trailing audio play past the
+				// highlight), then signal a chaining caller.
+				cancelRaf();
+				playingRef.current = false;
+				ctlRef.current?.abort();
+				ctlRef.current = null;
+				try {
+					voiceRef.current?.stop();
+				} catch {
+					/* best-effort */
+				}
+				setPlaying(false);
+				setActive(null);
+				onFinishRef.current?.();
+			},
+		});
+		return () => {
+			// Slide nav (new track) or unmount: tear down the engine AND reset the visible
+			// state — otherwise the new slide inherits the old one's playing/active/progress
+			// (a ghost teleprompter highlighting a stale word with no audio).
+			cancelRaf();
+			playingRef.current = false;
+			pausedRef.current = false;
+			ctlRef.current?.abort();
+			ctlRef.current = null;
+			try {
+				voiceRef.current?.stop();
+			} catch {
+				/* best-effort */
+			}
+			readerRef.current = null;
+			setPlaying(false);
+			setActive(null);
+			setProgress(0);
+		};
+	}, [track, cancelRaf]);
+
+	// One frame: advance the clock (audio or estimate), tick the reader (fires onWord /
+	// onEnd), update progress, and re-arm. Reads only refs, so it never goes stale.
+	const tick = React.useCallback((now: number) => {
+		const reader = readerRef.current;
+		if (!reader || !playingRef.current) return;
+		if (modeRef.current === 'audio' && voiceRef.current) {
+			// Ride the voice's OWN clock (minus output latency), but HOLD at 0 until
+			// sentence-0's measured onset arrives (audioBase) — otherwise the highlight
+			// races ahead on the estimate and snaps back to word 0 when the onset lands.
+			// Mirrors the /cadenza demo exactly.
+			const v = voiceRef.current;
+			const lat = v.outputLatencyMs ? v.outputLatencyMs() : 0;
+			elapsedRef.current = audioBaseRef.current == null ? 0 : Math.max(0, v.audioTimeMs() - audioBaseRef.current - lat);
+		} else {
+			elapsedRef.current += now - lastTRef.current;
 		}
+		lastTRef.current = now;
+		reader.sync(elapsedRef.current);
+		const dur = reader.durationMs();
+		setProgress(dur ? Math.min(1, elapsedRef.current / dur) : 0);
+		if (playingRef.current) rafRef.current = requestAnimationFrame(tick);
 	}, []);
 
-	const stop = React.useCallback(() => {
-		clearTimer();
-		pausedRef.current = false;
-		ctlRef.current?.abort();
-		ctlRef.current = null;
-		try {
-			voiceRef.current?.stop();
-		} catch {
-			/* best-effort */
-		}
-		idxRef.current = -1;
-		setIndex(-1);
-		setPlaying(false);
-	}, [clearTimer]);
-
-	// The single highlight driver: an estimated-cadence walk over the sentences.
-	const advance = React.useCallback(
-		(j: number, ctl: AbortController) => {
-			if (ctl.signal.aborted) return;
-			if (j >= sentences.length) {
-				stop();
-				// Natural end (the read walked off the last sentence) — let a chaining
-				// caller advance. Fired after stop() so state is idle when it runs.
-				onFinishRef.current?.();
-				return;
-			}
-			idxRef.current = j;
-			setIndex(j);
-			timerRef.current = setTimeout(() => advance(j + 1, ctl), estimateMs(sentences[j]));
-		},
-		[sentences, stop],
-	);
+	const startLoop = React.useCallback(() => {
+		lastTRef.current = nowMs();
+		cancelRaf();
+		rafRef.current = requestAnimationFrame(tick);
+	}, [tick, cancelRaf]);
 
 	const play = React.useCallback(() => {
-		if (!sentences.length) return;
-		// iOS audio handshake: resume the audio context NOW, synchronously inside the
-		// play tap (the warmed voice from the mount effect is ready here). This must
-		// happen in the gesture — the async speak() below runs a beat later and would
-		// be muted on iPhone without it. Mirrors the /cadenza demo's click handler.
+		const reader = readerRef.current;
+		if (!reader || !track.cues.length) return;
+		// iOS audio handshake: resume the context NOW, synchronously in the tap (the
+		// warmed voice is ready here), before the async speak() below — which would be
+		// muted on iPhone otherwise. Mirrors the /cadenza demo's click handler.
 		try {
 			voiceRef.current?.unlock();
 		} catch {
 			/* best-effort */
 		}
+
 		// Resume from a paused position rather than restarting.
 		if (pausedRef.current) {
 			pausedRef.current = false;
+			playingRef.current = true;
 			setPlaying(true);
 			try {
 				voiceRef.current?.resume();
 			} catch {
 				/* best-effort */
 			}
-			const ctl = ctlRef.current;
-			if (ctl) advance(Math.max(0, idxRef.current), ctl);
+			startLoop();
 			return;
 		}
+
 		const ctl = new AbortController();
 		ctlRef.current = ctl;
+		elapsedRef.current = 0;
+		audioBaseRef.current = null;
+		modeRef.current = 'silent'; // the estimate carries the highlight until an onset arrives
+		reader.reset();
+		playingRef.current = true;
 		setPlaying(true);
-		advance(0, ctl);
-		// Spoken audio in parallel (best-effort) once the voice model is ready.
+		startLoop();
+
+		// Spoken audio in parallel once the voice model is ready (best-effort).
 		getVoice().then((voice) => {
 			if (!voice || ctl.signal.aborted) return;
 			voiceRef.current = voice;
@@ -240,31 +316,69 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 				r = 'silent';
 			}
 			setRung(r);
+			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on
+			// the estimate (it speaks in parallel but reports no onsets).
+			const clocked = r === 'openrouter-tts' || r === 'kokoro';
+			if (clocked) {
+				try {
+					voice.unlock();
+				} catch {
+					/* best-effort */
+				}
+				modeRef.current = 'audio';
+				elapsedRef.current = 0; // hold at 0 until sentence-0's onset arrives
+				reader.reset();
+			}
 			if (r && r !== 'silent') {
-				voice.speak({ text: sentences.join(' '), sentences: spokenSentences, signal: ctl.signal, onState: (s) => s?.rung && setRung(s.rung) });
+				const spoken = track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
+				voice.speak({
+					// One spoken sentence per cue keeps index i == cue i for re-anchoring.
+					text: spoken.join(' '),
+					sentences: spoken,
+					signal: ctl.signal,
+					onSentenceTiming: clocked
+						? ({ index, onsetMs, durationMs }) => {
+								if (audioBaseRef.current == null) audioBaseRef.current = onsetMs; // cue-0 onset = time 0
+								reader.align(index, onsetMs - audioBaseRef.current, durationMs);
+							}
+						: undefined,
+					onState: (s) => {
+						if (s?.rung) setRung(s.rung);
+						// A clocked voice that produced no audio (synth failed) — fall back to the
+						// silent estimate so the highlight never hangs waiting for an onset.
+						if (
+							modeRef.current === 'audio' &&
+							s &&
+							s.speaking === false &&
+							!s.aborted &&
+							playingRef.current &&
+							audioBaseRef.current == null
+						) {
+							modeRef.current = 'silent';
+							lastTRef.current = nowMs();
+						}
+					},
+				});
 			}
 		});
-	}, [sentences, spokenSentences, advance]);
+	}, [track, startLoop]);
 
 	const pause = React.useCallback(() => {
-		clearTimer();
+		cancelRaf();
 		pausedRef.current = true;
+		playingRef.current = false;
 		setPlaying(false);
 		try {
 			voiceRef.current?.pause();
 		} catch {
 			/* best-effort */
 		}
-	}, [clearTimer]);
+	}, [cancelRaf]);
 
 	const toggle = React.useCallback(() => {
-		if (playing) pause();
+		if (playingRef.current) pause();
 		else play();
-	}, [playing, pause, play]);
+	}, [pause, play]);
 
-	// Stop when the slide (text) changes, and on unmount.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: re-run on slide text change; `stop` is stable.
-	React.useEffect(() => stop, [text, stop]);
-
-	return { playing, index, sentences, rung, play, pause, toggle, stop };
+	return { playing, track, active, progress, rung, play, pause, toggle, stop };
 }
