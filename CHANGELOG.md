@@ -386,6 +386,22 @@ in patch versions.
   `lib/core/find-matching-close.js` helper. Every change verified
   byte-identical against the pre-change output on real decks before
   landing.
+- **The exported `.html` player now displays correctly on iOS.** Three fixes,
+  diagnosed on a real iPhone where the player showed only a blank/broken page:
+  (1) **CSP hash on WebKit** — the single inline script is pinned by a sha256
+  CSP, and WebKit hashes non-ASCII bytes differently than Chromium/Node, so the
+  script's dark-toggle glyphs and em-dashes made the hash disagree and WebKit
+  refused the script. Every non-ASCII code point in the hashed script is now
+  escaped to `\uXXXX` (runtime-identical; CSP kept). (2) **Content rode high /
+  the title slide rendered tiny** — the present + read views forced `display:block`
+  on each `<section>`, overriding the engine's base `display:flex;flex-direction:column`
+  and making `section.title{justify-content:center}` inert, so cover content
+  flowed to the top instead of centering. The views now keep the section flex.
+  (3) **Read·Slides + the no-JS floor** now scale the native 1280×720 canvas with
+  CSS `zoom` (fluidly fit to the column by the script; a media-query ladder for
+  the floor) instead of resizing the box, which had wrecked the container-query
+  layout. A progressive-enhancement `.lp-js` gate keeps a readable stacked-slide
+  floor when the script is ever blocked. Confirmed on-device.
 
 ### Added
 

@@ -396,14 +396,18 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
    touch-action:none frees a horizontal drag for slide-swipe instead of scroll/zoom. */
 .lp-js [data-lp-view=present] #lp-stage{position:fixed;top:48px;left:0;right:0;height:calc(100dvh - 48px);box-sizing:border-box;display:grid;place-items:center;justify-content:center;overflow:hidden;background:var(--bg,#fff);touch-action:none}
 .lp-js [data-lp-view=present] section[data-lattice-slide]{display:none;box-shadow:0 24px 70px -22px rgba(0,0,0,.45)}
-.lp-js [data-lp-view=present] section[data-lattice-slide].lp-active{display:block;transform-origin:center center}
+.lp-js [data-lp-view=present] section[data-lattice-slide].lp-active{display:flex;transform-origin:center center}
 .lp-js [data-lp-view=present] #lp-doc{display:none}
-/* READ \xB7 SLIDES \u2014 stack the real slides, scaled, in a column */
+/* READ \xB7 SLIDES \u2014 the real slides as faithful miniatures. Each slide is a FIXED
+   1280\xD7720 canvas whose internal layout (a title slide centers, a content slide sits
+   its text at the top) only renders correctly at that native size \u2014 resizing the box
+   wrecks it. So keep the native size and SCALE the whole canvas with CSS zoom, which (unlike
+   transform) also collapses the layout footprint, so the column packs tight. --lp-fit is
+   set fluidly by the script to fill the column; the mobile default also serves the floor. */
 [data-lp-view=read-slides] #lp-doc{display:none}
-[data-lp-view=read-slides] #lp-stage{max-width:960px;margin:0 auto;padding:28px 18px 120px}
-[data-lp-view=read-slides] section[data-lattice-slide]{width:100%!important;height:auto!important;aspect-ratio:16/9;
- display:block;margin:0 0 26px;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);
- box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
+[data-lp-view=read-slides] #lp-stage{max-width:980px;margin:0 auto;padding:28px 16px 120px;display:flex;flex-direction:column;align-items:center;gap:24px}
+[data-lp-view=read-slides] section[data-lattice-slide]{width:1280px!important;height:720px!important;zoom:var(--lp-fit,.28);
+ border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
 /* READ \xB7 ARTICLE \u2014 Typora-style prose + sticky left TOC (shell; component-aware projection = P4) */
 [data-lp-view=read-article] #lp-stage{display:none}
 #lp-doc{display:none}
@@ -445,8 +449,11 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
    mobile browsers), scripting disabled, or a script error \u2014 the deck falls back to a
    readable stacked column instead of a BLANK page (present mode had hidden every slide
    until JS marked one active). The bar's live-only controls hide in this state. */
-html:not(.lp-js) #lp-stage{max-width:960px;margin:0 auto;padding:68px 16px 90px}
-html:not(.lp-js) section[data-lattice-slide]{width:100%!important;height:auto!important;aspect-ratio:16/9;display:block;margin:0 0 22px;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
+html:not(.lp-js) #lp-stage{max-width:980px;margin:0 auto;padding:68px 16px 90px;display:flex;flex-direction:column;align-items:center;gap:22px}
+html:not(.lp-js) section[data-lattice-slide]{width:1280px!important;height:720px!important;zoom:.28;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
+@media(min-width:560px){html:not(.lp-js) section[data-lattice-slide]{zoom:.40}}
+@media(min-width:760px){html:not(.lp-js) section[data-lattice-slide]{zoom:.56}}
+@media(min-width:1000px){html:not(.lp-js) section[data-lattice-slide]{zoom:.72}}
 html:not(.lp-js) #lp-notes,html:not(.lp-js) #lp-count,html:not(.lp-js) #lp-notes-btn,html:not(.lp-js) #lp-full{display:none}
 `.trim();
 }
@@ -472,15 +479,27 @@ var count=document.getElementById('lp-count'),view='present';
 var t=createTransport({count:slides.length,onShow:render});
 function fit(){if(view!=='present')return;var s=slides[t.index];if(!s)return;
  s.style.transform='scale('+fitScale({stageW:innerWidth,stageH:innerHeight,slideW:1280,slideH:720,insetX:56,insetY:48+56})+')';}
+// READ\xB7SLIDES fit: scale each native 1280x720 canvas (via CSS zoom) to fill the column
+// exactly. The column is the stage's content width (clientWidth minus its 16px side
+// padding). Set fluidly here so the miniatures grow with the window; the CSS default
+// (.28) covers the first paint + the no-JS floor.
+function fitRead(){var stage=document.getElementById('lp-stage');if(!stage)return;
+ var avail=stage.clientWidth-32;if(avail>0)root.style.setProperty('--lp-fit',(avail/1280).toFixed(4));}
 function render(){var i=t.index;slides.forEach(function(s,n){s.classList.toggle('lp-active',n===i);});
  if(count)count.textContent=(i+1)+' / '+slides.length;fit();syncNotes();}
 function setView(v){view=v;app.setAttribute('data-lp-view',v);
  [].forEach.call(document.querySelectorAll('[data-lp-btn]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-lp-btn')===v);});
+ // Present's fit() sets an inline transform:scale on the active slide. Read views size
+ // slides with CSS, so a stale present-scale would shrink one thumbnail (the title slide
+ // rendered at ~92px). Clear every inline transform when leaving present.
+ if(v!=='present')slides.forEach(function(s){s.style.transform='';});
+ if(v==='read-slides')fitRead();
  if(count)count.style.visibility=v==='present'?'visible':'hidden';if(v==='present')render();}
 addEventListener('keydown',function(e){if(view!=='present')return;
  var a=keyAction(e.key);if(!a)return;t[a]();e.preventDefault();});
-addEventListener('resize',fit);addEventListener('orientationchange',fit);
-if(window.visualViewport){try{visualViewport.addEventListener('resize',fit)}catch(e){}}
+function onResize(){fit();fitRead();}
+addEventListener('resize',onResize);addEventListener('orientationchange',onResize);
+if(window.visualViewport){try{visualViewport.addEventListener('resize',onResize)}catch(e){}}
 // Touch/swipe on the present stage \u2014 a decisive horizontal drag turns the slide
 // (the shared swipeAction; a vertical/short move is ignored so it never fights scroll).
 var stage=document.getElementById('lp-stage'),sx=0,sy=0,sw=false;

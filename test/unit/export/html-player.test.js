@@ -155,7 +155,25 @@ test('present mode ships swipe, fullscreen, and dvh viewport-fill (P3c)', async 
 	assert.match(html, /requestFullscreen/, 'fullscreen is wired (feature-detected)');
 	assert.match(html, /height:calc\(100dvh - 48px\);box-sizing:border-box/, 'dvh fill with border-box (no padding overflow / vertical shift)');
 	assert.match(html, /place-items:center;justify-content:center/, 'the oversized slide is centered in a narrow viewport (mobile on-screen)');
-	assert.match(html, /addEventListener\('orientationchange',fit\)/, 'the fit re-runs on orientation change');
+	assert.match(html, /addEventListener\('orientationchange',onResize\)/, 'the fit re-runs on orientation change');
+	assert.match(html, /function onResize\(\)\{fit\(\);fitRead\(\);\}/, 'onResize refits both present (fit) and read-slides (fitRead)');
+});
+
+test('slides keep display:flex in every view so vertical centering survives (no "content rides high")', async () => {
+	// Regression: the player views once forced `display:block` on the section, which
+	// overrode the engine's base `section{display:flex;flex-direction:column}`. That made
+	// `section.title{justify-content:center}` inert, so a cover slide's content flowed to
+	// the TOP instead of centering — the "content rides high" / "title slide tiny" bug seen
+	// on a real iPhone. Present must re-show the active slide as flex; read-slides + the
+	// no-JS floor must NOT re-assert block (they inherit base flex), and both scale the
+	// native 1280x720 canvas with CSS zoom rather than resizing the box (which wrecks the
+	// container-query layout).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /section\[data-lattice-slide\]\.lp-active\{display:flex/, 'present re-shows the active slide as flex, not block');
+	assert.doesNotMatch(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{[^}]*display:block/, 'read-slides never forces block (keeps base flex)');
+	assert.doesNotMatch(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{[^}]*display:block/, 'the no-JS floor never forces block (keeps base flex)');
+	assert.match(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;zoom:var\(--lp-fit/, 'read-slides scales the native canvas with zoom');
+	assert.match(html, /function fitRead\(\)/, 'the script fits the read-slides miniatures fluidly to the column');
 });
 
 test('fileToDataUri returns null for a missing file (feeds the honesty report)', () => {
@@ -206,7 +224,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, 'f2d7fbf52ab80ef7375968e32ae67a0f5bf2e4d5b48ac7161b1c4f9af137ff87', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, 'd1723d180fa4e47453dd6e0edaade17e8944936994d25a06d819286f08ca08ac', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
