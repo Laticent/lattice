@@ -82,6 +82,17 @@ in patch versions.
   `funnel` slide and speaks each stage's value and its conversion rate from the
   prior stage; a hand-authored speaker note still takes priority. Deliberately
   narrow — one component, not a chart-family-wide schema. Same decision doc.
+- **The Studio Workspace has a new "Privacy & Data" tab.** Alongside General and
+  AI, it surfaces every store the Studio writes to in this browser — decks,
+  Library assets (themes/components/finishes/reference docs), the OpenRouter
+  connection, downloaded on-device model files (WebLLM / Transformers.js), and
+  the offline app cache — with a live count/size per category and a two-tap
+  delete for each (matching the Library's existing delete affordance). A
+  "Delete everything" action clears all five in one go, gated behind a dialog
+  that requires typing "delete" to confirm. Preferences (language, placement
+  handles, validation toggles, onboarding…) are never touched by any Privacy &
+  Data action — it clears data, not settings. New module: `docs/src/components/
+  studio/governance.ts`.
 - **The Studio Share sheet can export read-along captions.** A new **“Captions
   (.vtt)”** row (alongside PDF / PowerPoint / Webpage) reads each slide's speaker
   notes, builds a Cadenza estimate track per narrated slide, and downloads a zip

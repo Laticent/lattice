@@ -369,8 +369,10 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 	);
 }
 
-// Two-tap delete (matches the slide-toolbar pattern) — first tap arms, second confirms.
-function DeleteBtn({ armed, onArm, onConfirm, label }: { armed: boolean; onArm: () => void; onConfirm: () => void; label: string }) {
+// Two-tap delete (matches the slide-toolbar pattern) — first tap arms, second
+// confirms. Exported so other Studio surfaces (the Workspace Privacy & Data tab)
+// reuse the same delete affordance instead of re-styling their own (HARD RULE #15).
+export function DeleteBtn({ armed, onArm, onConfirm, label }: { armed: boolean; onArm: () => void; onConfirm: () => void; label: string }) {
 	return armed ? (
 		<button type="button" onClick={onConfirm} aria-label={`Confirm delete ${label}`} className="flex items-center gap-1 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-2 py-1.5 text-[11px] font-semibold text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" />Sure?</button>
 	) : (

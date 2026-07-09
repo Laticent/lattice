@@ -178,6 +178,51 @@ export function deleteDeck(id: string): void {
 	clearComments(id);
 }
 
+// ── Privacy & Data (Workspace → Privacy & Data tab) ─────────────────────────
+// This module already owns the knowledge of which keys make up deck CONTENT
+// (as opposed to settings/instructions, kept deliberately separate below) — so
+// the Privacy & Data tab's stats + "clear decks" action live here too, rather
+// than re-deriving the key list in the UI layer.
+
+/** Deck count + a rough byte size for everything this module (+ slide-comments.ts,
+ *  a per-deck sidecar) persists as deck CONTENT — used by the Privacy & Data tab's
+ *  "Decks" row. Settings/instructions are excluded; they're preferences, not data. */
+export function deckContentStats(): { count: number; bytes: number } {
+	const count = loadIndex().length;
+	let bytes = 0;
+	try {
+		for (let i = 0; i < localStorage.length; i++) {
+			const k = localStorage.key(i);
+			if (!k) continue;
+			// 'lattice-studio-comments-' is slide-comments.ts's PREFIX — kept in sync
+			// by hand, the same way hasPriorStudioUse above scans SRC_PREFIX directly.
+			if (k === INDEX_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
+				bytes += k.length + (localStorage.getItem(k)?.length ?? 0);
+			}
+		}
+	} catch {
+		/* storage unavailable */
+	}
+	return { count, bytes };
+}
+
+/**
+ * Delete every deck's content — index, edited sources, checkpoints, chats, chat
+ * drafts, and comments — resetting the workspace to the built-in starter decks
+ * (an empty index re-seeds from DECKS on next load; see loadIndex). Settings and
+ * standing instructions are untouched: Privacy & Data clears DATA, not preferences.
+ */
+export function clearAllDecks(): void {
+	for (const { id } of loadIndex()) {
+		dropSource(id);
+		remove(SNAP_PREFIX + id);
+		remove(CHAT_PREFIX + id);
+		remove(CHAT_DRAFT_PREFIX + id);
+		clearComments(id);
+	}
+	remove(INDEX_LS);
+}
+
 // ── Version history (checkpoints) ──────────────────────────────────────────
 const SNAP_PREFIX = 'lattice-studio-snap-'; // + deckId → Checkpoint[]
 const SNAP_CAP = 25; // keep the most recent N per deck

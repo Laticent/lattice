@@ -1,5 +1,7 @@
-import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, SlidersHorizontal, Sparkles, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -7,11 +9,14 @@ import { cn } from '@/lib/utils';
 import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
+import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
+import { DeleteBtn } from './Library';
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
 import { languageFor, STUDIO_LANGUAGES } from './studio-language';
 import {
+	clearAllDecks,
 	type HandleStyle,
 	lastBackupAt,
 	loadInstructions,
@@ -41,7 +46,7 @@ const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max
 //   · Instructions — the AI output language, standing voice, and generation prefs.
 // Spend + Instructions used to be their own tabs; they're facets of the AI model, so they
 // live as sections under AI rather than as sibling tabs.
-const TABS = ['General', 'AI'] as const;
+const TABS = ['General', 'AI', 'Privacy & Data'] as const;
 type Tab = (typeof TABS)[number];
 type GenView = 'cloud' | 'ondevice';
 
@@ -56,6 +61,23 @@ function GroupLabel({ icon, children }: { icon: React.ReactNode; children: React
 // regions rather than one undifferentiated column.
 function AiSection({ children }: { children: React.ReactNode }) {
 	return <div className="mt-6 border-t border-border pt-5">{children}</div>;
+}
+
+// A single Privacy & Data row — one storage category, its stat line, and the same
+// two-tap DeleteBtn the Library uses (HARD RULE #15: one delete affordance,
+// not a bespoke one per surface).
+function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm }: { icon: React.ReactNode; title: string; description: string; stat?: string; armed: boolean; busy: boolean; onArm: () => void; onConfirm: () => void }) {
+	return (
+		<div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+			<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">{icon}</span>
+			<div className="min-w-0 flex-1">
+				<div className="text-[13px] font-semibold text-[var(--text-heading)]">{title}</div>
+				<p className="mt-0.5 text-[11.5px] leading-relaxed text-muted-foreground">{description}</p>
+				{stat && <div className="mt-1 font-mono text-[11px] text-muted-foreground">{stat}</div>}
+			</div>
+			<div className="shrink-0 pt-0.5">{busy ? <span className="px-1 text-[11px] text-muted-foreground">…</span> : <DeleteBtn armed={armed} onArm={onArm} onConfirm={onConfirm} label={title} />}</div>
+		</div>
+	);
 }
 
 // The two on-canvas placement-handle styles the General tab offers (mirrors the finish
@@ -149,6 +171,46 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 			storageSummary().then(setStorageLine).catch(() => {});
 		}
 	}, [open]);
+
+	// Privacy & Data (delete cache / decks / Library / OpenRouter / downloaded models).
+	const [gov, setGov] = React.useState<GovernanceStats | null>(null);
+	const [govArmed, setGovArmed] = React.useState<string | null>(null);
+	const [govBusy, setGovBusy] = React.useState<string | null>(null);
+	const [deleteAllOpen, setDeleteAllOpen] = React.useState(false);
+	const [deleteAllText, setDeleteAllText] = React.useState('');
+	const [deletingAll, setDeletingAll] = React.useState(false);
+	const refreshGov = React.useCallback(() => { loadGovernanceStats().then(setGov).catch(() => {}); }, []);
+	React.useEffect(() => {
+		if (open && tab === 'Privacy & Data') refreshGov();
+	}, [open, tab, refreshGov]);
+	const clearCategory = async (key: string, fn: () => void | Promise<void>, msg: string) => {
+		setGovBusy(key);
+		try {
+			await fn();
+			notify(msg);
+			refreshGov();
+			if (key === 'openrouter') setPulse((p) => p + 1); // re-fetch AI status
+		} catch (e) {
+			notify(`Couldn't clear that: ${(e as Error)?.message || 'unknown error'}`);
+		} finally {
+			setGovBusy(null);
+			setGovArmed(null);
+		}
+	};
+	const deleteEverything = async () => {
+		setDeletingAll(true);
+		try {
+			await clearEverything();
+			notify('Everything cleared — decks, Library, OpenRouter, downloaded models, and cache.');
+			setDeleteAllOpen(false);
+			refreshGov();
+			setPulse((p) => p + 1);
+		} catch (e) {
+			notify(`Couldn't clear everything: ${(e as Error)?.message || 'unknown error'}`);
+		} finally {
+			setDeletingAll(false);
+		}
+	};
 
 	const downloadBackup = async () => {
 		setBusy('backup');
@@ -556,6 +618,98 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										</span>
 									</label>
 							</AiSection>
+						</div>
+					)}
+
+					{tab === 'Privacy & Data' && (
+						<div>
+							<GroupLabel icon={<ShieldCheck className="size-3.5" />}>Your data</GroupLabel>
+							<p className="mb-3 text-xs text-muted-foreground">Everything the Studio has stored in this browser — clear one thing, or start over completely. Nothing here reaches a server; it's all local to this device. Your preferences (language, placement handles, etc.) are never touched here.</p>
+							<div className="flex flex-col gap-2.5">
+								<GovRow
+									icon={<FolderTree className="size-4" />}
+									title="Decks"
+									description="Every deck in your switcher — edited source, checkpoints, and chat threads. Resets to the built-in starter decks."
+									stat={gov ? `${gov.decks.count} deck${gov.decks.count === 1 ? '' : 's'}${gov.decks.bytes ? ` · ${fmtBytes(gov.decks.bytes)}` : ''}` : undefined}
+									armed={govArmed === 'decks'}
+									busy={govBusy === 'decks'}
+									onArm={() => setGovArmed('decks')}
+									onConfirm={() => clearCategory('decks', clearAllDecks, 'Decks cleared — back to the starter set.')}
+								/>
+								<GovRow
+									icon={<FileBox className="size-4" />}
+									title="Library assets"
+									description="Saved themes, components, finishes, and reference docs."
+									stat={gov ? `${gov.library.count} asset${gov.library.count === 1 ? '' : 's'}${gov.library.bytes ? ` · ${fmtBytes(gov.library.bytes)}` : ''}` : undefined}
+									armed={govArmed === 'library'}
+									busy={govBusy === 'library'}
+									onArm={() => setGovArmed('library')}
+									onConfirm={() => clearCategory('library', clearLibraryAssets, 'Library cleared.')}
+								/>
+								<GovRow
+									icon={<KeyRound className="size-4" />}
+									title="OpenRouter credentials"
+									description="Your OpenRouter connection — disconnects the key this browser holds; reconnect any time with one click."
+									stat={ai.openRouterReady ? 'connected' : 'not connected'}
+									armed={govArmed === 'openrouter'}
+									busy={govBusy === 'openrouter'}
+									onArm={() => setGovArmed('openrouter')}
+									onConfirm={() => clearCategory('openrouter', disconnectOpenRouter, 'OpenRouter disconnected.')}
+								/>
+								<GovRow
+									icon={<Cpu className="size-4" />}
+									title="Downloaded models"
+									description="On-device AI model files your browser cached after first download (WebLLM / Transformers.js). The next on-device use re-downloads them."
+									stat={gov ? `${gov.models.count} cache${gov.models.count === 1 ? '' : 's'}` : undefined}
+									armed={govArmed === 'models'}
+									busy={govBusy === 'models'}
+									onArm={() => setGovArmed('models')}
+									onConfirm={() => clearCategory('models', clearDownloadedModels, 'Downloaded models cleared.')}
+								/>
+								<GovRow
+									icon={<Database className="size-4" />}
+									title="Cache"
+									description="Offline app cache — pages, scripts, and fonts. Nothing breaks; the next visit re-caches while online."
+									stat={gov ? `${gov.siteCache.count} cache${gov.siteCache.count === 1 ? '' : 's'}` : undefined}
+									armed={govArmed === 'cache'}
+									busy={govBusy === 'cache'}
+									onArm={() => setGovArmed('cache')}
+									onConfirm={() => clearCategory('cache', clearSiteCache, 'Cache cleared.')}
+								/>
+							</div>
+
+							<div className="mt-6 rounded-xl border border-[color-mix(in_srgb,var(--fail,#c0392b)_35%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_6%,transparent)] p-3.5">
+								<div className="flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" />Delete everything</div>
+								<p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">Clears every category above in one go — decks, Library, OpenRouter, downloaded models, and cache. This can't be undone.</p>
+								<button type="button" onClick={() => { setDeleteAllText(''); setDeleteAllOpen(true); }} className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--fail,#c0392b)]">
+									<Trash2 className="size-3.5" />Delete everything…
+								</button>
+							</div>
+
+							<Dialog open={deleteAllOpen} onOpenChange={(o) => { if (!deletingAll) setDeleteAllOpen(o); }}>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle className="flex items-center gap-2 text-[var(--fail,#c0392b)]"><Trash2 className="size-4" />Delete everything?</DialogTitle>
+										<DialogDescription>
+											This deletes every deck, your whole Library, disconnects OpenRouter, and clears downloaded models + cache — in this browser. It cannot be undone. Type <span className="font-mono font-semibold text-foreground">delete</span> to confirm.
+										</DialogDescription>
+									</DialogHeader>
+									<input
+										autoFocus
+										value={deleteAllText}
+										onChange={(e) => setDeleteAllText(e.target.value)}
+										placeholder="delete"
+										aria-label='Type "delete" to confirm'
+										className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none focus:border-[var(--fail,#c0392b)]"
+									/>
+									<DialogFooter>
+										<Button variant="outline" onClick={() => setDeleteAllOpen(false)} disabled={deletingAll}>Cancel</Button>
+										<Button variant="destructive" disabled={deleteAllText.trim().toLowerCase() !== 'delete' || deletingAll} onClick={deleteEverything}>
+											{deletingAll ? 'Deleting…' : 'Delete everything'}
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
 						</div>
 					)}
 

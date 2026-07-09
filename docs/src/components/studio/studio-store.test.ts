@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DECKS } from './decks';
 import {
+	clearAllDecks,
 	createDeck,
+	deckContentStats,
 	deleteDeck,
 	exportStudioState,
 	importStudioState,
@@ -15,6 +17,7 @@ import {
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	renameDeck,
+	saveChat,
 	saveChatDraft,
 	saveCheckpoint,
 	saveInstructions,
@@ -210,6 +213,47 @@ describe('studio-store — workspace backup carries both instruction fields', ()
 		delete legacy.onDeviceInstructions;
 		expect(() => importStudioState(legacy, 2000)).not.toThrow();
 		expect(loadOnDeviceInstructions()).toBe('');
+	});
+});
+
+describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', () => {
+	it('deckContentStats counts the deck index and grows with edited content', () => {
+		const before = deckContentStats();
+		expect(before.count).toBe(DECKS.length);
+		const d = createDeck('Extra');
+		saveSource(d.id, '# Extra\n\nbody');
+		saveCheckpoint(d.id, '# Extra v1', 'first', 1000);
+		saveChat(d.id, [{ role: 'user', content: 'hi' }]);
+		const after = deckContentStats();
+		expect(after.count).toBe(DECKS.length + 1);
+		expect(after.bytes).toBeGreaterThan(before.bytes);
+	});
+
+	it('clearAllDecks wipes every deck\'s content and resets the index to the built-in seed', () => {
+		const d = createDeck('Temp');
+		saveSource(d.id, '# Temp\n\nbody');
+		saveCheckpoint(d.id, '# Temp v1', 'first', 1000);
+		saveChat(d.id, [{ role: 'user', content: 'hi' }]);
+		saveChatDraft(d.id, 'unsent thought');
+		// A built-in deck carrying local edits should also lose its override.
+		saveSource(DECKS[0].id, '# Edited built-in');
+
+		clearAllDecks();
+
+		const list = loadDeckList();
+		expect(list.map((x) => x.id)).toEqual(DECKS.map((x) => x.id)); // back to the built-in seed only
+		expect(loadSource(DECKS[0].id)).toBeNull(); // the built-in's edit is gone too
+		expect(loadCheckpoints(d.id)).toEqual([]);
+		expect(loadChatDraft(d.id)).toBe('');
+		expect(deckContentStats().count).toBe(DECKS.length);
+	});
+
+	it('clearAllDecks leaves settings and standing instructions untouched (data, not preferences)', () => {
+		saveSettings({ headerFooter: true });
+		saveInstructions('Board voice.');
+		clearAllDecks();
+		expect(loadSettings().headerFooter).toBe(true);
+		expect(loadInstructions()).toBe('Board voice.');
 	});
 });
 
