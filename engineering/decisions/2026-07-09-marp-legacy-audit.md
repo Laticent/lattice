@@ -12,6 +12,14 @@ being trusted.
 
 ## TL;DR
 
+> **Update (2026-07-09, later the same day):** items 1 and "What this PR
+> does" below describe the state as first audited (PR #847). Point 1's
+> "requires... forever" and "does NOT do: touch the Two-renderer rule" are
+> now stale — the rule **was** demoted to opt-in the same day, in the
+> immediate follow-up (PR #849, §5(a)). Left as originally written below for
+> an accurate record of what the audit found; §1's own update note and §5(a)
+> carry the current state.
+
 `engineering/marp-independence.md` claims Marp is "fully externalized… nothing
 of ours uses Marp, especially not verification." That's **true on the narrowest
 reading** — no `@marp-team` package sits in `package.json`/`package-lock.json`,
@@ -290,10 +298,14 @@ it isn't silently dropped):
   vocabulary ("A Marp class directive," "a Marp global `<style>` block") —
   low severity, bundle into the same pass as the framing docs above since
   it's the same kind of edit.
-- The Two-renderer rule policy itself was decided and shipped separately —
-  §5(a). The *existing* `lattice-runtime.js` mirrors it produced (§1's file
-  list) are untouched; sunsetting any of them individually is still §5(b)
-  territory or its own case-by-case follow-up.
+
+(The Two-renderer rule policy itself, listed here as unfixed in the original
+version of this section, was decided and shipped a few hours later in the
+same day — §5(a). It's no longer in this "not fixed" list because it *was*
+fixed, just not in the original PR. The *existing* `lattice-runtime.js`
+mirrors it produced (§1's file list) are still untouched; sunsetting any of
+them individually is still §5(b) territory or its own case-by-case
+follow-up.)
 
 ## §5 — The decision that actually matters (needs your call)
 

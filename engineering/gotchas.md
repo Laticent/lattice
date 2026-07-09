@@ -1093,9 +1093,12 @@ preview. Nothing automated catches the case where a mirror *would* have been
 worth adding and nobody did it, so this register is the discipline-only
 substitute: **when you ship a transform engine-only and know it won't render
 correctly (or will render differently) in the VS Code preview, add one line
-below.** Empty is a good sign; growing fast is the trigger for re-evaluating
-whether marp-vscode is still worth supporting as a live-preview surface at
-all (see the audit doc §5(b)).
+below.** Nothing enforces this — an empty table means either "no known gaps"
+or "nobody's logged one," and there's no way to tell which from the table
+alone. Don't read empty as reassurance; the real backstop is the calendar,
+not this list: the audit doc §5(b) re-evaluates whether marp-vscode is still
+worth supporting as a live-preview surface at a fixed 90-day mark regardless
+of how many rows are here.
 
 | Transform | Symptom in VS Code preview | Added |
 |---|---|---|

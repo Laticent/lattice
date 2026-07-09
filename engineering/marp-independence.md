@@ -99,13 +99,15 @@ are shared and stay — the honest delta is the marp tree only.)
 1. **Maintenance burden** — we own every Marpit bug marp-team used to fix.
 2. **Ecosystem labor** — community, plugins, docs, and browser-compat are ours alone.
 3. **Preview-compatibility tax** — the vscode Marp preview runs raw marp-core,
-   not our engine, so `engineering/workflow.md`'s "Two-renderer rule" requires
-   every authoring transform to be duplicated as a `lattice-runtime.js` DOM
-   mirror to look right there (~800 lines, a dozen dual-kernel test files, a
-   permanent CSS-selector ban, a Chromium-91 feature ceiling on the whole
-   runtime bundle). Unlike costs 1–2, this one is *regenerative* — it
-   manufactures a new duplicate-path cost on every future component, because
-   the policy requires it by name. Full inventory + a proposed fix:
+   not our engine, so a `lattice-runtime.js` DOM mirror is the only way to
+   make a transform look right there (~800 lines, a dozen dual-kernel test
+   files, a permanent CSS-selector ban, a Chromium-91 feature ceiling on the
+   whole runtime bundle) — all still real, still paid. What's *no longer*
+   true: `engineering/workflow.md`'s "Two-renderer rule" used to require a
+   mirror for every new transform, by name, forever; as of 2026-07-09 it's
+   opt-in — add one only when actually needed, logged in
+   `engineering/gotchas.md`'s "Known preview gaps" register when skipped on
+   purpose. Full inventory + the fix:
    `engineering/decisions/2026-07-09-marp-legacy-audit.md`.
 
 One thing that *looked* like a cost is a settled **design choice**, not a
@@ -141,11 +143,17 @@ The bar is ours to raise — never marp's to validate.
 
 ## Update log
 
-- **2026-07-09** — Added Cost item 3 (preview-compatibility tax) and narrowed
+- **2026-07-09 (b)** — Cost item 3 updated: the Two-renderer rule it
+  describes was demoted from mandatory to opt-in the same day
+  (`engineering/workflow.md`, `engineering/decisions/2026-07-09-marp-legacy-audit.md`
+  §5(a)) — the preview-compatibility tax itself is unchanged (existing
+  mirrors stay, marp-core still can't run our plugins), only the policy
+  requiring *new* transforms to pay it did.
+- **2026-07-09 (a)** — Added Cost item 3 (preview-compatibility tax) and narrowed
   the TL;DR's "nothing of ours uses Marp" claim after a full-repo audit
   (`engineering/decisions/2026-07-09-marp-legacy-audit.md`) found this doc
   overstated independence: the vscode Marp preview runs raw marp-core, not
-  our engine, and a binding policy (the Two-renderer rule) requires ongoing
+  our engine, and a binding policy (the Two-renderer rule) required ongoing
   duplicate-path maintenance to keep it working. The narrow dependency claim
   (zero `@marp-team` packages) held up; the broader "fully externalized"
   framing did not.
