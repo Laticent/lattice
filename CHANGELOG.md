@@ -53,6 +53,15 @@ in patch versions.
 
 ### Added
 
+- **The Studio Share sheet can export read-along captions.** A new **“Captions
+  (.vtt)”** row (alongside PDF / PowerPoint / Webpage) reads each slide's speaker
+  notes, builds a Cadenza estimate track per narrated slide, and downloads a zip
+  with one deck-level `<name>.vtt` (continuous timeline) plus per-slide
+  `<name>.NN.vtt` — the same producer the CLI `--captions` flag uses
+  (`lib/core/read-along-build.js` + `read-along-vtt.js`), bundled for the browser
+  (`docs/src/playground/read-along-core.generated.js`, built by
+  `tools/build-read-along-core.js`) the same way the Webpage export bundles
+  `player-core.mjs`. No audio, no TTS key — captions only.
 - **The Studio can download a deck as a self-contained webpage.** The Share sheet
   gained a **“Webpage (.html)”** row (alongside PDF / PPTX / Print) that assembles
   the same offline `.html` player the CLI `--player` flag produces — three views

@@ -23,6 +23,7 @@
       "!docs/src/playground/a11y-textures.generated.js",
       "!docs/src/playground/player-core.generated.js",
       "!docs/src/playground/player-prune.generated.js",
+      "!docs/src/playground/read-along-core.generated.js",
       "!docs/src/lib/cadenza/dist",
       "!docs/src/lib/vetrina/dist",
       "!**/*.min.js",

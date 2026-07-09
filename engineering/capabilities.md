@@ -82,6 +82,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `playground:build` | Build docs/public/playground/lattice-playground.js — the in-browser engine bundle. |
 | `playground:check` | Freshness gate for the playground bundle. |
 | `playground:watch` | Rebuild the playground bundle on change. |
+| `read-along-core:build` | Bundle the read-along captions producer (lib/core/read-along-build.js + read-along-vtt.js) for the browser — the Studio Share sheet's "Captions (.vtt)" export. |
+| `read-along-core:check` | Freshness gate for the read-along-core Playground bundle. |
 | `runtime:build` | Build dist/lattice-runtime.js — browser runtime transforms (vscode preview / web export). |
 | `runtime:check` | Freshness gate for the runtime bundle. |
 | `runtime:watch` | Rebuild the runtime bundle on change. |
@@ -301,6 +303,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
+| `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS producer for the browser. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |

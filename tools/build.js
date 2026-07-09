@@ -85,8 +85,10 @@ const STEPS = [
   { label: 'a11y-textures bundle (docs site)', script: 'build-a11y-textures.js' },
   { label: 'player-core bundle (docs site)', script: 'build-player-core.js' },
   { label: 'player-prune bundle (docs site)', script: 'build-player-prune.js' },
+  // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.
   { label: 'Cadenza library dist (CJS + .d.ts)', script: 'build-cadenza-lib.js' },
   { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js' },
+  { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js' },
   // Capability index — reads package.json scripts + tools/ headers (source,
   // not built artifacts), so order-independent; grouped with the generators.
   { label: 'capability index (engineering/capabilities.md)', script: 'build-capabilities.js' },

@@ -506,6 +506,75 @@ export async function sharePrintDeck(options: SingleSlideOptions, source: string
 	}
 }
 
+type ReadAlongCore = {
+	buildReadAlong: (
+		texts: readonly string[],
+		opts: { voice: { model: string; voice: string; speed: number }; pace?: string },
+	) => { slides: { index: number }[] };
+	readAlongToVtt: (ra: unknown) => string;
+	readAlongToVttParts: (ra: unknown) => { index: number; vtt: string }[];
+};
+
+/**
+ * Read-along WebVTT captions — the SAME producer the CLI `--captions` flag uses
+ * (lib/core/read-along-build.js + read-along-vtt.js), bundled for the browser
+ * (tools/build-read-along-core.js → read-along-core.generated.js — same packaging
+ * idiom as the Webpage player's player-core.generated.js). Extracts each slide's
+ * speaker notes (the narration), builds a Cadenza ESTIMATE track per narrated
+ * slide, and downloads a zip: one deck-level `<name>.vtt` (continuous,
+ * deck-absolute timeline) plus per-slide `<name>.NN.vtt` — identical in shape to
+ * the CLI's sidecars (one source of truth, HARD RULE #1). No audio, no TTS key —
+ * captions only (the "regenerate" mode default,
+ * 2026-07-08-read-along-export-manifest.md).
+ */
+export async function shareCaptions(
+	options: SingleSlideOptions,
+	source: string,
+	name: string,
+	palette: string,
+	mode: 'light' | 'dark',
+	extra?: ExtraTheme,
+	onStatus?: (m: string) => void,
+): Promise<void> {
+	onStatus?.('Rendering the deck…');
+	const PG = await ensureReady(options);
+	const theme = await ensureTheme(options, palette, mode, extra);
+	const out = PG.render(source, theme);
+
+	onStatus?.('Reading speaker notes…');
+	const [deckMod, authoringMod, readAlongCore] = await Promise.all([
+		import('@/playground/deck-preview.js'),
+		import('@/playground/authoring-core.generated.js'),
+		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
+	]);
+	const deck = deckMod as unknown as { splitSections: (html: string) => string[] };
+	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
+	const sections = deck.splitSections(out.html);
+	const notes = notesCore.extractSlideNotes(sections).map((n) => n || '');
+
+	onStatus?.('Building captions…');
+	const readAlong = readAlongCore.buildReadAlong(notes, {
+		// Voice is metadata only — captions time off `pace`, not the voice (regenerate
+		// mode has no audio). Mirrors the CLI's default.
+		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
+		pace: 'moderate',
+	});
+	if (!readAlong.slides.length) throw new Error('no speaker notes to narrate — add notes to at least one slide');
+
+	onStatus?.('Packaging…');
+	const { default: JSZip } = await import('jszip');
+	const zip = new JSZip();
+	zip.file(`${name}.vtt`, readAlongCore.readAlongToVtt(readAlong)); // deck-level, continuous
+	const parts = readAlongCore.readAlongToVttParts(readAlong); // per-slide, slide-relative
+	const pad = Math.max(2, String(notes.length).length);
+	for (const { index, vtt } of parts) zip.file(`${name}.${String(index + 1).padStart(pad, '0')}.vtt`, vtt);
+	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+
+	onStatus?.('Downloading…');
+	const { downloadBlob } = await import('./download');
+	downloadBlob(`${name}-captions.zip`, blob);
+}
+
 /** Print the Markdown source itself — monospace, for markup review. */
 export function sharePrintSource(source: string, name: string): void {
 	const win = window.open('', '_blank');
