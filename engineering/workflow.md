@@ -382,20 +382,39 @@ opt-in spender, never a quiet `lib/` helper a test could import.*
 
 ## Two-renderer rule
 
-Any authoring transform must land in the shared kernels so every render path
-stays in step — don't patch one path:
+**New authoring transforms ship against the owned `lib/engine`** (the
+`lattice` CLI/emulator **and** the docs playground) — that's the canonical,
+required path. Do not close a feature branch until the engine carries the
+transform and the integration tier — including the per-component
+semantic-invariant suite — passes.
 
-1. the owned `lib/engine` (the `lattice` CLI/emulator **and** the docs playground)
-2. `lattice-runtime.js` (the vscode Marp preview **and** the published-HTML runtime)
+A `lattice-runtime.js` DOM mirror (the vscode Marp preview **and** the
+published-HTML runtime) is **opt-in, not mandatory**. Add one only when an
+author genuinely needs the transform to look right mid-draft in the vscode
+Marp preview — which runs raw marp-core, not the owned engine, so it never
+sees anything `lib/engine` does at render time (`engineering/gotchas.md`
+"VS Code / marp-vscode") — or when the published-HTML runtime path needs it.
+Every mirror added under this rule (from 2026-07-09 forward) carries a
+comment naming its sunset condition (e.g. "drop once Studio live-preview
+covers this"). When you DO add or touch a mirror, route the shared logic
+through `lib/integrations/markdown-it/plugins.js` + `lib/transformers/*`
+kernels so the two paths can't silently drift — don't hand-roll a second copy
+of the same behavior.
 
-Both consume the same `lib/integrations/markdown-it/plugins.js` +
-`lib/transformers/*` kernels, so a transform that lands there reaches both. The
-owned engine is canonical (the marp-parity gate was retired in P4; Marp is no
-longer a render path). The one remaining Marp surface is **Export to Marp**
-(`lib/core/marp-bundle.js`) — a one-way bundle for recipients, NOT a Lattice
-render path, so it isn't a third renderer to keep in parity. Do not close a
-feature branch until the shared kernels carry the transform and the integration
-tier — including the per-component semantic-invariant suite — passes.
+This demotes what used to be "every transform MUST land in both kernels,
+forever, no removal path" — that mandatory-dual-path policy was the one
+*regenerative* source of Marp-legacy coupling this codebase carried: it
+manufactured a new duplicate-path cost on every future component regardless
+of whether any author actually needed the mirror. See
+`engineering/decisions/2026-07-09-marp-legacy-audit.md` §5 for the full
+reasoning. Existing mirrors already in `lattice-runtime.js` are **not**
+ripped out by this change — they stay until a case-by-case call to sunset
+each one, tracked in that doc's backlog (§6).
+
+The owned engine is canonical (the marp-parity gate was retired in P4; Marp
+is no longer a render path). The one remaining Marp surface is **Export to
+Marp** (`lib/core/marp-bundle.js`) — a one-way bundle for recipients, NOT a
+Lattice render path, so it isn't a third renderer to keep in parity.
 
 ## Keeping an open PR mergeable while it waits
 

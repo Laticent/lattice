@@ -47,6 +47,16 @@ in patch versions.
 
 ### Changed
 
+- **The "Two-renderer rule" is now opt-in, not mandatory.**
+  `engineering/workflow.md`'s contributor policy used to require every
+  authoring transform to be duplicated in `lattice-runtime.js` (the DOM
+  mirror that serves the vscode Marp preview) forever, regardless of whether
+  any author needed it there. New transforms now ship against the owned
+  `lib/engine` by default; a runtime mirror is added only when it's actually
+  needed, with a comment naming its sunset condition. No existing mirrors
+  were removed. See `engineering/decisions/2026-07-09-marp-legacy-audit.md`
+  §5(a) for the reasoning — this was the one *regenerative* source of
+  Marp-legacy coupling the audit found.
 - **Package description/keywords no longer frame Lattice as "a Marp-based
   slide deck system."** Lattice's own engine (`lib/engine/`) is a native
   Marpit re-implementation with zero `@marp-team` runtime dependency; Marp
