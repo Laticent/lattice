@@ -353,6 +353,19 @@ gaps register above collects 5 entries, or 90 days from 2026-07-09,
 whichever comes first — using the register itself as the evidence base for
 whether Studio/Playground readiness is worth assessing.
 
+**A floor on (b), regardless of which way it eventually goes:** manually
+wiring `dist/lattice-runtime.js` + `dist/lattice.css` + a registered theme +
+correct front matter into VS Code's Marp extension (or any Marp tool) must
+keep working — this is the README.md "Embed in a browser" contract, a
+supported path independent of whether new *authoring transforms* keep
+getting first-party runtime mirrors. "Retire marp-vscode as a
+first-party-supported preview surface" in (b) means Lattice stops chasing
+transform-by-transform parity for every new feature going forward (the
+Two-renderer rule's opt-in default, §5(a)) — it does **not** mean pulling
+`lattice-runtime.js`/`lattice.css` out of `dist/`, breaking the manual embed
+recipe, or making existing decks that rely on it stop rendering. Whatever
+(b) eventually decides, that floor doesn't move.
+
 ## §6 — Backlog (logged per HARD RULE #18, not pulled into this diff)
 
 - Rewrite `architecture.md`, the LFM spec, `design/theming.md`,

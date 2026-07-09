@@ -420,6 +420,14 @@ is no longer a render path). The one remaining Marp surface is **Export to
 Marp** (`lib/core/marp-bundle.js`) — a one-way bundle for recipients, NOT a
 Lattice render path, so it isn't a third renderer to keep in parity.
 
+**A floor this rule never touches:** manually wiring `dist/lattice-runtime.js`
++ `dist/lattice.css` + a registered theme + correct front matter into VS
+Code's Marp extension (or any Marp tool) — the README.md "Embed in a
+browser" recipe — stays a supported path regardless of which transforms get
+a runtime mirror going forward. Opt-in only governs whether *new* authoring
+transforms chase mirror parity by default; it never means pulling the
+runtime/CSS bundles out of `dist/` or breaking that manual recipe.
+
 ## Keeping an open PR mergeable while it waits
 
 A PR is not "done and parked" the moment CI goes green — it sits open while you
