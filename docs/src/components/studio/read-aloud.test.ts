@@ -4,8 +4,9 @@ import { slideToSpeech, useReadAloud } from './read-aloud';
 
 // The spoken-audio rung is irrelevant to the teleprompter timer that drives
 // onFinish — stub the voice model so play() doesn't import the real Kokoro worker.
+const { unlockSpy } = vi.hoisted(() => ({ unlockSpy: vi.fn() }));
 vi.mock('@/playground/voice-model.js', () => ({
-	createVoiceModel: () => ({ speak() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent' }),
+	createVoiceModel: () => ({ speak() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent', unlock: unlockSpy }),
 }));
 
 // slideToSpeech is the narration extractor — it turns a slide's Markdown into the
@@ -77,5 +78,23 @@ describe('useReadAloud — onFinish (autoplay chain signal)', () => {
 			await vi.advanceTimersByTimeAsync(8000);
 		});
 		expect(onFinish).not.toHaveBeenCalled();
+	});
+});
+
+// The iOS fix: play() must unlock the audio context SYNCHRONOUSLY in the tap, using
+// the voice warmed on mount — otherwise iPhone Present mode stays silent (the async
+// speak() resumes too late). This guards the call; real audio is a device-only check.
+describe('useReadAloud — iOS audio unlock in the play gesture', () => {
+	beforeEach(() => unlockSpy.mockClear());
+
+	it('play() unlocks the warmed voice synchronously', async () => {
+		const { result } = renderHook(() => useReadAloud('One. Two.'));
+		// Flush the mount warm-effect so voiceRef is populated before the tap.
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		act(() => result.current.play());
+		expect(unlockSpy).toHaveBeenCalled();
 	});
 });
