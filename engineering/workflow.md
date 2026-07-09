@@ -399,7 +399,11 @@ comment naming its sunset condition (e.g. "drop once Studio live-preview
 covers this"). When you DO add or touch a mirror, route the shared logic
 through `lib/integrations/markdown-it/plugins.js` + `lib/transformers/*`
 kernels so the two paths can't silently drift — don't hand-roll a second copy
-of the same behavior.
+of the same behavior. **If you skip a mirror and know the transform won't
+render correctly in the VS Code preview as a result**, log it in
+`engineering/gotchas.md`'s "Known preview gaps" register — nothing automated
+catches this, so that one line is the only thing standing between "opt-in"
+and "silently rotting."
 
 This demotes what used to be "every transform MUST land in both kernels,
 forever, no removal path" — that mandatory-dual-path policy was the one

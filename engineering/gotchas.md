@@ -1083,6 +1083,28 @@ never turn "passed in headless" into "works on iOS."
 - **Removable when:** marp-vscode adds engine config support.
 - **Commits:** Original `lattice-runtime.js` design.
 
+### Known preview gaps — transforms shipped without a `lattice-runtime.js` mirror
+
+Since `engineering/workflow.md`'s Two-renderer rule was demoted to opt-in
+(2026-07-09, `engineering/decisions/2026-07-09-marp-legacy-audit.md` §5(a)),
+a new transform is not required to get a `lattice-runtime.js` DOM mirror —
+only add one when an author actually needs it to look right in the VS Code
+preview. Nothing automated catches the case where a mirror *would* have been
+worth adding and nobody did it, so this register is the discipline-only
+substitute: **when you ship a transform engine-only and know it won't render
+correctly (or will render differently) in the VS Code preview, add one line
+below.** Empty is a good sign; growing fast is the trigger for re-evaluating
+whether marp-vscode is still worth supporting as a live-preview surface at
+all (see the audit doc §5(b)).
+
+| Transform | Symptom in VS Code preview | Added |
+|---|---|---|
+| — none logged yet — | | |
+
+- **Removable when:** never fully — it's a living list, not a one-time
+  migration. Individual rows retire if the underlying transform is dropped
+  or a mirror is later added for it.
+
 ### `git worktree` doesn't share `node_modules`
 
 - **Symptom:** Inspecting a historical commit via
