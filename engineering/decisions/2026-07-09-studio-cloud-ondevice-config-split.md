@@ -215,6 +215,65 @@ below was independently verified (reproduced or traced), not assumed.
   CHANGELOG.md rather than "fixed" (there is nothing to migrate: the two surfaces'
   prefs were never meant to be the same setting, they just accidentally were).
 
+## Follow-up: stuck "Playing…" button, and a real voice roster instead of 2-of-9 models
+
+Live use after #846 merged surfaced two more issues.
+
+**The synth phase had no timeout — a hung network call left "Play sample" stuck
+forever.** `previewVoice()`'s playback phase already had an 8s watchdog, but the
+SYNTH phase (the fetch to OpenRouter, or the Kokoro worker round-trip) had none —
+`await r.synth(...)` could hang indefinitely with no way out short of closing the
+panel (reported live, screenshot showed the button frozen on "Playing…"). Fixed in
+both `previewVoice()` (races against a 20s timeout that also aborts the
+controller, so an abort-aware rung genuinely cancels) and `speak()`'s per-sentence
+synth wrapper (same timeout, but WITHOUT aborting the whole session — a single
+slow sentence skips forward instead of killing the rest of the narration, unlike a
+self-contained preview where aborting everything is fine). Both `Promise.race`s
+clear their timer the moment either side settles — an uncleared timer would
+otherwise linger the full 20s on EVERY call, healthy or not, a real (if small)
+leak across a long presentation; this surfaced immediately in the node test suite
+going from ~0.1s to ~20s.
+
+**The curated voice map covered only 2 of the 9 models OpenRouter's speech catalog
+actually lists.** Raised directly: "my expectation is that all voices come from
+the model and i should always play the sample." Investigated and confirmed
+neither was fully true — the free-text-only default for 7 of 9 models, and preview
+only auto-firing for curated dropdown picks, not free text. Fetched the live
+catalog (`GET /api/v1/models?output_modalities=speech`) to get the real 9 model
+ids, then researched each one rather than guess:
+
+| Model | Curated? | Source |
+|---|---|---|
+| `hexgrad/kokoro-82m` | yes (existing 10) | well-known open model |
+| `x-ai/grok-voice-tts-1.0` | yes, 5 voices | OpenRouter's own model page (direct fetch) |
+| `google/gemini-3.1-flash-tts-preview` | yes, 10-of-30 subset | Google's published Gemini TTS voice set |
+| `canopylabs/orpheus-3b-0.1-ft` | yes, 8 voices | the model's own GitHub README |
+| `zyphra/zonos-v0.1-transformer` / `-hybrid` | **no — by design** | voice-CLONING from a reference sample, no presets at all |
+| `sesame/csm-1b` | **no — by design** | numeric speaker slot + reference audio, not named voices |
+| `microsoft/mai-voice-2` | no | has presets (Azure-locale format), but no enumerable list found anywhere verifiable |
+| `mistralai/voxtral-mini-tts-2603` | no | "20 preset voices" stated, but no names enumerated anywhere found |
+
+The Zonos/CSM case is architecturally different from the other two "no" rows: our
+voice-id text field doesn't map onto either model's actual interface at all (one
+needs an audio sample, the other a numeric slot + audio context) — `noRosterHint`
+surfaces that specific reason instead of the generic "unrecognized model" message
+so a user isn't left guessing why there's no dropdown. MAI-Voice-2 and Voxtral DO
+have real presets, just none I could verify — same free-text fallback, honest
+generic message.
+
+**Auto-preview now covers free text too.** Extended the "picking a curated voice
+plays it immediately" behavior to the free-text "Other" path — on blur/Enter, not
+every keystroke (which would fire mid-typing). Every real voice selection now
+previews, curated or not, closing the "i should always play the sample" gap.
+
+**Raised but deferred to a separate PR:** pre-generating and committing sample
+audio as repo assets (so "Play sample" serves a static file instead of hitting the
+live paid API on every click, and survives a model/voice later being pulled from
+OpenRouter's catalog). Real architecture work — asset location, a
+credit-spending generator script gated the same way `tools/component-gen-eval.mjs`
+is (HARD RULE #24), and a local-first-fallback-to-live playback path — not a
+same-PR add-on to a bug-fix branch (HARD RULE #17).
+
 ## What's explicitly out of scope
 
 - **On-device speech-to-text / dictation (Whisper or otherwise).** Nothing here

@@ -42,7 +42,8 @@ const KOKORO_VOICES: { id: string; label: string }[] = [
 ];
 // OpenAI's TTS voice set is a small, stable, publicly documented roster (unlike
 // Kokoro's, it isn't the SAME list the on-device engine uses — OpenAI-family cloud
-// models only).
+// models only). No openai/* model is in OpenRouter's current speech catalog, but
+// the entry costs nothing and covers one if OpenRouter adds it later.
 const OPENAI_VOICES: { id: string; label: string }[] = [
 	{ id: 'alloy', label: 'Alloy' },
 	{ id: 'echo', label: 'Echo' },
@@ -51,17 +52,65 @@ const OPENAI_VOICES: { id: string; label: string }[] = [
 	{ id: 'nova', label: 'Nova' },
 	{ id: 'shimmer', label: 'Shimmer' },
 ];
+// xAI's Grok Voice TTS — a small, fixed 5-voice roster (confirmed on OpenRouter's
+// own model page, not a guess).
+const GROK_VOICES: { id: string; label: string }[] = [
+	{ id: 'Eve', label: 'Eve' },
+	{ id: 'Ara', label: 'Ara' },
+	{ id: 'Rex', label: 'Rex' },
+	{ id: 'Sal', label: 'Sal' },
+	{ id: 'Leo', label: 'Leo' },
+];
+// Google's Gemini TTS voice set is ~30 names shared across its Gemini TTS model
+// family (Cloud TTS / Gemini API docs) — a representative subset, not the full 30,
+// matching the "curated, not exhaustive" contract every roster here follows.
+const GEMINI_VOICES: { id: string; label: string }[] = [
+	{ id: 'Puck', label: 'Puck · conversational, friendly' },
+	{ id: 'Charon', label: 'Charon · deep, authoritative' },
+	{ id: 'Kore', label: 'Kore · neutral, professional' },
+	{ id: 'Aoede', label: 'Aoede' },
+	{ id: 'Fenrir', label: 'Fenrir' },
+	{ id: 'Leda', label: 'Leda' },
+	{ id: 'Orus', label: 'Orus' },
+	{ id: 'Zephyr', label: 'Zephyr' },
+	{ id: 'Umbriel', label: 'Umbriel' },
+	{ id: 'Autonoe', label: 'Autonoe' },
+];
+// Canopy Labs' Orpheus — its documented default English voices (from the model's
+// own README), each with a stated character.
+const ORPHEUS_VOICES: { id: string; label: string }[] = [
+	{ id: 'tara', label: 'Tara · female, conversational' },
+	{ id: 'leah', label: 'Leah · female, warm' },
+	{ id: 'jess', label: 'Jess · female, energetic' },
+	{ id: 'leo', label: 'Leo · male, authoritative' },
+	{ id: 'dan', label: 'Dan · male, friendly' },
+	{ id: 'mia', label: 'Mia · female, professional' },
+	{ id: 'zac', label: 'Zac · male, enthusiastic' },
+	{ id: 'zoe', label: 'Zoe · female, calm' },
+];
 export const OTHER = '__other__';
 
 /** The curated voice roster for a cloud model id, or [] when the model is
- *  unrecognized (the picker then falls back to a plain free-text field — guessing
- *  a wrong roster is worse than admitting we don't know it). Kokoro is also the
- *  connect-time default, so an empty/unset model id resolves to its roster too.
- *  Exported for unit tests (pure, no Radix/jsdom interaction needed to cover it). */
+ *  unrecognized OR when it genuinely has no named-voice concept to curate
+ *  (guessing a wrong roster — or forcing a "voice picker" onto a model that
+ *  doesn't have named voices at all — is worse than admitting we don't know it).
+ *  Two of OpenRouter's current 9 speech models fall in that second bucket: Zyphra's
+ *  Zonos (zero-shot voice CLONING from a reference sample, no presets) and Sesame's
+ *  CSM-1B (numeric speaker slots + reference audio, not named voices) — a text
+ *  "voice id" field doesn't really fit either model's actual interface, so they
+ *  fall through to free text same as an unrecognized model, honestly. Microsoft's
+ *  MAI-Voice-2 and Mistral's Voxtral both DO have named/preset voices, but neither
+ *  publishes an enumerable list anywhere I could verify — also left uncurated
+ *  rather than guessed. Kokoro is also the connect-time default, so an empty/unset
+ *  model id resolves to its roster too. Exported for unit tests (pure, no Radix/
+ *  jsdom interaction needed to cover it). */
 export function voicesForModel(modelId: string): { id: string; label: string }[] {
 	const id = (modelId || '').toLowerCase();
 	if (!id || id.includes('kokoro')) return KOKORO_VOICES;
 	if (id.startsWith('openai/')) return OPENAI_VOICES;
+	if (id.includes('grok-voice')) return GROK_VOICES;
+	if (id.startsWith('google/') && id.includes('tts')) return GEMINI_VOICES;
+	if (id.startsWith('canopylabs/orpheus')) return ORPHEUS_VOICES;
 	return [];
 }
 
@@ -118,13 +167,26 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
 	);
 }
 
+/** Some models genuinely have NO named-voice concept to curate — Zonos clones a
+ *  reference audio sample, CSM-1B takes a numeric speaker slot + reference audio —
+ *  so "enter a voice id" is misleading for them, not just "unrecognized." A
+ *  specific hint beats the generic fallback message wherever we actually know why.
+ *  Exported for unit tests. */
+export function noRosterHint(modelId: string): string | undefined {
+	const id = (modelId || '').toLowerCase();
+	if (id.includes('zonos')) return "This model clones a voice from a reference audio sample — it doesn't have named presets. A voice id here won't do anything.";
+	if (id.includes('csm')) return 'This model takes a numeric speaker slot (e.g. "0") plus reference audio, not a named voice — results are inconsistent without one.';
+	return undefined;
+}
+
 /** A model-specific voice picker: a curated dropdown (with each voice's name) + a
  *  free-text "Other" escape hatch for a voice id outside the curated roster. Picking
  *  a CURATED voice fires `onPick` immediately — the caller auto-previews it, so
  *  browsing the dropdown is itself "a way to hear it" (see the decision doc). The
- *  free-text path does not auto-preview (it fires on every keystroke otherwise);
- *  the shared Play-sample button covers it. When `voices` is empty (an
- *  unrecognized model), this renders a plain free-text field only. */
+ *  free-text path fires the SAME auto-preview on blur/Enter (not every keystroke,
+ *  which would fire mid-typing) — every real voice selection previews, curated or
+ *  not. When `voices` is empty (an unrecognized model, or one with no named-voice
+ *  concept at all — see noRosterHint), this renders a plain free-text field only. */
 function VoicePicker({
 	label,
 	ariaLabel,
@@ -133,6 +195,8 @@ function VoicePicker({
 	otherValue,
 	onPick,
 	onOtherChange,
+	onCommitOther,
+	hint,
 	disabled,
 }: {
 	label: string;
@@ -142,8 +206,13 @@ function VoicePicker({
 	otherValue: string;
 	onPick: (voiceId: string) => void;
 	onOtherChange: (text: string) => void;
+	onCommitOther: () => void;
+	hint?: string;
 	disabled?: boolean;
 }) {
+	const commitOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === 'Enter') { e.currentTarget.blur(); onCommitOther(); }
+	};
 	if (!voices.length) {
 		return (
 			<div>
@@ -152,12 +221,14 @@ function VoicePicker({
 					type="text"
 					value={otherValue}
 					onChange={(e) => onOtherChange(e.target.value)}
+					onBlur={onCommitOther}
+					onKeyDown={commitOnEnter}
 					disabled={disabled}
 					placeholder="e.g. alloy"
 					aria-label={ariaLabel}
 					className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none focus:border-[var(--accent)] disabled:opacity-50"
 				/>
-				<p className="mt-1 text-[11px] text-muted-foreground">Unrecognized model — enter its voice id directly (check the model's OpenRouter page).</p>
+				<p className="mt-1 text-[11px] text-muted-foreground">{hint ?? "Unrecognized model — enter its voice id directly (check the model's OpenRouter page)."}</p>
 			</div>
 		);
 	}
@@ -182,6 +253,8 @@ function VoicePicker({
 					type="text"
 					value={otherValue}
 					onChange={(e) => onOtherChange(e.target.value)}
+					onBlur={onCommitOther}
+					onKeyDown={commitOnEnter}
 					disabled={disabled}
 					placeholder="e.g. jf_alpha"
 					aria-label={`Custom ${ariaLabel.toLowerCase()}`}
@@ -307,6 +380,12 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		setOrVoiceOther(v);
 		if (v.trim()) await setTtsOrVoice(v.trim());
 	};
+	// Fired on blur/Enter (not every keystroke, see VoicePicker) — the free-text
+	// path gets the SAME "picking a voice always plays it" guarantee the curated
+	// dropdown does.
+	const commitOrVoiceOther = () => {
+		if (orVoiceOther.trim() && avail?.openRouterReady) playPreview('openrouter', orVoiceOther.trim());
+	};
 	const pickKokoroVoice = async (v: string) => {
 		setKokoroVoiceSelect(v);
 		await setTtsKokoroVoice(v);
@@ -315,6 +394,9 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 	const changeKokoroOther = async (v: string) => {
 		setKokoroOther(v);
 		if (v.trim()) await setTtsKokoroVoice(v.trim());
+	};
+	const commitKokoroOther = () => {
+		if (kokoroOther.trim() && avail?.kokoroReady) playPreview('kokoro', kokoroOther.trim());
 	};
 	const changeSpeed = async (n: number) => {
 		setSpeedState(n);
@@ -376,6 +458,8 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 						otherValue={orVoiceOther}
 						onPick={pickOrVoice}
 						onOtherChange={changeOrVoiceOther}
+						onCommitOther={commitOrVoiceOther}
+						hint={noRosterHint(orModel)}
 						disabled={!avail.openRouterReady}
 					/>
 				</div>
@@ -446,6 +530,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 					otherValue={kokoroOther}
 					onPick={pickKokoroVoice}
 					onOtherChange={changeKokoroOther}
+					onCommitOther={commitKokoroOther}
 					disabled={!ready}
 				/>
 				{!ready && <p className="mt-1 text-[11px] text-muted-foreground">Download the voice above to configure it.</p>}

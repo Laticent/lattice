@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OTHER, resolveVoice, voiceResetOnModelChange, voicesForModel } from './TtsSettings';
+import { noRosterHint, OTHER, resolveVoice, voiceResetOnModelChange, voicesForModel } from './TtsSettings';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
@@ -19,6 +19,47 @@ describe('voicesForModel — a curated roster per cloud model, never a guess', (
 
 	it('returns [] for an unrecognized model — never a fabricated roster', () => {
 		expect(voicesForModel('some-vendor/unknown-tts')).toEqual([]);
+	});
+
+	// Every model curated after the initial two families — each roster's source is
+	// cited in TtsSettings.tsx's own comments (an OpenRouter page fetch or a primary-
+	// source doc/README, never a guess).
+	it('resolves Grok Voice TTS to its documented 5-voice roster', () => {
+		expect(voicesForModel('x-ai/grok-voice-tts-1.0').map((v) => v.id)).toEqual(['Eve', 'Ara', 'Rex', 'Sal', 'Leo']);
+	});
+
+	it('resolves a Gemini TTS model (any version) to the Gemini voice set', () => {
+		const voices = voicesForModel('google/gemini-3.1-flash-tts-preview').map((v) => v.id);
+		expect(voices).toContain('Puck');
+		expect(voices).toContain('Kore');
+	});
+
+	it('resolves Orpheus to its documented English preset voices', () => {
+		expect(voicesForModel('canopylabs/orpheus-3b-0.1-ft').map((v) => v.id)).toContain('tara');
+	});
+
+	it('deliberately does NOT curate Zonos or CSM-1B — see noRosterHint', () => {
+		// Both models genuinely lack a named-voice concept (clone/speaker-slot based),
+		// not merely "unrecognized" — curating a fake roster for them would be worse
+		// than admitting we don't have one.
+		expect(voicesForModel('zyphra/zonos-v0.1-transformer')).toEqual([]);
+		expect(voicesForModel('zyphra/zonos-v0.1-hybrid')).toEqual([]);
+		expect(voicesForModel('sesame/csm-1b')).toEqual([]);
+	});
+});
+
+describe('noRosterHint — explains WHY a model has no curated voice picker, when we know', () => {
+	it('gives a specific reason for voice-cloning models (Zonos)', () => {
+		expect(noRosterHint('zyphra/zonos-v0.1-transformer')).toMatch(/clones a voice from a reference/i);
+	});
+
+	it('gives a specific reason for speaker-slot models (CSM-1B)', () => {
+		expect(noRosterHint('sesame/csm-1b')).toMatch(/numeric speaker slot/i);
+	});
+
+	it('returns undefined for a model with simply no verified roster — the generic fallback message covers it', () => {
+		expect(noRosterHint('microsoft/mai-voice-2')).toBeUndefined();
+		expect(noRosterHint('mistralai/voxtral-mini-tts-2603')).toBeUndefined();
 	});
 });
 

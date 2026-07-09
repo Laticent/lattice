@@ -46,6 +46,12 @@ in patch versions.
 
 ### Fixed
 
+- **The Workspace "Play sample" button could get stuck on "Playing…" forever.**
+  `previewVoice()`'s playback phase had an 8s watchdog, but the SYNTH phase (the
+  network fetch to OpenRouter, or the Kokoro worker round-trip) had none — a hung
+  request left the button frozen with no way out short of closing the panel.
+  Both `previewVoice()` and `speak()`'s narration path now bound the synth phase
+  to 20s. See `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
 - **The Studio read-along no longer races its own highlight.** `useReadAloud`'s
   frame loop started synchronously, in text-estimate mode, before the async voice
   model resolved — so a clocked voice (OpenRouter/Kokoro) attaching after some real
@@ -84,6 +90,17 @@ in patch versions.
 
 ### Added
 
+- **The Workspace read-aloud voice picker now covers most of OpenRouter's speech
+  catalog, and always previews.** The curated cloud voice dropdown only matched
+  2 of the 9 models OpenRouter's speech catalog actually lists; the rest silently
+  fell back to a bare text field. Researched and added real, sourced voice rosters
+  for xAI's Grok Voice TTS, Google's Gemini TTS, and Canopy Labs' Orpheus — and, for
+  the two models that genuinely have no named-voice concept at all (Zyphra's Zonos,
+  which clones a reference audio sample; Sesame's CSM-1B, which takes a numeric
+  speaker slot), a specific explanation instead of the generic "unrecognized model"
+  message. Picking a voice — curated or free-text (on blur/Enter) — now always
+  plays a sample, not just curated picks. See
+  `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new

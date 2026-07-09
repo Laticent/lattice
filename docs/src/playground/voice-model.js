@@ -507,10 +507,31 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // playBlob's generic 'no audio', since it's the more diagnostic message.
     let lastError = null;
     const errStr = (e) => (e && e.message) ? e.message : String(e || 'unknown');
-    const synth = (t) => rung.synth({ text: t, voice, speed: effSpeed, signal: sig }).catch((e) => {
-      if (!sig.aborted && !lastError) lastError = errStr(e);
-      return null;
-    });
+    // `.catch()` alone only covers a REJECTION — a hung fetch/worker that never
+    // settles at all would stall this sentence (and every one after it, via the
+    // one-ahead prefetch) forever, reading as narration that silently freezes
+    // mid-deck. Race against a timeout that resolves to null (skip this sentence,
+    // keep going) rather than aborting `sig` — one slow sentence shouldn't kill
+    // playback for the rest of the deck the way it's appropriate to for a single
+    // self-contained Play-sample preview (see previewVoice's own fix, above).
+    const synth = (t) => {
+      // Cleared the moment EITHER side settles — Promise.race doesn't cancel the
+      // loser, so an uncleared timer would linger 20s per sentence, every sentence,
+      // even on the healthy path (a real timer-leak risk across a long deck).
+      let timer;
+      return Promise.race([
+        rung.synth({ text: t, voice, speed: effSpeed, signal: sig }).catch((e) => {
+          if (!sig.aborted && !lastError) lastError = errStr(e);
+          return null;
+        }).finally(() => clearTimeout(timer)),
+        new Promise((res) => {
+          timer = setTimeout(() => {
+            if (!sig.aborted && !lastError) lastError = 'timed out waiting for audio (20s)';
+            res(null);
+          }, 20000);
+        }),
+      ]);
+    };
     try {
       if (rung.name === 'speechSynthesis') {
         for (const s of sentences) {
@@ -638,20 +659,36 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       stop();
       const ctl = new AbortController();
       activeCtl = ctl;
+      // The PLAYBACK phase below already has an 8s watchdog; the SYNTH phase (the
+      // network fetch to OpenRouter, or the Kokoro worker round-trip) previously had
+      // NONE — a hung request left this awaiting forever, stuck on "Playing…" with no
+      // way out short of closing the panel. Race it against a timeout that also aborts
+      // `ctl`, so an abort-aware rung (fetch, worker) genuinely cancels — and even
+      // where it can't (Kokoro's main-thread fallback), the race still resolves,
+      // unsticking the UI regardless. `synthTimer` is cleared the moment EITHER side
+      // settles (not just on the happy path) — Promise.race doesn't cancel the loser,
+      // so an uncleared timer would linger for the full 20s on every call, healthy or
+      // not, a real (if small) timer leak across a long presentation.
+      let synthTimer;
       try {
-        const blob = await r.synth({ text: 'This is how your slides will sound.', voice: v, speed: speed ?? speedPref(), signal: ctl.signal });
-        if (!blob || !blob.size) return { ok: false, error: 'no audio returned (empty response)' };
+        const blob = await Promise.race([
+          r.synth({ text: 'This is how your slides will sound.', voice: v, speed: speed ?? speedPref(), signal: ctl.signal }).finally(() => clearTimeout(synthTimer)),
+          new Promise((res) => { synthTimer = setTimeout(() => { ctl.abort(); res(null); }, 20000); }),
+        ]);
+        if (!blob?.size) return { ok: false, error: blob === null ? 'timed out waiting for audio (20s) — check your connection' : 'no audio returned (empty response)' };
         // Race playback against a watchdog: a decoded clip that never reaches
         // 'ended' means the audio context is stuck suspended (iOS, no gesture) —
-        // report it rather than hang the button.
+        // report it rather than hang the button. Same leak/clear concern as above.
         const ctx = getCtx();
+        let playTimer;
         const played = await Promise.race([
-          playBlob(blob, ctl.signal),
-          new Promise((res) => setTimeout(() => res({ ok: false, error: 'no sound — audio ' + (ctx ? ctx.state : 'unavailable') }), 8000)),
+          playBlob(blob, ctl.signal).finally(() => clearTimeout(playTimer)),
+          new Promise((res) => { playTimer = setTimeout(() => res({ ok: false, error: 'no sound — audio ' + (ctx ? ctx.state : 'unavailable') }), 8000); }),
         ]);
+        clearTimeout(playTimer);
         return played.ok ? { ok: true } : { ok: false, error: played.error };
       } catch (e) { return { ok: false, error: String(e?.message || e) }; }
-      finally { if (activeCtl === ctl) activeCtl = null; }
+      finally { clearTimeout(synthTimer); if (activeCtl === ctl) activeCtl = null; }
     },
     // Prefs.
     rungPref, setRungPref(name) { writeLS(K.RUNG, name || null); emitChange(); },
