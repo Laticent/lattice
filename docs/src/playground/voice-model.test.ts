@@ -157,6 +157,76 @@ describe('splitSentences mirrors Cadenza exactly (node-loadable local copy, HARD
   });
 });
 
+describe('keyPrefix isolation (2026-07-09-studio-cloud-ondevice-config-split.md)', () => {
+  it('two instances with different keyPrefix never share voice/speed prefs', () => {
+    const a = createVoiceModel({ keyPrefix: 'a' });
+    const b = createVoiceModel({ keyPrefix: 'b' });
+    a.setOrVoice('af_bella');
+    a.setSpeed(1.4);
+    expect(b.orVoice()).toBe('af_heart'); // b's default, unaffected by a's pick
+    expect(b.speedPref()).toBe(1);
+    expect(a.orVoice()).toBe('af_bella');
+    expect(a.speedPref()).toBe(1.4);
+    // Distinct localStorage keys, not just distinct in-memory instances.
+    expect(localStorage.getItem('lattice-a-voice-or')).toBe('af_bella');
+    expect(localStorage.getItem('lattice-b-voice-or')).toBeNull();
+  });
+
+  it('omitting keyPrefix keeps the Drawing Board\'s original db-* keys byte-identical', () => {
+    const model = createVoiceModel({});
+    model.setKokoroVoice('am_adam');
+    expect(localStorage.getItem('lattice-db-voice-kokoro')).toBe('am_adam');
+  });
+});
+
+describe('speed prefs', () => {
+  it('defaults to 1, round-trips, and a speak() call forwards the effective speed to the rung', async () => {
+    const model = createVoiceModel({});
+    expect(model.speedPref()).toBe(1);
+    model.setSpeed(1.25);
+    expect(model.speedPref()).toBe(1.25);
+    const seen: (number | undefined)[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ speed }: { speed?: number }) => {
+        seen.push(speed);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    await model.speak({ text: 'One.' });
+    expect(seen).toEqual([1.25]); // no explicit per-call speed → falls to the persisted pref
+    await model.speak({ text: 'Two.', speed: 0.9 });
+    expect(seen).toEqual([1.25, 0.9]); // an explicit per-call speed wins over the pref
+  });
+});
+
+describe('listOpenRouterVoiceModels (the public, unauthenticated TTS catalog)', () => {
+  it('maps the catalog to {id,name}', async () => {
+    vi.resetModules();
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ data: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M' }, { id: 'openai/tts-1' }] }) }));
+    vi.stubGlobal('fetch', fetchImpl);
+    try {
+      const fresh = await import('./voice-model.js');
+      const models = await fresh.listOpenRouterVoiceModels();
+      expect(models).toEqual([{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M' }, { id: 'openai/tts-1', name: 'openai/tts-1' }]); // falls back to id when name is absent
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('never throws — resolves [] on a network failure or a non-ok response', async () => {
+    vi.resetModules();
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    try {
+      const fresh = await import('./voice-model.js');
+      await expect(fresh.listOpenRouterVoiceModels()).resolves.toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
 describe('allowBrowserVoice opt-in (production ban escape hatch)', () => {
   it('is off by default — the banned browser voice stays disallowed', () => {
     expect(createVoiceModel({}).availability().speechAllowed).toBe(false);

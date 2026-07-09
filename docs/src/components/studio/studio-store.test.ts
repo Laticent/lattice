@@ -1,6 +1,28 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DECKS } from './decks';
-import { createDeck, deleteDeck, loadChatDraft, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, metaFor, renameDeck, saveChatDraft, saveCheckpoint, saveInstructions, saveSettings, saveSource, titleFromSource } from './studio-store';
+import {
+	createDeck,
+	deleteDeck,
+	exportStudioState,
+	importStudioState,
+	loadChatDraft,
+	loadCheckpoints,
+	loadDeckList,
+	loadInstructions,
+	loadOnDeviceInstructions,
+	loadSettings,
+	loadSource,
+	metaFor,
+	ON_DEVICE_INSTRUCTIONS_MAX,
+	renameDeck,
+	saveChatDraft,
+	saveCheckpoint,
+	saveInstructions,
+	saveOnDeviceInstructions,
+	saveSettings,
+	saveSource,
+	titleFromSource,
+} from './studio-store';
 
 afterEach(() => localStorage.clear());
 
@@ -113,6 +135,54 @@ describe('studio-store — standing instructions', () => {
 		expect(loadInstructions()).toBe('Be terse.');
 		// Stored verbatim — the format the drawer has always written.
 		expect(localStorage.getItem('lattice-studio-instructions')).toBe('Be terse.');
+	});
+});
+
+describe('studio-store — on-device standing instructions (separate + capped)', () => {
+	it('round-trips independently of the cloud field, under its own key', () => {
+		expect(loadOnDeviceInstructions()).toBe('');
+		saveInstructions('Cloud voice.');
+		saveOnDeviceInstructions('Short local note.');
+		expect(loadInstructions()).toBe('Cloud voice.');
+		expect(loadOnDeviceInstructions()).toBe('Short local note.');
+		expect(localStorage.getItem('lattice-studio-ondevice-instructions')).toBe('Short local note.');
+	});
+
+	it('caps what is saved at ON_DEVICE_INSTRUCTIONS_MAX characters', () => {
+		const long = 'x'.repeat(ON_DEVICE_INSTRUCTIONS_MAX + 50);
+		saveOnDeviceInstructions(long);
+		expect(loadOnDeviceInstructions().length).toBe(ON_DEVICE_INSTRUCTIONS_MAX);
+	});
+
+	it('also caps on READ — a value written before the cap existed (or restored raw) never injects an oversized block', () => {
+		const long = 'y'.repeat(ON_DEVICE_INSTRUCTIONS_MAX + 200);
+		localStorage.setItem('lattice-studio-ondevice-instructions', long); // bypass saveOnDeviceInstructions
+		expect(loadOnDeviceInstructions().length).toBe(ON_DEVICE_INSTRUCTIONS_MAX);
+	});
+});
+
+describe('studio-store — workspace backup carries both instruction fields', () => {
+	it('exports and restores the on-device field alongside the cloud one', () => {
+		saveInstructions('Cloud voice.');
+		saveOnDeviceInstructions('Local note.');
+		const snapshot = exportStudioState();
+		expect(snapshot.instructions).toBe('Cloud voice.');
+		expect(snapshot.onDeviceInstructions).toBe('Local note.');
+
+		localStorage.clear();
+		expect(loadOnDeviceInstructions()).toBe('');
+		importStudioState(snapshot, 1000);
+		expect(loadInstructions()).toBe('Cloud voice.');
+		expect(loadOnDeviceInstructions()).toBe('Local note.');
+	});
+
+	it('a pre-split backup with no onDeviceInstructions field restores to empty, never throws', () => {
+		saveOnDeviceInstructions('stale local note');
+		const legacy = exportStudioState();
+		// @ts-expect-error — simulating a backup file from before this field existed.
+		delete legacy.onDeviceInstructions;
+		expect(() => importStudioState(legacy, 2000)).not.toThrow();
+		expect(loadOnDeviceInstructions()).toBe('');
 	});
 });
 

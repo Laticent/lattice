@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { applyDeckEdit, architectSpend, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
-import { saveInstructions, saveSettings } from './studio-store';
+import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
 afterEach(() => {
 	try {
@@ -48,6 +48,26 @@ describe('withStudioVoice — language + instructions injection', () => {
 		const input = [{ role: 'system', content: 'X' }];
 		withStudioVoice(input);
 		expect(input[0].content).toBe('X');
+	});
+
+	it('picks the CLOUD instructions field by default (no generation arg) and when generation is openrouter', () => {
+		saveSettings({ language: 'en-US' });
+		saveInstructions('Cloud voice.');
+		saveOnDeviceInstructions('Local note.');
+		expect(withStudioVoice([{ role: 'system', content: 'X' }])[0].content).toContain('Cloud voice.');
+		expect(withStudioVoice([{ role: 'system', content: 'X' }])[0].content).not.toContain('Local note.');
+		expect(withStudioVoice([{ role: 'system', content: 'X' }], 'openrouter')[0].content).toContain('Cloud voice.');
+	});
+
+	it('picks the separate, capped ON-DEVICE instructions field for any on-device generation', () => {
+		saveSettings({ language: 'en-US' });
+		saveInstructions('Cloud voice.');
+		saveOnDeviceInstructions('Local note.');
+		for (const generation of ['prompt-api', 'webllm', 'universal']) {
+			const out = withStudioVoice([{ role: 'system', content: 'X' }], generation);
+			expect(out[0].content).toContain('Local note.');
+			expect(out[0].content).not.toContain('Cloud voice.');
+		}
 	});
 });
 

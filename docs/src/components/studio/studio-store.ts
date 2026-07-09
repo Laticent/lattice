@@ -16,7 +16,8 @@ import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 const INDEX_LS = 'lattice-studio-deck-index'; // [{id,title,builtin}]
 const SRC_PREFIX = 'lattice-studio-src-'; // + deckId → edited source
 const SETTINGS_LS = 'lattice-studio-settings'; // { validation, pageNumbers, headerFooter, language }
-const INSTRUCTIONS_LS = 'lattice-studio-instructions'; // standing instructions (free text)
+const INSTRUCTIONS_LS = 'lattice-studio-instructions'; // CLOUD standing instructions (free text)
+const ONDEVICE_INSTRUCTIONS_LS = 'lattice-studio-ondevice-instructions'; // ON-DEVICE standing instructions (free text, capped)
 
 function read<T>(key: string): T | null {
 	try {
@@ -286,7 +287,11 @@ export type StudioExport = {
 	checkpoints: Record<string, Checkpoint[]>;
 	chats: Record<string, ChatMessage[]>;
 	settings: StudioSettings;
+	/** CLOUD standing instructions — unlimited. */
 	instructions: string;
+	/** ON-DEVICE standing instructions — separate from the cloud field, capped at
+	 *  ON_DEVICE_INSTRUCTIONS_MAX (see below). */
+	onDeviceInstructions: string;
 };
 
 /**
@@ -322,7 +327,7 @@ export function exportStudioState(): StudioExport {
 		const chat = loadChat(e.id);
 		if (chat.length) chats[e.id] = chat;
 	}
-	return { index, sources, checkpoints, chats, settings: loadSettings(), instructions: loadInstructions() };
+	return { index, sources, checkpoints, chats, settings: loadSettings(), instructions: loadInstructions(), onDeviceInstructions: loadOnDeviceInstructions() };
 }
 
 export type ImportSummary = { added: number; restoredCopies: number; skipped: number };
@@ -383,6 +388,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 	saveIndex(index);
 	saveSettings(data.settings);
 	saveInstructions(data.instructions);
+	saveOnDeviceInstructions(data.onDeviceInstructions ?? ''); // absent in a pre-split backup — restores empty, never throws
 	return summary;
 }
 
@@ -418,6 +424,12 @@ export function markBackupNudged(now: number): void {
 // withStudioVoice). Empty by default, so an untouched field injects nothing.
 // Stored as a RAW string (not JSON) — the format the Workspace drawer has always
 // written, so existing values keep working.
+//
+// CLOUD field — unlimited. See loadOnDeviceInstructions below for the separate,
+// capped ON-DEVICE field: cloud and on-device are fully separate namespaces (not
+// one shared field), per engineering/decisions/2026-07-09-studio-cloud-ondevice-
+// config-split.md — a small local model loses the thread past a short brief, so
+// its instructions field is its own setting, not a truncation of this one.
 export function loadInstructions(): string {
 	try {
 		return localStorage.getItem(INSTRUCTIONS_LS) ?? '';
@@ -428,6 +440,28 @@ export function loadInstructions(): string {
 export function saveInstructions(text: string): void {
 	try {
 		localStorage.setItem(INSTRUCTIONS_LS, text);
+	} catch {
+		/* storage full / unavailable — non-fatal */
+	}
+}
+
+// ON-DEVICE standing instructions — the same idea as loadInstructions, but a
+// wholly separate field + key, capped at ON_DEVICE_INSTRUCTIONS_MAX characters.
+// The cap is enforced HERE (not just the textarea's `maxLength`) so a value
+// written before the cap existed, or restored from an older backup, can't inject
+// an oversized block into a small local model's system prompt.
+export const ON_DEVICE_INSTRUCTIONS_MAX = 300;
+
+export function loadOnDeviceInstructions(): string {
+	try {
+		return (localStorage.getItem(ONDEVICE_INSTRUCTIONS_LS) ?? '').slice(0, ON_DEVICE_INSTRUCTIONS_MAX);
+	} catch {
+		return '';
+	}
+}
+export function saveOnDeviceInstructions(text: string): void {
+	try {
+		localStorage.setItem(ONDEVICE_INSTRUCTIONS_LS, text.slice(0, ON_DEVICE_INSTRUCTIONS_MAX));
 	} catch {
 		/* storage full / unavailable — non-fatal */
 	}

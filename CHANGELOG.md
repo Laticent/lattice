@@ -72,6 +72,20 @@ in patch versions.
   (`docs/src/playground/read-along-core.generated.js`, built by
   `tools/build-read-along-core.js`) the same way the Webpage export bundles
   `player-core.mjs`. No audio, no TTS key — captions only.
+- **The Studio Workspace segments AI config into cloud vs. on-device, and ships
+  real TTS settings.** Spend/budget now shows only under the Cloud view (on-device
+  generation is unconditionally free — there's nothing to cap). Standing
+  instructions split into two separate fields: the existing cloud field, and a new
+  on-device field capped at 300 characters (a small local model loses the thread
+  past a short brief). Output language stays shared across both, as before — it
+  describes the deck's language, not which model wrote it. A new **Read-aloud
+  voice** section lets you pick the TTS model/voice/speed for each tier — the
+  OpenRouter voice catalog for Cloud, a curated Kokoro voice roster (with its
+  existing on-device download flow) for On-device — where previously the Studio
+  ran a silent "auto" voice ladder with no settings UI at all. The Studio's voice
+  prefs also moved to their own `lattice-studio-voice-*` keys, so they no longer
+  silently share state with the Drawing Board's voice picker. See
+  `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
 - **The Studio can download a deck as a self-contained webpage.** The Share sheet
   gained a **“Webpage (.html)”** row (alongside PDF / PPTX / Print) that assembles
   the same offline `.html` player the CLI `--player` flag produces — three views

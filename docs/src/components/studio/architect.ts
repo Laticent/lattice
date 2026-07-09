@@ -13,7 +13,7 @@ import { askComponentMessages, auditComponentDesign, coerceComponent, gateCompon
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { languageDirective } from './studio-language';
-import { loadInstructions, loadSettings } from './studio-store';
+import { loadInstructions, loadOnDeviceInstructions, loadSettings } from './studio-store';
 
 // Re-export so UI surfaces (Fabricate, the deck chat) import the doc type + reader
 // from one place alongside the generate functions they feed it to.
@@ -49,19 +49,27 @@ const SYSTEM =
 // `_class` invokes) that must stay canonical English to pass the gates and resolve
 // at render time. Read live, so a change in the Workspace drawer takes effect on
 // the next turn. See engineering/decisions/2026-06-30-studio-output-language.md.
+//
+// Standing instructions are CLOUD/ON-DEVICE separated (2026-07-09-studio-cloud-
+// ondevice-config-split.md): a small on-device model gets its own, shorter field
+// rather than a truncation of the cloud one. Language stays shared/generation-
+// agnostic — it describes the OUTPUT, not the model that produced it.
 type Msg = GroundMsg; // { role; content: string | ContentPart[] } — array content carries an inlined PDF
 
-function studioVoice(): string {
+function studioVoice(generation: string): string {
 	const parts = [languageDirective(loadSettings().language)];
-	const instr = loadInstructions().trim();
+	const instr = (generation === 'openrouter' ? loadInstructions() : loadOnDeviceInstructions()).trim();
 	if (instr) parts.push(`The author has given you STANDING INSTRUCTIONS — always honor these:\n${instr}`);
 	return parts.filter(Boolean).join('\n\n');
 }
 
 /** Merge the Studio voice into a messages array's system turn (creating one if
- *  absent). Pure — returns a new array; the inputs are untouched. */
-export function withStudioVoice(messages: Msg[]): Msg[] {
-	const extra = studioVoice();
+ *  absent). Pure — returns a new array; the inputs are untouched. `generation`
+ *  selects the cloud vs on-device standing-instructions store; defaults to
+ *  'openrouter' so a caller that hasn't been threaded yet (or a test) keeps the
+ *  prior cloud-field behavior unchanged. */
+export function withStudioVoice(messages: Msg[], generation: string = 'openrouter'): Msg[] {
+	const extra = studioVoice(generation);
 	if (!extra) return messages;
 	const out = messages.map((m) => ({ ...m }));
 	const sys = out.find((m) => m.role === 'system');
@@ -74,8 +82,8 @@ export function withStudioVoice(messages: Msg[]): Msg[] {
 
 /** A model whose `complete` injects the Studio voice — for bridges that build
  *  their messages internally (e.g. requestSlideFix). */
-function voicedModel(model: ArchitectModel): ArchitectModel {
-	return { ...model, complete: (o) => model.complete({ ...o, messages: withStudioVoice(o.messages) }) };
+function voicedModel(model: ArchitectModel, generation: string): ArchitectModel {
+	return { ...model, complete: (o) => model.complete({ ...o, messages: withStudioVoice(o.messages, generation) }) };
 }
 
 type Usage = { cost?: number; total_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
@@ -194,7 +202,7 @@ export async function runArchitect(source: string, instruction: string, docs?: R
 	const ground = groundMessages(withStudioVoice([
 		{ role: 'system', content: SYSTEM },
 		{ role: 'user', content: `${instruction}\n\nThe deck — address slides by their [slide N] markers, and never include a marker in an edit body:\n\n${numberSlides(source)}` },
-	]), docs, generation === 'openrouter');
+	], generation), docs, generation === 'openrouter');
 	let reply = '';
 	try {
 		reply = await model.complete({
@@ -242,7 +250,7 @@ export async function refineSelection(action: RefineActionId, text: string): Pro
 	let out = '';
 	try {
 		out = await model.complete({
-			messages: withStudioVoice(buildRefinePrompt(action, text)),
+			messages: withStudioVoice(buildRefinePrompt(action, text), generation),
 			fallback: text,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
@@ -300,7 +308,7 @@ export async function generateDescription(slideSource: string): Promise<RefineOu
 	let out = '';
 	try {
 		out = await model.complete({
-			messages: withStudioVoice(buildDescriptionPrompt(slideSource)),
+			messages: withStudioVoice(buildDescriptionPrompt(slideSource), generation),
 			fallback: '',
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
@@ -663,7 +671,7 @@ export async function requestFindingFix(source: string, finding: Finding, catalo
 	}
 	try {
 		const res = await requestSlideFix({
-			model: voicedModel(model),
+			model: voicedModel(model, generation),
 			gate: { cache: () => generation === 'openrouter', onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
 			source,
 			finding,
@@ -709,7 +717,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		{ role: 'system', content: `${SYSTEM}\n\nConverse with the author. Answer questions directly. Only emit edit blocks when they actually want a change to the deck.` },
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
-	]), docs, generation === 'openrouter');
+	], generation), docs, generation === 'openrouter');
 	let reply = '';
 	try {
 		reply = await model.complete({

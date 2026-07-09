@@ -1,4 +1,4 @@
-import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, SlidersHorizontal, Sparkles, Upload, Wallet, Zap } from 'lucide-react';
+import { Cloud, Cpu, Download, ExternalLink, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, SlidersHorizontal, Sparkles, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,7 +11,20 @@ import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } fro
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
 import { languageFor, STUDIO_LANGUAGES } from './studio-language';
-import { type HandleStyle, lastBackupAt, loadInstructions, loadSettings, markBackupTaken, type PdfPages, saveInstructions, saveSettings } from './studio-store';
+import {
+	type HandleStyle,
+	lastBackupAt,
+	loadInstructions,
+	loadOnDeviceInstructions,
+	loadSettings,
+	markBackupTaken,
+	ON_DEVICE_INSTRUCTIONS_MAX,
+	type PdfPages,
+	saveInstructions,
+	saveOnDeviceInstructions,
+	saveSettings,
+} from './studio-store';
+import { TtsSettings } from './TtsSettings';
 import { downloadBlob, isEvictionProneBrowser, packWorkspace, restoreWorkspace, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup';
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
@@ -95,6 +108,10 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [genView, setGenView] = React.useState<GenView>('cloud');
 	const userPickedView = React.useRef(false);
 	const [instructions, setInstructions] = React.useState(loadInstructions);
+	// Separate, capped on-device standing instructions — a small local model loses
+	// the thread past a short brief, so it's its own field, not a truncation of the
+	// cloud one above (2026-07-09-studio-cloud-ondevice-config-split.md).
+	const [odInstructions, setOdInstructions] = React.useState(loadOnDeviceInstructions);
 	// The AI output language (seeded from the browser the first time; see studio-store).
 	const [language, setLanguage] = React.useState(() => loadSettings().language);
 	// How the Fabricate finish designer draws its on-canvas placement handles.
@@ -385,7 +402,9 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								</div>
 							)}
 
-							{/* ── SPEND — a facet of the model, not its own tab ──────── */}
+							{/* ── SPEND — a facet of the model, not its own tab. Cloud only — */}
+							{/* on-device is unconditionally free, so a cap/gauge don't apply. */}
+							{genView === 'cloud' ? (
 							<AiSection>
 								<GroupLabel icon={<Wallet className="size-3.5" />}>Spend</GroupLabel>
 
@@ -446,8 +465,14 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								)}
 								<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Iterating a draft? <button type="button" onClick={pickOnDevice} className="font-semibold text-[var(--accent)] underline-offset-2 hover:underline">Switch to On-device</button> — free &amp; private.</p>
 							</AiSection>
+							) : (
+							<AiSection>
+								<GroupLabel icon={<Wallet className="size-3.5" />}>Spend</GroupLabel>
+								<p className="text-[11px] leading-relaxed text-muted-foreground">On-device runs free &amp; private, on this device — nothing to configure here.</p>
+							</AiSection>
+							)}
 
-							{/* ── INSTRUCTIONS — output language, standing voice, gen prefs ── */}
+							{/* ── OUTPUT LANGUAGE — shared across cloud + on-device: it describes the OUTPUT, not the model that produced it ── */}
 							<AiSection>
 								<GroupLabel icon={<Languages className="size-3.5" />}>Output language</GroupLabel>
 								<p className="mb-2 text-xs text-muted-foreground">The language the AI writes deck content in — slides, refine, and chat. Component and theme names stay in English.</p>
@@ -470,26 +495,56 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										))}
 									</SelectContent>
 								</Select>
+							</AiSection>
 
-								<div className="mt-5">
-									<GroupLabel icon={<MessageSquareText className="size-3.5" />}>Standing instructions</GroupLabel>
-									<p className="mb-2 text-xs text-muted-foreground">A standing voice note, sent with every generation. Leave blank for none.</p>
-									<textarea
-										value={instructions}
-										onChange={(e) => {
-											setInstructions(e.target.value);
-											saveInstructions(e.target.value);
-										}}
-										rows={5}
-										placeholder="e.g. Confident, board-ready voice. Lead each slide with the number. Avoid hedging."
-										aria-label="Standing instructions"
-										className="w-full resize-none rounded-xl border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:border-[var(--accent)]"
-									/>
-									<div className="mt-1 text-right font-mono text-[11px] text-muted-foreground">{instructions.length} chars · saved</div>
-								</div>
+							{/* ── STANDING INSTRUCTIONS — separate cloud/on-device fields, not one shared+truncated field ── */}
+							<AiSection>
+								<GroupLabel icon={<MessageSquareText className="size-3.5" />}>Standing instructions{genView === 'ondevice' ? ' · on-device' : ''}</GroupLabel>
+								{genView === 'cloud' ? (
+									<div>
+										<p className="mb-2 text-xs text-muted-foreground">A standing voice note, sent with every cloud generation. Leave blank for none.</p>
+										<textarea
+											value={instructions}
+											onChange={(e) => {
+												setInstructions(e.target.value);
+												saveInstructions(e.target.value);
+											}}
+											rows={5}
+											placeholder="e.g. Confident, board-ready voice. Lead each slide with the number. Avoid hedging."
+											aria-label="Standing instructions"
+											className="w-full resize-none rounded-xl border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:border-[var(--accent)]"
+										/>
+										<div className="mt-1 text-right font-mono text-[11px] text-muted-foreground">{instructions.length} chars · saved</div>
+									</div>
+								) : (
+									<div>
+										<p className="mb-2 text-xs text-muted-foreground">A shorter, separate note for on-device generation — a small local model loses the thread past a brief instruction, so this is capped and independent of the cloud field above.</p>
+										<textarea
+											value={odInstructions}
+											onChange={(e) => {
+												const next = e.target.value.slice(0, ON_DEVICE_INSTRUCTIONS_MAX);
+												setOdInstructions(next);
+												saveOnDeviceInstructions(next);
+											}}
+											rows={3}
+											maxLength={ON_DEVICE_INSTRUCTIONS_MAX}
+											placeholder="e.g. Short, punchy bullets."
+											aria-label="On-device standing instructions"
+											className="w-full resize-none rounded-xl border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus:border-[var(--accent)]"
+										/>
+										<div className="mt-1 text-right font-mono text-[11px] text-muted-foreground">{odInstructions.length}/{ON_DEVICE_INSTRUCTIONS_MAX} chars · saved</div>
+									</div>
+								)}
+							</AiSection>
 
-								<div className="mt-5">
-									<GroupLabel icon={<Sparkles className="size-3.5" />}>Component generation</GroupLabel>
+							{/* ── READ-ALOUD VOICE — cloud (OpenRouter TTS) or on-device (Kokoro), never both at once ── */}
+							<AiSection>
+								<GroupLabel icon={<Volume2 className="size-3.5" />}>Read-aloud voice{genView === 'ondevice' ? ' · on-device' : ' · cloud'}</GroupLabel>
+								<TtsSettings tier={genView} notify={notify} />
+							</AiSection>
+
+							<AiSection>
+								<GroupLabel icon={<Sparkles className="size-3.5" />}>Component generation</GroupLabel>
 									<label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
 										<button type="button" role="switch" aria-checked={dedup} aria-label="Suggest similar components" onClick={() => { const next = !dedup; setDedup(next); writeDedupEnabled(next); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', dedup ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
 											<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', dedup ? 'translate-x-[18px]' : 'translate-x-0.5')} />
@@ -499,7 +554,6 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											<span className="block text-[11px] text-muted-foreground">Before generating, surface near-duplicate components so you can reuse instead of adding another.</span>
 										</span>
 									</label>
-								</div>
 							</AiSection>
 						</div>
 					)}

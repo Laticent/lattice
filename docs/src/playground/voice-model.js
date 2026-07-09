@@ -48,12 +48,43 @@ const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
 const DEFAULT_OR_VOICE = 'af_heart';
 const DEFAULT_KOKORO_VOICE = 'af_heart';
 
-// localStorage prefs (the lattice-db-* namespace the Drawing Board uses).
-const RUNG_LS = 'lattice-db-voice-rung'; // 'auto' | 'openrouter' | 'kokoro' | 'off'
-const OR_VOICE_LS = 'lattice-db-voice-or';
-const OR_TTS_MODEL_LS = 'lattice-db-voice-or-model';
-const KOKORO_VOICE_LS = 'lattice-db-voice-kokoro';
-const DEV_SPEECH_LS = 'lattice-db-voice-dev-speech'; // '1' opts into the banned rung
+// The OpenRouter TTS-capable model catalog — public + unauthenticated, same shape
+// contract as architect-model.js's chat-model listModels() (id/name only here; TTS
+// pricing isn't normalized to the per-million-token shape the chat catalog uses, so
+// the picker shows it as a plain id rather than guessing at a wrong unit). Memoized
+// for the session (a settings-panel open shouldn't refetch); never throws — an
+// empty array on any failure, same degrade-gracefully contract as every other
+// catalog fetch in this codebase.
+const OR_TTS_CATALOG_URL = 'https://openrouter.ai/api/v1/models?output_modalities=speech';
+let ttsCatalogPromise = null;
+export function listOpenRouterVoiceModels() {
+  if (!ttsCatalogPromise) {
+    ttsCatalogPromise = (async () => {
+      try {
+        const res = await fetch(OR_TTS_CATALOG_URL);
+        if (!res.ok) return [];
+        const j = await res.json();
+        return (j.data || []).map((m) => ({ id: m.id, name: m.name || m.id }));
+      } catch {
+        return [];
+      }
+    })();
+  }
+  return ttsCatalogPromise;
+}
+
+// localStorage prefs — namespaced by `keyPrefix` (default 'db', the Drawing
+// Board's original namespace) so the Studio can pass 'studio' and get its OWN
+// voice prefs instead of silently sharing the Drawing Board's. See
+// engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.
+const voiceKeys = (prefix) => ({
+  RUNG: `lattice-${prefix}-voice-rung`, // 'auto' | 'openrouter' | 'kokoro' | 'off'
+  OR_VOICE: `lattice-${prefix}-voice-or`,
+  OR_TTS_MODEL: `lattice-${prefix}-voice-or-model`,
+  KOKORO_VOICE: `lattice-${prefix}-voice-kokoro`,
+  DEV_SPEECH: `lattice-${prefix}-voice-dev-speech`, // '1' opts into the banned rung
+  SPEED: `lattice-${prefix}-voice-speed`, // a multiplier, e.g. '1.25'; unset = 1
+});
 
 const hasWindow = typeof window !== 'undefined';
 
@@ -258,18 +289,20 @@ function kokoroRung({ getVoice }) {
         return true;
       }
     },
-    async synth({ text, voice, signal }) {
+    // `speed` is a native kokoro-js generate() option (like the cloud rung's OpenRouter
+    // `speed` param) — real phoneme-duration pacing, not a client-side playback-rate hack.
+    async synth({ text, voice, signal, speed }) {
       if (!isReady) throw new Error('Kokoro not summoned');
       const v = voice || getVoice();
       if (worker) {
         const id = nextId++;
         return new Promise((resolve, reject) => {
           pending.set(id, { resolve, reject });
-          worker.postMessage({ type: 'generate', id, text, voice: v });
+          worker.postMessage({ type: 'generate', id, text, voice: v, speed });
           if (signal) signal.addEventListener('abort', () => { pending.delete(id); reject(new Error('aborted')); }, { once: true });
         });
       }
-      const audio = await mainTts.generate(text, { voice: v });
+      const audio = await mainTts.generate(text, { voice: v, ...(speed && speed !== 1 ? { speed } : {}) });
       return wavBlob(audio.audio, audio.sampling_rate);
     },
   };
@@ -277,25 +310,32 @@ function kokoroRung({ getVoice }) {
 
 // ── The adapter ───────────────────────────────────────────────────────────────
 
-// NOTE: no `= false` default on allowBrowserVoice — a defaulted binding here makes
-// tsc (checkJs) infer the param type as ONLY `{ allowBrowserVoice?: boolean }`, which
-// drops getOpenRouterKey and breaks read-aloud.ts's call. `=== true` below is already
-// false for undefined, so the default is unnecessary anyway.
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice } = {}) {
+// NOTE: no `= false`/`= 'db'` default on any destructured param here — a defaulted
+// binding makes tsc (checkJs) infer the param type as ONLY the properties that HAVE
+// a default (e.g. `{ keyPrefix?: string }`), which drops getOpenRouterKey and breaks
+// every typed caller (read-aloud.ts, architect.ts's Studio bridge). Default inside
+// the body instead — `=== true` / `|| 'db'` below are already correct for undefined,
+// so an inline default is unnecessary anyway.
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix } = {}) {
   const settings = () => (getSettings ? getSettings() : {}) || {};
   const getKey = () => (getOpenRouterKey ? getOpenRouterKey() : null) || null;
+  const K = voiceKeys(keyPrefix || 'db');
 
-  const rungPref = () => readLS(RUNG_LS) || 'auto';
-  const orVoice = () => readLS(OR_VOICE_LS) || DEFAULT_OR_VOICE;
-  const orModel = () => readLS(OR_TTS_MODEL_LS) || DEFAULT_OR_TTS_MODEL;
-  const kokoroVoice = () => readLS(KOKORO_VOICE_LS) || DEFAULT_KOKORO_VOICE;
+  const rungPref = () => readLS(K.RUNG) || 'auto';
+  const orVoice = () => readLS(K.OR_VOICE) || DEFAULT_OR_VOICE;
+  const orModel = () => readLS(K.OR_TTS_MODEL) || DEFAULT_OR_TTS_MODEL;
+  const kokoroVoice = () => readLS(K.KOKORO_VOICE) || DEFAULT_KOKORO_VOICE;
+  // A speed multiplier both rungs forward natively (OpenRouter's API param; Kokoro's
+  // own generate() option) — not a client-side playbackRate hack. 1 = default pace,
+  // omitted from the wire request (see openRouterRung.synth / kokoroRung.synth).
+  const speedPref = () => { const v = Number(readLS(K.SPEED)); return Number.isFinite(v) && v > 0 ? v : 1; };
   // The banned rung is reachable only when a dev opts in (localStorage / settings)
   // OR a caller explicitly passes `allowBrowserVoice` — the escape hatch for a
   // surface that WANTS the device-lottery voice as its keyless fallback (today only
   // the /cadenza reference page, to let a visitor hear the read-along without a key).
   // Off by default, so the production Playground read-aloud stays silent-floored per
   // engineering/decisions/2026-06-14-read-aloud-kokoro.md.
-  const allowSpeech = () => allowBrowserVoice === true || readLS(DEV_SPEECH_LS) === '1' || settings().voiceDevSpeech === true;
+  const allowSpeech = () => allowBrowserVoice === true || readLS(K.DEV_SPEECH) === '1' || settings().voiceDevSpeech === true;
 
   const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl });
   const kokoro = kokoroRung({ getVoice: kokoroVoice });
@@ -441,6 +481,8 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // speak() (or stop()) cancels any in-flight narration first (barge-in).
   async function speak({ text, sentences: providedSentences, voice, speed, signal, onSentence, onSentenceTiming, onState } = {}) {
     stop();
+    // An explicit per-call speed wins; otherwise fall to the persisted pref (1 = default).
+    const effSpeed = speed ?? speedPref();
     const ctl = new AbortController();
     activeCtl = ctl;
     const sig = ctl.signal;
@@ -465,7 +507,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // playBlob's generic 'no audio', since it's the more diagnostic message.
     let lastError = null;
     const errStr = (e) => (e && e.message) ? e.message : String(e || 'unknown');
-    const synth = (t) => rung.synth({ text: t, voice, speed, signal: sig }).catch((e) => {
+    const synth = (t) => rung.synth({ text: t, voice, speed: effSpeed, signal: sig }).catch((e) => {
       if (!sig.aborted && !lastError) lastError = errStr(e);
       return null;
     });
@@ -589,7 +631,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // Returns { ok, error } so the UI can SHOW why a sample failed (the synth HTTP
     // error, an unsupported-MP3 decode, or audio still blocked) instead of silently
     // doing nothing — the only way to diagnose iOS without a Mac/console.
-    async previewVoice({ rung, voice: v } = {}) {
+    async previewVoice({ rung, voice: v, speed } = {}) {
       const r = rung === 'openrouter' ? openrouter : rung === 'kokoro' ? kokoro : null;
       if (!r) return { ok: false, error: 'unknown voice' };
       if (!r.ready()) return { ok: false, error: rung === 'openrouter' ? 'cloud voice not connected' : 'voice not ready' };
@@ -597,7 +639,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       const ctl = new AbortController();
       activeCtl = ctl;
       try {
-        const blob = await r.synth({ text: 'This is how your slides will sound.', voice: v, signal: ctl.signal });
+        const blob = await r.synth({ text: 'This is how your slides will sound.', voice: v, speed: speed ?? speedPref(), signal: ctl.signal });
         if (!blob || !blob.size) return { ok: false, error: 'no audio returned (empty response)' };
         // Race playback against a watchdog: a decoded clip that never reaches
         // 'ended' means the audio context is stuck suspended (iOS, no gesture) —
@@ -612,10 +654,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       finally { if (activeCtl === ctl) activeCtl = null; }
     },
     // Prefs.
-    rungPref, setRungPref(name) { writeLS(RUNG_LS, name || null); emitChange(); },
-    orVoice, setOrVoice(v) { writeLS(OR_VOICE_LS, v || null); },
-    orModel, setOrModel(m) { writeLS(OR_TTS_MODEL_LS, m || null); },
-    kokoroVoice, setKokoroVoice(v) { writeLS(KOKORO_VOICE_LS, v || null); },
+    rungPref, setRungPref(name) { writeLS(K.RUNG, name || null); emitChange(); },
+    orVoice, setOrVoice(v) { writeLS(K.OR_VOICE, v || null); },
+    orModel, setOrModel(m) { writeLS(K.OR_TTS_MODEL, m || null); },
+    kokoroVoice, setKokoroVoice(v) { writeLS(K.KOKORO_VOICE, v || null); },
+    speedPref, setSpeed(n) { const v = Number(n); writeLS(K.SPEED, Number.isFinite(v) && v > 0 && v !== 1 ? String(v) : null); },
     webgpu: detectWebGPU(),
     // Test hooks (exercise the ladder + sequencing without real audio/models).
     __setRung(b) { injected = b; },

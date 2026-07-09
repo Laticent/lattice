@@ -187,6 +187,35 @@ describe('WorkspaceSheet — spend (layered budget)', () => {
 	});
 });
 
+describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
+	it('Spend shows the layered budget under Cloud; a free note (no cap control) under On-device', async () => {
+		const { user, sheet } = openSheet();
+		expect(await sheet.findByText('Wallet · OpenRouter')).toBeInTheDocument();
+		expect(sheet.getByText('Your cap')).toBeInTheDocument();
+		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		expect(sheet.queryByText('Wallet · OpenRouter')).not.toBeInTheDocument();
+		expect(sheet.queryByText('Your cap')).not.toBeInTheDocument();
+		expect(sheet.getByText(/runs free/)).toBeInTheDocument();
+	});
+
+	it('Standing instructions splits into a cloud field and a separate, capped on-device field', async () => {
+		const { user, sheet } = openSheet();
+		expect(await sheet.findByLabelText('Standing instructions')).toBeInTheDocument();
+		expect(sheet.queryByLabelText('On-device standing instructions')).not.toBeInTheDocument();
+		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		const odField = await sheet.findByLabelText('On-device standing instructions');
+		expect(odField).toHaveAttribute('maxlength', '300');
+		expect(sheet.queryByLabelText('Standing instructions')).not.toBeInTheDocument();
+	});
+
+	it('shows a Read-aloud voice section that relabels between cloud and on-device', async () => {
+		const { user, sheet } = openSheet();
+		expect(await sheet.findByText(/Read-aloud voice · cloud/)).toBeInTheDocument();
+		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		expect(await sheet.findByText(/Read-aloud voice · on-device/)).toBeInTheDocument();
+	});
+});
+
 describe('WorkspaceSheet — General tab backup & restore', () => {
 	it('shows the backup group with ownership copy, both controls, and the last-backup line', async () => {
 		const { user, sheet } = openSheet();
