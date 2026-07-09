@@ -125,4 +125,19 @@ describe('focus — DOM kernel (applyToDom) agrees with the HTML kernel', () => 
     assert.equal(items[2].classList.contains('lat-focus'), true);
     assert.equal(dom.window.document.querySelector('section').getAttribute('data-focus-style'), 'spotlight');
   });
+
+  // Form-migration audit (2026-07-09): masthead-lift wraps a Form slide's body
+  // into `.cell-stage` for STAGE_MIGRATED layouts (the common case, since Form
+  // has been default since 2026-06-26); the strict `:scope > ul` selector
+  // silently found nothing once the list moved one level deeper, so `_focus:
+  // item N` no-op'd on the runtime/DOM path while working fine on the export.
+  test('tags items when the list is wrapped in .cell-stage (masthead-lift, Form default)', () => {
+    const dom = new JSDOM(
+      '<section data-focus="item 2" class="content form"><div class="cell-stage"><ul><li>One</li><li>Two</li><li>Three</li></ul></div></section>',
+    );
+    focus.applyToDom(dom.window.document.body);
+    const items = [...dom.window.document.querySelectorAll('.cell-stage > ul > li')];
+    assert.deepEqual(items.map((li) => li.className), ['lat-recede', 'lat-focus', 'lat-recede']);
+    assert.equal(dom.window.document.querySelector('section').getAttribute('data-focus-axis'), 'item');
+  });
 });

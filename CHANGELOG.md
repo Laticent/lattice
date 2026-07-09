@@ -172,6 +172,18 @@ in patch versions.
   Universal Pill rule and the Key Insight/Annotation/Heat-Overlay fix above).
   Found by the Form-migration audit
   (`engineering/decisions/2026-07-09-form-migration-audit.md`).
+- **`_focus: item N` and `_build: item` work again in the live preview under
+  Form default.** `lib/transformers/focus.js` and `lib/transformers/build.js`'s
+  DOM 'item' axis scoped its list lookup to `:scope > ul, :scope > ol` —
+  masthead-lift wraps a Form slide's body into `.cell-stage` for every
+  `STAGE_MIGRATED` layout (the common case, since Form has been default since
+  2026-06-26), moving the list one level deeper than that selector reached,
+  so the axis silently found nothing and no `lat-focus`/`lat-recede` classes
+  or `data-build-step` attributes were ever stamped in the runtime/DOM path
+  (the HTML/export path was unaffected — its string scan is depth-agnostic).
+  Both now also check `:scope > .cell-stage > ul, :scope > .cell-stage > ol`.
+  Found by the Form-migration audit
+  (`engineering/decisions/2026-07-09-form-migration-audit.md`).
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
