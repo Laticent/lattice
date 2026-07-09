@@ -100,6 +100,38 @@ describe('masthead-lift — HTML-string kernel', () => {
     assert.match(out, /<section class="content"><h2>Plain<\/h2><\/section>/);
     assert.match(out, /<section class="content form"><div class="cell-masthead">/);
   });
+
+  // Form-migration audit (2026-07-09): a trailing SUBTITLE (a code-only <p>
+  // AFTER the h2) was misidentified as a leading EYEBROW — extractEyebrowP had
+  // no positional check against the title, so it grabbed the first code-only
+  // paragraph anywhere in the body, reordering it before the heading and
+  // mis-styling it as the mono-caps kicker instead of the italic subtitle.
+  test('a trailing subtitle (code-only <p> AFTER h2) stays after h2 — not misidentified as a leading eyebrow', () => {
+    const inner = '<h2>Title</h2><p><code>A subtitle after the heading</code></p><p>Body.</p>';
+    const out = kernel.transformMastheadSection(inner, 'content form');
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><p><code>A subtitle after the heading<\/code><\/p><\/div>/);
+  });
+
+  test('a leading eyebrow (code-only <p> BEFORE h2) is unaffected by subtitle scoping', () => {
+    const inner = '<p><code>Kicker</code></p><h2>Title</h2><p>Body.</p>';
+    const out = kernel.transformMastheadSection(inner, 'content form');
+    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><\/div>/);
+  });
+
+  test('both a leading eyebrow AND a trailing subtitle are captured, in order', () => {
+    const inner = '<p><code>Kicker</code></p><h2>Title</h2><p><code>Subtitle</code></p><p>Body.</p>';
+    const out = kernel.transformMastheadSection(inner, 'content form');
+    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><p><code>Subtitle<\/code><\/p><\/div>/);
+    // and the subtitle is NOT left behind in the stage body
+    assert.match(out, /<div class="cell-stage"><p>Body\.<\/p><\/div>$/);
+  });
+
+  test('a subtitle-shaped paragraph further down the body (not immediately after h2) is real content, left alone', () => {
+    const inner = '<h2>Title</h2><p>Intro.</p><p><code>Not a subtitle</code></p>';
+    const out = kernel.transformMastheadSection(inner, 'content form');
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><\/div>/);
+    assert.match(out, /<div class="cell-stage"><p>Intro\.<\/p><p><code>Not a subtitle<\/code><\/p><\/div>$/);
+  });
 });
 
 describe('masthead-lift — DOM mirror agrees with the kernel', () => {
@@ -140,6 +172,29 @@ describe('masthead-lift — DOM mirror agrees with the kernel', () => {
     const doc = dom('<section class="content"><h2>T</h2></section>');
     adapter.applyToDom(doc);
     assert.equal(doc.querySelector('.cell-masthead'), null);
+  });
+
+  test('DOM path: a trailing subtitle stays after h2 — not misidentified as a leading eyebrow', () => {
+    const doc = dom('<section class="content form"><h2>Title</h2><p><code>A subtitle</code></p><p>Body.</p></section>');
+    adapter.applyToDom(doc);
+    const lede = doc.querySelector('.masthead-lede');
+    assert.equal(lede.children[0].tagName, 'H2');
+    assert.equal(lede.children[1].tagName, 'P');
+    assert.equal(lede.children[1].textContent, 'A subtitle');
+  });
+
+  test('DOM path: leading eyebrow + trailing subtitle are both captured, in order', () => {
+    const doc = dom(
+      '<section class="content form"><p><code>Kicker</code></p><h2>Title</h2><p><code>Subtitle</code></p><p>Body.</p></section>',
+    );
+    adapter.applyToDom(doc);
+    const lede = doc.querySelector('.masthead-lede');
+    assert.deepEqual([...lede.children].map((el) => el.tagName + ':' + el.textContent), [
+      'P:Kicker',
+      'H2:Title',
+      'P:Subtitle',
+    ]);
+    assert.equal(doc.querySelector('.cell-stage').textContent, 'Body.');
   });
 });
 
