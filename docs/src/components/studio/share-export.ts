@@ -309,7 +309,18 @@ export async function shareHtmlPlayer(
 	const h = out.height || 720;
 	const lang = getFrontMatter(source, 'lang') || 'en';
 	const title = deckTitle || getFrontMatter(source, 'title') || 'Lattice deck';
-	const css = out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
+	// The browser engine scopes every deck rule to the live-preview wrapper
+	// (`div.lattice > section …`), but the exported player lays its `<section>`s out
+	// FLAT under `#lp-stage` — no `.lattice` ancestor — exactly like the CLI's
+	// `cleanDocHtml`. So un-scope the deck CSS to the CLI's shape: strip the
+	// `div.lattice > ` prefix so `section.title{…}`, tokens, and every component rule
+	// actually match the exported slides. Without this the file ships the full CSS but
+	// NONE of it applies — slides render as raw unstyled Markdown, and the used-selector
+	// prune then (correctly) drops every never-matching rule. `@container lattice` and
+	// `container-name:lattice` use the container NAME, not `.lattice`, so they're
+	// untouched. (extraCss is author `section.<name>` CSS, already unscoped.)
+	const deckCss = out.css.replace(/div\.lattice\s*>\s*/g, '');
+	const css = deckCss + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
 	const docHtml = buildSelfContainedDoc({
 		lang,
 		title,

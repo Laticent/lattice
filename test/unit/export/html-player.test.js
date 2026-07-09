@@ -159,6 +159,22 @@ test('present mode ships swipe, fullscreen, and dvh viewport-fill (P3c)', async 
 	assert.match(html, /function onResize\(\)\{fit\(\);fitRead\(\);\}/, 'onResize refits both present (fit) and read-slides (fitRead)');
 });
 
+test('the inlined transport kernel binds STABLE names (survives a minifying bundler)', async () => {
+	// Regression: the kernel was inlined as bare `${createTransport.toString()}` — a
+	// `function createTransport(){…}` DECLARATION. That works unminified (CLI), but the
+	// docs-site PRODUCTION build minifies player-core and renames the module functions
+	// (createTransport→Q, keyAction→G, PRESENT_KEYMAP→P). Their `.toString()` then no
+	// longer declares the name the player code calls, so the Studio-exported player threw
+	// `createTransport is not defined`, stripped `.lp-js`, and showed only the no-JS floor
+	// on every browser. Binding to a fixed `var` decouples the call sites from the emitted
+	// function name; passing the keymap explicitly avoids keyAction's renamed default.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	for (const name of ['createTransport', 'fitScale', 'keyAction', 'swipeAction']) {
+		assert.match(html, new RegExp(`var ${name}=`), `${name} is bound to a stable var, not a bare declaration`);
+	}
+	assert.match(html, /keyAction\(e\.key,PRESENT_KEYMAP\)/, 'the keymap is passed explicitly so the renamed default is never evaluated');
+});
+
 test('slides keep display:flex in every view so vertical centering survives (no "content rides high")', async () => {
 	// Regression: the player views once forced `display:block` on the section, which
 	// overrode the engine's base `section{display:flex;flex-direction:column}`. That made
@@ -224,7 +240,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, 'd1723d180fa4e47453dd6e0edaade17e8944936994d25a06d819286f08ca08ac', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '68d0b804bccdcb07946d7377ce00ae17cf0520da96b4037c3ca725d730c116ae', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

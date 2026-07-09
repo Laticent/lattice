@@ -460,10 +460,10 @@ html:not(.lp-js) #lp-notes,html:not(.lp-js) #lp-count,html:not(.lp-js) #lp-notes
 async function playerJs() {
   const { fitScale: fitScale2, createTransport: createTransport2, keyAction: keyAction2, swipeAction: swipeAction2, PRESENT_KEYMAP: PRESENT_KEYMAP2 } = await Promise.resolve().then(() => (init_present_transport(), present_transport_exports));
   const kernel = `var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP2)};
-${keyAction2.toString()}
-${fitScale2.toString()}
-${createTransport2.toString()}
-${swipeAction2.toString()}`;
+var keyAction=${keyAction2.toString()};
+var fitScale=${fitScale2.toString()};
+var createTransport=${createTransport2.toString()};
+var swipeAction=${swipeAction2.toString()};`;
   const js = `(function(){
 ${kernel}
 var root=document.documentElement,app=document.getElementById('lp-app');
@@ -496,7 +496,7 @@ function setView(v){view=v;app.setAttribute('data-lp-view',v);
  if(v==='read-slides')fitRead();
  if(count)count.style.visibility=v==='present'?'visible':'hidden';if(v==='present')render();}
 addEventListener('keydown',function(e){if(view!=='present')return;
- var a=keyAction(e.key);if(!a)return;t[a]();e.preventDefault();});
+ var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;t[a]();e.preventDefault();});
 function onResize(){fit();fitRead();}
 addEventListener('resize',onResize);addEventListener('orientationchange',onResize);
 if(window.visualViewport){try{visualViewport.addEventListener('resize',onResize)}catch(e){}}

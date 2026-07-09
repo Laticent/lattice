@@ -402,6 +402,22 @@ in patch versions.
   the floor) instead of resizing the box, which had wrecked the container-query
   layout. A progressive-enhancement `.lp-js` gate keeps a readable stacked-slide
   floor when the script is ever blocked. Confirmed on-device.
+- **The Studio “Download as webpage” export now renders and runs — not just
+  assembles.** Two bugs made the browser-exported player ship broken on every
+  browser (the file downloaded fine but opened to raw, unstyled slides that
+  couldn't be navigated), both invisible to the unit tier because nothing opened
+  the real artifact: (1) the browser engine scopes every deck rule to its
+  live-preview wrapper (`div.lattice > section …`), but the export lays sections
+  out flat like the CLI — so the file carried the full CSS yet **none of it
+  applied**. The export now un-scopes the deck CSS to the CLI's shape. (2) the docs
+  production build **minifies** `player-core`, renaming the transport-kernel
+  functions (`createTransport`→`Q`, …), so the `.toString()`-inlined script threw
+  `createTransport is not defined`, stripped `.lp-js`, and fell to the no-JS floor.
+  The kernel is now inlined bound to **stable `var` names** (minifier-independent),
+  and the keymap is passed explicitly so no renamed free reference is evaluated. A
+  new Playwright e2e (`docs/e2e/webpage-export.spec.ts`) drives the real Share →
+  Webpage flow and asserts the downloaded player boots (styled + script runs), so
+  this can't regress unseen.
 
 ### Added
 
