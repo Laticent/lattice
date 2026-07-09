@@ -181,18 +181,38 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [deletingAll, setDeletingAll] = React.useState(false);
 	const refreshGov = React.useCallback(() => { loadGovernanceStats().then(setGov).catch(() => {}); }, []);
 	React.useEffect(() => {
-		if (open && tab === 'Privacy & Data') refreshGov();
+		if (open && tab === 'Privacy & Data') { refreshGov(); return; }
+		// Disarm every two-tap delete the moment the sheet closes OR the user
+		// navigates to another tab (mirrors Library.tsx's `else { setArmed(null) }`
+		// on !open) — WorkspaceSheet is mounted unconditionally by StudioShell, so
+		// its state otherwise survives both, and a stale "armed" button would fire
+		// a destructive clear on the NEXT single, unrelated click.
+		setGovArmed(null);
+		setDeleteAllOpen(false);
+		setDeleteAllText('');
 	}, [open, tab, refreshGov]);
 	const clearCategory = async (key: string, fn: () => void | Promise<void>, msg: string) => {
 		setGovBusy(key);
 		try {
 			await fn();
+			if (key === 'decks') {
+				// The live editor's in-memory deck/source state has no invalidation
+				// path from this sheet — without a reload, its 400ms debounced
+				// autosave would silently rewrite the just-cleared deck straight
+				// back into localStorage on the next keystroke. Same fix + same
+				// delay as the General tab's restore-backup flow (below), which
+				// hits the identical problem for the same reason.
+				notify(`${msg} Reloading…`);
+				setTimeout(() => window.location.reload(), 1100);
+				return; // stay busy/armed through the reload — nothing else is clickable meanwhile
+			}
 			notify(msg);
 			refreshGov();
 			if (key === 'openrouter') setPulse((p) => p + 1); // re-fetch AI status
+			setGovBusy(null);
+			setGovArmed(null);
 		} catch (e) {
 			notify(`Couldn't clear that: ${(e as Error)?.message || 'unknown error'}`);
-		} finally {
 			setGovBusy(null);
 			setGovArmed(null);
 		}
@@ -200,14 +220,14 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const deleteEverything = async () => {
 		setDeletingAll(true);
 		try {
-			await clearEverything();
-			notify('Everything cleared — decks, Library, OpenRouter, downloaded models, and cache.');
-			setDeleteAllOpen(false);
-			refreshGov();
-			setPulse((p) => p + 1);
+			const { failed } = await clearEverything();
+			notify(failed.length ? `Cleared decks, Library, OpenRouter, downloaded models, and cache — except: ${failed.join(', ')} (try that row on its own). Reloading…` : 'Everything cleared — decks, Library, OpenRouter, downloaded models, and cache. Reloading…');
+			// Decks are always part of this clear — same reload requirement as the
+			// per-category "Decks" row above (the live editor can't see the clear
+			// otherwise). Stay in the disabled/deleting state through the reload.
+			setTimeout(() => window.location.reload(), 1100);
 		} catch (e) {
 			notify(`Couldn't clear everything: ${(e as Error)?.message || 'unknown error'}`);
-		} finally {
 			setDeletingAll(false);
 		}
 	};
@@ -652,7 +672,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								<GovRow
 									icon={<KeyRound className="size-4" />}
 									title="OpenRouter credentials"
-									description="Your OpenRouter connection — disconnects the key this browser holds; reconnect any time with one click."
+									description="Your OpenRouter connection — disconnects the key this browser holds (shared with the Drawing Board, if you use it); reconnect any time with one click."
 									stat={ai.openRouterReady ? 'connected' : 'not connected'}
 									armed={govArmed === 'openrouter'}
 									busy={govBusy === 'openrouter'}

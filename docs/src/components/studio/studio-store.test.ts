@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DECKS } from './decks';
+import { addComment, listComments } from './slide-comments';
 import {
 	clearAllDecks,
 	createDeck,
@@ -7,6 +8,7 @@ import {
 	deleteDeck,
 	exportStudioState,
 	importStudioState,
+	loadChat,
 	loadChatDraft,
 	loadCheckpoints,
 	loadDeckList,
@@ -254,6 +256,43 @@ describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', (
 		clearAllDecks();
 		expect(loadSettings().headerFooter).toBe(true);
 		expect(loadInstructions()).toBe('Board voice.');
+	});
+
+	it('deleteDeck also clears the deck\'s checkpoints, chat, and chat draft (previously left orphaned — a red-team/checker finding)', () => {
+		const d = createDeck('Temp2');
+		saveCheckpoint(d.id, '# Temp2 v1', 'first', 1000);
+		saveChat(d.id, [{ role: 'user', content: 'hi' }]);
+		saveChatDraft(d.id, 'unsent draft');
+		addComment(d.id, 1, 'a comment');
+
+		deleteDeck(d.id);
+
+		expect(loadCheckpoints(d.id)).toEqual([]);
+		expect(loadChat(d.id)).toEqual([]);
+		expect(loadChatDraft(d.id)).toBe('');
+		expect(listComments(d.id)).toEqual([]);
+	});
+
+	it('clearAllDecks sweeps ORPHANED sidecar keys too — content a deck no longer in the index left behind (the pre-fix deleteDeck gap; "Delete Everything" must not leave this)', () => {
+		// Simulate exactly what the pre-fix deleteDeck() left behind: checkpoint/
+		// chat/chat-draft/comment keys for an id that is NOT (or no longer) in the
+		// deck index. These helpers write straight to localStorage regardless of
+		// index membership, so this reproduces the orphan without needing a real
+		// stale deleteDeck build.
+		saveCheckpoint('orphan-1', '# Orphan v1', 'first', 1000);
+		saveChat('orphan-1', [{ role: 'user', content: 'hi' }]);
+		saveChatDraft('orphan-1', 'unsent');
+		addComment('orphan-1', 1, 'leftover comment');
+		expect(loadCheckpoints('orphan-1').length).toBeGreaterThan(0);
+		expect(loadChatDraft('orphan-1')).toBe('unsent');
+		expect(listComments('orphan-1').length).toBeGreaterThan(0);
+
+		clearAllDecks();
+
+		expect(loadCheckpoints('orphan-1')).toEqual([]);
+		expect(loadChat('orphan-1')).toEqual([]);
+		expect(loadChatDraft('orphan-1')).toBe('');
+		expect(listComments('orphan-1')).toEqual([]);
 	});
 });
 

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // jsdom has no IndexedDB — mirror the established pattern (component-library.test.ts)
@@ -12,7 +14,7 @@ vi.mock('@/playground/asset-store.js', () => ({
 
 import { deleteAsset, listAssets } from '@/playground/asset-store.js';
 import { DECKS } from './decks';
-import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, loadGovernanceStats } from './governance';
+import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, loadGovernanceStats, SITE_CACHE_PREFIX } from './governance';
 import { createDeck, deckContentStats } from './studio-store';
 
 const listSpy = listAssets as unknown as ReturnType<typeof vi.fn>;
@@ -130,13 +132,43 @@ describe('governance — clear actions', () => {
 		expect(deleted.sort()).toEqual(['lattice-v1-fonts', 'lattice-v1-pages']);
 	});
 
-	it('clearEverything clears decks (back to the built-in seed), the Library, and both cache buckets', async () => {
+	it('clearEverything clears decks (back to the built-in seed), the Library, and both cache buckets — and reports every category as succeeded', async () => {
 		stubCaches({ 'lattice-v1-pages': [], 'webllm/model-cache': [] });
 		createDeck('Will be cleared');
-		await clearEverything();
+		const result = await clearEverything();
 		// An emptied index re-seeds from the built-ins on the next read — never zero.
 		expect(deckContentStats().count).toBe(DECKS.length);
 		expect(deleteSpy).toHaveBeenCalledTimes(2); // the two mocked library assets
+		expect(result.succeeded.sort()).toEqual(['cache', 'decks', 'library', 'models', 'openrouter'].sort());
+		expect(result.failed).toEqual([]);
+	});
+
+	it('clearEverything reports a partial failure honestly — decks stay cleared, and the other categories are attempted independently (allSettled, not fail-fast)', async () => {
+		stubCaches({ 'lattice-v1-pages': [], 'webllm/model-cache': [] });
+		createDeck('Will still be cleared even if another category fails');
+		listSpy.mockRejectedValueOnce(new Error('IndexedDB unavailable')); // clearLibraryAssets's listAssets() call throws
+		const result = await clearEverything();
+		// Decks clear synchronously and unconditionally BEFORE the other four run —
+		// a later rejection can't undo or block it.
+		expect(deckContentStats().count).toBe(DECKS.length);
+		expect(result.succeeded).toContain('decks');
+		expect(result.failed).toContain('library');
+		// The categories that don't depend on the failing call still ran — a
+		// fail-fast Promise.all would have aborted them the instant library rejected.
+		expect(result.succeeded).toEqual(expect.arrayContaining(['openrouter', 'models', 'cache']));
+	});
+});
+
+describe('governance — SITE_CACHE_PREFIX stays in sync with sw.js', () => {
+	it('matches the VERSION-derived cache-name prefix docs/public/sw.js actually uses', () => {
+		// sw.js's own comment: "VERSION only needs a bump when the caching STRATEGY
+		// changes" — nothing else enforces that governance.ts's hand-duplicated
+		// literal tracks it. A silent drift would misclassify every real Cache
+		// Storage entry between "downloaded models" and "cache".
+		const swSource = readFileSync(resolve(process.cwd(), 'public/sw.js'), 'utf8');
+		const match = swSource.match(/const VERSION = '([^']+)'/);
+		expect(match).toBeTruthy();
+		expect(SITE_CACHE_PREFIX).toBe(`lattice-${match?.[1]}-`);
 	});
 });
 

@@ -169,12 +169,18 @@ export function renameDeck(id: string, title: string): void {
 	saveIndex(loadIndex().map((e) => (e.id === id ? { ...e, title: t } : e)));
 }
 
-/** Remove a deck (index entry + its edited source + its review comments). */
+/** Remove a deck (index entry + its edited source, checkpoints, chat, chat
+ *  draft, and review comments). Every per-deck sidecar this module and
+ *  slide-comments.ts own is dropped here — leaving any of them behind orphans
+ *  that id's content in localStorage forever (past deletions left checkpoint/
+ *  chat/chat-draft keys behind; clearAllDecks's prefix sweep below cleans up
+ *  any that predate this fix, but new deletes should never create more). */
 export function deleteDeck(id: string): void {
 	saveIndex(loadIndex().filter((e) => e.id !== id));
 	dropSource(id);
-	// Comments are a per-deck app-state sidecar (lattice-studio-comments-<id>) — drop
-	// them too, or a deleted deck leaks its comment store forever.
+	remove(SNAP_PREFIX + id);
+	remove(CHAT_PREFIX + id);
+	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
 }
 
@@ -211,14 +217,25 @@ export function deckContentStats(): { count: number; bytes: number } {
  * drafts, and comments — resetting the workspace to the built-in starter decks
  * (an empty index re-seeds from DECKS on next load; see loadIndex). Settings and
  * standing instructions are untouched: Privacy & Data clears DATA, not preferences.
+ *
+ * Sweeps by KEY PREFIX, not just ids in the current index: a deck removed
+ * earlier via the ordinary deck-switcher delete could leave its checkpoint/
+ * chat/chat-draft/comment keys orphaned once its id fell out of the index
+ * (deleteDeck didn't clean those up before this fix) — "Delete Everything"
+ * must not leave that behind, or the privacy promise is false. The prefix
+ * scan mirrors deckContentStats' own byte count above, which already reads
+ * by prefix rather than by index membership for the same reason.
  */
 export function clearAllDecks(): void {
-	for (const { id } of loadIndex()) {
-		dropSource(id);
-		remove(SNAP_PREFIX + id);
-		remove(CHAT_PREFIX + id);
-		remove(CHAT_DRAFT_PREFIX + id);
-		clearComments(id);
+	try {
+		const orphaned: string[] = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const k = localStorage.key(i);
+			if (k && (k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-'))) orphaned.push(k);
+		}
+		for (const k of orphaned) remove(k);
+	} catch {
+		/* storage unavailable — non-fatal, matches the read-side scan above */
 	}
 	remove(INDEX_LS);
 }

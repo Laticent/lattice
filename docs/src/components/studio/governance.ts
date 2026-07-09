@@ -24,10 +24,14 @@ import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
 
 // Cache Storage names this SITE owns — kept in sync BY HAND with the PAGES/
-// ASSETS/FONTS names in docs/public/sw.js. Everything else in Cache Storage on
-// this origin is a library's own model-weight cache, which is what "Downloaded
-// models" targets and "Cache" deliberately leaves alone (and vice versa).
-const SITE_CACHE_PREFIX = 'lattice-v1-';
+// ASSETS/FONTS names in docs/public/sw.js (its VERSION-derived `lattice-${VERSION}-*`
+// convention). Everything else in Cache Storage on this origin is a library's own
+// model-weight cache, which is what "Downloaded models" targets and "Cache"
+// deliberately leaves alone (and vice versa). Exported so governance.test.ts can
+// assert this literal still matches sw.js's VERSION — sw.js's own comment says
+// VERSION bumps whenever the caching strategy changes, and nothing else enforces
+// the two staying in sync; a silent drift would misclassify every cache entry.
+export const SITE_CACHE_PREFIX = 'lattice-v1-';
 
 async function cacheNames(): Promise<string[]> {
 	if (typeof caches === 'undefined') return [];
@@ -112,14 +116,33 @@ export async function clearSiteCache(): Promise<void> {
 	await Promise.all(names.filter((n) => n.startsWith(SITE_CACHE_PREFIX)).map((n) => caches.delete(n)));
 }
 
+export type ClearEverythingResult = { succeeded: string[]; failed: string[] };
+
 /**
  * Delete everything Privacy & Data manages in one go — decks, Library, the
  * OpenRouter connection, downloaded models, and the site cache. Preferences
  * (language, handle style, validation toggles, onboarding flag…) are left as-is.
+ *
+ * Decks clear synchronously and unconditionally first — that step never fails
+ * partway (it's a plain localStorage sweep) — so it's always in `succeeded`.
+ * The other four run via `allSettled`, not `all`: a fail-fast `Promise.all`
+ * would abort the remaining clears the instant one rejects, while decks were
+ * ALREADY irreversibly gone — the caller needs to know exactly what did and
+ * didn't clear, not a single all-or-nothing error.
  */
-export async function clearEverything(): Promise<void> {
+export async function clearEverything(): Promise<ClearEverythingResult> {
 	clearAllDecks();
-	await Promise.all([clearLibraryAssets(), disconnectOpenRouter(), clearDownloadedModels(), clearSiteCache()]);
+	const tasks: [string, () => Promise<void>][] = [
+		['library', clearLibraryAssets],
+		['openrouter', disconnectOpenRouter],
+		['models', clearDownloadedModels],
+		['cache', clearSiteCache],
+	];
+	const results = await Promise.allSettled(tasks.map(([, fn]) => fn()));
+	const succeeded = ['decks'];
+	const failed: string[] = [];
+	for (const [i, r] of results.entries()) (r.status === 'fulfilled' ? succeeded : failed).push(tasks[i][0]);
+	return { succeeded, failed };
 }
 
 /** A short human size for a stat line ("~2.3 MB", "~1.05 GB"); '' when there's

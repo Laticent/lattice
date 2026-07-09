@@ -72,6 +72,15 @@ in patch versions.
   Marp omits it). The runtime reads no front matter, so the deck-wide `form: off`
   opt-out remains a render-time (engine / CLI) key. See
   `engineering/decisions/2026-07-08-runtime-form-default.md`.
+- **Deleting a deck from the switcher now also clears its checkpoints, chat
+  history, and chat draft.** `deleteDeck` (`studio-store.ts`) dropped only the
+  index entry, edited source, and comments — the checkpoint/chat/chat-draft
+  keys for that deck's id were left orphaned in localStorage forever. Found
+  during an adversarial review of the new Privacy & Data tab: its "Delete
+  everything" only sweeps ids still in the current deck index, so any deck
+  deleted before this fix would survive even a full wipe. `clearAllDecks` now
+  also sweeps by key prefix (not just index membership) to catch anything
+  already orphaned from before this fix shipped.
 
 ### Added
 
@@ -89,15 +98,20 @@ in patch versions.
   the offline app cache — with a live count + aggregate size per category
   (KB/MB/GB, since a model download can run to a GB+), a running grand total
   across all four sized categories, and a two-tap delete for each (matching
-  the Library's existing delete affordance). Cache Storage sizes read each
-  cached response's real `content-length` (falling back to the blob size),
-  not an estimate. A "Delete everything" action clears all five in one go,
-  gated behind a dialog that requires typing "delete" to confirm.
-  Preferences (language, placement handles, validation toggles, onboarding…)
-  are never touched by any Privacy & Data action — it clears data, not
-  settings. New module: `docs/src/components/studio/governance.ts`; extended
-  `reference-doc.ts`'s `formatBytes` with a GB tier (shared by the refdoc
-  cards and this tab).
+  the Library's existing delete affordance, and disarmed the moment the sheet
+  closes or you switch tabs, so a stale "armed" button can't fire on a later,
+  unrelated click). Cache Storage sizes read each cached response's real
+  `content-length` (falling back to the blob size), not an estimate. Clearing
+  decks reloads the Studio afterward — without it, the live editor's debounced
+  autosave would silently rewrite the just-deleted deck straight back into
+  localStorage. A "Delete everything" action clears all five in one go
+  (decks first and unconditionally, then the rest independently, so one
+  category hiccuping can't hide what actually got cleared), gated behind a
+  dialog that requires typing "delete" to confirm. Preferences (language,
+  placement handles, validation toggles, onboarding…) are never touched by any
+  Privacy & Data action — it clears data, not settings. New module:
+  `docs/src/components/studio/governance.ts`; extended `reference-doc.ts`'s
+  `formatBytes` with a GB tier (shared by the refdoc cards and this tab).
 - **The Studio Share sheet can export read-along captions.** A new **“Captions
   (.vtt)”** row (alongside PDF / PowerPoint / Webpage) reads each slide's speaker
   notes, builds a Cadenza estimate track per narrated slide, and downloads a zip
