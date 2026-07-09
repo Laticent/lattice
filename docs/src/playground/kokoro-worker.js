@@ -33,7 +33,7 @@ self.onmessage = async (e) => {
       });
       self.postMessage({ type: 'loaded' });
     } else if (d.type === 'generate') {
-      const audio = await tts.generate(d.text, { voice: d.voice });
+      const audio = await tts.generate(d.text, { voice: d.voice, ...(d.speed && d.speed !== 1 ? { speed: d.speed } : {}) });
       const samples = audio.audio;
       const rate = audio.sampling_rate;
       self.postMessage({ type: 'audio', id: d.id, samples, rate }, [samples.buffer]);

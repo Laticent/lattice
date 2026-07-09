@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ArchitectStatus } from './architect';
@@ -56,11 +56,36 @@ vi.mock('./architect', () => ({
 	architectAccount: vi.fn(async () => ({ usage: 0.5, limit: 4, remaining: 3.5 })),
 }));
 
+const TTS_CATALOG = [
+	{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M' },
+	{ id: 'openai/tts-1', name: 'OpenAI: TTS-1' },
+];
+const voiceAvailSpy = vi.hoisted(() =>
+	vi.fn(() => ({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false })),
+);
+
+vi.mock('./read-aloud', () => ({
+	voiceAvailability: vi.fn(async () => voiceAvailSpy()),
+	listTtsModels: vi.fn(async () => TTS_CATALOG),
+	ttsOrModel: vi.fn(async () => ''),
+	setTtsOrModel: vi.fn(),
+	ttsOrVoice: vi.fn(async () => ''),
+	setTtsOrVoice: vi.fn(),
+	ttsKokoroVoice: vi.fn(async () => ''),
+	setTtsKokoroVoice: vi.fn(),
+	ttsSpeed: vi.fn(async () => 1),
+	setTtsSpeed: vi.fn(),
+	loadTtsKokoro: vi.fn(async () => true),
+	previewTtsVoice: vi.fn(async () => ({ ok: true })),
+	stopTtsPreview: vi.fn(async () => {}),
+}));
+
 const noop = () => {};
 
 afterEach(() => {
 	vi.clearAllMocks();
 	statusSpy.mockReturnValue(connectedStatus);
+	voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 });
 
 function openSheet() {
@@ -184,6 +209,86 @@ describe('WorkspaceSheet — spend (layered budget)', () => {
 		const { sheet } = openSheet();
 		const link = await sheet.findByRole('link', { name: /Set a hard cap/ });
 		expect(link).toHaveAttribute('href', 'https://openrouter.ai/settings/keys');
+	});
+});
+
+describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
+	it('Spend shows the layered budget under Cloud; a free note (no cap control) under On-device', async () => {
+		const { user, sheet } = openSheet();
+		expect(await sheet.findByText('Wallet · OpenRouter')).toBeInTheDocument();
+		expect(sheet.getByText('Your cap')).toBeInTheDocument();
+		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		expect(sheet.queryByText('Wallet · OpenRouter')).not.toBeInTheDocument();
+		expect(sheet.queryByText('Your cap')).not.toBeInTheDocument();
+		expect(sheet.getByText(/runs free/)).toBeInTheDocument();
+	});
+
+	it('Standing instructions splits into a cloud field and a separate, capped on-device field', async () => {
+		const { user, sheet } = openSheet();
+		expect(await sheet.findByLabelText('Standing instructions')).toBeInTheDocument();
+		expect(sheet.queryByLabelText('On-device standing instructions')).not.toBeInTheDocument();
+		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		const odField = await sheet.findByLabelText('On-device standing instructions');
+		expect(odField).toHaveAttribute('maxlength', '300');
+		expect(sheet.queryByLabelText('Standing instructions')).not.toBeInTheDocument();
+	});
+
+	it('shows a Read-aloud voice section that relabels between cloud and on-device', async () => {
+		const { user, sheet } = openSheet();
+		expect(await sheet.findByText(/Read-aloud voice · cloud/)).toBeInTheDocument();
+		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		expect(await sheet.findByText(/Read-aloud voice · on-device/)).toBeInTheDocument();
+	});
+
+	it('cloud TTS voice is a model-specific dropdown (not free text) once a model is set', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		const { sheet } = openSheet();
+		const picker = await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
+		expect(picker).toBeInTheDocument();
+		expect(sheet.queryByPlaceholderText('af_heart')).not.toBeInTheDocument(); // the old free-text field is gone
+	});
+
+	it('disables the cloud TTS model/voice/speed/preview controls until OpenRouter is connected', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		const { sheet } = openSheet();
+		expect(await sheet.findByRole('combobox', { name: 'Cloud TTS model' })).toBeDisabled();
+		expect(sheet.getByRole('combobox', { name: 'Cloud TTS voice' })).toBeDisabled();
+		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeDisabled();
+		expect(sheet.getByRole('button', { name: /Play sample/ })).toBeDisabled();
+		expect(sheet.getByText(/Connect OpenRouter above to configure the cloud voice/)).toBeInTheDocument();
+	});
+
+	it('disables the on-device TTS voice/speed/preview controls until the on-device voice is loaded', async () => {
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).toBeDisabled();
+		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeDisabled();
+		expect(sheet.getByRole('button', { name: /Play sample/ })).toBeDisabled();
+		expect(sheet.getByText(/Download the voice above to configure it/)).toBeInTheDocument();
+	});
+
+	// Red-team finding: TtsSettings fetched availability ONCE on mount and never
+	// re-checked it, so clicking Disconnect elsewhere in the SAME open sheet left
+	// the TTS controls enabled against a dead connection — a live contradiction
+	// with the Model/Spend sections, which do re-render on the same event.
+	it('re-disables the cloud TTS controls live when OpenRouter disconnects mid-session (db-model-changed)', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		const { sheet } = openSheet();
+		expect(await sheet.findByRole('combobox', { name: 'Cloud TTS model' })).not.toBeDisabled();
+
+		voiceAvailSpy.mockReturnValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		window.dispatchEvent(new Event('db-model-changed'));
+
+		await waitFor(() => expect(sheet.getByRole('combobox', { name: 'Cloud TTS model' })).toBeDisabled());
+	});
+
+	it('enables the on-device TTS controls once Kokoro is ready', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'kokoro', openRouterReady: true, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).not.toBeDisabled();
+		expect(sheet.getByRole('slider', { name: 'Speech speed' })).not.toBeDisabled();
+		expect(sheet.getByRole('button', { name: /Play sample/ })).not.toBeDisabled();
 	});
 });
 

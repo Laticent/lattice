@@ -97,13 +97,45 @@ type VoiceModel = {
 	audioTimeMs: () => number;
 	/** Output latency (ms) — subtracted so the highlight tracks what's HEARD, not the buffer. */
 	outputLatencyMs: () => number;
+	// The config surface the Workspace TTS settings panel drives (below) — same
+	// instance as playback, so a pick there takes effect immediately.
+	availability: () => VoiceAvailability;
+	orVoice: () => string;
+	setOrVoice: (v: string) => void;
+	orModel: () => string;
+	setOrModel: (m: string) => void;
+	kokoroVoice: () => string;
+	setKokoroVoice: (v: string) => void;
+	speedPref: () => number;
+	setSpeed: (n: number) => void;
+	kokoroSupported: () => boolean;
+	probeKokoroCache: () => Promise<boolean>;
+	loadKokoro: (onProgress?: (p: VoiceLoadProgress) => void, signal?: AbortSignal) => Promise<boolean>;
+	previewVoice: (o: { rung: 'openrouter' | 'kokoro'; voice?: string; speed?: number }) => Promise<{ ok: boolean; error?: string }>;
 };
+
+export type VoiceAvailability = {
+	rung: string;
+	openRouterReady: boolean;
+	kokoroReady: boolean;
+	kokoroCached: boolean;
+	kokoroSupported: boolean;
+	webgpu: boolean;
+	speechAllowed: boolean;
+};
+
+export type VoiceLoadProgress = { progress: number; text?: string; status?: string };
+export type OrVoiceModel = { id: string; name: string };
 let voicePromise: Promise<VoiceModel | null> | null = null;
 function getVoice(): Promise<VoiceModel | null> {
 	if (!voicePromise) {
 		voicePromise = import('@/playground/voice-model.js')
 			.then((m) =>
 				m.createVoiceModel({
+					// Studio-scoped voice prefs — a separate namespace from the Drawing
+					// Board's (2026-07-09-studio-cloud-ondevice-config-split.md), so a
+					// voice/speed pick in one surface never silently changes the other.
+					keyPrefix: 'studio',
 					getOpenRouterKey: () => {
 						try {
 							return localStorage.getItem(OR_KEY_LS);
@@ -381,4 +413,70 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 	}, [pause, play]);
 
 	return { playing, track, active, progress, rung, play, pause, toggle, stop };
+}
+
+// ── TTS settings bridge (the Workspace AI-tab TTS section) ──────────────────
+// Thin wrappers over the SAME shared voice-model instance useReadAloud plays
+// through (getVoice()'s singleton) — a pick here takes effect on the next
+// speak() with no separate instance/download. Mirrors architect.ts's bridge-
+// function style (listStudioModels/setStudioModel/summonWebLLM/…) so the
+// Workspace components never touch a raw model object directly.
+
+/** Live voice status — which rung is active, what's ready/cached/supported. */
+export async function voiceAvailability(): Promise<VoiceAvailability> {
+	const v = await getVoice();
+	return (
+		v?.availability() ?? {
+			rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false,
+		}
+	);
+}
+
+/** The OpenRouter TTS-capable model catalog ({id,name}[]), or [] when unavailable. */
+export async function listTtsModels(): Promise<OrVoiceModel[]> {
+	try {
+		const m = await import('@/playground/voice-model.js');
+		return await m.listOpenRouterVoiceModels();
+	} catch {
+		return [];
+	}
+}
+
+export async function ttsOrVoice(): Promise<string> { return (await getVoice())?.orVoice() ?? ''; }
+export async function setTtsOrVoice(v: string): Promise<void> { (await getVoice())?.setOrVoice(v); }
+export async function ttsOrModel(): Promise<string> { return (await getVoice())?.orModel() ?? ''; }
+export async function setTtsOrModel(id: string): Promise<void> { (await getVoice())?.setOrModel(id); }
+export async function ttsKokoroVoice(): Promise<string> { return (await getVoice())?.kokoroVoice() ?? ''; }
+export async function setTtsKokoroVoice(v: string): Promise<void> { (await getVoice())?.setKokoroVoice(v); }
+export async function ttsSpeed(): Promise<number> { return (await getVoice())?.speedPref() ?? 1; }
+export async function setTtsSpeed(n: number): Promise<void> { (await getVoice())?.setSpeed(n); }
+
+/** Summon the on-device Kokoro model (the deliberate ~80 MB download). Never throws. */
+export async function loadTtsKokoro(onProgress?: (p: VoiceLoadProgress) => void, signal?: AbortSignal): Promise<boolean> {
+	const v = await getVoice();
+	if (!v) return false;
+	try {
+		return await v.loadKokoro(onProgress, signal);
+	} catch {
+		return false;
+	}
+}
+
+/** Play a short sample with an explicit rung + voice + speed (bypasses the auto ladder). */
+export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?: string; speed?: number }): Promise<{ ok: boolean; error?: string }> {
+	const v = await getVoice();
+	if (!v) return { ok: false, error: 'voice unavailable' };
+	return v.previewVoice(o);
+}
+
+/** Stop any in-flight preview — called on TTS settings unmount so a sample started
+ *  just before the Workspace sheet closes doesn't keep playing (mirrors
+ *  useReadAloud's own unmount cleanup, above). Never throws. */
+export async function stopTtsPreview(): Promise<void> {
+	const v = await getVoice();
+	try {
+		v?.stop();
+	} catch {
+		/* best-effort */
+	}
 }

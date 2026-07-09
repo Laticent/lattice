@@ -72,6 +72,32 @@ in patch versions.
   (`docs/src/playground/read-along-core.generated.js`, built by
   `tools/build-read-along-core.js`) the same way the Webpage export bundles
   `player-core.mjs`. No audio, no TTS key — captions only.
+- **The Studio Workspace segments AI config into cloud vs. on-device, and ships
+  real TTS settings.** Spend/budget now shows only under the Cloud view (on-device
+  generation is unconditionally free — there's nothing to cap). Standing
+  instructions split into two separate fields: the existing cloud field, and a new
+  on-device field capped at 300 characters (a small local model loses the thread
+  past a short brief). Output language stays shared across both, as before — it
+  describes the deck's language, not which model wrote it. A new **Read-aloud
+  voice** section lets you pick the TTS model/voice/speed for each tier — the
+  OpenRouter voice catalog for Cloud, a curated Kokoro voice roster (with its
+  existing on-device download flow) for On-device — where previously the Studio
+  ran a silent "auto" voice ladder with no settings UI at all. Voice pickers are
+  **model-specific dropdowns** (Kokoro's own roster, OpenAI's standard six, or a
+  free-text fallback for an unrecognized model), not a raw text field, and
+  **picking a curated voice plays a sample immediately** so choosing a voice is
+  itself a way to hear it — the manual "Play sample" button stays for replaying
+  or auditioning free-text ids. Every TTS control (model, voice, speed, preview)
+  is disabled with an explanatory hint until that tier actually has a model
+  available — connected for Cloud, downloaded for On-device — matching how the
+  rest of the Workspace treats an unavailable tier. The Studio's voice prefs also
+  moved to their own `lattice-studio-voice-*` keys, so they no longer silently
+  share state with the Drawing Board's voice picker — **one-time reset:** if you
+  had already picked a non-default voice/speed via the Drawing Board's Settings →
+  Voice tab, Studio read-aloud (Present mode's word-synced narration) picked that
+  up too via the old shared key; it reverts to the Kokoro defaults once, since the
+  two surfaces were never meant to share that setting. See
+  `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
 - **The Studio can download a deck as a self-contained webpage.** The Share sheet
   gained a **“Webpage (.html)”** row (alongside PDF / PPTX / Print) that assembles
   the same offline `.html` player the CLI `--player` flag produces — three views
