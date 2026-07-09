@@ -117,13 +117,12 @@ tracked-only and deterministic per commit. Contents (full showcase):
   and `docs/components.{md,html,json}`. The whole `dist/` directory is
   archived (`git archive … -- dist`), so any tracked artifact ships
   automatically — no per-file allowlist to keep in sync.
-- `lib/` — the `marp.config.js` runtime deps (transformers, core,
+- `lib/` — the owned-engine source (transformers, core,
   component transforms, integrations) **and** every per-component,
   per-bucket, and integration gallery PDF the component reference links
   to (~140), so `dist/docs/components.md` resolves its
   `../../lib/components/…` links inside the unzipped tree.
 - `themes/` — all palette files.
-- `marp.config.js` — the marp-cli config.
 - `examples/` — showcase decks + their PDFs.
 - `design/skill.md`, `design/design-system.md`, `README.md`, `LICENSE`,
   `CHANGELOG.md`.

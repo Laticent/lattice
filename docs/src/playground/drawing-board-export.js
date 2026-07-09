@@ -38,13 +38,13 @@ function safeName(name) {
 }
 
 // ── Provenance metadata ───────────────────────────────────────────────────────
-// The marp-core and lattice-engine outputs are pixel-identical by design (the
-// engine delegates CSS theme-packing to marp's packer), so two exports are
-// byte-identical apart from the writer's random PDF /ID — indistinguishable by
-// eye OR by diff. Stamping each export with which engine + build produced it is
-// the only way to tell them apart after the fact. FNV-1a over the deck source
-// gives a short, dependency-free provenance hash so a PDF can be tied back to a
-// specific markdown.
+// Historical: this used to distinguish marp-core vs. lattice-engine exports,
+// back when the Drawing Board offered a marp-core comparison mode (retired in
+// P4 — `meta.engine`/`window.LatticePlayground.engine` is never set to
+// anything but 'lattice' today, so `engineLabel`'s 'marp-core' branch is dead).
+// Stamping each export with which engine + build produced it is still the only
+// way to tie a PDF back to a specific markdown after the fact. FNV-1a over the
+// deck source gives a short, dependency-free provenance hash for that.
 function shortHash(str) {
 	let h = 0x811c9dc5;
 	for (let i = 0; i < str.length; i++) {

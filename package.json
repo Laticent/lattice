@@ -1,9 +1,8 @@
 {
   "name": "@slidewright/lattice",
   "version": "1.0.0",
-  "description": "A Marp-based slide deck system for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 58 layouts, one palette, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system.",
+  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 58 layouts, one palette, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system; decks can also export to Marp for recipients who prefer that tool.",
   "keywords": [
-    "marp",
     "slides",
     "presentation",
     "markdown",

@@ -5,7 +5,7 @@
  * `<!-- _class: foo -->` discards the deck-wide `class:` value entirely.
  * Lattice intentionally diverges from that semantic via:
  *   - The `deckClassPropagate` plugin (runtime path,
- *     loaded by VS Code Marp preview and marp-cli)
+ *     loaded by the vscode Marp preview)
  *   - The front-matter reader in lattice-emulator.js (emulator path)
  *
  * Both paths APPEND the deck-wide class tokens to every section's class
@@ -13,8 +13,7 @@
  * Without this, deck-wide modifiers like `class: dark` are useless on
  * layout-heavy decks where every slide carries a `_class:` directive.
  *
- * This test pins the emulator side; the marp-cli reference is verified
- * by rendering and asserting the same merge in test/integration/marp.gallery.test.js.
+ * This test pins the emulator side.
  *
  * Renders the fixture through the cached emulator helper and inspects
  * the HTML sidecar (avoids parsing PDF). Slow tier because the

@@ -1,16 +1,14 @@
 /**
- * Unit: lattice-engine (the Marp-replacement engine core, P1).
+ * Unit: lattice-engine (the native Marpit re-implementation, P1).
  *
- * Two kinds of assertion:
- *   1. Contract tests — the engine reproduces Marpit's token/attribute contract
- *      the Lattice plugins bind to (slide splitting, directive application,
- *      `![bg]` consumption, math) and composes the real plugins + transformer
- *      registry.
- *   2. Differential parity — the engine's per-section HTML structure matches
- *      @marp-team/marp-core (the marp-cli engine) across the baseline gallery
- *      and a couple of bucket galleries, in-process (no PDF). twemoji is the one
- *      intentional divergence (emoji render via font, not <img class="emoji">)
- *      per engineering/decisions/2026-06-10-marp-replacement-proposal.md.
+ * Contract tests — the engine reproduces Marpit's token/attribute contract
+ * the Lattice plugins bind to (slide splitting, directive application,
+ * `![bg]` consumption, math) and composes the real plugins + transformer
+ * registry. twemoji is the one intentional divergence from marp-core's
+ * historical behavior (emoji render via font, not <img class="emoji">) per
+ * engineering/decisions/2026-06-10-marp-replacement-proposal.md. (marp-core
+ * was retired as a comparison target in the P4 pivot — no differential-parity
+ * test against it remains; see engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md.)
  */
 
 const { test, describe } = require('node:test');

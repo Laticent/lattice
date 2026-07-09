@@ -4,7 +4,7 @@ Node's built-in runner (`node:test`) — no Jest/Mocha/Vitest.
 
 - `unit/<scope>/` — the inner loop; each scope dir maps to an npm script
   (`test/unit/palette/` → `npm run test:palette`). Full suite: `npm test`.
-- `integration/` — the cross-renderer + PDF tier. The PR-blocking slice is
+- `integration/` — the semantic-invariant + PDF tier. The PR-blocking slice is
   `npm run test:integration:pr`; the render-heavy slice runs nightly
   (`test:integration:nightly`). Baseline decks live in `baseline-decks/`.
 - `benchmark/` — the tinybench perf harness + the committed

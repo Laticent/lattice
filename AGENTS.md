@@ -1,7 +1,8 @@
 # AGENTS.md — authoring Lattice decks with an AI agent
 
-Lattice renders boardroom-quality PDFs from Markdown. A deck is a Marp
-Markdown file; each slide opts into a **component** via a
+Lattice renders boardroom-quality PDFs from Markdown. A deck is a Lattice
+Flavored Markdown (LFM) file — Marpit-compatible, rendered by Lattice's own
+engine — and each slide opts into a **component** via a
 `<!-- _class: <name> -->` directive and fills its slots with ordinary
 Markdown. This file orients any AI agent (Claude Code, Copilot, Cursor, an
 SDK agent) toward authoring decks correctly. For engine/contributor work,

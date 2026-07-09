@@ -3,10 +3,11 @@
  *
  * notes-core is the SINGLE SOURCE for "a non-directive comment on a slide is
  * that slide's note" (LFM, Marp-faithful). The emulator extracts notes with it
- * from engine-rendered slide HTML; the marp-cli path relies on marp-core's own
- * comment collection. The parity block below renders the same bodies through
- * marp-core and asserts notes-core's keep/drop decision matches it exactly, so
- * the two render paths can never disagree on what counts as a note.
+ * from engine-rendered slide HTML. The block below pins notes-core's keep/drop
+ * decision against hardcoded expected outputs for marp-core's documented
+ * comment-collection behavior (no live marp-core comparison — marp-core isn't
+ * a dependency), so the two render paths can never disagree on what counts as
+ * a note.
  */
 
 const { describe, test } = require('node:test');
