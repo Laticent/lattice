@@ -386,22 +386,33 @@ in patch versions.
   `lib/core/find-matching-close.js` helper. Every change verified
   byte-identical against the pre-change output on real decks before
   landing.
-- **The exported `.html` player now displays correctly on iOS.** Three fixes,
-  diagnosed on a real iPhone where the player showed only a blank/broken page:
-  (1) **CSP hash on WebKit** — the single inline script is pinned by a sha256
-  CSP, and WebKit hashes non-ASCII bytes differently than Chromium/Node, so the
-  script's dark-toggle glyphs and em-dashes made the hash disagree and WebKit
-  refused the script. Every non-ASCII code point in the hashed script is now
-  escaped to `\uXXXX` (runtime-identical; CSP kept). (2) **Content rode high /
-  the title slide rendered tiny** — the present + read views forced `display:block`
-  on each `<section>`, overriding the engine's base `display:flex;flex-direction:column`
+- **The exported `.html` player now displays correctly on iOS.** Four fixes,
+  diagnosed on a real iPhone where the player showed only a blank/broken page,
+  then a working-but-visually-broken one: (1) **CSP hash on WebKit** — the single
+  inline script is pinned by a sha256 CSP, and WebKit hashes non-ASCII bytes
+  differently than Chromium/Node, so the script's dark-toggle glyphs and
+  em-dashes made the hash disagree and WebKit refused the script. Every
+  non-ASCII code point in the hashed script is now escaped to `\uXXXX`
+  (runtime-identical; CSP kept). (2) **Content rode high / the title slide
+  rendered tiny** — the present + read views forced `display:block` on each
+  `<section>`, overriding the engine's base `display:flex;flex-direction:column`
   and making `section.title{justify-content:center}` inert, so cover content
   flowed to the top instead of centering. The views now keep the section flex.
-  (3) **Read·Slides + the no-JS floor** now scale the native 1280×720 canvas with
-  CSS `zoom` (fluidly fit to the column by the script; a media-query ladder for
-  the floor) instead of resizing the box, which had wrecked the container-query
-  layout. A progressive-enhancement `.lp-js` gate keeps a readable stacked-slide
-  floor when the script is ever blocked. Confirmed on-device.
+  (3) **Read·Slides + the no-JS floor illegibly tiny text** — scaling with CSS
+  `zoom` (to collapse the layout footprint) reintroduced a documented, previously
+  REJECTED bug: iOS WebKit does not re-resolve `container-type:size` + cqi/cqh
+  (the engine's whole typography/spacing scale) against a zoom-scaled container,
+  so cqi collapses to near-zero — invisible to every headless CI gate, which
+  Chromium doesn't reproduce. Each slide is now wrapped in a `.lp-frame` sized to
+  the scaled footprint (so the column still packs tight) and the slide inside
+  scales with `transform` (immune — cqi resolves once against its own intrinsic
+  1280×720 box). (4) **Present not vertically centered** — a third-party iOS
+  viewer's own in-app chrome can report a `dvh` that doesn't match what's
+  actually visible, pushing the centered stage off-screen-center; the stage
+  height now prefers a JS-measured `visualViewport`/`innerHeight` value, falling
+  back to `dvh` only pre-JS. A progressive-enhancement `.lp-js` gate keeps a
+  readable stacked-slide floor when the script is ever blocked. Confirmed
+  on-device.
 - **The Studio “Download as webpage” export now renders and runs — not just
   assembles.** Two bugs made the browser-exported player ship broken on every
   browser (the file downloaded fine but opened to raw, unstyled slides that

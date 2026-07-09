@@ -153,10 +153,11 @@ test('present mode ships swipe, fullscreen, and dvh viewport-fill (P3c)', async 
 	assert.match(html, /swipeAction\(\{dx:/, 'a decisive horizontal drag turns the slide');
 	assert.match(html, /id="lp-full"/, 'the fullscreen control is present');
 	assert.match(html, /requestFullscreen/, 'fullscreen is wired (feature-detected)');
-	assert.match(html, /height:calc\(100dvh - 48px\);box-sizing:border-box/, 'dvh fill with border-box (no padding overflow / vertical shift)');
+	assert.match(html, /height:calc\(var\(--lp-vh,100dvh\) - 48px\);box-sizing:border-box/, 'stage height prefers the JS-measured viewport, falling back to dvh with border-box (no padding overflow / vertical shift)');
 	assert.match(html, /place-items:center;justify-content:center/, 'the oversized slide is centered in a narrow viewport (mobile on-screen)');
+	assert.match(html, /function setStageHeight\(\)/, 'the script measures the real viewport (visualViewport/innerHeight) rather than trusting dvh');
 	assert.match(html, /addEventListener\('orientationchange',onResize\)/, 'the fit re-runs on orientation change');
-	assert.match(html, /function onResize\(\)\{fit\(\);fitRead\(\);\}/, 'onResize refits both present (fit) and read-slides (fitRead)');
+	assert.match(html, /function onResize\(\)\{setStageHeight\(\);fit\(\);fitRead\(\);\}/, 'onResize re-measures the viewport height and refits both present (fit) and read-slides (fitRead)');
 });
 
 test('the inlined transport kernel binds STABLE names (survives a minifying bundler)', async () => {
@@ -181,15 +182,33 @@ test('slides keep display:flex in every view so vertical centering survives (no 
 	// `section.title{justify-content:center}` inert, so a cover slide's content flowed to
 	// the TOP instead of centering — the "content rides high" / "title slide tiny" bug seen
 	// on a real iPhone. Present must re-show the active slide as flex; read-slides + the
-	// no-JS floor must NOT re-assert block (they inherit base flex), and both scale the
-	// native 1280x720 canvas with CSS zoom rather than resizing the box (which wrecks the
-	// container-query layout).
+	// no-JS floor must NOT re-assert block (they inherit base flex).
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
-	assert.match(html, /section\[data-lattice-slide\]\.lp-active\{display:flex/, 'present re-shows the active slide as flex, not block');
 	assert.doesNotMatch(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{[^}]*display:block/, 'read-slides never forces block (keeps base flex)');
 	assert.doesNotMatch(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{[^}]*display:block/, 'the no-JS floor never forces block (keeps base flex)');
-	assert.match(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;zoom:var\(--lp-fit/, 'read-slides scales the native canvas with zoom');
+});
+
+test('read-slides + the no-JS floor scale each slide with a wrapped transform, never CSS zoom', async () => {
+	// Regression: switching Read·Slides + the no-JS floor to CSS `zoom` (to collapse the
+	// layout footprint the way `transform` doesn't) reintroduced a KNOWN, previously
+	// REJECTED bug: iOS WebKit does not re-resolve `container-type:size` + cqi/cqh — the
+	// engine's whole typography/spacing scale — against a zoom-scaled container, so cqi
+	// collapses to near-zero and the type renders illegibly tiny. Confirmed on a real
+	// iPhone (engineering/gotchas.md "Preview slides collapse … CSS zoom", decision doc
+	// 2026-07-02-preview-scale-zoom.md, REJECTED — headless Chromium cannot reproduce this,
+	// so it silently looked fine in every CI gate). Fix: each slide is wrapped in a
+	// `.lp-frame` sized to the SCALED footprint (so the flex column still packs tight
+	// without zoom's layout-collapse), and the section inside is scaled with `transform`
+	// (immune — cqi resolves once against its own intrinsic 1280x720 box).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.doesNotMatch(html, /zoom:/, 'no view scales with CSS zoom (WebKit cqi/cqh collapse)');
+	assert.match(html, /class="lp-frame"/, 'every slide is wrapped in a sizeable .lp-frame');
+	assert.match(html, /\[data-lp-view=read-slides\] \.lp-frame\{width:calc\(1280px \* var\(--lp-fit,\.28\)\)/, 'the frame carries the scaled footprint so the flex gap packs tight');
+	assert.match(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit,\.28\)\);transform-origin:0 0/, 'read-slides scales the native canvas with transform, not zoom');
+	assert.match(html, /html:not\(\.lp-js\) \.lp-frame\{width:calc\(1280px \* var\(--lp-fit\)\)/, 'the no-JS floor frame also carries the scaled footprint');
+	assert.match(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit\)\)/, 'the no-JS floor scales with transform, not zoom');
 	assert.match(html, /function fitRead\(\)/, 'the script fits the read-slides miniatures fluidly to the column');
+	assert.match(html, /var frames=\[\]\.slice\.call\(document\.querySelectorAll\('\.lp-frame'\)\)/, 'present toggles visibility on the frame wrapper, not the section');
 });
 
 test('fileToDataUri returns null for a missing file (feeds the honesty report)', () => {
@@ -240,7 +259,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '68d0b804bccdcb07946d7377ce00ae17cf0520da96b4037c3ca725d730c116ae', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '76946651491498740e8f90ad706062de7f1cda6772acd0d9da770379c984dbde', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

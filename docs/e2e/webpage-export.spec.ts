@@ -35,10 +35,11 @@ test('the Studio webpage export produces a player that boots (styled + script ru
 	await viewer.waitForTimeout(500);
 
 	// The script booted: it stamps `.lp-js` on <html> only when it actually runs, and
-	// Present mode marks exactly one slide active. A thrown kernel would strip both.
+	// Present mode marks exactly one slide FRAME active (the wrapper each slide is
+	// packed in — see player-core.mjs's .lp-frame). A thrown kernel would strip both.
 	const boot = await viewer.evaluate(() => ({
 		lpJs: document.documentElement.classList.contains('lp-js'),
-		active: document.querySelectorAll('section.lp-active').length,
+		active: document.querySelectorAll('.lp-frame.lp-active').length,
 	}));
 	expect(boot.lpJs, 'the player script ran (.lp-js set — not the no-JS floor)').toBe(true);
 	expect(boot.active, 'Present shows exactly one active slide').toBe(1);

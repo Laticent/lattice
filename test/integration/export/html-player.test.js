@@ -154,7 +154,9 @@ describe('html-player export — Present fits the viewport (P3c)', () => {
 		await page.goto(file, { waitUntil: 'networkidle0' });
 		await new Promise((r) => setTimeout(r, 400)); // let the fit timeouts settle
 		const rect = await page.evaluate(() => {
-			const s = document.querySelector('section.lp-active');
+			// The active slide's FRAME wrapper is what present toggles visible (the section
+			// inside keeps its own JS-driven transform:scale) — see player-core.mjs .lp-frame.
+			const s = document.querySelector('.lp-frame.lp-active section[data-lattice-slide]');
 			const r = s.getBoundingClientRect();
 			return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, iw: window.innerWidth, ih: window.innerHeight };
 		});

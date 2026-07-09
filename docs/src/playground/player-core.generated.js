@@ -392,21 +392,37 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
 #lp-notes.lp-open{transform:translateY(0)}
 #lp-notes-body{max-width:900px;margin:0 auto;white-space:pre-wrap;line-height:1.6;color:var(--text-body,#222);font-size:15px}
 #lp-notes[data-empty=true] #lp-notes-body::after{content:"No notes for this slide.";color:var(--text-muted,#888);font-style:italic}
-/* PRESENT \u2014 fill the DYNAMIC viewport (dvh) so mobile toolbars don't clip the stage;
-   touch-action:none frees a horizontal drag for slide-swipe instead of scroll/zoom. */
-.lp-js [data-lp-view=present] #lp-stage{position:fixed;top:48px;left:0;right:0;height:calc(100dvh - 48px);box-sizing:border-box;display:grid;place-items:center;justify-content:center;overflow:hidden;background:var(--bg,#fff);touch-action:none}
-.lp-js [data-lp-view=present] section[data-lattice-slide]{display:none;box-shadow:0 24px 70px -22px rgba(0,0,0,.45)}
-.lp-js [data-lp-view=present] section[data-lattice-slide].lp-active{display:flex;transform-origin:center center}
+/* PRESENT \u2014 fill the MEASURED viewport (--lp-vh, set by the script from
+   visualViewport/innerHeight; 100dvh is only the pre-JS/no-script fallback). A
+   third-party iOS HTML-viewer's own in-app chrome (its own address bar / nav
+   strip, outside the page) can report a dvh that doesn't match what's actually
+   visible, pushing the centered stage off-screen-center \u2014 measuring in JS is
+   immune to that. touch-action:none frees a horizontal drag for slide-swipe
+   instead of scroll/zoom. */
+.lp-js [data-lp-view=present] #lp-stage{position:fixed;top:48px;left:0;right:0;height:calc(var(--lp-vh,100dvh) - 48px);box-sizing:border-box;display:grid;place-items:center;justify-content:center;overflow:hidden;background:var(--bg,#fff);touch-action:none}
+.lp-js [data-lp-view=present] .lp-frame{display:none}
+.lp-js [data-lp-view=present] .lp-frame.lp-active{display:block;width:1280px;height:720px}
+.lp-js [data-lp-view=present] .lp-frame.lp-active section[data-lattice-slide]{box-shadow:0 24px 70px -22px rgba(0,0,0,.45);transform-origin:center center}
 .lp-js [data-lp-view=present] #lp-doc{display:none}
 /* READ \xB7 SLIDES \u2014 the real slides as faithful miniatures. Each slide is a FIXED
    1280\xD7720 canvas whose internal layout (a title slide centers, a content slide sits
    its text at the top) only renders correctly at that native size \u2014 resizing the box
-   wrecks it. So keep the native size and SCALE the whole canvas with CSS zoom, which (unlike
-   transform) also collapses the layout footprint, so the column packs tight. --lp-fit is
-   set fluidly by the script to fill the column; the mobile default also serves the floor. */
+   wrecks it. So keep the native size and SCALE the whole canvas with transform, NOT
+   CSS zoom: iOS WebKit does not re-resolve container-type:size + cqi/cqh (the
+   engine's whole typography/spacing scale) against a zoom-scaled container \u2014 cqi
+   collapses to near-zero, rendering the type illegibly tiny (documented, previously
+   REJECTED for this exact reason: engineering/gotchas.md "Preview slides collapse \u2026
+   CSS zoom", decision doc 2026-07-02-preview-scale-zoom.md). transform is immune \u2014
+   cqi resolves ONCE against the intrinsic 1280\xD7720 box, and transform only scales the
+   already-resolved paint. transform doesn't collapse the LAYOUT box the way zoom did,
+   so each slide is wrapped in a .lp-frame sized to the scaled footprint
+   (calc(1280px * var(--lp-fit))) \u2014 the flex column's gap then packs against that
+   real size, same visual result as zoom gave, without breaking cqi. --lp-fit is set
+   fluidly by the script to fill the column; the mobile default also serves the floor. */
 [data-lp-view=read-slides] #lp-doc{display:none}
 [data-lp-view=read-slides] #lp-stage{max-width:980px;margin:0 auto;padding:28px 16px 120px;display:flex;flex-direction:column;align-items:center;gap:24px}
-[data-lp-view=read-slides] section[data-lattice-slide]{width:1280px!important;height:720px!important;zoom:var(--lp-fit,.28);
+[data-lp-view=read-slides] .lp-frame{width:calc(1280px * var(--lp-fit,.28));height:calc(720px * var(--lp-fit,.28));overflow:hidden;border-radius:12px}
+[data-lp-view=read-slides] section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit,.28));transform-origin:0 0;
  border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
 /* READ \xB7 ARTICLE \u2014 Typora-style prose + sticky left TOC (shell; component-aware projection = P4) */
 [data-lp-view=read-article] #lp-stage{display:none}
@@ -449,11 +465,13 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
    mobile browsers), scripting disabled, or a script error \u2014 the deck falls back to a
    readable stacked column instead of a BLANK page (present mode had hidden every slide
    until JS marked one active). The bar's live-only controls hide in this state. */
+html:not(.lp-js){--lp-fit:.28}
+@media(min-width:560px){html:not(.lp-js){--lp-fit:.40}}
+@media(min-width:760px){html:not(.lp-js){--lp-fit:.56}}
+@media(min-width:1000px){html:not(.lp-js){--lp-fit:.72}}
 html:not(.lp-js) #lp-stage{max-width:980px;margin:0 auto;padding:68px 16px 90px;display:flex;flex-direction:column;align-items:center;gap:22px}
-html:not(.lp-js) section[data-lattice-slide]{width:1280px!important;height:720px!important;zoom:.28;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
-@media(min-width:560px){html:not(.lp-js) section[data-lattice-slide]{zoom:.40}}
-@media(min-width:760px){html:not(.lp-js) section[data-lattice-slide]{zoom:.56}}
-@media(min-width:1000px){html:not(.lp-js) section[data-lattice-slide]{zoom:.72}}
+html:not(.lp-js) .lp-frame{width:calc(1280px * var(--lp-fit));height:calc(720px * var(--lp-fit));overflow:hidden;border-radius:12px}
+html:not(.lp-js) section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit));transform-origin:0 0;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
 html:not(.lp-js) #lp-notes,html:not(.lp-js) #lp-count,html:not(.lp-js) #lp-notes-btn,html:not(.lp-js) #lp-full{display:none}
 `.trim();
 }
@@ -475,17 +493,28 @@ if(!app)return;
 try{
 root.className+=(root.className?' ':'')+'lp-js';
 var slides=[].slice.call(document.querySelectorAll('section[data-lattice-slide]'));
+// Each slide is wrapped in a .lp-frame (document order matches slides, one wrapper
+// per section) \u2014 present toggles visibility on the FRAME (sized to match the section, so
+// it's a transparent no-op box) while the SECTION itself keeps the transform-scale. This
+// keeps the fixed-canvas cqi/cqh layout intact in every view \u2014 see playerCss.
+var frames=[].slice.call(document.querySelectorAll('.lp-frame'));
 var count=document.getElementById('lp-count'),view='present';
 var t=createTransport({count:slides.length,onShow:render});
 function fit(){if(view!=='present')return;var s=slides[t.index];if(!s)return;
  s.style.transform='scale('+fitScale({stageW:innerWidth,stageH:innerHeight,slideW:1280,slideH:720,insetX:56,insetY:48+56})+')';}
-// READ\xB7SLIDES fit: scale each native 1280x720 canvas (via CSS zoom) to fill the column
-// exactly. The column is the stage's content width (clientWidth minus its 16px side
-// padding). Set fluidly here so the miniatures grow with the window; the CSS default
-// (.28) covers the first paint + the no-JS floor.
+// READ\xB7SLIDES fit: scale each native 1280x720 canvas (via the .lp-frame wrapper + the
+// section's CSS transform) to fill the column exactly. The column is the stage's content
+// width (clientWidth minus its 16px side padding). Set fluidly here so the miniatures grow
+// with the window; the CSS default (.28) covers the first paint + the no-JS floor.
 function fitRead(){var stage=document.getElementById('lp-stage');if(!stage)return;
  var avail=stage.clientWidth-32;if(avail>0)root.style.setProperty('--lp-fit',(avail/1280).toFixed(4));}
-function render(){var i=t.index;slides.forEach(function(s,n){s.classList.toggle('lp-active',n===i);});
+// PRESENT stage height: measure the ACTUAL visible viewport instead of trusting dvh.
+// A third-party iOS HTML-viewer's own in-app chrome can report a dvh that doesn't match
+// what's actually on screen, pushing the centered slide off-center; visualViewport (falling
+// back to innerHeight) reads the real thing on every engine.
+function setStageHeight(){var h=(window.visualViewport&&window.visualViewport.height)||innerHeight;
+ root.style.setProperty('--lp-vh',h+'px');}
+function render(){var i=t.index;frames.forEach(function(f,n){f.classList.toggle('lp-active',n===i);});
  if(count)count.textContent=(i+1)+' / '+slides.length;fit();syncNotes();}
 function setView(v){view=v;app.setAttribute('data-lp-view',v);
  [].forEach.call(document.querySelectorAll('[data-lp-btn]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-lp-btn')===v);});
@@ -497,7 +526,8 @@ function setView(v){view=v;app.setAttribute('data-lp-view',v);
  if(count)count.style.visibility=v==='present'?'visible':'hidden';if(v==='present')render();}
 addEventListener('keydown',function(e){if(view!=='present')return;
  var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;t[a]();e.preventDefault();});
-function onResize(){fit();fitRead();}
+function onResize(){setStageHeight();fit();fitRead();}
+setStageHeight();
 addEventListener('resize',onResize);addEventListener('orientationchange',onResize);
 if(window.visualViewport){try{visualViewport.addEventListener('resize',onResize)}catch(e){}}
 // Touch/swipe on the present stage \u2014 a decisive horizontal drag turns the slide
@@ -580,7 +610,7 @@ async function assemblePlayer(data, caps) {
   for (const sec of [...doc.querySelectorAll("section[data-lattice-slide]")]) {
     sec.outerHTML = caps.sanitize(sec.outerHTML);
   }
-  const slidesHtml = [...doc.querySelectorAll("section[data-lattice-slide]")].map((s) => s.outerHTML).join("\n");
+  const slidesHtml = [...doc.querySelectorAll("section[data-lattice-slide]")].map((s) => `<div class="lp-frame">${s.outerHTML}</div>`).join("\n");
   const a11yDefs = [...doc.querySelectorAll("body > svg")].map((s) => caps.sanitize(s.outerHTML)).join("\n");
   const { article, toc } = await buildArticle(doc);
   const styles = [...doc.querySelectorAll('head style, head link[rel="stylesheet"]')].map((s) => {
