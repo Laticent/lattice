@@ -84,6 +84,17 @@ test('the CSP sha256 actually covers the shipped player script (freeze-surviving
 	assert.match(html, /default-src 'none'/, 'default-src none locks down the file');
 });
 
+test('the CSP-hashed script is pure ASCII (WebKit hashes non-ASCII differently → blocks it)', async () => {
+	// iOS WebKit (Safari + every iOS webview) computes the sha256 CSP hash over a different
+	// byte encoding than Chromium/Node for non-ASCII, so a glyph or em-dash in the script
+	// makes the shipped hash mismatch and WebKit REFUSES the script — the player is dead on
+	// iOS. The script must stay pure ASCII (glyphs escaped to \uXXXX). Regression guard.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	const body = html.match(/<script>([\s\S]*?)<\/script>/i)[1];
+	const nonAscii = [...body].filter((c) => c.codePointAt(0) > 0x7f);
+	assert.equal(nonAscii.length, 0, `the player script must be pure ASCII; found: ${[...new Set(nonAscii)].map((c) => 'U+' + c.codePointAt(0).toString(16)).join(', ')}`);
+});
+
 test('embeds the verbatim source envelope, round-tripping byte-exact', async () => {
 	const { html } = await buildPlayerHtml({ docHtml, source, title: 'Deck', now: 0 });
 	assert.equal(parseEnvelope(html).source, source);
@@ -195,7 +206,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '9d220e9af4473e4d4e51f77c57ced4705d5ddbf9f6a79d5fe0934eb0258f56b9', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, 'f2d7fbf52ab80ef7375968e32ae67a0f5bf2e4d5b48ac7161b1c4f9af137ff87', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

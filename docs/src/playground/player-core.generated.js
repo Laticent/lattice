@@ -457,7 +457,7 @@ ${keyAction2.toString()}
 ${fitScale2.toString()}
 ${createTransport2.toString()}
 ${swipeAction2.toString()}`;
-  return `(function(){
+  const js = `(function(){
 ${kernel}
 var root=document.documentElement,app=document.getElementById('lp-app');
 if(!app)return;
@@ -518,6 +518,12 @@ if(links.length&&window.IntersectionObserver){var spy=new IntersectionObserver(f
 setView('present');
 }catch(e){if(root){root.className=root.className.replace(/(^|\\s)lp-js\\b/,'');}}
 })();`;
+  let ascii = "";
+  for (let i = 0; i < js.length; i++) {
+    const code = js.charCodeAt(i);
+    ascii += code > 127 ? `\\u${code.toString(16).toUpperCase().padStart(4, "0")}` : js[i];
+  }
+  return ascii;
 }
 async function buildArticle(doc) {
   const { projectDeckToProse: projectDeckToProse2 } = await Promise.resolve().then(() => (init_prose_projection(), prose_projection_exports));
