@@ -5,6 +5,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
 import { createPresenterController } from '@/playground/presenter-window.js';
+import { narrateChart } from './chart-narration';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationSet } from './lint';
 import { slideToSpeech, useReadAloud } from './read-aloud';
@@ -81,15 +82,17 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// Real read-aloud: a synchronized teleprompter over the current slide's prose,
 	// with spoken audio when a voice is connected. Owns its own transport (the dock
 	// play button drives it in read-aloud mode; the rehearsal clock in Rehearse).
-	// Read the slide's speaker note when it has one (the real talk track), else the
-	// on-slide prose.
+	// Narration priority: the slide's speaker note when it has one (the real talk
+	// track) — else a recognized chart's computed facts (narrateChart; a funnel's
+	// stage-to-stage conversion % exists only in the render, never the source
+	// slideToSpeech reads) — else the generic on-slide prose.
 	// Autoplay = read-aloud that chains across slides. Refs let the once-bound
 	// onFinish read live position/intent without re-binding the reader each slide.
 	const autoplayRef = React.useRef(false);
 	autoplayRef.current = autoplay;
 	const autoAdvanceRef = React.useRef(false);
 	const reader = useReadAloud(
-		React.useMemo(() => getNote(cur) || slideToSpeech(cur), [cur]),
+		React.useMemo(() => getNote(cur) || narrateChart(cur) || slideToSpeech(cur), [cur]),
 		{
 			onFinish: () => {
 				if (!autoplayRef.current) return;
