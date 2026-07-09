@@ -468,3 +468,15 @@ export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?
 	if (!v) return { ok: false, error: 'voice unavailable' };
 	return v.previewVoice(o);
 }
+
+/** Stop any in-flight preview — called on TTS settings unmount so a sample started
+ *  just before the Workspace sheet closes doesn't keep playing (mirrors
+ *  useReadAloud's own unmount cleanup, above). Never throws. */
+export async function stopTtsPreview(): Promise<void> {
+	const v = await getVoice();
+	try {
+		v?.stop();
+	} catch {
+		/* best-effort */
+	}
+}

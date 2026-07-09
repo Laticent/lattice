@@ -452,16 +452,28 @@ export function saveInstructions(text: string): void {
 // an oversized block into a small local model's system prompt.
 export const ON_DEVICE_INSTRUCTIONS_MAX = 300;
 
+// A plain `.slice(0, N)` counts UTF-16 CODE UNITS, not characters — it can split a
+// surrogate pair (an emoji, any astral-plane character) exactly at the boundary,
+// corrupting the last character into a lone surrogate. `Array.from` iterates by
+// CODE POINT, so the cap always lands on a real character boundary. Exported so
+// the live-typing truncation in the Workspace drawer matches what actually gets
+// persisted (the textarea's native `maxLength` is itself UTF-16-unit-based and
+// can already truncate mid-codepoint before this ever runs — a residual browser-
+// level edge case this doesn't fully close, only what our own logic controls).
+export function truncateCodePoints(s: string, n: number): string {
+	return Array.from(s).slice(0, n).join('');
+}
+
 export function loadOnDeviceInstructions(): string {
 	try {
-		return (localStorage.getItem(ONDEVICE_INSTRUCTIONS_LS) ?? '').slice(0, ON_DEVICE_INSTRUCTIONS_MAX);
+		return truncateCodePoints(localStorage.getItem(ONDEVICE_INSTRUCTIONS_LS) ?? '', ON_DEVICE_INSTRUCTIONS_MAX);
 	} catch {
 		return '';
 	}
 }
 export function saveOnDeviceInstructions(text: string): void {
 	try {
-		localStorage.setItem(ONDEVICE_INSTRUCTIONS_LS, text.slice(0, ON_DEVICE_INSTRUCTIONS_MAX));
+		localStorage.setItem(ONDEVICE_INSTRUCTIONS_LS, truncateCodePoints(text, ON_DEVICE_INSTRUCTIONS_MAX));
 	} catch {
 		/* storage full / unavailable — non-fatal */
 	}

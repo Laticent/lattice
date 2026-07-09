@@ -92,7 +92,11 @@ in patch versions.
   available — connected for Cloud, downloaded for On-device — matching how the
   rest of the Workspace treats an unavailable tier. The Studio's voice prefs also
   moved to their own `lattice-studio-voice-*` keys, so they no longer silently
-  share state with the Drawing Board's voice picker. See
+  share state with the Drawing Board's voice picker — **one-time reset:** if you
+  had already picked a non-default voice/speed via the Drawing Board's Settings →
+  Voice tab, Studio read-aloud (Present mode's word-synced narration) picked that
+  up too via the old shared key; it reverts to the Kokoro defaults once, since the
+  two surfaces were never meant to share that setting. See
   `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
 - **The Studio can download a deck as a self-contained webpage.** The Share sheet
   gained a **“Webpage (.html)”** row (alongside PDF / PPTX / Print) that assembles

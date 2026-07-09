@@ -11,6 +11,7 @@ import {
 	setTtsOrModel,
 	setTtsOrVoice,
 	setTtsSpeed,
+	stopTtsPreview,
 	ttsKokoroVoice,
 	ttsOrModel,
 	ttsOrVoice,
@@ -62,6 +63,20 @@ export function voicesForModel(modelId: string): { id: string; label: string }[]
 	if (!id || id.includes('kokoro')) return KOKORO_VOICES;
 	if (id.startsWith('openai/')) return OPENAI_VOICES;
 	return [];
+}
+
+/** The voice-reset decision for a cloud MODEL switch: if the new model's roster is
+ *  non-empty and doesn't already contain the currently effective voice, returns the
+ *  roster's default id to reset to; otherwise null (no reset). Deliberately null —
+ *  not an empty-string reset — when the new roster is EMPTY (an unrecognized
+ *  model): free text is valid for any model, so there's nothing to reset FROM/TO,
+ *  and resetting there would blank the visible field without persisting the clear
+ *  (a UI/storage desync where the old value silently reappears on next reload).
+ *  Exported for unit tests (pure, no Radix/jsdom interaction needed to cover it). */
+export function voiceResetOnModelChange(newModelId: string, currentVoice: string): string | null {
+	const roster = voicesForModel(newModelId);
+	if (roster.length && !roster.some((v) => v.id === currentVoice)) return roster[0].id;
+	return null;
 }
 
 type KokoroLoad = { phase: 'idle' | 'confirm' | 'loading' | 'error'; pct: number; note?: string };
@@ -218,6 +233,33 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		};
 	}, []);
 
+	// Re-fetch availability whenever it changes ELSEWHERE in the same open Workspace
+	// sheet — e.g. clicking Disconnect in the Model section above, or a tier/voice
+	// summon completing. Without this, `avail` is a one-time snapshot from mount
+	// and the TTS controls can sit enabled against a connection that's since died
+	// (a live contradiction with the Model/Spend sections, which DO re-render).
+	// Mirrors useArchitectStatus's own `db-model-changed` listener in architect.ts.
+	React.useEffect(() => {
+		const onChange = () => {
+			voiceAvailability().then(setAvail);
+		};
+		window.addEventListener('db-model-changed', onChange);
+		window.addEventListener('db-voice-changed', onChange);
+		return () => {
+			window.removeEventListener('db-model-changed', onChange);
+			window.removeEventListener('db-voice-changed', onChange);
+		};
+	}, []);
+
+	// Stop any in-flight preview on unmount (Workspace sheet closing, tab switch) —
+	// mirrors useReadAloud's own unmount cleanup; without it a sample started just
+	// before close keeps playing to the end of its fixed sentence.
+	React.useEffect(() => {
+		return () => {
+			stopTtsPreview();
+		};
+	}, []);
+
 	React.useEffect(() => {
 		if (tier !== 'cloud' || models) return;
 		let live = true;
@@ -244,16 +286,15 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 
 	// Picking a MODEL resets the voice to that model's default when the current
 	// pick isn't on its roster — a Kokoro voice id is meaningless for an OpenAI
-	// model, and vice versa.
+	// model, and vice versa (see voiceResetOnModelChange).
 	const pickOrModel = async (id: string) => {
 		setOrModelState(id);
 		await setTtsOrModel(id);
-		const roster = voicesForModel(id);
-		if (!roster.some((v) => v.id === orVoiceEffective)) {
-			const next = roster[0]?.id ?? '';
-			setOrVoiceSelect(next || OTHER);
+		const next = voiceResetOnModelChange(id, orVoiceEffective);
+		if (next) {
+			setOrVoiceSelect(next);
 			setOrVoiceOther('');
-			if (next) await setTtsOrVoice(next);
+			await setTtsOrVoice(next);
 		}
 		notify('TTS model updated.');
 	};

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OTHER, resolveVoice, voicesForModel } from './TtsSettings';
+import { OTHER, resolveVoice, voiceResetOnModelChange, voicesForModel } from './TtsSettings';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
@@ -39,5 +39,25 @@ describe('resolveVoice — maps a stored voice id onto a roster (or the free-tex
 
 	it('an unknown id against an empty roster still resolves to OTHER (never throws)', () => {
 		expect(resolveVoice([], 'custom_voice')).toEqual({ select: OTHER, other: 'custom_voice' });
+	});
+});
+
+// Red-team/independent-checker finding: switching to a model with an UNRECOGNIZED
+// roster used to blank the visible free-text voice field without persisting the
+// clear — a UI/storage desync where the old value silently reappeared on reload.
+// voiceResetOnModelChange is the extracted decision the fix relies on: it must
+// return null (no reset at all) for an unrecognized model, not an empty string.
+describe('voiceResetOnModelChange — the model-switch voice-reset decision (regression: #846 follow-up)', () => {
+	it('resets to the new roster\'s default when the current voice is not on it', () => {
+		expect(voiceResetOnModelChange('openai/tts-1', 'af_heart')).toBe('alloy');
+	});
+
+	it('does not reset when the current voice IS already on the new roster', () => {
+		expect(voiceResetOnModelChange('hexgrad/kokoro-82m', 'af_bella')).toBeNull();
+	});
+
+	it('does NOT reset for an unrecognized model — free text is valid for any model, nothing to reset FROM/TO', () => {
+		expect(voiceResetOnModelChange('some-vendor/unknown-tts', 'af_heart')).toBeNull();
+		expect(voiceResetOnModelChange('some-vendor/unknown-tts', 'my_custom_voice_id')).toBeNull();
 	});
 });

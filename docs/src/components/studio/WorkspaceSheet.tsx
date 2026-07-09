@@ -23,6 +23,7 @@ import {
 	saveInstructions,
 	saveOnDeviceInstructions,
 	saveSettings,
+	truncateCodePoints,
 } from './studio-store';
 import { TtsSettings } from './TtsSettings';
 import { downloadBlob, isEvictionProneBrowser, packWorkspace, restoreWorkspace, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup';
@@ -522,7 +523,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										<textarea
 											value={odInstructions}
 											onChange={(e) => {
-												const next = e.target.value.slice(0, ON_DEVICE_INSTRUCTIONS_MAX);
+												const next = truncateCodePoints(e.target.value, ON_DEVICE_INSTRUCTIONS_MAX);
 												setOdInstructions(next);
 												saveOnDeviceInstructions(next);
 											}}

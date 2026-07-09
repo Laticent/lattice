@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ArchitectStatus } from './architect';
@@ -77,6 +77,7 @@ vi.mock('./read-aloud', () => ({
 	setTtsSpeed: vi.fn(),
 	loadTtsKokoro: vi.fn(async () => true),
 	previewTtsVoice: vi.fn(async () => ({ ok: true })),
+	stopTtsPreview: vi.fn(async () => {}),
 }));
 
 const noop = () => {};
@@ -264,6 +265,21 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeDisabled();
 		expect(sheet.getByRole('button', { name: /Play sample/ })).toBeDisabled();
 		expect(sheet.getByText(/Download the voice above to configure it/)).toBeInTheDocument();
+	});
+
+	// Red-team finding: TtsSettings fetched availability ONCE on mount and never
+	// re-checked it, so clicking Disconnect elsewhere in the SAME open sheet left
+	// the TTS controls enabled against a dead connection — a live contradiction
+	// with the Model/Spend sections, which do re-render on the same event.
+	it('re-disables the cloud TTS controls live when OpenRouter disconnects mid-session (db-model-changed)', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		const { sheet } = openSheet();
+		expect(await sheet.findByRole('combobox', { name: 'Cloud TTS model' })).not.toBeDisabled();
+
+		voiceAvailSpy.mockReturnValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		window.dispatchEvent(new Event('db-model-changed'));
+
+		await waitFor(() => expect(sheet.getByRole('combobox', { name: 'Cloud TTS model' })).toBeDisabled());
 	});
 
 	it('enables the on-device TTS controls once Kokoro is ready', async () => {

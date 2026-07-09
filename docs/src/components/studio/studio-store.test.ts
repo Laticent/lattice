@@ -22,6 +22,7 @@ import {
 	saveSettings,
 	saveSource,
 	titleFromSource,
+	truncateCodePoints,
 } from './studio-store';
 
 afterEach(() => localStorage.clear());
@@ -158,6 +159,32 @@ describe('studio-store — on-device standing instructions (separate + capped)',
 		const long = 'y'.repeat(ON_DEVICE_INSTRUCTIONS_MAX + 200);
 		localStorage.setItem('lattice-studio-ondevice-instructions', long); // bypass saveOnDeviceInstructions
 		expect(loadOnDeviceInstructions().length).toBe(ON_DEVICE_INSTRUCTIONS_MAX);
+	});
+
+	// Red-team finding: a plain `.slice(0, N)` counts UTF-16 CODE UNITS, so a value
+	// ending on an astral-plane character (any emoji, e.g. 😀 = 2 units) right at the
+	// boundary gets split mid-character — the last unit becomes a lone surrogate
+	// (U+FFFD once re-encoded), a silent, invisible-to-the-author corruption.
+	it('caps at a Unicode CODE POINT boundary, never splitting a surrogate pair', () => {
+		const long = `${'x'.repeat(ON_DEVICE_INSTRUCTIONS_MAX - 1)}😀extra`; // emoji straddles the boundary
+		saveOnDeviceInstructions(long);
+		const saved = loadOnDeviceInstructions();
+		// The emoji (2 UTF-16 units) is kept whole — the cap lands one code point
+		// short of the naive unit count, not mid-surrogate. (A valid emoji legitimately
+		// contains surrogate-range code units in a PAIR; `isWellFormed` is the actual
+		// "no lone/broken surrogate" check — a bare regex for the range would false-
+		// positive on every correctly-paired astral character.)
+		expect(saved).toBe(`${'x'.repeat(ON_DEVICE_INSTRUCTIONS_MAX - 1)}😀`);
+		expect(saved.isWellFormed()).toBe(true);
+		expect(Array.from(saved).length).toBe(ON_DEVICE_INSTRUCTIONS_MAX);
+	});
+
+	it('truncateCodePoints: a plain slice would have split the pair; this does not', () => {
+		const s = `${'a'.repeat(9)}😀`; // 11 UTF-16 units, 10 code points
+		expect(s.length).toBe(11); // the naive (wrong) unit count
+		expect(s.slice(0, 10)).not.toBe(s); // .slice(0,10) WOULD cut the emoji in half
+		expect(truncateCodePoints(s, 10)).toBe(s); // code-point-safe: all 10 chars fit whole
+		expect(truncateCodePoints(s, 9)).toBe('a'.repeat(9)); // drops the whole emoji, not half of it
 	});
 });
 

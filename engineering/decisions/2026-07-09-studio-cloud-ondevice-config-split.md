@@ -138,6 +138,83 @@ Post-review feedback sharpened the TTS section further:
   available again — disabling only blocks new edits while there's no model to
   apply them to, it never clears a stored preference.
 
+## Adversarial trio (red team + Munger inversion + independent checker), pre-merge
+
+Run against the branch as it stood after the follow-up above — every finding
+below was independently verified (reproduced or traced), not assumed.
+
+**Fixed:**
+
+- **Stale TTS availability on a live disconnect (red team, Medium — reproduced).**
+  `TtsSettings.tsx` fetched `voiceAvailability()` once on mount and never re-checked
+  it. Clicking Disconnect in the Model section of the SAME open Workspace sheet left
+  the TTS model/voice/speed/preview controls enabled against a dead connection — a
+  visible contradiction with the Model/Spend sections, which correctly re-render on
+  the same event. Fixed with a `db-model-changed`/`db-voice-changed` listener that
+  re-fetches availability, mirroring `useArchitectStatus`'s own pattern in
+  `architect.ts`. Covered by a new test that flips the mocked availability and
+  dispatches the event mid-render.
+- **`.slice(0, 300)` can split a surrogate pair (red team, Low-Medium —
+  reproduced).** `String.slice` counts UTF-16 code units, not characters; an
+  on-device instruction ending on an emoji or any astral-plane character exactly at
+  the 300-unit boundary was truncated mid-codepoint. Fixed with
+  `truncateCodePoints` (iterates via `Array.from`, which splits by code point) in
+  both `studio-store.ts`'s load/save and the live-typing handler in
+  `WorkspaceSheet.tsx`. Residual, deliberately unfixed: the textarea's native
+  `maxLength={300}` is itself UTF-16-unit-based and can pre-empt this at the
+  browser level during live typing before our JS ever runs — closing that fully
+  would mean abandoning `maxLength` for hand-rolled per-keystroke limiting, judged
+  not worth it for this edge case.
+- **`pickOrModel`'s roster-reset blanked the field without persisting the clear
+  (independent checker, Low — reproduced by trace).** Switching to a model with an
+  UNRECOGNIZED voice roster (`voicesForModel` → `[]`) unconditionally ran the reset
+  branch, calling `setOrVoiceOther('')` (blanking the visible free-text field) but
+  never `setTtsOrVoice('')` (the persisted value was untouched) — so the old value
+  silently reappeared on the next reload while the screen showed empty. Fixed by
+  extracting the decision into `voiceResetOnModelChange` (returns `null` — not an
+  empty-string reset — when the new roster is empty, since free text is valid for
+  any model and there's nothing to reset FROM/TO), now unit-tested directly.
+- **No unmount cleanup for an in-flight preview (red team, Low).** Unlike
+  `useReadAloud`'s cleanup (`voiceRef.current?.stop()`), `TtsSettings.tsx` had none
+  — closing the Workspace sheet mid-preview let the sample play to its natural end.
+  Fixed with a `stopTtsPreview()` bridge function + unmount effect, mirroring the
+  existing pattern.
+
+**Not fixed — reasoned as acceptable, or explicit prior direction:**
+
+- **Standing instructions duplication/drift risk (Munger inversion).** Two
+  independent fields with no sync affordance means a user who tunes their cloud
+  voice guide must remember to separately update the on-device one. This is the
+  DIRECT consequence of the "fully separate namespaces" + "separate capped field"
+  decisions made explicitly with the user earlier in this design — not an oversight
+  to patch here. A sync/reminder UX is a legitimate future request, not a
+  correctness bug.
+- **Every TTS control disables until its tier is available, blocking
+  pre-configuration (Munger inversion).** A brand-new user can't pick a voice from
+  the (static, connection-independent) curated roster before connecting/
+  downloading, unlike a design that let curated browsing stay open while gating
+  only Play-sample/actual-use. This mirrors `ModelPicker.tsx`'s established
+  precedent and was built in direct response to the user's explicit request
+  ("configuration should be disabled if no model is enabled") — not reversed here,
+  but the tradeoff (real, and un-weighed in the original ask) is recorded for
+  reconsideration if pre-configuration turns out to matter in practice.
+- **kokoro-js loaded from an unpinned CDN, no SRI (Munger inversion).**
+  `voice-model.js`'s `KOKORO_URL` (`https://esm.run/kokoro-js`) and the same import
+  in `kokoro-worker.js` predate this PR — it's an inherited pattern from
+  `architect-model.js`'s own CDN usage, not introduced here. Off this PR's path per
+  HARD RULE #18; logged as a candidate follow-up (a version-pinned URL and/or a
+  subresource-integrity hash), not fixed in this diff.
+- **One-time reset of any previously-set Studio voice/speed preference (red
+  team).** Studio's read-aloud (word-synced narration in Present mode) already
+  existed before this PR and shared `lattice-db-voice-*` keys with the Drawing
+  Board; moving the Studio to its own `lattice-studio-voice-*` namespace means
+  anyone who'd already picked a non-default voice/speed via the Drawing Board's
+  Settings → Voice tab (and had it apply to Studio too, by virtue of the shared
+  key) sees that revert to Kokoro defaults (`af_heart`, `auto`, 1.0×) once. This is
+  the correct trade for the isolation this PR sets out to deliver — flagged in
+  CHANGELOG.md rather than "fixed" (there is nothing to migrate: the two surfaces'
+  prefs were never meant to be the same setting, they just accidentally were).
+
 ## What's explicitly out of scope
 
 - **On-device speech-to-text / dictation (Whisper or otherwise).** Nothing here
