@@ -118,14 +118,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// would stall the chain — so while autoplaying, skip an empty slide straight to
 	// the next (or end the run if it's the last).
 	React.useEffect(() => {
-		if (!autoplay || reader.sentences.length > 0) return;
+		if (!autoplay || reader.track.cues.length > 0) return;
 		if (clamped < count - 1) {
 			autoAdvanceRef.current = true;
 			setIdx((i) => Math.min(i + 1, count - 1));
 		} else {
 			setAutoplay(false);
 		}
-	}, [autoplay, reader.sentences.length, clamped, count]);
+	}, [autoplay, reader.track.cues.length, clamped, count]);
 	// Toggle autoplay: turning it on starts reading the deck now; off stops.
 	const toggleAutoplay = React.useCallback(() => {
 		setAutoplay((on) => {
@@ -136,15 +136,6 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		});
 	}, []);
 	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
-	// Stable caption keys (content + per-content occurrence — not the array index).
-	const captionParts = React.useMemo(() => {
-		const seen = new Map<string, number>();
-		return reader.sentences.map((s) => {
-			const n = seen.get(s) ?? 0;
-			seen.set(s, n + 1);
-			return { s, key: `${n}:${s}` };
-		});
-	}, [reader.sentences]);
 
 	// REAL rehearsal plan — the deterministic planner the Drawing Board ships
 	// (drawing-board-rehearsal.js): metas → per-slide dwell targets, role-specific
@@ -270,15 +261,22 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						<span className="inline-flex max-w-[680px] items-center gap-2 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg))] px-3.5 py-2 text-center text-[13px] font-semibold text-[var(--text-heading)] shadow-[0_8px_24px_rgba(10,22,40,.14)]"><Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" />{coach}</span>
 					</div>
 				)}
-				{/* Read-aloud teleprompter — the spoken sentence, highlighted live. */}
-				{!rehearse && reader.playing && reader.sentences.length > 0 && (
+				{/* Read-aloud teleprompter — the narration, with the word being spoken NOW
+				    highlighted live (the cursor re-anchors to the real voice when clocked). */}
+				{!rehearse && reader.playing && reader.track.cues.length > 0 && (
 					<div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-4">
 						<output className="max-w-[760px] rounded-2xl border border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-4 py-2.5 text-center text-[15px] leading-snug shadow-[0_8px_24px_rgba(10,22,40,.16)] backdrop-blur-sm sm:text-[17px]">
-							{captionParts.map((p, i) => (
-								<span key={p.key} className={cn('transition-colors', i === reader.index ? 'font-semibold text-[var(--text-heading)]' : 'text-muted-foreground/70')}>
-									{p.s}{' '}
-								</span>
-							))}
+							{reader.track.cues.map((cue, ci) =>
+								cue.words.map((w, wi) => {
+									const on = reader.active?.cueIndex === ci && reader.active?.wordIndex === wi;
+									return (
+										// biome-ignore lint/suspicious/noArrayIndexKey: a static track never reorders, and word text repeats — (cueIndex, wordIndex) IS the word's stable identity.
+										<span key={`${ci}:${wi}`} className={cn('transition-colors', on ? 'font-semibold text-[var(--text-heading)]' : 'text-muted-foreground/70')}>
+											{w.display}{' '}
+										</span>
+									);
+								}),
+							)}
 						</output>
 					</div>
 				)}
@@ -295,9 +293,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<span className="h-5 w-px shrink-0 bg-border" />
 				<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : reader.toggle())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause read-aloud' : 'Play read-aloud'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
 				<div className="relative hidden h-[5px] w-[180px] rounded-full bg-border sm:block">
-					<span className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300" style={{ width: `${rehearse ? Math.min(100, (elapsed / target) * 100) : reader.sentences.length ? Math.round(((reader.index + 1) / reader.sentences.length) * 100) : 0}%` }} />
+					<span className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300" style={{ width: `${rehearse ? Math.min(100, (elapsed / target) * 100) : Math.round(reader.progress * 100)}%` }} />
 				</div>
-				<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{rehearse ? `${fmt(elapsed)} / ${fmt(target)}` : reader.sentences.length ? `${Math.max(0, reader.index + 1)} / ${reader.sentences.length}` : '0 / 0'}</span>
+				<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{rehearse ? `${fmt(elapsed)} / ${fmt(target)}` : reader.track.cues.length ? `${(reader.active?.cueIndex ?? -1) + 1} / ${reader.track.cues.length}` : '0 / 0'}</span>
 				{rehearse ? (
 					<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
 				) : (
