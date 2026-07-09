@@ -65,6 +65,23 @@ describe('slideToSpeech — Markdown → readable narration', () => {
 		expect(slideToSpeech('')).toBe('');
 		expect(slideToSpeech('<!-- _class: cover -->')).toBe('');
 	});
+
+	it('punctuates list items and headings so they read as separate clauses', () => {
+		const out = slideToSpeech('## Revenue grew\n\n- First stage\n- Second stage\n- Third stage');
+		// Each structural line gets its own terminator — Cadenza's PAUSE_MS then
+		// falls between them instead of one breathless run-on.
+		expect(out).toBe('Revenue grew. First stage. Second stage. Third stage.');
+	});
+
+	it('does not double-punctuate a line that already ends in punctuation', () => {
+		const out = slideToSpeech('## Where the flow drops off.\n\n- Grew 12%.\n- Flat, unchanged.');
+		expect(out).toBe('Where the flow drops off. Grew 12%. Flat, unchanged.');
+	});
+
+	it('leaves plain paragraph continuations alone (no invented mid-sentence break)', () => {
+		const out = slideToSpeech('We shipped the feature\nahead of schedule and under budget.');
+		expect(out).toBe('We shipped the feature ahead of schedule and under budget.');
+	});
 });
 
 // onFinish is the natural-end signal Present's autoplay chains on — it must fire when
@@ -176,5 +193,106 @@ describe('useReadAloud — audio-clock sync', () => {
 		});
 		const a = result.current.active;
 		expect(a && a.cueIndex === 0 && a.wordIndex > 0).toBe(true); // advanced WITHIN sentence 0, on the audio clock
+	});
+});
+
+// play() defers its FIRST tick to getVoice().then() (see
+// engineering/decisions/2026-07-09-cadenza-narration-quality.md §3.3) so the highlight
+// loop never runs a frame before the mode is known. That moved the "always runs" floor
+// out of play()'s synchronous body — this guards the fallback that keeps it true when
+// the voice model fails to load entirely. Uses its own module instance (resetModules)
+// because `read-aloud.ts`'s voice-model promise is a file-wide singleton the earlier
+// tests in this file have already resolved.
+describe('useReadAloud — resilience when the voice model fails to load', () => {
+	afterEach(async () => {
+		vi.doUnmock('@/playground/voice-model.js');
+		vi.resetModules();
+	});
+
+	it('still runs the estimate-driven read-along instead of hanging silently', async () => {
+		vi.resetModules();
+		vi.doMock('@/playground/voice-model.js', () => ({
+			createVoiceModel: () => {
+				throw new Error('voice model unavailable');
+			},
+		}));
+		const { useReadAloud: useReadAloudFresh } = await import('./read-aloud');
+		vi.useFakeTimers();
+		try {
+			const onFinish = vi.fn();
+			const { result } = renderHook(() => useReadAloudFresh('One. Two.', { onFinish }));
+			act(() => result.current.play());
+			expect(result.current.playing).toBe(true);
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(12000);
+			});
+			expect(onFinish).toHaveBeenCalledTimes(1);
+			expect(result.current.playing).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+// A maker-checker finding: pausing DURING the arming window (voice load still in
+// flight) and resuming before it resolves must not restart the loop on the stale
+// default mode — that reproduces the exact race-then-rewind this file exists to
+// fix, just reached via pause/resume instead of a fresh play(). armedRef gates
+// this: the loop only starts once the mode is actually decided, whichever of
+// resume() or the pending getVoice().then() callback gets there second.
+describe('useReadAloud — pause/resume during the voice-arming window', () => {
+	afterEach(async () => {
+		vi.doUnmock('@/playground/voice-model.js');
+		vi.resetModules();
+	});
+
+	it('resuming before the voice resolves does not race the loop into a stale mode', async () => {
+		vi.resetModules();
+		let resolveVoice: () => void = () => {};
+		const gate = new Promise<void>((res) => {
+			resolveVoice = () => res();
+		});
+		vi.doMock('@/playground/voice-model.js', () => ({
+			createVoiceModel: () =>
+				gate.then(() => ({
+					speak() {},
+					stop() {},
+					pause() {},
+					resume() {},
+					rung: () => 'kokoro',
+					unlock() {},
+					audioTimeMs: () => 0,
+					outputLatencyMs: () => 0,
+				})),
+		}));
+		const { useReadAloud: useReadAloudFresh } = await import('./read-aloud');
+		vi.useFakeTimers();
+		try {
+			const { result } = renderHook(() => useReadAloudFresh('Alpha bravo charlie. Delta echo.'));
+			act(() => result.current.play()); // cold start — arming begins, voice still pending
+			act(() => result.current.pause()); // paused while still arming
+			act(() => result.current.play()); // resumed — still before the voice resolves
+			// Not yet armed (the voice hasn't resolved): the loop must not be running
+			// on the stale default mode, so nothing has advanced.
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(500);
+			});
+			expect(result.current.active).toBeNull();
+			// The voice resolves now — arming completes. Since we're not paused, the
+			// pending callback starts the loop itself, already in 'audio' mode.
+			resolveVoice();
+			await act(async () => {
+				await Promise.resolve();
+				await Promise.resolve();
+			});
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(500);
+			});
+			// Held at word 0 (audio mode, no onset yet) — never raced ahead on the
+			// estimate first.
+			expect(result.current.active).toEqual({ cueIndex: 0, wordIndex: 0 });
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

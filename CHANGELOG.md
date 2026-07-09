@@ -46,6 +46,18 @@ in patch versions.
 
 ### Fixed
 
+- **The Studio read-along no longer races its own highlight.** `useReadAloud`'s
+  frame loop started synchronously, in text-estimate mode, before the async voice
+  model resolved — so a clocked voice (OpenRouter/Kokoro) attaching after some real
+  wall-clock delay reset the word cursor back to the first word, a visible
+  race-then-rewind. The loop's first tick is now deferred until the mode is
+  actually known. See `engineering/decisions/2026-07-09-cadenza-narration-quality.md`.
+- **Read-aloud narration no longer runs bullets together with no breath.**
+  `slideToSpeech` flattened headings/list items with no terminator, so Cadenza's
+  existing punctuation-driven pause never fired between them. Structural lines
+  (headings, list items, blockquotes) now get a terminator if missing; plain
+  paragraph continuations are untouched. Same decision doc.
+
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
   adds at render time, so a deck built from `lattice.css` + the runtime + a theme
@@ -63,6 +75,13 @@ in patch versions.
 
 ### Added
 
+- **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
+  conversion % is computed at render time (`funnel.transform.js`) and never existed
+  in the slide's Markdown, so it was silently absent from every read-aloud. A new
+  narration pilot (`docs/src/components/studio/chart-narration.ts`) recognizes a
+  `funnel` slide and speaks each stage's value and its conversion rate from the
+  prior stage; a hand-authored speaker note still takes priority. Deliberately
+  narrow — one component, not a chart-family-wide schema. Same decision doc.
 - **The Studio Share sheet can export read-along captions.** A new **“Captions
   (.vtt)”** row (alongside PDF / PowerPoint / Webpage) reads each slide's speaker
   notes, builds a Cadenza estimate track per narrated slide, and downloads a zip

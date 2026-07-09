@@ -12,6 +12,10 @@ import { type Active, buildTrack, type CaptionTrack, makeReader, type Reader } f
 //       that cue's words via reader.align() — so the highlight tracks the real voice.
 //     • 'silent' — no blob clock (browser voice / no key): a plain wall-clock estimate off
 //       Cadenza's built-in word timings, so the read-along always runs.
+//   The loop's FIRST tick is deferred until the mode above is actually decided (see
+//   play()) — starting it eagerly in 'silent' mode raced the highlight ahead of a
+//   clocked voice that hadn't resolved yet, then snapped it back to word 0 once it
+//   did; see engineering/decisions/2026-07-09-cadenza-narration-quality.md.
 //
 // Spoken audio rides the production voice ladder (voice-model.js); we never use raw
 // speechSynthesis (the per-device lottery banned in production; see
@@ -27,6 +31,12 @@ const OR_KEY_LS = 'lattice-db-or-key';
  * the inline syntax (`#`, `-`, `>`, `*`, backticks, links), keeping the words.
  * Pure — safe in SSR and tests.
  */
+// A structural line — heading, list item, blockquote — is its own spoken clause;
+// a plain line is a soft-wrapped continuation of one. Only structural lines get an
+// auto-terminator (below) — inventing a break mid-paragraph would be wrong.
+const STRUCTURAL_LINE = /^(#{1,6}\s|[-*+]\s|\d+\.\s|>\s?)/;
+const TERMINATED = /[.!?;:,…]\s*$/;
+
 export function slideToSpeech(markdown: string): string {
 	const lines = String(markdown || '').split('\n');
 	const out: string[] = [];
@@ -42,7 +52,10 @@ export function slideToSpeech(markdown: string): string {
 		if (/^<!--/.test(line)) continue; // _class / directive comments
 		if (/^!\[/.test(line)) continue; // ![bg](…) / images — nothing to say
 		if (/^[-=*_]{3,}$/.test(line)) continue; // slide rule / hr
-		out.push(line);
+		// Give a structural line a terminator so Cadenza's punctuation-driven pause
+		// (cadence.ts's PAUSE_MS) actually falls between clauses — otherwise a list
+		// of bullets reads as one run-on sentence with no breath between them.
+		out.push(STRUCTURAL_LINE.test(line) && !TERMINATED.test(line) ? `${line}.` : line);
 	}
 	let text = out.join(' ');
 	// Inline syntax → words only.
@@ -180,6 +193,17 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 	const rafRef = React.useRef(0);
 	const playingRef = React.useRef(false);
 	const pausedRef = React.useRef(false);
+	// True once the current play() session's mode (audio vs. estimate) has been
+	// decided and the loop has run its arming logic at least once — see play()'s
+	// getVoice().then() below. Lets pause()/resume() tell "the loop is already
+	// correctly armed, just restart it" apart from "a play() is still arming" —
+	// without it, a pause+resume during the arming window (a real voice load takes
+	// real wall-clock time) restarted the loop in the stale default mode, then the
+	// still-pending arming callback landed later and reset it — the exact
+	// race-then-rewind this file exists to fix, just reachable via pause/resume
+	// instead of a cold play(). See
+	// engineering/decisions/2026-07-09-cadenza-narration-quality.md §3.3.
+	const armedRef = React.useRef(false);
 	const ctlRef = React.useRef<AbortController | null>(null);
 	const voiceRef = React.useRef<VoiceModel | null>(null);
 	const modeRef = React.useRef<'silent' | 'audio'>('silent');
@@ -198,6 +222,7 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 		cancelRaf();
 		playingRef.current = false;
 		pausedRef.current = false;
+		armedRef.current = false;
 		ctlRef.current?.abort();
 		ctlRef.current = null;
 		try {
@@ -239,6 +264,7 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 				// highlight), then signal a chaining caller.
 				cancelRaf();
 				playingRef.current = false;
+				armedRef.current = false;
 				ctlRef.current?.abort();
 				ctlRef.current = null;
 				try {
@@ -258,6 +284,7 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 			cancelRaf();
 			playingRef.current = false;
 			pausedRef.current = false;
+			armedRef.current = false;
 			ctlRef.current?.abort();
 			ctlRef.current = null;
 			try {
@@ -323,7 +350,14 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 			} catch {
 				/* best-effort */
 			}
-			startLoop();
+			// Only start the loop here if it was already armed (mode decided) before
+			// the pause. A pause tapped WHILE the original play() was still arming
+			// (voice load in flight) leaves armedRef false — in that case the still-
+			// pending getVoice().then() callback below is what starts the loop, once
+			// it sees pausedRef is false again; starting it here too would race the
+			// loop in the stale default mode against that callback's later mode
+			// decision — the exact bug this file exists to fix.
+			if (armedRef.current) startLoop();
 			return;
 		}
 
@@ -331,15 +365,33 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 		ctlRef.current = ctl;
 		elapsedRef.current = 0;
 		audioBaseRef.current = null;
-		modeRef.current = 'silent'; // the estimate carries the highlight until an onset arrives
+		modeRef.current = 'silent'; // the default mode; overridden below once the rung is known
+		armedRef.current = false;
 		reader.reset();
 		playingRef.current = true;
 		setPlaying(true);
-		startLoop();
+		// The RAF loop's FIRST tick is deferred to getVoice().then() below, once the
+		// mode (audio vs. estimate) is actually decided — starting it here, in
+		// 'silent' mode, before knowing whether a clocked voice would attach made the
+		// highlight visibly race ahead on the estimate and then snap back to word 0
+		// when a clocked voice's onset landed (see
+		// engineering/decisions/2026-07-09-cadenza-narration-quality.md §2/§3.3). The
+		// existing "hold at 0 until the real onset arrives" behavior in tick() is
+		// unrelated and unchanged — that gap was never the bug.
 
 		// Spoken audio in parallel once the voice model is ready (best-effort).
 		getVoice().then((voice) => {
-			if (!voice || ctl.signal.aborted) return;
+			if (ctl.signal.aborted) return;
+			if (!voice) {
+				// Voice model failed to load — the silent estimate still runs the
+				// read-along (the header's "always runs" floor), it just never got a
+				// chance to start until now. armedRef is set regardless of whether we
+				// start the loop immediately — a pause tapped during this wait means
+				// resume(), not this callback, starts it (see the pausedRef check above).
+				armedRef.current = true;
+				if (!pausedRef.current) startLoop();
+				return;
+			}
 			voiceRef.current = voice;
 			let r: string;
 			try {
@@ -361,6 +413,12 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 				elapsedRef.current = 0; // hold at 0 until sentence-0's onset arrives
 				reader.reset();
 			}
+			// The mode is decided — arm. If a pause() landed while we were waiting on
+			// the voice, don't start the loop out from under it; resume() will, and it
+			// will do so already in the right mode since armedRef is now true (see the
+			// pausedRef check in play()'s resume branch above).
+			armedRef.current = true;
+			if (!pausedRef.current) startLoop();
 			if (r && r !== 'silent') {
 				const spoken = track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
 				voice.speak({
