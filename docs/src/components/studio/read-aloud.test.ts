@@ -248,9 +248,9 @@ describe('useReadAloud — pause/resume during the voice-arming window', () => {
 
 	it('resuming before the voice resolves does not race the loop into a stale mode', async () => {
 		vi.resetModules();
-		let resolveVoice: (() => void) | null = null;
+		let resolveVoice: () => void = () => {};
 		const gate = new Promise<void>((res) => {
-			resolveVoice = res;
+			resolveVoice = () => res();
 		});
 		vi.doMock('@/playground/voice-model.js', () => ({
 			createVoiceModel: () =>
@@ -280,7 +280,7 @@ describe('useReadAloud — pause/resume during the voice-arming window', () => {
 			expect(result.current.active).toBeNull();
 			// The voice resolves now — arming completes. Since we're not paused, the
 			// pending callback starts the loop itself, already in 'audio' mode.
-			resolveVoice?.();
+			resolveVoice();
 			await act(async () => {
 				await Promise.resolve();
 				await Promise.resolve();
