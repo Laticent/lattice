@@ -141,6 +141,22 @@ is skipped) and dual-package is safe (both libs are pure / name-based, no cross-
   workspace entry is *not* that move — it's a root-package resolution edge, zero import-path churn.)
 - **Rewriting consumers** — docs imports stay as-is, on source.
 
+### ⚠ Publish prerequisite — the shipped `lattice` bin `require`s `@slidewright/cadenza`
+
+Because `@slidewright/cadenza` is a **workspace** package (not in root `dependencies`, not published),
+it resolves ONLY via the in-repo `node_modules/@slidewright/cadenza` symlink. Since the read-along
+export work, the shipped root CJS `require`s it: `lib/core/read-along-vtt.js` and
+`lib/core/read-along-build.js` (both in the published `files: ["lib/"]`), and the `lattice` bin hits
+that path at runtime under `--captions`. **In-repo this is fine** (the symlink is present; the bundled
+`dist/lattice-emulator.js` keeps the require external). **But a plain `npm publish` + `npm i -g` — or a
+Tauri desktop package that ships `dist/`+`lib/` without the workspace `node_modules` — would
+`MODULE_NOT_FOUND` on `--captions`.** So, as a hard prerequisite of the eventual publish (and of any
+desktop packaging), one of: **(a)** bundle Cadenza into the emulator (drop `@slidewright/cadenza` from
+`tools/build-emulator.js`'s `packages: 'external'`, e.g. via an esbuild alias to its built `dist/index.cjs`
+— then reorder `tools/build.js` so `cadenza-lib` builds before the emulator), or **(b)** publish
+`@slidewright/cadenza` and declare it a real `dependency`. Tracked here rather than fixed now, since
+publish + packaging are the non-goals above (HARD RULE #18: off-path, logged not pulled into the diff).
+
 ## Build order (slices, each its own PR, each builds/tests against `main` alone — HARD RULE #17)
 
 1. **Cadenza workspace + build** — add the workspace entry, `package.json` (`exports` split), the

@@ -81,20 +81,26 @@ in patch versions.
   contract (`engineering/decisions/2026-07-08-read-along-export-manifest.md`); no
   exporter populates it yet.
 
-- **The export can derive a WebVTT caption sidecar from a read-along.** A new
-  node-loadable `lib/core/read-along-vtt.js` turns a manifest `readAlong` section
-  into WebVTT — one deck-level `.vtt` (each slide offset by prior durations) or
-  per-slide files. It mirrors Cadenza's `toVtt` (the CJS export pipeline can't import
-  the docs-side engine) and is pinned byte-identical to it by a cross-check test, so
-  the two can't drift. Not yet wired into an export command.
+- **The CLI exports read-along captions.** `lattice deck.md deck.pdf --captions`
+  writes WebVTT sidecars from the speaker notes — one deck-level `<output>.vtt`
+  (continuous, deck-absolute timeline) plus per-slide `<output>.NN.vtt`, alongside any
+  output format (the `.vtt` never touches the deck's bytes). Timing is Cadenza's
+  offline estimate (no audio, no TTS key); honors `--strip-notes`. Demo deck:
+  `examples/read-along-captions.md`. Completes the read-along export contract's
+  regenerate path (`engineering/decisions/2026-07-08-read-along-export-manifest.md`).
 
-- **A builder assembles a read-along from a deck's narration.** `buildReadAlong`
-  (`docs/src/lib/read-along-build.ts`) turns per-slide narration text into the
-  `readAlong` section — voice config plus a Cadenza estimate track per narrated slide
-  (blank slides skipped, sparse by index). Pure and offline (no key, no audio); it's
-  the producer that feeds the manifest field and the `.vtt` deriver. An end-to-end
-  test proves the chain (build → manifest round-trip → deck `.vtt`) composes. Not yet
-  wired into an export command.
+- **The export derives a WebVTT caption sidecar from a read-along.**
+  `lib/core/read-along-vtt.js` turns a manifest `readAlong` section into WebVTT — one
+  deck-level `.vtt` (each slide offset by prior durations) or per-slide files. It
+  consumes Cadenza's `toVtt` from the built `@slidewright/cadenza` workspace package —
+  one source of truth (the former node-loadable hand-mirror is retired).
+
+- **A shared producer assembles a read-along from a deck's narration.** `buildReadAlong`
+  (`lib/core/read-along-build.js`, root CJS — consumed by both the CLI and the docs)
+  turns per-slide narration text into the `readAlong` section: voice config plus a
+  Cadenza estimate track per narrated slide (blank slides skipped, sparse by index).
+  Pure and offline (no key, no audio); an end-to-end test proves the chain
+  (build → manifest round-trip → deck `.vtt`) composes.
 
 - **Deck theme + color mode are now independent of the website.** A deck's own
   `theme:` front matter is always respected when previewing or exporting on the docs

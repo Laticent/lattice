@@ -138,6 +138,10 @@ OPTIONS
   -q, --quiet             Suppress non-error progress output
       --notes             Also write a plaintext speaker-notes sidecar
                           (<output>.notes.txt), one block per slide
+      --captions          Also write read-along WebVTT caption sidecars from the
+                          speaker notes — one deck-level <output>.vtt (continuous
+                          timeline) plus per-slide <output>.NN.vtt. Timing is
+                          Cadenza's estimate (no audio, no key); honors --strip-notes
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
                           shareable file with no speaker text
@@ -246,6 +250,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '-q' || a === '--quiet') { flags.quiet = true; continue; }
     if (a === '--notes') { flags.notes = true; continue; }
+    if (a === '--captions') { flags.captions = true; continue; }
     if (a === '--strip-notes') { flags['strip-notes'] = true; continue; }
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
@@ -300,6 +305,7 @@ if (flags.output)  outFile    = flags.output;
 if (flags.palette) paletteArg = flags.palette;
 const QUIET = flags.quiet;
 const NOTES_SIDECAR = !!flags.notes;
+const CAPTIONS = !!flags.captions;
 // `--strip-notes`: the privacy strip for the self-contained player. Notes ride by
 // default (present-from-it), but this scrubs them from EVERY baked copy — the slide
 // DOM aside, the PDF text annotation, AND the envelope `source` (design doc §Notes
@@ -2035,6 +2041,10 @@ async function renderBody(browser, g, closeBrowser) {
     fs.writeFileSync(outHtml, toFluidViewer(cleanDocHtml));
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
+  // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next
+  // to the deck, not baked into its bytes. Uses `materializedNotes` so --strip-notes
+  // scrubs the captions too (a stripped deck emits no narration).
+  if (CAPTIONS) writeCaptionsSidecar(outFile, materializedNotes);
 }
 
 // P6 — used-selector CSS prune for the self-contained player. Drops the rules of
@@ -2516,4 +2526,34 @@ function writeNotesSidecar(pdfPath, notes) {
   const sidecar = pdfPath.replace(/\.pdf$/i, '') + '.notes.txt';
   fs.writeFileSync(sidecar, blocks.length ? blocks.join('\n') : '(no speaker notes in this deck)\n');
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
+}
+
+// Read-along WebVTT sidecars from per-slide narration (--captions). Builds Cadenza
+// estimate tracks via the shared root producer, then derives one deck-level .vtt
+// (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
+// offline — no audio, no TTS key. See 2026-07-08-read-along-export-manifest.md.
+function writeCaptionsSidecar(outPath, notes) {
+  const { buildReadAlong } = require('./lib/core/read-along-build.js');
+  const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
+  const base = outPath.replace(/\.(pdf|html?|pptx|png)$/i, '');
+  const readAlong = buildReadAlong(notes, {
+    // Voice is metadata for the manifest; captions time off `pace`, not the voice.
+    voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
+    pace: 'moderate',
+  });
+  if (!readAlong.slides.length) {
+    if (!QUIET) console.log('Captions: no speaker notes to narrate — no .vtt written');
+    return;
+  }
+  fs.writeFileSync(`${base}.vtt`, readAlongToVtt(readAlong)); // deck-level, continuous
+  const parts = readAlongToVttParts(readAlong); // per-slide, slide-relative
+  const pad = Math.max(2, String(notes.length).length);
+  for (const { index, vtt } of parts) {
+    fs.writeFileSync(`${base}.${String(index + 1).padStart(pad, '0')}.vtt`, vtt);
+  }
+  if (!QUIET) {
+    console.log(
+      `Captions: ${parts.length} narrated slide${parts.length === 1 ? '' : 's'} → ${base}.vtt + ${parts.length} per-slide .vtt`,
+    );
+  }
 }
