@@ -97,6 +97,8 @@ type VoiceModel = {
 	pause: () => void;
 	resume: () => void;
 	rung: () => string;
+	/** iOS audio unlock — MUST run synchronously inside a user gesture (the play tap). */
+	unlock: () => void;
 };
 let voicePromise: Promise<VoiceModel | null> | null = null;
 function getVoice(): Promise<VoiceModel | null> {
@@ -144,6 +146,21 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 	const idxRef = React.useRef(-1);
 	const voiceRef = React.useRef<VoiceModel | null>(null);
 
+	// Warm the voice model as soon as the reader mounts (Present opens), so it's
+	// ready to `unlock()` SYNCHRONOUSLY on the first play tap. iOS only grants audio
+	// when the context resumes inside a user gesture; a voice loaded lazily *after*
+	// the tap (via getVoice().then) resumes too late and stays muted — the bug that
+	// left Present silent on iPhone while the eagerly-warmed /cadenza demo played.
+	React.useEffect(() => {
+		let live = true;
+		getVoice().then((v) => {
+			if (live && v) voiceRef.current = v;
+		});
+		return () => {
+			live = false;
+		};
+	}, []);
+
 	const clearTimer = React.useCallback(() => {
 		if (timerRef.current) {
 			clearTimeout(timerRef.current);
@@ -186,6 +203,15 @@ export function useReadAloud(text: string, opts?: { onFinish?: () => void }): Re
 
 	const play = React.useCallback(() => {
 		if (!sentences.length) return;
+		// iOS audio handshake: resume the audio context NOW, synchronously inside the
+		// play tap (the warmed voice from the mount effect is ready here). This must
+		// happen in the gesture — the async speak() below runs a beat later and would
+		// be muted on iPhone without it. Mirrors the /cadenza demo's click handler.
+		try {
+			voiceRef.current?.unlock();
+		} catch {
+			/* best-effort */
+		}
 		// Resume from a paused position rather than restarting.
 		if (pausedRef.current) {
 			pausedRef.current = false;
