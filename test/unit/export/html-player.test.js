@@ -121,14 +121,33 @@ test('carries the three view controls + the Typora TOC shell', async () => {
 	assert.match(html, /id="lp-toc"/, 'the article TOC shell is present');
 });
 
-test('the player inlines the transport kernel with its EXACT fit insets (frozen fit)', async () => {
-	// The fit must stay byte-identical to the historical Math.min((iw-56)/1280,(ih-104)/720).
-	// The kernel is inlined via .toString(), so a silent edit of these insets would pass
-	// the kernel unit suite (integration-only exposure) — pin the wiring here.
+test('the player inlines the transport kernel and fits against the MEASURED stage box', async () => {
+	// Regression: the fit scale was once computed against innerWidth/innerHeight with a
+	// hand-tuned insetY (48+56) baking the top bar's height into the inset budget — a
+	// DIFFERENT number than the #lp-stage element's own CSS height (which already
+	// excludes the bar). The two could drift apart (depending on how --lp-vh resolved
+	// on a given engine), producing asymmetric top/bottom padding around the centered
+	// slide. Fit now measures the stage element's own clientWidth/clientHeight directly,
+	// so the scale and the centering box are always the same measured box — symmetric
+	// by construction, immune to any dvh/visualViewport quirk.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /function fitScale\(/, 'the transport kernel is inlined into the player script');
-	assert.match(html, /slideW:1280,slideH:720,insetX:56,insetY:48\+56/, 'the player wires the exact historical insets');
+	assert.match(html, /var st=document\.getElementById\('lp-stage'\)/, 'fit measures the stage element directly');
+	assert.match(html, /stageW:stW,stageH:stH,slideW:1280,slideH:720,insetX:56,insetY:56/, 'the scale is computed against the measured stage box, not innerWidth/innerHeight');
 	assert.match(html, /createTransport\(\{count:slides\.length/, 'nav runs on the shared transport');
+});
+
+test('present resets the base #lp-stage padding-top so the centered slide sits symmetric', async () => {
+	// Regression: the base `#lp-stage{padding-top:48px}` rule (which clears the 48px bar
+	// for the normal-flow SCROLLING views, Read·Slides/Article) also applied in Present,
+	// where #lp-stage is ALREADY `position:fixed;top:48px`. That double-counted the bar —
+	// the padding ate into the grid/flex content box that place-items:center then
+	// centered WITHIN, not the full box — producing asymmetric top/bottom padding around
+	// the slide (measured: 62px top vs 14px bottom at one viewport). Present overrides it
+	// back to padding-top:0, restoring symmetric centering (confirmed 0px diff at three
+	// viewport sizes in Chromium).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /\[data-lp-view=present\] #lp-stage\{[^}]*padding-top:0/, 'present resets the base padding-top so centering is symmetric');
 });
 
 test('present mode ships a speaker-notes sheet reading the baked asides (P3d)', async () => {
@@ -259,7 +278,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '76946651491498740e8f90ad706062de7f1cda6772acd0d9da770379c984dbde', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '05173afe51afe086e191ea07be03a7b377b1a4aa32c3fe56f5c80cb90b839fae', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

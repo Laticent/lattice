@@ -406,13 +406,22 @@ in patch versions.
   Chromium doesn't reproduce. Each slide is now wrapped in a `.lp-frame` sized to
   the scaled footprint (so the column still packs tight) and the slide inside
   scales with `transform` (immune — cqi resolves once against its own intrinsic
-  1280×720 box). (4) **Present not vertically centered** — a third-party iOS
-  viewer's own in-app chrome can report a `dvh` that doesn't match what's
-  actually visible, pushing the centered stage off-screen-center; the stage
-  height now prefers a JS-measured `visualViewport`/`innerHeight` value, falling
-  back to `dvh` only pre-JS. A progressive-enhancement `.lp-js` gate keeps a
-  readable stacked-slide floor when the script is ever blocked. Confirmed
-  on-device.
+  1280×720 box). (4) **Present not vertically centered / asymmetric top-bottom
+  padding** — three compounding issues: a third-party iOS viewer's own in-app
+  chrome can report a `dvh` that doesn't match what's actually visible (the
+  stage height now prefers a JS-measured `visualViewport`/`innerHeight` value,
+  falling back to `dvh` only pre-JS); the fit scale was computed against
+  `innerWidth`/`innerHeight` with a hand-tuned inset baking in the top bar's
+  height, a different number than the `#lp-stage` element's own CSS height —
+  the two could drift apart (fit now measures the stage element's own
+  `clientWidth`/`clientHeight` directly, so the scale and the centering box are
+  always the same measured box); and a base `padding-top:48px` rule (meant for
+  the scrolling Read·Slides/Article views) also applied in Present, where the
+  stage is already `position:fixed;top:48px` — double-counting the bar and
+  eating into the centered content box asymmetrically (Present now resets it to
+  `padding-top:0`). Confirmed symmetric (0px top/bottom diff) at three viewport
+  sizes. A progressive-enhancement `.lp-js` gate keeps a readable stacked-slide
+  floor when the script is ever blocked. Confirmed on-device.
 - **The Studio “Download as webpage” export now renders and runs — not just
   assembles.** Two bugs made the browser-exported player ship broken on every
   browser (the file downloaded fine but opened to raw, unstyled slides that
