@@ -82,9 +82,17 @@ in patch versions.
   voice** section lets you pick the TTS model/voice/speed for each tier — the
   OpenRouter voice catalog for Cloud, a curated Kokoro voice roster (with its
   existing on-device download flow) for On-device — where previously the Studio
-  ran a silent "auto" voice ladder with no settings UI at all. The Studio's voice
-  prefs also moved to their own `lattice-studio-voice-*` keys, so they no longer
-  silently share state with the Drawing Board's voice picker. See
+  ran a silent "auto" voice ladder with no settings UI at all. Voice pickers are
+  **model-specific dropdowns** (Kokoro's own roster, OpenAI's standard six, or a
+  free-text fallback for an unrecognized model), not a raw text field, and
+  **picking a curated voice plays a sample immediately** so choosing a voice is
+  itself a way to hear it — the manual "Play sample" button stays for replaying
+  or auditioning free-text ids. Every TTS control (model, voice, speed, preview)
+  is disabled with an explanatory hint until that tier actually has a model
+  available — connected for Cloud, downloaded for On-device — matching how the
+  rest of the Workspace treats an unavailable tier. The Studio's voice prefs also
+  moved to their own `lattice-studio-voice-*` keys, so they no longer silently
+  share state with the Drawing Board's voice picker. See
   `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
 - **The Studio can download a deck as a self-contained webpage.** The Share sheet
   gained a **“Webpage (.html)”** row (alongside PDF / PPTX / Print) that assembles

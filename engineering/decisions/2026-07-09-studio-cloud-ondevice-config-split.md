@@ -109,6 +109,35 @@ in scope here; Kokoro stays the on-device TTS engine.
   uses for the text-generation ladder (Kokoro is a real ~80MB one-time download).
   Output language stays outside the gate — shared, as decided above.
 
+## Follow-up: model-specific voice dropdowns, hear-before-you-commit, disabled-until-available
+
+Post-review feedback sharpened the TTS section further:
+
+- **Voice ids are model-specific, so the picker is now too.** A raw free-text
+  "voice id" field made it easy to pick a Kokoro id for an OpenAI model (or vice
+  versa) and get a confusing failure. `voicesForModel(modelId)` (`TtsSettings.tsx`)
+  maps a cloud model to its curated roster — Kokoro's own list for
+  `hexgrad/kokoro-82m` (and the unset connect-time default), OpenAI's
+  publicly-documented six (`alloy`/`echo`/`fable`/`onyx`/`nova`/`shimmer`) for an
+  `openai/*` model, `[]` (a plain free-text fallback) for anything unrecognized —
+  guessing a wrong roster is worse than admitting we don't know it. Picking a new
+  cloud MODEL resets the voice to that model's own default when the current pick
+  isn't on its roster, so a stale cross-model id can't linger silently.
+- **Picking a voice is itself "a way to hear it."** Selecting a CURATED voice from
+  either dropdown now auto-plays a short sample immediately (gated on that tier
+  actually being available); the free-text "Other" path doesn't auto-fire on every
+  keystroke, so the manual **Play sample** button covers it (and replays). Loading
+  Kokoro also auto-previews its default voice the moment it finishes.
+- **Every TTS control is disabled until that tier has a model available** — the
+  Cloud model/voice/speed/preview controls until OpenRouter is connected, the
+  On-device voice/speed/preview controls until Kokoro is downloaded — each with an
+  inline hint explaining why, mirroring how `ModelPicker.tsx` already hides itself
+  entirely behind a Connect button rather than offering a picker with nothing to
+  pick. A voice/model/speed pick made BEFORE a tier went unavailable (or restored
+  from a backup) is untouched and still takes effect the moment that tier becomes
+  available again — disabling only blocks new edits while there's no model to
+  apply them to, it never clears a stored preference.
+
 ## What's explicitly out of scope
 
 - **On-device speech-to-text / dictation (Whisper or otherwise).** Nothing here
