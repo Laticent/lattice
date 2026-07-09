@@ -17185,16 +17185,26 @@ section.sketch h2 {
 section.sketch.cards-grid > ul > li,
 section.sketch.cards-grid > ol > li,
 section.sketch.cards-grid .card,
+section.sketch.cards-grid > .cell-stage > ul > li,
+section.sketch.cards-grid > .cell-stage > ol > li,
 section.sketch.cards-stack > ul > li,
 section.sketch.cards-stack > ol > li,
 section.sketch.cards-stack .card,
+section.sketch.cards-stack > .cell-stage > ul > li,
+section.sketch.cards-stack > .cell-stage > ol > li,
 section.sketch.verdict-grid > ul > li,
+section.sketch.verdict-grid > .cell-stage > ul > li,
 section.sketch.decision > ol > li,
+section.sketch.decision > .cell-stage > ol > li,
 section.sketch.matrix-2x2 > ol > li,
 section.sketch.matrix-2x2 > ul > li,
+section.sketch.matrix-2x2 > .cell-stage > ol > li,
+section.sketch.matrix-2x2 > .cell-stage > ul > li,
 section.sketch.pricing > ul > li,
+section.sketch.pricing > .cell-stage > ul > li,
 section.sketch.compare-prose .card,
 section.sketch.compare-prose > ol > li,
+section.sketch.compare-prose > .cell-stage > ol > li,
 section.sketch.citation-card > blockquote,
 /* The generic "KEY INSIGHT" blockquote (the trailing `> blockquote` on any
  * non-specialised layout — same target as base.modifiers' key-insight chrome)
@@ -17204,7 +17214,8 @@ section.sketch.citation-card > blockquote,
    pricing li, compare-prose .card) and the generic key-insight blockquote
    (0,5,2, beating base.modifiers' 0,4,2 chrome) all outrank their component
    rules on specificity, so no !important is needed here. */
-section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > blockquote {
+section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > blockquote,
+section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-stage > blockquote {
   border: 2px solid var(--sketch-ink);
   border-radius: 255px 12px 225px 15px / 15px 225px 15px 255px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
@@ -17215,28 +17226,46 @@ section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > blockq
 section.sketch.cards-grid > ul > li:nth-child(2n),
 section.sketch.cards-grid > ol > li:nth-child(2n),
 section.sketch.cards-grid .card:nth-child(2n),
+section.sketch.cards-grid > .cell-stage > ul > li:nth-child(2n),
+section.sketch.cards-grid > .cell-stage > ol > li:nth-child(2n),
 section.sketch.cards-stack > ul > li:nth-child(2n),
 section.sketch.cards-stack > ol > li:nth-child(2n),
 section.sketch.cards-stack .card:nth-child(2n),
+section.sketch.cards-stack > .cell-stage > ul > li:nth-child(2n),
+section.sketch.cards-stack > .cell-stage > ol > li:nth-child(2n),
 section.sketch.verdict-grid > ul > li:nth-child(2n),
+section.sketch.verdict-grid > .cell-stage > ul > li:nth-child(2n),
 section.sketch.decision > ol > li:nth-child(2n),
+section.sketch.decision > .cell-stage > ol > li:nth-child(2n),
 section.sketch.matrix-2x2 > ol > li:nth-child(2n),
 section.sketch.matrix-2x2 > ul > li:nth-child(2n),
-section.sketch.pricing > ul > li:nth-child(2n) {
+section.sketch.matrix-2x2 > .cell-stage > ol > li:nth-child(2n),
+section.sketch.matrix-2x2 > .cell-stage > ul > li:nth-child(2n),
+section.sketch.pricing > ul > li:nth-child(2n),
+section.sketch.pricing > .cell-stage > ul > li:nth-child(2n) {
   border-radius: 15px 225px 15px 255px / 225px 15px 255px 15px;
   transform: rotate(-0.5deg);
 }
 section.sketch.cards-grid > ul > li:nth-child(3n),
 section.sketch.cards-grid > ol > li:nth-child(3n),
 section.sketch.cards-grid .card:nth-child(3n),
+section.sketch.cards-grid > .cell-stage > ul > li:nth-child(3n),
+section.sketch.cards-grid > .cell-stage > ol > li:nth-child(3n),
 section.sketch.cards-stack > ul > li:nth-child(3n),
 section.sketch.cards-stack > ol > li:nth-child(3n),
 section.sketch.cards-stack .card:nth-child(3n),
+section.sketch.cards-stack > .cell-stage > ul > li:nth-child(3n),
+section.sketch.cards-stack > .cell-stage > ol > li:nth-child(3n),
 section.sketch.verdict-grid > ul > li:nth-child(3n),
+section.sketch.verdict-grid > .cell-stage > ul > li:nth-child(3n),
 section.sketch.decision > ol > li:nth-child(3n),
+section.sketch.decision > .cell-stage > ol > li:nth-child(3n),
 section.sketch.matrix-2x2 > ol > li:nth-child(3n),
 section.sketch.matrix-2x2 > ul > li:nth-child(3n),
-section.sketch.pricing > ul > li:nth-child(3n) {
+section.sketch.matrix-2x2 > .cell-stage > ol > li:nth-child(3n),
+section.sketch.matrix-2x2 > .cell-stage > ul > li:nth-child(3n),
+section.sketch.pricing > ul > li:nth-child(3n),
+section.sketch.pricing > .cell-stage > ul > li:nth-child(3n) {
   border-radius: 225px 15px 255px 18px / 15px 255px 15px 225px;
   transform: rotate(0.4deg);
 }
@@ -17252,8 +17281,10 @@ section.sketch.pricing > ul > li:nth-child(3n) {
  * switch font, so the radius wobble is scoped to the non-banner chips. */
 section.sketch.cards-grid > :is(ul, ol) > li::before,
 section.sketch.cards-grid .card::before,
+section.sketch.cards-grid > .cell-stage > :is(ul, ol) > li::before,
 section.sketch.cards-stack > :is(ul, ol) > li::before,
-section.sketch.cards-stack .card::before {
+section.sketch.cards-stack .card::before,
+section.sketch.cards-stack > .cell-stage > :is(ul, ol) > li::before {
   font-family: var(--sketch-font-display);
   border-radius: 15px 2px 12px 3px / 3px 12px 2px 15px;
 }
@@ -17262,12 +17293,16 @@ section.sketch.cards-stack .card::before {
    selector (0,3,4) that outranks this sketch override (0,3,3) on element count,
    so without !important the chip reverts to the mono face + clean corners. */
 section.sketch.decision > :is(ul, ol) > li > strong:first-child,
+section.sketch.decision > .cell-stage > :is(ul, ol) > li > strong:first-child,
 section.sketch.compare-prose > :is(ul, ol) > li > strong:first-child,
+section.sketch.compare-prose > .cell-stage > :is(ul, ol) > li > strong:first-child,
 section.sketch.compare-prose .compare-prose-inner .card > strong:first-child {
   font-family: var(--font-label) !important;
 }
 section.sketch.decision:not(.banner-tag) > :is(ul, ol) > li > strong:first-child,
+section.sketch.decision:not(.banner-tag) > .cell-stage > :is(ul, ol) > li > strong:first-child,
 section.sketch.compare-prose:not(.banner-tag) > :is(ul, ol) > li > strong:first-child,
+section.sketch.compare-prose:not(.banner-tag) > .cell-stage > :is(ul, ol) > li > strong:first-child,
 section.sketch.compare-prose:not(.banner-tag) .compare-prose-inner .card > strong:first-child {
   border-radius: 15px 2px 12px 3px / 3px 12px 2px 15px !important;
 }
@@ -17289,7 +17324,8 @@ section.sketch.compare-prose:not(.banner-tag) .compare-prose-inner .card > stron
 section.sketch.compare-table table,
 section.sketch.glossary table,
 section.sketch.obligation-matrix table,
-section.sketch.list-tabular > ol {
+section.sketch.list-tabular > ol,
+section.sketch.list-tabular > .cell-stage > ol {
   border: 2px solid var(--sketch-ink);
   border-radius: 18px 5px 15px 8px / 8px 15px 5px 18px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
@@ -17309,14 +17345,17 @@ section.sketch.obligation-matrix table {
 section.sketch.compare-table td,
 section.sketch.obligation-matrix td,
 section.sketch.list-tabular > ol > li,
+section.sketch.list-tabular > .cell-stage > ol > li,
 section.sketch.list.principles > ol > li {
   position: relative;
   border-bottom-color: transparent;
 }
-section.sketch.list-tabular > ol > li:first-child { border-top-color: transparent; }
+section.sketch.list-tabular > ol > li:first-child,
+section.sketch.list-tabular > .cell-stage > ol > li:first-child { border-top-color: transparent; }
 section.sketch.compare-table td::after,
 section.sketch.obligation-matrix td::after,
 section.sketch.list-tabular > ol > li::after,
+section.sketch.list-tabular > .cell-stage > ol > li::after,
 section.sketch.list.principles > ol > li:not(:last-child)::after {
   content: "";
   position: absolute;
@@ -17330,7 +17369,8 @@ section.sketch.list.principles > ol > li:not(:last-child)::after {
   pointer-events: none;
 }
 /* The frame already draws the ledger's last edge — drop the last row's rule. */
-section.sketch.list-tabular > ol > li:last-child::after { display: none; }
+section.sketch.list-tabular > ol > li:last-child::after,
+section.sketch.list-tabular > .cell-stage > ol > li:last-child::after { display: none; }
 
 /* Boxed blockquotes (the quote callout, the redline statement) become drawn
  * boxes like the cards. redline keeps its semantic left spine — we wobble
@@ -17345,13 +17385,18 @@ section.sketch.quote blockquote {
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
 section.sketch.redline > blockquote,
-section.sketch.checklist > ol > li {
+section.sketch.redline > .cell-stage > blockquote,
+section.sketch.checklist > ol > li,
+section.sketch.checklist > .cell-stage > ol > li {
   border-radius: 4px 225px 15px 4px / 4px 15px 225px 4px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
 section.sketch.actors > ul > li,
 section.sketch.actors > ol > li,
-section.sketch.list > ul > li {
+section.sketch.actors > .cell-stage > ul > li,
+section.sketch.actors > .cell-stage > ol > li,
+section.sketch.list > ul > li,
+section.sketch.list > .cell-stage > ul > li {
   border-radius: 255px 12px 225px 15px / 15px 225px 15px 255px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
@@ -17405,7 +17450,8 @@ section.sketch.image.contain p:last-of-type {
  * its 1/N band and collide with the next. Step the rows down to --fs-body so
  * the same content fits the same bands (short-item lists still read fine, a
  * touch quieter). */
-section.sketch.list > :is(ul, ol) > li {
+section.sketch.list > :is(ul, ol) > li,
+section.sketch.list > .cell-stage > :is(ul, ol) > li {
   font-size: var(--fs-body);
 }
 
@@ -17419,7 +17465,8 @@ section.sketch.split-panel .panel-right :is(p, li, strong) {
 
 /* checklist: a full 7-row list plus the per-row offset-ink shadow runs the
  * last row into the footer. Tighten the inter-row gap so the set clears it. */
-section.sketch.checklist > :is(ul, ol) {
+section.sketch.checklist > :is(ul, ol),
+section.sketch.checklist > .cell-stage > :is(ul, ol) {
   gap: var(--sp-xs);
 }
 
@@ -17438,40 +17485,53 @@ section.sketch.agenda {
 }
 /* Numerals in the hand display face (harmless on the markless ::before of
  * checks/active-ledger, which carry no text). */
-section.sketch.agenda > ol > li::before { font-family: var(--sketch-font-display); }
+section.sketch.agenda > ol > li::before,
+section.sketch.agenda > .cell-stage > ol > li::before { font-family: var(--sketch-font-display); }
 
 /* Ledger — the active "you are here" rule bends into a pen stroke. Scoped to
  * ledger only (:not the styled variants): checks reuses the active row's
  * ::after for its arrow at the same nth-child, so an unscoped rule would
  * overwrite that arrow with this horizontal wave strip. */
 section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 > ol > li:nth-child(1)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 > .cell-stage > ol > li:nth-child(1)::after,
 section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 > ol > li:nth-child(2)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 > .cell-stage > ol > li:nth-child(2)::after,
 section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 > ol > li:nth-child(3)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 > .cell-stage > ol > li:nth-child(3)::after,
 section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 > ol > li:nth-child(4)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 > .cell-stage > ol > li:nth-child(4)::after,
 section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 > ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 > ol > li:nth-child(6)::after {
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 > .cell-stage > ol > li:nth-child(5)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 > ol > li:nth-child(6)::after,
+section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 > .cell-stage > ol > li:nth-child(6)::after {
   height: 7px;
   -webkit-mask: var(--sketch-wave) repeat-x center / 140px 7px;
   mask: var(--sketch-wave) repeat-x center / 140px 7px;
 }
 
 /* circles — hand-drawn rings with an offset ink + a per-row tilt. */
-section.sketch.agenda.circles > ol > li::before {
+section.sketch.agenda.circles > ol > li::before,
+section.sketch.agenda.circles > .cell-stage > ol > li::before {
   border-color: var(--sketch-ink);
   border-radius: 47% 53% 49% 51% / 53% 47% 52% 48%;
   box-shadow: 1.5px 2px 0 -1px color-mix(in srgb, var(--sketch-ink) 26%, transparent);
 }
-section.sketch.agenda.circles > ol > li:nth-child(odd)::before { transform: rotate(-2deg); }
-section.sketch.agenda.circles > ol > li:nth-child(even)::before { transform: rotate(2deg); }
+section.sketch.agenda.circles > ol > li:nth-child(odd)::before,
+section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-2deg); }
+section.sketch.agenda.circles > ol > li:nth-child(even)::before,
+section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(2deg); }
 
 /* cards — wobbled corners + offset ink, alternating tilt. */
-section.sketch.agenda.cards > ol > li {
+section.sketch.agenda.cards > ol > li,
+section.sketch.agenda.cards > .cell-stage > ol > li {
   border-color: var(--sketch-ink);
   border-radius: 255px 14px 235px 16px / 16px 235px 14px 255px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 26%, transparent);
 }
-section.sketch.agenda.cards > ol > li:nth-child(odd) { transform: rotate(-0.4deg); }
-section.sketch.agenda.cards > ol > li:nth-child(even) { transform: rotate(0.4deg); }
+section.sketch.agenda.cards > ol > li:nth-child(odd),
+section.sketch.agenda.cards > .cell-stage > ol > li:nth-child(odd) { transform: rotate(-0.4deg); }
+section.sketch.agenda.cards > ol > li:nth-child(even),
+section.sketch.agenda.cards > .cell-stage > ol > li:nth-child(even) { transform: rotate(0.4deg); }
 
 /* checks — hand-drawn boxes. The "current" arrow lives inside a small filled
  * box; the bowed hand arrow muddies at that knockout scale, so checks keeps
@@ -17479,20 +17539,25 @@ section.sketch.agenda.cards > ol > li:nth-child(even) { transform: rotate(0.4deg
 section.sketch.agenda.checks {
   --ag-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 9 H21 M14 3 L21 9 L14 15' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
-section.sketch.agenda.checks > ol > li::before {
+section.sketch.agenda.checks > ol > li::before,
+section.sketch.agenda.checks > .cell-stage > ol > li::before {
   border-color: var(--sketch-ink);
   border-radius: 5px 13px 6px 12px / 12px 6px 13px 5px;
 }
-section.sketch.agenda.checks > ol > li:nth-child(odd)::before { transform: rotate(-1.5deg); }
-section.sketch.agenda.checks > ol > li:nth-child(even)::before { transform: rotate(1.5deg); }
+section.sketch.agenda.checks > ol > li:nth-child(odd)::before,
+section.sketch.agenda.checks > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-1.5deg); }
+section.sketch.agenda.checks > ol > li:nth-child(even)::before,
+section.sketch.agenda.checks > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(1.5deg); }
 
 /* rail — the journey line becomes a wavy pen stroke; nodes get hand corners. */
-section.sketch.agenda.rail > ol::before {
+section.sketch.agenda.rail > ol::before,
+section.sketch.agenda.rail > .cell-stage > ol::before {
   width: 6px; background-color: var(--sketch-ink);
   -webkit-mask: var(--ag-rail) repeat-y center / 6px 140px;
   mask: var(--ag-rail) repeat-y center / 6px 140px;
 }
-section.sketch.agenda.rail > ol > li::before {
+section.sketch.agenda.rail > ol > li::before,
+section.sketch.agenda.rail > .cell-stage > ol > li::before {
   border-color: var(--sketch-ink);
   border-radius: 50% 47% 53% 49% / 49% 53% 47% 51%;
 }
