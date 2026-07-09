@@ -660,7 +660,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									icon={<Cpu className="size-4" />}
 									title="Downloaded models"
 									description="On-device AI model files your browser cached after first download (WebLLM / Transformers.js). The next on-device use re-downloads them."
-									stat={gov ? `${gov.models.count} cache${gov.models.count === 1 ? '' : 's'}` : undefined}
+									stat={gov ? `${gov.models.count} cache${gov.models.count === 1 ? '' : 's'}${gov.models.bytes ? ` · ${fmtBytes(gov.models.bytes)}` : ''}` : undefined}
 									armed={govArmed === 'models'}
 									busy={govBusy === 'models'}
 									onArm={() => setGovArmed('models')}
@@ -670,7 +670,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									icon={<Database className="size-4" />}
 									title="Cache"
 									description="Offline app cache — pages, scripts, and fonts. Nothing breaks; the next visit re-caches while online."
-									stat={gov ? `${gov.siteCache.count} cache${gov.siteCache.count === 1 ? '' : 's'}` : undefined}
+									stat={gov ? `${gov.siteCache.count} cache${gov.siteCache.count === 1 ? '' : 's'}${gov.siteCache.bytes ? ` · ${fmtBytes(gov.siteCache.bytes)}` : ''}` : undefined}
 									armed={govArmed === 'cache'}
 									busy={govBusy === 'cache'}
 									onArm={() => setGovArmed('cache')}

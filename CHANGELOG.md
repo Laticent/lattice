@@ -86,13 +86,17 @@ in patch versions.
   AI, it surfaces every store the Studio writes to in this browser — decks,
   Library assets (themes/components/finishes/reference docs), the OpenRouter
   connection, downloaded on-device model files (WebLLM / Transformers.js), and
-  the offline app cache — with a live count/size per category and a two-tap
-  delete for each (matching the Library's existing delete affordance). A
-  "Delete everything" action clears all five in one go, gated behind a dialog
-  that requires typing "delete" to confirm. Preferences (language, placement
-  handles, validation toggles, onboarding…) are never touched by any Privacy &
-  Data action — it clears data, not settings. New module: `docs/src/components/
-  studio/governance.ts`.
+  the offline app cache — with a live count + aggregate size per category
+  (KB/MB/GB, since a model download can run to a GB+) and a two-tap delete for
+  each (matching the Library's existing delete affordance). Cache Storage sizes
+  read each cached response's real `content-length` (falling back to the blob
+  size), not an estimate. A "Delete everything" action clears all five in one
+  go, gated behind a dialog that requires typing "delete" to confirm.
+  Preferences (language, placement handles, validation toggles, onboarding…)
+  are never touched by any Privacy & Data action — it clears data, not
+  settings. New module: `docs/src/components/studio/governance.ts`; extended
+  `reference-doc.ts`'s `formatBytes` with a GB tier (shared by the refdoc
+  cards and this tab).
 - **The Studio Share sheet can export read-along captions.** A new **“Captions
   (.vtt)”** row (alongside PDF / PowerPoint / Webpage) reads each slide's speaker
   notes, builds a Cadenza estimate track per narrated slide, and downloads a zip

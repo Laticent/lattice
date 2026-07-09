@@ -20,6 +20,7 @@
 
 import { deleteAsset, listAssets } from '@/playground/asset-store.js';
 import { disconnectOpenRouter } from './architect';
+import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
 
 // Cache Storage names this SITE owns — kept in sync BY HAND with the PAGES/
@@ -37,11 +38,42 @@ async function cacheNames(): Promise<string[]> {
 	}
 }
 
+/**
+ * Aggregate byte size across a set of Cache Storage buckets — a model download
+ * can be several hundred MB to 1GB+, so this is worth the real read rather than
+ * a rough estimate. Prefers each cached response's `content-length` header
+ * (the common case — fetch preserves it); falls back to materializing the
+ * blob only when a response was stored without one. Best-effort throughout: a
+ * single unreadable entry never blocks the rest of the count.
+ */
+async function cacheBytes(names: string[]): Promise<number> {
+	if (typeof caches === 'undefined') return 0;
+	let total = 0;
+	for (const name of names) {
+		try {
+			const cache = await caches.open(name);
+			for (const request of await cache.keys()) {
+				try {
+					const res = await cache.match(request);
+					if (!res) continue;
+					const len = res.headers.get('content-length');
+					total += len ? Number(len) || 0 : (await res.clone().blob()).size;
+				} catch {
+					/* one unreadable entry doesn't sink the total */
+				}
+			}
+		} catch {
+			/* a cache that vanished mid-read (or a locked-down browser) — skip it */
+		}
+	}
+	return total;
+}
+
 export type GovernanceStats = {
 	decks: { count: number; bytes: number };
 	library: { count: number; bytes: number };
-	models: { count: number };
-	siteCache: { count: number };
+	models: { count: number; bytes: number };
+	siteCache: { count: number; bytes: number };
 };
 
 /** One read of every category's stat line, for the Privacy & Data tab on open. */
@@ -53,11 +85,14 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	} catch {
 		/* best-effort size — never blocks the stat line */
 	}
+	const modelNames = names.filter((n) => !n.startsWith(SITE_CACHE_PREFIX));
+	const siteCacheNames = names.filter((n) => n.startsWith(SITE_CACHE_PREFIX));
+	const [modelBytes, siteCacheBytesTotal] = await Promise.all([cacheBytes(modelNames), cacheBytes(siteCacheNames)]);
 	return {
 		decks: deck,
 		library: { count: assets.length, bytes: libraryBytes },
-		models: { count: names.filter((n) => !n.startsWith(SITE_CACHE_PREFIX)).length },
-		siteCache: { count: names.filter((n) => n.startsWith(SITE_CACHE_PREFIX)).length },
+		models: { count: modelNames.length, bytes: modelBytes },
+		siteCache: { count: siteCacheNames.length, bytes: siteCacheBytesTotal },
 	};
 }
 
@@ -86,9 +121,12 @@ export async function clearEverything(): Promise<void> {
 	await Promise.all([clearLibraryAssets(), disconnectOpenRouter(), clearDownloadedModels(), clearSiteCache()]);
 }
 
-/** A short human size for a stat line; '' when there's nothing to show. */
+/** A short human size for a stat line ("~2.3 MB", "~1.05 GB"); '' when there's
+ *  nothing to show. Every Governance size is an estimate (a JSON-stringified
+ *  proxy for Library assets, a content-length/blob-size read for caches), so
+ *  it's prefixed accordingly — reuses the one byte formatter (reference-doc.ts)
+ *  the refdoc cards already use, rather than a second KB/MB/GB ladder. */
 export function fmtBytes(bytes: number): string {
 	if (!bytes) return '';
-	const kb = bytes / 1024;
-	return kb >= 1024 ? `~${(kb / 1024).toFixed(1)} MB` : `~${Math.max(1, Math.round(kb))} KB`;
+	return `~${formatBytes(bytes)}`;
 }
