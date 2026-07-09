@@ -10,9 +10,9 @@
  * (not dist/) on purpose: it's a documentation-site asset, not part of the
  * npm engine package, so it stays out of the published tarball.
  *
- * The bundle is large (marp-core pulls in markdown-it + KaTeX), so it is
- * MINIFIED. esbuild output is deterministic for a pinned esbuild version, so
- * the --check byte-diff is stable in CI.
+ * The bundle is large (markdown-it + KaTeX), so it is MINIFIED. esbuild
+ * output is deterministic for a pinned esbuild version, so the --check
+ * byte-diff is stable in CI.
  *
  * Flags:
  *   --watch    Rebuild on source change.

@@ -3,8 +3,8 @@
  *
  * The splitter is the foundation of every render path's correctness:
  * if it counts wrong, every downstream step (per-slide HTML, paginate
- * counters, expected-page-count fixtures) drifts. Cross-renderer parity
- * with marp-cli is asserted in the integration tier; this unit tier
+ * counters, expected-page-count fixtures) drifts. The semantic-invariant
+ * suite pins expected page counts in the integration tier; this unit tier
  * pins the edge cases that integration can't easily reach.
  */
 

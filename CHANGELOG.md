@@ -34,6 +34,16 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Package description/keywords no longer frame Lattice as "a Marp-based
+  slide deck system."** Lattice's own engine (`lib/engine/`) is a native
+  Marpit re-implementation with zero `@marp-team` runtime dependency; Marp
+  export (`export:marp`) is a named capability, not the framing. See
+  `engineering/decisions/2026-07-09-marp-legacy-audit.md` for the full audit
+  this came out of and `engineering/marp-independence.md`'s new Cost item 3
+  (the vscode Marp preview-compatibility tax, previously undocumented).
+
 ### Fixed
 
 - **The browser runtime now composes decks as Form by default, matching the

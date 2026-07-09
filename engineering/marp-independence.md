@@ -15,10 +15,20 @@
 Marp is gone as a **dependency** and as our **render path** — `lib/engine/`
 natively re-implements the Marpit core, `npm install @slidewright/lattice`
 pulls **zero** `@marp-team` packages, and the BYO marp-cli config (`marp.config.js`)
-is **retired** (no Marp render path ships). **We never use Marp for anything,
-especially not parity/verification.** Lattice is a *superset* of Marp; Marp survives
-only as a user-facing **export target** (`export:marp`, the Drawing Board) reached
-through a clean handoff — its own thing, behind a boundary.
+is **retired** (no marp-cli render path ships, and nothing of ours uses
+marp-core for parity/verification). Lattice is a *superset* of Marp; the
+one-way **export target** (`export:marp`, the Drawing Board) is a clean
+handoff behind a boundary — its own thing.
+
+**One caveat this scorecard used to omit:** the third-party **"Marp for
+VS Code" extension previews `.md` decks by running raw marp-core directly**,
+not Lattice's own engine — that's a live author-time surface, not an export
+handoff, and it's genuinely load-bearing today (`README.md`,
+`engineering/development.md`'s recommended extensions,
+`design/theming.md`'s palette-authoring workflow all point authors at it).
+Keeping decks looking right there costs a real, standing tax — see §5 Cost —
+cataloged in full in
+`engineering/decisions/2026-07-09-marp-legacy-audit.md`.
 
 ## 1. Is Marp gone? — the dependency / render reality
 
@@ -84,19 +94,31 @@ are shared and stay — the honest delta is the marp tree only.)
 6. **No upstream coupling** — marp's version / roadmap / abandonment can't break us.
 7. **Output ownership** — PDF / PPTX / PNG / HTML through our CLI.
 
-### Cost — 2 permanent, accepted
+### Cost — 3 permanent, accepted
 
 1. **Maintenance burden** — we own every Marpit bug marp-team used to fix.
 2. **Ecosystem labor** — community, plugins, docs, and browser-compat are ours alone.
+3. **Preview-compatibility tax** — the vscode Marp preview runs raw marp-core,
+   not our engine, so `engineering/workflow.md`'s "Two-renderer rule" requires
+   every authoring transform to be duplicated as a `lattice-runtime.js` DOM
+   mirror to look right there (~800 lines, a dozen dual-kernel test files, a
+   permanent CSS-selector ban, a Chromium-91 feature ceiling on the whole
+   runtime bundle). Unlike costs 1–2, this one is *regenerative* — it
+   manufactures a new duplicate-path cost on every future component, because
+   the policy requires it by name. Full inventory + a proposed fix:
+   `engineering/decisions/2026-07-09-marp-legacy-audit.md`.
 
-Two things that *looked* like costs are settled **design choices**, not regrets:
+One thing that *looked* like a cost is a settled **design choice**, not a
+regret: **owned verification is the whole bar.** We deliberately keep **no**
+second (marp) renderer as a cross-check — the per-component semantic-invariant
+suite is the floor and we raise it ourselves (§6). Re-introducing marp for
+parity is explicitly off the table.
 
-- **Owned verification is the whole bar.** We deliberately keep **no** second
-  (marp) renderer as a cross-check — the per-component semantic-invariant suite is
-  the floor and we raise it ourselves (§6). Re-introducing marp for parity is
-  explicitly off the table.
-- **Marp renders only on the far side of the export handoff** (VS Code, marp-cli).
-  That boundary is the feature, not a gap.
+**Export-to-Marp is the boundary that's clean** — the one-way bundle handoff
+(VS Code opening a recipient's own marp-cli render, or a direct marp-cli
+invocation) has no cost line here because it never runs on our side. The
+**live vscode preview is a different thing** — it's cost 3 above, not part of
+the export boundary.
 
 ## 6. Owned verification — the standing work
 
@@ -119,6 +141,14 @@ The bar is ours to raise — never marp's to validate.
 
 ## Update log
 
+- **2026-07-09** — Added Cost item 3 (preview-compatibility tax) and narrowed
+  the TL;DR's "nothing of ours uses Marp" claim after a full-repo audit
+  (`engineering/decisions/2026-07-09-marp-legacy-audit.md`) found this doc
+  overstated independence: the vscode Marp preview runs raw marp-core, not
+  our engine, and a binding policy (the Two-renderer rule) requires ongoing
+  duplicate-path maintenance to keep it working. The narrow dependency claim
+  (zero `@marp-team` packages) held up; the broader "fully externalized"
+  framing did not.
 - **2026-06-14 (c)** — L3 invariant coverage completed **32 → 53 / 53** (full
   catalog). Added the 21 remaining components: the `diagram` mermaid→SVG compile
   (a real transform, like the chart family); KPI/stats figure⇄caption tiles;

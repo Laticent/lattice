@@ -69,7 +69,7 @@ const SCRIPT_META = {
   'runtime:build':            ['Build & bundle', 'Build dist/lattice-runtime.js — browser runtime transforms (vscode preview / web export).'],
   'runtime:check':            ['Build & bundle', 'Freshness gate for the runtime bundle.'],
   'runtime:watch':            ['Build & bundle', 'Rebuild the runtime bundle on change.'],
-  'emulator:build':           ['Build & bundle', 'Build dist/lattice-emulator.js — the bundled Marp-faithful CLI (package bin/main).'],
+  'emulator:build':           ['Build & bundle', 'Build dist/lattice-emulator.js — the bundled owned-engine CLI (package bin/main).'],
   'emulator:check':           ['Build & bundle', 'Freshness gate for the emulator bundle.'],
   'playground:build':         ['Build & bundle', 'Build docs/public/playground/lattice-playground.js — the in-browser engine bundle.'],
   'playground:check':         ['Build & bundle', 'Freshness gate for the playground bundle.'],

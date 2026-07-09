@@ -67,7 +67,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `docs:portal:check` | Freshness gate for the component catalog (md/json) + LFM grammar.json. |
 | `docs:spec` | Generate the docs-site Specification pages (LFM 1.0 + Diagnostic Protocol) from the canonical spec/*.md. |
 | `docs:spec:check` | Freshness gate for the generated docs-site spec pages (stale vs spec/). |
-| `emulator:build` | Build dist/lattice-emulator.js — the bundled Marp-faithful CLI (package bin/main). |
+| `emulator:build` | Build dist/lattice-emulator.js — the bundled owned-engine CLI (package bin/main). |
 | `emulator:check` | Freshness gate for the emulator bundle. |
 | `exemplar-core:build` | Bundle the pure exemplar tier-filter for the browser (Drafting picker length chooser). |
 | `exemplar-core:check` | Freshness gate for the exemplar-core bundle. |

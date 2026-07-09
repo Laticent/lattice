@@ -1,17 +1,20 @@
 /**
  * Unit: the browser playground engine (lib/playground/index.js).
  *
- * The playground runs the marp-cli render path client-side. This test imports
- * the SHIPPING engine module and asserts it produces the same structural output
- * the build path does — so the playground can't silently drift from the PDF:
+ * The playground runs the owned engine client-side (Marp was retired in P4;
+ * this entry no longer bundles marp-core — see lib/playground/index.js). This
+ * test imports the SHIPPING engine module and asserts it produces the same
+ * structural output the build path does — so the playground can't silently
+ * drift from the PDF:
  *
- *   1. verdict-grid badges (a marp.config token plugin) appear in the render,
+ *   1. verdict-grid badges (a shared kernel token plugin) appear in the render,
  *      proving the shared plugins (lib/integrations/markdown-it/plugins.js) are wired.
  *   2. slide count matches the number of `---`-separated slides.
  *   3. render() returns { html, css } for the requested theme.
  *
- * marp-core works in Node (the same way test/unit/parsing/marp-plugins.test.js
- * uses it), so the engine module imports and renders here without a browser.
+ * The owned engine works in Node (the same way
+ * test/unit/parsing/markdown-it-plugins.test.js uses it), so the engine
+ * module imports and renders here without a browser.
  */
 
 const { test, describe } = require('node:test');

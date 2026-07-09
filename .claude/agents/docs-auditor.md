@@ -32,7 +32,8 @@ Derive these dynamically every run; never trust a number you remember.
   `lib/components/`.
 - **Themes / palettes** — `themes/*.css` (each base palette + its `-dark`
   pair; note standalone palettes like `carbone`). Registration in
-  `marp.config.js` `themeSet`.
+  `lib/engine/themes.js` (the owned theme registry — `marp.config.js` was
+  deleted in the P4 marp-cli retirement and no longer exists).
 - **Base modifiers & tokens** — `lib/base/base.modifiers.css`,
   `base.tokens.css`, `base.variants.css`, `base.elements.css`,
   `base.treatments.css`, documented contract in `lib/base/base.docs.md`.
@@ -40,9 +41,12 @@ Derive these dynamically every run; never trust a number you remember.
 - **CLI** — flags/args parsed in `lattice-emulator.js` (the repo-root source).
 - **Package surface** — `package.json` `exports` subpaths, `bin`, `main`,
   `files` allowlist, and `scripts` (every `npm run …` users are told exists).
-- **Render paths** — the three that must agree (`lattice-emulator.js`,
-  `marp.config.js` → `lib/core` + chart-family + integrations,
-  `dist/lattice-runtime.js`); see CLAUDE.md "Three render paths".
+- **Render paths** — the two that must agree (`lattice-emulator.js` via
+  `lib/engine` + `lib/core` + chart-family + integrations, and
+  `dist/lattice-runtime.js` — the vscode Marp preview + published-HTML
+  runtime); see `engineering/workflow.md` "Two-renderer rule". Marp/marp-cli
+  is not a render path — the one remaining Marp surface is the one-way
+  export bundle (`lib/core/marp-bundle.js`).
 - **Chart / diagram / math engines** — `lib/components/chart/_chart-family/`,
   the `diagram` component + `engineering/mermaid.md` contract, `math`.
 - **Test & regression reality** — actual counts from the suite and the
