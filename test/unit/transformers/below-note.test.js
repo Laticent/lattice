@@ -52,6 +52,37 @@ describe('below-note — applyToHtml (marp-cli path)', () => {
     assert.ok(out.includes('<div class="below-note"><p>note</p></div><footer>f</footer>'));
   });
 
+  test('finds the trailing <p> inside a masthead-lift .cell-stage cell (Form default)', () => {
+    // Mirrors what lib/forms/cell/masthead/masthead.transform.js produces for a
+    // STAGE_MIGRATED Form slide: the trailing <footer>/pagination already moved
+    // into a sibling .cell-footer, so the stage's own tail is note-<p> exactly.
+    const out = belowNote.applyToHtml(
+      sec(
+        'cards-grid form',
+        '<div class="cell-masthead"></div>' +
+          '<div class="cell-stage"><ul><li>a</li></ul><blockquote><p>q</p></blockquote><p>note</p></div>' +
+          '<div class="cell-footer"><footer>f</footer></div>',
+      ),
+    );
+    assert.ok(
+      out.includes('<blockquote><p>q</p></blockquote><div class="below-note"><p>note</p></div></div>'),
+      out,
+    );
+    assert.ok(out.includes('<div class="cell-footer"><footer>f</footer></div>'), 'footer cell untouched');
+  });
+
+  test('does not wrap a math slide (chrome-exempt, no local below-note treatment)', () => {
+    const html = sec('math theorem form', '<blockquote><p>Theorem.</p></blockquote><p>So x = 1.</p>');
+    assert.equal(belowNote.applyToHtml(html), html);
+  });
+
+  test('is idempotent through a .cell-stage cell', () => {
+    const once = belowNote.applyToHtml(
+      sec('list form', '<div class="cell-stage"><ul><li>a</li></ul><p>n</p></div>'),
+    );
+    assert.equal(belowNote.applyToHtml(once), once);
+  });
+
   test('reads each section class independently', () => {
     const out = belowNote.applyToHtml(
       sec('list-checks', '<ul><li>a</li></ul><p>kept</p>') +
@@ -99,5 +130,35 @@ describe('below-note — applyToDom (runtime path)', () => {
     adapter.applyToDom(doc);
     adapter.applyToDom(doc);
     assert.equal(doc.querySelectorAll('.below-note').length, 1);
+  });
+
+  test('finds the trailing <p> inside a masthead-lift .cell-stage cell (Form default)', () => {
+    const doc = dom(
+      sec(
+        'cards-grid form',
+        '<div class="cell-masthead"></div>' +
+          '<div class="cell-stage"><ul><li>a</li></ul><p>note</p></div>' +
+          '<div class="cell-footer"><footer>f</footer></div>',
+      ),
+    );
+    adapter.applyToDom(doc);
+    const wrap = doc.querySelector('.cell-stage > .below-note');
+    assert.ok(wrap, 'expected a .below-note wrapper inside .cell-stage');
+    assert.equal(wrap.querySelector('p').textContent, 'note');
+    assert.equal(doc.querySelector('.cell-footer footer').textContent, 'f');
+  });
+
+  test('does not independently process a literal nested <section> in slide content', () => {
+    // A hand-authored nested <section> whose OWN trailing <p> would qualify
+    // for the wrap in isolation. applyToHtml's depth-aware walk only ever
+    // visits TOP-LEVEL sections (a nested one is opaque content inside the
+    // outer section's captured `inner`), so it never wraps here — the outer
+    // section's own tail is the nested `</section>`, not a `<p>`. Before the
+    // `section:not(section section)` scoping fix, applyToDom's unscoped
+    // `querySelectorAll('section')` visited the inner section independently
+    // and wrapped ITS trailing <p> — a real DOM-vs-HTML-string divergence.
+    const doc = dom(sec('list', '<ul><li>a</li></ul>' + sec('list', '<ul><li>b</li></ul><p>inner note</p>')));
+    adapter.applyToDom(doc);
+    assert.equal(doc.querySelectorAll('.below-note').length, 0);
   });
 });
