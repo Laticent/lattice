@@ -1,4 +1,4 @@
-import { ChevronRight, Download, FileArchive, FileText, Globe, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
+import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
 import * as React from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -7,7 +7,7 @@ import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
-import { shareHtmlPlayer, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintDeck, sharePrintSource } from './share-export';
+import { shareCaptions, shareHtmlPlayer, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintDeck, sharePrintSource } from './share-export';
 import { WebpageOptionsPanel } from './WebpageOptionsPanel';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
@@ -110,6 +110,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', (onStatus) => sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
 								<Row busy={busy === 'print'} icon={<Printer className="size-4" />} title="Print deck" desc="The rendered slides, vector — default print" onClick={() => run('print', 'Print', () => sharePrintDeck(options, artifactSource, name, palette, mode, extraTheme, extraCss))} />
 									<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => setView('html')} />
+									<Row busy={busy === 'captions'} status={progress} icon={<Captions className="size-4" />} title="Captions (.vtt)" desc="Read-along WebVTT from your speaker notes — no audio, no key" onClick={() => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus))} />
 							</section>
 							<section className="space-y-2">
 								<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the source</h3>

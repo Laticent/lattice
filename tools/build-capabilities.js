@@ -108,6 +108,8 @@ const SCRIPT_META = {
   'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
   'player-prune:build':       ['Build & bundle', 'Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces.'],
   'player-prune:check':       ['Build & bundle', 'Freshness gate for the player-prune Playground bundle.'],
+  'read-along-core:build':    ['Build & bundle', 'Bundle the read-along captions producer (lib/core/read-along-build.js + read-along-vtt.js) for the browser — the Studio Share sheet\'s "Captions (.vtt)" export.'],
+  'read-along-core:check':    ['Build & bundle', 'Freshness gate for the read-along-core Playground bundle.'],
   'cadenza-lib:build':        ['Build & bundle', 'Build the Cadenza library dist/ (CJS + .d.ts, esbuild + tsc) so root CJS can require(\'@slidewright/cadenza\') — the workspace package that retires the caption hand-mirrors.'],
   'cadenza-lib:check':        ['Build & bundle', 'Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts).'],
   'vetrina-lib:build':        ['Build & bundle', 'Build the Vetrina library dist/ (two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine.'],

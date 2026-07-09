@@ -106,6 +106,8 @@
     "player-core:check": "node tools/build-player-core.js --check",
     "player-prune:build": "node tools/build-player-prune.js",
     "player-prune:check": "node tools/build-player-prune.js --check",
+    "read-along-core:build": "node tools/build-read-along-core.js",
+    "read-along-core:check": "node tools/build-read-along-core.js --check",
     "cadenza-lib:build": "node tools/build-cadenza-lib.js",
     "cadenza-lib:check": "node tools/build-cadenza-lib.js --check",
     "vetrina-lib:build": "node tools/build-vetrina-lib.js",
