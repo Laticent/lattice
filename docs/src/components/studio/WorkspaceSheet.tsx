@@ -623,7 +623,10 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 
 					{tab === 'Privacy & Data' && (
 						<div>
-							<GroupLabel icon={<ShieldCheck className="size-3.5" />}>Your data</GroupLabel>
+							<div className="mb-2 flex items-center justify-between gap-2">
+								<GroupLabel icon={<ShieldCheck className="size-3.5" />}>Your data</GroupLabel>
+								{gov && gov.totalBytes > 0 && <span className="rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--text-heading)]">{fmtBytes(gov.totalBytes)} total</span>}
+							</div>
 							<p className="mb-3 text-xs text-muted-foreground">Everything the Studio has stored in this browser — clear one thing, or start over completely. Nothing here reaches a server; it's all local to this device. Your preferences (language, placement handles, etc.) are never touched here.</p>
 							<div className="flex flex-col gap-2.5">
 								<GovRow

@@ -97,6 +97,16 @@ describe('governance — stats', () => {
 		const stats = await loadGovernanceStats();
 		expect(stats.decks.count).toBe(deckContentStats().count);
 	});
+
+	it('totalBytes sums decks + Library + models + site cache (OpenRouter carries no size)', async () => {
+		stubCaches({
+			'webllm/model-cache': [{ url: 'https://x/shard.bin', size: 10 * 1024 * 1024 }],
+			'lattice-v1-assets': [{ url: 'https://x/app.js', size: 2048 }],
+		});
+		const stats = await loadGovernanceStats();
+		expect(stats.totalBytes).toBe(stats.decks.bytes + stats.library.bytes + stats.models.bytes + stats.siteCache.bytes);
+		expect(stats.totalBytes).toBeGreaterThan(10 * 1024 * 1024); // the model shard alone clears 10 MB
+	});
 });
 
 describe('governance — clear actions', () => {

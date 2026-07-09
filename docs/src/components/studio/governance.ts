@@ -74,6 +74,9 @@ export type GovernanceStats = {
 	library: { count: number; bytes: number };
 	models: { count: number; bytes: number };
 	siteCache: { count: number; bytes: number };
+	/** Sum of every category's bytes above — OpenRouter carries no size (it's a
+	 *  credential, not stored content), so it's the only one left out. */
+	totalBytes: number;
 };
 
 /** One read of every category's stat line, for the Privacy & Data tab on open. */
@@ -88,12 +91,10 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	const modelNames = names.filter((n) => !n.startsWith(SITE_CACHE_PREFIX));
 	const siteCacheNames = names.filter((n) => n.startsWith(SITE_CACHE_PREFIX));
 	const [modelBytes, siteCacheBytesTotal] = await Promise.all([cacheBytes(modelNames), cacheBytes(siteCacheNames)]);
-	return {
-		decks: deck,
-		library: { count: assets.length, bytes: libraryBytes },
-		models: { count: modelNames.length, bytes: modelBytes },
-		siteCache: { count: siteCacheNames.length, bytes: siteCacheBytesTotal },
-	};
+	const library = { count: assets.length, bytes: libraryBytes };
+	const models = { count: modelNames.length, bytes: modelBytes };
+	const siteCache = { count: siteCacheNames.length, bytes: siteCacheBytesTotal };
+	return { decks: deck, library, models, siteCache, totalBytes: deck.bytes + library.bytes + models.bytes + siteCache.bytes };
 }
 
 export async function clearLibraryAssets(): Promise<void> {

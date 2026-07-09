@@ -87,11 +87,12 @@ in patch versions.
   Library assets (themes/components/finishes/reference docs), the OpenRouter
   connection, downloaded on-device model files (WebLLM / Transformers.js), and
   the offline app cache — with a live count + aggregate size per category
-  (KB/MB/GB, since a model download can run to a GB+) and a two-tap delete for
-  each (matching the Library's existing delete affordance). Cache Storage sizes
-  read each cached response's real `content-length` (falling back to the blob
-  size), not an estimate. A "Delete everything" action clears all five in one
-  go, gated behind a dialog that requires typing "delete" to confirm.
+  (KB/MB/GB, since a model download can run to a GB+), a running grand total
+  across all four sized categories, and a two-tap delete for each (matching
+  the Library's existing delete affordance). Cache Storage sizes read each
+  cached response's real `content-length` (falling back to the blob size),
+  not an estimate. A "Delete everything" action clears all five in one go,
+  gated behind a dialog that requires typing "delete" to confirm.
   Preferences (language, placement handles, validation toggles, onboarding…)
   are never touched by any Privacy & Data action — it clears data, not
   settings. New module: `docs/src/components/studio/governance.ts`; extended
