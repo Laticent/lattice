@@ -380,6 +380,13 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
  padding:6px 11px;border-radius:8px;cursor:pointer;line-height:1}
 #lp-bar button:hover{background:var(--bg-alt,#eee)}
 #lp-bar button[aria-pressed=true]{background:var(--accent,#4338ca);color:var(--on-accent,#fff)}
+/* The view-switcher tabs carry an icon + text label. Below 560px the "Read \xB7 Slides" /
+   "Read \xB7 Article" labels have no room and wrap to two lines, blowing out the bar's
+   height \u2014 icon-only on narrow viewports (the accessible name rides on the button's
+   OWN aria-label, not the now-hidden text, so it survives either state). */
+#lp-bar .lp-seg button{display:flex;align-items:center;gap:6px}
+#lp-bar .lp-tab-icon{display:none;flex:none}
+@media(max-width:560px){#lp-bar .lp-tab-icon{display:block}#lp-bar .lp-tab-text{display:none}}
 #lp-count{font-variant-numeric:tabular-nums;color:var(--text-muted,#888);font-size:13px;min-width:46px;text-align:center}
 #lp-mode,#lp-full,#lp-notes-btn{border:1px solid var(--border,#ccc)!important;border-radius:8px}
 /* Clears the 48px bar for the normal-flow SCROLLING views (Read\xB7Slides/Article) \u2014
@@ -410,6 +417,20 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
 .lp-js [data-lp-view=present] .lp-frame.lp-active{display:block;width:1280px;height:720px}
 .lp-js [data-lp-view=present] .lp-frame.lp-active section[data-lattice-slide]{box-shadow:0 24px 70px -22px rgba(0,0,0,.45);transform-origin:center center}
 .lp-js [data-lp-view=present] #lp-doc{display:none}
+/* Present prev/next \u2014 visible arrow controls (mirrors the Studio's audio present
+   overlay chevrons), on top of keyboard nav + swipe. Hidden outside present + until
+   .lp-js engages (progressive enhancement \u2014 a per-slide index means nothing without
+   the script). Boundary buttons disable at the first/last slide (real disabled, not
+   just dimmed, so assistive tech gets the correct state). */
+#lp-prev,#lp-next{display:none;position:fixed;top:calc(50% + 24px);z-index:55;transform:translateY(-50%);
+ width:44px;height:44px;align-items:center;justify-content:center;border-radius:999px;
+ border:1px solid var(--border,#ddd);background:color-mix(in srgb,var(--bg,#fff) 86%,transparent);
+ backdrop-filter:blur(12px);color:var(--text-secondary,#333);cursor:pointer}
+#lp-prev:hover,#lp-next:hover{color:var(--accent,#4338ca);border-color:var(--accent,#4338ca)}
+#lp-prev:disabled,#lp-next:disabled{opacity:.3;pointer-events:none}
+#lp-prev{left:14px}#lp-next{right:14px}
+.lp-js [data-lp-view=present] #lp-prev,.lp-js [data-lp-view=present] #lp-next{display:flex}
+@media(max-width:640px){#lp-prev,#lp-next{width:38px;height:38px}}
 /* READ \xB7 SLIDES \u2014 the real slides as faithful miniatures. Each slide is a FIXED
    1280\xD7720 canvas whose internal layout (a title slide centers, a content slide sits
    its text at the top) only renders correctly at that native size \u2014 resizing the box
@@ -505,7 +526,10 @@ var slides=[].slice.call(document.querySelectorAll('section[data-lattice-slide]'
 // keeps the fixed-canvas cqi/cqh layout intact in every view \u2014 see playerCss.
 var frames=[].slice.call(document.querySelectorAll('.lp-frame'));
 var count=document.getElementById('lp-count'),view='present';
+var prevBtn=document.getElementById('lp-prev'),nextBtn=document.getElementById('lp-next');
 var t=createTransport({count:slides.length,onShow:render});
+if(prevBtn)prevBtn.onclick=function(){t.prev();};
+if(nextBtn)nextBtn.onclick=function(){t.next();};
 // Measure the STAGE ELEMENT ITSELF, not innerWidth/innerHeight with a hand-tuned
 // inset. The stage's CSS height already excludes the 48px bar (calc(var(--lp-vh,
 // 100dvh) - 48px)); computing the scale against a DIFFERENT number (innerHeight,
@@ -532,7 +556,10 @@ function fitRead(){var stage=document.getElementById('lp-stage');if(!stage)retur
 function setStageHeight(){var h=(window.visualViewport&&window.visualViewport.height)||innerHeight;
  root.style.setProperty('--lp-vh',h+'px');}
 function render(){var i=t.index;frames.forEach(function(f,n){f.classList.toggle('lp-active',n===i);});
- if(count)count.textContent=(i+1)+' / '+slides.length;fit();syncNotes();}
+ if(count)count.textContent=(i+1)+' / '+slides.length;
+ if(prevBtn)prevBtn.disabled=i===0;
+ if(nextBtn)nextBtn.disabled=i===slides.length-1;
+ fit();syncNotes();}
 function setView(v){view=v;app.setAttribute('data-lp-view',v);
  [].forEach.call(document.querySelectorAll('[data-lp-btn]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-lp-btn')===v);});
  // Present's fit() sets an inline transform:scale on the active slide. Read views size
@@ -657,9 +684,9 @@ ${styles}
 <div id="lp-bar">
  <span class="lp-brand">${escapeText(title)}</span>
  <div class="lp-seg">
-  <button data-lp-btn="present" aria-pressed="true">Present</button>
-  <button data-lp-btn="read-slides" aria-pressed="false">Read \xB7 Slides</button>
-  <button data-lp-btn="read-article" aria-pressed="false">Read \xB7 Article</button>
+  <button data-lp-btn="present" aria-pressed="true" aria-label="Present"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span class="lp-tab-text">Present</span></button>
+  <button data-lp-btn="read-slides" aria-pressed="false" aria-label="Read \xB7 Slides"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="5" rx="1"/><rect x="3" y="10.5" width="18" height="5" rx="1"/><rect x="3" y="18" width="18" height="3" rx="1"/></svg><span class="lp-tab-text">Read \xB7 Slides</span></button>
+  <button data-lp-btn="read-article" aria-pressed="false" aria-label="Read \xB7 Article"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lp-tab-text">Read \xB7 Article</span></button>
  </div>
  <span id="lp-count"></span>
  <button id="lp-notes-btn" title="Speaker notes (n)" aria-pressed="false">\u2630</button>
@@ -671,6 +698,8 @@ ${styles}
 ${a11yDefs}
 ${slidesHtml}
  </div>
+ <button id="lp-prev" type="button" aria-label="Previous slide" title="Previous slide (\u2190)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+ <button id="lp-next" type="button" aria-label="Next slide" title="Next slide (\u2192)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
  <div id="lp-notes" data-empty="true"><div id="lp-notes-body"></div></div>
  <div id="lp-doc">
   <nav id="lp-toc">

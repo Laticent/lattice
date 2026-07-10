@@ -121,6 +121,36 @@ test('carries the three view controls + the Typora TOC shell', async () => {
 	assert.match(html, /id="lp-toc"/, 'the article TOC shell is present');
 });
 
+test('present ships visible prev/next controls wired to the shared transport', async () => {
+	// Mirrors the Studio's audio-present overlay chevrons (PresentOverlay.tsx), giving
+	// Present a click-target nav affordance alongside keyboard/swipe — some third-party
+	// iOS HTML viewers don't reliably deliver keydown to the page. Wired to the SAME
+	// transport object (t.prev()/t.next()) the keyboard/swipe handlers already use, not
+	// a hand-rolled clamp, so bounds/nav logic stays single-sourced (HARD RULE #1).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /id="lp-prev"[^>]*aria-label="Previous slide"/, 'a labeled previous-slide button is present');
+	assert.match(html, /id="lp-next"[^>]*aria-label="Next slide"/, 'a labeled next-slide button is present');
+	assert.match(html, /prevBtn\.onclick=function\(\)\{t\.prev\(\);\}/, 'prev is wired to the shared transport');
+	assert.match(html, /nextBtn\.onclick=function\(\)\{t\.next\(\);\}/, 'next is wired to the shared transport');
+	assert.match(html, /prevBtn\.disabled=i===0/, 'prev disables at the first slide');
+	assert.match(html, /nextBtn\.disabled=i===slides\.length-1/, 'next disables at the last slide');
+});
+
+test('the view-switcher tabs carry an icon + an aria-label, so they survive icon-only on narrow viewports', async () => {
+	// Regression: "Read · Slides" / "Read · Article" wrapped to two lines on a real
+	// iPhone, blowing out the bar's height (screenshot-reported). Below 560px the text
+	// hides and only the icon shows — the button's OWN aria-label (not the now-hidden
+	// text) carries the accessible name in either state.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	for (const [v, label] of [['present', 'Present'], ['read-slides', 'Read · Slides'], ['read-article', 'Read · Article']]) {
+		const btn = (html.match(new RegExp(`<button data-lp-btn="${v}"[^>]*>`)) || [])[0];
+		assert.ok(btn, `${v} button present`);
+		assert.match(btn, new RegExp(`aria-label="${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`), `${v} carries its own aria-label`);
+	}
+	assert.match(html, /class="lp-tab-icon"/, 'each tab carries an icon');
+	assert.match(html, /class="lp-tab-text"/, 'each tab carries a hideable text label');
+});
+
 test('the player inlines the transport kernel and fits against the MEASURED stage box', async () => {
 	// Regression: the fit scale was once computed against innerWidth/innerHeight with a
 	// hand-tuned insetY (48+56) baking the top bar's height into the inset budget — a
@@ -278,7 +308,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '05173afe51afe086e191ea07be03a7b377b1a4aa32c3fe56f5c80cb90b839fae', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '54a1f93b393e5524145eec36dea61b4cdb673e2e5cbb5071219123c8ccd4444f', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

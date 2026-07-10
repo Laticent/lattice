@@ -422,6 +422,19 @@ in patch versions.
   `padding-top:0`). Confirmed symmetric (0px top/bottom diff) at three viewport
   sizes. A progressive-enhancement `.lp-js` gate keeps a readable stacked-slide
   floor when the script is ever blocked. Confirmed on-device.
+- **The exported `.html` player's Present mode gained visible prev/next
+  controls and icon-only view tabs on narrow screens.** Two mobile-UX gaps
+  found in the same on-device vetting round: (1) Present had no on-screen way
+  to advance — only keyboard arrows and swipe, and some third-party iOS HTML
+  viewers don't reliably deliver keydown to the page. Circular chevron buttons
+  (mirroring the Studio's audio-present overlay) now flank the slide, wired to
+  the SAME shared transport keyboard/swipe already use (`t.prev()`/`t.next()`,
+  not a hand-rolled clamp), and disable at the deck's first/last slide. (2) The
+  Present / Read·Slides / Read·Article tab labels wrapped to two lines on a
+  real iPhone, blowing out the top bar's height. Below 560px the tabs go
+  icon-only (an inline SVG monitor/stack/document glyph); each button's own
+  `aria-label` carries the accessible name in either state, so nothing is lost
+  for assistive tech.
 - **The Studio “Download as webpage” export now renders and runs — not just
   assembles.** Two bugs made the browser-exported player ship broken on every
   browser (the file downloaded fine but opened to raw, unstyled slides that
