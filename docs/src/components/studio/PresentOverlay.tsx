@@ -8,7 +8,7 @@ import { createPresenterController } from '@/playground/presenter-window.js';
 import { narrateChart } from './chart-narration';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationSet } from './lint';
-import { slideToSpeech, useReadAloud } from './read-aloud';
+import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getNote } from './slide-notes';
 import { buildPresenterStageDoc } from './studio-presenter';
@@ -18,6 +18,12 @@ import { buildPresenterStageDoc } from './studio-presenter';
 // they want to go) and real slide navigation (←/→/Space). The slide is the live
 // engine render.
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+// The narration-source priority read-aloud speaks: a slide's speaker note (the
+// real talk track) — else a recognized chart's computed facts — else the
+// generic on-slide prose. Pulled out so both the current slide's reader AND
+// the autoplay warm-ahead prefetch (below) derive the same text for a slide.
+const narrationFor = (slideText: string) => getNote(slideText) || narrateChart(slideText) || slideToSpeech(slideText);
 
 type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
@@ -92,7 +98,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	autoplayRef.current = autoplay;
 	const autoAdvanceRef = React.useRef(false);
 	const reader = useReadAloud(
-		React.useMemo(() => getNote(cur) || narrateChart(cur) || slideToSpeech(cur), [cur]),
+		React.useMemo(() => narrationFor(cur), [cur]),
 		{
 			onFinish: () => {
 				if (!autoplayRef.current) return;
@@ -129,6 +135,21 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			setAutoplay(false);
 		}
 	}, [autoplay, reader.track.cues.length, clamped, count]);
+	// Warm-ahead: while autoplaying, start the NEXT slide's synth in the
+	// background as soon as the CURRENT slide is showing — its audio is
+	// already cached by the time onFinish's autoAdvance reaches it. Without
+	// this, every autoplay slide transition pays a cold first-sentence synth
+	// latency that the within-slide concurrency scheduler never overlaps
+	// (that scheduler only runs ahead of a slide's OWN remaining sentences,
+	// never across into the next slide) — the "long pauses between slides"
+	// gap. Scoped to autoplay only; a manual next/prev has no known "next" to
+	// warm and shouldn't spend the synth budget speculatively.
+	React.useEffect(() => {
+		if (!autoplay) return;
+		const next = set[clamped + 1];
+		if (next === undefined) return;
+		warmNarration(narrationFor(next));
+	}, [autoplay, clamped, set]);
 	// Toggle autoplay: turning it on starts reading the deck now; off stops.
 	const toggleAutoplay = React.useCallback(() => {
 		setAutoplay((on) => {

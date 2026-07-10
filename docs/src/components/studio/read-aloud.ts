@@ -104,6 +104,8 @@ type VoiceModel = {
 	stop: () => void;
 	pause: () => void;
 	resume: () => void;
+	/** Background-prefetch these spoken sentences into the shared audio cache — no playback, best-effort. */
+	warm: (sentences: string[]) => void;
 	rung: () => string;
 	/** iOS audio unlock — MUST run synchronously inside a user gesture (the play tap). */
 	unlock: () => void;
@@ -166,6 +168,33 @@ function getVoice(): Promise<VoiceModel | null> {
 
 function nowMs(): number {
 	return typeof performance !== 'undefined' ? performance.now() : 0;
+}
+
+/**
+ * Background-prefetch `text`'s spoken-sentence audio into the shared voice
+ * cache — no playback, no state, best-effort. Present's autoplay calls this
+ * with the UPCOMING slide's narration as soon as the CURRENT slide starts
+ * reading, so the next slide's audio is already cached (or in flight) by the
+ * time onFinish chains to it — closing the one gap the within-slide
+ * concurrency scheduler never reached (it only overlaps sentences of the
+ * SAME slide that's already playing). Splits into the exact same spoken-word
+ * sentence strings play() uses (buildTrack's cue.words[].spoken, not a plain
+ * splitSentences(text)) so the cache key this populates is the SAME one
+ * speak() will look up later — a mismatch here would silently defeat the
+ * whole prefetch (every warmed entry a cache miss). No-ops before the voice
+ * model has loaded (a warm-ahead nicety, never worth blocking or racing the
+ * caller for).
+ */
+export function warmNarration(text: string): void {
+	if (!text) return;
+	const track = buildTrack(text);
+	if (!track.cues.length) return;
+	const sentences = track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
+	// getVoice() is the SAME memoized singleton play() uses — this never spins up
+	// a second instance, and it's a no-op microtask once a reader has already
+	// warmed it on mount (the common case: Present's autoplay only calls this
+	// after a reader is already mounted and playing).
+	getVoice().then((v) => v?.warm?.(sentences));
 }
 
 /**

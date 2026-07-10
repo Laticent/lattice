@@ -619,6 +619,20 @@ in patch versions.
   in-flight request for the exact same (rung, model, voice, speed, text) key
   instead of firing a second one; both occurrences still play their own
   `onSentence`/timing callbacks, they just share the one synthesized clip.
+- **Present's "Auto" (autoplay) mode no longer pauses noticeably between
+  slides.** The concurrency scheduler above only overlaps sentences WITHIN a
+  slide that's already playing — the first sentence of the NEXT slide had
+  nothing overlapping it, so every autoplay slide transition paid a full cold
+  synth latency the within-slide fix never reached. `voice-model.js` gains
+  `warm(sentences)`, a background prefetch that shares `audioCache` and
+  `inFlightSynths` with `speak()` (so the two can never race into duplicate
+  requests for the same key); Present's autoplay effect
+  (`PresentOverlay.tsx`) calls it with the UPCOMING slide's narration as soon
+  as the CURRENT slide starts, so the next slide's audio is already cached
+  (or in flight) by the time the reader chains to it. Verified live in the
+  Studio Present overlay with a mocked, delayed TTS endpoint: the next
+  slide's sentence requests fire while the current slide is still on screen,
+  not only after the transition.
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new

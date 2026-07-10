@@ -757,6 +757,67 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     }
   }
 
+  // Background prefetch: populate `audioCache` for `sentences` WITHOUT playing
+  // anything — the counterpart to speak()'s in-playback concurrency scheduler,
+  // but for the gap ACROSS a slide boundary rather than between sentences of
+  // the same slide. speak()'s SYNTH_CONCURRENCY overlap only ever runs while
+  // that slide is already playing; the FIRST sentence of the NEXT slide has
+  // nothing overlapping it, so autoplay chaining (Present's onFinish → next
+  // slide) always paid a full cold-start synth latency at every transition —
+  // exactly the gap the within-slide fix didn't reach. A caller (Present, while
+  // autoplaying) calls this with the upcoming slide's sentences as soon as the
+  // CURRENT slide starts, so by the time onFinish chains to it, its audio is
+  // already in `audioCache` (or in flight and about to land).
+  //
+  // Shares `audioCache` + `inFlightSynths` with speak()'s own `synth(t)` so the
+  // two can never race into duplicate requests for the same key — whichever
+  // fires first, the other joins it. Best-effort only: no lastError plumbing
+  // (nobody is waiting on this), no waitIfPaused/onSentence/onState (nothing to
+  // report to), and a synth failure here just leaves the cache unpopulated —
+  // speak() will synth it for real, for keeps, when it actually gets there.
+  function warm(sentences) {
+    const rung = pickRung();
+    if (rung.name === 'silent' || rung.name === 'speechSynthesis') return; // no blob to cache
+    if (!Array.isArray(sentences) || !sentences.length) return;
+    const effSpeed = speedPref();
+    // Mirrors speak()'s own effVoiceFor exactly (including the '' fallback for
+    // anything that isn't openrouter-tts/kokoro) — the cache key this computes
+    // must match what speak() looks up later bit-for-bit, or every warmed
+    // entry is a silent cache miss.
+    const effVoice = rung.name === 'openrouter-tts' ? orVoice() : rung.name === 'kokoro' ? kokoroVoice() : '';
+    const todo = sentences.map((s) => String(s || '').trim()).filter(Boolean);
+    let i = 0;
+    let active = 0;
+    // Same concurrency budget as speak()'s fillSlots — a warm-ahead prefetch
+    // shouldn't spend more of the "not a burst attack on the API" allowance
+    // than in-playback synthesis already does.
+    const pump = () => {
+      while (active < SYNTH_CONCURRENCY && i < todo.length) {
+        const t = todo[i++];
+        const cacheKey = cacheKeyFor(rung.name, modelIdFor(rung.name), effVoice, effSpeed, t);
+        if (audioCache.has(cacheKey)) continue;
+        const inflight = inFlightSynths.get(cacheKey);
+        if (inflight && !inflight.sig.aborted) continue;
+        active++;
+        const sig = new AbortController().signal; // background fetch; nothing to abort it early
+        let timer;
+        const p = Promise.race([
+          rung.synth({ text: t, voice: effVoice, speed: effSpeed, signal: sig }).then((blob) => {
+            if (blob) cacheSet(cacheKey, blob);
+            return blob;
+          }).catch(() => null).finally(() => clearTimeout(timer)),
+          new Promise((res) => { timer = setTimeout(() => res(null), 20000); }),
+        ]).finally(() => {
+          if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
+          active--;
+          pump(); // a slot just freed — start the next queued sentence, if any
+        });
+        inFlightSynths.set(cacheKey, { promise: p, sig });
+      }
+    };
+    pump();
+  }
+
   function waitIfPaused(signal) {
     if (!pausedGate) return Promise.resolve();
     return new Promise((resolve) => {
@@ -794,6 +855,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     pause,
     resume,
     unlock,
+    warm,
     speaking() { return !!activeCtl; },
     paused() { return !!pausedGate; },
     // The owned WebAudio clock, in ms — the monotonic time source a caption cursor

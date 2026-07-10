@@ -511,6 +511,113 @@ describe('concurrent synth scheduling (fire-ahead, not one-ahead)', () => {
   });
 });
 
+describe('warm() — background prefetch across a slide boundary (autoplay warm-ahead)', () => {
+  it('populates the cache so a later speak() for the same sentence does not re-synth', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.warm(['Next slide sentence.']);
+    await vi.waitFor(() => expect(calls).toEqual(['Next slide sentence.']));
+    await model.speak({ text: 'Next slide sentence.' });
+    expect(calls).toEqual(['Next slide sentence.']); // speak() replayed the warmed cache entry, no second synth
+  });
+
+  it('is a no-op when the resolved rung is silent — no synth call, nothing to cache', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.setRungPref('off'); // pickRung() resolves to the silent rung regardless of the injected mock
+    model.warm(['Would-be next slide sentence.']);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual([]);
+  });
+
+  it('caps concurrent prefetch requests at SYNTH_CONCURRENCY (3), the same budget in-playback synthesis uses', async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    model.warm(['One.', 'Two.', 'Three.', 'Four.', 'Five.']);
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+    expect(started).not.toContain('Four.'); // capped — nothing has resolved yet
+
+    mock.resolve('One.');
+    await vi.waitFor(() => expect(started).toContain('Four.'));
+    expect(started).not.toContain('Five.');
+
+    mock.resolve('Two.');
+    mock.resolve('Three.');
+    mock.resolve('Four.');
+    await vi.waitFor(() => expect(started).toContain('Five.'));
+    mock.resolve('Five.');
+  });
+
+  it('joins an in-flight speak() synth for the same sentence instead of firing a duplicate prefetch request', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    const mock = abortAwareMockRung((t) => calls.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'Shared sentence.' });
+    await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']));
+
+    model.warm(['Shared sentence.']); // must join speak()'s in-flight request, not fire a second one
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual(['Shared sentence.']);
+
+    mock.resolve('Shared sentence.');
+    await speakP;
+  });
+
+  it("a later speak() joins warm()'s in-flight prefetch for the same sentence rather than firing a duplicate request", async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    const mock = abortAwareMockRung((t) => calls.push(t));
+    model.__setRung(mock.rung);
+
+    model.warm(['Upcoming sentence.']);
+    await vi.waitFor(() => expect(calls).toEqual(['Upcoming sentence.']));
+
+    const speakP = model.speak({ text: 'Upcoming sentence.' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual(['Upcoming sentence.']); // still one call — speak() joined warm()'s in-flight promise
+
+    mock.resolve('Upcoming sentence.');
+    await speakP;
+  });
+
+  it('is a no-op for an empty sentence list', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.warm([]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual([]);
+  });
+});
+
 describe('listOpenRouterVoiceModels (the public, unauthenticated TTS catalog)', () => {
   it('maps the catalog to {id,name,promptPerM,completionPerM,voices}', async () => {
     vi.resetModules();
