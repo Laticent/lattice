@@ -227,6 +227,25 @@ export function deckContentStats(): { count: number; bytes: number } {
  * by prefix rather than by index membership for the same reason.
  */
 export function clearAllDecks(): void {
+	// Known ids first, through the real per-deck API (clearComments dispatches
+	// COMMENTS_EVENT so any open comment view refreshes — the prefix sweep below
+	// can't do that, since it doesn't know which ids it's touching).
+	for (const { id } of loadIndex()) {
+		dropSource(id);
+		remove(SNAP_PREFIX + id);
+		remove(CHAT_PREFIX + id);
+		remove(CHAT_DRAFT_PREFIX + id);
+		clearComments(id);
+	}
+	// Then sweep by KEY PREFIX for anything the index no longer knows about: a
+	// deck removed earlier via the ordinary deck-switcher delete could leave its
+	// checkpoint/chat/chat-draft/comment keys orphaned once its id fell out of
+	// the index (deleteDeck didn't clean those up before this fix) — "Delete
+	// Everything" must not leave that behind, or the privacy promise is false.
+	// The prefix scan mirrors deckContentStats' own byte count above, which
+	// already reads by prefix rather than by index membership for the same
+	// reason. Collected into an array before removing anything — mutating
+	// localStorage mid-forward-iteration over its own live index would skip keys.
 	try {
 		const orphaned: string[] = [];
 		for (let i = 0; i < localStorage.length; i++) {
@@ -238,7 +257,18 @@ export function clearAllDecks(): void {
 		/* storage unavailable — non-fatal, matches the read-side scan above */
 	}
 	remove(INDEX_LS);
+	// The live editor has no other way to learn its in-memory deck/source state
+	// just went stale — without this, the user could keep typing in the still-
+	// focused editor and the existing 400ms debounced autosave (StudioShell)
+	// would silently re-write the just-cleared deck's content back to
+	// localStorage before the Workspace sheet's reload catches up.
+	if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(DECKS_CLEARED_EVENT));
 }
+
+/** Fired the instant clearAllDecks finishes — StudioShell listens and stops
+ *  every saveSource call for the rest of its lifetime (it's about to be
+ *  torn down by a reload anyway; see clearAllDecks above for why this exists). */
+export const DECKS_CLEARED_EVENT = 'lattice:decks-cleared';
 
 // ── Version history (checkpoints) ──────────────────────────────────────────
 const SNAP_PREFIX = 'lattice-studio-snap-'; // + deckId → Checkpoint[]

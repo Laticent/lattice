@@ -40,7 +40,7 @@ import { SlideContextBody } from './SlideContext';
 import { activeSpectrumLabel, SpectrumMenuItems } from './SpectrumPicker';
 import { importComments } from './slide-comments';
 import { listFindings } from './studio-lint';
-import { type Checkpoint, createDeck, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
@@ -458,6 +458,24 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		setWelcomeOpen(false);
 	}, []);
 
+	// Privacy & Data's "Decks" / "Delete everything" clear reloads the Studio
+	// shortly after — but the editor stays visible and interactive right up
+	// until that reload actually fires. Without this guard, so much as one more
+	// keystroke (or switching/creating/importing a deck) in that window would
+	// re-trigger a saveSource for the deck id that was JUST cleared, silently
+	// orphaning fresh content the reload can't undo. clearAllDecks dispatches
+	// this the instant it finishes; every saveSource call below checks it first.
+	const decksClearedRef = React.useRef(false);
+	React.useEffect(() => {
+		const onCleared = () => { decksClearedRef.current = true; };
+		window.addEventListener(DECKS_CLEARED_EVENT, onCleared);
+		return () => window.removeEventListener(DECKS_CLEARED_EVENT, onCleared);
+	}, []);
+	const saveSourceGuarded = React.useCallback((id: string, src: string) => {
+		if (decksClearedRef.current) return;
+		saveSource(id, src);
+	}, []);
+
 	// Persist the active deck's source (debounced) so edits survive a switch AND a
 	// reload. Skipped on the very first render (nothing changed yet).
 	const firstSave = React.useRef(true);
@@ -466,18 +484,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			firstSave.current = false;
 			return;
 		}
-		const id = setTimeout(() => saveSource(deck.id, source), 400);
+		const id = setTimeout(() => saveSourceGuarded(deck.id, source), 400);
 		return () => clearTimeout(id);
-	}, [source, deck.id]);
+	}, [source, deck.id, saveSourceGuarded]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the
 	// backup entirely (no stored source yet at pack time).
 	React.useEffect(() => {
-		const flush = () => saveSource(deck.id, source);
+		const flush = () => saveSourceGuarded(deck.id, source);
 		window.addEventListener(FLUSH_EVENT, flush);
 		return () => window.removeEventListener(FLUSH_EVENT, flush);
-	}, [source, deck.id]);
+	}, [source, deck.id, saveSourceGuarded]);
 
 	// Persist the editor preference as it changes.
 	React.useEffect(() => {
@@ -681,7 +699,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	function loadDeck(d: StudioDeck) {
 		// Flush the current deck's edits before leaving it (the debounce may not
 		// have fired), then restore the target deck's saved source.
-		saveSource(deck.id, source);
+		saveSourceGuarded(deck.id, source);
 		setDeck(d);
 		setSource(loadSource(d.id) ?? deckSource(d));
 		setActiveSlide(0);
@@ -690,7 +708,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// New / rename / delete — all persisted via the store, then reflected in the
 	// live deck list and switcher.
 	function newDeck() {
-		saveSource(deck.id, source);
+		saveSourceGuarded(deck.id, source);
 		const d = createDeck();
 		setDecks(loadDeckList());
 		setDeck(d);
@@ -708,7 +726,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		// Flush the deck we're switching away from first (as newDeck/switchDeck do) — a
 		// viewer who clicks "Watch demo" within the 400ms autosave debounce of an edit
 		// would otherwise lose that edit when we switch decks.
-		saveSource(deck.id, source);
+		saveSourceGuarded(deck.id, source);
 		for (const d of loadDeckList()) {
 			if (d.title === DEMO_FIRST_DECK_TITLE) deleteDeckStore(d.id);
 		}
@@ -751,7 +769,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// notifies on success.
 	function openImportedDeck(text: string, title: string, comments?: unknown) {
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
-		saveSource(deck.id, source);
+		saveSourceGuarded(deck.id, source);
 		const d = createDeck(title || titleFromSource(text), text);
 		// Restore comments SYNCHRONOUSLY (static import) before the deck goes active —
 		// a floating async restore could be overwritten by a comment added in the gap,

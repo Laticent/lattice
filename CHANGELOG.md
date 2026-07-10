@@ -104,7 +104,10 @@ in patch versions.
   `content-length` (falling back to the blob size), not an estimate. Clearing
   decks reloads the Studio afterward — without it, the live editor's debounced
   autosave would silently rewrite the just-deleted deck straight back into
-  localStorage. A "Delete everything" action clears all five in one go
+  localStorage — and the editor also stops autosaving the instant the clear
+  fires (`DECKS_CLEARED_EVENT`, `studio-store.ts`), so even a keystroke typed
+  in the still-visible editor during the brief reload delay can't slip an
+  orphaned write past it. A "Delete everything" action clears all five in one go
   (decks first and unconditionally, then the rest independently, so one
   category hiccuping can't hide what actually got cleared), gated behind a
   dialog that requires typing "delete" to confirm. Preferences (language,

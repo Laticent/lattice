@@ -4,6 +4,7 @@ import { addComment, listComments } from './slide-comments';
 import {
 	clearAllDecks,
 	createDeck,
+	DECKS_CLEARED_EVENT,
 	deckContentStats,
 	deleteDeck,
 	exportStudioState,
@@ -293,6 +294,18 @@ describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', (
 		expect(loadChat('orphan-1')).toEqual([]);
 		expect(loadChatDraft('orphan-1')).toBe('');
 		expect(listComments('orphan-1')).toEqual([]);
+	});
+
+	it('clearAllDecks fires DECKS_CLEARED_EVENT — the live editor (StudioShell) listens for this to stop autosaving a just-cleared deck', () => {
+		const seen: string[] = [];
+		const onCleared = () => seen.push('fired');
+		window.addEventListener(DECKS_CLEARED_EVENT, onCleared);
+		try {
+			clearAllDecks();
+		} finally {
+			window.removeEventListener(DECKS_CLEARED_EVENT, onCleared);
+		}
+		expect(seen).toEqual(['fired']);
 	});
 });
 
