@@ -142,6 +142,30 @@ in patch versions.
 
 ### Fixed
 
+- **The Studio/Workbench/Playground live preview's fonts no longer 404.**
+  `lattice.css`'s `@font-face` block ships a package-relative
+  `url(fonts/<file>.woff2)` — correct for the npm package, where
+  `dist/fonts/` sits next to `dist/lattice.css` (`lib/fonts/text-faces.js`).
+  The docs site never links that CSS as a real stylesheet resource though:
+  every consumer hands the fetched text to `PG.addThemes`, which the engine
+  embeds as an inline `<style>` wherever it renders — a `srcdoc` iframe with
+  no base URL of its own for single-slide hosts, the multi-slide filmstrip
+  elsewhere — so the relative `url()` resolved against whichever PAGE
+  happened to embed it (`/studio/fonts/…`, `/workbench/fonts/…`,
+  `/playground/fonts/…`) instead of where the fonts actually live, 404ing
+  the same way on all three app surfaces. `lattice.css` also bakes in
+  KaTeX's own `@font-face` block unconditionally, with the identical
+  footgun. `docs/scripts/sync-playground-assets.mjs` now stages the same 17
+  text faces (`lib/fonts/text-faces.js`'s canonical manifest) under
+  `themes/fonts/`, co-located with `themes/lattice.css` exactly like the
+  existing KaTeX-fonts staging pattern; `docs/src/lib/theme-fetch.ts`
+  rewrites each relative `url(fonts/…)` to an absolute URL (routing
+  `KaTeX_*` refs to the sibling `katex/fonts/` dir already staged for
+  `katex.min.css`, everything else to the new `themes/fonts/`) before the
+  CSS text goes anywhere, so it survives being inlined into any context.
+  Verified in a real browser: zero 404s across Studio/Workbench/Playground,
+  and every declared face (the 17 text faces plus KaTeX's) force-loads
+  without error on a math specimen page. Closes #876.
 - **`dist/README.md`'s artifact descriptions no longer frame `lattice-emulator.js`
   as a "Marp-faithful renderer."** It's Lattice's own engine (no Marp involved);
   the stale phrasing predates the Marp-independence work. `lattice-runtime.js`'s

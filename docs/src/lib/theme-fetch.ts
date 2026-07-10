@@ -46,10 +46,37 @@ export function createThemeFetcher(themeBase: string) {
 		if (!fetched[name]) {
 			fetched[name] = fetch(themeBase + name + '.css').then((r) => {
 				if (!r.ok) throw new Error('theme ' + name + ' (' + r.status + ')');
-				return r.text();
+				return r.text().then(rewriteRelativeFontUrls);
 			});
 		}
 		return fetched[name];
+	}
+
+	/**
+	 * lattice.css's `@font-face` block ships a package-relative
+	 * `url(fonts/<file>.woff2)` (correct for the npm package, where dist/fonts/
+	 * sits next to dist/lattice.css — see lib/fonts/text-faces.js). This CSS text
+	 * is never linked as a real stylesheet resource: every consumer hands it to
+	 * PG.addThemes, which embeds it as an inline <style> wherever the engine
+	 * renders — a srcdoc iframe with no base URL of its own for single-slide
+	 * hosts, the multi-slide filmstrip elsewhere. A relative url() there resolves
+	 * against whatever document happens to embed it, not against themeBase where
+	 * the matching themes/fonts/ dir is actually staged (#876) — so absolutize it
+	 * here, once, before the CSS text goes anywhere. `sync-playground-assets.mjs`
+	 * stages the SAME faces under `<themeBase>fonts/`, so this always resolves.
+	 *
+	 * lattice.css ALSO bakes in KaTeX's own `@font-face` block unconditionally
+	 * (same relative-url() footgun — engineering/decisions/2026-07-10-landing-
+	 * perf-katex-defer.md §4 covers KaTeX shipping unconditionally more broadly).
+	 * Its fonts are already staged separately under `<pgBase>katex/fonts/` for
+	 * the standalone katex.min.css `<link>` case — route `KaTeX_*` refs there
+	 * instead of duplicating the files under themes/fonts/ too.
+	 */
+	function rewriteRelativeFontUrls(css: string): string {
+		const katexBase = themeBase.replace(/themes\/$/, 'katex/fonts/');
+		return css.replace(/url\((['"]?)fonts\/(KaTeX_)?/g, (_m, quote, isKatex) =>
+			'url(' + quote + (isKatex ? katexBase + 'KaTeX_' : themeBase + 'fonts/'),
+		);
 	}
 
 	/** True once the engine reports the named theme is registered. */
