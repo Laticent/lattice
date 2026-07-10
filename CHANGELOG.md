@@ -84,6 +84,22 @@ in patch versions.
   mistaken for the real masthead-lift stage, silently leaving a section's
   true trailing note unwrapped or hijacking extraction onto the wrong
   paragraph. See `engineering/decisions/2026-07-09-form-migration-audit.md`.
+- **A trailing Subtitle no longer gets misidentified as a leading Eyebrow
+  under Form.** masthead-lift's eyebrow extraction (`lib/forms/cell/masthead/
+  masthead.transform.js`, `lib/transformers/masthead-lift.js`) had no
+  positional check against the title — it captured the first code-only
+  paragraph anywhere in a Form slide's body, so a code-only paragraph authored
+  AFTER the heading (the documented Subtitle pattern, `lib/base/base.docs.md`)
+  was reordered BEFORE it and mis-styled as the mono-caps eyebrow kicker
+  instead of the italic subtitle. Eyebrow capture is now scoped to only the
+  content preceding the title; a code-only paragraph immediately following it
+  is captured separately as the subtitle and re-seated next to the `<h2>`
+  inside the masthead band, preserving the `h2 + p` sibling adjacency its CSS
+  keys on. The eyebrow scan is also now depth-aware — a code-only paragraph
+  nested inside a `<div>`/`<li>` before the title is real content, not the
+  eyebrow, and is no longer hoisted out of its container. Found by the
+  Form-migration audit
+  (`engineering/decisions/2026-07-09-form-migration-audit.md`).
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
