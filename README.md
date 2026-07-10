@@ -100,10 +100,10 @@ npm install @slidewright/lattice
 npx lattice deck.md deck.pdf
 ```
 
-Need a portable bundle for someone who renders with Marp? The Drawing Board's
-**Export to Marp** (and `npm run export:marp`) produces a self-contained `.zip`.
-That bundle is the only Marp interop surface; Lattice itself never renders
-through Marp.
+Need a portable bundle for someone who renders with Marp? The docs-site
+**Studio**'s **Export to Marp** (also available in the frozen Drawing Board,
+and via `npm run export:marp`) produces a self-contained `.zip`. That bundle
+is the only Marp interop surface; Lattice itself never renders through Marp.
 
 The package also exposes these named entry points:
 
