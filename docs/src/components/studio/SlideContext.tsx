@@ -254,10 +254,12 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const groupSet = (members: string[], token: string | null) => onMutate((c) => setGroupToken(c, members, token));
 	const toggle = (t: string) => onMutate((c) => toggleToken(c, t));
 
-	// Provenance (needs the whole deck for the deck-wide default).
-	const canvas = canvasProvenance(chunk, source);
-	const finish = finishProvenance(chunk, source);
-	const deck = deckDefaults(source);
+	// Provenance (needs the whole deck for the deck-wide default). Memoized —
+	// each re-parses the deck's front matter, and this body re-runs on every
+	// keystroke while the panel is open.
+	const canvas = React.useMemo(() => canvasProvenance(chunk, source), [chunk, source]);
+	const finish = React.useMemo(() => finishProvenance(chunk, source), [chunk, source]);
+	const deck = React.useMemo(() => deckDefaults(source), [source]);
 
 	// Finish options: Inherit (only when the deck sets one), None, then presets + saved.
 	const finishNames = [...new Set([...(vocab.finishNames ?? []), ...savedFinishNames])];
@@ -272,7 +274,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
 	// deck sets off/solid the head reads "Inherit — <deck>"; otherwise it's the rainbow.
-	const spectrum = spectrumProvenance(chunk, source);
+	const spectrum = React.useMemo(() => spectrumProvenance(chunk, source), [chunk, source]);
 	const spectrumValue = spectrum.state === 'on' ? (spectrum.value ?? '__inherit__') : '__inherit__';
 	const spectrumOptions = [
 		spectrum.inheritable
@@ -317,7 +319,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// per-slide pick overrides it. The boardroom subset leads; the wider range follows.
 	const stampStyles = vocab.stampStyles ?? { boardroom: [], range: [] };
 	const hasStampStyles = stampStyles.boardroom.length > 0 || stampStyles.range.length > 0;
-	const stampStyle = stampStyleProvenance(chunk, source);
+	const stampStyle = React.useMemo(() => stampStyleProvenance(chunk, source), [chunk, source]);
 	const stampStyleValue = stampStyle.state === 'inherited' ? '__inherit__' : stampStyle.state === 'off' ? '__default__' : (stampStyle.value ?? '__default__');
 	const stampStyleHead = stampStyle.inheritable
 		? [{ label: `Inherit — ${cap(stampStyle.deckValue ?? '')}`, value: '__inherit__' }]
@@ -329,7 +331,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const onStampStyle = (v: string) => onMutate((c) => setStampStyle(c, v === '__inherit__' || v === '__default__' ? null : v));
 
 	const toneStyleTokens = vocab.toneStyles ?? [];
-	const toneStyle = toneStyleProvenance(chunk, source, toneStyleTokens);
+	const toneStyle = React.useMemo(() => toneStyleProvenance(chunk, source, toneStyleTokens), [chunk, source, toneStyleTokens]);
 	const toneStyleValue = toneStyle.state === 'inherited' ? '__inherit__' : toneStyle.state === 'off' ? '__default__' : (toneStyle.value ?? '__default__');
 	const toneStyleOptions = [
 		...(toneStyle.inheritable

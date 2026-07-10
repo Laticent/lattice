@@ -78,7 +78,7 @@ export function initSpecimen() {
     editor: null,
   };
 
-  const lr = createSingleSlideRenderer({ themeBase: data.themeBase, runtimeUrl: data.runtimeUrl });
+  const lr = createSingleSlideRenderer({ themeBase: data.themeBase, runtimeUrl: data.runtimeUrl, engineUrl: data.engineUrl });
 
   function setStatus(msg, isErr) {
     if (!statusEl) return;
@@ -246,6 +246,9 @@ export function initSpecimen() {
   }
 
   // Initial paint + keep the preview live as the topbar palette/mode changes.
+  // Kick the theme CSS fetch off in PARALLEL with the engine-bundle load (not
+  // behind it) — same fix as DeckPreview.tsx's paint().
+  lr.prefetchTheme();
   lr.whenReady().then(() => {
     render();
     lr.onThemeChange(() => {

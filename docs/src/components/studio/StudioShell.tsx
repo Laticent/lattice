@@ -1082,17 +1082,24 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Recompute the deck-wide findings list whenever the source (or the known-name
 	// set) changes — only when inline validation is on, mirroring the editor. The
 	// lazy lint bundle loads once; a stale async result is dropped on unmount/change.
+	// Debounced 400ms (matching the autosave effect above) — the full lint-core
+	// pass runs the SAME deterministic scan CodeMirror's own linter already does
+	// (Editor.tsx, debounced 750ms by @codemirror/lint's default), so an
+	// undebounced copy here duplicated that work on every keystroke.
 	React.useEffect(() => {
 		if (!validation) {
 			setFindings([]);
 			return;
 		}
 		let live = true;
-		listFindings(lintVocab, source, localNames, savedFinishLintNames).then((f) => {
-			if (live) setFindings(f);
-		});
+		const id = setTimeout(() => {
+			listFindings(lintVocab, source, localNames, savedFinishLintNames).then((f) => {
+				if (live) setFindings(f);
+			});
+		}, 400);
 		return () => {
 			live = false;
+			clearTimeout(id);
 		};
 	}, [validation, source, lintVocab, localNames, savedFinishLintNames]);
 	// A clean proposal can outlive its finding after an edit; clear it when the

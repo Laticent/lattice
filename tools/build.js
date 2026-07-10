@@ -47,7 +47,7 @@
  *   1  a step failed, or (--check) an artifact is stale / a collision
  */
 
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
@@ -99,6 +99,21 @@ const STEPS = [
   { label: 'dist README', script: 'build-dist-readme.js' },
 ];
 
+// The two slowest steps (non-incremental `tsc --emitDeclarationOnly`, ~37% of
+// build:check's total wall time) have no ordering dependency on anything
+// EXCEPT read-along-core, which needs Cadenza's dist/ on disk (see the STEPS
+// comment above). Run them in the background as soon as the pipeline starts;
+// join right before read-along-core, the one step that actually needs to wait.
+// Conservative scope: just these two, not a full 26-step dependency-tier
+// reorg (the other steps' temp-path usage across all 26 scripts isn't
+// audited, so parallelizing further risks output collisions this narrow slice
+// avoids by construction).
+const BACKGROUND_LABELS = new Set([
+  'Cadenza library dist (CJS + .d.ts)',
+  'Vetrina library dist (CJS + .d.ts)',
+]);
+const JOIN_BEFORE_SCRIPT = 'build-read-along-core.js';
+
 function runStep(step, check) {
   const args = [path.join(__dirname, step.script)];
   if (check) args.push('--check');
@@ -106,7 +121,25 @@ function runStep(step, check) {
   return r.status === 0;
 }
 
-function main(argv) {
+// Runs a step in the background (stdio buffered, not inherited, so its output
+// can't interleave with the serial steps' console lines) and flushes that
+// buffered output — prefixed with the step label — once it exits.
+function runStepAsync(step, check) {
+  const args = [path.join(__dirname, step.script)];
+  if (check) args.push('--check');
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, args, { cwd: ROOT, stdio: ['inherit', 'pipe', 'pipe'] });
+    let out = '';
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { out += d; });
+    child.on('exit', (code) => {
+      if (out) process.stdout.write(`\n▸ ${step.label} (background)\n${out}`);
+      resolve(code === 0);
+    });
+  });
+}
+
+async function main(argv) {
   const check = argv.includes('--check');
   const mode = check ? 'check' : 'build';
   process.stdout.write(`Lattice ${mode}: ${STEPS.length} artifacts behind the ownership gate.\n\n`);
@@ -127,8 +160,19 @@ function main(argv) {
     }
   }
 
+  // Kick the independent, slow steps off in the background now; everything
+  // else still runs serially in its documented order.
+  const backgroundSteps = STEPS.filter((s) => BACKGROUND_LABELS.has(s.label));
+  const foregroundSteps = STEPS.filter((s) => !BACKGROUND_LABELS.has(s.label));
+  const backgroundResults = backgroundSteps.map((step) => ({ step, ok: runStepAsync(step, check) }));
+
   const failed = [];
-  for (const step of STEPS) {
+  for (const step of foregroundSteps) {
+    if (step.script === JOIN_BEFORE_SCRIPT) {
+      for (const { step: bgStep, ok } of backgroundResults) {
+        if (!(await ok)) failed.push(bgStep.label);
+      }
+    }
     process.stdout.write(`\n▸ ${step.label}\n`);
     if (!runStep(step, check)) failed.push(step.label);
   }
@@ -148,6 +192,6 @@ function main(argv) {
   return 0;
 }
 
-if (require.main === module) process.exit(main(process.argv.slice(2)));
+if (require.main === module) main(process.argv.slice(2)).then((code) => process.exit(code));
 
 module.exports = { STEPS, GUARD, PREFLIGHT };
