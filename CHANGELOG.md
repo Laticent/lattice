@@ -57,6 +57,19 @@ in patch versions.
 
 ### Fixed
 
+- **The Playground's live preview rendered faster on first load.** Same class
+  of bug as the landing page's Hero preview fix below, in a different render
+  pathway: `docs/src/lib/playground-engine.ts`'s `renderInto()` only starts
+  the theme CSS fetch once the engine bundle is already loaded (it needs
+  `window.LatticePlayground` to register a theme), and the render loop
+  handled "not ready yet" with a 60ms polling retry rather than a promise
+  chain — so the theme fetch never started until the engine bundle already
+  had, the same serialization, just implemented differently. Added a
+  `prefetchTheme()` to the engine bridge (fires the theme CSS fetch using the
+  site's current palette as a best-effort guess, independent of the engine)
+  and call it alongside the existing idle-triggered `ensure()`. Verified in a
+  real browser: the theme CSS and engine-bundle requests now fire at the
+  same timestamp instead of sequentially.
 - **The landing page's live Hero preview rendered noticeably faster.** Two
   sequential network round-trips were serialized where they didn't need to
   be: `docs/src/lib/prefetch-engine.ts`'s eager engine-bundle warm queued its

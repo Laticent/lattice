@@ -67,6 +67,32 @@ export function createEngineBridge(
 	}
 
 	/**
+	 * Fire the theme CSS fetch WITHOUT waiting on the engine bundle — call this
+	 * alongside `ensure()` so the two independent network round-trips run in
+	 * parallel instead of serialized. `renderInto`'s `themes.ensure()` only
+	 * registers a theme once `window.LatticePlayground` exists (it needs
+	 * `PG.addThemes`), so before this fix the render loop's 60ms `ready()` poll
+	 * meant the theme fetch never even STARTED until the engine had already
+	 * fully loaded — same bug already fixed in single-slide-render.ts's
+	 * `prefetchTheme`, mirrored here. `theme-fetch.ts`'s `fetch()` is a pure,
+	 * cached-by-name network call with no engine dependency, so it's safe to
+	 * fire early. Best-effort: a deck's own `theme:` front matter can pick a
+	 * DIFFERENT palette than the site's current one (resolved later in
+	 * `renderInto` via `resolveDeckTheme`) — this only prefetches the site's
+	 * current palette as a guess; a miss just means that one theme's CSS
+	 * fetch isn't pre-warmed, not a correctness issue (theme-fetch.ts caches
+	 * by name, so a later real request for the same name is a no-op).
+	 */
+	function prefetchTheme(): void {
+		const root = document.documentElement;
+		const palette = root.getAttribute('data-palette') || 'indaco';
+		const mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
+		void themes.fetch('lattice').catch(() => {});
+		void themes.fetch(palette).catch(() => {});
+		if (mode === 'dark') void themes.fetch(palette + '-dark').catch(() => {});
+	}
+
+	/**
 	 * One render pass: ensure themes, run the engine, hand the output to the
 	 * shared filmstrip controller with the SAME args the inline controller used.
 	 * `fresh` resets the iframe (explicit deck swaps) vs patching (edits).
@@ -117,7 +143,7 @@ export function createEngineBridge(
 		}
 	}
 
-	return { ready, ensure, renderInto };
+	return { ready, ensure, prefetchTheme, renderInto };
 }
 
 export type EngineBridge = ReturnType<typeof createEngineBridge>;
