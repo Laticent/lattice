@@ -28,6 +28,7 @@ import { linkGuardAgent } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { ensureEngine } from './load-engine';
+import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
 import { createThemeFetcher } from './theme-fetch';
 
@@ -248,7 +249,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				})
 			: Promise.all([themes.ensure(palette, mode), ensurePreviewFonts()]);
 		return themeReady
-			.then(() => {
+			.then(async () => {
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
 				let out: { html: string; css: string; width?: number; height?: number };
 				try {
@@ -257,7 +258,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Make it ABSOLUTE — themeBase is root-relative, and the engine's
 					// WHATWG-URL resolver needs an absolute base.
 					const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
-					out = PG.render(markdown, theme, { baseUrl: samplesBase });
+					out = await renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase });
 				} catch (e) {
 					console.error('single-slide render failed', e);
 					return { ok: false, slides: 0, error: String((e as Error)?.message || e) };
