@@ -34,6 +34,17 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **A "Send feedback" entry point in the Studio topbar and the sitewide
+  header.** Opens a sheet (category, one-line summary, details) and hands
+  off to a pre-filled GitHub issue against `.github/ISSUE_TEMPLATE/studio-feedback.yml`
+  — the user reviews and submits it under their own GitHub account, so the
+  static, tokenless docs-site bundle never needs to hold a credential capable
+  of creating issues. Auto-captures page, viewport, browser, and (in Studio)
+  the open deck + theme as diagnostic context. See
+  `docs/src/lib/feedback-issue.ts` and `docs/src/components/site/FeedbackSheet.tsx`.
+
 ### Changed
 
 - **Package description/keywords no longer frame Lattice as "a Marp-based

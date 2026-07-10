@@ -1,6 +1,7 @@
-import { Menu, Search } from 'lucide-react';
+import { Menu, MessageSquareHeart, Search } from 'lucide-react';
 import * as React from 'react';
 import { CommandMenu, GithubIcon, type NavLink } from '@/components/site/CommandMenu';
+import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import PaletteControls from '@/components/site/PaletteControls';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ export default function NavActions({
 }) {
 	const [open, setOpen] = React.useState(false);
 	const [sheet, setSheet] = React.useState(false);
+	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 
 	React.useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
@@ -96,6 +98,18 @@ export default function NavActions({
 
 			<PaletteControls palettes={palettes} compact />
 
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-sm"
+				onClick={() => setFeedbackOpen(true)}
+				aria-label="Send feedback"
+				title="Send feedback"
+				className="hidden lg:inline-flex"
+			>
+				<MessageSquareHeart className="size-4" />
+			</Button>
+
 			<Button asChild variant="ghost" size="icon-sm" aria-label="GitHub repository" className="hidden lg:inline-flex">
 				<a href={githubUrl} target="_blank" rel="noreferrer noopener">
 					<GithubIcon className="size-4" />
@@ -125,11 +139,18 @@ export default function NavActions({
 								<span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Theme</span>
 								<PaletteControls palettes={palettes} />
 							</div>
+							<button
+								type="button"
+								onClick={() => { setSheet(false); setFeedbackOpen(true); }}
+								className="flex items-center gap-2 border-t pt-4 text-left text-sm font-medium text-foreground hover:text-primary"
+							>
+								<MessageSquareHeart className="size-4" /> Send feedback
+							</button>
 							<a
 								href={githubUrl}
 								target="_blank"
 								rel="noreferrer noopener"
-								className="flex items-center gap-2 border-t pt-4 text-sm font-medium text-foreground hover:text-primary"
+								className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary"
 							>
 								<GithubIcon className="size-4" /> GitHub
 							</a>
@@ -146,6 +167,7 @@ export default function NavActions({
 				githubUrl={githubUrl}
 				pagefindUrl={pagefindUrl}
 			/>
+			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Docs site" />
 		</div>
 	);
 }

@@ -1,9 +1,10 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronRight,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, Minimize2, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -232,6 +233,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate'>('compose');
 	const [shareOpen, setShareOpen] = React.useState(false);
+	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
 	const [libraryOpen, setLibraryOpen] = React.useState(false);
 	// When the reference-doc picker's "Manage in Library" link opens the Library, jump
@@ -1890,6 +1892,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<span className="hidden h-5 w-px bg-border sm:block" />
 				{/* Focus — drop to Editor + Preview, hide the panels, quiet the noise (desktop only; tablet/mobile already collapse panels). Advanced — revealed once a newcomer engages. */}
 				{!compact && onboarded && <Button variant="ghost" size="icon-sm" onClick={() => setFocus(true)} aria-label="Enter focus mode" title="Focus — hide panels, just write (⌘.)"><Focus className="size-[18px]" /></Button>}
+				{/* Feedback — a persistent, one-tap entry point (not gated on onboarded — first
+				    impressions matter too). Opens a pre-filled GitHub issue; no token, no backend. */}
+				{!compact && <Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback" title="Send feedback"><MessageSquareHeart className="size-[18px]" /></Button>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -1936,6 +1941,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								{onboarded && <DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>}
 								{onboarded && <DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>}
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<span className="ml-auto rounded border border-border bg-background px-1.5 font-mono text-[10px]">⌘K</span></DropdownMenuItem>
+								<DropdownMenuItem onSelect={() => setFeedbackOpen(true)}><MessageSquareHeart className="size-4" />Send feedback</DropdownMenuItem>
 								<DropdownMenuSeparator />
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</ScrollFade>
@@ -2116,6 +2122,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={() => setPresentOpen(true)} notify={notify} />
+			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deck.title, Theme: `${palette} · ${mode}` }} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
 			    so it lives in its own sheet off the top bar rather than in the inspector
@@ -2167,6 +2174,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onPalette={applyPalette}
 				onPresent={() => setPresentOpen(true)}
 				onShare={() => setShareOpen(true)}
+				onFeedback={() => setFeedbackOpen(true)}
 				onFabricate={() => setView('fabricate')}
 				onReshape={() => { setFocus(false); setArchitectOpen(true); }}
 				onWatchDemo={startDemo}

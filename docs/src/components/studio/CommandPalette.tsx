@@ -1,10 +1,10 @@
-import { Columns2, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Share2, Sparkles } from 'lucide-react';
+import { Columns2, FileText, Focus, MessageSquareHeart, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Share2, Sparkles } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import type { StudioDeck } from './decks';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
-	open, onOpenChange, decks, palettes, onPickDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus,
+	open, onOpenChange, decks, palettes, onPickDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback,
 	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit,
 }: {
 	open: boolean;
@@ -20,6 +20,7 @@ export function CommandPalette({
 	onWatchDemo?: () => void;
 	onInsert?: () => void;
 	onFocus?: () => void;
+	onFeedback?: () => void;
 	// The editor|preview split (2026-07-02 decision) — each handler is passed
 	// only while it applies (e.g. no Expand without a collapsed pane), so the
 	// palette never lists a dead command.
@@ -45,6 +46,7 @@ export function CommandPalette({
 					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
 					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
 					{onWatchDemo && <CommandItem onSelect={run(onWatchDemo)}><MonitorPlay />Watch demo — the Studio drives itself</CommandItem>}
+					{onFeedback && <CommandItem onSelect={run(onFeedback)}><MessageSquareHeart />Send feedback</CommandItem>}
 				</CommandGroup>
 				{(onCollapseEditor || onCollapsePreview || onExpandPane || onResetSplit) && (
 					<>
