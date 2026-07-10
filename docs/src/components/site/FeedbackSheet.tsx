@@ -54,17 +54,19 @@ export function FeedbackSheet({
 
 	const canSubmit = summary.trim().length > 0 && details.trim().length > 0;
 
-	const submit = () => {
-		if (!canSubmit) return;
-		const url = buildFeedbackIssueUrl({
-			category,
-			summary: summary.trim(),
-			details: details.trim(),
-			context: captureFeedbackContext({ Area: area ?? 'Site', ...context }),
-		});
-		window.open(url, '_blank', 'noopener,noreferrer');
-		onOpenChange(false);
-	};
+	// A real <a href> — not window.open() — so the click is a genuine browser
+	// navigation a popup blocker won't intercept, keyboard/middle-click/"open in
+	// new tab" all work, and there's a real URL to inspect before following it.
+	const feedbackUrl = React.useMemo(
+		() =>
+			buildFeedbackIssueUrl({
+				category,
+				summary: summary.trim(),
+				details: details.trim(),
+				context: captureFeedbackContext({ Area: area ?? 'Site', ...context }),
+			}),
+		[category, summary, details, area, context],
+	);
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -131,9 +133,20 @@ export function FeedbackSheet({
 					<p className="text-[11px] leading-relaxed text-muted-foreground">
 						Your page, viewport, and browser ride along automatically — you don't have to type them.
 					</p>
-					<Button type="button" className="w-full" disabled={!canSubmit} onClick={submit}>
-						Continue on GitHub
-					</Button>
+					{canSubmit ? (
+						<Button asChild className="w-full">
+							<a href={feedbackUrl} target="_blank" rel="noreferrer noopener" onClick={() => onOpenChange(false)}>
+								Continue on GitHub
+							</a>
+						</Button>
+					) : (
+						<div className="space-y-1.5">
+							<Button type="button" className="w-full" disabled aria-disabled="true">
+								Continue on GitHub
+							</Button>
+							<p className="text-center text-[11px] text-muted-foreground">Add a summary and some details to continue.</p>
+						</div>
+					)}
 				</div>
 			</SheetContent>
 		</Sheet>
