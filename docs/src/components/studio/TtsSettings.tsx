@@ -138,6 +138,12 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 	const [kokoroLoad, setKokoroLoad] = React.useState<KokoroLoad>({ phase: 'idle', pct: 0 });
 	const [preview, setPreview] = React.useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
 	const [modelPreview, setModelPreview] = React.useState<string | null>(null);
+	// Distinguishes "the stored voice hasn't loaded yet" (orVoice === '' only
+	// because the mount fetch below hasn't resolved) from "loaded and genuinely
+	// unset" — the reconciliation effect further down must never run before this
+	// is true, or it would overwrite a real stored pick with the roster's default
+	// while the real value is still in flight (a data-loss race).
+	const [prefsLoaded, setPrefsLoaded] = React.useState(false);
 	const abortRef = React.useRef<AbortController | null>(null);
 
 	React.useEffect(() => {
@@ -149,6 +155,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 			setOrVoiceState(ov);
 			setKokoroVoiceState(kv);
 			setSpeedState(sp);
+			setPrefsLoaded(true);
 		});
 		return () => {
 			live = false;
@@ -211,6 +218,33 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		[models],
 	);
 
+	// Reconcile a stored voice pick against the LIVE roster once both the stored
+	// prefs AND the roster have actually loaded (prefsLoaded — see its own
+	// comment above; a roster arriving before the stored value would otherwise
+	// silently overwrite a real pick with the roster's default). Catches a voice
+	// id stranded by a catalog migration (this same redesign renamed Grok's
+	// voices, e.g. "Eve" -> "eve") or one OpenRouter has since dropped — without
+	// this, the picker shows an unset-looking dropdown and "Play sample" sends
+	// the stale id straight to the live API, which errors.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: orVoice intentionally excluded — this effect reacts to the ROSTER becoming available/changing, not to every voice pick (pickOrVoice already persists those); including it would re-fire on its own write.
+	React.useEffect(() => {
+		if (!prefsLoaded || !orModelVoices.length) return;
+		const resolved = resolveVoice(orModelVoices, orVoice);
+		if (resolved !== orVoice) {
+			setOrVoiceState(resolved);
+			setTtsOrVoice(resolved);
+		}
+	}, [prefsLoaded, orModelVoices]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: kokoroVoice intentionally excluded, same reasoning as the cloud reconciliation effect above.
+	React.useEffect(() => {
+		if (!prefsLoaded || !kokoroVoices.length) return;
+		const resolved = resolveVoice(kokoroVoices, kokoroVoice);
+		if (resolved !== kokoroVoice) {
+			setKokoroVoiceState(resolved);
+			setTtsKokoroVoice(resolved);
+		}
+	}, [prefsLoaded, kokoroVoices]);
+
 	const playPreview = React.useCallback(
 		async (rung: 'openrouter' | 'kokoro', voiceOverride?: string) => {
 			setPreview({ busy: true, error: null });
@@ -244,7 +278,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 	// + voice-pick + Play round trip first.
 	const playModelRow = async (m: OrVoiceModel) => {
 		const roster = voicesForModel(m.id, m.voices);
-		const voice = (m.id === orModel ? orVoice : null) ?? resolveVoice(roster, '');
+		const voice = (m.id === orModel && orVoice) || resolveVoice(roster, '');
 		if (!voice) return;
 		setModelPreview(m.id);
 		const res = await previewTtsVoice({ rung: 'openrouter', voice, model: m.id, speed });

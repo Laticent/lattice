@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ArchitectStatus } from './architect';
+import * as readAloud from './read-aloud';
 import { WorkspaceSheet } from './WorkspaceSheet';
 
 // G6 — the Workspace AI tab (Model + Spend sections) against a CONNECTED (mocked)
@@ -59,6 +60,7 @@ vi.mock('./architect', () => ({
 const TTS_CATALOG = [
 	{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'af_bella', 'am_adam'] },
 	{ id: 'openai/tts-1', name: 'OpenAI: TTS-1', promptPerM: 15, completionPerM: 0, voices: ['alloy', 'echo'] },
+	{ id: 'x-ai/grok-voice-tts-1.0', name: 'xAI: Grok Voice TTS', promptPerM: 15, completionPerM: 0, voices: ['eve', 'ara', 'rex', 'sal', 'leo'] },
 ];
 const voiceAvailSpy = vi.hoisted(() =>
 	vi.fn(() => ({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false })),
@@ -238,6 +240,27 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		expect(await sheet.findByText(/Read-aloud voice · cloud/)).toBeInTheDocument();
 		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
 		expect(await sheet.findByText(/Read-aloud voice · on-device/)).toBeInTheDocument();
+	});
+
+	// Independent-checker finding: this redesign switched voice ids to match
+	// OpenRouter's own live casing (e.g. Grok's "Eve" -> "eve"), but nothing
+	// re-validated a voice id a user had already saved under the OLD casing —
+	// the picker would show blank/unset and "Play sample" would send the stale,
+	// wrong-case id straight to the live API (a real error for existing users on
+	// upgrade). The reconciliation effect in TtsSettings resolves + persists the
+	// corrected id once the live roster loads.
+	it('reconciles a stale (pre-migration-casing) stored voice id against the live roster, and persists the fix', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		vi.mocked(readAloud.ttsOrModel).mockResolvedValue('x-ai/grok-voice-tts-1.0');
+		vi.mocked(readAloud.ttsOrVoice).mockResolvedValue('Eve'); // the old capitalized id — no longer in the live roster
+		const { sheet } = openSheet();
+		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
+		// The precise, unambiguous signal: the corrected LIVE (lowercase) id gets
+		// persisted. (The rendered label is "Eve" either way — prettyVoiceLabel
+		// title-cases 'eve' back to "Eve" — so label text can't distinguish
+		// "resolved to the real live id" from "still showing the stale one".)
+		await waitFor(() => expect(readAloud.setTtsOrVoice).toHaveBeenCalledWith('eve'));
+		expect(readAloud.setTtsOrVoice).not.toHaveBeenCalledWith('Eve');
 	});
 
 	it('cloud TTS voice is a model-specific dropdown (not free text) once a model is set', async () => {

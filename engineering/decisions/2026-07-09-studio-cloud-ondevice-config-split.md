@@ -483,6 +483,25 @@ voxtral (8, English-only `en_paul_*`; `gb_oliver_*`/`gb_jane_*`/`fr_marie_*`
 live and work too, just uncached). Every model OpenRouter's catalog lists now
 has a working dropdown; nothing requires typing a voice id blind.
 
+**Independent-checker finding: a migration regression for existing users.**
+This redesign's own casing migration (Grok's `Eve`→`eve`, matching OpenRouter's
+live field) exposed a real gap: nothing re-validated a voice id a user had
+already saved under the OLD casing once the live roster loaded. The mount
+effect set `orVoice`/`kokoroVoice` straight from storage and never revisited
+them — `resolveVoice` was imported but only wired into the model-row Play
+button, not into the load path. A returning user with `Eve` in
+`localStorage` would see a blank-looking picker and "Play sample" would send
+the stale, wrong-case id straight to the live API (a real error on upgrade,
+not a cosmetic one) — the same class of bug the whole redesign set out to
+prevent, just triggered by this PR's own migration instead of an external
+catalog change. Fixed with a `prefsLoaded`-gated reconciliation effect
+(`TtsSettings.tsx`) that resolves the stored voice against the live roster
+once BOTH have actually loaded — gated specifically so a roster arriving
+before the stored value can't overwrite a real pick with the roster's default
+(that ordering race would have been a second, worse bug). Covered by a
+regression test that fails without the fix (verified by temporarily
+reverting it) and passes with it.
+
 ## What's explicitly out of scope
 
 - **On-device speech-to-text / dictation (Whisper or otherwise).** Nothing here
