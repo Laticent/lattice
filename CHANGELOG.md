@@ -208,6 +208,15 @@ in patch versions.
   deleted before this fix would survive even a full wipe. `clearAllDecks` now
   also sweeps by key prefix (not just index membership) to catch anything
   already orphaned from before this fix shipped.
+- **The two-tap delete "Sure?" state (Library cards + the Privacy & Data tab)
+  no longer lingers forever.** `DeleteBtn` (`Library.tsx`, shared by both
+  surfaces) previously stayed armed until the surrounding sheet closed — click
+  away, switch tabs, get distracted, and a single later click on what you
+  thought was the plain Delete button fired a real delete instead. It now
+  un-arms itself after ~3s of inactivity (matching the existing slide-toolbar
+  delete pattern in `StudioShell`'s `RailOp`) or on a pointerdown anywhere
+  outside the button, whichever comes first — captured at the document level
+  so another component's `stopPropagation` can't swallow it.
 
 ### Added
 

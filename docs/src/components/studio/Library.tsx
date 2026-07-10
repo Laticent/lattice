@@ -293,7 +293,7 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onApplyTheme(t.name); notify(`Applied ${t.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
 												<button type="button" disabled={!!busy} onClick={() => shareTheme(t)} aria-label={`Share ${t.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
-												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeTheme(t); }} label={t.label} />
+												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeTheme(t); }} onCancel={() => setArmed(null)} label={t.label} />
 											</div>
 										</div>
 									</div>
@@ -311,7 +311,7 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onInsert(c.skeleton, c.name); notify(`Inserted .${c.name}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
 												<button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
-												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeComponent(c); }} label={`.${c.name}`} />
+												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeComponent(c); }} onCancel={() => setArmed(null)} label={`.${c.name}`} />
 											</div>
 										</div>
 									</div>
@@ -333,7 +333,7 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onApplyFinish(f.name); notify(`Applied ${f.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
 												<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
-												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} label={f.label} />
+												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} onCancel={() => setArmed(null)} label={f.label} />
 											</div>
 										</div>
 									</div>
@@ -348,7 +348,7 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 										<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
 										<div className="mt-2.5 flex items-center gap-1.5">
 											<button type="button" onClick={() => downloadDoc(d)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card py-1.5 text-[11.5px] font-semibold text-foreground"><Download className="size-3.5" />Download</button>
-											<DeleteBtn armed={armed === `refdoc:${d.id}`} onArm={() => setArmed(`refdoc:${d.id}`)} onConfirm={() => { setArmed(null); removeDoc(d); }} label={d.name} />
+											<DeleteBtn armed={armed === `refdoc:${d.id}`} onArm={() => setArmed(`refdoc:${d.id}`)} onConfirm={() => { setArmed(null); removeDoc(d); }} onCancel={() => setArmed(null)} label={d.name} />
 										</div>
 									</div>
 								</div>
@@ -372,9 +372,29 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 // Two-tap delete (matches the slide-toolbar pattern) — first tap arms, second
 // confirms. Exported so other Studio surfaces (the Workspace Privacy & Data tab)
 // reuse the same delete affordance instead of re-styling their own (HARD RULE #15).
-export function DeleteBtn({ armed, onArm, onConfirm, label }: { armed: boolean; onArm: () => void; onConfirm: () => void; label: string }) {
+//
+// Owns its own un-arm behavior rather than leaning on each caller to remember
+// it: a "Sure?" left alone is a footgun waiting for an accidental later click
+// to land as a real delete. It reverts on whichever comes first — ~3s of
+// inactivity (matching StudioShell's RailOp slide-toolbar delete) or a
+// pointerdown anywhere outside this button, captured at the document level so
+// another component's stopPropagation can't swallow it first.
+export function DeleteBtn({ armed, onArm, onConfirm, onCancel, label }: { armed: boolean; onArm: () => void; onConfirm: () => void; onCancel: () => void; label: string }) {
+	const ref = React.useRef<HTMLButtonElement>(null);
+	React.useEffect(() => {
+		if (!armed) return;
+		const timer = setTimeout(onCancel, 3000);
+		const onPointerDown = (e: PointerEvent) => {
+			if (!ref.current?.contains(e.target as Node)) onCancel();
+		};
+		document.addEventListener('pointerdown', onPointerDown, true);
+		return () => {
+			clearTimeout(timer);
+			document.removeEventListener('pointerdown', onPointerDown, true);
+		};
+	}, [armed, onCancel]);
 	return armed ? (
-		<button type="button" onClick={onConfirm} aria-label={`Confirm delete ${label}`} className="flex items-center gap-1 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-2 py-1.5 text-[11px] font-semibold text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" />Sure?</button>
+		<button ref={ref} type="button" onClick={onConfirm} aria-label={`Confirm delete ${label}`} className="flex items-center gap-1 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-2 py-1.5 text-[11px] font-semibold text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" />Sure?</button>
 	) : (
 		<button type="button" onClick={onArm} aria-label={`Delete ${label}`} className="grid place-items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" /></button>
 	);

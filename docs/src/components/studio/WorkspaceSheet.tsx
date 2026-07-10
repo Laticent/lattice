@@ -66,7 +66,7 @@ function AiSection({ children }: { children: React.ReactNode }) {
 // A single Privacy & Data row — one storage category, its stat line, and the same
 // two-tap DeleteBtn the Library uses (HARD RULE #15: one delete affordance,
 // not a bespoke one per surface).
-function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm }: { icon: React.ReactNode; title: string; description: string; stat?: string; armed: boolean; busy: boolean; onArm: () => void; onConfirm: () => void }) {
+function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm, onCancel }: { icon: React.ReactNode; title: string; description: string; stat?: string; armed: boolean; busy: boolean; onArm: () => void; onConfirm: () => void; onCancel: () => void }) {
 	return (
 		<div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
 			<span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">{icon}</span>
@@ -75,7 +75,7 @@ function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm 
 				<p className="mt-0.5 text-[11.5px] leading-relaxed text-muted-foreground">{description}</p>
 				{stat && <div className="mt-1 font-mono text-[11px] text-muted-foreground">{stat}</div>}
 			</div>
-			<div className="shrink-0 pt-0.5">{busy ? <span className="px-1 text-[11px] text-muted-foreground">…</span> : <DeleteBtn armed={armed} onArm={onArm} onConfirm={onConfirm} label={title} />}</div>
+			<div className="shrink-0 pt-0.5">{busy ? <span className="px-1 text-[11px] text-muted-foreground">…</span> : <DeleteBtn armed={armed} onArm={onArm} onConfirm={onConfirm} onCancel={onCancel} label={title} />}</div>
 		</div>
 	);
 }
@@ -658,6 +658,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									busy={govBusy === 'decks'}
 									onArm={() => setGovArmed('decks')}
 									onConfirm={() => clearCategory('decks', clearAllDecks, 'Decks cleared — back to the starter set.')}
+									onCancel={() => setGovArmed(null)}
 								/>
 								<GovRow
 									icon={<FileBox className="size-4" />}
@@ -668,6 +669,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									busy={govBusy === 'library'}
 									onArm={() => setGovArmed('library')}
 									onConfirm={() => clearCategory('library', clearLibraryAssets, 'Library cleared.')}
+									onCancel={() => setGovArmed(null)}
 								/>
 								<GovRow
 									icon={<KeyRound className="size-4" />}
@@ -678,6 +680,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									busy={govBusy === 'openrouter'}
 									onArm={() => setGovArmed('openrouter')}
 									onConfirm={() => clearCategory('openrouter', disconnectOpenRouter, 'OpenRouter disconnected.')}
+									onCancel={() => setGovArmed(null)}
 								/>
 								<GovRow
 									icon={<Cpu className="size-4" />}
@@ -688,6 +691,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									busy={govBusy === 'models'}
 									onArm={() => setGovArmed('models')}
 									onConfirm={() => clearCategory('models', clearDownloadedModels, 'Downloaded models cleared.')}
+									onCancel={() => setGovArmed(null)}
 								/>
 								<GovRow
 									icon={<Database className="size-4" />}
@@ -698,6 +702,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									busy={govBusy === 'cache'}
 									onArm={() => setGovArmed('cache')}
 									onConfirm={() => clearCategory('cache', clearSiteCache, 'Cache cleared.')}
+									onCancel={() => setGovArmed(null)}
 								/>
 							</div>
 
