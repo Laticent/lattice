@@ -169,14 +169,106 @@ export function renameDeck(id: string, title: string): void {
 	saveIndex(loadIndex().map((e) => (e.id === id ? { ...e, title: t } : e)));
 }
 
-/** Remove a deck (index entry + its edited source + its review comments). */
+/** Remove a deck (index entry + its edited source, checkpoints, chat, chat
+ *  draft, and review comments). Every per-deck sidecar this module and
+ *  slide-comments.ts own is dropped here — leaving any of them behind orphans
+ *  that id's content in localStorage forever (past deletions left checkpoint/
+ *  chat/chat-draft keys behind; clearAllDecks's prefix sweep below cleans up
+ *  any that predate this fix, but new deletes should never create more). */
 export function deleteDeck(id: string): void {
 	saveIndex(loadIndex().filter((e) => e.id !== id));
 	dropSource(id);
-	// Comments are a per-deck app-state sidecar (lattice-studio-comments-<id>) — drop
-	// them too, or a deleted deck leaks its comment store forever.
+	remove(SNAP_PREFIX + id);
+	remove(CHAT_PREFIX + id);
+	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
 }
+
+// ── Privacy & Data (Workspace → Privacy & Data tab) ─────────────────────────
+// This module already owns the knowledge of which keys make up deck CONTENT
+// (as opposed to settings/instructions, kept deliberately separate below) — so
+// the Privacy & Data tab's stats + "clear decks" action live here too, rather
+// than re-deriving the key list in the UI layer.
+
+/** Deck count + a rough byte size for everything this module (+ slide-comments.ts,
+ *  a per-deck sidecar) persists as deck CONTENT — used by the Privacy & Data tab's
+ *  "Decks" row. Settings/instructions are excluded; they're preferences, not data. */
+export function deckContentStats(): { count: number; bytes: number } {
+	const count = loadIndex().length;
+	let bytes = 0;
+	try {
+		for (let i = 0; i < localStorage.length; i++) {
+			const k = localStorage.key(i);
+			if (!k) continue;
+			// 'lattice-studio-comments-' is slide-comments.ts's PREFIX — kept in sync
+			// by hand, the same way hasPriorStudioUse above scans SRC_PREFIX directly.
+			if (k === INDEX_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
+				bytes += k.length + (localStorage.getItem(k)?.length ?? 0);
+			}
+		}
+	} catch {
+		/* storage unavailable */
+	}
+	return { count, bytes };
+}
+
+/**
+ * Delete every deck's content — index, edited sources, checkpoints, chats, chat
+ * drafts, and comments — resetting the workspace to the built-in starter decks
+ * (an empty index re-seeds from DECKS on next load; see loadIndex). Settings and
+ * standing instructions are untouched: Privacy & Data clears DATA, not preferences.
+ *
+ * Sweeps by KEY PREFIX, not just ids in the current index: a deck removed
+ * earlier via the ordinary deck-switcher delete could leave its checkpoint/
+ * chat/chat-draft/comment keys orphaned once its id fell out of the index
+ * (deleteDeck didn't clean those up before this fix) — "Delete Everything"
+ * must not leave that behind, or the privacy promise is false. The prefix
+ * scan mirrors deckContentStats' own byte count above, which already reads
+ * by prefix rather than by index membership for the same reason.
+ */
+export function clearAllDecks(): void {
+	// Known ids first, through the real per-deck API (clearComments dispatches
+	// COMMENTS_EVENT so any open comment view refreshes — the prefix sweep below
+	// can't do that, since it doesn't know which ids it's touching).
+	for (const { id } of loadIndex()) {
+		dropSource(id);
+		remove(SNAP_PREFIX + id);
+		remove(CHAT_PREFIX + id);
+		remove(CHAT_DRAFT_PREFIX + id);
+		clearComments(id);
+	}
+	// Then sweep by KEY PREFIX for anything the index no longer knows about: a
+	// deck removed earlier via the ordinary deck-switcher delete could leave its
+	// checkpoint/chat/chat-draft/comment keys orphaned once its id fell out of
+	// the index (deleteDeck didn't clean those up before this fix) — "Delete
+	// Everything" must not leave that behind, or the privacy promise is false.
+	// The prefix scan mirrors deckContentStats' own byte count above, which
+	// already reads by prefix rather than by index membership for the same
+	// reason. Collected into an array before removing anything — mutating
+	// localStorage mid-forward-iteration over its own live index would skip keys.
+	try {
+		const orphaned: string[] = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const k = localStorage.key(i);
+			if (k && (k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-'))) orphaned.push(k);
+		}
+		for (const k of orphaned) remove(k);
+	} catch {
+		/* storage unavailable — non-fatal, matches the read-side scan above */
+	}
+	remove(INDEX_LS);
+	// The live editor has no other way to learn its in-memory deck/source state
+	// just went stale — without this, the user could keep typing in the still-
+	// focused editor and the existing 400ms debounced autosave (StudioShell)
+	// would silently re-write the just-cleared deck's content back to
+	// localStorage before the Workspace sheet's reload catches up.
+	if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(DECKS_CLEARED_EVENT));
+}
+
+/** Fired the instant clearAllDecks finishes — StudioShell listens and stops
+ *  every saveSource call for the rest of its lifetime (it's about to be
+ *  torn down by a reload anyway; see clearAllDecks above for why this exists). */
+export const DECKS_CLEARED_EVENT = 'lattice:decks-cleared';
 
 // ── Version history (checkpoints) ──────────────────────────────────────────
 const SNAP_PREFIX = 'lattice-studio-snap-'; // + deckId → Checkpoint[]

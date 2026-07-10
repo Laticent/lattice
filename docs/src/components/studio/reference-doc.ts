@@ -125,11 +125,13 @@ export function refDocsTokens(docs: ReferenceDoc[] | null | undefined): number {
 }
 
 /** Human-readable file size — B under 1 KB (so a 71-byte brief isn't "0 KB"),
- *  KB up to 1 MB, else MB. */
+ *  KB up to 1 MB, MB up to 1 GB, else GB (on-device model downloads and the
+ *  Privacy & Data tab's cache readouts routinely clear the MB tier). */
 export function formatBytes(n: number): string {
 	if (n < 1024) return `${n} B`;
 	if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)} KB`;
-	return `${(n / 1024 / 1024).toFixed(1)} MB`;
+	if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+	return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
 const readAs = (file: File, how: 'text' | 'dataURL'): Promise<string> =>

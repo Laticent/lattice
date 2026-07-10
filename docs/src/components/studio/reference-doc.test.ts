@@ -149,11 +149,13 @@ describe('threat model (#22)', () => {
 });
 
 describe('formatBytes', () => {
-	it('shows B under 1 KB (a tiny brief is not "0 KB"), KB, then MB', () => {
+	it('shows B under 1 KB (a tiny brief is not "0 KB"), KB, then MB, then GB', () => {
 		expect(formatBytes(71)).toBe('71 B');
 		expect(formatBytes(2048)).toBe('2.0 KB');
 		expect(formatBytes(144_713)).toBe('141 KB');
 		expect(formatBytes(3 * 1024 * 1024)).toBe('3.0 MB');
+		expect(formatBytes(1024 * 1024 * 1024)).toBe('1.00 GB');
+		expect(formatBytes(1.5 * 1024 * 1024 * 1024)).toBe('1.50 GB');
 	});
 });
 

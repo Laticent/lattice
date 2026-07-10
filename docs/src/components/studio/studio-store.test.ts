@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DECKS } from './decks';
+import { addComment, listComments } from './slide-comments';
 import {
+	clearAllDecks,
 	createDeck,
+	DECKS_CLEARED_EVENT,
+	deckContentStats,
 	deleteDeck,
 	exportStudioState,
 	importStudioState,
+	loadChat,
 	loadChatDraft,
 	loadCheckpoints,
 	loadDeckList,
@@ -15,6 +20,7 @@ import {
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	renameDeck,
+	saveChat,
 	saveChatDraft,
 	saveCheckpoint,
 	saveInstructions,
@@ -210,6 +216,96 @@ describe('studio-store — workspace backup carries both instruction fields', ()
 		delete legacy.onDeviceInstructions;
 		expect(() => importStudioState(legacy, 2000)).not.toThrow();
 		expect(loadOnDeviceInstructions()).toBe('');
+	});
+});
+
+describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', () => {
+	it('deckContentStats counts the deck index and grows with edited content', () => {
+		const before = deckContentStats();
+		expect(before.count).toBe(DECKS.length);
+		const d = createDeck('Extra');
+		saveSource(d.id, '# Extra\n\nbody');
+		saveCheckpoint(d.id, '# Extra v1', 'first', 1000);
+		saveChat(d.id, [{ role: 'user', content: 'hi' }]);
+		const after = deckContentStats();
+		expect(after.count).toBe(DECKS.length + 1);
+		expect(after.bytes).toBeGreaterThan(before.bytes);
+	});
+
+	it('clearAllDecks wipes every deck\'s content and resets the index to the built-in seed', () => {
+		const d = createDeck('Temp');
+		saveSource(d.id, '# Temp\n\nbody');
+		saveCheckpoint(d.id, '# Temp v1', 'first', 1000);
+		saveChat(d.id, [{ role: 'user', content: 'hi' }]);
+		saveChatDraft(d.id, 'unsent thought');
+		// A built-in deck carrying local edits should also lose its override.
+		saveSource(DECKS[0].id, '# Edited built-in');
+
+		clearAllDecks();
+
+		const list = loadDeckList();
+		expect(list.map((x) => x.id)).toEqual(DECKS.map((x) => x.id)); // back to the built-in seed only
+		expect(loadSource(DECKS[0].id)).toBeNull(); // the built-in's edit is gone too
+		expect(loadCheckpoints(d.id)).toEqual([]);
+		expect(loadChatDraft(d.id)).toBe('');
+		expect(deckContentStats().count).toBe(DECKS.length);
+	});
+
+	it('clearAllDecks leaves settings and standing instructions untouched (data, not preferences)', () => {
+		saveSettings({ headerFooter: true });
+		saveInstructions('Board voice.');
+		clearAllDecks();
+		expect(loadSettings().headerFooter).toBe(true);
+		expect(loadInstructions()).toBe('Board voice.');
+	});
+
+	it('deleteDeck also clears the deck\'s checkpoints, chat, and chat draft (previously left orphaned — a red-team/checker finding)', () => {
+		const d = createDeck('Temp2');
+		saveCheckpoint(d.id, '# Temp2 v1', 'first', 1000);
+		saveChat(d.id, [{ role: 'user', content: 'hi' }]);
+		saveChatDraft(d.id, 'unsent draft');
+		addComment(d.id, 1, 'a comment');
+
+		deleteDeck(d.id);
+
+		expect(loadCheckpoints(d.id)).toEqual([]);
+		expect(loadChat(d.id)).toEqual([]);
+		expect(loadChatDraft(d.id)).toBe('');
+		expect(listComments(d.id)).toEqual([]);
+	});
+
+	it('clearAllDecks sweeps ORPHANED sidecar keys too — content a deck no longer in the index left behind (the pre-fix deleteDeck gap; "Delete Everything" must not leave this)', () => {
+		// Simulate exactly what the pre-fix deleteDeck() left behind: checkpoint/
+		// chat/chat-draft/comment keys for an id that is NOT (or no longer) in the
+		// deck index. These helpers write straight to localStorage regardless of
+		// index membership, so this reproduces the orphan without needing a real
+		// stale deleteDeck build.
+		saveCheckpoint('orphan-1', '# Orphan v1', 'first', 1000);
+		saveChat('orphan-1', [{ role: 'user', content: 'hi' }]);
+		saveChatDraft('orphan-1', 'unsent');
+		addComment('orphan-1', 1, 'leftover comment');
+		expect(loadCheckpoints('orphan-1').length).toBeGreaterThan(0);
+		expect(loadChatDraft('orphan-1')).toBe('unsent');
+		expect(listComments('orphan-1').length).toBeGreaterThan(0);
+
+		clearAllDecks();
+
+		expect(loadCheckpoints('orphan-1')).toEqual([]);
+		expect(loadChat('orphan-1')).toEqual([]);
+		expect(loadChatDraft('orphan-1')).toBe('');
+		expect(listComments('orphan-1')).toEqual([]);
+	});
+
+	it('clearAllDecks fires DECKS_CLEARED_EVENT — the live editor (StudioShell) listens for this to stop autosaving a just-cleared deck', () => {
+		const seen: string[] = [];
+		const onCleared = () => seen.push('fired');
+		window.addEventListener(DECKS_CLEARED_EVENT, onCleared);
+		try {
+			clearAllDecks();
+		} finally {
+			window.removeEventListener(DECKS_CLEARED_EVENT, onCleared);
+		}
+		expect(seen).toEqual(['fired']);
 	});
 });
 
