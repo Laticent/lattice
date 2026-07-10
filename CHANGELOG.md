@@ -100,6 +100,24 @@ in patch versions.
   eyebrow, and is no longer hoisted out of its container. Found by the
   Form-migration audit
   (`engineering/decisions/2026-07-09-form-migration-audit.md`).
+- **The runtime's deck-wide `meta:`/`logo:`/`class:` (+finish/mode/claim/
+  stamp/tone/spectrum) front-matter registers no longer go silently missing
+  after a live edit.** Each was a one-shot fetch-and-apply fired once at
+  bootstrap, unlike the progress/watermark Tiles (which #837 explicitly moved
+  into the recurring transform pass so they re-fire on every preview edit).
+  Marp's live preview replaces an edited slide's `<section>` wholesale, which
+  rebuilds a fresh, empty masthead-bay / logo-less / backdrop-less section —
+  and since these three never re-fired, previously-shown chrome was
+  permanently lost for the rest of the session, even though the underlying
+  fetch had already succeeded once. Each now caches its parsed front-matter
+  config after the first successful fetch and re-applies it (idempotently)
+  on every later transform pass, with no re-fetch. Found by the
+  Form-migration audit
+  (`engineering/decisions/2026-07-09-form-migration-audit.md`), which also
+  added a permanent regression guard: a test loading the real bundled
+  `dist/lattice-runtime.js` into jsdom, stubbing `fetch`, and simulating a
+  live-edit DOM replacement to assert logo/meta/class persist without a
+  second fetch (`test/integration/parity/runtime-frontmatter-refire.test.js`).
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
