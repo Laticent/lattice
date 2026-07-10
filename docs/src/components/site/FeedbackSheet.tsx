@@ -98,7 +98,7 @@ export function FeedbackSheet({
 						Send feedback
 					</SheetTitle>
 					<SheetDescription className="text-xs text-muted-foreground">
-						Opens a pre-filled GitHub issue — you review and submit it yourself, so we never need to store a GitHub credential.
+						You'll finish this on GitHub — we'll have it filled in for you, and you can look it over before it posts.
 					</SheetDescription>
 				</SheetHeader>
 				<div className="flex-1 space-y-5 overflow-y-auto p-5">

@@ -7,17 +7,6 @@ body:
       value: |
         Thanks for taking the time to report this. The more concrete, the more
         useful — what you were doing, what you saw, and what you expected instead.
-  - type: dropdown
-    id: category
-    attributes:
-      label: Category
-      options:
-        - Something broke (bug)
-        - An idea / suggestion
-        - Something felt confusing
-        - Other
-    validations:
-      required: true
   - type: textarea
     id: details
     attributes:
