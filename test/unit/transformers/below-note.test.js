@@ -71,6 +71,34 @@ describe('below-note — applyToHtml (marp-cli path)', () => {
     assert.ok(out.includes('<div class="cell-footer"><footer>f</footer></div>'), 'footer cell untouched');
   });
 
+  test('wraps the real trailing <p> when a <pre> sample merely mentions the literal cell-stage string', () => {
+    // Regression: extractStage used to do a bare `indexOf('<div class="cell-
+    // stage">')`, which matched this literal text INSIDE the <pre> sample —
+    // a false "stage" whose balanced-close landed mid-sample, whose body
+    // never matched STAGE_TRAILING_NOTE, so wrapTrailingNote returned `inner`
+    // UNCHANGED instead of falling through to the real trailing <p> below.
+    const html = sec(
+      'list-checks',
+      '<pre><code><div class="cell-stage">sample</div></code></pre>' +
+        '<ul><li>a</li></ul><p>note</p>',
+    );
+    const out = belowNote.applyToHtml(html);
+    assert.ok(out.includes('<div class="below-note"><p>note</p></div>'), out);
+  });
+
+  test('ignores a fake nested .cell-stage div and still wraps the real trailing <p>', () => {
+    // Regression: a non-top-level <div class="cell-stage"> (nested inside
+    // unrelated markup) used to be treated as the real masthead-lift stage,
+    // hijacking extraction and leaving the section's true trailing <p> bare.
+    const html = sec(
+      'list-checks',
+      '<div class="callout"><div class="cell-stage">nested, not top-level</div></div>' +
+        '<ul><li>a</li></ul><p>note</p>',
+    );
+    const out = belowNote.applyToHtml(html);
+    assert.ok(out.includes('<div class="below-note"><p>note</p></div>'), out);
+  });
+
   test('does not wrap a math slide (chrome-exempt, no local below-note treatment)', () => {
     const html = sec('math theorem form', '<blockquote><p>Theorem.</p></blockquote><p>So x = 1.</p>');
     assert.equal(belowNote.applyToHtml(html), html);
