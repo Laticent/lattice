@@ -1,10 +1,12 @@
 /**
  * Unit tests for the shared transformer registry.
  *
- * The registry is the central plugin list consumed by all three render
- * paths (marp-cli, lattice-emulator, lattice-runtime). These tests pin
- * the registry's shape contract and assert that the currently-registered
- * transformers each conform to it.
+ * The registry is the central plugin list behind the engine's two HTML-stage
+ * consumers: `applyToHtml` (lib/engine — serves both the CLI/PDF path,
+ * lattice-emulator.js, and the browser playground, which shares the same
+ * call) and `applyToDom` (lattice-runtime.js, the VS Code preview runtime).
+ * These tests pin the registry's shape contract and assert that the
+ * currently-registered transformers each conform to it.
  *
  * The string path is `applyToHtml` (whole-document) — there is no
  * per-section interface anymore (the emulator runs on lib/engine, which

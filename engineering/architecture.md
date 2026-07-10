@@ -6,14 +6,18 @@ don't need to read this.
 
 > Debugging something subtle? Check
 > [gotchas.md](gotchas.md) first. It tracks the
-> hacks, workarounds, and dependency quirks (Marpit, Mermaid, Chromium,
-> marp-vscode) that the engine is structured around — many of which
-> aren't self-documenting in the code.
+> hacks, workarounds, and dependency quirks (Mermaid, Chromium,
+> the third-party "Marp for VS Code" preview) that the engine is
+> structured around — many of which aren't self-documenting in the code.
 
-## Why Marp emulation, not Marp itself
+## Why the owned engine, not a Marp CLI wrapper
 
-Lattice ships its own renderer (`lattice-emulator.js`) instead of calling the
-Marp CLI for two reasons:
+Lattice's engine (`lib/engine`, shipped as the `lattice-emulator.js` CLI) is
+a **native re-implementation** of a Marpit-compatible slide model, not a
+wrapper around Marp CLI — Lattice ships zero `@marp-team` runtime
+dependencies (`engineering/marp-independence.md` tracks the scorecard).
+Two capability gaps drove that choice, beyond general control over
+rendering:
 
 **Mermaid pre-rendering.** Marp CLI doesn't render Mermaid diagrams as
 SVG; it leaves them as `<pre><code class="language-mermaid">` blocks
@@ -29,10 +33,13 @@ tedious. Lattice injects the directive automatically based on the
 active palette (loaded from `themes/<n>.css`), so deck authors write
 plain Mermaid without theme prefixes.
 
-The renderer emulates Marp's HTML structure faithfully — the `<section>`
-wrapper, the `data-lattice-pagination` attribute, the slide chrome
-(`<header>`, `<footer>`, pagination via `::after`) — so any CSS written
-for Marp works against Lattice output.
+The engine's HTML structure — the `<section>` wrapper, the
+`data-lattice-pagination` attribute, the slide chrome (`<header>`,
+`<footer>`, pagination via `::after`) — deliberately matches Marpit's own
+output shape. That compatibility is a real, standing interop surface (the
+Export-to-Marp bundle, the third-party VS Code preview), not the
+architectural frame: it's why a plain CSS theme written for Marp mostly
+works against Lattice output, not why the engine exists.
 
 ## The build pipeline
 
@@ -59,7 +66,7 @@ Mermaid blocks ──→ %%{init: { themeVariables } }%% ──→ │
        lattice.css + paletteCSS ──→ <style> ──────────┘
                                                        │
                                                        ▼
-                                              HTML emulating Marp
+                                        HTML (Marpit-compatible structure)
                                                        │
                                                        ▼
                                               puppeteer print PDF
@@ -104,7 +111,7 @@ targets that generated structure. Authors write a list; the
 post-processor turns it into the layout.
 
 **Unstructured layouts** are rendered by CSS alone from the semantic
-markdown that Marp emits. No DOM rewriting happens — the headings,
+markdown-it output. No DOM rewriting happens — the headings,
 paragraphs, and lists you write are the headings, paragraphs, and
 lists the CSS styles.
 

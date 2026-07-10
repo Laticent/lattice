@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Full-repo audit of Marp coupling beyond the sanctioned one-way export channel (lib/core/marp-bundle.js). Red team + Munger inversion + independent checker (8-agent adversarial pass, 100% of a 33-item sample confirmed) converge on one finding — the real, regenerative tax is engineering/workflow.md's "Two-renderer rule," which mandated every authoring transform be duplicated in lattice-runtime.js forever to keep the third-party marp-vscode preview (which runs raw marp-core, not our engine) looking right. Everything else is either a one-time inert cost, phantom/stale "marp-cli" references from before the P4 retirement, or canonical docs that disagree with each other about what Lattice even is. §5(a) — demoting the Two-renderer rule to opt-in-and-sunsettable — is now DONE (engineering/workflow.md rewritten). §5(b) — whether to retire marp-vscode as a first-party-supported preview surface — remains an open product decision. §6's doc-framing rewrites remain backlog.
+summary: Full-repo audit of Marp coupling beyond the sanctioned one-way export channel (lib/core/marp-bundle.js). Red team + Munger inversion + independent checker (8-agent adversarial pass, 100% of a 33-item sample confirmed) converge on one finding — the real, regenerative tax is engineering/workflow.md's "Two-renderer rule," which mandated every authoring transform be duplicated in lattice-runtime.js forever to keep the third-party marp-vscode preview (which runs raw marp-core, not our engine) looking right. Everything else is either a one-time inert cost, phantom/stale "marp-cli" references from before the P4 retirement, or canonical docs that disagreed with each other about what Lattice even is. §5(a) — demoting the Two-renderer rule to opt-in-and-sunsettable — DONE. §5(b) — whether to retire marp-vscode as a first-party-supported preview surface — DECIDED 2026-07-10: not retiring it, it works. §6's doc-framing rewrites, pipeline.md's rewrite, and the phantom-render-path test header sweep are DONE; only the legal.gallery.md false-parity-bullet fix remains open (deferred per HARD RULE #8 gallery isolation).
 ---
 
 # Marp legacy audit — what's really left, and what to do about it
@@ -348,22 +348,38 @@ CI-gated parity check this whole change exists to retire. Also caught:
 and the self-approving tone in an earlier draft of this paragraph (fixed —
 see the merge-gate note above).
 
-**(b) Retire marp-vscode as a first-party-supported preview surface**,
-pointing authors at the docs-site Studio/Playground instead, and let
-`lattice-runtime.js` degrade to best-effort. Bigger cut, more honest given
-`gotchas.md`'s own receipts that the investment doesn't fully pay off today —
-but it changes what authors currently do to draft a deck, and this audit
-didn't verify whether Studio/Playground is actually a drop-in substitute for
-"open a `.md` file, watch the preview panel update on save." **Still open —
-not proceeding without that verification and explicit sign-off.** Per the
-inversion's steelman: the old mandatory-mirror policy was *necessary but
-insufficient* (it never fixed the preview's structural gaps, e.g. the `logo:`
-directive's sandbox limits — but it did catch the fixable cases), so (a)
-alone is not a complete substitute for deciding this. **Time-boxed trigger,
-so "deferred" doesn't quietly become "never":** re-evaluate (b) once the
-gaps register above collects 5 entries, or 90 days from 2026-07-09,
-whichever comes first — using the register itself as the evidence base for
-whether Studio/Playground readiness is worth assessing.
+**(b) Retire marp-vscode as a first-party-supported preview surface** —
+**decided against, 2026-07-10.** Explicit call: "5b is off the table for
+now since it works." marp-vscode stays a first-party-supported preview
+surface; `lattice-runtime.js` keeps chasing transform-by-transform parity
+where an author opts in under (a)'s policy. This was the bigger cut under
+consideration — pointing authors at the docs-site Studio/Playground instead
+and letting the runtime mirror degrade to best-effort — and it's explicitly
+not happening now. The reasoning that followed it below (necessary-but-
+insufficient, the time-boxed re-evaluation trigger) is kept as historical
+record of why it was left open as long as it was, not as a live plan.
+Revisit only if the calculus actually changes (e.g. the preview genuinely
+stops working, or Studio/Playground readiness becomes a live question on
+its own merits) — not on a timer.
+
+<details>
+<summary>Original open-decision reasoning (superseded 2026-07-10, kept for record)</summary>
+
+Bigger cut, more honest given `gotchas.md`'s own receipts that the
+investment doesn't fully pay off today — but it changes what authors
+currently do to draft a deck, and this audit didn't verify whether
+Studio/Playground is actually a drop-in substitute for "open a `.md` file,
+watch the preview panel update on save." Per the inversion's steelman: the
+old mandatory-mirror policy was *necessary but insufficient* (it never
+fixed the preview's structural gaps, e.g. the `logo:` directive's sandbox
+limits — but it did catch the fixable cases), so (a) alone is not a
+complete substitute for deciding this. Time-boxed trigger, so "deferred"
+doesn't quietly become "never": re-evaluate once the gaps register above
+collects 5 entries, or 90 days from 2026-07-09, whichever comes first —
+using the register itself as the evidence base for whether Studio/Playground
+readiness is worth assessing.
+
+</details>
 
 **A floor on (b), regardless of which way it eventually goes:** manually
 wiring `dist/lattice-runtime.js` + `dist/lattice.css` + a registered theme +
@@ -380,36 +396,56 @@ recipe, or making existing decks that rely on it stop rendering. Whatever
 
 ## §6 — Backlog (logged per HARD RULE #18, not pulled into this diff)
 
-- Rewrite `architecture.md`, the LFM spec, `design/theming.md`,
+- ~~Rewrite `architecture.md`, the LFM spec, `design/theming.md`,
   `design/design-system.md`'s directive-naming rationale, and
-  `engineering/cascade.md`'s framing to describe Lattice in its own
-  vocabulary (Form/Tiles/LFM), demoting Marp/Marpit compatibility to a
-  clearly labeled historical/VS-Code-preview footnote rather than the
-  architectural frame. Reconcile `cascade.md`'s "!important rules override
-  Marp's scaffold" against `marp-independence.md`'s "no fighting marp's
-  `!important` scaffold" — pick one true statement.
-- Rewrite `engineering/pipeline.md` Part 6/7 — ~400 lines of obsolete
-  pre-engine bootstrap instructions telling an agent to fall back to raw
-  Marp CLI, written before `lib/engine` existed.
-- §5(a) is done; §5(b) still needs a decision (time-boxed, see §5). Once
-  either way is decided: case-by-case, which existing `lattice-runtime.js`
-  mirrors are worth keeping vs. sunsetting.
+  `engineering/cascade.md`'s framing~~ — **DONE, 2026-07-10.** Most of
+  `design/theming.md` and `design/design-system.md`'s Marp mentions turned
+  out to already be accurate compat/interop facts on inspection, not
+  overclaiming — left untouched. Real fixes: `architecture.md`'s opening
+  section reframed from "Why Marp emulation, not Marp itself" to "Why the
+  owned engine, not a Marp CLI wrapper" (plus two smaller factual
+  corrections in the same file); the LFM spec's "Lattice is a Marp-based
+  engine" corrected to name the native re-implementation, and its
+  "locks them to marp-core with a parity test" corrected to state plainly
+  it's hardcoded expected outputs, not a live comparison. `cascade.md`'s
+  "!important rules override Marp's scaffold" reconciled against
+  `marp-independence.md`'s "no fighting marp's `!important` scaffold" — both
+  are true, scoped to different render paths (the shared `scaffold.css`'s
+  `!important` matters only where it competes with real marp-core, i.e. the
+  Export-to-Marp bundle; the owned engine's own render never sees a
+  competing scaffold at all). See `engineering/decisions/
+  2026-07-10-marp-audit-doc-framing.md`.
+- ~~Rewrite `engineering/pipeline.md` Part 6/7~~ — **DONE, 2026-07-10.**
+  Replaced the ~400 obsolete pre-engine lines entirely with an accurate,
+  concise operational how-to (the real CLI, `npm run preview`, the
+  rasterize-for-review loop) that points to `architecture.md` for internals
+  instead of duplicating them.
+- §5(a) is done; **§5(b) decided 2026-07-10 — NOT retiring marp-vscode** (see
+  §5's update). Since the preview stays first-party-supported, there is no
+  forcing function to sunset any existing `lattice-runtime.js` mirror —
+  closing this as no-op rather than carrying it as open backlog. Revisit
+  only if a specific mirror is found to be dead weight on its own merits,
+  not as a consequence of this decision.
 - `examples/build.md`'s and `engineering/workflow.md`'s house convention of
-  `marp: true` front matter on every example/exemplar deck — worth revisiting
-  once §5(b) is decided, since the convention exists for marp-vscode preview.
+  `marp: true` front matter on every example/exemplar deck — **closing as
+  no-op** for the same reason: §5(b) resolved to keeping marp-vscode preview
+  support, which is exactly what this convention serves. No change needed.
 - `lib/components/legal/legal.gallery.md`'s false "Three-renderer parity"
-  bullet, baked into shipped slide content with committed PDFs — deferred
-  out of this PR per HARD RULE #8 (gallery isolation); needs its own
-  rebuild-and-review pass.
-- **Found by the adversarial pass on §5(a)'s implementation, not fixed here
-  (off-path for a docs-only follow-up PR):** several test-file headers still
-  describe a phantom "marp-cli" third render path or "must be mirrored"
-  mandatory-parity language that the original audit's §3/§4 sweep missed —
-  `test/unit/transformers/registry.test.js` ("all three render paths
-  (marp-cli, lattice-emulator, lattice-runtime)"), `below-note.test.js`,
-  `pill-tag.test.js`, `masthead-lift.test.js`, `meta-tile.test.js`,
-  `progress-tile.test.js`, `watermark-tile.test.js`. None of these assert
-  anything false about current *behavior* (verified: none of them actually
-  gate on a mirror existing), but the "marp-cli" references are the same
-  P4-retirement staleness §3 already catalogs elsewhere, and worth folding
-  into that sweep next time it runs.
+  bullet, baked into shipped slide content with committed PDFs — **still
+  open**, deferred out of this PR per HARD RULE #8 (gallery isolation);
+  needs its own rebuild-and-review pass.
+- ~~Several test-file headers still describe a phantom "marp-cli" third
+  render path or "must be mirrored" mandatory-parity language~~ — **DONE,
+  2026-07-10.** Fixed all 7 named files
+  (`test/unit/transformers/registry.test.js`, `below-note.test.js`,
+  `pill-tag.test.js`, `masthead-lift.test.js`,
+  `test/unit/forms/meta-tile.test.js`, `progress-tile.test.js`,
+  `watermark-tile.test.js`) plus one adjacent finding caught doing the same
+  sweep: `lib/core/below-note.js`'s exported `wrapSectionBody` helper has
+  zero production callers (confirmed via repo-wide grep) — it's exercised
+  only by its own unit test, not wired into the registry. Not dead code in
+  the pejorative sense (kept for byte-identical parity with the pre-kernel
+  regex it replaced), but the test's old header wrongly attributed it to
+  "the emulator path" as if it were an active production consumer. Comment
+  corrected; the function itself is untouched — logged here, not pulled
+  into a behavior-changing diff.

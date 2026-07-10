@@ -4,7 +4,8 @@
  *
  * The progress Tile owns both render adapters in one file (issue #356), so this
  * single test exercises both and PINS the cross-path parity that previously
- * lived split across marp-plugins.test.js and form-runtime.test.js.
+ * lived split across separate render-path test files (retired in the same
+ * consolidation).
  */
 
 const { test, describe } = require('node:test');

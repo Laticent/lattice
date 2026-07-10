@@ -1,8 +1,9 @@
 /**
  * Unit tests for the masthead-lift transform (Phase 1 of the Form model).
  * Covers the HTML-string kernel (lib/forms/cell/masthead/masthead.transform.js —
- * the marp-cli + emulator paths) and the DOM mirror (lib/transformers/
- * masthead-lift.js — the runtime path), and asserts the two agree.
+ * lib/engine, serving the CLI/PDF path and the browser playground) and the
+ * DOM mirror (lib/transformers/masthead-lift.js — the runtime path), and
+ * asserts the two agree.
  */
 
 const { test, describe } = require('node:test');

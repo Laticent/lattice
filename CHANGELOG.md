@@ -47,6 +47,19 @@ in patch versions.
 
 ### Changed
 
+- **Canonical docs no longer frame Lattice as fundamentally "Marp emulation."**
+  Closes out most of the Marp-legacy audit's §6 doc-framing backlog.
+  `architecture.md`'s opening reframed from "Why Marp emulation, not Marp
+  itself" to "Why the owned engine, not a Marp CLI wrapper"; the LFM spec's
+  "Lattice is a Marp-based engine" corrected to name the native
+  re-implementation; `cascade.md` and `marp-independence.md`'s seemingly
+  contradicting `!important`-scaffold claims reconciled (both true, scoped
+  to different render paths); `engineering/pipeline.md`'s ~400 obsolete
+  pre-engine lines replaced with an accurate operational how-to; 7 test
+  files' phantom "marp-cli third render path" comments corrected. §5(b) of
+  the audit (retire marp-vscode preview support?) decided against — it
+  works, stays first-party-supported. See
+  `engineering/decisions/2026-07-10-marp-audit-doc-framing.md`.
 - **The "Two-renderer rule" is now opt-in, not mandatory.**
   `engineering/workflow.md`'s contributor policy used to require every
   authoring transform to be duplicated in `lattice-runtime.js` (the DOM

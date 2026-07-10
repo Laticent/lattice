@@ -79,11 +79,18 @@ specificity. 100% of canary pages diverged. The change was reverted.
 
 ### What that means for Lattice today
 
-`scaffold.css` has `!important` rules on `section::after`
-(pagination chrome — necessary to override Marp's later-loaded
-scaffold defaults). `base.variants.css` has competing `!important`
-rules on `section.silent::after`, `section.archived::after`, etc.
-(state-marker overrides that need to defeat the scaffold default).
+`scaffold.css` has `!important` rules on `section::after` (pagination
+chrome). They're dead weight in the owned engine's own render (nothing
+competing loads there) but load-bearing in the one context where they do
+compete: `scaffold.css` is the same file the Export-to-Marp bundle ships
+(one source of truth, HARD RULE #1), and real marp-core injects its own
+default pagination CSS there — the `!important` is what wins against
+*that*, not against anything in our own engine. (This is why
+`marp-independence.md`'s "no fighting marp's `!important` scaffold" isn't
+a contradiction: that line describes the owned-engine render path, which
+never sees Marp's scaffold at all.) `base.variants.css` has competing
+`!important` rules on `section.silent::after`, `section.archived::after`,
+etc. (state-marker overrides that need to defeat the scaffold default).
 
 Today both are unlayered → source order resolves the tie → variants
 wins because it comes later in the bundle. ✓

@@ -4,8 +4,8 @@
  *
  * The watermark Tile owns BOTH render adapters in one file (issue #356), so
  * this single test exercises both and PINS their parity — replacing the split
- * coverage that previously lived in marp-plugins.test.js (the HTML-string path)
- * and form-runtime.test.js (the DOM path). Three render paths, one source.
+ * coverage that previously lived across separate render-path test files
+ * (retired in the same consolidation). Three render paths, one source.
  */
 
 const { test, describe } = require('node:test');

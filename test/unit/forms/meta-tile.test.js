@@ -4,8 +4,8 @@
  *
  * The meta Tile owns both render adapters + the `meta:` front-matter reader in
  * one file (issue #356), so this single test exercises all three and PINS the
- * cross-path parity that previously lived split across marp-plugins.test.js and
- * form-runtime.test.js.
+ * cross-path parity that previously lived split across separate render-path
+ * test files (retired in the same consolidation).
  */
 
 const { test, describe } = require('node:test');
