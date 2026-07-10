@@ -21,6 +21,7 @@
     "perf:compare": "node scripts/perf-regression.mjs",
     "check:overflow": "node scripts/check-overflow.mjs",
     "check:preview": "node scripts/check-preview-render.mjs",
+    "check:modulepreload-coverage": "node scripts/check-modulepreload-coverage.mjs",
     "build:e2e": "npm run sync:portal && npm run sync:playground && astro build",
     "preview:e2e": "astro preview --port 4321",
     "test:e2e": "playwright test",

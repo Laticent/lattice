@@ -1,0 +1,85 @@
+name: Modulepreload coverage nightly (docs)
+
+# NIGHTLY advisory check: does every `client:only` app-shell island under
+# docs/src/pages/ have a matching entry in scripts/inject-modulepreload.mjs's
+# ENTRIES list? See scripts/check-modulepreload-coverage.mjs's header comment
+# for the full rationale and engineering/decisions/2026-07-10-landing-perf-
+# katex-defer.md §6 for the investigation this follows on from.
+#
+# Off the PR critical path on purpose: a missing entry is a missed
+# optimization (the page still works, just slower to hydrate), not a broken
+# build — inject-modulepreload.mjs's own end-to-end integrity check already
+# fails the BUILD loudly if the mechanism itself breaks for an EXISTING
+# entry; this nightly instead catches the case nothing else can: a NEW
+# client:only island added without anyone remembering to wire it up. Same
+# shape as perf-nightly.yml — opens/appends a single rolling tracking issue,
+# self-labelled (a GITHUB_TOKEN-opened issue can't trigger the Issue triage
+# gate's own labelling).
+
+on:
+  schedule:
+    - cron: '7 5 * * *' # daily 05:07 UTC (between studio-e2e 04:41 and perf 05:37)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # open / append the coverage tracking issue
+
+concurrency:
+  group: modulepreload-coverage-nightly
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - name: Install docs deps
+        run: npm ci
+        working-directory: docs
+
+      - name: Check modulepreload ENTRIES coverage
+        id: check
+        run: |
+          set -uo pipefail
+          if npm run check:modulepreload-coverage -- --md "$GITHUB_WORKSPACE/coverage-report.md"; then
+            echo "uncovered=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "uncovered=true" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: docs
+
+      - name: Job summary
+        if: always()
+        run: cat "$GITHUB_WORKSPACE/coverage-report.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      # On a miss, open or append a single rolling tracking issue (found by a
+      # title marker) — mirrors perf-nightly.yml's issue step exactly.
+      - name: Open / append coverage issue
+        if: steps.check.outputs.uncovered == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[modulepreload-coverage]'
+          BODY="$GITHUB_WORKSPACE/coverage-report.md"
+          {
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · commit \`${{ github.sha }}\`._"
+          } >> "$BODY"
+          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create \
+              --title "$MARKER new client:only island(s) missing modulepreload coverage" \
+              --label "area:website" --label "type:infra" \
+              --label "priority:medium" --label "status:backlog" \
+              --body-file "$BODY"
+          fi

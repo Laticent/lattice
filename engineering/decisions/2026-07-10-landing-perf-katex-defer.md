@@ -333,3 +333,32 @@ real-device, measurement — flagged per HARD RULE #23 and now called out
 explicitly in the CHANGELOG entry pointing at the nightly perf-regression
 watch as the ongoing real-world check). None blocked merge; see PR #877's
 review thread for the full 20-finding breakdown.
+
+## 6c. Closing the remaining gap — a nightly coverage watch
+
+Asked directly whether the shipped work had a regression net, the honest
+inventory: the 23 (now 33) unit tests cover the LOGIC; `processEntry`'s
+integrity check covers the MECHANISM on every real build (dev, CI
+`docs-build`, prod deploy — fails loudly on drift). Neither covers
+COMPLETENESS — nothing flagged if a future page adopts the same zero-SSR
+`client:only` pattern without anyone adding it to `ENTRIES`. Not a broken
+build (the page still works, just without the hint), so not something that
+belongs on the PR critical path either.
+
+Closed via the same shape already established for exactly this situation —
+`perf-nightly.yml`'s open-or-append rolling tracking issue:
+`.github/workflows/modulepreload-coverage-nightly.yml` +
+`docs/scripts/check-modulepreload-coverage.mjs` (`npm run
+check:modulepreload-coverage`) scan every `.astro` file under
+`docs/src/pages/` for a `client:only`-hydrated component, resolve its
+import to a source path, and check it against `ENTRIES`' suffixes.
+Deliberately scoped to `client:only` only (not `client:load`) — that's the
+zero-SSR, blank-until-hydrated pattern this whole investigation was about;
+blanket-flagging every `client:load` usage would also catch the landing
+page's small islands, which already use the proven static-shell + skeleton
+pattern and don't need this treatment, just noise. 10 unit tests cover the
+parser (import resolution, `client:load`/`idle`/`visible` exclusion, a
+component-name-substring false-positive check, dedup, an unresolved-import
+case) against synthetic fixtures — verified clean on the real tree today,
+and verified to actually flag a synthetic uncovered island in a manual
+check before landing.

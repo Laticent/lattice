@@ -117,7 +117,14 @@ in patch versions.
   before landing on this fix, and a SECOND full red-team/inversion/
   independent-checker pass against the shipped diff itself (20 findings,
   all confirmed/partially-confirmed) that caught the lint-kernel gap and the
-  integrity-check gap above; see
+  integrity-check gap above. A new nightly workflow
+  (`modulepreload-coverage-nightly.yml` + `docs/scripts/
+  check-modulepreload-coverage.mjs`, `npm run check:modulepreload-coverage`)
+  now covers the one remaining gap the integrity check can't: a FUTURE
+  `client:only` page added without a matching `ENTRIES` entry. Same
+  open-or-append rolling-issue shape as the existing perf-nightly watch —
+  advisory, not a build gate, since a missing entry is a missed
+  optimization, not a broken build; see
   `engineering/decisions/2026-07-10-landing-perf-katex-defer.md`.
 
 ### Fixed
