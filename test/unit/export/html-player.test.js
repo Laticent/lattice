@@ -136,19 +136,83 @@ test('present ships visible prev/next controls wired to the shared transport', a
 	assert.match(html, /nextBtn\.disabled=i===slides\.length-1/, 'next disables at the last slide');
 });
 
-test('the view-switcher tabs carry an icon + an aria-label, so they survive icon-only on narrow viewports', async () => {
-	// Regression: "Read · Slides" / "Read · Article" wrapped to two lines on a real
-	// iPhone, blowing out the bar's height (screenshot-reported). Below 560px the text
-	// hides and only the icon shows — the button's OWN aria-label (not the now-hidden
-	// text) carries the accessible name in either state.
+test('the view-switcher tabs always carry BOTH an icon and visible text, at every width', async () => {
+	// Regression, two rounds: (1) "Read · Slides" / "Read · Article" wrapped to two
+	// lines on a real iPhone, blowing out the bar's height — first "fixed" by hiding
+	// the text below 560px and showing icon-only. (2) That regressed AGAIN — the user
+	// wants the label legible at every width, not just on tap-to-discover via
+	// aria-label. The bar now COMPACTS at narrow widths (smaller font/icon/padding)
+	// instead of dropping the text, so both survive together. Each tab also keeps its
+	// own aria-label as a belt for the accessible name.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	for (const [v, label] of [['present', 'Present'], ['read-slides', 'Read · Slides'], ['read-article', 'Read · Article']]) {
-		const btn = (html.match(new RegExp(`<button data-lp-btn="${v}"[^>]*>`)) || [])[0];
+		const btn = (html.match(new RegExp(`<button data-lp-btn="${v}"[^>]*>[\\s\\S]*?</button>`)) || [])[0];
 		assert.ok(btn, `${v} button present`);
 		assert.match(btn, new RegExp(`aria-label="${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`), `${v} carries its own aria-label`);
+		assert.match(btn, new RegExp(`class="lp-tab-text">${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`), `${v}'s text label is real visible content, not hidden`);
 	}
 	assert.match(html, /class="lp-tab-icon"/, 'each tab carries an icon');
-	assert.match(html, /class="lp-tab-text"/, 'each tab carries a hideable text label');
+	assert.doesNotMatch(html, /lp-tab-text\{display:none\}/, 'the text label is never display:none at any width');
+});
+
+test('the fullscreen/notes/mode buttons use SVG icons, not emoji glyphs', async () => {
+	// Regression: these three carried literal Unicode glyphs (notes "☰", fullscreen
+	// "⛶", mode "☾"/"☀") — visually inconsistent with the SVG icon language used
+	// everywhere else in the bar, and the mode glyph's swap changed the character's
+	// intrinsic width, making the button visibly SHIFT size on toggle.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	for (const glyph of ['☰', '⛶', '☾', '☀']) assert.doesNotMatch(html, new RegExp(glyph), `no leftover "${glyph}" emoji glyph`);
+	assert.match(html, /id="lp-notes-btn"[^>]*aria-label="Speaker notes"[^>]*><svg/, 'notes uses an SVG icon');
+	assert.match(html, /id="lp-full"[^>]*aria-label="Toggle fullscreen"[^>]*><svg/, 'fullscreen uses an SVG icon');
+	assert.match(html, /id="lp-mode"[^>]*aria-label="Toggle dark \/ light theme"[^>]*><svg/, 'mode uses an SVG icon');
+});
+
+test('dark/light mode swaps a fixed-size icon (never a shifting text glyph)', async () => {
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /var MOON_ICON=/, 'the moon icon is a stable var');
+	assert.match(html, /var SUN_ICON=/, 'the sun icon is a stable var');
+	assert.match(html, /isDark=!isDark;root\.style\.colorScheme=isDark\?'dark':'light';mode\.innerHTML=isDark\?SUN_ICON:MOON_ICON/, 'toggling flips the isDark source of truth and swaps innerHTML, not textContent');
+	// Both icon markups declare the SAME width/height, so the button's box never resizes.
+	const moon = (html.match(/MOON_ICON='([^']*)'/) || [])[1] || '';
+	const sun = (html.match(/SUN_ICON='([^']*)'/) || [])[1] || '';
+	assert.match(moon, /width="16" height="16"/);
+	assert.match(sun, /width="16" height="16"/);
+});
+
+test('dark/light mode seeds from the ACTUAL system preference, not the empty inline style (one-tap fix)', async () => {
+	// Regression: the toggle read root.style.colorScheme (the INLINE style) to decide
+	// "is it dark right now" — but that starts EMPTY even on a system-dark device,
+	// where light-dark() already renders the deck dark via the base
+	// :root{color-scheme:light dark} following the OS preference with no inline
+	// override needed. So on a system-dark device the icon started wrong (moon, "tap
+	// for dark" — when it was ALREADY dark) and the first tap just reasserted dark
+	// (invisible — nothing changed); a real switch to light needed a SECOND tap.
+	// isDark now seeds from matchMedia at load, matching what's actually rendered.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /var isDark=!!\(window\.matchMedia&&matchMedia\('\(prefers-color-scheme:dark\)'\)\.matches\)/, 'isDark seeds from the real system preference, not an inline style read');
+	assert.match(html, /if\(mode\)mode\.innerHTML=isDark\?SUN_ICON:MOON_ICON;/, 'the icon is synced to the seeded state before any click, so it never starts wrong');
+});
+
+test('fullscreen is feature-detected and the button hides when the API is unavailable', async () => {
+	// iOS/iPadOS Safari has historically shipped no Fullscreen API for arbitrary
+	// elements (only native video) — a click there silently no-oped forever, reading
+	// as "broken." Hide the control entirely rather than leave a dead affordance.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /var canFullscreen=!!\(fsEl\.requestFullscreen\|\|fsEl\.webkitRequestFullscreen\)/, 'fullscreen support is feature-detected up front');
+	assert.match(html, /if\(full&&!canFullscreen\)full\.style\.display='none'/, 'the button hides itself when unsupported');
+});
+
+test('Read·Slides clears the fixed bar — the first slide never sits under it', async () => {
+	// Regression: the read-slides #lp-stage padding shorthand (padding-top:28px) has
+	// HIGHER specificity than the base #lp-stage{padding-top:48px} bar-clearance rule
+	// (an ID + attribute selector beats a bare ID), so it silently REPLACED 48px
+	// instead of adding to it — the first slide's top ~20px sat under the fixed,
+	// translucent/blurred bar (screenshot-reported: "toolbar obscures the first
+	// slide"). The padding must clear the full 48px bar height, not undercut it.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	const rule = (html.match(/\[data-lp-view=read-slides\] #lp-stage\{[^}]*\}/) || [])[0] || '';
+	assert.ok(rule, 'the read-slides stage rule is present');
+	assert.match(rule, /padding:calc\(48px \+ 28px\) /, 'padding-top explicitly clears the 48px bar plus breathing room');
 });
 
 test('the player inlines the transport kernel and fits against the MEASURED stage box', async () => {
@@ -308,7 +372,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '54a1f93b393e5524145eec36dea61b4cdb673e2e5cbb5071219123c8ccd4444f', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '19e62f778a5ca1139aef4f26aa1c072de3957e5bea1e169e9c56f0fefa662074', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

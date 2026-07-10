@@ -380,13 +380,22 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
  padding:6px 11px;border-radius:8px;cursor:pointer;line-height:1}
 #lp-bar button:hover{background:var(--bg-alt,#eee)}
 #lp-bar button[aria-pressed=true]{background:var(--accent,#4338ca);color:var(--on-accent,#fff)}
-/* The view-switcher tabs carry an icon + text label. Below 560px the "Read \xB7 Slides" /
-   "Read \xB7 Article" labels have no room and wrap to two lines, blowing out the bar's
-   height \u2014 icon-only on narrow viewports (the accessible name rides on the button's
-   OWN aria-label, not the now-hidden text, so it survives either state). */
-#lp-bar .lp-seg button{display:flex;align-items:center;gap:6px}
-#lp-bar .lp-tab-icon{display:none;flex:none}
-@media(max-width:560px){#lp-bar .lp-tab-icon{display:block}#lp-bar .lp-tab-text{display:none}}
+/* The view-switcher tabs always carry BOTH an icon and a text label \u2014 never
+   icon-only, so the label is legible without relying on a tooltip/aria-label
+   alone. "Read \xB7 Slides" / "Read \xB7 Article" have no room to wrap at typical
+   phone widths, so below 560px the bar compacts (smaller font/icon/padding,
+   a tighter brand max-width) rather than dropping the text. */
+#lp-bar .lp-seg button{display:flex;align-items:center;gap:6px;white-space:nowrap}
+#lp-bar .lp-tab-icon{flex:none}
+@media(max-width:560px){
+ #lp-bar{padding:0 8px;gap:.35rem}
+ #lp-bar .lp-brand{max-width:22vw;font-size:12px}
+ #lp-bar .lp-seg{gap:1px;padding:2px}
+ #lp-bar .lp-seg button{font-size:10.5px;padding:5px 6px;gap:3px}
+ #lp-bar .lp-tab-icon{width:13px;height:13px}
+ #lp-count{font-size:11px;min-width:34px}
+ #lp-mode,#lp-full,#lp-notes-btn{padding:5px!important}
+}
 #lp-count{font-variant-numeric:tabular-nums;color:var(--text-muted,#888);font-size:13px;min-width:46px;text-align:center}
 #lp-mode,#lp-full,#lp-notes-btn{border:1px solid var(--border,#ccc)!important;border-radius:8px}
 /* Clears the 48px bar for the normal-flow SCROLLING views (Read\xB7Slides/Article) \u2014
@@ -447,7 +456,13 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
    real size, same visual result as zoom gave, without breaking cqi. --lp-fit is set
    fluidly by the script to fill the column; the mobile default also serves the floor. */
 [data-lp-view=read-slides] #lp-doc{display:none}
-[data-lp-view=read-slides] #lp-stage{max-width:980px;margin:0 auto;padding:28px 16px 120px;display:flex;flex-direction:column;align-items:center;gap:24px}
+/* padding-top: the base #lp-stage{padding-top:48px} rule clears the fixed bar,
+   but this shorthand's own padding-top REPLACES it (same-ID higher specificity
+   here wins regardless of source order) rather than adding to it \u2014 a bare 28px
+   left the first slide's top ~20px under the bar's translucent/blurred band.
+   calc() keeps the 48px bar-clearance explicit + the original 28px breathing
+   room on top of it. */
+[data-lp-view=read-slides] #lp-stage{max-width:980px;margin:0 auto;padding:calc(48px + 28px) 16px 120px;display:flex;flex-direction:column;align-items:center;gap:24px}
 [data-lp-view=read-slides] .lp-frame{width:calc(1280px * var(--lp-fit,.28));height:calc(720px * var(--lp-fit,.28));overflow:hidden;border-radius:12px}
 [data-lp-view=read-slides] section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit,.28));transform-origin:0 0;
  border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
@@ -580,10 +595,16 @@ var stage=document.getElementById('lp-stage'),sx=0,sy=0,sw=false;
 if(stage){stage.addEventListener('pointerdown',function(e){if(view!=='present')return;sx=e.clientX;sy=e.clientY;sw=true;},{passive:true});
  stage.addEventListener('pointerup',function(e){if(!sw||view!=='present')return;sw=false;
   var a=swipeAction({dx:e.clientX-sx,dy:e.clientY-sy});if(a)t[a]();},{passive:true});}
-// Fullscreen toggle \u2014 present from the file to a room. Feature-detected; a browser
-// without the API just never shows the affordance change.
+// Fullscreen toggle \u2014 present from the file to a room. iOS/iPadOS Safari has
+// historically shipped NO Fullscreen API for arbitrary elements (only native
+// video), so a click there would silently no-op forever, reading as "broken."
+// Feature-detect up front and hide the button entirely when neither the
+// standard nor -webkit- entry point exists, rather than leaving a dead affordance.
 var full=document.getElementById('lp-full');
-if(full){full.onclick=function(){var d=document,el=d.documentElement;
+var fsEl=document.documentElement;
+var canFullscreen=!!(fsEl.requestFullscreen||fsEl.webkitRequestFullscreen);
+if(full&&!canFullscreen)full.style.display='none';
+if(full&&canFullscreen){full.onclick=function(){var d=document,el=d.documentElement;
   if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d);}
   else{(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);}};
  document.addEventListener('fullscreenchange',function(){full.setAttribute('aria-pressed',!!(document.fullscreenElement||document.webkitFullscreenElement));fit();});}
@@ -602,8 +623,29 @@ function toggleNotes(){if(!notesPanel)return;var open=notesPanel.classList.toggl
 if(notesBtn)notesBtn.onclick=toggleNotes;
 addEventListener('keydown',function(e){if(view!=='present')return;if(e.key==='n'||e.key==='N'){toggleNotes();e.preventDefault();}});
 [].forEach.call(document.querySelectorAll('[data-lp-btn]'),function(b){b.onclick=function(){setView(b.getAttribute('data-lp-btn'));};});
+// Dark/light toggle. The theme's tokens are authored with the CSS light-dark()
+// function (themes/indaco.css et al.), which resolves off the computed
+// color-scheme \u2014 so setting an explicit inline color-scheme on <html> (which
+// wins over the base :root{color-scheme:light dark}) is enough to flip every
+// token in one step; no second stylesheet to swap. The icon SWAPS (not a text
+// glyph) so the button's box size never shifts \u2014 both icons share the same
+// fixed width/height.
+var MOON_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+var SUN_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
 var mode=document.getElementById('lp-mode');
-if(mode)mode.onclick=function(){var d=root.style.colorScheme==='dark';root.style.colorScheme=d?'light':'dark';mode.textContent=d?'\u263E':'\u2600';};
+// The button once read root.style.colorScheme (the INLINE style) to decide "is it
+// dark right now" \u2014 but that starts EMPTY, even on a system-dark device where
+// light-dark() is already rendering the deck dark (via the base :root{color-scheme:
+// light dark} following the OS preference, no inline override needed). So on a
+// system-dark device the button's icon started wrong (moon, "tap for dark" \u2014 when
+// it was ALREADY dark) and the first tap just reasserted dark (invisible, since
+// nothing changed) \u2014 a real fix needed a SECOND tap. isDark is now the single
+// source of truth, seeded from the actual effective preference at load
+// (matchMedia), not the inline style \u2014 so the icon and the first tap are correct
+// from the start.
+var isDark=!!(window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches);
+if(mode)mode.innerHTML=isDark?SUN_ICON:MOON_ICON;
+if(mode)mode.onclick=function(){isDark=!isDark;root.style.colorScheme=isDark?'dark':'light';mode.innerHTML=isDark?SUN_ICON:MOON_ICON;};
 var links=[].slice.call(document.querySelectorAll('#lp-toc a'));
 if(links.length&&window.IntersectionObserver){var spy=new IntersectionObserver(function(es){es.forEach(function(e){
  if(e.isIntersecting)links.forEach(function(l){l.classList.toggle('lp-on',l.getAttribute('href')==='#'+e.target.id);});});},
@@ -689,9 +731,9 @@ ${styles}
   <button data-lp-btn="read-article" aria-pressed="false" aria-label="Read \xB7 Article"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lp-tab-text">Read \xB7 Article</span></button>
  </div>
  <span id="lp-count"></span>
- <button id="lp-notes-btn" title="Speaker notes (n)" aria-pressed="false">\u2630</button>
- <button id="lp-full" title="Toggle fullscreen" aria-pressed="false">\u26F6</button>
- <button id="lp-mode" title="Toggle dark / light">\u263E</button>
+ <button id="lp-notes-btn" title="Speaker notes (n)" aria-pressed="false" aria-label="Speaker notes"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="17" y2="12"/><line x1="3" y1="18" x2="13" y2="18"/></svg></button>
+ <button id="lp-full" title="Toggle fullscreen" aria-pressed="false" aria-label="Toggle fullscreen"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
+ <button id="lp-mode" title="Toggle dark / light" aria-label="Toggle dark / light theme"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
 </div>
 <div id="lp-app" data-lp-view="present">
  <div id="lp-stage">
