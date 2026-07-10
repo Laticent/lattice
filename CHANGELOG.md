@@ -63,6 +63,27 @@ in patch versions.
   existing punctuation-driven pause never fired between them. Structural lines
   (headings, list items, blockquotes) now get a terminator if missing; plain
   paragraph continuations are untouched. Same decision doc.
+- **Below-note (the trailing editorial hairline note) renders again under Form
+  default.** `lib/transformers/registry.js` runs `masthead-lift` before
+  `below-note`, so on any Form slide whose layout wraps its body into
+  `.cell-stage` (cards-grid, list, kpi, decision, and ~25 more), below-note's
+  end-of-content detection no longer saw the trailing `<p>` — the note rendered
+  as a bare, unstyled paragraph instead of getting the `.below-note` hairline
+  treatment. `lib/core/below-note.js` now looks inside a slide's `.cell-stage`
+  cell (when masthead-lift has wrapped one) instead of assuming the trailing
+  `<p>` sits as a direct section child; unaffected (no-Form, or a
+  STAGE_DEFERRED layout) slides are untouched. Also scoped the runtime's DOM
+  walk to top-level sections (`section:not(section section)`), matching the
+  HTML path's depth-aware walk, so a literal nested `<section>` an author
+  writes in slide content is no longer double-processed; and added `math` to
+  the exclusion list (it drives its own concluding-equation-paragraph styling
+  and has no local `.below-note` treatment). The `.cell-stage` detection is
+  now a depth-aware scan for a genuine top-level element, not a bare
+  substring search — a `<pre>`/code sample or hand-authored HTML that merely
+  mentions the literal text `<div class="cell-stage">` could otherwise be
+  mistaken for the real masthead-lift stage, silently leaving a section's
+  true trailing note unwrapped or hijacking extraction onto the wrong
+  paragraph. See `engineering/decisions/2026-07-09-form-migration-audit.md`.
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
