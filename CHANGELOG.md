@@ -432,6 +432,14 @@ in patch versions.
   synthesis (an adversarial review caught an early version of this that kept
   synthesizing the ENTIRE rest of a paused deck in the background — real cost
   on a BYO OpenRouter key, not just a latency nit).
+- **Read-aloud no longer double-fires a real TTS request for two identical
+  sentences on the same slide** (e.g. a phrase repeated across two bullets).
+  The concurrency scheduler above could schedule both occurrences in the same
+  batch, and `audioCache` only gets populated once a request RESOLVES — too
+  late to help a concurrent duplicate. `speak()` now joins an already
+  in-flight request for the exact same (rung, model, voice, speed, text) key
+  instead of firing a second one; both occurrences still play their own
+  `onSentence`/timing callbacks, they just share the one synthesized clip.
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new
