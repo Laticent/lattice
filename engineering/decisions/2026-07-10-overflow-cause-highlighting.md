@@ -1,14 +1,15 @@
 ---
-status: in-progress
+status: shipped
 summary: Overflow detection today only flags the SLIDE ("Overflows" red ring + tag) with no cause. This ships a yellow "Fix Me" highlight on the specific element responsible for Case A (clip-cell geometry — certain, not a guess), now drilled down to the specific stretched-row item within the cell (not just the whole cell) via a content-slack signal, backed by a new density.domSelector manifest field + render-verified coverage for all 26 axis-bearing components. Case B (a prose-density word-budget fallback for slides with no clip-cell at all) remains a deferred follow-up.
 ---
 
 # Overflow cause highlighting — a yellow "Fix Me" tag on the element responsible
 
 **Date:** 2026-07-10
-**Status:** in-progress — Case A shipped, including the item-level
-drill-down (§10). Case B (density-budget fallback for the no-clip-cell case)
-remains a follow-up PR.
+**Status:** shipped — Case A shipped, including the item-level drill-down
+(§10) and the row-outlier corrections (§11), merged in PR #890
+(`caca64f`). Case B (density-budget fallback for the no-clip-cell case)
+remains a follow-up PR, not yet started.
 **Related:** `lib/core/overflow-probe.js`, `lib/runtime/index.js` (`startOverflowWatcher`),
 `lib/authoring/prose-budgets.js`, `lib/authoring/review-core.js`,
 `engineering/decisions/2026-06-26-frames-as-flex-cell-trees.md` (clip-cell contract),
