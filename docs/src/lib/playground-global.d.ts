@@ -44,5 +44,11 @@ declare global {
 		// re-fits while dragging the divider and resumes (one fit) on release.
 		__latticeFitSuspend?: () => void;
 		__latticeFitResume?: () => void;
+		// KaTeX lazy-provider hookup (docs/src/lib/ensure-katex.ts +
+		// lib/engine/katex-browser-stub.js): the stub baked into
+		// lattice-playground.js exposes this to receive the real KaTeX once
+		// lattice-katex.js loads; __latticeKatexReady is the loader's poll target.
+		__latticeRegisterKatex?: (katex: unknown) => void;
+		__latticeKatexReady?: boolean;
 	}
 }

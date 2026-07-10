@@ -154,6 +154,30 @@ in patch versions.
   the freeze. `share-export.ts` also drops a locally-duplicated `PG` type in
   favor of the canonical `LatticePlaygroundEngine`
   (`playground-global.d.ts`).
+- **KaTeX no longer ships unconditionally in the docs-site engine bundle —
+  closes out §4 of the perf audit.** `lattice-playground.js` used to bundle
+  the full KaTeX library even for decks with zero math. It's now split into
+  its own on-demand bundle (`lattice-katex.js`, `tools/build-katex-provider.js`),
+  loaded only when a source pre-scan (`lib/engine/math-detect.mjs`'s
+  `sourceHasMath`, itself KaTeX-free) finds `$…$`/`$$…$$` syntax — through the
+  ONE choke point the prior entry set up
+  (`docs/src/lib/render-engine.ts`'s `renderMarkdown()`), so none of the 7
+  migrated call sites changed again. `tools/build-playground.js` aliases
+  math.js's `katex` import to a small browser-only stub
+  (`lib/engine/katex-browser-stub.js`) for this build ONLY — `math.js`'s CODE
+  is untouched (only a cross-referencing comment added, pointing at
+  `math-detect.mjs`) and its Node/CLI behavior (`lattice-emulator.js`, the npm
+  package, every existing math test) is unchanged, since esbuild never runs
+  there. Measured locally
+  (same-machine, gzip): `lattice-playground.js` 578,981 → 501,495 bytes
+  (−77,486 bytes, −13.4%); the new `lattice-katex.js` is 76,722 bytes gzip,
+  fetched lazily. The Drawing Board (frozen —
+  `engineering/decisions/2026-07-03-studio-succession.md`) keeps loading
+  KaTeX eagerly, unconditionally, from its page shell — a mechanical
+  compatibility addition (not new Drawing Board feature work) so this
+  engine-level change can't regress a surface CLAUDE.md's freeze otherwise
+  protects from ordinary fixes. See
+  `engineering/decisions/2026-07-10-landing-perf-katex-defer.md` §4.
 
 ### Fixed
 

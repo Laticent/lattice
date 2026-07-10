@@ -26,6 +26,7 @@
  *   7c. concepts catalog       tools/build-concepts.js    (dist/docs/concepts.json)
  *   8. landing tokens          tools/build-landing-tokens.js  (docs site palette CSS)
  *   9. playground bundle       tools/build-playground.js      (docs site browser engine)
+ *   9b. katex-provider bundle  tools/build-katex-provider.js  (on-demand KaTeX, split out of 9)
  *  10. theme-core bundle       tools/build-theme-core.js      (docs site Theme Studio core)
  *  11. layout-core bundle      tools/build-layout-core.js     (docs site Layout Studio core)
  *  12. authoring-core bundle   tools/build-authoring-core.js  (docs site Architect/Coach core)
@@ -77,6 +78,7 @@ const STEPS = [
   { label: 'landing tokens (docs site)', script: 'build-landing-tokens.js' },
   { label: 'spec pages (docs site)', script: 'build-spec-docs.js' },
   { label: 'playground bundle (docs site)', script: 'build-playground.js' },
+  { label: 'katex-provider bundle (docs site)', script: 'build-katex-provider.js' },
   { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js' },
   { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js' },
   { label: 'authoring-core bundle (docs site)', script: 'build-authoring-core.js' },
