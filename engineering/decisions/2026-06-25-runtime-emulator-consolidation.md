@@ -46,10 +46,38 @@ Both paths `require()` the *same files* for every transform that matters:
 - **The engine** — `lib/engine` — canonical for every first-party render path
   (HARD RULE #1; `marp-independence.md` §"render path" table).
 - **Transform kernels**, each exposing **both** adapters in one file:
-  - `lib/core/*` — split-panels, below-note, bg-image, resolve-finish, … (structural primitives)
+  - `lib/core/*` — split-panels, below-note, resolve-finish, … (structural primitives)
   - `lib/components/<bucket>/<name>/<name>.transform.js` — roadmap, charts, compare-code, …
   - `lib/forms/tile/*` — `meta` / `progress` / `watermark`, self-contained Tiles (#356)
 - **The registry** — `lib/transformers/` — the wiring layer both consume through one interface.
+
+**Correction (2026-07-09, Form-migration audit):** `bg-image` does NOT belong
+in the "both adapters" list above — it was a stale claim. `lib/core/bg-image.js`
+exposes only the emulator/engine-side pair (`liftBgImages` — a markdown
+pre-pass — and `wrapImageText` — an HTML post-pass); there is no `applyToDom`
+sibling, so the runtime has no DOM equivalent at all. Concretely: the runtime
+consumes an already-Marp-rendered DOM, where marp-core's OWN native `![bg]`
+handling has already run (our `liftBgImages` markdown pre-pass never executes
+on that path — it's markdown-level, and the runtime never sees markdown).
+`lib/transformers/image-adaptive.js`'s `applyToDom` (the runtime's adaptive-
+composition resolver) looks for `section.querySelector(':scope > .lattice-bg')`
+to measure the photo; since that div never exists on the runtime path, every
+image slide in live preview is silently pinned to the "clean" floor
+composition and never upgrades to whatever composition the actual photo
+aspect would produce on export.
+
+**Why this is documented as a known limitation, not fixed:** correctly
+reproducing `.lattice-bg`/`.image-text` on the runtime path requires first
+reproducing what marp-core's OWN native `![bg]` rendering shape is in a raw
+Marp-CLI-rendered DOM — and this sandbox has neither `marp-core` nor
+`@marp-team/*` installed (not even as a transitive dependency; see
+`lattice-emulator.js`'s own header: *"exists only because Marp CLI cannot be
+installed in this build environment"*). Shipping a DOM "upgrade" transform
+without the ability to render real Marp output to verify against would be
+guesswork, not a verified fix (HARD RULE #23). This needs a follow-up
+investigation in an environment where marp-core can actually be installed and
+its native background-image DOM shape observed directly, before writing the
+`applyToDom` sibling. See `engineering/decisions/2026-07-09-form-migration-audit.md`.
 
 So a new component or a behaviour change is authored **once**, in one kernel, and
 both paths pick it up — the engine via `applyToHtml`, the runtime via `applyToDom`.
