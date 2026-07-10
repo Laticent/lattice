@@ -166,7 +166,7 @@ export function FeedbackSheet({
 								{copied ? 'Copied' : 'Copy link instead'}
 							</Button>
 							<p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-								If GitHub's app opens instead and looks empty, paste this link into your browser's address bar — a pasted link skips the app.
+								If GitHub's app opens instead and looks empty — long-press “Continue on GitHub” above and choose “Open in Safari/Chrome,” or copy the link and paste it into your browser's address bar.
 							</p>
 						</div>
 					) : (
