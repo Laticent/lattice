@@ -372,6 +372,20 @@ in patch versions.
   cache above (that one is a bounded, repo-committed set for cold-start
   browsing; this one is unbounded, in-memory, and covers actual deck
   narration).
+- **Read-aloud no longer has an audible gap between short sentences.** The
+  narration pipeline previously synthesized one sentence ahead of playback (a
+  one-ahead pipeline) — but that only hides synth latency when the NEXT
+  sentence finishes synthesizing before the CURRENT one finishes playing, and
+  synth time is roughly network/model-bound while playback time scales with
+  the sentence's length. A short sentence (a bullet fragment, a number) plays
+  back in under a second, well under typical TTS round-trip latency, so the
+  pipe starved and every such transition became its own audible pause.
+  `speak()` now keeps up to 3 sentences' synth requests in flight at once
+  (`SYNTH_CONCURRENCY`), refilled the moment a slot frees rather than gated by
+  playback progress — giving each sentence's audio the maximum possible head
+  start instead of just the previous sentence's (often much shorter) slack.
+  Playback still plays strictly in original order regardless of which
+  request resolves first.
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new

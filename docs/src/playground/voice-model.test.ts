@@ -306,6 +306,103 @@ describe('audio cache (replay reuses synthesized audio; voice/model/speed change
   });
 });
 
+// Abort-aware mock: rejects the moment its signal aborts, exactly like the
+// real openRouterRung (fetch) / kokoroRung (worker) do — a mock that ignores
+// abort would make a stop()-mid-synth test hang for the real 20s internal
+// timeout instead of resolving promptly.
+function abortAwareMockRung(onStart: (text: string) => void) {
+  const resolvers = new Map<string, (b: { size: number; arrayBuffer: () => Promise<ArrayBuffer> }) => void>();
+  return {
+    rung: {
+      name: 'mock',
+      ready: () => true,
+      synth: ({ text, signal }: { text: string; signal?: AbortSignal }) => {
+        onStart(text);
+        return new Promise<{ size: number; arrayBuffer: () => Promise<ArrayBuffer> }>((resolve, reject) => {
+          resolvers.set(text, resolve);
+          signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+        });
+      },
+    },
+    resolve(text: string) {
+      resolvers.get(text)?.({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) });
+    },
+  };
+}
+
+describe('concurrent synth scheduling (fire-ahead, not one-ahead)', () => {
+  it('keeps up to SYNTH_CONCURRENCY (3) sentences synthesizing at once, independent of playback progress', async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'One. Two. Three. Four. Five.' });
+
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+    // The 4th/5th sentences must NOT have started yet — the cap is 3, and
+    // nothing has resolved to free a slot.
+    expect(started).not.toContain('Four.');
+
+    // Resolving the FIRST sentence's synth frees a slot for the FOURTH to
+    // start — even though nothing has PLAYED yet (Two./Three. are still
+    // mid-synth) — proving synth concurrency is gated by the cap, not by how
+    // far playback has gotten.
+    mock.resolve('One.');
+    await vi.waitFor(() => expect(started).toContain('Four.'));
+    expect(started).not.toContain('Five.'); // still capped at 3 in flight
+
+    mock.resolve('Two.');
+    mock.resolve('Three.');
+    mock.resolve('Four.');
+    await vi.waitFor(() => expect(started).toContain('Five.'));
+    mock.resolve('Five.');
+
+    await speakP;
+    expect(started).toEqual(['One.', 'Two.', 'Three.', 'Four.', 'Five.']);
+  });
+
+  it("plays sentences in original order even when a later one's synth resolves first", async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const played: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'One. Two. Three.', onSentence: (s: string) => played.push(s) });
+
+    // All 3 fit under the cap (3), so all 3 fire immediately.
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+
+    // Resolve OUT OF ORDER — last sentence first.
+    mock.resolve('Three.');
+    mock.resolve('Two.');
+    mock.resolve('One.');
+
+    await speakP;
+    // Despite resolving out of order, playback (and onSentence) still fires
+    // in the ORIGINAL sentence order — the schedule never reorders playback.
+    expect(played).toEqual(['One.', 'Two.', 'Three.']);
+  });
+
+  it('stop() prevents any not-yet-started sentence from ever synthesizing', async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'One. Two. Three. Four. Five.' });
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+
+    model.stop();
+    await speakP;
+
+    // Four./Five. must never have started once stopped — no wasted synth
+    // requests for sentences that will never play.
+    expect(started).toEqual(['One.', 'Two.', 'Three.']);
+  });
+});
+
 describe('listOpenRouterVoiceModels (the public, unauthenticated TTS catalog)', () => {
   it('maps the catalog to {id,name,promptPerM,completionPerM,voices}', async () => {
     vi.resetModules();

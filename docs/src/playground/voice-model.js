@@ -201,6 +201,16 @@ function cacheKeyFor(rungName, modelId, voice, speed, text) {
 // combo at a time) sits well under this.
 const AUDIO_CACHE_LIMIT = 200;
 
+// How many sentences' synth requests speak() keeps in flight at once (see the
+// scheduler in speak(), below). Bounded, not unbounded fire-all: a long deck
+// shouldn't spike into dozens of simultaneous OpenRouter requests (rate limit
+// / cost / wasted work if the listener navigates away seconds in) just to
+// smooth out playback gaps a small overlap already fixes. 3 is a deliberate
+// middle ground between "enough head start that a slow response is masked by
+// the time its turn to play arrives" and "not so many that one slide's read-
+// aloud looks like a burst attack on the API."
+const SYNTH_CONCURRENCY = 3;
+
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
 // Unify playback on one <audio> element by encoding Kokoro's raw samples into a
 // 16-bit PCM WAV Blob. Pure → unit-tested for header correctness.
@@ -636,12 +646,36 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       } else if (rung.name === 'silent' || !sentences.length) {
         // Floor: nothing to play.
       } else {
-        // Blob rungs, with one-ahead prefetch for low gap between sentences.
-        let next = sentences.length ? synth(sentences[0]) : null;
+        // Blob rungs: fire every sentence's synth up front, capped concurrency —
+        // NOT tied to playback progress the way a one-ahead pipeline is. A
+        // one-ahead pipeline only hides synth latency up to the PREVIOUS
+        // sentence's playback duration; a short sentence (a bullet fragment, a
+        // number) plays back in under a second while a network round trip
+        // costs whatever it costs regardless of text length, so the pipe
+        // starves and every transition becomes its own latency bet. Keeping
+        // SYNTH_CONCURRENCY requests in flight at all times — refilled the
+        // moment a slot frees, independent of how far playback has gotten —
+        // gives every sentence's audio the maximum possible head start instead
+        // of just the prior sentence's (often much shorter) slack. The
+        // audioCache above means a cache hit barely occupies a slot at all, so
+        // a replay-heavy narration isn't bottlenecked by this cap either.
+        const pending = new Array(sentences.length);
+        let started = 0;
+        let active = 0;
+        const fillSlots = () => {
+          while (!sig.aborted && active < SYNTH_CONCURRENCY && started < sentences.length) {
+            const idx = started++;
+            active++;
+            pending[idx] = synth(sentences[idx]).finally(() => {
+              active--;
+              fillSlots(); // a slot just freed — start the next queued sentence, if any
+            });
+          }
+        };
+        fillSlots();
         for (let i = 0; i < sentences.length; i++) {
           if (sig.aborted) break;
-          const blob = await next;
-          next = i + 1 < sentences.length ? synth(sentences[i + 1]) : null;
+          const blob = await pending[i];
           if (sig.aborted) break;
           await waitIfPaused(sig);
           onSentence?.(sentences[i]);
