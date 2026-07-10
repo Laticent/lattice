@@ -201,6 +201,270 @@ describe('speed prefs', () => {
   });
 });
 
+describe('audio cache (replay reuses synthesized audio; voice/model/speed changes invalidate it)', () => {
+  it('reuses a cached blob for an identical (rung, voice, speed, text) call — no second synth', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    await model.speak({ text: 'Same sentence.' });
+    await model.speak({ text: 'Same sentence.' });
+    expect(calls).toEqual(['Same sentence.']); // the second speak() replayed the cached blob
+  });
+
+  it('an explicit voice change forces a fresh synth even for the same text/speed', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    await model.speak({ text: 'Hi.', voice: 'voice-a' });
+    await model.speak({ text: 'Hi.', voice: 'voice-a' }); // same voice → cache hit
+    expect(calls).toEqual(['Hi.']);
+    await model.speak({ text: 'Hi.', voice: 'voice-b' }); // different voice → must NOT reuse voice-a's audio
+    expect(calls).toEqual(['Hi.', 'Hi.']);
+  });
+
+  it('an OpenRouter MODEL change forces a fresh synth even for the same text/voice/speed', async () => {
+    // OpenRouter serves multiple TTS models through one rung — the model id
+    // must be part of the cache key too, not just voice, or switching models
+    // would silently replay the PREVIOUS model's audio.
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'openrouter-tts',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.setOrModel('model-a');
+    await model.speak({ text: 'Hi.' });
+    await model.speak({ text: 'Hi.' }); // same model (+ default voice/speed) → cache hit
+    expect(calls).toEqual(['Hi.']);
+    model.setOrModel('model-b');
+    await model.speak({ text: 'Hi.' }); // different model → must NOT reuse model-a's audio
+    expect(calls).toEqual(['Hi.', 'Hi.']);
+  });
+
+  it('a speed change forces a fresh synth even for the same text/voice/model', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    await model.speak({ text: 'Hi.', speed: 1.25 });
+    await model.speak({ text: 'Hi.', speed: 1.25 }); // same speed → cache hit
+    expect(calls).toEqual(['Hi.']);
+    await model.speak({ text: 'Hi.', speed: 0.9 }); // different speed → must NOT reuse the 1.25x audio
+    expect(calls).toEqual(['Hi.', 'Hi.']);
+  });
+
+  it('previewVoice reuses a cached sample for the same rung/voice/speed instead of re-fetching', async () => {
+    let fetchCalls = 0;
+    const model = createVoiceModel({
+      getOpenRouterKey: () => 'sk-test',
+      fetchImpl: async () => {
+        fetchCalls++;
+        return { ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) };
+      },
+    });
+    expect((await model.previewVoice({ rung: 'openrouter' })).ok).toBe(true);
+    expect((await model.previewVoice({ rung: 'openrouter' })).ok).toBe(true);
+    expect(fetchCalls).toBe(1); // the second preview replayed the cached sample, no re-fetch
+  });
+
+  it('previewVoice: a different voice forces a fresh fetch', async () => {
+    let fetchCalls = 0;
+    const model = createVoiceModel({
+      getOpenRouterKey: () => 'sk-test',
+      fetchImpl: async () => {
+        fetchCalls++;
+        return { ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) };
+      },
+    });
+    await model.previewVoice({ rung: 'openrouter', voice: 'voice-a' });
+    await model.previewVoice({ rung: 'openrouter', voice: 'voice-b' });
+    expect(fetchCalls).toBe(2);
+  });
+
+  it("does not freeze the cache key on a falsy voice ('') — mirrors the real rung's `||` fallback, not `??` (independent-checker + Munger-inversion finding)", async () => {
+    // `'' ?? orVoice()` would stay `''` forever (nullish coalescing only
+    // falls through on null/undefined); `'' || orVoice()` correctly falls
+    // through to the LIVE preference, matching what the real rung actually
+    // synthesizes. A `??` mirror here would let a voice-preference CHANGE
+    // silently hit a stale cache entry recorded under the frozen `''` key.
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'openrouter-tts',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.setOrVoice('voice-a');
+    await model.speak({ text: 'Hi.', voice: '' });
+    model.setOrVoice('voice-b'); // the user changes their voice preference
+    await model.speak({ text: 'Hi.', voice: '' }); // must NOT replay voice-a's cached audio
+    expect(calls).toEqual(['Hi.', 'Hi.']);
+  });
+});
+
+// Abort-aware mock: rejects the moment its signal aborts, exactly like the
+// real openRouterRung (fetch) / kokoroRung (worker) do — a mock that ignores
+// abort would make a stop()-mid-synth test hang for the real 20s internal
+// timeout instead of resolving promptly.
+function abortAwareMockRung(onStart: (text: string) => void) {
+  const resolvers = new Map<string, (b: { size: number; arrayBuffer: () => Promise<ArrayBuffer> }) => void>();
+  return {
+    rung: {
+      name: 'mock',
+      ready: () => true,
+      synth: ({ text, signal }: { text: string; signal?: AbortSignal }) => {
+        onStart(text);
+        return new Promise<{ size: number; arrayBuffer: () => Promise<ArrayBuffer> }>((resolve, reject) => {
+          resolvers.set(text, resolve);
+          signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+        });
+      },
+    },
+    resolve(text: string) {
+      resolvers.get(text)?.({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) });
+    },
+  };
+}
+
+describe('concurrent synth scheduling (fire-ahead, not one-ahead)', () => {
+  it('keeps up to SYNTH_CONCURRENCY (3) sentences synthesizing at once, independent of playback progress', async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'One. Two. Three. Four. Five.' });
+
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+    // The 4th/5th sentences must NOT have started yet — the cap is 3, and
+    // nothing has resolved to free a slot.
+    expect(started).not.toContain('Four.');
+
+    // Resolving the FIRST sentence's synth frees a slot for the FOURTH to
+    // start — even though nothing has PLAYED yet (Two./Three. are still
+    // mid-synth) — proving synth concurrency is gated by the cap, not by how
+    // far playback has gotten.
+    mock.resolve('One.');
+    await vi.waitFor(() => expect(started).toContain('Four.'));
+    expect(started).not.toContain('Five.'); // still capped at 3 in flight
+
+    mock.resolve('Two.');
+    mock.resolve('Three.');
+    mock.resolve('Four.');
+    await vi.waitFor(() => expect(started).toContain('Five.'));
+    mock.resolve('Five.');
+
+    await speakP;
+    expect(started).toEqual(['One.', 'Two.', 'Three.', 'Four.', 'Five.']);
+  });
+
+  it("plays sentences in original order even when a later one's synth resolves first", async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const played: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'One. Two. Three.', onSentence: (s: string) => played.push(s) });
+
+    // All 3 fit under the cap (3), so all 3 fire immediately.
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+
+    // Resolve OUT OF ORDER — last sentence first.
+    mock.resolve('Three.');
+    mock.resolve('Two.');
+    mock.resolve('One.');
+
+    await speakP;
+    // Despite resolving out of order, playback (and onSentence) still fires
+    // in the ORIGINAL sentence order — the schedule never reorders playback.
+    expect(played).toEqual(['One.', 'Two.', 'Three.']);
+  });
+
+  it('stop() prevents any not-yet-started sentence from ever synthesizing', async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'One. Two. Three. Four. Five.' });
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+
+    model.stop();
+    await speakP;
+
+    // Four./Five. must never have started once stopped — no wasted synth
+    // requests for sentences that will never play.
+    expect(started).toEqual(['One.', 'Two.', 'Three.']);
+  });
+
+  it('pause() halts NEW background synthesis; resume() lets scheduling continue (red-team + Munger-inversion finding)', async () => {
+    // Without this gate, every already-in-flight request completing just
+    // refilled the next queued sentence regardless of pause state — a
+    // single pause-to-think could silently synthesize the ENTIRE REST of
+    // the deck in the background (unbounded, not just "a few extra" —
+    // real cost on a BYO OpenRouter key).
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'One. Two. Three. Four. Five. Six. Seven.' });
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+
+    model.pause();
+    // Resolving the in-flight batch WHILE PAUSED must not trigger any new
+    // sentence to start synthesizing.
+    mock.resolve('One.');
+    mock.resolve('Two.');
+    mock.resolve('Three.');
+    await new Promise((r) => setTimeout(r, 20)); // let any (incorrect) refill happen
+    expect(started).toEqual(['One.', 'Two.', 'Three.']);
+
+    model.resume();
+    await vi.waitFor(() => expect(started).toContain('Four.'));
+
+    // Drain the rest so speak() resolves cleanly.
+    mock.resolve('Four.');
+    await vi.waitFor(() => expect(started).toContain('Five.'));
+    mock.resolve('Five.');
+    await vi.waitFor(() => expect(started).toContain('Six.'));
+    mock.resolve('Six.');
+    await vi.waitFor(() => expect(started).toContain('Seven.'));
+    mock.resolve('Seven.');
+
+    await speakP;
+    expect(started).toEqual(['One.', 'Two.', 'Three.', 'Four.', 'Five.', 'Six.', 'Seven.']);
+  });
+});
+
 describe('listOpenRouterVoiceModels (the public, unauthenticated TTS catalog)', () => {
   it('maps the catalog to {id,name,promptPerM,completionPerM,voices}', async () => {
     vi.resetModules();

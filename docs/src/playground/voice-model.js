@@ -48,6 +48,10 @@ const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
 const DEFAULT_OR_VOICE = 'af_heart';
 const DEFAULT_KOKORO_VOICE = 'af_heart';
 
+// The fixed sample line every "Play sample" preview speaks — pulled out as a
+// constant so previewVoice's cache key and its synth call can't drift apart.
+const PREVIEW_TEXT = 'This is how your slides will sound.';
+
 // OpenRouter pricing strings are per-character (TTS) USD; convert to per-MILLION,
 // same convention + edge cases as architect-model.js's orPricePerM twin (kept as a
 // tiny local copy, not an import — this file must stay plain-Node-loadable with no
@@ -163,6 +167,49 @@ export function splitSentences(text) {
   if (!s) return [];
   return s.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
 }
+
+// ── Audio cache (skip a re-synth when replaying an unchanged sentence — e.g.
+// navigating back to a slide already read aloud this session, or re-sampling a
+// voice already previewed) ────────────────────────────────────────────────────
+//
+// Keyed on EVERYTHING that changes the resulting audio bytes: which rung, which
+// MODEL (OpenRouter serves multiple TTS models via one rung; Kokoro's on-device
+// model is fixed today but included for symmetry — a second on-device model
+// later can't silently share a cache entry with this one), voice, speed, and
+// the sentence text itself. A stale cache hit — replaying yesterday's voice
+// after switching models — would be a worse bug than no caching at all, so
+// every one of those five must be in the key, not just the text.
+//
+// `JSON.stringify` of the tuple is the key, not manual delimiter-joining — a
+// hand-picked separator character risks colliding with real authored text (an
+// earlier draft of this used a literal space, which of course appears in
+// every sentence); JSON.stringify escapes quotes/backslashes internally so
+// the tuple boundary can never be forged by the text itself. No real hash
+// needed either: Map equality is exact-string, and a cryptographic digest
+// only earns its keep when persisting to a fixed-key-length store, which
+// this doesn't (in-memory, cleared on reload — the deck's spoken audio
+// isn't worth persisting across sessions the way the ~80 MB Kokoro MODEL
+// weights are, see detectKokoroCached above).
+function cacheKeyFor(rungName, modelId, voice, speed, text) {
+  return JSON.stringify([rungName, modelId || '', voice || '', speed, text]);
+}
+
+// A small FIFO cap so a very long deck / long session can't grow this
+// unbounded. Deliberately simple (insertion order, no access-time tracking) —
+// eviction here is a safety net, not a hit-rate optimization: a typical
+// session's real working set (a few dozen sentences × one voice/model/speed
+// combo at a time) sits well under this.
+const AUDIO_CACHE_LIMIT = 200;
+
+// How many sentences' synth requests speak() keeps in flight at once (see the
+// scheduler in speak(), below). Bounded, not unbounded fire-all: a long deck
+// shouldn't spike into dozens of simultaneous OpenRouter requests (rate limit
+// / cost / wasted work if the listener navigates away seconds in) just to
+// smooth out playback gaps a small overlap already fixes. 3 is a deliberate
+// middle ground between "enough head start that a slow response is masked by
+// the time its turn to play arrives" and "not so many that one slide's read-
+// aloud looks like a burst attack on the API."
+const SYNTH_CONCURRENCY = 3;
 
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
 // Unify playback on one <audio> element by encoding Kokoro's raw samples into a
@@ -362,6 +409,27 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   const kokoro = kokoroRung({ getVoice: kokoroVoice });
   let injected = null; // test hook
 
+  // This instance's audio cache — scoped per createVoiceModel() call (per
+  // keyPrefix), matching the existing Studio/Drawing-Board pref isolation
+  // (2026-07-09-studio-cloud-ondevice-config-split.md) rather than sharing one
+  // cache across surfaces.
+  const audioCache = new Map(); // cacheKeyFor(...) → Blob
+  function cacheSet(key, blob) {
+    if (!audioCache.has(key) && audioCache.size >= AUDIO_CACHE_LIMIT) {
+      const oldest = audioCache.keys().next().value;
+      if (oldest !== undefined) audioCache.delete(oldest);
+    }
+    audioCache.set(key, blob);
+  }
+  // The MODEL id for a given rung name — only OpenRouter's rung varies by model
+  // (Kokoro's on-device model is fixed); anything else (mock/injected/
+  // speechSynthesis) has no model concept, so it's simply excluded from the key.
+  function modelIdFor(rungName) {
+    if (rungName === 'openrouter-tts') return orModel();
+    if (rungName === 'kokoro') return KOKORO_MODEL;
+    return '';
+  }
+
   // Is Kokoro on disk? Probed async (Cache Storage) and cached here so the
   // synchronous availability() the button reads can distinguish "downloaded but not
   // loaded" from "never downloaded". Probed once on creation; re-probed after a
@@ -535,13 +603,42 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // keep going) rather than aborting `sig` — one slow sentence shouldn't kill
     // playback for the rest of the deck the way it's appropriate to for a single
     // self-contained Play-sample preview (see previewVoice's own fix, above).
+
+    // The voice a rung will ACTUALLY use — mirrors each rung's own internal
+    // `voice || getVoice()` fallback EXACTLY, including the `||` (not `??`):
+    // an independent-checker pass confirmed a `??` mirror here would diverge
+    // from the real rungs for a falsy-but-non-nullish `voice` (e.g. `''`) —
+    // the real rung resolves the live persisted voice pref for that input,
+    // but a `??` mirror would freeze the cache key on `''` forever, so a
+    // later voice-pref CHANGE would silently hit a stale-voice cache entry.
+    // No current caller passes `voice: ''` (verified — read-aloud.ts omits
+    // it, cadenza.astro/drawing-board-settings.js always pass a real id), so
+    // this was a dormant landmine, not yet reachable, but a direct
+    // contradiction of this cache's whole reason for keying on voice at all.
+    const effVoiceFor = (rungName) =>
+      voice || (rungName === 'openrouter-tts' ? orVoice() : rungName === 'kokoro' ? kokoroVoice() : '');
+
+    // Known, deliberate non-goal (confirmed pre-existing under the OLD
+    // one-ahead pipeline too, not a regression from concurrent scheduling):
+    // two IDENTICAL sentences scheduled in the same fillSlots() batch below
+    // both miss the cache and fire independent real synth calls, since
+    // `audioCache` only gets populated once a request RESOLVES — there's no
+    // in-flight-promise dedup. Harmless (each produces an equivalent blob;
+    // no cross-contamination), just an uncaptured hit-rate opportunity for a
+    // slide repeating a phrase across two bullets.
     const synth = (t) => {
+      const cacheKey = cacheKeyFor(rung.name, modelIdFor(rung.name), effVoiceFor(rung.name), effSpeed, t);
+      const cached = audioCache.get(cacheKey);
+      if (cached) return Promise.resolve(cached);
       // Cleared the moment EITHER side settles — Promise.race doesn't cancel the
       // loser, so an uncleared timer would linger 20s per sentence, every sentence,
       // even on the healthy path (a real timer-leak risk across a long deck).
       let timer;
       return Promise.race([
-        rung.synth({ text: t, voice, speed: effSpeed, signal: sig }).catch((e) => {
+        rung.synth({ text: t, voice, speed: effSpeed, signal: sig }).then((blob) => {
+          if (blob) cacheSet(cacheKey, blob);
+          return blob;
+        }).catch((e) => {
           if (!sig.aborted && !lastError) lastError = errStr(e);
           return null;
         }).finally(() => clearTimeout(timer)),
@@ -564,12 +661,55 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       } else if (rung.name === 'silent' || !sentences.length) {
         // Floor: nothing to play.
       } else {
-        // Blob rungs, with one-ahead prefetch for low gap between sentences.
-        let next = sentences.length ? synth(sentences[0]) : null;
+        // Blob rungs: fire every sentence's synth up front, capped concurrency —
+        // NOT tied to playback progress the way a one-ahead pipeline is. A
+        // one-ahead pipeline only hides synth latency up to the PREVIOUS
+        // sentence's playback duration; a short sentence (a bullet fragment, a
+        // number) plays back in under a second while a network round trip
+        // costs whatever it costs regardless of text length, so the pipe
+        // starves and every transition becomes its own latency bet. Keeping
+        // SYNTH_CONCURRENCY requests in flight at all times — refilled the
+        // moment a slot frees, independent of how far playback has gotten —
+        // gives every sentence's audio the maximum possible head start instead
+        // of just the prior sentence's (often much shorter) slack. The
+        // audioCache above means a cache hit barely occupies a slot at all, so
+        // a replay-heavy narration isn't bottlenecked by this cap either.
+        const pending = new Array(sentences.length);
+        let started = 0;
+        let active = 0;
+        const fillSlots = () => {
+          // Gated on `!pausedGate` too — an adversarial review found that
+          // without this, pausing narration didn't stop the scheduler at
+          // all: every already-in-flight request completing just refilled
+          // the next queued sentence regardless of pause state, so a single
+          // pause-to-think could silently synthesize the ENTIRE REST of the
+          // deck in the background (unbounded — not merely "3× the old
+          // one-ahead pipeline's worst case," since that pipeline's own loop
+          // iteration was itself gated on `waitIfPaused` before advancing,
+          // capping its wasted-ahead synthesis at exactly one sentence).
+          // Real cost on a BYO OpenRouter key, not just a latency nit.
+          while (!sig.aborted && !pausedGate && active < SYNTH_CONCURRENCY && started < sentences.length) {
+            const idx = started++;
+            active++;
+            pending[idx] = synth(sentences[idx]).finally(() => {
+              active--;
+              fillSlots(); // a slot just freed — start the next queued sentence, if any
+            });
+          }
+          // Stopped early because we're PAUSED (not done, not aborted) — resume()
+          // resolves this exact pausedGate promise instance when the user
+          // unpauses, even though the outer `pausedGate` variable will have
+          // already been reassigned to null by then; chaining onto the
+          // instance (not the variable) is what makes this self-correcting
+          // across repeated pause/resume cycles without any new shared state.
+          if (!sig.aborted && pausedGate && started < sentences.length) {
+            pausedGate.then(() => fillSlots());
+          }
+        };
+        fillSlots();
         for (let i = 0; i < sentences.length; i++) {
           if (sig.aborted) break;
-          const blob = await next;
-          next = i + 1 < sentences.length ? synth(sentences[i + 1]) : null;
+          const blob = await pending[i];
           if (sig.aborted) break;
           await waitIfPaused(sig);
           onSentence?.(sentences[i]);
@@ -680,6 +820,19 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       stop();
       const ctl = new AbortController();
       activeCtl = ctl;
+      const effSpeed = speed ?? speedPref();
+      // Same resolved-voice mirroring as speak()'s effVoiceFor — `||`, not
+      // `??`, matching the real rungs' own `voice || getVoice()` exactly
+      // (see effVoiceFor's comment for why the distinction matters). `rung`
+      // here is the caller's tier NAME ('openrouter'/'kokoro'), matching
+      // r.ready()'s own ternary above.
+      const effVoice = v || (rung === 'openrouter' ? orVoice() : kokoroVoice());
+      // Repeat "Play sample" clicks for the SAME voice/model/speed are pure
+      // duplicate synths of a fixed string — the same cache speak() uses, keyed
+      // by the rung's real name (r.name — 'openrouter-tts'/'kokoro', not the
+      // caller's shorthand) so a preview and a later spoken sentence that happen
+      // to share text could even share a cache entry.
+      const cacheKey = cacheKeyFor(r.name, modelIdFor(r.name), effVoice, effSpeed, PREVIEW_TEXT);
       // The PLAYBACK phase below already has an 8s watchdog; the SYNTH phase (the
       // network fetch to OpenRouter, or the Kokoro worker round-trip) previously had
       // NONE — a hung request left this awaiting forever, stuck on "Playing…" with no
@@ -692,8 +845,12 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // not, a real (if small) timer leak across a long presentation.
       let synthTimer;
       try {
-        const blob = await Promise.race([
-          r.synth({ text: 'This is how your slides will sound.', voice: v, speed: speed ?? speedPref(), signal: ctl.signal }).finally(() => clearTimeout(synthTimer)),
+        const cached = audioCache.get(cacheKey);
+        const blob = cached ?? await Promise.race([
+          r.synth({ text: PREVIEW_TEXT, voice: v, speed: effSpeed, signal: ctl.signal }).then((b) => {
+            if (b) cacheSet(cacheKey, b);
+            return b;
+          }).finally(() => clearTimeout(synthTimer)),
           new Promise((res) => { synthTimer = setTimeout(() => { ctl.abort(); res(null); }, 20000); }),
         ]);
         if (!blob?.size) return { ok: false, error: blob === null ? 'timed out waiting for audio (20s) — check your connection' : 'no audio returned (empty response)' };

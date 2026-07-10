@@ -368,6 +368,38 @@ in patch versions.
   (timing out) during this round of generation, not worth caching against an
   unstable endpoint. See the redesign section of
   `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
+- **Read-aloud no longer re-synthesizes a sentence it's already spoken this
+  session.** Replaying a slide (navigate away and back, or just press Play
+  again) previously re-fetched every sentence's audio from scratch — same
+  cost, same latency, even though nothing changed. `voice-model.js` now
+  caches each synthesized clip in memory, keyed on rung + OpenRouter model (or
+  the fixed on-device Kokoro model, kept in the key for symmetry) + voice +
+  speed + the sentence text itself — changing any one of those five is a
+  cache miss, so switching voices or models can never silently replay stale
+  audio. A small FIFO cap (200 entries) bounds memory over a long session.
+  `previewVoice()` ("Play sample") shares the same cache, so re-sampling an
+  already-heard voice/speed replays instantly instead of re-fetching too —
+  complementary to, not a replacement for, the pre-generated featured-sample
+  cache above (that one is a bounded, repo-committed set for cold-start
+  browsing; this one is unbounded, in-memory, and covers actual deck
+  narration).
+- **Read-aloud no longer has an audible gap between short sentences.** The
+  narration pipeline previously synthesized one sentence ahead of playback (a
+  one-ahead pipeline) — but that only hides synth latency when the NEXT
+  sentence finishes synthesizing before the CURRENT one finishes playing, and
+  synth time is roughly network/model-bound while playback time scales with
+  the sentence's length. A short sentence (a bullet fragment, a number) plays
+  back in under a second, well under typical TTS round-trip latency, so the
+  pipe starved and every such transition became its own audible pause.
+  `speak()` now keeps up to 3 sentences' synth requests in flight at once
+  (`SYNTH_CONCURRENCY`), refilled the moment a slot frees rather than gated by
+  playback progress — giving each sentence's audio the maximum possible head
+  start instead of just the previous sentence's (often much shorter) slack.
+  Playback still plays strictly in original order regardless of which
+  request resolves first, and pausing correctly halts any further background
+  synthesis (an adversarial review caught an early version of this that kept
+  synthesizing the ENTIRE rest of a paused deck in the background — real cost
+  on a BYO OpenRouter key, not just a latency nit).
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new
