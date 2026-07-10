@@ -130,6 +130,20 @@ describe('build — DOM mirror agrees with the kernel', () => {
     assert.equal([...doc.querySelectorAll('li')].length, 1);
     assert.equal(stepOf(doc.querySelector('li')), '1');
   });
+
+  // Form-migration audit (2026-07-09): masthead-lift wraps a Form slide's body
+  // into `.cell-stage` for STAGE_MIGRATED layouts (the common case, since Form
+  // has been default since 2026-06-26); the strict `:scope > ul` selector
+  // silently found nothing once the list moved one level deeper, so `_build:
+  // item` no-op'd on the runtime/DOM path while working fine on the export.
+  test('item: stamps steps when the list is wrapped in .cell-stage (masthead-lift, Form default)', () => {
+    const doc = dom('<section class="content form" data-build=""><div class="cell-stage"><ul><li>a</li><li>b</li></ul></div></section>');
+    build.applyToDom(doc);
+    const sec = doc.querySelector('section');
+    assert.equal(steps(sec), '2');
+    assert.equal(sec.getAttribute('data-build-axis'), 'item');
+    assert.deepEqual([...doc.querySelectorAll('.cell-stage li')].map(stepOf), ['1', '2']);
+  });
 });
 
 describe('build — directive plumbing', () => {
