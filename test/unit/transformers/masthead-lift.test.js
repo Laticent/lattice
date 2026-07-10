@@ -229,6 +229,27 @@ describe('masthead-lift — DOM mirror agrees with the kernel', () => {
     ]);
     assert.equal(doc.querySelector('.cell-stage').textContent, 'Body.');
   });
+
+  // Form-migration audit (2026-07-09): the DOM path's `section.form` selector
+  // had no depth guard (unlike form-default.js's `section:not(section
+  // section)`), so a literal nested `<section class="form">` an author
+  // writes inside slide content (lib/core/section-walk.js's own documented
+  // scenario) was lifted independently on the runtime path — a divergence
+  // from the HTML-string kernel, which only ever touches top-level sections.
+  test('DOM path leaves a literal nested <section class="form"> untouched, matching the HTML kernel', () => {
+    const inner = '<h2>Outer title</h2><p>Outer body.</p><section class="form"><h2>Inner literal</h2><p>inner body</p></section>';
+    const htmlResult = kernel.applyToRenderedHtml(`<section class="form">${inner}</section>`);
+
+    const doc = dom(`<section class="form">${inner}</section>`);
+    adapter.applyToDom(doc);
+    const domResult = doc.body.innerHTML;
+
+    // The inner literal section keeps its bare, unlifted shape on BOTH paths.
+    assert.match(domResult, /<section class="form"><h2>Inner literal<\/h2><p>inner body<\/p><\/section>/);
+    assert.match(htmlResult, /<section class="form"><h2>Inner literal<\/h2><p>inner body<\/p><\/section>/);
+    // Only the OUTER section gets a masthead band (once, not twice).
+    assert.equal(doc.querySelectorAll('.cell-masthead').length, 1);
+  });
 });
 
 describe('masthead-lift — stage-wrap eligibility', () => {

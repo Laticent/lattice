@@ -128,6 +128,15 @@ in patch versions.
   live-preview document, that paint-server reference silently resolved to
   nothing. The runtime now injects the same defs once at boot. Found by the
   Form-migration audit (`engineering/decisions/2026-07-09-form-migration-audit.md`).
+- **A literal nested `<section class="form">` an author writes inside slide
+  content no longer gets processed twice on the live-preview path.**
+  masthead-lift's DOM selector (`section.form`) had no depth guard — unlike
+  `lib/forms/form-default.js`'s `section:not(section section)` — so it lifted
+  a hand-authored nested Form section independently, a divergence from the
+  HTML-string kernel (which only ever touches top-level sections via its
+  depth-aware `mapSections` walk). Now scoped to `section.form:not(section
+  section)`, matching the HTML path exactly. Found by the Form-migration
+  audit (`engineering/decisions/2026-07-09-form-migration-audit.md`).
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
