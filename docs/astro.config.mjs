@@ -1,9 +1,61 @@
 // @ts-check
 
+import fs from 'node:fs';
+import path from 'node:path';
 import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+
+// Emits dist/chunk-graph.json: for every CLIENT-environment JS chunk, its
+// facadeModuleId (source entry, if any), moduleIds (bundled sources), static
+// `imports` + `dynamicImports` (as chunk fileNames), and associated CSS —
+// straight off Rollup's own OutputChunk objects in `writeBundle`, so it works
+// regardless of Astro's own `manifest: false` override for the SSR/prerender
+// build (vite-build-config.js) and Astro's own internal `.vite/manifest.json`
+// (vite-plugin-ssr-assets.js), which it deletes after use and only covers CSS.
+// scripts/inject-modulepreload.mjs reads this file after `astro build` to
+// resolve each app island's full transitive chunk list (walking only static
+// `imports`, never `dynamicImports` — those are intentionally lazy, e.g.
+// Fabricate's React.lazy tab) and hint the browser to fetch them in parallel
+// instead of discovering them one BFS depth-level at a time via client:only's
+// dynamic import() chain. Deleted by that script once consumed — never ships.
+/** @returns {import('vite').Plugin} */
+function chunkGraphPlugin() {
+	return {
+		name: 'lattice:chunk-graph',
+		// `applyToEnvironment` is marked `@experimental` in Vite's own types, but
+		// is already load-bearing for several of Vite's OWN built-in plugins
+		// (vite:esbuild-transpile, vite:manifest, …) — unlikely to be casually
+		// dropped. `environment.name === 'client'` matches Astro's literal client
+		// environment name (ASTRO_VITE_ENVIRONMENT_NAMES.client in Astro's own
+		// core/constants.js) for the Astro/Vite majors pinned today; if a future
+		// bump silently changes either, this plugin would apply too broadly
+		// (writing chunk-graph.json from the SSR/prerender build instead of — or
+		// as well as — the client build) rather than erroring, so a version bump
+		// across a MAJOR of either package is worth a quick recheck here.
+		applyToEnvironment(environment) {
+			return environment.name === 'client';
+		},
+		writeBundle(options, bundle) {
+			/** @type {Record<string, {facadeModuleId: string|null, moduleIds: string[], imports: string[], dynamicImports: string[], css: string[]}>} */
+			const graph = {};
+			for (const [fileName, chunk] of Object.entries(bundle)) {
+				if (chunk.type !== 'chunk') continue;
+				graph[fileName] = {
+					facadeModuleId: chunk.facadeModuleId || null,
+					moduleIds: chunk.moduleIds || [],
+					imports: chunk.imports || [],
+					dynamicImports: chunk.dynamicImports || [],
+					css: chunk.viteMetadata ? Array.from(chunk.viteMetadata.importedCss || []) : [],
+				};
+			}
+			const outDir = options.dir || path.dirname(options.file ?? '');
+			fs.mkdirSync(outDir, { recursive: true });
+			fs.writeFileSync(path.join(outDir, 'chunk-graph.json'), JSON.stringify(graph));
+		},
+	};
+}
 
 // Production home: https://lattice.style — a GitHub Pages site on a CUSTOM
 // DOMAIN, so it serves at the ROOT (base '/'), not under the old project-page
@@ -55,7 +107,7 @@ export default defineConfig({
 		// (src/styles/tailwind.css) imports only the theme + utilities layers —
 		// Preflight is OFF on purpose (see that file's header + the migration
 		// decision doc §0). It carries the shadcn ↔ Lattice token bridge.
-		plugins: [tailwindcss()],
+		plugins: [tailwindcss(), chunkGraphPlugin()],
 	},
 	integrations: [
 		starlight({

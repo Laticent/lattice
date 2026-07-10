@@ -90,6 +90,42 @@ in patch versions.
   output is buffered and flushed prefixed with its step label, not
   `stdio: inherit`'d live). Found by a red-team/inversion/independent-checker
   performance audit; see `engineering/decisions/2026-07-10-landing-perf-katex-defer.md`.
+- **Studio/Workbench/Playground's cold-load resolves the module graph in one
+  parallel burst instead of ~6 sequential network round-trips.** Neither
+  Vite nor Astro can auto-preload a `client:only`/`client:load` island's
+  transitive dependency chunks (dynamic `import()` hides the graph from
+  static analysis) — a real unthrottled trace of a cold Studio load showed
+  the ~45-chunk dependency graph resolving one BFS depth-level at a time.
+  A new build step (`docs/astro.config.mjs`'s `chunkGraphPlugin` +
+  `docs/scripts/inject-modulepreload.mjs`) reads Rollup's own per-chunk
+  `imports` graph after `astro build` and injects `<link rel=modulepreload>`
+  for each app island's full transitive STATIC-import set (never
+  `dynamicImports` — those stay intentionally lazy, e.g. Fabricate's
+  `React.lazy` tab, except Studio's lint-kernel chunk, explicitly
+  allowlisted since it loads automatically on every real mount, not gated
+  by user action) into the built page, with an end-to-end integrity check
+  (every injected href must resolve to a real file in `dist/`) so a future
+  Astro/Vite/Rollup change that silently alters chunk shape fails the build
+  loudly instead of shipping a broken hint. Measured: median time-to-mount
+  1823ms → 1496ms (~18%) under a simulated 40ms-RTT connection, real
+  browser, A/B same build — a simulated, not a real-device, measurement
+  (HARD RULE #23); the nightly perf-regression watch (already wired into
+  `perf-collect.mjs`'s build) continues validating this in CI going forward.
+  Found by the same red-team/inversion/independent-checker audit above,
+  which also disproved the original Lighthouse-mobile 8.5s LCP diagnosis (it
+  was measuring a first-run-only welcome banner returning users never see)
+  before landing on this fix, and a SECOND full red-team/inversion/
+  independent-checker pass against the shipped diff itself (20 findings,
+  all confirmed/partially-confirmed) that caught the lint-kernel gap and the
+  integrity-check gap above. A new nightly workflow
+  (`modulepreload-coverage-nightly.yml` + `docs/scripts/
+  check-modulepreload-coverage.mjs`, `npm run check:modulepreload-coverage`)
+  now covers the one remaining gap the integrity check can't: a FUTURE
+  `client:only` page added without a matching `ENTRIES` entry. Same
+  open-or-append rolling-issue shape as the existing perf-nightly watch —
+  advisory, not a build gate, since a missing entry is a missed
+  optimization, not a broken build; see
+  `engineering/decisions/2026-07-10-landing-perf-katex-defer.md`.
 
 ### Fixed
 
