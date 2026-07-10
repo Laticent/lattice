@@ -113,7 +113,11 @@ in patch versions.
   config after the first successful fetch and re-applies it (idempotently)
   on every later transform pass, with no re-fetch. Found by the
   Form-migration audit
-  (`engineering/decisions/2026-07-09-form-migration-audit.md`).
+  (`engineering/decisions/2026-07-09-form-migration-audit.md`), which also
+  added a permanent regression guard: a test loading the real bundled
+  `dist/lattice-runtime.js` into jsdom, stubbing `fetch`, and simulating a
+  live-edit DOM replacement to assert logo/meta/class persist without a
+  second fetch (`test/integration/parity/runtime-frontmatter-refire.test.js`).
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
