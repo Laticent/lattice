@@ -304,6 +304,29 @@ describe('audio cache (replay reuses synthesized audio; voice/model/speed change
     await model.previewVoice({ rung: 'openrouter', voice: 'voice-b' });
     expect(fetchCalls).toBe(2);
   });
+
+  it("does not freeze the cache key on a falsy voice ('') — mirrors the real rung's `||` fallback, not `??` (independent-checker + Munger-inversion finding)", async () => {
+    // `'' ?? orVoice()` would stay `''` forever (nullish coalescing only
+    // falls through on null/undefined); `'' || orVoice()` correctly falls
+    // through to the LIVE preference, matching what the real rung actually
+    // synthesizes. A `??` mirror here would let a voice-preference CHANGE
+    // silently hit a stale cache entry recorded under the frozen `''` key.
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'openrouter-tts',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.setOrVoice('voice-a');
+    await model.speak({ text: 'Hi.', voice: '' });
+    model.setOrVoice('voice-b'); // the user changes their voice preference
+    await model.speak({ text: 'Hi.', voice: '' }); // must NOT replay voice-a's cached audio
+    expect(calls).toEqual(['Hi.', 'Hi.']);
+  });
 });
 
 // Abort-aware mock: rejects the moment its signal aborts, exactly like the
@@ -400,6 +423,45 @@ describe('concurrent synth scheduling (fire-ahead, not one-ahead)', () => {
     // Four./Five. must never have started once stopped — no wasted synth
     // requests for sentences that will never play.
     expect(started).toEqual(['One.', 'Two.', 'Three.']);
+  });
+
+  it('pause() halts NEW background synthesis; resume() lets scheduling continue (red-team + Munger-inversion finding)', async () => {
+    // Without this gate, every already-in-flight request completing just
+    // refilled the next queued sentence regardless of pause state — a
+    // single pause-to-think could silently synthesize the ENTIRE REST of
+    // the deck in the background (unbounded, not just "a few extra" —
+    // real cost on a BYO OpenRouter key).
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'One. Two. Three. Four. Five. Six. Seven.' });
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+
+    model.pause();
+    // Resolving the in-flight batch WHILE PAUSED must not trigger any new
+    // sentence to start synthesizing.
+    mock.resolve('One.');
+    mock.resolve('Two.');
+    mock.resolve('Three.');
+    await new Promise((r) => setTimeout(r, 20)); // let any (incorrect) refill happen
+    expect(started).toEqual(['One.', 'Two.', 'Three.']);
+
+    model.resume();
+    await vi.waitFor(() => expect(started).toContain('Four.'));
+
+    // Drain the rest so speak() resolves cleanly.
+    mock.resolve('Four.');
+    await vi.waitFor(() => expect(started).toContain('Five.'));
+    mock.resolve('Five.');
+    await vi.waitFor(() => expect(started).toContain('Six.'));
+    mock.resolve('Six.');
+    await vi.waitFor(() => expect(started).toContain('Seven.'));
+    mock.resolve('Seven.');
+
+    await speakP;
+    expect(started).toEqual(['One.', 'Two.', 'Three.', 'Four.', 'Five.', 'Six.', 'Seven.']);
   });
 });
 

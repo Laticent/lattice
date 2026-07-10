@@ -385,7 +385,10 @@ in patch versions.
   playback progress — giving each sentence's audio the maximum possible head
   start instead of just the previous sentence's (often much shorter) slack.
   Playback still plays strictly in original order regardless of which
-  request resolves first.
+  request resolves first, and pausing correctly halts any further background
+  synthesis (an adversarial review caught an early version of this that kept
+  synthesizing the ENTIRE rest of a paused deck in the background — real cost
+  on a BYO OpenRouter key, not just a latency nit).
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new
