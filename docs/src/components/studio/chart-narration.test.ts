@@ -33,7 +33,10 @@ describe('narrateFunnel', () => {
 		expect(out).toContain('Activated: two thousand one hundred sixty, forty-five percent of the prior stage.');
 	});
 
-	it('ignores an indented detail sublist line (not itself a stage)', () => {
+	it('does not treat an indented detail sublist line as a stage, but still speaks it (not dropped)', () => {
+		// funnel.gallery.md's own default sample authors exactly this pattern — an
+		// adversarial review found it was being silently dropped, worse than the
+		// pre-narrator baseline where slideToSpeech read everything.
 		const md = [
 			'<!-- _class: funnel -->',
 			'',
@@ -44,8 +47,12 @@ describe('narrateFunnel', () => {
 			'- Signups `4,800`',
 		].join('\n');
 		const out = narrateFunnel(md);
-		expect(out).not.toContain('inbound');
+		// Not ingested as a phantom THIRD stage — the conversion % is still
+		// computed from exactly two real stages.
 		expect(out).toContain('Signups: four thousand eight hundred, forty percent of the prior stage.');
+		// But the detail text itself is still spoken, just appended rather than
+		// dropped.
+		expect(out).toContain('Two-thirds arrive from inbound.');
 	});
 
 	it('skips a fenced code block that happens to contain stage-like syntax', () => {
@@ -170,6 +177,47 @@ describe('narrateJourneyWeighted', () => {
 		expect(out).toContain('Weighted, ninety percent');
 		expect(out).toContain('Unweighted, ten percent');
 	});
+
+	it('does not treat a per-task detail sublist line as a task, but still speaks it (not dropped)', () => {
+		// A depth-blind parser mistook a detail line one level deeper than the
+		// task level for a phantom task (default volume 1), diluting every real
+		// percentage — found by adversarial review.
+		const md = [
+			'<!-- _class: journey weighted -->',
+			'',
+			'## Weighted flow.',
+			'',
+			'- Stage',
+			'  - Task A `@me` `:3` `+50`',
+			'    - Escalated after `3` retries',
+			'  - Task B `@me` `:3` `+50`',
+		].join('\n');
+		const out = narrateJourneyWeighted(md);
+		// Not ingested as a phantom third task — the split stays an even 50/50.
+		expect(out).toContain('Stage: Task A, fifty percent; Task B, fifty percent.');
+		// But the detail text itself is still spoken, just appended.
+		expect(out).toContain('Escalated after 3 retries.');
+	});
+
+	it("keeps a qualifying phrase authored AFTER a task's tokens, not just before (was truncated at the first backtick)", () => {
+		const md = [
+			'<!-- _class: journey weighted -->',
+			'',
+			'## Flow.',
+			'',
+			'- Stage',
+			'  - Escalate `@support` `:2` to tier two `+40`',
+			'  - Resolve `@support` `:2` `+60`',
+		].join('\n');
+		const out = narrateJourneyWeighted(md);
+		expect(out).toContain('Stage: Escalate to tier two, forty percent; Resolve, sixty percent.');
+	});
+
+	it('accepts a `+.5`-style fractional volume with no leading digit (mirrors `parseFloat("+.5")`)', () => {
+		const md = ['<!-- _class: journey weighted -->', '', '## Flow.', '', '- Stage', '  - A `@me` `:2` `+.5`', '  - B `@me` `:2` `+.5`'].join('\n');
+		const out = narrateJourneyWeighted(md);
+		expect(out).toContain('Stage: A, fifty percent; B, fifty percent.');
+	});
 });
 
 // narrateRadar speaks the auto-fit scale (niceCeil of the data) ONLY when the
@@ -241,6 +289,29 @@ describe('narrateRadar', () => {
 			'    - Cadence `5`',
 		].join('\n');
 		expect(narrateRadar(md)).toBeNull();
+	});
+
+	it('does not treat a per-axis detail sublist line as an axis, but still speaks it (not dropped)', () => {
+		// radar.manifest.json's `detail` slot documents a real optional reveal
+		// sublist under an axis; a depth-blind parser mistook a detail line
+		// ending in a number for a phantom axis, corrupting the auto-fit scale
+		// too — found by adversarial review.
+		const md = [
+			'<!-- _class: radar -->',
+			'',
+			'## How we stack up.',
+			'',
+			'- Lattice',
+			'  - Performance `9`',
+			'    - Verified in cycle `2024`',
+			'  - Pricing `7`',
+		].join('\n');
+		const out = narrateRadar(md);
+		// Scale stays zero to ten — NOT corrupted by the detail line's `2024`.
+		expect(out).toContain('On a scale of zero to ten.');
+		expect(out).toContain('Lattice: Performance, nine; Pricing, seven.');
+		// But the detail text itself is still spoken, just appended.
+		expect(out).toContain('Verified in cycle 2024.');
 	});
 });
 
@@ -320,6 +391,75 @@ describe('narrateQuadrant', () => {
 	it('bails when the `radar` token is also present (a radar-variant slide, not this component)', () => {
 		const md = ['<!-- _class: radar quadrant -->', '', '## X.', '', '- Group', '  - Sub', '    - Item `4`'].join('\n');
 		expect(narrateQuadrant(md)).toBeNull();
+	});
+
+	it('does not treat a per-item detail sublist line as an item, but still speaks it (not dropped)', () => {
+		// quadrant.manifest.json's `detail` slot documents a real optional reveal
+		// sublist under an item; a depth-blind parser mistook a detail line
+		// ending in a comma-separated pair for a phantom item, corrupting the
+		// auto-fit scale too — found by adversarial review.
+		const md = [
+			'<!-- _class: quadrant -->',
+			'',
+			'## Where to invest.',
+			'',
+			'- Strategic Bets',
+			'  - Scoring model v2 `3, 70`',
+			'    - Confidence range `40, 95`',
+			'  - Per-team calibration `5, 85`',
+		].join('\n');
+		const out = narrateQuadrant(md);
+		// Scale stays 0–5 / 0–100 — NOT corrupted by the detail line's `40, 95`.
+		expect(out).toContain('The horizontal axis runs zero to five.');
+		expect(out).toContain('The vertical axis runs zero to one hundred.');
+		expect(out).toContain('Strategic Bets: Scoring model v2 at three, seventy; Per-team calibration at five, eighty-five.');
+		// But the detail text itself is still spoken, just appended.
+		expect(out).toContain('Confidence range 40, 95.');
+	});
+
+	it('speaks an intro paragraph between the heading and the groups (not dropped)', () => {
+		const md = [
+			'<!-- _class: quadrant -->',
+			'',
+			'## Where to invest.',
+			'',
+			'Bubble size reflects team size.',
+			'',
+			'- Strategic Bets',
+			'  - Scoring model v2 `3, 70`',
+			'- Quick Wins',
+			'  - Weekly signal brief `8, 80`',
+		].join('\n');
+		const out = narrateQuadrant(md);
+		expect(out).toContain('Bubble size reflects team size.');
+		expect(out).toContain('Strategic Bets: Scoring model v2 at three, seventy.');
+	});
+
+	it('does not silently strip an unparseable eyebrow "targets" suffix — the broken trailing range falls back to auto-fit', () => {
+		// splitQuadrantEyebrow only strips a trailing `targets …` phrase when it's
+		// itself parseable (hasParseableTargets) — an unparseable one (a typo, a
+		// placeholder) must stay embedded, exactly like production leaves it, so
+		// it breaks the SAME end-anchored range parse production's own eyebrow
+		// reading would fail on too. Silently stripping it regardless would hand
+		// this slide a clean-looking but unearned "0–100" the real render can't
+		// resolve either.
+		const md = [
+			'<!-- _class: quadrant -->',
+			'',
+			'`Effort 0–10 → Reach 0–100 · targets tbd`',
+			'',
+			'## Where to invest.',
+			'',
+			'- Strategic Bets',
+			'  - Scoring model v2 `3, 45`',
+			'- Quick Wins',
+			'  - Weekly signal brief `8, 30`',
+		].join('\n');
+		const out = narrateQuadrant(md);
+		// Auto-fit from the data (max y = 45 → niceCeil 50), not the unreachable
+		// eyebrow-declared 100.
+		expect(out).toContain('The vertical axis runs zero to fifty.');
+		expect(out).not.toContain('one hundred');
 	});
 });
 
@@ -414,12 +554,14 @@ describe('narrateStateChartInference', () => {
 });
 
 describe('narrateStateChart', () => {
-	it('composes the inferred facts with the rest of the slide via slideToSpeech', () => {
+	it('leads with the heading, then the inferred facts, then the rest via slideToSpeech', () => {
+		// Heading-first matches every other narrator (a Munger-inversion review
+		// flagged the original heading-last order as a real inconsistency).
 		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Review', '   - `approve => 3`', '3. Done'].join('\n');
-		const inferred = 'This flow starts at Draft. It ends at Done.';
 		const out = narrateStateChart(md);
-		expect(out?.startsWith(inferred)).toBe(true);
-		expect(out?.length).toBeGreaterThan(inferred.length);
+		expect(out?.startsWith('Flow. This flow starts at Draft. It ends at Done.')).toBe(true);
+		// The heading isn't ALSO spoken again as part of the slideToSpeech "rest".
+		expect(out?.match(/Flow\./g)?.length).toBe(1);
 	});
 
 	it('returns null when there is nothing inferred to add', () => {

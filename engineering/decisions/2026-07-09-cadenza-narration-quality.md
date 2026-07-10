@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Two concrete defects in the shipped (non-AI) read-aloud/Cadenza pipeline, fixed without touching the gated self-delivering-presentation bet. (1) Narration doesn't sound human for structured content — slideToSpeech flattens list items/headings with no terminator, so Cadenza's existing punctuation-driven pause table (cadence.ts) never fires between clauses, and chart-family components' most important number (the funnel's stage-to-stage conversion %) is COMPUTED at render time and never reaches the raw markdown slideToSpeech reads, so it's never spoken at all. (2) The word-highlight visibly races ahead on Cadenza's text estimate, then snaps back to word 0 once a clocked voice's real onset lands — read-aloud.ts started its RAF loop synchronously in play(), before knowing whether a clocked voice would attach. Three fixes, one PR: punctuation at structural boundaries in slideToSpeech; a funnel-only chart-narration pilot that speaks the computed conversion rate; deferring the RAF loop's first tick until the mode (audio vs. estimate) is actually known. All three are deterministic, non-AI, and orthogonal to the blocked self-delivering-presentation bet — they harden the engine that bet already depends on. §7 (follow-up) rolls the pilot out to journey/radar/quadrant/state-chart — the only other chart-family members with a real computed-but-unauthored narration gap, found by reading every remaining transform rather than assumed; the other eight members already author their meaningful numbers directly and get no narrator. §8 (follow-up) spikes SSML/prosody support in the TTS stack: neither rung (OpenRouter's hosted Kokoro-82M nor the in-browser one) supports it — punctuation density (§3.1) is the only real pacing lever available today.
+summary: Two concrete defects in the shipped (non-AI) read-aloud/Cadenza pipeline, fixed without touching the gated self-delivering-presentation bet. (1) Narration doesn't sound human for structured content — slideToSpeech flattens list items/headings with no terminator, so Cadenza's existing punctuation-driven pause table (cadence.ts) never fires between clauses, and chart-family components' most important number (the funnel's stage-to-stage conversion %) is COMPUTED at render time and never reaches the raw markdown slideToSpeech reads, so it's never spoken at all. (2) The word-highlight visibly races ahead on Cadenza's text estimate, then snaps back to word 0 once a clocked voice's real onset lands — read-aloud.ts started its RAF loop synchronously in play(), before knowing whether a clocked voice would attach. Three fixes, one PR: punctuation at structural boundaries in slideToSpeech; a funnel-only chart-narration pilot that speaks the computed conversion rate; deferring the RAF loop's first tick until the mode (audio vs. estimate) is actually known. All three are deterministic, non-AI, and orthogonal to the blocked self-delivering-presentation bet — they harden the engine that bet already depends on. §7 (follow-up) rolls the pilot out to journey/radar/quadrant/state-chart — the only other chart-family members with a real computed-but-unauthored narration gap, found by reading every remaining transform rather than assumed; the other eight members already author their meaningful numbers directly and get no narrator. §8 (follow-up) spikes SSML/prosody support in the TTS stack: neither rung (OpenRouter's hosted Kokoro-82M nor the in-browser one) supports it — punctuation density (§3.1) is the only real pacing lever available today. §10 is a requested adversarial-trio pass (red team + Munger inversion + independent checker) on the §7 rollout before merge: it found and fixed a critical depth-blind nested-bullet parsing bug (a documented per-item "detail" reveal sublist was misparsed as phantom data, corrupting spoken scales) and a critical silent-content-loss regression (three narrators were dropping real authored text their own grammar didn't model, worse than not narrating at all), plus three medium fixes (journey label truncation, a rejected-but-legal volume token, an unconditionally-stripped eyebrow suffix) and one ordering fix.
 companion:
   - ./2026-07-07-cadenza-caption-timeline.md
   - ./2026-07-07-self-delivering-presentation.md
@@ -273,3 +273,87 @@ Also folded in during this pass: the `radar`↔`quadrant` variant-name collision
 (radar's own `quadrant` variant carries the literal token `quadrant`, and vice versa isn't possible since
 `quadrant` the component never carries a `radar` token) — both narrators now explicitly bail on the other's
 token rather than relying on their data shapes happening not to match.
+
+## 10. Adversarial trio — red team, Munger inversion, independent checker (§7/§9 hardening)
+
+Requested explicitly ("i need this red teamed, inversion and independent checker on it too") before PR #862
+merged — HARD RULE #25's top tier, for critical/high-blast-radius/novel work, applied here because §9's
+maker-checker pass had already found a HIGH-severity data-corruption bug in shipping code once; a rollout
+across four narrators parsing real component grammars warranted the deeper pass before merge. All three
+lenses converged on the same root cause from different angles, plus each surfaced findings the others didn't.
+
+**CRITICAL, convergent finding (red team + independent checker) — depth-blind nested-bullet parsing.**
+`parseRadarSeries`, `parseQuadrantGroups`, and `parseJourneySections` all treated ANY indented line matching
+their data-line regex as a data point, regardless of how deeply nested. But `radar.manifest.json` and
+`quadrant.manifest.json` both document a real, shipping third nesting level — an optional per-axis/per-item
+"detail" reveal sublist, built on the shared `mark-detail.js` chart-family substrate — and journey's transform
+defensively tolerates one too. A detail line that itself ends in a number (a plausible reference date,
+confidence range, or secondary metric an author would genuinely write) was silently ingested as a phantom
+axis/item/task, corrupting BOTH the spoken data list and the auto-fit scale with a confidently WRONG number —
+worse than saying nothing, because it sounds authoritative. Red team's proof-of-concept: a detail line
+`` - Verified in cycle `2024` `` under a radar axis valued `9` pushed the spoken scale from "zero to ten" to
+"zero to two thousand five hundred." Fixed identically across all three parsers: track the FIRST nested
+line's indentation per top-level bullet as that bullet's true data level (`leadingSpaces`); anything deeper
+is left unconsumed rather than ingested. Regression tests lock in one case per parser (radar/quadrant/journey)
+confirming the scale/total stays correct and the detail line is not treated as data.
+
+**CRITICAL, Munger-inversion finding ("how would we make this actively worse than doing nothing?") — silent
+content loss.** Inverting the goal — a narrator should never say LESS than `slideToSpeech` would have,
+only add computed facts on top — exposed that `narrateFunnel`/`narrateRadar`/`narrateQuadrant` were doing
+exactly that: any line their own grammar didn't model (a detail sublist, an intro paragraph between the
+heading and the data) was neither spoken nor an error — just gone. `funnel.gallery.md`'s own default sample
+authors a detail sublist under a stage; a listener would have heard it before this narrator existed, and
+silently lost it after. That is a real regression a rollout praised for "adding facts" had actually shipped.
+Fixed with `speakLeftover`: each parser now returns the exact set of line indices it consumed, and every
+full-replacement narrator flattens everything NOT in that set (minus blanks/directive/heading) through the
+existing `slideToSpeech` pipeline and appends it. Ordering trade-off, called out explicitly rather than
+hidden: leftover content is appended after the computed facts, not interleaved at its authored position —
+true interleaving would mean reconstructing document order across every narrator, a much larger change for a
+smaller listening benefit than guaranteeing nothing is silently dropped. Seven new regression tests cover
+this directly (a detail line spoken-but-not-counted, for funnel/radar/quadrant/journey; a quadrant intro
+paragraph spoken).
+
+**MEDIUM, red-team + independent-checker finding — journey label truncation.** `parseJourneySections` built a
+task's label as "everything before the first backtick token," so a task authoring a qualifying phrase AFTER
+its tokens (`` - Escalate `@support` `:2` to tier two `+40` ``) silently lost that phrase — a real authoring
+pattern the manifest's own grammar permits. Fixed by stripping every backtick token from the line and keeping
+the rest, matching how `journey.transform.js` strips `<code>` spans without disturbing surrounding text.
+
+**MEDIUM, red-team finding — journey volume regex rejected `parseFloat`-legal input.** The `+N` volume token
+regex required a leading digit before any decimal point, so an author writing `` `+.5` `` (legal input to the
+real transform's `parseFloat(tok.slice(1))`) silently fell back to the default volume of 1, understating that
+task's share. Fixed the regex to accept a bare leading decimal point.
+
+**MEDIUM, independent-checker finding — quadrant eyebrow "targets" strip was unconditional.**
+`splitQuadrantEyebrow`'s strip of a trailing `` `· targets tx, ty` `` phrase ran regardless of whether that
+phrase actually parsed as a coordinate pair. An unparseable one (a typo, a placeholder like "targets tbd")
+was stripped anyway, handing the axis-range parser a clean-looking eyebrow the real render can't resolve
+either — a false "we know the range" where production itself falls back to auto-fit. Fixed by gating the
+strip on `hasParseableTargets` (a port of `quadrant.transform.js`'s own `parseTargets`), so an unparseable
+targets phrase stays embedded and correctly breaks the same trailing-anchor parse production's own eyebrow
+reading would fail on too.
+
+**LOW, Munger-inversion finding — state-chart heading order was inconsistent.** Every other narrator here
+speaks the heading first; `narrateStateChart` spoke the inferred start/end facts first and the heading last
+(`` `${inferred} ${rest}` ``, heading folded into `rest`). Inverting "what would make this feel amateurish
+specifically because it's inconsistent" flagged that an eyes-free listener who's learned "the reader always
+opens with the slide title" hits a different order only on state-chart slides. Fixed by computing the
+heading explicitly, stripping it from the `slideToSpeech` pass (so it isn't spoken twice), and joining
+`[heading, inferred, rest]` in that order — now matching every other narrator.
+
+**Logged, not fixed (HARD RULE #18 discipline — off-path / lower-priority, not silently pulled into this
+diff):**
+
+- **`niceCeil`'s drift risk (Munger inversion).** This module keeps a hand-copied `niceCeil` identical to
+  `radar.transform.js`/`quadrant.transform.js`'s own — a deliberate cross-boundary constraint (this module is
+  docs-side ESM/TS; those are root `lib/` CJS), documented in the function's own comment, and pinned by
+  hand-verified test cases rather than a byte-diff. A future change to either source `niceCeil` would silently
+  desync from this copy with no test catching the drift until a spoken scale disagrees with the rendered one.
+  No shared-fixture mechanism crosses the CJS/ESM line elsewhere in this codebase either, so building one is a
+  bigger, separate piece of infrastructure work, not a one-line fix here.
+- **Radar's `target`/`delta`/`benchmark`-style variant nuances (red team).** Red team noted that radar (per
+  its manifest) supports variants beyond the plain/`quadrant` split this narrator's bail-guard already
+  handles, and didn't exhaustively verify every one narrates sensibly — only that the two variants with
+  narrator-relevant structural differences (plain, `quadrant`) are covered. A narrower, scoped audit of the
+  remaining variants is a reasonable follow-up, not a blocker: none of them change the two/three-level nesting
+  shape this parser depends on, so the worst case is a missed opportunity to speak a fact, not corrupted data.
