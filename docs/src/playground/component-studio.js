@@ -15,6 +15,9 @@
 // preview palette is borrowed from the Theme Studio core so a component previews
 // on a real, contrast-clean theme without the author choosing one.
 
+// The SINGLE choke point every docs surface calls the engine's render()
+// through — see render-engine.ts's header comment.
+import { renderMarkdown } from '../lib/render-engine';
 import { createThemeFetcher } from '../lib/theme-fetch';
 import { deleteAsset, listAssets, putAsset } from './asset-store.js';
 import { hashString, renderDeck } from './deck-preview.js';
@@ -272,14 +275,14 @@ export function initLayoutStudio(config) {
     }
     setStatus('Rendering…');
     ensureBaseTheme()
-      .then(() => {
+      .then(async () => {
         ensurePalette();
         // Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged
         // samples/ dir (sibling of themes/ under the hashed asset root). Absolute
         // base — themeBase is root-relative, the engine's URL resolver needs an
         // absolute base.
         const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
-        const out = PG.render(previewConfig.composed(), PREVIEW_PALETTE, { baseUrl: samplesBase });
+        const out = await renderMarkdown(PG, previewConfig.composed(), PREVIEW_PALETTE, { baseUrl: samplesBase });
         // The component CSS is palette-blind; append it after the theme CSS.
         writeFrame(out.html, out.css + '\n/* component */\n' + state.css, { w: out.width || 1280, h: out.height || 720 });
         const n = (out.html.match(/<\/section>/g) || []).length;

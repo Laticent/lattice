@@ -9,16 +9,14 @@
 // than a toast.
 
 import { ensureEngine } from '@/lib/load-engine';
+import type { LatticePlaygroundEngine } from '@/lib/playground-global';
+import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { getFrontMatter, mergeClassTokens, setFrontMatter } from './front-matter';
 
-type EngineRender = { html: string; css: string; width?: number; height?: number };
-type PG = {
-	render: (source: string, theme: string, opts?: { baseUrl?: string }) => EngineRender;
-	hasTheme: (name: string) => boolean;
-	marp?: unknown;
-};
+// `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
+type PG = LatticePlaygroundEngine;
 
 /** The `render` object the image exporters (exportPdf/exportPptx) consume. */
 export type DeckRender = {
@@ -34,7 +32,7 @@ export type DeckRender = {
 };
 
 function pg(): PG | undefined {
-	return typeof window !== 'undefined' ? (window as unknown as { LatticePlayground?: PG }).LatticePlayground : undefined;
+	return typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 }
 
 /** Ensure the engine bundle is loaded (no-op once present). */
@@ -59,7 +57,7 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
 		// ALWAYS (re-)register so an edited theme re-saved under the same name
 		// exports with the current CSS (addThemes overwrites by name); a hasTheme
 		// guard would silently export the stale theme.
-		if (PG) (PG as unknown as { addThemes: (c: string[]) => void }).addThemes([extra.css]);
+		if (PG) PG.addThemes([extra.css]);
 		return extra.name;
 	}
 	const themes = createThemeFetcher(options.themeBase);
@@ -75,7 +73,7 @@ async function ensureTheme(options: SingleSlideOptions, palette: string, mode: '
 export async function buildDeckRender(options: SingleSlideOptions, source: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string): Promise<DeckRender> {
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra);
-	const out = PG.render(source, theme);
+	const out = await renderMarkdown(PG, source, theme);
 	const { previewFontFaceCss } = await import('@/playground/font-embed.js');
 	return {
 		html: out.html,
@@ -256,7 +254,7 @@ export async function shareHtmlPlayer(
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra);
-	const out = PG.render(source, theme);
+	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Embedding fonts…');
 	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
@@ -550,7 +548,7 @@ export async function shareCaptions(
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra);
-	const out = PG.render(source, theme);
+	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Reading speaker notes…');
 	const [deckMod, authoringMod, readAlongCore] = await Promise.all([

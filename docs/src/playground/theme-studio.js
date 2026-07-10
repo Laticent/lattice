@@ -14,6 +14,9 @@
 // docs/astro.config.mjs. No model is involved in Faculty 1's deterministic
 // core; seeds come from the starter library.
 
+// The SINGLE choke point every docs surface calls the engine's render()
+// through — see render-engine.ts's header comment.
+import { renderMarkdown } from '../lib/render-engine';
 // Theme fetch + addThemes (the "ensureThemes" pattern) is shared — theme-fetch.ts.
 import { createThemeFetcher } from '../lib/theme-fetch';
 // The on-device / OpenRouter model ladder — the SAME adapter the Drawing Board
@@ -386,10 +389,10 @@ export function initThemeStudio(config) {
     // Register the preview under a fixed name + render the specimen.
     setStatus('Rendering…');
     ensureBaseTheme()
-      .then(() => {
+      .then(async () => {
         const previewCss = serializeTheme(map, { name: PREVIEW_THEME, label: state.label });
         PG.addThemes([previewCss]);
-        const out = PG.render(previewConfig.composed(), PREVIEW_THEME);
+        const out = await renderMarkdown(PG, previewConfig.composed(), PREVIEW_THEME);
         writeFrame(out.html, out.css, { w: out.width || 1280, h: out.height || 720 });
         const n = (out.html.match(/<\/section>/g) || []).length;
         setStatus(`Live · ${n} specimen slide${n === 1 ? '' : 's'} · ${exportName}.css`);

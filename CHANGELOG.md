@@ -139,6 +139,21 @@ in patch versions.
   advisory, not a build gate, since a missing entry is a missed
   optimization, not a broken build; see
   `engineering/decisions/2026-07-10-landing-perf-katex-defer.md`.
+- **Every docs-site call site now renders through one shared choke point,
+  `docs/src/lib/render-engine.ts`'s `renderMarkdown()`.** Internal-only, no
+  render output change: `single-slide-render.ts`, `playground-engine.ts`,
+  `theme-studio.js`, `component-studio.js`, and `share-export.ts` (its
+  `buildDeckRender`/`shareHtmlPlayer`/`shareCaptions`) previously each called
+  `window.LatticePlayground.render()` directly. Prep work for the KaTeX
+  bundle-weight deferral logged in
+  `engineering/decisions/2026-07-10-landing-perf-katex-defer.md` §4 — the
+  future lazy-load gate becomes one edit inside `renderMarkdown()` instead of
+  seven repeated call-site edits. The two Drawing Board call sites
+  (`drawing-board-render.js`, frozen — see
+  `engineering/decisions/2026-07-03-studio-succession.md`) are unchanged, per
+  the freeze. `share-export.ts` also drops a locally-duplicated `PG` type in
+  favor of the canonical `LatticePlaygroundEngine`
+  (`playground-global.d.ts`).
 
 ### Fixed
 

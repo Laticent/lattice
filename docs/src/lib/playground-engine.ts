@@ -12,6 +12,7 @@
 import { resolveDeckTheme } from './deck-theme';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
+import { renderMarkdown } from './render-engine';
 import { createThemeFetcher } from './theme-fetch';
 
 type PreviewState = { frameSig: string; lastSections: unknown };
@@ -119,7 +120,7 @@ export function createEngineBridge(
 			});
 			await themes.ensure(deckPalette, deckMode);
 			const theme = resolveThemeName(deckPalette, deckMode, PGref.hasTheme(deckPalette + '-dark'));
-			const out = PGref.render(source, theme, { baseUrl: samplesBase });
+			const out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase });
 			const geom = { w: out.width || 1280, h: out.height || 720 };
 			const r = DPref.renderDeck({
 				frame,
