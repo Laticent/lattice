@@ -73,6 +73,9 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `exemplar-core:check` | Freshness gate for the exemplar-core bundle. |
 | `export:marp` | Export a deck as a portable, Marp-native bundle: splits baked to ---, themes, assets, marp-cli config, a README, and (by default) an AI-agent kit (AGENTS.md + component catalog). `<deck.md> <out-dir-or-zip> [palette] [--no-agent]`. |
 | `fonts:emoji` | Vendor Noto Color Emoji into dist/fonts/ for the opt-in full-offline tier (~25 MB, excluded from the npm tarball). Run once while online; needs network. |
+| `katex-provider:build` | Build docs/public/playground/lattice-katex.js — the on-demand KaTeX bundle split out of the playground bundle. |
+| `katex-provider:check` | Freshness gate for the katex-provider bundle. |
+| `katex-provider:watch` | Rebuild the katex-provider bundle on change. |
 | `layout-core:build` | Bundle the pure Layout Studio core for the browser (docs site). |
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
@@ -301,6 +304,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
+| `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS producer for the browser. |

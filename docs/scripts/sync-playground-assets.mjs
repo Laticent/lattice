@@ -15,6 +15,10 @@
 //        <name>.css dest, so the themeBase fetch sites are unchanged.)
 //   - public/playground/lattice-playground.js (committed engine bundle)
 //                               → public/playground/v/<hash>/lattice-playground.js
+//   - public/playground/lattice-katex.js (committed on-demand KaTeX bundle,
+//     tools/build-katex-provider.js — split out of the engine bundle above,
+//     see engineering/decisions/2026-07-10-landing-perf-katex-defer.md §4)
+//                               → public/playground/v/<hash>/lattice-katex.js
 //
 // The staged DEST names are unversioned-of-content on purpose (lattice-runtime.js,
 // themes/lattice.css): the fetch sites (runtimeUrl / themeBase) are unchanged, so
@@ -56,12 +60,19 @@ const latticeCss = join(repoRoot, 'dist', 'lattice.min.css');
 const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime.min.js');
 const pgDir = join(here, '..', 'public', 'playground');
 const engineJs = join(pgDir, 'lattice-playground.js'); // committed engine bundle
+// KaTeX, split out of the engine bundle (tools/build-playground.js's `katex`
+// alias — see engineering/decisions/2026-07-10-landing-perf-katex-defer.md
+// §4) into its own committed bundle, staged as a SIBLING of lattice-
+// playground.js so docs/src/lib/ensure-katex.ts can derive its URL by
+// swapping one filename for the other.
+const katexProviderJs = join(pgDir, 'lattice-katex.js');
 
 // The full asset set, as [destRelativePath, absoluteSource]. destRelativePath
 // is the path under the hashed dir (and exactly what the pages request).
 const assets = [
   ['lattice-runtime.js', runtimeJs],
   ['lattice-playground.js', engineJs],
+  ['lattice-katex.js', katexProviderJs],
   ['themes/lattice.css', latticeCss],
 ];
 for (const file of readdirSync(distThemesDir)) {

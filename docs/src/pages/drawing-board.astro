@@ -1229,14 +1229,51 @@ const dbData = JSON.stringify({
 		<!-- The marp render engine (window.LatticePlayground) loads ON DEMAND via
 		     load-engine.ts (triggered on idle below, after the chrome + editor
 		     paint), NOT eagerly here — so the topbar + editor host paint without the
-		     ~554KB-gz bundle blocking first paint / mobile LCP. The render loop polls
+		     ~500KB-gz bundle blocking first paint / mobile LCP. The render loop polls
 		     for the global, so deferring injection is safe (load-engine.ts contract,
-		     matching the playground + workbench surfaces). -->
+		     matching the playground + workbench surfaces).
+
+		     KaTeX is no longer bundled INTO the engine (see engineering/decisions/
+		     2026-07-10-landing-perf-katex-defer.md §4) — it ships as a sibling
+		     on-demand bundle (lattice-katex.js) that the non-frozen surfaces load
+		     lazily, only for a deck that actually has math, via ONE choke point
+		     (render-engine.ts's renderMarkdown). The Drawing Board is FROZEN
+		     (engineering/decisions/2026-07-03-studio-succession.md) — its own
+		     drawing-board-render.js / drawing-board-practice.js call
+		     `PG.render()` directly and are correctly NOT migrated onto that gate
+		     (issue #870 logged the same exemption for a different fix) — so this
+		     page instead keeps loading KaTeX EAGERLY, same as it always effectively
+		     did when KaTeX rode inside the engine bundle: a mechanical compatibility
+		     addition to avoid a regression the engine-level change would otherwise
+		     cause here, not new Drawing Board feature work. -->
 		<script>
+			import { katexProviderUrlFor, ensureKatexProvider } from '../lib/ensure-katex.ts';
 			import { ensureEngine } from '../lib/load-engine.ts';
 			const __dbData = JSON.parse(document.getElementById('db-data').textContent);
 			const __engineUrl = __dbData.engineUrl;
-			function __loadEngine() { if (__engineUrl) void ensureEngine(__engineUrl); }
+			function __loadEngine() {
+				if (!__engineUrl) return;
+				// KaTeX's provider registration (lib/engine/katex-browser-stub.js's
+				// `window.__latticeRegisterKatex`) is defined by the ENGINE bundle's
+				// own top-level code — so the katex-provider bundle must not START
+				// EXECUTING before the engine bundle has. Dynamically-created <script>
+				// elements do NOT honor `.defer` for relative ordering (defer only
+				// applies to scripts present in the initial HTML parse); two parallel
+				// injections race on NETWORK completion, and the smaller katex bundle
+				// can finish first, silently no-op its registration call (the stub
+				// isn't defined yet), yet still report itself ready — a race caught by
+				// real-browser testing, not any unit test. Chaining `.then()` here
+				// guarantees the engine has fully executed before the katex script is
+				// even injected.
+				ensureEngine(__engineUrl).then(() => {
+					const __katexUrl = katexProviderUrlFor(__engineUrl);
+					// Best-effort, same as render-engine.ts's renderMarkdown: a failed/
+					// slow katex load degrades to math.js's own escaped-text fallback
+					// rather than an unhandled rejection (ensureKatexProvider rejects on
+					// a 404/network error/timeout).
+					if (__katexUrl) void ensureKatexProvider(__katexUrl).catch(() => {});
+				});
+			}
 			// On idle so the chrome paints first; the { timeout } bounds it so a
 			// perpetually busy main thread can't starve the engine load (the render
 			// loop tolerates a late global, but we don't want it indefinitely late).

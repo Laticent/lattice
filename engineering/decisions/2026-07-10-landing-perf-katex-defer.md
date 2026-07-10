@@ -135,7 +135,7 @@ having the same underlying pattern, logged as
 [#870](https://github.com/SlideWright/lattice/issues/870) per HARD RULE #18
 since it's out of scope while frozen). Shipped in PR #869.
 
-## 4. KaTeX bundle-weight finding — confirmed, quantified, NOT implemented
+## 4. KaTeX bundle-weight finding — confirmed, quantified, IMPLEMENTED (§4b)
 
 The user's instinct ("components with transformers should load dynamically,
 on use") is already proven correct and already shipped for ONE dependency:
@@ -204,13 +204,136 @@ HARD RULE #1 exists to prevent. That, plus the new build tooling required
 check), makes this a real multi-file shared-kernel change — maker-checker
 territory, not a copy-paste of the Mermaid pattern into one file.
 
-**Decision: logged, not implemented this session** (HARD RULE #18 — off the
-path of the originating landing-page fix, real but not urgent, tracked
+**Decision at the time: logged, not implemented this session** (HARD RULE #18 —
+off the path of the originating landing-page fix, real but not urgent, tracked
 rather than rushed or silently dropped). Revisit as its own properly-scoped
 piece of work: build the katex-provider bundle + `math.js` fallback once,
 then wire the pre-scan gate into all 7 call sites (or refactor them onto a
 shared render wrapper first, which would also pay for itself by giving
-future engine-loading changes ONE choke point instead of 7).
+future engine-loading changes ONE choke point instead of 7). **Superseded by
+§4b below — done as two PRs (the shared wrapper first, then this).**
+
+## 4b. KaTeX bundle-weight — implemented
+
+Landed as two sequential PRs on the recommended path from §4: PR A
+(`refactor(docs): shared render-engine choke point for PG.render()`, #884)
+built `docs/src/lib/render-engine.ts`'s `renderMarkdown()` as a pure,
+behavior-preserving refactor migrating all 7 non-frozen call sites onto it;
+PR B (this one) added the actual KaTeX-defer gate as ONE edit inside it.
+
+**The design that shipped**, refined from §4's plan during implementation:
+
+- **Not a `math: false` runtime option — an esbuild `alias`.** §4 assumed
+  gating `installMath()`'s `require('katex')` at runtime. That doesn't work:
+  esbuild bundles whatever a `require()` call statically resolves to,
+  regardless of any runtime conditional around it — a guarded
+  `require('katex')` anywhere in a file reachable from the bundle's entry
+  point still ships katex. The fix instead redirects the IMPORT SPECIFIER
+  itself, for the playground build ONLY: `tools/build-playground.js`'s
+  `alias: { katex: 'lib/engine/katex-browser-stub.js' }` swaps in a stub that
+  starts empty and throws until registered (caught by math.js's existing
+  malformed-formula fallback — escaped source text). Node/CLI
+  (`lattice-emulator.js`, every existing math test) never runs esbuild, so
+  `math.js`'s CODE is untouched (keeps its original eager `require('katex')`
+  verbatim — only a cross-referencing comment was added, pointing future
+  editors at `math-detect.mjs`, see the drift-guard point below) — zero
+  regression risk to the tested render path.
+- **A KaTeX-free pre-scan, not a shared implementation.** §7's call-site gate
+  needs to know "does this deck have math?" without importing KaTeX to ask.
+  `lib/engine/math-detect.mjs`'s `sourceHasMath()` mirrors math.js's
+  `$…$`/`$$…$$` delimiter guards independently (a parity test suite —
+  `test/unit/engine/math-detect.test.js` — cross-checks every fixture against
+  the real engine's actual render output, including the exact
+  two-dollar-amount kpi-slide false-positive risk §"delimiter guards" calls
+  out) rather than sharing code with math.js, to keep zero regression risk on
+  the tested file.
+- **The provider URL is derived, not threaded through every call site.**
+  `lattice-katex.js` is always staged as a sibling of `lattice-playground.js`
+  (`docs/scripts/sync-playground-assets.mjs`), so
+  `docs/src/lib/ensure-katex.ts` derives its URL by swapping one filename for
+  the other — off the already-injected engine `<script>` tag for
+  `renderMarkdown()`'s callers, or directly from a known `engineUrl` for the
+  Drawing Board's eager loader. No call site gained a new parameter.
+- **The Drawing Board (frozen) needed a deliberate, narrow exception.**
+  `lattice-playground.js` is ONE shared bundle — stripping KaTeX out of it
+  would have silently broken math on the Drawing Board's 3 un-migrated
+  `PG.render()` call sites too (`drawing-board-render.js` ×2,
+  `drawing-board-practice.js` ×1), a regression this change would have
+  CAUSED, which CLAUDE.md's HARD RULE #18 doesn't permit regardless of the
+  freeze (`2026-07-03-studio-succession.md`) — the freeze protects against
+  fixing PRE-EXISTING bugs there, not against preventing NEW ones. The fix:
+  `drawing-board.astro`'s page shell loads the KaTeX provider eagerly,
+  unconditionally, right after the engine — the same effective behavior it
+  always had when KaTeX rode inside the engine bundle — without touching any
+  of the three frozen render call sites.
+- **A real race, found only by browser testing.** The first eager-load
+  attempt fired `ensureEngine()` and `ensureKatexProvider()` in parallel on
+  the same idle tick. Dynamically-created `<script>` elements do NOT honor
+  `.defer` for relative execution order (that only applies to scripts present
+  in the initial HTML parse) — two parallel injections race on NETWORK
+  completion, and the smaller katex bundle (~77KB gzip) can finish and
+  execute BEFORE the larger engine bundle (~500KB gzip), meaning
+  `window.__latticeRegisterKatex` isn't defined yet when katex-provider.js
+  calls it — a silent no-op via optional chaining — while
+  `window.__latticeKatexReady` still gets set `true`, masking the failure.
+  No unit test catches this (it's a real-network-timing race); a real-browser
+  Playwright check against the actual dev server did, showing math silently
+  degrading to escaped text on the Drawing Board despite every readiness flag
+  reporting success. Fixed by sequencing: `ensureEngine(url).then(() =>
+  ensureKatexProvider(...))`, guaranteeing the engine has fully executed
+  before the katex bundle is even injected. HARD RULE #23 in action — "CI
+  green" / a passing unit suite would not have caught this.
+- **The full adversarial trio (HARD RULE #25) — 3 more real bugs, all in
+  `math-detect.mjs`'s pre-scan.** This change touches `lib/engine` (a shared
+  kernel) and is a genuinely novel pattern in this codebase (the first lazy-
+  provider injection into the render pipeline), so it escalated past standard
+  maker-checker to a red-team pass, a Munger-inversion pass, and an
+  independent checker, run in parallel. Findings, all fixed before merge:
+  (1) `hasDisplayMath`'s `/^\$\$/m` anchor missed display math indented
+  inside a list item or blockquote — markdown-it's real block rule strips
+  that container indentation before checking, so `$$` nested a few spaces or
+  a `>` deep rendered correctly via the CLI/PDF path but silently degraded to
+  escaped text in the browser (both red team and the independent checker
+  found this independently). Fixed by allowing `[ \t>]*` before the anchor.
+  (2) `hasInlineMath` skipped BOTH characters of a failed `$$` display
+  opener, missing that markdown-it's real inline rule retries at the very
+  next position — so `$$b$` renders `$b$` as real math, but the pre-scan said
+  no math was present (found by the independent checker). Fixed by only
+  skipping the first `$`, letting the loop reach the second. (3) Drawing
+  Board's eager-load chain had no `.catch()` on `ensureKatexProvider` (unlike
+  `renderMarkdown`'s best-effort handling) — a load failure there would have
+  been an unhandled promise rejection instead of a graceful degrade (found by
+  red team). All three are now covered by parity fixtures in
+  `test/unit/engine/math-detect.test.js`, cross-checked against the real
+  engine's actual render output, not just the predicate's own logic. The
+  Munger-inversion pass separately flagged the Drawing Board eager-load block
+  as a standing "looks like dead code" trap for a future cleanup pass (now
+  more heavily commented) and recommended a cross-reference comment in
+  `math.js`'s header pointing at `math-detect.mjs` so a future delimiter-
+  syntax addition (e.g. Marp's `\(...\)`/`\[...\]`, already named as a future
+  possibility in math.js's own header) doesn't silently desync the two —
+  added.
+
+**Measured (same machine, gzip, `gzip -9`):**
+
+| | gzip size |
+|---|---|
+| `lattice-playground.js`, before | 578,981 bytes |
+| `lattice-playground.js`, after | 501,495 bytes |
+| **delta** | **−77,486 bytes (−13.4%)** |
+| `lattice-katex.js` (new, on-demand) | 76,722 bytes |
+
+Matches §4's controlled-A/B estimate (78,500 bytes / 13.5%) closely — the
+small difference is the stub/registration overhead vs. a bare `null` stub.
+
+**Verified**, real browser (HARD RULE #23): a no-math Playground deck fetches
+zero bytes of `lattice-katex.js` (Network tab, live); typing math into the
+real Playground editor (playground-engine.ts's `renderMarkdown` path) and the
+math component specimen page (single-slide-render.ts's path) both lazy-load
+the provider and render real `class="katex"` MathML/HTML; the Drawing Board,
+after the sequencing fix, renders real KaTeX output too. `npm test` (root,
+3174 tests) and the docs `vitest` suite (1114 tests) pass unchanged, including
+the pre-existing engine KaTeX test — Node/CLI behavior is provably identical.
 
 ## 5. Closed — red-team / Munger-inversion / independent-checker audit (14 findings)
 
