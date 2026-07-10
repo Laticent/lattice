@@ -1012,11 +1012,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// render fires as soon as the bundle resolves.
 	React.useEffect(() => {
 		const engine = engineRef.current;
+		// Kick the theme CSS fetch off in PARALLEL with the engine-bundle load
+		// (not behind it) — the render loop's ready() poll otherwise means
+		// renderInto's theme fetch never starts until the engine already has.
+		const start = () => {
+			engine.prefetchTheme?.();
+			engine.ensure();
+		};
 		const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
 		if (ric) {
-			ric(() => engine.ensure());
+			ric(start);
 		} else {
-			const t = setTimeout(() => engine.ensure(), 0);
+			const t = setTimeout(start, 0);
 			return () => clearTimeout(t);
 		}
 	}, []);

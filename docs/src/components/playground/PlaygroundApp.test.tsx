@@ -34,6 +34,7 @@ vi.mock('@/lib/playground-engine', () => ({
 	createEngineBridge: () => ({
 		ready: () => true,
 		ensure: () => {},
+		prefetchTheme: () => {},
 		renderInto: async () => ({
 			status: 'rendered' as const,
 			count: 3,
