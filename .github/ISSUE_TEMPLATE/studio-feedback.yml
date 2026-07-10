@@ -1,0 +1,39 @@
+name: Studio feedback
+description: Tell us about your experience using the Studio — a bug, an idea, or something that felt confusing.
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The more concrete, the more
+        useful — what you were doing, what you saw, and what you expected instead.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Something broke (bug)
+        - An idea / suggestion
+        - Something felt confusing
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What happened?
+      description: What were you doing, what did you see, and what did you expect instead?
+      placeholder: |
+        1. I was...
+        2. I expected...
+        3. Instead...
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Context
+      description: When opened from the Studio's "Send feedback" button, this is filled in automatically (page, viewport, browser) — feel free to trim anything you'd rather not share.
+      render: markdown
+    validations:
+      required: false
