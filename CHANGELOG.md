@@ -155,6 +155,23 @@ in patch versions.
   new Key Insight arm — both already ship their own dedicated `.cell-stage`-
   scoped blockquote treatment. Found by the Form-migration audit
   (`engineering/decisions/2026-07-09-form-migration-audit.md`).
+- **The `sketch` finish's hand-drawn card boxes render again under Form
+  default, across ~14 layouts.** `lib/forms/cell/masthead/masthead.
+  transform.js` wraps a Form slide's flow body into `<div class="cell-stage">`
+  for every `STAGE_MIGRATED` layout, but `lib/base/base.sketch.css`'s
+  hand-drawn box treatment — the asymmetric border-radius, offset ink shadow,
+  and per-card micro-rotation that are `mode: sketch`'s headline visual
+  feature — used only direct-child-of-`<section>` selectors across
+  cards-grid, cards-stack, verdict-grid, decision, matrix-2x2, pricing,
+  compare-prose, citation-card, list-tabular, list, redline, checklist,
+  actors, and agenda (all five agenda styles). Once the body moved one level
+  deeper, every one of those selectors silently stopped matching and the
+  cards fell back to their plain component border — Form is default since
+  2026-06-26, so this was the common case, not an edge case. Each affected
+  selector now carries a `.cell-stage`-aware companion (same pattern as the
+  Universal Pill rule and the Key Insight/Annotation/Heat-Overlay fix above).
+  Found by the Form-migration audit
+  (`engineering/decisions/2026-07-09-form-migration-audit.md`).
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
