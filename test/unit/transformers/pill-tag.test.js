@@ -1,8 +1,9 @@
 /**
  * Unit tests for the pill-tag transformer.
  *
- * Covers both the HTML-string kernel (tagPills / applyToHtml, used by marp-cli
- * + lattice-emulator) and the DOM walk (applyToDom, used by lattice-runtime).
+ * Covers both the HTML-string kernel (tagPills / applyToHtml — lib/engine,
+ * serving the CLI/PDF path and the browser playground) and the DOM walk
+ * (applyToDom, used by lattice-runtime.js).
  * The contract: a trailing `<code>` immediately before a
  * nested list is tagged `lat-pill`; a mid-sentence `<code>` on a row that
  * merely has a nested list is NOT.

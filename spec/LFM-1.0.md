@@ -193,7 +193,9 @@ surface them yet.
 
 The **directive and tooling-pragma exclusions** above are the pinned part of the
 contract: they are identical across implementations (the reference
-implementation locks them to marp-core with a parity test). A few rare
+implementation pins them against marp-core's documented comment-collection
+behavior — hardcoded expected outputs, not a live marp-core comparison; see
+`test/unit/authoring/notes-core.test.js`). A few rare
 comment-*placement* cases are explicitly **not** guaranteed identical, because
 they depend on how a given parser segments comments rather than on the note
 boundary: a comment buried inside a raw HTML block, two comments with no blank
@@ -252,7 +254,9 @@ documented exception, not a conformance failure.
   valid (if Lattice-inert) LFM document.
 - **GFM** — LFM adopts GFM task lists and tables. The only divergence is §5.1.
 - **Marpit / Marp** — LFM's slide model (`_class`, `---` separators, front
-  matter) is Marpit-compatible; Lattice is a Marp-based engine. Marpit gives
+  matter) is Marpit-compatible; Lattice's own engine natively re-implements
+  that model (zero `@marp-team` runtime dependency — see
+  `engineering/marp-independence.md`), it isn't a Marp wrapper. Marpit gives
   you slides and a directive syntax; LFM adds what Marpit does not specify — a
   named, versioned, conformance-levelled contract, the degradation guarantee
   (§5), a fixed component/modifier vocabulary (§4), and a stable diagnostic

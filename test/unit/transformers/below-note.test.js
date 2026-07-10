@@ -5,10 +5,13 @@
  * Contract: a layout's trailing `<p>` that follows a structural block
  * (div/ul/ol/table/pre/blockquote) is wrapped in `.below-note` for the
  * hairline treatment — UNLESS the section's class is on the exclusion list,
- * or the `<p>` follows another `<p>` (that is main content). The kernel feeds
- * all three render paths; the emulator calls `wrapSectionBody` on a pre-chrome
- * body (no footer), marp-cli calls `applyToHtml` on full sections (with a
- * trailing `<footer>`), and the runtime calls `applyToDom`.
+ * or the `<p>` follows another `<p>` (that is main content). The registry
+ * wires two consumers: `applyToHtml` (lib/engine — the CLI/PDF path and the
+ * browser playground, which share the call) on full sections with a trailing
+ * `<footer>`, and `applyToDom` (lattice-runtime.js). `wrapSectionBody`
+ * (pre-chrome body, no footer) is a lower-level kernel helper — not
+ * currently wired into either registry consumer — pinned here for
+ * byte-identical parity with the pre-kernel inline regex it replaced.
  */
 
 const { test, describe } = require('node:test');
@@ -20,7 +23,7 @@ const adapter = require('../../../lib/transformers/below-note');
 const WRAP = '<div class="below-note">';
 const sec = (cls, inner) => `<section class="${cls}">${inner}</section>`;
 
-describe('below-note — wrapSectionBody (emulator path)', () => {
+describe('below-note — wrapSectionBody (pre-chrome kernel helper, unwired)', () => {
   test('wraps a trailing <p> after a list', () => {
     const out = belowNote.wrapSectionBody('<ul><li>a</li></ul><p>note</p>', 'list-checks');
     assert.equal(out, '<ul><li>a</li></ul><div class="below-note"><p>note</p></div>');
@@ -44,7 +47,7 @@ describe('below-note — wrapSectionBody (emulator path)', () => {
   });
 });
 
-describe('below-note — applyToHtml (marp-cli path)', () => {
+describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)', () => {
   test('wraps the trailing <p> and preserves a following <footer>', () => {
     const out = belowNote.applyToHtml(
       sec('list-checks', '<ul><li>a</li></ul><p>note</p><footer>f</footer>'),

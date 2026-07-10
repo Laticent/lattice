@@ -90,7 +90,7 @@ are shared and stay — the honest delta is the marp tree only.)
 2. **Weight** — marp-free install, −42M.
 3. **Control** — we fix our own browser-compat (e.g. the iOS `:root` cqi bug, P5) instead of waiting upstream.
 4. **Capability** — structural components stock marp-core literally cannot render.
-5. **CSS fidelity** — we drive selector scoping / specificity; no fighting marp's `!important` scaffold.
+5. **CSS fidelity** — we drive selector scoping / specificity; the owned engine's own render never loads a competing Marp scaffold, so nothing there needs to fight one. (`scaffold.css` still carries a defensive `!important` for the one context where it DOES compete — real marp-core, in the Export-to-Marp bundle; see `cascade.md` § "What that means for Lattice today".)
 6. **No upstream coupling** — marp's version / roadmap / abandonment can't break us.
 7. **Output ownership** — PDF / PPTX / PNG / HTML through our CLI.
 
