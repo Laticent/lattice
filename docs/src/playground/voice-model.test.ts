@@ -333,11 +333,11 @@ describe('audio cache (replay reuses synthesized audio; voice/model/speed change
 // real openRouterRung (fetch) / kokoroRung (worker) do — a mock that ignores
 // abort would make a stop()-mid-synth test hang for the real 20s internal
 // timeout instead of resolving promptly.
-function abortAwareMockRung(onStart: (text: string) => void) {
+function abortAwareMockRung(onStart: (text: string) => void, name = 'mock') {
   const resolvers = new Map<string, (b: { size: number; arrayBuffer: () => Promise<ArrayBuffer> }) => void>();
   return {
     rung: {
-      name: 'mock',
+      name,
       ready: () => true,
       synth: ({ text, signal }: { text: string; signal?: AbortSignal }) => {
         onStart(text);
@@ -516,7 +516,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     const model = createVoiceModel({});
     const calls: string[] = [];
     model.__setRung({
-      name: 'mock',
+      name: 'openrouter-tts',
       ready: () => true,
       synth: async ({ text }: { text: string }) => {
         calls.push(text);
@@ -533,7 +533,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     const model = createVoiceModel({});
     const calls: string[] = [];
     model.__setRung({
-      name: 'mock',
+      name: 'openrouter-tts',
       ready: () => true,
       synth: async ({ text }: { text: string }) => {
         calls.push(text);
@@ -541,6 +541,22 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
       },
     });
     model.setRungPref('off'); // pickRung() resolves to the silent rung regardless of the injected mock
+    model.warm(['Would-be next slide sentence.']);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual([]);
+  });
+
+  it("is a no-op for the kokoro rung — this prefetch only hides NETWORK latency (openrouter-tts); Kokoro's synthesis shares ONE compute resource (its worker) with the CURRENT slide's own still-running speak() scheduler, so prefetching there would compete for it instead of hiding anything (Munger-inversion finding)", async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'kokoro',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
     model.warm(['Would-be next slide sentence.']);
     await new Promise((r) => setTimeout(r, 20));
     expect(calls).toEqual([]);
@@ -555,7 +571,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     // checker finding). warm() gets its own, much smaller cap instead.
     const model = createVoiceModel({});
     const started: string[] = [];
-    const mock = abortAwareMockRung((t) => started.push(t));
+    const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
     model.__setRung(mock.rung);
 
     model.warm(['One.', 'Two.', 'Three.']);
@@ -571,10 +587,52 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     mock.resolve('Three.');
   });
 
+  it('caps concurrency ACROSS separate warm() calls, not just within one (red-team finding)', async () => {
+    // WARM_CONCURRENCY must be a budget for the whole voice-model instance,
+    // not a fresh per-call allowance — Present's autoplay effect re-fires
+    // warm() on every `clamped` change while autoplay is on, which includes
+    // a presenter manually clicking Next/Prev a few times in a row, not just
+    // autoplay's own advances. Before this fix, each of N such calls fired
+    // its own request immediately regardless of how many earlier calls were
+    // still in flight — N rapid navigation steps meant N concurrent real,
+    // billed requests with no cap at all.
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
+    model.__setRung(mock.rung);
+
+    // Five SEPARATE warm() calls (distinct text — no cache-key collision to
+    // hide behind), simulating five rapid navigation steps.
+    model.warm(['Slide 2.']);
+    model.warm(['Slide 3.']);
+    model.warm(['Slide 4.']);
+    model.warm(['Slide 5.']);
+    model.warm(['Slide 6.']);
+    await vi.waitFor(() => expect(started).toEqual(['Slide 2.']));
+    expect(started).toHaveLength(1); // only ONE real request in flight, across all 5 calls
+
+    // Resolve one at a time — with the cap at 1, each next request only
+    // starts once the previous one actually resolves (a synchronous burst of
+    // resolves would race ahead of dispatch, same pitfall as the sibling
+    // SYNTH_CONCURRENCY tests' resolve ordering).
+    mock.resolve('Slide 2.');
+    await vi.waitFor(() => expect(started).toContain('Slide 3.'));
+    expect(started).toHaveLength(2);
+
+    mock.resolve('Slide 3.');
+    await vi.waitFor(() => expect(started).toContain('Slide 4.'));
+    mock.resolve('Slide 4.');
+    await vi.waitFor(() => expect(started).toContain('Slide 5.'));
+    mock.resolve('Slide 5.');
+    await vi.waitFor(() => expect(started).toContain('Slide 6.'));
+    mock.resolve('Slide 6.');
+    await vi.waitFor(() => expect(started).toEqual(['Slide 2.', 'Slide 3.', 'Slide 4.', 'Slide 5.', 'Slide 6.']));
+  });
+
   it("does not spike combined concurrency: warm()'s 1 runs ALONGSIDE speak()'s own 3 in-flight requests, not sharing the cap", async () => {
     const model = createVoiceModel({});
     const started: string[] = [];
-    const mock = abortAwareMockRung((t) => started.push(t));
+    const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
     model.__setRung(mock.rung);
 
     // The current slide's own scheduler: 3 in flight, capped at SYNTH_CONCURRENCY.
@@ -604,7 +662,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
   it("stops firing FURTHER requests once its signal aborts, but doesn't cancel one already in flight", async () => {
     const model = createVoiceModel({});
     const started: string[] = [];
-    const mock = abortAwareMockRung((t) => started.push(t));
+    const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
     model.__setRung(mock.rung);
     const ctl = new AbortController();
 
@@ -624,7 +682,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     // would be handed a false failure it never asked for.
     const model = createVoiceModel({});
     const calls: string[] = [];
-    const mock = abortAwareMockRung((t) => calls.push(t));
+    const mock = abortAwareMockRung((t) => calls.push(t), 'openrouter-tts');
     model.__setRung(mock.rung);
     const ctlA = new AbortController();
 
@@ -652,7 +710,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
   it('joins an in-flight speak() synth for the same sentence instead of firing a duplicate prefetch request', async () => {
     const model = createVoiceModel({});
     const calls: string[] = [];
-    const mock = abortAwareMockRung((t) => calls.push(t));
+    const mock = abortAwareMockRung((t) => calls.push(t), 'openrouter-tts');
     model.__setRung(mock.rung);
 
     const speakP = model.speak({ text: 'Shared sentence.' });
@@ -669,7 +727,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
   it("a later speak() joins warm()'s in-flight prefetch for the same sentence rather than firing a duplicate request", async () => {
     const model = createVoiceModel({});
     const calls: string[] = [];
-    const mock = abortAwareMockRung((t) => calls.push(t));
+    const mock = abortAwareMockRung((t) => calls.push(t), 'openrouter-tts');
     model.__setRung(mock.rung);
 
     model.warm(['Upcoming sentence.']);
@@ -687,7 +745,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     const model = createVoiceModel({});
     const calls: string[] = [];
     model.__setRung({
-      name: 'mock',
+      name: 'openrouter-tts',
       ready: () => true,
       synth: async ({ text }: { text: string }) => {
         calls.push(text);

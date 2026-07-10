@@ -144,6 +144,16 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// never across into the next slide) — the "long pauses between slides"
 	// gap. Scoped to autoplay only; a manual next/prev has no known "next" to
 	// warm and shouldn't spend the synth budget speculatively.
+	// KNOWN, ACCEPTED GAP (red-team finding): a chain of several consecutive
+	// empty slides (the skip-effect below advances through them almost
+	// instantly, no real playback in between) leaves this effect re-firing at
+	// each transient index with barely a tick of head start before the next
+	// slide with content actually needs its audio — the cold-start latency
+	// this feature exists to hide can still occur right after such a chain.
+	// Not a correctness bug (no wrong audio, no duplicate request — a slower
+	// warm just means speak() ends up doing the synth itself when it gets
+	// there), just a case where the design's "whole slide's playback
+	// duration" head-start assumption doesn't hold. Not fixed here.
 	React.useEffect(() => {
 		if (!autoplay) return;
 		const next = set[clamped + 1];

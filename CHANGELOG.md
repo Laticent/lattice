@@ -629,17 +629,30 @@ in patch versions.
   requests for the same key); Present's autoplay effect
   (`PresentOverlay.tsx`) calls it with the UPCOMING slide's narration as soon
   as the CURRENT slide starts, so the next slide's audio is already cached
-  (or in flight) by the time the reader chains to it. `warm()` gets its own,
-  separate `WARM_CONCURRENCY` (1) rather than sharing `speak()`'s
-  `SYNTH_CONCURRENCY` (3) — the two schedulers deliberately run at the same
-  time (that's the whole point), so sharing one cap would let a single
-  transition burst to 6 simultaneous requests instead of 4. An abandoned
-  warm (autoplay turned off, the slide advanced again, Present closed) stops
-  firing further requests but never cancels one a different still-live
-  caller may have joined. Verified live in the Studio Present overlay with a
-  mocked, delayed TTS endpoint: the next slide's sentence requests fire
-  while the current slide is still on screen, not only after the
-  transition.
+  (or in flight) by the time the reader chains to it. `warm()`'s
+  `WARM_CONCURRENCY` (1) is a budget for the WHOLE voice-model instance —
+  shared via one queue across every `warm()` call, not a fresh allowance
+  per call — since Present's autoplay effect re-fires on every slide-index
+  change while autoplay is on, including a presenter manually clicking
+  Next/Prev a few times in a row, not just autoplay's own advances; a
+  per-call-local counter (an earlier draft of this) bounded nothing ACROSS
+  those calls, so N rapid navigation steps meant N concurrent real, billed
+  requests with no cap at all (a red-team finding, empirically reproduced
+  before the fix). Scoped to the `openrouter-tts` rung only — this whole
+  prefetch exists to hide NETWORK round-trip latency; Kokoro's on-device
+  synthesis is CPU/GPU-bound on one effectively single-threaded worker also
+  used by the CURRENT slide's own still-playing narration, so warming the
+  NEXT slide there would compete for that resource instead of hiding
+  anything (a Munger-inversion finding). An abandoned warm (autoplay turned
+  off, the slide advanced again, Present closed) stops firing further
+  requests but never cancels one a different still-live caller may have
+  joined. Verified live in the real Studio Present overlay via a throwaway
+  Playwright script (mocked, delayed TTS endpoint): the next slide's
+  sentence requests fire while the current slide is still on screen, not
+  only after the transition — and reverting the fix reproduces zero
+  requests before the transition. Maker-checker plus the full adversarial
+  trio (red team, Munger inversion, independent checker) reviewed this
+  twice before merge.
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new

@@ -788,6 +788,18 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // report to), and a synth failure here just leaves the cache unpopulated —
   // speak() will synth it for real, for keeps, when it actually gets there.
   //
+  // KNOWN, ACCEPTED DUPLICATION (Munger-inversion finding): this pump()'s
+  // cache-key/dedup/timeout body is a near-copy of speak()'s own synth(t)
+  // scheduler above, deliberately NOT refactored into one shared helper —
+  // extracting one would mean re-touching speak()'s already independently
+  // red-teamed, adversarially-verified internals for a purely cosmetic DRY
+  // win, which is a worse trade than the duplication itself. The real risk
+  // this creates: if a future change adds a per-call `voice` override to
+  // speak()'s `effVoiceFor` (today only `orVoice()`/`kokoroVoice()`), warm()'s
+  // `effVoice` here won't automatically follow it, and nothing but code
+  // review would catch the two cache-key derivations drifting apart. Flagged
+  // for a follow-up extraction if/when that happens, not before.
+  //
   // `signal` (optional) lets a caller stop THIS call from firing any FURTHER
   // requests once it goes away — e.g. Present's autoplay effect aborts its
   // signal on cleanup (autoplay turned off, the slide advanced again before
@@ -803,9 +815,66 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // asked to abort would hand them a false failure. WARM_CONCURRENCY already
   // bounds this to at most one such already-started, left-to-finish request
   // per abandoned warm() call — a small, capped cost, not a leak.
+  // WARM_CONCURRENCY is a budget for THIS VOICE-MODEL INSTANCE, not per call —
+  // `warmQueue`/`warmActive` live here (createVoiceModel's scope), shared by
+  // every warm() invocation, because a caller can legitimately call warm()
+  // MORE THAN ONCE while earlier calls are still draining: Present's autoplay
+  // effect re-fires on every `clamped` change while autoplay is on, which
+  // includes a presenter manually clicking Next/Prev a few times in a row,
+  // not just autoplay's own advances. A per-call-local counter (the original
+  // shape here) bounded nothing ACROSS those calls — each fired its own
+  // request immediately regardless of how many earlier ones were still in
+  // flight, so N rapid navigation steps meant N concurrent real, billed
+  // requests with no cap at all (red-team finding, empirically reproduced:
+  // 5 distinct-text warm() calls fired 5 concurrent real requests). Routing
+  // every call through one shared queue + one shared active-count is what
+  // actually delivers the "not a burst attack on the API" property the
+  // per-call WARM_CONCURRENCY cap only ever claimed to.
+  const warmQueue = []; // { rung, effVoice, effSpeed, text, signal }
+  let warmActive = 0;
+  function pumpWarmQueue() {
+    while (warmActive < WARM_CONCURRENCY && warmQueue.length) {
+      const item = warmQueue.shift();
+      // This item's own caller walked away before its turn came up — skip it
+      // rather than spend a slot on a prefetch nobody's waiting on anymore
+      // (lazy version of the old per-call "stop firing further requests").
+      if (item.signal?.aborted) continue;
+      const cacheKey = cacheKeyFor(item.rung.name, modelIdFor(item.rung.name), item.effVoice, item.effSpeed, item.text);
+      if (audioCache.has(cacheKey)) continue;
+      const inflight = inFlightSynths.get(cacheKey);
+      if (inflight && !inflight.sig.aborted) continue;
+      warmActive++;
+      const sig = new AbortController().signal; // this request's own lifetime — never the enqueuing caller's `signal` (see warm()'s own comment)
+      let timer;
+      const p = Promise.race([
+        item.rung.synth({ text: item.text, voice: item.effVoice, speed: item.effSpeed, signal: sig }).then((blob) => {
+          if (blob) cacheSet(cacheKey, blob);
+          return blob;
+        }).catch(() => null).finally(() => clearTimeout(timer)),
+        new Promise((res) => { timer = setTimeout(() => res(null), 20000); }),
+      ]).finally(() => {
+        if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
+        warmActive--;
+        pumpWarmQueue(); // a slot just freed — drain whatever's queued, from ANY caller
+      });
+      inFlightSynths.set(cacheKey, { promise: p, sig });
+    }
+  }
   function warm(sentences, { signal } = {}) {
     const rung = pickRung();
-    if (rung.name === 'silent' || rung.name === 'speechSynthesis') return; // no blob to cache
+    // Scoped to `openrouter-tts` only (Munger-inversion finding). This whole
+    // prefetch exists to hide NETWORK round-trip latency — genuinely
+    // parallel HTTP requests don't compete with each other. Kokoro synthesis
+    // is CPU/GPU-bound on ONE shared, effectively single-threaded resource
+    // (the same-origin worker; onnxruntime-web's WASM backend has no
+    // multi-threading without cross-origin isolation, which this static
+    // docs site doesn't have — see kokoro-worker.js). Warming the NEXT
+    // slide there doesn't hide any latency the user perceives as "waiting
+    // for network" — it just adds a competing consumer of the one resource
+    // the CURRENT slide's own still-synthesizing sentences also need,
+    // risking a genuinely audible delay to the narration already playing.
+    // `speechSynthesis`/`silent` were already excluded (no blob to cache).
+    if (rung.name !== 'openrouter-tts') return;
     if (!Array.isArray(sentences) || !sentences.length) return;
     const effSpeed = speedPref();
     // Mirrors speak()'s own effVoiceFor exactly (including the '' fallback for
@@ -814,33 +883,8 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // entry is a silent cache miss.
     const effVoice = rung.name === 'openrouter-tts' ? orVoice() : rung.name === 'kokoro' ? kokoroVoice() : '';
     const todo = sentences.map((s) => String(s || '').trim()).filter(Boolean);
-    let i = 0;
-    let active = 0;
-    const pump = () => {
-      while (!signal?.aborted && active < WARM_CONCURRENCY && i < todo.length) {
-        const t = todo[i++];
-        const cacheKey = cacheKeyFor(rung.name, modelIdFor(rung.name), effVoice, effSpeed, t);
-        if (audioCache.has(cacheKey)) continue;
-        const inflight = inFlightSynths.get(cacheKey);
-        if (inflight && !inflight.sig.aborted) continue;
-        active++;
-        const sig = new AbortController().signal; // this request's own lifetime — never the caller's `signal` (see above)
-        let timer;
-        const p = Promise.race([
-          rung.synth({ text: t, voice: effVoice, speed: effSpeed, signal: sig }).then((blob) => {
-            if (blob) cacheSet(cacheKey, blob);
-            return blob;
-          }).catch(() => null).finally(() => clearTimeout(timer)),
-          new Promise((res) => { timer = setTimeout(() => res(null), 20000); }),
-        ]).finally(() => {
-          if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
-          active--;
-          pump(); // a slot just freed — start the next queued sentence, if any (unless `signal` has since aborted)
-        });
-        inFlightSynths.set(cacheKey, { promise: p, sig });
-      }
-    };
-    pump();
+    for (const t of todo) warmQueue.push({ rung, effVoice, effSpeed, text: t, signal });
+    pumpWarmQueue();
   }
 
   function waitIfPaused(signal) {

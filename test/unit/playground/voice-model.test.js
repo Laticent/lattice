@@ -102,7 +102,7 @@ test('speak(): drives the active rung once per sentence, in order', async () => 
 
 test('warm(): prefetches into the cache so a later speak() call for the same sentence does not re-synth', async () => {
   const { createVoiceModel, MockRung } = await load();
-  const rung = MockRung();
+  const rung = MockRung({ name: 'openrouter-tts' }); // warm() only fires for openrouter-tts (Munger-inversion finding)
   const v = createVoiceModel({});
   v.__setRung(rung);
   v.warm(['Next slide sentence.']);
@@ -124,6 +124,16 @@ test('warm(): no-ops when the resolved rung is silent (nothing connected) — ne
   assert.equal(v.availability().rung, 'silent');
   v.warm(['Would-be next slide sentence.']); // best-effort — must not throw
   await new Promise((r) => setTimeout(r, 20));
+});
+
+test("warm(): no-ops for the kokoro rung — this prefetch only hides NETWORK latency (openrouter-tts); Kokoro shares ONE compute resource with the CURRENT slide's own speak() scheduler, so prefetching there competes instead of hiding anything (Munger-inversion finding)", async () => {
+  const { createVoiceModel, MockRung } = await load();
+  const rung = MockRung({ name: 'kokoro' });
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  v.warm(['Would-be next slide sentence.']);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(rung.calls, []);
 });
 
 test('pause()/resume(): suspends narration between sentences, then continues', async () => {
