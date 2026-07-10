@@ -93,6 +93,13 @@ in patch versions.
 
 ### Fixed
 
+- **`dist/README.md`'s artifact descriptions no longer frame `lattice-emulator.js`
+  as a "Marp-faithful renderer."** It's Lattice's own engine (no Marp involved);
+  the stale phrasing predates the Marp-independence work. `lattice-runtime.js`'s
+  entry now also names the Export-to-Marp bundle's full-fidelity HTML route
+  (it already ships there) alongside the marp-vscode preview and web export.
+  Also filled in the missing `lattice-emoji.css` row (was a `TODO` placeholder).
+  See `tools/build-dist-readme.js`.
 - **The Playground's live preview rendered faster on first load.** Same class
   of bug as the landing page's Hero preview fix below, in a different render
   pathway: `docs/src/lib/playground-engine.ts`'s `renderInto()` only starts

@@ -54,8 +54,12 @@ const DESCRIPTIONS = {
     purpose: 'Minified `lattice-default.css` — the zero-config themed drop-in, compressed. The leanest single-file `<link>` for browser use.',
     consume: '`@slidewright/lattice/default/min`',
   },
+  'lattice-emoji.css': {
+    purpose: 'Opt-in full-offline colour emoji `@font-face` (Noto Color Emoji). Link after `lattice.css`; run `npm run fonts:emoji` to vendor the font (excluded from the npm tarball, ~25 MB). Without it, emoji fall back to the installed system font.',
+    consume: '`@slidewright/lattice/dist/lattice-emoji.css` (opt-in, not in `exports`)',
+  },
   'lattice-runtime.js': {
-    purpose: 'Browser runtime transforms (chart-family, structure post-processing) for the marp-vscode preview and web export. esbuild IIFE.',
+    purpose: 'Browser runtime transforms (chart-family, structure post-processing) — powers the web export, the marp-vscode preview, and (bundled) the Export-to-Marp zip\'s full-fidelity HTML route. esbuild IIFE.',
     consume: '`@slidewright/lattice/runtime`',
   },
   'lattice-runtime.min.js': {
@@ -63,7 +67,7 @@ const DESCRIPTIONS = {
     consume: '`@slidewright/lattice/runtime/min`',
   },
   'lattice-emulator.js': {
-    purpose: 'Bundled Marp-faithful renderer / PDF exporter CLI — the local engine graph inlined, node_modules deps left external. This is the package `bin` and `main`.',
+    purpose: 'Lattice\'s own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin` and `main`.',
     consume: '`lattice` bin / `@slidewright/lattice`',
   },
   'lattice-emulator.min.js': {
