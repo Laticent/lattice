@@ -109,12 +109,23 @@ function isNestedBullet(raw: string): boolean {
 	return /^\s+[-*]\s+/.test(raw);
 }
 
-/** The slide's heading (`## …`), spoken-ready with a terminator, or ''. */
+/** Add a sentence terminator if `text` doesn't already end with one. */
+function terminate(text: string): string {
+	const t = text.trim();
+	if (!t) return '';
+	return /[.!?;:,…]\s*$/.test(t) ? t : `${t}.`;
+}
+
+/** The slide's heading (any `#`–`######`), spoken-ready with a terminator, or
+ *  ''. Accepts every level — `slideToSpeech` itself speaks any heading level,
+ *  and journey.manifest.json documents `h1, h2` as its valid heading slot, so
+ *  a `##`-only match silently dropped an h1-headed slide's title entirely (an
+ *  independent-checker finding: this narrator fully REPLACES slideToSpeech,
+ *  so its own heading-recognition contract can't be narrower). */
 function heading(markdown: string): string {
-	const m = markdown.match(/^##\s+(.+)$/m);
+	const m = markdown.match(/^#{1,6}\s+(.+)$/m);
 	if (!m) return '';
-	const h = m[1].replace(/`([^`]*)`/g, '$1').trim();
-	return /[.!?;:,…]\s*$/.test(h) ? h : `${h}.`;
+	return terminate(m[1].replace(/`([^`]*)`/g, '$1'));
 }
 
 /** Leading whitespace length — used to distinguish a data line (the first
@@ -128,11 +139,38 @@ function leadingSpaces(raw: string): number {
 	return raw.length - raw.trimStart().length;
 }
 
+/**
+ * Classify a nested line's depth against its group's established "data"
+ * level, tolerant of realistic indentation variance. An exact-match depth
+ * check (the original fix for the detail-sublist bug) turned out to be a bug
+ * of its own — CommonMark/markdown-it treats a sibling list item as the SAME
+ * nesting level once it's indented enough to belong to the list; it does NOT
+ * require exact repetition of a prior sibling's raw character count. A
+ * red-team review confirmed real markdown-it renders an ordinary indentation
+ * typo (2 spaces vs. 3 on a sibling axis/item/task line) as a plain sibling,
+ * while the exact-match check silently excluded it from BOTH the spoken list
+ * and the auto-fit scale — reintroducing the "confidently wrong number" bug
+ * the depth fix exists to prevent, just via a typo instead of a genuine
+ * detail sublist. A genuinely DEEPER "detail" reveal sublist
+ * (lib/components/chart/_chart-family/mark-detail.js) is authored a full
+ * extra list-marker's width deeper in every shipping manifest sample (`- `
+ * is 2 characters), so the threshold for "detail, not data" is a full +2
+ * beyond the shallowest sibling seen so far — not any nonzero difference.
+ * `dataIndent` is the running per-group state (start at `null`; the FIRST
+ * nested line under a group is always a genuine data line — a detail always
+ * follows the data line it belongs to, never precedes it, so seeding from it
+ * can't misclassify).
+ */
+function classifyDepth(indent: number, dataIndent: number | null): { isData: boolean; nextDataIndent: number } {
+	if (dataIndent === null || indent < dataIndent) return { isData: true, nextDataIndent: indent };
+	return { isData: indent - dataIndent < 2, nextDataIndent: dataIndent };
+}
+
 /** A line already accounted for by every narrator's shared grammar: blank,
  *  the `_class:` directive, or the heading itself. */
 function isCommonlyConsumed(raw: string): boolean {
 	const line = raw.trim();
-	return !line || /^<!--/.test(line) || /^##\s/.test(line);
+	return !line || /^<!--/.test(line) || /^#{1,6}\s/.test(line);
 }
 
 /**
@@ -165,7 +203,13 @@ function speakLeftover(markdown: string, consumed: Set<number>): string {
 		.split('\n')
 		.filter((raw, i) => !consumed.has(i) && !isCommonlyConsumed(raw))
 		.join('\n');
-	return slideToSpeech(leftover);
+	// `terminate()` guards the trailing edge specifically: slideToSpeech only
+	// auto-punctuates STRUCTURAL lines, so a plain one-line paragraph (a
+	// funnel/radar-adjacent tag line with no recognized structural role) comes
+	// back with no terminator — and since this result is always APPENDED after
+	// a narrator's own already-punctuated sentences, an unterminated tail reads
+	// as a fragment trailing off mid-thought (a Munger-inversion finding).
+	return terminate(slideToSpeech(leftover));
 }
 
 /** "A" | "A and B" | "A, B, and C" — for speaking a list of names. */
@@ -203,12 +247,20 @@ function niceCeil(v: number): number {
  *  appears BEFORE the slide's heading (radar/quadrant's `` `Scale · 0–10` ``
  *  / `` `Effort 0–10 → Reach 0–100` `` convention). Scoped to before the
  *  heading so a backtick-only line elsewhere in the body (unlikely, but not
- *  impossible in a nested list) can't be mistaken for it. */
-function eyebrowBeforeHeading(markdown: string): string | null {
-	const headingIdx = markdown.search(/^##\s/m);
+ *  impossible in a nested list) can't be mistaken for it. Returns the line
+ *  INDEX too, so a firing narrator can mark it consumed and speak it in its
+ *  authored (leading) position instead of letting it fall through to
+ *  `speakLeftover` and land, unplaced, after all the computed facts — a real
+ *  ordering defect a Munger-inversion review found: the eyebrow ended up a
+ *  disconnected, unpunctuated fragment trailing after the narration had
+ *  already reached a full stop. */
+function eyebrowBeforeHeading(markdown: string): { text: string; index: number } | null {
+	const headingIdx = markdown.search(/^#{1,6}\s/m);
 	const head = headingIdx >= 0 ? markdown.slice(0, headingIdx) : markdown;
 	const m = head.match(/^`([^`]+)`\s*$/m);
-	return m ? m[1].trim() : null;
+	if (!m) return null;
+	const index = markdown.slice(0, m.index).split('\n').length - 1;
+	return { text: m[1].trim(), index };
 }
 
 // ── funnel ──────────────────────────────────────────────────────────────────
@@ -234,8 +286,18 @@ function parseFunnelStages(markdown: string): { stages: FunnelStage[]; consumed:
 			.replace(/[*_~`]/g, '')
 			.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // link/image label, drop the URL
 			.trim();
-		const value = Number(m[2].replace(/,/g, '').replace(/[^0-9.-]/g, ''));
-		if (!label || !Number.isFinite(value)) return;
+		if (!label) return;
+		// Mirror funnel.transform.js's parseFunnel exactly: the FIRST numeric run
+		// in the comma-stripped pill wins (parseFloat, not a full-string strip-
+		// then-coerce), defaulting to 0 when nothing numeric is found — never
+		// dropping the stage outright. A red-team review confirmed the old
+		// strip-to-allowlist-then-Number() approach let a range-style value
+		// ("1,200-1,500") survive the strip as "1200-1500" and then fail
+		// Number() entirely (NaN), silently dropping the stage — and in a
+		// 3-stage deck, dropping a MIDDLE stage this way spliced the chain and
+		// spoke a fabricated conversion rate between non-adjacent stages.
+		const numMatch = m[2].replace(/,/g, '').match(/-?[\d.]+/);
+		const value = numMatch ? Number.parseFloat(numMatch[0]) : 0;
 		stages.push({ label, value, valueSpoken: toSpokenText(m[2]) });
 		consumed.add(i);
 	});
@@ -308,19 +370,19 @@ function parseJourneySections(markdown: string): { sections: JourneySection[]; c
 	const sections: JourneySection[] = [];
 	const consumed = new Set<number>();
 	let current: JourneySection | null = null;
-	let taskIndent: number | null = null;
+	let dataIndent: number | null = null;
 	markdown.split('\n').forEach((raw, i) => {
 		if (isTopLevelBullet(raw)) {
 			current = { name: raw.replace(/^-\s+/, '').replace(/[*_~`]/g, '').trim(), tasks: [] };
 			sections.push(current);
 			consumed.add(i);
-			taskIndent = null;
+			dataIndent = null;
 			return;
 		}
 		if (!current || !isNestedBullet(raw)) return;
-		const indent = leadingSpaces(raw);
-		if (taskIndent === null) taskIndent = indent;
-		if (indent !== taskIndent) return; // deeper than the task level = per-task detail, not a task
+		const { isData, nextDataIndent } = classifyDepth(leadingSpaces(raw), dataIndent);
+		if (!isData) return; // a full extra level deeper = per-task detail, not a task
+		dataIndent = nextDataIndent;
 		const content = raw.replace(/^\s+[-*]\s+/, '');
 		const tokens = [...content.matchAll(/`([^`]+)`/g)].map((t) => t[1].trim());
 		const label = content
@@ -331,12 +393,15 @@ function parseJourneySections(markdown: string): { sections: JourneySection[]; c
 		if (!label) return;
 		let volume = 1; // `t.volume ?? 1` — a task with no `+N` token still counts once
 		for (const tok of tokens) {
-			// `parseFloat`-equivalent: accepts `+45`, `+1.5`, and `+.5` (a leading
-			// digit before the decimal point isn't required, matching the real
-			// transform's `parseFloat(tok.slice(1))`).
-			const volMatch = /^\+([\d.]+)$/.exec(tok);
-			if (volMatch) {
-				const v = Number(volMatch[1]);
+			// Mirror journey.transform.js's parseTask exactly: `parseFloat(tok.slice(1))`
+			// on any `+`-led token, tolerant of trailing non-numeric content. A
+			// red-team review confirmed the old fully-anchored regex silently fell
+			// back to the default volume of 1 on a token like `+45%` or `+5kg` —
+			// both realistic authoring mistakes given the whole point of the
+			// `weighted` variant is to DISPLAY a percentage — fabricating a wrong
+			// split as fact.
+			if (tok.startsWith('+')) {
+				const v = Number.parseFloat(tok.slice(1));
 				if (Number.isFinite(v)) volume = v;
 			}
 		}
@@ -387,8 +452,6 @@ export function narrateJourneyWeighted(markdown: string): string | null {
 
 type RadarSeries = { name: string; axes: { label: string; value: number }[] };
 
-const RADAR_AXIS_LINE = /^\s+[-*]\s+(.+?)\s*`(-?[\d.]+)`\s*$/; // nested: `Axis `value``
-
 /**
  * Parse radar's series/axes. `radar.manifest.json`'s `detail` slot documents a
  * REAL third nesting level — an optional reveal sublist under an axis (shared
@@ -399,31 +462,46 @@ const RADAR_AXIS_LINE = /^\s+[-*]\s+(.+?)\s*`(-?[\d.]+)`\s*$/; // nested: `Axis 
  * with a confidently wrong number (found by adversarial review: a detail line
  * `` - Verified in cycle `2024` `` under "Performance `9`" pushed the spoken
  * scale from "zero to ten" to "zero to two thousand five hundred"). Fixed by
- * tracking the FIRST nested line's indentation per series as the axis level;
- * anything deeper is left unconsumed for `speakLeftover` instead of ingested.
+ * classifying the axis vs. detail level tolerant of indentation variance (see
+ * `classifyDepth`); anything classified as detail is left unconsumed for
+ * `speakLeftover` instead of ingested.
  */
 function parseRadarSeries(markdown: string): { series: RadarSeries[]; consumed: Set<number> } {
 	const series: RadarSeries[] = [];
 	const consumed = new Set<number>();
 	let current: RadarSeries | null = null;
-	let axisIndent: number | null = null;
+	let dataIndent: number | null = null;
 	markdown.split('\n').forEach((raw, i) => {
 		if (isTopLevelBullet(raw)) {
 			current = { name: raw.replace(/^-\s+/, '').replace(/[*_~`]/g, '').trim(), axes: [] };
 			series.push(current);
 			consumed.add(i);
-			axisIndent = null;
+			dataIndent = null;
 			return;
 		}
 		if (!current || !isNestedBullet(raw)) return;
-		const indent = leadingSpaces(raw);
-		if (axisIndent === null) axisIndent = indent;
-		if (indent !== axisIndent) return; // deeper than the axis level = per-axis detail, not an axis
-		const axisMatch = RADAR_AXIS_LINE.exec(raw);
-		if (!axisMatch) return;
-		const value = Number(axisMatch[2]);
-		if (!Number.isFinite(value)) return;
-		current.axes.push({ label: axisMatch[1].replace(/[*_~`]/g, '').trim(), value });
+		const { isData, nextDataIndent } = classifyDepth(leadingSpaces(raw), dataIndent);
+		if (!isData) return; // a full extra level deeper = per-axis detail, not an axis
+		dataIndent = nextDataIndent;
+		const content = raw.replace(/^\s+[-*]\s+/, '');
+		// Mirror radar.transform.js's parseAxisItem exactly: the trailing pill can
+		// hold ANY text, parsed via parseFloat (default 0 when it isn't numeric —
+		// never excluding the line outright). An anchored bare-number-only regex
+		// silently dropped the whole axis line — from BOTH the spoken list and
+		// the auto-fit scale — whenever its value pill carried any trailing text
+		// (a unit, a typo); a red-team/checker-confirmed instance of the same
+		// "confidently wrong number" failure class the depth fix above targets.
+		let text = content;
+		let value = 0;
+		const pillMatch = content.match(/`([^`]*)`\s*$/);
+		if (pillMatch) {
+			const n = Number.parseFloat(pillMatch[1]);
+			value = Number.isFinite(n) ? n : 0;
+			text = content.slice(0, pillMatch.index);
+		}
+		const label = text.replace(/[*_~`]/g, '').trim();
+		if (!label) return;
+		current.axes.push({ label, value });
 		consumed.add(i);
 	});
 	return { series: series.filter((s) => s.name && s.axes.length > 0), consumed };
@@ -471,13 +549,15 @@ export function narrateRadar(markdown: string): string | null {
 	// `slideToSpeech` reads it as plain prose instead.
 	if (hasClassToken(md, 'quadrant')) return null;
 	const eyebrow = eyebrowBeforeHeading(md);
-	if (eyebrow && parseScaleRange(eyebrow)) return null;
+	if (eyebrow && parseScaleRange(eyebrow.text)) return null;
 	const { series, consumed } = parseRadarSeries(md);
 	if (series.length === 0) return null;
+	if (eyebrow) consumed.add(eyebrow.index);
 	let max = 0;
 	for (const s of series) for (const a of s.axes) if (a.value > max) max = a.value;
 	if (max <= 0) return null;
 	const parts: string[] = [];
+	if (eyebrow) parts.push(terminate(eyebrow.text));
 	const h = heading(md);
 	if (h) parts.push(h);
 	parts.push(`On a scale of zero to ${numberToWords(niceCeil(max))}.`);
@@ -524,38 +604,62 @@ type QuadrantParse = { groups: QuadrantGroup[]; allX: number[]; allY: number[] }
  *    nested line's indentation, per group, fixes the "item" level; anything
  *    deeper is left unconsumed for `speakLeftover` instead of ingested.
  */
+/**
+ * Parse one comma-separated coordinate pill exactly like
+ * quadrant.transform.js's `parseCoordPill`: split on commas, and count a part
+ * as a coordinate number ONLY when it parses via `parseFloat` AND its first
+ * character (after an optional sign) is a DIGIT — a real, if quirky,
+ * production behavior that specifically excludes a leading-dot decimal like
+ * `.5` (no leading zero) from counting as a coordinate, confirmed by an
+ * independent-checker pass against the real source. A missing or fully
+ * unparseable coordinate defaults to 0 (never drops the item), matching
+ * `nums[0] || 0`.
+ */
+function parseCoordPill(pillText: string): { x: number; y: number } {
+	const parts = pillText.split(',').map((s) => s.trim()).filter(Boolean);
+	const nums: number[] = [];
+	for (const part of parts) {
+		const n = Number.parseFloat(part);
+		if (Number.isFinite(n) && /^[-+]?\d/.test(part)) nums.push(n);
+	}
+	return { x: nums[0] ?? 0, y: nums[1] ?? 0 };
+}
+
 function parseQuadrantGroups(markdown: string): QuadrantParse & { consumed: Set<number> } {
 	const groups: QuadrantGroup[] = [];
 	const allX: number[] = [];
 	const allY: number[] = [];
 	const consumed = new Set<number>();
 	let current: QuadrantGroup | null = null;
-	let itemIndent: number | null = null;
+	let dataIndent: number | null = null;
 	markdown.split('\n').forEach((raw, i) => {
 		if (isTopLevelBullet(raw)) {
 			current = { name: raw.replace(/^-\s+/, '').replace(/[*_~`]/g, '').trim(), items: [] };
 			groups.push(current);
 			consumed.add(i);
-			itemIndent = null;
+			dataIndent = null;
 			return;
 		}
 		if (!current || !isNestedBullet(raw)) return;
-		const indent = leadingSpaces(raw);
-		if (itemIndent === null) itemIndent = indent;
-		if (indent !== itemIndent) return; // deeper than the item level = per-item detail, not an item
+		const { isData, nextDataIndent } = classifyDepth(leadingSpaces(raw), dataIndent);
+		if (!isData) return; // a full extra level deeper = per-item detail, not an item
+		dataIndent = nextDataIndent;
 		const content = raw.replace(/^\s+[-*]\s+/, '');
 		const { label, pills } = stripTrailingPills(content);
-		if (!label || pills.length === 0) return;
-		const coordPills = pills
-			.map((p) => p.split(',').map((s) => Number(s.trim())))
-			.filter((nums) => nums.length >= 2 && Number.isFinite(nums[0]) && Number.isFinite(nums[1]));
-		if (!coordPills.length) return;
-		for (const nums of coordPills) {
-			allX.push(nums[0]);
-			allY.push(nums[1]);
+		if (!label) return;
+		// Mirror quadrant.transform.js's parseItem: EVERY pill's coordinates feed
+		// the auto-fit scale (the `trail` variant's before AND after positions
+		// both matter for the axis range); the LAST pill is the item's spoken
+		// (current) position. A pill-less or fully unparseable item still counts
+		// as (0, 0) — matching production's own permissiveness (`it.label ||
+		// (it.x || it.y)`) — never silently dropping a labeled item outright.
+		const coords = pills.length ? pills.map(parseCoordPill) : [{ x: 0, y: 0 }];
+		for (const c of coords) {
+			allX.push(c.x);
+			allY.push(c.y);
 		}
-		const last = coordPills[coordPills.length - 1];
-		current.items.push({ label, x: last[0], y: last[1] });
+		const last = coords[coords.length - 1];
+		current.items.push({ label, x: last.x, y: last.y });
 		consumed.add(i);
 	});
 	return { groups: groups.filter((g) => g.name && g.items.length > 0), allX, allY, consumed };
@@ -661,13 +765,15 @@ export function narrateQuadrant(markdown: string): string | null {
 	const allItems = groups.flatMap((g) => g.items);
 	if (allItems.length === 0) return null;
 	const eyebrow = eyebrowBeforeHeading(md);
-	const { xText, yText } = eyebrow ? splitQuadrantEyebrow(eyebrow) : { xText: '', yText: '' };
+	const { xText, yText } = eyebrow ? splitQuadrantEyebrow(eyebrow.text) : { xText: '', yText: '' };
 	const xRange = xText ? pullQuadrantRange(xText) : null;
 	const yRange = yText ? pullQuadrantRange(yText) : null;
 	if (xRange && yRange) return null;
+	if (eyebrow) consumed.add(eyebrow.index);
 	const xScale = xRange ?? resolveAxisScale(allX);
 	const yScale = yRange ?? resolveAxisScale(allY);
 	const parts: string[] = [];
+	if (eyebrow) parts.push(terminate(eyebrow.text));
 	const h = heading(md);
 	if (h) parts.push(h);
 	if (!xRange) parts.push(`The horizontal axis runs ${describeRange(xScale)}.`);
@@ -812,10 +918,17 @@ export function narrateStateChartInference(markdown: string): string | null {
 export function narrateStateChart(markdown: string): string | null {
 	const inferred = narrateStateChartInference(markdown);
 	if (!inferred) return null;
-	const h = heading(markdown);
-	const withoutHeading = markdown
+	// Fence-strip BEFORE reading the heading / building the rest — every other
+	// narrator does this; this one didn't. A Munger-inversion review found that
+	// a slide with a fenced doc-example above the real chart (the exact pattern
+	// `narrateFunnel`'s own tests guard against) spoke the FAKE fenced heading
+	// as the title and silently dropped the real one entirely — a confidently
+	// wrong fact replacing a fact the plain `slideToSpeech` baseline gets right.
+	const md = withoutFences(String(markdown || ''));
+	const h = heading(md);
+	const withoutHeading = md
 		.split('\n')
-		.filter((raw) => !/^##\s/.test(raw.trim()))
+		.filter((raw) => !/^#{1,6}\s/.test(raw.trim()))
 		.join('\n');
 	const rest = slideToSpeech(withoutHeading);
 	return [h, inferred, rest].filter(Boolean).join(' ');

@@ -129,6 +129,32 @@ describe('narrateFunnel', () => {
 		expect(out).not.toContain('https://x.example');
 		expect(out).not.toContain('[');
 	});
+
+	it('recovers the FIRST numeric run from a range-style stage value instead of dropping the stage entirely (red-team/checker finding)', () => {
+		// funnel.transform.js's own parseFunnel does the same: a comma-stripped
+		// pill's first numeric run wins via parseFloat, defaulting to 0 rather
+		// than dropping the stage — the old strip-to-allowlist-then-Number()
+		// approach let "1,200-1,500" survive as "1200-1500" and fail Number()
+		// entirely (NaN), silently vanishing the stage.
+		const md = ['<!-- _class: funnel -->', '', '## Stages.', '', '- Estimated `1,200-1,500`', '- Signups `600`'].join('\n');
+		const out = narrateFunnel(md);
+		expect(out).not.toBeNull();
+		expect(out).toContain('Signups: six hundred, fifty percent of the prior stage.');
+	});
+
+	it('does not splice the chain across a broken middle stage — the middle stage is recovered, not vanished', () => {
+		const md = ['<!-- _class: funnel -->', '', '## Stages.', '', '- Visitors `10,000`', '- Mid-funnel `2,000-2,500`', '- Purchases `1,000`'].join('\n');
+		const out = narrateFunnel(md);
+		// Mid-funnel is NOT dropped from the chain (its computed conversion is
+		// correct: 2000/10000 = 20%), and Purchases converts off the REAL prior
+		// stage (1000/2000 = 50%), not a fabricated splice straight from Visitors.
+		expect(out).toContain('Mid-funnel:');
+		expect(out).toContain('twenty percent of the prior stage');
+		expect(out).toContain('Purchases: one thousand, fifty percent of the prior stage.');
+		// NOT the fabricated 10% (1000/10000) that skipping Mid-funnel entirely
+		// (splicing Visitors directly to Purchases) would have produced.
+		expect(out).not.toContain('ten percent of the prior stage');
+	});
 });
 
 // narrateJourneyWeighted speaks each task's share of the slide's TOTAL volume —
@@ -217,6 +243,38 @@ describe('narrateJourneyWeighted', () => {
 		const md = ['<!-- _class: journey weighted -->', '', '## Flow.', '', '- Stage', '  - A `@me` `:2` `+.5`', '  - B `@me` `:2` `+.5`'].join('\n');
 		const out = narrateJourneyWeighted(md);
 		expect(out).toContain('Stage: A, fifty percent; B, fifty percent.');
+	});
+
+	it('tolerates ordinary indentation variance between sibling task lines (2 vs 3 spaces) instead of treating the shallower one as detail (red-team finding)', () => {
+		const md = [
+			'<!-- _class: journey weighted -->',
+			'',
+			'## X.',
+			'',
+			'- Stage',
+			'  - Search `@me` `:3` `+50`',
+			'   - Referral `@me` `:3` `+50`',
+		].join('\n');
+		const out = narrateJourneyWeighted(md);
+		expect(out).toBe('X. Stage: Search, fifty percent; Referral, fifty percent.');
+	});
+
+	it('accepts a trailing non-numeric suffix on a volume token (`+45%`) instead of falling back to the default volume of 1 (red-team finding)', () => {
+		// journey.transform.js's parseTask does `parseFloat(tok.slice(1))` —
+		// tolerant of trailing garbage. An author who's seen the rendered
+		// percentage and tries to author it directly (`+45%`) is a realistic
+		// mistake given the whole point of `weighted` is to DISPLAY a percent.
+		const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - Task `@me` `:3` `+45%`', '  - Filler `@me` `:3` `+1`'].join('\n');
+		const out = narrateJourneyWeighted(md);
+		expect(out).toBe('X. Stage: Task, ninety-eight percent; Filler, two percent.');
+	});
+
+	it('recognizes an h1 heading, not just h2 — journey.manifest.json documents both as valid (independent-checker finding)', () => {
+		// Every narrator fully REPLACES slideToSpeech, which itself speaks any
+		// heading level — a `##`-only match silently dropped an h1 title.
+		const md = ['<!-- _class: journey weighted -->', '', '# Flow', '', '- Stage', '  - A `@me` `:3` `+9`', '  - B `@me` `:3` `+1`'].join('\n');
+		const out = narrateJourneyWeighted(md);
+		expect(out).toBe('Flow. Stage: A, ninety percent; B, ten percent.');
 	});
 });
 
@@ -312,6 +370,32 @@ describe('narrateRadar', () => {
 		expect(out).toContain('Lattice: Performance, nine; Pricing, seven.');
 		// But the detail text itself is still spoken, just appended.
 		expect(out).toContain('Verified in cycle 2024.');
+	});
+
+	it('tolerates ordinary indentation variance between sibling axis lines (2 vs 3 spaces) instead of treating the shallower one as detail (red-team finding)', () => {
+		// CommonMark/markdown-it treats an ordinarily-indented sibling as the
+		// SAME list level regardless of exact character count — an earlier,
+		// exact-match depth fix wrongly excluded this from both the spoken list
+		// AND the auto-fit scale, reintroducing the very "confidently wrong
+		// number" bug the depth fix exists to prevent.
+		const md = ['<!-- _class: radar -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '   - Pricing `95`'].join('\n');
+		const out = narrateRadar(md);
+		expect(out).toBe('How we stack up. On a scale of zero to one hundred. Lattice: Performance, nine; Pricing, ninety-five.');
+	});
+
+	it('tolerates trailing non-numeric text on an axis value pill instead of excluding the whole axis line (independent-checker finding)', () => {
+		// radar.transform.js's parseAxisItem extracts via parseFloat on whatever
+		// the trailing pill holds — tolerant of a unit or typo, never excluding
+		// the line outright the way an anchored bare-number regex did.
+		const md = ['<!-- _class: radar -->', '', '## X.', '', '- Lattice', '  - Performance `9 pts`'].join('\n');
+		const out = narrateRadar(md);
+		expect(out).toBe('X. On a scale of zero to ten. Lattice: Performance, nine.');
+	});
+
+	it('speaks a leading eyebrow FIRST, in its authored position, properly punctuated — not a dangling fragment after the data (Munger-inversion finding)', () => {
+		const md = ['<!-- _class: radar -->', '', '`Buying criteria`', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
+		const out = narrateRadar(md);
+		expect(out).toBe('Buying criteria. X. On a scale of zero to ten. Lattice: Performance, nine.');
 	});
 });
 
@@ -461,6 +545,41 @@ describe('narrateQuadrant', () => {
 		expect(out).toContain('The vertical axis runs zero to fifty.');
 		expect(out).not.toContain('one hundred');
 	});
+
+	it('tolerates ordinary indentation variance between sibling item lines (2 vs 3 spaces) — same fix as radar', () => {
+		const md = [
+			'<!-- _class: quadrant -->',
+			'',
+			'## Where to invest.',
+			'',
+			'- Strategic Bets',
+			'  - Scoring model v2 `3, 70`',
+			'   - Per-team calibration `7, 85`',
+		].join('\n');
+		const out = narrateQuadrant(md);
+		expect(out).toBe(
+			'Where to invest. The horizontal axis runs zero to ten. The vertical axis runs zero to one hundred. Strategic Bets: Scoring model v2 at three, seventy; Per-team calibration at seven, eighty-five.',
+		);
+	});
+
+	it('speaks a leading eyebrow FIRST, in its authored position, properly punctuated — not a dangling fragment after the data (Munger-inversion finding)', () => {
+		const md = ['<!-- _class: quadrant -->', '', '`Effort 0–10`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
+		const out = narrateQuadrant(md);
+		expect(out).toBe('Effort 0–10. X. The vertical axis runs zero to one hundred. Group: Item at five, eighty-five.');
+	});
+
+	it("mirrors parseCoordPill's leading-digit quirk: a leading-dot decimal (`.5`) does not count as a coordinate (independent-checker finding)", () => {
+		// quadrant.transform.js's parseCoordPill requires a coordinate part's
+		// first character (after an optional sign) to be a DIGIT — `.5` (no
+		// leading zero) fails that test even though parseFloat(".5") succeeds,
+		// so it's dropped rather than counted, shifting `80` into the x slot and
+		// leaving y at its 0 default. A real, if confusing, production quirk —
+		// mirrored here rather than "fixed", since diverging would itself be a
+		// narration-vs-render mismatch.
+		const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - Item `.5, 80`'].join('\n');
+		const out = narrateQuadrant(md);
+		expect(out).toContain('Group: Item at eighty, zero.');
+	});
 });
 
 // narrateStateChartInference speaks ONLY the start/terminal facts the transform
@@ -567,6 +686,33 @@ describe('narrateStateChart', () => {
 	it('returns null when there is nothing inferred to add', () => {
 		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2`', '2. Done `end`'].join('\n');
 		expect(narrateStateChart(md)).toBeNull();
+	});
+
+	it('does not speak a fenced doc-example heading as the title, and does not lose the real heading (Munger-inversion finding)', () => {
+		// Every other narrator fence-strips before reading the heading; this one
+		// didn't — a slide with a fenced doc-example above the real chart (the
+		// exact pattern narrateFunnel's own tests guard against) spoke the FAKE
+		// fenced heading as the title and silently dropped the real one, a
+		// confidently wrong fact replacing one the plain slideToSpeech baseline
+		// gets right.
+		const md = [
+			'<!-- _class: state-chart -->',
+			'',
+			'```',
+			'## Not the real heading (doc example)',
+			'```',
+			'',
+			'## The real heading.',
+			'',
+			'1. Draft',
+			'   - `submit => 2`',
+			'2. Review',
+			'   - `approve => 3`',
+			'3. Done',
+		].join('\n');
+		const out = narrateStateChart(md);
+		expect(out?.startsWith('The real heading. This flow starts at Draft. It ends at Done.')).toBe(true);
+		expect(out).not.toContain('Not the real heading');
 	});
 });
 
