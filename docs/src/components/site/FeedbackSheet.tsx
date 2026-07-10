@@ -1,4 +1,4 @@
-import { Bug, Lightbulb, MessageCircleQuestion, MessageSquareHeart, MessageSquareText } from 'lucide-react';
+import { Bug, Check, Copy, Lightbulb, MessageCircleQuestion, MessageSquareHeart, MessageSquareText } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +68,27 @@ export function FeedbackSheet({
 		[category, summary, details, area, context],
 	);
 
+	// On a phone with the GitHub app installed, tapping a github.com link hands
+	// off to the app (iOS Universal Links / Android App Links) — and the app has
+	// no "new issue, pre-filled from a URL" screen, so it just opens to nothing
+	// useful. We have no server to bounce the click through a different domain
+	// first (the usual fix), so the honest fallback is: let the user copy the
+	// URL and paste it into their own browser's address bar — a pasted URL is a
+	// typed navigation, which the OS does NOT hand off to the app.
+	const [copied, setCopied] = React.useState(false);
+	const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	React.useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current); }, []);
+	const copyLink = async () => {
+		try {
+			await navigator.clipboard.writeText(feedbackUrl);
+			setCopied(true);
+			if (copyTimer.current) clearTimeout(copyTimer.current);
+			copyTimer.current = setTimeout(() => setCopied(false), 1600);
+		} catch {
+			/* clipboard unavailable (permissions/insecure context) — Continue on GitHub still works */
+		}
+	};
+
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="w-full gap-0 sm:max-w-[420px]">
@@ -134,11 +155,20 @@ export function FeedbackSheet({
 						Your page, viewport, and browser ride along automatically — you don't have to type them.
 					</p>
 					{canSubmit ? (
-						<Button asChild className="w-full">
-							<a href={feedbackUrl} target="_blank" rel="noreferrer noopener" onClick={() => onOpenChange(false)}>
-								Continue on GitHub
-							</a>
-						</Button>
+						<div className="space-y-2">
+							<Button asChild className="w-full">
+								<a href={feedbackUrl} target="_blank" rel="noreferrer noopener" onClick={() => onOpenChange(false)}>
+									Continue on GitHub
+								</a>
+							</Button>
+							<Button type="button" variant="outline" size="sm" className="w-full gap-1.5" onClick={copyLink}>
+								{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+								{copied ? 'Copied' : 'Copy link instead'}
+							</Button>
+							<p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+								If GitHub's app opens instead and looks empty, paste this link into your browser's address bar — a pasted link skips the app.
+							</p>
+						</div>
 					) : (
 						<div className="space-y-1.5">
 							<Button type="button" className="w-full" disabled aria-disabled="true">
