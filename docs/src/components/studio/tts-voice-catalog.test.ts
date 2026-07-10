@@ -1,146 +1,151 @@
 import { describe, expect, it } from 'vitest';
-import { cachedSampleUrl, KOKORO_MODEL_ID, noRosterHint, OTHER, resolveVoice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { cachedSampleUrl, engineForModel, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
 // Lives alongside tts-voice-catalog.ts (the module under test), not TtsSettings.tsx
-// (the UI that consumes it) — see the asset-caching section of
+// (the UI that consumes it) — see the redesign section of
 // engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.
+//
+// The voice ROSTER is no longer hand-typed here — voicesForModel takes the live
+// `voices` array (as OpenRouter's own supported_voices field publishes it) as its
+// second argument, so these tests pass in a small stand-in live list per case.
 
-describe('voicesForModel — a curated roster per cloud model, never a guess', () => {
-	it('resolves Kokoro (and the unset/empty default) to the Kokoro roster', () => {
-		expect(voicesForModel('hexgrad/kokoro-82m').map((v) => v.id)).toContain('af_heart');
-		expect(voicesForModel('').length).toBeGreaterThan(0); // unset → the connect-time default, Kokoro
-		expect(voicesForModel('HEXGRAD/KOKORO-82M').length).toBeGreaterThan(0); // case-insensitive
+describe('engineForModel — resolves a cloud model id to its cache-metadata slug', () => {
+	it('resolves Kokoro (and the unset/empty default) to the Kokoro engine', () => {
+		expect(engineForModel('hexgrad/kokoro-82m')).toBe('kokoro');
+		expect(engineForModel('')).toBe('kokoro'); // unset -> the connect-time default
+		expect(engineForModel('HEXGRAD/KOKORO-82M')).toBe('kokoro'); // case-insensitive
 	});
 
-	it('resolves an OpenAI-family model to the OpenAI roster', () => {
-		const voices = voicesForModel('openai/tts-1-hd').map((v) => v.id);
-		expect(voices).toContain('alloy');
-		expect(voices).not.toContain('af_heart'); // never mixes rosters
+	it('resolves every cataloged engine by its exact live model id', () => {
+		expect(engineForModel('x-ai/grok-voice-tts-1.0')).toBe('grok');
+		expect(engineForModel('google/gemini-3.1-flash-tts-preview')).toBe('gemini');
+		expect(engineForModel('canopylabs/orpheus-3b-0.1-ft')).toBe('orpheus');
+		expect(engineForModel('microsoft/mai-voice-2')).toBe('mai-voice-2');
+		expect(engineForModel('zyphra/zonos-v0.1-transformer')).toBe('zonos-transformer');
+		expect(engineForModel('zyphra/zonos-v0.1-hybrid')).toBe('zonos-hybrid');
+		expect(engineForModel('sesame/csm-1b')).toBe('csm');
+		expect(engineForModel('mistralai/voxtral-mini-tts-2603')).toBe('voxtral');
 	});
 
-	it('returns [] for an unrecognized model — never a fabricated roster', () => {
-		expect(voicesForModel('some-vendor/unknown-tts')).toEqual([]);
-	});
-
-	// Every model curated after the initial two families — each roster's source is
-	// cited in TtsSettings.tsx's own comments (an OpenRouter page fetch or a primary-
-	// source doc/README, never a guess).
-	it('resolves Grok Voice TTS to its documented 5-voice roster', () => {
-		expect(voicesForModel('x-ai/grok-voice-tts-1.0').map((v) => v.id)).toEqual(['Eve', 'Ara', 'Rex', 'Sal', 'Leo']);
-	});
-
-	it('resolves a Gemini TTS model (any version) to the Gemini voice set', () => {
-		const voices = voicesForModel('google/gemini-3.1-flash-tts-preview').map((v) => v.id);
-		expect(voices).toContain('Puck');
-		expect(voices).toContain('Kore');
-	});
-
-	it('resolves Orpheus to its documented English preset voices', () => {
-		expect(voicesForModel('canopylabs/orpheus-3b-0.1-ft').map((v) => v.id)).toContain('tara');
-	});
-
-	it('deliberately does NOT curate Zonos or CSM-1B — see noRosterHint', () => {
-		// Both models genuinely lack a named-voice concept (clone/speaker-slot based),
-		// not merely "unrecognized" — curating a fake roster for them would be worse
-		// than admitting we don't have one.
-		expect(voicesForModel('zyphra/zonos-v0.1-transformer')).toEqual([]);
-		expect(voicesForModel('zyphra/zonos-v0.1-hybrid')).toEqual([]);
-		expect(voicesForModel('sesame/csm-1b')).toEqual([]);
+	it('returns null for a model this catalog has no cache metadata for — it still works live', () => {
+		expect(engineForModel('some-vendor/unknown-tts')).toBeNull();
 	});
 });
 
-describe('noRosterHint — explains WHY a model has no curated voice picker, when we know', () => {
-	it('gives a specific reason for voice-cloning models (Zonos)', () => {
-		expect(noRosterHint('zyphra/zonos-v0.1-transformer')).toMatch(/clones a voice from a reference/i);
+describe('prettyVoiceLabel — derives a display label, never hand-typed', () => {
+	it('decodes Kokoro\'s <lang><gender>_<name> convention', () => {
+		expect(prettyVoiceLabel('af_heart')).toBe('Heart · US');
+		expect(prettyVoiceLabel('bm_george')).toBe('George · UK');
+		expect(prettyVoiceLabel('zf_xiaoxiao')).toBe('Xiaoxiao · CN');
+		expect(prettyVoiceLabel('jm_kumo')).toBe('Kumo · JP');
 	});
 
-	it('gives a specific reason for speaker-slot models (CSM-1B)', () => {
-		expect(noRosterHint('sesame/csm-1b')).toMatch(/numeric speaker slot/i);
+	it('decodes the Azure/MAI locale-Name[:Model] convention', () => {
+		expect(prettyVoiceLabel('en-US-Harper:MAI-Voice-2')).toBe('Harper · en-US');
+		expect(prettyVoiceLabel('es-MX-Valeria:MAI-Voice-2')).toBe('Valeria · es-MX');
 	});
 
-	it('returns undefined for a model with simply no verified roster — the generic fallback message covers it', () => {
-		expect(noRosterHint('microsoft/mai-voice-2')).toBeUndefined();
-		expect(noRosterHint('mistralai/voxtral-mini-tts-2603')).toBeUndefined();
+	it('falls back to title-cased spacing for a plain or snake_case id', () => {
+		expect(prettyVoiceLabel('eve')).toBe('Eve');
+		expect(prettyVoiceLabel('american_female')).toBe('American Female');
+		expect(prettyVoiceLabel('en_paul_happy')).toBe('En Paul Happy');
+		expect(prettyVoiceLabel('conversational_a')).toBe('Conversational A');
 	});
 });
 
-describe('resolveVoice — maps a stored voice id onto a roster (or the free-text escape hatch)', () => {
+describe('voicesForModel — the live-sourced roster, +voiceOverride where the live field is incomplete', () => {
+	it('maps a live voices array onto {id,label} pairs', () => {
+		const voices = voicesForModel('x-ai/grok-voice-tts-1.0', ['eve', 'ara', 'rex']);
+		expect(voices).toEqual([
+			{ id: 'eve', label: 'Eve' },
+			{ id: 'ara', label: 'Ara' },
+			{ id: 'rex', label: 'Rex' },
+		]);
+	});
+
+	it('returns [] when the live catalog has no voices for this model — never a guess', () => {
+		expect(voicesForModel('x-ai/grok-voice-tts-1.0', [])).toEqual([]);
+		expect(voicesForModel('some-vendor/unknown-tts', [])).toEqual([]);
+	});
+
+	it('supplements (never replaces) the live list with voiceOverride on mai-voice-2 — OpenRouter\'s own field is a non-exhaustive sample for this model', () => {
+		const voices = voicesForModel('microsoft/mai-voice-2', ['en-US-Harper:MAI-Voice-2']);
+		const ids = voices.map((v) => v.id);
+		expect(ids).toContain('en-US-Harper:MAI-Voice-2'); // from both the live list AND the override — deduped, not doubled
+		expect(ids).toContain('en-US-Ethan:MAI-Voice-2'); // override-only
+		expect(ids.filter((id) => id === 'en-US-Harper:MAI-Voice-2')).toHaveLength(1);
+	});
+
+	it('does not apply voiceOverride to an unrelated engine', () => {
+		expect(voicesForModel('x-ai/grok-voice-tts-1.0', []).some((v) => v.id.includes('MAI-Voice-2'))).toBe(false);
+	});
+});
+
+describe('resolveVoice — maps a stored voice id onto a roster, no free-text fallback', () => {
 	const voices = [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }];
 
-	it('a known id resolves to itself, with no free-text leftover', () => {
-		expect(resolveVoice(voices, 'b')).toEqual({ select: 'b', other: '' });
+	it('a known id resolves to itself', () => {
+		expect(resolveVoice(voices, 'b')).toBe('b');
 	});
 
-	it('an empty/unset value seeds the roster\'s first entry', () => {
-		expect(resolveVoice(voices, '')).toEqual({ select: 'a', other: '' });
+	it('an unknown/stale id resolves to the roster\'s first entry — no free-text preservation', () => {
+		expect(resolveVoice(voices, 'custom_voice')).toBe('a');
+		expect(resolveVoice(voices, '')).toBe('a');
 	});
 
-	it('an unknown id resolves to OTHER, preserving it as free text', () => {
-		expect(resolveVoice(voices, 'custom_voice')).toEqual({ select: OTHER, other: 'custom_voice' });
-	});
-
-	it('an unknown id against an empty roster still resolves to OTHER (never throws)', () => {
-		expect(resolveVoice([], 'custom_voice')).toEqual({ select: OTHER, other: 'custom_voice' });
+	it('an empty roster resolves to empty string, never throws', () => {
+		expect(resolveVoice([], 'anything')).toBe('');
 	});
 });
 
-// Red-team/independent-checker finding: switching to a model with an UNRECOGNIZED
-// roster used to blank the visible free-text voice field without persisting the
-// clear — a UI/storage desync where the old value silently reappeared on reload.
-// voiceResetOnModelChange is the extracted decision the fix relies on: it must
-// return null (no reset at all) for an unrecognized model, not an empty string.
-describe('voiceResetOnModelChange — the model-switch voice-reset decision (regression: #846 follow-up)', () => {
-	it('resets to the new roster\'s default when the current voice is not on it', () => {
-		expect(voiceResetOnModelChange('openai/tts-1', 'af_heart')).toBe('alloy');
+describe('voiceResetOnModelChange — the model-switch voice-reset decision', () => {
+	it('resets to the new roster\'s first entry when the current voice is not on it', () => {
+		expect(voiceResetOnModelChange([{ id: 'alloy', label: 'Alloy' }], 'af_heart')).toBe('alloy');
 	});
 
 	it('does not reset when the current voice IS already on the new roster', () => {
-		expect(voiceResetOnModelChange('hexgrad/kokoro-82m', 'af_bella')).toBeNull();
+		const voices = [{ id: 'af_bella', label: 'Bella · US' }, { id: 'af_heart', label: 'Heart · US' }];
+		expect(voiceResetOnModelChange(voices, 'af_bella')).toBeNull();
 	});
 
-	it('does NOT reset for an unrecognized model — free text is valid for any model, nothing to reset FROM/TO', () => {
-		expect(voiceResetOnModelChange('some-vendor/unknown-tts', 'af_heart')).toBeNull();
-		expect(voiceResetOnModelChange('some-vendor/unknown-tts', 'my_custom_voice_id')).toBeNull();
+	it('does NOT reset for an empty roster — nothing to reset FROM/TO, the UI disables instead', () => {
+		expect(voiceResetOnModelChange([], 'af_heart')).toBeNull();
 	});
 });
 
-// The local-first sample cache: a curated voice on a requiresAsset engine, at the
-// default speed, resolves to the pre-generated file's URL — anything else (free
-// text, an uncurated model, a non-default speed) must fall through to the live
-// path (null), never a guessed/broken URL.
+// The local-first sample cache: a voice inside the engine's featured `cachedVoices`
+// subset, at the default speed, resolves to the pre-generated file's URL —
+// anything else (a voice outside the cached subset, an uncataloged model, a
+// non-default speed) must fall through to the live path (null).
 describe('cachedSampleUrl — the pre-generated sample path, or null when nothing is cached', () => {
-	it('resolves a curated cloud voice (Grok) via its model id', () => {
-		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'Eve', 1)).toBe('/voice-samples/grok/Eve.mp3');
+	it('resolves a cached voice at default speed to its on-disk path', () => {
+		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'eve', 1)).toBe('/voice-samples/grok/eve.mp3');
 	});
 
-	it('resolves a curated cloud voice (Gemini) via its model id, with the wav extension its audioFormat declares', () => {
+	it('resolves a cached Gemini voice with the wav extension its audioFormat declares', () => {
 		expect(cachedSampleUrl('google/gemini-3.1-flash-tts-preview', 'Puck', 1)).toBe('/voice-samples/gemini/Puck.wav');
 	});
 
-	it('resolves a curated cloud voice (Orpheus) via its model id', () => {
-		expect(cachedSampleUrl('canopylabs/orpheus-3b-0.1-ft', 'tara', 1)).toBe('/voice-samples/orpheus/tara.mp3');
+	it('resolves a cached MAI-Voice-2 voice, sanitizing the ":" a Windows filename can\'t hold', () => {
+		expect(cachedSampleUrl('microsoft/mai-voice-2', 'en-US-Harper:MAI-Voice-2', 1)).toBe('/voice-samples/mai-voice-2/en-US-Harper_MAI-Voice-2.mp3');
 	});
 
-	it('returns null for Kokoro — on-device and free, never asset-cached', () => {
+	it('returns null for Kokoro — currently uncached (see the catalog\'s own note on provider instability)', () => {
 		expect(cachedSampleUrl(KOKORO_MODEL_ID, 'af_heart', 1)).toBeNull();
 	});
 
+	it('returns null for a live voice outside the cached/featured subset (e.g. zonos\' "random")', () => {
+		expect(cachedSampleUrl('zyphra/zonos-v0.1-transformer', 'random', 1)).toBeNull();
+	});
+
 	it('returns null for a non-default speed — only 1x is pre-generated', () => {
-		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'Eve', 1.25)).toBeNull();
+		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'eve', 1.25)).toBeNull();
 	});
 
-	it('returns null for free-text/uncurated voice ids', () => {
-		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'my_custom_voice', 1)).toBeNull();
-	});
-
-	it('returns null for an unrecognized model', () => {
+	it('returns null for an uncataloged model', () => {
 		expect(cachedSampleUrl('some-vendor/unknown-tts', 'af_heart', 1)).toBeNull();
-	});
-
-	it('returns null for an engine with no live model behind it yet (requiresAsset: false)', () => {
-		expect(cachedSampleUrl('openai/tts-1-hd', 'alloy', 1)).toBeNull();
 	});
 
 	it('returns null with no voice id', () => {

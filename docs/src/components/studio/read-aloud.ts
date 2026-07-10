@@ -139,7 +139,7 @@ export type VoiceAvailability = {
 };
 
 export type VoiceLoadProgress = { progress: number; text?: string; status?: string };
-export type OrVoiceModel = { id: string; name: string };
+export type OrVoiceModel = { id: string; name: string; promptPerM: number | null; completionPerM: number | null; voices: string[] };
 let voicePromise: Promise<VoiceModel | null> | null = null;
 function getVoice(): Promise<VoiceModel | null> {
 	if (!voicePromise) {
@@ -491,7 +491,9 @@ export async function voiceAvailability(): Promise<VoiceAvailability> {
 	);
 }
 
-/** The OpenRouter TTS-capable model catalog ({id,name}[]), or [] when unavailable. */
+/** The OpenRouter TTS-capable model catalog — id/name/pricing/live-published
+ *  `voices` roster per model — or [] when unavailable. `voices` is the single
+ *  source of truth every voice dropdown derives from (tts-voice-catalog.ts). */
 export async function listTtsModels(): Promise<OrVoiceModel[]> {
 	try {
 		const m = await import('@/playground/voice-model.js');

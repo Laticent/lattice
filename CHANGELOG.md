@@ -211,39 +211,52 @@ in patch versions.
 
 ### Added
 
-- **The Workspace read-aloud voice picker now covers most of OpenRouter's speech
-  catalog, and always previews.** The curated cloud voice dropdown only matched
-  2 of the 9 models OpenRouter's speech catalog actually lists; the rest silently
-  fell back to a bare text field. Researched and added real, sourced voice rosters
-  for xAI's Grok Voice TTS, Google's Gemini TTS, and Canopy Labs' Orpheus — and, for
-  the two models that genuinely have no named-voice concept at all (Zyphra's Zonos,
-  which clones a reference audio sample; Sesame's CSM-1B, which takes a numeric
-  speaker slot), a specific explanation instead of the generic "unrecognized model"
-  message. Picking a voice — curated or free-text (on blur/Enter) — now always
-  plays a sample, not just curated picks. See
-  `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
-- **"Play sample" no longer spends OpenRouter credits on every click.** A curated
-  cloud voice (Grok, Gemini, Orpheus) at the default speed now plays a
-  pre-generated, repo-committed sample file instead of hitting the live TTS
-  endpoint — instant, free, and immune to a slow/hung request. The catalog
-  (`docs/src/playground/tts-voice-catalog.json`) is the single source of truth
-  for the curated voice map, shared by the browser UI and a new opt-in generator
+- **The Workspace read-aloud voice picker covers every model OpenRouter's speech
+  catalog actually lists, sourced live — never a hand-typed guess, never free
+  text.** Voice rosters are now read straight from OpenRouter's own
+  `supported_voices` field (the same catalog call that already lists TTS models),
+  not scraped from vendor documentation — the earlier hand-curated roster had
+  included a voice (`zoe`, Orpheus) that consistently errors on the live
+  endpoint; a live-sourced list can't make that mistake. This also corrected two
+  wrong assumptions: Zyphra's Zonos and Sesame's CSM-1B were believed to have no
+  named-voice concept at all (pure voice-cloning, per their own docs) but
+  OpenRouter's hosted integration exposes real, working presets for both
+  (`american_female`/`british_male`, `conversational_a`/`read_speech_a`, etc.),
+  live-verified. Every model with a published roster — currently all 9 — gets a
+  real dropdown; a model with none gets a disabled, explained field, never an
+  editable text box (nobody should have to type an opaque voice id blind). The
+  one hand-maintained exception is Microsoft's MAI-Voice-2, whose OpenRouter
+  listing samples only 4 of its real 44 voices — supplemented with the
+  documented, live-verified English subset. Picking any voice — from the
+  dropdown, or a model row's inline preview — always plays a sample.
+- **The cloud TTS model picker is now the same rich search + Featured/Value/
+  Free/All picker as the chat-model picker**, with an inline ▶ Play button per
+  row (browsing the list previews it — no separate pick-model-then-pick-voice
+  round trip for the common case) and each row's voice count + price shown
+  directly. Reuses the chat picker's shared pure helpers
+  (`docs/src/playground/tts-catalog.js`, twin of `or-catalog.js` — HARD RULE #15)
+  rather than a bespoke `<Select>`.
+- **"Play sample" no longer spends OpenRouter credits on every click**, for a
+  bounded featured subset of voices per model (51 samples across grok, gemini,
+  orpheus, mai-voice-2, zonos-transformer, zonos-hybrid, csm, and voxtral).
+  These are pre-generated, repo-committed files a new opt-in generator
   (`tools/generate-voice-samples.mjs`, gated the same way as
-  `tools/component-gen-eval.mjs` — HARD RULE #24). The generator checks
+  `tools/component-gen-eval.mjs` — HARD RULE #24) produces; `previewTtsVoice()`
+  plays the cached file directly instead of hitting the live TTS endpoint —
+  instant, free, immune to a slow/hung request. The generator checks
   OpenRouter's live speech-model catalog before spending and skips (never
-  breaks) an engine whose model has been discontinued, so a voice pulled from
-  the catalog can't corrupt the cache — it just stops updating. Free text, an
-  uncurated model, and a non-default speed all still hit the live path. Kokoro
-  is deliberately excluded — it never spends credits when it runs, but it
-  doesn't run everywhere (iPhone, low-memory devices), and a cached sample
-  wouldn't fix that; the picker already disables there. Generating the real
-  samples surfaced two live-API findings the doc-sourced voice rosters
-  couldn't have caught without a round-trip: Gemini's speech endpoint only
-  returns raw PCM (the generator now requests it and wraps the result in a
-  WAV container, reading the real sample rate off the response instead of
-  guessing), and Orpheus's `zoe` voice consistently errors on OpenRouter's
-  hosted endpoint regardless of casing, so it's dropped from the curated
-  roster. See the asset-caching section of
+  breaks) an engine whose model has been discontinued. An uncached voice, an
+  uncataloged model, or a non-default speed all still hit the live path (still
+  fully functional, just not instant/free). Generating the real samples
+  surfaced two live-API findings no documentation could have caught: Gemini's
+  speech endpoint only returns raw PCM (the generator requests it and wraps the
+  result in a WAV container, reading the real sample rate off the response
+  instead of guessing), and a voice id containing `:` (MAI-Voice-2's
+  `en-US-Harper:MAI-Voice-2`) needs sanitizing before it can be a filename — a
+  literal `:` breaks a Windows checkout of this repo. Kokoro is excluded — free
+  on-device already, and the paid hosted-cloud variant was found unreliable
+  (timing out) during this round of generation, not worth caching against an
+  unstable endpoint. See the redesign section of
   `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed

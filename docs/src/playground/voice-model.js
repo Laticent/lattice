@@ -48,12 +48,27 @@ const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
 const DEFAULT_OR_VOICE = 'af_heart';
 const DEFAULT_KOKORO_VOICE = 'af_heart';
 
+// OpenRouter pricing strings are per-character (TTS) USD; convert to per-MILLION,
+// same convention + edge cases as architect-model.js's orPricePerM twin (kept as a
+// tiny local copy, not an import — this file must stay plain-Node-loadable with no
+// dependency on architect-model.js's larger, browser-leaning import graph. See the
+// Node-loadable-by-design note at the top of this file).
+function orPricePerM(raw) {
+  if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return null;
+  const n = Number(raw) * 1e6;
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 // The OpenRouter TTS-capable model catalog — public + unauthenticated, same shape
-// contract as architect-model.js's chat-model listModels() (id/name only here; TTS
-// pricing isn't normalized to the per-million-token shape the chat catalog uses, so
-// the picker shows it as a plain id rather than guessing at a wrong unit). Memoized
-// for the session (a settings-panel open shouldn't refetch); never throws — an
-// empty array on any failure, same degrade-gracefully contract as every other
+// contract as architect-model.js's chat-model listModels(): id/name/pricing, PLUS
+// `voices` — the model's published `supported_voices` array straight off the live
+// catalog response. This is the single source of truth for every voice dropdown
+// (docs/src/components/studio/tts-voice-catalog.ts derives from it) — no more
+// hand-curated, doc-scraped rosters that can silently drift from what the model
+// actually supports (the "zoe" lesson: a hand-typed list can include a voice that
+// doesn't work; a live-sourced one can't include one OpenRouter doesn't publish).
+// Memoized for the session (a settings-panel open shouldn't refetch); never throws
+// — an empty array on any failure, same degrade-gracefully contract as every other
 // catalog fetch in this codebase.
 const OR_TTS_CATALOG_URL = 'https://openrouter.ai/api/v1/models?output_modalities=speech';
 let ttsCatalogPromise = null;
@@ -64,7 +79,13 @@ export function listOpenRouterVoiceModels() {
         const res = await fetch(OR_TTS_CATALOG_URL);
         if (!res.ok) return [];
         const j = await res.json();
-        return (j.data || []).map((m) => ({ id: m.id, name: m.name || m.id }));
+        return (j.data || []).map((m) => ({
+          id: m.id,
+          name: m.name || m.id,
+          promptPerM: m.pricing ? orPricePerM(m.pricing.prompt) : null,
+          completionPerM: m.pricing ? orPricePerM(m.pricing.completion) : null,
+          voices: Array.isArray(m.supported_voices) ? m.supported_voices : [],
+        }));
       } catch {
         return [];
       }

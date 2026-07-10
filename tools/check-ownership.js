@@ -1375,7 +1375,9 @@ function checkVoiceSampleAssets(errors) {
       continue;
     }
     const ext = def.audioFormat === 'wav' ? 'wav' : 'mp3';
-    const want = new Set(def.voices.map((v) => `${v.id}.${ext}`));
+    // Mirrors tools/generate-voice-samples.mjs's own safeFilename EXACTLY — a voice
+    // id can carry a ":" (invalid in a Windows filename, e.g. MAI-Voice-2's ids).
+    const want = new Set(def.cachedVoices.map((id) => `${id.replace(/:/g, '_')}.${ext}`));
     // The full listing (not filtered to `.${ext}`) — a file with the WRONG
     // extension (e.g. a stray .mp3 in a wav-format engine's directory) is exactly
     // as orphaned as one with a retired voice id, and should be flagged the same way.

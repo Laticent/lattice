@@ -202,14 +202,25 @@ describe('speed prefs', () => {
 });
 
 describe('listOpenRouterVoiceModels (the public, unauthenticated TTS catalog)', () => {
-  it('maps the catalog to {id,name}', async () => {
+  it('maps the catalog to {id,name,promptPerM,completionPerM,voices}', async () => {
     vi.resetModules();
-    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ data: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M' }, { id: 'openai/tts-1' }] }) }));
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', pricing: { prompt: '0.00000062', completion: '0' }, supported_voices: ['af_heart', 'af_bella'] },
+          { id: 'openai/tts-1' }, // no name/pricing/voices at all — every field degrades gracefully
+        ],
+      }),
+    }));
     vi.stubGlobal('fetch', fetchImpl);
     try {
       const fresh = await import('./voice-model.js');
       const models = await fresh.listOpenRouterVoiceModels();
-      expect(models).toEqual([{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M' }, { id: 'openai/tts-1', name: 'openai/tts-1' }]); // falls back to id when name is absent
+      expect(models).toEqual([
+        { id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'af_bella'] },
+        { id: 'openai/tts-1', name: 'openai/tts-1', promptPerM: null, completionPerM: null, voices: [] }, // falls back to id when name is absent
+      ]);
     } finally {
       vi.unstubAllGlobals();
     }

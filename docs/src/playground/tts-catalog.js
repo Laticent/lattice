@@ -1,0 +1,72 @@
+// The OpenRouter TTS-model catalog — curated lens lists + pure formatting/filtering
+// helpers, the TTS twin of or-catalog.js (the chat-model picker's catalog). Reuses
+// or-catalog.js's generic helpers (vendorOf/shortName/fmtPrice/groupByVendor/inSet/
+// isFreeModel all operate on the same {id, name, promptPerM, completionPerM} shape
+// regardless of whether the model is chat or speech — HARD RULE #15, don't
+// reinvent) and adds only what's genuinely TTS-specific: the curated Featured/Value
+// sets, a single-price-dimension meta line (TTS has no meaningful "completion"
+// price — audio out isn't billed as output tokens the way chat completions are),
+// and the empty-state copy.
+//
+// A catalog entry is the shape voice-model.js's listOpenRouterVoiceModels() yields:
+//   { id, name, promptPerM, completionPerM, voices }
+// where `voices` is the model's live `supported_voices` array — the single source
+// of truth every voice dropdown derives from (see tts-voice-catalog.ts).
+
+import { fmtPrice, groupByVendor, inSet, isFreeModel, shortName, vendorOf } from './or-catalog.js';
+
+export { fmtPrice, groupByVendor, isFreeModel, shortName, vendorOf };
+
+// The models we've fully vetted end-to-end: live-tested voices, cached samples
+// committed for a featured subset of each. Pinned exact ids (not family prefixes
+// like the chat picker's OR_FEATURED) — each is a single dated release, not an
+// evolving family, so there's no "next version" to prefix-match.
+export const TTS_FEATURED = [
+	'hexgrad/kokoro-82m',
+	'x-ai/grok-voice-tts-1.0',
+	'google/gemini-3.1-flash-tts-preview',
+	'canopylabs/orpheus-3b-0.1-ft',
+	'microsoft/mai-voice-2',
+];
+
+// The cheapest-per-character tier (the "Value" lens) — everything at or under
+// $10/M characters at time of curation. Kokoro is the standout (~$0.62/M).
+export const TTS_VALUE = [
+	'hexgrad/kokoro-82m',
+	'google/gemini-3.1-flash-tts-preview',
+	'zyphra/zonos-v0.1-transformer',
+	'zyphra/zonos-v0.1-hybrid',
+	'sesame/csm-1b',
+	'canopylabs/orpheus-3b-0.1-ft',
+];
+
+// The picker's four lenses, in display order. [key, label] — the label is the tab.
+export const TTS_VIEWS = [
+	['featured', 'Featured'],
+	['value', 'Value'],
+	['free', 'Free'],
+	['all', 'All'],
+];
+
+// TTS pricing is a single dimension (characters in → audio out; there's no
+// per-output-token "completion" cost the way a chat completion has one — every
+// live TTS model reports completion:0). One price line, not the chat picker's
+// "$X/M in · $Y/M out".
+export const ttsPriceLabel = (m) => (m.promptPerM != null ? `${fmtPrice(m.promptPerM)}/M chars` : 'pricing varies');
+
+// Filter the catalog for a view ('featured' | 'value' | 'free' | 'all') and a
+// free-text query (matched against name + id, case-insensitive). Pure — returns a
+// new array, original untouched. Mirrors or-catalog.js's filterModels.
+export function filterTtsModels(models, view, query) {
+	const q = (query || '').trim().toLowerCase();
+	let items = (models || []).filter((m) => `${m.name || ''} ${m.id}`.toLowerCase().includes(q));
+	if (view === 'featured') items = items.filter((m) => inSet(TTS_FEATURED, m.id));
+	else if (view === 'value') items = items.filter((m) => inSet(TTS_VALUE, m.id));
+	else if (view === 'free') items = items.filter(isFreeModel);
+	return items;
+}
+
+// The empty-state message for a view that filtered everything out.
+export const emptyTtsMessage = (view) => (view === 'all' ? 'No TTS models match.'
+	: view === 'free' ? 'No free TTS models in the catalog right now.'
+		: `No ${view} TTS models match — try All.`);

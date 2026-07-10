@@ -480,15 +480,29 @@ describe('check-ownership', () => {
 
     test('fires on a missing voice file and a stale/orphaned one, once the directory exists', () => {
       withSandboxedSamplesDir(() => {
-        // grok's roster is Eve, Ara, Rex, Sal, Leo — write all but Leo, plus a bogus extra.
+        // grok's cachedVoices is eve, ara, rex, sal, leo — write all but leo, plus a bogus extra.
         const dir = path.join(SAMPLES_DIR, 'grok');
         fs.mkdirSync(dir, { recursive: true });
-        for (const v of ['Eve', 'Ara', 'Rex', 'Sal']) fs.writeFileSync(path.join(dir, `${v}.mp3`), 'x');
-        fs.writeFileSync(path.join(dir, 'NotARealVoice.mp3'), 'x');
+        for (const v of ['eve', 'ara', 'rex', 'sal']) fs.writeFileSync(path.join(dir, `${v}.mp3`), 'x');
+        fs.writeFileSync(path.join(dir, 'not-a-real-voice.mp3'), 'x');
         const errors = [];
         checkVoiceSampleAssets(errors);
-        assert.ok(errors.some((e) => /grok\/Leo\.mp3 is missing/.test(e)));
-        assert.ok(errors.some((e) => /grok\/NotARealVoice\.mp3 is a stale\/orphaned sample/.test(e)));
+        assert.ok(errors.some((e) => /grok\/leo\.mp3 is missing/.test(e)));
+        assert.ok(errors.some((e) => /grok\/not-a-real-voice\.mp3 is a stale\/orphaned sample/.test(e)));
+      });
+    });
+
+    test('expects the sanitized (":" -> "_") filename for a voice id a Windows filesystem can\'t hold', () => {
+      withSandboxedSamplesDir(() => {
+        // mai-voice-2's cachedVoices carry a literal ":" (e.g. "en-US-Harper:MAI-Voice-2");
+        // both the generator and this gate must sanitize it the SAME way.
+        const dir = path.join(SAMPLES_DIR, 'mai-voice-2');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'en-US-Harper:MAI-Voice-2.mp3'), 'x'); // the UNSANITIZED name — wrong
+        const errors = [];
+        checkVoiceSampleAssets(errors);
+        assert.ok(errors.some((e) => /mai-voice-2\/en-US-Harper:MAI-Voice-2\.mp3 is a stale\/orphaned sample/.test(e)));
+        assert.ok(errors.some((e) => /mai-voice-2\/en-US-Harper_MAI-Voice-2\.mp3 is missing/.test(e)));
       });
     });
 
