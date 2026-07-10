@@ -610,6 +610,11 @@ var require_manifest_schema = __commonJS({
               type: "string",
               minLength: 1,
               description: "One-line human consequence of over-writing the element (reused in the generated Density docs line and the suggestion message)."
+            },
+            domSelector: {
+              type: "string",
+              minLength: 1,
+              description: "CSS selector, scoped within the axis's clip-cell/section, that resolves to this component's LIVE RENDERED DOM elements for `axis` \u2014 only needed when it differs from the universal per-axis default (item \u2192 `ul > li` / `ol > li`; row \u2192 `table tbody > tr`). A component whose own transform retags or rewraps the axis elements (e.g. split-compare's options become `.option` divs, not `<li>`) MUST declare this or a live-preview consumer (the Fix-Me overlay's drill-down) silently finds nothing and falls back to a coarser highlight. Verified by a render-time coverage test, not just declared \u2014 see engineering/decisions/2026-07-10-overflow-cause-highlighting.md \xA710."
             }
           }
         },

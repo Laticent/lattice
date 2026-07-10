@@ -24,10 +24,11 @@ can be proven, not guessed.
 ## A deliberately over-stuffed comparison.
 
 This slide exists to demonstrate the Fix-Me overlay — open it in a live
-preview (Playground, Drawing Board, Studio, or the VS Code marp preview)
-to see the red ring and the yellow tag together. A static export shows
-neither: the export strips both markers and clips the content instead,
-so this page prints a clean but visibly cut-off card.
+preview (Playground, Drawing Board, Studio, or the VS Code marp preview) to
+see the red ring and the yellow tag land on "Preferred option" alone, not
+"Alternative option" or the whole panel. A static export shows neither: the
+export strips both markers and clips the content instead, so this page
+prints a clean but visibly cut-off card.
 
 - Alternative option
   - A short first fact about the alternative
@@ -45,26 +46,46 @@ so this page prints a clean but visibly cut-off card.
 
 ---
 
+<!-- _class: cards-grid -->
+
+## Which card is the actual problem?
+
+- Short card
+  - One short line.
+- Short card two
+  - Another short line here.
+- The oversized card
+  - This card's body is written deliberately long, forcing its row to grow
+    far taller than its neighbor and threatening to push the whole grid
+    past the frame, padding padding padding padding padding padding padding
+    padding padding padding padding padding padding padding padding padding
+    padding padding padding padding padding padding padding padding padding.
+- Short card four
+  - The last short line — stretched to match its tall row-mate, but not
+    the cause.
+
+---
+
 <!-- _class: content -->
 
 ## Two signals, tiered by confidence — never a guess dressed as a fact.
 
 A bounded content cell (`.cell-stage`, `.panel-right`, `.compare-right`)
 that overflows genuinely clipped its own content — it never pushed a
-neighbor, so highlighting it is a geometric fact, not a guess. This is
-the only case shipped so far.
+neighbor, so highlighting it is a geometric fact, not a guess. Where the
+cell holds a repeated collection, the tag narrows further to whichever item
+is a real content outlier — never its stretched neighbor.
 
 ---
 
 <!-- _class: content -->
 
-## A grow-to-fit grid card is a different, harder case.
+## No clip-cell at all is a different, still-open case.
 
-An oversized card in a grow-to-fit grid doesn't clip itself — it grows and
-pushes a NEIGHBOR past the frame, so "which box is biggest" flags the
-wrong element. That case was tried and dropped once already. A
-prose-density word-budget fallback for it is a deferred follow-up, not
-part of this change.
+A slide that overflows with no bounded content cell in play — an oversized
+image, a long code block, a wide table — has no geometric signal to drill
+into yet. A prose-density word-budget fallback for that case is a deferred
+follow-up, not part of this change.
 
 ---
 

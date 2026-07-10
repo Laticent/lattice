@@ -8,7 +8,8 @@
     "axis": "item",
     "soft": 14,
     "hard": 22,
-    "note": "a terse point per line"
+    "note": "a terse point per line",
+    "domSelector": ".options > .option"
   },
   "adapt": {
     "mode": "reflow",

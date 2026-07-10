@@ -17,6 +17,7 @@
  *   0b. font-embedding parity  tools/check-fonts.js       (preflight gate)
  *   1. lattice.css            tools/build-css.js
  *   2. lattice-default.css    tools/build-default-bundle.js  (engine + default palette)
+ *   2b. axis-DOM catalog      tools/build-axis-dom-catalog.js (lib/runtime/, before step 3)
  *   3. lattice-runtime.js     tools/build-runtime.js
  *   4. lattice-emulator.js    tools/build-emulator.js    (bundled CLI bin)
  *   5. VS Code snippets       tools/build-snippets.js
@@ -68,6 +69,9 @@ const PREFLIGHT = [
 const STEPS = [
   { label: 'lattice.css', script: 'build-css.js' },
   { label: 'lattice-default.css', script: 'build-default-bundle.js' },
+  // Must run BEFORE lattice-runtime.js — the runtime bundle `require()`s
+  // this generated catalog directly (esbuild inlines it at bundle time).
+  { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
   { label: 'lattice-runtime.js', script: 'build-runtime.js' },
   { label: 'lattice-emulator.js', script: 'build-emulator.js' },
   { label: 'VS Code snippets', script: 'build-snippets.js' },

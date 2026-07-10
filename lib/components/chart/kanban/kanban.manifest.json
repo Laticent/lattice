@@ -27,7 +27,8 @@
     "axis": "item",
     "soft": 8,
     "hard": 14,
-    "note": "a terse card title"
+    "note": "a terse card title",
+    "domSelector": ".kanban-cards > .kanban-card"
   },
   "split": {
     "strategy": "kanban-lanes",

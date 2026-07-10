@@ -11,7 +11,8 @@
     "axis": "item",
     "soft": 16,
     "hard": 24,
-    "note": "a term and a one-sentence definition"
+    "note": "a term and a one-sentence definition",
+    "domSelector": "table tbody > tr"
   },
   "split": {
     "strategy": "cover-paginate",

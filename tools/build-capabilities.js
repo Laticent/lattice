@@ -107,6 +107,8 @@ const SCRIPT_META = {
   'docs:spec:check':          ['Build & bundle', 'Freshness gate for the generated docs-site spec pages (stale vs spec/).'],
   'a11y-textures:build':      ['Build & bundle', 'Bundle the categorical/chart texture-<defs> kernel (lib/core/accessibility-textures.js) into the docs Playground ESM module.'],
   'a11y-textures:check':      ['Build & bundle', 'Freshness gate for the bundled a11y-textures Playground module.'],
+  'axis-dom-catalog:build':   ['Build & bundle', 'Generate lib/runtime/axis-dom-catalog.generated.js — component name to density.axis/domSelector, scanned from every manifest, bundled into lattice-runtime.js so the Fix-Me overlay drill-down can find a component\'s rendered collection without shipping the whole manifest catalog to the browser.'],
+  'axis-dom-catalog:check':   ['Build & bundle', 'Freshness gate for the generated axis-DOM catalog.'],
   'player-core:build':        ['Build & bundle', 'Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export.'],
   'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
   'player-prune:build':       ['Build & bundle', 'Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces.'],

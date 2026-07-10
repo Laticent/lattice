@@ -1,13 +1,14 @@
 ---
 status: in-progress
-summary: Overflow detection today only flags the SLIDE ("Overflows" red ring + tag) with no cause. This proposes a yellow "Fix Me" highlight on the specific element responsible, using TWO signals tiered by confidence — clip-cell geometry (certain) and prose-density word budgets (an editorial guess) — because a prior pure-geometry attempt was tried and abandoned for misattributing the cause in grow-to-fit grids. V1 (this PR) ships Case A (clip-cell) only; Case B (density fallback) is a follow-up.
+summary: Overflow detection today only flags the SLIDE ("Overflows" red ring + tag) with no cause. This ships a yellow "Fix Me" highlight on the specific element responsible for Case A (clip-cell geometry — certain, not a guess), now drilled down to the specific stretched-row item within the cell (not just the whole cell) via a content-slack signal, backed by a new density.domSelector manifest field + render-verified coverage for all 26 axis-bearing components. Case B (a prose-density word-budget fallback for slides with no clip-cell at all) remains a deferred follow-up.
 ---
 
 # Overflow cause highlighting — a yellow "Fix Me" tag on the element responsible
 
 **Date:** 2026-07-10
-**Status:** in-progress — Case A (clip-cell highlight) being built now; Case B
-(density-budget fallback) is a follow-up PR.
+**Status:** in-progress — Case A shipped, including the item-level
+drill-down (§10). Case B (density-budget fallback for the no-clip-cell case)
+remains a follow-up PR.
 **Related:** `lib/core/overflow-probe.js`, `lib/runtime/index.js` (`startOverflowWatcher`),
 `lib/authoring/prose-budgets.js`, `lib/authoring/review-core.js`,
 `engineering/decisions/2026-06-26-frames-as-flex-cell-trees.md` (clip-cell contract),
@@ -190,3 +191,84 @@ pinned to the viewport regardless of same- or cross-document. **Fix:**
 the last known targets — cheap, since it only re-reads their rects rather
 than re-probing the whole document. Both the code comment and this doc are
 corrected in place.
+
+## 10. Item-level drill-down (2026-07-10, shipped same PR)
+
+After the first slice shipped, testing against `cards-grid` showed Case A's
+granularity was coarser than it needed to be: a genuinely over-stuffed card
+sharing a flex row with a normal card gets its WHOLE `.cell-stage` clip-cell
+highlighted (all 4 cards), because the normal card is *stretched* to match
+the tall one's row height (`align-items:stretch`, the flex default) — box
+size alone can't tell "this card demanded the height" from "this card was
+just dragged along."
+
+**The signal that resolves it, confirmed empirically:** each item's own
+*content slack* — box height minus how far its own content actually
+reaches (measured via children's `getBoundingClientRect()`, mirroring
+`overflow-probe.js`'s `flowedSpill`, not `scrollHeight` — which under the
+default `overflow:visible` doesn't reliably report true content extent). On
+a genuine repro (cards-grid, one deliberately over-stuffed card row-mate
+with a normal card): both report an identical stretched box height, but
+17px slack (the culprit — content nearly fills the box) vs 291px slack (the
+bystander — mostly empty). The same held on `split-compare`'s two option
+cards (779px identical stretched height; a bespoke `.option` div shape, not
+a list — see below).
+
+**The axis→DOM gap this surfaced.** Finding "the collection inside this
+clip-cell" needs to know, per component, where its axis elements actually
+render — and the existing `slots.*.selector` manifest field describes the
+PRE-transform authoring shape, not necessarily the post-transform rendered
+DOM. A live check against all 26 `density.axis`-bearing manifests
+(`test/unit/runtime/axis-dom-catalog.test.js`) found 22 components render
+exactly as authored (`ul > li` / `table > tr`, the manifest's slots selector
+already matches); 4 do not, because their own transform retags the axis
+elements:
+
+| Component | rendered selector | why |
+|---|---|---|
+| `split-compare` | `.options > .option` | `split-panels.js` transform |
+| `kanban` | `.kanban-cards > .kanban-card` | chart-family kernel |
+| `timeline-list` | `.timeline-spine > .timeline-item` | chart-family kernel |
+| `glossary` | `table tbody > tr` | markdown-it token rewrite (word-counted as `item`, rendered as a table row — the density doc's own §2 already anticipated this axis/DOM split for glossary specifically) |
+
+**The fix, owner-directed** ("fix the axis definitions properly... do a
+bang-up job... then solve the main problem," 2026-07-10): a new optional
+`density.domSelector` manifest field, populated only for the 4 exceptions
+above, plus a coverage test that RENDERS every axis-bearing component's
+manifest `sample` and asserts the resolved selector (override or universal
+default) finds live elements — not just declares one and hopes. That test
+immediately caught a 5th, pre-existing bug: `split-panel` (and any sovereign
+Frame whose clip-cell is `.panel-right`/`.compare-right`, not `.cell-stage`)
+had NO working default at all — `lib/transformers/focus.js`'s DOM-path
+`_focus: item N` resolver only ever checked `.cell-stage`, so it silently
+no-op'd on a `split-panel` slide. Fixed by deriving the fallback selector
+from `CLIP_CELL_SELECTOR` (`lib/core/overflow-probe.js`) itself instead of a
+hand-maintained single-class list — the same class of bug (a hardcoded cell
+list falling one class short) can't recur silently now that both the
+overflow probe and the axis finder read one shared constant.
+
+**Architecture:**
+- `lib/components/manifest.schema.json` — `density.domSelector` (optional).
+- `lib/core/collections.js` — `domItemElements`/`domRowElements`, extracted
+  from `focus.js`'s inline DOM-path logic (HARD RULE #15) and generalized to
+  accept either a `<section>` or an arbitrary descendant clip-cell as root,
+  with the `CLIP_CELL_SELECTOR`-derived fallback fix above.
+- `tools/build-axis-dom-catalog.js` → `lib/runtime/axis-dom-catalog.generated.js`
+  — component name → `{axis, domSelector}`, scanned from every manifest,
+  wired into `npm run build` BEFORE the runtime bundle step (which
+  `require()`s it directly — esbuild inlines it, no fs at bundle time).
+- `lib/runtime/index.js` — `drillDownCulprits(cell, section)`: resolve the
+  cell's axis collection (override or universal default), group items by
+  rendered height (same group = stretched together), and within a group
+  flag the item(s) whose slack is BOTH below half the group's median slack
+  AND at least 20px under it (§8's "also require a relative outlier" —
+  a uniformly tight-but-correct row flags nothing rather than guessing).
+  Falls back to highlighting the whole cell when no collection is found, no
+  group has 2+ members, or no item clears both thresholds.
+
+**Verified** (real-browser, headless Chromium, not emulation): cards-grid
+(generic path) isolates the one over-stuffed card, not its stretched
+neighbor; split-compare (the override path) isolates "preferred option",
+not "alternative option"; a uniformly-dense 4-card grid (no genuine outlier)
+correctly falls back to the whole-cell box instead of guessing; a clean,
+non-overflowing deck draws nothing.
