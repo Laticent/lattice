@@ -344,7 +344,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 |---|---|
 | The whole concept map — how all the concepts relate (one level up) | `design/concepts.md` |
 | What a component/modifier/token *is*, catalog shape | `design/design-system.md` |
-| Branching, feature decks, share-the-PDF, rebase, merge, 2-renderer gate | `engineering/workflow.md` |
+| Branching, feature decks, share-the-PDF, rebase, merge, two-renderer rule | `engineering/workflow.md` |
 | Node, npm scripts, tests, lint, hooks, CI, the cloud sandbox setup | `engineering/development.md` |
 | Something behaving strangely (symptom index) | `engineering/gotchas.md` |
 | Engine internals, where transform kernels live | `engineering/architecture.md` |

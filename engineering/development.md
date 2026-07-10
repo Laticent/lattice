@@ -495,9 +495,10 @@ gotchas.md → "Editing a manifest `sample` staled the bucket survey."
 1. Add an entry to `SCRIPT_FOR_LIB` in `tools/affected-tests.js` (else
    pre-commit falls back to the full suite for every edit to that file).
 2. Add a unit test at `test/unit/<scope>/<name>.test.js`.
-3. If it's a renderer transform, document its siblings in
-   `lib/engine` + `lattice-runtime.js` (per the two-renderer rule
-   in `workflow.md`).
+3. If it's a renderer transform, it ships against `lib/engine`; add a
+   `lattice-runtime.js` sibling only if it's actually needed for the vscode
+   preview, and document either way (per the two-renderer rule in
+   `workflow.md`, opt-in since 2026-07-09).
 
 ### Editing deck-lint rules
 The footgun checks (card-style inline-title, ordered-list bold, split/number

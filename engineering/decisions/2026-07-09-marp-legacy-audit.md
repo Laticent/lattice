@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: Full-repo audit of Marp coupling beyond the sanctioned one-way export channel (lib/core/marp-bundle.js). Red team + Munger inversion + independent checker (8-agent adversarial pass, 100% of a 33-item sample confirmed) converge on one finding — the real, regenerative tax is engineering/workflow.md's "Two-renderer rule," which mandates every authoring transform be duplicated in lattice-runtime.js forever to keep the third-party marp-vscode preview (which runs raw marp-core, not our engine) looking right. Everything else is either a one-time inert cost, phantom/stale "marp-cli" references from before the P4 retirement, or canonical docs that disagree with each other about what Lattice even is. This note catalogs all of it and recommends demoting the Two-renderer rule from mandatory-forever to opt-in-and-sunsettable — a product decision that needs sign-off, not unilaterally executed here.
+status: in-progress
+summary: Full-repo audit of Marp coupling beyond the sanctioned one-way export channel (lib/core/marp-bundle.js). Red team + Munger inversion + independent checker (8-agent adversarial pass, 100% of a 33-item sample confirmed) converge on one finding — the real, regenerative tax is engineering/workflow.md's "Two-renderer rule," which mandated every authoring transform be duplicated in lattice-runtime.js forever to keep the third-party marp-vscode preview (which runs raw marp-core, not our engine) looking right. Everything else is either a one-time inert cost, phantom/stale "marp-cli" references from before the P4 retirement, or canonical docs that disagree with each other about what Lattice even is. §5(a) — demoting the Two-renderer rule to opt-in-and-sunsettable — is now DONE (engineering/workflow.md rewritten). §5(b) — whether to retire marp-vscode as a first-party-supported preview surface — remains an open product decision. §6's doc-framing rewrites remain backlog.
 ---
 
 # Marp legacy audit — what's really left, and what to do about it
@@ -11,6 +11,14 @@ run through a red team, a Munger inversion, and an independent checker before
 being trusted.
 
 ## TL;DR
+
+> **Update (2026-07-09, later the same day):** items 1 and "What this PR
+> does" below describe the state as first audited (PR #847). Point 1's
+> "requires... forever" and "does NOT do: touch the Two-renderer rule" are
+> now stale — the rule **was** demoted to opt-in the same day, in the
+> immediate follow-up (PR #849, §5(a)). Left as originally written below for
+> an accurate record of what the audit found; §1's own update note and §5(a)
+> carry the current state.
 
 `engineering/marp-independence.md` claims Marp is "fully externalized… nothing
 of ours uses Marp, especially not verification." That's **true on the narrowest
@@ -101,7 +109,15 @@ wants the complete list rather than this note's synthesis.
 
 ## §1 — The real, regenerative cost: the Two-renderer rule
 
-`engineering/workflow.md` §"Two-renderer rule" is binding today:
+> **Update (2026-07-09, same day):** this section describes the rule as it
+> stood at audit time — mandatory, no removal path. §5(a) below records that
+> it was demoted the same day, per an adversarial red-team + inversion +
+> independent-checker pass on the fix itself (that trio flagged this section
+> as stale/contradictory if left unmarked — this note is the fix). Read §1 as
+> historical diagnosis of the problem; read §5(a) for the current rule.
+
+`engineering/workflow.md` §"Two-renderer rule" **was** binding at the time of
+this audit:
 
 > Any authoring transform must land in the shared kernels so every render
 > path stays in step… 1. the owned `lib/engine`… 2. `lattice-runtime.js` (the
@@ -145,11 +161,13 @@ this is why:
   this is planned" — permanent workarounds for a dependency the project
   cannot fix or remove.
 
-**This is real and current**, not legacy in the sense of "dead code" — it's a
-live, binding, CI-relevant policy that will keep generating this exact class
-of finding on every future component or transform, because the rule requires
-it by name. That's what makes it different from everything else in this
-audit: the rest is a bill already paid; this one is a standing order.
+**This was real and current at audit time**, not legacy in the sense of "dead
+code" — it was a live, binding, CI-relevant policy that would have kept
+generating this exact class of finding on every future component or
+transform, because the rule required it by name. That's what made it
+different from everything else in this audit: the rest is a bill already
+paid; this one was a standing order — **which is exactly why it got fixed
+same-day rather than left in the backlog. See §5(a).**
 
 ## §2 — One-time, now-inert residue (low priority)
 
@@ -280,24 +298,55 @@ it isn't silently dropped):
   vocabulary ("A Marp class directive," "a Marp global `<style>` block") —
   low severity, bundle into the same pass as the framing docs above since
   it's the same kind of edit.
-- The full §1 Two-renderer rule and everything under it — a product decision,
-  §5.
+
+(The Two-renderer rule policy itself, listed here as unfixed in the original
+version of this section, was decided and shipped a few hours later in the
+same day — §5(a). It's no longer in this "not fixed" list because it *was*
+fixed, just not in the original PR. The *existing* `lattice-runtime.js`
+mirrors it produced (§1's file list) are still untouched; sunsetting any of
+them individually is still §5(b) territory or its own case-by-case
+follow-up.)
 
 ## §5 — The decision that actually matters (needs your call)
 
 Per the inversion: demoting the Two-renderer rule is the *one* structural
 edit that stops manufacturing new findings of this shape — everything else in
-this audit is a one-time cost already paid. Two honest options, not mine to
-pick unilaterally because it touches a currently-documented author workflow:
+this audit is a one-time cost already paid. Two honest options, neither mine
+to pick unilaterally because both touch a currently-documented author
+workflow:
 
-**(a) Demote, don't remove.** Rewrite the Two-renderer rule from "every
-transform MUST land in both kernels, no removal path" to "ships against
-`lib/engine` by default; a `lattice-runtime.js` DOM mirror is opt-in, added
-only when an author actually needs a feature to look right mid-draft in
-VS Code, and every mirror added from today forward carries a comment naming
-its sunset condition." Existing mirrors stay (no rewrite of `lib/runtime`
-needed); new features stop paying the tax by default. Cheapest, reversible,
-addresses the regenerative cause directly.
+**(a) Demote, don't remove. Implemented 2026-07-09, per an explicit
+in-session go-ahead** to proceed with this option specifically (the two
+options were laid out and (a) was recommended; the response was to proceed).
+Opened as its own PR (#849), gated the normal way — CI green, then a
+separate, explicit merge authorization before it actually lands, same as any
+other PR; nothing here short-circuits that gate. Rewrote the Two-renderer
+rule (`engineering/workflow.md`) from "every transform MUST land in both
+kernels, no removal path" to "ships against `lib/engine` by default; a
+`lattice-runtime.js` DOM mirror is opt-in, added only when an author actually
+needs a feature to look right mid-draft in VS Code, and every mirror added
+from 2026-07-09 forward carries a comment naming its sunset condition."
+Existing mirrors stay (no rewrite of `lib/runtime`); new features stop
+paying the tax by default.
+
+**Hardened same-day by a second adversarial pass (red team + Munger
+inversion + independent checker) on the fix itself**, once it landed as a
+diff — not just the recommendation. That pass converged on one real risk
+both the red team and the inversion found independently: **the new rule has
+no skip-time signal.** Under the old mandatory rule, skipping a mirror was a
+detectable policy violation; under the new opt-in rule, skipping is the
+*default, correct* action, so nothing distinguishes "we decided this
+transform doesn't need a mirror" from "we forgot, and the vscode preview
+just silently drifted." The checker confirmed no test or gate anywhere
+(`registry.test.js`, `runtime-form-wiring.test.js`, `tools/check-ownership.js`)
+would catch a future transform landing engine-only. Mitigated by pairing the
+opt-in policy with a lightweight, discipline-only **"known preview gaps"
+register** in `engineering/gotchas.md` (§ new subsection) — logging a skip
+costs one line, converts silent to logged, and stops short of rebuilding the
+CI-gated parity check this whole change exists to retire. Also caught:
+§1 above read as contradicting this section (fixed, see its update note),
+and the self-approving tone in an earlier draft of this paragraph (fixed —
+see the merge-gate note above).
 
 **(b) Retire marp-vscode as a first-party-supported preview surface**,
 pointing authors at the docs-site Studio/Playground instead, and let
@@ -305,12 +354,29 @@ pointing authors at the docs-site Studio/Playground instead, and let
 `gotchas.md`'s own receipts that the investment doesn't fully pay off today —
 but it changes what authors currently do to draft a deck, and this audit
 didn't verify whether Studio/Playground is actually a drop-in substitute for
-"open a `.md` file, watch the preview panel update on save."
+"open a `.md` file, watch the preview panel update on save." **Still open —
+not proceeding without that verification and explicit sign-off.** Per the
+inversion's steelman: the old mandatory-mirror policy was *necessary but
+insufficient* (it never fixed the preview's structural gaps, e.g. the `logo:`
+directive's sandbox limits — but it did catch the fixable cases), so (a)
+alone is not a complete substitute for deciding this. **Time-boxed trigger,
+so "deferred" doesn't quietly become "never":** re-evaluate (b) once the
+gaps register above collects 5 entries, or 90 days from 2026-07-09,
+whichever comes first — using the register itself as the evidence base for
+whether Studio/Playground readiness is worth assessing.
 
-I'd start with (a) — it's strictly cheaper, doesn't require confirming
-Studio's readiness first, and is the floor either way. Whether to also pursue
-(b) is a real product question. **Flagging for your decision, not
-proceeding.**
+**A floor on (b), regardless of which way it eventually goes:** manually
+wiring `dist/lattice-runtime.js` + `dist/lattice.css` + a registered theme +
+correct front matter into VS Code's Marp extension (or any Marp tool) must
+keep working — this is the README.md "Embed in a browser" contract, a
+supported path independent of whether new *authoring transforms* keep
+getting first-party runtime mirrors. "Retire marp-vscode as a
+first-party-supported preview surface" in (b) means Lattice stops chasing
+transform-by-transform parity for every new feature going forward (the
+Two-renderer rule's opt-in default, §5(a)) — it does **not** mean pulling
+`lattice-runtime.js`/`lattice.css` out of `dist/`, breaking the manual embed
+recipe, or making existing decks that rely on it stop rendering. Whatever
+(b) eventually decides, that floor doesn't move.
 
 ## §6 — Backlog (logged per HARD RULE #18, not pulled into this diff)
 
@@ -325,13 +391,25 @@ proceeding.**
 - Rewrite `engineering/pipeline.md` Part 6/7 — ~400 lines of obsolete
   pre-engine bootstrap instructions telling an agent to fall back to raw
   Marp CLI, written before `lib/engine` existed.
-- If (a) or (b) from §5 is approved: the actual code change (loosen
-  `engineering/workflow.md`'s rule text, then decide case-by-case which
-  existing `lattice-runtime.js` mirrors are worth keeping vs. sunsetting).
+- §5(a) is done; §5(b) still needs a decision (time-boxed, see §5). Once
+  either way is decided: case-by-case, which existing `lattice-runtime.js`
+  mirrors are worth keeping vs. sunsetting.
 - `examples/build.md`'s and `engineering/workflow.md`'s house convention of
   `marp: true` front matter on every example/exemplar deck — worth revisiting
-  once §5 is decided, since the convention exists for marp-vscode preview.
+  once §5(b) is decided, since the convention exists for marp-vscode preview.
 - `lib/components/legal/legal.gallery.md`'s false "Three-renderer parity"
   bullet, baked into shipped slide content with committed PDFs — deferred
   out of this PR per HARD RULE #8 (gallery isolation); needs its own
   rebuild-and-review pass.
+- **Found by the adversarial pass on §5(a)'s implementation, not fixed here
+  (off-path for a docs-only follow-up PR):** several test-file headers still
+  describe a phantom "marp-cli" third render path or "must be mirrored"
+  mandatory-parity language that the original audit's §3/§4 sweep missed —
+  `test/unit/transformers/registry.test.js` ("all three render paths
+  (marp-cli, lattice-emulator, lattice-runtime)"), `below-note.test.js`,
+  `pill-tag.test.js`, `masthead-lift.test.js`, `meta-tile.test.js`,
+  `progress-tile.test.js`, `watermark-tile.test.js`. None of these assert
+  anything false about current *behavior* (verified: none of them actually
+  gate on a mirror existing), but the "marp-cli" references are the same
+  P4-retirement staleness §3 already catalogs elsewhere, and worth folding
+  into that sweep next time it runs.

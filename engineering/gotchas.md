@@ -1083,6 +1083,31 @@ never turn "passed in headless" into "works on iOS."
 - **Removable when:** marp-vscode adds engine config support.
 - **Commits:** Original `lattice-runtime.js` design.
 
+### Known preview gaps — transforms shipped without a `lattice-runtime.js` mirror
+
+Since `engineering/workflow.md`'s Two-renderer rule was demoted to opt-in
+(2026-07-09, `engineering/decisions/2026-07-09-marp-legacy-audit.md` §5(a)),
+a new transform is not required to get a `lattice-runtime.js` DOM mirror —
+only add one when an author actually needs it to look right in the VS Code
+preview. Nothing automated catches the case where a mirror *would* have been
+worth adding and nobody did it, so this register is the discipline-only
+substitute: **when you ship a transform engine-only and know it won't render
+correctly (or will render differently) in the VS Code preview, add one line
+below.** Nothing enforces this — an empty table means either "no known gaps"
+or "nobody's logged one," and there's no way to tell which from the table
+alone. Don't read empty as reassurance; the real backstop is the calendar,
+not this list: the audit doc §5(b) re-evaluates whether marp-vscode is still
+worth supporting as a live-preview surface at a fixed 90-day mark regardless
+of how many rows are here.
+
+| Transform | Symptom in VS Code preview | Added |
+|---|---|---|
+| — none logged yet — | | |
+
+- **Removable when:** never fully — it's a living list, not a one-time
+  migration. Individual rows retire if the underlying transform is dropped
+  or a mirror is later added for it.
+
 ### `git worktree` doesn't share `node_modules`
 
 - **Symptom:** Inspecting a historical commit via
