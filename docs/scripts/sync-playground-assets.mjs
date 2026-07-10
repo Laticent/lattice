@@ -70,6 +70,24 @@ for (const file of readdirSync(distThemesDir)) {
     assets.push([`themes/${dest}`, join(distThemesDir, file)]);
   }
 }
+// lattice.css's @font-face block references each face by a co-located relative
+// `url(fonts/<file>.woff2)` (lib/fonts/text-faces.js's own doc comment: "resolved
+// relative to the stylesheet") — correct for the npm package, where dist/fonts/
+// sits next to dist/lattice.css, but nothing staged that fonts/ dir here, so the
+// relative ref 404'd wherever the CSS text ended up embedded (single-slide-
+// render.ts inlines it into a srcdoc iframe with no base URL of its own, so it
+// resolved against the PARENT page instead — e.g. /studio/fonts/… — Studio,
+// Workbench, and Playground alike; #876). Stage the SAME 17 text faces
+// (excluding KaTeX's, staged separately below) under themes/fonts/, co-located
+// with themes/lattice.css exactly like the KaTeX pattern already does — and
+// theme-fetch.ts now rewrites the relative ref to an absolute URL before the
+// CSS text is handed to the engine, so it survives being inlined ANYWHERE, not
+// just a same-directory fetch.
+const { TEXT_FACES } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'fonts', 'text-faces.js'));
+const distFontsDir = join(repoRoot, 'dist', 'fonts');
+for (const { file } of TEXT_FACES) {
+  assets.push([`themes/fonts/${file}.woff2`, join(distFontsDir, `${file}.woff2`)]);
+}
 // Component sample images referenced by manifest `sample` decks — e.g. the image
 // component's `![bg](sample-image-landscape.svg)`. Staged under samples/ so the
 // playground preview can load them; the component render passes this base as

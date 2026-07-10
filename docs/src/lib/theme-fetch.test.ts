@@ -71,3 +71,90 @@ describe('createThemeFetcher — transitive @import closure', () => {
 		expect(registered.has('a11y-base')).toBe(true); // light chain still fully registered
 	});
 });
+
+// Regression guard for #876: lattice.css's @font-face block ships a package-
+// relative url(fonts/<file>.woff2) (correct for the npm package, where
+// dist/fonts/ sits next to dist/lattice.css) that 404'd wherever the CSS text
+// ended up embedded — every consumer inlines it into a <style> with no base
+// URL of its own (a srcdoc iframe, the filmstrip), so the relative ref
+// resolved against the PARENT PAGE instead of themeBase.
+describe('createThemeFetcher — relative font url() rewriting', () => {
+	let registeredCss: string[];
+
+	beforeEach(() => {
+		registeredCss = [];
+		(globalThis as unknown as { window: unknown }).window = {
+			LatticePlayground: {
+				addThemes: (cssList: string[]) => registeredCss.push(...cssList),
+				hasTheme: () => false,
+			},
+		};
+	});
+
+	function stubFetch(css: string) {
+		vi.stubGlobal('fetch', () =>
+			Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(css) } as Response),
+		);
+	}
+
+	it('absolutizes an unquoted url(fonts/…) against themeBase', async () => {
+		stubFetch("@font-face{src:url(fonts/outfit-300.woff2) format('woff2')}");
+		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
+		expect(registeredCss[0]).toContain('url(/playground/v/abc123/themes/fonts/outfit-300.woff2)');
+	});
+
+	it("absolutizes a single-quoted url('fonts/…')", async () => {
+		stubFetch("@font-face{src:url('fonts/outfit-300.woff2') format('woff2')}");
+		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
+		expect(registeredCss[0]).toContain("url('/playground/v/abc123/themes/fonts/outfit-300.woff2')");
+	});
+
+	it('absolutizes a double-quoted url("fonts/…")', async () => {
+		stubFetch('@font-face{src:url("fonts/outfit-300.woff2") format("woff2")}');
+		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
+		expect(registeredCss[0]).toContain('url("/playground/v/abc123/themes/fonts/outfit-300.woff2")');
+	});
+
+	it('routes KaTeX font refs to the sibling katex/fonts/ dir instead of themes/fonts/', async () => {
+		stubFetch('@font-face{src:url(fonts/KaTeX_Main-Regular.woff2)}');
+		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
+		expect(registeredCss[0]).toContain('url(/playground/v/abc123/katex/fonts/KaTeX_Main-Regular.woff2)');
+		expect(registeredCss[0]).not.toContain('themes/fonts/KaTeX');
+	});
+
+	it('rewrites both a text-face AND a KaTeX ref in the same stylesheet correctly', async () => {
+		stubFetch('@font-face{src:url(fonts/outfit-300.woff2)}@font-face{src:url(fonts/KaTeX_Main-Regular.woff2)}');
+		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
+		expect(registeredCss[0]).toContain('url(/playground/v/abc123/themes/fonts/outfit-300.woff2)');
+		expect(registeredCss[0]).toContain('url(/playground/v/abc123/katex/fonts/KaTeX_Main-Regular.woff2)');
+	});
+
+	it('leaves a CSS text with no font url() reference untouched', async () => {
+		stubFetch(':root{--accent:#36c}');
+		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
+		expect(registeredCss[0]).toBe(':root{--accent:#36c}');
+	});
+
+	it('does not touch a non-font url() (e.g. a background-image reference)', async () => {
+		stubFetch(".hero{background:url('images/hero.svg')}");
+		await createThemeFetcher('/playground/v/abc123/themes/').ensureBase();
+		expect(registeredCss[0]).toBe(".hero{background:url('images/hero.svg')}");
+	});
+
+	// Documents a real assumption: every current caller's themeBase ends in the
+	// literal 'themes/' (studio.astro/workbench.astro/playground.astro/
+	// drawing-board.astro/index.astro/Specimen.astro all build it via
+	// `joinBase(base, 'themes/')`), so `.replace(/themes\/$/, 'katex/fonts/')`
+	// always fires. A themeBase WITHOUT that trailing segment does NOT error
+	// and does NOT no-op either — `.replace()` returns themeBase UNCHANGED when
+	// nothing matches, so katexBase silently degrades to plain themeBase, and
+	// the KaTeX rewrite still fires, just against the wrong (non-katex/fonts/)
+	// directory. Pinning today's actual behavior here so a future caller with a
+	// different themeBase shape gets a visibly-wrong asset 404 to investigate,
+	// not a change nobody notices broke KaTeX quietly.
+	it('degrades to a WRONG (not katex/fonts/-routed) but still absolute URL when themeBase does not end in "themes/"', async () => {
+		stubFetch('@font-face{src:url(fonts/KaTeX_Main-Regular.woff2)}');
+		await createThemeFetcher('/playground/v/abc123/other/').ensureBase();
+		expect(registeredCss[0]).toBe('@font-face{src:url(/playground/v/abc123/other/KaTeX_Main-Regular.woff2)}');
+	});
+});
