@@ -84,6 +84,17 @@ test('the CSP sha256 actually covers the shipped player script (freeze-surviving
 	assert.match(html, /default-src 'none'/, 'default-src none locks down the file');
 });
 
+test('the CSP-hashed script is pure ASCII (WebKit hashes non-ASCII differently → blocks it)', async () => {
+	// iOS WebKit (Safari + every iOS webview) computes the sha256 CSP hash over a different
+	// byte encoding than Chromium/Node for non-ASCII, so a glyph or em-dash in the script
+	// makes the shipped hash mismatch and WebKit REFUSES the script — the player is dead on
+	// iOS. The script must stay pure ASCII (glyphs escaped to \uXXXX). Regression guard.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	const body = html.match(/<script>([\s\S]*?)<\/script>/i)[1];
+	const nonAscii = [...body].filter((c) => c.codePointAt(0) > 0x7f);
+	assert.equal(nonAscii.length, 0, `the player script must be pure ASCII; found: ${[...new Set(nonAscii)].map((c) => 'U+' + c.codePointAt(0).toString(16)).join(', ')}`);
+});
+
 test('embeds the verbatim source envelope, round-tripping byte-exact', async () => {
 	const { html } = await buildPlayerHtml({ docHtml, source, title: 'Deck', now: 0 });
 	assert.equal(parseEnvelope(html).source, source);
@@ -110,14 +121,63 @@ test('carries the three view controls + the Typora TOC shell', async () => {
 	assert.match(html, /id="lp-toc"/, 'the article TOC shell is present');
 });
 
-test('the player inlines the transport kernel with its EXACT fit insets (frozen fit)', async () => {
-	// The fit must stay byte-identical to the historical Math.min((iw-56)/1280,(ih-104)/720).
-	// The kernel is inlined via .toString(), so a silent edit of these insets would pass
-	// the kernel unit suite (integration-only exposure) — pin the wiring here.
+test('present ships visible prev/next controls wired to the shared transport', async () => {
+	// Mirrors the Studio's audio-present overlay chevrons (PresentOverlay.tsx), giving
+	// Present a click-target nav affordance alongside keyboard/swipe — some third-party
+	// iOS HTML viewers don't reliably deliver keydown to the page. Wired to the SAME
+	// transport object (t.prev()/t.next()) the keyboard/swipe handlers already use, not
+	// a hand-rolled clamp, so bounds/nav logic stays single-sourced (HARD RULE #1).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /id="lp-prev"[^>]*aria-label="Previous slide"/, 'a labeled previous-slide button is present');
+	assert.match(html, /id="lp-next"[^>]*aria-label="Next slide"/, 'a labeled next-slide button is present');
+	assert.match(html, /prevBtn\.onclick=function\(\)\{t\.prev\(\);\}/, 'prev is wired to the shared transport');
+	assert.match(html, /nextBtn\.onclick=function\(\)\{t\.next\(\);\}/, 'next is wired to the shared transport');
+	assert.match(html, /prevBtn\.disabled=i===0/, 'prev disables at the first slide');
+	assert.match(html, /nextBtn\.disabled=i===slides\.length-1/, 'next disables at the last slide');
+});
+
+test('the view-switcher tabs carry an icon + an aria-label, so they survive icon-only on narrow viewports', async () => {
+	// Regression: "Read · Slides" / "Read · Article" wrapped to two lines on a real
+	// iPhone, blowing out the bar's height (screenshot-reported). Below 560px the text
+	// hides and only the icon shows — the button's OWN aria-label (not the now-hidden
+	// text) carries the accessible name in either state.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	for (const [v, label] of [['present', 'Present'], ['read-slides', 'Read · Slides'], ['read-article', 'Read · Article']]) {
+		const btn = (html.match(new RegExp(`<button data-lp-btn="${v}"[^>]*>`)) || [])[0];
+		assert.ok(btn, `${v} button present`);
+		assert.match(btn, new RegExp(`aria-label="${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`), `${v} carries its own aria-label`);
+	}
+	assert.match(html, /class="lp-tab-icon"/, 'each tab carries an icon');
+	assert.match(html, /class="lp-tab-text"/, 'each tab carries a hideable text label');
+});
+
+test('the player inlines the transport kernel and fits against the MEASURED stage box', async () => {
+	// Regression: the fit scale was once computed against innerWidth/innerHeight with a
+	// hand-tuned insetY (48+56) baking the top bar's height into the inset budget — a
+	// DIFFERENT number than the #lp-stage element's own CSS height (which already
+	// excludes the bar). The two could drift apart (depending on how --lp-vh resolved
+	// on a given engine), producing asymmetric top/bottom padding around the centered
+	// slide. Fit now measures the stage element's own clientWidth/clientHeight directly,
+	// so the scale and the centering box are always the same measured box — symmetric
+	// by construction, immune to any dvh/visualViewport quirk.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /function fitScale\(/, 'the transport kernel is inlined into the player script');
-	assert.match(html, /slideW:1280,slideH:720,insetX:56,insetY:48\+56/, 'the player wires the exact historical insets');
+	assert.match(html, /var st=document\.getElementById\('lp-stage'\)/, 'fit measures the stage element directly');
+	assert.match(html, /stageW:stW,stageH:stH,slideW:1280,slideH:720,insetX:56,insetY:56/, 'the scale is computed against the measured stage box, not innerWidth/innerHeight');
 	assert.match(html, /createTransport\(\{count:slides\.length/, 'nav runs on the shared transport');
+});
+
+test('present resets the base #lp-stage padding-top so the centered slide sits symmetric', async () => {
+	// Regression: the base `#lp-stage{padding-top:48px}` rule (which clears the 48px bar
+	// for the normal-flow SCROLLING views, Read·Slides/Article) also applied in Present,
+	// where #lp-stage is ALREADY `position:fixed;top:48px`. That double-counted the bar —
+	// the padding ate into the grid/flex content box that place-items:center then
+	// centered WITHIN, not the full box — producing asymmetric top/bottom padding around
+	// the slide (measured: 62px top vs 14px bottom at one viewport). Present overrides it
+	// back to padding-top:0, restoring symmetric centering (confirmed 0px diff at three
+	// viewport sizes in Chromium).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /\[data-lp-view=present\] #lp-stage\{[^}]*padding-top:0/, 'present resets the base padding-top so centering is symmetric');
 });
 
 test('present mode ships a speaker-notes sheet reading the baked asides (P3d)', async () => {
@@ -142,9 +202,62 @@ test('present mode ships swipe, fullscreen, and dvh viewport-fill (P3c)', async 
 	assert.match(html, /swipeAction\(\{dx:/, 'a decisive horizontal drag turns the slide');
 	assert.match(html, /id="lp-full"/, 'the fullscreen control is present');
 	assert.match(html, /requestFullscreen/, 'fullscreen is wired (feature-detected)');
-	assert.match(html, /height:calc\(100dvh - 48px\);box-sizing:border-box/, 'dvh fill with border-box (no padding overflow / vertical shift)');
+	assert.match(html, /height:calc\(var\(--lp-vh,100dvh\) - 48px\);box-sizing:border-box/, 'stage height prefers the JS-measured viewport, falling back to dvh with border-box (no padding overflow / vertical shift)');
 	assert.match(html, /place-items:center;justify-content:center/, 'the oversized slide is centered in a narrow viewport (mobile on-screen)');
-	assert.match(html, /addEventListener\('orientationchange',fit\)/, 'the fit re-runs on orientation change');
+	assert.match(html, /function setStageHeight\(\)/, 'the script measures the real viewport (visualViewport/innerHeight) rather than trusting dvh');
+	assert.match(html, /addEventListener\('orientationchange',onResize\)/, 'the fit re-runs on orientation change');
+	assert.match(html, /function onResize\(\)\{setStageHeight\(\);fit\(\);fitRead\(\);\}/, 'onResize re-measures the viewport height and refits both present (fit) and read-slides (fitRead)');
+});
+
+test('the inlined transport kernel binds STABLE names (survives a minifying bundler)', async () => {
+	// Regression: the kernel was inlined as bare `${createTransport.toString()}` — a
+	// `function createTransport(){…}` DECLARATION. That works unminified (CLI), but the
+	// docs-site PRODUCTION build minifies player-core and renames the module functions
+	// (createTransport→Q, keyAction→G, PRESENT_KEYMAP→P). Their `.toString()` then no
+	// longer declares the name the player code calls, so the Studio-exported player threw
+	// `createTransport is not defined`, stripped `.lp-js`, and showed only the no-JS floor
+	// on every browser. Binding to a fixed `var` decouples the call sites from the emitted
+	// function name; passing the keymap explicitly avoids keyAction's renamed default.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	for (const name of ['createTransport', 'fitScale', 'keyAction', 'swipeAction']) {
+		assert.match(html, new RegExp(`var ${name}=`), `${name} is bound to a stable var, not a bare declaration`);
+	}
+	assert.match(html, /keyAction\(e\.key,PRESENT_KEYMAP\)/, 'the keymap is passed explicitly so the renamed default is never evaluated');
+});
+
+test('slides keep display:flex in every view so vertical centering survives (no "content rides high")', async () => {
+	// Regression: the player views once forced `display:block` on the section, which
+	// overrode the engine's base `section{display:flex;flex-direction:column}`. That made
+	// `section.title{justify-content:center}` inert, so a cover slide's content flowed to
+	// the TOP instead of centering — the "content rides high" / "title slide tiny" bug seen
+	// on a real iPhone. Present must re-show the active slide as flex; read-slides + the
+	// no-JS floor must NOT re-assert block (they inherit base flex).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.doesNotMatch(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{[^}]*display:block/, 'read-slides never forces block (keeps base flex)');
+	assert.doesNotMatch(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{[^}]*display:block/, 'the no-JS floor never forces block (keeps base flex)');
+});
+
+test('read-slides + the no-JS floor scale each slide with a wrapped transform, never CSS zoom', async () => {
+	// Regression: switching Read·Slides + the no-JS floor to CSS `zoom` (to collapse the
+	// layout footprint the way `transform` doesn't) reintroduced a KNOWN, previously
+	// REJECTED bug: iOS WebKit does not re-resolve `container-type:size` + cqi/cqh — the
+	// engine's whole typography/spacing scale — against a zoom-scaled container, so cqi
+	// collapses to near-zero and the type renders illegibly tiny. Confirmed on a real
+	// iPhone (engineering/gotchas.md "Preview slides collapse … CSS zoom", decision doc
+	// 2026-07-02-preview-scale-zoom.md, REJECTED — headless Chromium cannot reproduce this,
+	// so it silently looked fine in every CI gate). Fix: each slide is wrapped in a
+	// `.lp-frame` sized to the SCALED footprint (so the flex column still packs tight
+	// without zoom's layout-collapse), and the section inside is scaled with `transform`
+	// (immune — cqi resolves once against its own intrinsic 1280x720 box).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.doesNotMatch(html, /zoom:/, 'no view scales with CSS zoom (WebKit cqi/cqh collapse)');
+	assert.match(html, /class="lp-frame"/, 'every slide is wrapped in a sizeable .lp-frame');
+	assert.match(html, /\[data-lp-view=read-slides\] \.lp-frame\{width:calc\(1280px \* var\(--lp-fit,\.28\)\)/, 'the frame carries the scaled footprint so the flex gap packs tight');
+	assert.match(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit,\.28\)\);transform-origin:0 0/, 'read-slides scales the native canvas with transform, not zoom');
+	assert.match(html, /html:not\(\.lp-js\) \.lp-frame\{width:calc\(1280px \* var\(--lp-fit\)\)/, 'the no-JS floor frame also carries the scaled footprint');
+	assert.match(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit\)\)/, 'the no-JS floor scales with transform, not zoom');
+	assert.match(html, /function fitRead\(\)/, 'the script fits the read-slides miniatures fluidly to the column');
+	assert.match(html, /var frames=\[\]\.slice\.call\(document\.querySelectorAll\('\.lp-frame'\)\)/, 'present toggles visibility on the frame wrapper, not the section');
 });
 
 test('fileToDataUri returns null for a missing file (feeds the honesty report)', () => {
@@ -195,7 +308,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '9d220e9af4473e4d4e51f77c57ced4705d5ddbf9f6a79d5fe0934eb0258f56b9', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '54a1f93b393e5524145eec36dea61b4cdb673e2e5cbb5071219123c8ccd4444f', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

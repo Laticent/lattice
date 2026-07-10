@@ -380,8 +380,20 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
  padding:6px 11px;border-radius:8px;cursor:pointer;line-height:1}
 #lp-bar button:hover{background:var(--bg-alt,#eee)}
 #lp-bar button[aria-pressed=true]{background:var(--accent,#4338ca);color:var(--on-accent,#fff)}
+/* The view-switcher tabs carry an icon + text label. Below 560px the "Read \xB7 Slides" /
+   "Read \xB7 Article" labels have no room and wrap to two lines, blowing out the bar's
+   height \u2014 icon-only on narrow viewports (the accessible name rides on the button's
+   OWN aria-label, not the now-hidden text, so it survives either state). */
+#lp-bar .lp-seg button{display:flex;align-items:center;gap:6px}
+#lp-bar .lp-tab-icon{display:none;flex:none}
+@media(max-width:560px){#lp-bar .lp-tab-icon{display:block}#lp-bar .lp-tab-text{display:none}}
 #lp-count{font-variant-numeric:tabular-nums;color:var(--text-muted,#888);font-size:13px;min-width:46px;text-align:center}
 #lp-mode,#lp-full,#lp-notes-btn{border:1px solid var(--border,#ccc)!important;border-radius:8px}
+/* Clears the 48px bar for the normal-flow SCROLLING views (Read\xB7Slides/Article) \u2014
+   Present overrides this to padding-top:0 below, since its #lp-stage is already
+   position:fixed;top:48px and this padding would double-count, eating into the
+   centered content box and producing asymmetric top/bottom padding around the
+   slide (place-items:center centers WITHIN the padded box, not the full one). */
 #lp-stage{padding-top:48px}
 /* Speaker-notes sheet \u2014 slides up over the stage in present mode (toggle: 'n' or the
    button). Only shown in present; absent entirely for a --strip-notes export. */
@@ -392,18 +404,53 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
 #lp-notes.lp-open{transform:translateY(0)}
 #lp-notes-body{max-width:900px;margin:0 auto;white-space:pre-wrap;line-height:1.6;color:var(--text-body,#222);font-size:15px}
 #lp-notes[data-empty=true] #lp-notes-body::after{content:"No notes for this slide.";color:var(--text-muted,#888);font-style:italic}
-/* PRESENT \u2014 fill the DYNAMIC viewport (dvh) so mobile toolbars don't clip the stage;
-   touch-action:none frees a horizontal drag for slide-swipe instead of scroll/zoom. */
-.lp-js [data-lp-view=present] #lp-stage{position:fixed;top:48px;left:0;right:0;height:calc(100dvh - 48px);box-sizing:border-box;display:grid;place-items:center;justify-content:center;overflow:hidden;background:var(--bg,#fff);touch-action:none}
-.lp-js [data-lp-view=present] section[data-lattice-slide]{display:none;box-shadow:0 24px 70px -22px rgba(0,0,0,.45)}
-.lp-js [data-lp-view=present] section[data-lattice-slide].lp-active{display:block;transform-origin:center center}
+/* PRESENT \u2014 fill the MEASURED viewport (--lp-vh, set by the script from
+   visualViewport/innerHeight; 100dvh is only the pre-JS/no-script fallback). A
+   third-party iOS HTML-viewer's own in-app chrome (its own address bar / nav
+   strip, outside the page) can report a dvh that doesn't match what's actually
+   visible, pushing the centered stage off-screen-center \u2014 measuring in JS is
+   immune to that. touch-action:none frees a horizontal drag for slide-swipe
+   instead of scroll/zoom. */
+.lp-js [data-lp-view=present] #lp-stage{position:fixed;top:48px;left:0;right:0;height:calc(var(--lp-vh,100dvh) - 48px);
+ box-sizing:border-box;padding-top:0;display:grid;place-items:center;justify-content:center;overflow:hidden;background:var(--bg,#fff);touch-action:none}
+.lp-js [data-lp-view=present] .lp-frame{display:none}
+.lp-js [data-lp-view=present] .lp-frame.lp-active{display:block;width:1280px;height:720px}
+.lp-js [data-lp-view=present] .lp-frame.lp-active section[data-lattice-slide]{box-shadow:0 24px 70px -22px rgba(0,0,0,.45);transform-origin:center center}
 .lp-js [data-lp-view=present] #lp-doc{display:none}
-/* READ \xB7 SLIDES \u2014 stack the real slides, scaled, in a column */
+/* Present prev/next \u2014 visible arrow controls (mirrors the Studio's audio present
+   overlay chevrons), on top of keyboard nav + swipe. Hidden outside present + until
+   .lp-js engages (progressive enhancement \u2014 a per-slide index means nothing without
+   the script). Boundary buttons disable at the first/last slide (real disabled, not
+   just dimmed, so assistive tech gets the correct state). */
+#lp-prev,#lp-next{display:none;position:fixed;top:calc(50% + 24px);z-index:55;transform:translateY(-50%);
+ width:44px;height:44px;align-items:center;justify-content:center;border-radius:999px;
+ border:1px solid var(--border,#ddd);background:color-mix(in srgb,var(--bg,#fff) 86%,transparent);
+ backdrop-filter:blur(12px);color:var(--text-secondary,#333);cursor:pointer}
+#lp-prev:hover,#lp-next:hover{color:var(--accent,#4338ca);border-color:var(--accent,#4338ca)}
+#lp-prev:disabled,#lp-next:disabled{opacity:.3;pointer-events:none}
+#lp-prev{left:14px}#lp-next{right:14px}
+.lp-js [data-lp-view=present] #lp-prev,.lp-js [data-lp-view=present] #lp-next{display:flex}
+@media(max-width:640px){#lp-prev,#lp-next{width:38px;height:38px}}
+/* READ \xB7 SLIDES \u2014 the real slides as faithful miniatures. Each slide is a FIXED
+   1280\xD7720 canvas whose internal layout (a title slide centers, a content slide sits
+   its text at the top) only renders correctly at that native size \u2014 resizing the box
+   wrecks it. So keep the native size and SCALE the whole canvas with transform, NOT
+   CSS zoom: iOS WebKit does not re-resolve container-type:size + cqi/cqh (the
+   engine's whole typography/spacing scale) against a zoom-scaled container \u2014 cqi
+   collapses to near-zero, rendering the type illegibly tiny (documented, previously
+   REJECTED for this exact reason: engineering/gotchas.md "Preview slides collapse \u2026
+   CSS zoom", decision doc 2026-07-02-preview-scale-zoom.md). transform is immune \u2014
+   cqi resolves ONCE against the intrinsic 1280\xD7720 box, and transform only scales the
+   already-resolved paint. transform doesn't collapse the LAYOUT box the way zoom did,
+   so each slide is wrapped in a .lp-frame sized to the scaled footprint
+   (calc(1280px * var(--lp-fit))) \u2014 the flex column's gap then packs against that
+   real size, same visual result as zoom gave, without breaking cqi. --lp-fit is set
+   fluidly by the script to fill the column; the mobile default also serves the floor. */
 [data-lp-view=read-slides] #lp-doc{display:none}
-[data-lp-view=read-slides] #lp-stage{max-width:960px;margin:0 auto;padding:28px 18px 120px}
-[data-lp-view=read-slides] section[data-lattice-slide]{width:100%!important;height:auto!important;aspect-ratio:16/9;
- display:block;margin:0 0 26px;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);
- box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
+[data-lp-view=read-slides] #lp-stage{max-width:980px;margin:0 auto;padding:28px 16px 120px;display:flex;flex-direction:column;align-items:center;gap:24px}
+[data-lp-view=read-slides] .lp-frame{width:calc(1280px * var(--lp-fit,.28));height:calc(720px * var(--lp-fit,.28));overflow:hidden;border-radius:12px}
+[data-lp-view=read-slides] section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit,.28));transform-origin:0 0;
+ border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
 /* READ \xB7 ARTICLE \u2014 Typora-style prose + sticky left TOC (shell; component-aware projection = P4) */
 [data-lp-view=read-article] #lp-stage{display:none}
 #lp-doc{display:none}
@@ -445,19 +492,24 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
    mobile browsers), scripting disabled, or a script error \u2014 the deck falls back to a
    readable stacked column instead of a BLANK page (present mode had hidden every slide
    until JS marked one active). The bar's live-only controls hide in this state. */
-html:not(.lp-js) #lp-stage{max-width:960px;margin:0 auto;padding:68px 16px 90px}
-html:not(.lp-js) section[data-lattice-slide]{width:100%!important;height:auto!important;aspect-ratio:16/9;display:block;margin:0 0 22px;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
+html:not(.lp-js){--lp-fit:.28}
+@media(min-width:560px){html:not(.lp-js){--lp-fit:.40}}
+@media(min-width:760px){html:not(.lp-js){--lp-fit:.56}}
+@media(min-width:1000px){html:not(.lp-js){--lp-fit:.72}}
+html:not(.lp-js) #lp-stage{max-width:980px;margin:0 auto;padding:68px 16px 90px;display:flex;flex-direction:column;align-items:center;gap:22px}
+html:not(.lp-js) .lp-frame{width:calc(1280px * var(--lp-fit));height:calc(720px * var(--lp-fit));overflow:hidden;border-radius:12px}
+html:not(.lp-js) section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit));transform-origin:0 0;border-radius:12px;overflow:hidden;border:1px solid var(--border,#e5e5e5);box-shadow:0 8px 30px -16px rgba(0,0,0,.35)}
 html:not(.lp-js) #lp-notes,html:not(.lp-js) #lp-count,html:not(.lp-js) #lp-notes-btn,html:not(.lp-js) #lp-full{display:none}
 `.trim();
 }
 async function playerJs() {
   const { fitScale: fitScale2, createTransport: createTransport2, keyAction: keyAction2, swipeAction: swipeAction2, PRESENT_KEYMAP: PRESENT_KEYMAP2 } = await Promise.resolve().then(() => (init_present_transport(), present_transport_exports));
   const kernel = `var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP2)};
-${keyAction2.toString()}
-${fitScale2.toString()}
-${createTransport2.toString()}
-${swipeAction2.toString()}`;
-  return `(function(){
+var keyAction=${keyAction2.toString()};
+var fitScale=${fitScale2.toString()};
+var createTransport=${createTransport2.toString()};
+var swipeAction=${swipeAction2.toString()};`;
+  const js = `(function(){
 ${kernel}
 var root=document.documentElement,app=document.getElementById('lp-app');
 if(!app)return;
@@ -468,19 +520,60 @@ if(!app)return;
 try{
 root.className+=(root.className?' ':'')+'lp-js';
 var slides=[].slice.call(document.querySelectorAll('section[data-lattice-slide]'));
+// Each slide is wrapped in a .lp-frame (document order matches slides, one wrapper
+// per section) \u2014 present toggles visibility on the FRAME (sized to match the section, so
+// it's a transparent no-op box) while the SECTION itself keeps the transform-scale. This
+// keeps the fixed-canvas cqi/cqh layout intact in every view \u2014 see playerCss.
+var frames=[].slice.call(document.querySelectorAll('.lp-frame'));
 var count=document.getElementById('lp-count'),view='present';
+var prevBtn=document.getElementById('lp-prev'),nextBtn=document.getElementById('lp-next');
 var t=createTransport({count:slides.length,onShow:render});
+if(prevBtn)prevBtn.onclick=function(){t.prev();};
+if(nextBtn)nextBtn.onclick=function(){t.next();};
+// Measure the STAGE ELEMENT ITSELF, not innerWidth/innerHeight with a hand-tuned
+// inset. The stage's CSS height already excludes the 48px bar (calc(var(--lp-vh,
+// 100dvh) - 48px)); computing the scale against a DIFFERENT number (innerHeight,
+// with the 48px re-added into the inset budget) than the box actually used for
+// centering (place-items:center on the stage) let the two drift apart, producing
+// asymmetric top/bottom padding around the slide. Reading the stage's own
+// clientWidth/clientHeight makes the scale and the centering box the SAME
+// measured box by construction \u2014 symmetric regardless of any dvh/visualViewport
+// quirk in whatever engine is hosting the file.
 function fit(){if(view!=='present')return;var s=slides[t.index];if(!s)return;
- s.style.transform='scale('+fitScale({stageW:innerWidth,stageH:innerHeight,slideW:1280,slideH:720,insetX:56,insetY:48+56})+')';}
-function render(){var i=t.index;slides.forEach(function(s,n){s.classList.toggle('lp-active',n===i);});
- if(count)count.textContent=(i+1)+' / '+slides.length;fit();syncNotes();}
+ var st=document.getElementById('lp-stage');
+ var stW=st?st.clientWidth:innerWidth,stH=st?st.clientHeight:innerHeight;
+ s.style.transform='scale('+fitScale({stageW:stW,stageH:stH,slideW:1280,slideH:720,insetX:56,insetY:56})+')';}
+// READ\xB7SLIDES fit: scale each native 1280x720 canvas (via the .lp-frame wrapper + the
+// section's CSS transform) to fill the column exactly. The column is the stage's content
+// width (clientWidth minus its 16px side padding). Set fluidly here so the miniatures grow
+// with the window; the CSS default (.28) covers the first paint + the no-JS floor.
+function fitRead(){var stage=document.getElementById('lp-stage');if(!stage)return;
+ var avail=stage.clientWidth-32;if(avail>0)root.style.setProperty('--lp-fit',(avail/1280).toFixed(4));}
+// PRESENT stage height: measure the ACTUAL visible viewport instead of trusting dvh.
+// A third-party iOS HTML-viewer's own in-app chrome can report a dvh that doesn't match
+// what's actually on screen, pushing the centered slide off-center; visualViewport (falling
+// back to innerHeight) reads the real thing on every engine.
+function setStageHeight(){var h=(window.visualViewport&&window.visualViewport.height)||innerHeight;
+ root.style.setProperty('--lp-vh',h+'px');}
+function render(){var i=t.index;frames.forEach(function(f,n){f.classList.toggle('lp-active',n===i);});
+ if(count)count.textContent=(i+1)+' / '+slides.length;
+ if(prevBtn)prevBtn.disabled=i===0;
+ if(nextBtn)nextBtn.disabled=i===slides.length-1;
+ fit();syncNotes();}
 function setView(v){view=v;app.setAttribute('data-lp-view',v);
  [].forEach.call(document.querySelectorAll('[data-lp-btn]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-lp-btn')===v);});
+ // Present's fit() sets an inline transform:scale on the active slide. Read views size
+ // slides with CSS, so a stale present-scale would shrink one thumbnail (the title slide
+ // rendered at ~92px). Clear every inline transform when leaving present.
+ if(v!=='present')slides.forEach(function(s){s.style.transform='';});
+ if(v==='read-slides')fitRead();
  if(count)count.style.visibility=v==='present'?'visible':'hidden';if(v==='present')render();}
 addEventListener('keydown',function(e){if(view!=='present')return;
- var a=keyAction(e.key);if(!a)return;t[a]();e.preventDefault();});
-addEventListener('resize',fit);addEventListener('orientationchange',fit);
-if(window.visualViewport){try{visualViewport.addEventListener('resize',fit)}catch(e){}}
+ var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;t[a]();e.preventDefault();});
+function onResize(){setStageHeight();fit();fitRead();}
+setStageHeight();
+addEventListener('resize',onResize);addEventListener('orientationchange',onResize);
+if(window.visualViewport){try{visualViewport.addEventListener('resize',onResize)}catch(e){}}
 // Touch/swipe on the present stage \u2014 a decisive horizontal drag turns the slide
 // (the shared swipeAction; a vertical/short move is ignored so it never fights scroll).
 var stage=document.getElementById('lp-stage'),sx=0,sy=0,sw=false;
@@ -518,6 +611,12 @@ if(links.length&&window.IntersectionObserver){var spy=new IntersectionObserver(f
 setView('present');
 }catch(e){if(root){root.className=root.className.replace(/(^|\\s)lp-js\\b/,'');}}
 })();`;
+  let ascii = "";
+  for (let i = 0; i < js.length; i++) {
+    const code = js.charCodeAt(i);
+    ascii += code > 127 ? `\\u${code.toString(16).toUpperCase().padStart(4, "0")}` : js[i];
+  }
+  return ascii;
 }
 async function buildArticle(doc) {
   const { projectDeckToProse: projectDeckToProse2 } = await Promise.resolve().then(() => (init_prose_projection(), prose_projection_exports));
@@ -555,7 +654,7 @@ async function assemblePlayer(data, caps) {
   for (const sec of [...doc.querySelectorAll("section[data-lattice-slide]")]) {
     sec.outerHTML = caps.sanitize(sec.outerHTML);
   }
-  const slidesHtml = [...doc.querySelectorAll("section[data-lattice-slide]")].map((s) => s.outerHTML).join("\n");
+  const slidesHtml = [...doc.querySelectorAll("section[data-lattice-slide]")].map((s) => `<div class="lp-frame">${s.outerHTML}</div>`).join("\n");
   const a11yDefs = [...doc.querySelectorAll("body > svg")].map((s) => caps.sanitize(s.outerHTML)).join("\n");
   const { article, toc } = await buildArticle(doc);
   const styles = [...doc.querySelectorAll('head style, head link[rel="stylesheet"]')].map((s) => {
@@ -585,9 +684,9 @@ ${styles}
 <div id="lp-bar">
  <span class="lp-brand">${escapeText(title)}</span>
  <div class="lp-seg">
-  <button data-lp-btn="present" aria-pressed="true">Present</button>
-  <button data-lp-btn="read-slides" aria-pressed="false">Read \xB7 Slides</button>
-  <button data-lp-btn="read-article" aria-pressed="false">Read \xB7 Article</button>
+  <button data-lp-btn="present" aria-pressed="true" aria-label="Present"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span class="lp-tab-text">Present</span></button>
+  <button data-lp-btn="read-slides" aria-pressed="false" aria-label="Read \xB7 Slides"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="5" rx="1"/><rect x="3" y="10.5" width="18" height="5" rx="1"/><rect x="3" y="18" width="18" height="3" rx="1"/></svg><span class="lp-tab-text">Read \xB7 Slides</span></button>
+  <button data-lp-btn="read-article" aria-pressed="false" aria-label="Read \xB7 Article"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lp-tab-text">Read \xB7 Article</span></button>
  </div>
  <span id="lp-count"></span>
  <button id="lp-notes-btn" title="Speaker notes (n)" aria-pressed="false">\u2630</button>
@@ -599,6 +698,8 @@ ${styles}
 ${a11yDefs}
 ${slidesHtml}
  </div>
+ <button id="lp-prev" type="button" aria-label="Previous slide" title="Previous slide (\u2190)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+ <button id="lp-next" type="button" aria-label="Next slide" title="Next slide (\u2192)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
  <div id="lp-notes" data-empty="true"><div id="lp-notes-body"></div></div>
  <div id="lp-doc">
   <nav id="lp-toc">

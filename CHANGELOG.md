@@ -399,6 +399,71 @@ in patch versions.
   `lib/core/find-matching-close.js` helper. Every change verified
   byte-identical against the pre-change output on real decks before
   landing.
+- **The exported `.html` player now displays correctly on iOS.** Four fixes,
+  diagnosed on a real iPhone where the player showed only a blank/broken page,
+  then a working-but-visually-broken one: (1) **CSP hash on WebKit** — the single
+  inline script is pinned by a sha256 CSP, and WebKit hashes non-ASCII bytes
+  differently than Chromium/Node, so the script's dark-toggle glyphs and
+  em-dashes made the hash disagree and WebKit refused the script. Every
+  non-ASCII code point in the hashed script is now escaped to `\uXXXX`
+  (runtime-identical; CSP kept). (2) **Content rode high / the title slide
+  rendered tiny** — the present + read views forced `display:block` on each
+  `<section>`, overriding the engine's base `display:flex;flex-direction:column`
+  and making `section.title{justify-content:center}` inert, so cover content
+  flowed to the top instead of centering. The views now keep the section flex.
+  (3) **Read·Slides + the no-JS floor illegibly tiny text** — scaling with CSS
+  `zoom` (to collapse the layout footprint) reintroduced a documented, previously
+  REJECTED bug: iOS WebKit does not re-resolve `container-type:size` + cqi/cqh
+  (the engine's whole typography/spacing scale) against a zoom-scaled container,
+  so cqi collapses to near-zero — invisible to every headless CI gate, which
+  Chromium doesn't reproduce. Each slide is now wrapped in a `.lp-frame` sized to
+  the scaled footprint (so the column still packs tight) and the slide inside
+  scales with `transform` (immune — cqi resolves once against its own intrinsic
+  1280×720 box). (4) **Present not vertically centered / asymmetric top-bottom
+  padding** — three compounding issues: a third-party iOS viewer's own in-app
+  chrome can report a `dvh` that doesn't match what's actually visible (the
+  stage height now prefers a JS-measured `visualViewport`/`innerHeight` value,
+  falling back to `dvh` only pre-JS); the fit scale was computed against
+  `innerWidth`/`innerHeight` with a hand-tuned inset baking in the top bar's
+  height, a different number than the `#lp-stage` element's own CSS height —
+  the two could drift apart (fit now measures the stage element's own
+  `clientWidth`/`clientHeight` directly, so the scale and the centering box are
+  always the same measured box); and a base `padding-top:48px` rule (meant for
+  the scrolling Read·Slides/Article views) also applied in Present, where the
+  stage is already `position:fixed;top:48px` — double-counting the bar and
+  eating into the centered content box asymmetrically (Present now resets it to
+  `padding-top:0`). Confirmed symmetric (0px top/bottom diff) at three viewport
+  sizes. A progressive-enhancement `.lp-js` gate keeps a readable stacked-slide
+  floor when the script is ever blocked. Confirmed on-device.
+- **The exported `.html` player's Present mode gained visible prev/next
+  controls and icon-only view tabs on narrow screens.** Two mobile-UX gaps
+  found in the same on-device vetting round: (1) Present had no on-screen way
+  to advance — only keyboard arrows and swipe, and some third-party iOS HTML
+  viewers don't reliably deliver keydown to the page. Circular chevron buttons
+  (mirroring the Studio's audio-present overlay) now flank the slide, wired to
+  the SAME shared transport keyboard/swipe already use (`t.prev()`/`t.next()`,
+  not a hand-rolled clamp), and disable at the deck's first/last slide. (2) The
+  Present / Read·Slides / Read·Article tab labels wrapped to two lines on a
+  real iPhone, blowing out the top bar's height. Below 560px the tabs go
+  icon-only (an inline SVG monitor/stack/document glyph); each button's own
+  `aria-label` carries the accessible name in either state, so nothing is lost
+  for assistive tech.
+- **The Studio “Download as webpage” export now renders and runs — not just
+  assembles.** Two bugs made the browser-exported player ship broken on every
+  browser (the file downloaded fine but opened to raw, unstyled slides that
+  couldn't be navigated), both invisible to the unit tier because nothing opened
+  the real artifact: (1) the browser engine scopes every deck rule to its
+  live-preview wrapper (`div.lattice > section …`), but the export lays sections
+  out flat like the CLI — so the file carried the full CSS yet **none of it
+  applied**. The export now un-scopes the deck CSS to the CLI's shape. (2) the docs
+  production build **minifies** `player-core`, renaming the transport-kernel
+  functions (`createTransport`→`Q`, …), so the `.toString()`-inlined script threw
+  `createTransport is not defined`, stripped `.lp-js`, and fell to the no-JS floor.
+  The kernel is now inlined bound to **stable `var` names** (minifier-independent),
+  and the keymap is passed explicitly so no renamed free reference is evaluated. A
+  new Playwright e2e (`docs/e2e/webpage-export.spec.ts`) drives the real Share →
+  Webpage flow and asserts the downloaded player boots (styled + script runs), so
+  this can't regress unseen.
 
 ### Added
 
