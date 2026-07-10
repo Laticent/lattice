@@ -34,6 +34,7 @@ const dataJson = JSON.stringify({
 	variants,
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
+	engineUrl,
 	playgroundUrl: url('playground/'),
 });
 ---
@@ -97,7 +98,6 @@ const dataJson = JSON.stringify({
 </section>
 
 <script type="application/json" id="specimen-data" is:inline set:html={dataJson}></script>
-<script is:inline defer src={engineUrl}></script>
 <script>
 	import { initSpecimen } from '../playground/specimen.js';
 	initSpecimen();

@@ -40,6 +40,9 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 		};
 
 		const renderAll = () => {
+			// Kick the theme CSS fetch off in PARALLEL with the engine-bundle load
+			// (not behind it) — same fix as DeckPreview.tsx's paint().
+			engine.prefetchTheme?.();
 			engine.whenReady().then(() => {
 				if (!cancelled) hosts.forEach(renderCard);
 			});

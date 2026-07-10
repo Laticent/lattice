@@ -78,6 +78,9 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 		const begin = () => {
 			if (startedRef.current) return;
 			startedRef.current = true;
+			// Kick the theme CSS fetch off in PARALLEL with the engine-bundle load
+			// (not behind it) — same fix as DeckPreview.tsx's paint().
+			engineRef.current.prefetchTheme?.(palettes[idxRef.current]?.name);
 			engineRef.current.whenReady().then(() => {
 				if (cancelled) return;
 				renderAt(idxRef.current);
@@ -104,7 +107,7 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 			io?.disconnect();
 			stop();
 		};
-	}, [renderAt, start, stop]);
+	}, [renderAt, start, stop, palettes]);
 
 	// Re-render the current palette on a global mode (light/dark) flip.
 	React.useEffect(() => {

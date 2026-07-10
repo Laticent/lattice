@@ -108,17 +108,21 @@ export function warmEngine(engineUrl: string, opts: { allowEager?: boolean } = {
 	const mode = decide(readSignals(), Boolean(opts.allowEager));
 	if (mode === 'off') return;
 	if (mode === 'eager') {
-		scheduleIdle(() => injectPrefetch(engineUrl));
+		// Immediate, not idle-deferred: `rel=prefetch` is already a low-priority
+		// hint (the browser won't let it compete with render-blocking resources —
+		// the actual LCP protection), so queuing it behind `requestIdleCallback`
+		// (up to a 3s timeout, or a flat 1200ms fallback) bought no real LCP
+		// safety while forfeiting the one thing eager mode exists for: a network
+		// head start on the 554KB engine bundle, in parallel with island
+		// hydration, before DeckPreview's own mount effect requests it via
+		// load-engine.ts's `ensureEngine`. Confirmed on the landing page: the
+		// idle delay meant this prefetch link consistently lost the race to
+		// DeckPreview's own script injection, so it was never actually warming
+		// anything within the page's real load window.
+		injectPrefetch(engineUrl);
 		return;
 	}
 	armIntent(engineUrl);
-}
-
-function scheduleIdle(fn: () => void): void {
-	const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void })
-		.requestIdleCallback;
-	if (ric) ric(fn, { timeout: 3000 });
-	else window.setTimeout(fn, 1200);
 }
 
 // Idempotent: skip if the engine arrived in the meantime, if a prefetch link is

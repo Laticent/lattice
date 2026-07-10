@@ -5,21 +5,21 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "ms": 37.43,
-      "slidesPerSec": 1550,
-      "rmePct": 3.97
+      "ms": 32.57,
+      "slidesPerSec": 1781,
+      "rmePct": 2.82
     },
     "charts": {
       "slides": 14,
-      "ms": 32.51,
-      "slidesPerSec": 431,
-      "rmePct": 3.08
+      "ms": 27.22,
+      "slidesPerSec": 514,
+      "rmePct": 3.49
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "ms": 107.15,
-      "slidesPerSec": 3248,
-      "rmePct": 8.79
+      "ms": 103.6,
+      "slidesPerSec": 3359,
+      "rmePct": 3.79
     }
   }
 }

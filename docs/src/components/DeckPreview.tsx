@@ -111,7 +111,13 @@ export function DeckPreview({
 	const paintedRef = React.useRef(false);
 	React.useEffect(() => {
 		let cancelled = false;
-		const paint = () => engineRef.current?.whenReady().then(() => { if (!cancelled) render(); });
+		const paint = () => {
+			// Kick the theme CSS fetch off in PARALLEL with the engine-bundle load
+			// (not behind it) — whenReady()'s ensureEngine() and this are two
+			// independent network round-trips that were previously serialized.
+			engineRef.current?.prefetchTheme?.(paletteOverride, modeOverride);
+			return engineRef.current?.whenReady().then(() => { if (!cancelled) render(); });
+		};
 		if (!paintedRef.current || debounceMs <= 0) {
 			paintedRef.current = true;
 			paint();
@@ -119,7 +125,11 @@ export function DeckPreview({
 		}
 		const id = setTimeout(paint, debounceMs);
 		return () => { cancelled = true; clearTimeout(id); };
-	}, [render, debounceMs]);
+		// paletteOverride/modeOverride are already implicit in `render`'s own
+		// identity (its useCallback deps list them), so listing them here too is
+		// redundant in practice — but explicit, since `paint()` reads them directly
+		// for the parallel prefetch, ahead of `render()` actually running.
+	}, [render, debounceMs, paletteOverride, modeOverride]);
 
 	// Re-render on palette / mode change (the shared topbar writes <html> attrs).
 	React.useEffect(() => {

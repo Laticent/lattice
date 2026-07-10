@@ -43,9 +43,34 @@ in patch versions.
   `engineering/decisions/2026-07-09-marp-legacy-audit.md` for the full audit
   this came out of and `engineering/marp-independence.md`'s new Cost item 3
   (the vscode Marp preview-compatibility tax, previously undocumented).
+- **`npm run build` / `build:check` runs ~24% faster.** `build-cadenza-lib.js`
+  and `build-vetrina-lib.js` (two non-incremental `tsc --emitDeclarationOnly`
+  passes, ~37% of the total wall time, with no ordering dependency on
+  anything except `build-read-along-core.js`) now run in the background
+  while the rest of the pipeline's steps run serially as before;
+  `tools/build.js` joins on them right before the one step that actually
+  needs Cadenza's `dist/` on disk. Measured locally: ~4.35s → ~3.28s for
+  `build:check`, deterministic output, no log interleaving (background-step
+  output is buffered and flushed prefixed with its step label, not
+  `stdio: inherit`'d live). Found by a red-team/inversion/independent-checker
+  performance audit; see `engineering/decisions/2026-07-10-landing-perf-katex-defer.md`.
 
 ### Fixed
 
+- **The landing page's live Hero preview rendered noticeably faster.** Two
+  sequential network round-trips were serialized where they didn't need to
+  be: `docs/src/lib/prefetch-engine.ts`'s eager engine-bundle warm queued its
+  `rel=prefetch` injection behind `requestIdleCallback` (up to a 3s timeout,
+  or a 1200ms fallback) instead of firing immediately, so it rarely won a
+  head start against the real engine-bundle request it was meant to warm;
+  and `docs/src/components/DeckPreview.tsx`'s paint step waited for the
+  554KB engine bundle to fully load before even starting the theme CSS
+  fetch. The prefetch now fires immediately (`rel=prefetch` is already a
+  low-priority hint, so no LCP risk), and a new `prefetchTheme()` on the
+  single-slide renderer (`docs/src/lib/single-slide-render.ts`) kicks the
+  theme fetch off in parallel with the engine load instead of behind it.
+  Measured on the production build via real `iframe.onload` timing: Hero
+  preview content-loaded time dropped from ~1.2-1.4s to ~0.9s.
 - **The Workspace "Play sample" button could get stuck on "Playing…" forever.**
   `previewVoice()`'s playback phase had an 8s watchdog, but the SYNTH phase (the
   network fetch to OpenRouter, or the Kokoro worker round-trip) had none — a hung
@@ -217,6 +242,58 @@ in patch versions.
   delete pattern in `StudioShell`'s `RailOp`) or on a pointerdown anywhere
   outside the button, whichever comes first — captured at the document level
   so another component's `stopPropagation` can't swallow it.
+- **Every component-reference page (56 of them) no longer force-loads the
+  full ~554KB-gz engine bundle eagerly.** `Specimen.astro` still carried the
+  unconditional `<script defer src=…>` tag `docs/src/lib/load-engine.ts` was
+  built to eliminate everywhere else (landing, playground, workbench,
+  drawing-board, studio) — it computed `engineUrl` but never wired it into
+  the on-demand `ensureEngine()` loader. `engineUrl` is now threaded through
+  `Specimen.astro` → `specimen.js`, which uses the same on-demand path as
+  every other app surface.
+- **The landing page's "speaks your field" cards and the palette-cycling
+  showcase render faster on a fast scroll or cold visit.** Same class of bug
+  as the Hero preview fix above, not yet applied to these two: both
+  `FieldCardsLive.tsx` and `RestyleShowcase.tsx` called
+  `createSingleSlideRenderer()` directly and waited for the engine bundle to
+  load before starting their theme CSS fetch. Both now call the renderer's
+  `prefetchTheme()` in parallel with `whenReady()`, matching
+  `DeckPreview.tsx`'s already-shipped fix.
+- **The Studio's Coach/Architect panel no longer re-runs a full deck-wide
+  lint pass on every keystroke.** The `useEffect` that recomputes `findings`
+  was undebounced, duplicating the same deterministic scan CodeMirror's own
+  (750ms-debounced) inline linter already performs. Debounced to 400ms,
+  matching the file's existing autosave debounce.
+- **The Slide settings panel no longer re-parses the deck's front matter
+  from scratch on every keystroke while open.** Six provenance lookups
+  (canvas/finish/spectrum/stamp-style/tone-style/deck-defaults) in
+  `SlideContext.tsx` ran unmemoized in the render body; each wrapped in
+  `React.useMemo` keyed on the inputs that actually change them.
+- **The live-preview runtime does less redundant work per edit.** Three
+  separate `MutationObserver`s on `document.body` (content/Mermaid
+  transforms, section geometry, and the overflow watcher) each reacted
+  independently to the same DOM mutations, two of them re-scanning every
+  slide in the deck on every keystroke with no shared coalescing. The
+  geometry and overflow watchers now share one `MutationObserver` + one
+  `requestAnimationFrame` dispatch (content/Mermaid's own 150ms-debounced
+  observer is unchanged — it wants a different settle window). Verified in a
+  real browser: unchanged detection behavior (overflow class/tab, the
+  `--_sec-1cqi` geometry variable), observer count on `document.body` down
+  from 4 to 3.
+- **Several render-path string scanners sped up ~4-16x with byte-identical
+  output**, found by a red-team/inversion/independent-checker performance
+  audit (`engineering/decisions/2026-07-10-landing-perf-katex-defer.md`):
+  the shared `<section>` walker (`lib/core/section-walk.js`'s
+  `mapSections()`, used by masthead-lift, split-panels, chart-family, and
+  compare-code) stepped one character at a time to find each section's
+  close tag instead of jumping via `indexOf`; `compare-code.transform.js`
+  carried its own private, now-deduplicated copy of that same scan;
+  `journey.transform.js`'s list-walker was a byte-for-byte duplicate of
+  `_chart-family/transform-utils.js`'s (already shared by radar/quadrant),
+  now deduplicated too; and `chart-family.js`'s roadmap-figure/chart-body
+  `<div>` depth scans were extracted into one shared, indexOf-jumping
+  `lib/core/find-matching-close.js` helper. Every change verified
+  byte-identical against the pre-change output on real decks before
+  landing.
 
 ### Added
 
