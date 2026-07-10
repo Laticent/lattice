@@ -370,12 +370,127 @@ doesn't (and structurally can't, without shipping a full narration-audio
 CDN) protect the real read-aloud path, only the "hear what this sounds
 like before you commit to it" button.
 
+## Redesign: dynamic voice rosters, a rich model picker, no more free text
+
+Raised directly, reacting to the shipped asset-caching work above: "a curated
+list with no voice model drop down. that's terrible. also, for models that
+don't have voice model at all we should not enable the voice drop down at all
+i need you to get or find the voice list for each model and test them and
+cache them if they work" — followed, mid-investigation, by a screenshot of the
+Workspace's existing OpenRouter chat-model picker (search + Featured/Value/
+Free/All tabs + priced, vendor-grouped rows) with: "we should also adopt this
+control for voice models too where play is next to the model and you have all
+the pricing... no one should be typing in a mode[l] name really. if we don't
+know the voice name is prefilled and disabled — think about it. design it
+first."
+
+**The root-cause discovery.** Researching MAI-Voice-2 and Voxtral to answer
+"get or find the voice list" turned up something that invalidated the whole
+prior approach: OpenRouter's own `GET /api/v1/models?output_modalities=speech`
+response — the SAME endpoint `listOpenRouterVoiceModels()` already called for
+the model list — carries a `supported_voices` field per model. Authoritative,
+live, and (live-verified) correct for 8 of the 9 current models, including two
+that third-party vendor docs described as pure voice-cloning with no presets
+at all (Zonos: "clones a voice from a reference audio sample"; CSM-1B: "a
+numeric speaker slot") — both turned out to have real, working named presets
+on OpenRouter's hosted integration, confirmed with direct API calls
+(`american_female`/`british_male` for Zonos, `conversational_a`/`read_speech_a`
+for CSM-1B, etc.). The earlier "no named-voice concept" categorization for
+both was wrong — sourced from the underlying model's general capability, not
+what OpenRouter's specific hosted endpoint actually exposes.
+
+**The pivot: voice rosters are no longer hand-typed.** Every dropdown now
+derives from the live `supported_voices` array (`voice-model.js`'s
+`listOpenRouterVoiceModels()`, extended to also carry `promptPerM`/
+`completionPerM`/`voices`), not a JSON file scraped from documentation. This
+retroactively explains the `zoe` bug from the previous round: a hand-curated
+roster sourced from Orpheus's GitHub README included a voice id OpenRouter's
+own hosted endpoint never actually lists — the live field would have caught it
+on day one. `tts-voice-catalog.json` shrank to ONLY what genuinely needs
+hand-maintenance: which live model a cache-directory slug maps to
+(`modelId`, now an exact match — each entry is one pinned release, not an
+evolving family, so no fuzzy prefix rules are needed), whether it's worth
+asset-caching (`requiresAsset`), the provider's actual audio format
+(`audioFormat`), and the bounded featured subset that got a pre-generated
+sample (`cachedVoices`). `tts-voice-catalog.ts` gained `prettyVoiceLabel()` —
+a DERIVED label (decoding Kokoro's documented `<lang><gender>_<name>`
+convention and the Azure/MAI `locale-Name[:Model]` convention, title-casing
+everything else) instead of a hand-typed one, so a label can never go stale
+against a roster it didn't write.
+
+**The one hand-maintained exception: `mai-voice-2`.** OpenRouter's own
+`supported_voices` field for this model is a non-exhaustive 4-item SAMPLE, not
+the real roster (confirmed: Microsoft's own docs publish 44 voices across
+15+ languages). `voiceOverride` in the JSON supplements (never replaces) the
+live field for this one engine — the English-locale subset, individually
+live-verified against the hosted endpoint one voice at a time (format
+confirmed as `en-US-Harper:MAI-Voice-2`, locale segment case-insensitive).
+`en-AU-Lisa` consistently 502'd on 3 separate calls (not transient) and is
+excluded from the cached set but kept in the override so it still appears in
+the dropdown — an honest reflection of OpenRouter's own outage, not something
+to hide.
+
+**No more free text — ever, for a model OpenRouter lists.** `VoicePicker`
+always renders a `<Select>` when the (live + override) roster is non-empty —
+which is every one of the 9 models today — and a DISABLED, explained field
+(no typing) when it's empty. The `OTHER` sentinel, the "Other (enter a voice
+id)…" option, and the whole free-text-preservation branch of `resolveVoice`
+are retired; `resolveVoice`/`voiceResetOnModelChange` now take the
+already-resolved roster directly (pure, no catalog lookup inside) and return a
+plain string, never an `{select, other}` pair.
+
+**`TtsModelPicker` — the rich picker adopted from the chat-model picker.** A
+new component mirrors `ModelPicker.tsx`'s exact interaction shape (collapsed
+summary + meta line → expand → search + Featured/Value/Free/All tabs →
+vendor-grouped, priced rows), via a new `tts-catalog.js` that reuses
+`or-catalog.js`'s generic helpers (`vendorOf`/`shortName`/`fmtPrice`/
+`groupByVendor`/`inSet`/`isFreeModel` — all pure functions over the same
+`{id, name, promptPerM, completionPerM}` shape regardless of chat vs. speech;
+HARD RULE #15) and adds only what TTS genuinely needs: `TTS_FEATURED`/
+`TTS_VALUE` curated sets, and a single-price-dimension meta line (`ttsPriceLabel`
+— TTS has no meaningful "completion" cost the way a chat completion does; every
+live model reports `completion: 0`). The one addition the chat picker doesn't
+need: an inline ▶ Play button per row that previews that model's current (or
+default) voice directly — browsing the list is itself auditioning, closing the
+"play is next to the model" gap without a separate pick-model-then-pick-voice-
+then-click-a-different-button round trip.
+
+**A filesystem-safety fix caught mid-build.** MAI-Voice-2's voice ids carry a
+literal `:` (`en-US-Harper:MAI-Voice-2`) — writing that straight to disk as a
+filename would have broken any Windows checkout of this repo. Both
+`tools/generate-voice-samples.mjs` (writing) and `tts-voice-catalog.ts`'s
+`cachedSampleUrl` (reading) now sanitize `:` → `_` identically before touching
+the filesystem/URL, and `checkVoiceSampleAssets` checks the sanitized name too.
+
+**Kokoro, reconsidered and reverted.** Since `hexgrad/kokoro-82m` is ALSO
+selectable as a paid hosted CLOUD model (a real, if tiny, per-character
+OpenRouter charge — distinct from the free on-device WASM execution path that
+shares its voice namespace), caching it for the cloud picker seemed like a
+real gap to close. In practice, the hosted endpoint was observed consistently
+timing out during this round of generation — including `af_heart`, which had
+worked minutes earlier in the same session — provider-side instability, not a
+per-voice defect. Rather than commit samples generated against a flaky
+endpoint, Kokoro stays `requiresAsset: false` (its original on-device-only
+resting state); this is logged as a revisit-when-stable item, not abandoned.
+
+**Final counts.** 51 samples committed across 8 cached engines: grok (5, now
+lowercase — matching OpenRouter's own casing, `Eve`→`eve` etc.), gemini (10,
+unchanged), orpheus (7, unchanged — OpenRouter's own list still excludes
+`zoe`, independently reconfirming the earlier finding), mai-voice-2 (6),
+zonos-transformer (4), zonos-hybrid (4), csm (7, including `none` — a real,
+distinct, deterministic no-fixed-persona option, not a broken response), and
+voxtral (8, English-only `en_paul_*`; `gb_oliver_*`/`gb_jane_*`/`fr_marie_*`
+live and work too, just uncached). Every model OpenRouter's catalog lists now
+has a working dropdown; nothing requires typing a voice id blind.
+
 ## What's explicitly out of scope
 
 - **On-device speech-to-text / dictation (Whisper or otherwise).** Nothing here
   wires up audio-in. If a "dictate your instructions" feature is wanted later, it's
   a new, separate capability — not a rename of the existing TTS ladder.
-- **A live, exhaustive Kokoro voice catalog.** Kokoro doesn't expose one via a
-  simple endpoint; the picker ships a curated subset of the well-known voice ids
-  plus a free-text "other" escape hatch, rather than a claim of completeness it
-  can't back up.
+- **A live, exhaustive Kokoro voice catalog — no longer true, corrected above.**
+  The original build shipped a 10-voice hand-curated subset with a free-text
+  escape hatch, reasoning Kokoro exposed no simple live-list endpoint. The
+  redesign found it does (`supported_voices`, the same field every other engine
+  uses) — Kokoro's picker is now the full live 54-voice roster like everything
+  else; only the 10-voice CACHE remains a bounded, hand-picked subset.

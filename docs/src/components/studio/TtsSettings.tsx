@@ -19,18 +19,19 @@ import {
 	type VoiceAvailability,
 	voiceAvailability,
 } from './read-aloud';
-import { KOKORO_MODEL_ID, noRosterHint, OTHER, resolveVoice, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { TtsModelPicker } from './TtsModelPicker';
+import { KOKORO_MODEL_ID, NO_VOICES_HINT, resolveVoice, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
 // generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
 // shared voice-model instance useReadAloud plays through, so a pick here is live
-// on the next play with no separate download. The curated voice DATA lives in
-// tts-voice-catalog.ts/.json (shared with read-aloud.ts's local-first sample cache
-// and tools/generate-voice-samples.mjs — one source of truth, never duplicated).
-// See engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.
+// on the next play with no separate download. The voice ROSTER is fetched live
+// from OpenRouter (tts-voice-catalog.ts/read-aloud.ts's listTtsModels) — never a
+// free-text field, since every model OpenRouter lists has real, published voices;
+// see the redesign section of
+// engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.
 
 type KokoroLoad = { phase: 'idle' | 'confirm' | 'loading' | 'error'; pct: number; note?: string };
-const KOKORO_VOICES = voicesForModel(''); // the empty/unset id resolves to Kokoro — see engineForModel
 
 function SpeedControl({ value, onChange, disabled }: { value: number; onChange: (n: number) => void; disabled?: boolean }) {
 	return (
@@ -69,63 +70,49 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
 	);
 }
 
-/** A model-specific voice picker: a curated dropdown (with each voice's name) + a
- *  free-text "Other" escape hatch for a voice id outside the curated roster. Picking
- *  a CURATED voice fires `onPick` immediately — the caller auto-previews it, so
- *  browsing the dropdown is itself "a way to hear it" (see the decision doc). The
- *  free-text path fires the SAME auto-preview on blur/Enter (not every keystroke,
- *  which would fire mid-typing) — every real voice selection previews, curated or
- *  not. When `voices` is empty (an unrecognized model, or one with no named-voice
- *  concept at all — see noRosterHint), this renders a plain free-text field only. */
+/** A model-specific voice picker — ALWAYS a curated dropdown, never a field the
+ *  user types a voice id into: every model OpenRouter publishes has a real,
+ *  live-fetched roster, so there's nothing to type. Picking a voice fires `onPick`
+ *  immediately — the caller auto-previews it, so browsing the dropdown is itself
+ *  "a way to hear it". When `voices` is empty (a model with no published roster —
+ *  a theoretical case today, since every live TTS model has one), this renders a
+ *  DISABLED, explained field instead of an editable one — guessing a voice id
+ *  blind is worse than admitting we don't have one. */
 function VoicePicker({
 	label,
 	ariaLabel,
 	voices,
-	selectValue,
-	otherValue,
+	value,
 	onPick,
-	onOtherChange,
-	onCommitOther,
-	hint,
 	disabled,
 }: {
 	label: string;
 	ariaLabel: string;
 	voices: Voice[];
-	selectValue: string;
-	otherValue: string;
+	value: string;
 	onPick: (voiceId: string) => void;
-	onOtherChange: (text: string) => void;
-	onCommitOther: () => void;
-	hint?: string;
 	disabled?: boolean;
 }) {
-	const commitOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === 'Enter') { e.currentTarget.blur(); onCommitOther(); }
-	};
 	if (!voices.length) {
 		return (
 			<div>
 				<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
 				<input
 					type="text"
-					value={otherValue}
-					onChange={(e) => onOtherChange(e.target.value)}
-					onBlur={onCommitOther}
-					onKeyDown={commitOnEnter}
-					disabled={disabled}
-					placeholder="e.g. alloy"
+					value=""
+					disabled
+					placeholder="No published voices"
 					aria-label={ariaLabel}
-					className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none focus:border-[var(--accent)] disabled:opacity-50"
+					className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-muted-foreground outline-none disabled:opacity-50"
 				/>
-				<p className="mt-1 text-[11px] text-muted-foreground">{hint ?? "Unrecognized model — enter its voice id directly (check the model's OpenRouter page)."}</p>
+				<p className="mt-1 text-[11px] text-muted-foreground">{NO_VOICES_HINT}</p>
 			</div>
 		);
 	}
 	return (
 		<div>
 			<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
-			<Select value={selectValue} onValueChange={(v) => (v === OTHER ? onOtherChange(otherValue) : onPick(v))} disabled={disabled}>
+			<Select value={value} onValueChange={onPick} disabled={disabled}>
 				<SelectTrigger className="w-full" aria-label={ariaLabel}>
 					<SelectValue />
 				</SelectTrigger>
@@ -135,22 +122,8 @@ function VoicePicker({
 							{v.label}
 						</SelectItem>
 					))}
-					<SelectItem value={OTHER}>Other (enter a voice id)…</SelectItem>
 				</SelectContent>
 			</Select>
-			{selectValue === OTHER && (
-				<input
-					type="text"
-					value={otherValue}
-					onChange={(e) => onOtherChange(e.target.value)}
-					onBlur={onCommitOther}
-					onKeyDown={commitOnEnter}
-					disabled={disabled}
-					placeholder="e.g. jf_alpha"
-					aria-label={`Custom ${ariaLabel.toLowerCase()}`}
-					className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none focus:border-[var(--accent)] disabled:opacity-50"
-				/>
-			)}
 		</div>
 	);
 }
@@ -159,13 +132,12 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 	const [avail, setAvail] = React.useState<VoiceAvailability | null>(null);
 	const [models, setModels] = React.useState<OrVoiceModel[] | null>(null);
 	const [orModel, setOrModelState] = React.useState('');
-	const [orVoiceSelect, setOrVoiceSelect] = React.useState('');
-	const [orVoiceOther, setOrVoiceOther] = React.useState('');
-	const [kokoroVoiceSelect, setKokoroVoiceSelect] = React.useState('');
-	const [kokoroOther, setKokoroOther] = React.useState('');
+	const [orVoice, setOrVoiceState] = React.useState('');
+	const [kokoroVoice, setKokoroVoiceState] = React.useState('');
 	const [speed, setSpeedState] = React.useState(1);
 	const [kokoroLoad, setKokoroLoad] = React.useState<KokoroLoad>({ phase: 'idle', pct: 0 });
 	const [preview, setPreview] = React.useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+	const [modelPreview, setModelPreview] = React.useState<string | null>(null);
 	const abortRef = React.useRef<AbortController | null>(null);
 
 	React.useEffect(() => {
@@ -174,12 +146,8 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 			if (!live) return;
 			setAvail(a);
 			setOrModelState(m);
-			const or = resolveVoice(voicesForModel(m), ov);
-			setOrVoiceSelect(or.select);
-			setOrVoiceOther(or.other);
-			const kok = resolveVoice(KOKORO_VOICES, kv);
-			setKokoroVoiceSelect(kok.select);
-			setKokoroOther(kok.other);
+			setOrVoiceState(ov);
+			setKokoroVoiceState(kv);
 			setSpeedState(sp);
 		});
 		return () => {
@@ -214,8 +182,13 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		};
 	}, []);
 
+	// The live TTS catalog (id/name/pricing/published voices) is fetched regardless
+	// of tier — it's public and unauthenticated, and BOTH tiers need it: the cloud
+	// picker for its model list, the on-device picker for Kokoro's own published
+	// roster (the SAME catalog entry, hexgrad/kokoro-82m, backs both the on-device
+	// engine's fixed model id and its optional hosted-cloud selection).
 	React.useEffect(() => {
-		if (tier !== 'cloud' || models) return;
+		if (models) return;
 		let live = true;
 		listTtsModels().then((l) => {
 			if (live) setModels(l);
@@ -223,15 +196,25 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		return () => {
 			live = false;
 		};
-	}, [tier, models]);
+	}, [models]);
 
-	const orVoiceEffective = orVoiceSelect === OTHER ? orVoiceOther : orVoiceSelect;
-	const kokoroVoiceEffective = kokoroVoiceSelect === OTHER ? kokoroOther : kokoroVoiceSelect;
+	// An unset orModel means "the connect-time default" (Kokoro), not a literal
+	// empty-string model id — resolve it before looking the model up in the fetched
+	// catalog, or the lookup misses and the roster comes back empty.
+	const effectiveOrModel = orModel || KOKORO_MODEL_ID;
+	const orModelVoices = React.useMemo(
+		() => voicesForModel(effectiveOrModel, models?.find((m) => m.id === effectiveOrModel)?.voices ?? []),
+		[effectiveOrModel, models],
+	);
+	const kokoroVoices = React.useMemo(
+		() => voicesForModel(KOKORO_MODEL_ID, models?.find((m) => m.id === KOKORO_MODEL_ID)?.voices ?? []),
+		[models],
+	);
 
 	const playPreview = React.useCallback(
 		async (rung: 'openrouter' | 'kokoro', voiceOverride?: string) => {
 			setPreview({ busy: true, error: null });
-			const voice = voiceOverride ?? (rung === 'openrouter' ? orVoiceEffective : kokoroVoiceEffective);
+			const voice = voiceOverride ?? (rung === 'openrouter' ? orVoice : kokoroVoice);
 			// `model` lets previewTtsVoice check for a cached, pre-generated sample first
 			// (local, free, instant) before falling back to a live API call — see
 			// read-aloud.ts's cachedSampleUrl.
@@ -239,49 +222,44 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 			const res = await previewTtsVoice({ rung, voice, model, speed });
 			setPreview({ busy: false, error: res.ok ? null : res.error || 'Could not play a sample.' });
 		},
-		[orModel, orVoiceEffective, kokoroVoiceEffective, speed],
+		[orModel, orVoice, kokoroVoice, speed],
 	);
 
 	// Picking a MODEL resets the voice to that model's default when the current
 	// pick isn't on its roster — a Kokoro voice id is meaningless for an OpenAI
 	// model, and vice versa (see voiceResetOnModelChange).
-	const pickOrModel = async (id: string) => {
-		setOrModelState(id);
-		await setTtsOrModel(id);
-		const next = voiceResetOnModelChange(id, orVoiceEffective);
+	const pickOrModel = async (m: OrVoiceModel) => {
+		setOrModelState(m.id);
+		await setTtsOrModel(m.id);
+		const roster = voicesForModel(m.id, m.voices);
+		const next = voiceResetOnModelChange(roster, orVoice);
 		if (next) {
-			setOrVoiceSelect(next);
-			setOrVoiceOther('');
+			setOrVoiceState(next);
 			await setTtsOrVoice(next);
 		}
 		notify('TTS model updated.');
 	};
+	// The model-row Play button (in TtsModelPicker) previews that model's CURRENT
+	// (or, if switching, its default) voice without requiring a separate model-pick
+	// + voice-pick + Play round trip first.
+	const playModelRow = async (m: OrVoiceModel) => {
+		const roster = voicesForModel(m.id, m.voices);
+		const voice = (m.id === orModel ? orVoice : null) ?? resolveVoice(roster, '');
+		if (!voice) return;
+		setModelPreview(m.id);
+		const res = await previewTtsVoice({ rung: 'openrouter', voice, model: m.id, speed });
+		setModelPreview(null);
+		if (!res.ok) notify(res.error || 'Could not play a sample.');
+	};
 	const pickOrVoice = async (v: string) => {
-		setOrVoiceSelect(v);
+		setOrVoiceState(v);
 		await setTtsOrVoice(v);
 		if (avail?.openRouterReady) playPreview('openrouter', v);
 	};
-	const changeOrVoiceOther = async (v: string) => {
-		setOrVoiceOther(v);
-		if (v.trim()) await setTtsOrVoice(v.trim());
-	};
-	// Fired on blur/Enter (not every keystroke, see VoicePicker) — the free-text
-	// path gets the SAME "picking a voice always plays it" guarantee the curated
-	// dropdown does.
-	const commitOrVoiceOther = () => {
-		if (orVoiceOther.trim() && avail?.openRouterReady) playPreview('openrouter', orVoiceOther.trim());
-	};
 	const pickKokoroVoice = async (v: string) => {
-		setKokoroVoiceSelect(v);
+		setKokoroVoiceState(v);
 		await setTtsKokoroVoice(v);
 		if (avail?.kokoroReady) playPreview('kokoro', v);
-	};
-	const changeKokoroOther = async (v: string) => {
-		setKokoroOther(v);
-		if (v.trim()) await setTtsKokoroVoice(v.trim());
-	};
-	const commitKokoroOther = () => {
-		if (kokoroOther.trim() && avail?.kokoroReady) playPreview('kokoro', kokoroOther.trim());
 	};
 	const changeSpeed = async (n: number) => {
 		setSpeedState(n);
@@ -316,21 +294,17 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		return (
 			<div>
 				<div className="mb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Voice model</div>
-				<Select value={orModel} onValueChange={pickOrModel} disabled={!avail.openRouterReady}>
-					<SelectTrigger className="w-full" aria-label="Cloud TTS model">
-						<SelectValue placeholder="hexgrad/kokoro-82m (default, cheapest)" />
-					</SelectTrigger>
-					<SelectContent>
-						{(models ?? []).map((m) => (
-							<SelectItem key={m.id} value={m.id}>
-								{m.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				<TtsModelPicker
+					models={models}
+					selectedId={orModel}
+					onPick={pickOrModel}
+					onPlay={playModelRow}
+					playingId={modelPreview}
+					disabled={!avail.openRouterReady}
+				/>
 				<p className="mt-1.5 text-[11px] text-muted-foreground">
 					{avail.openRouterReady
-						? `${models === null ? 'Loading the OpenRouter voice catalog…' : `${models.length} speech model${models.length === 1 ? '' : 's'} available.`} Defaults to hosted Kokoro — by far the cheapest.`
+						? 'Defaults to hosted Kokoro — by far the cheapest.'
 						: 'Connect OpenRouter above to configure the cloud voice.'}
 				</p>
 
@@ -338,13 +312,9 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 					<VoicePicker
 						label="Voice"
 						ariaLabel="Cloud TTS voice"
-						voices={voicesForModel(orModel)}
-						selectValue={orVoiceSelect}
-						otherValue={orVoiceOther}
+						voices={orModelVoices}
+						value={orVoice}
 						onPick={pickOrVoice}
-						onOtherChange={changeOrVoiceOther}
-						onCommitOther={commitOrVoiceOther}
-						hint={noRosterHint(orModel)}
 						disabled={!avail.openRouterReady}
 					/>
 				</div>
@@ -410,12 +380,9 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 				<VoicePicker
 					label="Voice"
 					ariaLabel="On-device TTS voice"
-					voices={KOKORO_VOICES}
-					selectValue={kokoroVoiceSelect}
-					otherValue={kokoroOther}
+					voices={kokoroVoices}
+					value={kokoroVoice}
 					onPick={pickKokoroVoice}
-					onOtherChange={changeKokoroOther}
-					onCommitOther={commitKokoroOther}
 					disabled={!ready}
 				/>
 				{!ready && <p className="mt-1 text-[11px] text-muted-foreground">Download the voice above to configure it.</p>}

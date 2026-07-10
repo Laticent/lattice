@@ -57,8 +57,8 @@ vi.mock('./architect', () => ({
 }));
 
 const TTS_CATALOG = [
-	{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M' },
-	{ id: 'openai/tts-1', name: 'OpenAI: TTS-1' },
+	{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'af_bella', 'am_adam'] },
+	{ id: 'openai/tts-1', name: 'OpenAI: TTS-1', promptPerM: 15, completionPerM: 0, voices: ['alloy', 'echo'] },
 ];
 const voiceAvailSpy = vi.hoisted(() =>
 	vi.fn(() => ({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false })),
@@ -251,7 +251,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	it('disables the cloud TTS model/voice/speed/preview controls until OpenRouter is connected', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		const { sheet } = openSheet();
-		expect(await sheet.findByRole('combobox', { name: 'Cloud TTS model' })).toBeDisabled();
+		expect(await sheet.findByRole('button', { name: 'Cloud TTS model' })).toBeDisabled();
 		expect(sheet.getByRole('combobox', { name: 'Cloud TTS voice' })).toBeDisabled();
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeDisabled();
 		expect(sheet.getByRole('button', { name: /Play sample/ })).toBeDisabled();
@@ -274,12 +274,12 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	it('re-disables the cloud TTS controls live when OpenRouter disconnects mid-session (db-model-changed)', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		const { sheet } = openSheet();
-		expect(await sheet.findByRole('combobox', { name: 'Cloud TTS model' })).not.toBeDisabled();
+		expect(await sheet.findByRole('button', { name: 'Cloud TTS model' })).not.toBeDisabled();
 
 		voiceAvailSpy.mockReturnValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		window.dispatchEvent(new Event('db-model-changed'));
 
-		await waitFor(() => expect(sheet.getByRole('combobox', { name: 'Cloud TTS model' })).toBeDisabled());
+		await waitFor(() => expect(sheet.getByRole('button', { name: 'Cloud TTS model' })).toBeDisabled());
 	});
 
 	it('enables the on-device TTS controls once Kokoro is ready', async () => {

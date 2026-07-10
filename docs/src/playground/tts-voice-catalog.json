@@ -1,98 +1,61 @@
 {
-  "_comment": "Single source of truth for the Studio's curated TTS voice map — read by BOTH the browser bundle (docs/src/components/studio/tts-voice-catalog.ts) and Node tooling (tools/generate-voice-samples.mjs, tools/check-ownership.js's checkVoiceSampleAssets). A model id resolves to an engine via 'match' (an OR-of-AND rule list: each object's keys AND together, the array ORs). requiresAsset=true means tools/generate-voice-samples.mjs generates docs/public/voice-samples/<engine>/<voice-id>.mp3 for every voice and tools/check-ownership.js requires that count to match. A voices:[] engine with a 'hint' has NO named-voice concept at all (voice-cloning / speaker-slot models) — the UI shows that hint instead of the generic 'unrecognized model' message. See engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.",
+  "_comment": "Caching-only metadata for the Studio's TTS asset cache — read by the browser bundle (docs/src/components/studio/tts-voice-catalog.ts) and Node tooling (tools/generate-voice-samples.mjs, tools/check-ownership.js's checkVoiceSampleAssets). The VOICE ROSTER itself is NOT here — it's fetched live from OpenRouter's own `supported_voices` field (GET /api/v1/models?output_modalities=speech, via voice-model.js's listOpenRouterVoiceModels()), the single authoritative source every dropdown derives from. This file only says: which live model a cache-directory slug corresponds to (exact modelId match, not a prefix/fuzzy rule — each entry is one pinned model release, not an evolving family), whether it's worth asset-caching at all (requiresAsset), what audio format the provider actually returns (audioFormat — most are mp3; a documented exception declares wav), and which of that model's REAL, live-verified voices got a committed sample (cachedVoices — a bounded 'featured' subset per model, not the full roster; every voice still WORKS and appears in the dropdown regardless of whether it's cached, just via the live API instead of an instant local file). See the redesign section of engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md for how this replaced an earlier, doc-scraped static roster (the 'zoe' lesson).",
   "engines": {
     "kokoro": {
       "modelId": "hexgrad/kokoro-82m",
       "requiresAsset": false,
-      "_note": "Runs on-device and never spends credits WHEN it can run at all — it doesn't load on iPhone or on devices with too little memory (kokoroSupported()/probeKokoroCache() gate this, and the picker is disabled with an explanatory hint there already). A cached sample wouldn't fix that gap (real narration would still fail on those devices), so requiresAsset stays false rather than pretending the asset cache buys universal availability. The voice roster below is still used for the dropdown wherever Kokoro does run.",
-      "match": [{ "includes": "kokoro" }],
-      "voices": [
-        { "id": "af_heart", "label": "Heart · US, warm (default)" },
-        { "id": "af_bella", "label": "Bella · US" },
-        { "id": "af_nova", "label": "Nova · US" },
-        { "id": "af_sarah", "label": "Sarah · US" },
-        { "id": "am_adam", "label": "Adam · US" },
-        { "id": "am_michael", "label": "Michael · US" },
-        { "id": "am_puck", "label": "Puck · US" },
-        { "id": "bf_emma", "label": "Emma · UK" },
-        { "id": "bm_george", "label": "George · UK" },
-        { "id": "bm_lewis", "label": "Lewis · UK" }
-      ]
-    },
-    "openai": {
-      "modelId": null,
-      "requiresAsset": false,
-      "match": [{ "startsWith": "openai/" }],
-      "voices": [
-        { "id": "alloy", "label": "Alloy" },
-        { "id": "echo", "label": "Echo" },
-        { "id": "fable", "label": "Fable" },
-        { "id": "onyx", "label": "Onyx" },
-        { "id": "nova", "label": "Nova" },
-        { "id": "shimmer", "label": "Shimmer" }
-      ],
-      "_note": "No openai/* model is in OpenRouter's current speech catalog — kept for if one is added later. requiresAsset stays false until then; the generator skips any engine whose modelId doesn't resolve on the live catalog."
+      "cachedVoices": [],
+      "_note": "On-device (the on-device engine's fixed model id, KOKORO_MODEL_ID) is free and doesn't need caching. The SAME id also selectable as a hosted CLOUD model (a real, if tiny, per-character OpenRouter charge) would benefit from caching in principle, but the hosted hexgrad/kokoro-82m endpoint was observed consistently timing out during this round of generation (every voice, including one that had worked minutes earlier) — provider-side instability, not a per-voice defect. Left uncached rather than committing samples generated against a flaky endpoint; revisit when it's stable."
     },
     "grok": {
       "modelId": "x-ai/grok-voice-tts-1.0",
       "requiresAsset": true,
-      "match": [{ "includes": "grok-voice" }],
-      "voices": [
-        { "id": "Eve", "label": "Eve" },
-        { "id": "Ara", "label": "Ara" },
-        { "id": "Rex", "label": "Rex" },
-        { "id": "Sal", "label": "Sal" },
-        { "id": "Leo", "label": "Leo" }
-      ]
+      "cachedVoices": ["eve", "ara", "rex", "sal", "leo"],
+      "_note": "Full roster (5 of 5) — small enough to cache entirely."
     },
     "gemini": {
       "modelId": "google/gemini-3.1-flash-tts-preview",
       "requiresAsset": true,
       "audioFormat": "wav",
-      "_audioFormatNote": "This model's speech endpoint 400s on response_format:\"mp3\" — it only returns raw PCM (confirmed live: 'Gemini TTS only supports response_format=\"pcm\"'). tools/generate-voice-samples.mjs requests pcm and wraps it in a WAV container (sample rate/channels read from the response's Content-Type header, not hardcoded) instead of mp3 for this engine.",
-      "match": [{ "startsWith": "google/", "includes": "tts" }],
-      "voices": [
-        { "id": "Puck", "label": "Puck · conversational, friendly" },
-        { "id": "Charon", "label": "Charon · deep, authoritative" },
-        { "id": "Kore", "label": "Kore · neutral, professional" },
-        { "id": "Aoede", "label": "Aoede" },
-        { "id": "Fenrir", "label": "Fenrir" },
-        { "id": "Leda", "label": "Leda" },
-        { "id": "Orus", "label": "Orus" },
-        { "id": "Zephyr", "label": "Zephyr" },
-        { "id": "Umbriel", "label": "Umbriel" },
-        { "id": "Autonoe", "label": "Autonoe" }
-      ],
-      "_note": "A representative 10-of-30 subset of Google's published Gemini TTS voice set, shared across the Gemini TTS model family — not verified as the exact live roster for THIS preview variant specifically."
+      "cachedVoices": ["Puck", "Charon", "Kore", "Aoede", "Fenrir", "Leda", "Orus", "Zephyr", "Umbriel", "Autonoe"],
+      "_note": "10-of-30 featured subset (this model's speech endpoint 400s on response_format:\"mp3\" and only returns raw PCM — the generator requests pcm and wraps it in a WAV container, reading the real sample rate off the response's Content-Type header rather than hardcoding it)."
     },
     "orpheus": {
       "modelId": "canopylabs/orpheus-3b-0.1-ft",
       "requiresAsset": true,
-      "match": [{ "startsWith": "canopylabs/orpheus" }],
-      "_note": "\"zoe\" was in the model's own GitHub README roster (source for the other 7 voices here, all confirmed live) but consistently 500s on OpenRouter's hosted endpoint regardless of casing — confirmed with a direct API round-trip, not a transient failure. Dropped rather than shipped as a curated option that always fails to synthesize.",
-      "voices": [
-        { "id": "tara", "label": "Tara · female, conversational" },
-        { "id": "leah", "label": "Leah · female, warm" },
-        { "id": "jess", "label": "Jess · female, energetic" },
-        { "id": "leo", "label": "Leo · male, authoritative" },
-        { "id": "dan", "label": "Dan · male, friendly" },
-        { "id": "mia", "label": "Mia · female, professional" },
-        { "id": "zac", "label": "Zac · male, enthusiastic" }
-      ]
+      "cachedVoices": ["tara", "leah", "jess", "leo", "dan", "mia", "zac"],
+      "_note": "Full live roster (7 of 7) — OpenRouter's own supported_voices field does NOT include \"zoe\", which an earlier hand-typed roster (sourced from the model's GitHub README, not verified live) wrongly included; that voice consistently 500s on OpenRouter's hosted endpoint. The live field would have caught this from day one."
     },
-    "zonos": {
-      "modelId": null,
-      "requiresAsset": false,
-      "match": [{ "includes": "zonos" }],
-      "voices": [],
-      "hint": "This model clones a voice from a reference audio sample — it doesn't have named presets. A voice id here won't do anything."
+    "mai-voice-2": {
+      "modelId": "microsoft/mai-voice-2",
+      "requiresAsset": true,
+      "cachedVoices": ["en-US-Ethan:MAI-Voice-2", "en-US-Grant:MAI-Voice-2", "en-US-Harper:MAI-Voice-2", "en-US-Iris:MAI-Voice-2", "en-US-Jasper:MAI-Voice-2", "en-US-Olivia:MAI-Voice-2"],
+      "voiceOverride": ["en-US-Ethan:MAI-Voice-2", "en-US-Grant:MAI-Voice-2", "en-US-Harper:MAI-Voice-2", "en-US-Iris:MAI-Voice-2", "en-US-Jasper:MAI-Voice-2", "en-US-Olivia:MAI-Voice-2", "en-AU-Lisa:MAI-Voice-2", "es-MX-Valeria:MAI-Voice-2", "fr-FR-Soleil:MAI-Voice-2", "de-DE-Klaus:MAI-Voice-2"],
+      "_note": "The ONE engine where OpenRouter's own supported_voices field is a non-exhaustive SAMPLE (4 examples), not the full roster — Microsoft's official docs (learn.microsoft.com/azure/ai-services/speech-service/mai-voices) publish the real 44-voice multilingual roster. voiceOverride supplements the live field with the English-locale voices from that official list, live-verified against OpenRouter's hosted endpoint one by one (format confirmed: \"en-US-Harper:MAI-Voice-2\", case-insensitive on the locale segment). en-AU-Lisa consistently 502'd on 3 separate live calls (not transient) and is excluded from cachedVoices but kept in voiceOverride so it still appears in the dropdown — OpenRouter's own outage, not ours to hide."
+    },
+    "zonos-transformer": {
+      "modelId": "zyphra/zonos-v0.1-transformer",
+      "requiresAsset": true,
+      "cachedVoices": ["american_female", "american_male", "british_female", "british_male"],
+      "_note": "Live supported_voices also lists \"random\" (a real, working, non-deterministic option) — deliberately not cached, since a fixed sample would misrepresent a voice whose whole point is to vary. It still appears in the dropdown, just uncached."
+    },
+    "zonos-hybrid": {
+      "modelId": "zyphra/zonos-v0.1-hybrid",
+      "requiresAsset": true,
+      "cachedVoices": ["american_female", "american_male", "british_female", "british_male"],
+      "_note": "Same voice namespace and caching rationale as zonos-transformer, above — a separate model/cache directory since it's a distinct live model with potentially different audio quality."
     },
     "csm": {
-      "modelId": null,
-      "requiresAsset": false,
-      "match": [{ "includes": "csm" }],
-      "voices": [],
-      "hint": "This model takes a numeric speaker slot (e.g. \"0\") plus reference audio, not a named voice — results are inconsistent without one."
+      "modelId": "sesame/csm-1b",
+      "requiresAsset": true,
+      "cachedVoices": ["conversational_a", "conversational_b", "read_speech_a", "read_speech_b", "read_speech_c", "read_speech_d", "none"],
+      "_note": "Full live roster (7 of 7), including \"none\" (a real, distinct, deterministic no-fixed-persona option — live-verified, not a broken/empty response)."
+    },
+    "voxtral": {
+      "modelId": "mistralai/voxtral-mini-tts-2603",
+      "requiresAsset": true,
+      "cachedVoices": ["en_paul_sad", "en_paul_neutral", "en_paul_happy", "en_paul_frustrated", "en_paul_excited", "en_paul_confident", "en_paul_cheerful", "en_paul_angry"],
+      "_note": "8-of-30 English-only featured subset (also gb_oliver_*, gb_jane_*, fr_marie_* live and work, just uncached). Mistral's OWN API docs describe voice_id as user-created via voice cloning only — these named presets are real and OpenRouter-published regardless; verified live one by one before caching, not trusted on documentation alone."
     }
   }
 }

@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 /**
  * Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for
- * every CURATED voice on a paid cloud engine (requiresAsset: true in
- * docs/src/playground/tts-voice-catalog.json — today: grok, gemini, orpheus) and
- * commits them as repo assets under docs/public/voice-samples/<engine>/<voice-id>.<ext>.
- * docs/src/components/studio/read-aloud.ts's previewTtsVoice() then plays the cached
- * file directly instead of hitting the live OpenRouter endpoint on every click — no
- * per-click spend, no timeout risk, instant playback (HARD RULE #24 §OpenRouter
- * budget; see the asset-caching section of
+ * every FEATURED voice on a paid cloud engine (requiresAsset: true in
+ * docs/src/playground/tts-voice-catalog.json's engines — the featured subset is
+ * that engine's `cachedVoices` list, a bounded slice of the model's real, live
+ * roster) and commits them as repo assets under
+ * docs/public/voice-samples/<engine>/<voice-id>.<ext>. The full roster itself
+ * (which voices exist at all) is NOT in this JSON — it's fetched live from
+ * OpenRouter's own `supported_voices` field; this script only decides which of
+ * those get a pre-generated sample. docs/src/components/studio/read-aloud.ts's
+ * previewTtsVoice() then plays the cached file directly instead of hitting the
+ * live OpenRouter endpoint on every click — no per-click spend, no timeout risk,
+ * instant playback (HARD RULE #24 §OpenRouter budget; see the redesign section of
  * engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md).
  *
  * Most engines return mp3 directly. A model can instead declare
@@ -18,9 +22,11 @@
  * universal), and wraps the PCM in a WAV container so the file is still directly
  * playable by a plain <audio> element with no decoding library.
  *
- * Kokoro is deliberately excluded — it's on-device and free, so it never spends
- * credits and doesn't need this cache (see the "kokoro" engine's _note in the
- * catalog JSON).
+ * Kokoro is currently excluded (requiresAsset: false) — on-device it's free and
+ * doesn't need caching; hosted as a cloud model it technically would benefit, but
+ * the hosted endpoint was observed consistently timing out during this round of
+ * generation (provider-side instability, not a per-voice defect) — see the
+ * engine's own `_note` in the catalog JSON.
  *
  * Guards against a voice/model disappearing from OpenRouter's live catalog: before
  * spending on an engine, this checks the engine's modelId against
@@ -57,7 +63,7 @@ const LIMIT = argv.includes('--limit') ? Math.max(1, Number(argv[argv.indexOf('-
 
 const catalog = JSON.parse(fs.readFileSync(CATALOG_PATH, 'utf8'));
 const engines = Object.entries(catalog.engines)
-  .filter(([, def]) => def.requiresAsset && def.modelId && def.voices.length)
+  .filter(([, def]) => def.requiresAsset && def.modelId && def.cachedVoices.length)
   .filter(([slug]) => !ENGINE_FILTER || slug === ENGINE_FILTER);
 
 if (!engines.length) {
@@ -67,7 +73,7 @@ if (!engines.length) {
 
 let jobs = [];
 for (const [slug, def] of engines) {
-  for (const voice of def.voices) jobs.push({ slug, modelId: def.modelId, voice: voice.id, format: def.audioFormat === 'wav' ? 'wav' : 'mp3' });
+  for (const voice of def.cachedVoices) jobs.push({ slug, modelId: def.modelId, voice, format: def.audioFormat === 'wav' ? 'wav' : 'mp3' });
 }
 if (LIMIT) jobs = jobs.slice(0, LIMIT);
 
@@ -159,6 +165,16 @@ async function synth(modelId, voice, format) {
   return buf;
 }
 
+// A voice id can contain characters invalid in a Windows filename (MAI-Voice-2's
+// ids carry a literal ":", e.g. "en-US-Harper:MAI-Voice-2") — sanitize before
+// writing to disk. Mirrored EXACTLY in tts-voice-catalog.ts's cachedSampleUrl (a
+// tiny pure function, duplicated rather than shared across the Node/browser
+// runtime boundary — same pattern as this file's own orPricePerM twin in
+// voice-model.js) so a generated filename and its runtime lookup URL always agree.
+function safeFilename(voiceId) {
+  return voiceId.replace(/:/g, '_');
+}
+
 async function main() {
   const live = await liveSpeechModelIds();
   const skippedEngines = new Set(engines.filter(([, def]) => !live.has(def.modelId)).map(([slug]) => slug));
@@ -172,12 +188,13 @@ async function main() {
     if (skippedEngines.has(job.slug)) continue;
     const dir = path.join(OUT_DIR, job.slug);
     fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `${job.voice}.${job.format}`);
+    const filename = `${safeFilename(job.voice)}.${job.format}`;
+    const file = path.join(dir, filename);
     try {
       const buf = await synth(job.modelId, job.voice, job.format);
       fs.writeFileSync(file, buf);
       written++;
-      console.log(`✓ ${job.slug}/${job.voice}.${job.format} (${buf.length} bytes)`);
+      console.log(`✓ ${job.slug}/${filename} (${buf.length} bytes)`);
     } catch (e) {
       failures.push(`${job.slug}/${job.voice}: ${e.message}`);
       console.log(`✗ ${job.slug}/${job.voice} — ${e.message}`);
