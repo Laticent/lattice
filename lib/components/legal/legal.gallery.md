@@ -649,7 +649,7 @@ Pick when each cell carries a sentence, not a glyph.
 - Six anchor layouts cover jurisdiction, quotation, regime matrix, motion, redline, and authority.
 - Five visual variants per anchor — the strongest of each becomes the shipped default.
 - Lean authoring: slot labels auto-lift, `[x] [-] [ ]` for state markers, pin-cite typography throughout.
-- Three-renderer parity: marp-cli, emulator, and runtime all process the same transforms.
+- Shared-kernel parity: the owned engine (CLI/PDF path + browser playground) and the runtime process the same transforms.
 - The other four variants per anchor can be deleted before graduation into the gallery.
 
 ---

@@ -181,6 +181,13 @@ in patch versions.
   Verified in a real browser: zero 404s across Studio/Workbench/Playground,
   and every declared face (the 17 text faces plus KaTeX's) force-loads
   without error on a math specimen page. Closes #876.
+- **The legal component gallery no longer claims a "three-renderer parity"
+  that hasn't existed since the P4 Marp-CLI retirement.** The closing "What
+  this deck delivers" slide's bullet named `marp-cli` as one of three
+  renderers processing the shared transforms — it never was one; the real
+  two kernel consumers are the owned engine (serving both the CLI/PDF path
+  and the browser playground) and the runtime. Last item in the Marp-legacy
+  audit's §6 backlog. Both light/dark gallery PDFs rebuilt.
 - **`dist/README.md`'s artifact descriptions no longer frame `lattice-emulator.js`
   as a "Marp-faithful renderer."** It's Lattice's own engine (no Marp involved);
   the stale phrasing predates the Marp-independence work. `lattice-runtime.js`'s
