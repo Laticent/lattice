@@ -333,11 +333,11 @@ describe('audio cache (replay reuses synthesized audio; voice/model/speed change
 // real openRouterRung (fetch) / kokoroRung (worker) do — a mock that ignores
 // abort would make a stop()-mid-synth test hang for the real 20s internal
 // timeout instead of resolving promptly.
-function abortAwareMockRung(onStart: (text: string) => void) {
+function abortAwareMockRung(onStart: (text: string) => void, name = 'mock') {
   const resolvers = new Map<string, (b: { size: number; arrayBuffer: () => Promise<ArrayBuffer> }) => void>();
   return {
     rung: {
-      name: 'mock',
+      name,
       ready: () => true,
       synth: ({ text, signal }: { text: string; signal?: AbortSignal }) => {
         onStart(text);
@@ -508,6 +508,253 @@ describe('concurrent synth scheduling (fire-ahead, not one-ahead)', () => {
 
     mock.resolve('Hello.'); // resolves the second (still-live) request
     await Promise.allSettled([firstSpeakP, secondSpeakP]);
+  });
+});
+
+describe('warm() — background prefetch across a slide boundary (autoplay warm-ahead)', () => {
+  it('populates the cache so a later speak() for the same sentence does not re-synth', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'openrouter-tts',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.warm(['Next slide sentence.']);
+    await vi.waitFor(() => expect(calls).toEqual(['Next slide sentence.']));
+    await model.speak({ text: 'Next slide sentence.' });
+    expect(calls).toEqual(['Next slide sentence.']); // speak() replayed the warmed cache entry, no second synth
+  });
+
+  it('is a no-op when the resolved rung is silent — no synth call, nothing to cache', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'openrouter-tts',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.setRungPref('off'); // pickRung() resolves to the silent rung regardless of the injected mock
+    model.warm(['Would-be next slide sentence.']);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual([]);
+  });
+
+  it("is a no-op for the kokoro rung — this prefetch only hides NETWORK latency (openrouter-tts); Kokoro's synthesis shares ONE compute resource (its worker) with the CURRENT slide's own still-running speak() scheduler, so prefetching there would compete for it instead of hiding anything (Munger-inversion finding)", async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'kokoro',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.warm(['Would-be next slide sentence.']);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual([]);
+  });
+
+  it('caps concurrent prefetch requests at WARM_CONCURRENCY (1) — a SEPARATE, smaller budget than speak()\'s SYNTH_CONCURRENCY (3)', async () => {
+    // warm() runs WHILE the current slide's own speak() scheduler may still have
+    // up to 3 requests of its own in flight (that's the point — prefetch during
+    // the current slide's playback) — sharing one counter with speak() would let
+    // a single autoplay transition burst to 3 + 3 = 6 simultaneous requests,
+    // quietly doubling the "not a burst attack on the API" ceiling (independent-
+    // checker finding). warm() gets its own, much smaller cap instead.
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
+    model.__setRung(mock.rung);
+
+    model.warm(['One.', 'Two.', 'Three.']);
+    await vi.waitFor(() => expect(started).toEqual(['One.']));
+    expect(started).not.toContain('Two.'); // capped at 1 — nothing has resolved yet
+
+    mock.resolve('One.');
+    await vi.waitFor(() => expect(started).toContain('Two.'));
+    expect(started).not.toContain('Three.');
+
+    mock.resolve('Two.');
+    await vi.waitFor(() => expect(started).toContain('Three.'));
+    mock.resolve('Three.');
+  });
+
+  it('caps concurrency ACROSS separate warm() calls, not just within one (red-team finding)', async () => {
+    // WARM_CONCURRENCY must be a budget for the whole voice-model instance,
+    // not a fresh per-call allowance — Present's autoplay effect re-fires
+    // warm() on every `clamped` change while autoplay is on, which includes
+    // a presenter manually clicking Next/Prev a few times in a row, not just
+    // autoplay's own advances. Before this fix, each of N such calls fired
+    // its own request immediately regardless of how many earlier calls were
+    // still in flight — N rapid navigation steps meant N concurrent real,
+    // billed requests with no cap at all.
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
+    model.__setRung(mock.rung);
+
+    // Five SEPARATE warm() calls (distinct text — no cache-key collision to
+    // hide behind), simulating five rapid navigation steps.
+    model.warm(['Slide 2.']);
+    model.warm(['Slide 3.']);
+    model.warm(['Slide 4.']);
+    model.warm(['Slide 5.']);
+    model.warm(['Slide 6.']);
+    await vi.waitFor(() => expect(started).toEqual(['Slide 2.']));
+    expect(started).toHaveLength(1); // only ONE real request in flight, across all 5 calls
+
+    // Resolve one at a time — with the cap at 1, each next request only
+    // starts once the previous one actually resolves (a synchronous burst of
+    // resolves would race ahead of dispatch, same pitfall as the sibling
+    // SYNTH_CONCURRENCY tests' resolve ordering).
+    mock.resolve('Slide 2.');
+    await vi.waitFor(() => expect(started).toContain('Slide 3.'));
+    expect(started).toHaveLength(2);
+
+    mock.resolve('Slide 3.');
+    await vi.waitFor(() => expect(started).toContain('Slide 4.'));
+    mock.resolve('Slide 4.');
+    await vi.waitFor(() => expect(started).toContain('Slide 5.'));
+    mock.resolve('Slide 5.');
+    await vi.waitFor(() => expect(started).toContain('Slide 6.'));
+    mock.resolve('Slide 6.');
+    await vi.waitFor(() => expect(started).toEqual(['Slide 2.', 'Slide 3.', 'Slide 4.', 'Slide 5.', 'Slide 6.']));
+  });
+
+  it("does not spike combined concurrency: warm()'s 1 runs ALONGSIDE speak()'s own 3 in-flight requests, not sharing the cap", async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
+    model.__setRung(mock.rung);
+
+    // The current slide's own scheduler: 3 in flight, capped at SYNTH_CONCURRENCY.
+    const speakP = model.speak({ text: 'A. B. C. D.' });
+    await vi.waitFor(() => expect(started).toEqual(['A.', 'B.', 'C.']));
+
+    // warm() for the NEXT slide fires concurrently — its own request lands
+    // immediately despite speak()'s 3 already being live (different text, so
+    // no cache-key collision; this proves the two schedulers don't share one
+    // counter — if they did, warm()'s request would queue behind speak()'s
+    // already-full cap instead of firing right away).
+    model.warm(['Next slide sentence.']);
+    expect(started).toContain('Next slide sentence.');
+    mock.resolve('Next slide sentence.');
+
+    // Drain speak()'s own scheduler to completion — 'D.' only fires once a
+    // slot frees (a microtask after resolving 'A.'), so it must be waited for
+    // before it can be resolved, same as the sibling SYNTH_CONCURRENCY test.
+    mock.resolve('A.');
+    await vi.waitFor(() => expect(started).toContain('D.'));
+    mock.resolve('B.');
+    mock.resolve('C.');
+    mock.resolve('D.');
+    await speakP;
+  });
+
+  it("stops firing FURTHER requests once its signal aborts, but doesn't cancel one already in flight", async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
+    model.__setRung(mock.rung);
+    const ctl = new AbortController();
+
+    model.warm(['One.', 'Two.', 'Three.'], { signal: ctl.signal });
+    await vi.waitFor(() => expect(started).toEqual(['One.']));
+
+    ctl.abort();
+    mock.resolve('One.'); // frees the one active slot
+    await new Promise((r) => setTimeout(r, 20)); // let any (incorrect) refill happen
+    expect(started).toEqual(['One.']); // 'Two.' never started — pump() stopped once aborted
+  });
+
+  it("a joiner's own in-flight request is unaffected when a DIFFERENT caller's warm() signal aborts", async () => {
+    // The subtlety this design deliberately avoids: if warm() tore down the
+    // SHARED inFlightSynths entry on its own signal's abort, a different
+    // still-live caller (another warm(), or speak()) that joined the same key
+    // would be handed a false failure it never asked for.
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    const mock = abortAwareMockRung((t) => calls.push(t), 'openrouter-tts');
+    model.__setRung(mock.rung);
+    const ctlA = new AbortController();
+
+    model.warm(['Shared sentence.'], { signal: ctlA.signal }); // caller A fires the real request
+    await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']));
+
+    // onSentenceTiming only fires once playBlob actually decodes + starts real
+    // audio (FakeAudioContext, wired file-wide in this test's beforeEach) — a
+    // silently-dropped null blob (the bug this test guards against: A's abort
+    // wrongly tearing down the SHARED request) resolves speakP just as
+    // cleanly but WITHOUT ever reaching real playback, so checking only
+    // `await speakP` resolves — or that `calls` stayed at one — doesn't
+    // distinguish "B got real audio" from "B silently got nothing."
+    const onSentenceTiming = vi.fn();
+    const speakP = model.speak({ text: 'Shared sentence.', onSentenceTiming }); // caller B joins A's in-flight entry
+    await new Promise((r) => setTimeout(r, 10));
+
+    ctlA.abort(); // A walks away — must NOT cancel B's (speak()'s) shared request
+    mock.resolve('Shared sentence.');
+    await speakP; // resolves cleanly — B still got its audio
+    expect(calls).toEqual(['Shared sentence.']); // still just the one real call
+    expect(onSentenceTiming).toHaveBeenCalledTimes(1); // …and B actually played it
+  });
+
+  it('joins an in-flight speak() synth for the same sentence instead of firing a duplicate prefetch request', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    const mock = abortAwareMockRung((t) => calls.push(t), 'openrouter-tts');
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'Shared sentence.' });
+    await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']));
+
+    model.warm(['Shared sentence.']); // must join speak()'s in-flight request, not fire a second one
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual(['Shared sentence.']);
+
+    mock.resolve('Shared sentence.');
+    await speakP;
+  });
+
+  it("a later speak() joins warm()'s in-flight prefetch for the same sentence rather than firing a duplicate request", async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    const mock = abortAwareMockRung((t) => calls.push(t), 'openrouter-tts');
+    model.__setRung(mock.rung);
+
+    model.warm(['Upcoming sentence.']);
+    await vi.waitFor(() => expect(calls).toEqual(['Upcoming sentence.']));
+
+    const speakP = model.speak({ text: 'Upcoming sentence.' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual(['Upcoming sentence.']); // still one call — speak() joined warm()'s in-flight promise
+
+    mock.resolve('Upcoming sentence.');
+    await speakP;
+  });
+
+  it('is a no-op for an empty sentence list', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'openrouter-tts',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.warm([]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual([]);
   });
 });
 

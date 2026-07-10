@@ -211,6 +211,18 @@ const AUDIO_CACHE_LIMIT = 200;
 // aloud looks like a burst attack on the API."
 const SYNTH_CONCURRENCY = 3;
 
+// warm()'s OWN cap, separate from SYNTH_CONCURRENCY — warm() runs WHILE the
+// current slide's own speak() scheduler may still have up to SYNTH_CONCURRENCY
+// requests of its own in flight (that overlap is the whole point: prefetch the
+// next slide during the current one's playback), so sharing one number would
+// let a single autoplay transition burst to SYNTH_CONCURRENCY + SYNTH_CONCURRENCY
+// requests at once — quietly doubling the "not a burst attack on the API"
+// ceiling the comment above actually promises. Kept small and separate instead:
+// warm-ahead only needs to win the race for the NEXT slide's first sentence or
+// two before the transition arrives; it doesn't need the same head-start budget
+// speak() gives a slide already on screen.
+const WARM_CONCURRENCY = 1;
+
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
 // Unify playback on one <audio> element by encoding Kokoro's raw samples into a
 // 16-bit PCM WAV Blob. Pure → unit-tested for header correctness.
@@ -757,6 +769,124 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     }
   }
 
+  // Background prefetch: populate `audioCache` for `sentences` WITHOUT playing
+  // anything — the counterpart to speak()'s in-playback concurrency scheduler,
+  // but for the gap ACROSS a slide boundary rather than between sentences of
+  // the same slide. speak()'s SYNTH_CONCURRENCY overlap only ever runs while
+  // that slide is already playing; the FIRST sentence of the NEXT slide has
+  // nothing overlapping it, so autoplay chaining (Present's onFinish → next
+  // slide) always paid a full cold-start synth latency at every transition —
+  // exactly the gap the within-slide fix didn't reach. A caller (Present, while
+  // autoplaying) calls this with the upcoming slide's sentences as soon as the
+  // CURRENT slide starts, so by the time onFinish chains to it, its audio is
+  // already in `audioCache` (or in flight and about to land).
+  //
+  // Shares `audioCache` + `inFlightSynths` with speak()'s own `synth(t)` so the
+  // two can never race into duplicate requests for the same key — whichever
+  // fires first, the other joins it. Best-effort only: no lastError plumbing
+  // (nobody is waiting on this), no waitIfPaused/onSentence/onState (nothing to
+  // report to), and a synth failure here just leaves the cache unpopulated —
+  // speak() will synth it for real, for keeps, when it actually gets there.
+  //
+  // KNOWN, ACCEPTED DUPLICATION (Munger-inversion finding): this pump()'s
+  // cache-key/dedup/timeout body is a near-copy of speak()'s own synth(t)
+  // scheduler above, deliberately NOT refactored into one shared helper —
+  // extracting one would mean re-touching speak()'s already independently
+  // red-teamed, adversarially-verified internals for a purely cosmetic DRY
+  // win, which is a worse trade than the duplication itself. The real risk
+  // this creates: if a future change adds a per-call `voice` override to
+  // speak()'s `effVoiceFor` (today only `orVoice()`/`kokoroVoice()`), warm()'s
+  // `effVoice` here won't automatically follow it, and nothing but code
+  // review would catch the two cache-key derivations drifting apart. Flagged
+  // for a follow-up extraction if/when that happens, not before.
+  //
+  // `signal` (optional) lets a caller stop THIS call from firing any FURTHER
+  // requests once it goes away — e.g. Present's autoplay effect aborts its
+  // signal on cleanup (autoplay turned off, the slide advanced again before
+  // this warm finished, or Present closed), so an abandoned warm doesn't keep
+  // working through the rest of the upcoming slide's sentences in the
+  // background (independent-checker finding: unbounded here would be the
+  // same real-cost mistake speak()'s own pause-gating fix addressed
+  // elsewhere in this file). Deliberately does NOT forcibly cancel a request
+  // already in flight when `signal` aborts — that request's `inFlightSynths`
+  // entry may by then be JOINED by a different, still-live caller (another
+  // warm() for the same text, or a real speak() that reaches this sentence
+  // first); tearing down the shared promise out from under a joiner who never
+  // asked to abort would hand them a false failure. WARM_CONCURRENCY already
+  // bounds this to at most one such already-started, left-to-finish request
+  // per abandoned warm() call — a small, capped cost, not a leak.
+  // WARM_CONCURRENCY is a budget for THIS VOICE-MODEL INSTANCE, not per call —
+  // `warmQueue`/`warmActive` live here (createVoiceModel's scope), shared by
+  // every warm() invocation, because a caller can legitimately call warm()
+  // MORE THAN ONCE while earlier calls are still draining: Present's autoplay
+  // effect re-fires on every `clamped` change while autoplay is on, which
+  // includes a presenter manually clicking Next/Prev a few times in a row,
+  // not just autoplay's own advances. A per-call-local counter (the original
+  // shape here) bounded nothing ACROSS those calls — each fired its own
+  // request immediately regardless of how many earlier ones were still in
+  // flight, so N rapid navigation steps meant N concurrent real, billed
+  // requests with no cap at all (red-team finding, empirically reproduced:
+  // 5 distinct-text warm() calls fired 5 concurrent real requests). Routing
+  // every call through one shared queue + one shared active-count is what
+  // actually delivers the "not a burst attack on the API" property the
+  // per-call WARM_CONCURRENCY cap only ever claimed to.
+  const warmQueue = []; // { rung, effVoice, effSpeed, text, signal }
+  let warmActive = 0;
+  function pumpWarmQueue() {
+    while (warmActive < WARM_CONCURRENCY && warmQueue.length) {
+      const item = warmQueue.shift();
+      // This item's own caller walked away before its turn came up — skip it
+      // rather than spend a slot on a prefetch nobody's waiting on anymore
+      // (lazy version of the old per-call "stop firing further requests").
+      if (item.signal?.aborted) continue;
+      const cacheKey = cacheKeyFor(item.rung.name, modelIdFor(item.rung.name), item.effVoice, item.effSpeed, item.text);
+      if (audioCache.has(cacheKey)) continue;
+      const inflight = inFlightSynths.get(cacheKey);
+      if (inflight && !inflight.sig.aborted) continue;
+      warmActive++;
+      const sig = new AbortController().signal; // this request's own lifetime — never the enqueuing caller's `signal` (see warm()'s own comment)
+      let timer;
+      const p = Promise.race([
+        item.rung.synth({ text: item.text, voice: item.effVoice, speed: item.effSpeed, signal: sig }).then((blob) => {
+          if (blob) cacheSet(cacheKey, blob);
+          return blob;
+        }).catch(() => null).finally(() => clearTimeout(timer)),
+        new Promise((res) => { timer = setTimeout(() => res(null), 20000); }),
+      ]).finally(() => {
+        if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
+        warmActive--;
+        pumpWarmQueue(); // a slot just freed — drain whatever's queued, from ANY caller
+      });
+      inFlightSynths.set(cacheKey, { promise: p, sig });
+    }
+  }
+  function warm(sentences, { signal } = {}) {
+    const rung = pickRung();
+    // Scoped to `openrouter-tts` only (Munger-inversion finding). This whole
+    // prefetch exists to hide NETWORK round-trip latency — genuinely
+    // parallel HTTP requests don't compete with each other. Kokoro synthesis
+    // is CPU/GPU-bound on ONE shared, effectively single-threaded resource
+    // (the same-origin worker; onnxruntime-web's WASM backend has no
+    // multi-threading without cross-origin isolation, which this static
+    // docs site doesn't have — see kokoro-worker.js). Warming the NEXT
+    // slide there doesn't hide any latency the user perceives as "waiting
+    // for network" — it just adds a competing consumer of the one resource
+    // the CURRENT slide's own still-synthesizing sentences also need,
+    // risking a genuinely audible delay to the narration already playing.
+    // `speechSynthesis`/`silent` were already excluded (no blob to cache).
+    if (rung.name !== 'openrouter-tts') return;
+    if (!Array.isArray(sentences) || !sentences.length) return;
+    const effSpeed = speedPref();
+    // Mirrors speak()'s own effVoiceFor exactly (including the '' fallback for
+    // anything that isn't openrouter-tts/kokoro) — the cache key this computes
+    // must match what speak() looks up later bit-for-bit, or every warmed
+    // entry is a silent cache miss.
+    const effVoice = rung.name === 'openrouter-tts' ? orVoice() : rung.name === 'kokoro' ? kokoroVoice() : '';
+    const todo = sentences.map((s) => String(s || '').trim()).filter(Boolean);
+    for (const t of todo) warmQueue.push({ rung, effVoice, effSpeed, text: t, signal });
+    pumpWarmQueue();
+  }
+
   function waitIfPaused(signal) {
     if (!pausedGate) return Promise.resolve();
     return new Promise((resolve) => {
@@ -794,6 +924,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     pause,
     resume,
     unlock,
+    warm,
     speaking() { return !!activeCtl; },
     paused() { return !!pausedGate; },
     // The owned WebAudio clock, in ms — the monotonic time source a caption cursor
