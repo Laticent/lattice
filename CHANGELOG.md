@@ -497,7 +497,15 @@ in patch versions.
   bar's height (a higher-specificity shorthand silently replaced the base
   bar-clearance rule instead of adding to it), leaving the first slide's top
   ~20px under the bar's translucent band — padding now explicitly clears the
-  full bar height plus breathing room.
+  full bar height plus breathing room. (6) The dark/light toggle needed TWO
+  taps to actually switch on a system-dark device: it read the button's own
+  inline `color-scheme` (which starts empty) to decide "is it dark right
+  now," but the deck was already rendering dark via the base
+  `:root{color-scheme:light dark}` following the OS preference — so the icon
+  started wrong (moon, "tap for dark," when already dark) and the first tap
+  just reasserted dark (invisible). The toggle now seeds its state from the
+  actual system preference (`matchMedia`) at load, so the icon and the first
+  tap are correct from the start.
 - **The Studio “Download as webpage” export now renders and runs — not just
   assembles.** Two bugs made the browser-exported player ship broken on every
   browser (the file downloaded fine but opened to raw, unstyled slides that

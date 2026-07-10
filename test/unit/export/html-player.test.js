@@ -171,12 +171,26 @@ test('dark/light mode swaps a fixed-size icon (never a shifting text glyph)', as
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /var MOON_ICON=/, 'the moon icon is a stable var');
 	assert.match(html, /var SUN_ICON=/, 'the sun icon is a stable var');
-	assert.match(html, /mode\.innerHTML=d\?MOON_ICON:SUN_ICON/, 'toggling swaps innerHTML between the two fixed-size icons, not textContent');
+	assert.match(html, /isDark=!isDark;root\.style\.colorScheme=isDark\?'dark':'light';mode\.innerHTML=isDark\?SUN_ICON:MOON_ICON/, 'toggling flips the isDark source of truth and swaps innerHTML, not textContent');
 	// Both icon markups declare the SAME width/height, so the button's box never resizes.
 	const moon = (html.match(/MOON_ICON='([^']*)'/) || [])[1] || '';
 	const sun = (html.match(/SUN_ICON='([^']*)'/) || [])[1] || '';
 	assert.match(moon, /width="16" height="16"/);
 	assert.match(sun, /width="16" height="16"/);
+});
+
+test('dark/light mode seeds from the ACTUAL system preference, not the empty inline style (one-tap fix)', async () => {
+	// Regression: the toggle read root.style.colorScheme (the INLINE style) to decide
+	// "is it dark right now" — but that starts EMPTY even on a system-dark device,
+	// where light-dark() already renders the deck dark via the base
+	// :root{color-scheme:light dark} following the OS preference with no inline
+	// override needed. So on a system-dark device the icon started wrong (moon, "tap
+	// for dark" — when it was ALREADY dark) and the first tap just reasserted dark
+	// (invisible — nothing changed); a real switch to light needed a SECOND tap.
+	// isDark now seeds from matchMedia at load, matching what's actually rendered.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /var isDark=!!\(window\.matchMedia&&matchMedia\('\(prefers-color-scheme:dark\)'\)\.matches\)/, 'isDark seeds from the real system preference, not an inline style read');
+	assert.match(html, /if\(mode\)mode\.innerHTML=isDark\?SUN_ICON:MOON_ICON;/, 'the icon is synced to the seeded state before any click, so it never starts wrong');
 });
 
 test('fullscreen is feature-detected and the button hides when the API is unavailable', async () => {
@@ -358,7 +372,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '623281d6c97355477e96d2b3015754cb18b69e42a8182cddc3de247c9bc6d094', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '19e62f778a5ca1139aef4f26aa1c072de3957e5bea1e169e9c56f0fefa662074', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
