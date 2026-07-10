@@ -315,5 +315,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/export-marp.js` | export-marp — produce a portable, self-contained bundle of a Lattice deck for |
 | `tools/fetch-emoji-font.js` | Vendor Noto Color Emoji for the opt-in FULL-OFFLINE tier. |
 | `tools/fetch-video-oembed.js` | fetch-video-oembed.js — the BUILD-TIME (authoring-time) half of the `video` |
+| `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
 | `tools/golden-diff.mjs` | Post a PR comment + before/after montage of the gallery slides whose committed golden moved vs the base branch. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |

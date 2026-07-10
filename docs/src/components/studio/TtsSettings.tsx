@@ -19,67 +19,18 @@ import {
 	type VoiceAvailability,
 	voiceAvailability,
 } from './read-aloud';
+import { KOKORO_MODEL_ID, noRosterHint, OTHER, resolveVoice, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
 // generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
 // shared voice-model instance useReadAloud plays through, so a pick here is live
-// on the next play with no separate download. See engineering/decisions/2026-07-
-// 09-studio-cloud-ondevice-config-split.md. Voice rosters aren't exposed by a live
-// catalog (OpenRouter's /models doesn't enumerate a TTS model's voices; Kokoro has
-// no such endpoint at all), so each picker is a curated, clearly-labeled subset +
-// a free-text "Other" escape hatch — not a claim of completeness it can't back up.
-const KOKORO_VOICES: { id: string; label: string }[] = [
-	{ id: 'af_heart', label: 'Heart · US, warm (default)' },
-	{ id: 'af_bella', label: 'Bella · US' },
-	{ id: 'af_nova', label: 'Nova · US' },
-	{ id: 'af_sarah', label: 'Sarah · US' },
-	{ id: 'am_adam', label: 'Adam · US' },
-	{ id: 'am_michael', label: 'Michael · US' },
-	{ id: 'am_puck', label: 'Puck · US' },
-	{ id: 'bf_emma', label: 'Emma · UK' },
-	{ id: 'bm_george', label: 'George · UK' },
-	{ id: 'bm_lewis', label: 'Lewis · UK' },
-];
-// OpenAI's TTS voice set is a small, stable, publicly documented roster (unlike
-// Kokoro's, it isn't the SAME list the on-device engine uses — OpenAI-family cloud
-// models only).
-const OPENAI_VOICES: { id: string; label: string }[] = [
-	{ id: 'alloy', label: 'Alloy' },
-	{ id: 'echo', label: 'Echo' },
-	{ id: 'fable', label: 'Fable' },
-	{ id: 'onyx', label: 'Onyx' },
-	{ id: 'nova', label: 'Nova' },
-	{ id: 'shimmer', label: 'Shimmer' },
-];
-export const OTHER = '__other__';
-
-/** The curated voice roster for a cloud model id, or [] when the model is
- *  unrecognized (the picker then falls back to a plain free-text field — guessing
- *  a wrong roster is worse than admitting we don't know it). Kokoro is also the
- *  connect-time default, so an empty/unset model id resolves to its roster too.
- *  Exported for unit tests (pure, no Radix/jsdom interaction needed to cover it). */
-export function voicesForModel(modelId: string): { id: string; label: string }[] {
-	const id = (modelId || '').toLowerCase();
-	if (!id || id.includes('kokoro')) return KOKORO_VOICES;
-	if (id.startsWith('openai/')) return OPENAI_VOICES;
-	return [];
-}
-
-/** The voice-reset decision for a cloud MODEL switch: if the new model's roster is
- *  non-empty and doesn't already contain the currently effective voice, returns the
- *  roster's default id to reset to; otherwise null (no reset). Deliberately null —
- *  not an empty-string reset — when the new roster is EMPTY (an unrecognized
- *  model): free text is valid for any model, so there's nothing to reset FROM/TO,
- *  and resetting there would blank the visible field without persisting the clear
- *  (a UI/storage desync where the old value silently reappears on next reload).
- *  Exported for unit tests (pure, no Radix/jsdom interaction needed to cover it). */
-export function voiceResetOnModelChange(newModelId: string, currentVoice: string): string | null {
-	const roster = voicesForModel(newModelId);
-	if (roster.length && !roster.some((v) => v.id === currentVoice)) return roster[0].id;
-	return null;
-}
+// on the next play with no separate download. The curated voice DATA lives in
+// tts-voice-catalog.ts/.json (shared with read-aloud.ts's local-first sample cache
+// and tools/generate-voice-samples.mjs — one source of truth, never duplicated).
+// See engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.
 
 type KokoroLoad = { phase: 'idle' | 'confirm' | 'loading' | 'error'; pct: number; note?: string };
+const KOKORO_VOICES = voicesForModel(''); // the empty/unset id resolves to Kokoro — see engineForModel
 
 function SpeedControl({ value, onChange, disabled }: { value: number; onChange: (n: number) => void; disabled?: boolean }) {
 	return (
@@ -122,9 +73,10 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
  *  free-text "Other" escape hatch for a voice id outside the curated roster. Picking
  *  a CURATED voice fires `onPick` immediately — the caller auto-previews it, so
  *  browsing the dropdown is itself "a way to hear it" (see the decision doc). The
- *  free-text path does not auto-preview (it fires on every keystroke otherwise);
- *  the shared Play-sample button covers it. When `voices` is empty (an
- *  unrecognized model), this renders a plain free-text field only. */
+ *  free-text path fires the SAME auto-preview on blur/Enter (not every keystroke,
+ *  which would fire mid-typing) — every real voice selection previews, curated or
+ *  not. When `voices` is empty (an unrecognized model, or one with no named-voice
+ *  concept at all — see noRosterHint), this renders a plain free-text field only. */
 function VoicePicker({
 	label,
 	ariaLabel,
@@ -133,17 +85,24 @@ function VoicePicker({
 	otherValue,
 	onPick,
 	onOtherChange,
+	onCommitOther,
+	hint,
 	disabled,
 }: {
 	label: string;
 	ariaLabel: string;
-	voices: { id: string; label: string }[];
+	voices: Voice[];
 	selectValue: string;
 	otherValue: string;
 	onPick: (voiceId: string) => void;
 	onOtherChange: (text: string) => void;
+	onCommitOther: () => void;
+	hint?: string;
 	disabled?: boolean;
 }) {
+	const commitOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === 'Enter') { e.currentTarget.blur(); onCommitOther(); }
+	};
 	if (!voices.length) {
 		return (
 			<div>
@@ -152,12 +111,14 @@ function VoicePicker({
 					type="text"
 					value={otherValue}
 					onChange={(e) => onOtherChange(e.target.value)}
+					onBlur={onCommitOther}
+					onKeyDown={commitOnEnter}
 					disabled={disabled}
 					placeholder="e.g. alloy"
 					aria-label={ariaLabel}
 					className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none focus:border-[var(--accent)] disabled:opacity-50"
 				/>
-				<p className="mt-1 text-[11px] text-muted-foreground">Unrecognized model — enter its voice id directly (check the model's OpenRouter page).</p>
+				<p className="mt-1 text-[11px] text-muted-foreground">{hint ?? "Unrecognized model — enter its voice id directly (check the model's OpenRouter page)."}</p>
 			</div>
 		);
 	}
@@ -182,6 +143,8 @@ function VoicePicker({
 					type="text"
 					value={otherValue}
 					onChange={(e) => onOtherChange(e.target.value)}
+					onBlur={onCommitOther}
+					onKeyDown={commitOnEnter}
 					disabled={disabled}
 					placeholder="e.g. jf_alpha"
 					aria-label={`Custom ${ariaLabel.toLowerCase()}`}
@@ -190,15 +153,6 @@ function VoicePicker({
 			)}
 		</div>
 	);
-}
-
-/** Resolve a stored voice id against a curated roster: either the id itself (known)
- *  or the OTHER sentinel (unknown — the free text holds the real value). Exported
- *  for unit tests. */
-export function resolveVoice(voices: { id: string; label: string }[], stored: string): { select: string; other: string } {
-	if (!stored) return { select: voices[0]?.id ?? OTHER, other: '' };
-	if (voices.some((v) => v.id === stored)) return { select: stored, other: '' };
-	return { select: OTHER, other: stored };
 }
 
 export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; notify: (msg: string) => void }) {
@@ -278,10 +232,14 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		async (rung: 'openrouter' | 'kokoro', voiceOverride?: string) => {
 			setPreview({ busy: true, error: null });
 			const voice = voiceOverride ?? (rung === 'openrouter' ? orVoiceEffective : kokoroVoiceEffective);
-			const res = await previewTtsVoice({ rung, voice, speed });
+			// `model` lets previewTtsVoice check for a cached, pre-generated sample first
+			// (local, free, instant) before falling back to a live API call — see
+			// read-aloud.ts's cachedSampleUrl.
+			const model = rung === 'openrouter' ? orModel : KOKORO_MODEL_ID;
+			const res = await previewTtsVoice({ rung, voice, model, speed });
 			setPreview({ busy: false, error: res.ok ? null : res.error || 'Could not play a sample.' });
 		},
-		[orVoiceEffective, kokoroVoiceEffective, speed],
+		[orModel, orVoiceEffective, kokoroVoiceEffective, speed],
 	);
 
 	// Picking a MODEL resets the voice to that model's default when the current
@@ -307,6 +265,12 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		setOrVoiceOther(v);
 		if (v.trim()) await setTtsOrVoice(v.trim());
 	};
+	// Fired on blur/Enter (not every keystroke, see VoicePicker) — the free-text
+	// path gets the SAME "picking a voice always plays it" guarantee the curated
+	// dropdown does.
+	const commitOrVoiceOther = () => {
+		if (orVoiceOther.trim() && avail?.openRouterReady) playPreview('openrouter', orVoiceOther.trim());
+	};
 	const pickKokoroVoice = async (v: string) => {
 		setKokoroVoiceSelect(v);
 		await setTtsKokoroVoice(v);
@@ -315,6 +279,9 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 	const changeKokoroOther = async (v: string) => {
 		setKokoroOther(v);
 		if (v.trim()) await setTtsKokoroVoice(v.trim());
+	};
+	const commitKokoroOther = () => {
+		if (kokoroOther.trim() && avail?.kokoroReady) playPreview('kokoro', kokoroOther.trim());
 	};
 	const changeSpeed = async (n: number) => {
 		setSpeedState(n);
@@ -376,6 +343,8 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 						otherValue={orVoiceOther}
 						onPick={pickOrVoice}
 						onOtherChange={changeOrVoiceOther}
+						onCommitOther={commitOrVoiceOther}
+						hint={noRosterHint(orModel)}
 						disabled={!avail.openRouterReady}
 					/>
 				</div>
@@ -446,6 +415,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 					otherValue={kokoroOther}
 					onPick={pickKokoroVoice}
 					onOtherChange={changeKokoroOther}
+					onCommitOther={commitKokoroOther}
 					disabled={!ready}
 				/>
 				{!ready && <p className="mt-1 text-[11px] text-muted-foreground">Download the voice above to configure it.</p>}

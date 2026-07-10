@@ -227,6 +227,57 @@ describe('listOpenRouterVoiceModels (the public, unauthenticated TTS catalog)', 
   });
 });
 
+// Regression: a hung SYNTH-phase call (network never responds) previously left
+// previewVoice()/speak() awaiting forever — the "Playing…" button stuck with no
+// way out. Only the PLAYBACK phase had a watchdog before this fix.
+describe('previewVoice — synth-phase timeout (regression: stuck "Playing…" button)', () => {
+  it('resolves with a timeout error instead of hanging when the fetch never settles', async () => {
+    vi.useFakeTimers();
+    try {
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        fetchImpl: () => new Promise(() => {}), // never resolves or rejects
+      });
+      const resultP = model.previewVoice({ rung: 'openrouter' });
+      await vi.advanceTimersByTimeAsync(20000);
+      await expect(resultP).resolves.toEqual({ ok: false, error: expect.stringContaining('timed out') });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('still resolves ok on a normal, fast synth (the timeout never fires for a healthy request)', async () => {
+    const model = createVoiceModel({
+      getOpenRouterKey: () => 'sk-test',
+      fetchImpl: async () => ({ ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) }),
+    });
+    const res = await model.previewVoice({ rung: 'openrouter' });
+    expect(res.ok).toBe(true);
+  });
+});
+
+describe('speak() — per-sentence synth timeout (same regression, narration path)', () => {
+  it('a sentence whose synth never settles is skipped (not a permanent stall) and the timeout is surfaced', async () => {
+    vi.useFakeTimers();
+    try {
+      const model = createVoiceModel({});
+      model.__setRung({
+        name: 'mock',
+        ready: () => true,
+        synth: () => new Promise(() => {}), // never resolves or rejects
+      });
+      const states: Array<{ error?: string; speaking?: boolean }> = [];
+      const speakP = model.speak({ text: 'One.', onState: (s: { error?: string; speaking?: boolean }) => states.push(s) });
+      await vi.advanceTimersByTimeAsync(20000);
+      await speakP; // must resolve — never hang
+      const errState = states.find((s) => s.speaking === false && s.error);
+      expect(errState?.error).toContain('timed out');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('allowBrowserVoice opt-in (production ban escape hatch)', () => {
   it('is off by default — the banned browser voice stays disallowed', () => {
     expect(createVoiceModel({}).availability().speechAllowed).toBe(false);

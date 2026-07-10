@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, makeReader, type Reader } from '@/lib/cadenza';
+import { cachedSampleUrl, KOKORO_MODEL_ID } from './tts-voice-catalog';
 
 // Studio read-aloud — the REAL synchronized read-along, WORD by word.
 //
@@ -124,7 +125,7 @@ type VoiceModel = {
 	kokoroSupported: () => boolean;
 	probeKokoroCache: () => Promise<boolean>;
 	loadKokoro: (onProgress?: (p: VoiceLoadProgress) => void, signal?: AbortSignal) => Promise<boolean>;
-	previewVoice: (o: { rung: 'openrouter' | 'kokoro'; voice?: string; speed?: number }) => Promise<{ ok: boolean; error?: string }>;
+	previewVoice: (o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }) => Promise<{ ok: boolean; error?: string }>;
 };
 
 export type VoiceAvailability = {
@@ -520,8 +521,46 @@ export async function loadTtsKokoro(onProgress?: (p: VoiceLoadProgress) => void,
 	}
 }
 
-/** Play a short sample with an explicit rung + voice + speed (bypasses the auto ladder). */
-export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?: string; speed?: number }): Promise<{ ok: boolean; error?: string }> {
+// A pre-generated, committed sample plays as a plain <audio> element — same-origin,
+// no network latency, no live API cost, and it keeps working even if the live
+// model is later pulled from OpenRouter's catalog. Bounded to 10s (generous for a
+// few-second clip) so a genuinely broken/missing file still resolves rather than
+// hanging the "Playing…" button — the same never-leave-the-UI-stuck principle as
+// the live path's synth-phase timeout.
+function playLocalSample(url: string): Promise<{ ok: boolean; error?: string }> {
+	return new Promise((resolve) => {
+		let settled = false;
+		const finish = (res: { ok: boolean; error?: string }) => {
+			if (settled) return;
+			settled = true;
+			resolve(res);
+		};
+		try {
+			const audio = new Audio(url);
+			audio.onended = () => finish({ ok: true });
+			audio.onerror = () => finish({ ok: false, error: 'cached sample failed to load' });
+			audio.play().catch((e) => finish({ ok: false, error: String((e as Error)?.message || e) }));
+			setTimeout(() => finish({ ok: false, error: 'cached sample timed out (10s)' }), 10_000);
+		} catch (e) {
+			finish({ ok: false, error: String((e as Error)?.message || e) });
+		}
+	});
+}
+
+/** Play a short sample with an explicit rung + voice + speed (bypasses the auto
+ *  ladder). `model` is optional but needed for the cache lookup on the cloud rung
+ *  (the on-device rung is always Kokoro, no ambiguity) — a curated voice at the
+ *  default speed plays a committed local sample first, no live call at all; an
+ *  uncurated voice or a non-default speed falls back to the live path as before. */
+export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }): Promise<{ ok: boolean; error?: string }> {
+	const cached = o.voice ? cachedSampleUrl(o.rung === 'kokoro' ? KOKORO_MODEL_ID : o.model || '', o.voice, o.speed ?? 1) : null;
+	if (cached) {
+		const res = await playLocalSample(cached);
+		if (res.ok) return res;
+		// A cached file existing but failing to play (network hiccup fetching the
+		// static asset, decode error) is rare — fall back to live rather than surface
+		// a confusing error for a voice that's SUPPOSED to just work.
+	}
 	const v = await getVoice();
 	if (!v) return { ok: false, error: 'voice unavailable' };
 	return v.previewVoice(o);

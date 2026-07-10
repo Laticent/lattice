@@ -215,6 +215,161 @@ below was independently verified (reproduced or traced), not assumed.
   CHANGELOG.md rather than "fixed" (there is nothing to migrate: the two surfaces'
   prefs were never meant to be the same setting, they just accidentally were).
 
+## Follow-up: stuck "Playing…" button, and a real voice roster instead of 2-of-9 models
+
+Live use after #846 merged surfaced two more issues.
+
+**The synth phase had no timeout — a hung network call left "Play sample" stuck
+forever.** `previewVoice()`'s playback phase already had an 8s watchdog, but the
+SYNTH phase (the fetch to OpenRouter, or the Kokoro worker round-trip) had none —
+`await r.synth(...)` could hang indefinitely with no way out short of closing the
+panel (reported live, screenshot showed the button frozen on "Playing…"). Fixed in
+both `previewVoice()` (races against a 20s timeout that also aborts the
+controller, so an abort-aware rung genuinely cancels) and `speak()`'s per-sentence
+synth wrapper (same timeout, but WITHOUT aborting the whole session — a single
+slow sentence skips forward instead of killing the rest of the narration, unlike a
+self-contained preview where aborting everything is fine). Both `Promise.race`s
+clear their timer the moment either side settles — an uncleared timer would
+otherwise linger the full 20s on EVERY call, healthy or not, a real (if small)
+leak across a long presentation; this surfaced immediately in the node test suite
+going from ~0.1s to ~20s.
+
+**The curated voice map covered only 2 of the 9 models OpenRouter's speech catalog
+actually lists.** Raised directly: "my expectation is that all voices come from
+the model and i should always play the sample." Investigated and confirmed
+neither was fully true — the free-text-only default for 7 of 9 models, and preview
+only auto-firing for curated dropdown picks, not free text. Fetched the live
+catalog (`GET /api/v1/models?output_modalities=speech`) to get the real 9 model
+ids, then researched each one rather than guess:
+
+| Model | Curated? | Source |
+|---|---|---|
+| `hexgrad/kokoro-82m` | yes (existing 10) | well-known open model |
+| `x-ai/grok-voice-tts-1.0` | yes, 5 voices | OpenRouter's own model page (direct fetch) |
+| `google/gemini-3.1-flash-tts-preview` | yes, 10-of-30 subset | Google's published Gemini TTS voice set |
+| `canopylabs/orpheus-3b-0.1-ft` | yes, 7 voices\* | the model's own GitHub README |
+| `zyphra/zonos-v0.1-transformer` / `-hybrid` | **no — by design** | voice-CLONING from a reference sample, no presets at all |
+| `sesame/csm-1b` | **no — by design** | numeric speaker slot + reference audio, not named voices |
+| `microsoft/mai-voice-2` | no | has presets (Azure-locale format), but no enumerable list found anywhere verifiable |
+| `mistralai/voxtral-mini-tts-2603` | no | "20 preset voices" stated, but no names enumerated anywhere found |
+
+The Zonos/CSM case is architecturally different from the other two "no" rows: our
+voice-id text field doesn't map onto either model's actual interface at all (one
+needs an audio sample, the other a numeric slot + audio context) — `noRosterHint`
+surfaces that specific reason instead of the generic "unrecognized model" message
+so a user isn't left guessing why there's no dropdown. MAI-Voice-2 and Voxtral DO
+have real presets, just none I could verify — same free-text fallback, honest
+generic message.
+
+\* **Orpheus's README-sourced roster had 8 voices; one didn't actually work.**
+This whole table was sourced from documentation, not a live round-trip — no
+OpenRouter connection was available while writing it, an explicit caveat in
+the PR. The asset-caching work below finally had a real key, and hitting the
+live API turned that caveat into a concrete finding: `zoe` (either casing)
+consistently 500s on OpenRouter's hosted Orpheus endpoint while the other 7
+voices synthesize fine — not a transient failure, confirmed on 3 separate
+direct calls. Dropped from the curated roster rather than shipped as an
+option that always fails to generate a sample (or, for a live/uncached
+narration attempt, always fails to speak at all).
+
+**Auto-preview now covers free text too.** Extended the "picking a curated voice
+plays it immediately" behavior to the free-text "Other" path — on blur/Enter, not
+every keystroke (which would fire mid-typing). Every real voice selection now
+previews, curated or not, closing the "i should always play the sample" gap.
+
+**Raised but deferred to a separate PR:** pre-generating and committing sample
+audio as repo assets (so "Play sample" serves a static file instead of hitting the
+live paid API on every click, and survives a model/voice later being pulled from
+OpenRouter's catalog). Real architecture work — asset location, a
+credit-spending generator script gated the same way `tools/component-gen-eval.mjs`
+is (HARD RULE #24), and a local-first-fallback-to-live playback path — not a
+same-PR add-on to a bug-fix branch (HARD RULE #17).
+
+## Asset-caching: "Play sample" stops spending credits on every click
+
+Follow-up, raised directly: "i want to ensure we get all these sounds and add
+them to the repository as assets... playing sample should eat into your
+credits. the danger of course is if these voices are removed so we need to
+guard against that somehow." Deferred from the voice-map-expansion PR above per
+HARD RULE #17 — real architecture work, not a same-branch add-on.
+
+**The design.** A single JSON catalog
+(`docs/src/playground/tts-voice-catalog.json`) is now the one source of truth
+for the curated voice map — previously duplicated inline in `TtsSettings.tsx`.
+It's read by three consumers that otherwise couldn't share a `.ts` module:
+the browser bundle (`docs/src/components/studio/tts-voice-catalog.ts`, the
+logic layer `TtsSettings.tsx` and `read-aloud.ts` both import), and two Node
+tools (`tools/generate-voice-samples.mjs`, `tools/check-ownership.js`). Each
+engine entry carries a `requiresAsset` flag: `true` for a paid cloud engine
+whose preview should be cached (today: `grok`, `gemini`, `orpheus`); `false`
+for an engine that doesn't need it — either because there's no live model
+behind it yet (`openai`, kept for if one is added), or because it's
+**Kokoro, which runs on-device and never spends credits — when it can run at
+all.** It doesn't load on iPhone or on a device with too little memory
+(`kokoroSupported()`/`probeKokoroCache()` already gate this, and the picker
+disables with an explanatory hint there — see the earlier "disabled if no
+model is enabled" work above). Caching a sample wouldn't close that gap: real
+narration would still fail on those devices, so a cached preview would be
+actively misleading (sounds fine to audition, doesn't actually work). Kokoro
+was deliberately *excluded* from the asset cache rather than pre-generated
+(which would also mean running the WASM model server-side — a different
+problem the credit-protection ask never called for).
+
+**Generation.** `tools/generate-voice-samples.mjs` mirrors
+`tools/component-gen-eval.mjs`'s conventions exactly (HARD RULE #24): reads
+`OPEN_ROUTER_KEY` from the environment only, requires `OPENROUTER_ALLOW_SPEND=1`
+to actually spend (otherwise prints the plan and exits), supports `--limit`
+for a cheap first validation and `--engine` to regenerate one engine, and is
+registered in `SANCTIONED_OPENROUTER_SPENDERS`. It writes
+`docs/public/voice-samples/<engine>/<voice-id>.<mp3|wav>` — one fixed sample
+("This is how your slides will sound.") per curated voice, at the default
+speed only (speed is a runtime multiplier on cheap synthesis, not worth an
+asset per speed step). This is on-demand tooling, not a build step — most
+checkouts won't have a funded `OPEN_ROUTER_KEY` and the directory will simply
+be absent for them (the gate below treats that as fine, not an error). This
+session's sandbox *did* have one configured, so the real 22 samples (5 Grok +
+10 Gemini + 7 Orpheus — `zoe` dropped, below) were generated and committed as
+part of this change, validated first with `--limit 1` per the script's own
+guidance.
+
+**The catalog-drift guard.** Before spending anything, the generator fetches
+`GET /api/v1/models?output_modalities=speech` and **skips** (not fails) any
+`requiresAsset` engine whose `modelId` isn't on the live list — a model
+OpenRouter discontinued doesn't corrupt the asset set or burn credits trying;
+existing cached files for that engine are left alone and the skip is logged.
+This is the direct answer to "the danger is if these voices are removed": the
+cache is what a removed voice degrades *into* (the last-known-good sample
+keeps playing) rather than something that breaks when a voice disappears.
+
+**Playback becomes local-first.** `read-aloud.ts`'s `previewTtsVoice()` now
+checks `cachedSampleUrl(model, voice, speed)` first — a curated voice on a
+`requiresAsset` engine at 1x speed resolves to the on-disk path and plays
+directly via a plain `<audio>` element (10s timeout, matching the live path's
+existing timeout discipline). Only when there's no cached file — free text, an
+uncurated model, a non-default speed, or the cached play itself fails — does
+it fall through to the existing live `voice-model.js` path. No API call, no
+cost, no timeout risk, and instant for the common case (picking one of the
+dropdown voices at the default speed, which is the overwhelming majority of
+"Play sample" clicks).
+
+**The build-time gate.** `checkVoiceSampleAssets` in `tools/check-ownership.js`
+keeps the checked-in assets honest against the catalog: an **absent**
+`docs/public/voice-samples/` is not an error (the directory is opt-in,
+generated tooling — most checkouts, including CI without the secret, won't
+have it), but once present, every `requiresAsset` engine's directory must
+exist with exactly its roster's files — no missing voice, no
+stale/orphaned file left behind by a roster change, no directory for an
+engine that no longer exists or no longer needs caching (e.g. a stale
+`kokoro/` directory would now fail the gate, since kokoro's `requiresAsset`
+is `false`).
+
+**Known limitation.** This caches the **preview** only. Actual deck
+narration through a model/voice that gets pulled from OpenRouter's catalog
+still hits the live API and still fails at narration time — the cache
+doesn't (and structurally can't, without shipping a full narration-audio
+CDN) protect the real read-aloud path, only the "hear what this sounds
+like before you commit to it" button.
+
 ## What's explicitly out of scope
 
 - **On-device speech-to-text / dictation (Whisper or otherwise).** Nothing here
