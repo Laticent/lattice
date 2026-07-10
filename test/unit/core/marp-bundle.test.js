@@ -37,9 +37,112 @@ describe('marp-bundle spec', () => {
     assert.ok(RUNTIME_SCRIPTS.includes('lattice-runtime.min.js'));
   });
 
-  test('marp.config.cjs builds a themeSet from root lattice.css + themes/, no engine', () => {
+  describe('withRuntimeScripts — strips a pre-existing trailing runtime-script block', () => {
+    // examples/gallery-jargon.md's actual convention: an explanatory HTML
+    // comment, the markdownlint-disable pragma, then two repo-relative script
+    // tags — appended so authors can preview Mermaid/structural components
+    // locally. Without stripping, the bundle's own bundle-relative pair would
+    // ship duplicated alongside it.
+    const deckWithLocalPreviewScripts = [
+      '# A',
+      '',
+      '## B',
+      '',
+      '<!-- Import Mermaid and the Lattice runtime theme for VS Code / web preview.',
+      '     The build script (lattice-emulator.js) pre-renders Mermaid to SVG at build time',
+      '     so these scripts are a no-op in the PDF/HTML output. -->',
+      '<!-- markdownlint-disable MD033 -->',
+      '<script src="../mermaid-v11.min.js"></script>',
+      '<script src="../dist/lattice-runtime.js"></script>',
+      '',
+    ].join('\n');
+
+    test('a multi-line explanatory comment + markdownlint pragma + repo-relative scripts are all stripped, no duplication', () => {
+      const out = withRuntimeScripts(deckWithLocalPreviewScripts);
+      // exactly one copy of each script tag (the bundle's own bundle-relative pair)
+      assert.equal((out.match(/mermaid-v11\.min\.js/g) || []).length, 1);
+      assert.equal((out.match(/lattice-runtime\.min\.js/g) || []).length, 1);
+      // the old repo-relative paths are gone entirely
+      assert.doesNotMatch(out, /\.\.\/mermaid-v11\.min\.js/);
+      assert.doesNotMatch(out, /\.\.\/dist\/lattice-runtime\.js/);
+      // the stale explanatory comment (referencing lattice-emulator.js) doesn't leak into the bundle
+      assert.doesNotMatch(out, /lattice-emulator\.js/);
+      // the deck body itself is preserved
+      assert.match(out, /^# A\n\n## B/);
+    });
+
+    test('a bare pair with no preceding comment is also stripped cleanly', () => {
+      const out = withRuntimeScripts('# A\n\n<script src="mermaid-v11.min.js"></script>\n<script src="lattice-runtime.min.js"></script>\n');
+      assert.equal((out.match(/mermaid-v11\.min\.js/g) || []).length, 1);
+      assert.equal((out.match(/lattice-runtime\.min\.js/g) || []).length, 1);
+    });
+
+    // Regression for the catastrophic-swallow bug: a real multi-slide deck is
+    // full of OTHER, unrelated single-line `<!-- _class: … -->` directive
+    // comments — one per slide. A naive backtracking `(?:<!--[\s\S]*?-->)*`
+    // pattern can lazily stretch across all of them, treating the entire deck
+    // body as "one comment" and deleting it. This must strip ONLY the
+    // trailing block and leave every earlier slide fully intact.
+    test('earlier per-slide directive comments are never swallowed (the real-deck shape)', () => {
+      const manySlides = [
+        '<!-- _class: title -->',
+        '<!-- _footer: "Title slide · title" -->',
+        '',
+        '# From Signal to Strategy',
+        '',
+        '---',
+        '',
+        '<!-- _class: quote -->',
+        '<!-- _footer: "Pull quote · quote" -->',
+        '',
+        '> The signal was always there.',
+        '',
+        '— Head of Product',
+        '',
+        '---',
+        '',
+        '<!-- _class: closing -->',
+        '<!-- _footer: "Final ask · closing" -->',
+        '',
+        '## Next step is a working session, not a debate',
+        '',
+        '<!-- Import Mermaid and the Lattice runtime theme for VS Code / web preview.',
+        '     The build script (lattice-emulator.js) pre-renders Mermaid to SVG at build time',
+        '     so these scripts are a no-op in the PDF/HTML output. -->',
+        '<!-- markdownlint-disable MD033 -->',
+        '<script src="../mermaid-v11.min.js"></script>',
+        '<script src="../dist/lattice-runtime.js"></script>',
+        '',
+      ].join('\n');
+
+      const out = withRuntimeScripts(manySlides);
+      // every slide's content and directive comments survive, untouched
+      assert.match(out, /<!-- _class: title -->/);
+      assert.match(out, /# From Signal to Strategy/);
+      assert.match(out, /<!-- _class: quote -->/);
+      assert.match(out, /The signal was always there/);
+      assert.match(out, /<!-- _class: closing -->/);
+      assert.match(out, /Next step is a working session, not a debate/);
+      // exactly one copy of the runtime scripts (the bundle's own pair), no duplication
+      assert.equal((out.match(/mermaid-v11\.min\.js/g) || []).length, 1);
+      assert.equal((out.match(/lattice-runtime\.min\.js/g) || []).length, 1);
+      assert.doesNotMatch(out, /\.\.\/mermaid-v11\.min\.js/);
+    });
+
+    test('an unrelated trailing HTML comment (no qualifying script tag) is left untouched', () => {
+      const out = withRuntimeScripts('# A\n\n<!-- a normal closing note, not about runtime scripts -->\n');
+      assert.match(out, /a normal closing note, not about runtime scripts/);
+    });
+  });
+
+  test('marp.config.cjs builds a themeSet from root lattice.css + themes/, no engine, and allows the runtime <script> tags through', () => {
     assert.match(MARP_CONFIG_CJS, /themeSet/);
     assert.match(MARP_CONFIG_CJS, /allowLocalFiles/);
+    // Without html:true, marp-core's default HTML sanitizer strips <script src>
+    // from the deck as an XSS precaution, silently breaking every structural
+    // component (masthead-lift's .cell-stage, split panels, chart-family, …) in
+    // both the PDF and HTML export paths. See lib/core/marp-bundle.js's comment.
+    assert.match(MARP_CONFIG_CJS, /html:\s*true/);
     // lattice.css is registered from the bundle ROOT (not dist/), since the
     // emulator's dist/ folder is no longer shipped.
     assert.match(MARP_CONFIG_CJS, /path\.join\(__dirname, 'lattice\.css'\)/);
