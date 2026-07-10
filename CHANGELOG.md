@@ -357,6 +357,21 @@ in patch versions.
   (timing out) during this round of generation, not worth caching against an
   unstable endpoint. See the redesign section of
   `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
+- **Read-aloud no longer re-synthesizes a sentence it's already spoken this
+  session.** Replaying a slide (navigate away and back, or just press Play
+  again) previously re-fetched every sentence's audio from scratch — same
+  cost, same latency, even though nothing changed. `voice-model.js` now
+  caches each synthesized clip in memory, keyed on rung + OpenRouter model (or
+  the fixed on-device Kokoro model, kept in the key for symmetry) + voice +
+  speed + the sentence text itself — changing any one of those five is a
+  cache miss, so switching voices or models can never silently replay stale
+  audio. A small FIFO cap (200 entries) bounds memory over a long session.
+  `previewVoice()` ("Play sample") shares the same cache, so re-sampling an
+  already-heard voice/speed replays instantly instead of re-fetching too —
+  complementary to, not a replacement for, the pre-generated featured-sample
+  cache above (that one is a bounded, repo-committed set for cold-start
+  browsing; this one is unbounded, in-memory, and covers actual deck
+  narration).
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new

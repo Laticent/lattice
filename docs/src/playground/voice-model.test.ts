@@ -201,6 +201,111 @@ describe('speed prefs', () => {
   });
 });
 
+describe('audio cache (replay reuses synthesized audio; voice/model/speed changes invalidate it)', () => {
+  it('reuses a cached blob for an identical (rung, voice, speed, text) call — no second synth', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    await model.speak({ text: 'Same sentence.' });
+    await model.speak({ text: 'Same sentence.' });
+    expect(calls).toEqual(['Same sentence.']); // the second speak() replayed the cached blob
+  });
+
+  it('an explicit voice change forces a fresh synth even for the same text/speed', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    await model.speak({ text: 'Hi.', voice: 'voice-a' });
+    await model.speak({ text: 'Hi.', voice: 'voice-a' }); // same voice → cache hit
+    expect(calls).toEqual(['Hi.']);
+    await model.speak({ text: 'Hi.', voice: 'voice-b' }); // different voice → must NOT reuse voice-a's audio
+    expect(calls).toEqual(['Hi.', 'Hi.']);
+  });
+
+  it('an OpenRouter MODEL change forces a fresh synth even for the same text/voice/speed', async () => {
+    // OpenRouter serves multiple TTS models through one rung — the model id
+    // must be part of the cache key too, not just voice, or switching models
+    // would silently replay the PREVIOUS model's audio.
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'openrouter-tts',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.setOrModel('model-a');
+    await model.speak({ text: 'Hi.' });
+    await model.speak({ text: 'Hi.' }); // same model (+ default voice/speed) → cache hit
+    expect(calls).toEqual(['Hi.']);
+    model.setOrModel('model-b');
+    await model.speak({ text: 'Hi.' }); // different model → must NOT reuse model-a's audio
+    expect(calls).toEqual(['Hi.', 'Hi.']);
+  });
+
+  it('a speed change forces a fresh synth even for the same text/voice/model', async () => {
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    model.__setRung({
+      name: 'mock',
+      ready: () => true,
+      synth: async ({ text }: { text: string }) => {
+        calls.push(text);
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    await model.speak({ text: 'Hi.', speed: 1.25 });
+    await model.speak({ text: 'Hi.', speed: 1.25 }); // same speed → cache hit
+    expect(calls).toEqual(['Hi.']);
+    await model.speak({ text: 'Hi.', speed: 0.9 }); // different speed → must NOT reuse the 1.25x audio
+    expect(calls).toEqual(['Hi.', 'Hi.']);
+  });
+
+  it('previewVoice reuses a cached sample for the same rung/voice/speed instead of re-fetching', async () => {
+    let fetchCalls = 0;
+    const model = createVoiceModel({
+      getOpenRouterKey: () => 'sk-test',
+      fetchImpl: async () => {
+        fetchCalls++;
+        return { ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) };
+      },
+    });
+    expect((await model.previewVoice({ rung: 'openrouter' })).ok).toBe(true);
+    expect((await model.previewVoice({ rung: 'openrouter' })).ok).toBe(true);
+    expect(fetchCalls).toBe(1); // the second preview replayed the cached sample, no re-fetch
+  });
+
+  it('previewVoice: a different voice forces a fresh fetch', async () => {
+    let fetchCalls = 0;
+    const model = createVoiceModel({
+      getOpenRouterKey: () => 'sk-test',
+      fetchImpl: async () => {
+        fetchCalls++;
+        return { ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) };
+      },
+    });
+    await model.previewVoice({ rung: 'openrouter', voice: 'voice-a' });
+    await model.previewVoice({ rung: 'openrouter', voice: 'voice-b' });
+    expect(fetchCalls).toBe(2);
+  });
+});
+
 describe('listOpenRouterVoiceModels (the public, unauthenticated TTS catalog)', () => {
   it('maps the catalog to {id,name,promptPerM,completionPerM,voices}', async () => {
     vi.resetModules();
