@@ -21,8 +21,84 @@ const { parseEnvelope } = require('../../../lib/core/lattice-doc.js');
 // suite runs — the adapter no longer re-exports it (a CJS module can't sync-forward an
 // ESM binding), so the tests read it from its new home.
 let minifyCss;
+let resolveLightDark;
+let themeDualMode;
 test.before(async () => {
-	({ minifyCss } = await import('../../../lib/export/player-core.mjs'));
+	({ minifyCss, resolveLightDark, themeDualMode } = await import('../../../lib/export/player-core.mjs'));
+});
+
+// ── light-dark() → engine-independent dual-mode transform (pure kernel) ──────────
+test('resolveLightDark picks the right arm, respecting nested parens and recursion', () => {
+	// Top-level comma only — a var() fallback's own comma must NOT split the pair.
+	assert.equal(resolveLightDark('--x:light-dark(var(--a,#fff), #000)', 0), '--x:var(--a,#fff)');
+	assert.equal(resolveLightDark('--x:light-dark(var(--a,#fff), #000)', 1), '--x:#000');
+	// Multiple pairs in one string, both resolved.
+	assert.equal(resolveLightDark('a light-dark(1,2) b light-dark(3,4)', 1), 'a 2 b 4');
+	// Single-argument form maps to both sides.
+	assert.equal(resolveLightDark('light-dark(red)', 0), 'red');
+	assert.equal(resolveLightDark('light-dark(red)', 1), 'red');
+	// A nested light-dark inside the chosen arm is resolved too.
+	assert.equal(resolveLightDark('light-dark(light-dark(a,b), c)', 0), 'a');
+	// No light-dark → untouched.
+	assert.equal(resolveLightDark('color:var(--x,#fff)', 0), 'color:var(--x,#fff)');
+});
+
+test('resolveLightDark never rewrites light-dark() inside a string, url(), or comment', () => {
+	// A content string that literally contains the token text must survive verbatim.
+	assert.equal(resolveLightDark('content:"light-dark(a,b)"', 0), 'content:"light-dark(a,b)"');
+	assert.equal(resolveLightDark("content:'light-dark(a,b)'", 1), "content:'light-dark(a,b)'");
+	// A data-URI (url()) is opaque — even an unbalanced-looking paren inside must not
+	// derail the scanner into rewriting the real token that follows.
+	assert.equal(
+		resolveLightDark('background:url("data:image/svg+xml,light-dark(x,y)");--t:light-dark(#fff,#000)', 1),
+		'background:url("data:image/svg+xml,light-dark(x,y)");--t:#000',
+	);
+	// A comment with an UNBALANCED paren must not run the paren scanner off the end and
+	// corrupt the real declaration after it.
+	assert.equal(resolveLightDark('/* light-dark(a */--t:light-dark(#fff,#000)', 0), '/* light-dark(a */--t:#fff');
+});
+
+test('themeDualMode splits a light base + a dark override, FLATTENING var() indirection to literals', () => {
+	// --bg's dark arm is `var(--scheme-dark-bg)` → must be FLATTENED to the literal
+	// #001D33 (the on-device fix: an older WebKit couldn't resolve a custom property
+	// pointing at another custom property across <style> blocks, leaving --bg unset →
+	// white). --code's dark arm is `var(--accent)` → must be KEPT as a var, because
+	// --accent is itself a dark token redefined in this same block (flattening it would
+	// wrongly pin the LIGHT accent).
+	const css = ':root{--scheme-dark-bg:#001D33;--brand:#4338ca;--bg: light-dark(#FFFFFF, var(--scheme-dark-bg)); --accent: light-dark(var(--brand), #82C8E5); --code: light-dark(#006599, var(--accent))}';
+	const { base, darkBlock } = themeDualMode(css);
+	assert.doesNotMatch(base, /light-dark\(/, 'no light-dark() survives in the base');
+	assert.match(base, /--bg: #FFFFFF/);
+	const attrRule = darkBlock.split('@media')[0];
+	assert.match(attrRule, /--bg:#001D33/, 'cross-block var(--scheme-dark-bg) is flattened to its literal');
+	assert.doesNotMatch(attrRule, /var\(--scheme-dark/, 'no var(--scheme-dark-*) indirection remains');
+	assert.match(attrRule, /--accent:#82C8E5/, 'the accent dark arm is its literal');
+	assert.match(attrRule, /--code:var\(--accent\)/, 'a var() pointing at a same-block dark token is KEPT (resolves within the dark block)');
+	// The tokens are set on :root AND directly on the slide sections (belt-and-suspenders
+	// for an engine that repaints :root but doesn't re-propagate to deep section subtrees).
+	assert.match(attrRule, /:root\[data-lp-scheme=dark\],:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\{/, 'the dark tokens are set on :root AND directly on every slide section');
+	// The @media block is the no-JS fallback (note the space after @media for old parsers).
+	assert.match(darkBlock, /@media \(prefers-color-scheme:dark\)\{:root:not\(\[data-lp-scheme=light\]\),:root:not\(\[data-lp-scheme=light\]\) section\[data-lattice-slide\]\{--bg:#001D33/);
+});
+
+test('themeDualMode flattens a MULTI-HOP var chain to a literal (no residual cross-block indirection)', () => {
+	// --on-accent's dark arm is var(--surface-inverse), which is var(--brand-canvas),
+	// which is a literal — a two-hop chain. The whole chain must collapse to the literal
+	// so no surface token depends on cross-block var resolution (the on-device failure).
+	const css =
+		':root{--brand-canvas:#0A1628;--surface-inverse:var(--brand-canvas);' +
+		'--on-accent:light-dark(#FFF, var(--surface-inverse,#000));' +
+		'--accent:light-dark(#4338ca,#82C8E5);--code:light-dark(#069, var(--accent))}';
+	const attr = themeDualMode(css).darkBlock.split('@media')[0];
+	assert.match(attr, /--on-accent:#0A1628/, 'the two-hop chain resolves to the final literal');
+	assert.doesNotMatch(attr, /var\(--surface-inverse|var\(--brand-canvas/, 'no intermediate var indirection remains');
+	assert.match(attr, /--code:var\(--accent\)/, 'a same-block dark token ref is still kept (cycle-safe, block-local)');
+});
+
+test('themeDualMode is a no-op (empty dark block) when the CSS has no light-dark()', () => {
+	const { base, darkBlock } = themeDualMode('section{color:red}');
+	assert.equal(base, 'section{color:red}');
+	assert.equal(darkBlock, '');
 });
 
 // The self-contained .html PLAYER assembler (lib/export/html-player.js) — P2 slice 3
@@ -136,23 +212,30 @@ test('present ships visible prev/next controls wired to the shared transport', a
 	assert.match(html, /nextBtn\.disabled=i===slides\.length-1/, 'next disables at the last slide');
 });
 
-test('the view-switcher tabs always carry BOTH an icon and visible text, at every width', async () => {
-	// Regression, two rounds: (1) "Read · Slides" / "Read · Article" wrapped to two
-	// lines on a real iPhone, blowing out the bar's height — first "fixed" by hiding
-	// the text below 560px and showing icon-only. (2) That regressed AGAIN — the user
-	// wants the label legible at every width, not just on tap-to-discover via
-	// aria-label. The bar now COMPACTS at narrow widths (smaller font/icon/padding)
-	// instead of dropping the text, so both survive together. Each tab also keeps its
-	// own aria-label as a belt for the accessible name.
+test('the view-switcher tabs carry an icon + text label at tablet/desktop, icon-only (sr-only text) on phone', async () => {
+	// Regression, three rounds on the same real-device loop: (1) "Read · Slides" /
+	// "Read · Article" wrapped to two lines on a real iPhone, blowing out the bar's
+	// height — "fixed" by hiding the text below 560px and showing icon-only. (2) That
+	// regressed the OTHER way — the user wanted the label legible at every width, so
+	// the bar compacted (smaller font/icon/padding) instead of dropping the text, both
+	// surviving together. (3) On the real "Welcome to Lattice" seed deck at real phone
+	// width, that compacted icon+text bar crowded the notes/fullscreen/mode controls
+	// to within single-digit pixels of the viewport edge — visibly cramped, read as
+	// "cut off." Icon-only on phone (<560px) is the durable fix: the text is NEVER
+	// removed from the DOM (still a real child, still the accessible name via
+	// aria-label) — only visually sr-only-clipped below 560px, so nothing regresses
+	// for assistive tech, only sighted phone users get the tighter icon-only bar.
+	// Tablet/desktop (≥560px) keep icon + visible text, unchanged from round (2).
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	for (const [v, label] of [['present', 'Present'], ['read-slides', 'Read · Slides'], ['read-article', 'Read · Article']]) {
 		const btn = (html.match(new RegExp(`<button data-lp-btn="${v}"[^>]*>[\\s\\S]*?</button>`)) || [])[0];
 		assert.ok(btn, `${v} button present`);
 		assert.match(btn, new RegExp(`aria-label="${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`), `${v} carries its own aria-label`);
-		assert.match(btn, new RegExp(`class="lp-tab-text">${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`), `${v}'s text label is real visible content, not hidden`);
+		assert.match(btn, new RegExp(`class="lp-tab-text">${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`), `${v}'s text label is real DOM content, not removed`);
 	}
 	assert.match(html, /class="lp-tab-icon"/, 'each tab carries an icon');
-	assert.doesNotMatch(html, /lp-tab-text\{display:none\}/, 'the text label is never display:none at any width');
+	assert.doesNotMatch(html, /lp-tab-text\{display:none\}/, 'the text label is sr-only clipped, never display:none (which some assistive tech also drops)');
+	assert.match(html, /#lp-bar \.lp-tab-text\{position:absolute;width:1px;height:1px/, 'below 560px the tab text is visually clipped to icon-only, sr-only');
 });
 
 test('the fullscreen/notes/mode buttons use SVG icons, not emoji glyphs', async () => {
@@ -171,7 +254,8 @@ test('dark/light mode swaps a fixed-size icon (never a shifting text glyph)', as
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /var MOON_ICON=/, 'the moon icon is a stable var');
 	assert.match(html, /var SUN_ICON=/, 'the sun icon is a stable var');
-	assert.match(html, /isDark=!isDark;root\.style\.colorScheme=isDark\?'dark':'light';mode\.innerHTML=isDark\?SUN_ICON:MOON_ICON/, 'toggling flips the isDark source of truth and swaps innerHTML, not textContent');
+	assert.match(html, /function applyScheme\(\)\{root\.setAttribute\('data-lp-scheme',isDark\?'dark':'light'\)/, 'toggling drives a data-lp-scheme attribute (not the light-dark()-only color-scheme)');
+	assert.match(html, /mode\.innerHTML=isDark\?SUN_ICON:MOON_ICON/, 'the icon swaps innerHTML, not textContent');
 	// Both icon markups declare the SAME width/height, so the button's box never resizes.
 	const moon = (html.match(/MOON_ICON='([^']*)'/) || [])[1] || '';
 	const sun = (html.match(/SUN_ICON='([^']*)'/) || [])[1] || '';
@@ -179,18 +263,42 @@ test('dark/light mode swaps a fixed-size icon (never a shifting text glyph)', as
 	assert.match(sun, /width="16" height="16"/);
 });
 
-test('dark/light mode seeds from the ACTUAL system preference, not the empty inline style (one-tap fix)', async () => {
-	// Regression: the toggle read root.style.colorScheme (the INLINE style) to decide
-	// "is it dark right now" — but that starts EMPTY even on a system-dark device,
-	// where light-dark() already renders the deck dark via the base
-	// :root{color-scheme:light dark} following the OS preference with no inline
-	// override needed. So on a system-dark device the icon started wrong (moon, "tap
-	// for dark" — when it was ALREADY dark) and the first tap just reasserted dark
-	// (invisible — nothing changed); a real switch to light needed a SECOND tap.
-	// isDark now seeds from matchMedia at load, matching what's actually rendered.
+test('dark/light mode seeds from the ACTUAL system preference (one-tap fix, engine-independent)', async () => {
+	// The toggle drives a data-lp-scheme ATTRIBUTE the export's CSS keys on — NOT the
+	// CSS light-dark() function, which older in-app WebKit lacks (that was the whole
+	// reason the toggle did nothing on the user's phone). isDark seeds from matchMedia
+	// so the icon and the very first tap are both correct from load, in either system
+	// state. color-scheme is still set (for native controls) but the deck no longer
+	// depends on it.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
-	assert.match(html, /var isDark=!!\(window\.matchMedia&&matchMedia\('\(prefers-color-scheme:dark\)'\)\.matches\)/, 'isDark seeds from the real system preference, not an inline style read');
-	assert.match(html, /if\(mode\)mode\.innerHTML=isDark\?SUN_ICON:MOON_ICON;/, 'the icon is synced to the seeded state before any click, so it never starts wrong');
+	assert.match(html, /var isDark=!!\(window\.matchMedia&&matchMedia\('\(prefers-color-scheme:dark\)'\)\.matches\)/, 'isDark seeds from the real system preference');
+	assert.match(html, /root\.style\.setProperty\('color-scheme',isDark\?'dark':'light'\)/, 'color-scheme is set via setProperty (cross-engine safe), for native controls');
+	assert.match(html, /applyScheme\(\); \/\/ stamp at load/, 'the scheme attribute is STAMPED AT LOAD (JS is the source of truth, not the CSS media query)');
+	assert.match(html, /if\(mode\)mode\.onclick=function\(\)\{isDark=!isDark;applyScheme\(\);\}/, 'one tap flips the state and applies it');
+});
+
+test('the export carries NO light-dark() and ships an explicit dark-mode block (works on WebKit < 17.5)', async () => {
+	// The root cause of "color mode does not work" on the user's real phone: every theme
+	// token is authored as `--t: light-dark(L, D)`, a CSS function that only exists on
+	// Safari/WebKit 17.5+ (mid-2024). On an older in-app browser it is invalid → tokens
+	// unset → the deck loses its colors AND the toggle (which only flipped color-scheme,
+	// which nothing but light-dark() reads) is inert. themeDualMode resolves the pairs at
+	// export time into a light base + an explicit dark override gated by a manual attribute
+	// and a prefers-color-scheme media query — plain CSS supported for a decade. So the
+	// SHIPPED file must contain no light-dark() in its styles, and must carry the dark block.
+	// A fixture whose deck CSS carries light-dark() tokens the way a real theme does.
+	const themed = docHtml.replace(
+		'<style>section[data-lattice-slide]{color:red}@font-face{font-family:Playfair;src:url(\'fonts/playfair-400.woff2\')}</style>',
+		'<style>:root{--bg:light-dark(#FFFFFF, #001D33);--accent:light-dark(var(--brand,#4338ca), #82C8E5)}section[data-lattice-slide]{background:var(--bg)}</style>',
+	);
+	const { html } = await buildPlayerHtml({ docHtml: themed, source, now: 0 });
+	// Strip the inlined <script> (its comments legitimately mention the function name).
+	const styleOnly = html.replace(/<script>[\s\S]*?<\/script>/gi, '');
+	assert.doesNotMatch(styleOnly, /light-dark\(/, 'no shipped CSS depends on the light-dark() function');
+	assert.match(html, /:root\[data-lp-scheme=dark\],:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\{--bg:#001D33;--accent:#82C8E5\}/, 'the manual-dark override carries the DARK arm on :root AND the slide sections');
+	assert.match(html, /@media \(prefers-color-scheme:dark\)\{:root:not\(\[data-lp-scheme=light\]\),:root:not\(\[data-lp-scheme=light\]\) section\[data-lattice-slide\]\{--bg:#001D33/, 'a no-JS system-dark fallback (overridable to light) is present, with a space after @media for old parsers');
+	// The light base kept the LIGHT arm (nested var() fallback comma respected).
+	assert.match(html, /:root\{--bg:#FFFFFF;--accent:var\(--brand,#4338ca\)\}/, 'the base resolves each pair to its light arm, splitting on the TOP-LEVEL comma only');
 });
 
 test('fullscreen is feature-detected and the button hides when the API is unavailable', async () => {
@@ -202,46 +310,70 @@ test('fullscreen is feature-detected and the button hides when the API is unavai
 	assert.match(html, /if\(full&&!canFullscreen\)full\.style\.display='none'/, 'the button hides itself when unsupported');
 });
 
-test('Read·Slides clears the fixed bar — the first slide never sits under it', async () => {
-	// Regression: the read-slides #lp-stage padding shorthand (padding-top:28px) has
-	// HIGHER specificity than the base #lp-stage{padding-top:48px} bar-clearance rule
-	// (an ID + attribute selector beats a bare ID), so it silently REPLACED 48px
-	// instead of adding to it — the first slide's top ~20px sat under the fixed,
-	// translucent/blurred bar (screenshot-reported: "toolbar obscures the first
-	// slide"). The padding must clear the full 48px bar height, not undercut it.
+test('the player is a flex column (bar + app) sized to the visible viewport (100svh)', async () => {
+	// The player shell is a flex column at 100svh (small viewport = the visible area with
+	// the browser chrome shown), so Present's stage is a flex child sized to real visible
+	// space and centers correctly on a mobile in-app browser — no position:fixed, no
+	// JS-measured height. 100vh is the pre-svh fallback. Scoped to .lp-js; the no-JS floor
+	// keeps the old scrolling document.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
-	const rule = (html.match(/\[data-lp-view=read-slides\] #lp-stage\{[^}]*\}/) || [])[0] || '';
-	assert.ok(rule, 'the read-slides stage rule is present');
-	assert.match(rule, /padding:calc\(48px \+ 28px\) /, 'padding-top explicitly clears the 48px bar plus breathing room');
+	assert.match(html, /\.lp-js body\{display:flex;flex-direction:column;height:100vh;height:100svh;overflow:hidden\}/, 'the JS shell is a flex column at the visible viewport height');
+	assert.match(html, /\.lp-js #lp-bar\{position:static;flex:none\}/, 'the bar is a flex child, not fixed, on the JS path');
+	assert.match(html, /\.lp-js #lp-app\{flex:1;min-height:0;display:flex;flex-direction:column/, 'the app fills the rest of the column');
+	// Read·Slides + Read·Article are the column's scrolling children (no bar-clearance
+	// padding — the flex bar reserves its own space).
+	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-stage\{flex:1;min-height:0;overflow:auto\}/, 'read-slides scrolls internally below the flex bar');
+	assert.match(html, /html:not\(\.lp-js\) #lp-stage\{padding-top:48px\}/, 'the base bar-clearance padding is scoped to the NO-JS floor only');
 });
 
-test('the player inlines the transport kernel and fits against the MEASURED stage box', async () => {
-	// Regression: the fit scale was once computed against innerWidth/innerHeight with a
-	// hand-tuned insetY (48+56) baking the top bar's height into the inset budget — a
-	// DIFFERENT number than the #lp-stage element's own CSS height (which already
-	// excludes the bar). The two could drift apart (depending on how --lp-vh resolved
-	// on a given engine), producing asymmetric top/bottom padding around the centered
-	// slide. Fit now measures the stage element's own clientWidth/clientHeight directly,
-	// so the scale and the centering box are always the same measured box — symmetric
-	// by construction, immune to any dvh/visualViewport quirk.
+test('Present centers via a flex child (flex:1 + place-items:center), not position:fixed', async () => {
+	// Regression: Present used a JS-measured `--lp-vh` height, then `position:fixed;bottom:0`
+	// — both misbehaved on a mobile in-app browser (layout viewport taller than visible),
+	// pushing the slide DOWN. It is now the flex column's growing child, so the browser
+	// sizes it to real visible space and place-items:center centers in what the eye sees.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /\.lp-js \[data-lp-view=present\] #lp-stage\{flex:1;min-height:0;[^}]*place-items:center/, 'the present stage is a flex child that centers its slide');
+	assert.doesNotMatch(html, /--lp-vh/, 'no JS-measured viewport-height variable');
+	assert.doesNotMatch(html, /\[data-lp-view=present\] #lp-stage\{position:fixed/, 'the present stage is no longer position:fixed');
+});
+
+test('the player inlines the transport kernel and fits the FRAME to the measured stage box', async () => {
+	// fit() measures the stage's own clientWidth/clientHeight and publishes the scale as a
+	// CSS var (--lp-fit-present) that sizes the ACTIVE FRAME to the scaled footprint — so
+	// place-items:center centers a box that FITS the stage at any height. (A fixed 720px
+	// frame overflowed a short phone stage; grid top-aligned it and pushed the slide down.)
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /function fitScale\(/, 'the transport kernel is inlined into the player script');
-	assert.match(html, /var st=document\.getElementById\('lp-stage'\)/, 'fit measures the stage element directly');
-	assert.match(html, /stageW:stW,stageH:stH,slideW:1280,slideH:720,insetX:56,insetY:56/, 'the scale is computed against the measured stage box, not innerWidth/innerHeight');
+	assert.match(html, /var st=document\.getElementById\('lp-stage'\);if\(!st\)return/, 'fit measures the stage element directly');
+	assert.match(html, /setProperty\('--lp-fit-present',fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight,slideW:1280,slideH:720,insetX:40,insetY:40\}\)\)/, 'the scale is published as a CSS var the frame sizes to');
+	// The active frame + its section size to that var — the frame is the scaled footprint.
+	assert.match(html, /\[data-lp-view=present\] \.lp-frame\.lp-active\{display:block;\s*width:calc\(1280px \* var\(--lp-fit-present,\.5\)\);height:calc\(720px \* var\(--lp-fit-present,\.5\)\)/, 'the active frame sizes to the scaled footprint, so it fits+centers at any stage height');
 	assert.match(html, /createTransport\(\{count:slides\.length/, 'nav runs on the shared transport');
 });
 
-test('present resets the base #lp-stage padding-top so the centered slide sits symmetric', async () => {
-	// Regression: the base `#lp-stage{padding-top:48px}` rule (which clears the 48px bar
-	// for the normal-flow SCROLLING views, Read·Slides/Article) also applied in Present,
-	// where #lp-stage is ALREADY `position:fixed;top:48px`. That double-counted the bar —
-	// the padding ate into the grid/flex content box that place-items:center then
-	// centered WITHIN, not the full box — producing asymmetric top/bottom padding around
-	// the slide (measured: 62px top vs 14px bottom at one viewport). Present overrides it
-	// back to padding-top:0, restoring symmetric centering (confirmed 0px diff at three
-	// viewport sizes in Chromium).
+test('prev/next dock in a bottom nav row (#lp-nav), not over the slide', async () => {
+	// The arrows moved from fixed side-overlays (which crowded the slide edges) into a
+	// flex:none row BELOW the stage, so they never sit over slide content and the slide
+	// keeps a symmetric centering box.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
-	assert.match(html, /\[data-lp-view=present\] #lp-stage\{[^}]*padding-top:0/, 'present resets the base padding-top so centering is symmetric');
+	assert.match(html, /<div id="lp-nav">\s*<button id="lp-prev"/, 'prev/next are wrapped in a bottom nav row');
+	assert.match(html, /\.lp-js \[data-lp-view=present\] #lp-nav\{display:flex;flex:none;[^}]*justify-content:center/, 'the nav row is a centered flex row shown in present');
+	assert.doesNotMatch(html, /#lp-prev\{left:/, 'the arrows are no longer edge-anchored side overlays');
+});
+
+test('Read·Slides frames the border + shadow on the .lp-frame, not the scaled section', async () => {
+	// Regression: the border + shadow sat on the section, which is transform:scale(~.28),
+	// so the 1px border shrank to a sub-pixel hairline and its outward shadow was clipped
+	// away by the frame's overflow:hidden — a white slide on the white page had NO visible
+	// boundary. On the UNSCALED frame the border is a true 1px and the shadow paints
+	// outside the frame's own box (not clipped by its own overflow), so each slide reads as
+	// a distinct card.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	const frameRule = (html.match(/\[data-lp-view=read-slides\] \.lp-frame\{[^}]*\}/) || [])[0] || '';
+	assert.match(frameRule, /border:1px solid var\(--border/, 'the frame carries the 1px border');
+	assert.match(frameRule, /box-shadow:0 10px 34px -14px/, 'the frame carries the card shadow');
+	const secRule = (html.match(/\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{[^}]*\}/) || [])[0] || '';
+	assert.doesNotMatch(secRule, /box-shadow/, 'the scaled section no longer carries the (clipped, sub-pixel) shadow/border');
 });
 
 test('present mode ships a speaker-notes sheet reading the baked asides (P3d)', async () => {
@@ -259,18 +391,39 @@ test('present mode ships a speaker-notes sheet reading the baked asides (P3d)', 
 	assert.match(html, /Pause and breathe\./, 'the note aside rides in the baked DOM');
 });
 
-test('present mode ships swipe, fullscreen, and dvh viewport-fill (P3c)', async () => {
+test('the player ships the Marp-equivalent chrome CSS (pagination + notes hide + sr-only description), not just the CLI docHtml', async () => {
+	// Regression: the CLI's own docHtml bakes in a marpSystemCss block (pagination
+	// content:attr(), aside.lattice-notes{display:none}, .lattice-description sr-only) —
+	// but the Studio's browser-built docHtml (share-export.ts's buildSelfContainedDoc)
+	// never included it. A Studio-exported deck carrying a `describe:` comment shipped
+	// its accessible-description <p> fully VISIBLE — an extra, unstyled paragraph
+	// duplicating the slide's own heading/body text, in Present AND Read Article — and
+	// every deck's page-number span had no content:attr() binding to read from. Landing
+	// this CSS in the ONE shared assembler (player-core.mjs's playerCss) closes the gap
+	// for every host, CLI included, instead of leaving the CLI's copy as the only one.
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /section\[data-lattice-pagination\]::after\{content:attr\(data-lattice-pagination\)\}/, 'page numbers render even when the host docHtml carries no pagination CSS of its own');
+	assert.match(html, /aside\.lattice-notes\{display:none!important\}/, 'speaker-note asides stay hidden regardless of host docHtml');
+	assert.match(html, /\.lattice-description\{position:absolute!important/, 'the accessible description is sr-only, never a visible extra paragraph on the slide');
+});
+
+test('present mode ships swipe, fullscreen, and flex-child viewport fill (P3c)', async () => {
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /function swipeAction\(/, 'the swipe kernel is inlined');
 	assert.match(html, /pointerdown/, 'the stage is wired for touch/swipe');
 	assert.match(html, /swipeAction\(\{dx:/, 'a decisive horizontal drag turns the slide');
 	assert.match(html, /id="lp-full"/, 'the fullscreen control is present');
 	assert.match(html, /requestFullscreen/, 'fullscreen is wired (feature-detected)');
-	assert.match(html, /height:calc\(var\(--lp-vh,100dvh\) - 48px\);box-sizing:border-box/, 'stage height prefers the JS-measured viewport, falling back to dvh with border-box (no padding overflow / vertical shift)');
-	assert.match(html, /place-items:center;justify-content:center/, 'the oversized slide is centered in a narrow viewport (mobile on-screen)');
-	assert.match(html, /function setStageHeight\(\)/, 'the script measures the real viewport (visualViewport/innerHeight) rather than trusting dvh');
+	// The present stage fills the flex column (flex:1) and centers — the browser sizes the
+	// box to real visible space (100svh column − bar), not a JS-measured height. A mobile
+	// in-app browser reports a layout height taller than the visible area, which is why the
+	// old JS/fixed approaches pushed the centered slide DOWN (the reported "not centered").
+	assert.match(html, /\.lp-js \[data-lp-view=present\] #lp-stage\{flex:1;min-height:0/, 'the present stage fills the flex column');
+	assert.doesNotMatch(html, /--lp-vh/, 'the fragile JS viewport-height variable is gone entirely');
+	assert.doesNotMatch(html, /function setStageHeight/, 'no JS viewport-height measurement remains');
+	assert.match(html, /place-items:center;justify-content:center/, 'the oversized slide is centered in the flex stage box');
 	assert.match(html, /addEventListener\('orientationchange',onResize\)/, 'the fit re-runs on orientation change');
-	assert.match(html, /function onResize\(\)\{setStageHeight\(\);fit\(\);fitRead\(\);\}/, 'onResize re-measures the viewport height and refits both present (fit) and read-slides (fitRead)');
+	assert.match(html, /function onResize\(\)\{fit\(\);fitRead\(\);\}/, 'onResize just refits (present via fit, read-slides via fitRead) — no viewport remeasure');
 });
 
 test('the inlined transport kernel binds STABLE names (survives a minifying bundler)', async () => {
@@ -372,7 +525,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '19e62f778a5ca1139aef4f26aa1c072de3957e5bea1e169e9c56f0fefa662074', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '52bc79b4c797f81b4cbb8f0ab976572bda95d71aaa12024f435ac9f02743880d', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

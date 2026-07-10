@@ -89,6 +89,18 @@ test('nesting is preserved (no flatten-to-textContent) and chrome is skipped', (
 	assert.doesNotMatch(articleHtml, /pagination|secret speaker note/, 'pagination + notes skipped');
 });
 
+test('the sr-only accessible description is skipped, not duplicated as visible prose', () => {
+	const secs = sections(
+		`<section data-lattice-slide class="title" aria-describedby="lat-desc-1">
+			<p class="lattice-description" id="lat-desc-1">A dark title slide reading "Deck title".</p>
+			<h1>Deck title</h1><p>Subtitle line.</p></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /dark title slide reading/, 'the a11y description text is not re-emitted as prose');
+	assert.match(articleHtml, /<h1[^>]*>Deck title<\/h1>/);
+	assert.match(articleHtml, /<p>Subtitle line\.<\/p>/);
+});
+
 test('deeper walk recovers content nested in wrapper divs (compare-code / split-panel)', () => {
 	const secs = sections(
 		`<section data-lattice-slide data-class="split-panel" class="split-panel form"><div class="masthead-lede"><h2>Deep dive</h2></div>
