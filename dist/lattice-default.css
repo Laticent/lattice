@@ -13439,8 +13439,23 @@ section.dark p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-s
  * as a warm filled panel — Option C styling.
  * Excluded layouts handle blockquote themselves:
  *   quote (primary content)
+ *
+ * Every rule below is duplicated with a `.cell-stage >` arm: masthead-lift
+ * (lib/forms/cell/masthead/masthead.transform.js) wraps a Form slide's flow
+ * body into `<div class="cell-stage">` for every STAGE_MIGRATED layout (the
+ * common case — Form has been default since 2026-06-26), so the blockquote
+ * is no longer a direct child of <section> on those slides. redline and
+ * inventory are excluded from the `.cell-stage` arm (not from the original)
+ * because they already ship their own dedicated `.cell-stage`-scoped
+ * blockquote treatment (redline.styles.css, inventory.styles.css) — this
+ * generic rule must not repaint over it. A collapsed `:is(section,
+ * .cell-stage)` is NOT used: Marpit's CSS scoper rewrites a leading `:is(…)`
+ * into a descendant of the slide root rather than the slide itself (see the
+ * BELOW-NOTE fallback note below), so each ancestor must be its own
+ * comma-separated selector — same pattern as the UNIVERSAL PILL rule above.
  */
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote {
+section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote {
   background:var(--accent-soft);
   border:1px solid var(--accent);
   border-radius:var(--radius-md);
@@ -13449,7 +13464,8 @@ section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blo
    * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
 }
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not([class*="layout-"]) > blockquote::before {
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not([class*="layout-"]) > blockquote::before,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote::before {
   content:'KEY INSIGHT';
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -13460,19 +13476,22 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not([class*="la
   display:block;
   padding-bottom:0.46875cqi; /* label→quote gap, inside the no-bg pseudo (HARD RULE #20) */
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote p {
+section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote p,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote p {
   font-family:var(--font-body);
   font-size:var(--fs-message);
   color:var(--text-heading);
   line-height:var(--lh-snug);
   margin:0;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote ul {
+section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote ul,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote ul {
   list-style:none;
   padding:0; margin:0;
   display:flex; flex-direction:column; gap:0.46875cqi;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li {
+section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote li {
   font-family:var(--font-body);
   font-size:var(--fs-message);
   color:var(--text-heading);
@@ -13480,7 +13499,8 @@ section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blo
   padding-left:var(--sp-md);
   position:relative;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li::before {
+section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li::before,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote li::before {
   content:'—';
   position:absolute; left:0;
   color:var(--accent);
@@ -13794,7 +13814,23 @@ section.decision > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
 section.actors > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
 section.kpi > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
 section.agenda > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child) {
+section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.cards-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.compare-prose > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.verdict-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.list-criteria > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.cards-stack > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.list > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.list-steps > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.list-tabular > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.timeline > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.principles > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.matrix-2x2 > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.decision > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.actors > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.kpi > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.agenda > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child) {
   font-size:var(--fs-meta);
   color:var(--text-secondary);
   line-height:var(--lh-snug);
@@ -13815,7 +13851,23 @@ section.decision > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
 section.actors > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
 section.kpi > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
 section.agenda > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child) {
+section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.cards-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.compare-prose > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.verdict-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.list-criteria > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.cards-stack > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.list > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.list-steps > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.list-tabular > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.timeline > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.principles > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.matrix-2x2 > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.decision > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.actors > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.kpi > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.agenda > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
+section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child) {
   border-top:1px dotted var(--border);
   padding-top:var(--sp-xs);
 }
@@ -13852,7 +13904,23 @@ section.decision > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::befo
 section.actors > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
 section.kpi > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
 section.agenda > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before {
+section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.cards-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.compare-prose > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.verdict-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.list-criteria > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.cards-stack > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.list > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.list-steps > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.list-tabular > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.timeline > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.principles > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.matrix-2x2 > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.decision > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.actors > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.kpi > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.agenda > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
+section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before {
   content:'\2726';
   position:static;
   background:none;
@@ -13926,6 +13994,8 @@ section:not(.math) .katex-display { padding: var(--sp-sm) 0; margin: 0; text-ali
 /* full → alarm */
 section.heat > ul > li.state.pass,
 section.heat > ol > li.state.pass,
+section.heat > .cell-stage > ul > li.state.pass,
+section.heat > .cell-stage > ol > li.state.pass,
 section.heat .badge.pass,
 section.heat td .state.pass,
 section.heat td.cell-state.state-shipped,
@@ -13935,6 +14005,8 @@ section.heat .horizon-rows > li.cell-state.state-shipped { --state-color:var(--f
  * source-order overrides under .heat resolve to the universal palette) */
 section.heat > ul > li.state.warn,
 section.heat > ol > li.state.warn,
+section.heat > .cell-stage > ul > li.state.warn,
+section.heat > .cell-stage > ol > li.state.warn,
 section.heat .badge.warn,
 section.heat td .state.warn,
 section.heat td.cell-state.state-wip,
@@ -13943,6 +14015,8 @@ section.heat .horizon-rows > li.cell-state.state-wip { --state-color:var(--warn)
 /* empty → relief */
 section.heat > ul > li.state.fail,
 section.heat > ol > li.state.fail,
+section.heat > .cell-stage > ul > li.state.fail,
+section.heat > .cell-stage > ol > li.state.fail,
 section.heat .badge.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
@@ -13951,6 +14025,8 @@ section.heat .horizon-rows > li.cell-state.state-planned { --state-color:var(--p
 /* skip → muted (unchanged, redeclared for symmetry) */
 section.heat > ul > li.state.skip,
 section.heat > ol > li.state.skip,
+section.heat > .cell-stage > ul > li.state.skip,
+section.heat > .cell-stage > ol > li.state.skip,
 section.heat .badge.skip,
 section.heat td .state.skip,
 section.heat td.cell-state.state-skipped,

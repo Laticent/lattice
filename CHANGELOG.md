@@ -137,6 +137,24 @@ in patch versions.
   depth-aware `mapSections` walk). Now scoped to `section.form:not(section
   section)`, matching the HTML path exactly. Found by the Form-migration
   audit (`engineering/decisions/2026-07-09-form-migration-audit.md`).
+- **Key Insight, the raw-form Annotation footnote, and the Universal Heat
+  Overlay render again under Form default.** `lib/forms/cell/masthead/
+  masthead.transform.js` wraps a Form slide's flow body into `<div
+  class="cell-stage">` for every `STAGE_MIGRATED` layout (cards-grid, list,
+  kpi, checklist, and ~25 more — the common case, since Form has been default
+  since 2026-06-26), but `lib/base/base.modifiers.css`'s Key Insight blockquote
+  panel, the Marp-preview raw-form Annotation selectors, and the Universal
+  Heat Overlay's `ul`/`ol` state-color inversion all used a direct-child-of-
+  `<section>` selector — so all three silently stopped matching once the body
+  moved one level deeper. Each now carries a `.cell-stage`-aware companion
+  selector (the same pattern already shipped for the Universal Pill rule),
+  duplicated as literal comma-separated selectors rather than a collapsed
+  `:is(section, .cell-stage)` — Marpit's CSS scoper rewrites a leading
+  `:is(…)` into a descendant of the slide root, breaking that shortcut under
+  real Marp-preview rendering. `redline` and `inventory` are excluded from the
+  new Key Insight arm — both already ship their own dedicated `.cell-stage`-
+  scoped blockquote treatment. Found by the Form-migration audit
+  (`engineering/decisions/2026-07-09-form-migration-audit.md`).
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
