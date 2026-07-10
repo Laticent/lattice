@@ -132,6 +132,39 @@ describe('masthead-lift — HTML-string kernel', () => {
     assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><\/div>/);
     assert.match(out, /<div class="cell-stage"><p>Intro\.<\/p><p><code>Not a subtitle<\/code><\/p><\/div>$/);
   });
+
+  // Form-migration audit adversarial re-review (2026-07-09): extractEyebrowP
+  // scoped its SEARCH WINDOW to before the h2, but the regex itself was
+  // unanchored/depth-blind — it could match a code-only <p> nested inside a
+  // <div> or <li> ANYWHERE in that window, hoisting it out of its container
+  // and mis-styling it as the eyebrow. The DOM mirror was always correct here
+  // (children.slice(0, h2Index).find(isCodeOnlyP) — direct children only).
+  test('a code-only <p> nested inside a <div> before h2 is real content, not hoisted as the eyebrow', () => {
+    const inner = '<div class="custom"><p><code>Nested</code></p></div><h2>Title</h2><p>Body.</p>';
+    const out = kernel.transformMastheadSection(inner, 'content form');
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><\/div>/);
+    assert.doesNotMatch(out, /masthead-lede"><p>/, 'nested <p> must not become the eyebrow');
+    assert.match(out, /<div class="cell-stage"><div class="custom"><p><code>Nested<\/code><\/p><\/div><p>Body\.<\/p><\/div>$/);
+  });
+
+  test('a code-only <p> nested inside a loose <li> before h2 is real content, not hoisted as the eyebrow', () => {
+    const inner = '<ul><li><p><code>Nested</code></p></li></ul><h2>Title</h2><p>Body.</p>';
+    const out = kernel.transformMastheadSection(inner, 'content form');
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><\/div>/);
+    assert.doesNotMatch(out, /masthead-lede"><p>/, 'nested <p> must not become the eyebrow');
+    assert.match(out, /<div class="cell-stage"><ul><li><p><code>Nested<\/code><\/p><\/li><\/ul><p>Body\.<\/p><\/div>$/);
+  });
+
+  test('a genuine top-level eyebrow is still found past a preceding non-<p> top-level sibling', () => {
+    // Mirrors the DOM mirror's `.find()` semantics: it scans ALL direct
+    // children before h2, not just the first — a leading <header> already
+    // extracted separately, but any other top-level sibling ahead of the
+    // eyebrow must not block detection.
+    const inner = '<div class="tag">NEW</div><p><code>Kicker</code></p><h2>Title</h2>';
+    const out = kernel.transformMastheadSection(inner, 'content form');
+    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><\/div>/);
+    assert.match(out, /<div class="cell-stage"><div class="tag">NEW<\/div><\/div>$/);
+  });
 });
 
 describe('masthead-lift — DOM mirror agrees with the kernel', () => {
