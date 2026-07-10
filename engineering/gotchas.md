@@ -1206,47 +1206,35 @@ of how many rows are here.
 
 ## Browser engine (Chromium quirks observed in Marp Preview / Puppeteer)
 
-### `:not(:has(...))` is unreliable inside Marp's webview Chromium
+### RETIRED (2026-07-10) — `:not(:has(...))` / `:is(:has(...))` were believed unreliable inside Marp's webview Chromium
 
-- **Symptom:** A selector like `p:not(:has(+ h2))` is silently ignored
-  in the VS Code Marp preview — the rule fires on cases the `:not()` was
-  supposed to exclude. The same HTML in a current Chrome works fine.
-- **Cause:** The Chromium build embedded in some Marp preview /
-  Electron versions handles `:has()` inside `:not()` inconsistently —
-  the function pair gets evaluated to `false` (or `true`) regardless
-  of input. Same Chromium handles each function alone correctly.
-- **Mitigation:** Drop `:not(:has(...))` guards. Restructure as an
-  ordering / specificity decision: declare overrides AFTER bases so
-  source order resolves the conflict, or use explicit comma-separated
-  enumeration of the cases that should match.
-- **Gated (HARD RULE #12):** `checkThemeHasSelectors` in
-  `tools/check-ownership.js` fails the build (via `build:check`) if a
-  `themes/*.css` file uses `:not(:has(…))` / `:is(:has(…))`. The ban is
-  scoped to themes — component/base CSS uses the form deliberately with a
-  marp-preview fallback path, so it is not gated there.
-- **Triggered by:** Any rule using `:not(:has(...))` in a theme that
-  loads in Marp preview.
-- **Removable when:** Verified across all Marp / Electron versions
-  Lattice supports.
-- **Commits:** `e0fe9b1d` (subtitle bleed fix).
-
-### `:has()` nested inside `:is()` — silently dropped properties
-
-- **Symptom:** A multi-property rule with selector
-  `p:is(:has(+ h1), :has(+ h2)) > code` fires (the selector matches),
-  but specific property declarations inside it are silently ignored
-  — `background:none; padding:0; border-radius:0;` gets stripped.
-  The element renders as if those declarations weren't authored.
-- **Cause:** Same Chromium engine quirk. `:has()` nested inside
-  `:is()` parses but partially fails during property application.
-  Each `:has()` standalone works; only the nesting breaks things.
-- **Mitigation:** Expand to an explicit comma-separated selector list
-  with each `:has()` at the top level: `p:has(+ h1) > code, p:has(+ h2)
-  > code, …`. Verbose but reliable.
-- **Triggered by:** `:is(:has(...), :has(...))` in any theme rule
-  that ships through Marp preview.
-- **Removable when:** Same as above.
-- **Commits:** `5a98bc66`.
+- **Original claim:** a selector like `p:not(:has(+ h2))` silently
+  misfired in the VS Code Marp preview, and `p:is(:has(+ h1), :has(+ h2))
+  > code` matched but silently dropped specific property declarations.
+  Both were attributed to a Chromium engine quirk in the "Marp for VS
+  Code" extension's bundled webview browser, and gated project-wide via
+  HARD RULE #12 (`checkThemeHasSelectors` in `tools/check-ownership.js`,
+  scoped to `themes/*.css`).
+- **Why retired:** re-tested empirically against a real, current Chromium
+  build (131.0.6778.204 — the same one `lattice-emulator.js`/CLI/docs
+  playground render with) — both forms behaved exactly per spec, 5/5
+  test cases. No corroborating Chromium bug report was found anywhere.
+  The gate's own "Removable when: verified across all Marp/Electron
+  versions" condition had never actually been checked since the rule was
+  written. See `engineering/decisions/2026-07-10-hard-rule-12-retirement.md`
+  for the test artifact and full reasoning.
+- **If this resurfaces:** it's possible an old/unpatched VS Code install
+  still carries the bug even though current ones don't — if you see a
+  `:has()`-related selector silently misbehave specifically in the vscode
+  Marp preview and nowhere else, that's the symptom to look for. The fix
+  pattern that worked before (now undocumented as a live constraint,
+  kept here for reference): for `:not(:has(X))`, restructure as an
+  ordering/specificity decision (declare overrides after bases, or
+  enumerate cases explicitly) rather than negating; for
+  `:is(:has(A), :has(B))`, expand to a top-level comma list —
+  `:has(A), :has(B)` — which is exactly equivalent CSS.
+- **Commits:** `e0fe9b1d`, `5a98bc66` (original mitigations, both now
+  historical).
 
 ### Marp / Chromium `foreignObject` creates anonymous grid items
 

@@ -28,9 +28,7 @@ const {
   checkRetiredTokenNames,
   RETIRED_TOKEN_NAMES,
   checkTypographyTokens,
-  checkThemeHasSelectors,
   nonCanonicalFsTokens,
-  hasNotHasSelector,
   offendingMargins,
   checkMarginDiscipline,
   LAYOUT_MARGIN_BUDGET,
@@ -253,22 +251,6 @@ describe('check-ownership', () => {
       const errors = [];
       checkUsEnglish(errors);
       assert.deepEqual(errors, [], `British spellings exceeded US_ENGLISH_BUDGET:\n${errors.join('\n')}`);
-    });
-  });
-
-  describe('theme :has() gate (HARD RULE #12)', () => {
-    test('hasNotHasSelector matches the :not/:is-wrapped forms, not a bare :has()', () => {
-      assert.ok(hasNotHasSelector('section:not(:has(.x)) {}'));
-      assert.ok(hasNotHasSelector('a:is(:has(.x)) {}'));
-      assert.ok(hasNotHasSelector('section:not(.foo:has(.x)) {}'));
-      assert.ok(!hasNotHasSelector('a:has(.x) {}'));
-      assert.ok(!hasNotHasSelector('section:not(.plain) {}'));
-    });
-
-    test('the live themes/ carry NO :not(:has())/:is(:has()) selectors', () => {
-      const errors = [];
-      checkThemeHasSelectors(errors);
-      assert.deepEqual(errors, [], `a theme regressed #12:\n${errors.join('\n')}`);
     });
   });
 

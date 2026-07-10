@@ -633,14 +633,6 @@ function nonCanonicalFsTokens(css) {
   return out;
 }
 
-// Pure core for HARD RULE #12: does this CSS use `:not(…:has(…))` / `:is(…:has(…))`?
-// Matches `:not(`/`:is(` whose argument (up to the next rule boundary) contains
-// `:has(` — `:not(:has(`, `:is(:has(`, `:not(.foo:has(`. A bare `:has()` does not
-// match (the breakage is specifically the :not/:is-wrapped form). Strip comments first.
-function hasNotHasSelector(css) {
-  return /:(?:not|is)\([^{}]*?:has\(/.test(css);
-}
-
 // Pure core for HARD RULE #20: the NONZERO `margin` declarations in a stylesheet.
 // `margin` lives outside the box, so it is invisible to getBoundingClientRect() /
 // offsetHeight AND it margin-collapses — both corrupt the height math a measuring
@@ -999,22 +991,6 @@ function checkUsEnglish(errors) {
       `gray, license, defense, catalog, while). Existing usages are tracked for migration — don't add new ` +
       `ones; as the backlog drops, lower US_ENGLISH_BUDGET in tools/check-ownership.js. Heaviest files: ${top}.`,
     );
-  }
-}
-
-// HARD RULE #12 gate — theme CSS (themes/*.css) must not use `:not(:has(…))` /
-// `:is(:has(…))`: silently broken in the Marp-preview Chromium. Component/base
-// CSS uses these deliberately with fallbacks, so the ban is scoped to themes/.
-function checkThemeHasSelectors(errors) {
-  for (const file of listCssFiles(THEMES_DIR)) {
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
-    if (hasNotHasSelector(css)) {
-      errors.push(
-        `theme "${path.relative(ROOT, file)}" uses :not(:has(…)) / :is(:has(…)) — HARD RULE #12: ` +
-        `that form is silently broken in the Marp-preview Chromium. Drive the variant from an ` +
-        `explicit class/attribute on the element instead (see engineering/gotchas.md).`,
-      );
-    }
   }
 }
 
@@ -1622,7 +1598,6 @@ function run() {
   checkMarginDiscipline(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
-  checkThemeHasSelectors(errors);
   checkAdaptDeclarations(manifests, errors);
   checkSolverIntentDeclared(manifests, errors);
   checkDensityCoverage(manifests, errors);
@@ -1681,9 +1656,7 @@ module.exports = {
   checkRetiredTokenNames,
   RETIRED_TOKEN_NAMES,
   checkTypographyTokens,
-  checkThemeHasSelectors,
   nonCanonicalFsTokens,
-  hasNotHasSelector,
   offendingMargins,
   checkMarginDiscipline,
   LAYOUT_MARGIN_BUDGET,

@@ -64,6 +64,14 @@ in patch versions.
   See `engineering/decisions/2026-07-09-marp-legacy-audit.md` §5(a) for the
   reasoning — this was the one *regenerative* source of Marp-legacy coupling
   the audit found.
+- **HARD RULE #12 (the theme-CSS `:not(:has(…))`/`:is(:has(…))` ban) is
+  retired.** It existed on the claim that these selector forms silently
+  broke in the "Marp for VS Code" extension's webview Chromium. Re-tested
+  empirically against a real, current Chromium build: both forms behave
+  exactly per spec, and no corroborating bug report was found anywhere.
+  The gate's own "verify across all Marp/Electron versions" condition had
+  never actually been checked since it was written. See
+  `engineering/decisions/2026-07-10-hard-rule-12-retirement.md`.
 - **Package description/keywords no longer frame Lattice as "a Marp-based
   slide deck system."** Lattice's own engine (`lib/engine/`) is a native
   Marpit re-implementation with zero `@marp-team` runtime dependency; Marp

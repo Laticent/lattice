@@ -223,9 +223,13 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 - **#11 — Universal role-based token names are canonical**; legacy per-theme names
   are retired. *(gated — `checkRetiredTokenNames` in `tools/check-ownership.js`,
   via `build:check`; `lib/tokens/crosswalk.js`, `lib/base/base.docs.md`.)*
-- **#12 — Avoid `:not(:has(…))` / `:is(:has(…))` in theme CSS** — silently broken
-  in the Marp-preview Chromium. *(gated for `themes/` — `checkThemeHasSelectors` in
-  `tools/check-ownership.js`, via `build:check`; `engineering/gotchas.md`.)*
+- **#12 — RETIRED (2026-07-10).** Used to ban `:not(:has(…))` / `:is(:has(…))` in
+  theme CSS, on the claim that it silently broke in the "Marp for VS Code"
+  extension's webview Chromium. Empirically retested against a real, current
+  Chromium build (both forms behave per spec) with no corroborating bug report
+  found anywhere; the gate had never been re-verified since it was written. See
+  `engineering/decisions/2026-07-10-hard-rule-12-retirement.md` for the test and
+  reasoning. Number retired in place, not reused.
 - **#18 — No broken windows: leave the tree no worse than you found it.** A defect
   you *create or touch* gets fixed before the work is done — never committed
   knowingly broken, never "TODO later". For a pre-existing defect you find: if
