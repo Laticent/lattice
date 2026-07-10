@@ -118,6 +118,16 @@ in patch versions.
   `dist/lattice-runtime.js` into jsdom, stubbing `fetch`, and simulating a
   live-edit DOM replacement to assert logo/meta/class persist without a
   second fetch (`test/integration/parity/runtime-frontmatter-refire.test.js`).
+- **Accessibility-theme (`theme: a11y-*`) chart/diagram fills resolve in the
+  live preview.** `lib/core/accessibility-textures.js`'s categorical CVD
+  texture pattern `<defs>` — the redundant non-colour encoding a11y themes
+  rely on — was injected into every export (`lattice-emulator.js`) but never
+  into the browser runtime, despite the module's own header comment saying
+  "the runtime follows." Chart/Mermaid fills under an a11y-* theme reference
+  `fill: url(#latt-a11y-tex-N)`; with no matching `<pattern>` in the
+  live-preview document, that paint-server reference silently resolved to
+  nothing. The runtime now injects the same defs once at boot. Found by the
+  Form-migration audit (`engineering/decisions/2026-07-09-form-migration-audit.md`).
 
 - **The browser runtime now composes decks as Form by default, matching the
   engine.** `dist/lattice-runtime.js` never stamped the `form` class the engine
