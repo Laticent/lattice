@@ -93,6 +93,23 @@ describe('injectPrefetch', () => {
 	});
 });
 
+describe('warmEngine — eager path', () => {
+	afterEach(() => {
+		// @ts-expect-error — test-only stub removal
+		delete window.matchMedia;
+	});
+
+	it('prefetches immediately on a wide-viewport funnel visit, with no idle/timeout wait', () => {
+		// jsdom has no Network Information API, so `decide` falls back to the
+		// viewport proxy (see the `decide` suite above) — stub matchMedia wide.
+		window.matchMedia = ((query: string) => ({ matches: query.includes('min-width'), media: query }) as MediaQueryList) as typeof window.matchMedia;
+		warmEngine(ENGINE_URL, { allowEager: true });
+		// Synchronous — no fake-timer advance, no requestIdleCallback flush.
+		expect(prefetchLinks()).toHaveLength(1);
+		expect(prefetchLinks()[0].getAttribute('href')).toBe(ENGINE_URL);
+	});
+});
+
 describe('warmEngine — intent path (jsdom default signals)', () => {
 	function addAppLink(href = '/lattice/playground/'): HTMLAnchorElement {
 		const a = document.createElement('a');

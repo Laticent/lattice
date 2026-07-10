@@ -24,6 +24,7 @@ vi.mock('@/lib/single-slide-render', () => ({
 		onThemeChange() {},
 		scaleFrame() {},
 		ready: () => true,
+		prefetchTheme() {},
 	}),
 }));
 

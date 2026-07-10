@@ -46,6 +46,20 @@ in patch versions.
 
 ### Fixed
 
+- **The landing page's live Hero preview rendered noticeably faster.** Two
+  sequential network round-trips were serialized where they didn't need to
+  be: `docs/src/lib/prefetch-engine.ts`'s eager engine-bundle warm queued its
+  `rel=prefetch` injection behind `requestIdleCallback` (up to a 3s timeout,
+  or a 1200ms fallback) instead of firing immediately, so it rarely won a
+  head start against the real engine-bundle request it was meant to warm;
+  and `docs/src/components/DeckPreview.tsx`'s paint step waited for the
+  554KB engine bundle to fully load before even starting the theme CSS
+  fetch. The prefetch now fires immediately (`rel=prefetch` is already a
+  low-priority hint, so no LCP risk), and a new `prefetchTheme()` on the
+  single-slide renderer (`docs/src/lib/single-slide-render.ts`) kicks the
+  theme fetch off in parallel with the engine load instead of behind it.
+  Measured on the production build via real `iframe.onload` timing: Hero
+  preview content-loaded time dropped from ~1.2-1.4s to ~0.9s.
 - **The Workspace "Play sample" button could get stuck on "Playing…" forever.**
   `previewVoice()`'s playback phase had an 8s watchdog, but the SYNTH phase (the
   network fetch to OpenRouter, or the Kokoro worker round-trip) had none — a hung

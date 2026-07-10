@@ -197,6 +197,23 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	}
 
 	/**
+	 * Fire the theme CSS + preview-font fetches WITHOUT waiting on the engine —
+	 * `theme-fetch.ts`'s `fetch()` is a pure network call cached by name, so this
+	 * can run in parallel with `whenReady()`'s engine-bundle load instead of
+	 * behind it. `renderInto`'s later `themes.ensure()` reuses the same cached
+	 * promise (a no-op network-wise) once the engine is ready to register it.
+	 * Best-effort only: a network error here is swallowed — `renderInto`'s own
+	 * `ensure()` still surfaces it through the normal render-failure path.
+	 */
+	function prefetchTheme(paletteOverride?: string, modeOverride?: 'light' | 'dark'): void {
+		const { palette, mode } = currentPaletteMode(paletteOverride);
+		void themes.fetch('lattice').catch(() => {});
+		void themes.fetch(palette).catch(() => {});
+		if ((modeOverride ?? mode) === 'dark') void themes.fetch(palette + '-dark').catch(() => {});
+		void ensurePreviewFonts();
+	}
+
+	/**
 	 * Render `markdown` into `host` (creating/updating its `iframe.live`), themed
 	 * by the current (or overridden) palette + mode. Resolves to a status object.
 	 */
@@ -333,7 +350,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
 	}
 
-	return { renderInto, whenReady, onThemeChange, scaleFrame, ready };
+	return { renderInto, whenReady, onThemeChange, scaleFrame, ready, prefetchTheme };
 }
 
 export type SingleSlideRenderer = ReturnType<typeof createSingleSlideRenderer>;
