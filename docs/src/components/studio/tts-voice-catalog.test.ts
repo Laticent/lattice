@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { noRosterHint, OTHER, resolveVoice, voiceResetOnModelChange, voicesForModel } from './TtsSettings';
+import { cachedSampleUrl, KOKORO_MODEL_ID, noRosterHint, OTHER, resolveVoice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
+// Lives alongside tts-voice-catalog.ts (the module under test), not TtsSettings.tsx
+// (the UI that consumes it) — see the asset-caching section of
+// engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.
 
 describe('voicesForModel — a curated roster per cloud model, never a guess', () => {
 	it('resolves Kokoro (and the unset/empty default) to the Kokoro roster', () => {
@@ -100,5 +103,47 @@ describe('voiceResetOnModelChange — the model-switch voice-reset decision (reg
 	it('does NOT reset for an unrecognized model — free text is valid for any model, nothing to reset FROM/TO', () => {
 		expect(voiceResetOnModelChange('some-vendor/unknown-tts', 'af_heart')).toBeNull();
 		expect(voiceResetOnModelChange('some-vendor/unknown-tts', 'my_custom_voice_id')).toBeNull();
+	});
+});
+
+// The local-first sample cache: a curated voice on a requiresAsset engine, at the
+// default speed, resolves to the pre-generated file's URL — anything else (free
+// text, an uncurated model, a non-default speed) must fall through to the live
+// path (null), never a guessed/broken URL.
+describe('cachedSampleUrl — the pre-generated sample path, or null when nothing is cached', () => {
+	it('resolves a curated cloud voice (Grok) via its model id', () => {
+		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'Eve', 1)).toBe('/voice-samples/grok/Eve.mp3');
+	});
+
+	it('resolves a curated cloud voice (Gemini) via its model id, with the wav extension its audioFormat declares', () => {
+		expect(cachedSampleUrl('google/gemini-3.1-flash-tts-preview', 'Puck', 1)).toBe('/voice-samples/gemini/Puck.wav');
+	});
+
+	it('resolves a curated cloud voice (Orpheus) via its model id', () => {
+		expect(cachedSampleUrl('canopylabs/orpheus-3b-0.1-ft', 'tara', 1)).toBe('/voice-samples/orpheus/tara.mp3');
+	});
+
+	it('returns null for Kokoro — on-device and free, never asset-cached', () => {
+		expect(cachedSampleUrl(KOKORO_MODEL_ID, 'af_heart', 1)).toBeNull();
+	});
+
+	it('returns null for a non-default speed — only 1x is pre-generated', () => {
+		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'Eve', 1.25)).toBeNull();
+	});
+
+	it('returns null for free-text/uncurated voice ids', () => {
+		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'my_custom_voice', 1)).toBeNull();
+	});
+
+	it('returns null for an unrecognized model', () => {
+		expect(cachedSampleUrl('some-vendor/unknown-tts', 'af_heart', 1)).toBeNull();
+	});
+
+	it('returns null for an engine with no live model behind it yet (requiresAsset: false)', () => {
+		expect(cachedSampleUrl('openai/tts-1-hd', 'alloy', 1)).toBeNull();
+	});
+
+	it('returns null with no voice id', () => {
+		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', '', 1)).toBeNull();
 	});
 });

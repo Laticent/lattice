@@ -101,6 +101,29 @@ in patch versions.
   message. Picking a voice — curated or free-text (on blur/Enter) — now always
   plays a sample, not just curated picks. See
   `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
+- **"Play sample" no longer spends OpenRouter credits on every click.** A curated
+  cloud voice (Grok, Gemini, Orpheus) at the default speed now plays a
+  pre-generated, repo-committed sample file instead of hitting the live TTS
+  endpoint — instant, free, and immune to a slow/hung request. The catalog
+  (`docs/src/playground/tts-voice-catalog.json`) is the single source of truth
+  for the curated voice map, shared by the browser UI and a new opt-in generator
+  (`tools/generate-voice-samples.mjs`, gated the same way as
+  `tools/component-gen-eval.mjs` — HARD RULE #24). The generator checks
+  OpenRouter's live speech-model catalog before spending and skips (never
+  breaks) an engine whose model has been discontinued, so a voice pulled from
+  the catalog can't corrupt the cache — it just stops updating. Free text, an
+  uncurated model, and a non-default speed all still hit the live path. Kokoro
+  is deliberately excluded — it never spends credits when it runs, but it
+  doesn't run everywhere (iPhone, low-memory devices), and a cached sample
+  wouldn't fix that; the picker already disables there. Generating the real
+  samples surfaced two live-API findings the doc-sourced voice rosters
+  couldn't have caught without a round-trip: Gemini's speech endpoint only
+  returns raw PCM (the generator now requests it and wraps the result in a
+  WAV container, reading the real sample rate off the response instead of
+  guessing), and Orpheus's `zoe` voice consistently errors on OpenRouter's
+  hosted endpoint regardless of casing, so it's dropped from the curated
+  roster. See the asset-caching section of
+  `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`.
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new

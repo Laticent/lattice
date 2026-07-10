@@ -1213,7 +1213,7 @@ const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
 // The ONLY paths allowed to spend our key — on-demand, opt-in, cost-printing (rule #24).
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs'];
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs'];
 
 // Workflows allowed to spend the key: sanctioned, budgeted, self-skipping when the secret is
 // unset, and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,
@@ -1328,6 +1328,80 @@ function checkOpenRouterBudget(errors) {
       errors.push(
         `stale OpenRouter sanction in tools/check-ownership.js — ${rel} no longer exists (HARD RULE #24). ` +
         `Remove the SANCTIONED_OPENROUTER_SPENDERS entry.`,
+      );
+    }
+  }
+}
+
+// ── Voice-sample assets (docs/public/voice-samples) — the TTS preview cache ──
+// The Studio's "Play sample" button plays a pre-generated file for a curated cloud
+// voice instead of hitting the live (paid) OpenRouter TTS endpoint on every click
+// (HARD RULE #24 §OpenRouter budget). tools/generate-voice-samples.mjs is the ONLY
+// writer of docs/public/voice-samples/; this just keeps it honest against
+// tts-voice-catalog.json — every requiresAsset engine's roster has exactly the
+// files it should, no more, no less. The directory is generated on-demand (not
+// committed by this repo's own CI, since it needs a live OpenRouter key), so an
+// absent directory is NOT an error — only a present-but-mismatched one is.
+const VOICE_CATALOG_PATH = path.join(ROOT, 'docs', 'src', 'playground', 'tts-voice-catalog.json');
+const VOICE_SAMPLES_DIR = path.join(ROOT, 'docs', 'public', 'voice-samples');
+
+function checkVoiceSampleAssets(errors) {
+  if (!fs.existsSync(VOICE_SAMPLES_DIR)) return; // not generated in this checkout — fine, it's opt-in tooling
+  const catalog = JSON.parse(fs.readFileSync(VOICE_CATALOG_PATH, 'utf8'));
+  const engines = catalog.engines || {};
+  const seenDirs = fs.readdirSync(VOICE_SAMPLES_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name);
+
+  for (const [slug, def] of Object.entries(engines)) {
+    const dir = path.join(VOICE_SAMPLES_DIR, slug);
+    if (!def.requiresAsset) {
+      if (seenDirs.includes(slug)) {
+        errors.push(
+          `docs/public/voice-samples/${slug}/ exists but requiresAsset is false for "${slug}" in ` +
+          `tts-voice-catalog.json — either flip requiresAsset to true (it now needs the cache) or ` +
+          `delete the stale directory.`,
+        );
+      }
+      continue;
+    }
+    if (!fs.existsSync(dir)) {
+      errors.push(
+        `docs/public/voice-samples/${slug}/ is missing — "${slug}" is requiresAsset:true in ` +
+        `tts-voice-catalog.json. Run tools/generate-voice-samples.mjs --engine ${slug} ` +
+        `(OPEN_ROUTER_KEY=… OPENROUTER_ALLOW_SPEND=1) to populate it, or set requiresAsset:false if ` +
+        `it no longer needs caching.`,
+      );
+      continue;
+    }
+    const ext = def.audioFormat === 'wav' ? 'wav' : 'mp3';
+    const want = new Set(def.voices.map((v) => `${v.id}.${ext}`));
+    // The full listing (not filtered to `.${ext}`) — a file with the WRONG
+    // extension (e.g. a stray .mp3 in a wav-format engine's directory) is exactly
+    // as orphaned as one with a retired voice id, and should be flagged the same way.
+    const have = new Set(fs.readdirSync(dir));
+    for (const f of want) {
+      if (!have.has(f)) {
+        errors.push(
+          `docs/public/voice-samples/${slug}/${f} is missing — run tools/generate-voice-samples.mjs ` +
+          `--engine ${slug} (OPEN_ROUTER_KEY=… OPENROUTER_ALLOW_SPEND=1) to (re)generate it.`,
+        );
+      }
+    }
+    for (const f of have) {
+      if (!want.has(f)) {
+        errors.push(
+          `docs/public/voice-samples/${slug}/${f} is a stale/orphaned sample — its voice id isn't in ` +
+          `tts-voice-catalog.json's "${slug}" roster anymore. Delete it, or restore the voice to the catalog.`,
+        );
+      }
+    }
+  }
+  for (const slug of seenDirs) {
+    if (!(slug in engines)) {
+      errors.push(
+        `docs/public/voice-samples/${slug}/ has no matching engine in tts-voice-catalog.json — delete ` +
+        `the stale directory.`,
       );
     }
   }
@@ -1552,6 +1626,7 @@ function run() {
   checkDensityCoverage(manifests, errors);
   checkPreviewHtmlSinks(errors);
   checkOpenRouterBudget(errors);
+  checkVoiceSampleAssets(errors);
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
   checkSanctionedGestures(errors);
@@ -1615,6 +1690,7 @@ module.exports = {
   checkOpenRouterBudget,
   SANCTIONED_OPENROUTER_SPENDERS,
   SANCTIONED_OPENROUTER_WORKFLOWS,
+  checkVoiceSampleAssets,
   listSourceFiles,
   SANCTIONED_PREVIEW_BUILDERS,
   PREVIEW_BUILDER_MARKER,

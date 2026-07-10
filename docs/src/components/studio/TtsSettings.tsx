@@ -19,116 +19,18 @@ import {
 	type VoiceAvailability,
 	voiceAvailability,
 } from './read-aloud';
+import { KOKORO_MODEL_ID, noRosterHint, OTHER, resolveVoice, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
 // generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
 // shared voice-model instance useReadAloud plays through, so a pick here is live
-// on the next play with no separate download. See engineering/decisions/2026-07-
-// 09-studio-cloud-ondevice-config-split.md. Voice rosters aren't exposed by a live
-// catalog (OpenRouter's /models doesn't enumerate a TTS model's voices; Kokoro has
-// no such endpoint at all), so each picker is a curated, clearly-labeled subset +
-// a free-text "Other" escape hatch — not a claim of completeness it can't back up.
-const KOKORO_VOICES: { id: string; label: string }[] = [
-	{ id: 'af_heart', label: 'Heart · US, warm (default)' },
-	{ id: 'af_bella', label: 'Bella · US' },
-	{ id: 'af_nova', label: 'Nova · US' },
-	{ id: 'af_sarah', label: 'Sarah · US' },
-	{ id: 'am_adam', label: 'Adam · US' },
-	{ id: 'am_michael', label: 'Michael · US' },
-	{ id: 'am_puck', label: 'Puck · US' },
-	{ id: 'bf_emma', label: 'Emma · UK' },
-	{ id: 'bm_george', label: 'George · UK' },
-	{ id: 'bm_lewis', label: 'Lewis · UK' },
-];
-// OpenAI's TTS voice set is a small, stable, publicly documented roster (unlike
-// Kokoro's, it isn't the SAME list the on-device engine uses — OpenAI-family cloud
-// models only). No openai/* model is in OpenRouter's current speech catalog, but
-// the entry costs nothing and covers one if OpenRouter adds it later.
-const OPENAI_VOICES: { id: string; label: string }[] = [
-	{ id: 'alloy', label: 'Alloy' },
-	{ id: 'echo', label: 'Echo' },
-	{ id: 'fable', label: 'Fable' },
-	{ id: 'onyx', label: 'Onyx' },
-	{ id: 'nova', label: 'Nova' },
-	{ id: 'shimmer', label: 'Shimmer' },
-];
-// xAI's Grok Voice TTS — a small, fixed 5-voice roster (confirmed on OpenRouter's
-// own model page, not a guess).
-const GROK_VOICES: { id: string; label: string }[] = [
-	{ id: 'Eve', label: 'Eve' },
-	{ id: 'Ara', label: 'Ara' },
-	{ id: 'Rex', label: 'Rex' },
-	{ id: 'Sal', label: 'Sal' },
-	{ id: 'Leo', label: 'Leo' },
-];
-// Google's Gemini TTS voice set is ~30 names shared across its Gemini TTS model
-// family (Cloud TTS / Gemini API docs) — a representative subset, not the full 30,
-// matching the "curated, not exhaustive" contract every roster here follows.
-const GEMINI_VOICES: { id: string; label: string }[] = [
-	{ id: 'Puck', label: 'Puck · conversational, friendly' },
-	{ id: 'Charon', label: 'Charon · deep, authoritative' },
-	{ id: 'Kore', label: 'Kore · neutral, professional' },
-	{ id: 'Aoede', label: 'Aoede' },
-	{ id: 'Fenrir', label: 'Fenrir' },
-	{ id: 'Leda', label: 'Leda' },
-	{ id: 'Orus', label: 'Orus' },
-	{ id: 'Zephyr', label: 'Zephyr' },
-	{ id: 'Umbriel', label: 'Umbriel' },
-	{ id: 'Autonoe', label: 'Autonoe' },
-];
-// Canopy Labs' Orpheus — its documented default English voices (from the model's
-// own README), each with a stated character.
-const ORPHEUS_VOICES: { id: string; label: string }[] = [
-	{ id: 'tara', label: 'Tara · female, conversational' },
-	{ id: 'leah', label: 'Leah · female, warm' },
-	{ id: 'jess', label: 'Jess · female, energetic' },
-	{ id: 'leo', label: 'Leo · male, authoritative' },
-	{ id: 'dan', label: 'Dan · male, friendly' },
-	{ id: 'mia', label: 'Mia · female, professional' },
-	{ id: 'zac', label: 'Zac · male, enthusiastic' },
-	{ id: 'zoe', label: 'Zoe · female, calm' },
-];
-export const OTHER = '__other__';
-
-/** The curated voice roster for a cloud model id, or [] when the model is
- *  unrecognized OR when it genuinely has no named-voice concept to curate
- *  (guessing a wrong roster — or forcing a "voice picker" onto a model that
- *  doesn't have named voices at all — is worse than admitting we don't know it).
- *  Two of OpenRouter's current 9 speech models fall in that second bucket: Zyphra's
- *  Zonos (zero-shot voice CLONING from a reference sample, no presets) and Sesame's
- *  CSM-1B (numeric speaker slots + reference audio, not named voices) — a text
- *  "voice id" field doesn't really fit either model's actual interface, so they
- *  fall through to free text same as an unrecognized model, honestly. Microsoft's
- *  MAI-Voice-2 and Mistral's Voxtral both DO have named/preset voices, but neither
- *  publishes an enumerable list anywhere I could verify — also left uncurated
- *  rather than guessed. Kokoro is also the connect-time default, so an empty/unset
- *  model id resolves to its roster too. Exported for unit tests (pure, no Radix/
- *  jsdom interaction needed to cover it). */
-export function voicesForModel(modelId: string): { id: string; label: string }[] {
-	const id = (modelId || '').toLowerCase();
-	if (!id || id.includes('kokoro')) return KOKORO_VOICES;
-	if (id.startsWith('openai/')) return OPENAI_VOICES;
-	if (id.includes('grok-voice')) return GROK_VOICES;
-	if (id.startsWith('google/') && id.includes('tts')) return GEMINI_VOICES;
-	if (id.startsWith('canopylabs/orpheus')) return ORPHEUS_VOICES;
-	return [];
-}
-
-/** The voice-reset decision for a cloud MODEL switch: if the new model's roster is
- *  non-empty and doesn't already contain the currently effective voice, returns the
- *  roster's default id to reset to; otherwise null (no reset). Deliberately null —
- *  not an empty-string reset — when the new roster is EMPTY (an unrecognized
- *  model): free text is valid for any model, so there's nothing to reset FROM/TO,
- *  and resetting there would blank the visible field without persisting the clear
- *  (a UI/storage desync where the old value silently reappears on next reload).
- *  Exported for unit tests (pure, no Radix/jsdom interaction needed to cover it). */
-export function voiceResetOnModelChange(newModelId: string, currentVoice: string): string | null {
-	const roster = voicesForModel(newModelId);
-	if (roster.length && !roster.some((v) => v.id === currentVoice)) return roster[0].id;
-	return null;
-}
+// on the next play with no separate download. The curated voice DATA lives in
+// tts-voice-catalog.ts/.json (shared with read-aloud.ts's local-first sample cache
+// and tools/generate-voice-samples.mjs — one source of truth, never duplicated).
+// See engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.
 
 type KokoroLoad = { phase: 'idle' | 'confirm' | 'loading' | 'error'; pct: number; note?: string };
+const KOKORO_VOICES = voicesForModel(''); // the empty/unset id resolves to Kokoro — see engineForModel
 
 function SpeedControl({ value, onChange, disabled }: { value: number; onChange: (n: number) => void; disabled?: boolean }) {
 	return (
@@ -167,18 +69,6 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
 	);
 }
 
-/** Some models genuinely have NO named-voice concept to curate — Zonos clones a
- *  reference audio sample, CSM-1B takes a numeric speaker slot + reference audio —
- *  so "enter a voice id" is misleading for them, not just "unrecognized." A
- *  specific hint beats the generic fallback message wherever we actually know why.
- *  Exported for unit tests. */
-export function noRosterHint(modelId: string): string | undefined {
-	const id = (modelId || '').toLowerCase();
-	if (id.includes('zonos')) return "This model clones a voice from a reference audio sample — it doesn't have named presets. A voice id here won't do anything.";
-	if (id.includes('csm')) return 'This model takes a numeric speaker slot (e.g. "0") plus reference audio, not a named voice — results are inconsistent without one.';
-	return undefined;
-}
-
 /** A model-specific voice picker: a curated dropdown (with each voice's name) + a
  *  free-text "Other" escape hatch for a voice id outside the curated roster. Picking
  *  a CURATED voice fires `onPick` immediately — the caller auto-previews it, so
@@ -201,7 +91,7 @@ function VoicePicker({
 }: {
 	label: string;
 	ariaLabel: string;
-	voices: { id: string; label: string }[];
+	voices: Voice[];
 	selectValue: string;
 	otherValue: string;
 	onPick: (voiceId: string) => void;
@@ -263,15 +153,6 @@ function VoicePicker({
 			)}
 		</div>
 	);
-}
-
-/** Resolve a stored voice id against a curated roster: either the id itself (known)
- *  or the OTHER sentinel (unknown — the free text holds the real value). Exported
- *  for unit tests. */
-export function resolveVoice(voices: { id: string; label: string }[], stored: string): { select: string; other: string } {
-	if (!stored) return { select: voices[0]?.id ?? OTHER, other: '' };
-	if (voices.some((v) => v.id === stored)) return { select: stored, other: '' };
-	return { select: OTHER, other: stored };
 }
 
 export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; notify: (msg: string) => void }) {
@@ -351,10 +232,14 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		async (rung: 'openrouter' | 'kokoro', voiceOverride?: string) => {
 			setPreview({ busy: true, error: null });
 			const voice = voiceOverride ?? (rung === 'openrouter' ? orVoiceEffective : kokoroVoiceEffective);
-			const res = await previewTtsVoice({ rung, voice, speed });
+			// `model` lets previewTtsVoice check for a cached, pre-generated sample first
+			// (local, free, instant) before falling back to a live API call — see
+			// read-aloud.ts's cachedSampleUrl.
+			const model = rung === 'openrouter' ? orModel : KOKORO_MODEL_ID;
+			const res = await previewTtsVoice({ rung, voice, model, speed });
 			setPreview({ busy: false, error: res.ok ? null : res.error || 'Could not play a sample.' });
 		},
-		[orVoiceEffective, kokoroVoiceEffective, speed],
+		[orModel, orVoiceEffective, kokoroVoiceEffective, speed],
 	);
 
 	// Picking a MODEL resets the voice to that model's default when the current
