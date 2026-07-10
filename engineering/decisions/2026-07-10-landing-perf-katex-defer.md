@@ -275,7 +275,61 @@ measures the same build a real deploy ships).
   suite) pass; `npm run lint`, `typecheck`, and `build:check` all clean.
 
 **Off-path finding, logged not fixed:** the srcdoc preview's `@font-face`
-references 404 at `/studio/fonts/*.woff2` instead of the hashed asset path
-(pre-existing, confirmed present in traces from earlier in this same
-investigation, unrelated to the module-graph work) — filed as
-[#876](https://github.com/SlideWright/lattice/issues/876).
+references 404 at `/<page>/fonts/*.woff2` instead of the hashed asset path
+across all three app surfaces (pre-existing, confirmed present in traces
+from earlier in this same investigation, unrelated to the module-graph
+work) — filed as [#876](https://github.com/SlideWright/lattice/issues/876).
+
+## 6b. Second adversarial pass — against the SHIPPED diff, not just the plan
+
+The §6 fix above went through only a single independent-checker pass before
+first landing (maker-checker tier), which caught 2 real bugs (entry chunk
+excluded from its own preload set; missing-entry match silently skipped
+instead of failing the build). Asked directly whether the full red-team +
+Munger-inversion trio had run against the actual shipped code (not just the
+earlier abandoned diagnosis), the honest answer was no — build-pipeline
+work this novel warranted it per HARD RULE #25's own language, and a single
+checker pass had under-invested relative to that bar. Ran the full trio a
+second time, now against the real diff already open in PR #877 (5 lanes +
+inversion, 20 findings, all 20 confirmed or partially confirmed, 0
+refuted). Two were real and fixed before merge:
+
+- **The blanket `dynamicImports` exclusion wasn't exhaustive.** Editor.tsx's
+  `loadLintCore()` dynamically imports `authoring-core.generated.js` (the
+  lint-kernel) for CodeMirror's `linter()` extension — which fires
+  automatically shortly after every real Studio mount whenever build-time
+  `lintVocab` resolves (true in every production load: `useRealLint =
+  !!lintVocab?.names`, and `studio.astro` always passes a real one), not
+  gated by user action like Fabricate's lazy tab. This ~78KB-source chunk
+  got zero preload benefit despite loading unconditionally. Fixed: added an
+  `eagerDynamicImportSuffixes` allowlist per `ENTRIES` item — dynamic-import
+  targets matching an allowlisted suffix are walked (their own static
+  closure merged in) despite being reached via `import()`, while every
+  OTHER dynamic import (the actual conditional ones) stays excluded. A
+  fixed-point loop handles an allowlisted chunk being reached only via a
+  second-level dynamic import.
+- **No end-to-end regression coverage for the two bugs the FIRST checker
+  pass fixed**, and no structural guard against the pipeline (`chunkGraphPlugin`
+  → `chunk-graph.json` → injector → built HTML) silently degrading on a
+  future Astro/Vite/Rollup upgrade rather than failing loudly. Fixed:
+  extracted `main()`'s per-entry logic into a testable `processEntry()` that
+  now also does an end-to-end integrity check — every injected href must
+  resolve to a real file in `dist/` — throwing (not returning a partial
+  result) on either failure mode. 9 new tests cover the throw-on-missing-
+  entry path, the integrity-check throw path, the eager-dynamic-import
+  allowlist (including the fixed-point/second-level case), and a defensive
+  `</head>`-occurrence-count guard added alongside (also independently
+  found: a bare `.replace('</head>', …)` only touches the first match,
+  safe today only because these 3 pages' dynamic content stays out of
+  `<head>` — now asserts exactly one match rather than assuming it).
+
+The remaining 18 findings were genuine but lower-severity/informational
+(the `applyToEnvironment` Vite API being `@experimental`; `environment.name`
+vs. the more idiomatic `environment.config.consumer` — both noted in a code
+comment, not worth their own change; a chain of confirmations that
+`astro build` always empties `dist/` first, so stale `chunk-graph.json`
+isn't a real risk; the headline 18%-faster number being simulated, not
+real-device, measurement — flagged per HARD RULE #23 and now called out
+explicitly in the CHANGELOG entry pointing at the nightly perf-regression
+watch as the ongoing real-world check). None blocked merge; see PR #877's
+review thread for the full 20-finding breakdown.

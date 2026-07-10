@@ -24,6 +24,16 @@ import { defineConfig } from 'astro/config';
 function chunkGraphPlugin() {
 	return {
 		name: 'lattice:chunk-graph',
+		// `applyToEnvironment` is marked `@experimental` in Vite's own types, but
+		// is already load-bearing for several of Vite's OWN built-in plugins
+		// (vite:esbuild-transpile, vite:manifest, …) — unlikely to be casually
+		// dropped. `environment.name === 'client'` matches Astro's literal client
+		// environment name (ASTRO_VITE_ENVIRONMENT_NAMES.client in Astro's own
+		// core/constants.js) for the Astro/Vite majors pinned today; if a future
+		// bump silently changes either, this plugin would apply too broadly
+		// (writing chunk-graph.json from the SSR/prerender build instead of — or
+		// as well as — the client build) rather than erroring, so a version bump
+		// across a MAJOR of either package is worth a quick recheck here.
 		applyToEnvironment(environment) {
 			return environment.name === 'client';
 		},

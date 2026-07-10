@@ -101,12 +101,23 @@ in patch versions.
   `imports` graph after `astro build` and injects `<link rel=modulepreload>`
   for each app island's full transitive STATIC-import set (never
   `dynamicImports` — those stay intentionally lazy, e.g. Fabricate's
-  `React.lazy` tab) into the built page. Measured: median time-to-mount
+  `React.lazy` tab, except Studio's lint-kernel chunk, explicitly
+  allowlisted since it loads automatically on every real mount, not gated
+  by user action) into the built page, with an end-to-end integrity check
+  (every injected href must resolve to a real file in `dist/`) so a future
+  Astro/Vite/Rollup change that silently alters chunk shape fails the build
+  loudly instead of shipping a broken hint. Measured: median time-to-mount
   1823ms → 1496ms (~18%) under a simulated 40ms-RTT connection, real
-  browser, A/B same build. Found by the same red-team/inversion/
-  independent-checker audit above, which also disproved the original
-  Lighthouse-mobile 8.5s LCP diagnosis (it was measuring a first-run-only
-  welcome banner returning users never see) before landing on this fix; see
+  browser, A/B same build — a simulated, not a real-device, measurement
+  (HARD RULE #23); the nightly perf-regression watch (already wired into
+  `perf-collect.mjs`'s build) continues validating this in CI going forward.
+  Found by the same red-team/inversion/independent-checker audit above,
+  which also disproved the original Lighthouse-mobile 8.5s LCP diagnosis (it
+  was measuring a first-run-only welcome banner returning users never see)
+  before landing on this fix, and a SECOND full red-team/inversion/
+  independent-checker pass against the shipped diff itself (20 findings,
+  all confirmed/partially-confirmed) that caught the lint-kernel gap and the
+  integrity-check gap above; see
   `engineering/decisions/2026-07-10-landing-perf-katex-defer.md`.
 
 ### Fixed
