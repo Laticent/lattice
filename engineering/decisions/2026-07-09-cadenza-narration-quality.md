@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Two concrete defects in the shipped (non-AI) read-aloud/Cadenza pipeline, fixed without touching the gated self-delivering-presentation bet. (1) Narration doesn't sound human for structured content — slideToSpeech flattens list items/headings with no terminator, so Cadenza's existing punctuation-driven pause table (cadence.ts) never fires between clauses, and chart-family components' most important number (the funnel's stage-to-stage conversion %) is COMPUTED at render time and never reaches the raw markdown slideToSpeech reads, so it's never spoken at all. (2) The word-highlight visibly races ahead on Cadenza's text estimate, then snaps back to word 0 once a clocked voice's real onset lands — read-aloud.ts started its RAF loop synchronously in play(), before knowing whether a clocked voice would attach. Three fixes, one PR: punctuation at structural boundaries in slideToSpeech; a funnel-only chart-narration pilot that speaks the computed conversion rate; deferring the RAF loop's first tick until the mode (audio vs. estimate) is actually known. All three are deterministic, non-AI, and orthogonal to the blocked self-delivering-presentation bet — they harden the engine that bet already depends on.
+summary: Two concrete defects in the shipped (non-AI) read-aloud/Cadenza pipeline, fixed without touching the gated self-delivering-presentation bet. (1) Narration doesn't sound human for structured content — slideToSpeech flattens list items/headings with no terminator, so Cadenza's existing punctuation-driven pause table (cadence.ts) never fires between clauses, and chart-family components' most important number (the funnel's stage-to-stage conversion %) is COMPUTED at render time and never reaches the raw markdown slideToSpeech reads, so it's never spoken at all. (2) The word-highlight visibly races ahead on Cadenza's text estimate, then snaps back to word 0 once a clocked voice's real onset lands — read-aloud.ts started its RAF loop synchronously in play(), before knowing whether a clocked voice would attach. Three fixes, one PR: punctuation at structural boundaries in slideToSpeech; a funnel-only chart-narration pilot that speaks the computed conversion rate; deferring the RAF loop's first tick until the mode (audio vs. estimate) is actually known. All three are deterministic, non-AI, and orthogonal to the blocked self-delivering-presentation bet — they harden the engine that bet already depends on. §7 (follow-up) rolls the pilot out to journey/radar/quadrant/state-chart — the only other chart-family members with a real computed-but-unauthored narration gap, found by reading every remaining transform rather than assumed; the other eight members already author their meaningful numbers directly and get no narrator. §8 (follow-up) spikes SSML/prosody support in the TTS stack: neither rung (OpenRouter's hosted Kokoro-82M nor the in-browser one) supports it — punctuation density (§3.1) is the only real pacing lever available today.
 companion:
   - ./2026-07-07-cadenza-caption-timeline.md
   - ./2026-07-07-self-delivering-presentation.md
@@ -111,9 +111,10 @@ about-to-start moment, not a glitch; adding one would be scope beyond what the d
   already computed by a transform. No AI kernel touched.
 - **Not SSML/prosody at the TTS layer.** `cadence.ts`'s pause table only ever drove the *caption highlight*
   estimate, never the actual voice audio's pacing — within a sentence, prosody is entirely the TTS model's
-  own. Whether the current model (`hexgrad/kokoro-82m` via OpenRouter) accepts break/emphasis markup is an
-  open question, flagged here as a follow-up spike, not committed to in this pass.
-- **Not a chart-family-wide narration schema.** See §3.2 — the funnel pilot is deliberately narrow.
+  own. §8 spikes whether the current stack accepts any real markup; short answer: no, and the punctuation
+  fix in §3.1 is already the correct lever for the one model both rungs actually use.
+- **Not a chart-family-wide narration schema.** See §3.2 and §7 — narrators are added one at a time, only
+  where a real computed-but-unauthored gap exists, never speculatively across the whole family.
 
 ## 5. Verification
 
@@ -152,3 +153,123 @@ bug-hunted the diff before merge and found two real defects, both fixed in the s
 
 Both fixes shipped with regression tests (`chart-narration.test.ts`'s modifier/fence/link cases;
 `read-aloud.test.ts`'s pause/resume-during-arming case) before this doc's `status` moved to `shipped`.
+
+## 7. Chart-narration rollout — journey, radar, quadrant, state-chart
+
+Follow-up to §3.2, logged there as "separate, scoped work once the funnel shape is validated." Before writing
+any code, every other chart-family member's transform was read to find which ones — like funnel — compute a
+narration-worthy value the raw Markdown never states. The honest result is narrower than "cover the whole
+family": **most components already put their meaningful numbers in authored text**, so `slideToSpeech` (with
+§3.1's punctuation fix) already narrates them correctly. Four had a real, computed-but-unauthored gap; eight
+didn't and got no narrator.
+
+**Added** (`chart-narration.ts`):
+
+- **`narrateJourneyWeighted`** — the `weighted` variant's per-task share of the slide's total volume
+  (`journey.transform.js`'s `volPct = round(vol/totalVolume*100)`, `totalVolume` summed across every task on
+  the slide) is burned into a CSS custom property for chip width, never spoken. The other four journey
+  variants parse the `+N` volume token but never render it (the manifest's own antiPatterns says so) — the
+  narrator gates on both the `journey` AND `weighted` class tokens for exactly that reason.
+- **`narrateRadar`** / **`narrateQuadrant`** — when a slide's eyebrow doesn't declare an axis scale/range,
+  `radar.transform.js` / `quadrant.transform.js` auto-fit one from the data (`niceCeil`, ported here as a
+  local copy — same cross-boundary constraint as `voice-model.js`'s `splitSentences`) and burn the computed
+  ring-tick / axis numbers into SVG text. An eyes-free listener has no other way to learn whether "Performance
+  9" is out of 10 or out of 100 — so these narrators speak the resolved scale (per axis, independently, for
+  quadrant) ONLY when it isn't already stated in the eyebrow `slideToSpeech` would otherwise read verbatim.
+- **`narrateStateChart`** (composes with `slideToSpeech`, not a full replacement like the others) —
+  `state-chart.transform.js` infers a start state (the first authored state, when none is tagged `` `start` ``)
+  and terminal states (any state with zero outgoing transitions, when none is tagged `` `end` ``). These are
+  real facts about the machine's shape that go unspoken only when the author didn't already say them, so the
+  narrator prefixes just the inferred sentence(s) and lets `slideToSpeech` read the rest of the (already
+  reasonable) numbered-list-plus-transitions prose. Returns null — falling through to plain `slideToSpeech` —
+  the moment every state's role is already explicit.
+
+**Evaluated, no narrator added** (their meaningful numbers are already authored text, or their computed
+values are rendering geometry with no narratable semantic content):
+
+| Component | Why no narrator |
+|---|---|
+| `piechart` | The `%` is typed by the author (`` - Marketing `40%` ``) — nothing is derived from a count. |
+| `progress` | Same — the `%` pill is authored directly, not computed from a fill fraction. |
+| `roadmap` | Every rendered string (state label, phase header, deliverable) is copied verbatim from the authored cell/marker; nothing is computed. |
+| `gantt` | Computes a bar's timeline position/width as a %, but that's SVG geometry (`chart-family.js`'s `pct(v)`), never narratable text. |
+| `timeline-list` | Pure re-formatting (date pill + title + status pill) of literal authored text; no arithmetic. |
+| `map` | Computes a choropleth color-mix % (`rampMix`) — a display color-space value, not a semantic fact like a conversion rate. |
+| `word-cloud` | Computes a normalized 1–5 weight + rank for sizing, neither of which means anything spoken aloud without the visual ("rank 3, weight 2.4" conveys nothing on its own). |
+| `kanban` | The one inference (a "done" column dims via a fixed name vocabulary) is presentational styling, not narration content. |
+
+## 8. SSML/prosody spike — findings
+
+Neither TTS rung in `voice-model.js` supports real SSML/break markup:
+
+- **OpenRouter's `/api/v1/audio/speech`** documents only `model`, `input`, `voice`, `response_format`,
+  `speed`, and provider overrides — no break/emphasis tags, even for a backing provider (Azure) whose own API
+  *does* support SSML internally; OpenRouter's route doesn't expose it.
+- **The OpenAI TTS spec it mirrors** is the same — `speed` is the only pacing lever the base spec offers
+  (`gpt-4o-mini-tts`'s natural-language `instructions` field is prompt-steering, not markup, and isn't a
+  parameter either rung forwards).
+- **Kokoro-82M itself** (both the OpenRouter-hosted and in-browser rungs use the same model) has no SSML
+  support — it's an open, unimplemented feature request upstream (`github.com/hexgrad/kokoro/issues/36`,
+  filed Feb 2025; a popular community wrapper confirms the same gap). Its G2P pipeline (`misaki`) supports
+  exactly one markup form: inline IPA phoneme override for pronunciation correction (`[Kokoro](/kˈOkəɹO/)`),
+  not pacing or emphasis.
+- **What IS controllable:** `speed` (a flat multiplier, forwarded natively by both rungs) — and punctuation
+  density. Per Kokoro's own HF discussion threads, richer/chained punctuation (`.`, `,`, `;`, `—`, `…`,
+  chained without spaces for a longer pause) measurably changes pacing; this is a documented community
+  folk-technique, not a spec, and it's exactly the lever §3.1's punctuation fix already pulls. There is no
+  emotional/prosodic steering beyond that — Kokoro's training data has little emotional range.
+- **A real, buildable follow-up this surfaced (not attempted here):** true fixed-duration pauses are
+  achievable today without any model-level markup, by splicing programmatically-generated silence between
+  the already-per-sentence-synthesized audio clips `voice-model.js` produces (`speak()` already synthesizes
+  and plays one sentence at a time). That's a real feature, not a spike — logged here as a separate,
+  scoped follow-up, not started.
+
+**Conclusion:** there is no SSML lever to pull in this stack today. The punctuation fix (§3.1) was already
+the correct, and only, available lever for pacing; no further TTS-layer work is justified by this spike.
+
+## 9. Maker-checker review — the rollout (§7)
+
+A second independent checker pass (same HARD RULE #25 discipline as §6, re-run because §7 is new production
+code with its own blast radius) bug-hunted the four new narrators against their real transform sources
+before this landed. Six findings, all fixed with regression tests in the same change:
+
+- **HIGH — `narrateQuadrant` garbled the label and used the wrong coordinate on the shipping `trail`
+  variant.** `` - Label `5, 60` `3, 78` `` (before → after) has TWO trailing pills; the original single
+  anchored regex swallowed the first pill into the label and read only the second as "the" position — no
+  test exercised `trail` at all, so this shipped silently. Fixed by reusing `stripTrailingPills` (already
+  written for state-chart) to collect every pill, speaking the LAST one as the item's position and folding
+  every pill's coordinates into the axis-scale computation (so the auto-fit range reflects the trail's full
+  extent). Narrating the "moved from" position itself is a deliberate, logged narrowing — the bug was the
+  garbled label and dropped data, not "trail motion isn't spoken."
+- **MEDIUM-HIGH — `narrateQuadrant` silently understated the axis range for negative-extreme data.** The
+  narrator assumed `min: 0` always; `quadrant.transform.js`'s real `resolveScale` allows a negative min
+  (`xMin < 0 ? xMin : 0`) and mirrors it into the max. Fixed with `resolveAxisScale`, a direct per-axis port
+  of that logic (radar's own real scale, unlike quadrant's, always fixes min at 0 — so radar's narrator was
+  already correct and needed no change here).
+- **MEDIUM — the shared eyebrow-range regex was unanchored, matching quadrant's real (anchored) `pullRange`
+  incorrectly.** Radar's real `parseScale` is *also* unanchored (so the shared function was correct for
+  radar), but quadrant's real `pullRange` anchors to end-of-string specifically so an axis NAME containing an
+  earlier number-hyphen-number pattern isn't mistaken for the trailing range. Fixed with a quadrant-specific
+  `pullQuadrantRange` (anchored, no lone-max fallback — quadrant's real function has neither), leaving
+  radar's `parseScaleRange` unanchored to match its own source.
+- **MEDIUM — `narrateStateChartInference` let an out-of-range transition target (a plausible typo, e.g.
+  `` `submit => 9` `` on a 3-state chart) suppress terminal inference.** `state-chart.transform.js` marks an
+  unresolvable target "(unresolved)" and does NOT count it as outgoing; the narrator's original single-pass
+  parse counted any `event => N` syntactically, regardless of whether `N` was a real state. Fixed with a
+  two-pass parse (states first, so the total count is known; transitions validated against it second).
+- **LOW-MEDIUM — an inferred state's unrelated trailing annotation (e.g. `` `port 8080` ``) was silently
+  dropped from its spoken label**, where the real transform re-appends an "unknown" pill (anything that
+  isn't `start`/`end`/a status keyword) into the rendered label rather than discarding it. Fixed by porting
+  the same three-way pill classification (`parseStateLead`), including the `STATUS_KEYWORDS` set so a status
+  pill is correctly excluded from the label (a separate badge in the real UI) while a genuinely unknown one
+  is kept.
+- **LOW, evaluated and NOT changed — an unterminated fence blanks the rest of the slide.** The checker flagged
+  this as worth a look; on inspection it's already the conservative, correct behavior (matches
+  `slideToSpeech`'s own fence handling) — the alternative (treating the rest of the slide as fence-free once
+  the toggle looks unreliable) would let genuine fenced EXAMPLE content be parsed as real data, which is
+  worse than under-narrating. Left as-is; documented in `withoutFences`'s comment rather than "fixed."
+
+Also folded in during this pass: the `radar`↔`quadrant` variant-name collision the checker's item #7 flagged
+(radar's own `quadrant` variant carries the literal token `quadrant`, and vice versa isn't possible since
+`quadrant` the component never carries a `radar` token) — both narrators now explicitly bail on the other's
+token rather than relying on their data shapes happening not to match.

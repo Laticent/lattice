@@ -298,6 +298,18 @@ in patch versions.
   Privacy & Data action — it clears data, not settings. New module:
   `docs/src/components/studio/governance.ts`; extended `reference-doc.ts`'s
   `formatBytes` with a GB tier (shared by the refdoc cards and this tab).
+- **The read-along narrates three more chart-family gaps.** Following the funnel
+  pilot: a `journey weighted` slide speaks each task's share of the slide's total
+  volume (computed only under that variant, never authored); a `radar` or
+  `quadrant` slide without an explicit eyebrow scale speaks the auto-fit axis
+  range it's actually plotted against, so an eyes-free listener isn't left
+  guessing whether a value is out of 10 or out of 100; a `state-chart` slide
+  speaks its inferred start/terminal states when the author didn't tag them
+  explicitly. Eight other chart-family components (piechart, progress, roadmap,
+  gantt, timeline-list, map, word-cloud, kanban) were evaluated and got no
+  narrator — their meaningful numbers are already authored text, or their
+  computed values are rendering geometry with no narratable content. Same
+  decision doc, §7.
 - **The Studio Share sheet can export read-along captions.** A new **“Captions
   (.vtt)”** row (alongside PDF / PowerPoint / Webpage) reads each slide's speaker
   notes, builds a Cadenza estimate track per narrated slide, and downloads a zip

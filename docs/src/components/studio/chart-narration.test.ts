@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { narrateChart, narrateFunnel } from './chart-narration';
+import { narrateChart, narrateFunnel, narrateJourneyWeighted, narrateQuadrant, narrateRadar, narrateStateChart, narrateStateChartInference } from './chart-narration';
 
 // narrateFunnel speaks the funnel's stage values AND the stage-to-stage conversion
 // rate — the number funnel.transform.js computes at render time and burns into SVG
@@ -124,12 +124,326 @@ describe('narrateFunnel', () => {
 	});
 });
 
+// narrateJourneyWeighted speaks each task's share of the slide's TOTAL volume —
+// a % journey.transform.js computes only under the `weighted` variant and burns
+// into a CSS custom property (chip width), never into text.
+describe('narrateJourneyWeighted', () => {
+	// journey.manifest.json's own `weighted` variantDocs sample — total volume
+	// 45+18+12+10+8+7 = 100, so the percentages are exact round numbers.
+	const weightedSample = [
+		'<!-- _class: journey weighted -->',
+		'',
+		'## weighted sizes the stages by importance.',
+		'',
+		'- Discover',
+		'  - Search `@prospect` `:4` `+45`',
+		'  - Referral `@prospect` `:5` `+18`',
+		'- Convert',
+		'  - Pricing page `@prospect` `:3` `+12`',
+		'  - Checkout `@prospect` `:2` `+10`',
+		'- Support',
+		'  - Settings `@user` `:3` `+8`',
+		'  - Help docs `@user` `:4` `+7`',
+	].join('\n');
+
+	it('returns null for a non-journey slide', () => {
+		expect(narrateJourneyWeighted('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `+1`')).toBeNull();
+	});
+
+	it('returns null for journey without the weighted modifier', () => {
+		// The other four variants parse `+N` but never render it (journey.manifest.json antiPatterns).
+		expect(narrateJourneyWeighted(weightedSample.replace('journey weighted', 'journey heatmap'))).toBeNull();
+	});
+
+	it("speaks each task's share of the total volume — a % only the weighted render computes", () => {
+		const out = narrateJourneyWeighted(weightedSample);
+		expect(out).toContain('weighted sizes the stages by importance.');
+		expect(out).toContain('Discover: Search, forty-five percent; Referral, eighteen percent.');
+		expect(out).toContain('Convert: Pricing page, twelve percent; Checkout, ten percent.');
+		expect(out).toContain('Support: Settings, eight percent; Help docs, seven percent.');
+	});
+
+	it('defaults an unweighted task to volume 1 (mirrors `t.volume ?? 1`)', () => {
+		const md = ['<!-- _class: journey weighted -->', '', '## Mixed.', '', '- Stage', '  - Weighted `@me` `:3` `+9`', '  - Unweighted `@me` `:3`'].join('\n');
+		// total = 9 + 1 = 10 → 90% / 10%.
+		const out = narrateJourneyWeighted(md);
+		expect(out).toContain('Weighted, ninety percent');
+		expect(out).toContain('Unweighted, ten percent');
+	});
+});
+
+// narrateRadar speaks the auto-fit scale (niceCeil of the data) ONLY when the
+// slide's eyebrow doesn't already declare one — otherwise slideToSpeech's plain
+// prose reading of the eyebrow already says it.
+describe('narrateRadar', () => {
+	it('returns null for a non-radar slide', () => {
+		expect(narrateRadar('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `9`')).toBeNull();
+	});
+
+	it('returns null when the eyebrow already declares an explicit, parseable scale', () => {
+		// radar.manifest.json's own skeleton.
+		const md = [
+			'<!-- _class: radar -->',
+			'',
+			'`Scale · 0–10`',
+			'',
+			'## How we stack up across the buying criteria.',
+			'',
+			'- Lattice',
+			'  - Performance `9`',
+			'  - Pricing `7`',
+			'- Rival North',
+			'  - Performance `7`',
+			'  - Pricing `8`',
+		].join('\n');
+		expect(narrateRadar(md)).toBeNull();
+	});
+
+	it('narrates the auto-fit scale and every series when no eyebrow is authored', () => {
+		const md = ['<!-- _class: radar -->', '', '## How we stack up.', '', '- Lattice', '  - Performance `9`', '  - Pricing `7`', '- Rival North', '  - Performance `7`', '  - Pricing `8`'].join(
+			'\n',
+		);
+		const out = narrateRadar(md);
+		// max value 9 → niceCeil(9) = 10.
+		expect(out).toContain('On a scale of zero to ten.');
+		expect(out).toContain('Lattice: Performance, nine; Pricing, seven.');
+		expect(out).toContain('Rival North: Performance, seven; Pricing, eight.');
+	});
+
+	it('still auto-computes the scale when the eyebrow is present but not a parseable number', () => {
+		const md = ['<!-- _class: radar -->', '', '`Buying criteria`', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
+		expect(narrateRadar(md)).toContain('On a scale of zero to ten.');
+	});
+
+	it('recognizes a radar slide combined with a base modifier', () => {
+		const md = ['<!-- _class: radar dark -->', '', '## X.', '', '- Lattice', '  - Performance `9`'].join('\n');
+		expect(narrateRadar(md)).toContain('scale of zero to ten');
+	});
+
+	it('returns null with no axis data', () => {
+		expect(narrateRadar('<!-- _class: radar -->\n\n## X.\n\n- Lattice')).toBeNull();
+	});
+
+	it('defers to slideToSpeech on the `quadrant` variant (a THREE-level structure this parser does not model)', () => {
+		// radar.manifest.json's own `quadrant` variantDocs shape — group > sub-group >
+		// axis-value — WITHOUT its usual eyebrow, so this actually exercises the
+		// variant-token guard rather than the (separate) explicit-scale bailout.
+		const md = [
+			'<!-- _class: radar quadrant -->',
+			'',
+			'## quadrant shades the compass quarters.',
+			'',
+			'- Our capability',
+			'  - People',
+			'    - Hiring `4`',
+			'    - Retention `3`',
+			'  - Process',
+			'    - Cadence `5`',
+		].join('\n');
+		expect(narrateRadar(md)).toBeNull();
+	});
+});
+
+// narrateQuadrant speaks the auto-fit scale per axis (independently) ONLY for
+// whichever axis the eyebrow doesn't already give a range for.
+describe('narrateQuadrant', () => {
+	it('returns null for a non-quadrant slide', () => {
+		expect(narrateQuadrant('<!-- _class: kpi -->\n\n## X\n\n- A\n  - B `1, 2`')).toBeNull();
+	});
+
+	it('returns null when the eyebrow already ranges BOTH axes', () => {
+		// quadrant.manifest.json's own skeleton eyebrow.
+		const md = [
+			'<!-- _class: quadrant -->',
+			'',
+			'`Effort 0–10 → Reach 0–100`',
+			'',
+			'## Where to put the next dollar.',
+			'',
+			'- Strategic Bets',
+			'  - Scoring model v2 `3, 70`',
+			'- Quick Wins',
+			'  - Weekly signal brief `8, 80`',
+		].join('\n');
+		expect(narrateQuadrant(md)).toBeNull();
+	});
+
+	it('narrates both axis scales and every item when no eyebrow is authored', () => {
+		const md = ['<!-- _class: quadrant -->', '', '## Where to invest.', '', '- Strategic Bets', '  - Scoring model v2 `3, 70`', '  - Per-team calibration `5, 85`', '- Quick Wins', '  - Weekly signal brief `8, 80`'].join(
+			'\n',
+		);
+		const out = narrateQuadrant(md);
+		// xMax 8 → niceCeil 10; yMax 85 → niceCeil 100.
+		expect(out).toContain('The horizontal axis runs zero to ten.');
+		expect(out).toContain('The vertical axis runs zero to one hundred.');
+		expect(out).toContain('Strategic Bets: Scoring model v2 at three, seventy; Per-team calibration at five, eighty-five.');
+		expect(out).toContain('Quick Wins: Weekly signal brief at eight, eighty.');
+	});
+
+	it('narrates only the axis the eyebrow leaves unranged', () => {
+		const md = ['<!-- _class: quadrant -->', '', '`Effort 0–10`', '', '## X.', '', '- Group', '  - Item `5, 85`'].join('\n');
+		const out = narrateQuadrant(md);
+		expect(out).not.toContain('horizontal axis');
+		expect(out).toContain('The vertical axis runs zero to one hundred.');
+	});
+
+	it('correctly parses the `trail` variant\'s two-pill (before → after) item instead of garbling the label', () => {
+		// quadrant.manifest.json's own `trail` variantDocs sample, minus the eyebrow
+		// (so the trail parse itself is exercised, not the explicit-scale bailout).
+		const md = [
+			'<!-- _class: quadrant trail -->',
+			'',
+			'## trail shows where each point moved from.',
+			'',
+			'- Strategic Bets',
+			'  - Scoring model v2 `5, 60` `3, 78`',
+			'  - Per-team calibration `7, 70` `5, 88`',
+			'- Quick Wins',
+			'  - Snapshot exports `9, 45` `8, 62`',
+		].join('\n');
+		const out = narrateQuadrant(md);
+		expect(out).toContain('Strategic Bets: Scoring model v2 at three, seventy-eight; Per-team calibration at five, eighty-eight.');
+		expect(out).toContain('Quick Wins: Snapshot exports at eight, sixty-two.');
+		expect(out).not.toContain('5, 60');
+		expect(out).not.toContain('7, 70');
+	});
+
+	it("handles a negative-extreme axis (mirrors resolveScale's min<0 handling — the min is not always zero)", () => {
+		const md = ['<!-- _class: quadrant -->', '', '## X.', '', '- Group', '  - A `-20, 5`', '  - B `8, 3`'].join('\n');
+		const out = narrateQuadrant(md);
+		// xMin -20 (negative) → min stays -20, max = niceCeil(max(8, 20)) = 20.
+		expect(out).toContain('The horizontal axis runs negative twenty to twenty.');
+		// yMin 3 (non-negative) → min 0, max = niceCeil(5) = 5.
+		expect(out).toContain('The vertical axis runs zero to five.');
+	});
+
+	it('bails when the `radar` token is also present (a radar-variant slide, not this component)', () => {
+		const md = ['<!-- _class: radar quadrant -->', '', '## X.', '', '- Group', '  - Sub', '    - Item `4`'].join('\n');
+		expect(narrateQuadrant(md)).toBeNull();
+	});
+});
+
+// narrateStateChartInference speaks ONLY the start/terminal facts the transform
+// infers when the author didn't tag them explicitly — never restates a state
+// that's already tagged `start`/`end`.
+describe('narrateStateChartInference', () => {
+	it('returns null for a non-state-chart slide', () => {
+		expect(narrateStateChartInference('<!-- _class: kpi -->\n\n## X\n\n1. A\n2. B')).toBeNull();
+	});
+
+	it('returns null when start AND end are both already explicit', () => {
+		// state-chart.manifest.json's own skeleton — state 1 `start`, state 6 `end`.
+		const md = [
+			'<!-- _class: state-chart -->',
+			'',
+			'## Document approval flow.',
+			'',
+			'1. Draft `start`',
+			'   - `submit => 2`',
+			'   - `discard => 6`',
+			'2. Submitted `on-track`',
+			'   - `review => 3`',
+			'3. In Review',
+			'   - `approve => 4`',
+			'   - `reject => 1`',
+			'   - `revise => self`',
+			'4. Approved `done`',
+			'   - `publish => 5`',
+			'5. Published `live`',
+			'   - `archive => 6`',
+			'6. Archived `end`',
+		].join('\n');
+		expect(narrateStateChartInference(md)).toBeNull();
+	});
+
+	it('infers only the terminal state when start is explicit but end is not', () => {
+		// state-chart.manifest.json's own `sample` — state 1 `start`; no state `end`,
+		// and state 5 (Published) has no outgoing transition.
+		const md = [
+			'<!-- _class: state-chart lr -->',
+			'',
+			'## States connect; the arrows carry the rules.',
+			'',
+			'1. Draft `start`',
+			'   - `submit => 2`',
+			'2. Submitted `on-track`',
+			'   - `review => 3`',
+			'3. In Review `at-risk`',
+			'   - `approve => 4`',
+			'   - `reject => 1`',
+			'   - `revise => self`',
+			'4. Approved',
+			'   - `publish => 5`',
+			'5. Published',
+		].join('\n');
+		const out = narrateStateChartInference(md);
+		expect(out).toBe('It ends at Published.');
+	});
+
+	it('infers both start and terminal states when neither is tagged', () => {
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Review', '   - `approve => 3`', '3. Done'].join('\n');
+		expect(narrateStateChartInference(md)).toBe('This flow starts at Draft. It ends at Done.');
+	});
+
+	it('lists multiple inferred terminal states with "and"', () => {
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Start `start`', '   - `go => 2`', '   - `go => 3`', '2. Branch A', '3. Branch B'].join('\n');
+		expect(narrateStateChartInference(md)).toBe('It ends at Branch A and Branch B.');
+	});
+
+	it('does not let an out-of-range transition target suppress terminal inference', () => {
+		// Draft's only transition targets state 9, which doesn't exist among 3
+		// states — the real transform marks that "(unresolved)" and does NOT
+		// count it as outgoing, so Draft is STILL inferred as terminal too.
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', "   - `submit => 9`", '2. Review', '3. Done'].join('\n');
+		expect(narrateStateChartInference(md)).toBe('It ends at Draft, Review, and Done.');
+	});
+
+	it("keeps an unrelated trailing annotation in an inferred state's spoken label", () => {
+		// Neither `start` nor `end` is tagged anywhere → state 1 infers as start;
+		// its unrelated `port 8080` pill must stay part of the spoken label, the
+		// same way state-chart.transform.js re-appends an unknown pill into the
+		// rendered label rather than silently discarding it.
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Config `port 8080`', '   - `next => 2`', '2. Done'].join('\n');
+		expect(narrateStateChartInference(md)).toBe('This flow starts at Config port 8080. It ends at Done.');
+	});
+
+	it('does not include a status keyword pill in the spoken label (matches the real status-badge split)', () => {
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Submitted `on-track`', '   - `go => 2`', '2. Done'].join('\n');
+		expect(narrateStateChartInference(md)).toBe('This flow starts at Submitted. It ends at Done.');
+	});
+});
+
+describe('narrateStateChart', () => {
+	it('composes the inferred facts with the rest of the slide via slideToSpeech', () => {
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Review', '   - `approve => 3`', '3. Done'].join('\n');
+		const inferred = 'This flow starts at Draft. It ends at Done.';
+		const out = narrateStateChart(md);
+		expect(out?.startsWith(inferred)).toBe(true);
+		expect(out?.length).toBeGreaterThan(inferred.length);
+	});
+
+	it('returns null when there is nothing inferred to add', () => {
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft `start`', '   - `submit => 2`', '2. Done `end`'].join('\n');
+		expect(narrateStateChart(md)).toBeNull();
+	});
+});
+
 describe('narrateChart', () => {
 	it('recognizes a funnel slide', () => {
 		expect(narrateChart('<!-- _class: funnel -->\n\n## Stages.\n\n- A `100`\n- B `50`')).toContain('fifty percent');
 	});
 
-	it('returns null for a slide no pilot narrator recognizes', () => {
+	it('recognizes a weighted journey slide', () => {
+		const md = ['<!-- _class: journey weighted -->', '', '## X.', '', '- Stage', '  - A `@me` `:3` `+9`', '  - B `@me` `:3` `+1`'].join('\n');
+		expect(narrateChart(md)).toContain('ninety percent');
+	});
+
+	it('recognizes a state-chart slide with an inference to add', () => {
+		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Done'].join('\n');
+		expect(narrateChart(md)).toContain('This flow starts at Draft.');
+	});
+
+	it('returns null for a slide no narrator recognizes', () => {
 		expect(narrateChart('<!-- _class: kpi -->\n\n## Revenue\n\nWe grew.')).toBeNull();
 	});
 });
