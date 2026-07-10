@@ -67,4 +67,40 @@ describe('sketch finish hand-drawn boxes reach through .cell-stage', () => {
     assert.equal(li.parentElement.parentElement.className, 'cell-stage');
     assert.ok(li.matches('section.sketch.agenda > .cell-stage > ol > li'));
   });
+
+  // These two were MISSED in the initial fix (found by an adversarial re-review
+  // of this same PR before merge): citation-card's box selector had no
+  // .cell-stage arm at all, and list.principles's commit message incorrectly
+  // called it dead code — it's a live, documented variant
+  // (test/integration/baseline-decks/gallery.md's "How we make calls..." slide).
+  test('citation-card blockquote box selector matches a blockquote wrapped in .cell-stage', () => {
+    const bq = el(
+      '<section class="sketch citation-card form"><div class="cell-stage"><blockquote><p>q</p></blockquote></div></section>',
+    ).querySelector('blockquote');
+    assert.ok(bq.matches('section.sketch.citation-card > .cell-stage > blockquote'));
+  });
+
+  test('list.principles row selector matches an <li> wrapped in .cell-stage', () => {
+    const li = el(
+      '<section class="sketch list principles form"><div class="cell-stage"><ol><li>a</li></ol></div></section>',
+    ).querySelector('li');
+    assert.ok(li.matches('section.sketch.list.principles > .cell-stage > ol > li'));
+  });
+
+  test('a real Form-default sketch citation-card render nests its blockquote under .cell-stage AND the box selector still reaches it', () => {
+    const md =
+      '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- _class: citation-card -->\n\n## Citation.\n\n> A quote.\n\n_Source: x._\n';
+    const bq = new JSDOM(`<!DOCTYPE html><body>${html(md)}</body>`).window.document.querySelector('blockquote');
+    assert.equal(bq.parentElement.className, 'cell-stage');
+    assert.ok(bq.matches('section.sketch.citation-card > .cell-stage > blockquote'));
+  });
+
+  test('a real Form-default sketch list.principles render nests its <li> under .cell-stage AND the row selector still reaches it (the numbered-list authoring contract — NOT bullets)', () => {
+    const md =
+      '---\ntheme: indaco\nclass: sketch\n---\n\n<!-- _class: list principles -->\n\n## Principles.\n\n1. First.\n2. Second.\n';
+    const li = firstLi(html(md));
+    assert.equal(li.parentElement.parentElement.className, 'cell-stage');
+    assert.equal(li.parentElement.tagName, 'OL');
+    assert.ok(li.matches('section.sketch.list.principles > .cell-stage > ol > li'));
+  });
 });

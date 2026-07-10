@@ -17206,6 +17206,7 @@ section.sketch.compare-prose .card,
 section.sketch.compare-prose > ol > li,
 section.sketch.compare-prose > .cell-stage > ol > li,
 section.sketch.citation-card > blockquote,
+section.sketch.citation-card > .cell-stage > blockquote,
 /* The generic "KEY INSIGHT" blockquote (the trailing `> blockquote` on any
  * non-specialised layout — same target as base.modifiers' key-insight chrome)
  * becomes a drawn box too. redline/quote/math/citation-card own their
@@ -17346,7 +17347,8 @@ section.sketch.compare-table td,
 section.sketch.obligation-matrix td,
 section.sketch.list-tabular > ol > li,
 section.sketch.list-tabular > .cell-stage > ol > li,
-section.sketch.list.principles > ol > li {
+section.sketch.list.principles > ol > li,
+section.sketch.list.principles > .cell-stage > ol > li {
   position: relative;
   border-bottom-color: transparent;
 }
@@ -17356,7 +17358,8 @@ section.sketch.compare-table td::after,
 section.sketch.obligation-matrix td::after,
 section.sketch.list-tabular > ol > li::after,
 section.sketch.list-tabular > .cell-stage > ol > li::after,
-section.sketch.list.principles > ol > li:not(:last-child)::after {
+section.sketch.list.principles > ol > li:not(:last-child)::after,
+section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
   content: "";
   position: absolute;
   left: 0;
