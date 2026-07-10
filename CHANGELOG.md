@@ -17,6 +17,122 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **The exported `.html` player is now a flex-column shell — Present centers
+  reliably on mobile and dark mode reaches the slides, not just the page.** Two
+  on-device follow-ups after the previous round: (1) **dark mode flipped the page
+  but not the slides** — an older engine repainted `:root` when a custom property
+  changed but didn't re-propagate the new value down to the already-laid-out slide
+  section subtrees. The dark-token overrides are now set on `:root` **and directly
+  on every `section[data-lattice-slide]`**, so a slide's `background:var(--bg)`
+  reads its own dark value with no reliance on `:root` inheritance re-propagating.
+  (2) **Present still wasn't centered** — the stage used `position:fixed` against a
+  layout viewport that a mobile in-app browser reports taller than the visible
+  area. The whole player is now a **flex column at `100svh`** (the visible
+  viewport): the bar is a flex child (no longer `position:fixed`), and the Present
+  stage is the growing child (`flex:1`) that `place-items:center` centers in real
+  visible space — no `position:fixed`, no JS-measured height, nothing to misreport.
+  Read·Slides and Read·Article are the column's scrolling children. The **prev/next
+  arrows moved into a bottom control row** below the slide, so they never overlay
+  content and the centering box stays symmetric. The **active Present frame now
+  sizes to the SCALED footprint** (via a `--lp-fit-present` CSS var), not the raw
+  1280×720 — a fixed 720px frame overflowed a phone stage shorter than 720px, and
+  grid can't center an oversized item (it top-aligns it), which pushed the slide
+  down; a footprint-sized frame centers cleanly at ANY stage height. Verified in
+  Chromium: symmetric, unclipped centering at 390×700, 390×560, 740×360 (short
+  landscape), 820×1180, and 1440×900, plus page+slide colour flip. *The svh flex column + the
+  direct-on-section tokens are the robust replacement for the fixed-position +
+  :root-only-inheritance approaches; still pending confirmation on the exact in-app
+  browser.* In Read·Slides, each frame is now `flex:none` so it keeps its full
+  height and the view SCROLLS — without it the flex column shrank every fixed-height
+  frame to fit the stage, squishing the cards while the scaled slide inside stayed
+  full height and overflowed (clipped).
+- **The exported `.html` player's dark mode now works on older mobile WebKit —
+  the real on-device fix, after the first attempt still shipped a white deck.**
+  The dark-override block emitted each surface token's dark value as
+  `--bg: var(--scheme-dark-bg)` — a custom property pointing at *another* custom
+  property (the literal `#001D33`) defined in a **different** `<style>` block. An
+  older in-app-browser WebKit couldn't resolve that cross-block indirection, so
+  `--bg` went guaranteed-invalid and `background: var(--bg,#fff)` fell back to
+  white — a white page and white slides that no tap could fix, even though the
+  accent colours (whose dark value is a literal) came through. The export now
+  **flattens** every dark value to a literal at build time (`--bg:#001D33`, zero
+  indirection); a `var()` that points at a token redefined *within* the dark block
+  (e.g. `var(--accent)`) is deliberately kept. The dark/light toggle also now
+  **stamps the `data-lp-scheme` attribute at load** (from `matchMedia`) so the
+  deck's colours ride only on a plain attribute selector + literals — never the
+  CSS `light-dark()` function, a `var()` chain, or a `prefers-color-scheme` media
+  query (kept only as a no-JS fallback). Every feature this now needs predates
+  2016 WebKit. Proven by stripping every `--scheme-dark-*` definition from a real
+  export and confirming dark mode still renders dark (the literal block survives
+  exactly the cross-block-var failure that broke the device). *Still not run on
+  the exact in-app browser that surfaced it, but the fix removes the failing
+  mechanism rather than tuning around it.*
+- **The exported `.html` player's Read·Slides view now frames each slide with a
+  visible border + drop shadow.** They sat on the `transform:scale(~.28)`
+  `<section>`, so the 1px border shrank to a sub-pixel hairline and the outward
+  shadow was clipped away by the frame's `overflow:hidden` — a white slide on the
+  white page had no visible boundary at all. Moved onto the unscaled `.lp-frame`,
+  where the border is a true 1px and the shadow paints outside the frame's box, so
+  every slide reads as a distinct card.
+- **The exported `.html` player's Present prev/next arrows no longer overlay the
+  slide.** The fit now reserves a horizontal gutter sized to the arrow width, so
+  the circular controls sit beside the slide instead of over its left/right edges
+  (verified clear of the slide at mobile/tablet/desktop).
+- **The exported `.html` player now centers Present and switches dark/light on
+  older mobile browsers — two failures that only showed on a real device, never
+  in headless Chromium.** Both traced to the player leaning on modern features an
+  older in-app-browser WebKit doesn't have: (1) **Not centered** — the Present
+  stage computed its height in JavaScript from `innerHeight`/`visualViewport`. A
+  third-party iOS in-app browser (the GitHub app's viewer, etc.) reports a *layout*
+  height taller than the actually-visible area between its address bar and bottom
+  toolbar, so the stage overshot and the centered slide was pushed down with a big
+  gap above it. The stage is now pinned on all four edges (`top:48px … bottom:0`)
+  and the browser computes the height natively — no JS measurement to misreport;
+  the `--lp-vh` variable and its `setStageHeight` machinery are gone. (2) **Dark/
+  light toggle did nothing** — every theme token is authored as `--t: light-dark(L,
+  D)`, and the CSS `light-dark()` function only shipped in Safari/WebKit 17.5
+  (mid-2024). On an older engine it's an invalid value, so every color token went
+  unset (the deck fell back to a white page with wrong slide fills) *and* the toggle
+  — which only flipped `color-scheme`, a thing nothing but `light-dark()` reads —
+  was inert. There was no `@media(prefers-color-scheme)` fallback anywhere. The
+  export now resolves each `light-dark(L, D)` pair at build time into a plain light
+  base plus an explicit dark override, gated by a `data-lp-scheme` attribute (the
+  manual toggle) and a `prefers-color-scheme` media query (the system default,
+  overridable) — plain CSS supported for a decade, so the deck themes correctly and
+  the toggle works on every engine. The resolved colors are byte-identical to what
+  `light-dark()` produced on a modern browser (same L/D values, different plumbing),
+  verified in Chromium in light and dark at 390/820/1440. *Not verified on the exact
+  in-app browser that surfaced this (no access to it from CI); the fix removes the
+  unsupported features entirely rather than tuning within them, so the mechanism a
+  modern browser exercises is now the same one the old browser gets.*
+  the top bar's height. The original design (`engineering/decisions/
+  2026-07-07-html-lattice-player.md`'s verification bar) specified icon-only
+  controls on mobile from the start; an intermediate round instead compacted
+  the bar to keep icon+text everywhere, which crowded the notes/fullscreen/
+  mode controls toward the edge on a real "Welcome to Lattice" export at phone
+  width. The tabs are now icon-only below 560px — the text label is never
+  removed from the DOM (still the accessible name via `aria-label`, still
+  real content behind a standard sr-only clip), only visually hidden — and
+  every icon control's tap target grew (~26–33px → ~36–38px) to reduce the
+  crowded feel the compact-but-labeled bar had. Icon+text is unchanged at
+  tablet/desktop, where there's room. (3) The speaker-notes,
+- **A Studio-exported `.html` player with a `describe:` (accessible-description)
+  comment no longer shows that description as extra, duplicated visible text.**
+  Reported as "the title/subtitle/intro block appears twice" in Read · Article on
+  a real deck. Root cause: the CLI's own `docHtml` bakes in a small Marp-equivalent
+  CSS block (`lattice-emulator.js`'s `marpSystemCss` — page-number `content:attr()`,
+  `aside.lattice-notes{display:none}`, and a `.lattice-description{…}` sr-only
+  rule), but the Studio's browser-built `docHtml`
+  (`share-export.ts`'s `buildSelfContainedDoc`) never included it — so the
+  accessible-description `<p>` it injects (same element both paths inject) had no
+  CSS to hide it, rendering as a plain visible paragraph restating the slide's own
+  heading/body, in Present *and* Read · Article, and every deck's page-number span
+  had no `content:attr()` binding to read from. That CSS now lives in the ONE
+  assembler both paths share (`lib/export/player-core.mjs`'s `playerCss()`), so the
+  gap closes for both hosts instead of leaving it CLI-only. Read · Article's prose
+  projection also now skips `.lattice-description` explicitly (`SKIP_SELECTOR`) —
+  it's a screen-reader synonym for content the article already renders as real
+  prose, not a second copy to show sighted readers.
 - **`autosplit: on` now works in the packaged CLI.** The npm-shipped bundle
   looked for component manifests in its own `dist/` directory (which ships
   none), so the Fit Ladder's measured auto-split silently never ran for
