@@ -36,6 +36,20 @@ in patch versions.
 
 ### Added
 
+- **A "Fix Me" overlay pinpointing the cause of an overflowing slide, when the
+  cause is a bounded content cell.** The existing "Overflows" ring/tag only
+  ever named the SLIDE, never the culprit. When a `.cell-stage` /
+  `.panel-right` / `.compare-right` clip cell genuinely clips its own content
+  — a geometrically certain cause, unlike a grow-to-fit grid card that merely
+  grew and pushed a neighbor past the frame (that misattribution was tried and
+  dropped previously) — a yellow outline + "Fix Me" corner tag now highlights
+  it, preview-only (never in an exported PDF/PPTX/HTML), drawn as a zero-flow
+  overlay layer so it can never shift `nth-child` indices or corrupt Fit-Spine
+  measurement. See `lib/helpers/overflow/overflow.docs.md` and
+  `engineering/decisions/2026-07-10-overflow-cause-highlighting.md`. The
+  grow-to-fit-grid case (a prose-density word-budget fallback) is a deferred
+  follow-up.
+
 - **A "Send feedback" entry point in the Studio topbar and the sitewide
   header.** Opens a sheet (category, one-line summary, details) and hands
   off to a pre-filled GitHub issue against `.github/ISSUE_TEMPLATE/studio-feedback.yml`

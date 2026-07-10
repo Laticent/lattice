@@ -58,6 +58,30 @@ describe('overflow-probe', () => {
     // effective extent folds the cell overflow back in for the autosplit ratio
     assert.equal(r.scrollH, 700 + (828 - 718));
     assert.equal(r.clientH, 700);
+    // overCells names the culprit by INDEX (never an element ref — PROBE_SRC
+    // also runs across the emulator's page.evaluate serialization boundary).
+    assert.deepEqual(r.overCells, [{ index: 0, dy: 110, dx: 0 }]);
+  });
+
+  test('overCells omits a cell whose spill sits at/under TOL — jitter, not a provable cause', () => {
+    const s = fakeSection({
+      scrollHeight: 700, clientHeight: 700,
+      cells: [cell(706, 700)], // +6, under the 12px tolerance
+    });
+    const r = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL);
+    assert.equal(r.overCells.length, 0);
+  });
+
+  test('overCells lists EVERY cell past TOL, each independently a genuine culprit', () => {
+    const s = fakeSection({
+      scrollHeight: 700, clientHeight: 700,
+      cells: [cell(740, 700), cell(900, 700), cell(706, 700)], // +40, +200, +6(jitter)
+    });
+    const r = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL);
+    assert.deepEqual(r.overCells, [
+      { index: 0, dy: 40, dx: 0 },
+      { index: 1, dy: 200, dx: 0 },
+    ]);
   });
 
   test('a sub-TOL cell jitter does NOT trip the ring', () => {
