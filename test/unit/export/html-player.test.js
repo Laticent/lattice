@@ -372,6 +372,10 @@ test('Read·Slides frames the border + shadow on the .lp-frame, not the scaled s
 	const frameRule = (html.match(/\[data-lp-view=read-slides\] \.lp-frame\{[^}]*\}/) || [])[0] || '';
 	assert.match(frameRule, /border:1px solid var\(--border/, 'the frame carries the 1px border');
 	assert.match(frameRule, /box-shadow:0 10px 34px -14px/, 'the frame carries the card shadow');
+	// flex:none is load-bearing: #lp-stage is a flex COLUMN, so without it each fixed-height
+	// frame would flex-shrink to fit the stage — squishing the frame while the scaled section
+	// stays full height and overflows (clipped). flex:none keeps the height; the stage scrolls.
+	assert.match(frameRule, /\.lp-frame\{flex:none;/, 'the frame does not shrink (the stage scrolls instead of squishing the slides)');
 	const secRule = (html.match(/\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{[^}]*\}/) || [])[0] || '';
 	assert.doesNotMatch(secRule, /box-shadow/, 'the scaled section no longer carries the (clipped, sub-pixel) shadow/border');
 });
@@ -469,7 +473,7 @@ test('read-slides + the no-JS floor scale each slide with a wrapped transform, n
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.doesNotMatch(html, /zoom:/, 'no view scales with CSS zoom (WebKit cqi/cqh collapse)');
 	assert.match(html, /class="lp-frame"/, 'every slide is wrapped in a sizeable .lp-frame');
-	assert.match(html, /\[data-lp-view=read-slides\] \.lp-frame\{width:calc\(1280px \* var\(--lp-fit,\.28\)\)/, 'the frame carries the scaled footprint so the flex gap packs tight');
+	assert.match(html, /\[data-lp-view=read-slides\] \.lp-frame\{flex:none;width:calc\(1280px \* var\(--lp-fit,\.28\)\)/, 'the frame carries the scaled footprint so the flex gap packs tight');
 	assert.match(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit,\.28\)\);transform-origin:0 0/, 'read-slides scales the native canvas with transform, not zoom');
 	assert.match(html, /html:not\(\.lp-js\) \.lp-frame\{width:calc\(1280px \* var\(--lp-fit\)\)/, 'the no-JS floor frame also carries the scaled footprint');
 	assert.match(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit\)\)/, 'the no-JS floor scales with transform, not zoom');
@@ -525,7 +529,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '52bc79b4c797f81b4cbb8f0ab976572bda95d71aaa12024f435ac9f02743880d', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '9a371615698145c7c20f797a4d8fa53dc198130de2a42ab8997ebc9fd8f2d848', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

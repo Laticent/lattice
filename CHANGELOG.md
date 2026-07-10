@@ -42,7 +42,10 @@ in patch versions.
   landscape), 820×1180, and 1440×900, plus page+slide colour flip. *The svh flex column + the
   direct-on-section tokens are the robust replacement for the fixed-position +
   :root-only-inheritance approaches; still pending confirmation on the exact in-app
-  browser.*
+  browser.* In Read·Slides, each frame is now `flex:none` so it keeps its full
+  height and the view SCROLLS — without it the flex column shrank every fixed-height
+  frame to fit the stage, squishing the cards while the scaled slide inside stayed
+  full height and overflowed (clipped).
 - **The exported `.html` player's dark mode now works on older mobile WebKit —
   the real on-device fix, after the first attempt still shipped a white deck.**
   The dark-override block emitted each surface token's dark value as
