@@ -629,10 +629,17 @@ in patch versions.
   requests for the same key); Present's autoplay effect
   (`PresentOverlay.tsx`) calls it with the UPCOMING slide's narration as soon
   as the CURRENT slide starts, so the next slide's audio is already cached
-  (or in flight) by the time the reader chains to it. Verified live in the
-  Studio Present overlay with a mocked, delayed TTS endpoint: the next
-  slide's sentence requests fire while the current slide is still on screen,
-  not only after the transition.
+  (or in flight) by the time the reader chains to it. `warm()` gets its own,
+  separate `WARM_CONCURRENCY` (1) rather than sharing `speak()`'s
+  `SYNTH_CONCURRENCY` (3) — the two schedulers deliberately run at the same
+  time (that's the whole point), so sharing one cap would let a single
+  transition burst to 6 simultaneous requests instead of 4. An abandoned
+  warm (autoplay turned off, the slide advanced again, Present closed) stops
+  firing further requests but never cancels one a different still-live
+  caller may have joined. Verified live in the Studio Present overlay with a
+  mocked, delayed TTS endpoint: the next slide's sentence requests fire
+  while the current slide is still on screen, not only after the
+  transition.
 - **The Studio read-along narrates a funnel's conversion rate.** The stage-to-stage
   conversion % is computed at render time (`funnel.transform.js`) and never existed
   in the slide's Markdown, so it was silently absent from every read-aloud. A new

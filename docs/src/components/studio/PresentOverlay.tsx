@@ -148,7 +148,15 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		if (!autoplay) return;
 		const next = set[clamped + 1];
 		if (next === undefined) return;
-		warmNarration(narrationFor(next));
+		// Stop this warm from firing any FURTHER requests once it's superseded —
+		// autoplay turned off, the slide advanced again before it finished, or
+		// Present closed — so an abandoned warm doesn't keep working through the
+		// rest of an upcoming slide's sentences in the background (independent-
+		// checker finding). A request already in flight when this fires just
+		// finishes on its own; see warm()'s own comment in voice-model.js.
+		const ctl = new AbortController();
+		warmNarration(narrationFor(next), ctl.signal);
+		return () => ctl.abort();
 	}, [autoplay, clamped, set]);
 	// Toggle autoplay: turning it on starts reading the deck now; off stops.
 	const toggleAutoplay = React.useCallback(() => {

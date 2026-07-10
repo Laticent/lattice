@@ -104,8 +104,8 @@ type VoiceModel = {
 	stop: () => void;
 	pause: () => void;
 	resume: () => void;
-	/** Background-prefetch these spoken sentences into the shared audio cache — no playback, best-effort. */
-	warm: (sentences: string[]) => void;
+	/** Background-prefetch these spoken sentences into the shared audio cache — no playback, best-effort. `signal` stops any FURTHER requests once aborted (already-started ones finish; see voice-model.js). */
+	warm: (sentences: string[], opts?: { signal?: AbortSignal }) => void;
 	rung: () => string;
 	/** iOS audio unlock — MUST run synchronously inside a user gesture (the play tap). */
 	unlock: () => void;
@@ -183,9 +183,13 @@ function nowMs(): number {
  * speak() will look up later — a mismatch here would silently defeat the
  * whole prefetch (every warmed entry a cache miss). No-ops before the voice
  * model has loaded (a warm-ahead nicety, never worth blocking or racing the
- * caller for).
+ * caller for). `signal`, if given, stops any FURTHER prefetch requests once
+ * aborted (a request already in flight finishes on its own) — pass one tied
+ * to the caller's own lifetime (e.g. an effect's cleanup) so an abandoned
+ * warm (autoplay turned off, the slide advanced again, Present closed)
+ * doesn't keep working through the rest of the slide's sentences.
  */
-export function warmNarration(text: string): void {
+export function warmNarration(text: string, signal?: AbortSignal): void {
 	if (!text) return;
 	const track = buildTrack(text);
 	if (!track.cues.length) return;
@@ -194,7 +198,7 @@ export function warmNarration(text: string): void {
 	// a second instance, and it's a no-op microtask once a reader has already
 	// warmed it on mount (the common case: Present's autoplay only calls this
 	// after a reader is already mounted and playing).
-	getVoice().then((v) => v?.warm?.(sentences));
+	getVoice().then((v) => v?.warm?.(sentences, { signal }));
 }
 
 /**

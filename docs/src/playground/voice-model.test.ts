@@ -546,25 +546,107 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     expect(calls).toEqual([]);
   });
 
-  it('caps concurrent prefetch requests at SYNTH_CONCURRENCY (3), the same budget in-playback synthesis uses', async () => {
+  it('caps concurrent prefetch requests at WARM_CONCURRENCY (1) — a SEPARATE, smaller budget than speak()\'s SYNTH_CONCURRENCY (3)', async () => {
+    // warm() runs WHILE the current slide's own speak() scheduler may still have
+    // up to 3 requests of its own in flight (that's the point — prefetch during
+    // the current slide's playback) — sharing one counter with speak() would let
+    // a single autoplay transition burst to 3 + 3 = 6 simultaneous requests,
+    // quietly doubling the "not a burst attack on the API" ceiling (independent-
+    // checker finding). warm() gets its own, much smaller cap instead.
     const model = createVoiceModel({});
     const started: string[] = [];
     const mock = abortAwareMockRung((t) => started.push(t));
     model.__setRung(mock.rung);
 
-    model.warm(['One.', 'Two.', 'Three.', 'Four.', 'Five.']);
-    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
-    expect(started).not.toContain('Four.'); // capped — nothing has resolved yet
+    model.warm(['One.', 'Two.', 'Three.']);
+    await vi.waitFor(() => expect(started).toEqual(['One.']));
+    expect(started).not.toContain('Two.'); // capped at 1 — nothing has resolved yet
 
     mock.resolve('One.');
-    await vi.waitFor(() => expect(started).toContain('Four.'));
-    expect(started).not.toContain('Five.');
+    await vi.waitFor(() => expect(started).toContain('Two.'));
+    expect(started).not.toContain('Three.');
 
     mock.resolve('Two.');
+    await vi.waitFor(() => expect(started).toContain('Three.'));
     mock.resolve('Three.');
-    mock.resolve('Four.');
-    await vi.waitFor(() => expect(started).toContain('Five.'));
-    mock.resolve('Five.');
+  });
+
+  it("does not spike combined concurrency: warm()'s 1 runs ALONGSIDE speak()'s own 3 in-flight requests, not sharing the cap", async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+
+    // The current slide's own scheduler: 3 in flight, capped at SYNTH_CONCURRENCY.
+    const speakP = model.speak({ text: 'A. B. C. D.' });
+    await vi.waitFor(() => expect(started).toEqual(['A.', 'B.', 'C.']));
+
+    // warm() for the NEXT slide fires concurrently — its own request lands
+    // immediately despite speak()'s 3 already being live (different text, so
+    // no cache-key collision; this proves the two schedulers don't share one
+    // counter — if they did, warm()'s request would queue behind speak()'s
+    // already-full cap instead of firing right away).
+    model.warm(['Next slide sentence.']);
+    expect(started).toContain('Next slide sentence.');
+    mock.resolve('Next slide sentence.');
+
+    // Drain speak()'s own scheduler to completion — 'D.' only fires once a
+    // slot frees (a microtask after resolving 'A.'), so it must be waited for
+    // before it can be resolved, same as the sibling SYNTH_CONCURRENCY test.
+    mock.resolve('A.');
+    await vi.waitFor(() => expect(started).toContain('D.'));
+    mock.resolve('B.');
+    mock.resolve('C.');
+    mock.resolve('D.');
+    await speakP;
+  });
+
+  it("stops firing FURTHER requests once its signal aborts, but doesn't cancel one already in flight", async () => {
+    const model = createVoiceModel({});
+    const started: string[] = [];
+    const mock = abortAwareMockRung((t) => started.push(t));
+    model.__setRung(mock.rung);
+    const ctl = new AbortController();
+
+    model.warm(['One.', 'Two.', 'Three.'], { signal: ctl.signal });
+    await vi.waitFor(() => expect(started).toEqual(['One.']));
+
+    ctl.abort();
+    mock.resolve('One.'); // frees the one active slot
+    await new Promise((r) => setTimeout(r, 20)); // let any (incorrect) refill happen
+    expect(started).toEqual(['One.']); // 'Two.' never started — pump() stopped once aborted
+  });
+
+  it("a joiner's own in-flight request is unaffected when a DIFFERENT caller's warm() signal aborts", async () => {
+    // The subtlety this design deliberately avoids: if warm() tore down the
+    // SHARED inFlightSynths entry on its own signal's abort, a different
+    // still-live caller (another warm(), or speak()) that joined the same key
+    // would be handed a false failure it never asked for.
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    const mock = abortAwareMockRung((t) => calls.push(t));
+    model.__setRung(mock.rung);
+    const ctlA = new AbortController();
+
+    model.warm(['Shared sentence.'], { signal: ctlA.signal }); // caller A fires the real request
+    await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']));
+
+    // onSentenceTiming only fires once playBlob actually decodes + starts real
+    // audio (FakeAudioContext, wired file-wide in this test's beforeEach) — a
+    // silently-dropped null blob (the bug this test guards against: A's abort
+    // wrongly tearing down the SHARED request) resolves speakP just as
+    // cleanly but WITHOUT ever reaching real playback, so checking only
+    // `await speakP` resolves — or that `calls` stayed at one — doesn't
+    // distinguish "B got real audio" from "B silently got nothing."
+    const onSentenceTiming = vi.fn();
+    const speakP = model.speak({ text: 'Shared sentence.', onSentenceTiming }); // caller B joins A's in-flight entry
+    await new Promise((r) => setTimeout(r, 10));
+
+    ctlA.abort(); // A walks away — must NOT cancel B's (speak()'s) shared request
+    mock.resolve('Shared sentence.');
+    await speakP; // resolves cleanly — B still got its audio
+    expect(calls).toEqual(['Shared sentence.']); // still just the one real call
+    expect(onSentenceTiming).toHaveBeenCalledTimes(1); // …and B actually played it
   });
 
   it('joins an in-flight speak() synth for the same sentence instead of firing a duplicate prefetch request', async () => {
