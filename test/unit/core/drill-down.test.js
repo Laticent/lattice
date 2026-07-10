@@ -90,13 +90,76 @@ describe('findCulprits', () => {
     assert.deepEqual(findCulprits([a, b]), []);
   });
 
-  test('multiple independent same-height groups are each evaluated on their own', () => {
-    const groupACulprit = fakeItem(0, 300, 298); // slack 2
-    const groupABystander = fakeItem(0, 300, 60); // slack 240
-    const groupBCulprit = fakeItem(0, 500, 497); // slack 3
-    const groupBBystander = fakeItem(0, 500, 100); // slack 400
-    const result = findCulprits([groupACulprit, groupABystander, groupBCulprit, groupBBystander]);
-    assert.deepEqual(result, [groupACulprit, groupBCulprit]);
+  // The verdict-grid regression (2026-07-10): a 2x2 wrapped grid where row 1
+  // (height 322) genuinely overflowed on its own oversized card, and row 2
+  // (height 161, two perfectly normal short cards) got carried past the
+  // clip boundary purely by row 1's excess — NOT because row 2 itself is
+  // oversized. A naive per-group search flagged "Path D" in row 2 anyway,
+  // just because it had marginally less slack than its row-mate "Path C" —
+  // the exact misattribution this whole feature exists to avoid, one level
+  // up. The row-outlier gate must suppress the normal row entirely.
+  test('a comfortably-sized row is never searched just because it sits below an overflowing row', () => {
+    const rowB = fakeItem(0, 322, 305); // the true culprit's row, slack 17
+    const rowBmate = fakeItem(0, 322, 117); // its stretched neighbour, slack 205
+    const rowD = fakeItem(0, 161, 144); // row 2: perfectly normal, slack 17
+    const rowDmate = fakeItem(0, 161, 117); // row 2's other card, slack 44 — MORE slack than rowD, but neither is a problem
+    const result = findCulprits([rowB, rowBmate, rowD, rowDmate]);
+    assert.deepEqual(result, [rowB]);
+  });
+
+  // Two SEPARATE rows can both be genuine culprits — the row-outlier gate
+  // must not collapse to "only ever the single tallest row" when several
+  // rows are legitimately, independently oversized against a shared normal
+  // baseline (4 groups: 2 near-baseline, 2 both clearly taller than it).
+  test('two independently oversized rows against a shared normal baseline both get searched', () => {
+    const baselineA1 = fakeItem(0, 150, 145);
+    const baselineA2 = fakeItem(0, 150, 140);
+    const baselineB1 = fakeItem(0, 160, 155);
+    const baselineB2 = fakeItem(0, 160, 150);
+    const tall1Culprit = fakeItem(0, 400, 396); // slack 4
+    const tall1Bystander = fakeItem(0, 400, 100); // slack 300
+    const tall2Culprit = fakeItem(0, 420, 415); // slack 5
+    const tall2Bystander = fakeItem(0, 420, 110); // slack 310
+    const result = findCulprits([
+      baselineA1, baselineA2, baselineB1, baselineB2,
+      tall1Culprit, tall1Bystander, tall2Culprit, tall2Bystander,
+    ]);
+    assert.deepEqual(result, [tall1Culprit, tall2Culprit]);
+  });
+
+  // Maker-checker finding (2026-07-10): a MEDIAN-based baseline can itself
+  // land ON an anomalous row once anomalies are a MAJORITY of 3+ groups
+  // (e.g. heights 150/250/500 — the middle value, 250, is itself
+  // moderately oversized, so comparing it against itself as "the median"
+  // silently cleared it). The baseline must be the group MINIMUM instead:
+  // an overflow-causing anomaly only makes a row taller, never shorter, so
+  // the shortest row can never wrongly exclude itself OR mask a
+  // moderately-tall sibling the way a self-referential median can.
+  test('a moderately-oversized row is still caught even when anomalous rows outnumber the normal one (3 groups)', () => {
+    const normal1 = fakeItem(0, 150, 145);
+    const normal2 = fakeItem(0, 150, 140);
+    const moderateCulprit = fakeItem(0, 250, 246); // slack 4
+    const moderateBystander = fakeItem(0, 250, 60); // slack 190
+    const extremeCulprit = fakeItem(0, 500, 495); // slack 5
+    const extremeBystander = fakeItem(0, 500, 100); // slack 400
+    const result = findCulprits([normal1, normal2, moderateCulprit, moderateBystander, extremeCulprit, extremeBystander]);
+    assert.deepEqual(result, [moderateCulprit, extremeCulprit]);
+  });
+
+  test('a moderately-oversized row is still caught with 4 groups, 3 of them anomalous', () => {
+    const normal1 = fakeItem(0, 150, 145);
+    const normal2 = fakeItem(0, 150, 140);
+    const mildCulprit = fakeItem(0, 250, 246);
+    const mildBystander = fakeItem(0, 250, 60);
+    const moderateCulprit = fakeItem(0, 300, 296);
+    const moderateBystander = fakeItem(0, 300, 70);
+    const extremeCulprit = fakeItem(0, 500, 495);
+    const extremeBystander = fakeItem(0, 500, 100);
+    const result = findCulprits([
+      normal1, normal2, mildCulprit, mildBystander,
+      moderateCulprit, moderateBystander, extremeCulprit, extremeBystander,
+    ]);
+    assert.deepEqual(result, [mildCulprit, moderateCulprit, extremeCulprit]);
   });
 });
 

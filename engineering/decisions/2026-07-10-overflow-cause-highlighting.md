@@ -272,3 +272,58 @@ neighbor; split-compare (the override path) isolates "preferred option",
 not "alternative option"; a uniformly-dense 4-card grid (no genuine outlier)
 correctly falls back to the whole-cell box instead of guessing; a clean,
 non-overflowing deck draws nothing.
+
+## 11. Row-outlier correction (2026-07-10, same day)
+
+Building out a 5-component demo (`verdict-grid`, `stats`, `decision`, in
+addition to the two above) surfaced a real bug in §10's algorithm on
+`verdict-grid`'s default 2×2 layout: row 1 (a genuinely over-stuffed card)
+overflowed on its own content, and that excess pushed row 2 — two
+perfectly ordinary, short cards — past the clip boundary. Row 2 never
+overflows on its own merits; it's purely a downstream consequence of row 1.
+But `findCulprits` searched EVERY height-group in the collection
+unconditionally, and row 2's two cards happened to have slightly different
+slack (one had a marginally longer one-line rationale than the other) —
+enough to cross the outlier threshold and get one of them (an entirely
+innocent card) tagged "Fix Me." This is the *exact* misattribution the
+whole feature exists to prevent, recurring one level up: "which row is
+worst" needs the same non-guessing discipline as "which item in a row is
+worst."
+
+**Fix:** before searching a height-group for an item-level outlier, first
+check whether the GROUP ITSELF is a height outlier among its sibling
+groups — using the same asymmetric ratio-plus-absolute-gap test as the
+item-level check, but directionally inverted (a row is suspect for being
+unusually TALL, not unusually short). A row within normal range for its
+collection is never searched, no matter how much internal variance it has
+among its own members — variance alone isn't a defect, only genuine
+excess is.
+
+`lib/core/drill-down.js` gained `outliersWithinGroup` (the existing
+per-group logic, now a named, independently-testable step) and the new
+group-outlier gate in `findCulprits`.
+
+**Maker-checker correction, same day.** The first cut of the row baseline
+used a LOWER-anchored median (`sortedH[floor((n-1)/2)]`) — correct for the
+tested 2-group and 4-group-minority-anomaly cases, but an independent
+checker found a hand-worked counterexample where it breaks: once anomalous
+(overflowing) rows become a MAJORITY of 3+ groups (e.g. heights
+150/250/500), the median index can land directly ON a moderately-anomalous
+row, which then compares against ITSELF as baseline and is silently
+cleared — the same self-reference trap the gate exists to prevent, one
+level removed. **Fix:** use the group MINIMUM instead of a median. An
+overflow-causing anomaly can only make a row TALLER, never shorter, so the
+shortest row in the collection is always a safe, non-self-referential
+baseline — correct regardless of how many other rows are anomalous. Two
+new tests lock this in (3 groups and 4 groups, majority anomalous, each
+confirming every genuinely-oversized row is still individually found, not
+just the most extreme one).
+
+Eleven new/revised unit tests in total cover the row-outlier gate,
+including the exact verdict-grid repro (a comfortably-sized row must never
+be searched just because it sits below an overflowing one), a
+two-independently-oversized-rows case (2 normal + 2 tall), and the
+majority-anomaly cases above. Re-verified in the real browser across all 5
+demo components after both fixes, plus a clean re-check that cards-grid and
+split-compare (both single-group cases, unaffected by the new gate in
+principle) still resolve identically to before.
