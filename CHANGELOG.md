@@ -474,19 +474,30 @@ in patch versions.
   `padding-top:0`). Confirmed symmetric (0px top/bottom diff) at three viewport
   sizes. A progressive-enhancement `.lp-js` gate keeps a readable stacked-slide
   floor when the script is ever blocked. Confirmed on-device.
-- **The exported `.html` player's Present mode gained visible prev/next
-  controls and icon-only view tabs on narrow screens.** Two mobile-UX gaps
-  found in the same on-device vetting round: (1) Present had no on-screen way
-  to advance — only keyboard arrows and swipe, and some third-party iOS HTML
-  viewers don't reliably deliver keydown to the page. Circular chevron buttons
-  (mirroring the Studio's audio-present overlay) now flank the slide, wired to
-  the SAME shared transport keyboard/swipe already use (`t.prev()`/`t.next()`,
-  not a hand-rolled clamp), and disable at the deck's first/last slide. (2) The
-  Present / Read·Slides / Read·Article tab labels wrapped to two lines on a
-  real iPhone, blowing out the top bar's height. Below 560px the tabs go
-  icon-only (an inline SVG monitor/stack/document glyph); each button's own
-  `aria-label` carries the accessible name in either state, so nothing is lost
-  for assistive tech.
+- **The exported `.html` player's toolbar got a mobile-UX + icon-consistency
+  pass.** Several gaps found across two rounds of on-device vetting: (1)
+  Present had no on-screen way to advance — only keyboard arrows and swipe,
+  and some third-party iOS HTML viewers don't reliably deliver keydown to the
+  page. Circular chevron buttons (mirroring the Studio's audio-present
+  overlay) now flank the slide, wired to the SAME shared transport
+  keyboard/swipe already use (`t.prev()`/`t.next()`, not a hand-rolled clamp),
+  and disable at the deck's first/last slide. (2) The Present / Read·Slides /
+  Read·Article tab labels wrapped to two lines on a real iPhone, blowing out
+  the top bar's height — fixed by compacting the bar at narrow widths (smaller
+  font/icon/padding) rather than hiding the text, so every tab always carries
+  BOTH an icon and its label, never icon-only. (3) The speaker-notes,
+  fullscreen, and dark/light buttons carried literal emoji glyphs (☰/⛶/☾/☀)
+  instead of the SVG icon language the rest of the bar uses; the dark/light
+  glyph's swap also changed the character's intrinsic width, visibly shifting
+  the button's size on every toggle. All three are now SVG, and dark/light
+  swaps a fixed-size icon so the button never resizes. (4) Fullscreen is now
+  feature-detected and the button hides itself when the API is unavailable
+  (historically true for arbitrary elements on iOS/iPadOS Safari) instead of
+  silently no-oping forever. (5) Read·Slides' stage padding undercut the fixed
+  bar's height (a higher-specificity shorthand silently replaced the base
+  bar-clearance rule instead of adding to it), leaving the first slide's top
+  ~20px under the bar's translucent band — padding now explicitly clears the
+  full bar height plus breathing room.
 - **The Studio “Download as webpage” export now renders and runs — not just
   assembles.** Two bugs made the browser-exported player ship broken on every
   browser (the file downloaded fine but opened to raw, unstyled slides that
