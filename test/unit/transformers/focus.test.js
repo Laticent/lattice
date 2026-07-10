@@ -140,4 +140,23 @@ describe('focus — DOM kernel (applyToDom) agrees with the HTML kernel', () => 
     assert.deepEqual(items.map((li) => li.className), ['lat-recede', 'lat-focus', 'lat-recede']);
     assert.equal(dom.window.document.querySelector('section').getAttribute('data-focus-axis'), 'item');
   });
+
+  // 2026-07-10: split-panel (a sovereign Frame, exempt from Form's .cell-stage
+  // per lib/forms' frameToggleSkip()) puts its list under `.panel-right` — a
+  // DIFFERENT clip-cell class the masthead-lift fallback above didn't cover.
+  // The strict `.cell-stage`-only fallback silently found nothing, the same
+  // failure mode the 2026-07-09 fix addressed for a different cell class —
+  // caught this time by test/unit/runtime/axis-dom-catalog.test.js, which
+  // renders every density-axis component's real sample. Fixed by deriving the
+  // fallback clauses from CLIP_CELL_SELECTOR (lib/core/overflow-probe.js)
+  // instead of a hand-maintained single-class list.
+  test('tags items when the list is wrapped in .panel-right (a sovereign split Frame)', () => {
+    const dom = new JSDOM(
+      '<section data-focus="item 2" class="split-panel"><div class="panel-left">…</div><div class="panel-right"><ul><li>One</li><li>Two</li><li>Three</li></ul></div></section>',
+    );
+    focus.applyToDom(dom.window.document.body);
+    const items = [...dom.window.document.querySelectorAll('.panel-right > ul > li')];
+    assert.deepEqual(items.map((li) => li.className), ['lat-recede', 'lat-focus', 'lat-recede']);
+    assert.equal(dom.window.document.querySelector('section').getAttribute('data-focus-axis'), 'item');
+  });
 });

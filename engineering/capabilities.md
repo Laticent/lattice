@@ -41,6 +41,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `a11y-textures:check` | Freshness gate for the bundled a11y-textures Playground module. |
 | `authoring-core:build` | Bundle the pure authoring engines (lint/review/scorecard) for the browser. |
 | `authoring-core:check` | Freshness gate for the authoring-core bundle. |
+| `axis-dom-catalog:build` | Generate lib/runtime/axis-dom-catalog.generated.js — component name to density.axis/domSelector, scanned from every manifest, bundled into lattice-runtime.js so the Fix-Me overlay drill-down can find a component's rendered collection without shipping the whole manifest catalog to the browser. |
+| `axis-dom-catalog:check` | Freshness gate for the generated axis-DOM catalog. |
 | `build` | Regenerate every generated artifact in dependency order, behind the ownership gate. |
 | `build:check` | Freshness gate: regenerate in memory and byte-diff every artifact; fail on drift (CI/pre-push). |
 | `cadenza-lib:build` | Build the Cadenza library dist/ (CJS + .d.ts, esbuild + tsc) so root CJS can require('@slidewright/cadenza') — the workspace package that retires the caption hand-mirrors. |
@@ -300,6 +302,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
 | `tools/build-a11y-textures.js` | Bundle the categorical/chart texture-<defs> kernel for the browser. |
+| `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |
 | `tools/build-cadenza-lib.js` | Build the Cadenza library's node-consumable dist/ — the CJS entry + type |
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |

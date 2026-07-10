@@ -16,7 +16,8 @@
     "axis": "item",
     "soft": 16,
     "hard": 24,
-    "note": "one stage in a sentence"
+    "note": "one stage in a sentence",
+    "domSelector": ".timeline-spine > .timeline-item"
   },
   "tags": [
     "changelog",

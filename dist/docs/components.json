@@ -3395,7 +3395,8 @@
         "axis": "item",
         "soft": 16,
         "hard": 24,
-        "note": "a term and a one-sentence definition"
+        "note": "a term and a one-sentence definition",
+        "domSelector": "table tbody > tr"
       },
       "slots": {
         "title": {
@@ -4066,7 +4067,8 @@
         "axis": "item",
         "soft": 8,
         "hard": 14,
-        "note": "a terse card title"
+        "note": "a terse card title",
+        "domSelector": ".kanban-cards > .kanban-card"
       },
       "slots": {
         "title": {
@@ -7554,7 +7556,8 @@
         "axis": "item",
         "soft": 14,
         "hard": 22,
-        "note": "a terse point per line"
+        "note": "a terse point per line",
+        "domSelector": ".options > .option"
       },
       "slots": {
         "frame": {
@@ -8382,7 +8385,8 @@
         "axis": "item",
         "soft": 16,
         "hard": 24,
-        "note": "one stage in a sentence"
+        "note": "one stage in a sentence",
+        "domSelector": ".timeline-spine > .timeline-item"
       },
       "slots": {
         "title": {
