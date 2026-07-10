@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The full Form/Cell/Tile → semantic HTML map (§4A) is adopted: the DECK is a self-contained composition → `<article class="lattice">` (with `<main>` as the shell/host landmark — where vs. what); a SLIDE stays `<section>` (a section of the deck-article; measurement + all CSS bind to it); the masthead/footer Cells become `<header>`/`<footer>`; the stage Cell stays `<div>`; liftable leaf cards become `<article>` (scoped, not every `<li>`). `<article>` plays its role at exactly the two liftable boundaries (deck + leaf card), never per slide. The container change is TWO edits on TWO render paths — a sanctioned `<main><article>` wrapper in the export shell (section-scoped CSS there) AND the engine/preview `div.lattice → article.lattice` retag with its lockstep `css.js` kernel edit — DECISION: do both. `<figure>` for charts folds into the SAME change (DECISION: one combined, export-signed PR). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint). Owner call: best practice, don't settle. A THIRD adversarial round (§14) tested the worked example against the full "accessible to all, any device" goal: the semantic base is confirmed solid, but it surfaced a tracked GAP REGISTER above the HTML — the shipped PDF (untagged) + PPTX (image-only, no alt) artifacts (the doc's own "out of scope" premise was factually wrong and is corrected), fixed-canvas reflow (1.4.10), forced-colors, color-only tone (1.4.1), bare-`<title>` SVG naming (needs aria-labelledby cross-AT), a missing `<title>` (2.4.2), pagination context (1.3.1), and no axe gate. Each tagged foundation vs later baby step. Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13. REFRESH 2026-07-10 (§15) after ~119 commits: foundation intact + reinforced (Form-default shipped/audited; CVD textures now work in runtime), but a THIRD render surface appeared — the HTML Lattice player (now the primary shared artifact) — which re-poses the landmark problem and owns G1/G3/G6/G9 via its own AA+AXE docs; §5 Studio citations stale (activity-bar restructure, still no `<main>`); gap deltas G5 (partial, audio-only) / G6 (Read·Article reflows) / G9 (player TOC) / G11 (captions shipped); +menus→nav finding.
+summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The full Form/Cell/Tile → semantic HTML map (§4A) is adopted: the DECK is a self-contained composition → `<article class="lattice">` (with `<main>` as the shell/host landmark — where vs. what); a SLIDE stays `<section>` (a section of the deck-article; measurement + all CSS bind to it); the masthead/footer Cells become `<header>`/`<footer>`; the stage Cell stays `<div>`; liftable leaf cards become `<article>` (scoped, not every `<li>`). `<article>` plays its role at exactly the two liftable boundaries (deck + leaf card), never per slide. The container change is TWO edits on TWO render paths — a sanctioned `<main><article>` wrapper in the export shell (section-scoped CSS there) AND the engine/preview `div.lattice → article.lattice` retag with its lockstep `css.js` kernel edit — DECISION: do both. `<figure>` for charts folds into the SAME change (DECISION: one combined, export-signed PR). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint). Owner call: best practice, don't settle. A THIRD adversarial round (§14) tested the worked example against the full "accessible to all, any device" goal: the semantic base is confirmed solid, but it surfaced a tracked GAP REGISTER above the HTML — the shipped PDF (untagged) + PPTX (image-only, no alt) artifacts (the doc's own "out of scope" premise was factually wrong and is corrected), fixed-canvas reflow (1.4.10), forced-colors, color-only tone (1.4.1), bare-`<title>` SVG naming (needs aria-labelledby cross-AT), a missing `<title>` (2.4.2), pagination context (1.3.1), and no axe gate. Each tagged foundation vs later baby step. Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13. REFRESH 2026-07-10 (§15) after ~119 commits: foundation intact + reinforced (Form-default shipped/audited; CVD textures now work in runtime), but a THIRD render surface appeared — the HTML Lattice player (now the primary shared artifact) — which re-poses the landmark problem and owns G1/G3/G6/G9 via its own AA+AXE docs; §5 Studio citations stale (activity-bar restructure, still no `<main>`); gap deltas G5 (partial, audio-only) / G6 (Read·Article reflows) / G9 (player TOC) / G11 (captions shipped); +menus→nav finding. §15 then HARDENED by a red-team/inversion/checker round (all three converged): facts confirmed exact, but three false-comfort verdicts corrected — the "player's AA+AXE checklist owns G1/G3/G6/G9" hand-off was laundering (those docs are `proposed`, the criterion is scoped to Read·Article/Slides only, no axe gate exists → gaps stay OURS); Read·Article reflow is LOSSY (visual layouts dead-end to non-reflowing views); the masthead/footer retag is no longer a pure tag-swap (carousel.js regex + nested-`<footer>` collision from Form-default); +a stale-citation banner (only §5/player citations re-verified).
 ---
 
 # Semantic HTML for accessibility — retag, don't wrap
@@ -30,6 +30,15 @@ bundle (`lib/core/marp-bundle.js` — the recipient's Marp owns that HTML shell)
 > restraint rubric, slide-stays-`<section>`) and every WCAG/ARIA fact it leaned
 > on, but overturned four load-bearing *mechanics*. §10 records exactly what
 > changed and why; the body below is already corrected.
+
+> **⚠ Citation banner (2026-07-10).** `main` advanced ~119 commits since this note
+> merged. **§15 refreshed the §5 Studio citations and the player facts; the line
+> numbers in §4 / §4A / §7 / §12 / §14 are NOT re-verified and are known-stale** —
+> e.g. `masthead.transform.js:191`→`:258`, and the §12 file-map's
+> `lattice-emulator.js:1450`/`:1461-1463` now point at unrelated code (a watermark
+> comment / the overflow probe; the real shell is ~`:1545`). **Treat every line
+> number below §15 as approximate — re-verify at implementation time.** The
+> *structure* (which file, which element) is still correct; only the offsets moved.
 
 ---
 
@@ -777,8 +786,12 @@ authoritative where it contradicts the body above; the body's *principles* stand
 **HTML Lattice player** (`lib/export/player-core.mjs`, `assemblePlayer()`), the
 "Download as webpage" self-contained `.html` (#834/#831). It is **built from** the
 emulator HTML but **extracts the bare `section[data-lattice-slide]` nodes and
-re-wraps them in its own `lp-*` chrome** — so it is the artifact users now actually
-share. Its shell (`player-core.mjs:358-395`) already emits `<html lang>` + `<title>`
+re-wraps them in its own `lp-*` chrome**. It is the **primary self-contained *HTML***
+deliverable — but *not* the primary share overall: `ShareSheet.tsx:105-121` lists six
+targets and "Webpage (.html)" is fifth, behind Present-link, PDF, and PPTX (PDF is
+the repo's canonical boardroom artifact). *(Corrected — the first draft overstated it
+as "the artifact users now actually share"; §15 red-team H1.)* Its shell
+(`player-core.mjs:358-395`) already emits `<html lang>` + `<title>`
 (G2 partly met there) but:
 
 - **No `<main>`** — slides sit in `<div id="lp-app"> → <div id="lp-stage">`.
@@ -797,13 +810,28 @@ toolbar/nav edits land. §4A's *slide-internal* retags (masthead→`<header>`,
 chart→`<figure>`) still belong in the engine and **flow through** the player's
 Present/Read·Slides views unchanged.
 
-**Coordinate, don't duplicate.** The player has its own design records —
-`2026-07-07-html-lattice-player.md` and `2026-07-08-studio-html-player-export.md` —
-which **already commit Read·Article/Read·Slides to a WCAG AA + AXE acceptance pass**
-(heading semantics, TOC focus, reduced-motion) as pending P4 work. Our a11y work
-should **feed those acceptance criteria**, not open a parallel track. The player's
-`<main>`, its `<nav aria-label>`, its icon-button `aria-label`s, and G3 belong on
-*that* checklist.
+**Coordinate — but these gaps are NOT on the player's checklist yet, and they stay
+OURS until they are.** *(Corrected after the §15 adversarial round — the first draft
+of this paragraph was the round's CRITICAL finding: it laundered four open gaps into
+"someone else's checklist" against a plan that doesn't contain them.)* The verified
+reality:
+- Only `2026-07-07-html-lattice-player.md:196-198,490-491` commits any a11y — and
+  it is **`status: proposed`**, **pending P4** ("must be tested, not asserted"), and
+  scoped to **Read·Article / Read·Slides** (heading semantics, TOC focus,
+  reduced-motion). `2026-07-08-studio-html-player-export.md` has **zero** a11y
+  content. So the plural "both docs already commit" was false.
+- That checklist does **not** mention the player *shell*'s `<main>`, the
+  `<nav id="lp-toc">` label, the icon-button labels, G3 pagination, or reflow — all
+  of which live on the Present/global shell surface it never covers.
+- **No axe gate exists in the repo** (§14 G10), and even an AXE run would **not**
+  catch two of these: AXE's `button-name` accepts a `title` as an accessible name
+  (the `☰ ⛶ ☾` buttons "pass"), and bare "1 / 7" (G3) isn't an AXE-detectable defect.
+
+**So G1 / G3 / G6 / G9 remain OPEN and OWNED BY US** — not delegated. The correct
+move is to get these player-shell items **added** to the 07-07 P4 exit list (and add
+a11y to 07-08), and to land the axe gate (G10); until *both* an axe gate and the
+player-shell fixes ship, these are our tracked gaps, not "handled." "Feed the
+acceptance criteria" is right; "the player owns these now" was wrong.
 
 ### 15.2 §5 Studio citations are stale (activity-bar restructure, #826)
 
@@ -822,17 +850,33 @@ ZERO `<main>`** — but every line number in §5 moved. Current structure
 §5's *action* is unchanged (add `<main>` scoped to the editor+preview subtree, keep
 the asides as siblings) — only the citations refresh.
 
-### 15.3 Two reinforcements to the foundation
+### 15.3 Two reinforcements — with two new wrinkles the retag must handle
 
-- **Form-default is shipped + audited** (#848/#866 + ~8 "survives cell-stage wrap"
-  fixes, e.g. #851/#852/#854/#856/#858). The §4A cell tree
-  (`.cell-masthead`/`.cell-stage`/`.cell-footer`) is now the **canonical default**,
-  not a proposal — so the masthead→`<header>` / footer→`<footer>` mapping sits on
-  audited ground. (Line-number citations in §4/§4A may have shifted with the
-  masthead-lift fixes — re-verify at implementation time.)
+- **Form-default is shipped + audited** (`2026-07-09-form-migration-audit.md`
+  `status: shipped`, #848/#866 + ~8 "survives cell-stage wrap" fixes). The §4A cell
+  tree (`.cell-masthead`/`.cell-stage`/`.cell-footer`) is now the **canonical
+  default**. The masthead→`<header>` half genuinely firms up (`.cell-masthead` is a
+  real div; retag is byte-neutral). **But two wrinkles the §15 round surfaced mean
+  the retag is no longer a pure "swap the tag" for the footer or the masthead:**
+  - **Masthead retag now needs a lockstep parser edit.** String-literal consumers of
+    the exact opening tag landed: `lib/core/carousel.js:55,187` do
+    `inner.replace(/<div class="cell-masthead">…/…)`. Retagging to
+    `<header class="cell-masthead">` makes those regexes **silently miss** →
+    carousel/compare-prose misparse (a silent render break, not a compile error). The
+    retag must also switch those matchers to class-based (like the `css.js` lockstep
+    §4 already accounted for) — an expansion of blast radius "reinforced" hid.
+  - **Footer retag hits a nested-`<footer>` collision.** Form-default now **absorbs
+    the running `footer:` directive (`slides.js:212`, a section-level `<footer>`)
+    into `.cell-footer`** (`masthead-lift.js:95-108`). So a naive `.cell-footer` →
+    `<footer>` yields `<footer class="cell-footer"><footer>…</footer></footer>` —
+    two nested footers, which the §8-#8 "≤1 `<footer>` per slide" gate is built to
+    fail. The retag must **demote the inner running `<footer>` to a `<span>`/`<div>`**
+    when promoting the Cell.
+  - (Line-number citations throughout §4/§4A shifted with these fixes — see the
+    top-of-body citation banner.)
 - **CVD textures now work in the live runtime** (#859 — the a11y-* pattern defs
-  "never worked in live preview" until this fix). The §14 CVD credit is now real
-  **cross-path**, not CLI-only.
+  "never worked in live preview" until this fix; `lib/runtime/index.js:40-46`). The
+  §14 CVD credit is now real **cross-path**, not CLI-only.
 
 ### 15.4 Gap-register deltas
 
@@ -840,10 +884,10 @@ the asides as siblings) — only the citations refresh.
 |---|---|---|
 | **G1** (shipped-artifact accessibility) | **concrete vehicle** | The webpage **player** is the primary, self-contained, sanitized, `lang`+`title` HTML deliverable — the real answer to "route AT users to the HTML export." Still unfinished (its §15.1 debt), but no longer hypothetical. Reframe G1's HTML answer around the player + its AA/AXE docs. |
 | **G5** (chart data equivalence) | **partial, audio-only** | #862 narrates **computed context** (journey % share, radar/quadrant **axis scale**, state-chart start/end) so an eyes-free listener gets the scale — but via **Present-mode read-aloud**, sourced through `slideToSpeech`, **not** a DOM text alternative in the exported `<figure>`. G5 stays open for the **static-export screen-reader** path (still no data table); the narration is a substrate a future figure-description could reuse. |
-| **G6** (reflow) | **partially addressed, first time** | The player's **Read·Article** view genuinely reflows (prose projection, `#lp-article{max-width:740px}`). Present/Read·Slides stay fixed-canvas `transform:scale` (still fail 1.4.10). "Route reflow users to HTML" now has a **shipped** mechanism the PDF/PPTX can't offer. |
+| **G6** (reflow) | **partially addressed — and lossy for visual decks** | Read·Article reflows **prose-bearing** slides (`#lp-article{max-width:740px}`). But it is **not** a full reflow answer: chart/media components with a single SVG are re-hosted and merely **shrink** (not reflow); pure CSS-layout components (gantt/kanban/roadmap, no single SVG) fall to a **placeholder** — *"best seen in the Present or Read·Slides view"* (`prose-projection.mjs:153`) — which **dead-ends the reflow user at the fixed-canvas views that fail 1.4.10.** So 1.4.10 is met for prose, **open for visual-dense decks.** Present/Read·Slides stay `transform:scale` (fail 1.4.10). |
 | **G9** (TOC / inter-slide nav) | **largely met in the player** | The player ships `<nav id="lp-toc">` with scroll-spy — but it is **nameless** (needs `aria-label="Slides"`) and **hidden below 820px** (mobile gap). |
 | **G11** (audio/video captions) | **read-aloud limb met** | Narrated audio ships with a synchronized word-highlight **and** a first-class Share-sheet `.vtt` export (#845) + `--captions` CLI (#844). The `.vtt` is a **byte-neutral sidecar** (no export-sign-off impact). Still **[LATER]**: captions on the real `imagery/video/` media element, and cognitive/plain-language. |
-| **(new) Player chrome debt** | **added** | Not in the original register: player needs a `<main>` around `#lp-stage`, `aria-label` on `<nav id="lp-toc">` + the icon buttons, "Slide N of M" for `#lp-count`, and a `prefers-reduced-motion` guard. Owned by the player's AA/AXE checklist (§15.1). |
+| **(new) Player chrome debt** | **added — OURS, not delegated** | Not in the original register: player needs a `<main>` around `#lp-stage`, `aria-label` on `<nav id="lp-toc">` + the icon buttons, "Slide N of M" for `#lp-count`, and a `prefers-reduced-motion` guard. These are **NOT on the player's P4 checklist today** (which is scoped to Read·Article/Slides heading/TOC/reduced-motion) and an AXE run wouldn't catch the icon buttons (title = a name to AXE) or G3 — so they must be **added** to that checklist, and stay ours until they + an axe gate ship (§15.1). |
 
 ### 15.5 Capture: navigation menus → `<nav>`, but action/command menus are NOT
 
@@ -856,19 +900,36 @@ over-tagging. Two concrete instances:
 - **Right:** the Studio activity bar is `<nav aria-label="Studio panels">` (§15.2) —
   it *is* navigation between panels. Correct.
 - **Wrong (a tracked finding):** `SiteHeader.astro:65` puts **navigation links**
-  (`primaryNav`, real page `href`s) inside `role="menu"` / `role="menuitem"`. That's
-  the *inverse* error — the *action-menu* role for what are *page links*.
+  (`toolsNav` — the Tools dropdown, real page `href`s like `/playground/`,
+  `/studio/`, a subset of `primaryNav`) inside `role="menu"` / `role="menuitem"`.
+  That's the *inverse* error — the *action-menu* role for what are *page links*.
   `role="menu"` implies an app command menu with arrow-key semantics, not a link
   list. The Tools disclosure should be a `<nav>` (or a plain disclosure + list), not
   `role="menu"`. Add to the app-landmark (§5) work.
 
-### 15.6 Verdict
+### 15.6 Verdict (corrected after the §15 adversarial round)
 
-The design is **not invalidated — it is extended.** Retag-not-wrap, the promotion
-rubric, the slide-stays-`<section>` invariant, and the Form/Cell/Tile map all hold,
-and Form-default shipping makes them firmer. What changed is **surface count** (now
-three: export shell · engine/preview · **player**) and **who owns which gap** — the
-player's AA/AXE acceptance work now owns G1/G3/G6/G9 for the shared artifact, and our
-job is to (a) land the slide-internal retags in the engine so they flow through it,
-(b) give the player shell its `<main>`/labeled-nav/icon-labels, and (c) refresh the
-§5 Studio citations. No foundation rework; a coordination + citation refresh.
+The design's **facts and principles hold** — retag-not-wrap, the promotion rubric,
+the slide-stays-`<section>` invariant, and the Form/Cell/Tile map are all
+code-confirmed, and the player-shell inventory (§15.1) + Studio citations (§15.2) are
+exact. What changed is **surface count** (now three: export shell · engine/preview ·
+**player**). But the round caught this refresh's *framing* trying to give false
+comfort three ways — all now corrected above:
+
+1. **The gaps are OURS, not delegated.** G1/G3/G6/G9 are **not** on the player's
+   checklist (only Read·Article/Slides heading/TOC/reduced-motion is, in one
+   `proposed` doc), no axe gate exists, and AXE wouldn't catch the icon buttons or
+   G3. They stay open + owned by us until they're *added* to the player's P4 list and
+   an axe gate ships. "Feed the criteria," never "the player owns these."
+2. **Read·Article reflow is lossy** (prose reflows; charts shrink; visual layouts
+   dead-end to a non-reflowing view) — G6 is met for prose, open for visual decks.
+3. **The retag's blast radius grew** — Form-default's cell-stage/footer absorption
+   means the masthead/footer retag now needs lockstep parser edits
+   (`carousel.js:55,187`) and a nested-`<footer>` demotion, not a pure tag-swap.
+
+So: **no foundation rework, but not a free "coordination + citation refresh" either.**
+The honest next steps are (a) land the slide-internal retags in the engine (they flow
+through the player's Present/Read·Slides), (b) get the player-shell items *added* to
+the 07-07 P4 list + land the G10 axe gate, (c) handle the carousel/footer lockstep
+edits, and (d) treat every line number below §15 as approximate (citation banner,
+top of body).
