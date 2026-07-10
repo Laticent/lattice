@@ -90,6 +90,24 @@ in patch versions.
   output is buffered and flushed prefixed with its step label, not
   `stdio: inherit`'d live). Found by a red-team/inversion/independent-checker
   performance audit; see `engineering/decisions/2026-07-10-landing-perf-katex-defer.md`.
+- **Studio/Workbench/Playground's cold-load resolves the module graph in one
+  parallel burst instead of ~6 sequential network round-trips.** Neither
+  Vite nor Astro can auto-preload a `client:only`/`client:load` island's
+  transitive dependency chunks (dynamic `import()` hides the graph from
+  static analysis) — a real unthrottled trace of a cold Studio load showed
+  the ~45-chunk dependency graph resolving one BFS depth-level at a time.
+  A new build step (`docs/astro.config.mjs`'s `chunkGraphPlugin` +
+  `docs/scripts/inject-modulepreload.mjs`) reads Rollup's own per-chunk
+  `imports` graph after `astro build` and injects `<link rel=modulepreload>`
+  for each app island's full transitive STATIC-import set (never
+  `dynamicImports` — those stay intentionally lazy, e.g. Fabricate's
+  `React.lazy` tab) into the built page. Measured: median time-to-mount
+  1823ms → 1496ms (~18%) under a simulated 40ms-RTT connection, real
+  browser, A/B same build. Found by the same red-team/inversion/
+  independent-checker audit above, which also disproved the original
+  Lighthouse-mobile 8.5s LCP diagnosis (it was measuring a first-run-only
+  welcome banner returning users never see) before landing on this fix; see
+  `engineering/decisions/2026-07-10-landing-perf-katex-defer.md`.
 
 ### Fixed
 

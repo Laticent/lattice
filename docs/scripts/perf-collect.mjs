@@ -53,6 +53,10 @@ function build() {
 	run('npm', ['run', 'sync:portal']);
 	run('npm', ['run', 'sync:playground']);
 	run('npx', ['astro', 'build']);
+	// So the nightly perf watch measures the SAME build a real deploy ships —
+	// without this, Lighthouse would profile a build missing the modulepreload
+	// hints and never see this fix (or a future regression to it).
+	run('node', ['scripts/inject-modulepreload.mjs']);
 }
 
 function collect(formFactor, config, outRoot) {

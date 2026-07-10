@@ -1,14 +1,14 @@
 ---
 status: in-progress
-summary: Landing-page live-preview latency investigation. Two real sequential-fetch bugs found and shipped (engine-bundle prefetch was idle-deferred; theme CSS fetch was serialized behind the engine load) — Hero preview content-loaded time measured via real iframe.onload dropped from ~1.2-1.4s to ~0.9s on the production build. A third finding — KaTeX contributes ~78.5KB gzip (13.5% of the 582.6KB playground bundle) unconditionally, even to decks with no math — is confirmed and quantified but NOT implemented: deferring it safely requires touching 7 independent `PG.render()` call sites with no shared choke point, which is bigger than the shared-Mermaid-pattern win it first looked like. Logged here per HARD RULE #18 rather than rushed.
+summary: Landing-page + Studio live-preview latency investigation. Four real sequential-fetch/hydration bugs found and shipped across the landing page, Specimen pages, the Playground, and Studio's cold-load module graph (engine-bundle prefetch was idle-deferred; theme CSS fetch was serialized behind the engine load in three separate render bridges; Studio's client:only island had zero modulepreload hints for its ~45-chunk dependency graph). A red-team/inversion/independent-checker audit disproved an initial Studio LCP diagnosis (an 8.5s Lighthouse-mobile number was measuring a first-run-only welcome banner returning users never see) before landing on the real, measured fix (median time-to-mount 1823ms → 1496ms under simulated 40ms RTT). A fifth finding — KaTeX contributes ~78.5KB gzip (13.5% of the 582.6KB playground bundle) unconditionally, even to decks with no math — is confirmed and quantified but NOT implemented: deferring it safely requires touching 7 independent `PG.render()` call sites with no shared choke point, which is bigger than the shared-Mermaid-pattern win it first looked like. Logged here per HARD RULE #18 rather than rushed.
 ---
 
 # Landing-page / Studio render-latency investigation
 
 **Date:** 2026-07-10
-**Status:** in-progress — two fixes shipped, one real finding logged (not
-implemented), a broader red-team/inversion/checker audit still running at
-time of writing.
+**Status:** in-progress — four fixes shipped (landing page, Specimen pages,
+Playground, Studio module-graph preload), one real finding logged (KaTeX
+defer, not implemented).
 
 ## 1. What triggered this
 
@@ -71,10 +71,69 @@ shipped fix, low risk.
 fuse.js, all of Cadenza/Vetrina/TTS/tours) pulled in on first mount. In dev,
 Vite serves ~180 separate unbundled module requests before the app can mount
 (confirmed via a network-request trace). In production this collapses to a
-handful of chunks and the mount time drops to ~500ms. NOT fixed — would
-require code-splitting rarely-used Studio features (TTS settings, tours,
-ArchitectChat, ExportOptionsPanel) out of the initial bundle. Scoped to the
-red-team audit's build-tooling lane; no implementation decision made yet.
+handful of chunks and the mount time drops to ~500ms. Code-splitting
+rarely-used Studio features (TTS settings, tours, ArchitectChat,
+ExportOptionsPanel) out of the initial bundle remains unaddressed — see §6
+for what WAS addressed (module-graph preloading, a different lever than
+code-splitting).
+
+## 3b. Studio LCP — a diagnosis the adversarial review disproved
+
+A follow-up session ran Lighthouse (mobile: 4× CPU throttle, Slow-4G,
+`throttlingMethod: simulate`) against `/studio/` and got Performance
+0.47-0.50, LCP ~8.5s (desktop: 1.3-1.8s). The LCP element was plain
+onboarding text ("New here? This is a sample deck…"), 95% "Render Delay."
+The initial diagnosis: `client:only` + no loading skeleton, proposed fix:
+reuse the landing page's `.live-host:not(.is-live)::after` CSS shimmer
+(`landing.css:305-345`) on Studio's `DeckPreview` call sites.
+
+**A red-team + Munger-inversion + independent-checker review (30 agents, 24
+raw findings, 23 confirmed/partially-confirmed) dismantled this before any
+code shipped:**
+
+- The "mostly idle CPU, so it's not hydration cost" argument compared two
+  incompatible Lighthouse timelines under `throttlingMethod: simulate`
+  (`diagnostics.totalTaskTime` is raw/unthrottled; `long-tasks` timestamps
+  are Lantern-simulated) — invalid either way.
+- **The flagged LCP element was never `DeckPreview` at all.** It's a
+  first-run-only welcome banner (`StudioShell.tsx:1953-1962`) gated on
+  `welcomeOpen = !onboarded`, and `onboarded` reads `localStorage`.
+  Lighthouse always runs a fresh profile, so it **always** hits the
+  newcomer state — confirmed directly in a real browser (seeded
+  `localStorage`, banner count 0 on reload) that returning users never see
+  this element. The whole 8.5s number was measuring a page state real users
+  essentially never encounter.
+- The proposed fix wouldn't have worked even on its own terms: it targeted
+  the wrong element (`DeckPreview`, not the banner), and even applied, a
+  `content: ""` + `linear-gradient` pseudo-element is structurally
+  ineligible to be a Chrome LCP candidate at all (only `url()` images/text/
+  video qualify) — it could not have moved the metric it was built to fix.
+- This repo's own `engineering/decisions/2026-06-15-docs-perf-gating-policy.md`
+  already documents this exact mobile profile as noisy enough to flap red
+  with no code change, moving verdicts to a nightly base-vs-HEAD relative
+  comparison for exactly this reason — treating one ad hoc `lhci` run as
+  ground truth (in either direction) repeats the mistake that policy exists
+  to prevent.
+
+**Decision: did not ship the skeleton fix.** See §6 for what shipped
+instead, grounded in the user's original real complaint (1-2s, not the
+newcomer-banner artifact's 8.5s) and a real unthrottled network trace rather
+than another Lighthouse absolute reading.
+
+## 3c. Playground had the same serialized-fetch bug as the landing page
+
+Following up on §2's landing-page fix, the Playground's own engine bridge
+(`docs/src/lib/playground-engine.ts`'s `createEngineBridge`) had the
+identical theme-CSS-behind-engine-bundle serialization, via a 60ms
+`ready()` poll rather than a promise chain. Fixed the same way: a
+`prefetchTheme()` on the bridge, called alongside the idle-triggered
+`ensure()` in `PlaygroundApp.tsx`. Verified via a real-browser Playwright
+network trace (theme CSS and engine bundle firing at the same timestamp)
+and an independent-checker pass (confirmed no other `createEngineBridge`
+call site had the same unfixed pattern; flagged the frozen Drawing Board as
+having the same underlying pattern, logged as
+[#870](https://github.com/SlideWright/lattice/issues/870) per HARD RULE #18
+since it's out of scope while frozen). Shipped in PR #869.
 
 ## 4. KaTeX bundle-weight finding — confirmed, quantified, NOT implemented
 
@@ -153,16 +212,70 @@ then wire the pre-scan gate into all 7 call sites (or refactor them onto a
 shared render wrapper first, which would also pay for itself by giving
 future engine-loading changes ONE choke point instead of 7).
 
-## 5. Open — red-team / Munger-inversion / independent-checker audit
+## 5. Closed — red-team / Munger-inversion / independent-checker audit (14 findings)
 
-A broader adversarial audit (5 parallel red-team lanes — engine hot paths,
-docs bundle/hydration, build/CI tooling, component-transform sweep, Studio
-live-preview path — each finding then inverted and independently verified)
-was still running at the time of writing. Early, not-yet-verified signal:
-multiple lanes independently flagged that `mapSections()` — the shared
-depth-aware `<section>` walker used across the transformer registry, not
-just the QR-card-specific `walkSections()` bug found earlier in this
-session — has the same naive char-by-char scan pattern, run 3x per render.
-If confirmed by the inversion/verify stage, this is a more central and
-higher-value fix than the QR-card-only bug. Results to be folded into this
-doc or filed as GitHub issues once the audit completes.
+The broader adversarial audit referenced above (5 parallel red-team lanes —
+engine hot paths, docs bundle/hydration, build/CI tooling, component-
+transform sweep, Studio live-preview path — each finding inverted and
+independently verified) completed: 22 raw findings, 14 confirmed, all 14
+implemented and shipped in PR #868, including the `mapSections()`
+char-by-char scan fix flagged here (rewritten to `indexOf`-jumping, ~4x
+faster, byte-identical output verified against real decks), the
+`compare-code`/`journey` transform de-duplication onto shared kernels, the
+`chart-family.js` depth-matching extraction, the `lib/runtime` redundant-
+MutationObserver consolidation (verified via real-browser Playwright), and
+the `build.js` background-step parallelization (§ Changed above, ~24%
+faster). See PR #868 for the full list and each fix's verification.
+
+## 6. Studio module-graph preloading — the fix that replaced the skeleton
+
+Grounded in §3b's finding that the 8.5s Lighthouse number was a newcomer-
+banner artifact, and in the user's ORIGINAL real complaint (1-2s, on
+refresh — much closer to what a real connection would show), a real
+unthrottled Playwright trace of a cold `/studio/` load found something
+legitimate: even on localhost (near-zero RTT) the ~45-chunk dependency
+graph resolves across ~6 sequential network "waves" (t≈21/40/108/116/
+171/197ms), one per BFS depth-level, because `client:only`'s dynamic
+`import()` hides the graph from Vite's static analysis — confirmed this
+isn't `client:only`-specific: Workbench and Playground (`client:load`) get
+zero automatic `modulepreload` either, and Astro has no built-in mechanism
+for preloading an island's transitive dependency chunks.
+
+**Fix:** `docs/astro.config.mjs`'s `chunkGraphPlugin` (a Vite plugin scoped
+to the `client` environment) emits `dist/chunk-graph.json` from Rollup's own
+`OutputChunk.imports`/`dynamicImports`/`viteMetadata.importedCss` in
+`writeBundle` — sidesteps Astro's own `manifest: false` override for the
+SSR/prerender build and its internal `.vite/manifest.json` (which it
+deletes after use and only covers CSS). `docs/scripts/inject-modulepreload.mjs`
+reads that graph after `astro build`, resolves each of Studio/Workbench/
+Playground's island entry chunk's full TRANSITIVE STATIC-import set (BFS,
+never following `dynamicImports` — those stay intentionally lazy, e.g.
+Fabricate's `React.lazy` tab), and injects `<link rel="modulepreload">` for
+the flattened set into the built page's `<head>`. The graph file is an
+internal artifact, deleted once consumed — never ships. Wired into both
+`npm run build` and `perf-collect.mjs`'s build (so the nightly perf watch
+measures the same build a real deploy ships).
+
+**Verified:**
+- Real-browser trace: request scheduling collapsed from ~6 sequential waves
+  to one parallel burst (46 requests starting within the same 20ms window).
+- A/B measurement, same build, simulated 40ms-RTT connection (5 runs each):
+  median time-to-mount **1823ms → 1496ms (~18% faster)**.
+- All 43/19/27 injected chunk references for studio/workbench/playground
+  verified to exist on disk; only the 3 intended pages touched; the other
+  78 built pages unaffected.
+- 14 new unit tests for the pure resolution/injection logic
+  (`docs/scripts/inject-modulepreload.test.mjs`): transitive-import walking,
+  diamond-dependency dedup, cycle safety, `dynamicImports` exclusion, CSS
+  collection, idempotent re-injection, and graceful handling of a missing
+  page/`</head>`.
+- Full real-browser functional check on the finished build: Studio mounts,
+  zero new console errors, live deck-preview iframe renders content.
+- Root `npm test` (3157/3157) and docs `vitest` (1052/1052, incl. the new
+  suite) pass; `npm run lint`, `typecheck`, and `build:check` all clean.
+
+**Off-path finding, logged not fixed:** the srcdoc preview's `@font-face`
+references 404 at `/studio/fonts/*.woff2` instead of the hashed asset path
+(pre-existing, confirmed present in traces from earlier in this same
+investigation, unrelated to the module-graph work) — filed as
+[#876](https://github.com/SlideWright/lattice/issues/876).
