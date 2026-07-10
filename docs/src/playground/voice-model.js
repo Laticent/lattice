@@ -421,6 +421,21 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     }
     audioCache.set(key, blob);
   }
+  // In-flight synth de-dup: two IDENTICAL sentences scheduled in the same
+  // concurrency batch (a slide repeating a phrase across two bullets) used to
+  // both miss `audioCache` and fire independent real requests, since the
+  // cache only gets populated once a request RESOLVES. Joining an already
+  // in-flight request for the SAME key fixes that for free. Stores `sig`
+  // alongside the promise so a joiner can tell "this entry belongs to a call
+  // that's already been stopped/aborted" from "genuinely still in flight" —
+  // without that check, a barge-in (a new speak() stopping a prior one, then
+  // immediately requesting the SAME text) could join the OLD call's
+  // about-to-resolve-null promise instead of firing its own fresh request:
+  // `stop()` sets `sig.aborted` SYNCHRONOUSLY, but the promise chain reacting
+  // to that abort only settles (and cleans up its map entry) on a LATER
+  // microtask — so the new call's synchronous scheduling would otherwise see
+  // a stale, doomed entry still sitting in the map.
+  const inFlightSynths = new Map(); // cacheKeyFor(...) → { promise, sig }
   // The MODEL id for a given rung name — only OpenRouter's rung varies by model
   // (Kokoro's on-device model is fixed); anything else (mock/injected/
   // speechSynthesis) has no model concept, so it's simply excluded from the key.
@@ -618,23 +633,26 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     const effVoiceFor = (rungName) =>
       voice || (rungName === 'openrouter-tts' ? orVoice() : rungName === 'kokoro' ? kokoroVoice() : '');
 
-    // Known, deliberate non-goal (confirmed pre-existing under the OLD
-    // one-ahead pipeline too, not a regression from concurrent scheduling):
-    // two IDENTICAL sentences scheduled in the same fillSlots() batch below
-    // both miss the cache and fire independent real synth calls, since
-    // `audioCache` only gets populated once a request RESOLVES — there's no
-    // in-flight-promise dedup. Harmless (each produces an equivalent blob;
-    // no cross-contamination), just an uncaptured hit-rate opportunity for a
-    // slide repeating a phrase across two bullets.
+    // Two IDENTICAL sentences scheduled in the same fillSlots() batch below
+    // (a slide repeating a phrase across two bullets) join the SAME in-flight
+    // request instead of each firing an independent one — fixed via
+    // `inFlightSynths`, below, rather than just relying on `audioCache` (which
+    // only gets populated once a request RESOLVES, too late to help a
+    // concurrent duplicate).
     const synth = (t) => {
       const cacheKey = cacheKeyFor(rung.name, modelIdFor(rung.name), effVoiceFor(rung.name), effSpeed, t);
       const cached = audioCache.get(cacheKey);
       if (cached) return Promise.resolve(cached);
+      // Join an in-flight request for this exact key — UNLESS it belongs to
+      // an already-aborted call (see inFlightSynths's own comment for why
+      // that check matters for a barge-in replaying the same text).
+      const inflight = inFlightSynths.get(cacheKey);
+      if (inflight && !inflight.sig.aborted) return inflight.promise;
       // Cleared the moment EITHER side settles — Promise.race doesn't cancel the
       // loser, so an uncleared timer would linger 20s per sentence, every sentence,
       // even on the healthy path (a real timer-leak risk across a long deck).
       let timer;
-      return Promise.race([
+      const p = Promise.race([
         rung.synth({ text: t, voice, speed: effSpeed, signal: sig }).then((blob) => {
           if (blob) cacheSet(cacheKey, blob);
           return blob;
@@ -648,7 +666,13 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
             res(null);
           }, 20000);
         }),
-      ]);
+      ]).finally(() => {
+        // Only remove OUR OWN entry — a newer call may have already
+        // overwritten this key (the barge-in case above) by the time we settle.
+        if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
+      });
+      inFlightSynths.set(cacheKey, { promise: p, sig });
+      return p;
     };
     try {
       if (rung.name === 'speechSynthesis') {

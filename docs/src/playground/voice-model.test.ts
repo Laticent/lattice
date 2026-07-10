@@ -463,6 +463,52 @@ describe('concurrent synth scheduling (fire-ahead, not one-ahead)', () => {
     await speakP;
     expect(started).toEqual(['One.', 'Two.', 'Three.', 'Four.', 'Five.', 'Six.', 'Seven.']);
   });
+
+  it('joins an in-flight request for an identical (rung, voice, speed, text) sentence scheduled in the same batch — one real synth call, both occurrences still get audio', async () => {
+    // The previously-logged, non-blocking gap: two identical sentences
+    // scheduled together used to both miss `audioCache` (only populated once
+    // a request RESOLVES) and fire independent real requests. Fixed via
+    // `inFlightSynths` joining.
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    const played: string[] = [];
+    const mock = abortAwareMockRung((t) => calls.push(t));
+    model.__setRung(mock.rung);
+
+    const speakP = model.speak({ text: 'Same phrase. Same phrase. Different.', onSentence: (s: string) => played.push(s) });
+    await vi.waitFor(() => expect(calls).toEqual(['Same phrase.', 'Different.']));
+
+    mock.resolve('Same phrase.');
+    mock.resolve('Different.');
+    await speakP;
+
+    // Both occurrences of the duplicate sentence still play, in order —
+    // deduping the SYNTH REQUEST never means dropping the SECOND playback.
+    expect(played).toEqual(['Same phrase.', 'Same phrase.', 'Different.']);
+  });
+
+  it("a barge-in (stop() then immediately re-request the SAME text) does not join the stopped call's stale in-flight entry", async () => {
+    // Guards the subtlety inFlightSynths's own comment calls out: stop()
+    // aborts synchronously, but the aborted promise's cleanup only runs on a
+    // later microtask — a naive "just check the map" join could hand the new
+    // call a promise that's about to resolve to null.
+    const model = createVoiceModel({});
+    const calls: string[] = [];
+    const mock = abortAwareMockRung((t) => calls.push(t));
+    model.__setRung(mock.rung);
+
+    const firstSpeakP = model.speak({ text: 'Hello.' });
+    await vi.waitFor(() => expect(calls).toEqual(['Hello.']));
+
+    // speak() calls stop() on itself first thing, aborting the first call —
+    // the second call must fire its OWN fresh request, not join the first's
+    // now-doomed in-flight promise.
+    const secondSpeakP = model.speak({ text: 'Hello.' });
+    await vi.waitFor(() => expect(calls).toEqual(['Hello.', 'Hello.']));
+
+    mock.resolve('Hello.'); // resolves the second (still-live) request
+    await Promise.allSettled([firstSpeakP, secondSpeakP]);
+  });
 });
 
 describe('listOpenRouterVoiceModels (the public, unauthenticated TTS catalog)', () => {
