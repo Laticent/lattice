@@ -1,12 +1,24 @@
 ---
-status: in-progress
-summary: A full audit of the Form-default migration (triggered by suspicion that lib/runtime/index.js was neglected relative to lattice-emulator.js), run as a red team + Munger inversion + independent checker workflow (9 agents). Verdict on the original question: runtime/emulator parity for the CORE form-default chain (section.form, data-lattice-slide, masthead-lift, progress/watermark Tiles) is solid — the 2026-07-08 fix (#837) holds up under adversarial review. But the audit surfaced a much bigger, previously-unknown problem one layer down: masthead-lift's `.cell-stage` body-wrap (which ALL THREE render paths run identically) silently breaks several "universal auto-detected" authoring concepts — confirmed via live rendering with before/after computed styles — because lib/base/base.modifiers.css's Key Insight, below-note, annotation, and heat-overlay rules (and base.sketch.css's entire hand-drawn box treatment) were written before the cell-stage wrap existed and were never updated to reach through it. This is a CSS-completeness gap that predates and is orthogonal to the runtime-parity question, and it affects the engine/emulator export path too, not just the runtime. Plus five newly-found runtime-specific parity gaps (focus/build item axis, image `.lattice-bg` wrap, a11y texture defs, one-shot front-matter fetches, nested-section over-reach). No code changes made — this is the investigation only.
+status: shipped
+summary: A full audit of the Form-default migration (triggered by suspicion that lib/runtime/index.js was neglected relative to lattice-emulator.js), run as a red team + Munger inversion + independent checker workflow (9 agents). Verdict on the original question: runtime/emulator parity for the CORE form-default chain (section.form, data-lattice-slide, masthead-lift, progress/watermark Tiles) is solid — the 2026-07-08 fix (#837) holds up under adversarial review. But the audit surfaced a much bigger, previously-unknown problem one layer down: masthead-lift's `.cell-stage` body-wrap (which ALL THREE render paths run identically) silently breaks several "universal auto-detected" authoring concepts — confirmed via live rendering with before/after computed styles — because lib/base/base.modifiers.css's Key Insight, below-note, annotation, and heat-overlay rules (and base.sketch.css's entire hand-drawn box treatment) were written before the cell-stage wrap existed and were never updated to reach through it. This is a CSS-completeness gap that predates and is orthogonal to the runtime-parity question, and it affects the engine/emulator export path too, not just the runtime. Plus five newly-found runtime-specific parity gaps (focus/build item axis, image `.lattice-bg` wrap, a11y texture defs, one-shot front-matter fetches, nested-section over-reach). All 9 remediation PRs shipped (#851, #852, #854–#860); a second adversarial pass on the fix branches themselves caught and hardened two real bugs (below-note and eyebrow-extraction substring/anchoring issues) before merge, plus added a missing regression test. The `bg-image` runtime gap (#860) is intentionally left as a documented known limitation, not fixed.
 ---
 
 # Form-migration audit — runtime parity, CSS completeness, universal authoring concepts
 
 **Date:** 2026-07-09
-**Status:** investigation (no fixes applied yet)
+**Status:** shipped — all 9 remediation PRs merged (#851, #852, #854, #855,
+#856, #857, #858, #859) plus the docs-only #860. Each fix branch also went
+through a second adversarial pass (red team + Munger inversion + independent
+checker) after this audit landed, which caught two real bugs the first pass
+missed: below-note's `.cell-stage` detection (#851) and masthead-lift's
+eyebrow extraction (#855) were both doing an unscoped/unanchored substring
+match that a `<pre>`/nested-content case could fool — both hardened with a
+depth-aware scan and regression tests before merge. #857 also gained a
+permanent regression test for its runtime re-fire behavior, requested by
+that same adversarial pass. The one exception is the `bg-image` runtime gap
+(#860), intentionally left as a documented known limitation — see that PR's
+rationale (no `marp-core` in this sandbox to verify a DOM-transform fix
+against).
 **Method:** 9-agent workflow — map (2) → live-render verify (2) → red team (3) → Munger inversion (1) → independent checker (1). Every "confirmed" finding below was reproduced by actually rendering (real engine / real jsdom execution of the real built `dist/lattice-runtime.js` / real headless Chromium computed styles), not by reading code alone.
 
 ## The question asked
