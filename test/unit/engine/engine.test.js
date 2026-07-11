@@ -181,6 +181,26 @@ describe('lattice-engine: contract', () => {
     const { html } = eng.render('<!-- theme: ghost -->\n\n# A\n', 'ghost');
     assert.doesNotMatch(html, /--theme:ghost/);
   });
+
+  test('cssFor is memoized per (theme, size) and re-registration invalidates it', () => {
+    const eng = createEngine();
+    eng.addThemes(['/* @theme lattice\n * @size hd 1280px 720px */\nsection { color: #111; }']);
+    eng.addThemes(["/* @theme cuoio */\n@import 'lattice';\n:root { --accent: #840; }"]);
+    const { themes } = eng;
+    const a = themes.cssFor('cuoio');
+    const b = themes.cssFor('cuoio');
+    assert.equal(a, b); // stable output on repeat
+    assert.ok(a.length > 0 && a.includes('--accent'));
+    assert.ok(themes._cssCache.size >= 1); // populated
+    // A cache HIT must not recompute — force a miss and confirm identical bytes.
+    themes._cssCache.clear();
+    assert.equal(themes.cssFor('cuoio'), a); // cold recompose == cached
+    // Re-registering ANY theme drops the memo, so a changed base can't serve stale CSS.
+    themes.cssFor('cuoio'); // repopulate
+    eng.addThemes(["/* @theme cuoio */\n@import 'lattice';\n:root { --accent: #840; }"]);
+    assert.equal(themes._cssCache.size, 0); // add() cleared it
+    assert.equal(themes.cssFor('cuoio'), a); // still correct after invalidation
+  });
 });
 
 describe('lattice-engine: css emission (P1.1)', () => {

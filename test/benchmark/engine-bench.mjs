@@ -82,7 +82,16 @@ const mean = (task) => task.result.latency.mean; // ms
 async function renderTier() {
   const main = new Bench({ name: 'render', warmup: true, time: 1500, iterations: 8 });
   for (const d of datasets) {
-    main.add(d.name, () => api.render(d.src, d.theme));
+    // Clear the per-(theme,size) CSS memo before each timed render so this tier
+    // measures the TRUE COLD per-render cost — what a CLI/export one-shot pays, and
+    // what a compose regression would surface in. The cache is an INTERACTIVE
+    // optimization (repeated renders of the same theme in the live preview); its win
+    // is measured browser-side by `npm run perf:frame`, not here, where a warm loop
+    // would otherwise report cache-hit speed and hide any cold-compose regression.
+    main.add(d.name, () => {
+      rawEngine.themes._cssCache.clear();
+      return rawEngine.render(d.src, d.theme);
+    });
   }
   await main.run();
   console.log('\n=== RENDER · full path (markdown → HTML+CSS) ===');
