@@ -320,6 +320,57 @@ describe('audio cache (replay reuses synthesized audio; voice/model/speed change
     expect(fetchCalls).toBe(2);
   });
 
+  // Bug fix (2026-07-09-studio-cloud-ondevice-config-split.md's "model-row-preview"
+  // follow-up): the Workspace model picker's ▶ row-preview button passes the id of
+  // the model being AUDITIONED, which may not be the currently ACTIVE model at all.
+  // Before this fix, previewVoice's live fallback ignored that id entirely and
+  // always synthesized through the persisted active model instead — clicking ▶ on
+  // an unselected, uncached row silently played the WRONG model's voice.
+  describe("previewVoice — a `model` override previews that model, not the persisted active one", () => {
+    it("uses the override model in the live request, even though a DIFFERENT model is active", async () => {
+      const requests: Array<{ model?: string }> = [];
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        fetchImpl: async (_url: string, opts: { body: string }) => {
+          const body = JSON.parse(opts.body);
+          requests.push(body);
+          return { ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) };
+        },
+      });
+      model.setOrModel('the-currently-active-model'); // simulates a different model already selected
+      await model.previewVoice({ rung: 'openrouter', model: 'the-row-being-previewed', voice: 'v' });
+      expect(requests[0].model).toBe('the-row-being-previewed');
+    });
+
+    it('falls back to the persisted active model when no override is given (backward compatible — "Play sample" always passes its own active model explicitly)', async () => {
+      const requests: Array<{ model?: string }> = [];
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        fetchImpl: async (_url: string, opts: { body: string }) => {
+          requests.push(JSON.parse(opts.body));
+          return { ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) };
+        },
+      });
+      model.setOrModel('the-only-active-model');
+      await model.previewVoice({ rung: 'openrouter', voice: 'v' }); // no `model` field at all
+      expect(requests[0].model).toBe('the-only-active-model');
+    });
+
+    it("a model override forces a fresh fetch — doesn't collide with a differently-modeled cache entry", async () => {
+      let fetchCalls = 0;
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        fetchImpl: async () => {
+          fetchCalls++;
+          return { ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) };
+        },
+      });
+      await model.previewVoice({ rung: 'openrouter', model: 'model-a', voice: 'same-voice' });
+      await model.previewVoice({ rung: 'openrouter', model: 'model-b', voice: 'same-voice' });
+      expect(fetchCalls).toBe(2); // same voice/speed/text, different model → NOT a cache hit
+    });
+  });
+
   it("does not freeze the cache key on a falsy voice ('') — mirrors the real rung's `||` fallback, not `??` (independent-checker + Munger-inversion finding)", async () => {
     // `'' ?? orVoice()` would stay `''` forever (nullish coalescing only
     // falls through on null/undefined); `'' || orVoice()` correctly falls

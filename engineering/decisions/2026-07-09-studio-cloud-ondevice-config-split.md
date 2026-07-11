@@ -672,6 +672,20 @@ Worth a tracked follow-up: either forward `model` into `previewVoice()`'s
 synth call, or have the row-preview button temporarily switch the active model
 before previewing.
 
+**Follow-up, fixed 2026-07-11 (`fix/tts-model-row-preview-uses-active-model`):**
+took the first option above. `openRouterRung.synth` now accepts an optional
+per-call `model` override (never persisted — `speak()`'s own narration path
+never passes one, so it's unaffected); `previewVoice` resolves a single
+`effModel` (the row's override when the rung is `openrouter` and one was
+given, else the persisted active model as before) and uses it for BOTH the
+cache key and the synth call, so a row preview can't read or write another
+model's cache entry either. Confirmed backward-compatible: the main "Play
+sample" button already always passes the currently-active model explicitly,
+so `effModel` resolves identically there before and after. Verified by
+temporarily reverting the fix and watching two new tests fail exactly as
+predicted (wrong model in the live request body; a model-differentiated
+preview wrongly hit the SAME cache entry), then restoring it.
+
 **Not fixed — reasoned as acceptable, logged for awareness (Munger
 inversion):** `speedSupport`/`PCM_ONLY_MODELS` are one-time, hand-typed
 snapshots from a single live-tested session, with no scheduled re-verification
