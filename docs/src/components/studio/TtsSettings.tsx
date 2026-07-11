@@ -1,6 +1,7 @@
 import { Download, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import {
 	listTtsModels,
@@ -33,20 +34,20 @@ import { KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupp
 
 type KokoroLoad = { phase: 'idle' | 'confirm' | 'loading' | 'error'; pct: number; note?: string };
 
+// Reuses the shared Slider primitive (@/components/ui/slider — already the
+// Studio's established control, see FinishStudio.tsx's wash/texture/edge
+// sliders) rather than a one-off native <input type="range"> — HARD RULE #15,
+// don't fork a widget per surface. min/max/step below are the ONLY thing that
+// constrains which values are selectable; both this primitive and a raw range
+// input clamp identically to whatever bounds they're given, so "only viable
+// values" is enforced by speedSupported() gating whether this renders AT ALL
+// (SpeedSection, below) plus this fixed 0.75-1.5 range being live-tested safe
+// for every engine that DOES support speed (see the decision doc) — not by
+// which slider widget draws the track.
 function SpeedControl({ value, onChange, disabled }: { value: number; onChange: (n: number) => void; disabled?: boolean }) {
 	return (
 		<div className="flex items-center gap-2.5">
-			<input
-				type="range"
-				min={0.75}
-				max={1.5}
-				step={0.05}
-				value={value}
-				onChange={(e) => onChange(Number(e.target.value))}
-				disabled={disabled}
-				aria-label="Speech speed"
-				className="h-1.5 flex-1 accent-[var(--accent)] disabled:opacity-50"
-			/>
+			<Slider aria-label="Speech speed" min={0.75} max={1.5} step={0.05} value={value} onValueChange={onChange} disabled={disabled} className="flex-1" />
 			<span className="w-[42px] shrink-0 text-right font-mono text-[12px] text-muted-foreground">{value.toFixed(2)}×</span>
 		</div>
 	);
