@@ -275,13 +275,18 @@ test('dark/light mode seeds from the BAKED scheme (document fidelity), deferring
 	// device; only 'system' defers to matchMedia. color-scheme is set for native controls.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /var baked=root\.getAttribute\('data-lp-scheme'\)/, 'the effective mode reads the baked scheme attribute');
-	assert.match(html, /var isDark=baked==='dark'\|\|\(baked!=='light'&&baked!=='dark'&&sysDark\(\)\)/, 'pinned dark → dark; system (or unknown) → follows the OS; pinned light → light');
+	assert.match(html, /var following=baked==='system'/, "a 'system' export live-follows the OS; a pinned export never does");
+	assert.match(html, /var isDark=baked==='dark'\|\|\(following&&sysDark\(\)\)/, 'pinned dark → dark; following (system) → OS; pinned light → light');
+	// CRUX of the on-device fix: ALWAYS stamp a CONCRETE attribute at load (even for system),
+	// so dark tokens ride the reliable ATTRIBUTE selector, never the @media gate the user's
+	// older WebKit ignored while matchMedia still read dark. applyScheme is called
+	// unconditionally — NOT gated behind a `baked==='system'` branch that left it on @media.
+	assert.match(html, /\napplyScheme\(\);\n/, 'the concrete scheme is stamped at load for every mode, driven by matchMedia — content never depends on the @media query');
+	assert.doesNotMatch(html, /if\(baked==='system'\)\{/, 'no media-gated system branch remains (that left content on the unreliable @media query)');
 	assert.match(html, /root\.style\.setProperty\('color-scheme',isDark\?'dark':'light'\)/, 'color-scheme is set via setProperty (cross-engine safe), for native controls');
-	// A 'system' export leaves the attribute as system so the CSS @media live-follows the
-	// OS, and live-updates the icon on an OS change; anything pinned stamps a concrete value.
-	assert.match(html, /if\(baked==='system'\)\{[\s\S]*?matchMedia\('\(prefers-color-scheme:dark\)'\)\.addEventListener\('change'/, 'a system export live-follows the OS (attribute stays system, icon tracks matchMedia)');
-	assert.match(html, /\}\s*else applyScheme\(\);/, 'a pinned light/dark export stamps its concrete mode at load');
-	assert.match(html, /if\(mode\)mode\.onclick=function\(\)\{isDark=!isDark;applyScheme\(\);\}/, 'one tap flips the state and commits a concrete mode');
+	// While following, an OS change re-stamps the concrete attribute (guarded for old WebKit).
+	assert.match(html, /if\(following&&window\.matchMedia\)\{try\{matchMedia\('\(prefers-color-scheme:dark\)'\)\.addEventListener\('change',function\(e\)\{if\(following\)\{isDark=e\.matches;applyScheme\(\);\}/, 'a system export re-stamps on an OS change while still following');
+	assert.match(html, /if\(mode\)mode\.onclick=function\(\)\{following=false;isDark=!isDark;applyScheme\(\);\}/, 'one tap stops live-following and commits a concrete mode');
 });
 
 test('the baked scheme rides onto <html> from the authored mode (light default, dark/system honored)', async () => {
@@ -550,9 +555,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
 	// Re-blessed for color-mode fidelity: the export now bakes a data-lp-scheme attribute
 	// onto <html> (the author's light/dark/system choice; light by default here), the dark
-	// rules key on =dark / @media =system instead of :not([=light]), and the JS seeds isDark
-	// from that baked attribute rather than always from matchMedia.
-	assert.equal(sha, 'c08ae99f3e40f927fbcd886f1b22d80299655cb9aba26a0e77a084d72e4b44b2', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// rules key on =dark / @media =system instead of :not([=light]), and the JS seeds a
+	// `following` flag from the baked attribute, ALWAYS stamps a concrete attribute at load
+	// (driving even system-dark off matchMedia, not the @media gate the old WebKit ignored),
+	// and stops following on toggle.
+	assert.equal(sha, '7b9d633cb84e24e270d6d945278787f378a6417686417732e8033c1dc2a0d759', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

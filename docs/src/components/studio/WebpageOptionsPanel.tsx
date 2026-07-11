@@ -30,11 +30,12 @@ export function WebpageOptionsPanel({
 }) {
 	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
 	const [stripNotes, setStripNotes] = React.useState(false);
-	// The exported player's default color mode. Defaults to the current preview so the
-	// download matches what the author sees; 'system' defers to the receiver's OS.
+	// The exported player's default color mode. Initialized from the current preview so the
+	// download matches what the author sees; 'system' defers to the receiver's OS. The panel
+	// remounts each time the export step is opened (ShareSheet renders it conditionally), so
+	// this mount-time default already re-syncs to the live mode — no effect needed, and none
+	// added, so an explicit user pick is never silently clobbered by a background mode flip.
 	const [scheme, setScheme] = React.useState<Scheme>(mode);
-	// Re-sync to the live preview mode each time the panel opens (a fresh export step).
-	React.useEffect(() => { setScheme(mode); }, [mode]);
 
 	const SCHEMES: { value: Scheme; label: string; icon: React.ReactNode }[] = [
 		{ value: 'light', label: 'Light', icon: <Sun className="size-3.5" /> },

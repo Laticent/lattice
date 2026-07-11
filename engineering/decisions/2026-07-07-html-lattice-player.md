@@ -228,9 +228,15 @@ which is wrong for a shared document — a deck exported dark should open dark o
 PDF does. So the **author's mode is now baked** as the `data-lp-scheme` value and the player opens in it:
 `light`/`dark` are **pinned** (never re-themed by the receiver's OS — the `system` dark rule keys on
 `[data-lp-scheme=system]`, *not* `:not([=light])`, so a pinned export is untouched by `prefers-color-scheme`);
-`system` is the explicit choice to **defer** to the receiver (a `@media (prefers-color-scheme:dark)` rule
-scoped to `=system`). The in-player toggle stays a **per-viewer override** — it flips the attribute to a
-concrete light/dark for that viewer without changing how the deck was exported. The CLI reads the authored
+`system` is the explicit choice to **defer** to the receiver. Crucially, `system` is *still* attribute-driven,
+not `@media`-driven: when JS runs it stamps a **concrete** `data-lp-scheme=dark|light` from `matchMedia` at
+load (and re-stamps on an OS change while it's still following), so the dark tokens ride the reliable
+attribute selector — the same reason #889 abandoned `@media` in the first place (the user's in-app WebKit
+*applied* `matchMedia` but *not* `@media (prefers-color-scheme:dark)`, so a media-gated system-dark would
+paint the light base under a dark icon). The `@media (prefers-color-scheme:dark){:root[data-lp-scheme=system]}`
+rule `themeDualMode` emits is therefore only the **no-JS fallback**. The in-player toggle stays a
+**per-viewer override** — it stops live-following and flips the attribute to a concrete light/dark for that
+viewer without changing how the deck was exported. The CLI reads the authored
 mode from the deck's effective `color-scheme` (comment-stripped: a `*-dark` theme → dark, `color-scheme:
 light dark` → system, else light); the Studio Share → Webpage step exposes a light/dark/system selector
 defaulting to the previewed mode. The §A2b carve-out for the two headless-baked components (`state-chart`,
