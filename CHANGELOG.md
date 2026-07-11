@@ -525,6 +525,30 @@ in patch versions.
   canvas are correct). ~16 KB gzipped per theme; the real device (LG C4) is
   **unverified** from CI — the fallback is proven correct by resolver↔browser
   parity, not yet eyeballed on the TV.
+- **Two engine text-transform regexes were hardened against the nested-quantifier
+  ReDoS shape a static analyzer (CodeQL) flags — and one of them was a REAL,
+  reachable hang, not just a flagged shape.** (1) The trailing `<code>` chip-run
+  splitter (`lib/core/slot-label-lift.js`) had a lazy inner `[\s\S]*?` under a `+`
+  that backtracked **exponentially**: a slot label with a few dozen inline-code
+  chips (markdown-it emits a `<code>` per `` `span` ``) plus trailing prose took
+  ~9s at 28 chips and doubled with each added chip — a live render hang. Unrolling
+  the inner to the disjoint-alternatives `(?:[^<]|<(?!\/code>))*` delimits each chip
+  unambiguously; it is now linear (2.4ms at 500 chips) and behaviorally identical on
+  every markdown-it-reachable input. (2) The `![bg …]` background-directive matcher
+  (`lib/core/bg-image.js`) is rewritten from the nested `(?:\s+\w+)*` to an optional
+  single-star `(?:[^\S\r\n](?:[^\S\r\n]|\w)*)?` — provably linear, and scoped to
+  **horizontal** whitespace (`[^\S\r\n]` = whitespace except CR/LF) so a broken
+  multi-line `![bg` can no longer swallow the following prose up to a later `](url)`
+  (a latent over-run the old `\s`-based form had), while still accepting nbsp /
+  Unicode spaces so a directive pasted from Word/Docs keeps rendering (a true
+  superset of the old run); it also now tolerates a trailing space before `]`. New
+  edge-case tests pin the equivalence and the two fixes (multi-chip runs,
+  escaped-entity and literal-`<` chip bodies, nbsp-separated directives, a
+  discriminating cross-newline no-over-run case, trailing-space tolerance, long-input
+  guards). The other two grep-hits the audit surfaced (`journey.transform.js`,
+  `compare-code.transform.js`) carry only a benign, single, non-repeated
+  `<code>…</code>` match — no repeated-group/anchor shape — and are linear as-is, so
+  they are left unchanged. Closes #901.
 - **A false "Overflows" ring could appear on the exported `.html` sidecar
   for a slide that actually fits, and never clear.** Marp's template
   lazy-loads a `@font-face` only when the browser first tries to paint text
