@@ -1,8 +1,8 @@
 // Cadenza — display → spoken normalization.
 //
 // A caption word carries TWO forms: what's DISPLAYED ("$4.2M", "Q3", "18.5%") and
-// what's SPOKEN ("four point two million dollars", "Q three", "eighteen point five
-// percent"). They diverge in length — one displayed token can be several spoken
+// what's SPOKEN ("four point two million dollars", "third quarter", "eighteen point
+// five percent"). They diverge in length — one displayed token can be several spoken
 // words — so timing (cadence.ts) is computed on the SPOKEN form while the caption
 // renders the DISPLAY glyphs. This module maps one display token → its spoken form.
 //
@@ -94,6 +94,22 @@ function unitWords(numStr: string, singular: string): string {
   return `${numberToWords(n)} ${singular}${n === 1 ? '' : 's'}`;
 }
 
+const ORDINALS = ['', 'first', 'second', 'third', 'fourth'];
+
+/**
+ * Read a fiscal/calendar year figure — a two-digit `26` stays "twenty-six" (no century
+ * inference: the house choice is the short year, §14); a leading-zero pair reads as a
+ * year, not a bare cardinal (`05`→"oh five", `00`→"two thousand" — `Number("05")`
+ * would drop the zero and speak "five", wrong for FY2005/FY2009); a four-digit `2026`
+ * reads "two thousand twenty-six". Never a spelled "two six".
+ */
+function yearWords(digits: string): string {
+  if (digits.length === 2 && digits[0] === '0') {
+    return digits === '00' ? 'two thousand' : `oh ${ONES[Number(digits[1])]}`;
+  }
+  return numberToWords(Number(digits));
+}
+
 /**
  * Map one displayed token to its spoken form. Recognizes money ($4.2M, £3,200),
  * percentages (18.5%), signed deltas (+9% → "up nine percent"), units
@@ -127,6 +143,27 @@ function spokenCore(core: string, domains: readonly LexDomain[]): string {
   // 1. Lexicon (whole-token abbreviations, symbols, initialisms).
   const lex = lookupLexicon(core, domains);
   if (lex !== null) return lex;
+
+  // 1b. Fiscal / calendar period shorthand carrying a year or a leading quarter/half
+  //     digit (bare Q1–Q4 come through the lexicon above). CASE-SENSITIVE on the
+  //     UPPERCASE letters, so lowercase prose and formulae never fire: `H2` → "second
+  //     half" but `h2`/`H2O` are untouched (the anchored `$` also stops `H2O`). An
+  //     optional apostrophe (`FY'26`) is absorbed; the year reads literally (§14).
+  //       FY26 / FY2026 / CY24 → "fiscal|calendar year <year>"
+  //       4Q24 / 3Q / Q3'26   → "<ordinal> quarter[ fiscal <year>]"
+  //       1H26 / 2H / H1      → "<ordinal> half[ fiscal <year>]"
+  const fyear = core.match(/^(FY|CY)['’]?(\d{2}|\d{4})$/);
+  if (fyear) return `${fyear[1] === 'FY' ? 'fiscal' : 'calendar'} year ${yearWords(fyear[2])}`;
+  const nQ = core.match(/^([1-4])Q['’]?(\d{2}|\d{4})?$/);
+  if (nQ) return `${ORDINALS[Number(nQ[1])]} quarter${nQ[2] ? ` fiscal ${yearWords(nQ[2])}` : ''}`;
+  // Q-first WITH a year requires the apostrophe (`Q3'26`) — a bare `Q324` is not a
+  // period (the digit-first `4Q24` form and bare `Q3` cover the rest), so it stays put.
+  const qY = core.match(/^Q([1-4])['’](\d{2}|\d{4})$/);
+  if (qY) return `${ORDINALS[Number(qY[1])]} quarter fiscal ${yearWords(qY[2])}`;
+  const nH = core.match(/^([12])H['’]?(\d{2}|\d{4})?$/);
+  if (nH) return `${ORDINALS[Number(nH[1])]} half${nH[2] ? ` fiscal ${yearWords(nH[2])}` : ''}`;
+  const hN = core.match(/^H([12])$/);
+  if (hN) return `${ORDINALS[Number(hN[1])]} half`;
 
   // 2. Signed prefix. Before a DELTA-BEARING value (%, pp, bps, ×, day, currency,
   //    magnitude) a '+'/'−'(U+2212)/'-' reads as "up"/"down"; before a BARE number

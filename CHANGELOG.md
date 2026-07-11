@@ -192,6 +192,22 @@ in patch versions.
   the Studio toggle (Workspace → General → Diagnostics), the Drawing Board
   switch, or the `?perf` URL param — all the same cross-surface pref. Design + the deferred deeper-instrumentation option:
   `engineering/decisions/2026-07-11-studio-render-perf-overlay.md`.
+- **Read-aloud speaks everyday business shorthand instead of spelling it — `FY26`
+  is "fiscal year twenty-six", not "F Y 26".** Cadenza's say-as lexicon gained a
+  case-sensitive fiscal/calendar **period parser** (`FY26`/`FY2026`/`CY24`,
+  `4Q24`/`Q3`/`Q3'26`, `1H26`/`H1`/`2H` → "fiscal year twenty-six", "fourth quarter
+  fiscal twenty-four", "first half…") and a much broader **acronym dictionary** that
+  **expands** initialisms to words (`ARR`→"annual recurring revenue",
+  `KPI`→"key performance indicator", `API`→"application programming interface",
+  `EPS`, `YTD`, `R&D`, `P&L`, …), says lexicalized ones as **words**
+  (`EBITDA`→"ee bit dah", `CAGR`→"cagger", `GAAP`→"gap", `SaaS`→"sass"), and adds a
+  **case-sensitive tier** so a token that also spells a word only expands in its
+  acronym case (`COGS`→"cost of goods sold" but the lowercase word "cogs" is
+  untouched; `CY`, `TAM`, `MoM`). Quarters now read as ordinals (`Q3`→"third
+  quarter", previously "Q three"). Both the live Studio Present read-aloud and the
+  CLI/export captions share the change (one normalizer). Audio itself is unverified
+  (no TTS in CI) — only the spoken string is claimed.
+>>>>>>> 132566e (feat(cadenza): speak fiscal-period shorthand and expand everyday acronyms)
 - **A first-class `color-mode:` front-matter key — `light` · `dark` · `system` ·
   `inherited` — that every surface honors.** Color mode was authored through the
   overloaded `class: dark`/`class: light` token axis; it now has a dedicated,

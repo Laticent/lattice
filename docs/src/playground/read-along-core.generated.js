@@ -49,45 +49,93 @@ var require_dist = __commonJS({
     });
     module.exports = __toCommonJS(index_exports);
     var BASE = {
-      // Fiscal periods (kept from the original ABBREV). NOTE: `h1`/`h2` are deliberately
-      // NOT here — they read far more often as a heading level or chemical formula than
-      // "first/second half", so the half-year reading lives in the `finance` pack.
-      q1: "Q one",
-      q2: "Q two",
-      q3: "Q three",
-      q4: "Q four",
+      // Fiscal periods, no attached year (FY26 / 4Q24 / 1H26 carry a year and are parsed
+      // in normalize.ts). Quarters read as ordinals ("third quarter"), the natural form.
+      // `h1`/`h2` are NOT here — a bare half reads via a CASE-SENSITIVE `H1`/`H2` pattern
+      // (normalize.ts), so lowercase prose and `H2O` never become "second half".
       fy: "fiscal year",
+      // `cy` is NOT here — the name "Cy" / ISO "CY" collide; it lives in BASE_CASED
+      q1: "first quarter",
+      q2: "second quarter",
+      q3: "third quarter",
+      q4: "fourth quarter",
+      // Period-over-period + period-to-date.
       yoy: "year over year",
       qoq: "quarter over quarter",
+      ytd: "year to date",
+      qtd: "quarter to date",
+      mtd: "month to date",
       eod: "end of day",
+      eoq: "end of quarter",
       eoy: "end of year",
-      // Roles / metrics initialisms (spelled). Real-word / proper-noun collisions are
-      // kept OUT of always-on BASE: `coo` (a verb), `tam` (a name) were dropped.
-      ceo: "C E O",
-      cfo: "C F O",
-      cto: "C T O",
-      kpi: "K P I",
-      arr: "A R R",
-      mrr: "M R R",
-      roi: "R O I",
-      nps: "N P S",
-      cac: "C A C",
-      ltv: "L T V",
-      sla: "S L A",
-      slo: "S L O",
-      sdk: "S D K",
-      api: "A P I",
-      ux: "U X",
-      // Acronyms said as words (well-established single-word pronunciations).
+      // Roles (expanded). Real-word / proper-noun collisions (`coo`, `cmo`, `cro`) live in
+      // BASE_CASED so the lowercase words never fire.
+      ceo: "chief executive officer",
+      cfo: "chief financial officer",
+      cto: "chief technology officer",
+      // Metrics (expanded).
+      kpi: "key performance indicator",
+      okr: "objectives and key results",
+      arr: "annual recurring revenue",
+      mrr: "monthly recurring revenue",
+      roi: "return on investment",
+      nps: "net promoter score",
+      cac: "customer acquisition cost",
+      ltv: "lifetime value",
+      clv: "customer lifetime value",
+      arpu: "average revenue per user",
+      gmv: "gross merchandise value",
+      eps: "earnings per share",
+      capex: "capital expenditure",
+      opex: "operating expense",
+      "p&l": "profit and loss",
+      "r&d": "research and development",
+      // Metrics said as WORDS (expansion would be absurd to speak).
+      ebitda: "ee bit dah",
+      cagr: "cagger",
+      gaap: "gap",
+      // Product / go-to-market (expanded).
+      gtm: "go to market",
+      b2b: "business to business",
+      b2c: "business to consumer",
+      smb: "small and medium business",
+      faq: "frequently asked questions",
+      // Engineering / security (expanded).
+      api: "application programming interface",
+      sdk: "software development kit",
+      sla: "service level agreement",
+      slo: "service level objective",
+      sso: "single sign-on",
+      mfa: "multi-factor authentication",
+      "2fa": "two-factor authentication",
+      // Established single-word pronunciations.
       saas: "sass",
+      // No natural expansion or word — spelled.
+      ui: "U I",
+      ux: "U X",
       // Symbols with a single unambiguous reading.
       "\xA7": "section",
       "\xA7\xA7": "sections",
       "\xB6": "paragraph",
       "&": "and",
-      // A decorative separator (eyebrows: "Financial · Q4 2026") — dropped, never
-      // spoken as "middle dot". An empty spoken form means "say nothing".
+      // A decorative separator (eyebrows: "Financial · Q4 2026") — dropped, never spoken
+      // as "middle dot". An empty spoken form means "say nothing".
       "\xB7": ""
+    };
+    var BASE_CASED = {
+      CY: "calendar year",
+      // lower-case "cy" / name "Cy" must NOT fire → cased, not BASE
+      COO: "chief operating officer",
+      CMO: "chief marketing officer",
+      CRO: "chief revenue officer",
+      COGS: "cost of goods sold",
+      // lower-case "cogs" is the machine part
+      TAM: "total addressable market",
+      SAM: "serviceable addressable market",
+      SOM: "serviceable obtainable market",
+      MoM: "month over month",
+      WoW: "week over week"
+      // canonical mixed case; "mom"/"wow" the words stay safe
     };
     var DOMAINS = {
       legal: {
@@ -102,13 +150,16 @@ var require_dist = __commonJS({
         gdpr: "G D P R"
       },
       finance: {
+        // WoW/MoM live in BASE_CASED (canonical case). These stay for the opt-in path.
         wow: "week over week",
         mom: "month over month"
       }
     };
     function lookupLexicon(token, domains = []) {
-      const key = String(token ?? "").toLowerCase();
-      if (!key) return null;
+      const raw = String(token ?? "").trim();
+      if (!raw) return null;
+      if (Object.hasOwn(BASE_CASED, raw)) return BASE_CASED[raw];
+      const key = raw.toLowerCase();
       if (Object.hasOwn(BASE, key)) return BASE[key];
       for (const d of domains) {
         const pack = DOMAINS[d];
@@ -204,6 +255,13 @@ var require_dist = __commonJS({
       const n = Number(numStr.replace(/,/g, ""));
       return `${numberToWords(n)} ${singular}${n === 1 ? "" : "s"}`;
     }
+    var ORDINALS = ["", "first", "second", "third", "fourth"];
+    function yearWords(digits) {
+      if (digits.length === 2 && digits[0] === "0") {
+        return digits === "00" ? "two thousand" : `oh ${ONES[Number(digits[1])]}`;
+      }
+      return numberToWords(Number(digits));
+    }
     function toSpoken(display, opts = {}) {
       const tok = String(display ?? "").trim();
       if (!tok) return "";
@@ -218,6 +276,16 @@ var require_dist = __commonJS({
       if (!core) return core;
       const lex = lookupLexicon(core, domains);
       if (lex !== null) return lex;
+      const fyear = core.match(/^(FY|CY)['’]?(\d{2}|\d{4})$/);
+      if (fyear) return `${fyear[1] === "FY" ? "fiscal" : "calendar"} year ${yearWords(fyear[2])}`;
+      const nQ = core.match(/^([1-4])Q['’]?(\d{2}|\d{4})?$/);
+      if (nQ) return `${ORDINALS[Number(nQ[1])]} quarter${nQ[2] ? ` fiscal ${yearWords(nQ[2])}` : ""}`;
+      const qY = core.match(/^Q([1-4])['’](\d{2}|\d{4})$/);
+      if (qY) return `${ORDINALS[Number(qY[1])]} quarter fiscal ${yearWords(qY[2])}`;
+      const nH = core.match(/^([12])H['’]?(\d{2}|\d{4})?$/);
+      if (nH) return `${ORDINALS[Number(nH[1])]} half${nH[2] ? ` fiscal ${yearWords(nH[2])}` : ""}`;
+      const hN = core.match(/^H([12])$/);
+      if (hN) return `${ORDINALS[Number(hN[1])]} half`;
       const sign = core.match(/^([+−-])(.+)$/);
       if (sign) {
         const rest = sign[2];

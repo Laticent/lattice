@@ -491,3 +491,51 @@ change gated on sign-off (QUALITY BAR), so it is out of this live-playback PR.
 `player-core` bundle in a DOM env (`narration-projection.test.ts`) — the exact strings Present feeds
 `buildTrack`. Live browser Present **audio** is UNVERIFIED (no TTS in CI); only the spoken text is
 claimed.
+
+---
+
+## §14 Say-as lexicon expansion — periods, breadth, and the case-sensitive tier (2026-07-11, SHIPPED)
+
+Follow-up from a real complaint: `FY26` was read "F Y 26". The token fell through
+every branch (whole-token lexicon is keyed `fy`, not `fy26`; no number pattern
+matches a letter-prefixed token) and reached the TTS raw, which spells the unknown.
+Two gaps: **no period parser** for the FY/Q/H+year class, and a **thin acronym list**.
+(Also surfaced: the `DOMAINS` packs are dormant — `buildTrack` calls `toSpoken`
+without threading `domains` — so only BASE is live. Wiring an opt-in for the packs is
+a tracked follow-up; everyday business terms went into always-on BASE, since the
+boardroom *is* the domain.)
+
+**Say-as taxonomy** — three treatments, encoded in the spoken *value* (no type field):
+EXPAND a phrase (the house default for initialisms — a deck is read to be understood),
+say as a WORD where the expansion is absurd to speak (`EBITDA`→"ee bit dah"), SPELL
+only where neither fits (`UI`→"U I").
+
+**Three confirmed choices** (one `AskUserQuestion` round):
+1. **Initialisms EXPAND to words** — `ARR`→"annual recurring revenue", not "A R R".
+2. **Fiscal periods read SEMANTIC, short year** — `FY26`→"fiscal year twenty-six"
+   (two-digit literal, no century inference), `Q3`→"third quarter" (a behavior change
+   from "Q three"), `H1`→"first half". Leading-zero years read as years, not a
+   dropped-zero cardinal (`FY05`→"…oh five", `FY00`→"…two thousand"). Four-digit
+   years read as full cardinals (`FY2026`→"…two thousand twenty-six"); a natural
+   year-pair reading is a logged refinement.
+3. **Case-sensitive tier (`BASE_CASED`) for word-collisions** — fires only on the
+   acronym's canonical case, so the lower-case word never expands (`COGS`→"cost of
+   goods sold" but `cogs` stays the machine part; `CY`→"calendar year" but the name
+   "Cy" stays).
+
+**Deliberately EXCLUDED** (a wrong expansion is worse than none). The cased tier's
+hard limit is that it *still fires in the all-caps register* of titles/eyebrows/CTAs,
+so a key that is also a common word there is unsafe — the adversarial-checker pass
+(HARD RULE #25) caught `IT`/`US` reading "ABOUT US"→"…United States" / "WHY IT
+MATTERS"→"…information technology", so both were pulled. Also out: `IP`
+(intellectual-property vs internet-protocol), `AR`, `OR`. `TAM`/`SAM`/`SOM` are kept
+as the market-sizing trio, the all-caps "SAM"-as-a-person collision the accepted
+cost. The old Phase-1 `h1`/`h2` ban is now met differently: a bare half reads via a
+**case-sensitive, anchored** `H1`/`H2` pattern, so lowercase `h2` and `H2O` never
+become "second half" — the concern that removed them from BASE.
+
+*Verification (HARD RULE #23):* string behavior is pinned in `normalize.test.ts`
+(period patterns, expansions, case-sensitivity, the `fy26`/`h2`/`H2O` negatives).
+Audio naturalness is UNVERIFIED (no TTS in CI); only the display→spoken string is
+claimed. Both the live Present read-aloud and the CLI/export captions share the one
+`@slidewright/cadenza` normalizer, so the change lands on both surfaces.
