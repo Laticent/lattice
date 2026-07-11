@@ -173,6 +173,21 @@ uses the real faces; and the decorative overlay is `pointer-events:none` from th
    basemaps + QR) behind their registry selectors so a plain-text deck parses a small
    core. Secondary — the min build already helps.
 
+**Maker-checker (front B).** An independent checker cleared the patch path with no
+blockers, tracing that charts/mermaid re-render via the *resident* runtime's observer
+(not the one-shot script guard the `deck-preview.js` comment warns about — that only
+fires on script re-execution, which the patch never does), and that the sig is complete
+(`out.css` is a pure function of theme-name + geometry, both in the sig, so a patch can
+never show stale theme CSS). Folded back: a **pending-load guard**
+(`__latticePendingLoad`) so a same-sig render arriving before the outgoing full-write
+srcdoc commits can't patch the wrong document (a latent race `deck-preview.js` also has;
+fixed here on the path of this change, left off-path there per #18); a comment recording
+that mermaid is keyed on the prop deliberately; and the debug overlay deferred one frame
+on patch. **Logged, off-path (#18):** `StudioShell.tsx` hardcodes `mermaid={false}`, so
+the Studio's live preview never injects the mermaid library and mermaid *diagrams* don't
+render there — pre-existing, unchanged by this work; if the Studio later passes a
+content-accurate flag, the patch path already handles it.
+
 ### C. Metrics honesty (so the panel tells the truth)
 1. Recalibrate FRAME/TOTAL bands; split **cold first render** from **warm re-render**
    so a green warm number isn't hidden behind a red cold one.

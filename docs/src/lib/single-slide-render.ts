@@ -106,9 +106,10 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // render's sample instead of a shared module global that an overlapping render
 // could steal. And the render SIGNATURE of everything baked into its live srcdoc
 // OUTSIDE the <section> (theme, mode, geom, mermaid, extra/author CSS) — an
-// unchanged sig means the next render can PATCH the section in place instead of
-// rewriting the whole document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string };
+// unchanged sig means the next render can PATCH the section in place; plus a
+// pending-load flag so a same-sig render can't patch an outgoing (still-loading)
+// full-write document.
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticePendingLoad?: boolean };
 
 // Replace ONLY the live document's `.lattice` contents with a new (already
 // sanitized) slide — the resident theme <style> + runtime <script> stay parsed and
@@ -357,9 +358,24 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// the new section. Any change to theme/mode/size/mermaid/author-CSS misses
 				// the sig and falls through to a full rewrite so the new <style>/<script>
 				// take effect. The single-slide twin of deck-preview.js's renderDeck gate.
+				// mermaid is keyed on the PROP (not a content scan like deck-preview's K/M
+				// suffix) DELIBERATELY: this path's mermaid <script> injection is itself
+				// prop-driven (see srcdoc()), so a constant prop means constant script
+				// presence — a mermaid-content edit needs no full write, and the resident
+				// runtime re-renders the swapped fence. KaTeX needs no flag either: single
+				// -slide never injects a katex <link>; math rides the patch as static HTML.
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}`;
 				const live = host.querySelector<HTMLIFrameElement>('iframe.live');
-				if (live && (host as LiveHost).__latticeFrameSig === sig && live.contentDocument?.querySelector('.lattice')) {
+				// Skip the patch while a full-write srcdoc is still loading: its
+				// contentDocument is briefly the OUTGOING one (which still has `.lattice`),
+				// and patching THAT would be lost when the pending navigation commits. The
+				// full write below sets __latticePendingLoad and clears it in onload.
+				if (
+					live &&
+					!(host as LiveHost).__latticePendingLoad &&
+					(host as LiveHost).__latticeFrameSig === sig &&
+					live.contentDocument?.querySelector('.lattice')
+				) {
 					const tSan = performance.now();
 					const safe = sanitizeSlideHtml(out.html);
 					const patchSanitizeMs = performance.now() - tSan;
@@ -368,7 +384,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						const tFit = performance.now();
 						scaleFrame(host);
 						const patchFitMs = performance.now() - tFit;
-						applyDebug(live, { force: null });
+						// Defer the debug overlay one frame so it measures AFTER the resident
+						// runtime re-stamps the swapped section's geometry (the full-write path
+						// gets this for free by drawing in onload, post-layout).
+						requestAnimationFrame(() => applyDebug(live, { force: null }));
 						const now = performance.now();
 						recordRenderSample({ engineMs, sanitizeMs: patchSanitizeMs, frameMs: now - tFrame, fitMs: patchFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length });
 						return { ok: true, slides, error: null };
@@ -424,6 +443,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// reflow), then debug overlay + video bridge which are outside the
 					// measured fit. frameMs is the browser's own parse/layout of the
 					// srcdoc: from the end of our synchronous setup below to this load event.
+					// This srcdoc has committed — future same-sig renders may now patch it.
+					(host as LiveHost).__latticePendingLoad = false;
 					const tFit = performance.now();
 					scaleFrame(host);
 					const fitMs = performance.now() - tFit;
@@ -467,6 +488,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						setTimeout(() => patchOverflow(shownSample, countOverflow()), 600);
 					}
 				};
+				// Mark the navigation in flight BEFORE assigning srcdoc: until onload
+				// clears it, the patch guard above must not touch the outgoing document.
+				(host as LiveHost).__latticePendingLoad = true;
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
