@@ -182,5 +182,17 @@ second UI tech onto the script.
   a module-level singleton claim for duplicate includes, and a `createPortal` to
   `document.body` so `position:fixed` is viewport-relative regardless of a
   transformed ancestor. `PerfOverlay.astro` is now a thin `client:only` mount.
-- **Verified** on the real Studio at 390 / 820 / 1440px (HARD RULE #23): popover on
-  desktop + tablet, bottom sheet on mobile, live values and correct rating zones.
+- **On-brand, one system.** The compact panel wears the SAME shadcn `popover`
+  surface tokens as the detail cards (border, radius, shadow, foreground), so
+  it's theme-aware — a navy card in dark, a white card in light — matching the
+  Studio instead of a fixed black HUD, and the panel + detail read as one system.
+- **All React / all TypeScript.** The overlay UI is React end-to-end; the two
+  shared helpers it needs — the on/off pref (`perf-overlay-prefs.ts`) and the
+  telemetry bus (`render-metrics.ts`) — are plain framework-agnostic TS modules
+  (a store + an event bus), because non-React callers use them too: the render
+  path (`single-slide-render.ts`) records into the bus, and the frozen Drawing
+  Board reads the pref. They're libraries, not components — the correct shape for
+  shared state in an all-React app, not a vanilla/React hybrid.
+- **Verified** on the real Studio at 390 / 820 / 1440px in light AND dark (HARD
+  RULE #23): popover on desktop + tablet, bottom sheet on mobile, panel + detail
+  sharing one on-brand surface, live values and correct rating zones.

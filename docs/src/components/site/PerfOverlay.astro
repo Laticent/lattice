@@ -6,7 +6,7 @@
 //
 // client:only — the overlay is browser-only (reads localStorage/window, runs
 // rAF/observer loops) and never needs SSR/SEO. It renders NOTHING until the
-// shared pref is on (perf-overlay-prefs.js: the Studio/Drawing-Board switches +
+// shared pref is on (perf-overlay-prefs.ts: the Studio/Drawing-Board switches +
 // the `?perf` param), so a normal page view pays nothing. Included once per page
 // via ResourceHints (standalone routes), Header (docs zone), and features.astro;
 // a module-level singleton claim in the island makes a double-include a no-op.

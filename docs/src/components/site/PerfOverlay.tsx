@@ -4,20 +4,20 @@
 //   • WEB VITALS (page-load, one-shot): LCP / CLS / INP / FCP / TTFB.
 //   • RUNTIME (live while shown): FPS, MEM (Chrome heap), CPU≈ (Long Tasks proxy).
 //   • RENDER (live per render): the Lattice edit→preview pipeline, fed by
-//     render-metrics.js which single-slide-render.ts records into.
+//     render-metrics.ts which single-slide-render.ts records into.
 //
 // All measured by the visitor's OWN browser (real-device numbers). On/off is the
-// shared cross-surface pref (perf-overlay-prefs.js): the Studio switch, the
+// shared cross-surface pref (perf-overlay-prefs.ts): the Studio switch, the
 // Drawing Board switch, and the `?perf` URL param all flip it, and this island
 // mounts/unmounts live in response. It renders NOTHING (and starts no loops)
 // until enabled, so a normal page view pays nothing. Availability is GA-gated in
-// perf-overlay-prefs.js. Included once per page via ResourceHints/Header/
+// perf-overlay-prefs.ts. Included once per page via ResourceHints/Header/
 // features; a module-level singleton claim makes extra includes no-ops.
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs.js';
-import { latestRenderSample, onRenderSample } from '@/playground/render-metrics.js';
+import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
+import { latestRenderSample, onRenderSample, type RenderSample } from '@/playground/render-metrics';
 import { type MetricDatum, MetricDetail } from './MetricDetail';
 import { type MetricMeta, RENDER, RUNTIME, rateMetric, VITALS } from './perf-metrics';
 
@@ -65,7 +65,6 @@ const hasLongTasks = () => {
 };
 
 type Pos = { left: number; top: number } | null;
-type RenderSample = Record<string, number> & { raw?: Record<string, number> };
 
 export default function PerfOverlay() {
 	const [enabled, setEnabled] = React.useState(false);
@@ -110,7 +109,7 @@ function Overlay() {
 
 	const [vitals, setVitals] = React.useState<Record<string, number>>(() => ({ ...vitalsCache }));
 	const [runtime, setRuntime] = React.useState<{ FPS?: number; MEM?: number; memFrac?: number; CPU?: number }>({});
-	const [sample, setSample] = React.useState<RenderSample | null>(() => latestRenderSample() as RenderSample | null);
+	const [sample, setSample] = React.useState<RenderSample | null>(() => latestRenderSample());
 
 	// ── WEB VITALS: start the once-per-page collector (lazy) and subscribe. Seeds
 	// from the cache so one-shot metrics survive a toggle-off→on. ──
@@ -203,8 +202,10 @@ function Overlay() {
 				const frac = m.key === 'MEM' ? runtime.memFrac : undefined;
 				return { value, rating: value == null ? null : rateMetric(m, value, frac), extra: frac };
 			}
-			const value = sample ? (sample[m.key] ?? null) : null;
-			const raw = sample?.raw ? (sample.raw[m.key] ?? null) : null;
+			const asRec = sample as unknown as Record<string, number> | null;
+			const value = asRec ? (asRec[m.key] ?? null) : null;
+			const rawRec = sample?.raw as unknown as Record<string, number> | undefined;
+			const raw = rawRec ? (rawRec[m.key] ?? null) : null;
 			return { value, rating: value == null ? null : rateMetric(m, value), raw };
 		},
 		[vitals, runtime, sample],
@@ -236,15 +237,16 @@ function Group({ rows, datumFor }: { rows: MetricMeta[]; datumFor: (m: MetricMet
 function Sep({ label }: { label: string }) {
 	return (
 		<div className="mt-[7px] mb-1 flex items-center gap-2">
-			<span className="text-[9px] uppercase tracking-[0.1em] text-[#71717a]">{label}</span>
-			<span className="h-px flex-1 bg-white/10" />
+			<span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
+			<span className="h-px flex-1 bg-border" />
 		</div>
 	);
 }
 
-// The draggable dark-glass panel, portaled to <body> so `position:fixed` is
-// relative to the viewport regardless of any transformed ancestor at the include
-// site — matching the old script that appended straight to document.body.
+// The draggable panel, portaled to <body> so `position:fixed` is relative to
+// the viewport regardless of any transformed ancestor at the include site. It
+// wears the SAME on-brand surface as the detail card (shadcn `popover` tokens,
+// theme-aware) so the compact readout and the tapped detail read as one system.
 function PanelPortal({ children }: { children: React.ReactNode }) {
 	const ref = React.useRef<HTMLDivElement>(null);
 	const [pos, setPos] = React.useState<Pos>(() => {
@@ -313,19 +315,19 @@ function PanelPortal({ children }: { children: React.ReactNode }) {
 			ref={ref}
 			id="lattice-perf-overlay"
 			role="status"
-			className="lx-ui fixed z-[2147483646] min-w-[158px] select-none rounded-[10px] border border-white/15 bg-[rgba(15,17,21,0.92)] px-[10px] pt-[7px] pb-[9px] font-mono text-[12px] leading-[1.4] text-[#f4f4f5] shadow-[0_6px_20px_rgba(0,0,0,0.4)] backdrop-blur-[6px]"
+			className="lx-ui fixed z-[2147483646] min-w-[168px] select-none rounded-xl border border-border bg-popover/95 px-2.5 pt-2 pb-2.5 font-mono text-[12px] leading-[1.4] text-popover-foreground shadow-lg backdrop-blur-sm"
 			style={style}
 		>
 			<div className="mb-1.5 flex cursor-grab touch-none items-center gap-2 active:cursor-grabbing" onPointerDown={onHeaderPointerDown}>
-				<span aria-hidden className="grid grid-cols-2 gap-[2px] p-px opacity-45">
+				<span aria-hidden className="grid grid-cols-2 gap-[2px] p-px opacity-60">
 					{['a', 'b', 'c', 'd', 'e', 'f'].map((k) => (
-						<i key={k} className="block size-[3px] rounded-full bg-[#d4d4d8]" />
+						<i key={k} className="block size-[3px] rounded-full bg-muted-foreground" />
 					))}
 				</span>
-				<span className="flex-1 text-[10px] uppercase tracking-[0.08em] text-[#a1a1aa]">performance · live</span>
+				<span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">performance · live</span>
 				<button
 					type="button"
-					className="pf-close cursor-pointer border-0 bg-transparent px-0.5 text-[14px] leading-none text-[#a1a1aa] hover:text-white"
+					className="pf-close -my-1 -mr-1 cursor-pointer rounded border-0 bg-transparent px-1 py-0.5 text-[14px] leading-none text-muted-foreground transition-colors hover:text-foreground"
 					aria-label="Hide performance overlay"
 					onClick={() => setPerfOverlayEnabled(false)}
 				>

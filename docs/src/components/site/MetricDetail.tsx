@@ -122,17 +122,17 @@ const Row = React.forwardRef<HTMLButtonElement, { meta: MetricMeta; datum: Metri
 				type="button"
 				aria-label={`${meta.title} — details`}
 				className={cn(
-					'flex h-[18px] w-full items-center justify-between gap-3.5 rounded px-1 text-left outline-none transition-colors hover:bg-white/10 focus-visible:bg-white/10',
+					'flex h-[18px] w-full items-center justify-between gap-3.5 rounded px-1 text-left outline-none transition-colors hover:bg-muted focus-visible:bg-muted',
 					className,
 				)}
 				{...props}
 			>
-				<span className="flex items-center gap-[7px] text-[#d4d4d8]">
+				<span className="flex items-center gap-[7px] text-muted-foreground">
 					<span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
 					{meta.label}
-					{meta.approximate && <span className="text-[10px] text-[#71717a]">≈</span>}
+					{meta.approximate && <span className="text-[10px] opacity-70">≈</span>}
 				</span>
-				<span className="font-mono tabular-nums text-[#fafafa]">
+				<span className="font-mono font-medium tabular-nums text-foreground">
 					{datum.value == null ? '–' : formatValue(meta, datum.value)}
 				</span>
 			</button>

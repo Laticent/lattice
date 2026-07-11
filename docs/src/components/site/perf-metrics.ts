@@ -5,7 +5,7 @@
 // Three groups, mirroring what the overlay measures:
 //   • vitals  — Google Core Web Vitals (page load, one-shot).
 //   • runtime — live browser health while the overlay is shown.
-//   • render  — the Lattice edit→preview pipeline (fed by render-metrics.js).
+//   • render  — the Lattice edit→preview pipeline (fed by render-metrics.ts).
 //
 // Ratings are computed here from `bands` (not from web-vitals) so every group
 // colours the same way and the detail card can draw one consistent budget

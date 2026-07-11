@@ -185,10 +185,12 @@ in patch versions.
   `performance.now()` reads. Every row is **tappable for a plain-language
   explanation** — what it measures, why it matters, and where the value sits
   against its budget — via a shadcn **Popover** on tablet/desktop and a bottom
-  **Sheet** on phones (the overlay is now a React island; the metric copy +
-  budgets live in one registry, `docs/src/components/site/perf-metrics.ts`). The
-  Studio toggle drives the same cross-surface pref as the Drawing Board switch
-  and the `?perf` URL param. Design + the deferred deeper-instrumentation option:
+  **Sheet** on phones (the overlay is a React island; the metric copy + budgets
+  live in one registry, `docs/src/components/site/perf-metrics.ts`). The compact
+  panel and the detail cards share the same theme-aware surface, so the overlay
+  is on-brand in both light and dark instead of a fixed dark HUD. Enable it from
+  the Studio toggle (Workspace → General → Diagnostics), the Drawing Board
+  switch, or the `?perf` URL param — all the same cross-surface pref. Design + the deferred deeper-instrumentation option:
   `engineering/decisions/2026-07-11-studio-render-perf-overlay.md`.
 - **A first-class `color-mode:` front-matter key — `light` · `dark` · `system` ·
   `inherited` — that every surface honors.** Color mode was authored through the

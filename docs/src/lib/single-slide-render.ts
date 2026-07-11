@@ -26,7 +26,7 @@
 import { applyDebug } from '../playground/debug-overlay.js';
 import { linkGuardAgent } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
-import { recordRenderSample } from '../playground/render-metrics.js';
+import { recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
