@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Design record for making TTS/read-along captions sound natural by teaching narration the slide's semantics. A five-lens review (linguist + phonetician personas, red-team + Munger-inversion + independent-checker trio) reframed the ask — a `speech` field on all 56 manifests. A SECOND adversarial trio, run against this doc itself, then found load-bearing errors in the synthesis (see §11) and corrected the recommendation: the verifiable win is a component-blind normalizer lexicon fix; the natural value→label reorder lives on the DOM projection path keyed on `data-class` (no manifest field); a per-component `speech` field is NOT recommended. A first-pass census of all 56 manifests (§12) then found the design rested on a partial sample — it refuted a shipped claim (mixed reference/quantity components DO exist), re-scoped Phase 1 to need a legal/finance domain lexicon, and surfaced a per-item hard edge no option fixes; the recommendation is the current best read, provisional until a full authoring-semantics census is complete.
+summary: Design record for making TTS/read-along captions sound natural by teaching narration the slide's semantics. A five-lens review (linguist + phonetician personas, red-team + Munger-inversion + independent-checker trio) reframed the ask — a `speech` field on all 56 manifests. A SECOND adversarial trio, run against this doc itself, then found load-bearing errors in the synthesis (see §11) and corrected the recommendation: the verifiable win is a component-blind normalizer lexicon fix; the natural value→label reorder lives on the DOM projection path keyed on `data-class` (no manifest field); a per-component `speech` field is NOT recommended. A first-pass census (§12), then a full 27-agent maker→checker→judge authoring-semantics census of all 56 manifests + their docs (§13), then CONFIRMED recommendation C (no per-component manifest field) across all 13 buckets — forcing three refinements (key the DOM projection on the full variant class, generalize its primitive to reorder/inject/skip/verbatim-guard, broaden the Phase-1 lexicon) and an explicitly-scoped JS narration tail (table-walkers, state-marker class-readers, math/diagram/video narrators). Audio naturalness remains UNVERIFIED; only the spoken-string behavior is claimed.
 companion:
   - ./2026-07-09-cadenza-narration-quality.md
   - ./2026-07-07-cadenza-caption-timeline.md
@@ -319,9 +319,94 @@ skeleton/sample/variant samples across all 56) was then run, and it immediately 
   with `$245M` in one `ol > li` slot is disambiguable by neither token, `data-class`, nor slot — and it's
   per-*item*, so option A (a per-slot field) would not fix it. It needs a token heuristic or is flagged.
 
-**What is still NOT done (the real next step):** a full authoring-semantics census — reading every
-manifest AND its `<name>.docs.md` across all 13 buckets, cataloging per-slot the narratable structure and
-number/token kinds (math's TeX, code's fenced source + focus lines, connect's QR/contact data, glossary's
-`dl`, chart's non-narrated members, the roadmap/gantt/kanban token grammars, etc.). The §8 taxonomy and
-the phase scoping should be treated as **provisional** until that census is complete; the recommendation
-(C + a domain-lexicon-scoped Phase 1) is the current best read, not a locked conclusion.
+**This census is now COMPLETE — see §13.** It was run as a 27-agent maker→checker→judge fan-out (one
+maker + one independent checker per bucket, one judge). It **confirmed recommendation C** (no per-component
+manifest field) across all 13 buckets and forced three refinements + an explicitly-scoped JS narration
+tail. §8 and the phase scoping below should be read together with §13.
+
+## 13. Full authoring-semantics census — deck-wide synthesis (2026-07-11)
+
+This closes the §12 census gap: every manifest AND its `<name>.docs.md` was profiled across all 13 buckets
+(maker + independent checker per bucket; checker corrections treated as authoritative). The verdict on the
+§10 recommendation: **C (no per-component manifest field) SURVIVES and is strengthened** — no component
+needs a field. What the census *does* force is a broader lexicon, a variant-aware projection key, a
+generalized set of Phase-2 projection ops, and explicit acknowledgment of a JS narration **tail** (tables,
+state-markers, math, diagram, video, connect) that C anticipates but the §6 phasing does not yet scope.
+
+### 13.1 Per-bucket profile (compact)
+
+| Bucket | Path today | Decision-relevant reality | Beyond C + lexicon + reorder? |
+|---|---|---|---|
+| anchor | generic flatten | eyebrow visually above heading (flex order:-1) but DOM-after → data-class reorder; qr transform strips the URL on the DOM (hazard is markdown-only); numbered CSS counter can double with an authored ordinal | Reorder keyed on data-class incl. `qr`/`numbered` variant. **Supports C.** |
+| statement | generic flatten | split-panel is variant-polymorphic: SAME selectors → ordinal-semantic vs label, hero-number vs prose, verbatim vs frame; `<em>`/`—` leak on markdown path; big-number given→new already natural | **Projection must key on FULL class (variant), not componentOf first token.** |
+| inventory | generic flatten | checklist [x]/[-]/[ ]/[/] semantic is the load-bearing signal; glossary is a runtime ul→**table**; pill vocab splits (actors=name, cards-stack=status); auto-numbers are markers not sequence | **State-marker reader + table-walker (glossary).** |
+| comparison | generic flatten | redline inline `<del>`/`<ins>` → garbled doubled clause (+ rl-old/rl-new positional variants); verdict-grid/pricing state semantic dropped to CSS class; **[ ]=fail overloads checklist's [ ]=todo**; compare-table is a real `<table>` | **State-marker class-reader (component-keyed) + table-walker + redline diff-resolver.** |
+| progression | generic flatten | list-steps prefix-word (STEP/PHASE/RANK) is CSS-only, recoverable only from the variant; 4/12 variants DELETE the badge; **list-criteria renders the same ordinal badge on ul (semantic-free) and ol (rank)** | Variant-aware ordinal synthesis; branch on ol/ul. |
+| evidence | generic flatten | kpi/stats value-lead ol → value→label reorder (kpi.manifest declares `keepTogether:[value+label]`); kpi ALSO has a MIXED meta line (reference target + delta) + droppable status pills; stats is the clean minimal reorder | Reorder keyed on data-class. **Strongest support for C**, but kpi ≠ stats (kpi needs the MIXED split too). |
+| imagery | h2 + eyebrow only | image = background, no alt (nothing to speak, suppress url()); **video = computed provider/QR synthesis from a bare URL** + poster/caption marker suppression; `reel` multi-clip iteration | **Video narrator / provider-synthesis rule (genuine gap).** |
+| chart | 5 narrators (funnel/journey-weighted/radar/quadrant/state-chart) | 9 of ~14 members UNCOVERED (gantt/kanban/map/roadmap/timeline-list/piechart/progress/word-cloud + non-weighted journey, radar `quadrant`); roadmap is a **table**; narrateRadar/Quadrant fire ONLY when the eyebrow lacks an explicit range | Table-walker (roadmap); more narrators for uncovered members. Coordinates/weights must not read as counts. |
+| diagram | **h2 + eyebrow only — graph is SILENT** | fence dropped (read-aloud.ts:47-51); substance is topology; NONE of the 5 fire on `_class:diagram`; DSL markup would read as garbage if unfenced | **Bespoke SVG `<text>` walker / DSL parser — NO path today.** |
+| math | **h2 + eyebrow; reads raw TeX** | `$$…$$`→KaTeX span tree, unspeakable by lexicon OR reorder; legend `$sym$ — def`; theorem prefix-words; derivation **table**; `p` selector doesn't isolate equation from prose (use `p:has(.katex-display)`) | **Skip-equation projection rule OR a dedicated narrator — NO path today.** |
+| code | h2 (fence suppressed, correct) | no computed facts; reorder inert; compare-code labels ship in transformed `.code-col>p>code`, NOT the manifest's stale h3 | Key projection on the shipped DOM. **Supports C.** |
+| legal | generic flatten (gibberish on tables) | obligation-matrix + statute-stack `lane` are **tables** with row×col×cell walk + marker→word + **heat inverts [x] to exposure**; citations need the domain pack (§/U.S.C./C.F.R./Art./bill ids); pull-quote HIDES a gloss the flatten speaks; **bare year as a status pill** | **Domain lexicon (as scoped) + table-walker + heat-variant valence flip.** |
+| connect | generic flatten | **contact STRIPS email/phone/url keys → unlabeled ledger** needing INJECTION + per-span classification (reorder is inert/wrong); wifi is already dt:dd (reorder no-op); contact DROPS its h2 entirely; opaque-credential guard | **Label injection + content classification — reorder primitive insufficient.** |
+
+### 13.2 Cross-cutting findings
+
+**F-A — C's core is confirmed.** No component in any bucket needs a per-component manifest field. The
+reference/quantity/role discriminator is always carried by data-class + variant + token-glyph + the
+transform's shipped DOM. The bare-year-vs-quantity residual (§12) recurs across legal but stays
+**per-item** (a 19xx/20xx→year token heuristic), which a per-slot field would not fix either.
+**Recommendation C is strengthened, not overturned.**
+
+**F-B — "keyed on data-class" must mean the FULL class string.** `componentOf` (`prose-projection.mjs:45-47`)
+returns only the first token (verified: `dc.split(/\s+/).filter(Boolean)[0]`), but list-tabular
+(role|value|type|status), split-panel, map (value|category), and obligation-matrix `heat` resolve their
+spoken role ONLY on the VARIANT. As-implemented, the Phase-2 projection cannot resolve these. This is the
+census's sharpest "data-class alone is insufficient" case and the one concrete change Phase 2 requires.
+
+**F-C — Phase 2 needs {reorder | inject | skip | verbatim-guard}, not just reorder.** kpi/stats reorder;
+wifi is a no-op (already label:value); **contact needs label INJECTION** into an unlabeled ledger (and
+`filter(Boolean)` makes position unstable → per-span content classification); math/diagram/canvas/QR need
+SKIP; quote/redline/citation blockquotes/wifi passwords need a VERBATIM guard so the normalizer never
+rewrites them. The primitive is selected per data-class.
+
+**F-D — a JS narration TAIL, fully mapped, that C anticipates but §6 does not scope.** (1) **Table-walkers**:
+roadmap, obligation-matrix, gantt, glossary, statute-stack `lane`, math derivation — §8 lists only
+compare-table. (2) **State-marker class-readers**: checklist, verdict-grid, pricing, obligation-matrix,
+roadmap — the [x]/[-]/[ ]/[/] semantic is dropped to a CSS class then the marker is stripped
+(verified: `stateClassesFor` + "strips the marker", `plugins.js:530-630`); the map is
+**component/variant-keyed** ([ ]=fail vs todo; heat inverts). (3) **Dedicated narrators/skip-rules**: math
+(equation), diagram (mermaid), video (provider). Each is a JS narrator/walker keyed on data-class —
+consistent with C ("a computed-fact component adds a JS narrator"), so the plan should state the tail
+explicitly rather than imply the 5 narrators + Phase-1/2 cover the deck.
+
+**F-E — the domain lexicon is broader than "legal/finance."** Beyond §/U.S.C./C.F.R./Art./bill-ids/$/%, the
+census requires: `×`/`−`(U+2212)/`pp`/`bps`/magnitude suffixes; chart status de-hyphenation
+(`at-risk`→"at risk"); size badges (S/M/L/XL); span `..`→"to"; page refs `p.15`; date/quarter/duration
+forms; coordinate/bit-range/weight SUPPRESSION (`3, 70` is not "three, seventy"); URL/credential/identifier
+guards; leaked `<em>`/`<del>`/`<sup>`; routing-pill (`qr`/`caption`/`poster`) suppression; leading-zero
+ordinals (`01`→"one", never "oh-one"). The full kind list is in the workflow judgment (scratchpad
+`census-report.md` companion output).
+
+**F-F — two producers narrate different content until unified.** The markdown path (slideToSpeech reads raw
+markdown) and the DOM projection diverge in BOTH directions: pull-quote (citation-card) visually HIDES a
+gloss the flatten speaks; QR variants keep the URL in markdown but strip it in the DOM. This confirms the
+doc's Phase-2 direction (narrate the sanitized, component-aware DOM) and reinforces that giving the live
+Present path the DOM projection is the real unification work, not a rename.
+
+### 13.3 Corrected plan deltas (fold into §6/§8 when built) and the honest caveat
+
+Adopt three refinements and scope the tail: (i) **key Phase-2 projection on the full variant class**, not
+`componentOf`'s first token (F-B); (ii) **generalize the projection primitive** to
+`{reorder | inject | skip | verbatim-guard}` selected per data-class (F-C); (iii) **broaden Phase-1's
+lexicon** to the full F-E kind set. And **scope the JS narration tail explicitly** (F-D): table-walkers
+(×6 surfaces), state-marker class-readers (×5, component/variant-keyed valence), and dedicated
+math/diagram/video narrators — all keyed on data-class, consistent with C, but real work §6 did not list.
+
+**Caveat (the judge's own, and the standing discipline):** the maker profiles carried some off-by-one line
+citations and cross-bucket token contamination (checker-flagged: SOC 2/SSO between pricing and verdict-grid;
+`$1.2M`/`−18d` between kpi and stats). The token/structure **kinds and the C verdict are solid** (the two
+sharpest new claims, F-B and F-D.2, were re-verified against source before landing here); **exact
+string→line attributions must be re-verified before any of this enters code.** Audio naturalness remains
+UNVERIFIED (HARD RULE #23) — only display→spoken string/text behavior is ever claimed.
