@@ -27,6 +27,34 @@ const POS_KEY = 'lattice-perf-overlay-pos';
 // that includes the overlay twice (Header + features) still shows one.
 let claimed = false;
 
+// ── Web Vitals: registered ONCE per page at module scope ──────────────────────
+// web-vitals exposes no unsubscribe, and its one-shot metrics (LCP/FCP/TTFB) only
+// fire at load — so registering inside the mounted overlay would (a) never tear
+// down, (b) re-register a fresh observer set on every toggle-off→on, and (c) show
+// those one-shots blank after a re-enable. Registering once here, caching values,
+// and letting the mounted overlay subscribe + seed from the cache fixes all three.
+let vitalsStarted = false;
+const vitalsCache: Record<string, number> = {};
+const vitalsSubs = new Set<(cache: Record<string, number>) => void>();
+function startVitals() {
+	if (vitalsStarted) return;
+	vitalsStarted = true;
+	import('web-vitals')
+		.then(({ onLCP, onCLS, onINP, onFCP, onTTFB }) => {
+			const opts = { reportAllChanges: true };
+			const sink = (m: { name: string; value: number }) => {
+				vitalsCache[m.name] = m.value;
+				for (const fn of vitalsSubs) fn(vitalsCache);
+			};
+			onLCP(sink, opts);
+			onCLS(sink, opts);
+			onINP(sink, opts);
+			onFCP(sink, opts);
+			onTTFB(sink, opts);
+		})
+		.catch(() => {});
+}
+
 const hasMem = () => typeof performance !== 'undefined' && !!(performance as unknown as { memory?: unknown }).memory;
 const hasLongTasks = () => {
 	try {
@@ -80,27 +108,19 @@ function Overlay() {
 	const memSupported = React.useMemo(hasMem, []);
 	const ltSupported = React.useMemo(hasLongTasks, []);
 
-	const [vitals, setVitals] = React.useState<Record<string, number>>({});
+	const [vitals, setVitals] = React.useState<Record<string, number>>(() => ({ ...vitalsCache }));
 	const [runtime, setRuntime] = React.useState<{ FPS?: number; MEM?: number; memFrac?: number; CPU?: number }>({});
 	const [sample, setSample] = React.useState<RenderSample | null>(() => latestRenderSample() as RenderSample | null);
 
-	// ── WEB VITALS: lazy-imported only now that the overlay is shown ──
+	// ── WEB VITALS: start the once-per-page collector (lazy) and subscribe. Seeds
+	// from the cache so one-shot metrics survive a toggle-off→on. ──
 	React.useEffect(() => {
-		let cancelled = false;
-		import('web-vitals')
-			.then(({ onLCP, onCLS, onINP, onFCP, onTTFB }) => {
-				if (cancelled) return;
-				const opts = { reportAllChanges: true };
-				const sink = (m: { name: string; value: number }) => setVitals((v) => ({ ...v, [m.name]: m.value }));
-				onLCP(sink, opts);
-				onCLS(sink, opts);
-				onINP(sink, opts);
-				onFCP(sink, opts);
-				onTTFB(sink, opts);
-			})
-			.catch(() => {});
+		startVitals();
+		const fn = (cache: Record<string, number>) => setVitals({ ...cache });
+		vitalsSubs.add(fn);
+		setVitals({ ...vitalsCache });
 		return () => {
-			cancelled = true;
+			vitalsSubs.delete(fn);
 		};
 	}, []);
 
@@ -140,7 +160,9 @@ function Overlay() {
 				ltObserver = new PerformanceObserver((list) => {
 					for (const e of list.getEntries()) blockedMs += e.duration;
 				});
-				ltObserver.observe({ type: 'longtask', buffered: true });
+				// No `buffered` — replaying long tasks from before the overlay opened
+				// would inflate the first CPU≈ sample past the real current load.
+				ltObserver.observe({ type: 'longtask' });
 			} catch {}
 			cpuTimer = window.setInterval(() => {
 				const pct = Math.min(100, Math.round((blockedMs / 1000) * 100));
@@ -233,6 +255,26 @@ function PanelPortal({ children }: { children: React.ReactNode }) {
 			return null;
 		}
 	});
+
+	// Keep a restored / previously-dragged position on-screen: a panel saved near
+	// the edge of a wide window would otherwise render fully offscreen on a
+	// narrower viewport (or after a resize) with no way to grab it back. Clamp on
+	// mount and on every resize, using the panel's measured size.
+	React.useEffect(() => {
+		const clamp = () => {
+			const el = ref.current;
+			if (!el) return;
+			setPos((p) => {
+				if (!p) return p;
+				const left = Math.max(4, Math.min(p.left, window.innerWidth - el.offsetWidth - 4));
+				const top = Math.max(4, Math.min(p.top, window.innerHeight - el.offsetHeight - 4));
+				return left === p.left && top === p.top ? p : { left, top };
+			});
+		};
+		clamp();
+		window.addEventListener('resize', clamp);
+		return () => window.removeEventListener('resize', clamp);
+	}, []);
 
 	// Drag the header. Move/up listen on document for the drag's duration so it
 	// keeps tracking when the pointer leaves the small header.

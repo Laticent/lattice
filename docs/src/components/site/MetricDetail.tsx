@@ -147,6 +147,12 @@ export function MetricDetail({ meta, datum }: { meta: MetricMeta; datum: MetricD
 	const closeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	const canHover = isWide && finePointer();
 
+	// Crossing the popover/sheet breakpoint while a popover is hover-open would
+	// otherwise leave `open` true and pop the popover back up with no pointer
+	// present when it re-mounts. Reset on any breakpoint change.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset only on breakpoint flip, not on open changes.
+	React.useEffect(() => setOpen(false), [isWide]);
+
 	// Hover intent (desktop popover only): open on enter, close on leave with a
 	// small grace so moving into the popover content doesn't dismiss it.
 	const hoverOpen = () => {
@@ -164,7 +170,10 @@ export function MetricDetail({ meta, datum }: { meta: MetricMeta; datum: MetricD
 		// Phone: bottom sheet. No hover; tap opens. overlay off so the page behind
 		// stays live (matches the sheet.tsx iOS scroll-lock note).
 		return (
-			<Sheet>
+			// modal={false} + overlay={false} keeps the page behind live and NOT
+			// scroll-locked — a modal lock lingers on iOS Safari and freezes the
+			// surface behind (ui/sheet.tsx note; siblings DeckSetupSheet/GalleriesSheet).
+			<Sheet modal={false}>
 				<SheetTrigger asChild>
 					<Row meta={meta} datum={datum} />
 				</SheetTrigger>

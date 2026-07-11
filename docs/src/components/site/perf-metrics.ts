@@ -118,7 +118,7 @@ export const RUNTIME: MetricMeta[] = [
 		key: 'MEM', label: 'MEM', title: 'JavaScript heap', group: 'runtime',
 		format: ms, unit: 'MB',
 		// Rated by fraction of the heap limit (passed as `extra`), not absolute MB.
-		rate: (_v, frac) => (frac == null ? null : frac <= 0.5 ? 'good' : frac <= 0.8 ? 'needs-improvement' : 'poor'),
+		rate: (_v, frac) => (frac == null || !Number.isFinite(frac) ? null : frac <= 0.5 ? 'good' : frac <= 0.8 ? 'needs-improvement' : 'poor'),
 		what: 'JavaScript memory in use (Chrome only).',
 		why: 'Climbing steadily across a session is a hint at a memory leak.',
 	},
