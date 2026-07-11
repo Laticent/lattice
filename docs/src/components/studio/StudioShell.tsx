@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronRight,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -528,25 +528,38 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// base palette (darkness lives on the `class:` axis, not the theme name, in the UI).
 	const deckThemeRaw = (getFrontMatter(source, 'theme') || '').trim();
 	const deckThemeBase = deckThemeRaw.replace(/-dark$/, '');
-	// Reflect a deck pinned dark by a `-dark` THEME name too (not just `class:`), so the
-	// Appearance control never reads "Match site" for a deck that is actually dark.
-	const deckColorMode: 'auto' | 'light' | 'dark' = deckClassList.includes('dark')
-		? 'dark'
-		: deckClassList.includes('light')
-			? 'light'
-			: /-dark$/.test(deckThemeRaw)
+	// The deck's first-class `color-mode:` value — light/dark PIN a side, `system` follows
+	// the viewer's OS, `inherited` adopts the host (site/player) mode. It is the authored
+	// default the whole engine + every surface honors (2026-07-11-color-mode-frontmatter.md).
+	// A legacy `class: dark/light` or a `-dark` theme name is read as its equivalent so an
+	// imported deck still shows a value; a deck with none reads 'default' (the theme's own mode).
+	const rawColorMode = (getFrontMatter(source, 'color-mode') || '').trim().toLowerCase();
+	const deckColorMode: 'default' | 'light' | 'dark' | 'system' | 'inherited' =
+		rawColorMode === 'light' || rawColorMode === 'dark' || rawColorMode === 'system' || rawColorMode === 'inherited'
+			? rawColorMode
+			: deckClassList.includes('dark') || /-dark$/.test(deckThemeRaw)
 				? 'dark'
-				: 'auto';
-	const setDeckColorMode = (value: 'auto' | 'light' | 'dark') =>
-		settingsWrite(`Appearance → ${value === 'auto' ? 'Match site' : value}`, (s) => {
-			// Normalize a `-dark` theme name to its base — this axis (the `class:` token)
-			// is the single home for deck darkness, so the theme name and Appearance can't
-			// disagree. Then clear both canvas tokens and stamp the chosen one (auto = none).
+				: deckClassList.includes('light')
+					? 'light'
+					: 'default';
+	const setDeckColorMode = (value: 'default' | 'light' | 'dark' | 'system' | 'inherited') =>
+		settingsWrite(`Color mode → ${value === 'default' ? 'Theme default' : value}`, (s) => {
+			// `color-mode:` is the single home for deck color mode now. Normalize a `-dark`
+			// theme name to its base and clear the legacy `class: dark/light` alias, so the
+			// theme name and the deprecated axis can never disagree with the key.
 			const t = (getFrontMatter(s, 'theme') || '').trim();
 			const normalized = /-dark$/.test(t) ? setFrontMatter(s, 'theme', t.replace(/-dark$/, '')) : s;
 			const cleared = removeClassTokens(normalized, 'dark light');
-			return value === 'auto' ? cleared : mergeClassTokens(cleared, value);
+			return setFrontMatter(cleared, 'color-mode', value === 'default' ? null : value);
 		});
+	// Icon + label for the current color-mode value (shared by the trigger + the menu).
+	const COLOR_MODE_META: Record<'default' | 'light' | 'dark' | 'system' | 'inherited', { label: string; icon: React.ReactNode }> = {
+		default: { label: 'Theme default', icon: <SunMoon className="size-3.5" /> },
+		light: { label: 'Light', icon: <Sun className="size-3.5" /> },
+		dark: { label: 'Dark', icon: <Moon className="size-3.5" /> },
+		system: { label: 'System', icon: <Monitor className="size-3.5" /> },
+		inherited: { label: 'Match site', icon: <Layers className="size-3.5" /> },
+	};
 	// The DECK's own THEME (front matter), independent of the website palette. The
 	// prominent/topbar picker is the WEBSITE theme; this Inspector control is the
 	// deck's — 'automatic' (no `theme:`) means the deck adopts the website theme.
@@ -1410,15 +1423,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</div>
 					)}
 				</Field>
-				<Field label="Appearance" desc="This deck's light or dark canvas. “Match site” follows the website toggle; Light or Dark pins the deck regardless of the site.">
+				<Field label="Color mode" desc="The mode the deck opens in, everywhere it's rendered. Light or Dark pin it; System follows the viewer's OS; “Match site” adopts the host (the website toggle here, the OS in a shared file). Theme default uses the theme's own mode.">
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Control aria-label="Choose deck appearance"><span className="flex min-w-0 items-center gap-2">{deckColorMode === 'dark' ? <Moon className="size-3.5" /> : deckColorMode === 'light' ? <Sun className="size-3.5" /> : <SunMoon className="size-3.5" />}<span className="truncate">{deckColorMode === 'auto' ? 'Match site' : deckColorMode === 'dark' ? 'Dark' : 'Light'}</span></span> <ChevronDown className="size-3.5" /></Control>
+							<Control aria-label="Choose deck color mode"><span className="flex min-w-0 items-center gap-2">{COLOR_MODE_META[deckColorMode].icon}<span className="truncate">{COLOR_MODE_META[deckColorMode].label}</span></span> <ChevronDown className="size-3.5" /></Control>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-48">
-							<DropdownMenuItem onSelect={() => setDeckColorMode('auto')} className="gap-2"><SunMoon className="size-3.5" />Match site{deckColorMode === 'auto' && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
-							<DropdownMenuItem onSelect={() => setDeckColorMode('light')} className="gap-2"><Sun className="size-3.5" />Light{deckColorMode === 'light' && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
-							<DropdownMenuItem onSelect={() => setDeckColorMode('dark')} className="gap-2"><Moon className="size-3.5" />Dark{deckColorMode === 'dark' && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+							{(['default', 'light', 'dark', 'system', 'inherited'] as const).map((v) => (
+								<DropdownMenuItem key={v} onSelect={() => setDeckColorMode(v)} className="gap-2">{COLOR_MODE_META[v].icon}{COLOR_MODE_META[v].label}{deckColorMode === v && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+							))}
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>

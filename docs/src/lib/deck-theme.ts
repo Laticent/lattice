@@ -56,15 +56,31 @@ export function deckClassTokens(source: string): string[] {
 	return stripQuotes(m[1]).trim().split(/\s+/).filter(Boolean);
 }
 
+/** The four first-class `color-mode:` values. `inherited` adopts the host (site) mode;
+ *  `system` follows the OS. Mirrors lib/core/resolve-color-mode.js COLOR_MODE_NAMES. */
+export type ColorMode = 'light' | 'dark' | 'system' | 'inherited';
+
+/** The deck's first-class `color-mode:` value (front matter), or null when it declares
+ *  none. This SUPERSEDES the legacy `class: dark`/`class: light` color axis. */
+export function deckColorMode(source: string): ColorMode | null {
+	const m = /^\s*color-mode:\s*(.*)$/m.exec(frontMatterBody(source));
+	if (!m) return null;
+	const v = stripQuotes(m[1]).trim().toLowerCase();
+	return v === 'light' || v === 'dark' || v === 'system' || v === 'inherited' ? v : null;
+}
+
 export type ResolvedDeckTheme = {
 	/** Base palette name to render with (never a `-dark` variant — mode carries that). */
 	palette: string;
 	/** Effective light/dark: the deck's pin when it has one, else the site mode. */
 	mode: 'light' | 'dark';
-	/** The deck pins dark (a `-dark` theme, or deck-wide `class: dark`) — ignore site mode. */
+	/** The deck pins dark (`color-mode: dark`, a `-dark` theme, or the legacy `class: dark`) — ignore site mode. */
 	pinnedDark: boolean;
-	/** The deck pins light (deck-wide `class: light`) — ignore a dark site mode. */
+	/** The deck pins light (`color-mode: light` or the legacy `class: light`) — ignore a dark site mode. */
 	pinnedLight: boolean;
+	/** The deck's authored `color-mode:` value, or null. `system`/`inherited` don't PIN
+	 *  a light/dark side (the section tokens follow the OS / host); the drawer reflects it. */
+	colorMode: ColorMode | null;
 	/** The palette came from the deck's own `theme:`, not the site fallback. */
 	fromDeck: boolean;
 };
@@ -113,10 +129,23 @@ export function resolveDeckTheme(
 		}
 	}
 
-	// Deck-wide `class: dark` / `class: light` are explicit color-mode pins — one
-	// vocabulary shared with the per-slide `_class: dark` / `_class: light`. An
-	// explicit `class: light` wins over a `-dark` theme's implicit dark; a deck
-	// wouldn't sanely carry both `dark` and `light`, but if it does, `dark` wins.
+	// The first-class `color-mode:` key is authoritative when present. `light`/`dark`
+	// PIN a side (ignore the site mode); `system` follows the OS and `inherited` follows
+	// the host (site) toggle — NEITHER pins here (the engine's section tokens —
+	// `color-system` / `color-inherited` — do the CSS work in the preview), so the deck
+	// tracks the site mode as its ambient.
+	const colorMode = deckColorMode(source);
+	if (colorMode) {
+		const pinnedDark = colorMode === 'dark';
+		const pinnedLight = colorMode === 'light';
+		const mode = pinnedDark ? 'dark' : pinnedLight ? 'light' : opts.siteMode;
+		return { palette, mode, pinnedDark, pinnedLight, colorMode, fromDeck };
+	}
+
+	// Legacy fallback (no `color-mode:` key): the deck-wide `class: dark` / `class: light`
+	// alias + a `-dark` theme's implicit dark. One vocabulary shared with the per-slide
+	// `_class: dark` / `_class: light`. An explicit `class: light` wins over a `-dark`
+	// theme's implicit dark; a deck wouldn't sanely carry both, but if it does `dark` wins.
 	const tokens = new Set(deckClassTokens(source).map((t) => t.toLowerCase()));
 	const classDark = tokens.has('dark');
 	const classLight = tokens.has('light');
@@ -124,5 +153,7 @@ export function resolveDeckTheme(
 	const pinnedLight = classLight && !classDark;
 
 	const mode = pinnedDark ? 'dark' : pinnedLight ? 'light' : opts.siteMode;
-	return { palette, mode, pinnedDark, pinnedLight, fromDeck };
+	// Surface the legacy alias as its color-mode equivalent so the drawer shows a value.
+	const legacyColorMode: ColorMode | null = classDark ? 'dark' : classLight ? 'light' : null;
+	return { palette, mode, pinnedDark, pinnedLight, colorMode: legacyColorMode, fromDeck };
 }

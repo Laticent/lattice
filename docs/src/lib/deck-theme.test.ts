@@ -124,3 +124,57 @@ describe('resolveDeckTheme — mode is a shared axis, deck-dark pins win', () =>
 		expect(r.fromDeck).toBe(true);
 	});
 });
+
+describe('resolveDeckTheme — the first-class color-mode: key', () => {
+	it('`color-mode: dark` pins dark on a light site (like the legacy alias)', () => {
+		const r = resolveDeckTheme(fm('color-mode: dark'), { sitePalette: 'laguna', siteMode: 'light', isKnownTheme });
+		expect(r.mode).toBe('dark');
+		expect(r.pinnedDark).toBe(true);
+		expect(r.colorMode).toBe('dark');
+		expect(pinnedMode(r)).toBe('dark');
+	});
+
+	it('`color-mode: light` pins light on a dark site', () => {
+		const r = resolveDeckTheme(fm('color-mode: light'), { sitePalette: 'laguna', siteMode: 'dark', isKnownTheme });
+		expect(r.mode).toBe('light');
+		expect(r.pinnedLight).toBe(true);
+		expect(r.colorMode).toBe('light');
+	});
+
+	it('`color-mode: system` does NOT pin — follows the site as ambient (section token follows the OS)', () => {
+		const r = resolveDeckTheme(fm('color-mode: system'), { sitePalette: 'indaco', siteMode: 'dark', isKnownTheme });
+		expect(r.pinnedDark).toBe(false);
+		expect(r.pinnedLight).toBe(false);
+		expect(r.mode).toBe('dark'); // ambient = the site mode
+		expect(r.colorMode).toBe('system');
+		expect(pinnedMode(r)).toBeUndefined();
+	});
+
+	it('`color-mode: inherited` does NOT pin — adopts the site (host) mode', () => {
+		const r = resolveDeckTheme(fm('color-mode: inherited'), { sitePalette: 'indaco', siteMode: 'light', isKnownTheme });
+		expect(r.pinnedDark).toBe(false);
+		expect(r.pinnedLight).toBe(false);
+		expect(r.mode).toBe('light');
+		expect(r.colorMode).toBe('inherited');
+		expect(pinnedMode(r)).toBeUndefined();
+	});
+
+	it('`color-mode:` WINS over the legacy `class: dark` alias', () => {
+		const r = resolveDeckTheme(fm('class: dark\ncolor-mode: light'), { sitePalette: 'indaco', siteMode: 'dark', isKnownTheme });
+		expect(r.mode).toBe('light');
+		expect(r.pinnedLight).toBe(true);
+		expect(r.colorMode).toBe('light');
+	});
+
+	it('`color-mode:` overrides a `-dark` theme (explicit system defers to the viewer)', () => {
+		const r = resolveDeckTheme(fm('theme: cuoio-dark\ncolor-mode: system'), { sitePalette: 'indaco', siteMode: 'light', isKnownTheme });
+		expect(r.palette).toBe('cuoio');
+		expect(r.pinnedDark).toBe(false);
+		expect(r.colorMode).toBe('system');
+	});
+
+	it('the legacy alias still surfaces as a colorMode value when no key is set', () => {
+		const r = resolveDeckTheme(fm('class: dark'), { sitePalette: 'indaco', siteMode: 'light', isKnownTheme });
+		expect(r.colorMode).toBe('dark');
+	});
+});
