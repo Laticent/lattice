@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 // The CJS producer + the export kernel it feeds — proving the whole chain
 // (builder → manifest field → .vtt deriver) composes end-to-end, all in root CJS
 // now that Cadenza is a require-able workspace package.
-const { buildReadAlong } = require('../../../lib/core/read-along-build.js');
+const { buildReadAlong, mergeNarration } = require('../../../lib/core/read-along-build.js');
 const { buildEnvelope, parseEnvelope } = require('../../../lib/core/lattice-doc.js');
 const { readAlongToVtt } = require('../../../lib/core/read-along-vtt.js');
 
@@ -54,4 +54,22 @@ test('end-to-end: a built section round-trips through the manifest and derives a
 	assert.equal(cueTimes.length, 2);
 	assert.equal(cueTimes[0], '00:00:00.000');
 	assert.ok(cueTimes[1] > '00:00:00.000');
+});
+
+// ── mergeNarration (Phase 2 export producer unification) ──────────────────────
+
+test('mergeNarration: an authored note wins; projection fills a note-less slide', () => {
+	const merged = mergeNarration(['Authored note.', '   ', null], ['PROJ 0', 'PROJ 1', 'PROJ 2']);
+	assert.deepEqual(merged, ['Authored note.', 'PROJ 1', 'PROJ 2']);
+});
+
+test('mergeNarration: a length mismatch drops projection wholesale (never misaligns)', () => {
+	// 3 authored slides but 4 rendered sections (an autosplit) → notes-only.
+	const merged = mergeNarration([null, 'Note.', null], ['P0', 'P1', 'P2', 'P3']);
+	assert.deepEqual(merged, ['', 'Note.', '']);
+});
+
+test('mergeNarration: empty projection (e.g. --strip-notes) yields notes-only', () => {
+	assert.deepEqual(mergeNarration(['A', null], []), ['A', '']);
+	assert.deepEqual(mergeNarration([null, null], []), ['', '']);
 });

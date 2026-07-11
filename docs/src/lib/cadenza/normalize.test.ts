@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { lookupLexicon } from './lexicon';
 import { integerToWords, numberToWords, spokenWordCount, toSpoken, toSpokenText } from './normalize';
 
 describe('numberToWords', () => {
@@ -35,6 +36,61 @@ describe('toSpoken', () => {
     expect(toSpoken('Q3')).toBe('Q three');
     expect(toSpoken('revenue')).toBe('revenue');
     expect(toSpoken('grew,')).toBe('grew,');
+  });
+
+  it('reframes signed deltas ONLY when a unit is present; a bare signed number is a plain sign', () => {
+    expect(toSpoken('+9%')).toBe('up nine percent');
+    expect(toSpoken('−18d')).toBe('down eighteen days'); // U+2212 minus + unit
+    expect(toSpoken('-18d')).toBe('down eighteen days'); // ASCII minus behaves identically
+    expect(toSpoken('+$180M')).toBe('up one hundred eighty million dollars');
+    // Bare signed numbers are NOT deltas — a phone code / temperature, not up/down.
+    expect(toSpoken('+44')).toBe('forty-four');
+    expect(toSpoken('−40')).toBe('negative forty');
+    expect(toSpoken('-2')).toBe('negative two');
+    expect(toSpoken('+')).toBe('+'); // a lone sign never reframes
+  });
+
+  it('expands finance/units with singular/plural agreement', () => {
+    expect(toSpoken('2pp')).toBe('two percentage points');
+    expect(toSpoken('1pp')).toBe('one percentage point'); // singular
+    expect(toSpoken('25bps')).toBe('twenty-five basis points');
+    expect(toSpoken('4.2×')).toBe('four point two times'); // × U+00D7
+    expect(toSpoken('4.2x')).toBe('four point two times');
+    expect(toSpoken('18d')).toBe('eighteen days');
+    expect(toSpoken('1d')).toBe('one day'); // singular
+    expect(toSpoken('3D')).toBe('3D'); // capital D is NOT a duration
+    expect(toSpoken('1990s')).toBe('1990s'); // a decade, NOT "seconds"
+  });
+
+  it('speaks section references, preserving every citation digit (trailing zeros)', () => {
+    expect(toSpoken('§1798.140(o)')).toBe('section one thousand seven hundred ninety-eight point one four zero, subsection o');
+    expect(toSpoken('§1798.100')).toBe('section one thousand seven hundred ninety-eight point one zero zero'); // zeros kept
+    expect(toSpoken('§6501')).toBe('section six thousand five hundred one');
+    expect(toSpoken('§101(a)(5)')).toBe('section one hundred one, subsection a, subsection five');
+  });
+
+  it('drops decorative middot separators instead of speaking them', () => {
+    expect(toSpoken('·')).toBe('');
+    expect(toSpokenText('Financial · Q3')).toBe('Financial  Q three'); // the · drops to nothing
+  });
+
+  it('opts in domain packs only when asked, and threads domains through toSpokenText', () => {
+    expect(toSpoken('v.')).toBe('v.'); // no domain → passthrough
+    expect(toSpoken('v.', { domains: ['legal'] })).toBe('versus');
+    expect(toSpoken('CCPA', { domains: ['legal'] })).toBe('C C P A');
+    expect(toSpoken('saas')).toBe('sass'); // BASE, always on
+    expect(toSpoken('saas.')).toBe('sass.'); // a real terminator on a non-abbreviation is kept
+    expect(toSpoken('h2')).toBe('h2'); // NOT "second half" — removed from BASE (heading/chemistry)
+    expect(toSpokenText('Under §1798.140 the CCPA applies.', { domains: ['legal'] })).toBe(
+      'Under section one thousand seven hundred ninety-eight point one four zero the C C P A applies.',
+    );
+  });
+
+  it('lookupLexicon: BASE always on, domain packs opt-in', () => {
+    expect(lookupLexicon('§')).toBe('section');
+    expect(lookupLexicon('v.')).toBeNull();
+    expect(lookupLexicon('v.', ['legal'])).toBe('versus');
+    expect(lookupLexicon('__proto__')).toBeNull(); // prototype-safe
   });
 
   it('display and spoken diverge in word count (the normalization gap)', () => {

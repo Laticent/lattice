@@ -23,6 +23,20 @@ describe('toVtt', () => {
     expect(vtt).toContain('$4.2M.'); // caption shows the display form, not "four point two…"
     expect(vtt).toMatch(/<\d{2}:\d{2}:\d{2}\.\d{3}>/); // inline word timestamp
   });
+
+  it('escapes &, <, > in the cue payload (spec) without touching the timestamp tags', () => {
+    // Deck prose now routes into cue text — "R&D", "5<10", "-->" must be escaped
+    // so they can't corrupt the cue payload or forge a cue-timing "-->".
+    const v = toVtt(buildTrack('R&D grew 5<10 and 3>2 fast --> done.'));
+    expect(v).toContain('R&amp;D');
+    expect(v).toContain('5&lt;10');
+    expect(v).toContain('3&gt;2');
+    expect(v).not.toContain('5<10'); // no raw '<' opens a cue span
+    expect(v).not.toContain('3>2'); // no raw '>'
+    // The one real cue-timing arrow stays; the payload "-->" became "--&gt;".
+    expect((v.match(/ --> /g) || []).length).toBe(1);
+    expect(v).toMatch(/<\d{2}:\d{2}:\d{2}\.\d{3}>/); // structural timestamp tag intact
+  });
 });
 
 describe('toSrt', () => {

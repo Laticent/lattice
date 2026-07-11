@@ -2089,7 +2089,7 @@ async function renderBody(browser, g, closeBrowser) {
   // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next
   // to the deck, not baked into its bytes. Uses `materializedNotes` so --strip-notes
   // scrubs the captions too (a stripped deck emits no narration).
-  if (CAPTIONS) writeCaptionsSidecar(outFile, materializedNotes);
+  if (CAPTIONS) await writeCaptionsSidecar(outFile, materializedNotes, cleanDocHtml);
 }
 
 // P6 — used-selector CSS prune for the self-contained player. Drops the rules of
@@ -2573,21 +2573,68 @@ function writeNotesSidecar(pdfPath, notes) {
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
 }
 
+/**
+ * Component-aware DOM speech projection for the export (2026-07-11-manifest-speech
+ * -contract §6 Phase 2). Parses the sanitized-render HTML, sanitizes each slide
+ * section (HARD RULE #22 — the caller-sanitizes contract prose-projection requires),
+ * and projects each to natural narration DISPLAY text. Returns [] (never throws) on
+ * any failure — the notes-only path below still narrates. `docHtml` is the emulator's
+ * cleanDocHtml. Async: the projection + sanitizer are ESM (dynamic import).
+ */
+async function projectDeckSpeechFromHtml(docHtml) {
+  if (!docHtml || typeof docHtml !== 'string') return [];
+  try {
+    const { JSDOM } = require('jsdom');
+    const DOMPurify = require('dompurify');
+    const { createSlideSanitizer } = await import('./lib/core/sanitize-slide-html.mjs');
+    const { projectDeckToSpeech } = await import('./lib/transformers/prose-projection.mjs');
+    const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
+    const doc = new JSDOM(docHtml).window.document;
+    const raw = [...doc.querySelectorAll('section[data-lattice-slide]')];
+    // Sanitize each section in isolation, then project the clean nodes.
+    const clean = raw
+      .map((s) => new JSDOM(sanitize(s.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
+      .filter(Boolean);
+    return projectDeckToSpeech(clean);
+  } catch (e) {
+    // Degrade to notes-only, but SURFACE the failure — a swallowed projection
+    // crash is otherwise indistinguishable from "nothing to project".
+    if (!QUIET) console.warn(`  note: caption projection failed (${e?.message}); falling back to speaker notes only`);
+    return [];
+  }
+}
+
 // Read-along WebVTT sidecars from per-slide narration (--captions). Builds Cadenza
 // estimate tracks via the shared root producer, then derives one deck-level .vtt
 // (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
 // offline — no audio, no TTS key. See 2026-07-08-read-along-export-manifest.md.
-function writeCaptionsSidecar(outPath, notes) {
-  const { buildReadAlong } = require('./lib/core/read-along-build.js');
+// EXPORT NARRATION SOURCE (§6 Phase 2): an authored speaker note wins per slide;
+// where a slide has none, the component-aware DOM speech projection narrates it —
+// so a deck with no notes still gets read-along captions (the old behavior wrote
+// nothing). This narrates the EXPORT's projected prose; the live Studio Present
+// path is markdown-only and still narrates differently for the chart family —
+// giving Present the same DOM projection is Phase 3, not done here.
+// `--strip-notes` intentionally suppresses BOTH notes AND projection (a stripped
+// deck emits no narration, honoring the documented contract).
+async function writeCaptionsSidecar(outPath, notes, docHtml) {
+  const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png)$/i, '');
-  const readAlong = buildReadAlong(notes, {
+  const projected = STRIP_NOTES ? [] : await projectDeckSpeechFromHtml(docHtml);
+  // A length mismatch (an autosplit deck renders more sections than authored slides)
+  // makes the index mapping unsafe, so mergeNarration drops the projection wholesale
+  // rather than misalign a caption — surface that here so it isn't silent.
+  if (projected.length && projected.length !== notes.length && !QUIET) {
+    console.log(`Captions: slide count and rendered sections differ (${notes.length} vs ${projected.length}) — narrating authored notes only`);
+  }
+  const slideTexts = mergeNarration(notes, projected);
+  const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
     pace: 'moderate',
   });
   if (!readAlong.slides.length) {
-    if (!QUIET) console.log('Captions: no speaker notes to narrate — no .vtt written');
+    if (!QUIET) console.log('Captions: nothing to narrate (no notes, no projectable slide prose) — no .vtt written');
     return;
   }
   fs.writeFileSync(`${base}.vtt`, readAlongToVtt(readAlong)); // deck-level, continuous

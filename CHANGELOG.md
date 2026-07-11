@@ -152,6 +152,36 @@ in patch versions.
 
 ### Added
 
+- **Read-along captions now speak a checklist/matrix's state, which used to be
+  silent — in each component's own words.** State markers (`[x]`/`[-]`/`[ ]`/`[/]`)
+  render with the glyph removed and the meaning kept only in a CSS class, so
+  narration used to read "Encryption at rest. SOC 2 audit." and drop the whole
+  point. The export projection now recovers the state with a COMPONENT-KEYED
+  register (the same class means different things per component): a checklist reads
+  completion ("Encryption at rest: done. SOC 2 audit: to do."), a verdict grid /
+  pricing table reads inclusion ("Speed: yes, Cost: no"), and an obligation matrix
+  reads obligation status header-bound ("GDPR — Delete: applies; Portability:
+  **exempt**" — never mis-narrated as "pending", the near-antonym a flat word map
+  produced). The `heat` matrix variant only recolors, so it reads the same words.
+  Third slice of the natural-narration plan
+  (`engineering/decisions/2026-07-11-manifest-speech-contract.md` §6/§13 F-D);
+  string behavior is unit-tested from real engine renders, audio UNVERIFIED.
+- **Exported read-along captions (`.vtt`) now narrate a deck's slides even when it
+  has no speaker notes — reading each component the way a person would.** Previously
+  `--captions` wrote nothing for a note-free deck. An authored speaker note still
+  wins per slide, but where a slide has none, a component-aware DOM speech
+  projection narrates it: evidence components read label-first
+  ("Total revenue: $2.4B", not "$2.4B, total revenue"), quotes read verbatim with
+  their attribution, a `wifi`/`contact` ledger reads "Network: ACME-Guest", tables
+  read header-bound when they have a header row, and a chart/diagram/math visual is
+  skipped (heading + caption only, never SVG read aloud). Combined with the token
+  normalizer above, a KPI tile speaks "Total revenue: two point four billion
+  dollars, up nine percent." `--strip-notes` still suppresses captions entirely.
+  (This improves the EXPORT; the on-screen Present read-along still narrates from
+  markdown, so the two can differ for chart slides until a later slice unifies
+  them.) Second slice of the natural-narration plan
+  (`engineering/decisions/2026-07-11-manifest-speech-contract.md` §6 Phase 2);
+  string/structure behavior is unit-tested, audio on the Kokoro voice is UNVERIFIED.
 - **The exported `.html` player now respects the color mode it was authored in —
   and Share → Webpage lets you choose light, dark, or system.** A shared deck is a
   document: it should open the way the sender made it, the way a PDF does. The
@@ -168,6 +198,22 @@ in patch versions.
   mode you're previewing. This keeps the older-WebKit fix intact — the dark values
   are still resolved to literal, plain-attribute-selector CSS with no reliance on
   the `light-dark()` function.
+- **Read-along/TTS captions now speak units, signed deltas, section references,
+  and a data-driven pronunciation lexicon — instead of raw glyphs.** Cadenza's
+  display→spoken normalizer (`toSpoken`/`toSpokenText`) gained: signed deltas
+  gated on a delta unit (`+9%` → "up nine percent", `−18d`/`-18d` → "down
+  eighteen days" — both minus glyphs alike; a bare `+44`/`−40` stays a plain sign,
+  not up/down), finance units with singular/plural agreement (`2pp` →
+  "percentage points", `25bps` → "basis points", `4.2×` → "times", `18d` →
+  "days"), section references preserving every citation digit (`§1798.100` keeps
+  its trailing zeros, no longer a dropped glyph), the `·` middot dropped, and a
+  layered, extensible pronunciation lexicon (`lexicon.ts`) — a domain-unambiguous
+  BASE plus opt-in `legal`/`finance` domain packs (`toSpoken(tok, { domains:
+  ['legal'] })`) so a deck can pronounce `v.` → "versus", `U.S.C.` → "U S C"
+  without an engine change. First slice of the natural-narration plan
+  (`engineering/decisions/2026-07-11-manifest-speech-contract.md` §6 Phase 1);
+  string behavior is unit-tested, audio realization on the Kokoro voice remains
+  UNVERIFIED (no TTS in CI).
 - **A "Fix Me" overlay pinpointing the cause of an overflowing slide, drilled
   down to the specific offending element where it can prove one.** The
   existing "Overflows" ring/tag only ever named the SLIDE, never the culprit.
