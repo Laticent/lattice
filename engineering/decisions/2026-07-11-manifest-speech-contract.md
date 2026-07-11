@@ -156,6 +156,18 @@ behavior as verified. **Do NOT** add the generic-path connective/reorder the fir
 can't reorder (§11/F1), it reverses a deliberate anti-run-on design (`read-aloud.ts:56-58`), and it needs
 indentation `slideToSpeech` currently trims (`:46`).
 
+**Phase 1 — SHIPPED (2026-07-11), adversarially reviewed.** `lexicon.ts` + `normalize.ts` handle: signed
+deltas gated on a delta unit (`+9%`/`−18d`/`-18d`, both minus glyphs alike; a bare `+44`/`−40` stays a
+plain sign, not up/down), `pp`/`bps`/`×`/`d` units with singular-plural agreement, `§`+subsection refs
+with every citation digit preserved (`§1798.100` keeps its zeros — NOT routed through `Number()`), the `·`
+middot dropped, and a BASE + opt-in `legal`/`finance` domain-pack lexicon (BASE holds only
+domain-unambiguous tokens — `h1`/`h2`/`coo`/`tam` were kept OUT after the review flagged heading/chemistry/
+verb/name collisions). *Deferred normalizer refinements, logged not done (HARD RULE #18):* digit-GROUPED
+citation reading ("seventeen ninety-eight"), section ranges (`§§1-5`), span `..`→"to", page refs
+`p.15`→"page fifteen", `at-risk` de-hyphenation and size badges `S/M/L/XL` (these last two are component-
+aware → belong to Phase 2/3, not the component-blind normalizer), and a sentence-terminator restore after
+a period-bearing legal abbreviation at a true sentence end.
+
 **Phase 2 — producer unification + the natural reorder, on the DOM projection.** Add
 `projectDeckToSpeech(sections)` beside `projectDeckToProse` in `prose-projection.mjs`, keyed on
 `componentOf(data-class)` (the `projectStats` precedent): a kpi/stats section narrates **label then

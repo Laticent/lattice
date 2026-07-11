@@ -168,6 +168,22 @@ in patch versions.
   mode you're previewing. This keeps the older-WebKit fix intact — the dark values
   are still resolved to literal, plain-attribute-selector CSS with no reliance on
   the `light-dark()` function.
+- **Read-along/TTS captions now speak units, signed deltas, section references,
+  and a data-driven pronunciation lexicon — instead of raw glyphs.** Cadenza's
+  display→spoken normalizer (`toSpoken`/`toSpokenText`) gained: signed deltas
+  gated on a delta unit (`+9%` → "up nine percent", `−18d`/`-18d` → "down
+  eighteen days" — both minus glyphs alike; a bare `+44`/`−40` stays a plain sign,
+  not up/down), finance units with singular/plural agreement (`2pp` →
+  "percentage points", `25bps` → "basis points", `4.2×` → "times", `18d` →
+  "days"), section references preserving every citation digit (`§1798.100` keeps
+  its trailing zeros, no longer a dropped glyph), the `·` middot dropped, and a
+  layered, extensible pronunciation lexicon (`lexicon.ts`) — a domain-unambiguous
+  BASE plus opt-in `legal`/`finance` domain packs (`toSpoken(tok, { domains:
+  ['legal'] })`) so a deck can pronounce `v.` → "versus", `U.S.C.` → "U S C"
+  without an engine change. First slice of the natural-narration plan
+  (`engineering/decisions/2026-07-11-manifest-speech-contract.md` §6 Phase 1);
+  string behavior is unit-tested, audio realization on the Kokoro voice remains
+  UNVERIFIED (no TTS in CI).
 - **A "Fix Me" overlay pinpointing the cause of an overflowing slide, drilled
   down to the specific offending element where it can prove one.** The
   existing "Overflows" ring/tag only ever named the SLIDE, never the culprit.

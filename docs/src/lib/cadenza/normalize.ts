@@ -11,6 +11,7 @@
 // dependency-free English expansion covering the boardroom cases (money, percent,
 // plain numbers, a small abbreviation set).
 
+import { type LexDomain, lookupLexicon } from './lexicon';
 import { splitWords } from './segment';
 
 const ONES = [
@@ -22,14 +23,6 @@ const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 
 const SCALES = ['', ' thousand', ' million', ' billion', ' trillion'];
 
 const MAGNITUDE: Record<string, string> = { k: 'thousand', m: 'million', b: 'billion', t: 'trillion' };
-
-// Spoken forms for common boardroom abbreviations. Keys are lowercased.
-const ABBREV: Record<string, string> = {
-  q1: 'Q one', q2: 'Q two', q3: 'Q three', q4: 'Q four',
-  fy: 'fiscal year', yoy: 'year over year', qoq: 'quarter over quarter',
-  eod: 'end of day', eoy: 'end of year', ceo: 'C E O', cfo: 'C F O', kpi: 'K P I',
-  arr: 'A R R', mrr: 'M R R', saas: 'saas', roi: 'R O I',
-};
 
 /** Read an integer 0..999 as words. */
 function tripletToWords(n: number): string {
@@ -80,26 +73,94 @@ export function numberToWords(value: number): string {
 }
 
 /**
- * Map one displayed token to its spoken form. Recognizes money ($4.2M, £3,200),
- * percentages (18.5%), plain numbers (1,024 / 3.5), and a small abbreviation set;
- * anything else passes through unchanged.
+ * Read a citation/reference number preserving EVERY digit — the fraction is read
+ * from the raw string, digit by digit, so `§1798.100` keeps its trailing zeros
+ * ("… point one zero zero") instead of collapsing to `.1`. `numberToWords` can't
+ * do this: it coerces through `Number()`, which drops trailing decimal zeros and
+ * would speak a different, wrong statute subsection.
  */
-export function toSpoken(display: string): string {
+function citationNumber(str: string): string {
+  const [intPart, decPart] = String(str).split('.');
+  let out = integerToWords(Number(intPart.replace(/,/g, '')));
+  if (decPart !== undefined) {
+    out += ' point ' + decPart.split('').map((d) => ONES[Number(d)] ?? d).join(' ');
+  }
+  return out;
+}
+
+/** "N unit(s)" with singular/plural agreement on the numeric value (1 → singular). */
+function unitWords(numStr: string, singular: string): string {
+  const n = Number(numStr.replace(/,/g, ''));
+  return `${numberToWords(n)} ${singular}${n === 1 ? '' : 's'}`;
+}
+
+/**
+ * Map one displayed token to its spoken form. Recognizes money ($4.2M, £3,200),
+ * percentages (18.5%), signed deltas (+9% → "up nine percent"), units
+ * (2pp, 25bps, 4.2×, 18d), section refs (§1798.140(o)), plain numbers (1,024 /
+ * 3.5), and the lexicon (abbreviations/symbols/initialisms); anything else passes
+ * through unchanged. `opts.domains` opts in domain lexicon packs (legal/finance)
+ * for tokens that only resolve inside a domain (e.g. legal `v.` → "versus").
+ */
+export function toSpoken(display: string, opts: { domains?: readonly LexDomain[] } = {}): string {
   const tok = String(display ?? '').trim();
   if (!tok) return '';
+  const domains = opts.domains ?? [];
+
+  // Whole-token lexicon FIRST, before peeling punctuation — so a period-bearing
+  // abbreviation (`v.`, `art.`, `U.S.C.`) matches its key rather than losing the
+  // period to the terminator peel. The abbreviation's own period is part of it,
+  // not a sentence end, and its spoken form ("versus") carries no terminator.
+  const whole = lookupLexicon(tok, domains);
+  if (whole !== null) return whole;
 
   // Preserve trailing sentence punctuation so cadence still sees the terminator.
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? '';
   const core = punct ? tok.slice(0, -punct.length) : tok;
 
-  const spoken = spokenCore(core);
-  return spoken + punct;
+  return spokenCore(core, domains) + punct;
 }
 
-function spokenCore(core: string): string {
+function spokenCore(core: string, domains: readonly LexDomain[]): string {
   if (!core) return core;
-  const lower = core.toLowerCase();
-  if (Object.hasOwn(ABBREV, lower)) return ABBREV[lower];
+
+  // 1. Lexicon (whole-token abbreviations, symbols, initialisms).
+  const lex = lookupLexicon(core, domains);
+  if (lex !== null) return lex;
+
+  // 2. Signed prefix. Before a DELTA-BEARING value (%, pp, bps, ×, day, currency,
+  //    magnitude) a '+'/'−'(U+2212)/'-' reads as "up"/"down"; before a BARE number
+  //    it is a plain sign ("negative two"), NOT a delta — a bare "+44"/"−40" is a
+  //    phone code / temperature, not a rise/fall. Both minus glyphs (ASCII '-' and
+  //    typographic '−') behave identically, so visually-indistinguishable source
+  //    never narrates two different ways.
+  const sign = core.match(/^([+−-])(.+)$/);
+  if (sign) {
+    const rest = sign[2];
+    if (/^[\d,]+(?:\.\d+)?$/.test(rest)) {
+      const n = numberToWords(Number(rest.replace(/,/g, '')));
+      return sign[1] === '+' ? n : `negative ${n}`;
+    }
+    const restSpoken = spokenCore(rest, domains);
+    if (restSpoken !== rest) return `${sign[1] === '+' ? 'up' : 'down'} ${restSpoken}`;
+  }
+
+  // 3. Section reference: "§1798.140(o)" → "section … subsection o". The citation
+  //    number preserves every digit (§1798.100 keeps its trailing zeros) — it is
+  //    NOT routed through numberToWords/Number(), which would drop them and speak a
+  //    different, wrong section. A digit-GROUPED reading ("seventeen ninety-eight")
+  //    is a logged refinement; the subsection markers (a)/(1)/(B) are all read
+  //    "subsection X".
+  const section = core.match(/^(§+)\s*(.*)$/);
+  if (section) {
+    const word = section[1].length > 1 ? 'sections' : 'section';
+    const subs = [...section[2].matchAll(/\(([a-z0-9]+)\)/gi)].map((m) => m[1]);
+    const base = section[2].replace(/\([a-z0-9]+\)/gi, '').trim();
+    const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains);
+    let out = base ? `${word} ${baseSpoken}` : word;
+    for (const s of subs) out += `, subsection ${spokenCore(s, domains)}`;
+    return out;
+  }
 
   // Money: optional currency symbol, grouped number, optional magnitude suffix.
   const money = core.match(/^([$£€])([\d,]+(?:\.\d+)?)([kmbt])?$/i);
@@ -113,6 +174,23 @@ function spokenCore(core: string): string {
   // Percent.
   const pct = core.match(/^([\d,]+(?:\.\d+)?)%$/);
   if (pct) return `${numberToWords(Number(pct[1].replace(/,/g, '')))} percent`;
+
+  // Percentage points / basis points (finance deltas: 2pp, 25bps). Singular when
+  // the value is exactly 1 ("1pp" → "one percentage point").
+  const pp = core.match(/^([\d,]+(?:\.\d+)?)pp$/i);
+  if (pp) return unitWords(pp[1], 'percentage point');
+  const bps = core.match(/^([\d,]+(?:\.\d+)?)bps$/i);
+  if (bps) return unitWords(bps[1], 'basis point');
+
+  // Multiplier: "4.2×" / "4.2x" → "four point two times".
+  const mult = core.match(/^([\d,]+(?:\.\d+)?)\s*[×x]$/);
+  if (mult) return unitWords(mult[1], 'time');
+
+  // Duration: "18d" → "eighteen days". Lower-case `d` only (so "3D" is untouched),
+  // and NOT seconds — "1990s"/"90s" read as decades/plurals far more often than
+  // "seconds", so that mapping is deliberately omitted (logged refinement).
+  const dur = core.match(/^([\d,]+(?:\.\d+)?)d$/);
+  if (dur) return unitWords(dur[1], 'day');
 
   // Bare number with a magnitude suffix (4.2M → "four point two million").
   const magNum = core.match(/^([\d,]+(?:\.\d+)?)([kmbt])$/i);
@@ -132,10 +210,13 @@ function spokenCore(core: string): string {
  * `toSpoken`, for feeding a TTS the words to SAY rather than the glyphs to show
  * ("Revenue grew to $4.2M." → "Revenue grew to four point two million dollars.").
  * A caller that speaks raw display text gets the TTS's own (often wrong) number
- * parsing; this gives it Cadenza's instead. Pure.
+ * parsing; this gives it Cadenza's instead. `opts.domains` opts in domain lexicon
+ * packs. Pure.
  */
-export function toSpokenText(text: string): string {
-  return splitWords(text).map(toSpoken).join(' ');
+export function toSpokenText(text: string, opts: { domains?: readonly LexDomain[] } = {}): string {
+  return splitWords(text)
+    .map((w) => toSpoken(w, opts))
+    .join(' ');
 }
 
 /** Count spoken sub-words in an expansion ("four point two million dollars" → 5). */

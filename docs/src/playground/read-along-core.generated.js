@@ -27,11 +27,13 @@ var require_dist = __commonJS({
     var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
     var index_exports = {};
     __export(index_exports, {
+      LEX_DOMAINS: () => LEX_DOMAINS,
       PACE_WPM: () => PACE_WPM,
       buildTrack: () => buildTrack,
       estimateWordMs: () => estimateWordMs,
       formatTimestamp: () => formatTimestamp,
       integerToWords: () => integerToWords,
+      lookupLexicon: () => lookupLexicon,
       makeCursor: () => makeCursor,
       makeReader: () => makeReader,
       numberToWords: () => numberToWords,
@@ -46,6 +48,75 @@ var require_dist = __commonJS({
       toVtt: () => toVtt
     });
     module.exports = __toCommonJS(index_exports);
+    var BASE = {
+      // Fiscal periods (kept from the original ABBREV). NOTE: `h1`/`h2` are deliberately
+      // NOT here — they read far more often as a heading level or chemical formula than
+      // "first/second half", so the half-year reading lives in the `finance` pack.
+      q1: "Q one",
+      q2: "Q two",
+      q3: "Q three",
+      q4: "Q four",
+      fy: "fiscal year",
+      yoy: "year over year",
+      qoq: "quarter over quarter",
+      eod: "end of day",
+      eoy: "end of year",
+      // Roles / metrics initialisms (spelled). Real-word / proper-noun collisions are
+      // kept OUT of always-on BASE: `coo` (a verb), `tam` (a name) were dropped.
+      ceo: "C E O",
+      cfo: "C F O",
+      cto: "C T O",
+      kpi: "K P I",
+      arr: "A R R",
+      mrr: "M R R",
+      roi: "R O I",
+      nps: "N P S",
+      cac: "C A C",
+      ltv: "L T V",
+      sla: "S L A",
+      slo: "S L O",
+      sdk: "S D K",
+      api: "A P I",
+      ux: "U X",
+      // Acronyms said as words (well-established single-word pronunciations).
+      saas: "sass",
+      // Symbols with a single unambiguous reading.
+      "\xA7": "section",
+      "\xA7\xA7": "sections",
+      "\xB6": "paragraph",
+      "&": "and",
+      // A decorative separator (eyebrows: "Financial · Q4 2026") — dropped, never
+      // spoken as "middle dot". An empty spoken form means "say nothing".
+      "\xB7": ""
+    };
+    var DOMAINS = {
+      legal: {
+        "v.": "versus",
+        "u.s.c.": "U S C",
+        "c.f.r.": "C F R",
+        "cal.": "California",
+        "art.": "Article",
+        "para.": "paragraph",
+        ccpa: "C C P A",
+        cpra: "C P R A",
+        gdpr: "G D P R"
+      },
+      finance: {
+        wow: "week over week",
+        mom: "month over month"
+      }
+    };
+    function lookupLexicon(token, domains = []) {
+      const key = String(token ?? "").toLowerCase();
+      if (!key) return null;
+      if (Object.hasOwn(BASE, key)) return BASE[key];
+      for (const d of domains) {
+        const pack = DOMAINS[d];
+        if (pack && Object.hasOwn(pack, key)) return pack[key];
+      }
+      return null;
+    }
+    var LEX_DOMAINS = ["legal", "finance"];
     function splitSentences(text) {
       const s = String(text ?? "").replace(/\s+/g, " ").trim();
       if (!s) return [];
@@ -79,24 +150,6 @@ var require_dist = __commonJS({
     var TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
     var SCALES = ["", " thousand", " million", " billion", " trillion"];
     var MAGNITUDE = { k: "thousand", m: "million", b: "billion", t: "trillion" };
-    var ABBREV = {
-      q1: "Q one",
-      q2: "Q two",
-      q3: "Q three",
-      q4: "Q four",
-      fy: "fiscal year",
-      yoy: "year over year",
-      qoq: "quarter over quarter",
-      eod: "end of day",
-      eoy: "end of year",
-      ceo: "C E O",
-      cfo: "C F O",
-      kpi: "K P I",
-      arr: "A R R",
-      mrr: "M R R",
-      saas: "saas",
-      roi: "R O I"
-    };
     function tripletToWords(n) {
       let out = "";
       if (n >= 100) {
@@ -139,18 +192,52 @@ var require_dist = __commonJS({
       }
       return (neg ? "negative " : "") + out;
     }
-    function toSpoken(display) {
+    function citationNumber(str) {
+      const [intPart, decPart] = String(str).split(".");
+      let out = integerToWords(Number(intPart.replace(/,/g, "")));
+      if (decPart !== void 0) {
+        out += " point " + decPart.split("").map((d) => ONES[Number(d)] ?? d).join(" ");
+      }
+      return out;
+    }
+    function unitWords(numStr, singular) {
+      const n = Number(numStr.replace(/,/g, ""));
+      return `${numberToWords(n)} ${singular}${n === 1 ? "" : "s"}`;
+    }
+    function toSpoken(display, opts = {}) {
       const tok = String(display ?? "").trim();
       if (!tok) return "";
+      const domains = opts.domains ?? [];
+      const whole = lookupLexicon(tok, domains);
+      if (whole !== null) return whole;
       const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
       const core = punct ? tok.slice(0, -punct.length) : tok;
-      const spoken = spokenCore(core);
-      return spoken + punct;
+      return spokenCore(core, domains) + punct;
     }
-    function spokenCore(core) {
+    function spokenCore(core, domains) {
       if (!core) return core;
-      const lower = core.toLowerCase();
-      if (Object.hasOwn(ABBREV, lower)) return ABBREV[lower];
+      const lex = lookupLexicon(core, domains);
+      if (lex !== null) return lex;
+      const sign = core.match(/^([+−-])(.+)$/);
+      if (sign) {
+        const rest = sign[2];
+        if (/^[\d,]+(?:\.\d+)?$/.test(rest)) {
+          const n = numberToWords(Number(rest.replace(/,/g, "")));
+          return sign[1] === "+" ? n : `negative ${n}`;
+        }
+        const restSpoken = spokenCore(rest, domains);
+        if (restSpoken !== rest) return `${sign[1] === "+" ? "up" : "down"} ${restSpoken}`;
+      }
+      const section = core.match(/^(§+)\s*(.*)$/);
+      if (section) {
+        const word = section[1].length > 1 ? "sections" : "section";
+        const subs = [...section[2].matchAll(/\(([a-z0-9]+)\)/gi)].map((m) => m[1]);
+        const base = section[2].replace(/\([a-z0-9]+\)/gi, "").trim();
+        const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains);
+        let out = base ? `${word} ${baseSpoken}` : word;
+        for (const s of subs) out += `, subsection ${spokenCore(s, domains)}`;
+        return out;
+      }
       const money = core.match(/^([$£€])([\d,]+(?:\.\d+)?)([kmbt])?$/i);
       if (money) {
         const unit = money[1] === "$" ? "dollars" : money[1] === "\xA3" ? "pounds" : "euros";
@@ -160,6 +247,14 @@ var require_dist = __commonJS({
       }
       const pct = core.match(/^([\d,]+(?:\.\d+)?)%$/);
       if (pct) return `${numberToWords(Number(pct[1].replace(/,/g, "")))} percent`;
+      const pp = core.match(/^([\d,]+(?:\.\d+)?)pp$/i);
+      if (pp) return unitWords(pp[1], "percentage point");
+      const bps = core.match(/^([\d,]+(?:\.\d+)?)bps$/i);
+      if (bps) return unitWords(bps[1], "basis point");
+      const mult = core.match(/^([\d,]+(?:\.\d+)?)\s*[×x]$/);
+      if (mult) return unitWords(mult[1], "time");
+      const dur = core.match(/^([\d,]+(?:\.\d+)?)d$/);
+      if (dur) return unitWords(dur[1], "day");
       const magNum = core.match(/^([\d,]+(?:\.\d+)?)([kmbt])$/i);
       if (magNum) {
         return `${numberToWords(Number(magNum[1].replace(/,/g, "")))} ${MAGNITUDE[magNum[2].toLowerCase()]}`;
@@ -168,8 +263,8 @@ var require_dist = __commonJS({
       if (num) return numberToWords(Number(core.replace(/,/g, "")));
       return core;
     }
-    function toSpokenText(text) {
-      return splitWords(text).map(toSpoken).join(" ");
+    function toSpokenText(text, opts = {}) {
+      return splitWords(text).map((w) => toSpoken(w, opts)).join(" ");
     }
     function spokenWordCount(spoken) {
       return String(spoken ?? "").trim().split(/[\s-]+/).filter(Boolean).length;
