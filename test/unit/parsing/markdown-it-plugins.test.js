@@ -148,6 +148,68 @@ describe('markdown-it-plugins', () => {
     assert.ok(cls.includes('finish-atrium'), `lost finish preset; got [${cls.join(', ')}]`);
   });
 
+  test('deckClassPropagate: `color-mode: system` propagates the color-system token to every section', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const md = ['---', 'color-mode: system', '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
+    const { html } = m.render(md);
+    const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.equal(sections.length, 2);
+    for (const cls of sections) assert.ok(cls.includes('color-system'), `missing 'color-system'; got [${cls.join(', ')}]`);
+    assert.ok(sections[1].includes('cards-grid'), `slide 2 lost 'cards-grid'; got [${sections[1].join(', ')}]`);
+  });
+
+  test('deckClassPropagate: `color-mode: inherited` maps to the color-inherited token', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const md = ['---', 'color-mode: inherited', '---', '', '# Slide'].join('\n');
+    const { html } = m.render(md);
+    const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+    assert.ok(cls.includes('color-inherited'), `missing 'color-inherited'; got [${cls.join(', ')}]`);
+  });
+
+  test('deckClassPropagate: `color-mode: dark|light` maps to the dark/light section token', () => {
+    for (const [val, tok] of [['dark', 'dark'], ['light', 'light']]) {
+      const m = makeHost(plugins.deckClassPropagate);
+      const { html } = m.render(['---', `color-mode: ${val}`, '---', '', '# Slide'].join('\n'));
+      const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+      assert.ok(cls.includes(tok), `color-mode: ${val} should stamp '${tok}'; got [${cls.join(', ')}]`);
+    }
+  });
+
+  test('deckClassPropagate: `color-mode:` WINS over the legacy `class: dark` alias (no conflicting token)', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    // A deck that carries BOTH the legacy alias and the first-class key: the key wins,
+    // and the alias's color token is dropped so `dark` + `color-system` never co-occur.
+    const md = ['---', 'class: dark numbered', 'color-mode: system', '---', '', '# Slide'].join('\n');
+    const { html } = m.render(md);
+    const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+    assert.ok(cls.includes('color-system'), `color-mode: system should win; got [${cls.join(', ')}]`);
+    assert.ok(!cls.includes('dark'), `the alias 'dark' must be dropped when color-mode: is set; got [${cls.join(', ')}]`);
+    assert.ok(cls.includes('numbered'), `a non-color class token must survive; got [${cls.join(', ')}]`);
+  });
+
+  test('deckClassPropagate: the legacy `class: dark` alias still resolves when no `color-mode:` is set', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const { html } = m.render(['---', 'class: dark', '---', '', '# Slide'].join('\n'));
+    const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+    assert.ok(cls.includes('dark'), `the deprecated alias must keep working; got [${cls.join(', ')}]`);
+  });
+
+  test('deckClassPropagate: a per-slide `_class: light` overrides a deck-wide `color-mode: dark`', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const md = [
+      '---', 'color-mode: dark', '---', '',
+      '# Slide 1 (deck dark)', '',
+      '---', '',
+      '<!-- _class: light -->',
+      '# Slide 2 (bright island)',
+    ].join('\n');
+    const { html } = m.render(md);
+    const sections = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.ok(sections[0].includes('dark'), `slide 1 should be dark; got [${sections[0].join(', ')}]`);
+    assert.ok(sections[1].includes('light'), `slide 2 should keep its light pin; got [${sections[1].join(', ')}]`);
+    assert.ok(!sections[1].includes('dark'), `slide 2 must NOT also get the deck 'dark'; got [${sections[1].join(', ')}]`);
+  });
+
   test('deckClassPropagate: a per-slide `boardroom` opts one slide OUT of the deck-wide style', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [

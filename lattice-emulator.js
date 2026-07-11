@@ -1009,7 +1009,11 @@ const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reori
 function preprocessMermaid(source) {
   const fmMatch = source.match(/^---\n[\s\S]*?\n---/);
   const fm = fmMatch ? fmMatch[0] : '';
+  // `color-mode: dark` (the first-class key) OR the legacy `class: … dark` alias OR a
+  // raw `color-scheme: dark`. system/inherited bake LIGHT (a static Mermaid SVG can't
+  // follow the OS/host), matching the static-export default.
   const globalDark =
+    /^\s*color-mode:\s*["']?dark\b/m.test(fm) ||
     /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm) ||
     /color-scheme\s*:\s*dark/.test(fm);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
@@ -2019,22 +2023,25 @@ async function renderBody(browser, g, closeBrowser) {
     try {
       const { buildPlayerHtml } = require('./lib/export/html-player.js');
       // The mode the deck is AUTHORED for — baked as the player's default so the shared
-      // file opens the way the sender chose, not re-themed by the receiver's OS. The
-      // signal is the effective `color-scheme` (theme palette or deck front matter):
-      //   · `light dark` (both) → SYSTEM — the author defers to the receiver's OS.
-      //   · `dark` (only), or a `class: … dark` front-matter flag → DARK.
+      // file opens the way the sender chose, not re-themed by the receiver's OS.
+      // The first-class `color-mode:` key WINS when present:
+      //   · light / dark → PIN that mode.  · system → defer to the receiver's OS.
+      //   · inherited → no host in a standalone player, so BAKE AS SYSTEM (follow the OS).
+      // When `color-mode:` is absent, infer from the effective `color-scheme` (theme
+      // palette or a deck `style:`/`class: … dark` alias):
+      //   · `light dark` (both) → SYSTEM.  · `dark` only, or `class: … dark` → DARK.
       //   · anything else → LIGHT.
-      // A `*-dark` palette / carbone pins `:root{color-scheme:dark}`; a deck opting into
-      // system writes `color-scheme: light dark` (front matter `style:` or a theme).
       // Strip CSS comments from the palette first — a theme's DOC comment mentioning
       // `color-scheme:light dark` (indaco's does) must NOT read as an actual declaration.
+      const cmKey = ((fm.match(/^\s*color-mode:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1] || '').trim().toLowerCase();
       const paletteDecls = paletteCSS.replace(/\/\*[\s\S]*?\*\//g, '');
       const csDeclares = (re) => re.test(paletteDecls) || re.test(fm);
-      const deckScheme = csDeclares(/color-scheme\s*:\s*(light\s+dark|dark\s+light)\b/)
-        ? 'system'
-        : csDeclares(/color-scheme\s*:\s*dark\b/) || /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm)
-          ? 'dark'
-          : 'light';
+      const deckScheme =
+        cmKey === 'light' || cmKey === 'dark' ? cmKey
+          : cmKey === 'system' || cmKey === 'inherited' ? 'system'
+            : csDeclares(/color-scheme\s*:\s*(light\s+dark|dark\s+light)\b/) ? 'system'
+              : csDeclares(/color-scheme\s*:\s*dark\b/) || /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm) ? 'dark'
+                : 'light';
       const { html: playerHtml, report } = await buildPlayerHtml({
         // Prefer the browser-inflated DOM when the deck has dynamic components, so
         // state-chart / function-plot ship as baked static SVG (§A2b); else the

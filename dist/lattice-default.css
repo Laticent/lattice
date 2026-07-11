@@ -13650,6 +13650,29 @@ section.light {
 }
 
 
+/* ── SYSTEM VARIANT (deck-wide `color-mode: system`) ──
+ * The section follows the RECEIVER's OS: `color-scheme: light dark` lets the UA
+ * pick a side from `prefers-color-scheme`, and the palette's light-dark() surface
+ * tokens resolve to whichever the OS prefers. Unlike `.dark`/`.light` (which PIN a
+ * side as document fidelity), this defers to the viewer's device. See
+ * lib/core/resolve-color-mode.js and 2026-07-11-color-mode-frontmatter.md. */
+section.color-system {
+  color-scheme: light dark;
+}
+
+
+/* ── INHERITED VARIANT (deck-wide `color-mode: inherited`) ──
+ * The section adopts whatever color mode its HOST is showing: `color-scheme: inherit`
+ * takes the scheme from the deck root, which each surface controls — the docs preview
+ * injects the site toggle's mode at :root, and a static export (no host) leaves the
+ * theme default (light). So a deck dropped into the site takes the site's mode instead
+ * of imposing its own. (The exported standalone player has no host to inherit from, so
+ * it bakes `inherited` as `system` — that path never reaches this rule.) */
+section.color-inherited {
+  color-scheme: inherit;
+}
+
+
 /* ── INLINE-CODE INK on non-flipping dark islands ──
  * title/divider/closing bookends and the split-panel dark rail paint a dark
  * surface via --surface-inverse WITHOUT flipping color-scheme, so --accent (the chip's
