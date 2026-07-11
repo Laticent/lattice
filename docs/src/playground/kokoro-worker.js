@@ -25,11 +25,11 @@ self.onmessage = async (e) => {
   try {
     if (d.type === 'load') {
       const mod = await import(/* @vite-ignore */ d.url);
-      const KokoroTTS = mod.KokoroTTS || (mod.default && mod.default.KokoroTTS);
+      const KokoroTTS = mod.KokoroTTS || (mod.default?.KokoroTTS);
       tts = await KokoroTTS.from_pretrained(d.model, {
         dtype: d.dtype,
         device: d.device,
-        progress_callback: (p) => self.postMessage({ type: 'progress', progress: (p && p.progress) || 0, file: p && p.file, status: p && p.status }),
+        progress_callback: (p) => self.postMessage({ type: 'progress', progress: (p?.progress) || 0, file: p?.file, status: p?.status }),
       });
       self.postMessage({ type: 'loaded' });
     } else if (d.type === 'generate') {
@@ -39,6 +39,6 @@ self.onmessage = async (e) => {
       self.postMessage({ type: 'audio', id: d.id, samples, rate }, [samples.buffer]);
     }
   } catch (err) {
-    self.postMessage({ type: d.type === 'load' ? 'load-error' : 'gen-error', id: d.id, error: String((err && err.message) || err) });
+    self.postMessage({ type: d.type === 'load' ? 'load-error' : 'gen-error', id: d.id, error: String((err?.message) || err) });
   }
 };

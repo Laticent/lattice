@@ -29,13 +29,12 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // lib/exemplars/tier-filter.js
 var require_tier_filter = __commonJS({
   "lib/exemplars/tier-filter.js"(exports, module) {
-    "use strict";
     var TIER_ORDER = { short: 0, standard: 1, full: 2 };
     var TIERS2 = ["short", "standard", "full"];
     var DEFAULT_TIER2 = "standard";
     var TIER_RE = /<!--\s*tier:\s*(short|standard|full)\s*-->/i;
     function isTier(name) {
-      return Object.prototype.hasOwnProperty.call(TIER_ORDER, name);
+      return Object.hasOwn(TIER_ORDER, name);
     }
     function splitDeck2(source) {
       const text = String(source == null ? "" : source).replace(/\r\n/g, "\n");

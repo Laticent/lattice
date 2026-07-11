@@ -29,8 +29,6 @@
  * Exit 0 = clean; 1 = a fixed-px layout length needs cqi (or a sanctioned note).
  */
 
-'use strict';
-
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');

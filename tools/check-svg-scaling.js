@@ -18,8 +18,6 @@
  * Exit 0 = every measured chart scales; 1 = a chart didn't; 2 = harness error.
  */
 
-'use strict';
-
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

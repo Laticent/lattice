@@ -228,7 +228,7 @@ export function createChat({ mount, composer, model, store, getAssessment, catal
   // Architect bubble heading so a mid-conversation model switch is visibly applied.
   function flattenModel(s) { return String(s || '').replace(/:\s*/, ' ').trim(); } // "DeepSeek: R1" → "DeepSeek R1"
   function replyAttribution(a) {
-    if (!a || !a.modelOn) return null; // deterministic floor — no model
+    if (!a?.modelOn) return null; // deterministic floor — no model
     if (a.generation === 'openrouter') return flattenModel(model.openRouterModelName?.() || model.openRouterModel?.() || '') || null;
     return null; // on-device tiers — not attributed for now
   }

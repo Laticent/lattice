@@ -1,5 +1,3 @@
-'use strict';
-
 // Direct tests for the shared SVG-native legend builder — the keystone the four
 // keyed charts (pie/radar/map/cohort quadrant) all emit through. The kernels
 // cover it indirectly; these pin the load-bearing geometry/wrap/a11y logic so a

@@ -47,7 +47,7 @@ export function fingerprint(text: string): string {
 
 /** A draft is pristine when it is empty or still matches the recorded insert hash. */
 export function isPristine(source: string, insertedHash: string | null): boolean {
-	if (!source || !source.trim()) return true;
+	if (!source?.trim()) return true;
 	return insertedHash != null && fingerprint(source) === insertedHash;
 }
 

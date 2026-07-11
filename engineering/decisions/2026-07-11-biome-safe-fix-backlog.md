@@ -1,11 +1,42 @@
 ---
 status: shipped
-summary: `npm run lint:fix` (biome check --write) auto-fixes 13 files (17 edits) and skips 80 unsafe suggestions — and it is NOT the mechanical import-order sweep it was assumed to be (biome has no organizeImports assist configured). An adversarial trio verified the real hazard: applying the sweep BREAKS `npm test`, because a biome-"safe" `noPrototypeBuiltins` fix rewrites `lib/core/present-transport.mjs`, which is inlined VERBATIM into the HTML-player export — changing the exported bytes and failing a frozen-artifact golden test. That is an export-sign-off change, not cosmetics. The bulk `noRedundantUseStrict` removals are, by contrast, verified behavior-neutral for the current CommonJS files (full suite + construct audit) yet still force a `dist` rebuild because those files are inlined into generated bundles. Deliberately NOT swept into any feature PR (HARD RULE #8/#17/#18); logged here with what a real cleanup must decide first.
+summary: `npm run lint:fix` (biome check --write) auto-fixes 13 files (17 edits) and skips 80 unsafe suggestions — and it is NOT the mechanical import-order sweep it was assumed to be (biome has no organizeImports assist configured). An adversarial trio verified the real hazard: applying the sweep BREAKS `npm test`, because a biome-"safe" `noPrototypeBuiltins` fix rewrites `lib/core/present-transport.mjs`, which is inlined VERBATIM into the HTML-player export — changing the exported bytes and failing a frozen-artifact golden test. That is an export-sign-off change, not cosmetics. The bulk `noRedundantUseStrict` removals are, by contrast, verified behavior-neutral for the current CommonJS files (full suite + construct audit) yet still force a `dist` rebuild because those files are inlined into generated bundles. Deliberately NOT swept into any feature PR (HARD RULE #8/#17/#18); logged here with what a real cleanup must decide first. ACTIONED 2026-07-11 as its own dedicated PR — see the Resolution section below.
 ---
 
 # Biome safe-fix backlog — why `lint:fix` is not a free "hygiene sweep"
 
 **Date:** 2026-07-11
+
+## Resolution (ACTIONED — dedicated cleanup PR, 2026-07-11)
+
+The cleanup was carried out deliberately, in its own PR, exactly along the lanes
+below — not a blind `--write`. `npm run lint` is now **clean** (was ~90
+warnings/infos across ~40 files). How each hazard was handled:
+
+- **`noNonNullAssertion` (9, all in `.test.ts`/`.spec.ts`):** NOT auto-fixed — its
+  `x!.y` → `x?.y` rewrite *inverts a test's intent* (an assertion that a file
+  exists becomes "silently tolerate it missing", and produced an unsafe optional
+  chain that crashes on `.length`). Handled by a **`biome.json` test-file
+  override** disabling the rule for test/spec globs (mirroring the existing
+  `noConsole`-off) — production code keeps the rule.
+- **`noPrototypeBuiltins` on `present-transport.mjs`:** applied
+  (`hasOwnProperty.call` → `Object.hasOwn`, matching the rest of shipped `lib/`).
+  Because that file is inlined verbatim into the HTML player, the **frozen player
+  golden was re-blessed in the same commit** and the exported-byte change went
+  through **export sign-off** (behavior-neutral).
+- **`noRedundantUseStrict` (10 CJS files):** removed (verified behavior-neutral),
+  the stray blank-line artifacts hand-cleaned, and the affected generated bundles
+  rebuilt via `npm run build`.
+- **Formatter-off artifacts:** every one hand-cleaned (incl. a pre-existing
+  double-space at `capabilities.js:62`).
+- **`useOptionalChain` (55), `useLiteralKeys` (9), `useArrowFunction` (4),
+  `noUnusedVariables` (1), `useConst` (1):** applied; each optional-chain
+  conversion audited (and checker-verified) as semantically equivalent.
+
+Hardened by a maker-checker pass (GO verdict). The rest of this note is the
+original pre-cleanup analysis, kept for the record.
+
+## Symptom
 
 ## Symptom
 

@@ -361,7 +361,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         return pcmBlobFromResponse(bytes, contentType);
       }
       const blob = await res.blob();
-      if (!blob || !blob.size) throw new Error('OpenRouter returned empty audio');
+      if (!blob?.size) throw new Error('OpenRouter returned empty audio');
       return blob; // mp3; playBlob's decodeAudioData handles it
     },
   };
@@ -697,7 +697,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // path the audio trio flagged. A synth error (the network/API reason) wins over
     // playBlob's generic 'no audio', since it's the more diagnostic message.
     let lastError = null;
-    const errStr = (e) => (e && e.message) ? e.message : String(e || 'unknown');
+    const errStr = (e) => (e?.message) ? e.message : String(e || 'unknown');
     // `.catch()` alone only covers a REJECTION — a hung fetch/worker that never
     // settles at all would stall this sentence (and every one after it, via the
     // one-ahead prefetch) forever, reading as narration that silently freezes

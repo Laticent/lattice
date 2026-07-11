@@ -29,7 +29,7 @@ describe('per-Lattice spend tally (recordSpend / readSpend)', () => {
 
     recordSpend(0.0375, 1200); // a real reply: cost + tokens
     recordSpend(0.02, 800);
-    let s = readSpend();
+    const s = readSpend();
     assert.ok(Math.abs(s.total - 0.0575) < 1e-9, 'all-time cost sums');
     assert.ok(Math.abs(s.session - 0.0575) < 1e-9, 'session cost sums');
     assert.equal(s.sessionTokens, 2000, 'session tokens sum');

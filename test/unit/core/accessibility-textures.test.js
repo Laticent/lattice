@@ -1,5 +1,3 @@
-'use strict';
-
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { texturePatternDefs } = require('../../../lib/core/accessibility-textures.js');

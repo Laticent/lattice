@@ -82,7 +82,7 @@ describe('chart-compat-css generator', () => {
     const dark = chartCompatCssForTheme('indaco-dark', BASE);
     const m = dark.match(/--chart-cat-base:\s*([^;}]+)/);
     assert.ok(m, 'expected --chart-cat-base in the fallback');
-    assert.equal(m[1].trim().toLowerCase(), 'black', `dark default should be black, got ${m && m[1]}`);
+    assert.equal(m[1].trim().toLowerCase(), 'black', `dark default should be black, got ${m?.[1]}`);
   });
 
   test('the black-rendering components each get a flattened rule', () => {

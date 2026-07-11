@@ -201,7 +201,7 @@ export function readFrontMatter(source) {
   const map = {};
   // Nested-block entries (`{ block: [...] }`, e.g. finish-override:) are preserved
   // verbatim, not form-managed — keep them out of the scalar map's stringly view.
-  for (const [k, v] of entries) if (!(v && v.block)) map[k] = stripQuotes(v);
+  for (const [k, v] of entries) if (!(v?.block)) map[k] = stripQuotes(v);
   return {
     theme: map.theme || '',
     mode: map.mode || '',
@@ -301,7 +301,7 @@ export function writeFrontMatter(source, key, value) {
   const preserved = []; // [k, rawScalar] OR [k, { block: [...] }] — emitted verbatim
   for (const [k, raw] of entries) {
     if (k === 'marp') continue;
-    if (raw && raw.block) {
+    if (raw?.block) {
       preserved.push([k, raw]); // a nested block (finish-override:, …) — never form-managed
     } else if (MANAGED.includes(k)) {
       const n = normalize(k, k === 'paginate' ? raw : stripQuotes(raw));
@@ -323,7 +323,7 @@ export function writeFrontMatter(source, key, value) {
 
   // Emit a preserved entry: a nested block re-emits its header + verbatim child lines;
   // a flat unmanaged scalar re-emits at its slot.
-  const emitPreserved = (pk, pv) => (pv && pv.block ? [`${pk}:`, ...pv.block] : [`${pk}: ${pv}`]);
+  const emitPreserved = (pk, pv) => (pv?.block ? [`${pk}:`, ...pv.block] : [`${pk}: ${pv}`]);
   const presAt = (k) => preserved.find(([pk]) => pk === k);
   const lines = ['marp: true']; // leads the block so an exported .md renders
   for (const k of EMIT_ORDER) {

@@ -825,7 +825,7 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 		const doc = frame.contentDocument;
 		const win = frame.contentWindow;
 		const sec = doc.querySelectorAll('.lattice>section')[activeIndex];
-		if (!sec || !sec.classList.contains('chart-frame')) throw new Error('Put the cursor in a slide that has a chart.');
+		if (!sec?.classList.contains('chart-frame')) throw new Error('Put the cursor in a slide that has a chart.');
 		const svg = CLEAN_SVG_LAYOUTS.some((c) => sec.classList.contains(c)) ? sec.querySelector('svg[viewBox]') : null;
 		if (svg) {
 			const [core, fontMod] = await Promise.all([

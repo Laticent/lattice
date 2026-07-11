@@ -1758,7 +1758,6 @@ var require_scorecard = __commonJS({
 // lib/authoring/notes-core.js
 var require_notes_core = __commonJS({
   "lib/authoring/notes-core.js"(exports, module) {
-    "use strict";
     var MAGIC_COMMENT_MATCHERS = [
       // Prettier
       /^prettier-ignore(-(start|end))?$/,

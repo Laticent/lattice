@@ -21,11 +21,11 @@ const MARGIN = 14; // inset from the page's top / right edge
  * @param {number} pageW page width in px (notes hug the right edge)
  */
 export function addPageStickyNotes(pdf, notes, pageW) {
-	if (!notes || !notes.length) return;
+	if (!notes?.length) return;
 	const x = Math.max(MARGIN, pageW - MARGIN - NOTE);
 	for (let i = 0; i < notes.length; i++) {
 		const n = notes[i];
-		if (!n || !n.contents) continue;
+		if (!n?.contents) continue;
 		pdf.createAnnotation({
 			type: 'text',
 			title: String(n.title || 'Comment'),

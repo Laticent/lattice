@@ -1,4 +1,3 @@
-'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { bucketForAspect, BUCKET_NAMES } = require('../../../lib/core/image-aspect');

@@ -2699,7 +2699,7 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // no such map here.) NOTE: captions are NOT stripped by `--strip-notes` — that flag removes the
   // private NOTE channel; a caption is public-facing narration the author opts into via `--captions`.
   let fmForMerge = fmCaptions;
-  if (AUTOSPLIT_APPLIES && fmCaptions && fmCaptions.size) {
+  if (AUTOSPLIT_APPLIES && fmCaptions?.size) {
     fmForMerge = null;
     if (!QUIET) console.log('Captions: front-matter captions: keys are unsafe under autosplit (section count shifts) — using inline captions / notes for those slides');
   }

@@ -59,7 +59,7 @@ describe('theme-derive', () => {
     // Guards against the audit and derivation sharing a hidden mutual bug.
     const t = deriveTheme(STARTERS[0].essentials);
     const headingLight = t['text-heading'].match(/light-dark\(\s*([^,]+)/)[1].trim();
-    const bgLight = t['bg'].match(/light-dark\(\s*([^,]+)/)[1].trim();
+    const bgLight = t.bg.match(/light-dark\(\s*([^,]+)/)[1].trim();
     assert.ok(contrastRatio(headingLight, bgLight) >= 4.5);
     assert.ok(contrastRatio(t['cat-1-mark'], t['cat-on-mark']) >= 4.5);
     assert.ok(contrastRatio(t['cat-1-fill'], t['cat-on-fill']) >= 4.5);
