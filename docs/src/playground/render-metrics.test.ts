@@ -29,6 +29,12 @@ describe('recordRenderSample per-regime smoothing', () => {
 		expect(last.frameMs).toBeLessThan(10);
 	});
 
+	it('exposes the tooling hook on window (frame-bench reads raw samples through it)', () => {
+		const hook = (window as unknown as { __latticeRenderMetrics?: { latest: unknown; on: unknown } }).__latticeRenderMetrics;
+		expect(typeof hook?.latest).toBe('function');
+		expect(typeof hook?.on).toBe('function');
+	});
+
 	it('the two regimes hold independent smoothed values at the same time', () => {
 		// Converge each bucket (the module EMA persists across tests by design), then
 		// read one sample of each: the patch stays small, the write stays large — one

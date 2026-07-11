@@ -182,3 +182,13 @@ export function onRenderSample(fn: Listener): () => void {
 export function hasRenderListeners(): boolean {
 	return listeners.size > 0;
 }
+
+// Tooling hook — expose the render-sample bus on the window, mirroring the existing
+// `window.LatticeEngine` / `__lattice*` marker convention. The browser-side FRAME bench
+// (`docs/scripts/frame-bench.mjs`) subscribes to capture the RAW per-render frameMs by
+// regime (patch vs write) — the overlay only surfaces the EMA-smoothed value. Registering
+// a subscriber via `.on` also flips the render path into stats mode, exactly as the
+// overlay does. Costs nothing when unused (one property assignment at module load).
+if (typeof window !== 'undefined') {
+	(window as unknown as { __latticeRenderMetrics?: unknown }).__latticeRenderMetrics = { latest: latestRenderSample, on: onRenderSample };
+}
