@@ -30,8 +30,10 @@ const THEMES = fs.readdirSync(path.join(ROOT, 'themes'))
 
 // Length / geometry tokens that are FINE on an old engine (calc/clamp/cqi are far
 // older than color-mix). A `var()` to one of these in the fallback body is not a
-// colour leak.
-const SAFE_VAR = /^--(chart-hairline|chart-accent|chart-fill-accent|sp-|radius-|fs-|pill-|lh-|frame-|_sec-)/;
+// colour leak. Deliberately an EXACT-NAME list of non-colour tokens (not a broad
+// `chart-accent*` prefix, which would also mask a colour token named `--chart-
+// accent-…` — the blind spot the checker flagged): every entry here is a length.
+const SAFE_VAR = /^--(chart-hairline|chart-accent-lg|chart-fill-accent|_sec-1cqi)$|^--(sp|radius|fs|pill-fs|pill-pad|lh|frame-inset|frame-page)/;
 
 /** The @supports body with the guard line (which legitimately contains
  *  `light-dark(`) stripped, so leak scans see only generated rules. */
@@ -55,14 +57,32 @@ describe('chart-compat-css generator', () => {
     assert.equal(failures.length, 0, `unflattened colour in fallback:\n${failures.join('\n')}`);
   });
 
-  test('the @supports guard + dark @media are present and the block is balanced', () => {
-    const css = chartCompatCssForTheme('indaco', BASE);
-    assert.match(css, /@supports not \(color: light-dark\(#000, #fff\)\)/);
-    assert.match(css, /@media \(prefers-color-scheme: dark\)/);
-    assert.match(css, /section\.dark /); // explicit dark opt-in mirror
-    let depth = 0;
-    for (const ch of css) { if (ch === '{') depth++; else if (ch === '}') depth--; }
-    assert.equal(depth, 0, 'unbalanced braces in generated block');
+  test('the @supports guard + color-scheme dark override are present and balanced', () => {
+    // Light theme: default = light, override scoped to section.dark (the per-slide
+    // dark modifier — Lattice is color-scheme-driven, NOT prefers-color-scheme).
+    const light = chartCompatCssForTheme('indaco', BASE);
+    assert.match(light, /@supports not \(color: light-dark\(#000, #fff\)\)/);
+    assert.match(light, /section\.dark /);
+    assert.doesNotMatch(light, /prefers-color-scheme/,
+      'must not key off OS preference — modern render is color-scheme-driven');
+    // Dark theme: default = DARK, override scoped to section.light (per-slide light).
+    const dark = chartCompatCssForTheme('indaco-dark', BASE);
+    assert.match(dark, /section\.light /);
+    assert.notEqual(light, dark, 'a *-dark theme must not emit the light theme\'s fallback');
+    for (const css of [light, dark]) {
+      let depth = 0;
+      for (const ch of css) { if (ch === '{') depth++; else if (ch === '}') depth--; }
+      assert.equal(depth, 0, 'unbalanced braces in generated block');
+    }
+  });
+
+  test('a *-dark theme defaults to its DARK literals (regression: F1)', () => {
+    // The chart-fill mix target flips --bg (light) → black (dark). A *-dark theme's
+    // DEFAULT (non-override) branch must carry the dark value.
+    const dark = chartCompatCssForTheme('indaco-dark', BASE);
+    const m = dark.match(/--chart-cat-base:\s*([^;}]+)/);
+    assert.ok(m, 'expected --chart-cat-base in the fallback');
+    assert.equal(m[1].trim().toLowerCase(), 'black', `dark default should be black, got ${m && m[1]}`);
   });
 
   test('the black-rendering components each get a flattened rule', () => {

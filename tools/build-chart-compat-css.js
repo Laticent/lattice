@@ -230,12 +230,12 @@ function bothModes(value, vars, locals) {
 
 /**
  * Build the three rule sources for one theme.
- * @returns {Array<{selector, prop, light, dark, important}>}
+ * @returns {{rules: Array<{selector, prop, light, dark, important}>, declaredDark: boolean}}
  */
 function buildRules(themeCss, baseCss) {
   const files = scannedFiles();
   const model = parseModel(files);
-  const { vars } = themeMaps(themeCss, baseCss, files);
+  const { vars, declaredDark } = themeMaps(themeCss, baseCss, files);
   const rules = [];
 
   // (1) SETTER FLATTEN — every custom-property that resolves through a modern fn,
@@ -323,30 +323,52 @@ function buildRules(themeCss, baseCss) {
       rules.push({ selector: target, prop: p.prop, light: m.light, dark: m.dark, important: true });
     }
   }
-  return rules;
+  return { rules, declaredDark };
 }
 
-/** Serialize rules into an @supports block (light default + dark override). */
-function serialize(rules) {
+/**
+ * Serialize rules into the @supports block.
+ *
+ * Lattice drives dark mode by `color-scheme`, NOT `prefers-color-scheme`: a
+ * `*-dark` theme sets `:root { color-scheme: dark }` (deck-wide) and the
+ * `section.dark` / `section.light` modifiers flip a single slide's color-scheme
+ * (base.modifiers.css). `light-dark()` follows that, not the OS. So the fallback
+ * must too:
+ *   • DEFAULT branch = the theme's own declared scheme (a light theme → light
+ *     literals; a `*-dark` theme → DARK literals — the bug the checker caught was
+ *     defaulting every theme to light).
+ *   • OVERRIDE branch = the OPPOSITE scheme, scoped to the per-slide modifier that
+ *     selects it (`section.light` on a dark theme, `section.dark` on a light one).
+ * An OS `@media (prefers-color-scheme)` variant is deliberately NOT emitted — it
+ * would flip charts by OS on an old engine where the modern (color-scheme-driven)
+ * render would not, diverging from the deck's intent. (A deck that opts into
+ * `color-scheme: light dark` to follow the OS is a rare ad-hoc directive; its
+ * old-engine charts stay on the theme's declared scheme — a documented gap.)
+ */
+function serialize(rules, declaredDark) {
   if (!rules.length) return '';
-  const light = new Map(); // selector → [decl]
-  const dark = new Map();
+  const base = new Map();     // selector → [decl]  (the theme's declared scheme)
+  const override = new Map(); // selector → [decl]  (the opposite scheme)
   const push = (map, sel, text) => { if (!map.has(sel)) map.set(sel, []); map.get(sel).push(text); };
   for (const r of rules) {
     const bang = r.important ? ' !important' : '';
-    push(light, r.selector, `${r.prop}: ${r.light}${bang}`);
-    if (r.dark !== r.light) push(dark, r.selector, `${r.prop}: ${r.dark}${bang}`);
+    const baseVal = declaredDark ? r.dark : r.light;
+    const overVal = declaredDark ? r.light : r.dark;
+    push(base, r.selector, `${r.prop}: ${baseVal}${bang}`);
+    if (overVal !== baseVal) push(override, r.selector, `${r.prop}: ${overVal}${bang}`);
   }
   const block = (map, indent) => [...map.entries()]
     .map(([sel, decls]) => `${indent}${sel} { ${decls.join('; ')} }`).join('\n');
 
+  const overrideMod = declaredDark ? 'section.light' : 'section.dark';
   let out = `@supports ${SUPPORTS_GUARD} {\n`;
-  out += block(light, '  ');
-  if (dark.size) {
-    out += '\n  @media (prefers-color-scheme: dark) {\n' + block(dark, '    ') + '\n  }';
+  out += block(base, '  ');
+  if (override.size) {
+    // Scope each override to the per-slide modifier — matched both as an ancestor
+    // (`section.dark .x`) and on the section itself (`section.dark.x`).
     const scoped = new Map(
-      [...dark.entries()].map(([sel, decls]) => [
-        sel.split(',').map((s) => `section.dark ${s.trim()}, section.dark${s.trim()}`).join(', '),
+      [...override.entries()].map(([sel, decls]) => [
+        sel.split(',').map((s) => `${overrideMod} ${s.trim()}, ${overrideMod}${s.trim()}`).join(', '),
         decls,
       ]),
     );
@@ -365,7 +387,8 @@ function serialize(rules) {
  */
 function chartCompatCssForTheme(themeName, baseCss) {
   const themeCss = resolveThemeCascade(themeName);
-  return serialize(buildRules(themeCss, baseCss));
+  const { rules, declaredDark } = buildRules(themeCss, baseCss);
+  return serialize(rules, declaredDark);
 }
 
 /** Every chart/math colour declaration that USES a modern function — the coverage
