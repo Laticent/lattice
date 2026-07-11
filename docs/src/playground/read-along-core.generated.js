@@ -608,10 +608,16 @@ var require_read_along_build = __commonJS({
         slides
       };
     }
-    function mergeNarration(notes, projected) {
+    function mergeNarration(notes, projected, opts = {}) {
       const proj = Array.isArray(projected) ? projected : [];
       const aligned = proj.length === notes.length;
+      const captions = Array.isArray(opts.captions) ? opts.captions : [];
+      const fmCaptions = opts.fmCaptions instanceof Map ? opts.fmCaptions : null;
       return notes.map((note, i) => {
+        const inline = String(captions[i] ?? "").trim();
+        if (inline) return inline;
+        const fm = fmCaptions ? fmCaptions.get(i + 1) : void 0;
+        if (String(fm ?? "").trim()) return fm;
         if (String(note ?? "").trim()) return note;
         return aligned ? proj[i] || "" : "";
       });

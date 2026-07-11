@@ -1286,6 +1286,11 @@ const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 // blank-line note and leaks it.
 const noteStripSet = STRIP_NOTES ? new Set(slides.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
+// Per-slide inline `<!-- caption: … -->` read-as text (Layer 1, §16) — the highest-precedence
+// narration source. Extracted from the rendered slides (index-aligned) exactly as notes are.
+// `--strip-notes` suppresses captions too (blanked at the sidecar call below), preserving the
+// invariant that a stripped deck emits no narration — a caption track is opt-in via NOT stripping.
+const slideCaptions = notesCore.extractSlideCaptions(slides);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);
   const note = materializedNotes[i];
@@ -2101,9 +2106,11 @@ async function renderBody(browser, g, closeBrowser) {
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
   // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next
-  // to the deck, not baked into its bytes. Uses `materializedNotes` so --strip-notes
-  // scrubs the captions too (a stripped deck emits no narration).
-  if (CAPTIONS) await writeCaptionsSidecar(outFile, materializedNotes, cleanDocHtml);
+  // to the deck, not baked into its bytes. Uses `materializedNotes` + `--strip-notes`-blanked
+  // captions so a stripped deck emits no narration (a caption track is opt-in via NOT stripping).
+  if (CAPTIONS) {
+    await writeCaptionsSidecar(outFile, materializedNotes, cleanDocHtml, STRIP_NOTES ? [] : slideCaptions);
+  }
 }
 
 // P6 — used-selector CSS prune for the self-contained player. Drops the rules of
@@ -2630,18 +2637,21 @@ async function projectDeckSpeechFromHtml(docHtml) {
 // giving Present the same DOM projection is Phase 3, not done here.
 // `--strip-notes` intentionally suppresses BOTH notes AND projection (a stripped
 // deck emits no narration, honoring the documented contract).
-async function writeCaptionsSidecar(outPath, notes, docHtml) {
+async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png)$/i, '');
-  // Deck acronym registry (author `acronyms:` front-matter) → term→spoken map; author
-  // pronunciations win over the built-in dictionary and the patterns (§15).
+  // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
+  // front-matter `captions:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
+  // the shared resolver so both producers can't drift (#904).
   let acronyms;
+  let fmCaptions;
   try {
-    const { acronymSpokenMap } = await import('./lib/core/resolve-captions.mjs');
+    const { acronymSpokenMap, frontMatterCaptions } = await import('./lib/core/resolve-captions.mjs');
     acronyms = acronymSpokenMap(rawMd);
+    fmCaptions = frontMatterCaptions(rawMd);
   } catch (e) {
-    if (!QUIET) console.warn(`  note: acronym registry parse failed (${e?.message})`);
+    if (!QUIET) console.warn(`  note: narration front-matter parse failed (${e?.message})`);
   }
   const projected = STRIP_NOTES ? [] : await projectDeckSpeechFromHtml(docHtml);
   // A length mismatch (an autosplit deck renders more sections than authored slides)
@@ -2650,7 +2660,8 @@ async function writeCaptionsSidecar(outPath, notes, docHtml) {
   if (projected.length && projected.length !== notes.length && !QUIET) {
     console.log(`Captions: slide count and rendered sections differ (${notes.length} vs ${projected.length}) — narrating authored notes only`);
   }
-  const slideTexts = mergeNarration(notes, projected);
+  // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → note → projection.
+  const slideTexts = mergeNarration(notes, projected, { captions, fmCaptions });
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
