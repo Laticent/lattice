@@ -7,23 +7,40 @@
 // the CLI `--strip-notes`. Accessible slide descriptions are kept (they're the slide's
 // text alternative, not private speaker copy). See share-export.ts › shareHtmlPlayer.
 
-import { ArrowLeft, Globe, Loader2, MicOff } from 'lucide-react';
+import { ArrowLeft, Globe, Loader2, MicOff, Monitor, Moon, Sun } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+
+type Scheme = 'light' | 'dark' | 'system';
 
 export function WebpageOptionsPanel({
 	busy,
 	status,
+	mode,
 	onBack,
 	onExport,
 }: {
 	busy?: boolean;
 	status?: string | null;
+	// The Studio's current preview mode — the default color mode the export opens in,
+	// so the shared file is WYSIWYG unless the author chooses otherwise.
+	mode: 'light' | 'dark';
 	onBack: () => void;
-	onExport: (stripNotes: boolean) => void;
+	onExport: (stripNotes: boolean, scheme: Scheme) => void;
 }) {
 	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
 	const [stripNotes, setStripNotes] = React.useState(false);
+	// The exported player's default color mode. Defaults to the current preview so the
+	// download matches what the author sees; 'system' defers to the receiver's OS.
+	const [scheme, setScheme] = React.useState<Scheme>(mode);
+	// Re-sync to the live preview mode each time the panel opens (a fresh export step).
+	React.useEffect(() => { setScheme(mode); }, [mode]);
+
+	const SCHEMES: { value: Scheme; label: string; icon: React.ReactNode }[] = [
+		{ value: 'light', label: 'Light', icon: <Sun className="size-3.5" /> },
+		{ value: 'dark', label: 'Dark', icon: <Moon className="size-3.5" /> },
+		{ value: 'system', label: 'System', icon: <Monitor className="size-3.5" /> },
+	];
 
 	return (
 		<div className="space-y-5">
@@ -35,6 +52,35 @@ export function WebpageOptionsPanel({
 				<div>
 					<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Export webpage</h3>
 					<p className="mt-0.5 text-[12px] text-muted-foreground">One self-contained <code>.html</code> file — three views, Present mode, fonts and styles baked in. Opens in any browser, offline.</p>
+				</div>
+
+				{/* Color mode — the document-fidelity choice. Light/Dark PIN the export to that
+				    mode on every device; System defers to the receiver's OS. The in-player
+				    toggle still lets any viewer override for themselves. */}
+				<div className="rounded-xl border border-border bg-background p-3.5">
+					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Color mode</span>
+					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
+						{scheme === 'system'
+							? 'The player opens in the viewer’s OS mode — light or dark follows their device. A viewer can still toggle.'
+							: `The player always opens in ${scheme} mode, on every device. A viewer can still toggle.`}
+					</span>
+					<div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-lg bg-[var(--accent-soft)] p-1">
+						{SCHEMES.map((s) => (
+							<button
+								key={s.value}
+								type="button"
+								aria-pressed={scheme === s.value}
+								disabled={busy}
+								onClick={() => setScheme(s.value)}
+								className={cn(
+									'inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] font-semibold transition-colors disabled:opacity-40',
+									scheme === s.value ? 'bg-background text-[var(--text-heading)] shadow-sm' : 'text-muted-foreground hover:text-[var(--text-heading)]',
+								)}
+							>
+								{s.icon}{s.label}
+							</button>
+						))}
+					</div>
 				</div>
 
 				{/* Strip speaker notes — a privacy opt-in for a shared file. */}
@@ -69,7 +115,7 @@ export function WebpageOptionsPanel({
 			<button
 				type="button"
 				disabled={busy}
-				onClick={() => onExport(stripNotes)}
+				onClick={() => onExport(stripNotes, scheme)}
 				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
 			>
 				{busy ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />}

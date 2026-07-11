@@ -2018,6 +2018,23 @@ async function renderBody(browser, g, closeBrowser) {
     // render (written pre-raster), so we warn and keep that clean sidecar.
     try {
       const { buildPlayerHtml } = require('./lib/export/html-player.js');
+      // The mode the deck is AUTHORED for — baked as the player's default so the shared
+      // file opens the way the sender chose, not re-themed by the receiver's OS. The
+      // signal is the effective `color-scheme` (theme palette or deck front matter):
+      //   · `light dark` (both) → SYSTEM — the author defers to the receiver's OS.
+      //   · `dark` (only), or a `class: … dark` front-matter flag → DARK.
+      //   · anything else → LIGHT.
+      // A `*-dark` palette / carbone pins `:root{color-scheme:dark}`; a deck opting into
+      // system writes `color-scheme: light dark` (front matter `style:` or a theme).
+      // Strip CSS comments from the palette first — a theme's DOC comment mentioning
+      // `color-scheme:light dark` (indaco's does) must NOT read as an actual declaration.
+      const paletteDecls = paletteCSS.replace(/\/\*[\s\S]*?\*\//g, '');
+      const csDeclares = (re) => re.test(paletteDecls) || re.test(fm);
+      const deckScheme = csDeclares(/color-scheme\s*:\s*(light\s+dark|dark\s+light)\b/)
+        ? 'system'
+        : csDeclares(/color-scheme\s*:\s*dark\b/) || /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm)
+          ? 'dark'
+          : 'light';
       const { html: playerHtml, report } = await buildPlayerHtml({
         // Prefer the browser-inflated DOM when the deck has dynamic components, so
         // state-chart / function-plot ship as baked static SVG (§A2b); else the
@@ -2030,7 +2047,7 @@ async function renderBody(browser, g, closeBrowser) {
         // re-imports without notes — the stated privacy tradeoff (§Notes on export).
         source: STRIP_NOTES ? notesCore.stripNotesFromSource(rawMd, noteStripSet) : rawMd,
         title: deckTitle,
-        theme: { name: paletteName },
+        theme: { name: paletteName, mode: deckScheme },
         config: deckFm,
         notes: !STRIP_NOTES,
         now: Date.now(),

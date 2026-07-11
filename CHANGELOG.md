@@ -152,6 +152,22 @@ in patch versions.
 
 ### Added
 
+- **The exported `.html` player now respects the color mode it was authored in —
+  and Share → Webpage lets you choose light, dark, or system.** A shared deck is a
+  document: it should open the way the sender made it, the way a PDF does. The
+  export now bakes the authored mode as a `data-lp-scheme` attribute on `<html>`,
+  and the player opens in it. **Light** and **dark** are pinned — the deck opens
+  that way on every device, regardless of the receiver's OS setting. **System**
+  is the explicit choice to defer to the receiver: the deck follows their OS
+  light/dark preference (via a `prefers-color-scheme` media query). The in-player
+  toggle still lets any viewer flip the mode for themselves — it overrides the
+  view without changing how the deck was exported. From the CLI, the authored mode
+  is read from the deck's effective `color-scheme` (a `*-dark` theme → dark; a
+  `color-scheme: light dark` declaration → system; otherwise light); from the
+  Studio, a light/dark/system selector on the Webpage export step defaults to the
+  mode you're previewing. This keeps the older-WebKit fix intact — the dark values
+  are still resolved to literal, plain-attribute-selector CSS with no reliance on
+  the `light-dark()` function.
 - **A "Fix Me" overlay pinpointing the cause of an overflowing slide, drilled
   down to the specific offending element where it can prove one.** The
   existing "Overflows" ring/tag only ever named the SLIDE, never the culprit.

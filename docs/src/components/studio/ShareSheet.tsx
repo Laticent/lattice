@@ -84,8 +84,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 
 	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
 	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
-	const exportHtml = (stripNotes: boolean) => {
-		run('html', 'Webpage', (onStatus) => shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, stripNotes));
+	const exportHtml = (stripNotes: boolean, scheme: 'light' | 'dark' | 'system') => {
+		run('html', 'Webpage', (onStatus) => shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, stripNotes, scheme));
 	};
 
 	return (
@@ -99,7 +99,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					{view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'html' ? (
-						<WebpageOptionsPanel busy={busy === 'html'} status={progress} onBack={() => setView('menu')} onExport={exportHtml} />
+						<WebpageOptionsPanel busy={busy === 'html'} status={progress} mode={mode} onBack={() => setView('menu')} onExport={exportHtml} />
 					) : (
 						<>
 							<section className="space-y-2">

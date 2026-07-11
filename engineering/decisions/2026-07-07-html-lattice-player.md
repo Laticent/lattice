@@ -216,6 +216,26 @@ exceptional file that IS my deck" — reversible where noted):
 | **Notes on export** (strip toggle vs default-in) | **Included by default, with an explicit "strip notes" toggle** that **scrubs notes from BOTH the presenter view AND the embedded source envelope.** | The point of the file is presenting from it, so notes ride by default. But a strip that only hides notes from the presenter view is **cosmetic**: notes are HTML comments living in the verbatim LFM source the envelope carries (2026-06-16 §3a; the parent's `--embed-source` help already warns the source "ships your speaker notes"), so they stay trivially extractable. Strip must re-serialize the envelope source with the note comments removed (via the `notes-core` boundary — the one place that knows what a note is). **Enumerate every baked copy:** notes live in ≥2 places — the envelope `source` comments AND the per-slide JS data payload (`presenter-window.js` ships `d.note` for the notes sheet + presenter). Strip scrubs *all* of them, with a test that greps the stripped file for note text and fails on any hit. Tradeoff, stated: a stripped file re-imports **without** notes — correct for a privacy strip. |
 | **Un-inlinable asset** (hard-fail vs warn) | **Warn-and-degrade behind an honesty report — AND the file must never phone home.** Export succeeds; the report lists what could not be inlined (404'd remote image, unreachable-CDN font). Two additions from review: **(a)** on a failed inline, **strip the external reference** (`@import`/`<link>`/`src`) so the file cannot silently fetch from Google Fonts / a remote host on open — the honesty report goes to the *author* at export, but the *recipient's* privacy is what a leftover live reference violates; **(b)** render a **visible in-file placeholder** for the recipient where an asset dropped (a "missing image" figure, a `<title>` note), not just an author-side report. | A failed export helps no one; but a "warn" that leaves a live CDN reference turns a self-contained file into one that phones home — the exact failure the design exists to prevent. (Note: this sandbox MITMs CDN webfonts — fonts fall back to serif here — so the honesty report is also our own dev-loop signal.) |
 
+**Addendum (2026-07-11) — colour mode is now DOCUMENT FIDELITY, not "always system + toggle".**
+The "Both + toggle" resolution above shipped, but on a real device it revealed two problems, fixed in
+sequence. First (merged, #889): themes' `light-dark()` tokens are unsupported on the user's older in-app
+WebKit, so flipping `:root color-scheme` did nothing — the export now resolves each `light-dark(L,D)` pair
+at export time into a **light base + an explicit dark override** (`themeDualMode`), driven by a plain
+`data-lp-scheme` attribute (literal values, decade-old CSS), with the dark tokens set on `:root` **and**
+directly on every `section[data-lattice-slide]` (an older engine repaints `:root` but doesn't re-propagate
+to deep subtrees). Second (this change): the toggle-only model always *opened* in the receiver's OS mode,
+which is wrong for a shared document — a deck exported dark should open dark on a light-OS device, the way a
+PDF does. So the **author's mode is now baked** as the `data-lp-scheme` value and the player opens in it:
+`light`/`dark` are **pinned** (never re-themed by the receiver's OS — the `system` dark rule keys on
+`[data-lp-scheme=system]`, *not* `:not([=light])`, so a pinned export is untouched by `prefers-color-scheme`);
+`system` is the explicit choice to **defer** to the receiver (a `@media (prefers-color-scheme:dark)` rule
+scoped to `=system`). The in-player toggle stays a **per-viewer override** — it flips the attribute to a
+concrete light/dark for that viewer without changing how the deck was exported. The CLI reads the authored
+mode from the deck's effective `color-scheme` (comment-stripped: a `*-dark` theme → dark, `color-scheme:
+light dark` → system, else light); the Studio Share → Webpage step exposes a light/dark/system selector
+defaulting to the previewed mode. The §A2b carve-out for the two headless-baked components (`state-chart`,
+`math.canvas`/function-plot) is unchanged and still owned there.
+
 Also folded in from the parent's §Phasing and §Open questions: **`.lattice` as a desktop document type**
 (register the extension with the SlideWright Tauri app) stays an open question owned with the desktop
 wrapper, tracked below — not resolved here.
