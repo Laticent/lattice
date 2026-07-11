@@ -61,7 +61,7 @@ const variantDocs = m.variantDocs || {};
 const variantKeys = Array.isArray(m.variants) ? m.variants.filter((v) => variantDocs[v]) : [];
 const variants = [
 	{ key: 'default', label: 'default', caption: '', sample },
-	...variantKeys.map((v) => ({ key: v, label: v, caption: variantDocs[v].caption || '', sample: variantDocs[v].sample })),
+	...variantKeys.map((v) => ({ key: v, label: v, caption: variantDocs[v].summary || '', sample: variantDocs[v].sample })),
 ];
 const mermaid = variants.some((v) => /```mermaid/.test(v.sample));
 

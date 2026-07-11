@@ -89,7 +89,7 @@
   "anatomyBlock": "split-compare",
   "sample": "<!-- _class: split-compare -->\n\n`comparison · split-compare`\n\n## The dark panel asks; the grid answers.\n\nOne question on the left; two option cards and a verdict on the right.\n\n- Option A\n  - Three short rows state the case\n  - Rows stay parallel across cards\n- Option B\n  - The grid begs comparison\n  - Mismatched rows read as bias\n\n> The verdict card lands last: one recommendation, one revisit date.\n",
   "stressDoc": {
-    "caption": "Four rows per card — the ceiling.",
+    "summary": "Four rows per card — the ceiling.",
     "sample": "<!-- _class: split-compare -->\n\n`split-compare · stress`\n\n## Four rows per card is the grid's ceiling.\n\nThe panel question may run two lines when the cards run full.\n\n- The stressed first option\n  - Budget spent, one clause\n  - Rows compress the verdict\n  - The fourth is last\n  - Parallel, or it collapses\n- The stressed second option\n  - Symmetry is the grammar\n  - Four rows each, matched\n  - Eyes pair across cards\n  - Unpaired reads as missing\n\n> Even at the ceiling the verdict stays one sentence — the loudest line on the slide.\n"
   },
   "whenToUse": [

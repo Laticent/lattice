@@ -76,7 +76,7 @@
   "anatomyBlock": "list-tabular",
   "sample": "<!-- _class: list-tabular -->\n\n## The tabular list rules rows into a register.\n\n1. Rows\n   - Label, clause, optional meta line.\n   - _Twelve soft · sixteen hard_\n2. Looks\n   - Eight named looks reskin the rows.\n   - _def · spec · register_\n3. Escalation\n   - Long content leaves for a table.\n   - _split past eight rows_\n",
   "stressDoc": {
-    "caption": "Eight rows — the register's page.",
+    "summary": "Eight rows — the register's page.",
     "sample": "<!-- _class: list-tabular register -->\n\n## Eight rows is the register's practical page.\n\n1. title `stable`\n2. big-number `stable`\n3. cards-grid `stable`\n4. split-panel `stable`\n5. funnel `stable`\n6. map `stable`\n7. radar `beta`\n8. word-cloud `preview`\n"
   },
   "whenToUse": [
@@ -128,42 +128,42 @@
   "variantDocs": {
     "def": {
       "label": "Editorial (def)",
-      "caption": "Counter spans rows; eyebrow above.",
+      "summary": "Counter spans rows; eyebrow above.",
       "sample": "<!-- _class: list-tabular def -->\n\n## def pairs each term with its role.\n\n1. Label `Term`\n   - def styles the register as definitions.\n2. Chip `Role`\n   - The inline code becomes a right-hand chip.\n3. Body `Clause`\n   - One clause under each term.\n"
     },
     "metric": {
       "label": "Tile (metric)",
-      "caption": "Values in bordered tiles.",
+      "summary": "Values in bordered tiles.",
       "sample": "<!-- _class: list-tabular metric -->\n\n## metric turns the chips into figures.\n\n1. Rows carry values `12 / 16`\n2. Figures right-align `100%`\n3. Labels stay short `4 rows`\n"
     },
     "spec": {
       "label": "spec",
-      "caption": "Mono keys for flags and params.",
+      "summary": "Mono keys for flags and params.",
       "sample": "<!-- _class: list-tabular spec -->\n\n## spec documents flags and their types.\n\n1. `LATTICE_THEME` `string`\n   - spec sets code labels beside type chips.\n2. `LATTICE_DEBUG` `bool`\n   - One clause explains each flag.\n"
     },
     "register": {
       "label": "register",
-      "caption": "Status pills on each row.",
+      "summary": "Status pills on each row.",
       "sample": "<!-- _class: list-tabular register -->\n\n## register pairs names with status chips.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. radar `beta`\n4. word-cloud `preview`\n"
     },
     "rule": {
       "label": "def + rule",
-      "caption": "Accent rail down the left edge.",
+      "summary": "Accent rail down the left edge.",
       "sample": "<!-- _class: list-tabular def rule -->\n\n## rule draws a hairline under every row.\n\n1. Hairlines `On`\n   - rule adds the horizontal separators.\n2. Density `Same`\n   - Budgets do not change with the look.\n"
     },
     "solid": {
       "label": "metric + solid",
-      "caption": "Filled value tiles for headlines.",
+      "summary": "Filled value tiles for headlines.",
       "sample": "<!-- _class: list-tabular metric solid -->\n\n## solid fills the register with panel color.\n\n1. Net new rows `4`\n2. Panel fill `on`\n3. Best for `headline metrics`\n"
     },
     "stacked": {
       "label": "spec + stacked",
-      "caption": "Clause drops below the name.",
+      "summary": "Clause drops below the name.",
       "sample": "<!-- _class: list-tabular spec stacked -->\n\n## stacked drops the clause under its label.\n\n1. `GET /plans/:name` `200 | 404`\n   - stacked gives each row two decks of text.\n2. `GET /gallery/:name` `200`\n   - The clause wraps below, full width.\n"
     },
     "outline": {
       "label": "register + outline",
-      "caption": "Outline pills — a lighter register.",
+      "summary": "Outline pills — a lighter register.",
       "sample": "<!-- _class: list-tabular register outline -->\n\n## outline boxes each row in a keyline.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. quote `stable`\n"
     }
   },

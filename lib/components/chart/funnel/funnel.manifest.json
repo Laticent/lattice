@@ -41,7 +41,7 @@
   "anatomyBlock": "funnel",
   "sample": "<!-- _class: funnel -->\n\n## The funnel narrows; the width is the story.\n\n- Visitors `12,000`\n  - Two-thirds arrive from inbound, not outbound\n  - Paid search makes up the rest\n- Signups `4,800`\n- Activated `2,160`\n- Paid `864`\n- Renewed `670`\n",
   "stressDoc": {
-    "caption": "Seven stages, one steep early drop.",
+    "summary": "Seven stages, one steep early drop.",
     "sample": "<!-- _class: funnel -->\n\n## Seven stages, a steep early drop.\n\n- Impressions `240,000`\n- Clicks `38,400`\n- Visits `21,600`\n- Signups `5,400`\n- Activated `2,160`\n- Paid `648`\n- Renewed `512`\n"
   },
   "whenToUse": [

@@ -62,7 +62,7 @@ for (const m of manifests) {
 	catalog[m.name] = {
 		skeleton: m.skeleton,
 		sample: m.sample || m.skeleton,
-		variants: variantKeys.map((v) => ({ key: v, label: v, caption: variantDocs[v].caption || '', sample: variantDocs[v].sample })),
+		variants: variantKeys.map((v) => ({ key: v, label: v, caption: variantDocs[v].summary || '', sample: variantDocs[v].sample })),
 	};
 }
 const components = buildCatalog(manifests, manifestBucket);

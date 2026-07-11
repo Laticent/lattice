@@ -49,7 +49,7 @@
   "anatomyBlock": "roadmap",
   "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weighting  |\n| Adoption   | [x] Pilot onboarding   | [-] Weekly signal review | [ ] Org-wide rollout    |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |\n| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve exports  |\n",
   "stressDoc": {
-    "caption": "The full grid, twelve cells.",
+    "summary": "The full grid, twelve cells.",
     "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Four workstreams by three phases is the full grid.\n\n| Workstream | Phase one | Phase two | Phase three |\n| --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned cell |\n| Second | [x] Every cell filled | [-] No blank promises | [ ] The honest grid |\n| Third | [x] Short cell labels | [-] Four words at most | [ ] Or the grid wraps |\n| Fourth | [x] The last row | [-] Twelve cells total | [ ] The ceiling |\n"
   },
   "whenToUse": [
@@ -105,22 +105,22 @@
   "variantDocs": {
     "horizons": {
       "label": "horizons",
-      "caption": "Bets spread across three horizons.",
+      "summary": "Bets spread across three horizons.",
       "sample": "<!-- _class: roadmap horizons -->\n\n`Three-horizon planning`\n\n## horizons spreads the bets across three horizons.\n\n| Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |\n| ------------- | ------------------------ | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1     | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |\n| Scoring       | [x] Equal weights      | [-] Per-team calibration   | [ ] Per-decision profiles |\n| Decision Log  | [x] Append-only schema   | [x] Outcome auto-pairing | [ ] Auditor export        |\n| Adoption      | [x] One pilot team       | [/] Second team          | [ ] Org-wide enablement   |\n"
     },
     "status": {
       "label": "status",
-      "caption": "Delivery state at a glance.",
+      "summary": "Delivery state at a glance.",
       "sample": "<!-- _class: roadmap status -->\n\n`Layout · roadmap status`\n\n## status reads delivery state at a glance.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |\n| ------------- | -------------------- | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1 | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |\n| Scoring       | [x] Equal weights    | [-] Per-team calibration | [ ] Per-decision profiles |\n| Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |\n| Adoption      | [x] One pilot team   | [/] Second team          | [ ] Org-wide enablement   |\n\nState markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.\n"
     },
     "swimlane": {
       "label": "swimlane",
-      "caption": "One track per team.",
+      "summary": "One track per team.",
       "sample": "<!-- _class: roadmap swimlane -->\n\n`Layout · roadmap swimlane`\n\n## swimlane gives each team its own track.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |\n| ------------- | -------------------- | ---------------------- | ------------------------- |\n| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |\n| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |\n| Decision Log  | Append schema        | Outcome pairing        | Auditor export            |\n| Adoption      | One pilot team       | Second team            | Org-wide enablement       |\n"
     },
     "milestones": {
       "label": "milestones",
-      "caption": "The dated path, pinned.",
+      "summary": "The dated path, pinned.",
       "sample": "<!-- _class: roadmap milestones -->\n\n`Layout · roadmap milestones`\n\n## milestones pins the dated path.\n\n| Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |\n| ------------- | -------------------- | ---------------------- | ------------------------- |\n| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |\n| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |\n| Decision Log  | Append schema        | Outcome pairing        | Auditor export            |\n"
     }
   },

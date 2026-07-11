@@ -70,7 +70,7 @@
   "anatomyBlock": "verdict-grid",
   "sample": "<!-- _class: verdict-grid -->\n\n## The grid scores options against shared criteria.\n\n- **Option one.**\n  - [ ] Criterion\n  - [-] Criterion\n  - Why the checks land this way.\n- **Option two.**\n  - [x] Criterion\n  - [-] Criterion\n  - Same criteria, same order, always.\n- **Option three.**\n  - [x] Criterion\n  - [x] Criterion\n  - The sweep is the verdict. Recommended.\n",
   "stressDoc": {
-    "caption": "Five options — the hard ceiling.",
+    "summary": "Five options — the hard ceiling.",
     "sample": "<!-- _class: verdict-grid -->\n\n## Five options is the verdict grid's ceiling.\n\n- **First.**\n  - [ ] Check\n  - [ ] Check\n  - Early cards set the criteria order.\n- **Second.**\n  - [-] Check\n  - [ ] Check\n  - Partial marks keep the grid honest.\n- **Third.**\n  - [x] Check\n  - [-] Check\n  - The middle card is read most carefully.\n- **Fourth.**\n  - [x] Check\n  - [x] Check\n  - Late cards inherit the reader's fatigue.\n- **Fifth.**\n  - [x] Check\n  - [x] Check\n  - The hard stop; six wants compare-table.\n"
   },
   "whenToUse": [

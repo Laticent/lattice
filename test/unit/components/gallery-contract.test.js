@@ -176,7 +176,7 @@ test('hard gate: no placeholder-shaped content reaches a committed gallery', () 
   const offenders = [];
   for (const m of manifests) {
     const sd = stressDocOf(m);
-    const sources = [m.sample, ...Object.values(m.variantDocs || {}).flatMap((v) => [v.sample, v.caption]), sd?.sample, sd?.caption].filter(Boolean);
+    const sources = [m.sample, ...Object.values(m.variantDocs || {}).flatMap((v) => [v.sample, v.summary]), sd?.sample, sd?.summary].filter(Boolean);
     if (sources.some((s) => /\b(TBD|TODO|lorem ipsum|placeholder)\b/i.test(s))) offenders.push(m.name);
   }
   assert.deepEqual(offenders, []);

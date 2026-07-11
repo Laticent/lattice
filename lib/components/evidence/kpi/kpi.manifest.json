@@ -92,7 +92,7 @@
   "anatomyBlock": "kpi",
   "sample": "<!-- _class: kpi -->\n\n`evidence · kpi`\n\n## Four tiles the eye sweeps in one pass.\n\n1. 4\n   - tiles per row\n   - the ceiling `On plan`\n2. 8\n   - words per tile\n   - soft budget `Board`\n3. 5s\n   - scan time\n   - the target `On plan`\n4. 0\n   - prose sentences\n   - allowed here `Audit`\n",
   "stressDoc": {
-    "caption": "Four tiles at the fourteen-word line.",
+    "summary": "Four tiles at the fourteen-word line.",
     "sample": "<!-- _class: kpi -->\n\n`kpi · stress`\n\n## Four tiles at full word weight is the ceiling.\n\n1. 4\n   - tiles is the grid's seat count\n   - a fifth never renders `Max`\n2. 14\n   - words per tile, the hard budget\n   - this tile spends its whole allowance `Budget`\n3. 1\n   - line per label before wrapping\n   - wrapping ends the five-second scan `Rule`\n4. 2\n   - slides beat one crowded grid\n   - split past this point `Advice`\n"
   },
   "whenToUse": [
@@ -148,27 +148,27 @@
   "variantDocs": {
     "attention": {
       "label": "attention",
-      "caption": "Flags the tile that misses.",
+      "summary": "Flags the tile that misses.",
       "sample": "<!-- _class: kpi attention -->\n\n`kpi attention`\n\n## attention flags the tile that misses.\n\n1. 1\n   - tile flagged\n   - the miss `Attention`\n2. 3\n   - tiles steady\n   - for context `On plan`\n3. 0\n   - alarms hidden\n   - honesty `Board`\n4. 4\n   - tiles total\n   - the row `On plan`\n"
     },
     "ops": {
       "label": "ops",
-      "caption": "Reads the tiles against SLOs.",
+      "summary": "Reads the tiles against SLOs.",
       "sample": "<!-- _class: kpi ops -->\n\n`kpi ops`\n\n## ops reads the tiles against SLOs.\n\n1. 99.9%\n   - the SLO frame\n   - target line `SLO`\n2. 4\n   - tiles per row\n   - unchanged `On plan`\n3. 1\n   - breach shown\n   - never hidden `Ops`\n4. 30d\n   - the window\n   - rolling `SLO`\n"
     },
     "compliance": {
       "label": "compliance",
-      "caption": "Tallies findings per framework.",
+      "summary": "Tallies findings per framework.",
       "sample": "<!-- _class: kpi compliance -->\n\n`kpi compliance`\n\n## compliance tallies findings per framework.\n\n1. 0\n   - open findings\n   - the goal `Clean`\n2. 4\n   - frameworks tracked\n   - one row `Audit`\n3. 1\n   - in remediation\n   - dated `Watch`\n"
     },
     "trajectory": {
       "label": "trajectory",
-      "caption": "Pairs each tile with its delta.",
+      "summary": "Pairs each tile with its delta.",
       "sample": "<!-- _class: kpi trajectory -->\n\n`kpi trajectory`\n\n## trajectory pairs each tile with its delta.\n\n1. +9%\n   - the delta leads\n   - vs plan `Up`\n2. 4\n   - tiles still rule\n   - per row `On plan`\n3. −2\n   - down is shown\n   - not spun `Honest`\n"
     },
     "spotlight": {
       "label": "spotlight",
-      "caption": "One tile earns double width.",
+      "summary": "One tile earns double width.",
       "sample": "<!-- _class: kpi spotlight -->\n\n`kpi spotlight`\n\n## spotlight gives one tile double width.\n\n1. 1\n   - tile promoted\n   - the headline `Spotlight`\n2. 2\n   - support tiles\n   - beside it `On plan`\n3. 0\n   - competing heroes\n   - one only `Rule`\n"
     }
   },

@@ -77,7 +77,7 @@ export function pickGrammarVariants(manifest) {
     const key = grammarKey(info.sample);
     if (!key || seen.has(key)) continue; // same grammar as base/sibling → finish-only
     seen.add(key);
-    picked.push({ name, caption: (info.caption || info.label || '').trim(), sample: String(info.sample).trim() });
+    picked.push({ name, caption: (info.summary || info.label || '').trim(), sample: String(info.sample).trim() });
   }
   return picked;
 }

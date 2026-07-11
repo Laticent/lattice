@@ -43,7 +43,7 @@
   "anatomyBlock": "big-number-canvas",
   "sample": "<!-- _class: big-number -->\n\n`big-number · one number, the whole canvas`\n\n- 1\n  - claim per slide is what this layout enforces — the number argues, the caption stays to a line.\n",
   "stressDoc": {
-    "caption": "Ten digits is the practical ceiling.",
+    "summary": "Ten digits is the practical ceiling.",
     "sample": "<!-- _class: big-number -->\n\n`big-number · stress — the longest number that still lands`\n\n- $1,248,500,000\n  - ten digits with separators, scaled down to fit; past this width the claim stops reading at the back of the room.\n"
   },
   "whenToUse": [

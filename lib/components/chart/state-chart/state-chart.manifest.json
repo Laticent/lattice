@@ -62,7 +62,7 @@
   "skeleton": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to archive.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 6`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n4. Approved `done`\n   - `publish => 5`\n5. Published `live`\n   - `archive => 6`\n6. Archived `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
   "sample": "<!-- _class: state-chart lr -->\n\n`Submission lifecycle`\n\n## States connect; the arrows carry the rules.\n\nHow a draft moves from author to publication.\n\n1. Draft `start`\n   - `submit => 2`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review `at-risk`\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n   - Two reviewers must sign off before approval.\n4. Approved\n   - `publish => 5`\n5. Published `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
   "stressDoc": {
-    "caption": "A dense machine of states.",
+    "summary": "A dense machine of states.",
     "sample": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Stress test — back-edges, skips, self-loop.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 5`\n2. Submitted `on-track`\n   - `review => 3`\n   - `withdraw => 1`\n3. In Review\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n4. Approved `done`\n   - `recall => 3`\n   - `publish => 5`\n5. Published `end`\n   - `amend => 3`\n"
   },
   "whenToUse": [
@@ -118,17 +118,17 @@
   "variantDocs": {
     "lr": {
       "label": "Left-to-right",
-      "caption": "States flow left to right.",
+      "summary": "States flow left to right.",
       "sample": "<!-- _class: state-chart lr -->\n\n## lr flows the states left to right.\n\n1. Source `start`\n   - `compile => 2`\n2. Compiled\n   - `test => 3`\n3. Tested\n   - `deploy => 4`\n   - `fail => 1`\n4. Deployed `end`\n"
     },
     "inline": {
       "label": "Inline",
-      "caption": "The chart sits beside its prose.",
+      "summary": "The chart sits beside its prose.",
       "sample": "<!-- _class: state-chart inline -->\n\n## inline sets the chart beside its prose.\n\n1. Connecting `start`\n   - `retry => self`\n   - `ok => 2`\n   - `fail => 3`\n2. Connected `live`\n   - `disconnect => 1`\n3. Failed `end`\n"
     },
     "curved": {
       "label": "Curved",
-      "caption": "Eased arrows between states.",
+      "summary": "Eased arrows between states.",
       "sample": "<!-- _class: state-chart curved -->\n\n## curved eases the arrows between states.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 5`\n2. In Review `at-risk`\n   - `approve => 3`\n   - `revise => self`\n   - `reject => 1`\n3. Approved\n   - `publish => 4`\n4. Published `live`\n   - `archive => 5`\n5. Archived `end`\n"
     }
   },

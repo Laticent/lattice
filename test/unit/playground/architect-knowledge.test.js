@@ -129,13 +129,13 @@ describe('pickGrammarVariants — variants whose authoring grammar differs from 
     skeleton: '<!-- _class: list-tabular -->\n\n## H\n\n- **First.** body.\n- **Second.** body.',
     variantDocs: {
       // numbered + trailing `value` pill — a real grammar change → kept.
-      metric: { label: 'Tile', caption: 'Values in tiles.', sample: '## H\n\n1. ARR `$4.2M`\n2. Retention `94%`' },
+      metric: { label: 'Tile', summary: 'Values in tiles.', sample: '## H\n\n1. ARR `$4.2M`\n2. Retention `94%`' },
       // numbered + nested description row — a different grammar → kept.
-      def: { label: 'Editorial', caption: 'Eyebrow above name.', sample: '## H\n\n1. Function `Purpose`\n   - Why it exists.' },
+      def: { label: 'Editorial', summary: 'Eyebrow above name.', sample: '## H\n\n1. Function `Purpose`\n   - Why it exists.' },
       // same grammar as `metric` (numbered + pill) → finish-only → dropped.
-      register: { label: 'Pill', caption: 'Accent pill.', sample: '## H\n\n1. cards-grid `stable`\n2. radar `beta`' },
+      register: { label: 'Pill', summary: 'Accent pill.', sample: '## H\n\n1. cards-grid `stable`\n2. radar `beta`' },
       // incidental mid-prose code span must NOT read as a value grammar → dropped.
-      mirror: { label: 'Flip', caption: 'Columns swapped.', sample: '## H\n\n- **First.** Pair with `chosen` to mark it.\n- **Second.** body.' },
+      mirror: { label: 'Flip', summary: 'Columns swapped.', sample: '## H\n\n- **First.** Pair with `chosen` to mark it.\n- **Second.** body.' },
       // no sample → skipped without throwing.
       empty: { label: 'Empty' },
     },

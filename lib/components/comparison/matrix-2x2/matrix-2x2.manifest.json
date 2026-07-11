@@ -73,7 +73,7 @@
   "anatomyBlock": "matrix-2x2",
   "sample": "<!-- _class: matrix-2x2 -->\n\n## The matrix places items on two named axes.\n\n- **High impact · Low effort.**\n  - Quick wins\n  - Two per cell\n- **High impact · High effort.**\n  - Strategic bets\n  - Named plainly\n- **Low impact · Low effort.**\n  - Habit fillers\n  - Prune here\n- **Low impact · High effort.**\n  - Time sinks\n  - One suffices\n",
   "stressDoc": {
-    "caption": "Three items per cell — the ceiling.",
+    "summary": "Three items per cell — the ceiling.",
     "sample": "<!-- _class: matrix-2x2 -->\n\n## Three items per cell is the matrix ceiling.\n\n- **High impact · Low effort.**\n  - Three short items\n  - Fit each cell\n  - At the ceiling\n- **High impact · High effort.**\n  - Labels stay short\n  - Sixteen words hard\n  - Per cell entry\n- **Low impact · Low effort.**\n  - Past three items\n  - The quadrants crowd\n  - Split the story\n- **Low impact · High effort.**\n  - A fourth entry\n  - Does not fit\n  - Stop at three\n"
   },
   "whenToUse": [

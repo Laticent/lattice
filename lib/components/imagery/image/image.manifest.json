@@ -100,32 +100,32 @@
   "variantDocs": {
     "clean": {
       "label": "clean",
-      "caption": "Drops the caption chrome.",
+      "summary": "Drops the caption chrome.",
       "sample": "<!-- _class: image clean -->\n\n## clean drops the caption chrome.\n\nTwo-thirds of trials that reach the first generated report convert; the ones that stall almost never do.\n\n![bg](sample-photo-wide.svg)\n"
     },
     "split": {
       "label": "split",
-      "caption": "A portrait gets its full column.",
+      "summary": "A portrait gets its full column.",
       "sample": "<!-- _class: image split -->\n\n## split gives a portrait its full column.\n\nA portrait photo wants its full height. We give it a column and let the argument run alongside.\n\n![bg](sample-photo-tall.svg)\n"
     },
     "spotlight": {
       "label": "spotlight",
-      "caption": "A panorama owns the frame.",
+      "summary": "A panorama owns the frame.",
       "sample": "<!-- _class: image spotlight -->\n\n## spotlight lets a panorama own the frame.\n\nWhen the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.\n\n![bg](sample-photo-pano.svg)\n"
     },
     "gallery": {
       "label": "gallery",
-      "caption": "The exhibit on a matte with a placard.",
+      "summary": "The exhibit on a matte with a placard.",
       "sample": "<!-- _class: image gallery -->\n\n## gallery mats the exhibit with a placard.\n\nThe whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.\n\n![bg](sample-photo-square.svg)\n"
     },
     "statement": {
       "label": "statement",
-      "caption": "The title rides the photo on a scrim.",
+      "summary": "The title rides the photo on a scrim.",
       "sample": "<!-- _class: image statement -->\n\n## statement rides the title on a scrim.\n\nThe title rides the photo on a scrim — a deliberate, editorial choice.\n\n![bg](sample-photo-wide.svg)\n"
     },
     "mirror": {
       "label": "mirror",
-      "caption": "The image lands on the left.",
+      "summary": "The image lands on the left.",
       "sample": "<!-- _class: image mirror -->\n\n## mirror lands the image on the left.\n\nText leads from the right; image anchors from the left.\n\n![bg left](sample-photo-wide.svg)\n"
     }
   },

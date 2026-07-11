@@ -78,7 +78,7 @@
   "anatomyBlock": "statute-stack",
   "sample": "<!-- _class: statute-stack -->\n\n## Three jurisdictions, one obligation each.\n\n- Federal `15 U.S.C. §6501`\n  - Parental consent for under-13 data.\n  - `In effect since 2000`\n- State `Cal. Civ. §1798.120`\n  - The right to opt out of sale.\n  - `In effect since 2020`\n- International `GDPR Art. 8`\n  - Member-state consent age, 13 to 16.\n  - `In effect since 2018`\n",
   "stressDoc": {
-    "caption": "Five jurisdictions — the ceiling.",
+    "summary": "Five jurisdictions — the ceiling.",
     "sample": "<!-- _class: statute-stack -->\n\n## Five jurisdictions is the rail's hard ceiling.\n\n- Federal `COPPA §6501`\n  - The anchor tier reads first.\n  - `2000`\n- State `CCPA §1798`\n  - Twenty-four words is each tier's line.\n  - `2020`\n- State `Tex. 541`\n  - Parallel tiers must match shapes.\n  - `2024`\n- Intl `GDPR 8`\n  - The fourth passed the soft mark.\n  - `2018`\n- Intl `PIPL 31`\n  - The stop; six collapses the rail.\n  - `2021`\n"
   },
   "whenToUse": [
@@ -130,22 +130,22 @@
   "variantDocs": {
     "hierarchy": {
       "label": "hierarchy",
-      "caption": "Ordered by supremacy.",
+      "summary": "Ordered by supremacy.",
       "sample": "<!-- _class: statute-stack hierarchy -->\n\n## hierarchy orders the stack by supremacy.\n\n- Federal `15 U.S.C. §6501` `In effect since 2000`\n  - Verifiable parental consent for under-13 personal data.\n- State `Cal. Civ. §1798.120` `Enforced 2023`\n  - Opt-in for selling or sharing under-16 data; opt-out for over-16.\n- Local `NYC §22-1201` `Effective 2023`\n  - Bias-audit obligation for AEDTs used in employment decisions.\n"
     },
     "bands": {
       "label": "Horizontal bands",
-      "caption": "Full-width strips.",
+      "summary": "Full-width strips.",
       "sample": "<!-- _class: statute-stack bands -->\n\n## bands strips each jurisdiction full-width.\n\n- Federal `15 U.S.C. §6501` `In effect since 2000`\n  - Verifiable parental consent for under-13 personal data.\n- State `Cal. Civ. §1798.120` `Enforced 2023`\n  - Opt-in for selling or sharing under-16 data; opt-out for over-16.\n- Local `NYC §22-1201` `Effective 2023`\n  - Bias-audit obligation for AEDTs used in employment decisions.\n"
     },
     "preemption": {
       "label": "preemption",
-      "caption": "Which law yields.",
+      "summary": "Which law yields.",
       "sample": "<!-- _class: statute-stack preemption -->\n\n## preemption marks which law yields.\n\n- Federal `15 U.S.C. §6501` `Preempts state rules`\n  - Sets the floor for under-13 personal data collection.\n- State `Cal. Civ. §1798.120` `Survives preemption`\n  - Stricter opt-in regime on top of COPPA's baseline.\n- Local `NYC §22-1201` `Independent of preemption`\n  - Bias-audit obligation distinct from privacy preemption scope.\n"
     },
     "lane": {
       "label": "Markdown table",
-      "caption": "One column stack.",
+      "summary": "One column stack.",
       "sample": "<!-- _class: statute-stack lane -->\n\n## lane runs the stack in one column.\n\n| Jurisdiction | Citation              | Headline obligation       | Status      |\n| ------------ | --------------------- | ------------------------- | ----------- |\n| Federal      | 15 U.S.C. §6501       | Parental consent <13 data | In effect   |\n| State        | Cal. Civ. Code §1798  | Notice + opt-out + DSAR   | Enforced    |\n| Local        | NYC §22-1201          | Annual AEDT bias audit    | Effective   |\n"
     }
   },

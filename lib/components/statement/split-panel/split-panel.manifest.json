@@ -122,37 +122,37 @@
   "variantDocs": {
     "metric": {
       "label": "metric",
-      "caption": "Light panel behind one hero number.",
+      "summary": "Light panel behind one hero number.",
       "sample": "<!-- _class: split-panel metric -->\n\n`split-panel metric`\n\n## 16<em>wpi</em>\n\nWords per item — the budget this layout holds its supporting column to.\n\n- The panel flips light\n  - metric flips the panel light behind one hero number.\n- The number claims\n  - Keep support brief — two items beside a figure.\n"
     },
     "pullquote": {
       "label": "pullquote",
-      "caption": "Half the slide to one quotation.",
+      "summary": "Half the slide to one quotation.",
       "sample": "<!-- _class: split-panel pullquote -->\n\n> pullquote gives half the slide to one voice, and the other half to what it means.\n\n`split-panel pullquote · the layout, quoted`\n\n- The quote claims\n  - Display italic on the dark panel; keep it under twenty-five words.\n- The column interprets\n  - Two items that say why the words matter, not who said them again.\n"
     },
     "steps": {
       "label": "steps",
-      "caption": "The panel anchors a numbered phase.",
+      "summary": "The panel anchors a numbered phase.",
       "sample": "<!-- _class: split-panel steps -->\n\n`02`\n\n## steps\n\nThe left panel anchors a phase; the column numbers its moves.\n\n1. Watermark the phase\n   - The inline-code number becomes the panel's backdrop.\n2. Number the column\n   - An ordered list reads as sequence — three steps fit.\n3. Keep steps parallel\n   - Verb-first titles, one supporting line each.\n"
     },
     "watermark": {
       "label": "watermark",
-      "caption": "Accent panel, letterform, h3 rubric.",
+      "summary": "Accent panel, letterform, h3 rubric.",
       "sample": "<!-- _class: split-panel watermark -->\n\n## Watermark\n\n### The heading's first letter becomes the panel\n\n- The accent panel decorates\n  - A large letterform behind the heading — presence without a photo.\n- The h3 subtitles\n  - One line naming what the slide surveys.\n- The column carries the content\n  - Same three-item budget as the default split.\n"
     },
     "mirror": {
       "label": "mirror",
-      "caption": "Featured panel moves right.",
+      "summary": "Featured panel moves right.",
       "sample": "<!-- _class: split-panel mirror -->\n\n`split-panel mirror`\n\n## mirror puts the featured panel on the right.\n\nSame anatomy, flipped — for when the deck's rhythm wants the claim to land late.\n\n- Reading order still works\n  - The eye crosses support first, then lands on the panel's claim.\n- Use it sparingly\n  - One mirror per section keeps the flip meaningful.\n"
     },
     "qr": {
       "label": "qr",
-      "caption": "Payload bullet becomes a code.",
+      "summary": "Payload bullet becomes a code.",
       "sample": "<!-- _class: split-panel qr -->\n\n`split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://slidewright.dev/components/split-panel `qr`\n- Scan for this layout's docs `caption`\n"
     }
   },
   "stressDoc": {
-    "caption": "Three items at full budget.",
+    "summary": "Three items at full budget.",
     "sample": "<!-- _class: split-panel -->\n\n`split-panel · stress`\n\n## Three full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item closes the set\n  - A fourth would push past the footer — split the slide instead.\n"
   },
   "specimenVoice": true

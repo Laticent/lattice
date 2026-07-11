@@ -69,7 +69,7 @@
   "anatomyBlock": "T22-compare-table",
   "sample": "<!-- _class: compare-table -->\n\n## The table compares rows on consistent columns.\n\n| Row | Holds | Budget |\n| --- | --- | --- |\n| A label | One cell per column | Twelve words |\n| Every row | The same column set | Twelve words |\n| Six rows | The comfortable page | Twelve words |\n",
   "stressDoc": {
-    "caption": "Eight rows — the hard ceiling.",
+    "summary": "Eight rows — the hard ceiling.",
     "sample": "<!-- _class: compare-table -->\n\n## Eight rows is the table's hard ceiling.\n\n| Row | Reads | At the ceiling |\n| --- | --- | --- |\n| One | First | Fresh attention |\n| Two | Fast | Keep cells short |\n| Three | Steady | Parallel phrasing |\n| Four | Mid-page | The pivot row |\n| Five | Slower | Trim adjectives |\n| Six | The soft mark | Past comfort |\n| Seven | Strained | Nearly done |\n| Eight | Last | The hard stop |\n"
   },
   "whenToUse": [

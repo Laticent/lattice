@@ -407,17 +407,17 @@ var require_manifest_schema = __commonJS({
         },
         stressDoc: {
           type: "object",
-          description: "Required wherever capacity is declared (validate() error since the migration completed); optional elsewhere. The stress-test slide as { caption, sample }: caption is one sentence naming the limit the slide shows; sample is the full slide markdown at the upper content limit. Replaces the legacy stressSample string.",
+          description: "Required wherever capacity is declared (validate() error since the migration completed); optional elsewhere. The stress-test slide as { summary, sample }: summary is one sentence naming the limit the slide shows; sample is the full slide markdown at the upper content limit. Replaces the legacy stressSample string. (`summary` was named `caption` before the read-as caption channel took that word \u2014 2026-07-11.)",
           required: [
-            "caption",
+            "summary",
             "sample"
           ],
           additionalProperties: false,
           properties: {
-            caption: {
+            summary: {
               type: "string",
               minLength: 1,
-              description: "One sentence naming the limit shown (surfaced as the caption footer and the Explore caption)."
+              description: "One sentence naming the limit shown (surfaced as the specimen caption footer and the Explore caption)."
             },
             sample: {
               type: "string",
@@ -436,7 +436,7 @@ var require_manifest_schema = __commonJS({
           additionalProperties: {
             type: "object",
             required: [
-              "caption",
+              "summary",
               "sample"
             ],
             additionalProperties: false,
@@ -445,10 +445,10 @@ var require_manifest_schema = __commonJS({
                 type: "string",
                 minLength: 1
               },
-              caption: {
+              summary: {
                 type: "string",
                 minLength: 1,
-                description: "One-sentence summary of what the variant does."
+                description: "One-sentence summary of what the variant does. (Named `caption` before the read-as caption channel took that word \u2014 2026-07-11.)"
               },
               sample: {
                 type: "string",

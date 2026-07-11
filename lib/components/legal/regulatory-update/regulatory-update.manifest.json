@@ -84,7 +84,7 @@
   "anatomyBlock": "regulatory-update",
   "sample": "<!-- _class: regulatory-update -->\n\n## The update ledger tracks regulatory motion.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n",
   "stressDoc": {
-    "caption": "Six changes — the ceiling.",
+    "summary": "Six changes — the ceiling.",
     "sample": "<!-- _class: regulatory-update -->\n\n## Six changes is the ledger's ceiling.\n\n1. First instrument\n   - `Title cite`\n   - One clause states the duty.\n2. Second instrument\n   - `Bill number`\n   - Entries stay three lines here.\n3. Third instrument\n   - `Regulation cite`\n   - The middle carries the exposure.\n4. Fourth instrument\n   - `Directive cite`\n   - Shorter as the ledger descends.\n5. Fifth instrument\n   - `Rule cite`\n   - The soft ceiling passed above.\n6. Sixth instrument\n   - `Order cite`\n   - The stop.\n"
   },
   "whenToUse": [
@@ -136,22 +136,22 @@
   "variantDocs": {
     "timeline": {
       "label": "timeline",
-      "caption": "Ordered by effective date.",
+      "summary": "Ordered by effective date.",
       "sample": "<!-- _class: regulatory-update timeline -->\n\n## timeline orders the changes by effective date.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n"
     },
     "priority": {
       "label": "priority",
-      "caption": "Ranked by exposure.",
+      "summary": "Ranked by exposure.",
       "sample": "<!-- _class: regulatory-update priority -->\n\n## priority ranks the changes by exposure.\n\n`Top three · by ARR at risk`\n\n1. EU AI Act\n   - `Title III`\n   - High-risk system inventory due before April.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Deployer disclosures required; copy in flight.\n   - `Effective Feb 2026`\n3. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory.\n   - `Effective Mar 2026`\n"
     },
     "cards": {
       "label": "cards",
-      "caption": "One tile per change.",
+      "summary": "One tile per change.",
       "sample": "<!-- _class: regulatory-update cards -->\n\n## cards deals each change its own tile.\n\n`Federal · State · International`\n\n1. EU AI Act\n   - `Title III`\n   - Conformity-assessment pre-market obligation took effect.\n   - `Effective Feb 2026`\n2. Colorado AI Act\n   - `SB 24-205`\n   - Developer and deployer duties for consequential-decision systems.\n   - `Effective Feb 2026`\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order; clarifies the deception standard for privacy branding.\n   - `Final Mar 2026`\n4. Texas DPSA\n   - `§541.151`\n   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.\n   - `Effective Mar 2026`\n"
     },
     "diff-bands": {
       "label": "diff-bands",
-      "caption": "Changed versus stayed.",
+      "summary": "Changed versus stayed.",
       "sample": "<!-- _class: regulatory-update diff-bands -->\n\n## diff-bands shades what changed versus stayed.\n\n### Added\n\n1. Colorado AI Act\n   - `SB 24-205`\n   - New developer and deployer duties for consequential-decision systems.\n\n### Amended\n\n2. CCPA regulations\n   - `§7027`\n   - Opt-out preference signal handling clarified and tightened.\n\n### Repealed\n\n3. Small-business carve-out\n   - `§541.107`\n   - The blanket exemption was narrowed and partially repealed.\n\n### Enforced\n\n4. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order finalized against deceptive privacy branding.\n"
     }
   },

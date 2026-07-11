@@ -72,18 +72,18 @@
   "anatomyBlock": "kanban",
   "sample": "<!-- _class: kanban -->\n\n`chart · kanban`\n\n## The board tracks cards across lanes.\n\n- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n- Done\n  - Shipped work `L`\n",
   "stressDoc": {
-    "caption": "Six lanes — the board's hard ceiling.",
+    "summary": "Six lanes — the board's hard ceiling.",
     "sample": "<!-- _class: kanban compact -->\n\n`kanban · stress`\n\n## Six lanes is the board's hard ceiling.\n\n- Intake\n  - New arrivals `S`\n  - Unsorted `S`\n- Backlog\n  - Prioritized queue `M`\n- In progress\n  - The WIP limit `L`\n- Review\n  - Awaiting eyes `M`\n- Staging\n  - Nearly out `S`\n- Done\n  - The sixth lane `S`\n"
   },
   "variantDocs": {
     "keyline": {
       "label": "keyline",
-      "caption": "Hairlines rule the lanes apart.",
+      "summary": "Hairlines rule the lanes apart.",
       "sample": "<!-- _class: kanban keyline -->\n\n`kanban keyline`\n\n## keyline rules the lanes apart.\n\n- Backlog\n  - Ruled lanes `S`\n- In progress\n  - Same board `M`\n- Done\n  - New look `L`\n"
     },
     "tinted": {
       "label": "tinted",
-      "caption": "Each lane takes a colored wash.",
+      "summary": "Each lane takes a colored wash.",
       "sample": "<!-- _class: kanban tinted -->\n\n`kanban tinted`\n\n## tinted colors each lane's wash.\n\n- Backlog\n  - Lane wash `S`\n- In progress\n  - Color coded `M`\n- Done\n  - Reads faster `L`\n"
     }
   },

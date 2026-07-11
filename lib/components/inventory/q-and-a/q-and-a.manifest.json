@@ -90,7 +90,7 @@
   "anatomyBlock": "q-and-a",
   "sample": "<!-- _class: q-and-a -->\n\n## The Q&A pairs questions with short answers.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n- What if answers run long?\n  - Use solo, one per slide.\n",
   "stressDoc": {
-    "caption": "Six pairs — the hard ceiling.",
+    "summary": "Six pairs — the hard ceiling.",
     "sample": "<!-- _class: q-and-a compact -->\n\n## Six pairs is the most one slide answers.\n\n- Why six pairs and not seven?\n  - The column overflows a portrait box.\n- Do answers shrink at the ceiling?\n  - To one breath each.\n- Where does the eye tire?\n  - Pair four; park risk there.\n- Can compact buy a seventh?\n  - No — six is structural.\n- What about longer answers?\n  - Fewer pairs, or solo.\n- And past six?\n  - Autosplit divides the slide.\n"
   },
   "whenToUse": [
@@ -124,27 +124,27 @@
   "variantDocs": {
     "spine": {
       "label": "spine",
-      "caption": "Pairs threaded down an accent spine.",
+      "summary": "Pairs threaded down an accent spine.",
       "sample": "<!-- _class: q-and-a spine -->\n\n## spine threads the pairs down an accent spine.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n"
     },
     "rail": {
       "label": "rail",
-      "caption": "Numbered exhibit rows in columns.",
+      "summary": "Numbered exhibit rows in columns.",
       "sample": "<!-- _class: q-and-a rail -->\n\n## rail hangs the questions on a left rail.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n"
     },
     "tab": {
       "label": "tab",
-      "caption": "Underlined prompts; answers hang below.",
+      "summary": "Underlined prompts; answers hang below.",
       "sample": "<!-- _class: q-and-a tab -->\n\n## tab folds each answer under a question tab.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n"
     },
     "grid": {
       "label": "grid",
-      "caption": "Four pairs in a two-by-two.",
+      "summary": "Four pairs in a two-by-two.",
       "sample": "<!-- _class: q-and-a grid -->\n\n## grid deals the pairs into two columns.\n\n- How long may a question run?\n  - One line.\n- And the answer?\n  - Four words or so.\n- How many pairs fit?\n  - Five; six is the ceiling.\n- Why four pairs here?\n  - Grids want even counts.\n"
     },
     "solo": {
       "label": "solo",
-      "caption": "One pair, the whole slide.",
+      "summary": "One pair, the whole slide.",
       "sample": "<!-- _class: q-and-a solo -->\n\n## solo gives one question the whole slide.\n\n- What does solo change?\n  - One pair, full canvas.\n"
     }
   },

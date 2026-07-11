@@ -57,7 +57,7 @@
   "anatomyBlock": "decision",
   "sample": "<!-- _class: decision -->\n\n## The decision slide names the chosen path.\n\n- The pick, stated plainly.\n  - The chosen option leads with the verdict treatment and the reason it won, in one breath.\n- The road not taken.\n  - The alternative keeps its honest case — a decision against a straw man persuades no one.\n",
   "stressDoc": {
-    "caption": "Two full arguments, no more.",
+    "summary": "Two full arguments, no more.",
     "sample": "<!-- _class: decision -->\n\n## A verdict can carry two full arguments, no more.\n\n- The chosen path, fully argued.\n  - At the hard budget the winning card states the call, the strongest reason, and the accepted cost in two sentences — everything else belongs in the appendix.\n- The alternative, fully respected.\n  - The losing card may run just as long; a verdict earns trust precisely when the rejected option is shown at its strongest and still loses.\n"
   },
   "whenToUse": [
@@ -112,7 +112,7 @@
   "variantDocs": {
     "banner-tag": {
       "label": "banner-tag",
-      "caption": "Headlines each card with its camp.",
+      "summary": "Headlines each card with its camp.",
       "sample": "<!-- _class: decision banner-tag -->\n\n## banner-tag headlines each card with its camp.\n\n- DECIDE\n  - The banner carries the stance; the body carries the reason.\n- RECORD\n  - Use when the slide is the decision log's public face.\n"
     }
   },

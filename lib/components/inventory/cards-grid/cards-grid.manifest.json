@@ -96,7 +96,7 @@
   "skeleton": "<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",
   "sample": "<!-- _class: cards-grid -->\n\n## A cards grid gives equal weight to peers.\n\n- Parallel titles.\n  - Noun phrases of similar weight, never mixed.\n- Short bodies.\n  - One clause each; a long card collapses the grid.\n- Rank order.\n  - Left to right reads strongest first.\n- Four cards.\n  - The hard ceiling; five means a new slide.\n",
   "stressDoc": {
-    "caption": "Four cards at the hard budget.",
+    "summary": "Four cards at the hard budget.",
     "sample": "<!-- _class: cards-grid -->\n\n## Four full cards is this grid's loud maximum.\n\n- Card one.\n  - A body at the hard budget runs this long — two clauses that read as one breath, and not a word more.\n- Card two.\n  - Parallel structure matters most at the ceiling; matching shapes are what keep four dense cards readable as a set.\n- Card three.\n  - The grid trades white space for words here; past this density the audience reads one card and skips the rest.\n- Card four.\n  - The hard stop. A fifth card or a longer body does not fit — split the slide or reach for list-tabular.\n"
   },
   "anatomyBlock": "T7-card-grid-2x2",
@@ -157,17 +157,17 @@
   "variantDocs": {
     "three": {
       "label": "Three columns",
-      "caption": "Three equal columns.",
+      "summary": "Three equal columns.",
       "sample": "<!-- _class: cards-grid three -->\n\n## three widens the grid to three columns.\n\n- Wider cards.\n  - Each card earns a third of the row.\n- Same budget.\n  - Bodies stay one clause, titles stay parallel.\n- Sweet spot.\n  - Three peers is the count this grid loves.\n"
     },
     "four": {
       "label": "Four columns",
-      "caption": "Four columns; pair with compact.",
+      "summary": "Four columns; pair with compact.",
       "sample": "<!-- _class: cards-grid four compact -->\n\n## four locks a two-by-two, compact tightens it.\n\n- Quadrant read.\n  - Four cells scan as a loop.\n- Compact pairing.\n  - Padding shrinks so labels stay whole.\n- Named corners.\n  - Position carries meaning; place cards deliberately.\n- Still four.\n  - The ceiling does not move.\n"
     },
     "numbered": {
       "label": "Numbered cards",
-      "caption": "Ordered source stamps corner tags.",
+      "summary": "Ordered source stamps corner tags.",
       "sample": "<!-- _class: cards-grid -->\n\n## An ordered list numbers the cards.\n\n1. Numbers appear\n   - Markdown's ordered list turns cards into steps.\n2. Sequence reads\n   - The grid now implies order, so mean it.\n3. Budget holds\n   - Same one-clause bodies as the unnumbered grid.\n"
     }
   },

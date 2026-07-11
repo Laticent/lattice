@@ -75,7 +75,7 @@
   "anatomyBlock": "authority-chain",
   "sample": "<!-- _class: authority-chain -->\n\n## The chain descends from statute to practice.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Congress, 1998 — verifiable parental consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule; 2013 rewrite expanded covered identifiers.\n3. Guidance\n   - `FTC Six-Step Compliance Plan`\n   - Staff guidance — non-binding, but cited in every consent order.\n4. Case\n   - `In re Epic Games · 2022`\n   - $245M consent order — operationalized \"actual knowledge\" standard.\n",
   "stressDoc": {
-    "caption": "Six tiers — the ceiling.",
+    "summary": "Six tiers — the ceiling.",
     "sample": "<!-- _class: authority-chain -->\n\n## Six tiers is the chain's ceiling.\n\n1. Statute\n   - `15 U.S.C. §6501`\n2. Regulation\n   - `16 C.F.R. 312`\n3. Guidance\n   - `FTC guidance`\n4. Enforcement\n   - `Consent decrees`\n5. Case law\n   - `Circuit reads`\n6. Contract\n   - `DPAs — the stop`\n"
   },
   "whenToUse": [
@@ -123,22 +123,22 @@
   "variantDocs": {
     "branching": {
       "label": "branching",
-      "caption": "The chain forks.",
+      "summary": "The chain forks.",
       "sample": "<!-- _class: authority-chain branching -->\n\n## branching forks the chain where authority splits.\n\n1. Statute\n   - `15 U.S.C. §6501` COPPA, 1998\n   - `16 C.F.R. Part 312` FTC implementing rule\n   - `FTC Six-Step Compliance Plan` staff guidance\n   - `In re Epic Games · 2022` $245M consent order\n   - `In re YouTube/Google · 2019` $170M consent order\n"
     },
     "trail": {
       "label": "trail",
-      "caption": "A breadcrumb walk.",
+      "summary": "A breadcrumb walk.",
       "sample": "<!-- _class: authority-chain trail -->\n\n## trail walks the chain as a breadcrumb.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Verifiable parental consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule.\n3. Guidance\n   - `FTC Six-Step Plan`\n   - Cited in every consent order.\n4. Case\n   - `Epic Games · 2022`\n   - $245M consent order.\n"
     },
     "pyramid": {
       "label": "pyramid",
-      "caption": "Tiers weighted by force.",
+      "summary": "Tiers weighted by force.",
       "sample": "<!-- _class: authority-chain pyramid -->\n\n## pyramid weights the tiers by force.\n\n1. Statute\n   - `15 U.S.C. §6501`\n   - Congress, 1998 — consent for under-13 data.\n2. Regulation\n   - `16 C.F.R. Part 312`\n   - FTC implementing rule.\n3. Guidance\n   - `FTC Six-Step Plan`\n   - Staff guidance, non-binding.\n4. Case\n   - `In re Epic Games · 2022`\n   - $245M consent order.\n"
     },
     "bracket": {
       "label": "bracket",
-      "caption": "Tiers grouped by actor.",
+      "summary": "Tiers grouped by actor.",
       "sample": "<!-- _class: authority-chain bracket -->\n\n## bracket groups the tiers by actor.\n\n1. Treaty\n   - `Charter of Fundamental Rights, Art. 8`\n   - EU primary law — protection of personal data is a fundamental right.\n2. Regulation\n   - `GDPR (EU) 2016/679`\n   - Directly applicable across all member states; sets the Art. 83 fine tiers.\n3. Guidance\n   - `EDPB Guidelines 04/2022`\n   - Harmonized methodology for calculating administrative fines.\n4. Decision\n   - `DPC v. Meta · 2023`\n   - €1.2B fine — the largest GDPR penalty to date.\n"
     }
   },

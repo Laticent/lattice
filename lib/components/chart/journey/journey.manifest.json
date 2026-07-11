@@ -45,7 +45,7 @@
   "anatomyBlock": "journey",
   "sample": "<!-- _class: journey -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n  - Live demo `@prospect` `@sales` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `@onboarding` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n",
   "stressDoc": {
-    "caption": "Five stages, twelve tasks — the ceiling.",
+    "summary": "Five stages, twelve tasks — the ceiling.",
     "sample": "<!-- _class: journey -->\n\n## Five stages of twelve tasks is the ceiling.\n\n- Discover\n  - Hear of it `@prospect` `:3`\n  - First visit `@prospect` `:4`\n- Evaluate\n  - Read the case `@prospect` `:4`\n  - Book a demo `@prospect` `:3`\n  - Sit the demo `@prospect` `@sales` `:4`\n- Trial\n  - Sign up `@prospect` `:3`\n  - First setup `@user` `:1`\n  - Invite the team `@user` `:2`\n- Adopt\n  - First report `@user` `:4`\n  - Weekly habit `@user` `:5`\n- Expand\n  - Add seats `@buyer` `:4`\n  - Renew early `@buyer` `:5`\n"
   },
   "whenToUse": [
@@ -93,22 +93,22 @@
   "variantDocs": {
     "heatmap": {
       "label": "heatmap",
-      "caption": "Stages shade by score.",
+      "summary": "Stages shade by score.",
       "sample": "<!-- _class: journey heatmap -->\n\n## heatmap shades the stages by score.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
     },
     "curve": {
       "label": "curve",
-      "caption": "A sentiment line rides the stages.",
+      "summary": "A sentiment line rides the stages.",
       "sample": "<!-- _class: journey curve -->\n\n## curve draws the sentiment line.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Book demo `@prospect` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
     },
     "swimlane": {
       "label": "swimlane",
-      "caption": "One lane per actor.",
+      "summary": "One lane per actor.",
       "sample": "<!-- _class: journey swimlane -->\n\n## swimlane splits the journey by actor.\n\n- Evaluate\n  - Read case study `@prospect` `:5`\n  - Live demo `@prospect` `@sales` `:4`\n- Trial\n  - Trial signup `@prospect` `:3`\n  - Workspace setup `@user` `@onboarding` `:1`\n- Activate\n  - First report `@user` `:3`\n  - Daily use `@user` `:5`\n"
     },
     "weighted": {
       "label": "weighted",
-      "caption": "Stage size carries weight.",
+      "summary": "Stage size carries weight.",
       "sample": "<!-- _class: journey weighted -->\n\n## weighted sizes the stages by importance.\n\n- Discover\n  - Search `@prospect` `:4` `+45`\n  - Referral `@prospect` `:5` `+18`\n- Convert\n  - Pricing page `@prospect` `:3` `+12`\n  - Checkout `@prospect` `:2` `+10`\n- Support\n  - Settings `@user` `:3` `+8`\n  - Help docs `@user` `:4` `+7`\n"
     }
   },

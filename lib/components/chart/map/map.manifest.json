@@ -68,34 +68,34 @@
   "variantDocs": {
     "us": {
       "label": "us",
-      "caption": "The US-states basemap, with insets.",
+      "summary": "The US-states basemap, with insets.",
       "sample": "<!-- _class: map us -->\n\n## us swaps in the US-states basemap.\n\n- California `48.2`\n- Texas `36.4`\n- New York `31.0`\n- Florida `27.5`\n- Illinois `19.3`\n- Ohio `14.1`\n- Georgia `11.8`\n- Washington `9.6`\n"
     },
     "world": {
       "label": "world",
-      "caption": "The Basemap axis default, spelled out.",
+      "summary": "The Basemap axis default, spelled out.",
       "sample": "<!-- _class: map world -->\n\n## The same engine, pinned to the world basemap.\n\n- Germany `42.7`\n- Japan `35.1`\n- Canada `28.9`\n- Australia `21.4`\n- Chile `16.2`\n- Morocco `12.8`\n- Vietnam `10.5`\n- Iceland `7.3`\n"
     },
     "highlight": {
       "label": "highlight",
-      "caption": "Category fills instead of values.",
+      "summary": "Category fills instead of values.",
       "sample": "<!-- _class: map highlight -->\n\n## highlight fills by category, not value.\n\n- Kenya `East Africa`\n- Nigeria `West Africa`\n- India `South Asia`\n- Brazil `Latin America`\n"
     },
     "robinson": {
       "label": "robinson",
-      "caption": "The Robinson projection swap.",
+      "summary": "The Robinson projection swap.",
       "sample": "<!-- _class: map robinson -->\n\n## robinson swaps the projection.\n\n- United States `42`\n- Brazil `31`\n- Nigeria `27`\n- Kenya `24`\n- India `38`\n- Indonesia `19`\n- Germany `22`\n- Australia `12`\n"
     },
     "grouped": {
       "label": "grouped",
-      "caption": "Whole blocs fill as one.",
+      "summary": "Whole blocs fill as one.",
       "sample": "<!-- _class: map highlight grouped -->\n\n## grouped fills whole blocs at once.\n\n- European Union `Tier 1`\n- ASEAN `Tier 1`\n- Sub-Saharan Africa `Tier 2`\n- Latin America `Tier 2`\n"
     }
   },
   "skeleton": "<!-- _class: map -->\n\n## Where the program runs.\n\n- Kenya `4.2`\n- Nigeria `3.1`\n- India `2.8`\n- Brazil `2.2`\n",
   "sample": "<!-- _class: map -->\n\n## The map fills regions by value.\n\n- India `48.2`\n  - Largest by volume, thinnest by margin\n  - Two new state hubs this year\n- Nigeria `36.4`\n- Kenya `31.0`\n- Brazil `27.5`\n- Indonesia `19.3`\n- Ethiopia `14.1`\n- Bangladesh `11.8`\n- Peru `9.6`\n",
   "stressDoc": {
-    "caption": "A wide-range choropleth — the ceiling.",
+    "summary": "A wide-range choropleth — the ceiling.",
     "sample": "<!-- _class: map us -->\n\n## A wide spread across fifteen states.\n\n- California `512`\n- Texas `438`\n- New York `390`\n- Florida `301`\n- Pennsylvania `188`\n- Illinois `164`\n- Ohio `142`\n- Georgia `121`\n- North Carolina `98`\n- Michigan `76`\n- Arizona `54`\n- Tennessee `41`\n- Colorado `33`\n- Oregon `22`\n- Maine `9`\n"
   },
   "whenToUse": [

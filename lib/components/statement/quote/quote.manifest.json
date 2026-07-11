@@ -37,7 +37,7 @@
   "anatomyBlock": "quote-canvas",
   "sample": "<!-- _class: quote -->\n\n> A quotation earns the whole slide, or it does not belong on one.\n\n— the quote layout, stating its own rule\n",
   "stressDoc": {
-    "caption": "Forty words; the type steps down once.",
+    "summary": "Forty words; the type steps down once.",
     "sample": "<!-- _class: quote -->\n\n> This is the longest quotation the layout will treat kindly: about forty words, three lines at the reduced scale, enough for one complete thought with a turn in the middle — and not one clause more than a listener can hold.\n\n— quote · stress, at the forty-word ceiling\n"
   },
   "whenToUse": [

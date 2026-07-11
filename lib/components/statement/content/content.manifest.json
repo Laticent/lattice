@@ -40,7 +40,7 @@
   "anatomyBlock": "content-canvas",
   "sample": "<!-- _class: content -->\n\n`statement · content`\n\n## The content slide is the plainest tool in the box.\n\nA heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.\n",
   "stressDoc": {
-    "caption": "Two paragraphs and a list — the ceiling.",
+    "summary": "Two paragraphs and a list — the ceiling.",
     "sample": "<!-- _class: content -->\n\n`content · stress — the ceiling for prose`\n\n## This is as much text as one slide should ever carry.\n\nTwo paragraphs is the working limit. This first one runs three full lines to show where the measure sits, how the leading holds, and why anything denser belongs in a document instead of a deck.\n\nThe second paragraph stays shorter — because by now the audience is reading, not listening.\n\n- One list is allowed after prose\n- Three items is its comfortable end\n- A fourth begins to crowd the footer\n"
   },
   "whenToUse": [

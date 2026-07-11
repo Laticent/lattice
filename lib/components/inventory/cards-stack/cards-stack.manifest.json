@@ -68,7 +68,7 @@
   "anatomyBlock": "cards-stack",
   "sample": "<!-- _class: cards-stack -->\n\n## The stack ranks three cards top to bottom.\n\n- Order is the argument.\n  - The stack reads as priority; the top card wins.\n- Three is the sweet spot.\n  - Bodies run a short paragraph at most.\n- Sixteen words per card.\n  - The budget that keeps rows breathing.\n",
   "stressDoc": {
-    "caption": "Four rows with pills — the limit.",
+    "summary": "Four rows with pills — the limit.",
     "sample": "<!-- _class: cards-stack compact -->\n\n## Four rows with pills is the stack's ceiling.\n\n- Row one `shipped`\n  - A body at the hard budget holds two sentences; the pill carries the status so the prose does not have to.\n- Row two `on track`\n  - compact is doing quiet work here — without it, four bodies this size would crowd the footer before the last row lands.\n- Row three `at risk`\n  - Keep the densest row third; the eye expects trouble near the bottom and reads it with full attention.\n- Row four `blocked`\n  - The hard stop. A fifth row overflows; split the stack or drop to list-tabular.\n"
   },
   "whenToUse": [
@@ -116,12 +116,12 @@
   "variantDocs": {
     "horizontal": {
       "label": "Horizontal cards",
-      "caption": "The stack pivots sideways.",
+      "summary": "The stack pivots sideways.",
       "sample": "<!-- _class: cards-stack horizontal -->\n\n## horizontal lays the stack on its side.\n\n- Rows become columns.\n  - The ranking now reads left to right.\n- Same card anatomy.\n  - Title, body, optional status pill.\n- Use for timelines.\n  - Sequence feels natural sideways.\n"
     },
     "numbered": {
       "label": "Numbered stack",
-      "caption": "Corner numbers make rank explicit.",
+      "summary": "Corner numbers make rank explicit.",
       "sample": "<!-- _class: cards-stack -->\n\n## An ordered list makes the ranking explicit.\n\n1. Numbers stamp the rank\n   - The stack's order stops being implicit.\n2. Three still rules\n   - Numbering does not raise the ceiling.\n3. Parallel or nothing\n   - Ranked cards must match shapes.\n"
     }
   },

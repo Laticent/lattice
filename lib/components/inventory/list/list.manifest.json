@@ -81,7 +81,7 @@
   "anatomyBlock": "list",
   "sample": "<!-- _class: list -->\n\n## The list states one point per line.\n\n- A line is a complete statement, not a fragment.\n- Fourteen words is the budget a line may spend.\n- Six lines fill the canvas comfortably.\n- Parallel openings keep the scan honest.\n- Nesting belongs to card layouts, not here.\n",
   "stressDoc": {
-    "caption": "Eight lines at the hard ceiling.",
+    "summary": "Eight lines at the hard ceiling.",
     "sample": "<!-- _class: list -->\n\n## Eight lines is the most a list should carry.\n\n- A stress line may spend twenty words, and this one spends them to show where the wrap lands.\n- Even at the ceiling every line stays one complete statement with a single clause of support.\n- The third line is where a reading audience starts skimming instead.\n- Vary sentence length or eight dense lines blur into one.\n- The fifth line should carry something worth the fatigue.\n- Numbers and names hold attention better than abstractions here.\n- The seventh line is the last one anyone quotes.\n- Eight is the stop; nine becomes a memo.\n"
   },
   "whenToUse": [
@@ -137,32 +137,32 @@
   "variantDocs": {
     "takeaway": {
       "label": "takeaway",
-      "caption": "Ruled single lines for conclusions.",
+      "summary": "Ruled single lines for conclusions.",
       "sample": "<!-- _class: list takeaway -->\n\n## takeaway boxes the list as findings.\n\n- The box frames the lines as conclusions.\n- Lead with the strongest finding.\n- Five lines read as a verdict.\n- Longer sets go back to plain list.\n"
     },
     "principles": {
       "label": "principles",
-      "caption": "Numbered declarations at display weight.",
+      "summary": "Numbered declarations at display weight.",
       "sample": "<!-- _class: list principles -->\n\n## principles numbers the house rules.\n\n1. State each rule as an imperative.\n2. Keep rules under ten words.\n3. Order them by how often they apply.\n4. Retire a rule you keep breaking.\n"
     },
     "numbered": {
       "label": "numbered",
-      "caption": "Accent counters on the takeaway box.",
+      "summary": "Accent counters on the takeaway box.",
       "sample": "<!-- _class: list takeaway numbered -->\n\n## numbered ranks the boxed findings.\n\n- Ranks turn findings into priorities.\n- The top line owns the meeting.\n- Three ranked lines beat six flat ones.\n"
     },
     "lettered": {
       "label": "lettered",
-      "caption": "Letters replace the counters.",
+      "summary": "Letters replace the counters.",
       "sample": "<!-- _class: list principles lettered -->\n\n## lettered counts the rules with letters.\n\n1. Letters read as options, not sequence.\n2. Use them when order is arbitrary.\n3. Three options is a decision; six is a menu.\n"
     },
     "roman": {
       "label": "roman",
-      "caption": "Roman numerals replace counters.",
+      "summary": "Roman numerals replace counters.",
       "sample": "<!-- _class: list principles roman -->\n\n## roman sets the rules in numerals.\n\n1. Numerals lend formal weight.\n2. Reserve them for charters and mandates.\n3. Past five, the gravitas becomes parody.\n"
     },
     "bullet": {
       "label": "bullet",
-      "caption": "Dots replace the counters.",
+      "summary": "Dots replace the counters.",
       "sample": "<!-- _class: list principles bullet -->\n\n## bullet strips the markers back to dots.\n\n1. Dots drop the counting entirely.\n2. The principles frame stays.\n3. Use when rules are peers.\n"
     }
   },

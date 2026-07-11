@@ -189,7 +189,7 @@ test('validate() reports (never throws) on truthy non-string sample/skeleton for
     { name: 'cards-grid', sample: 42 },
     { name: 'cards-grid', skeleton: 42, sample: 'ok' },
     { name: 'split-panel', sample: 42, skeleton: {} },
-    { name: 'cards-grid', variants: ['x'], variantDocs: { x: { caption: 'c', sample: 42 } } },
+    { name: 'cards-grid', variants: ['x'], variantDocs: { x: { summary: 'c', sample: 42 } } },
     { name: 'agenda', sample: [1, 2] },
   ];
   for (const c of cases) {
