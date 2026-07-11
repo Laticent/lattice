@@ -152,3 +152,35 @@ reproducible, same-machine before/after record any perf *claim* must cite. The
 overlay tells a developer what their current edit costs on their machine; the
 benchmark is the durable ratcheted evidence. This change is instrumentation, not
 a perf optimization, so it ships no `## Performance` numbers.
+
+## 9. Making the numbers legible — tappable detail (follow-up)
+
+Fourteen terse rows of numbers + coloured dots is a readout only its author can
+parse ("CLS 0.004", "CPU≈ 11%", "FRAME 813ms" mean nothing without a legend, and
+there is no room to inline one). The fix is progressive disclosure, and it forced
+a small architecture decision the human chose: **rewrite the vanilla-JS overlay
+as a React island** so it can use the shadcn primitives, rather than bolt a
+second UI tech onto the script.
+
+- **Interaction (human pick):** one trigger → device-appropriate surface. Tap (or
+  hover, on a fine pointer) a row → a shadcn **Popover** anchored to it on
+  tablet/desktop (≥640px); on phones (<640px) the same tap opens a bottom
+  **Sheet**, where an anchored popover would clip against the screen edge. A hover
+  tooltip was rejected outright — it dies on touch. Both surfaces render the SAME
+  body (`MetricDetail.tsx` + `useMediaQuery`).
+- **Content:** every row — vitals and CPU≈ included, not just RENDER — explains
+  *what it measures*, *why it matters*, a good/OK/poor budget scale with the
+  current zone highlighted, the numeric thresholds, and (for render metrics) the
+  raw value behind the EMA.
+- **One registry:** `docs/src/components/site/perf-metrics.ts` is the single source
+  for every metric's label, formatter, unit, budget bands + rating, and its plain
+  words — so a row's colour and its explanation can never drift apart. It powers
+  both the compact rows and the detail cards.
+- **The island** (`PerfOverlay.tsx`) preserves the prior contract: off by default,
+  renders nothing (and starts no loops) until the shared pref is on, lazy
+  web-vitals, all runtime loops torn down on unmount, drag + position persistence,
+  a module-level singleton claim for duplicate includes, and a `createPortal` to
+  `document.body` so `position:fixed` is viewport-relative regardless of a
+  transformed ancestor. `PerfOverlay.astro` is now a thin `client:only` mount.
+- **Verified** on the real Studio at 390 / 820 / 1440px (HARD RULE #23): popover on
+  desktop + tablet, bottom sheet on mobile, live values and correct rating zones.
