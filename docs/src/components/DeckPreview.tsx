@@ -109,9 +109,20 @@ export function DeckPreview({
 	// — the per-keystroke render is what blocks the main thread (see
 	// `engineering/decisions/2026-06-29-studio-render-debounce.md`).
 	const paintedRef = React.useRef(false);
+	// Changes arrived since the last committed paint — each effect run (a source
+	// edit, or a prop change like a theme audition). The debounce collapses a burst
+	// into a single paint, so this counts what that paint coalesced.
+	const coalesceRef = React.useRef(0);
 	React.useEffect(() => {
 		let cancelled = false;
+		coalesceRef.current += 1;
 		const paint = () => {
+			// Stamp the coalesce count on the host for this render (edits → 1 paint);
+			// renderInto consumes it synchronously, so it's bound to THIS render — not a
+			// shared global an overlapping render could steal. Then reset.
+			const host = stageRef.current as (HTMLElement & { __latticeCoalesce?: number }) | null;
+			if (host) host.__latticeCoalesce = coalesceRef.current;
+			coalesceRef.current = 0;
 			// Kick the theme CSS fetch off in PARALLEL with the engine-bundle load
 			// (not behind it) — whenReady()'s ensureEngine() and this are two
 			// independent network round-trips that were previously serialized.

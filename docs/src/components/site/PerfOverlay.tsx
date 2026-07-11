@@ -206,7 +206,9 @@ function Overlay() {
 			const value = asRec ? (asRec[m.key] ?? null) : null;
 			const rawRec = sample?.raw as unknown as Record<string, number> | undefined;
 			const raw = rawRec ? (rawRec[m.key] ?? null) : null;
-			return { value, rating: value == null ? null : rateMetric(m, value), raw };
+			// The RENDER row drills into the engine's per-stage breakdown (item 1).
+			const breakdown = m.key === 'engineMs' ? sample?.stats : undefined;
+			return { value, rating: value == null ? null : rateMetric(m, value), raw, breakdown };
 		},
 		[vitals, runtime, sample],
 	);

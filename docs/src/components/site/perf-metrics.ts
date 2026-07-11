@@ -170,6 +170,12 @@ export const RENDER: MetricMeta[] = [
 		what: 'Size of the Markdown being rendered.',
 		why: 'The workload — a bigger source generally means a longer render.',
 	},
+	{
+		key: 'coalesced', label: 'COALESCE', title: 'Debounce coalescing', group: 'render',
+		format: (v) => v, unit: '→1',
+		what: 'How many edits (or prop changes) the 140ms preview debounce collapsed into this one render.',
+		why: 'Higher means the debounce folded a burst into one pass instead of N — sparing all but one render (each keystroke would otherwise cost a full ~38ms engine pass while you type).',
+	},
 ];
 
 export const ALL_METRICS: MetricMeta[] = [...VITALS, ...RUNTIME, ...RENDER];

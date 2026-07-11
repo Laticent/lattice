@@ -15,6 +15,7 @@ import * as React from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import type { RenderStats } from '@/playground/render-metrics';
 import { bandLabel, formatValue, type MetricMeta, type Rating } from './perf-metrics';
 
 const RATING_COLOR: Record<string, string> = {
@@ -49,6 +50,8 @@ export type MetricDatum = {
 	extra?: number;
 	/** Unsmoothed value for render metrics (the overlay shows the EMA). */
 	raw?: number | null;
+	/** For the RENDER row: the engine's per-stage breakdown (item 1). */
+	breakdown?: RenderStats;
 };
 
 // The shared explanation — identical in the popover and the sheet. `reserveClose`
@@ -107,7 +110,80 @@ function DetailBody({ meta, datum, reserveClose }: { meta: MetricMeta; datum: Me
 			{raw != null && value != null && Math.round(raw) !== Math.round(value) && (
 				<div className="font-mono text-[10.5px] text-muted-foreground">smoothed · raw {formatValue(meta, raw)}</div>
 			)}
+			{datum.breakdown && <EngineBreakdown stats={datum.breakdown} />}
 			{meta.approximate && <div className="text-[10.5px] italic text-muted-foreground">Approximate — no browser API reports true CPU use.</div>}
+		</div>
+	);
+}
+
+// The RENDER row's drill-in: where the engine's time went on the last render —
+// the four stage buckets, then the slowest component transforms. Raw (unsmoothed).
+function EngineBreakdown({ stats }: { stats: RenderStats }) {
+	// Buckets sum to the raw engineMs (the `other` bucket carries the docs-side
+	// overhead — math prescan, cold KaTeX — so the bars don't under-sum the row).
+	const stages: [string, number][] = [
+		['parse', stats.parseMs],
+		['transforms', stats.transformsMs],
+		['assemble', stats.assembleMs],
+		['css', stats.cssMs],
+		['other', stats.otherMs],
+	];
+	const max = Math.max(1, ...stages.map(([, v]) => v));
+	const topTransforms = Object.entries(stats.transforms || {})
+		.filter(([, v]) => v >= 0.1)
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 4);
+	return (
+		<div className="flex flex-col gap-1.5 border-t border-border pt-2.5">
+			<div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">where the time went</div>
+			{stages.map(([name, ms]) => (
+				<div key={name} className="flex items-center gap-2">
+					<span className="w-16 shrink-0 text-[11px] text-muted-foreground">{name}</span>
+					<span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+						<span className="block h-full rounded-full bg-[var(--accent,#6366f1)]" style={{ width: `${Math.max(2, (ms / max) * 100)}%` }} />
+					</span>
+					<span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-foreground">{Math.round(ms)}ms</span>
+				</div>
+			))}
+			{topTransforms.length > 0 && (
+				<div className="mt-1 flex flex-col gap-0.5">
+					<div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">slowest transforms</div>
+					{topTransforms.map(([name, ms]) => (
+						<div key={name} className="flex justify-between font-mono text-[11px]">
+							<span className="text-muted-foreground">{name}</span>
+							<span className="tabular-nums text-foreground">{ms.toFixed(1)}ms</span>
+						</div>
+					))}
+				</div>
+			)}
+			<DeckContext stats={stats} />
+		</div>
+	);
+}
+
+// Deck context (item 2): WHY this render costs what it does — how many transforms
+// fired, and which heavy content is present. Chips render only when relevant.
+function DeckContext({ stats }: { stats: RenderStats }) {
+	const chips: { label: string; warn?: boolean }[] = [];
+	if (stats.charts > 0) chips.push({ label: `${stats.charts} chart${stats.charts === 1 ? '' : 's'}` });
+	if (stats.mermaid > 0) chips.push({ label: `${stats.mermaid} mermaid` });
+	if (stats.math) chips.push({ label: 'math' });
+	// Single-slide preview → 0 or 1; label the slide, not a deck-wide tally.
+	if (stats.overflow > 0) chips.push({ label: stats.overflow === 1 ? 'overflows' : `${stats.overflow} overflowing`, warn: true });
+	if (chips.length === 0) return null;
+	return (
+		<div className="mt-1 flex flex-col gap-1">
+			<div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">deck context</div>
+			<div className="flex flex-wrap gap-1">
+				{chips.map((c) => (
+					<span
+						key={c.label}
+						className={cn('rounded border px-1.5 py-0.5 text-[10.5px]', c.warn ? 'border-transparent bg-[#dc2626] text-white' : 'border-border text-muted-foreground')}
+					>
+						{c.label}
+					</span>
+				))}
+			</div>
 		</div>
 	);
 }

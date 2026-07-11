@@ -152,6 +152,33 @@ in patch versions.
 
 ### Added
 
+- **The RENDER group gains a COALESCE row — how many edits the preview debounce
+  folded into this render.** A fast typing burst lands many source changes inside
+  the 140ms preview window, and the debounce collapses them into ONE engine
+  render; COALESCE reports that fold factor (e.g. `26→1` after a burst, `1→1`
+  when a single edit renders on its own). It reads the count DeckPreview stamps
+  on the live host per paint — bound to that exact render, not a shared global an
+  overlapping render could steal — so the overlay shows real work spared, each
+  collapsed keystroke being ~38ms of main-thread time you didn't pay while
+  typing. Docs-side only; a plain render still shows `1→1`.
+- **The RENDER breakdown now shows deck context — why a render costs what it
+  does.** Below the stage bars, chips report the heavy content the render
+  carried: how many charts and Mermaid diagrams, whether the source has math,
+  and whether the previewed slide overflows its box. All computed docs-side from
+  the rendered HTML + source (chart-layout sections, `language-mermaid` fences,
+  code-stripped math detection) and the live frame (overflow, read after it
+  settles and patched onto the sample without re-timing the render). Chips show
+  only when relevant, so a plain slide stays clean.
+- **The performance overlay's RENDER row drills into a per-stage engine
+  breakdown.** Tapping RENDER now shows *where the time went* — parse /
+  transforms / assemble / css / other, with proportional bars — plus the slowest
+  component transforms by name, so "render was slow" becomes "the chart transform
+  was slow." The engine emits this only when asked (`opts.stats`, set solely
+  while the overlay is subscribed): `render()` collects per-stage timings and a
+  per-transform map, threaded through `lib/engine` + `lib/transformers` and the
+  playground wrapper; the buckets reconcile to the raw `engineMs` (an `other`
+  bucket carries the docs-side math prescan / cold-KaTeX cost). A normal render —
+  CLI, export, or overlay-off — is byte-identical and pays nothing.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the
