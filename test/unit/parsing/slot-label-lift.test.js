@@ -126,6 +126,42 @@ describe('slot-label-lift', () => {
     assert.equal(output, '<strong>Owns the model <code>Head of Product</code></strong><ul><li>body</li></ul>');
   });
 
+  test('lift: chipTail splits a RUN of trailing <code> chips (unrolled inner still matches)', () => {
+    // The hardened `(?:[^<]|<(?!\/code>))*` inner must still match a multi-chip run —
+    // each `<code>…</code>` unit is delimited unambiguously up to its own closing tag.
+    const input  = '<p>Owns the model <code>PM</code> <code>Design</code></p><ul><li>body</li></ul>';
+    const output = liftSlotLabel(input, { chipTail: true });
+    assert.equal(output, '<strong>Owns the model</strong> <code>PM</code> <code>Design</code><ul><li>body</li></ul>');
+  });
+
+  test('lift: chipTail handles a chip whose text contains an escaped angle bracket', () => {
+    // markdown-it escapes `<`/`>` to entities, so a chip body never holds a literal `<`;
+    // the entity form must ride along inside the split-off chip untouched.
+    const input  = '<p>Range <code>a &lt; b</code></p><ul><li>body</li></ul>';
+    const output = liftSlotLabel(input, { chipTail: true });
+    assert.equal(output, '<strong>Range</strong> <code>a &lt; b</code><ul><li>body</li></ul>');
+  });
+
+  test('lift: chipTail chip body with a LITERAL nested `<` tag is kept whole (unrolled `<(?!/code>)` fires)', () => {
+    // The one input where the `<(?!\/code>)` alternative actually does work: a chip body
+    // holding a raw `<` that does NOT begin the closing `</code>`. It must be consumed as
+    // chip content, so the split runs to the FIRST real `</code>`, not an inner `<`.
+    const input  = '<p>Owns <code>a <b>x</b> z</code></p><ul><li>body</li></ul>';
+    const output = liftSlotLabel(input, { chipTail: true });
+    assert.equal(output, '<strong>Owns</strong> <code>a <b>x</b> z</code><ul><li>body</li></ul>');
+  });
+
+  test('lift: chipTail on a long chip-free lead falls through to a plain wrap, fast', () => {
+    // The tail regex removed the CodeQL-flagged nested quantifier (a lazy body under `+`).
+    // Its outer `\s*(?:…)+$` could cost O(n²) only on a long PURE-whitespace prefix — but
+    // the function trims `lead` before this match runs, so that prefix never reaches here.
+    // A realistic long label (trimmed, no trailing chip) fails the tail match and plain-wraps.
+    const lead   = 'word '.repeat(4000).trim(); // internal spaces only; no leading/trailing run
+    const input  = `<p>${lead}</p><ul><li>body</li></ul>`;
+    const output = liftSlotLabel(input, { chipTail: true });
+    assert.equal(output, `<strong>${lead}</strong><ul><li>body</li></ul>`);
+  });
+
   test('lift: multi-word lead with punctuation', () => {
     const input  = '<p>Why not delay?</p><ul><li>body</li></ul>';
     const output = liftSlotLabel(input);

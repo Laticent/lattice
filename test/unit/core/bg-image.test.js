@@ -33,6 +33,57 @@ describe('bg-image — liftBgImages (markdown pre-pass)', () => {
     assert.equal(bg.liftBgImages(src), src);
   });
 
+  test('a multi-keyword run (e.g. `cover blur`) is captured and its side keyword still wins', () => {
+    // The `(?:[^\S\r\n](?:[^\S\r\n]|\w)*)?` keyword capture must still carry every keyword
+    // through to bgSide — a `left`/`right` anywhere in the run picks the split side.
+    assert.match(bg.liftBgImages('![bg cover blur right](a.svg)'), /lattice-bg-right/);
+    assert.match(bg.liftBgImages('![bg cover blur](a.svg)'), /lattice-bg-full/);
+  });
+
+  test('a Unicode / non-breaking space after `bg` still lifts (true superset of the old `\\s` run)', () => {
+    // The keyword class is `[^\S\r\n]` (horizontal whitespace INCLUDING nbsp), not `[ \t]`:
+    // a `![bg` + nbsp + `right](x)` pasted from Word/Docs rendered a panel under the old
+    // `\s`-based regex and must keep doing so — a plain `[ \t]` would silently drop it.
+    assert.match(bg.liftBgImages("![bg\u00A0right](a.svg)"), /lattice-bg-right/); // nbsp (U+00A0)
+    assert.match(bg.liftBgImages("![bg\u202Fright](a.svg)"), /lattice-bg-right/); // narrow nbsp (U+202F)
+    assert.match(bg.liftBgImages("![bg\u2003right](a.svg)"), /lattice-bg-right/); // em space (U+2003)
+  });
+
+  test('`![bgleft]` stays a normal image — a leading space is still required after `bg`', () => {
+    // The keyword run is OPTIONAL but must start with whitespace, so `bg`+letters (no space)
+    // is NOT a background directive: it must pass through untouched (parity with the old regex).
+    const src = '![bgleft](a.svg)';
+    assert.equal(bg.liftBgImages(src), src);
+  });
+
+  test('tolerates a trailing space before `]` (leniency win over the old form)', () => {
+    // `![bg right ](x)` — the old `(?:\s+\w+)*` rejected a run ending in whitespace and left
+    // the typo unrendered; the new form lifts it, and the trailing space is inert to bgSide().
+    assert.match(bg.liftBgImages('![bg right ](a.svg)'), /lattice-bg-right/);
+    assert.match(bg.liftBgImages('![bg ](a.svg)'), /lattice-bg-full/); // space-only run → full
+  });
+
+  test('does NOT cross a newline — a broken multi-line `![bg` never swallows following prose', () => {
+    // The keyword class is `[^\S\r\n]`, not `\s`, so the run stops at the line end. This input
+    // DISCRIMINATES the fix: the prose ends in a WORD char immediately before `](url)` (no
+    // trailing space), so the OLD `(?:\s+\w+)*` form matched right across the newline —
+    // `\s+`=`\n`, `\w+`=`Revenue`, … — swallowing three lines of prose into a bogus background
+    // div. The new form stops at `\n` and leaves the source verbatim (revert `[^\S\r\n]`→`\s`
+    // and THIS test goes red — the guard the earlier trailing-`\n` variant silently lacked).
+    const src = '![bg right\nRevenue growth story\nmore prose here](oops.svg)\n';
+    const out = bg.liftBgImages(src);
+    assert.equal(out, src); // verbatim: no match, nothing lifted
+    assert.match(out, /Revenue growth story/); // prose survives
+    assert.doesNotMatch(out, /lattice-bg/);
+  });
+
+  test('a long keyword-like run without a closing `](…)` returns unchanged (no catastrophic backtracking)', () => {
+    // The rewritten regex is linear: a pathological all-space lead with no `]( )` tail must
+    // fail fast and leave the source verbatim, not hang the render.
+    const src = `![bg${' '.repeat(5000)}`;
+    assert.equal(bg.liftBgImages(src), src);
+  });
+
   test('is a no-op when there is no bg directive', () => {
     assert.equal(bg.liftBgImages('## Just a heading\n\nbody'), '## Just a heading\n\nbody');
   });
