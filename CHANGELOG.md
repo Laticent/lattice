@@ -167,6 +167,30 @@ in patch versions.
   Closes #902 (Gap 2). *(An autosplit deck's client `.vtt` intentionally tracks the docs render,
   which doesn't run the Fit-Spine split, so it differs from the CLI's split artifact — Gap 1,
   chart-narration parity, remains open.)*
+- **Charts no longer render solid black in the exported `.html` player's
+  Read·Article view.** Read·Article re-hosts each slide's chart SVG into a flowing
+  `<figure>` — but the chart-family paint lives in rules scoped to the slide
+  `section` (`section.chart-frame` for the `--chart-cat-*`/`--state-*` tokens and the
+  SVG legend ink; `section.funnel .funnel-band`, `section.piechart .wedge`,
+  `section.radar`, `section.quadrant`, `section.map`, … for the fills). Outside that
+  ancestor every `color-mix(var(--chart-cat-N-hue) …)` collapsed to an undefined
+  var and the shapes fell to SVG's black initial fill. The re-hosted figure now
+  carries the `chart-frame` class, and each chart's colour rules accept it via
+  `:is(section.<comp>, figure.chart-frame)` (specificity-preserving; the component's
+  unique descendant classes keep the figure arm from leaking across chart types), so
+  funnel, map, quadrant, radar, and piechart — the self-contained data charts that
+  re-host cleanly — paint in full theme colour (legend swatches, labels, and values
+  included) in both light and dark exports. Map's `--map-base` anchor, previously
+  only on the stripped `.map-figure` wrapper, is also set on the surviving `.map-svg`.
+  The **spatial** charts — word-cloud (a packed spiral), journey (swim-lanes), and
+  state-chart (a node-and-edge graph) — don't linearize to a static figure (the bare
+  SVG re-hosts as orphan fragments or an overflowing overlap), so they now show the
+  honest "best seen in the Present or Read·Slides view" placeholder, the same
+  treatment gantt / kanban / progress / roadmap / timeline-list already reach. Real
+  slide render paths (PDF / Present / Read·Slides) are byte-unchanged — a real chart
+  section carries both `<comp>` and `chart-frame` classes, so the `:is()` match set is
+  identical there; only the projected article figure newly matches the `figure.chart-frame`
+  arm.
 
 ### Changed
 

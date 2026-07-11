@@ -8,14 +8,14 @@
  * ramp off --chart-cat-1-hue; text uses the canvas ink tokens. Unlayered like every
  * other component file (broad @layer activation is blocked — see cascade.md). */
 
-section.funnel .funnel-figure {
+:is(section.funnel, figure.chart-frame) .funnel-figure {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-section.funnel .funnel-svg {
+:is(section.funnel, figure.chart-frame) .funnel-svg {
   width: 100%;
   height: 100%;
   display: block;
@@ -34,20 +34,20 @@ section.funnel .funnel-svg {
  * :nth-of-type counts <polygon> siblings — every band is a polygon and the only
  * polygons in the figure, so the count tracks stage order. (Same rotation idiom
  * as piechart.styles.css; see the gotchas note on nth-of-type vs nth-child.) */
-section.funnel .funnel-band {
+:is(section.funnel, figure.chart-frame) .funnel-band {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg));
   stroke: var(--bg);
   stroke-width: 0.75;
 }
-section.funnel .funnel-band:nth-of-type(6n + 1) { fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 2) { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 3) { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 4) { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 5) { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 6) { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 2) { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 3) { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 4) { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 5) { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 6) { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--bg)); }
 
 /* Stage label — left column, right-aligned to the band. */
-section.funnel .funnel-label {
+:is(section.funnel, figure.chart-frame) .funnel-label {
   fill: var(--text-body);
   font-family: var(--font-body);
   font-size: 8.5px;
@@ -56,7 +56,7 @@ section.funnel .funnel-label {
 }
 
 /* Value — right column, left-aligned, the figure that matters. */
-section.funnel .funnel-value {
+:is(section.funnel, figure.chart-frame) .funnel-value {
   fill: var(--text-heading);
   font-family: var(--font-display);
   font-size: 9px;
@@ -66,7 +66,7 @@ section.funnel .funnel-value {
 }
 
 /* Conversion rate — small, muted, centred in the gap below each band. */
-section.funnel .funnel-conv {
+:is(section.funnel, figure.chart-frame) .funnel-conv {
   fill: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 6.5px;

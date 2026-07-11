@@ -590,7 +590,8 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// (lib/core/present-transport.mjs, embedded VERBATIM in the player) had its one
 	// `Object.prototype.hasOwnProperty.call(map, key)` modernized to `Object.hasOwn(map, key)`
 	// (biome noPrototypeBuiltins) — behavior-identical, so the player's bytes shift but nothing
-	// it does changes. That is the ONLY player-affecting edit in this cleanup.
+	// it does changes. (The Read·Article chart-colour fix is byte-neutral for THIS fixture — it
+	// has no chart slide, and that fix added no player CSS — so this sha is unchanged by it.)
 	assert.equal(sha, 'c6af0c6c456db88e065b59a4d5601fd8b01e353301083a7d15ece033925cb8c7', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 

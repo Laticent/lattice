@@ -8,7 +8,7 @@
 /* .chart-body inherits the shared width + padding (sp-lg / sp-2xl) so the
  * surface panel matches every other chart's size and inset — no
  * piechart-specific override. */
-section.piechart .piechart-figure {
+:is(section.piechart, figure.chart-frame) .piechart-figure {
   /* SVG-native legend (2026-06-13-svg-native-legend.md): the figure holds ONE
      self-contained <svg> (diagram + spine + key in one viewBox). It only needs
      to centre + size that SVG; the 70/30 split, spine and key now live INSIDE
@@ -23,7 +23,7 @@ section.piechart .piechart-figure {
   min-height: 0;
   container-type: size;
 }
-section.piechart .piechart-svg {
+:is(section.piechart, figure.chart-frame) .piechart-svg {
   flex: 0 0 auto;
   /* CONTAINER-FILL (2026-07-04-chart-container-fill-sizing.md). The parent
      (.piechart-figure) is a container-type:size
@@ -88,7 +88,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
   width: 100%;
   height: 100%;
 }
-section.piechart .piechart-svg .wedge {
+:is(section.piechart, figure.chart-frame) .piechart-svg .wedge {
   /* Stroke colour is the slot's --catN-ink (set per nth-child below); the
    * wedge fill is the same hue's --catN-fill. Pale fill + deep border on a
    * light canvas, deep fill + pale border on dark — the shared chart model. */
@@ -116,10 +116,10 @@ section.piechart .piechart-svg .wedge {
  * SVG <rect class="pie-key-swatch"> coloured inline by the kernel (slot hue +
  * --catN-ink edge), so they no longer ride these selectors.
  * See engineering/gotchas.md "Pie wedge borders off-by-one". */
-section.piechart .wedge:nth-of-type(6n+1) { fill: var(--chart-cat-1-fill); stroke: var(--chart-cat-1-ink); }
-section.piechart .wedge:nth-of-type(6n+2) { fill: var(--chart-cat-2-fill); stroke: var(--chart-cat-2-ink); }
-section.piechart .wedge:nth-of-type(6n+3) { fill: var(--chart-cat-3-fill); stroke: var(--chart-cat-3-ink); }
-section.piechart .wedge:nth-of-type(6n+4) { fill: var(--chart-cat-4-fill); stroke: var(--chart-cat-4-ink); }
-section.piechart .wedge:nth-of-type(6n+5) { fill: var(--chart-cat-5-fill); stroke: var(--chart-cat-5-ink); }
-section.piechart .wedge:nth-of-type(6n)   { fill: var(--chart-cat-6-fill); stroke: var(--chart-cat-6-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+1) { fill: var(--chart-cat-1-fill); stroke: var(--chart-cat-1-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+2) { fill: var(--chart-cat-2-fill); stroke: var(--chart-cat-2-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+3) { fill: var(--chart-cat-3-fill); stroke: var(--chart-cat-3-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+4) { fill: var(--chart-cat-4-fill); stroke: var(--chart-cat-4-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+5) { fill: var(--chart-cat-5-fill); stroke: var(--chart-cat-5-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n)   { fill: var(--chart-cat-6-fill); stroke: var(--chart-cat-6-ink); }
 

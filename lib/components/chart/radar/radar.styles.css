@@ -38,7 +38,7 @@
  *   - lattice-runtime.js    DOM transform for marp-vscode preview
  */
 
-section.radar {
+:is(section.radar, figure.chart-frame) {
   --radar-grid:       color-mix(in srgb, var(--text-muted) 42%, transparent);
   --radar-grid-soft:  color-mix(in srgb, var(--text-muted) 20%, transparent);
   --radar-spoke:      color-mix(in srgb, var(--text-muted) 34%, transparent);
@@ -52,7 +52,7 @@ section.radar {
  * surface panel matches every other chart's size and inset — no radar-specific
  * override. */
 
-section.radar .radar-figure {
+:is(section.radar, figure.chart-frame) .radar-figure {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -65,7 +65,7 @@ section.radar .radar-figure {
   min-height: 0;
 }
 
-section.radar .radar-svg {
+:is(section.radar, figure.chart-frame) .radar-svg {
   /* Sizing (height-bound on the unified viewBox aspect — diagram + key as one
    * unit) is the shared SVG-native rule in _chart-family/chart-family.css. The
    * old square `aspect-ratio:1/1` is retired: the viewBox is no longer square
@@ -88,15 +88,15 @@ section.radar .radar-svg {
  */
 
 /* ── Grid: concentric ring polygons + radial spokes ───────────────────── */
-section.radar .radar-ring {
+:is(section.radar, figure.chart-frame) .radar-ring {
   fill: none;
   stroke: var(--radar-grid-soft);
   stroke-width: 1;
 }
-section.radar .radar-ring[data-ring="4"] {
+:is(section.radar, figure.chart-frame) .radar-ring[data-ring="4"] {
   stroke: var(--radar-grid);   /* outer ring carries the chart edge */
 }
-section.radar .radar-spoke {
+:is(section.radar, figure.chart-frame) .radar-spoke {
   stroke: var(--radar-spoke);
   stroke-width: 1;
 }
@@ -105,18 +105,18 @@ section.radar .radar-spoke {
 /* SVG font-size bypass: axis/tick labels sit inside a ~300-unit SVG viewBox,
  * so CSS px ≠ pt. 15px ≈ 11.25pt would be too large for rim labels on a
  * 300-unit viewBox. These are intentional deviations from the 12-token scale.
- * Scoped to section.radar so themes can override per-component via the token. */
-section.radar {
+ * Scoped to :is(section.radar, figure.chart-frame) so themes can override per-component via the token. */
+:is(section.radar, figure.chart-frame) {
   --radar-axis-label-size: 11px;  /* raised from 9px (≈6.4pt at desk) */
   --radar-tick-size:        9px;  /* raised from 6.5px (≈4.6pt at desk) */
 }
-section.radar .radar-axis-label {
+:is(section.radar, figure.chart-frame) .radar-axis-label {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-size: var(--radar-axis-label-size);
   font-weight: 600;
 }
-section.radar .radar-tick {
+:is(section.radar, figure.chart-frame) .radar-tick {
   fill: var(--text-muted);
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--radar-tick-size);
@@ -126,13 +126,13 @@ section.radar .radar-tick {
 }
 
 /* ── Series polygons + vertex dots ────────────────────────────────────── */
-section.radar .radar-poly {
+:is(section.radar, figure.chart-frame) .radar-poly {
   fill: color-mix(in srgb, var(--series-color) var(--radar-fill), transparent);
   stroke: var(--series-color);
   stroke-width: 2;
   stroke-linejoin: round;
 }
-section.radar .radar-dot {
+:is(section.radar, figure.chart-frame) .radar-dot {
   fill: var(--series-color);
   stroke: var(--bg);
   stroke-width: 1;
@@ -146,58 +146,58 @@ section.radar .radar-dot {
  * 2026-06-13-svg-native-legend.md. */
 
 /* ── target: actual vs a reference polygon, per-axis gap segments ─────── */
-section.radar .radar-poly--target {
+:is(section.radar, figure.chart-frame) .radar-poly--target {
   fill: none;
   stroke: var(--text-muted);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
-section.radar .radar-gap {
+:is(section.radar, figure.chart-frame) .radar-gap {
   stroke-width: 3;
   stroke-linecap: round;
 }
 /* Semantic state tokens — --pass / --fail come from lattice.css :root,
  * tuned per theme. Was --cat-green / --cat-rose before the 2026-05-15
  * themes refactor (commit 552e84a) removed the named-cat tokens. */
-section.radar .radar-gap[data-dir="under"] {
+:is(section.radar, figure.chart-frame) .radar-gap[data-dir="under"] {
   stroke: var(--state-fail-ink);
 }
-section.radar .radar-gap[data-dir="over"] {
+:is(section.radar, figure.chart-frame) .radar-gap[data-dir="over"] {
   stroke: color-mix(in srgb, var(--state-pass-ink) 60%, transparent);
   stroke-width: 2;
 }
 
 /* ── delta: before → after, per-axis change segments ──────────────────── */
-section.radar .radar-poly--before {
+:is(section.radar, figure.chart-frame) .radar-poly--before {
   fill: none;
   stroke: var(--text-muted);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
-section.radar .radar-delta-seg {
+:is(section.radar, figure.chart-frame) .radar-delta-seg {
   stroke-width: 3;
   stroke-linecap: round;
 }
-section.radar .radar-delta-seg[data-dir="up"]   { stroke: var(--state-pass-ink); }
-section.radar .radar-delta-seg[data-dir="down"] { stroke: var(--state-fail-ink); }
-section.radar .radar-delta-seg[data-dir="flat"] { stroke: var(--radar-spoke); }
+:is(section.radar, figure.chart-frame) .radar-delta-seg[data-dir="up"]   { stroke: var(--state-pass-ink); }
+:is(section.radar, figure.chart-frame) .radar-delta-seg[data-dir="down"] { stroke: var(--state-fail-ink); }
+:is(section.radar, figure.chart-frame) .radar-delta-seg[data-dir="flat"] { stroke: var(--radar-spoke); }
 
 /* ── benchmark: hero series over a min–max envelope band ──────────────── */
-section.radar .radar-band {
+:is(section.radar, figure.chart-frame) .radar-band {
   fill: color-mix(in srgb, var(--text-muted) 22%, transparent);
   stroke: color-mix(in srgb, var(--text-muted) 48%, transparent);
   stroke-width: 1;
 }
-section.radar .radar-poly--hero {
+:is(section.radar, figure.chart-frame) .radar-poly--hero {
   stroke-width: 2.75;
 }
 
 /* ── quadrant: axes grouped into tinted sectors ───────────────────────── */
-section.radar .radar-sector {
+:is(section.radar, figure.chart-frame) .radar-sector {
   fill: color-mix(in srgb, var(--series-color) 8%, transparent);
   stroke: none;
 }
-section.radar .radar-sector-mean {
+:is(section.radar, figure.chart-frame) .radar-sector-mean {
   fill: none;
   stroke: var(--series-color);
   stroke-width: 2;
@@ -205,7 +205,7 @@ section.radar .radar-sector-mean {
   stroke-dasharray: 2 3;
   opacity: 0.8;
 }
-section.radar .radar-sector-label {
+:is(section.radar, figure.chart-frame) .radar-sector-label {
   fill: var(--series-color);
   font-family: var(--font-body);
   font-size: 9px;
@@ -215,10 +215,10 @@ section.radar .radar-sector-label {
 }
 
 /* ── small-multiples: one mini radar per series ───────────────────────── */
-section.radar .radar-figure[data-variant="small-multiples"] {
+:is(section.radar, figure.chart-frame) .radar-figure[data-variant="small-multiples"] {
   gap: 0;
 }
-section.radar .radar-multiples {
+:is(section.radar, figure.chart-frame) .radar-multiples {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -226,21 +226,21 @@ section.radar .radar-multiples {
   gap: var(--sp-md) var(--sp-lg);
   flex: 1 1 auto;
 }
-section.radar .radar-mini {
+:is(section.radar, figure.chart-frame) .radar-mini {
   margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-3xs);
 }
-section.radar .radar-svg--mini {
+:is(section.radar, figure.chart-frame) .radar-svg--mini {
   width: 188px;
   height: 188px;
 }
-section.radar .radar-svg--mini .radar-axis-label {
+:is(section.radar, figure.chart-frame) .radar-svg--mini .radar-axis-label {
   font-size: 11px;   /* viewBox is unchanged, so scale label units up */
 }
-section.radar .radar-mini-label {
+:is(section.radar, figure.chart-frame) .radar-mini-label {
   font-size: var(--fs-meta);
   font-weight: 600;
   color: var(--series-color);

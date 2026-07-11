@@ -104,7 +104,8 @@ section.chart-frame {
  * palette-blind. Eight slots — past ~6 categories perceptual distinction
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
 section.chart-frame,
-section.word-cloud { /* word-cloud is a chart-frame member; the bare selector also covers the rare un-transformed fallback (no h2/list) */
+section.word-cloud,
+.chart-frame { /* word-cloud is a chart-frame member; the bare `.chart-frame` also covers the Read·Article prose projection, which re-hosts a chart SVG in a <figure class="chart-frame"> outside its section — the SVG's --chart-cat-* colours must still resolve there (2026-07-… read-article-chart-tokens) */
   /* Apple-inspired categorical spectrum — the chart-family's OWN palette,
    * decoupled from the engine-wide cN accents (which still drive roadmap /
    * journey / legal / decision). Each slot is `light-dark(lightCanvasVivid,
@@ -176,7 +177,8 @@ section.word-cloud { /* word-cloud is a chart-frame member; the bare selector al
  * at :root to curate the semantics to its character; untuned themes inherit
  * this master set. One rule per state now serves both canvases (the old
  * per-`.dark` overrides collapse into the light-dark() pairs). */
-section.chart-frame {
+section.chart-frame,
+.chart-frame {
   --state-pass-hue: var(--chart-state-pass, light-dark(#1E9E48, #34D058));  /* green  — done/on-track/live   */
   --state-warn-hue: var(--chart-state-warn, light-dark(#C2790A, #FFB02E));  /* amber  — at-risk/warn         */
   --state-fail-hue: var(--chart-state-fail, light-dark(#CE2F2F, #FF5B52));  /* red    — blocked/fail         */
@@ -602,16 +604,19 @@ section.chart-frame .chart-status[data-s="deferred"] {
  *   • values stay --font-mono + tabular for column alignment (mono is
  *     deliberately NOT re-pointed under sketch).
  * See engineering/decisions/2026-06-13-svg-native-legend.md §4(b). */
-section.chart-frame .chart-key-label,
-section.chart-frame .chart-key-head {
+/* Legend text lives INSIDE the svg (svg-legend.js), so Read·Article re-hosts it
+ * with the chart; the `figure.chart-frame` arm keeps the label/value ink themed
+ * there (black `--text-body` fallback would vanish on a dark canvas). */
+:is(section.chart-frame, figure.chart-frame) .chart-key-label,
+:is(section.chart-frame, figure.chart-frame) .chart-key-head {
   font-family: var(--font-label);
   fill: var(--text-body);
 }
-section.chart-frame .chart-key-head {
+:is(section.chart-frame, figure.chart-frame) .chart-key-head {
   fill: var(--text-heading);
   font-weight: 600;
 }
-section.chart-frame .chart-key-value {
+:is(section.chart-frame, figure.chart-frame) .chart-key-value {
   font-family: var(--font-mono);
   fill: var(--text-heading);
   font-weight: 600;

@@ -76,7 +76,48 @@ test('media component (chart) re-hosts the SVG as a captioned <figure>', () => {
 		</div></section>`,
 	);
 	const { articleHtml } = project(secs);
-	assert.match(articleHtml, /<figure class="lp-figure"><svg[\s\S]*<figcaption>Revenue mix<\/figcaption><\/figure>/);
+	// A chart component carries the `chart-frame` class so the re-hosted SVG's
+	// `--chart-cat-*` scoped colours resolve outside `section.chart-frame`.
+	assert.match(
+		articleHtml,
+		/<figure class="lp-figure chart-frame"><svg[\s\S]*<figcaption>Revenue mix<\/figcaption><\/figure>/,
+	);
+});
+
+test('a SPATIAL chart (state-chart) goes to the placeholder, NOT a broken SVG re-host', () => {
+	// state-chart is a node-and-edge graph: its only SVG is the edge layer (arrows to
+	// absolutely-positioned HTML nodes), and its node list is raw layout noise. It must
+	// project to the honest "best seen in Present / Read·Slides" placeholder, never the
+	// orphan edge SVG.
+	const secs = sections(
+		`<section data-lattice-slide class="state-chart"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Deal stages</h2></div>
+			<svg class="state-chart-edges" aria-hidden="true"><path/></svg>
+			<ol class="state-nodes"><li class="state-node"><span class="state-label">Lead</span></li></ol>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /state-chart-edges/, 'the orphan edge SVG is not projected');
+	assert.match(articleHtml, /lp-figure-note[\s\S]*best seen/, 'projects to the visual-layout placeholder');
+});
+
+test('a component whose PRIMARY chart SVG is aria-hidden (funnel) still re-hosts in colour', () => {
+	// funnel / map / quadrant / radar mark their MAIN chart svg aria-hidden (the data
+	// rides the label / mark-detail channel). aria-hidden must NOT gate re-hosting — these
+	// are self-contained data charts that re-host cleanly, carrying `chart-frame` so their
+	// scoped `--chart-cat-*` colours resolve.
+	const secs = sections(
+		`<section data-lattice-slide class="funnel"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Deal funnel</h2></div>
+			<svg class="funnel-svg" aria-hidden="true"><polygon class="funnel-band"/></svg>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(
+		articleHtml,
+		/<figure class="lp-figure chart-frame"><svg class="funnel-svg"/,
+		'the aria-hidden funnel chart svg re-hosts as a chart-frame figure',
+	);
 });
 
 test('nesting is preserved (no flatten-to-textContent) and chrome is skipped', () => {
