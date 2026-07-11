@@ -179,6 +179,17 @@ in patch versions.
   playground wrapper; the buckets reconcile to the raw `engineMs` (an `other`
   bucket carries the docs-side math prescan / cold-KaTeX cost). A normal render —
   CLI, export, or overlay-off — is byte-identical and pays nothing.
+- **A "Data visualization" showcase in the Playground's gallery drawer — every chart
+  and math component in one deck, and it can't go stale.** The docs-site Playground now
+  offers a consolidated walk across all 13 chart components plus math (the exact surfaces
+  the old-browser colour fallback covers), alongside the Jargon and Design-system
+  showcases. Like the per-bucket family galleries it is **generated from the live manifest
+  set** (`tools/build-showcase-galleries.js`), so adding a chart or math component makes it
+  appear automatically on the next rebuild — a blocking gate
+  (`test/unit/tools/showcase-galleries.test.js`) fails the build if the committed deck
+  drifts from the manifests, or if its component set ever diverges from the colour
+  fallback's scanned set. The generated deck (`examples/data-viz-gallery.md`) also doubles
+  as the manual old-engine / smart-TV colour-fallback test artifact.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the

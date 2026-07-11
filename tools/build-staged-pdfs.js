@@ -53,10 +53,29 @@ function stagedFiles() {
     .filter(Boolean);
 }
 
+// The consolidated showcase decks (examples/<id>-gallery.md) are GENERATED from
+// the manifest set, not rendered as-is — so a staged edit to one, or to any
+// chart/math component that feeds it, regenerates the whole showcase.
+const { SHOWCASES: SHOWCASE_DEFS } = require('./build-showcase-galleries');
+const SHOWCASE_IDS = new Set(SHOWCASE_DEFS.map((s) => s.id));
+const SHOWCASE_BUCKETS = new Set(SHOWCASE_DEFS.flatMap((s) => s.buckets));
+
 // Classify a staged path into a build job, or null if it produces no PDF.
 function classify(file) {
+  // Generated consolidated showcase deck — regenerate from manifests (do NOT
+  // render the .md as-is to a single .pdf like a hand-authored deck).
+  let m = file.match(/^examples\/([a-z][a-z0-9-]*)-gallery\.md$/);
+  if (m && SHOWCASE_IDS.has(m[1])) return { kind: 'showcase', id: m[1] };
+  // A change to a component in a showcase's bucket regenerates that showcase
+  // (its slide is composed from the manifest.sample). Keyed on the manifest,
+  // where `sample` lives.
+  m = file.match(/^lib\/components\/([a-z-]+)\/[a-z-]+\/[a-z-]+\.manifest\.json$/);
+  if (m && SHOWCASE_BUCKETS.has(m[1])) {
+    return { kind: 'showcase', id: SHOWCASE_DEFS.find((s) => s.buckets.includes(m[1])).id };
+  }
+
   // Hand-authored example deck.
-  let m = file.match(/^examples\/([a-z][a-z0-9-]*)\.md$/);
+  m = file.match(/^examples\/([a-z][a-z0-9-]*)\.md$/);
   if (m) return { kind: 'deck', src: file, out: `examples/${m[1]}.pdf` };
 
   // CI baseline deck (lives with the test infra).
@@ -149,6 +168,7 @@ async function main() {
   const decks = [];
   const components = new Set();
   const buckets = new Set();
+  const showcases = new Set();
 
   for (const f of files) {
     const job = classify(f);
@@ -156,9 +176,10 @@ async function main() {
     if (job.kind === 'deck') decks.push(job);
     else if (job.kind === 'component') components.add(job.name);
     else if (job.kind === 'bucket') buckets.add(job.name);
+    else if (job.kind === 'showcase') showcases.add(job.id);
   }
 
-  if (!decks.length && !components.size && !buckets.size) return;
+  if (!decks.length && !components.size && !buckets.size && !showcases.size) return;
 
   const rebuilt = [];
   try {
@@ -173,6 +194,11 @@ async function main() {
     for (const b of buckets) {
       process.stderr.write(`build-staged-pdfs: rebuilding bucket gallery ${b}\n`);
       rebuilt.push(...buildBucket(b));
+    }
+    for (const id of showcases) {
+      process.stderr.write(`build-staged-pdfs: rebuilding showcase gallery ${id}\n`);
+      execFileSync('node', [path.join(ROOT, 'tools', 'build-showcase-galleries.js')], { cwd: ROOT, stdio: 'inherit' });
+      rebuilt.push(`examples/${id}-gallery.md`, `examples/${id}-gallery.light.pdf`, `examples/${id}-gallery.dark.pdf`);
     }
   } catch (err) {
     process.stderr.write(`build-staged-pdfs: rebuild failed — ${err.message}\n`);

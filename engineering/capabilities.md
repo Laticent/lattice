@@ -111,6 +111,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `build:galleries` | Rebuild per-component gallery PDFs (light + dark). |
 | `build:galleries:check` | Freshness gate for the per-component galleries. |
 | `build:gallery-jargon` | Rebuild the jargon showcase gallery PDF. |
+| `build:showcase-galleries` | Rebuild the consolidated cross-bucket showcase decks (data-viz = chart + math) from the live manifest set, light + dark. |
+| `build:showcase-galleries:check` | Freshness gate for the consolidated showcase decks (content drift vs the manifests). |
 | `preview` | Fast visual-iteration loop: scope-detect from git diff, rebuild affected, pixel-diff vs last commit. |
 | `preview:component` | Faithfully render ONE local / AI-generated component to a PNG (lattice.css + the component CSS, full frame) for pixel review. |
 | `preview:watch` | Run the preview loop on change. |
@@ -312,6 +314,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS producer for the browser. |
+| `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |

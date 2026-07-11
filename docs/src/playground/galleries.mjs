@@ -29,6 +29,14 @@ const SHOWCASES = [
     label: 'Design system',
     file: 'design/design-system.gallery.md',
   },
+  {
+    // Consolidated data-viz walk (every chart + math component), GENERATED from
+    // the live manifest set by tools/build-showcase-galleries.js — cannot go
+    // stale. Doubles as the old-engine / smart-TV colour-fallback demonstration.
+    id: 'data-viz',
+    label: 'Data visualization',
+    file: 'examples/data-viz-gallery.md',
+  },
 ];
 
 // One survey deck per component family (bucket), in design-system catalog
