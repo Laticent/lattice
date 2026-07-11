@@ -19,7 +19,7 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import http from 'node:http';
-import { dirname, extname, join } from 'node:path';
+import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
 
@@ -48,29 +48,46 @@ const NET = {
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.json': 'application/json', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
 
+// Resolve a request path to a file INSIDE dist, or null if it escapes. Normalizing an
+// absolute request path collapses any `..`, and the `relative` check rejects anything
+// that still lands outside DIST — closing path traversal (CodeQL: uncontrolled data in
+// a path expression) on this throwaway localhost server.
+function safePath(urlPath) {
+	let p = decodeURIComponent(urlPath.split('?')[0]);
+	if (p.endsWith('/')) p += 'index.html';
+	const file = join(DIST, normalize(p));
+	const rel = relative(DIST, file);
+	return rel.startsWith('..') || isAbsolute(rel) ? null : file;
+}
+
 function serve() {
 	const server = http.createServer(async (req, res) => {
+		// Never echo the error/URL back to the client (CodeQL: stack-trace exposure +
+		// unescaped exception-as-HTML); a static string + text/plain is all a client needs.
+		const fail = (code) => {
+			res.writeHead(code, { 'content-type': 'text/plain' });
+			res.end(code === 404 ? 'not found' : 'error');
+		};
 		try {
-			let p = decodeURIComponent(req.url.split('?')[0]);
-			if (p.endsWith('/')) p += 'index.html';
-			let file = join(DIST, p);
+			const file = safePath(req.url);
+			if (!file) return fail(404);
+			let target = file;
 			let body;
 			try {
-				body = await readFile(file);
+				body = await readFile(target);
 			} catch {
-				file = join(DIST, p, 'index.html');
+				target = join(file, 'index.html'); // a constant suffix on an in-DIST path can't escape
 				try {
-					body = await readFile(file);
+					body = await readFile(target);
 				} catch {
-					res.writeHead(404);
-					return res.end('nf');
+					return fail(404);
 				}
 			}
-			res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
+			res.writeHead(200, { 'content-type': TYPES[extname(target)] || 'application/octet-stream' });
 			res.end(body);
 		} catch (e) {
-			res.writeHead(500);
-			res.end(String(e));
+			console.error('frame-bench serve:', e);
+			fail(500);
 		}
 	});
 	return server;
