@@ -152,7 +152,6 @@ in patch versions.
 
 ### Added
 
-<<<<<<< HEAD
 - **The RENDER group gains a COALESCE row — how many edits the preview debounce
   folded into this render.** A fast typing burst lands many source changes inside
   the 140ms preview window, and the debounce collapses them into ONE engine
@@ -180,7 +179,6 @@ in patch versions.
   playground wrapper; the buckets reconcile to the raw `engineMs` (an `other`
   bucket carries the docs-side math prescan / cold-KaTeX cost). A normal render —
   CLI, export, or overlay-off — is byte-identical and pays nothing.
-=======
 - **A "Data visualization" showcase in the Playground's gallery drawer — every chart
   and math component in one deck, and it can't go stale.** The docs-site Playground now
   offers a consolidated walk across all 13 chart components plus math (the exact surfaces
@@ -192,7 +190,6 @@ in patch versions.
   drifts from the manifests, or if its component set ever diverges from the colour
   fallback's scanned set. The generated deck (`examples/data-viz-gallery.md`) also doubles
   as the manual old-engine / smart-TV colour-fallback test artifact.
->>>>>>> 1db3eb8 (feat(playground): consolidated data-viz showcase gallery (generated, non-staling))
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the
