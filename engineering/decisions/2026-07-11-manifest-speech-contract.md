@@ -589,10 +589,23 @@ parser). A **collision-guard test** encodes the rule as CI: no always-on key exp
 common English word (the `IT`/`US`/`IP` lesson) or a bimodal acronym.
 
 **Bounded scope.** The always-on table is a *closed set* — tokens that are (a) not
-ordinary words in any register incl. all-caps, (b) not derivable by a generic
-normalizer, (c) unambiguous across every boardroom deck. Everything deck-specific is the
-author's `acronyms:` to declare; the table does not chase the long tail. The
-word-collision axis is enforced by the guard test; the other two remain discipline.
+ordinary words OR names in any register incl. all-caps, (b) not derivable by a generic
+normalizer, (c) unambiguous **within a SaaS/tech-growth boardroom** (the house domain).
+The honest scope is (c), NOT "every boardroom": a token that flips meaning in a whole
+customer industry — finance/real-estate, IT-infra, defense/gov, arts/education, design —
+is demoted to the opt-in `finance` pack or the author's `acronyms:` registry. A
+three-lens audit (red team + inversion + checker, 2026-07-11) applied the CRO/CMO bar
+consistently and pulled the cross-domain bimodals it had missed: **`LTV`** (loan-to-value),
+**`SMB`** (Server Message Block), **`MFA`** (Master of Fine Arts), **`CAC`** (Common Access
+Card / CAC-40), **`EPS`** (Encapsulated PostScript), **`SAM`** (SAM.gov / surface-to-air
+missile), **`SOM`** (System-on-Module). `LTV` is not even pack-safe (bimodal *within*
+finance: loan-to-value vs lifetime value) so it is registry-only; `API`/`GTM`/`NPS` stay
+with a documented foreign-domain residual. Added, unambiguous: `DAU`/`SKU`/`NDA`/`MAU`;
+rejected traps: `SOW` (the verb "sow"), `MSA` (Metropolitan Statistical Area). **Axis (c)
+is now enforced**, not just disciplined: a `KNOWN_BIMODAL` denylist test asserts every one
+of these passes through untouched, so re-adding a bimodal to always-on fails CI, not a
+boardroom. Everything deck-specific is the author's `acronyms:` to declare; the table does
+not chase the long tail.
 
 **Deferred to the captions/discoverability follow-up:** Layer 1 (per-slide
 `<!-- caption -->` — a new comment channel alongside `note:`/`describe:`, spanning docs

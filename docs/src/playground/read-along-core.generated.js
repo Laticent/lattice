@@ -80,12 +80,14 @@ var require_dist = __commonJS({
       mrr: "monthly recurring revenue",
       roi: "return on investment",
       nps: "net promoter score",
-      cac: "customer acquisition cost",
-      ltv: "lifetime value",
+      // house-domain reading; residual: ROI=Republic of Ireland, NPS=Nat'l Park Service (§15)
       clv: "customer lifetime value",
+      // `ltv`/`cac`/`eps` DEMOTED (§15) — bimodal by industry (loan-to-value · Common Access Card · Encapsulated PostScript)
       arpu: "average revenue per user",
       gmv: "gross merchandise value",
-      eps: "earnings per share",
+      dau: "daily active users",
+      sku: "skew",
+      nda: "non-disclosure agreement",
       capex: "capital expenditure",
       opex: "operating expense",
       "p&l": "profit and loss",
@@ -98,16 +100,18 @@ var require_dist = __commonJS({
       gtm: "go to market",
       b2b: "business to business",
       b2c: "business to consumer",
-      smb: "small and medium business",
+      // gtm kept; residual: Google Tag Manager (§15)
       faq: "frequently asked questions",
+      // `smb` DEMOTED (§15) — Server Message Block in an infra deck
       // Engineering / security (expanded).
       api: "application programming interface",
       sdk: "software development kit",
+      // api residual: Active Pharmaceutical Ingredient (pharma) / API gravity (energy)
       sla: "service level agreement",
       slo: "service level objective",
       sso: "single sign-on",
-      mfa: "multi-factor authentication",
       "2fa": "two-factor authentication",
+      // `mfa` DEMOTED (§15) — Master of Fine Arts in an arts/edu deck
       // Established single-word pronunciations.
       saas: "sass",
       // No natural expansion or word — spelled.
@@ -130,17 +134,17 @@ var require_dist = __commonJS({
       COGS: "cost of goods sold",
       // lower-case "cogs" is the machine part
       TAM: "total addressable market",
-      SAM: "serviceable addressable market",
-      SOM: "serviceable obtainable market",
+      MAU: "monthly active users",
+      // MAU cased so the name "Mau" in prose never fires
       MoM: "month over month",
       WoW: "week over week"
       // canonical mixed case; "mom"/"wow" the words stay safe
-      // `CRO`/`CMO` are NOT here — they are genuinely BIMODAL even in all-caps within a
-      // boardroom (CRO = chief-revenue-officer vs conversion-rate-optimization; CMO =
-      // chief-marketing-officer vs collateralized-mortgage-obligation). A deck-blind global
-      // guess is a boardroom faceplant, so they are demoted to the opt-in `finance` pack
-      // (vocabulary preserved) and the author declares the one they mean via `acronyms:`
-      // front-matter (§15). Only tokens that are UNAMBIGUOUS in a presentation stay always-on.
+      // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
+      // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
+      // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
+      // faceplant, so they are demoted to the opt-in `finance` pack (vocabulary preserved)
+      // and the author declares the meaning via `acronyms:` (§15). Only tokens UNAMBIGUOUS
+      // in a SaaS/tech-growth boardroom (the house domain) stay always-on.
     };
     var DOMAINS = {
       legal: {
@@ -158,10 +162,18 @@ var require_dist = __commonJS({
         // WoW/MoM live in BASE_CASED (canonical case). These stay for the opt-in path.
         wow: "week over week",
         mom: "month over month",
-        // Demoted from always-on (§15): bimodal even in caps — preserved here for the
-        // opt-in path; per-deck, the author declares the meaning via `acronyms:`.
+        // Demoted from always-on (§15) — the SaaS/tech-growth-boardroom reading, preserved
+        // here for the opt-in path; per-deck, the author declares the meaning via `acronyms:`.
         cro: "chief revenue officer",
-        cmo: "chief marketing officer"
+        cmo: "chief marketing officer",
+        cac: "customer acquisition cost",
+        eps: "earnings per share",
+        smb: "small and medium business",
+        mfa: "multi-factor authentication",
+        sam: "serviceable addressable market",
+        som: "serviceable obtainable market"
+        // `ltv` is deliberately NOT packed: bimodal even WITHIN finance (loan-to-value vs
+        // lifetime value), so no single expansion is safe — the author must declare it.
       }
     };
     function lookupLexicon(token, domains = []) {

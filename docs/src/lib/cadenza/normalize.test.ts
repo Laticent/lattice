@@ -166,7 +166,6 @@ describe('say-as lexicon — expand / word / spell (§14)', () => {
     expect(toSpoken('KPI')).toBe('key performance indicator');
     expect(toSpoken('API')).toBe('application programming interface');
     expect(toSpoken('CEO')).toBe('chief executive officer');
-    expect(toSpoken('EPS')).toBe('earnings per share');
     expect(toSpoken('YTD')).toBe('year to date');
     expect(toSpoken('R&D')).toBe('research and development');
     expect(toSpoken('P&L')).toBe('profit and loss');
@@ -225,12 +224,34 @@ describe('say-as lexicon — expand / word / spell (§14)', () => {
     for (const w of ['it', 'us', 'or', 'in', 'on', 'is', 'as', 'we', 'an', 'so', 'no', 'do', 'go', 'IT', 'US', 'OR', 'IP', 'AR']) {
       expect(toSpoken(w)).toBe(w);
     }
-    // Bimodal acronyms are demoted (author declares them via `acronyms:` — not always-on).
-    for (const a of ['CRO', 'CMO']) {
-      expect(toSpoken(a)).toBe(a);
-    }
     // Sanity: an unambiguous acronym still expands (the guard didn't neuter the dictionary).
     expect(toSpoken('EBITDA')).toBe('ee bit dah');
     expect(toSpoken('COO')).toBe('chief operating officer'); // monosemic, kept
+    expect(toSpoken('ARR')).toBe('annual recurring revenue');
+  });
+
+  // KNOWN-BIMODAL DENYLIST (§15) — the real enforcement of "unambiguous in a
+  // SaaS/tech-growth boardroom": each token below flips meaning by industry (the
+  // CRO/CMO class), so it must NEVER auto-expand — the author declares the meaning
+  // via `acronyms:`. Re-adding any of these to always-on fails HERE, not in a
+  // boardroom. (Also covers the word/name collisions IT/US/… as a superset.)
+  it('collision guard: known cross-domain bimodal acronyms never auto-expand', () => {
+    const KNOWN_BIMODAL = [
+      'LTV', 'SMB', 'MFA', 'CAC', 'EPS', 'SAM', 'SOM', 'CRO', 'CMO', // demoted cross-domain
+      'MSA', 'SOW', // rejected widening traps (Metropolitan Statistical Area; the verb "sow")
+      'IT', 'US', 'IP', 'AR', 'OR', // word/name collisions
+    ];
+    for (const t of KNOWN_BIMODAL) {
+      expect(toSpoken(t)).toBe(t); // passes through — no always-on entry claims it
+    }
+  });
+
+  it('widening: safe product/legal terms expand; the "sow" trap does not', () => {
+    expect(toSpoken('DAU')).toBe('daily active users');
+    expect(toSpoken('SKU')).toBe('skew');
+    expect(toSpoken('NDA')).toBe('non-disclosure agreement');
+    expect(toSpoken('MAU')).toBe('monthly active users'); // cased
+    expect(toSpoken('mau')).toBe('mau'); // the name "Mau" stays safe (cased key)
+    expect(toSpokenText('reap what you sow')).toBe('reap what you sow'); // SOW never always-on
   });
 });

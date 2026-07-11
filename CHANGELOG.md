@@ -214,11 +214,13 @@ in patch versions.
   author's pronunciations beat the built-in dictionary **and** every pattern
   (case-sensitive, whole-token), on both the live Present read-aloud and the exported
   `.vtt` (one shared parser, so they never diverge). To keep the deck-blind default
-  safe, the genuinely-bimodal acronyms `CRO`/`CMO` (revenue-officer vs
-  conversion-rate-optimization; marketing-officer vs collateralized-mortgage-
-  obligation) **no longer auto-expand** — declare the meaning you want via `acronyms:`.
-  A collision-guard test keeps the always-on dictionary to unambiguous tokens only.
-  Audio is unverified (no TTS in CI) — only the spoken string is claimed.
+  safe, acronyms that flip meaning by industry **no longer auto-expand** — `CRO`,
+  `CMO`, `LTV` (loan-to-value), `SMB` (Server Message Block), `MFA` (Master of Fine
+  Arts), `CAC` (Common Access Card), `EPS` (Encapsulated PostScript), `SAM`, `SOM` —
+  declare the one you mean via `acronyms:`. The always-on set is now scoped to what's
+  unambiguous in a SaaS/tech-growth boardroom, enforced by a `KNOWN_BIMODAL` denylist
+  test so re-adding a bimodal fails CI. Audio is unverified (no TTS in CI) — only the
+  spoken string is claimed.
 - **A first-class `color-mode:` front-matter key — `light` · `dark` · `system` ·
   `inherited` — that every surface honors.** Color mode was authored through the
   overloaded `class: dark`/`class: light` token axis; it now has a dedicated,

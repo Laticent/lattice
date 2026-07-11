@@ -47,20 +47,21 @@ const BASE: Record<string, string> = {
   // Metrics (expanded).
   kpi: 'key performance indicator', okr: 'objectives and key results',
   arr: 'annual recurring revenue', mrr: 'monthly recurring revenue',
-  roi: 'return on investment', nps: 'net promoter score',
-  cac: 'customer acquisition cost', ltv: 'lifetime value', clv: 'customer lifetime value',
+  roi: 'return on investment', nps: 'net promoter score', // house-domain reading; residual: ROI=Republic of Ireland, NPS=Nat'l Park Service (§15)
+  clv: 'customer lifetime value', // `ltv`/`cac`/`eps` DEMOTED (§15) — bimodal by industry (loan-to-value · Common Access Card · Encapsulated PostScript)
   arpu: 'average revenue per user', gmv: 'gross merchandise value',
-  eps: 'earnings per share', capex: 'capital expenditure', opex: 'operating expense',
+  dau: 'daily active users', sku: 'skew', nda: 'non-disclosure agreement',
+  capex: 'capital expenditure', opex: 'operating expense',
   'p&l': 'profit and loss', 'r&d': 'research and development',
   // Metrics said as WORDS (expansion would be absurd to speak).
   ebitda: 'ee bit dah', cagr: 'cagger', gaap: 'gap',
   // Product / go-to-market (expanded).
-  gtm: 'go to market', b2b: 'business to business', b2c: 'business to consumer',
-  smb: 'small and medium business', faq: 'frequently asked questions',
+  gtm: 'go to market', b2b: 'business to business', b2c: 'business to consumer', // gtm kept; residual: Google Tag Manager (§15)
+  faq: 'frequently asked questions', // `smb` DEMOTED (§15) — Server Message Block in an infra deck
   // Engineering / security (expanded).
-  api: 'application programming interface', sdk: 'software development kit',
+  api: 'application programming interface', sdk: 'software development kit', // api residual: Active Pharmaceutical Ingredient (pharma) / API gravity (energy)
   sla: 'service level agreement', slo: 'service level objective',
-  sso: 'single sign-on', mfa: 'multi-factor authentication', '2fa': 'two-factor authentication',
+  sso: 'single sign-on', '2fa': 'two-factor authentication', // `mfa` DEMOTED (§15) — Master of Fine Arts in an arts/edu deck
   // Established single-word pronunciations.
   saas: 'sass',
   // No natural expansion or word — spelled.
@@ -79,21 +80,21 @@ const BASE: Record<string, string> = {
 // key that is also a common word THERE is unsafe. `IT`/`US` were tried and pulled —
 // "ABOUT US"/"WHY IT MATTERS" would read "…United States"/"…information technology"
 // (§14). Genuinely ambiguous even in caps (`IP`, `AR`, `OR`) are likewise EXCLUDED —
-// a wrong expansion is worse than none. `TAM`/`SAM`/`SOM` are kept as the standard
-// market-sizing trio; the residual (all-caps "SAM" as a person) is the accepted cost.
+// a wrong expansion is worse than none. `TAM` is kept (no strong collision); `SAM`/`SOM`
+// were pulled — bimodal even in caps (SAM = SAM.gov / surface-to-air missile; SOM =
+// System-on-Module), the same class as CRO/CMO (§15).
 const BASE_CASED: Record<string, string> = {
   CY: 'calendar year', // lower-case "cy" / name "Cy" must NOT fire → cased, not BASE
   COO: 'chief operating officer', // monosemic (lower-case "coo" is the verb → cased)
   COGS: 'cost of goods sold', // lower-case "cogs" is the machine part
-  TAM: 'total addressable market', SAM: 'serviceable addressable market',
-  SOM: 'serviceable obtainable market',
+  TAM: 'total addressable market', MAU: 'monthly active users', // MAU cased so the name "Mau" in prose never fires
   MoM: 'month over month', WoW: 'week over week', // canonical mixed case; "mom"/"wow" the words stay safe
-  // `CRO`/`CMO` are NOT here — they are genuinely BIMODAL even in all-caps within a
-  // boardroom (CRO = chief-revenue-officer vs conversion-rate-optimization; CMO =
-  // chief-marketing-officer vs collateralized-mortgage-obligation). A deck-blind global
-  // guess is a boardroom faceplant, so they are demoted to the opt-in `finance` pack
-  // (vocabulary preserved) and the author declares the one they mean via `acronyms:`
-  // front-matter (§15). Only tokens that are UNAMBIGUOUS in a presentation stay always-on.
+  // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
+  // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
+  // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
+  // faceplant, so they are demoted to the opt-in `finance` pack (vocabulary preserved)
+  // and the author declares the meaning via `acronyms:` (§15). Only tokens UNAMBIGUOUS
+  // in a SaaS/tech-growth boardroom (the house domain) stay always-on.
 };
 
 // ── DOMAIN packs — opt-in (a token that is wrong outside its domain) ─────────
@@ -109,9 +110,14 @@ const DOMAINS: Record<LexDomain, Record<string, string>> = {
   finance: {
     // WoW/MoM live in BASE_CASED (canonical case). These stay for the opt-in path.
     wow: 'week over week', mom: 'month over month',
-    // Demoted from always-on (§15): bimodal even in caps — preserved here for the
-    // opt-in path; per-deck, the author declares the meaning via `acronyms:`.
+    // Demoted from always-on (§15) — the SaaS/tech-growth-boardroom reading, preserved
+    // here for the opt-in path; per-deck, the author declares the meaning via `acronyms:`.
     cro: 'chief revenue officer', cmo: 'chief marketing officer',
+    cac: 'customer acquisition cost', eps: 'earnings per share',
+    smb: 'small and medium business', mfa: 'multi-factor authentication',
+    sam: 'serviceable addressable market', som: 'serviceable obtainable market',
+    // `ltv` is deliberately NOT packed: bimodal even WITHIN finance (loan-to-value vs
+    // lifetime value), so no single expansion is safe — the author must declare it.
   },
 };
 
