@@ -159,9 +159,11 @@ in patch versions.
   jumped. Read·Slides now fits each slide to the **same footprint as Present** (≈86% of the
   visible height, 40px side inset), so the first slide is identical between the two tabs
   (seamless switch) and the next slide **peeks** below the fold — the "scroll for more" hint
-  this control-free view needs. A pair of **floating Home (↑) / End (↓) buttons** (the
-  ubiquitous jump-to-top/bottom affordance) overlays the bottom-right corner, styled like
-  Present's prev/next, so the continuous scroll is never obstructed by a docked row. And
+  this control-free view needs. An **auto-revealing floating Home (↥) / End (↧) control**
+  (the ubiquitous jump-to-top/bottom affordance) overlays the bottom-right corner — it
+  reveals on scroll and idle-hides after ~1.5s, each button hiding when its edge is already
+  reached, with safe-area insets and reduced-motion support — so the continuous scroll is
+  never obstructed by a docked row. And
   **Present now advances on the mouse wheel / trackpad** (one decisive notch = one slide,
   debounced) — the desktop analogue of swipe, alongside the existing ←/→ keys, buttons, and
   touch. Verified on the real player at desktop, tablet, and mobile widths.
