@@ -13,8 +13,12 @@
 // keep the rules whose selectors match the rendered slide — native, allocation-cheap,
 // and it captures runtime-drawn content (chart SVGs) as static HTML for free.
 
+import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+
 export const SNAPSHOT_KEY = 'lattice-studio-last-slide';
-const MAX_BYTES = 240 * 1024; // localStorage-friendly cap; skip a snapshot bigger than this
+// UTF-16 code-unit cap (localStorage stores UTF-16, ~2 bytes/unit, so this is
+// ~480KB on disk — comfortably inside a ~5MB origin quota, latest-only).
+const MAX_UNITS = 240 * 1024;
 
 // Pseudo-classes/elements the live document can't be asked to match; strip them so
 // the STRUCTURAL selector still tests, and keep the rule if what remains matches.
@@ -79,7 +83,14 @@ export function captureFromFrame(frame, meta) {
 		const doc = frame?.contentDocument;
 		const lattice = doc?.querySelector('.lattice');
 		if (!lattice) return null;
-		const html = lattice.outerHTML;
+		// SANITIZE AT THE CHOKEPOINT (#22): the replay injects this HTML into the TOP
+		// document (not a sandboxed iframe), and for a returning user it derives from
+		// whatever deck they last viewed — including a shared/AI deck. Running DOMPurify
+		// HERE, inside the only capture function, makes a capture-without-sanitize path
+		// impossible by construction (browser-verified: keeps chart SVGs, strips
+		// onerror/javascript:). The slide was already sanitized before render; this is
+		// the enforcing pass for the new main-document sink.
+		const html = sanitizeSlideHtml(lattice.outerHTML);
 		let css = extractCriticalFromDoc(doc);
 		if (!html || !css) return null;
 		// The engine's @font-face use relative `url(fonts/…)`, which would resolve
@@ -98,7 +109,7 @@ export function saveSnapshot(snap) {
 	try {
 		if (!snap) return false;
 		const s = JSON.stringify(snap);
-		if (s.length > MAX_BYTES) return false;
+		if (s.length > MAX_UNITS) return false;
 		localStorage.setItem(SNAPSHOT_KEY, s);
 		return true;
 	} catch {

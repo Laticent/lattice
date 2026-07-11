@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
-import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
@@ -299,7 +298,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		el.style.transition = 'opacity 220ms ease';
 		el.style.opacity = '0';
 		el.style.pointerEvents = 'none';
-		setTimeout(() => el.remove(), 260);
+		setTimeout(() => {
+			el.remove();
+			// Remove the shell's SLIDE CSS too, or its bare element selectors (the engine
+			// theme styles `section`/`li`/`h1` etc.) would bleed onto the hydrated app's
+			// own chrome once the shell is gone. The snapshot CSS is a tagged <style>;
+			// the newcomer critical CSS goes back inert (it was flipped to media="all").
+			document.getElementById('ssr-snap-css')?.remove();
+			const nc = document.getElementById('ssr-newcomer-css') as HTMLStyleElement | null;
+			if (nc) nc.media = 'not all';
+		}, 260);
 	}, []);
 	React.useEffect(() => {
 		const t = setTimeout(dismissSsrShell, 12000); // backstop: never trap the user
@@ -311,28 +319,30 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// only bakes the newcomer slide at build time). Captured on leave (pagehide /
 	// tab-hide) and once shortly after the first render — never per-keystroke.
 	const previewBoxRef = React.useRef<HTMLDivElement>(null);
+	const lastCaptureRef = React.useRef(0);
 	const captureLastSlide = React.useCallback(() => {
 		try {
 			const fr = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 			if (!fr) return;
+			// Dedupe back-to-back captures: pagehide + visibilitychange both fire on a
+			// mobile nav, and the post-first-render timer can overlap — the CSSOM walk +
+			// ~140KB write isn't worth running twice within a beat.
+			const now = Date.now();
+			if (now - lastCaptureRef.current < 500) return;
+			lastCaptureRef.current = now;
 			const root = document.documentElement;
 			const geom = (fr.parentElement as { __latticeGeom?: { width: number; height: number } } | null)?.__latticeGeom;
+			// captureFromFrame sanitizes the slide HTML at the chokepoint (#22) before it
+			// can ever be stored + replayed into the top document — nothing to do here.
 			const snap = captureFromFrame(fr, {
 				w: geom?.width || 1280,
 				h: geom?.height || 720,
 				palette: root.getAttribute('data-palette') || 'indaco',
 				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
 				themeUrlBase: options.themeBase,
-				ts: Date.now(),
+				ts: now,
 			});
-			if (!snap) return;
-			// DEFENSE-IN-DEPTH (#22): the replay injects this HTML into the TOP document
-			// (not a sandboxed iframe), and for a returning user it derives from whatever
-			// deck they last viewed — including a shared/AI deck. The slide was already
-			// sanitized before rendering, but re-run DOMPurify here so a stored snapshot
-			// can never carry an XSS payload into the main origin on the next visit.
-			snap.html = sanitizeSlideHtml(snap.html);
-			saveSnapshot(snap);
+			if (snap) saveSnapshot(snap);
 		} catch {
 			/* best-effort — a failed capture just means the next visit uses the newcomer/none path */
 		}

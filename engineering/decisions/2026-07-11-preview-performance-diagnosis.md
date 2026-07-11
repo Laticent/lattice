@@ -144,6 +144,19 @@ hydration.
    returning dark user IS covered — their snapshot carries the dark render). Baking a
    dark newcomer variant is the remaining slice.
 
+**Maker-checker (returning-visitor shell).** An independent checker cleared the
+XSS-blocker criterion (the HTML injection is sanitized on the only save path) and its
+fixes were folded back: the injected slide CSS is now **removed on dismiss** (a tagged
+`#ssr-snap-css`, plus resetting `#ssr-newcomer-css` to `media="not all"`) — otherwise
+the engine theme's **bare element selectors** (`section{…}`, `li{…}`) leaked onto the
+hydrated app's own chrome once the shell faded (verified fixed); the DOMPurify pass was
+**moved into `captureFromFrame`** (the capture chokepoint) so a capture-without-sanitize
+path is impossible by construction; a back-to-back-capture dedupe was added. **Logged
+follow-ups (#18):** the new top-document injection sink has no automated #22-gate
+coverage (the gate scans iframe-`srcdoc` builders in `.js/.ts`, not `.astro` main-doc
+sinks) — extend `checkPreviewHtmlSinks`; and the captured CSS is unscoped (could be
+scoped under `#studio-ssr-shell`, `@import` dropped) for extra hardening.
+
 **Maker-checker.** An independent checker reviewed the diff before merge; its findings
 were folded back: css-tree was a phantom (transitive-only) dependency whose top-level
 require could hard-break `astro build` — now declared in `docs/package.json` and loaded
