@@ -628,7 +628,7 @@ var require_read_along_build = __commonJS({
         slides
       };
     }
-    function mergeNarration(notes, projected, opts = {}) {
+    function mergeNarration2(notes, projected, opts = {}) {
       const proj = Array.isArray(projected) ? projected : [];
       const aligned = proj.length === notes.length;
       const captions = Array.isArray(opts.captions) ? opts.captions : [];
@@ -642,7 +642,7 @@ var require_read_along_build = __commonJS({
         return aligned ? proj[i] || "" : "";
       });
     }
-    module.exports = { buildReadAlong: buildReadAlong2, mergeNarration };
+    module.exports = { buildReadAlong: buildReadAlong2, mergeNarration: mergeNarration2 };
   }
 });
 
@@ -679,10 +679,11 @@ var require_read_along_vtt = __commonJS({
 });
 
 // lib/core/read-along-core.entry.js
-var { buildReadAlong } = require_read_along_build();
+var { buildReadAlong, mergeNarration } = require_read_along_build();
 var { readAlongToVtt, readAlongToVttParts } = require_read_along_vtt();
 export {
   buildReadAlong,
+  mergeNarration,
   readAlongToVtt,
   readAlongToVttParts
 };

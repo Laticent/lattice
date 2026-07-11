@@ -146,6 +146,7 @@ ${p.slides}
 type NotesCore = {
 	extractSlideNotes: (sections: string[]) => (string | null)[];
 	extractSlideDescriptions: (sections: string[]) => (string | null)[];
+	extractSlideCaptions: (sections: string[]) => (string | null)[];
 	stripCommentNodes: (html: string) => string;
 	noteBodiesFromHtml: (sectionHtml: string) => string[];
 	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[]) => string;
@@ -526,8 +527,20 @@ export async function sharePrintDeck(options: SingleSlideOptions, source: string
 type ReadAlongCore = {
 	buildReadAlong: (
 		texts: readonly string[],
-		opts: { voice: { model: string; voice: string; speed: number }; pace?: string },
+		opts: {
+			voice: { model: string; voice: string; speed: number };
+			pace?: string;
+			acronyms?: ReadonlyMap<string, string>;
+		},
 	) => { slides: { index: number }[] };
+	// The SAME merge the CLI export uses (HARD RULE #1): caption → front-matter caption →
+	// note → projection, with the alignment guard that drops the projection wholesale on a
+	// section/slide count mismatch. Re-exported from the read-along-core bundle.
+	mergeNarration: (
+		notes: readonly (string | null | undefined)[],
+		projected: readonly string[],
+		opts?: { captions?: readonly (string | null | undefined)[]; fmCaptions?: ReadonlyMap<number, string> | null },
+	) => string[];
 	readAlongToVtt: (ra: unknown) => string;
 	readAlongToVttParts: (ra: unknown) => { index: number; vtt: string }[];
 };
@@ -536,9 +549,10 @@ type ReadAlongCore = {
  * Read-along WebVTT captions — the SAME producer the CLI `--captions` flag uses
  * (lib/core/read-along-build.js + read-along-vtt.js), bundled for the browser
  * (tools/build-read-along-core.js → read-along-core.generated.js — same packaging
- * idiom as the Webpage player's player-core.generated.js). Extracts each slide's
- * speaker notes (the narration), builds a Cadenza ESTIMATE track per narrated
- * slide, and downloads a zip: one deck-level `<name>.vtt` (continuous,
+ * idiom as the Webpage player's player-core.generated.js). Resolves each slide's
+ * narration through the SAME chain the CLI uses (caption → front-matter caption →
+ * note → component-aware DOM projection), builds a Cadenza ESTIMATE track per
+ * narrated slide, and downloads a zip: one deck-level `<name>.vtt` (continuous,
  * deck-absolute timeline) plus per-slide `<name>.NN.vtt` — identical in shape to
  * the CLI's sidecars (one source of truth, HARD RULE #1). No audio, no TTS key —
  * captions only (the "regenerate" mode default,
@@ -558,25 +572,39 @@ export async function shareCaptions(
 	const theme = await ensureTheme(options, palette, mode, extra);
 	const out = await renderMarkdown(PG, source, theme);
 
-	onStatus?.('Reading speaker notes…');
-	const [deckMod, authoringMod, readAlongCore] = await Promise.all([
+	onStatus?.('Reading notes + projecting slides…');
+	const [deckMod, authoringMod, readAlongCore, projectionMod, resolveCaptionsMod] = await Promise.all([
 		import('@/playground/deck-preview.js'),
 		import('@/playground/authoring-core.generated.js'),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
+		import('./narration-projection'),
+		import('@/lib/resolve-captions'),
 	]);
 	const deck = deckMod as unknown as { splitSections: (html: string) => string[] };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const sections = deck.splitSections(out.html);
-	const notes = notesCore.extractSlideNotes(sections).map((n) => n || '');
+
+	// The FULL narration chain, identical to the CLI export's writeCaptionsSidecar
+	// (HARD RULE #1): a slide's inline `<!-- caption: -->` → its front-matter `captions:`
+	// entry → its speaker note → the component-aware DOM projection. So a note-free deck
+	// exported from the docs site now produces the SAME projected captions the CLI does —
+	// closing the gap where the client `.vtt` was silently empty (the CLI already projected).
+	const notes = notesCore.extractSlideNotes(sections);
+	const captions = notesCore.extractSlideCaptions(sections);
+	const fmCaptions = resolveCaptionsMod.frontMatterCaptions(source);
+	const acronyms = resolveCaptionsMod.acronymSpokenMap(source);
+	const projected = await projectionMod.projectDeckSpeech(options, source, palette, extra, undefined, mode);
+	const slideTexts = readAlongCore.mergeNarration(notes, projected, { captions, fmCaptions });
 
 	onStatus?.('Building captions…');
-	const readAlong = readAlongCore.buildReadAlong(notes, {
+	const readAlong = readAlongCore.buildReadAlong(slideTexts, {
 		// Voice is metadata only — captions time off `pace`, not the voice (regenerate
-		// mode has no audio). Mirrors the CLI's default.
+		// mode has no audio). Mirrors the CLI's default; the deck acronym registry expands.
 		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
 		pace: 'moderate',
+		acronyms,
 	});
-	if (!readAlong.slides.length) throw new Error('no speaker notes to narrate — add notes to at least one slide');
+	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no notes, captions, or projectable slide content');
 
 	onStatus?.('Packaging…');
 	const { default: JSZip } = await import('jszip');

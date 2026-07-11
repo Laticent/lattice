@@ -39,9 +39,9 @@ const silent = argv.includes('--silent') || check;
 // package's `require` condition (its built dist/index.cjs), inlining the whole
 // (zero-dep) engine into this one file.
 const ENTRY_CONTENTS = `
-const { buildReadAlong } = require('./read-along-build.js');
+const { buildReadAlong, mergeNarration } = require('./read-along-build.js');
 const { readAlongToVtt, readAlongToVttParts } = require('./read-along-vtt.js');
-export { buildReadAlong, readAlongToVtt, readAlongToVttParts };
+export { buildReadAlong, mergeNarration, readAlongToVtt, readAlongToVttParts };
 `;
 
 const BUILD_OPTIONS = {
