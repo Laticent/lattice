@@ -108,7 +108,7 @@ hydration.
    its own container queries (`width:100%` + `aspect-ratio`), so there's no JS
    measure and no layout shift. `StudioShell` dismisses the shell (fade) on the live
    preview's first render via a new one-shot `DeckPreview` `onFirstRender` — so the
-   static slide holds until the live one is ready, never a blank gap; a 12s mount
+   static slide holds until the live one is ready, never a blank gap; an 8s mount
    backstop guarantees a broken engine can't trap the user behind it. **Gated** to a
    first-time visitor on the default look (no `lattice-studio-deck-index`, indaco,
    light) by the pre-paint seed script — for a returning user the welcome slide is
@@ -134,11 +134,19 @@ hydration.
    (latest-only, size-capped). `StudioShell` captures on `pagehide`/`visibilitychange`
    and once after the first render; a pre-paint replay script in `studio.astro` paints
    a matching-palette/mode snapshot into the shell before hydration. **Measured
-   (returning mobile visit, Slow-4G): LCP 700ms (light) / 1267ms (dark)** — the real
-   last slide at ~FCP, versus the same ~6s blank before. Verified: the shipped replay
-   shows the snapshot slide in isolation, and end-to-end the app captures the actually
-   -rendered slide and replays it (a complex `kpi` slide re-renders faithfully from the
-   CSSOM-extracted CSS).
+   (headless Chrome, CPU-throttled + Slow-4G emulation, returning visit): LCP 700ms
+   (light) / 1267ms (dark)** — the real last slide at ~FCP, versus the same ~6s blank
+   before. Verified: the shipped replay shows the snapshot slide in isolation, and
+   end-to-end the app captures the actually-rendered slide and replays it (a complex
+   `kpi` slide re-renders faithfully from the CSSOM-extracted CSS).
+   **UNVERIFIED on real iOS Safari (HARD RULE #23):** all numbers above are *emulated*
+   mobile (headless Chrome + CPU/network throttle), not a physical device. iOS Safari
+   is the returning-visitor risk surface this can't reach from the sandbox: `pagehide`
+   fires there but Safari's bfcache + backgrounding can truncate a synchronous
+   `localStorage` write, so the leave-capture may not always land — the
+   `visibilitychange` fallback and the post-first-render capture mitigate but don't
+   prove it. Treat the iOS returning-visitor path as **untested** until it's driven on
+   a real device; the emulated numbers stand only for what they exercised.
 5. **Dark-mode newcomer (NOT yet done):** the *build-time* newcomer shell bakes
    indaco·**light** only, so a first-time visitor whose OS is dark gets no shell (a
    returning dark user IS covered — their snapshot carries the dark render). Baking a
@@ -156,6 +164,68 @@ follow-ups (#18):** the new top-document injection sink has no automated #22-gat
 coverage (the gate scans iframe-`srcdoc` builders in `.js/.ts`, not `.astro` main-doc
 sinks) — extend `checkPreviewHtmlSinks`; and the captured CSS is unscoped (could be
 scoped under `#studio-ssr-shell`, `@import` dropped) for extra hardening.
+
+**Adversarial trio (returning-visitor shell — HARD RULE #25).** Because the snapshot
+path is a new *main-document* injection sink (novel + real blast radius), it got the
+full trio — red team, Munger inversion, and an independent checker — applied to the
+shipped diff. It caught what three prior single-checker passes missed:
+- **Wrong-deck flash (inversion, MUST-FIX — fixed).** "How does this paint the WRONG
+  thing?" The app boots `loadDeckList()[0]` (the FIRST deck), not the most-recently-
+  viewed one, but the snapshot was of whatever slide the user last *left* on — a
+  different deck. So the shell could flash deck B's last slide for a beat before the
+  island hydrated deck A. Fixed by stamping `deckId` + `slideIndex` into the snapshot
+  (`captureFromFrame`, via `captureDeckRef`/`activeSlideRef` in `StudioShell` so the
+  leave-capture doesn't re-subscribe per deck/slide) and gating the pre-paint replay on
+  `snap.deckId === bootId`, where `bootId` mirrors the app's `loadDeckList()[0] ?? DECKS[0]`
+  exactly — the persisted `deck-index[0].id` when present, else the built-in first deck's
+  id. No id match → no replay (falls to the newcomer/hidden path), so a stale or foreign
+  snapshot can never paint. Verified headless against the built `dist`: a matching-deck
+  snapshot paints, a wrong-deck snapshot is suppressed and the box stays empty.
+- **`@import` in captured CSS (red team, defense-in-depth — fixed).** The CSSOM walk
+  kept `@import` rules whole; replayed into the TOP document they'd fetch an arbitrary
+  external sheet on the main origin. Dropped from capture (`collectRules`) — the engine
+  inlines all faces/tokens, so a real slide never needs one.
+- **Sanitize only at capture, not at storage (red team — fixed).** `captureFromFrame`
+  sanitized, but a *future* writer to `saveSnapshot` wouldn't. Added an idempotent
+  DOMPurify pass at the `saveSnapshot` storage boundary so an unsanitized value is
+  physically unstorable, regardless of writer (#22 defense-in-depth).
+- **Backstop too long (checker — fixed).** The 12s dismiss backstop left a broken-engine
+  user staring at a static shell far too long; shortened to **8s**. (A first pass took it
+  to 5s; a follow-up checker pushed back — on a slow-3G phone a *working* engine's 505KB
+  fetch + hydrate + first render can exceed 5s, so 5s risked prematurely revealing the
+  app's own un-rendered preview. 8s is the compromise; the exact ceiling wants real-device
+  confirmation, #23.)
+- **iOS "verified" overclaim (checker — fixed in this doc).** The returning-visitor
+  numbers were emulated, not real-device; the claim is now scoped to what it exercised
+  and the iOS path marked UNVERIFIED (above).
+
+A **second independent checker** on the fold-back diff confirmed the wrong-deck flash is
+genuinely closed (the gate fails closed; refs are current; `textContent` for the CSS is
+the correct anti-breakout choice) and surfaced two more robustness fixes, folded in:
+- **Corrupt-index crash (fixed).** `bootId` was read after the `try`, so a `deck-index`
+  holding the literal `"null"` would `JSON.parse` to `null`, then `null[0]` throws
+  *outside* the guard — aborting the replay before the newcomer fallback runs (a newcomer
+  with a corrupt key would get an empty shell). The parse now Array-guards (`idx=[]` unless
+  the parsed value is an array), so it can't throw.
+- **Source-only cohort lost the shell (fixed).** A user who only ever *edited* the built-in
+  deck (an `lattice-studio-src-*` key, but no persisted index — `loadIndex()` seeds from
+  `DECKS` without saving) had `bootId` undefined at pre-paint, so their valid same-deck
+  snapshot was suppressed and they saw *no* shell. `bootId` now falls back to the first
+  built-in deck's id — the same `?? DECKS[0]` the app boots — recovering the win for them.
+- **CSS-into-top-document is a new, un-gated sink (accepted, noted).** `snap.css` is
+  injected verbatim (`textContent`, so no `</style><script>` breakout) into the TOP
+  document. Dropping `@import` closes the arbitrary-external-sheet fetch; a residual
+  CSS-native `url(https://…)` beacon in author CSS could still fire, but the impact is low
+  (no secret is in the DOM at pre-paint — the OpenRouter key isn't there — and the `<style>`
+  is removed on dismiss), so it's accepted. The #22 threat model covers HTML sinks only;
+  scoping the captured CSS under `#studio-ssr-shell` is the logged hardening.
+**Logged follow-ups (#18):** extend the #22 gate to `.astro` main-document sinks; scope
+captured CSS under `#studio-ssr-shell`; add the browser-side FRAME/LCP perf gate (§C.2);
+and boot the most-recently-*active* deck **and slide** (persist a last-active id + index —
+the `slideIndex` already stamped into the snapshot is the data for it) so the instant-shell
+and the hydrated app agree on both which deck AND which slide leads (today the app always
+boots slide 0, so a returning user who left on slide 3 sees a brief intra-deck slide flash —
+pre-existing, same class as the wrong-deck flash but within a deck).
 
 **Maker-checker.** An independent checker reviewed the diff before merge; its findings
 were folded back: css-tree was a phantom (transitive-only) dependency whose top-level

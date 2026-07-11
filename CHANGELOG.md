@@ -243,8 +243,11 @@ in patch versions.
   it snapshots the live preview (the rendered slide HTML + just the CSS it uses, pulled
   from the iframe's CSSOM) to localStorage, and the pre-paint replay script paints that on
   the next visit — measured LCP **700ms (light) / 1267ms (dark)** on a returning mobile
-  visit (was the same ~6s blank). Front A of
-  `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
+  visit (was the same ~6s blank). The replayed snapshot is stamped with its own deck id
+  and only paints when it matches the deck the app is about to boot, so a returning user
+  never sees a brief flash of the wrong deck's last slide; the captured HTML is
+  re-sanitized at the storage boundary and `@import` rules are dropped from the captured
+  CSS. Front A of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the

@@ -179,6 +179,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
 	const [activeSlide, setActiveSlide] = React.useState(0); // 0-based; index into the VIEWED set
+	// Live mirrors of the active deck id + slide index, so the leave-capture (a stable
+	// callback that must NOT re-subscribe its pagehide listener per deck/slide change)
+	// can stamp WHICH deck/slide it snapshotted without taking them as deps.
+	const captureDeckRef = React.useRef('');
+	captureDeckRef.current = deck.id;
+	const activeSlideRef = React.useRef(0);
+	activeSlideRef.current = activeSlide;
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
 	// First-run state. A newcomer (never engaged) gets a reduced-density shell —
 	// side panels closed, a one-time welcome cue — so the killer intro deck and the
@@ -310,7 +317,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		}, 260);
 	}, []);
 	React.useEffect(() => {
-		const t = setTimeout(dismissSsrShell, 12000); // backstop: never trap the user
+		// Backstop: never trap the user behind the static shell if the engine never
+		// signals a first render. 8s — the primary dismissal is onPreviewFirstRender
+		// (fires on the live iframe's load event, reliable even on slow mobile once the
+		// island hydrates), so this only fires on a genuinely broken engine, where a
+		// shorter fade-out is better than a long stare. 8s is a deliberate compromise:
+		// shortened from 12s (which left a broken-engine user waiting far too long) but
+		// NOT down to 5s — on a slow-3G phone a working engine's 505KB fetch + hydrate +
+		// first render can plausibly exceed 5s, and dismissing then would prematurely
+		// reveal the app's own un-rendered preview (checker finding; the exact ceiling
+		// wants real-device confirmation, #23).
+		const t = setTimeout(dismissSsrShell, 8000);
 		return () => clearTimeout(t);
 	}, [dismissSsrShell]);
 	// Snapshot the live preview's CURRENT slide (rendered HTML + just the CSS it
@@ -339,6 +356,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				h: geom?.height || 720,
 				palette: root.getAttribute('data-palette') || 'indaco',
 				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
+				// Stamp WHICH deck/slide this is, so the pre-paint replay paints it only when
+				// the app is about to boot this same deck — never deck B's slide over deck A.
+				deckId: captureDeckRef.current,
+				slideIndex: activeSlideRef.current,
 				themeUrlBase: options.themeBase,
 				ts: now,
 			});

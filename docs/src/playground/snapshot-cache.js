@@ -41,11 +41,16 @@ function selectorMatches(doc, selectorText) {
 // when nothing inside survives. Mirrors critical-css.mjs's pruneBlock, on the CSSOM.
 function collectRules(rules, doc, out) {
 	for (const rule of rules) {
+		// @import — DROP. The snapshot CSS is injected into the TOP document (not the
+		// sandboxed preview iframe); a replayed @import would fetch an arbitrary external
+		// sheet on the main origin. The engine inlines all faces/tokens, so a real slide
+		// never depends on one — dropping it closes an injection vector (red-team finding).
+		if (rule.type === 3) continue;
 		if (rule.selectorText !== undefined && rule.style) {
 			// CSSStyleRule
 			if (rule.selectorText.split(',').some((s) => selectorMatches(doc, s))) out.push(rule.cssText);
-		} else if (rule.type === 5 || rule.type === 7 || rule.type === 3 || (rule.constructor && rule.constructor.name === 'CSSPropertyRule')) {
-			// @font-face (5) · @keyframes (7) · @import (3) · @property — position-independent, keep whole
+		} else if (rule.type === 5 || rule.type === 7 || (rule.constructor && rule.constructor.name === 'CSSPropertyRule')) {
+			// @font-face (5) · @keyframes (7) · @property — position-independent, keep whole
 			out.push(rule.cssText);
 		} else if (rule.cssRules) {
 			// @media/@container/@supports/@layer{…} — recurse; keep only if non-empty
@@ -76,7 +81,7 @@ export function extractCriticalFromDoc(doc) {
 
 /**
  * Snapshot the fully-rendered slide in a live preview iframe.
- * @returns {{v:1,html:string,css:string,w:number,h:number,palette:string,mode:string,ts:number}|null}
+ * @returns {{v:1,deckId:string,slideIndex:number,html:string,css:string,w:number,h:number,palette:string,mode:string,ts:number}|null}
  */
 export function captureFromFrame(frame, meta) {
 	try {
@@ -98,7 +103,12 @@ export function captureFromFrame(frame, meta) {
 		// document. Rewrite to the absolute served themes/ base so the replayed slide
 		// uses the real faces (same fix as the build-time front-A shell).
 		if (meta.themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${meta.themeUrlBase}fonts/`);
-		return { v: 1, html, css, w: meta.w || 1280, h: meta.h || 720, palette: meta.palette, mode: meta.mode, ts: meta.ts || 0 };
+		// deckId + slideIndex identify WHICH deck/slide this snapshot is of, so the replay
+		// paints it only when the app is about to boot that same deck. Without them the
+		// shell can flash deck B's last slide before the app hydrates deck A (the app boots
+		// loadDeckList()[0], NOT the most-recently-viewed deck) — the wrong-deck flash the
+		// adversarial trio's inversion pass caught. deckId '' → replay never matches (safe).
+		return { v: 1, deckId: meta.deckId || '', slideIndex: meta.slideIndex || 0, html, css, w: meta.w || 1280, h: meta.h || 720, palette: meta.palette, mode: meta.mode, ts: meta.ts || 0 };
 	} catch {
 		return null;
 	}
@@ -108,6 +118,12 @@ export function captureFromFrame(frame, meta) {
 export function saveSnapshot(snap) {
 	try {
 		if (!snap) return false;
+		// Defense in depth (#22): re-sanitize at the STORAGE boundary so every writer —
+		// captureFromFrame today, any future one — is covered, not just the one capture
+		// path. captureFromFrame already sanitizes; this is idempotent (DOMPurify on
+		// already-clean HTML is a no-op) and makes an unsanitized value physically
+		// unstorable. Guard on a string html so a malformed snap just fails the size gate.
+		if (typeof snap.html === 'string') snap = { ...snap, html: sanitizeSlideHtml(snap.html) };
 		const s = JSON.stringify(snap);
 		if (s.length > MAX_UNITS) return false;
 		localStorage.setItem(SNAPSHOT_KEY, s);

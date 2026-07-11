@@ -26,6 +26,16 @@ describe('saveSnapshot / loadSnapshot', () => {
 		localStorage.setItem(SNAPSHOT_KEY, '{not json');
 		expect(loadSnapshot()).toBe(null);
 	});
+
+	it('re-sanitizes html at the storage boundary (defense in depth, #22)', () => {
+		// A snap that skipped captureFromFrame's sanitize (a hypothetical future writer)
+		// must still be scrubbed before it can be stored + replayed into the top document.
+		const dirty = { v: 1, html: '<img src=x onerror="alert(1)"><script>evil()</script>', css: '.x{}', w: 1, h: 1, palette: 'indaco', mode: 'light', ts: 1 };
+		expect(saveSnapshot(dirty)).toBe(true);
+		const stored = loadSnapshot();
+		expect(stored.html).not.toContain('onerror');
+		expect(stored.html).not.toContain('<script');
+	});
 });
 
 describe('extractCriticalFromDoc', () => {
@@ -37,5 +47,14 @@ describe('extractCriticalFromDoc', () => {
 		expect(css).toContain('h1');
 		expect(css).toContain('@font-face'); // always kept
 		expect(css).not.toContain('unused-zzz'); // class not present in the slide
+	});
+
+	it('drops @import (would fetch an external sheet on the top origin, red-team finding)', () => {
+		document.head.innerHTML = '<style>@import url("https://evil.example/x.css");.title{color:red}</style>';
+		document.body.innerHTML = '<div class="lattice"><section class="title"></section></div>';
+		const css = extractCriticalFromDoc(document);
+		expect(css).toContain('.title');
+		expect(css).not.toContain('@import');
+		expect(css).not.toContain('evil.example');
 	});
 });
