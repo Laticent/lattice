@@ -34,13 +34,4 @@ export declare function toSpoken(display: string, opts?: SpokenOpts): string;
 export declare function toSpokenText(text: string, opts?: SpokenOpts): string;
 /** Count spoken sub-words in an expansion ("four point two million dollars" → 5). */
 export declare function spokenWordCount(spoken: string): number;
-/**
- * The multi-letter ALL-CAPS tokens in `text` that pass through `toSpoken` UNCHANGED —
- * i.e. neither the author registry (`opts.acronyms`) nor the built-in lexicon expands
- * them, so a TTS spells them letter-by-letter (`ROI` → "arr oh eye"). This is the
- * discovery signal behind the deck lint's "did you mean to add these to `acronyms:`?"
- * hint. Each token is edge-trimmed of non-alphanumerics (so `**ROI**`, `(API)` still
- * register), tested as a pure A–Z run of length ≥ 2 (digit-bearing shorthand like `FY26`
- * is left to the fiscal parser), and returned unique in first-seen order. Pure.
- */
 export declare function unmatchedAcronyms(text: string, opts?: SpokenOpts): string[];

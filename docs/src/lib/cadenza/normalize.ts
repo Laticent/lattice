@@ -295,11 +295,25 @@ export function spokenWordCount(spoken: string): number {
  * register), tested as a pure A–Z run of length ≥ 2 (digit-bearing shorthand like `FY26`
  * is left to the fiscal parser), and returned unique in first-seen order. Pure.
  */
+const isAlphaNum = (c: string): boolean =>
+  (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+
+/** Trim leading/trailing non-alphanumerics via linear index scans — NOT a `[^…]+$`-anchored
+ *  regex, whose `+`-quantifier backtracks polynomially on a run of many non-alphanumerics
+ *  (a static-analyzer ReDoS flag). Both scans are single-pass and unambiguous. */
+function edgeTrim(raw: string): string {
+  let a = 0;
+  let b = raw.length;
+  while (a < b && !isAlphaNum(raw[a])) a++;
+  while (b > a && !isAlphaNum(raw[b - 1])) b--;
+  return raw.slice(a, b);
+}
+
 export function unmatchedAcronyms(text: string, opts: SpokenOpts = {}): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of splitWords(text)) {
-    const tok = raw.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9]+$/, '');
+    const tok = edgeTrim(raw); // `**ROI**`, `(API)` → `ROI`/`API` (linear, ReDoS-safe)
     if (!/^[A-Z]{2,}$/.test(tok) || seen.has(tok)) continue; // multi-letter all-caps, once each
     seen.add(tok);
     if (toSpoken(tok, opts) === tok) out.push(tok); // passthrough ⇒ expanded by nothing

@@ -147,6 +147,15 @@ describe('unmatchedAcronyms (discovery signal, §16)', () => {
   it('leaves digit-bearing shorthand to the fiscal/pattern layer (pure A–Z only)', () => {
     expect(unmatchedAcronyms('FY26 and 3PL and B2B are not flagged.')).toEqual([]);
   });
+
+  it('edge-trims linearly on a token of many non-alphanumerics (no polynomial backtracking)', () => {
+    // The old `[^A-Za-z0-9]+$` trailing strip was a CodeQL polynomial-ReDoS shape; the index-scan
+    // edgeTrim must handle a long non-alnum run fast and correctly (yields nothing to flag here).
+    const token = `${'/'.repeat(50000)}x${'/'.repeat(50000)}`;
+    expect(unmatchedAcronyms(token)).toEqual([]); // trims to 'x' → not multi-letter all-caps
+    // and a genuine acronym wrapped in a long slash run still registers, edge-trimmed:
+    expect(unmatchedAcronyms(`${'/'.repeat(2000)}XYZ${'/'.repeat(2000)}`)).toEqual(['XYZ']);
+  });
 });
 
 describe('fiscal / calendar period shorthand (§14)', () => {

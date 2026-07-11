@@ -362,11 +362,19 @@ var require_dist = __commonJS({
     function spokenWordCount(spoken) {
       return String(spoken ?? "").trim().split(/[\s-]+/).filter(Boolean).length;
     }
+    var isAlphaNum = (c) => c >= "0" && c <= "9" || c >= "A" && c <= "Z" || c >= "a" && c <= "z";
+    function edgeTrim(raw) {
+      let a = 0;
+      let b = raw.length;
+      while (a < b && !isAlphaNum(raw[a])) a++;
+      while (b > a && !isAlphaNum(raw[b - 1])) b--;
+      return raw.slice(a, b);
+    }
     function unmatchedAcronyms(text, opts = {}) {
       const seen = /* @__PURE__ */ new Set();
       const out = [];
       for (const raw of splitWords(text)) {
-        const tok = raw.replace(/^[^A-Za-z0-9]+/, "").replace(/[^A-Za-z0-9]+$/, "");
+        const tok = edgeTrim(raw);
         if (!/^[A-Z]{2,}$/.test(tok) || seen.has(tok)) continue;
         seen.add(tok);
         if (toSpoken(tok, opts) === tok) out.push(tok);
