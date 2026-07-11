@@ -24,7 +24,8 @@ export function getCaption(chunk: string): string {
 	let caption = '';
 	for (const c of comments(chunk)) {
 		if (!isCaptionBody(c.body)) continue;
-		caption = c.body.trim().replace(/^caption\s*:\s*/i, '').trim();
+		const text = c.body.trim().replace(/^caption\s*:\s*/i, '').trim();
+		if (text) caption = text; // last-NON-EMPTY-wins — parity with notes-core.captionFromHtml
 	}
 	return caption;
 }

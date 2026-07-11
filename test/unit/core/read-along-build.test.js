@@ -107,6 +107,14 @@ test('mergeNarration: the 2-arg form is unchanged (back-compat), and a non-Map f
 	assert.deepEqual(mergeNarration(['A', null], ['P0', 'P1'], { fmCaptions: {} }), ['A', 'P1']);
 });
 
+test('mergeNarration: a whitespace-only fm caption falls through to the note (trim guard; live parity)', () => {
+	// A quoted "   " survives parseCaptions (space is protectable), but an all-whitespace caption
+	// is silence — the export trims-to-decide and falls through; PresentOverlay uses the same
+	// String(fm ?? "").trim() guard so the two producers agree (§16 F3 fix).
+	const merged = mergeNarration(['Note one.', null], [], { fmCaptions: new Map([[1, '   '], [2, 'Real caption.']]) });
+	assert.deepEqual(merged, ['Note one.', 'Real caption.']); // slide 1: blank fm → note; slide 2: fm
+});
+
 // ── Author acronym registry threads into the exported spoken track (§15) ──────
 
 test('buildReadAlong: the deck acronym registry expands the SPOKEN form (author wins)', () => {

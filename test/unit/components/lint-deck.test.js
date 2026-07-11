@@ -315,6 +315,22 @@ describe('deck linter', () => {
     assert.match(hint.fix, /acronyms:/);
   });
 
+  test('the discovery pass skips format/web initialisms that read fine letter-by-letter', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-disc2-'));
+    const file = path.join(dir, 'deck.md');
+    // PDF/HTML/VTT read fine as letters; ACME is a deck-specific token worth surfacing.
+    fs.writeFileSync(file, '---\ntheme: indaco\n---\n\n# Export\n\nWe ship PDF, HTML, and VTT for ACME.\n');
+    const chunks = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (s) => { chunks.push(String(s)); return true; };
+    try { await main(['--json', file]); } finally { process.stdout.write = orig; fs.rmSync(dir, { recursive: true, force: true }); }
+    const out = JSON.parse(chunks.join(''));
+    const hint = out.reviewFindings.find((s) => s.rule === 'narration-acronyms');
+    assert.ok(hint, 'ACME should still surface');
+    assert.match(hint.message, /ACME/);
+    assert.doesNotMatch(hint.message, /PDF|HTML|VTT/); // format initialisms skipped
+  });
+
   test('every committed deck is completely lint-clean (no errors, no warnings)', () => {
     // The deck tree is clean and the gate is --strict, so warnings count too.
     // Locks in the fixes for the baseline gallery (cards-stack inline-title),

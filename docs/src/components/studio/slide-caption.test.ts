@@ -15,6 +15,12 @@ describe('slide-caption', () => {
 		expect(getCaption('# Hi\n\n<!-- caption: first -->\n\n<!-- caption: final -->')).toBe('final');
 	});
 
+	it('a trailing EMPTY caption does not clobber a real one (parity with notes-core.captionFromHtml)', () => {
+		// last-NON-EMPTY-wins: `<!-- caption: real --><!-- caption: -->` must read "real", matching
+		// the export's captionFromHtml — else the live overlay and the export narrate differently.
+		expect(getCaption('# Hi\n\n<!-- caption: real -->\n\n<!-- caption: -->')).toBe('real');
+	});
+
 	it('sets and replaces the caption, never stacking', () => {
 		let src = setCaption('# Hi', 'First read-as line.');
 		expect(getCaption(src)).toBe('First read-as line.');

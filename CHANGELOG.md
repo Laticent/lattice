@@ -202,12 +202,16 @@ in patch versions.
   and the live Present overlay can't drift. A front-matter caption keyed by slide number
   resolves correctly even under Present's `exec`/`onepager` reader lenses — it maps through the
   slide's ORIGINAL deck index, so a filtered/reordered view never binds a caption to the wrong
-  slide. `--strip-notes` blanks captions too (a stripped deck stays silent). New: a non-blocking
-  `narration-acronyms` hint in `lint:deck` lists the multi-letter all-caps tokens a deck speaks
-  letter-by-letter (expanded by neither the built-in lexicon nor your `acronyms:` registry), so
-  you learn what to register without ever playing audio. Demonstrated in
-  `examples/read-along-captions.md`. Audio naturalness stays UNVERIFIED (no TTS in CI) — only
-  the display→spoken string behavior is claimed.
+  slide. **`caption:` joins `note:`/`describe:` as a reserved comment prefix** — a comment that
+  begins `caption:` is read as narration, not embedded as a PDF speaker note. `--captions` and
+  `--strip-notes` compose: a caption is public-facing narration you opt into, so it is NOT removed
+  by the private-note strip (ship captions without your notes; omit `--captions` for no caption
+  track). New: a non-blocking `narration-acronyms` hint in `lint:deck` lists the multi-letter
+  all-caps tokens a deck speaks letter-by-letter (expanded by neither the built-in lexicon nor
+  your `acronyms:` registry, and not a common format initialism like `PDF`/`HTML`), so you learn
+  what to register without ever playing audio. Demonstrated in `examples/read-along-captions.md`.
+  Audio naturalness stays UNVERIFIED (no TTS in CI) — only the display→spoken string behavior is
+  claimed.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the

@@ -93,7 +93,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			const caption = getCaption(md); // 1. inline <!-- caption: --> — highest precedence
 			if (caption) return caption;
 			const fm = fmCaptions.get((setIndices[i] ?? i) + 1); // 2. front-matter captions[author slide number]
-			if (fm) return fm;
+			if (String(fm ?? '').trim()) return fm as string; // trim-guard parity with the export's mergeNarration
 			const note = getNote(md); // 3. speaker note
 			if (note) return note;
 			const chart = narrateChart(md);

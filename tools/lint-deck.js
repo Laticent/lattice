@@ -62,6 +62,16 @@ function discoverDecks() {
   return [...new Set(out)];
 }
 
+// Format / file / web initialisms that are CONVENTIONALLY spoken letter-by-letter ("P-D-F",
+// "H-T-M-L") — flagging them as "register these to speak as words" would be wrong and trains
+// authors to ignore the hint. So the discovery lint skips them; a genuinely deck-specific token
+// (a company/product initialism) still surfaces. Kept deliberately tight, not a spell-out dump.
+const COMMON_INITIALISMS = new Set([
+  'PDF', 'HTML', 'VTT', 'PPTX', 'PNG', 'JPG', 'JPEG', 'SVG', 'GIF', 'CSV', 'CSS', 'JS', 'JSON',
+  'XML', 'YAML', 'HTTP', 'HTTPS', 'URL', 'URI', 'API', 'SDK', 'CLI', 'UI', 'UX', 'FAQ', 'RSS',
+  'SQL', 'PPT', 'DOC', 'DOCX', 'XLS', 'XLSX', 'TSV', 'MD', 'ID', 'OK',
+]);
+
 // Approximate a deck's NARRATED text for acronym discovery: drop the front-matter block,
 // fenced code, and inline code — their all-caps tokens (HTTP, JSON, enum constants) aren't
 // spoken. What's left — prose plus note/caption comment bodies — is what read-along narrates.
@@ -146,7 +156,8 @@ async function main(argv) {
       for (const s of reviewText(source, { bucketOf, densityOf })) suggestions.push({ file, ...s });
     }
     if (doDiscover) {
-      const unknown = unmatchedAcronyms(narrationText(source), { acronyms: acronymSpokenMap(source) });
+      const unknown = unmatchedAcronyms(narrationText(source), { acronyms: acronymSpokenMap(source) })
+        .filter((t) => !COMMON_INITIALISMS.has(t)); // format/web initialisms read fine letter-by-letter
       if (unknown.length) {
         suggestions.push({
           file,
@@ -193,7 +204,10 @@ async function main(argv) {
 }
 
 if (require.main === module) {
-  main(process.argv.slice(2)).then((code) => process.exit(code));
+  main(process.argv.slice(2)).then(
+    (code) => process.exit(code),
+    (err) => { process.stderr.write(`lint:deck — ${err?.stack || err}\n`); process.exit(1); },
+  );
 }
 
 module.exports = { main, expandArgs, discoverDecks, narrationText };
