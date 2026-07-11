@@ -12,10 +12,12 @@
  *
  * Like the bucket galleries it is COMPOSED FROM THE LIVE MANIFEST SET (each
  * component's `manifest.sample`), so it CANNOT go stale: add a chart or math
- * component and it appears in the next rebuild automatically. A freshness gate
- * (`--check`, wired into build:check) fails if the committed deck drifts from the
- * manifests, and a companion unit gate asserts the deck's component set matches
- * the colour-fallback's scanned set so the two can never diverge.
+ * component and it appears in the next rebuild automatically. The BLOCKING guard
+ * is the render-free unit gate (test/unit/tools/showcase-galleries.test.js): it
+ * fails if the committed deck drifts from the manifests, and asserts the deck's
+ * component set matches the colour-fallback's scanned set so the two can never
+ * diverge. `--check` here is a developer convenience (content drift), deliberately
+ * NOT wired into build:check/CI — the unit gate is the one that runs there.
  *
  * Output per showcase:
  *   examples/<id>-gallery.md              (the deck — Playground-selectable)
@@ -119,9 +121,9 @@ function checkOne(showcase, groups, theme) {
   if (composeShowcase(showcase, groups) !== fs.readFileSync(mdPath, 'utf8')) {
     return { id: showcase.id, theme, stale: true, reason: 'source .md drifted from manifests (a component was added/changed)' };
   }
-  if (fs.statSync(mdPath).mtimeMs > fs.statSync(outPdf).mtimeMs) {
-    return { id: showcase.id, theme, stale: true, reason: 'source newer than PDF' };
-  }
+  // CONTENT-based freshness only — mtime ordering of .md vs .pdf is nondeterministic
+  // across a git checkout/rebase, and buildOne's skip is content-based, so an
+  // mtime clause here would report "stale" that a rebuild can never clear.
   return { id: showcase.id, theme, stale: false };
 }
 

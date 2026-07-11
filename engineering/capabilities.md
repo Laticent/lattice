@@ -111,6 +111,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `build:galleries` | Rebuild per-component gallery PDFs (light + dark). |
 | `build:galleries:check` | Freshness gate for the per-component galleries. |
 | `build:gallery-jargon` | Rebuild the jargon showcase gallery PDF. |
+| `build:showcase-galleries` | Rebuild the consolidated cross-bucket showcase decks (data-viz = chart + math) from the live manifest set, light + dark. |
+| `build:showcase-galleries:check` | Freshness gate for the consolidated showcase decks (content drift vs the manifests). |
 | `preview` | Fast visual-iteration loop: scope-detect from git diff, rebuild affected, pixel-diff vs last commit. |
 | `preview:component` | Faithfully render ONE local / AI-generated component to a PNG (lattice.css + the component CSS, full frame) for pixel review. |
 | `preview:watch` | Run the preview loop on change. |
@@ -198,8 +200,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 
 | Name | What it does |
 |---|---|
-| `build:showcase-galleries` | **TODO: describe `build:showcase-galleries` in tools/build-capabilities.js (SCRIPT_META).** |
-| `build:showcase-galleries:check` | **TODO: describe `build:showcase-galleries:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |

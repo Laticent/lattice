@@ -59,4 +59,15 @@ describe('showcase galleries', () => {
       `components in the data-viz deck the fallback does not scan: ${extraInDeck.join(', ')}`);
     assert.ok(inDeck.size >= 13, `expected the full chart+math set, got ${inDeck.size}`);
   });
+
+  test('every chart+math component actually has a sample (no silent omission)', () => {
+    // A component with no `sample` is COUNTED by name but the composer emits no
+    // slide for it, so the deck would silently omit it while the freshness/parity
+    // gates stay green. Assert every in-scope component carries a sample, closing
+    // that false-green.
+    const set = [...(groups.chart || []), ...(groups.math || [])];
+    const sampleless = set.filter((m) => !(typeof m.sample === 'string' && m.sample.trim())).map((m) => m.name);
+    assert.deepEqual(sampleless, [],
+      `chart/math components with no manifest.sample (would be omitted from the deck): ${sampleless.join(', ')}`);
+  });
 });
