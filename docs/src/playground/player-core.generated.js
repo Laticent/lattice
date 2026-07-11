@@ -1062,6 +1062,9 @@ ${envelope}
   const subset = caps.subsetFonts ? await caps.subsetFonts(out) : { html: out, applied: false, saved: 0 };
   return { html: subset.html, report: { ...report, fontBytesSaved: subset.saved, subsetApplied: subset.applied } };
 }
+
+// lib/export/player-core.entry.js
+init_prose_projection();
 export {
   assemblePlayer,
   buildArticle,
@@ -1069,5 +1072,7 @@ export {
   escapeText,
   minifyCss,
   playerCss,
-  playerJs
+  playerJs,
+  projectDeckToProse,
+  projectDeckToSpeech
 };
