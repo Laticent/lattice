@@ -288,6 +288,17 @@ function renderSpeech(md) {
 	return speak([...dom.window.document.querySelectorAll('section[data-class]')]);
 }
 
+test('stats: the label-first KPI reorder holds on a REAL engine render, not just synthetic DOM', () => {
+	// The flagship reorder (label fronted, value focal) is otherwise pinned only on
+	// hand-built `.cell-stage` sections; this proves the engine actually emits the
+	// structure `speakStats` reorders, so a renderer change that broke it would fail
+	// a test. It is also the contract the live Studio Present path now shares (both
+	// surfaces run this same projection on the rendered DOM).
+	const [t] = renderSpeech('<!-- _class: stats -->\n\n## Quarter\n\n1. $2.4B\n   - Total revenue\n2. 4.2×\n   - Signal recall\n');
+	assert.match(t, /Total revenue: \$2\.4B/, 'metric name fronted, value focal');
+	assert.doesNotMatch(t, /\$2\.4B\. Total revenue/, 'never value-before-label');
+});
+
 test('checklist: completion register — [x]→done, [ ]→to do, [-]→partial', () => {
 	const [t] = renderSpeech('<!-- _class: checklist -->\n\n## Gate\n\n- [x] Encryption at rest\n- [ ] SOC 2 audit\n- [-] DR drills\n');
 	assert.match(t, /Encryption at rest: done\./);

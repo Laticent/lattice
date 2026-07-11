@@ -282,6 +282,23 @@ in patch versions.
 
 ### Changed
 
+- **Studio Present read-aloud now speaks the same component-aware narration the
+  exported captions do — a deck no longer sounds different live vs. exported.**
+  Live Present used to narrate a slide by flattening its raw Markdown, while the
+  export narrates the rendered, component-aware DOM — so the same KPI tile read
+  "…dollars. Total revenue." live but "Total revenue: … dollars" in the exported
+  `.vtt`, a hidden pull-quote gloss was spoken live but not exported, and a QR
+  code's URL was read live but stripped in the DOM. Present now runs the SAME
+  shared projection (`projectDeckToSpeech`) against its live slide DOM, so live and
+  export draw narration from one source of truth (label-first metrics, hidden-gloss
+  handling, stripped URLs all match). An authored speaker note still wins, and a
+  recognized chart keeps its richer computed-facts narrator on both surfaces; the
+  projection is precomputed on open (async, with the old Markdown flatten as the
+  instant fallback until it lands). Charts in the EXPORT are still narrated from the
+  visual-skipping projection — bringing the chart narrators to the export for full
+  parity is tracked as a follow-up. Live audio remains UNVERIFIED (no TTS in CI);
+  only the spoken text is claimed.
+
 - **Canonical docs no longer frame Lattice as fundamentally "Marp emulation."**
   Closes out most of the Marp-legacy audit's §6 doc-framing backlog.
   `architecture.md`'s opening reframed from "Why Marp emulation, not Marp

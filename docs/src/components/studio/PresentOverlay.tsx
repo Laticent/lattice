@@ -19,11 +19,14 @@ import { buildPresenterStageDoc } from './studio-presenter';
 // engine render.
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-// The narration-source priority read-aloud speaks: a slide's speaker note (the
-// real talk track) — else a recognized chart's computed facts — else the
-// generic on-slide prose. Pulled out so both the current slide's reader AND
-// the autoplay warm-ahead prefetch (below) derive the same text for a slide.
-const narrationFor = (slideText: string) => getNote(slideText) || narrateChart(slideText) || slideToSpeech(slideText);
+// The narration-source priority read-aloud speaks: a slide's speaker note (the real
+// talk track) — else a recognized chart's computed facts — else the component-aware
+// DOM projection (`projectDeckSpeech`, the SAME shared kernel the CLI export narrates,
+// run in-browser) — else, until that projection is ready, the generic markdown
+// flatten. The projection is the unification: it makes live read-aloud speak a deck
+// exactly as the exported captions do (label-first KPIs, hidden-gloss handling,
+// stripped URLs). Resolved per-index (below, `narrationAt`) so the current slide's
+// reader AND the autoplay warm-ahead prefetch derive the same text for a slide.
 
 type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
@@ -42,6 +45,66 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const count = set.length;
 	const clamped = Math.min(idx, Math.max(0, count - 1));
 	const cur = set[clamped] ?? '';
+
+	// Component-aware DOM narration for the presented set — the SAME shared projection
+	// the CLI export uses (`projectDeckToSpeech`), run in-browser, so live read-aloud
+	// and the exported captions speak a deck identically. Async with a slideToSpeech
+	// fallback until ready (Present opens instantly); a slide's note/chart narrator
+	// still wins over it. Recomputed when the presented SET or theme changes. Dropped
+	// wholesale if the render's section count doesn't match the slide count (an
+	// autosplit would misalign indices) — the same guard the export's `mergeNarration`
+	// applies. TAGGED with the `set` it was computed for (a stable per-lens reference):
+	// `narrationAt` only reads it when the tag still matches the current set, so a
+	// same-length lens switch can never speak the previous lens's text (no stale read).
+	const [projected, setProjected] = React.useState<{ set: string[]; texts: string[] }>({ set: [], texts: [] });
+	// biome-ignore lint/correctness/useExhaustiveDependencies: recompute on presented SET or theme change; extraTheme keyed by name (its content hash).
+	React.useEffect(() => {
+		if (!open) return;
+		let cancelled = false;
+		const target = set; // the reference this render's projection belongs to
+		const source = frontMatter + target.join('\n\n---\n\n');
+		import('./narration-projection')
+			.then(({ projectDeckSpeech }) => projectDeckSpeech(options, source, paletteOverride, extraTheme, extraCss, modeOverride))
+			.then((texts) => { if (!cancelled && texts.length === target.length) setProjected({ set: target, texts }); })
+			.catch(() => {});
+		return () => { cancelled = true; };
+	}, [open, set, frontMatter, paletteOverride, extraTheme?.name, modeOverride, extraCss, options]);
+
+	// Resolve a slide's narration by its index in the presented set: note → chart
+	// facts → DOM projection. Index-based (not text-based) because the projection is
+	// index-aligned to `set`. The projection wins ONLY when it was computed for the
+	// current set (reference tag) — even an empty string then (a genuinely contentless
+	// slide reads silent, matching the export); until it lands (or after a lens switch
+	// invalidates the tag) the markdown flatten is the fallback, so Present never opens
+	// to dead air and never speaks a stale lens's narration.
+	const narrationAt = React.useCallback(
+		(i: number) => {
+			const md = set[i] ?? '';
+			const note = getNote(md);
+			if (note) return note;
+			const chart = narrateChart(md);
+			if (chart) return chart;
+			if (projected.set === set) return projected.texts[i] ?? '';
+			return slideToSpeech(md);
+		},
+		[set, projected],
+	);
+	const narrationAtRef = React.useRef(narrationAt);
+	narrationAtRef.current = narrationAt;
+
+	// The text the reader actually speaks — a STATE, not a live derivation, so the
+	// async fallback→projection upgrade never tears the reader down mid-read. A real
+	// navigation (slide or lens change) always adopts the new slide's narration (the
+	// reader SHOULD reset on navigation). A projection LANDING upgrades the current
+	// slide's text only while it is NOT being read — otherwise the swap would rebuild
+	// the track, stop playback, and (worst) hang autoplay on the slide, since the
+	// teardown fires no onFinish. The projection is picked up on the next slide instead.
+	const [narrationText, setNarrationText] = React.useState('');
+	const playingRef = React.useRef(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: navigation trigger (slide/lens); narrationAt read via ref so a projection landing doesn't re-fire this.
+	React.useEffect(() => { setNarrationText(narrationAtRef.current(clamped)); }, [clamped, set]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: projection-landing upgrade; skipped while playing to avoid a mid-read teardown. Reads clamped/narrationAt via refs.
+	React.useEffect(() => { if (!playingRef.current) setNarrationText(narrationAtRef.current(clamped)); }, [projected]);
 
 	// ── Dual-screen presenter window (the shared kernel; same speaker view as the
 	// Drawing Board). We render THIS deck's stage doc asynchronously (the engine)
@@ -98,7 +161,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	autoplayRef.current = autoplay;
 	const autoAdvanceRef = React.useRef(false);
 	const reader = useReadAloud(
-		React.useMemo(() => narrationFor(cur), [cur]),
+		narrationText,
 		{
 			onFinish: () => {
 				if (!autoplayRef.current) return;
@@ -116,6 +179,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// advance (manual prev/next/jump leave it untouched).
 	const readerRef = React.useRef(reader);
 	readerRef.current = reader;
+	// So the projection-upgrade effect can skip a mid-read text swap (the reader is
+	// declared after that effect, hence the ref).
+	playingRef.current = reader.playing;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `clamped` is the TRIGGER — the effect must run on each slide change; it reads reader/flag via refs by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
@@ -165,9 +231,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		// checker finding). A request already in flight when this fires just
 		// finishes on its own; see warm()'s own comment in voice-model.js.
 		const ctl = new AbortController();
-		warmNarration(narrationFor(next), ctl.signal);
+		warmNarration(narrationAt(clamped + 1), ctl.signal);
 		return () => ctl.abort();
-	}, [autoplay, clamped, set]);
+	}, [autoplay, clamped, set, narrationAt]);
 	// Toggle autoplay: turning it on starts reading the deck now; off stops.
 	const toggleAutoplay = React.useCallback(() => {
 		setAutoplay((on) => {

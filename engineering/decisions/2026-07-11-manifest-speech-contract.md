@@ -460,3 +460,34 @@ Tests render **real engine output** (not hand-written classes) so a renderer cla
 it, so it is correctly not covered (×4: checklist, verdict-grid, pricing, obligation-matrix). *Deferred:* the
 deeper table-walkers (gantt/roadmap geometry), math-equation / mermaid-graph narration, video provider
 synthesis, and the redundant "…complete: done" case where a label already lexicalizes its state.
+
+### 13.5 Producer unification — the live Present path (SHIPPED, 2026-07-11)
+
+The "real unification work" §13.3 flagged is done for **prose**: Studio Present's read-aloud
+now narrates the **component-aware DOM projection**, not the raw-markdown flatten, so live and
+export speak a deck identically (the KPI reorder, the citation-card hidden gloss, and the QR
+URL-strip all resolve to the DOM's version). The **same shared kernel** runs on both surfaces —
+`projectDeckToSpeech` is exposed at the top level of the browser `player-core` bundle (it was
+already bundled, only reachable internally via `buildArticle`) and driven from a new
+`docs/src/components/studio/narration-projection.ts` that reuses the export's `buildDeckRender`
+(engine + theme glue) → `splitSections` → sanitize (HARD RULE #22) → project. So no projection
+byte lives twice (HARD RULE #1/#15). Present precomputes the deck's narration `string[]` on open,
+index-aligned to the presented set, async with the markdown flatten as the instant fallback until
+it lands; a length mismatch (autosplit) drops the projection wholesale, the same guard the export's
+`mergeNarration` applies. Precedence is unchanged: authored note → chart computed-facts
+(`narrateChart`) → projection.
+
+*Scope honesty (the chart caveat, confirmed with the user):* this unifies **prose**. Charts stay
+on their richer markdown `narrateChart` on **both** surfaces — and the EXPORT still narrates a
+chart from the visual-skipping projection, so a chart still narrates differently in Present (rich)
+vs. the exported `.vtt` (poorer). Bringing `narrateChart` into the shared kernel so the export
+gains it is the remaining unification, deferred to its own branch (it moves browser-TS chart logic
+into `lib/`, HARD RULE #1) and tracked as a follow-on issue. A second follow-on: the docs-site
+client-side caption export (`share-export.ts shareCaptions`) is still **notes-only** — it never got
+the projection the CLI export did in Phase 2 — but changing its `.vtt` bytes is an export-artifact
+change gated on sign-off (QUALITY BAR), so it is out of this live-playback PR.
+
+*Verification (HARD RULE #23):* the projection **string** pipeline is exercised through the REAL
+`player-core` bundle in a DOM env (`narration-projection.test.ts`) — the exact strings Present feeds
+`buildTrack`. Live browser Present **audio** is UNVERIFIED (no TTS in CI); only the spoken text is
+claimed.

@@ -36,10 +36,15 @@ const silent = argv.includes('--silent') || check;
 // player-core.mjs is already ESM with named exports, so re-export them directly.
 // esbuild's bundler pulls in the CJS lattice-doc and the two dynamically-imported
 // ESM deps (present-transport, prose-projection) — all pure — into one module.
+// prose-projection's projectDeckTo{Prose,Speech} are ALSO named-exported at the top
+// level (they were already bundled, only reachable internally via buildArticle) so
+// the browser can run the same DOM speech projection live — the Studio Present
+// read-aloud path, not just the CLI export (2026-07-11-manifest-speech-contract).
 const ENTRY_CONTENTS = `
 export {
   assemblePlayer, playerCss, playerJs, buildArticle, minifyCss, escapeText, escapeAttr,
 } from './player-core.mjs';
+export { projectDeckToProse, projectDeckToSpeech } from '../transformers/prose-projection.mjs';
 `;
 
 const BUILD_OPTIONS = {
