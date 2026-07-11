@@ -39,7 +39,8 @@ __export(index_exports, {
   toSpoken: () => toSpoken,
   toSpokenText: () => toSpokenText,
   toSrt: () => toSrt,
-  toVtt: () => toVtt
+  toVtt: () => toVtt,
+  unmatchedAcronyms: () => unmatchedAcronyms
 });
 module.exports = __toCommonJS(index_exports);
 
@@ -361,6 +362,17 @@ function toSpokenText(text, opts = {}) {
 function spokenWordCount(spoken) {
   return String(spoken ?? "").trim().split(/[\s-]+/).filter(Boolean).length;
 }
+function unmatchedAcronyms(text, opts = {}) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const raw of splitWords(text)) {
+    const tok = raw.replace(/^[^A-Za-z0-9]+/, "").replace(/[^A-Za-z0-9]+$/, "");
+    if (!/^[A-Z]{2,}$/.test(tok) || seen.has(tok)) continue;
+    seen.add(tok);
+    if (toSpoken(tok, opts) === tok) out.push(tok);
+  }
+  return out;
+}
 
 // docs/src/lib/cadenza/cadence.ts
 var PACE_WPM = { slow: 120, moderate: 145, fast: 175 };
@@ -614,5 +626,6 @@ ${escapeCueText(cue.display)}
   toSpoken,
   toSpokenText,
   toSrt,
-  toVtt
+  toVtt,
+  unmatchedAcronyms
 });

@@ -285,3 +285,24 @@ export function spokenWordCount(spoken: string): number {
     .split(/[\s-]+/)
     .filter(Boolean).length;
 }
+
+/**
+ * The multi-letter ALL-CAPS tokens in `text` that pass through `toSpoken` UNCHANGED —
+ * i.e. neither the author registry (`opts.acronyms`) nor the built-in lexicon expands
+ * them, so a TTS spells them letter-by-letter (`ROI` → "arr oh eye"). This is the
+ * discovery signal behind the deck lint's "did you mean to add these to `acronyms:`?"
+ * hint. Each token is edge-trimmed of non-alphanumerics (so `**ROI**`, `(API)` still
+ * register), tested as a pure A–Z run of length ≥ 2 (digit-bearing shorthand like `FY26`
+ * is left to the fiscal parser), and returned unique in first-seen order. Pure.
+ */
+export function unmatchedAcronyms(text: string, opts: SpokenOpts = {}): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of splitWords(text)) {
+    const tok = raw.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9]+$/, '');
+    if (!/^[A-Z]{2,}$/.test(tok) || seen.has(tok)) continue; // multi-letter all-caps, once each
+    seen.add(tok);
+    if (toSpoken(tok, opts) === tok) out.push(tok); // passthrough ⇒ expanded by nothing
+  }
+  return out;
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lookupLexicon } from './lexicon';
-import { integerToWords, numberToWords, spokenWordCount, toSpoken, toSpokenText } from './normalize';
+import { integerToWords, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms } from './normalize';
 
 describe('numberToWords', () => {
   it('reads integers with scale groups', () => {
@@ -116,6 +116,36 @@ describe('toSpokenText', () => {
 
   it('collapses whitespace to single spaces (via splitWords)', () => {
     expect(toSpokenText('  beat   plan  ')).toBe('beat plan');
+  });
+});
+
+describe('unmatchedAcronyms (discovery signal, §16)', () => {
+  it('flags multi-letter all-caps tokens NOTHING expands (would read letter-by-letter)', () => {
+    // XYZ/ZZZ are unknown to the lexicon → passthrough → flagged.
+    expect(unmatchedAcronyms('We track XYZ and ZZZ every week.')).toEqual(['XYZ', 'ZZZ']);
+  });
+
+  it('does NOT flag a token the built-in lexicon expands (it is spoken as words)', () => {
+    // GTM → "go to market", KPI → "key performance indicator": expanded, so NOT flagged.
+    expect(unmatchedAcronyms('Our GTM and KPI both improved.')).toEqual([]);
+  });
+
+  it('does NOT flag a token in the deck acronym registry (author already handled it)', () => {
+    const acronyms = new Map([['XYZ', 'ex wye zee corp']]);
+    expect(unmatchedAcronyms('We track XYZ and ZZZ.', { acronyms })).toEqual(['ZZZ']);
+  });
+
+  it('is edge-trim + case + length aware: skips lower/Mixed case, single letters, punctuation edges', () => {
+    // `**XYZ**`/`(XYZ)` still register (edge-trimmed); `SaaS`/`A`/`api` do not.
+    expect(unmatchedAcronyms('See **XYZ**, then (XYZ) again — plus SaaS, api, and A.')).toEqual(['XYZ']);
+  });
+
+  it('returns each token once, in first-seen order', () => {
+    expect(unmatchedAcronyms('QQQ then PPP then QQQ again.')).toEqual(['QQQ', 'PPP']);
+  });
+
+  it('leaves digit-bearing shorthand to the fiscal/pattern layer (pure A–Z only)', () => {
+    expect(unmatchedAcronyms('FY26 and 3PL and B2B are not flagged.')).toEqual([]);
   });
 });
 

@@ -8,8 +8,10 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { lintText, buildVocab, isKnownModifier } = require('../../../lib/authoring/lint');
-const { discoverDecks } = require('../../../tools/lint-deck');
+const { discoverDecks, narrationText, main } = require('../../../tools/lint-deck');
 const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const FM = '---\nmarp: true\ntheme: indaco\n---\n\n';
 
@@ -277,6 +279,40 @@ describe('deck linter', () => {
     // Past hard, the marker does NOT save it — overflow still fires.
     const over = `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n<!-- stress-slide -->\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
     assert.equal(lintText(over, { vocab }).filter((x) => x.rule === 'capacity-overflow').length, 1, 'overflow ignores the marker');
+  });
+
+  test('narrationText strips front matter, fenced + inline code, keeps prose', () => {
+    const src = '---\ntheme: indaco\n---\n\n# Head\n\nWe track XYZ.\n\n```\nconst API = "HTTP";\n```\n\nUse `JSON` inline.\n';
+    const out = narrationText(src);
+    assert.match(out, /We track XYZ\./);
+    assert.doesNotMatch(out, /theme: indaco/); // front matter gone
+    assert.doesNotMatch(out, /HTTP|const API/); // fenced code gone
+    assert.doesNotMatch(out, /JSON/); // inline code gone
+  });
+
+  test('the discovery pass emits a non-blocking narration-acronyms suggestion (§16)', async () => {
+    // A deck with an UNREGISTERED, lexicon-unknown all-caps token (XYZ) → advisory hint;
+    // a registered term (ROI here) and a lexicon term (GTM) are NOT flagged.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-disc-'));
+    const file = path.join(dir, 'deck.md');
+    fs.writeFileSync(file, '---\ntheme: indaco\nacronyms:\n  ROI: return on investment\n---\n\n# Plan\n\nWe track ROI, GTM, and XYZ.\n');
+    const chunks = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (s) => { chunks.push(String(s)); return true; };
+    let code;
+    try {
+      code = await main(['--json', file]);
+    } finally {
+      process.stdout.write = orig;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    assert.equal(code, 0, 'advisory suggestions never fail the exit code');
+    const out = JSON.parse(chunks.join(''));
+    const hint = out.reviewFindings.find((s) => s.rule === 'narration-acronyms');
+    assert.ok(hint, `expected a narration-acronyms suggestion, got ${JSON.stringify(out.reviewFindings)}`);
+    assert.match(hint.message, /XYZ/);
+    assert.doesNotMatch(hint.message, /\bROI\b|\bGTM\b/); // registered + lexicon-known are not flagged
+    assert.match(hint.fix, /acronyms:/);
   });
 
   test('every committed deck is completely lint-clean (no errors, no warnings)', () => {
