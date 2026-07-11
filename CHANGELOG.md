@@ -170,6 +170,16 @@ in patch versions.
 
 ### Changed
 
+- **Editing in the Studio is dramatically snappier — a warm edit's engine cost dropped
+  ~15× (≈141 ms → 9 ms on a throttled phone profile).** The engine re-packed the whole
+  ~1 MB theme stylesheet into its ~560 KB per-render form on *every* keystroke, even though
+  the result is identical for a given theme + size and (on an in-place edit) immediately
+  thrown away — it was ~92 % of the per-edit engine time. The composed stylesheet is now
+  memoized per (theme, size) and reused across renders, cleared whenever a theme is
+  registered. Output is byte-identical, so exported PDF/PPTX/HTML are unchanged; the win is
+  the live preview's typing responsiveness. Measured browser-side against the production
+  build (`npm run perf:frame`): whole edit→paint 147 ms → 17 ms. §D of
+  `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
 - **The live performance panel now tells the truth about the FRAME / TOTAL numbers.**
   After the patch path landed (an edit swaps the slide body in place instead of rebuilding
   the whole preview), the panel kept judging FRAME by a single-frame budget (`good < 16ms`)

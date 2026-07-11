@@ -263,9 +263,34 @@ uses the real faces; and the decorative overlay is `pointer-events:none` from th
    paths now avoid the per-edit reparse.
 4. **Warm the runtime** (preload) so the cold network fetch is off the first-render
    critical path.
-5. **Lazy-split the runtime's heavy transforms** (chart family + 159KB GeoJSON
-   basemaps + QR) behind their registry selectors so a plain-text deck parses a small
-   core. Secondary — the min build already helps.
+5. **Split the map basemaps out of the runtime bundle — ATTEMPTED, REVERTED (the naive
+   cut breaks a shipping host).** The three pre-projected GeoJSON basemaps (`map.basemap*.json`)
+   are inlined into `dist/lattice-runtime.min.js` by `map.transform.js`'s top-level `require`s
+   — **~60KB gz, ~44% of the runtime** (137KB→77KB gz if removed). The tempting move: stub them
+   out of the runtime build, since the engine bakes every map's SVG (verified: 175 `<path>`)
+   before the preview runtime loads and chart-family's `applyToDom` early-returns on the
+   `.chart-frame` section, so in the Studio/Playground/emulator the runtime's map pass is a
+   no-op. **An independent checker caught the flaw before commit:** "the runtime never draws
+   maps" is FALSE for the **Export-to-Marp bundle** (`lib/core/marp-bundle.js`, `tools/export-marp.js`)
+   — a *Marp-native* artifact rendered by vanilla marp-cli / marp-vscode, NOT the Lattice
+   engine, where the bundled `lattice-runtime.min.js` is the **sole** client-side renderer on
+   un-baked DOM (no `.chart-frame`). There the runtime DOES call `buildMap`, and the stub renders
+   a **blank map** — a user-visible regression on a "full-fidelity client-side render" promise.
+   `map` IS chart-family, drawn on the same un-baked host where pie/QR/progress are drawn — it is
+   NOT a "never-used passenger." The canonical `dist/lattice-runtime.min.js` is also a public
+   artifact external un-baked consumers embed. Reverted; canonical runtime unchanged.
+   **The correct cut keeps the basemap out of the PREVIEW's runtime only, where the engine bakes,
+   while the canonical/public + Marp-export runtime keeps it** — options: (a) a second, lean
+   preview-only runtime variant the docs stage for the Studio/Playground (canonical stays full);
+   (b) a Mermaid-style deferred basemap fetch in the runtime, but the Marp-export bundle must then
+   ship the basemap JSONs as siblings or its maps break offline; (c) an explicitly signed-off +
+   CHANGELOG-`**Breaking:**`-documented degradation of Marp-export maps (rejected — degrades a
+   shipping feature for bytes). **Owner direction: PARKED** — the runtime-fetch win is secondary
+   (the instant-shell already paints before the runtime lands), so it's not worth option (a)'s
+   third-bundle complexity now; pivoting to the engine RENDER cost (§D) instead. Lesson: the
+   runtime has TWO consumer classes — engine-baked hosts (basemap dead weight) and Marp-native
+   un-baked hosts (basemap essential) — so any runtime slimming must be preview-scoped, not
+   applied to the shared artifact.
 
 **Maker-checker (front B).** An independent checker cleared the patch path with no
 blockers, tracing that charts/mermaid re-render via the *resident* runtime's observer
@@ -386,10 +411,39 @@ Deferred by owner in favor of metrics honesty (C①); a trusted selector-prune k
 exists (`lib/export/player-prune.js`) to reuse at **build time** (rule→required-components
 tagging + a runtime set-filter, no browser css-tree) when it's picked up.
 
+### D. RENDER — the engine's per-edit cost is ~all redundant CSS recomposition — SHIPPED
+The browser-side bench (§C2) exposed the next orange precisely: after the patch path, a warm
+edit's FRAME is ~2ms but its **RENDER (engine) was ~140ms at 4×** — the biggest cost left, and
+the thing the 140ms debounce exists to hide. Profiling the `stats` sub-buckets in the real
+Studio showed **`cssMs` = 126 of the 136ms** — i.e. RENDER was **92% CSS composition**. Root
+cause: `ThemeStore.cssFor(name, size)` (`lib/engine/themes.js`) re-resolved theme imports and
+re-packed the ~1MB base into a ~560KB sheet **on every render, uncached** (~26ms/1× / ~104ms/4×)
+— and on a *patch* edit that recomposed sheet is thrown away (the patch only swaps the body).
+`cssFor` is a **pure function of (registered themes, name, size)**, and a live editing host calls
+it with the SAME (theme, size) on every keystroke, so the recomposition was pure waste.
+**Fix: memoize `cssFor` by `${name} ${size}`**, cleared on any `add()` (theme registration is a
+setup-time event, so wholesale clear costs nothing). Output is **byte-identical** (verified) → no
+export change, no sign-off. **Measured (production `dist`, CPU 4×, frame-bench, before→after):**
+
+| needle | before | after |
+|---|---|---|
+| RENDER (engine) | 141ms | **9.3ms** (−15×) |
+| TOTAL patch (whole edit→paint) | 147ms | **16.6ms** (−9×) |
+
+The engine bench (`npm run bench`, one render per deck) is a poor witness here — its warm loop
+would report cache-hit speed and hide a cold-compose regression — so that tier now **clears the
+memo per timed render** to keep measuring true cold per-render cost (unchanged; the CLI/export
+one-shot doesn't benefit and mustn't look like it does). The interactive win is the frame-bench's
+to report. Note the engine bundle is a **committed artifact** (`docs/public/playground/lattice-playground.js`,
+built by `tools/build-playground.js`) that the docs build only *stages* — a `lib/engine` change is
+invisible to the preview until that bundle is rebuilt (a real gotcha hit while measuring this).
+
 ### Explicitly *not* the plan
 A faster parser, an AST, look-ahead — these target `RENDER 19ms` / `39ms/58 slides`,
 already green. Per-slide engine caching is redundant with the DOM patch path. Nothing
-here needs them. (Recorded so the option is closed with a reason, not forgotten.)
+here needs them. (Recorded so the option is closed with a reason, not forgotten. The §D
+memoization is NOT per-slide caching — it caches the theme→CSS composition, which is
+per-(theme,size) and identical across every slide of every deck.)
 
 ---
 
