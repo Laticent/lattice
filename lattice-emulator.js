@@ -367,6 +367,7 @@ const md = readFileOrDie(mdFile, 'source markdown');
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
 const { CLIP_CELL_SELECTOR, PROBE_SRC } = require('./lib/core/overflow-probe');
+const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const paletteName = resolvePalette({ md, cliArg: paletteArg }).name;
 // The a11y-* palettes are first-class themes (pick `theme: a11y-deuteranopia`
 // like any theme). Their categorical fills reference texture <pattern> <defs>
@@ -1567,6 +1568,7 @@ ${stateChartScript}
   var TOL = 12;
   var CLIP_CELL_SELECTOR = ${JSON.stringify(CLIP_CELL_SELECTOR)};
   var probeSectionOverflow = ${PROBE_SRC};
+  var settleFonts = ${SETTLE_FONTS_SRC};
   function check(){
     document.querySelectorAll('section[data-lattice-slide]').forEach(function(s){
       // Cell-aware probe — a clipping content cell hides its overflow from the
@@ -1575,9 +1577,27 @@ ${stateChartScript}
       s.classList.toggle('overflow', over);
     });
   }
+  // Force every declared @font-face to load before the FIRST measurement —
+  // Marp's template lazy-loads fonts per active slide, so a bare
+  // document.fonts.ready can resolve "loaded" before a font a not-yet-
+  // rendered slide's text actually needs has been fetched, leaving that
+  // slide measured against FALLBACK metrics (wider/taller than the real
+  // font). A borderline slide can cross the 12px tolerance on fallback
+  // metrics alone and get a FALSE "Overflows" ring that never clears —
+  // this script only re-checks on 'resize', so nothing else would ever
+  // correct it on a static file a human just opens and reads (found via a
+  // Puppeteer/Playwright cross-check, #894). measureOverflow() (the pass
+  // that generates the PDF export's console warning) was never affected —
+  // it already force-loads fonts first, via the same lib/core/font-settle.js
+  // helper. 2s bound: a hung font fetch must not suppress the ring FOREVER
+  // on a static file nothing else re-checks.
+  function settleFontsThenCheck(){
+    try { settleFonts(document.fonts, 2000).then(check, check); }
+    catch (e) { check(); }
+  }
   if (document.readyState === 'loading')
-    document.addEventListener('DOMContentLoaded', check);
-  else check();
+    document.addEventListener('DOMContentLoaded', settleFontsThenCheck);
+  else settleFontsThenCheck();
   if (typeof window !== 'undefined') window.addEventListener('resize', check);
 })();
 </script>
@@ -1745,6 +1765,14 @@ async function renderBody(browser, g, closeBrowser) {
   // fonts per active slide, so document.fonts.ready alone resolves without
   // faces used only on later slides; explicitly load() them all. Without this
   // the overflow pass and the PDF can be laid out in the fallback metrics.
+  // Already correct (spread, not Array.prototype.map.call — see
+  // lib/core/font-settle.js's SETTLE_FONTS_SRC, the shared/tested version of
+  // this exact recipe used by the embedded export watcher below and the live
+  // runtime); left as its own inline `page.evaluate` call rather than
+  // refactored onto the shared helper here, since this Node-side async/await
+  // call shape differs from the browser-injected Promise-chain one and this
+  // is the hot measure/auto-split path — not touched by the bug this file's
+  // OTHER two copies had.
   await g(() => page.evaluate(async () => {
     try {
       await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
