@@ -428,7 +428,7 @@ function themeDualMode(css) {
   if (!darkDecls.length) return { base, darkBlock: "" };
   const body = `${darkDecls.join(";")};`;
   const sel = (scope) => `${scope},${scope} section[data-lattice-slide]`;
-  const darkBlock = `${sel(":root[data-lp-scheme=dark]")}{${body}}@media (prefers-color-scheme:dark){${sel(":root:not([data-lp-scheme=light])")}{${body}}}`;
+  const darkBlock = `${sel(":root[data-lp-scheme=dark]")}{${body}}@media (prefers-color-scheme:dark){${sel(":root[data-lp-scheme=system]")}{${body}}}`;
   return { base, darkBlock };
 }
 function playerCss() {
@@ -742,24 +742,34 @@ addEventListener('keydown',function(e){if(view!=='present')return;if(e.key==='n'
 var MOON_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 var SUN_ICON='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
 var mode=document.getElementById('lp-mode');
-// Dark/light is driven by a data-lp-scheme ATTRIBUTE on <html>, which the export's
-// CSS keys on with a PLAIN attribute selector + LITERAL color values (themeDualMode
-// flattens the theme's light-dark() pairs and their var() indirection at export time).
-// JS is the single source of truth: the attribute is STAMPED AT LOAD from the real
-// system preference \u2014 not left to the CSS @media(prefers-color-scheme) query. That
-// matters because on the user's iOS in-app browser the JS matchMedia reported dark
-// while the CSS media query did NOT apply, and the old cross-block var() indirection
-// left surfaces unset \u2192 a white page that no tap could fix. Stamping the attribute up
-// front means the deck's colors ride ONLY on the data-lp-scheme=dark attribute +
-// literals \u2014 all of which predate 2016 WebKit; the @media block is a no-JS fallback
-// only. color-scheme is still set (cross-engine-safe setProperty) so native controls
-// match. The icon SWAPS a fixed-size glyph so the button never resizes.
-var isDark=!!(window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches);
+// Dark/light is driven by the data-lp-scheme ATTRIBUTE on <html>, which the export BAKES
+// to the mode the deck was AUTHORED for (light / dark / system) and the CSS keys on with
+// plain attribute selectors + literal values (themeDualMode; all pre-2016 WebKit). The
+// DEFAULT is the sender's choice \u2014 never the receiver's OS, UNLESS the sender picked
+// 'system', in which case the effective mode follows matchMedia. The toggle overrides for
+// this viewer by flipping to a concrete light/dark. color-scheme is set alongside
+// (cross-engine-safe setProperty) so native controls match. Icon swaps a fixed-size glyph.
+var sysDark=function(){return !!(window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches);};
+var baked=root.getAttribute('data-lp-scheme');
+// A 'system' export LIVE-FOLLOWS the receiver's OS until the viewer toggles; a pinned
+// light/dark export never follows. Effective dark = pinned dark, OR (following AND OS-dark).
+var following=baked==='system';
+var isDark=baked==='dark'||(following&&sysDark());
 function applyScheme(){root.setAttribute('data-lp-scheme',isDark?'dark':'light');
  root.style.setProperty('color-scheme',isDark?'dark':'light');
  if(mode)mode.innerHTML=isDark?SUN_ICON:MOON_ICON;}
-applyScheme(); // stamp at load \u2014 the attribute, not the media query, drives the theme
-if(mode)mode.onclick=function(){isDark=!isDark;applyScheme();};
+// ALWAYS stamp a CONCRETE data-lp-scheme (dark|light) at load \u2014 even for 'system' \u2014 so the
+// dark tokens ride the reliable ATTRIBUTE selector, never the CSS media query. This is the
+// crux of the on-device fix: the user's older in-app WebKit APPLIED matchMedia (JS saw dark)
+// but did NOT apply @media(prefers-color-scheme:dark), so a media-gated system-dark would
+// paint the LIGHT base while JS showed the sun icon \u2014 a contradiction no tap could fix. By
+// driving the attribute from matchMedia here, content follows the same signal as the icon.
+// The @media rule (themeDualMode) then serves only its true role: the NO-JS fallback.
+applyScheme();
+// While following, re-stamp on an OS change (guarded \u2014 old WebKit lacks addEventListener).
+if(following&&window.matchMedia){try{matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(e){if(following){isDark=e.matches;applyScheme();}});}catch(e){}}
+// A tap commits a concrete choice for this viewer and STOPS live-following.
+if(mode)mode.onclick=function(){following=false;isDark=!isDark;applyScheme();};
 var links=[].slice.call(document.querySelectorAll('#lp-toc a'));
 if(links.length&&window.IntersectionObserver){var spy=new IntersectionObserver(function(es){es.forEach(function(e){
  if(e.isIntersecting)links.forEach(function(l){l.classList.toggle('lp-on',l.getAttribute('href')==='#'+e.target.id);});});},
@@ -828,6 +838,8 @@ async function assemblePlayer(data, caps) {
   const darkStyle = darkOverrides ? `<style>${minifyCss(darkOverrides)}</style>` : "";
   const lang = doc.documentElement.getAttribute("lang") || "en";
   const title = data.title || doc.querySelector("title")?.textContent || "Lattice deck";
+  const rawScheme = data.theme?.mode || data.mode;
+  const exportedScheme = rawScheme === "dark" || rawScheme === "system" ? rawScheme : "light";
   const js = await playerJs();
   const jsHash = await caps.sha256(js);
   const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'`;
@@ -836,7 +848,7 @@ async function assemblePlayer(data, caps) {
     { now: data.now, build: data.build, playerVersion: data.playerVersion }
   );
   const out = `<!DOCTYPE html>
-<html lang="${escapeAttr(lang)}"><head><meta charset="utf-8">
+<html lang="${escapeAttr(lang)}" data-lp-scheme="${exportedScheme}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${escapeAttr(csp)}">
 <title>${escapeText(title)}</title>

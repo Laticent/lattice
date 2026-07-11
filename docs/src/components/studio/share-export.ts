@@ -250,6 +250,13 @@ export async function shareHtmlPlayer(
 	extraCss?: string,
 	deckTitle?: string,
 	stripNotes = false,
+	// The color mode the EXPORTED player defaults to — the author's document-fidelity
+	// choice, baked onto <html> so the shared file opens the way the sender made it:
+	//   · 'light' / 'dark' → PINNED: always that mode, never re-themed by the receiver's OS.
+	//   · 'system'         → DEFER: the effective mode follows the receiver's OS preference.
+	// Independent of `mode` (which selects the render theme); the in-player toggle still
+	// overrides per viewer. Defaults to the current preview mode so the export is WYSIWYG.
+	scheme: 'light' | 'dark' | 'system' = mode,
 ): Promise<void> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
@@ -346,7 +353,7 @@ export async function shareHtmlPlayer(
 			docHtml,
 			source: envelopeSource,
 			title,
-			theme: { name: palette },
+			theme: { name: palette, mode: scheme },
 			config: undefined,
 			notes: !stripNotes,
 			now: Date.now(),

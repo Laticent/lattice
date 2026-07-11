@@ -77,8 +77,11 @@ test('themeDualMode splits a light base + a dark override, FLATTENING var() indi
 	// The tokens are set on :root AND directly on the slide sections (belt-and-suspenders
 	// for an engine that repaints :root but doesn't re-propagate to deep section subtrees).
 	assert.match(attrRule, /:root\[data-lp-scheme=dark\],:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\{/, 'the dark tokens are set on :root AND directly on every slide section');
-	// The @media block is the no-JS fallback (note the space after @media for old parsers).
-	assert.match(darkBlock, /@media \(prefers-color-scheme:dark\)\{:root:not\(\[data-lp-scheme=light\]\),:root:not\(\[data-lp-scheme=light\]\) section\[data-lattice-slide\]\{--bg:#001D33/);
+	// The @media block is the SYSTEM-scheme rule (a deck exported with the author's
+	// 'system' choice follows the receiver's OS). It keys on =system — NOT :not([=light]) —
+	// so a pinned light/dark export is never touched by the receiver's OS. Note the space
+	// after @media for old parsers.
+	assert.match(darkBlock, /@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\],:root\[data-lp-scheme=system\] section\[data-lattice-slide\]\{--bg:#001D33/);
 });
 
 test('themeDualMode flattens a MULTI-HOP var chain to a literal (no residual cross-block indirection)', () => {
@@ -263,18 +266,39 @@ test('dark/light mode swaps a fixed-size icon (never a shifting text glyph)', as
 	assert.match(sun, /width="16" height="16"/);
 });
 
-test('dark/light mode seeds from the ACTUAL system preference (one-tap fix, engine-independent)', async () => {
+test('dark/light mode seeds from the BAKED scheme (document fidelity), deferring to the OS only for system', async () => {
 	// The toggle drives a data-lp-scheme ATTRIBUTE the export's CSS keys on — NOT the
 	// CSS light-dark() function, which older in-app WebKit lacks (that was the whole
-	// reason the toggle did nothing on the user's phone). isDark seeds from matchMedia
-	// so the icon and the very first tap are both correct from load, in either system
-	// state. color-scheme is still set (for native controls) but the deck no longer
-	// depends on it.
+	// reason the toggle did nothing on the user's phone). isDark now seeds from the
+	// scheme the EXPORT baked onto <html> (the author's light/dark/system choice), so a
+	// shared file opens the way the sender made it: pinned dark → dark on a light-OS
+	// device; only 'system' defers to matchMedia. color-scheme is set for native controls.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
-	assert.match(html, /var isDark=!!\(window\.matchMedia&&matchMedia\('\(prefers-color-scheme:dark\)'\)\.matches\)/, 'isDark seeds from the real system preference');
+	assert.match(html, /var baked=root\.getAttribute\('data-lp-scheme'\)/, 'the effective mode reads the baked scheme attribute');
+	assert.match(html, /var following=baked==='system'/, "a 'system' export live-follows the OS; a pinned export never does");
+	assert.match(html, /var isDark=baked==='dark'\|\|\(following&&sysDark\(\)\)/, 'pinned dark → dark; following (system) → OS; pinned light → light');
+	// CRUX of the on-device fix: ALWAYS stamp a CONCRETE attribute at load (even for system),
+	// so dark tokens ride the reliable ATTRIBUTE selector, never the @media gate the user's
+	// older WebKit ignored while matchMedia still read dark. applyScheme is called
+	// unconditionally — NOT gated behind a `baked==='system'` branch that left it on @media.
+	assert.match(html, /\napplyScheme\(\);\n/, 'the concrete scheme is stamped at load for every mode, driven by matchMedia — content never depends on the @media query');
+	assert.doesNotMatch(html, /if\(baked==='system'\)\{/, 'no media-gated system branch remains (that left content on the unreliable @media query)');
 	assert.match(html, /root\.style\.setProperty\('color-scheme',isDark\?'dark':'light'\)/, 'color-scheme is set via setProperty (cross-engine safe), for native controls');
-	assert.match(html, /applyScheme\(\); \/\/ stamp at load/, 'the scheme attribute is STAMPED AT LOAD (JS is the source of truth, not the CSS media query)');
-	assert.match(html, /if\(mode\)mode\.onclick=function\(\)\{isDark=!isDark;applyScheme\(\);\}/, 'one tap flips the state and applies it');
+	// While following, an OS change re-stamps the concrete attribute (guarded for old WebKit).
+	assert.match(html, /if\(following&&window\.matchMedia\)\{try\{matchMedia\('\(prefers-color-scheme:dark\)'\)\.addEventListener\('change',function\(e\)\{if\(following\)\{isDark=e\.matches;applyScheme\(\);\}/, 'a system export re-stamps on an OS change while still following');
+	assert.match(html, /if\(mode\)mode\.onclick=function\(\)\{following=false;isDark=!isDark;applyScheme\(\);\}/, 'one tap stops live-following and commits a concrete mode');
+});
+
+test('the baked scheme rides onto <html> from the authored mode (light default, dark/system honored)', async () => {
+	// The author's document-fidelity choice — light | dark | system — is baked as the
+	// data-lp-scheme attribute the player CSS + JS key on. An unset/unknown mode falls
+	// back to 'light' (a shared deck without an explicit mode opens light, never surprise-dark).
+	const light = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(light.html, /<html lang="en" data-lp-scheme="light">/, 'no mode → baked light');
+	const dark = await buildPlayerHtml({ docHtml, source, now: 0, theme: { name: 't', mode: 'dark' } });
+	assert.match(dark.html, /<html lang="en" data-lp-scheme="dark">/, 'theme.mode dark is baked');
+	const system = await buildPlayerHtml({ docHtml, source, now: 0, theme: { name: 't', mode: 'system' } });
+	assert.match(system.html, /<html lang="en" data-lp-scheme="system">/, 'theme.mode system is baked');
 });
 
 test('the export carries NO light-dark() and ships an explicit dark-mode block (works on WebKit < 17.5)', async () => {
@@ -296,7 +320,7 @@ test('the export carries NO light-dark() and ships an explicit dark-mode block (
 	const styleOnly = html.replace(/<script>[\s\S]*?<\/script>/gi, '');
 	assert.doesNotMatch(styleOnly, /light-dark\(/, 'no shipped CSS depends on the light-dark() function');
 	assert.match(html, /:root\[data-lp-scheme=dark\],:root\[data-lp-scheme=dark\] section\[data-lattice-slide\]\{--bg:#001D33;--accent:#82C8E5\}/, 'the manual-dark override carries the DARK arm on :root AND the slide sections');
-	assert.match(html, /@media \(prefers-color-scheme:dark\)\{:root:not\(\[data-lp-scheme=light\]\),:root:not\(\[data-lp-scheme=light\]\) section\[data-lattice-slide\]\{--bg:#001D33/, 'a no-JS system-dark fallback (overridable to light) is present, with a space after @media for old parsers');
+	assert.match(html, /@media \(prefers-color-scheme:dark\)\{:root\[data-lp-scheme=system\],:root\[data-lp-scheme=system\] section\[data-lattice-slide\]\{--bg:#001D33/, 'the system-scheme rule follows the OS (keyed on =system, so a pinned export is never touched), with a space after @media for old parsers');
 	// The light base kept the LIGHT arm (nested var() fallback comma respected).
 	assert.match(html, /:root\{--bg:#FFFFFF;--accent:var\(--brand,#4338ca\)\}/, 'the base resolves each pair to its light arm, splitting on the TOP-LEVEL comma only');
 });
@@ -529,7 +553,13 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	assert.equal(sha, '9a371615698145c7c20f797a4d8fa53dc198130de2a42ab8997ebc9fd8f2d848', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for color-mode fidelity: the export now bakes a data-lp-scheme attribute
+	// onto <html> (the author's light/dark/system choice; light by default here), the dark
+	// rules key on =dark / @media =system instead of :not([=light]), and the JS seeds a
+	// `following` flag from the baked attribute, ALWAYS stamps a concrete attribute at load
+	// (driving even system-dark off matchMedia, not the @media gate the old WebKit ignored),
+	// and stops following on toggle.
+	assert.equal(sha, '7b9d633cb84e24e270d6d945278787f378a6417686417732e8033c1dc2a0d759', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
