@@ -539,3 +539,66 @@ become "second half" — the concern that removed them from BASE.
 Audio naturalness is UNVERIFIED (no TTS in CI); only the display→spoken string is
 claimed. Both the live Present read-aloud and the CLI/export captions share the one
 `@slidewright/cadenza` normalizer, so the change lands on both surfaces.
+
+---
+
+## §15 Author acronym registry + conservative defaults (2026-07-11, SHIPPED) — post-trio
+
+The narration direction was stress-tested by the full adversarial trio (red team +
+Munger inversion + independent checker), TWICE — once on the *direction*, once on the
+*build plan*. The unanimous verdict reshaped the approach: a deck-blind global table
+that expands ambiguous acronyms is a boardroom faceplant (`SAM` is a real ticker; `CRO`
+= revenue-officer vs conversion-rate-optimization; `CMO` = marketing-officer vs
+collateralized-mortgage-obligation). The fix is **reference material the author owns**.
+
+**The model — two layers.** *Layer 1* selects a slide's caption TEXT; *Layer 2* expands
+the acronyms WITHIN it. This §15 ships Layer 2 (the registry); Layer 1 (per-slide
+`<!-- caption -->` + a front-matter `captions:` map) is the tracked follow-up.
+
+**Layer 2 — the `acronyms:` registry (SHIPPED).**
+
+```yaml
+acronyms:
+  CRO: chief revenue officer                       # string = expansion
+  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }
+  EBITDA:
+    expansion: ee bit dah                          # block object (comma-safe definition)
+    definition: "Earnings before interest, taxes, depreciation, and amortization."
+```
+
+- Value is a **string** (expansion) or an **object** `{ expansion (req), definition? }` —
+  never a positional array (all three checkers flagged the comma foot-gun). Digit-leading
+  terms (`5G`, `3PL`) allowed. `definition` is stored for a future glossary; narration
+  speaks only the `expansion`.
+- **Parsed once** in the shared `lib/core/resolve-captions.mjs` (the house has no YAML
+  parser and its flat readers can't see a nested block — the `resolve-color-mode`
+  precedent). Both producers consume the same source, so they can't drift (#904).
+- **Precedence:** the deck registry beats the built-in dictionary AND every pattern —
+  a whole-token, case-sensitive match consulted first in `spokenCore`. The author owns
+  their vocabulary, even overriding `FY26`.
+- Threaded through **both** narrators and **all three** `buildTrack` sites — export
+  (`buildReadAlong`), live playback (`useReadAloud`), and the autoplay prefetch
+  (`warmNarration`, so its cache key matches playback).
+
+**Conservative built-in defaults (SHIPPED).** The always-on dictionary now holds ONLY
+tokens that are UNAMBIGUOUS in a presentation. The genuinely-bimodal `CRO`/`CMO` are
+**demoted to the (preserved) opt-in `finance` pack** — not deleted (#18) — so the author
+reclaims the meaning they want via the registry. Everything monosemic stays (the
+case-gated market-sizing trio `TAM/SAM/SOM`, `COGS`, `CAC`, `GTM`, the roles, the fiscal
+parser). A **collision-guard test** encodes the rule as CI: no always-on key expands a
+common English word (the `IT`/`US`/`IP` lesson) or a bimodal acronym.
+
+**Bounded scope.** The always-on table is a *closed set* — tokens that are (a) not
+ordinary words in any register incl. all-caps, (b) not derivable by a generic
+normalizer, (c) unambiguous across every boardroom deck. Everything deck-specific is the
+author's `acronyms:` to declare; the table does not chase the long tail. The
+word-collision axis is enforced by the guard test; the other two remain discipline.
+
+**Deferred to the captions/discoverability follow-up:** Layer 1 (per-slide
+`<!-- caption -->` — a new comment channel alongside `note:`/`describe:`, spanning docs
+AND engine — plus a front-matter `captions:` map, whose slide-number keys need a design
+for Present's lens filtering); the **discovery lint** (list all-caps tokens that read
+letter-by-letter, so authors know what to register — its home needs cadenza access the
+pure `lint-core` can't give); the glossary surface that consumes `definition`; and a
+locale guard. Audio remains UNVERIFIED (no TTS in CI) — only the display→spoken string
+is claimed (HARD RULE #23).
