@@ -508,6 +508,23 @@ test('read-slides + the no-JS floor scale each slide with a wrapped transform, n
 	assert.match(html, /var frames=\[\]\.slice\.call\(document\.querySelectorAll\('\.lp-frame'\)\)/, 'present toggles visibility on the frame wrapper, not the section');
 });
 
+test('Read·Slides is unified onto Present\'s frame, with a floating Home/End overlay + Present mouse wheel', async () => {
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	// fitRead now uses the SAME fitScale as Present (over ~86% of the stage height) so the
+	// first slide matches Present and the next peeks — NOT the old fill-the-width math.
+	assert.match(html, /function fitRead\(\)\{var st=document\.getElementById\('lp-stage'\);if\(!st\)return;[\s\S]*?fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight\*0\.86,slideW:1280,slideH:720,insetX:40,insetY:0\}\)/, 'read-slides fits to Present\'s footprint (86% height, 40px inset), reserving a peek');
+	assert.doesNotMatch(html, /avail\/1280/, 'the old fill-the-width read-slides fit is gone');
+	// The floating Home/End overlay: markup, view-scoped CSS, and the smooth-scroll handlers.
+	assert.match(html, /<div id="lp-read-nav">/, 'the floating read-slides nav is in the markup');
+	assert.match(html, /<button id="lp-top"[^>]*aria-label="Jump to first slide"/, 'a Home (top) button');
+	assert.match(html, /<button id="lp-bottom"[^>]*aria-label="Jump to last slide"/, 'an End (bottom) button');
+	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{display:flex;flex-direction:column;gap:10px;position:absolute;right:16px;bottom:16px/, 'the overlay is absolute bottom-right, only in read-slides, so the scroll flow is unobstructed');
+	assert.match(html, /if\(topBtn\)topBtn\.onclick=function\(\)\{scrollStage\(0\);\}/, 'Home scrolls the stage to the top');
+	assert.match(html, /if\(bottomBtn\)bottomBtn\.onclick=function\(\)\{var st=document\.getElementById\('lp-stage'\);if\(st\)scrollStage\(st\.scrollHeight\);\}/, 'End scrolls the stage to the bottom');
+	// Present mouse wheel — one decisive notch = one slide (debounced), present-only.
+	assert.match(html, /addEventListener\('wheel',function\(e\)\{if\(view!=='present'\)return;if\(wheelBusy\)return;[\s\S]*?t\[d>0\?'next':'prev'\]\(\);e\.preventDefault\(\);\},\{passive:false\}\)/, 'present advances/reverses on a decisive wheel delta, debounced, present-only');
+});
+
 test('fileToDataUri returns null for a missing file (feeds the honesty report)', () => {
 	assert.equal(fileToDataUri('/no/such/file.png'), null);
 });
@@ -556,13 +573,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	// Re-blessed for color-mode fidelity: the export now bakes a data-lp-scheme attribute
-	// onto <html> (the author's light/dark/system choice; light by default here), the dark
-	// rules key on =dark / @media =system instead of :not([=light]), and the JS seeds a
-	// `following` flag from the baked attribute, ALWAYS stamps a concrete attribute at load
-	// (driving even system-dark off matchMedia, not the @media gate the old WebKit ignored),
-	// and stops following on toggle.
-	assert.equal(sha, '7b9d633cb84e24e270d6d945278787f378a6417686417732e8033c1dc2a0d759', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the Read·Slides polish: read-slides now fits each slide to the SAME
+	// footprint as Present (fitRead uses fitScale over ~86% of the stage height, was
+	// fill-the-width), so the first slide matches Present and the next peeks; a floating
+	// Home/End (#lp-read-nav) overlay was added; and Present gained a mouse-wheel handler.
+	assert.equal(sha, '816f122cd5bf70b3e6cbff0942b80e1a502e1d67bebe47ae22898b349f43731e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
