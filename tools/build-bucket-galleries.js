@@ -90,51 +90,60 @@ function bucketGalleryPdfPath(bucket, theme) {
 // chrome suppression in one token, ` `inline-code` ` eyebrow slot, and
 // a single plain-paragraph subtitle. The member list moves into the
 // subtitle as a single sentence so the title-slot shape is honored.
-function composeBucketGallery(bucket, manifests) {
-  const blurb = BUCKET_BLURBS[bucket] || bucket;
+// Manifest samples reference assets with bare filenames relative to the
+// component's own directory (e.g. `![bg](sample-image.svg)`). When composed into
+// a gallery one directory up, those bare paths would resolve to the wrong dir.
+// Prefix any markdown image ref whose URL is a bare filename (no slash, no
+// protocol) with `<component>/` so it resolves to the component's actual asset.
+function prefixAssetPaths(sample, componentName) {
+  return sample.replace(
+    /(!\[[^\]]*\]\()([^)/:]+\.(?:svg|png|jpg|jpeg|gif|webp))(\))/gi,
+    `$1${componentName}/$2$3`,
+  );
+}
+
+/**
+ * Compose a survey deck: a title slide (name + member count + blurb) followed by
+ * one slide per component, drawn from each `manifest.sample`. Shared by the
+ * per-bucket galleries AND the consolidated showcase galleries
+ * (tools/build-showcase-galleries.js), so BOTH stay driven by the live manifest
+ * set — a new component appears automatically, neither can go stale.
+ *
+ * @param {object} o
+ * @param {string} o.title    heading of the title slide
+ * @param {string} o.blurb    one-line subtitle
+ * @param {object[]} o.manifests   component manifests, in presentation order
+ * @param {(m: object) => string} o.surveyLabel   per-slide footer attribution
+ */
+function composeGalleryMarkdown({ title, blurb, manifests, surveyLabel }) {
+  // Eyebrow counts ALL manifests in the set (matching the original per-bucket
+  // composer byte-for-byte, so the freshness gate sees no drift).
   const count = manifests.length;
   const eyebrow = `\`${count} component${count === 1 ? '' : 's'}\``;
+  const titleSlide = ['<!-- _class: title silent -->', '', `# ${title}`, '', eyebrow, '', blurb, ''].join('\n');
 
-  const titleSlide = [
-    '<!-- _class: title silent -->',
-    '',
-    `# ${bucket}`,
-    '',
-    eyebrow,
-    '',
-    blurb,
-    '',
-  ].join('\n');
-
-  // Manifest samples reference assets with bare filenames relative to
-  // the component's own directory (e.g. `![bg](sample-image.svg)`).
-  // When composed into a bucket-level gallery at
-  // lib/components/<bucket>/<bucket>.gallery.md, those bare paths
-  // would resolve to the bucket directory, not the component directory.
-  // Prefix any markdown image reference whose URL is a bare filename
-  // (no slash, no protocol) with `<component>/` so it resolves to the
-  // component's actual asset.
-  function prefixAssetPaths(sample, componentName) {
-    return sample.replace(
-      /(!\[[^\]]*\]\()([^)/:]+\.(?:svg|png|jpg|jpeg|gif|webp))(\))/gi,
-      `$1${componentName}/$2$3`,
-    );
-  }
-
-  // Per-slide attribution (2026-07-05 Specimen Book decision §3.4): each
-  // member slide names its component. Gated per member on specimenVoice so
-  // a survey's rendered output changes exactly once — inside the migration
-  // PR whose visual review covers it. Uses the shared injectFooter (which
-  // no-ops on a hand-set _footer:, banned in samples by gallery-contract).
+  // Per-slide attribution (2026-07-05 Specimen Book decision §3.4): each member
+  // slide names its component. Gated per member on specimenVoice so a survey's
+  // rendered output changes exactly once — inside the migration PR whose visual
+  // review covers it. injectFooter no-ops on a hand-set _footer: (banned in
+  // samples by gallery-contract).
   const componentSlides = manifests
     .filter((m) => typeof m.sample === 'string' && m.sample.trim())
     .map((m) => {
       const slide = prefixAssetPaths(m.sample.trim(), m.name);
-      return m.specimenVoice === true ? injectFooter(slide, `${m.name} · ${bucket} survey`) : slide;
+      return m.specimenVoice === true ? injectFooter(slide, surveyLabel(m)) : slide;
     });
 
-  const slides = [titleSlide, ...componentSlides];
-  return slides.join('\n\n---\n\n') + '\n';
+  return [titleSlide, ...componentSlides].join('\n\n---\n\n') + '\n';
+}
+
+function composeBucketGallery(bucket, manifests) {
+  return composeGalleryMarkdown({
+    title: bucket,
+    blurb: BUCKET_BLURBS[bucket] || bucket,
+    manifests,
+    surveyLabel: (m) => `${m.name} · ${bucket} survey`,
+  });
 }
 
 function buildOne(bucket, manifests, theme) {
@@ -286,6 +295,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  composeGalleryMarkdown,
   composeBucketGallery,
   bucketGalleryMarkdownPath,
   bucketGalleryPdfPath,

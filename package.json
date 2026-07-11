@@ -146,6 +146,8 @@
     "build:galleries:check": "node tools/build-galleries.js --check",
     "build:bucket-galleries": "node tools/build-bucket-galleries.js",
     "build:bucket-galleries:check": "node tools/build-bucket-galleries.js --check",
+    "build:showcase-galleries": "node tools/build-showcase-galleries.js",
+    "build:showcase-galleries:check": "node tools/build-showcase-galleries.js --check",
     "build:exemplar-pdfs": "node tools/build-exemplar-pdfs.js",
     "preview": "node tools/preview.js",
     "preview:watch": "node tools/preview.js --watch",

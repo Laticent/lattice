@@ -198,6 +198,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 
 | Name | What it does |
 |---|---|
+| `build:showcase-galleries` | **TODO: describe `build:showcase-galleries` in tools/build-capabilities.js (SCRIPT_META).** |
+| `build:showcase-galleries:check` | **TODO: describe `build:showcase-galleries:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
@@ -312,6 +314,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS producer for the browser. |
+| `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |
