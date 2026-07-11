@@ -153,13 +153,15 @@ demonstrate real-deck usage, a different job. These rules bind `manifest.json`
 
 - **Elements demonstrate; captions teach.** Slide copy stays inside the
   component's `density` budget and *shows* the layout; the one-sentence
-  didactic explanation lives in the caption channel (`variantDocs.caption`,
-  `stressDoc.caption` — surfaced as the caption footer and the Explore
+  didactic explanation lives in the `summary` field (`variantDocs.*.summary`,
+  `stressDoc.summary` — surfaced as the specimen caption footer and the Explore
   caption). Never inflate element copy to teach — if the lesson doesn't fit
-  the caption sentence, it belongs in `<name>.docs.md`.
+  the summary sentence, it belongs in `<name>.docs.md`. (The field was named
+  `caption` before the read-as caption channel took that word — renamed to
+  `summary` 2026-07-11, #918; the rendered *footer* is still a caption.)
 - **The default sample's H2 states the component's job** as a complete
   declarative sentence. A variant sample's copy names what the variant
-  changes. A stress sample's caption names the limit shown.
+  changes. A stress sample's `summary` names the limit shown.
 - **Axis defaults document the axis, not a re-render.** When a variant is a
   `variantAxes` entry's `default` (e.g. `map world`), its slide documents the
   axis and the toggle — explicit spelling, when to write it — never a copy of
