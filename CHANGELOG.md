@@ -152,6 +152,23 @@ in patch versions.
 
 ### Added
 
+- **A first-class `color-mode:` front-matter key — `light` · `dark` · `system` ·
+  `inherited` — that every surface honors.** Color mode was authored through the
+  overloaded `class: dark`/`class: light` token axis; it now has a dedicated,
+  typo-checkable key. `light`/`dark` **pin** the deck's canvas (document fidelity —
+  it opens that way on every device); `system` **follows the viewer's OS**
+  (`prefers-color-scheme`); `inherited` **adopts the host** — the website toggle in
+  the Studio/Playground, the reader's OS in a shared file. The key resolves through
+  one register (`lib/core/resolve-color-mode.js`) into the existing section-class →
+  `color-scheme` → `light-dark()` machinery, so the engine, the runtime, the CLI
+  emulator, and thus PDF/PPTX/PNG/HTML-player bytes all honor it; the Studio and
+  Playground deck-settings drawers each expose a Color-mode control. A per-slide
+  `<!-- _class: dark|light -->` still overrides one slide. The legacy `class: dark`/
+  `class: light` keeps working as a **deprecated alias** (the linter nudges toward
+  the key with a new `deprecated-class-color-mode` info finding; `unknown-color-mode`
+  warns on a typo). Precedence: the deck's `color-mode:` is the default → a viewer's
+  live toggle overrides their session → a per-slide `_class:` overrides that slide.
+  See `engineering/decisions/2026-07-11-color-mode-frontmatter.md`.
 - **Read-along captions now speak a checklist/matrix's state, which used to be
   silent — in each component's own words.** State markers (`[x]`/`[-]`/`[ ]`/`[/]`)
   render with the glyph removed and the meaning kept only in a CSS class, so

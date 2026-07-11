@@ -387,11 +387,12 @@ same layout structure works on either canvas. The dark bookend layouts
 The mirror of `dark`: forces this slide to a **light** canvas
 (`section.light { color-scheme: light }`), so the palette's `light-dark()`
 surface tokens resolve to the light side no matter what — inside a dark deck
-(`class: dark`, a `-dark` theme, or a dark website mode) or not. Use it for a
-bright slide amid dark ones. Deck-wide, `class: light` pins the whole deck light;
-a per-slide `_class: light` wins over the deck-wide color mode, so light and dark
-slides can coexist. Light is already the default canvas, so `light` is only
-meaningful as an *override* of a darker context.
+(`color-mode: dark`, a `-dark` theme, or a dark website mode) or not. Use it for a
+bright slide amid dark ones. Deck-wide color mode is the first-class `color-mode:`
+key (`light` · `dark` · `system` · `inherited` — the legacy `class: dark`/`light`
+is a deprecated alias); a per-slide `_class: light` wins over the deck-wide color
+mode, so light and dark slides can coexist. Light is already the default canvas, so
+`light` is only meaningful as an *override* of a darker context.
 
 ```markdown
 <!-- _class: content light -->

@@ -177,6 +177,29 @@ describe('deck linter', () => {
     }
   });
 
+  test('warns on an unrecognized `color-mode:` value; accepts light/dark/system/inherited', () => {
+    const bad = lintText('---\ntheme: indaco\ncolor-mode: darrk\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-color-mode');
+    assert.ok(bad, 'unknown color-mode should warn');
+    assert.equal(bad.severity, 'warning');
+    assert.equal(bad.classToken, 'darrk');
+    assert.match(bad.fix, /light, dark, system, inherited/);
+    for (const v of ['light', 'dark', 'system', 'inherited', 'SYSTEM']) {
+      const src = `---\ntheme: indaco\ncolor-mode: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-color-mode').length, 0, v);
+    }
+  });
+
+  test('nudges a deck-wide `class: dark`/`light` toward `color-mode:` (info), suppressed when the key is present', () => {
+    const nudge = lintText('---\ntheme: indaco\nclass: dark\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'deprecated-class-color-mode');
+    assert.ok(nudge, 'the legacy color alias should nudge');
+    assert.equal(nudge.severity, 'info');
+    assert.match(nudge.fix, /color-mode: dark/);
+    // Suppressed once the first-class key is present (the alias is inert then).
+    assert.equal(lintText('---\ntheme: indaco\nclass: dark\ncolor-mode: light\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'deprecated-class-color-mode').length, 0);
+    // A non-color class token is never nudged.
+    assert.equal(lintText('---\ntheme: indaco\nclass: numbered\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'deprecated-class-color-mode').length, 0);
+  });
+
   test('warns on an unrecognized `stamp:` (state-marker shape) value; accepts the shapes', () => {
     const bad = lintText('---\ntheme: indaco\nstamp: sael\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-stamp');
     assert.ok(bad, 'unknown stamp should warn');

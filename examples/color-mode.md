@@ -2,7 +2,7 @@
 marp: true
 theme: cuoio
 paginate: true
-class: dark
+color-mode: dark
 footer: "SlideWright · color mode"
 ---
 
@@ -20,13 +20,19 @@ A deck sets its own light or dark canvas, and any single slide can flip the othe
 
 ## The deck is dark because it says so — not because the site is.
 
-This whole deck carries `class: dark` in its front matter. Open it under a light website and it stays dark. That is the deck-wide pin: authoritative, saved with the deck, carried into every export.
+This whole deck carries `color-mode: dark` in its front matter. Open it under a light website and it stays dark. That is the deck-wide pin: authoritative, saved with the deck, carried into every export.
 
 ---
 
-## Deck-wide is one line of front matter.
+## One key, four intents.
 
-`class: dark` paints every slide on the dark canvas; `class: light` pins the whole deck bright. In the Studio the **Appearance** control writes it for you — Match site, Light, or Dark — while the top-bar toggle stays the website's own light/dark.
+`color-mode:` takes four values. `light` and `dark` **pin** a canvas — the deck opens that way on every device. `system` **defers to the viewer's OS** light/dark setting. `inherited` **adopts the host** — the website toggle here, the reader's OS in a shared file. In the Studio the **Color mode** control writes it for you; the top-bar toggle stays the website's own.
+
+---
+
+## System and inherited, for shared decks.
+
+Pin a mode when the look is the point. Reach for `system` when you'd rather respect the reader's device, and `inherited` when the deck should melt into whatever surface it lands on. A shared `.html` opens the way you set it — pinned, OS-following, or host-following — the way a PDF keeps its look.
 
 ---
 
@@ -40,7 +46,7 @@ This one slide carries `_class: light`. It flips to the light canvas on its own,
 
 ## Back to dark, automatically.
 
-The next slide carries no color-mode class, so it falls back to the deck-wide `dark`. Light and dark slides coexist in one deck, each stating its own intent, and neither the website nor the other slides can override a slide that pinned its canvas.
+The next slide carries no per-slide pin, so it falls back to the deck-wide `dark`. Light and dark slides coexist in one deck, each stating its own intent, and neither the website nor the other slides can override a slide that pinned its canvas.
 
 ---
 

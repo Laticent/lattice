@@ -80,12 +80,14 @@ the emulator, and the VS Code preview.
 
 | Goal | Front-matter |
 |---|---|
-| Whole deck dark, simplest | `theme: cuoio-dark` (or `indaco-dark`) |
-| Whole deck dark, any theme | `style: ":root{color-scheme:dark}"` |
-| Follow viewer's OS preference | `style: ":root{color-scheme:light dark}"` |
+| Whole deck dark (or light) | `color-mode: dark` (or `color-mode: light`) |
+| Follow the viewer's OS preference | `color-mode: system` |
+| Adopt the host (site toggle / reader's OS) | `color-mode: inherited` |
+| Whole deck dark, simplest theme swap | `theme: cuoio-dark` (or `indaco-dark`) |
 | One slide dark on a light deck | `<!-- _class: dark -->` on that slide |
 
-Default is light. Layout classes that always want a dark canvas
+The first-class `color-mode:` key is the recommended way (the legacy `class: dark`/
+`class: light` still works but is deprecated). Default is light. Layout classes that always want a dark canvas
 (`section.title`, `section.divider`, `section.closing`) keep their dark
 chrome regardless of the deck's color-scheme.
 
