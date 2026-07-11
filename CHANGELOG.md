@@ -170,6 +170,22 @@ in patch versions.
   **Present now advances on the mouse wheel / trackpad** (one decisive notch = one slide,
   debounced) — the desktop analogue of swipe, alongside the existing ←/→ keys, buttons, and
   touch. Verified on the real player at desktop, tablet, and mobile widths.
+- **A live performance overlay in the Studio — toggle it under Workspace →
+  General → Diagnostics.** The overlay (off by default) gains a new **RENDER**
+  group beside the existing Web Vitals and runtime rows, showing the live
+  edit→preview pipeline for each render: **engine** (`PG.render` — markdown parse
+  + component transforms + geometry), **sanitize** (the DOMPurify preview-frame
+  pass), **frame** (the browser's srcdoc parse/layout), **fit** (the scale read),
+  and the **total** edit→paint span, each color-rated against a budget, plus the
+  source workload size. Timings are captured with a handful of `performance.now()`
+  deltas in `single-slide-render.ts` (piggybacking the existing fit read — no
+  added reflow) and published through a tiny dependency-free bus
+  (`docs/src/playground/render-metrics.js`); the overlay subscribes only while
+  shown, so with it off the render path does no telemetry work beyond a few
+  `performance.now()` reads. The Studio toggle drives
+  the same cross-surface pref as the Drawing Board switch and the `?perf` URL
+  param. Design + the deferred deeper-instrumentation option:
+  `engineering/decisions/2026-07-11-studio-render-perf-overlay.md`.
 - **A first-class `color-mode:` front-matter key — `light` · `dark` · `system` ·
   `inherited` — that every surface honors.** Color mode was authored through the
   overloaded `class: dark`/`class: light` token axis; it now has a dedicated,

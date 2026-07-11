@@ -39,6 +39,7 @@
 		perfOverlayEnabled,
 		setPerfOverlayEnabled,
 	} from '../../playground/perf-overlay-prefs.js';
+	import { latestRenderSample, onRenderSample } from '../../playground/render-metrics.js';
 
 	if (PERF_OVERLAY_AVAILABLE && !window.__latticePerfOverlay) {
 		window.__latticePerfOverlay = true;
@@ -54,6 +55,20 @@
 			['FCP', (v) => Math.round(v), 'ms'],
 			['TTFB', (v) => Math.round(v), 'ms'],
 		];
+		// RENDER rows (Lattice pipeline, live per render — fed by render-metrics.js,
+		// which single-slide-render.ts records into): [sampleKey, label, format(v),
+		// unit(string|fn(v)), rating(v)]. Budgets come from the observed engine
+		// numbers (a warm PG.render is ~38ms; the 140ms preview debounce hides it).
+		// SRC is the workload size (no budget → neutral dot).
+		const band = (v, lo, hi) => (v < lo ? 'good' : v < hi ? 'needs-improvement' : 'poor');
+		const RENDER_METRICS = [
+			['engineMs', 'RENDER', (v) => Math.round(v), 'ms', (v) => band(v, 50, 100)],
+			['totalMs', 'TOTAL', (v) => Math.round(v), 'ms', (v) => band(v, 100, 200)],
+			['frameMs', 'FRAME', (v) => Math.round(v), 'ms', (v) => band(v, 16, 50)],
+			['fitMs', 'FIT', (v) => Math.round(v), 'ms', (v) => band(v, 8, 16)],
+			['sanitizeMs', 'SANITIZE', (v) => Math.round(v), 'ms', (v) => band(v, 5, 15)],
+			['srcBytes', 'SRC', (v) => (v >= 1024 ? (v / 1024).toFixed(1) : v), (v) => (v >= 1024 ? 'KB' : 'B'), () => null],
+		];
 		// RUNTIME rows are conditional on the platform exposing the API.
 		const hasMem = typeof performance !== 'undefined' && !!performance.memory;
 		const hasLongTasks = (() => {
@@ -68,8 +83,10 @@
 		let host = null; // the overlay element, or null when hidden
 		const refs = {}; // vital name → { val, dot }
 		const rt = {}; // runtime key (FPS|MEM|CPU) → { val, dot }
+		const rr = {}; // render sampleKey → { val, dot }
 		const cache = {}; // vital name → latest metric (survives unmount/remount)
 		let vitalsStarted = false;
+		let renderUnsub = null; // onRenderSample unsubscribe, live only while mounted
 
 		// `?perf` / `?perf=off` writes the shared pref (no-op if absent).
 		const params = new URLSearchParams(location.search);
@@ -81,6 +98,21 @@
 			const def = METRICS.find(([n]) => n === m.name);
 			r.val.innerHTML = valHTML(def[1](m.value), def[2]);
 			r.dot.style.background = RATING_COLOR[m.rating] || GREY;
+		};
+
+		// RENDER group — repaint from a render-metrics sample (fires per render,
+		// already throttled by the 140ms preview debounce, so no extra rAF needed).
+		const paintRender = (s) => {
+			if (!s) return;
+			for (const [key, , fmt, unit, rating] of RENDER_METRICS) {
+				const r = rr[key];
+				if (!r) continue;
+				const v = s[key];
+				if (typeof v !== 'number') continue;
+				r.val.innerHTML = valHTML(fmt(v), typeof unit === 'function' ? unit(v) : unit);
+				const rate = rating(v);
+				r.dot.style.background = rate ? RATING_COLOR[rate] : GREY;
+			}
 		};
 
 		const startVitals = () => {
@@ -348,6 +380,14 @@
 			if (hasMem) addRow(el, 'MEM', 'MEM', rt);
 			if (hasLongTasks) addRow(el, 'CPU', 'CPU<span class="pf-unit">≈</span>', rt);
 
+			// RENDER group — the Lattice pipeline stages. Populates once the surface
+			// runs a live render (Studio preview, specimens); shows "–" until then.
+			const rsep = document.createElement('div');
+			rsep.className = 'pf-sep';
+			rsep.innerHTML = '<span>render</span>';
+			el.appendChild(rsep);
+			for (const [key, label] of RENDER_METRICS) addRow(el, key, label, rr);
+
 			el.querySelector('.pf-close').addEventListener('click', () => setPerfOverlayEnabled(false));
 			// Restore a dragged position, if any.
 			try {
@@ -368,16 +408,23 @@
 			host = build();
 			document.body.appendChild(host);
 			for (const name in cache) paint(cache[name]); // repaint known vitals
+			paintRender(latestRenderSample()); // repaint last render, if any
 			startVitals();
 			startRuntime();
+			renderUnsub = onRenderSample(paintRender); // live per-render updates
 		};
 		const unmount = () => {
 			if (!host) return;
 			stopRuntime();
+			if (renderUnsub) {
+				renderUnsub();
+				renderUnsub = null;
+			}
 			host.remove();
 			host = null;
 			for (const k in refs) delete refs[k];
 			for (const k in rt) delete rt[k];
+			for (const k in rr) delete rr[k];
 		};
 		const sync = () => (perfOverlayEnabled() ? mount() : unmount());
 

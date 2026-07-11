@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { cn } from '@/lib/utils';
 import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
+import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs.js';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
@@ -125,6 +126,19 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [tab, setTab] = React.useState<Tab>('AI');
 	const [dedup, setDedup] = React.useState(true);
 	React.useEffect(() => { setDedup(readDedupEnabled()); }, []);
+
+	// Performance overlay — wired to the shared cross-surface pref (SSOT), NOT a
+	// StudioSettings field: one flag governs the Studio, Playground, and Drawing
+	// Board alike, and the ?perf URL param writes the same thing. Subscribe so the
+	// switch tracks a flip made elsewhere (the × on the overlay, ?perf).
+	const [perfOverlay, setPerfOverlay] = React.useState(false);
+	React.useEffect(() => {
+		setPerfOverlay(perfOverlayEnabled());
+		const off = onPerfOverlayEnabledChange(setPerfOverlay);
+		return () => {
+			off();
+		};
+	}, []);
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
 	const ai = useArchitectStatus(pulse);
@@ -437,6 +451,24 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									<p className="text-[11px] leading-relaxed text-muted-foreground">Your browser installs from its own menu — look for “Install app” or “Add to Home Screen”.</p>
 								)}
 							</div>
+
+							{/* Diagnostics — the live performance overlay. Off by default; the
+							    switch drives the shared cross-surface pref, so it also governs
+							    the Playground/Drawing Board and mirrors the ?perf URL param. */}
+							{PERF_OVERLAY_AVAILABLE && (
+								<div className="mt-6">
+									<GroupLabel icon={<Cpu className="size-3.5" />}>Diagnostics</GroupLabel>
+									<label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+										<button type="button" role="switch" aria-checked={perfOverlay} aria-label="Performance overlay" onClick={() => { const next = !perfOverlay; setPerfOverlay(next); setPerfOverlayEnabled(next); notify(next ? 'Performance overlay on — live render, vitals & runtime.' : 'Performance overlay off.'); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', perfOverlay ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
+											<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', perfOverlay ? 'translate-x-[18px]' : 'translate-x-0.5')} />
+										</button>
+										<span className="min-w-0">
+											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Performance overlay</span>
+											<span className="block text-[11px] text-muted-foreground">A live on-screen readout: render-pipeline timings (engine, sanitize, frame, fit), Core Web Vitals, and runtime FPS/memory. Drag to reposition; measured by your own browser.</span>
+										</span>
+									</label>
+								</div>
+							)}
 						</div>
 					)}
 
