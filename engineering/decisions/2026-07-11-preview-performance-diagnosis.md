@@ -302,8 +302,77 @@ content-accurate flag, the patch path already handles it.
    regime ("patch" vs "rebuild") with honest what/why text. So while you type the panel
    reads the true ~2ms patch (green); a theme/size/mode switch reads the rebuild cost,
    labeled as the one-off it is.
-2. Add a **browser-side FRAME/LCP bench** (puppeteer, CPU-throttled, production
-   `dist`) to the perf tooling so these needles are tracked with real evidence.
+2. **Browser-side FRAME/LCP bench — SHIPPED.** `docs/scripts/frame-bench.mjs`
+   (`npm run perf:frame`, from `docs/`) drives the REAL built Studio under CPU throttle
+   and reports the panel's needles BY REGIME, reading raw per-render samples off a new
+   `window.__latticeRenderMetrics` tooling hook (not the overlay's EMA). It fills the gap
+   the Lighthouse `npm run perf` can't: that profiles page LOAD (LCP/FCP); this profiles
+   the edit→paint pipeline. **Measured (production `dist`, CPU 4×, median of 5, warm
+   cache):**
+
+   | needle | value | reading |
+   |---|---|---|
+   | LCP (newcomer /studio) | **400ms** | green — the front-A shell |
+   | FRAME **patch** (warm edit) | **1.8ms** | the #913 body-swap fast path |
+   | FRAME **write** (theme/mode/size switch) | **585ms** | the full-rebuild stylesheet reparse |
+   | RENDER (engine) | **143ms** | Markdown→HTML, regime-independent |
+   | TOTAL patch / write | **148ms / 820ms** | whole edit→paint |
+
+   **This is the number that closes the CSS question.** Post-#913 the ONLY place a CSS
+   reparse still bites is the **write regime (585ms)** — a theme/mode/size switch, a *rare*
+   action. A warm edit's FRAME is 1.8ms; its TOTAL (148ms) is now **engine-dominated**
+   (RENDER 143ms at 4×), not CSS. So CSS scoping's entire remaining addressable surface is
+   the occasional 585ms rebuild — and even there the runtime re-execution + layout, not
+   just CSS parse, make up the number. The biggest *felt* warm-edit cost is now the engine
+   render (masked by the 140ms debounce), and the biggest *cold-start* cost is the JS fetched
+   over the network — heavier oranges than CSS parse.
+
+**Adversarial trio on the owner's per-component-CSS proposal (HARD RULE #25).** The owner
+proposed composing the preview sheet from parts — always load base/universal + only the used
+components' `.styles.css`, loaded dynamically and cached — rather than shipping the monolith.
+Red team + Munger inversion + independent fact-checker (grounded in the pipeline map + the
+sizes above) converged: **feasible but low-ROI, with correctness traps, and dominated by tools
+already in the repo.** Key findings, all evidence-backed:
+- **Cascade inversion (fatal as stated).** The build places component CSS *between*
+  `base.elements` and `base.modifiers` on purpose so modifiers win by source order
+  (`tools/build-css.js`); `@layer` is inert. "Base first, components after" reverses it →
+  silent, deck-wide equal-specificity regressions.
+- **Components aren't self-contained.** 112 `section.<name>` rules live in the *base* tiers
+  (`base.modifiers.css` etc.) plus shared family sheets (`_chart-family.css`, `qr-general.css`).
+  "Load base + the component's file" renders charts/QR/many components unstyled. Correct
+  pruning must be **selector-match-driven** (the `player-prune.js`/`snapshot-cache.js` pattern),
+  not file/name-driven.
+- **Raw files aren't renderable** without the render-time `packTheme` scoping (`:root`
+  relocation, `div.lattice>section`) — they'd need pre-packing at build.
+- **gzip is the wrong axis** for the preview: the `srcdoc` CSS is built in-memory and never
+  fetched, so minification is a ~10–20% *parse* win (not the 4× the gz figure implies), and
+  splitting into N files *adds* mobile round-trips + FOUC and loses ~28% cross-file compression.
+- **Win ceiling ~2×, not 5–10×.** Against the already-minified 63KB-gz sheet, a composed sheet
+  is ~30–35KB gz over an irreducible ~27KB-gz base floor — and selector-level critical-CSS
+  pruning (already built) beats file-composition on the same axis (it prunes *within* base too,
+  hitting ~15KB gz for a slide).
+- **Export ROI ≈ 0** (rasterizes; CSS bytes don't ship) — confirmed; keep the minified monolith
+  there.
+
+**Resolution (owner-directed).** Do NOT build per-component dynamic loading. The measured
+585ms write-regime reparse is the only remaining CSS target and it's rare; if/when it's worth
+attacking, the sanctioned path is the **build-time, docs-side selector-prune of `out.css`** via
+the existing `player-prune.js` kernel (one sheet, one parse, order preserved, no export change),
+optionally serving theme/mode/size switches from an adopted pre-pruned stylesheet
+(snapshot-cache CSSOM pattern). Higher-leverage cold-start work lives in the JS bundle (B④
+preload runtime, B⑤ lazy-split transforms), where gzip actually pays.
+
+**Correction to B①'s premise (found while scoping it).** The engine map showed the
+PDF/PPTX/PNG export path (`lattice-emulator.js`) **discards `render().css`** — it inlines
+the full disk `lattice.css` and *rasterizes*, so no CSS bytes ship in those artifacts, and
+the HTML player already prunes its own copy. The **only** consumer of `render().css` is the
+live browser preview. So engine-side CSS scoping of `render().css` does **not** change any
+exported artifact's bytes (no export sign-off gate fires) — and, post-B③, its remaining win
+is narrower than first framed: it helps theme/size/mode switches (full-writes) and the
+Playground's shell-less cold render, not the warm edit the patch path already made ~2ms.
+Deferred by owner in favor of metrics honesty (C①); a trusted selector-prune kernel already
+exists (`lib/export/player-prune.js`) to reuse at **build time** (rule→required-components
+tagging + a runtime set-filter, no browser css-tree) when it's picked up.
 
 **Correction to B①'s premise (found while scoping it).** The engine map showed the
 PDF/PPTX/PNG export path (`lattice-emulator.js`) **discards `render().css`** — it inlines
