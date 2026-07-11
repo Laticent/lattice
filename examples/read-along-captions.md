@@ -4,6 +4,11 @@ theme: indaco
 paginate: true
 color-mode: dark
 footer: "SlideWright · read-along captions"
+acronyms:
+  ARR: annual recurring revenue
+  NDR: net dollar retention
+captions:
+  6: Your registry taught it ARR and NDR, so this slide speaks them in full — from the front matter captions map, keyed by slide number.
 ---
 
 <!-- _class: title silent -->
@@ -52,6 +57,24 @@ Captions are timed from Cadenza's estimate — a words-per-minute model tuned to
 A note that mentions four point two million dollars, or eighteen percent, is spoken as words — not glyphs. The caption shows what you wrote; the timing follows how it is actually said.
 
 <!-- Notice how numbers work. A figure like $4.2M or 18% is timed as the words you'd actually speak — four point two million dollars, eighteen percent — while the caption still shows the original text. -->
+
+---
+
+## Say it your way — the acronym registry.
+
+Add an `acronyms:` block to your front matter and the narration expands the ones you own — `ARR` becomes "annual recurring revenue," `NDR` becomes "net dollar retention" — while the caption still shows the crisp glyph. The author owns the vocabulary, even overriding the built-in dictionary.
+
+This slide carries no speaker note, so its spoken line is drawn from the front-matter `captions:` map — keyed by this slide's number — which the acronym registry then expands.
+
+---
+
+## Any slide can override what it says.
+
+A `<!-- caption: … -->` comment is the exact read-as text for one slide — the highest-precedence narration source, above the front-matter map and above the speaker note. The note stays your presenter note; the caption is what the caption track speaks.
+
+<!-- caption: This spoken line comes from the slide's own caption comment, which outranks the speaker note below. -->
+
+<!-- Presenter note: this is what you would say standing in the room — it still rides in the PDF, but the caption above is what the caption track narrates. -->
 
 ---
 

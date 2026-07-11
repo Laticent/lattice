@@ -607,11 +607,62 @@ of these passes through untouched, so re-adding a bimodal to always-on fails CI,
 boardroom. Everything deck-specific is the author's `acronyms:` to declare; the table does
 not chase the long tail.
 
-**Deferred to the captions/discoverability follow-up:** Layer 1 (per-slide
-`<!-- caption -->` — a new comment channel alongside `note:`/`describe:`, spanning docs
-AND engine — plus a front-matter `captions:` map, whose slide-number keys need a design
-for Present's lens filtering); the **discovery lint** (list all-caps tokens that read
-letter-by-letter, so authors know what to register — its home needs cadenza access the
-pure `lint-core` can't give); the glossary surface that consumes `definition`; and a
+**Deferred to the captions/discoverability follow-up (§16 — SHIPPED):** Layer 1
+(per-slide `<!-- caption -->` + a front-matter `captions:` map) and the discovery lint
+shipped in §16 below. Still open: the glossary surface that consumes `definition`, and a
 locale guard. Audio remains UNVERIFIED (no TTS in CI) — only the display→spoken string
 is claimed (HARD RULE #23).
+
+## §16 Captions Layer 1 — per-slide caption + front-matter map + discovery lint (2026-07-11, SHIPPED)
+
+Layer 2 (§15) selects how a slide's acronyms are SPOKEN; Layer 1 selects WHICH words a
+slide reads. Both narration producers now resolve a single precedence chain, highest first:
+
+1. **a slide's inline `<!-- caption: … -->`** — its exact read-as text, a new consumed
+   comment channel alongside `note:`/`describe:`;
+2. **a front-matter `captions:` entry** for that slide (keyed by 1-based author slide number);
+3. **the speaker note**;
+4. **the component-aware DOM projection**.
+
+**One boundary, both producers (HARD RULE #1).** The channel is defined once in
+`lib/authoring/notes-core.js` (`isCaptionComment`/`captionFromHtml`/`extractSlideCaptions`) —
+the same module that owns the note/`describe:` boundary — so a `caption:` comment is NEVER
+embedded as a PDF speaker note and NEVER read as one (verified on the real `.vtt`: the
+caption narrates, the note still rides in the PDF). The front-matter block is parsed once in
+the shared `lib/core/resolve-captions.mjs` (`parseCaptions` → `Map<number,string>`), beside
+the `acronyms:` parser. The export producer threads both through `mergeNarration`; the live
+Present overlay resolves them in `narrationAt`. A caption REPLACES a slide's narration, so
+multiple caption comments are **last-wins** (an override supersedes, not concatenates).
+
+**The lens-filtering design problem, resolved by mapping through original indices.** A
+front-matter `captions:` map is keyed by the author's slide NUMBER, but Present's reader
+lenses (`exec`/`onepager`) filter and reorder the slide set, so the position in the filtered
+set no longer equals the author's number. Rather than restrict captions to the `full` lens
+(surprising — a caption would vanish under a filtered view) or require authors to assign
+stable slide ids (typing burden the whole §15 design fought), `presentationSet` is refactored
+around a shared `presentationPairs` core that carries each shown slide's ORIGINAL deck index,
+exposed as `presentationIndices`. `narrationAt` resolves a number-keyed caption through that
+original index, so it binds to the right slide under ANY lens. `presentationSet`'s `string[]`
+signature (and the projection's reference-equality guard) is unchanged.
+
+**`--strip-notes` stays silent.** A stripped deck emits no narration — captions are blanked
+alongside notes and the projection at the sidecar call, so the "stripped = silent" invariant
+holds. A caption track is opt-in by NOT stripping.
+
+**Discovery lint — the affordance all three trio lenses asked for.** `cadenza`'s new
+`unmatchedAcronyms(text, opts)` returns the multi-letter all-caps tokens a deck's narration
+passes through UNCHANGED — neither the built-in lexicon nor the deck's `acronyms:` registry
+expands them, so a TTS spells them letter-by-letter. `tools/lint-deck.js` surfaces them as a
+**non-blocking** `narration-acronyms` suggestion (never affects the exit code; off under
+`--all`), so an author learns what to register without ever hearing audio. It lives in the
+Node CLI layer (which can `require` the cadenza package + the shared parser); the pure,
+browser-safe `lint-core` cannot reach cadenza (HARD RULE #7). The signal is a display-string
+HEURISTIC — an intentional all-caps word (a shouted "GROWTH", a format initialism like `PDF`
+that legitimately reads letter-by-letter) may appear; the hint is advisory and the author
+skips what they meant.
+
+**Still deferred:** the glossary surface that reads a registry entry's `definition` (stored,
+unused), and a locale guard. **UNVERIFIED:** audio naturalness and the in-overlay live
+composition (no TTS in CI); the spoken-STRING primitives (`getCaption`, `parseCaptions`,
+`presentationIndices`, `mergeNarration`, `unmatchedAcronyms`) are unit-tested and the export
+chain is verified on the real `.vtt` (HARD RULE #23).

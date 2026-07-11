@@ -190,6 +190,24 @@ in patch versions.
   drifts from the manifests, or if its component set ever diverges from the colour
   fallback's scanned set. The generated deck (`examples/data-viz-gallery.md`) also doubles
   as the manual old-engine / smart-TV colour-fallback test artifact.
+- **Captions Layer 1 — a per-slide `<!-- caption: -->` override, a front-matter `captions:`
+  map, and a discovery lint — so you control exactly which words a slide narrates.** Building
+  on the acronym registry (§15), narration now resolves a single precedence chain, highest
+  first: a slide's inline `<!-- caption: … -->` (its exact read-as text, a new consumed comment
+  channel beside `note:`/`describe:`) → a front-matter `captions:` entry for that slide (keyed
+  by author slide number) → the speaker note → the component-aware DOM projection. The channel
+  boundary lives once in `notes-core` so a `caption:` comment is never embedded as a PDF
+  speaker note or read as one (the note still rides in the PDF; the caption is what the caption
+  track speaks), and the front-matter block is parsed once in the shared resolver so the export
+  and the live Present overlay can't drift. A front-matter caption keyed by slide number
+  resolves correctly even under Present's `exec`/`onepager` reader lenses — it maps through the
+  slide's ORIGINAL deck index, so a filtered/reordered view never binds a caption to the wrong
+  slide. `--strip-notes` blanks captions too (a stripped deck stays silent). New: a non-blocking
+  `narration-acronyms` hint in `lint:deck` lists the multi-letter all-caps tokens a deck speaks
+  letter-by-letter (expanded by neither the built-in lexicon nor your `acronyms:` registry), so
+  you learn what to register without ever playing audio. Demonstrated in
+  `examples/read-along-captions.md`. Audio naturalness stays UNVERIFIED (no TTS in CI) — only
+  the display→spoken string behavior is claimed.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the
