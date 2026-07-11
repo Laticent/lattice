@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cachedSampleUrl, engineForModel, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { cachedSampleUrl, engineForModel, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
@@ -150,5 +150,32 @@ describe('cachedSampleUrl — the pre-generated sample path, or null when nothin
 
 	it('returns null with no voice id', () => {
 		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', '', 1)).toBeNull();
+	});
+});
+
+// Live-tested 2026-07-11 (see each engine's `_speedNote` in tts-voice-catalog.json):
+// an OpenRouter TTS model's `speed` param passes straight to its own backend, and
+// providers differ on whether they implement it — several silently ignore it
+// rather than error, so a slider that's always enabled is a control that
+// sometimes does nothing with no indication why.
+describe('speedSupported — which models\' speed control actually does anything', () => {
+	it('is true for the models live-verified to respond to speed (Kokoro, MAI-Voice-2, both Zonos variants)', () => {
+		expect(speedSupported('hexgrad/kokoro-82m')).toBe(true);
+		expect(speedSupported('')).toBe(true); // unset -> Kokoro, the connect-time default
+		expect(speedSupported('microsoft/mai-voice-2')).toBe(true);
+		expect(speedSupported('zyphra/zonos-v0.1-transformer')).toBe(true);
+		expect(speedSupported('zyphra/zonos-v0.1-hybrid')).toBe(true);
+	});
+
+	it('is false for the models live-verified to ignore speed (Grok, Gemini, Orpheus, CSM, Voxtral)', () => {
+		expect(speedSupported('x-ai/grok-voice-tts-1.0')).toBe(false);
+		expect(speedSupported('google/gemini-3.1-flash-tts-preview')).toBe(false);
+		expect(speedSupported('canopylabs/orpheus-3b-0.1-ft')).toBe(false);
+		expect(speedSupported('sesame/csm-1b')).toBe(false);
+		expect(speedSupported('mistralai/voxtral-mini-tts-2603')).toBe(false);
+	});
+
+	it('defaults to false for a model this catalog has no entry for — never optimistically enabled', () => {
+		expect(speedSupported('some-vendor/unknown-tts')).toBe(false);
 	});
 });

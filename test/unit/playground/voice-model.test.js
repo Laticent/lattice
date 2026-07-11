@@ -13,6 +13,27 @@ const url = require('node:url').pathToFileURL(
 
 async function load() { return import(url); }
 
+// Red-team finding (2026-07-11): voice-model.js's PCM_ONLY_MODELS is a SECOND,
+// independently-hardcoded source of truth for "this model needs pcm, not mp3" —
+// tts-voice-catalog.json already declares the same fact via `audioFormat:"wav"`
+// per engine (consumed by tools/generate-voice-samples.mjs, which correctly
+// DERIVES its format choice from that field). Unlike the voice roster, this
+// isn't live-sourced from OpenRouter, so nothing else catches the two drifting
+// apart — a future engine marked audioFormat:"wav" in the catalog without also
+// being added to PCM_ONLY_MODELS would silently reproduce the exact "Gemini
+// 400s on every real playback" bug this file just fixed, just for a different
+// model. This is the enforcement red team's finding asked for.
+test('PCM_ONLY_MODELS stays in sync with tts-voice-catalog.json\'s audioFormat:"wav" entries', async () => {
+  const { PCM_ONLY_MODELS } = await load();
+  const catalog = require('../../../docs/src/playground/tts-voice-catalog.json');
+  const wavModelIds = new Set(
+    Object.values(catalog.engines)
+      .filter((def) => def.audioFormat === 'wav')
+      .map((def) => def.modelId),
+  );
+  assert.deepEqual(new Set(PCM_ONLY_MODELS), wavModelIds);
+});
+
 test('splitSentences: segments on terminators, collapses whitespace, drops empties', async () => {
   const { splitSentences } = await load();
   assert.deepEqual(splitSentences('Hello world. Foo bar! Done?'), ['Hello world.', 'Foo bar!', 'Done?']);

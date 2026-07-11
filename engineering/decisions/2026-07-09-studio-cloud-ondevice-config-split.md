@@ -513,3 +513,180 @@ reverting it) and passes with it.
   redesign found it does (`supported_voices`, the same field every other engine
   uses) — Kokoro's picker is now the full live 54-voice roster like everything
   else; only the 10-voice CACHE remains a bounded, hand-picked subset.
+
+## Follow-up: the Speed slider worked on models that don't support speed at all
+
+Raised directly, from a screenshot of the Workspace's Voice section: a "voice
+model that doesn't exist" (a listed, selectable model whose real playback
+fails), a Speed slider enabled for a model that doesn't support speed, and a
+slider that accepts values a model silently can't honor — "we cannot look
+inept to the user." Asked for a full evaluation of what's actually available,
+and a redesign of the slider.
+
+**The investigation was empirical, not documentation-sourced** (the earlier
+`zoe`/roster lesson applies here too) — this session had a funded
+`OPEN_ROUTER_KEY`, so every claim below is a live round trip, not a guess:
+
+1. **OpenRouter's own `supported_parameters` field never lists `speed` for any
+   of the 9 TTS models** — not diagnostic on its own (it's a generic
+   completions-params list, and TTS `speed` isn't a completions param at all),
+   but it ruled out a cheap catalog-only answer and forced a real test.
+2. **Live A/B: synth the same short sentence at `speed` unset, `0.6`, and
+   `1.6`, measure real audio duration with `ffprobe`.** A model whose `speed`
+   genuinely works produces a duration inversely proportional to the
+   multiplier; a model that ignores it produces noise.
+3. **A repeat baseline (two identical, speed-less calls) measured each model's
+   OWN take-to-take duration variance** — the noise floor a real speed effect
+   must clear. This mattered: Orpheus/CSM/Voxtral's 0.6x/1.6x readings moved,
+   just not more than their own ~17-51% natural variance (CSM's own variance
+   hit 51% — this model's duration is close to non-deterministic regardless of
+   any parameter), and in Orpheus/Voxtral's case the direction was backwards
+   from what a real multiplier would produce.
+4. **Result: only 4 of 9 engines genuinely respond to `speed`** — Kokoro
+   (near-exact multiplier match: 0.6x/1.6x landed within a few percent of the
+   mathematically expected duration), MAI-Voice-2 and both Zonos variants
+   (large, monotonic, correctly-directed swings well beyond their noise
+   floors, though not perfectly linear at the extremes). Grok, Gemini,
+   Orpheus, CSM, and Voxtral silently ignore it — no error, just no effect,
+   which is exactly what makes an always-enabled slider on those five look
+   broken rather than absent.
+5. **A boundary probe on the 4 working engines** (`speed` 0.1/0.25/2/3/4/10)
+   found Kokoro and Zonos both 422 outside roughly `[0.25, 4]`; MAI-Voice-2
+   never errored even at the extremes tested but plateaus around a ~1.5s floor
+   past roughly `3x`. The Studio's existing `0.75-1.5` UI range sits safely
+   inside all three — the RANGE was never the bug, only which models the
+   control was offered on at all.
+6. **The "voice model that doesn't exist" report turned out to be
+   `voice-model.js`'s live playback path, not the picker.** Gemini's speech
+   endpoint 400s on `response_format:"mp3"` and only returns raw PCM — already
+   known and handled in `tools/generate-voice-samples.mjs` (the asset
+   generator requests `pcm` and wraps it in a WAV container for this one
+   model), but that fix never made it into the LIVE runtime path
+   (`openRouterRung.synth`), which hardcoded `mp3` for every model. Gemini
+   showed up as a real, priced, 30-voice model in the picker — selectable,
+   seemingly there — and then failed on every actual "Play sample" or
+   narration call. Fixed by mirroring the generator's recipe at runtime: probe
+   the response's `Content-Type` for the real sample rate/channels (never
+   hardcoded — a per-model quirk), wrap the raw PCM in a 44-byte WAV header,
+   return a blob-like object `decodeAudioData` can play directly — comparable
+   to what Kokoro's own `wavBlob()` produces from its Float32 samples, but
+   deliberately NOT the same real-`Blob` shape (independent-checker correction:
+   an earlier draft of this note overclaimed that; see the replay-safety fix
+   below for why the distinction matters).
+
+**The fix.** `tts-voice-catalog.json` gains a `speedSupport: boolean` per
+engine (a genuinely hand-maintained fact, like `requiresAsset`/`audioFormat` —
+OpenRouter's catalog doesn't expose it) plus a `_speedNote` recording the
+measurement each verdict rests on. `tts-voice-catalog.ts` exports
+`speedSupported(modelId)`, defaulting `false` for an uncataloged model — the
+same "admit we don't know" stance `NO_VOICES_HINT` already takes for an empty
+voice roster, now mirrored as `NO_SPEED_HINT`. `TtsSettings.tsx`'s new
+`SpeedSection` renders the real, existing slider ONLY when the active model
+supports it; otherwise it renders no slider at all — a plain fixed-pace note
+in its place, not a disabled-but-visible control stuck at an arbitrary value.
+This directly answers "maybe this shouldn't even be a slider": for the 5
+engines that don't support it, it isn't one anymore; for the 4 that do, a
+slider is the technically honest control (live-tested as smooth and
+proportional, not stepped), so it stays a slider there rather than becoming
+stepped chips for every engine regardless of what the data shows.
+
+**What's explicitly not changed.** The `0.75-1.5` UI range (already safely
+inside every supported engine's real working range — narrowing/widening it
+wasn't the bug). No model-picker badge surfacing speed support before you
+select a model — the Speed section's own disabled-state note already explains
+it the moment you do, and a picker-row indicator is a legitimate future nicety
+rather than something the "look inept" complaint required.
+
+## Adversarial trio (red team + Munger inversion + independent checker), pre-merge — round 2
+
+Requested explicitly before merge, having been skipped in the initial pass
+(HARD RULE #25 applies: `voice-model.js` is a shared module used by both the
+Studio and the older Drawing Board surface, and this was a 9-file change
+touching a catalog schema, UI gating, a runtime response-format fix, AND a
+buffer-lifecycle fix — squarely the "multi-file refactor touching a shared
+module" MAKER-CHECKER trigger). Three independent agents, no shared context,
+each pointed at the real diff (`git diff origin/main...HEAD`) rather than this
+doc's own description of it.
+
+**Fixed — Munger inversion, highest severity: a stale cross-model `speed`
+silently forces a live, billed call for a model that can't use it.**
+`speed` is a single value shared across every model (unlike voice, it's never
+reset on a model switch — `pickOrModel` only resets voice). Separately,
+`cachedSampleUrl` (pre-existing, untouched by the first pass) only serves the
+free, committed local sample at `speed === 1`. Chain the two together: pick
+1.3x on Kokoro, switch to any `speedSupport:false` engine, click "Play sample"
+on a CACHED voice — the stale 1.3x forces the live paid path for a value that
+could never have changed that model's audio at all. The first pass's own
+Speed-section redesign made this WORSE, not better: it removed the slider (the
+one visible cue a non-default speed was even set) for exactly the five models
+where the leak bites. Fixed in `previewTtsVoice` (`read-aloud.ts`), the single
+choke point both "Play sample" and a model-row preview funnel through: `speed`
+is now clamped to `1` before either the cache lookup or the live fallback
+whenever the target model's `speedSupported()` is false. Covered by three new
+tests in `read-aloud.test.ts` (clamps for an unsupported model, passes a real
+speed through unchanged for a supported one, defaults an omitted speed to 1),
+each confirmed to fail without the fix by temporarily reverting it.
+
+**Fixed — independent checker: the PR's own core deliverable (hide the slider
+for an unsupported model) had no test at the RENDERED level.** Every existing
+slider-presence assertion in `WorkspaceSheet.test.tsx` exercised only the
+default model (Kokoro, `speedSupport:true`); a regression that always rendered
+the slider — or crashed `SpeedSection` outright for an unsupported model —
+would have passed CI untouched. Added two tests asserting the actual DOM: no
+`role="slider"` + the fixed-pace note for Grok (`speedSupport:false`), a real
+enabled slider + no note for Kokoro (`speedSupport:true`). Confirmed both catch
+a regression by temporarily hardcoding `SpeedSection`'s support check to
+`true` and watching the negative-case test fail as expected.
+
+**Fixed — red team: `PCM_ONLY_MODELS` (`voice-model.js`) is a second,
+hand-maintained source of truth that can silently drift from the catalog.**
+`tts-voice-catalog.json` already declares which engine needs PCM via
+`audioFormat:"wav"`, and `tools/generate-voice-samples.mjs` correctly DERIVES
+its format choice from that field — but the live runtime path checks a
+separately-hardcoded `Set`, with only a code comment ("keep the two in sync")
+holding them together. If a second engine is ever marked `audioFormat:"wav"`
+without a matching add to the Set, the live path reproduces the exact bug this
+PR just fixed, for a different model, with nothing to catch it. `PCM_ONLY_MODELS`
+is now exported, with a new consistency test
+(`test/unit/playground/voice-model.test.js`) asserting it exactly matches the
+catalog's `audioFormat:"wav"` entries — confirmed to fail by temporarily
+desyncing the two.
+
+**Fixed — independent checker: a stale doc claim.** This doc originally said
+the PCM-wrap helper returns "the same shape Kokoro's own `wavBlob()` already
+produces" — overclaimed; it deliberately returns a duck-typed object, not a
+real `Blob` (see the replay-safety fix, above, which exists BECAUSE that duck
+type needs its own `.slice(0)` — a real `Blob` doesn't). Corrected in place.
+
+**Logged, not fixed (HARD RULE #18 — off the path of this change):**
+independent checker found that a model-ROW preview (clicking ▶ next to an
+unselected model in `TtsModelPicker`, before actually picking it) passes its
+own `model` id all the way to `previewTtsVoice`, which correctly uses it for
+the CACHE lookup — but the live fallback (`voice-model.js`'s `previewVoice`)
+never destructures `model` at all, so a live preview of a not-yet-selected row
+actually synthesizes through whatever model is CURRENTLY active, not the row
+being previewed. Confirmed pre-existing via `git show origin/main` — this
+diff's `previewVoice` call signature is unchanged. A real bug, but it predates
+this PR and isn't touched by it; not pulled into this diff per HARD RULE #18.
+Worth a tracked follow-up: either forward `model` into `previewVoice()`'s
+synth call, or have the row-preview button temporarily switch the active model
+before previewing.
+
+**Not fixed — reasoned as acceptable, logged for awareness (Munger
+inversion):** `speedSupport`/`PCM_ONLY_MODELS` are one-time, hand-typed
+snapshots from a single live-tested session, with no scheduled re-verification
+and no CI gate — the same staleness risk class the ORIGINAL hand-curated voice
+roster had (the `zoe` lesson) before it was replaced with something
+live-sourced. Unlike the roster, `speed` support isn't exposed anywhere in
+OpenRouter's own catalog API (confirmed: `supported_parameters` never lists
+`speed` for any of the 9 TTS models, supported or not — not diagnostic), so
+there's no live signal to source this from; a wrong verdict can only be caught
+by a human noticing a slider doesn't audibly do anything, or a fixed-pace note
+on a model that actually gained speed support later. Recorded here as the
+honest boundary of what a live-tested-but-not-live-sourced fact can guarantee,
+not something this PR can close. The Drawing Board's own "Pace" control
+(`cadenza.astro`) sends the same unguarded `speed` param with no
+`speedSupported` gating at all — currently inert in practice (nothing in that
+surface lets a user pick a cloud model other than the hardcoded Kokoro
+default, which does support speed), so not urgent, but the same gap exists
+there and was out of this PR's scope (Studio only).

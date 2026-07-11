@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, makeReader, type Reader } from '@/lib/cadenza';
-import { cachedSampleUrl, KOKORO_MODEL_ID } from './tts-voice-catalog';
+import { cachedSampleUrl, KOKORO_MODEL_ID, speedSupported } from './tts-voice-catalog';
 
 // Studio read-aloud — the REAL synchronized read-along, WORD by word.
 //
@@ -586,9 +586,23 @@ function playLocalSample(url: string): Promise<{ ok: boolean; error?: string }> 
  *  ladder). `model` is optional but needed for the cache lookup on the cloud rung
  *  (the on-device rung is always Kokoro, no ambiguity) — a curated voice at the
  *  default speed plays a committed local sample first, no live call at all; an
- *  uncurated voice or a non-default speed falls back to the live path as before. */
+ *  uncurated voice or a non-default speed falls back to the live path as before.
+ *
+ *  `speed` is CLAMPED to 1 when the target model's speed param is verified to do
+ *  nothing (speedSupported — tts-voice-catalog.ts). Without this, `speed` is a
+ *  single cross-model preference (unlike voice, it's never reset when the model
+ *  changes — see TtsSettings.tsx's pickOrModel) — pick 1.3x on Kokoro, then Play
+ *  a CACHED voice on Grok/Gemini/Orpheus/CSM/Voxtral, and cachedSampleUrl's own
+ *  `speed !== 1` check (it only serves the free static asset at the default
+ *  speed) silently forces a live, billed OpenRouter call for a model where that
+ *  speed value could never have sounded any different anyway. This PR's own
+ *  Speed-section redesign made the leak WORSE: it removed the slider (the one
+ *  visible cue a stale non-default speed was even set) for exactly these models
+ *  (Munger-inversion finding, 2026-07-11 — see the decision doc). */
 export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }): Promise<{ ok: boolean; error?: string }> {
-	const cached = o.voice ? cachedSampleUrl(o.rung === 'kokoro' ? KOKORO_MODEL_ID : o.model || '', o.voice, o.speed ?? 1) : null;
+	const model = o.rung === 'kokoro' ? KOKORO_MODEL_ID : o.model || '';
+	const speed = speedSupported(model) ? (o.speed ?? 1) : 1;
+	const cached = o.voice ? cachedSampleUrl(model, o.voice, speed) : null;
 	if (cached) {
 		const res = await playLocalSample(cached);
 		if (res.ok) return res;
@@ -598,7 +612,7 @@ export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?
 	}
 	const v = await getVoice();
 	if (!v) return { ok: false, error: 'voice unavailable' };
-	return v.previewVoice(o);
+	return v.previewVoice({ ...o, speed });
 }
 
 /** Stop any in-flight preview — called on TTS settings unmount so a sample started

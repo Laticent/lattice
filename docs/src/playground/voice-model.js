@@ -243,6 +243,63 @@ export function wavBlob(samples, sampleRate) {
   return typeof Blob !== 'undefined' ? new Blob([buf], { type: 'audio/wav' }) : buf;
 }
 
+// A model whose OpenRouter speech endpoint 400s on response_format:"mp3" and
+// only returns raw PCM (live-verified 2026-07-11: google/gemini-3.1-flash-tts-
+// preview). Kept as a tiny local fact rather than read from
+// tts-voice-catalog.json's `audioFormat` field, for the same node-loadable-by-
+// design reason as orPricePerM/splitSentences above (this file must not import
+// JSON needing bundler resolution — see the file header). Mirrors
+// tools/generate-voice-samples.mjs's synth()/pcmToWav() byte-for-byte; keep the
+// two in sync if a second PCM-only model ever needs one — EXPORTED so
+// test/unit/playground/voice-model.test.js can assert this Set never drifts
+// from the catalog's own audioFormat:"wav" entries (red-team finding,
+// 2026-07-11): unlike the voice roster, this ISN'T live-sourced, so nothing
+// else catches a mismatch except that test.
+export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
+
+// Wraps raw 16-bit PCM bytes in a standard 44-byte WAV header, reading the real
+// sample rate/channels off the response's own Content-Type header (e.g.
+// "audio/pcm;rate=24000;channels=1") rather than assuming one — a per-model
+// quirk, not a universal constant. Browser twin of generate-voice-samples.mjs's
+// pcmToWav()/parsePcmContentType() (that one writes a Node Buffer to disk; this
+// one hands back a blob-LIKE object — {size, type, arrayBuffer()} — playBlob can
+// decode directly, same header layout). Deliberately NOT a real `Blob`: this
+// codebase's own rung mocks (voice-model.test.ts) always use this exact duck-
+// typed shape rather than a real Blob, because jsdom's Blob has no
+// `.arrayBuffer()` method — matching that shape here means production and tests
+// exercise the identical code path through playBlob, and it avoids an extra
+// Blob-wrap/unwrap round trip that buys nothing (the bytes are already an
+// ArrayBuffer). A real Blob works fine in every real browser target too, if a
+// future caller needs one — this just isn't that caller.
+function pcmBlobFromResponse(pcmBytes, contentType) {
+  const rate = Number(/rate=(\d+)/.exec(contentType || '')?.[1]) || 24000;
+  const channels = Number(/channels=(\d+)/.exec(contentType || '')?.[1]) || 1;
+  const bitsPerSample = 16;
+  const blockAlign = channels * (bitsPerSample / 8);
+  const byteRate = rate * blockAlign;
+  const n = pcmBytes.length;
+  const buf = new ArrayBuffer(44 + n);
+  const dv = new DataView(buf);
+  const wstr = (off, str) => { for (let i = 0; i < str.length; i++) dv.setUint8(off + i, str.charCodeAt(i)); };
+  wstr(0, 'RIFF'); dv.setUint32(4, 36 + n, true); wstr(8, 'WAVE');
+  wstr(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, channels, true);
+  dv.setUint32(24, rate, true); dv.setUint32(28, byteRate, true); dv.setUint16(32, blockAlign, true); dv.setUint16(34, bitsPerSample, true);
+  wstr(36, 'data'); dv.setUint32(40, n, true);
+  new Uint8Array(buf, 44).set(pcmBytes);
+  // `arrayBuffer()` returns a FRESH COPY (`.slice(0)`) on every call, not the
+  // closed-over `buf` itself — playBlob's `decodeAudioData` DETACHES whatever
+  // ArrayBuffer it's given (a real, spec'd side effect, not a bug in this
+  // codebase), and this blob-like object is cached (audioCache) and REPLAYED —
+  // "Play sample" clicked twice, or the same narration sentence spoken again.
+  // Handing back the same `buf` reference every time meant the first play
+  // decoded fine and every replay threw "Cannot decode detached ArrayBuffer" —
+  // caught live in a real browser (jsdom's mocked decodeAudioData in the test
+  // suite doesn't detach, so no test exercised this). A real Blob's own
+  // `.arrayBuffer()` already re-reads fresh bytes per call for exactly this
+  // reason; `.slice(0)` gives this duck-typed stand-in the same replay safety.
+  return { size: buf.byteLength, type: 'audio/wav', arrayBuffer: async () => buf.slice(0) };
+}
+
 // ── Rungs ─────────────────────────────────────────────────────────────────────
 //
 // A blob rung is { name, ready(), synth({text, voice, signal}) → Promise<Blob> }.
@@ -259,9 +316,15 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
     async synth({ text, voice, signal, speed }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
-      // OpenAI-compatible speech route: POST the text, get a raw mp3 byte stream back.
-      // `speed` is an optional multiplier (default 1.0); models that don't support it
-      // ignore it, so passing it is always safe.
+      const model = getModel();
+      const wantsPcm = PCM_ONLY_MODELS.has(model);
+      // OpenAI-compatible speech route: POST the text, get a raw audio byte stream
+      // back (mp3 for almost every model; PCM for the rare exception above, wrapped
+      // into a WAV Blob below so playBlob's decodeAudioData can still play it).
+      // `speed` is an optional multiplier (default 1.0); a model that doesn't
+      // support it silently ignores it rather than erroring (live-verified per
+      // model — see tts-voice-catalog.json's speedSupport/_speedNote — so passing
+      // it is always safe even though it's a no-op for most of these 9 models).
       const res = await (fetchImpl || fetch)(OR_SPEECH_URL, {
         method: 'POST',
         headers: {
@@ -271,10 +334,10 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
           'X-Title': 'Lattice Drawing Board',
         },
         body: JSON.stringify({
-          model: getModel(),
+          model,
           input: text,
           voice: voice || getVoice(),
-          response_format: 'mp3',
+          response_format: wantsPcm ? 'pcm' : 'mp3',
           ...(speed && speed !== 1 ? { speed } : {}),
         }),
         signal,
@@ -284,6 +347,12 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         // of a silent fall-through — the only way to diagnose without the console.
         let detail = ''; try { detail = (await res.text()).slice(0, 200); } catch {}
         throw new Error('OpenRouter TTS error ' + res.status + (detail ? ': ' + detail : ''));
+      }
+      if (wantsPcm) {
+        const contentType = res.headers.get('content-type') || '';
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if (!bytes.length) throw new Error('OpenRouter returned empty audio');
+        return pcmBlobFromResponse(bytes, contentType);
       }
       const blob = await res.blob();
       if (!blob || !blob.size) throw new Error('OpenRouter returned empty audio');

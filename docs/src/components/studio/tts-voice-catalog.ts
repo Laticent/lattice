@@ -23,6 +23,13 @@ type Engine = {
 	 *  `supported_voices` is a non-exhaustive sample, not the real roster — see the
 	 *  JSON's `_note` on that entry. Supplements (never replaces) the live list. */
 	voiceOverride?: string[];
+	/** Whether this model's `speed` request param actually changes the audio —
+	 *  live-tested per engine (see each entry's `_speedNote`), NOT inferred from
+	 *  OpenRouter's `supported_parameters` (that field never lists `speed` for any
+	 *  TTS model, supported or not — it's not diagnostic here). A model this catalog
+	 *  has no entry for defaults to unsupported (speedSupported, below) — same
+	 *  "admit we don't know" stance as an uncataloged voice roster. */
+	speedSupport: boolean;
 };
 
 const ENGINES = (catalog as { engines: Record<string, Engine> }).engines;
@@ -39,6 +46,19 @@ export function engineForModel(modelId: string): string | null {
 		if (def.modelId.toLowerCase() === id) return engine;
 	}
 	return null;
+}
+
+/** Whether a cloud model's `speed` control actually does anything, live-tested
+ *  per engine (see the catalog JSON's `_speedNote`s) — an OpenRouter TTS model
+ *  passes `speed` straight to its own backend, and providers differ on whether
+ *  they implement it at all; several silently ignore it rather than error.
+ *  Defaults to `false` for a model this catalog has no entry for (an unverified
+ *  model is treated the same as a known-unsupported one — never optimistically
+ *  enabled), and `true` for the unset/empty id (Kokoro, the connect-time
+ *  default, verified). */
+export function speedSupported(modelId: string): boolean {
+	const engine = engineForModel(modelId);
+	return engine ? (ENGINES[engine]?.speedSupport ?? false) : false;
 }
 
 const KOKORO_LANG: Record<string, string> = { a: 'US', b: 'UK', e: 'ES', f: 'FR', h: 'HI', i: 'IT', j: 'JP', p: 'BR', z: 'CN' };
@@ -134,3 +154,8 @@ export const KOKORO_MODEL_ID = ENGINES.kokoro.modelId;
  *  publishes today has one). Generic and honest rather than editorializing a
  *  reason we don't actually know. */
 export const NO_VOICES_HINT = "This model hasn't published a voice list on OpenRouter yet — check its OpenRouter page.";
+
+/** The explanatory copy shown IN PLACE of the speed slider for a model whose
+ *  `speed` param is live-verified to do nothing (see speedSupported above) —
+ *  this voice always speaks at its own natural pace. */
+export const NO_SPEED_HINT = "This voice doesn't support adjustable speed — it always plays at its natural pace.";
