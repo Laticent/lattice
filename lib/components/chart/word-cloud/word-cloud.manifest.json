@@ -35,7 +35,7 @@
   "anatomyBlock": "word-cloud-canvas",
   "sample": "<!-- _class: word-cloud -->\n\n## Weight is meaning in a word cloud.\n\n- time-to-value `5`\n- security `4`\n- onboarding `4`\n- pricing `3`\n- integrations `3`\n- support `2`\n- roadmap `2`\n- contracts `1`\n- residency `1`\n",
   "stressDoc": {
-    "caption": "The densest cloud that still reads.",
+    "summary": "The densest cloud that still reads.",
     "sample": "<!-- _class: word-cloud dense -->\n\n## Stress test — 20 terms, raw frequency counts (512 → 5).\n\n- component `512`\n- variant `327`\n- manifest `261`\n- gallery `204`\n- function `168`\n- form `139`\n- substance `116`\n- transform `94`\n- selector `77`\n- palette `63`\n- cascade `51`\n- bundle `42`\n- scaffolder `34`\n- token `28`\n- normalize `22`\n- packer `17`\n- spiral `13`\n- footer `9`\n- eyebrow `7`\n- watermark `5`\n"
   },
   "whenToUse": [
@@ -97,22 +97,22 @@
   "variantDocs": {
     "constellation": {
       "label": "constellation",
-      "caption": "Words scattered like stars.",
+      "summary": "Words scattered like stars.",
       "sample": "<!-- _class: word-cloud constellation -->\n\n## constellation scatters the words like stars.\n\n- component `5`\n- manifest `4`\n- function `3`\n- form `3`\n- substance `2`\n- gallery `1`\n"
     },
     "dense": {
       "label": "dense",
-      "caption": "The cloud packed tight.",
+      "summary": "The cloud packed tight.",
       "sample": "<!-- _class: word-cloud dense -->\n\n## dense packs the cloud tight.\n\n- component `5`\n- manifest `5`\n- function `4`\n- form `4`\n- substance `4`\n- gallery `3`\n- folder `3`\n- variant `3`\n- universal `2`\n- cascade `2`\n- scaffolder `2`\n- bundler `1`\n- transform `1`\n- selector `1`\n- palette `1`\n"
     },
     "spectrum": {
       "label": "spectrum",
-      "caption": "Words colored along a scale.",
+      "summary": "Words colored along a scale.",
       "sample": "<!-- _class: word-cloud spectrum -->\n\n## spectrum colors the words along a scale.\n\n- component `5`\n- manifest `4`\n- function `4`\n- form `3`\n- substance `3`\n- gallery `2`\n- variant `2`\n- universal `1`\n"
     },
     "focal": {
       "label": "focal",
-      "caption": "One word crowned the center.",
+      "summary": "One word crowned the center.",
       "sample": "<!-- _class: word-cloud focal -->\n\n## focal crowns one word the center.\n\n- variants `5`\n- gallery `2`\n- manifest `2`\n- docs `1`\n- declared `1`\n"
     }
   },

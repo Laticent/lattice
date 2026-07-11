@@ -55,7 +55,7 @@
   "anatomyBlock": "pricing",
   "sample": "<!-- _class: pricing -->\n\n## Three tiers, one recommended column.\n\n- Starter `$0`\n  - [x] The checklist rows compare\n  - [/] Slashed rows mean not included\n  - [/] Same rows on every tier\n  - One line positions the tier.\n- Growth `$49 / mo` *Most popular*\n  - [x] The starred tier gets the accent\n  - [x] Checks accumulate up the ladder\n  - [/] One gap keeps it honest\n  - The column buyers should read first.\n- Enterprise `Custom`\n  - [x] The top tier checks every row\n  - [x] Custom replaces a number\n  - [x] Nothing slashed up here\n  - The ceiling of the ladder.\n",
   "stressDoc": {
-    "caption": "Six feature rows per tier.",
+    "summary": "Six feature rows per tier.",
     "sample": "<!-- _class: pricing -->\n\n## Six lines of features per tier still hold.\n\n- Starter `$0`\n  - [x] Up to 3 seats\n  - [x] Community support\n  - [/] SSO\n  - [/] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For evaluating, one team.\n- Growth `$49 / mo` *Most popular*\n  - [x] Up to 25 seats\n  - [x] Priority support\n  - [x] SSO\n  - [-] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] Unlimited seats\n  - [x] Dedicated support\n  - [x] SSO + SCIM\n  - [x] Audit log\n  - [x] Dedicated CSM\n  - [x] 99.9% uptime SLA\n  - For procurement and compliance.\n"
   },
   "whenToUse": [
@@ -119,12 +119,12 @@
   "variantDocs": {
     "two": {
       "label": "two",
-      "caption": "A pair of plans, head to head.",
+      "summary": "A pair of plans, head to head.",
       "sample": "<!-- _class: pricing two -->\n\n## two sets a pair of plans head to head.\n\n- Self-serve `$49 / mo`\n  - [x] Wider columns, more feature rows\n  - [/] The gap that motivates upgrading\n  - The simple path.\n- Enterprise `Custom`\n  - [x] Everything in self-serve\n  - [x] The rows that close deals\n  - The guided path.\n"
     },
     "four": {
       "label": "four",
-      "caption": "The whole ladder, compact.",
+      "summary": "The whole ladder, compact.",
       "sample": "<!-- _class: pricing four compact -->\n\n## four compact fits the whole ladder.\n\n- Free `$0`\n  - [x] One seat\n  - [/] The rest\n  - For trying.\n- Team `$29`\n  - [x] Five seats\n  - [/] SSO\n  - For starting.\n- Growth `$49` *Most popular*\n  - [x] SSO\n  - [/] Support\n  - For scaling.\n- Enterprise `Custom`\n  - [x] Everything\n  - [x] Support\n  - For fleets.\n"
     }
   },

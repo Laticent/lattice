@@ -63,7 +63,7 @@
   "anatomyBlock": "glossary",
   "sample": "<!-- _class: glossary -->\n\n## Glossary\n\n- Component\n  - A slide layout with a manifest, styles, and docs.\n- Variant\n  - A named modifier that changes one layout decision.\n- Modifier\n  - A universal class — dark, compact, accent — any layout accepts.\n- Stress test\n  - The slide that shows a layout's upper limit.\n",
   "stressDoc": {
-    "caption": "Eight terms at the definition ceiling.",
+    "summary": "Eight terms at the definition ceiling.",
     "sample": "<!-- _class: glossary -->\n\n## Glossary, at capacity\n\n- Bucket\n  - One of thirteen functional families a component lives in; the bucket gallery surveys its members.\n- Capacity\n  - How many elements a layout seats before it overflows — sweet, soft, and hard marks.\n- Caption channel\n  - The footer sentence that carries the lesson.\n- Density budget\n  - The soft and hard word counts a sample element may spend, enforced by the contract test.\n- Ledger\n  - The named debt list that tracks migration honestly.\n- Manifest\n  - The JSON file that owns a component's samples, variants, budgets, and docs.\n- Specimen voice\n  - Gallery copy that teaches the layout by describing it.\n- Walk order\n  - The fixed slide sequence every gallery follows.\n"
   },
   "whenToUse": [

@@ -44,7 +44,7 @@
   "anatomyBlock": "piechart-canvas",
   "sample": "<!-- _class: piechart -->\n\n`H1 2026 · 1,840 person-hours`\n\n## The pie gives each share one wedge.\n\nNearly half went to producing decks; the deciding itself was the smallest slice.\n\n- Deck production `46%`\n  - 92 decks, averaging 18 slides each\n  - Most of it review-cycle churn\n- Meetings about meetings `22%`\n- Realigning on priorities `18%`\n- Stakeholder management `9%`\n- Actually deciding `5%`\n",
   "stressDoc": {
-    "caption": "Eleven slices — the legend's limit.",
+    "summary": "Eleven slices — the legend's limit.",
     "sample": "<!-- _class: piechart -->\n\n`FY2026 · 1,840 person-hours`\n\n## Stress test — eleven slices, long-tail distribution, none of it on the roadmap.\n\n- Signal Intake engineering `28%`\n- Scoring policy work `16%`\n- Decision Log integration `13%`\n- Per-team calibration `11%`\n- Explaining the framework to stakeholders `9%`\n- Pilot and team support `7%`\n- Documentation and gallery `5%`\n- Adoption dashboard `4%`\n- Auditor export `3%`\n- Incident response `2%`\n- Miscellaneous toil `2%`\n"
   },
   "whenToUse": [
@@ -96,7 +96,7 @@
   "variantDocs": {
     "donut": {
       "label": "donut",
-      "caption": "The center carries the total.",
+      "summary": "The center carries the total.",
       "sample": "<!-- _class: piechart donut -->\n\n`H1 2026 · 1,840 person-hours`\n\n## donut opens the center for the total.\n\nThe toil-and-on-call slice is the one nobody put in the roadmap.\n\n- Signal Intake build `46%`\n- Scoring policy work `22%`\n- Decision Log integration `18%`\n- Explaining the framework to stakeholders `9%`\n- Toil and on-call `5%`\n\nRefreshed weekly · figures from the time-tracking export\n"
     }
   },

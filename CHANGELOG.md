@@ -164,6 +164,16 @@ in patch versions.
   not slide weight). Verified on the real built Studio: typing reads `patch ~1ms`, a light/dark
   switch reads `rebuild ~250ms`, and the rebuild no longer blends into the typing number.
   Metrics honesty (§C1) of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
+- **Manifest metadata rename: `variantDocs.*.caption` / `stressDoc.caption` → `summary`.**
+  Captions Layer-1 (#914) made *caption* a first-class narration concept (a slide's read-as
+  text); the component-manifest field also named `caption` was always a **one-sentence
+  description** of a variant / stress-test (a specimen-footer summary, not read-as text), so it
+  is renamed to `summary` to end the collision. Pure rename across the 52 manifests (200 fields),
+  the schema, the validator (`variantDocs.*.summary` / `stressDoc.summary` are now the required
+  keys), the docs generator, and the docs-site / playground consumers — **no rendered output
+  changes** (the generated galleries still print the same specimen-footer text; the plan's
+  rendered `caption` footer key is unchanged). Manifest authors now write `summary:`; the old
+  `caption:` key fails validation. Closes #918.
 - **Editing a slide in the Studio no longer re-parses the whole theme stylesheet on
   every keystroke-render.** The Studio's live preview (`single-slide-render.ts`)
   rewrote the entire preview-iframe document on every render — re-parsing the ~560KB

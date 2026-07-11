@@ -43,7 +43,7 @@
   "anatomyBlock": "timeline-list",
   "sample": "<!-- _class: timeline-list -->\n\n`chart · timeline-list`\n\n## The timeline pins events to their dates.\n\nFour milestones show the shape; the date chips carry the when.\n\n1. `Q1` The first milestone\n   - One clause says what changed here.\n2. `Q2` The second, marked `decision`\n   - A tag names the milestone's kind.\n3. `Q3` The third milestone\n   - Sixteen words is each entry's budget.\n4. `Q4` The fourth milestone\n   - Four to six entries reads best.\n",
   "stressDoc": {
-    "caption": "Six milestones at the word ceiling.",
+    "summary": "Six milestones at the word ceiling.",
     "sample": "<!-- _class: timeline-list -->\n\n`timeline-list · stress`\n\n## Six milestones is the line's honest length.\n\n1. `Y1 Q1` The opening milestone\n   - An entry at the hard budget carries one full clause and its consequence.\n2. `Y1 Q3` The second marker\n   - Twenty-four words is the ceiling; spend them on what changed, not context.\n3. `Y2 Q1` The midpoint\n   - The middle of a timeline is where attention sags — anchor it.\n4. `Y2 Q3` The fourth marker\n   - Entries shorten as the line descends.\n5. `Y3 Q1` The fifth marker\n   - The soft ceiling passed one entry ago.\n6. `Y3 Q3` The last marker\n   - Six is the stop; a seventh becomes a gantt.\n"
   },
   "whenToUse": [

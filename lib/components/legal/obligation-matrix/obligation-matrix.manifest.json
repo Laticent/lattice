@@ -61,7 +61,7 @@
   "anatomyBlock": "obligation-matrix",
   "sample": "<!-- _class: obligation-matrix -->\n\n## The matrix grids obligations across regimes.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nFilled = applies, half = partial, empty = exempt. Neutral ink — data first.\n",
   "stressDoc": {
-    "caption": "Six regimes by five duties.",
+    "summary": "Six regimes by five duties.",
     "sample": "<!-- _class: obligation-matrix -->\n\n## Six regimes by five duties is the grid ceiling.\n\n| Regime | Notice | Consent | Retention | Breach | DSAR |\n| --- | :---: | :---: | :---: | :---: | :---: |\n| GDPR | [x] | [x] | [x] | [x] | [x] |\n| CCPA/CPRA | [x] | [-] | [x] | [x] | [x] |\n| LGPD | [x] | [x] | [x] | [x] | [x] |\n| PIPEDA | [x] | [x] | [-] | [x] | [x] |\n| APPI | [x] | [-] | [x] | [x] | [-] |\n| PIPL | [x] | [x] | [x] | [x] | [x] |\n"
   },
   "whenToUse": [
@@ -113,22 +113,22 @@
   "variantDocs": {
     "heat": {
       "label": "heat",
-      "caption": "Cells shaded by burden.",
+      "summary": "Cells shaded by burden.",
       "sample": "<!-- _class: obligation-matrix heat -->\n\n## heat shades the cells by burden.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nRed = applies (exposure), green = exempt (relief). Brackets frame the structure.\n"
     },
     "asymmetric": {
       "label": "asymmetric",
-      "caption": "Regimes differ in kind.",
+      "summary": "Regimes differ in kind.",
       "sample": "<!-- _class: obligation-matrix asymmetric -->\n\n## asymmetric admits the regimes differ in kind.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n\nEach row promotes to a card with body-level breathing room.\n"
     },
     "pills": {
       "label": "pills",
-      "caption": "Cells as status words.",
+      "summary": "Cells as status words.",
       "sample": "<!-- _class: obligation-matrix pills -->\n\n## pills spell each cell as a status word.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nSame data, neutral chrome — the state pills carry the meaning without the heat-map alarm.\n"
     },
     "lanes": {
       "label": "lanes",
-      "caption": "One regime per band.",
+      "summary": "One regime per band.",
       "sample": "<!-- _class: obligation-matrix lanes -->\n\n## lanes walks one regime per band.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nEach lane stripe signals that the row is its own regime, not a rank.\n"
     }
   },

@@ -32,7 +32,7 @@ type Manifest = {
 	slots?: Record<string, { selector: string; required?: boolean; description: string }>;
 	skeleton?: string;
 	variants?: string[];
-	variantDocs?: Record<string, { label?: string; caption?: string; sample?: string }>;
+	variantDocs?: Record<string, { label?: string; summary?: string; sample?: string }>;
 	related?: { name: string; when: string }[];
 };
 
@@ -173,7 +173,7 @@ export function ComponentDocsView({
 									<code className="font-mono text-primary">{v}</code>
 									{vd.label && <span className="text-sm font-normal text-muted-foreground"> — {vd.label}</span>}
 								</h3>
-								{vd.caption && <p className="m-0 mb-2">{inlineMd(vd.caption)}</p>}
+								{vd.summary && <p className="m-0 mb-2">{inlineMd(vd.summary)}</p>}
 								<pre className="m-0 overflow-x-auto rounded-md border border-border bg-card p-4">
 									<code className="whitespace-pre font-mono text-[13px] leading-relaxed text-foreground">
 										{(vd.sample || '').replace(/\n$/, '')}

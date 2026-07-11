@@ -83,17 +83,17 @@
   "variantDocs": {
     "numbered": {
       "label": "numbered",
-      "caption": "Stamps the running section number.",
+      "summary": "Stamps the running section number.",
       "sample": "<!-- _class: divider silent numbered -->\n\n`divider numbered`\n\n## The corner stamp counts this divider for you.\n"
     },
     "light": {
       "label": "light",
-      "caption": "Bright canvas, sentence-length waypoint.",
+      "summary": "Bright canvas, sentence-length waypoint.",
       "sample": "<!-- _class: divider light -->\n\n`divider light`\n\n## The light divider trades the dark canvas for a bright, full-sentence waypoint.\n"
     },
     "qr": {
       "label": "qr",
-      "caption": "The payload bullet becomes a code.",
+      "summary": "The payload bullet becomes a code.",
       "sample": "<!-- _class: divider qr -->\n\n`divider qr`\n\n## The payload bullet below becomes a scannable code.\n\n- https://slidewright.dev/components/divider\n- Scan for the divider's docs `caption`\n"
     }
   },

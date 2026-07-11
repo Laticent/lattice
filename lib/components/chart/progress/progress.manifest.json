@@ -47,7 +47,7 @@
   "anatomyBlock": "progress-canvas",
   "sample": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\nSnapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n- Adoption `12%` `blocked`\n",
   "stressDoc": {
-    "caption": "A full wall of tracks — the ceiling.",
+    "summary": "A full wall of tracks — the ceiling.",
     "sample": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Stress test — eight workstreams, full status range, one honest pill.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Per-team calibration `34%` `deferred`\n- Adoption `12%` `blocked`\n- Decision-log audit trail `100%` `done`\n- Recalibration playbook `45%` `deferred`\n- Auditor export rollout `73%` `on-track`\n"
   },
   "whenToUse": [

@@ -62,7 +62,7 @@ function docsFor(...names) {
   const docs = {};
   for (const n of names) {
     docs[n] = {
-      caption: `What ${n} changes and when to reach for it.`,
+      summary: `What ${n} changes and when to reach for it.`,
       sample: `<!-- _class: cards-grid ${n} -->\n\n## Heading.\n`,
     };
   }
@@ -83,15 +83,15 @@ describe('component-manifest', () => {
       const itemsSample = '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n';
       const cap = { axis: 'item', min: 2, sweet: 3, soft: 4, hard: 5, escalateTo: ['split across slides'] };
       assert.ok(validate({ ...GOOD, sample: itemsSample, capacity: cap }).some((e) => /stressDoc is missing/.test(e)));
-      const sd = { caption: 'Five items — the ceiling.', sample: itemsSample };
+      const sd = { summary: 'Five items — the ceiling.', sample: itemsSample };
       assert.deepEqual(validate({ ...GOOD, sample: itemsSample, capacity: cap, stressDoc: sd }), []);
     });
 
-    test('stressDoc: accepts { caption, sample }, rejects malformed and dual spellings', () => {
-      const sd = { caption: 'Seven items — the ceiling.', sample: '<!-- _class: x -->\n\n## …\n' };
+    test('stressDoc: accepts { summary, sample }, rejects malformed and dual spellings', () => {
+      const sd = { summary: 'Seven items — the ceiling.', sample: '<!-- _class: x -->\n\n## …\n' };
       assert.deepEqual(validate({ ...GOOD, stressDoc: sd }), []);
-      assert.ok(validate({ ...GOOD, stressDoc: { sample: sd.sample } }).some((e) => /stressDoc\.caption/.test(e)));
-      assert.ok(validate({ ...GOOD, stressDoc: { caption: sd.caption } }).some((e) => /stressDoc\.sample/.test(e)));
+      assert.ok(validate({ ...GOOD, stressDoc: { sample: sd.sample } }).some((e) => /stressDoc\.summary/.test(e)));
+      assert.ok(validate({ ...GOOD, stressDoc: { summary: sd.summary } }).some((e) => /stressDoc\.sample/.test(e)));
       assert.ok(
         validate({ ...GOOD, stressDoc: sd, stressSample: sd.sample }).some((e) => /retired/.test(e))
       );
@@ -164,7 +164,7 @@ describe('component-manifest', () => {
         focusAxes: ['item'],
         sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n',
         capacity: { axis: 'item', min: 2, sweet: 3, soft: 4, hard: 5, escalateTo: ['list-tabular', 'split across slides'], note: 'crowds past four' },
-        stressDoc: { caption: 'Five items — the ceiling.', sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n- D\n  - d\n- E\n  - e\n' },
+        stressDoc: { summary: 'Five items — the ceiling.', sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - a\n- B\n  - b\n- C\n  - c\n- D\n  - d\n- E\n  - e\n' },
       };
       assert.deepEqual(validate(m), []);
     });
@@ -201,7 +201,7 @@ describe('component-manifest', () => {
         ...WITH_ITEMS,
         capacity: { axis: 'item', soft: 4, hard: 6 },
         density: { soft: 12, hard: 20, note: 'one clause' },
-        stressDoc: { caption: 'Six items — the ceiling.', sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n- B\n- C\n- D\n- E\n- F\n' },
+        stressDoc: { summary: 'Six items — the ceiling.', sample: '<!-- _class: cards-grid -->\n\n## H\n\n- A\n- B\n- C\n- D\n- E\n- F\n' },
       };
       assert.deepEqual(validate(m), []);
     });
@@ -367,7 +367,7 @@ describe('component-manifest', () => {
         variants: ['three'],
         variantDocs: {
           three: {
-            caption: 'three-column variant',
+            summary: 'three-column variant',
             sample: '<!-- _class: cards-grid three -->\n\n- **Title.** body text.\n',
           },
         },

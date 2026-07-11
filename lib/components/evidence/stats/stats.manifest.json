@@ -70,7 +70,7 @@
   "anatomyBlock": "stats",
   "sample": "<!-- _class: stats -->\n\n`evidence · stats`\n\n## A row of stats, equal weight, no chrome.\n\n`Each stat is a number and a two-word label — the row does the arguing.`\n\n1. 4\n   - stats per row\n2. 8\n   - words, soft\n3. 5\n   - the soft ceiling\n4. 0\n   - decoration allowed\n",
   "stressDoc": {
-    "caption": "Six stats — the hard ceiling.",
+    "summary": "Six stats — the hard ceiling.",
     "sample": "<!-- _class: stats -->\n\n`stats · stress`\n\n## Six stats is the row's hard ceiling.\n\n1. 6\n   - stats seated\n2. 14\n   - words, hard\n3. 2\n   - lines per label\n4. 1\n   - row, always\n5. 5\n   - was the soft mark\n6. 0\n   - room for seven\n"
   },
   "whenToUse": [

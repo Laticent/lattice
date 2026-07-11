@@ -88,12 +88,12 @@
   "variantDocs": {
     "numbered": {
       "label": "numbered",
-      "caption": "Counts closings apart from dividers.",
+      "summary": "Counts closings apart from dividers.",
       "sample": "<!-- _class: closing silent numbered -->\n\n## The closing counts itself, apart from the dividers.\n\n`Closing 04`\n"
     },
     "qr": {
       "label": "qr",
-      "caption": "Scan to take the deck with you.",
+      "summary": "Scan to take the deck with you.",
       "sample": "<!-- _class: closing qr -->\n\n`closing qr`\n\n## Leave a scannable takeaway behind.\n\nThe payload bullet renders as a QR code sized for the back row.\n\n- https://slidewright.dev/components/closing\n- Scan to open `caption`\n"
     }
   },

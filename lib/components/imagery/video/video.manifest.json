@@ -92,17 +92,17 @@
   "variantDocs": {
     "companion": {
       "label": "companion",
-      "caption": "The player beside the claim it proves.",
+      "summary": "The player beside the claim it proves.",
       "sample": "<!-- _class: video companion -->\n\n## companion seats the player beside its pitch.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Ree A., Head of Ops at Northwind `caption`\n- video-poster.svg `poster`\n"
     },
     "gallery": {
       "label": "gallery",
-      "caption": "A contained, matted exhibit.",
+      "summary": "A contained, matted exhibit.",
       "sample": "<!-- _class: video gallery -->\n\n## gallery mats the player like an exhibit.\n\n- https://vimeo.com/1084537\n- The reference onboarding walkthrough, contained on its matte. `caption`\n- video-poster.svg `poster`\n"
     },
     "qr": {
       "label": "qr",
-      "caption": "Adds a scannable code; combines with any look.",
+      "summary": "Adds a scannable code; combines with any look.",
       "sample": "<!-- _class: video companion qr -->\n\n## qr hands the video to the room’s phones.\n\nThe full 90-second tour — scan to open it on your phone.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Scan to watch `caption`\n- video-poster.svg `poster`\n"
     }
   },

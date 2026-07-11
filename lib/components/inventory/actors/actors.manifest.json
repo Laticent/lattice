@@ -64,7 +64,7 @@
   "anatomyBlock": "actors",
   "sample": "<!-- _class: actors -->\n\n## The actors ledger names who owns what.\n\n- Owns one row `Each actor`\n  - A verb-first responsibility, twelve words at most.\n- Reads top to bottom `The ledger`\n  - Order carries seniority or sequence.\n- Answers by name `The role chip`\n  - The inline code names the seat.\n- Stops at six rows `This layout`\n  - Past six, reach for list-tabular.\n",
   "stressDoc": {
-    "caption": "Seven rows — the ledger's ceiling.",
+    "summary": "Seven rows — the ledger's ceiling.",
     "sample": "<!-- _class: actors -->\n\n## Seven rows is where the ledger maxes out.\n\n- Row one `First seat`\n  - Even at the ceiling, every row keeps a verb-first responsibility line.\n- Row two `Second seat`\n  - Eighteen words is the hard budget; this row spends most of them deliberately.\n- Row three `Third seat`\n  - Rows stay parallel or the column of chips stops lining up.\n- Row four `Fourth seat`\n  - Middle rows read fastest; bury nothing important here.\n- Row five `Fifth seat`\n  - The eye is tiring by now — keep these short.\n- Row six `Sixth seat`\n  - The soft ceiling was one row ago.\n- Row seven `Last seat`\n  - The hard stop; an eighth row means a second slide.\n"
   },
   "whenToUse": [

@@ -46,7 +46,7 @@
   "anatomyBlock": "list-criteria",
   "sample": "<!-- _class: list-criteria -->\n\n## Criteria are gates: clear them in order.\n\n1. State the bar\n   - Each criterion is a pass-or-fail line, not a preference.\n2. Order by veto power\n   - The criterion most likely to kill goes first.\n3. Keep the list short\n   - Three gates decide; six gates stall.\n",
   "stressDoc": {
-    "caption": "Five gates — the ceiling.",
+    "summary": "Five gates — the ceiling.",
     "sample": "<!-- _class: list-criteria -->\n\n## Five gates is the most one decision should clear.\n\n1. The first gate\n   - A criterion at the hard budget states the bar and the evidence that clears it, in one breath.\n2. The second gate\n   - Twenty-two words is the ceiling; this clause is written to sit just under it, deliberately.\n3. The third gate\n   - Middle gates read fastest — put the contested one here.\n4. The fourth gate\n   - Attention thins; shorten the clauses as the list descends.\n5. The fifth gate\n   - The stop. A sixth gate means the bar is a rubric, not a decision.\n"
   },
   "whenToUse": [

@@ -204,7 +204,7 @@ function emitDocsVariants(m, lines) {
       const heading = vd.label ? `\`${v}\` — ${vd.label}` : `\`${v}\``;
       lines.push(`### ${heading}`);
       lines.push('');
-      lines.push(vd.caption);
+      lines.push(vd.summary);
       lines.push('');
       lines.push('```markdown');
       lines.push(vd.sample.replace(/\n$/, ''));
@@ -316,15 +316,15 @@ function renderCompositionSlide(m, modifier) {
 }
 
 /**
- * Normalize the stress-test content to { caption, sample } regardless of
- * which manifest spelling carries it. `stressDoc` ({ caption, sample }) is
+ * Normalize the stress-test content to { summary, sample } regardless of
+ * which manifest spelling carries it. `stressDoc` ({ summary, sample }) is
  * the target shape; the legacy `stressSample` string is accepted during
- * the voice migration and reads as a caption-less stressDoc. Returns null
+ * the voice migration and reads as a summary-less stressDoc. Returns null
  * when the manifest declares neither.
  */
 function stressDocOf(m) {
   if (m.stressDoc && typeof m.stressDoc === 'object') return m.stressDoc;
-  if (m.stressSample) return { caption: '', sample: m.stressSample };
+  if (m.stressSample) return { summary: '', sample: m.stressSample };
   return null;
 }
 
@@ -374,10 +374,10 @@ ${m.description}`,
     const vd = m.variantDocs[v];
     const label = vd.label || v;
     const base = `${label} · ${m.name} ${v}`;
-    const footer = specimen && vd.caption ? `${base} — ${vd.caption}` : base;
+    const footer = specimen && vd.summary ? `${base} — ${vd.summary}` : base;
     slides.push({
       kind: `variant:${v}`,
-      caption: vd.caption || '',
+      caption: vd.summary || '',
       md: injectFooter(vd.sample, footer),
     });
   }
@@ -387,7 +387,7 @@ ${m.description}`,
   const stress = stressDocOf(m);
   if (stress) {
     const base = `Stress test · ${m.name}`;
-    const footer = specimen && stress.caption ? `${base} — ${stress.caption}` : base;
+    const footer = specimen && stress.summary ? `${base} — ${stress.summary}` : base;
     let md = injectFooter(stress.sample, footer);
     // Specimen stress slides sit in the crowd band by contract; the marker
     // tells lint-core to hold the capacity-crowd warning (overflow still
@@ -400,7 +400,7 @@ ${m.description}`,
     }
     slides.push({
       kind: 'stress',
-      caption: stress.caption || '',
+      caption: stress.summary || '',
       md,
     });
   }

@@ -38,7 +38,7 @@
   "anatomyBlock": "code-canvas",
   "sample": "<!-- _class: code -->\n\n## One block, syntax lit, sized to be read from the back.\n\n```js\n// The code slide holds ONE idea — a function, not a file.\nfunction fitsOnASlide(block) {\n  const lines = block.split('\\n').length;\n  // Twelve lines reads from the back row; twenty is the wall.\n  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';\n}\n```\n",
   "stressDoc": {
-    "caption": "Twenty lines — the wall for one block.",
+    "summary": "Twenty lines — the wall for one block.",
     "sample": "<!-- _class: code -->\n\n## Twenty lines is the wall.\n\n```js\n// A stress block at the ceiling: every line still earns its place.\nfunction stressTheFrame(lines) {\n  const budget = 20;                      // the hard wall\n  const readable = 12;                    // the comfort line\n  if (lines <= readable) return 'fine';\n  if (lines > budget) return 'split it';  // two slides beat one scroll\n  // Between comfort and the wall, trim ruthlessly:\n  // - drop imports and boilerplate\n  // - elide with ... what the point survives without\n  // - keep the line the talk is about\n  const keep = ['the signature', 'the branch', 'the return'];\n  return keep.join(' + ');\n}\n// The frame does not scroll. The audience does not squint.\n// What does not fit was never the point.\n```\n"
   },
   "whenToUse": [

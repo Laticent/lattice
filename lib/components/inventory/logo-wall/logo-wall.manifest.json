@@ -109,12 +109,12 @@
   "variantDocs": {
     "color": {
       "label": "color",
-      "caption": "Marks keep their brand hues.",
+      "summary": "Marks keep their brand hues.",
       "sample": "<!-- _class: logo-wall color -->\n\n`logo-wall color`\n\n## color lets the marks keep their brands.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n"
     },
     "dense": {
       "label": "dense",
-      "caption": "Six columns for the long roster.",
+      "summary": "Six columns for the long roster.",
       "sample": "<!-- _class: logo-wall dense -->\n\n`logo-wall dense`\n\n## dense packs the long roster, captions off.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n- ![Cobalt](cobalt.svg)\n- ![Sable](sable.svg)\n- ![Quanta](quanta.svg)\n- ![Lumen](lumen.svg)\n"
     }
   },
