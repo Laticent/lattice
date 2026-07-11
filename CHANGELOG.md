@@ -152,6 +152,18 @@ in patch versions.
 
 ### Changed
 
+- **The live performance panel now tells the truth about the FRAME / TOTAL numbers.**
+  After the patch path landed (an edit swaps the slide body in place instead of rebuilding
+  the whole preview), the panel kept judging FRAME by a single-frame budget (`good < 16ms`)
+  — a budget a *full rebuild* can never meet — and it EMA-blended the ~2ms warm patch with
+  the ~485ms cold rebuild into one meaningless number, so a rare theme switch quietly poisoned
+  the fast typing reading. Each render now carries its regime (`patch` vs `rebuild`); the panel
+  smooths and rates the two **separately** — a patch against the frame budget (green while you
+  type), a rebuild against a realistic full-reparse budget — and labels which one you're seeing,
+  with honest explanations (the cost is the stylesheet reparse a rebuild pays and a patch skips,
+  not slide weight). Verified on the real built Studio: typing reads `patch ~1ms`, a light/dark
+  switch reads `rebuild ~250ms`, and the rebuild no longer blends into the typing number.
+  Metrics honesty (§C1) of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
 - **Editing a slide in the Studio no longer re-parses the whole theme stylesheet on
   every keystroke-render.** The Studio's live preview (`single-slide-render.ts`)
   rewrote the entire preview-iframe document on every render — re-parsing the ~560KB

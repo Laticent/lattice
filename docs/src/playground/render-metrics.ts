@@ -64,6 +64,17 @@ export type RenderSample = {
 	/** Edits collapsed into this one render by the preview debounce (≥1). Set by
 	 * recordRenderSample from the debounce bridge, so callers omit it. */
 	coalesced?: number;
+	/** Which render regime produced this sample:
+	 *   'patch' — the resident-document fast path swapped only the `.lattice` body
+	 *             (nothing outside the slide changed); a true frame-budget op (~2ms).
+	 *   'write' — a full `srcdoc` rebuild (first render, or a theme/size/mode change)
+	 *             that re-parses the whole stylesheet + reloads the runtime (tens–
+	 *             hundreds of ms; inherently unable to meet a single-frame budget).
+	 * The overlay rates + smooths FRAME/TOTAL PER regime so the rare rebuild can't
+	 * poison the fast typing number, and so a rebuild isn't judged against a budget it
+	 * can never meet. Undefined on samples from paths that don't distinguish (rated
+	 * as-is). See engineering/decisions/2026-07-11-preview-performance-diagnosis.md §C1. */
+	writePath?: 'patch' | 'write';
 	/** Per-stage engine breakdown, present only when the overlay requested it. */
 	stats?: RenderStats;
 	/** The unsmoothed sample, attached once a consumer exists. */
@@ -79,6 +90,11 @@ let last: RenderSample | null = null;
 // overlay mounting/unmounting (the numbers don't reset when you toggle it).
 const SMOOTH = 0.3;
 const TIMING_KEYS = ['engineMs', 'sanitizeMs', 'frameMs', 'fitMs', 'totalMs'] as const;
+// frameMs/totalMs differ by ORDERS OF MAGNITUDE between the patch (~2ms) and write
+// (~485ms) regimes, so one shared EMA would blend them into a meaningless number and
+// let a rare rebuild poison the typing average. Smooth those two PER regime; the
+// others (engine/sanitize/fit are regime-independent) keep one global bucket.
+const PER_REGIME_KEYS = new Set(['frameMs', 'totalMs']);
 const ema: Record<string, number> = Object.create(null);
 
 function smooth(key: string, v: number): number {
@@ -102,7 +118,14 @@ export function recordRenderSample(sample: RenderSample): RenderSample {
 		return sample;
 	}
 	const smoothed: RenderSample = { ...sample, raw: sample };
-	for (const k of TIMING_KEYS) smoothed[k] = smooth(k, sample[k]);
+	// Regime-scope the EMA bucket for frameMs/totalMs so the patch and write regimes
+	// smooth independently; a regime change then shows the new regime's number at once
+	// instead of a slow blend across the boundary.
+	const regime = sample.writePath;
+	for (const k of TIMING_KEYS) {
+		const bucket = regime && PER_REGIME_KEYS.has(k) ? `${k}:${regime}` : k;
+		smoothed[k] = smooth(bucket, sample[k]);
+	}
 	last = smoothed;
 	for (const fn of listeners) {
 		try {

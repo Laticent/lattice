@@ -283,10 +283,39 @@ render there — pre-existing, unchanged by this work; if the Studio later passe
 content-accurate flag, the patch path already handles it.
 
 ### C. Metrics honesty (so the panel tells the truth)
-1. Recalibrate FRAME/TOTAL bands; split **cold first render** from **warm re-render**
-   so a green warm number isn't hidden behind a red cold one.
+1. **Split warm patch from cold rebuild in the FRAME/TOTAL rating — SHIPPED.** The
+   overlay was telling three lies about FRAME, all rooted in the patch path (B③)
+   landing without the panel learning about it: (a) `render-metrics.ts` **EMA-blended**
+   the ~2ms warm body-patch with the ~485ms cold full-write into one meaningless number,
+   so the fast common case (typing) read as a mid-hundreds blend whenever a rare rebuild
+   was in the trailing average; (b) the `good < 16ms` band judged a **full-document
+   reparse** against a single-frame budget it can *never* meet (meta-finding #2); (c) the
+   "why" blamed **slide weight** ("heavy slides cost more"), when the real cost is the
+   stylesheet reparse a full rebuild pays and a patch skips entirely. Fix (docs-only, no
+   engine/export change): the render path now stamps each sample with its regime
+   (`writePath: 'patch' | 'write'` — patch at the body-swap record site, write at the
+   full-srcdoc site in `single-slide-render.ts`); `render-metrics.ts` keeps a **separate
+   EMA per regime** for `frameMs`/`totalMs`, so a rebuild can't poison the typing number
+   and a regime change shows the new regime immediately; `perf-metrics.ts` rates FRAME/
+   TOTAL **by regime** (a patch on the tight frame budget → green when fast; a rebuild on
+   a realistic full-reparse band, never the impossible 16ms) and the row/detail label the
+   regime ("patch" vs "rebuild") with honest what/why text. So while you type the panel
+   reads the true ~2ms patch (green); a theme/size/mode switch reads the rebuild cost,
+   labeled as the one-off it is.
 2. Add a **browser-side FRAME/LCP bench** (puppeteer, CPU-throttled, production
    `dist`) to the perf tooling so these needles are tracked with real evidence.
+
+**Correction to B①'s premise (found while scoping it).** The engine map showed the
+PDF/PPTX/PNG export path (`lattice-emulator.js`) **discards `render().css`** — it inlines
+the full disk `lattice.css` and *rasterizes*, so no CSS bytes ship in those artifacts, and
+the HTML player already prunes its own copy. The **only** consumer of `render().css` is the
+live browser preview. So engine-side CSS scoping of `render().css` does **not** change any
+exported artifact's bytes (no export sign-off gate fires) — and, post-B③, its remaining win
+is narrower than first framed: it helps theme/size/mode switches (full-writes) and the
+Playground's shell-less cold render, not the warm edit the patch path already made ~2ms.
+Deferred by owner in favor of metrics honesty (C①); a trusted selector-prune kernel already
+exists (`lib/export/player-prune.js`) to reuse at **build time** (rule→required-components
+tagging + a runtime set-filter, no browser css-tree) when it's picked up.
 
 ### Explicitly *not* the plan
 A faster parser, an AST, look-ahead — these target `RENDER 19ms` / `39ms/58 slides`,

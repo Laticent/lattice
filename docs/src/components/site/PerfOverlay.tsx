@@ -208,7 +208,10 @@ function Overlay() {
 			const raw = rawRec ? (rawRec[m.key] ?? null) : null;
 			// The RENDER row drills into the engine's per-stage breakdown (item 1).
 			const breakdown = m.key === 'engineMs' ? sample?.stats : undefined;
-			return { value, rating: value == null ? null : rateMetric(m, value), raw, breakdown };
+			// FRAME/TOTAL are rated + labeled by the live render regime (patch vs rebuild),
+			// so a full rebuild isn't judged against a single-frame budget it can't meet.
+			const regime = m.regimeBands ? sample?.writePath : undefined;
+			return { value, rating: value == null ? null : rateMetric(m, value, regime), raw, breakdown, regime };
 		},
 		[vitals, runtime, sample],
 	);

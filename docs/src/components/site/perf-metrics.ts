@@ -41,8 +41,14 @@ export type MetricMeta = {
 	why: string;
 	/** Budget thresholds; absent → the row shows a neutral dot (no rating). */
 	bands?: Bands;
+	/** Regime-specific bands (FRAME/TOTAL): the same metric is judged differently
+	 * depending on whether the render was a warm 'patch' or a cold 'write' — a full
+	 * rebuild can't meet a single-frame budget, so it gets a realistic one. When the
+	 * live regime (passed as the string `extra`) has an entry here, it wins over
+	 * `bands` for both the rating AND the detail-card band label. */
+	regimeBands?: Partial<Record<'patch' | 'write', Bands>>;
 	/** Override rating (MEM rates by heap fraction, passed as `extra`). */
-	rate?: (v: number, extra?: number) => Rating | null;
+	rate?: (v: number, extra?: number | string) => Rating | null;
 	/** True for a proxy metric (CPU≈) — the detail card flags the approximation. */
 	approximate?: boolean;
 };
@@ -50,11 +56,26 @@ export type MetricMeta = {
 const ms = (v: number) => Math.round(v);
 const round3 = (v: number) => v.toFixed(3);
 
+// The regime a render sample carries (mirrors RenderSample.writePath); passed to
+// rateMetric/bandLabel as `extra` so FRAME/TOTAL judge + explain the live regime.
+export type Regime = 'patch' | 'write';
+/** How each regime reads in the UI — a patch is a quick in-place swap, a write a rebuild. */
+export const REGIME_WORD: Record<Regime, string> = { patch: 'patch', write: 'rebuild' };
+
+// The bands that actually govern a metric right now: the live regime's bands when it
+// has an entry in `regimeBands`, else the metric's default `bands`.
+function activeBands(m: MetricMeta, extra?: number | string): Bands | undefined {
+	if (m.regimeBands && typeof extra === 'string' && m.regimeBands[extra as Regime]) return m.regimeBands[extra as Regime];
+	return m.bands;
+}
+
 // Human-readable budget line for the detail card, e.g. "good < 50ms · ok < 100ms".
-export function bandLabel(m: MetricMeta): string | null {
-	if (!m.bands) return null;
+// Takes the live regime so a FRAME/TOTAL label matches the band its value is rated by.
+export function bandLabel(m: MetricMeta, extra?: number | string): string | null {
+	const bands = activeBands(m, extra);
+	if (!bands) return null;
 	const u = typeof m.unit === 'function' ? '' : m.unit;
-	const { good, ni, dir = 'lower' } = m.bands;
+	const { good, ni, dir = 'lower' } = bands;
 	const cmp = dir === 'lower' ? '<' : '>';
 	return `good ${cmp} ${good}${u} · ok ${cmp} ${ni}${u}`;
 }
@@ -65,8 +86,14 @@ export function rateByBands(bands: Bands, v: number): Rating {
 	return v < good ? 'good' : v < ni ? 'needs-improvement' : 'poor';
 }
 
-/** Rating for a metric+value (uses meta.rate override, else bands, else null). */
-export function rateMetric(m: MetricMeta, v: number, extra?: number): Rating | null {
+/** Rating for a metric+value (regime bands, else rate override, else bands, else null). */
+export function rateMetric(m: MetricMeta, v: number, extra?: number | string): Rating | null {
+	// Regime-specific bands win first (FRAME/TOTAL): a full rebuild judged on a rebuild
+	// budget, a patch on the frame budget — never one against the other's yardstick.
+	if (m.regimeBands && typeof extra === 'string') {
+		const rb = m.regimeBands[extra as Regime];
+		if (rb) return rateByBands(rb, v);
+	}
 	if (m.rate) return m.rate(v, extra);
 	if (m.bands) return rateByBands(m.bands, v);
 	return null;
@@ -118,7 +145,7 @@ export const RUNTIME: MetricMeta[] = [
 		key: 'MEM', label: 'MEM', title: 'JavaScript heap', group: 'runtime',
 		format: ms, unit: 'MB',
 		// Rated by fraction of the heap limit (passed as `extra`), not absolute MB.
-		rate: (_v, frac) => (frac == null || !Number.isFinite(frac) ? null : frac <= 0.5 ? 'good' : frac <= 0.8 ? 'needs-improvement' : 'poor'),
+		rate: (_v, frac) => (typeof frac !== 'number' || !Number.isFinite(frac) ? null : frac <= 0.5 ? 'good' : frac <= 0.8 ? 'needs-improvement' : 'poor'),
 		what: 'JavaScript memory in use (Chrome only).',
 		why: 'Climbing steadily across a session is a hint at a memory leak.',
 	},
@@ -143,14 +170,25 @@ export const RENDER: MetricMeta[] = [
 	{
 		key: 'totalMs', label: 'TOTAL', title: 'Edit → paint', group: 'render',
 		format: ms, unit: 'ms', bands: { good: 100, ni: 200 },
+		// Judged by regime, same as FRAME below: a normal edit is engine + sanitize +
+		// a ~2ms body patch; a rebuild adds the full frame reparse.
+		regimeBands: { patch: { good: 100, ni: 200 }, write: { good: 300, ni: 700 } },
 		what: 'The whole edit→paint span: from render start to the slide appearing on screen.',
-		why: 'What you actually feel after an edit — engine, sanitize, and the browser drawing the frame combined.',
+		why: 'What you actually feel after an edit. On a normal edit it’s the engine plus a near-instant in-place patch; on a rebuild (theme, size, or light/dark change) it also carries the full frame reparse below.',
 	},
 	{
 		key: 'frameMs', label: 'FRAME', title: 'Frame parse & layout', group: 'render',
 		format: ms, unit: 'ms', bands: { good: 16, ni: 50 },
-		what: 'How long the browser took to parse and lay out the rendered slide inside the preview frame.',
-		why: 'Heavy slides — many nodes, big images — cost more here.',
+		// FRAME means two very different things depending on the render regime, so it is
+		// rated against two different budgets (perf-diagnosis §C1). A 'patch' swaps only
+		// the slide body in place — a true single-frame op. A 'write' rebuilds the whole
+		// preview document, re-parsing the ~260KB stylesheet + reloading the runtime;
+		// that is inherently tens–hundreds of ms and can NEVER meet a 16ms frame budget,
+		// so judging it by one was the panel's central lie. The write band reflects the
+		// real floor of a full-document reparse (roomier still on a slow phone).
+		regimeBands: { patch: { good: 16, ni: 50 }, write: { good: 250, ni: 600 } },
+		what: 'How the edited slide reached the screen. Normally its body is swapped in place — a patch, near-instant. It climbs only on a rebuild (changing theme, size, or light/dark), when the browser re-parses the whole stylesheet.',
+		why: 'A patch skips the stylesheet reparse entirely; a rebuild pays it. This is a rebuild cost, not a slide-weight one — the size of the sheet drives it, and a rebuild is a one-off, not something you hit while typing.',
 	},
 	{
 		key: 'fitMs', label: 'FIT', title: 'Fit to pane', group: 'render',
