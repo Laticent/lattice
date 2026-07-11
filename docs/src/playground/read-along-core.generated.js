@@ -126,8 +126,7 @@ var require_dist = __commonJS({
       CY: "calendar year",
       // lower-case "cy" / name "Cy" must NOT fire → cased, not BASE
       COO: "chief operating officer",
-      CMO: "chief marketing officer",
-      CRO: "chief revenue officer",
+      // monosemic (lower-case "coo" is the verb → cased)
       COGS: "cost of goods sold",
       // lower-case "cogs" is the machine part
       TAM: "total addressable market",
@@ -136,6 +135,12 @@ var require_dist = __commonJS({
       MoM: "month over month",
       WoW: "week over week"
       // canonical mixed case; "mom"/"wow" the words stay safe
+      // `CRO`/`CMO` are NOT here — they are genuinely BIMODAL even in all-caps within a
+      // boardroom (CRO = chief-revenue-officer vs conversion-rate-optimization; CMO =
+      // chief-marketing-officer vs collateralized-mortgage-obligation). A deck-blind global
+      // guess is a boardroom faceplant, so they are demoted to the opt-in `finance` pack
+      // (vocabulary preserved) and the author declares the one they mean via `acronyms:`
+      // front-matter (§15). Only tokens that are UNAMBIGUOUS in a presentation stay always-on.
     };
     var DOMAINS = {
       legal: {
@@ -152,7 +157,11 @@ var require_dist = __commonJS({
       finance: {
         // WoW/MoM live in BASE_CASED (canonical case). These stay for the opt-in path.
         wow: "week over week",
-        mom: "month over month"
+        mom: "month over month",
+        // Demoted from always-on (§15): bimodal even in caps — preserved here for the
+        // opt-in path; per-deck, the author declares the meaning via `acronyms:`.
+        cro: "chief revenue officer",
+        cmo: "chief marketing officer"
       }
     };
     function lookupLexicon(token, domains = []) {

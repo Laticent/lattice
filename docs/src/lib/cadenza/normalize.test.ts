@@ -196,4 +196,21 @@ describe('say-as lexicon — expand / word / spell (§14)', () => {
     expect(toSpoken('IT')).toBe('IT');
     expect(toSpoken('US')).toBe('US');
   });
+
+  // COLLISION GUARD (§15) — the always-on dictionary holds ONLY unambiguous tokens.
+  // Encodes the IT/US lesson and the CRO/CMO demotion as CI, so a future well-meaning
+  // add of a word-collision or a bimodal acronym fails a test rather than a boardroom.
+  it('collision guard: no always-on key expands a common word or a bimodal acronym', () => {
+    // Common English words (any case) must pass through untouched.
+    for (const w of ['it', 'us', 'or', 'in', 'on', 'is', 'as', 'we', 'an', 'so', 'no', 'do', 'go', 'IT', 'US', 'OR', 'IP', 'AR']) {
+      expect(toSpoken(w)).toBe(w);
+    }
+    // Bimodal acronyms are demoted (author declares them via `acronyms:` — not always-on).
+    for (const a of ['CRO', 'CMO']) {
+      expect(toSpoken(a)).toBe(a);
+    }
+    // Sanity: an unambiguous acronym still expands (the guard didn't neuter the dictionary).
+    expect(toSpoken('EBITDA')).toBe('ee bit dah');
+    expect(toSpoken('COO')).toBe('chief operating officer'); // monosemic, kept
+  });
 });
