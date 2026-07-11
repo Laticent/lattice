@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The full Form/Cell/Tile → semantic HTML map (§4A) is adopted: the DECK is a self-contained composition → `<article class="lattice">` (with `<main>` as the shell/host landmark — where vs. what); a SLIDE stays `<section>` (a section of the deck-article; measurement + all CSS bind to it); the masthead/footer Cells become `<header>`/`<footer>`; the stage Cell stays `<div>`; liftable leaf cards become `<article>` (scoped, not every `<li>`). `<article>` plays its role at exactly the two liftable boundaries (deck + leaf card), never per slide. The container change is TWO edits on TWO render paths — a sanctioned `<main><article>` wrapper in the export shell (section-scoped CSS there) AND the engine/preview `div.lattice → article.lattice` retag with its lockstep `css.js` kernel edit — DECISION: do both. `<figure>` for charts folds into the SAME change (DECISION: one combined, export-signed PR). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint). Owner call: best practice, don't settle. A THIRD adversarial round (§14) tested the worked example against the full "accessible to all, any device" goal: the semantic base is confirmed solid, but it surfaced a tracked GAP REGISTER above the HTML — the shipped PDF (untagged) + PPTX (image-only, no alt) artifacts (the doc's own "out of scope" premise was factually wrong and is corrected), fixed-canvas reflow (1.4.10), forced-colors, color-only tone (1.4.1), bare-`<title>` SVG naming (needs aria-labelledby cross-AT), a missing `<title>` (2.4.2), pagination context (1.3.1), and no axe gate. Each tagged foundation vs later baby step. Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13. REFRESH 2026-07-10 (§15) after ~119 commits: foundation intact + reinforced (Form-default shipped/audited; CVD textures now work in runtime), but a THIRD render surface appeared — the HTML Lattice player (now the primary shared artifact) — which re-poses the landmark problem and owns G1/G3/G6/G9 via its own AA+AXE docs; §5 Studio citations stale (activity-bar restructure, still no `<main>`); gap deltas G5 (partial, audio-only) / G6 (Read·Article reflows) / G9 (player TOC) / G11 (captions shipped); +menus→nav finding. §15 then HARDENED by a red-team/inversion/checker round (all three converged): facts confirmed exact, but three false-comfort verdicts corrected — the "player's AA+AXE checklist owns G1/G3/G6/G9" hand-off was laundering (those docs are `proposed`, the criterion is scoped to Read·Article/Slides only, no axe gate exists → gaps stay OURS); Read·Article reflow is LOSSY (visual layouts dead-end to non-reflowing views); the masthead/footer retag is no longer a pure tag-swap (carousel.js regex + nested-`<footer>` collision from Form-default); +a stale-citation banner (only §5/player citations re-verified).
+summary: Retag structural divs to native AA-sensible elements (change the tag, keep the class, keep the styling — never wrap), governed by a promotion rubric that stops both under-tagging (Studio has no `<main>`) and over-tagging (landmark noise). Two surfaces — the app (website/Studio/Playground) and the decks (web preview + HTML export). The full Form/Cell/Tile → semantic HTML map (§4A) is adopted: the DECK is a self-contained composition → `<article class="lattice">` (with `<main>` as the shell/host landmark — where vs. what); a SLIDE stays `<section>` (a section of the deck-article; measurement + all CSS bind to it); the masthead/footer Cells become `<header>`/`<footer>`; the stage Cell stays `<div>`; liftable leaf cards become `<article>` (scoped, not every `<li>`). `<article>` plays its role at exactly the two liftable boundaries (deck + leaf card), never per slide. The container change is TWO edits on TWO render paths — a sanctioned `<main><article>` wrapper in the export shell (section-scoped CSS there) AND the engine/preview `div.lattice → article.lattice` retag with its lockstep `css.js` kernel edit — DECISION: do both. `<figure>` for charts folds into the SAME change (DECISION: one combined, export-signed PR). Headingless slides (quote/big-number) get a front-matter aria-label; presentational divs stay div (restraint). Owner call: best practice, don't settle. A THIRD adversarial round (§14) tested the worked example against the full "accessible to all, any device" goal: the semantic base is confirmed solid, but it surfaced a tracked GAP REGISTER above the HTML — the shipped PDF (untagged) + PPTX (image-only, no alt) artifacts (the doc's own "out of scope" premise was factually wrong and is corrected), fixed-canvas reflow (1.4.10), forced-colors, color-only tone (1.4.1), bare-`<title>` SVG naming (needs aria-labelledby cross-AT), a missing `<title>` (2.4.2), pagination context (1.3.1), and no axe gate. Each tagged foundation vs later baby step. Direction hardened by a red-team, an inversion pass, and an independent checker — which caught a shipped-regression aria-hidden defect, the two-path container reality, and that slides are mostly `<h2>` not `<h1>`; all folded in (§10). Guard rails get real gates, not prose. Forks resolved §13. REFRESH 2026-07-10 (§15) after ~119 commits: foundation intact + reinforced (Form-default shipped/audited; CVD textures now work in runtime), but a THIRD render surface appeared — the HTML Lattice player (now the primary shared artifact) — which re-poses the landmark problem and owns G1/G3/G6/G9 via its own AA+AXE docs; §5 Studio citations stale (activity-bar restructure, still no `<main>`); gap deltas G5 (partial, audio-only) / G6 (Read·Article reflows) / G9 (player TOC) / G11 (captions shipped); +menus→nav finding. §15 then HARDENED by a red-team/inversion/checker round (all three converged): facts confirmed exact, but three false-comfort verdicts corrected — the "player's AA+AXE checklist owns G1/G3/G6/G9" hand-off was laundering (those docs are `proposed`, the criterion is scoped to Read·Article/Slides only, no axe gate exists → gaps stay OURS); Read·Article reflow is LOSSY (visual layouts dead-end to non-reflowing views); the masthead/footer retag is no longer a pure tag-swap (carousel.js regex + nested-`<footer>` collision from Form-default); +a stale-citation banner (only §5/player citations re-verified). §16 adds the figure/figcaption implementation SPEC (verified vs main 2026-07-10): which nodes get `<figure>` (7 chart `*-figure` divs + word-cloud/diagram/functionplot SVGs) vs KEEP-native (gantt/kanban/progress/timeline-list — native markup, no SVG; journey is list-dominant); `<figcaption>` = the retagged `.chart-caption` with the title/subtitle/caption three-role split; the `image` carve-out gets an `alt:` field + `role="img"`/aria-label (not `<figure>`, its photo is a CSS background); qr/video/radar-mini already done.
 ---
 
 # Semantic HTML for accessibility — retag, don't wrap
@@ -933,3 +933,78 @@ through the player's Present/Read·Slides), (b) get the player-shell items *adde
 the 07-07 P4 list + land the G10 axe gate, (c) handle the carousel/footer lockstep
 edits, and (d) treat every line number below §15 as approximate (citation banner,
 top of body).
+
+---
+
+## 16. `<figure>` / `<figcaption>` scope — the implementation spec
+
+§4A/§7 decide *that* charts become `<figure>`; this section pins down *which nodes*,
+*what the caption is*, and *what is carved out* — the detail an implementer needs and
+the earlier drafts left in chat. **The per-component split below is verified against
+`main` on 2026-07-10; re-verify at build time (§15 citation banner).**
+
+### The two rules
+
+- **`<figure>`** wraps a **self-contained graphic** — a single SVG chart, a rendered
+  diagram, a QR code, a video poster. Not a list, not a table, not prose.
+- **`<figcaption>`** is a **retag of the caption the author already wrote** — the
+  trailing paragraph the chart kernel peels into `<p class="chart-caption">`. It is
+  **optional** (present only when authored) and is **never synthesized** from the
+  title.
+
+### What gets `<figure>` (and what deliberately does NOT)
+
+| Component(s) | Emits today | Treatment |
+|---|---|---|
+| `funnel` · `map` · `piechart` · `quadrant` · `radar` · `roadmap` · `state-chart` | `<div class="*-figure">` + `<svg>` | **→ `<figure>`** (all 7 wrappers are `<div>` today). **`radar` caveat:** retag only the outer `.radar-figure`; radar *already* emits `<figure class="radar-mini">` + `<figcaption>` for its mini swatches (`radar.transform.js:617-619`) — leave those. |
+| `word-cloud` | single `<svg>` | **→ `<figure>`.** |
+| `diagram` | Mermaid `<svg>` | **→ `<figure>`.** Ensure the SVG carries a `<title>` (mermaid may emit none — §14 finding). |
+| function plot | `<div class="functionplot">` + `<svg>` | **→ `<figure>`** — but **fix the `div.functionplot` JS selectors first** (§7), or plots silently stop rendering. |
+| **`gantt` · `kanban` · `progress` · `timeline-list`** | **native markup** (no transform — CSS-styled lists/tables/grids) | **KEEP native semantics.** These are not single graphics; `timeline-list` is literally a list (`<ol>`). Wrapping them in `<figure>` would be wrong. |
+| **`journey`** | `<svg>` **+** heavy list markup (list-dominant) | **Judgment call at build** — likely keep the list as the primary structure with the SVG as an inline graphic; do not blanket-figure it. |
+| `image` | CSS `background-image` on `.lattice-bg` (**no `<img>`**) | **Carved out** — see below. No `<figure>`. |
+| tables · lists · prose · `big-number` · `quote` | native `<table>`/`<ul>`/`<h_>`/`<p>` | **Already semantic** — a data table is not a figure. |
+
+**Already done (do not redo):** `qr` emits `<figure class="qr-figure">`; `video` emits
+`<figcaption>`; the HTML player's prose projection emits `.lp-figure` for re-hosted
+media (a consistency reference, `prose-projection.mjs`).
+
+### What gets `<figcaption>`
+
+- **`.chart-caption`** — the only caption class the engine emits (the author's trailing
+  paragraph). → `<figcaption>`. A `diagram-caption`, if authored, likewise.
+- **Three distinct text roles, kept apart** (this is the anti-duplication contract, §7):
+
+  | Role | Element today | Lives | Job | Stays / becomes |
+  |---|---|---|---|---|
+  | **title** | `<h2>` | lifted to the masthead `<header>` — *outside* the figure | names the **slide** | stays `<h2>` |
+  | **subtitle** | `<p class="chart-subtitle">` | in the figure header | secondary framing | stays `<p>` |
+  | **caption** | `<p class="chart-caption">` | tail of the figure | describes the **graphic** | **→ `<figcaption>`** |
+  | **the graphic** | `<svg>` | inside the figure | names the **image** | keep `<title>`/`<desc>`, referenced by `aria-labelledby`/`aria-describedby` (§14) |
+
+  **One accessible name per node, no `aria-label` piled on top**, and the `<figcaption>`
+  must not repeat the `<h2>` or the SVG `<title>` (double-announcement, §7).
+
+### The `image` carve-out — no figure, an `alt:` mechanism instead
+
+`image` is not figured because its photo is a **CSS background** (`.lattice-bg`), not an
+`<img>`. Its authored text is the `body` field ("Optional caption") — a **visible
+caption, not a `<figcaption>`**. Its accessibility is a *different* mechanism (net-new,
+not yet built):
+
+- **Add an `alt:` field** (distinct from `body`, which is the visible so-what caption).
+- **Decorative photo** (the text is the message — `statement`, most `spotlight`) →
+  `.lattice-bg aria-hidden="true"` (current, correct).
+- **Informative photo** (`gallery` — diagrams/screenshots "where every pixel matters";
+  product shots) → `.lattice-bg role="img" aria-label="{alt}"` (a CSS-background div
+  *can* be announced this way — no restructuring to `<img>` needed). **`alt` should be
+  required for `gallery`.**
+
+### Byte cost + gate
+
+`<figure>` is the **one** retag that is not byte-neutral (UA `margin: 1em 40px`) — every
+conversion ships a co-located `margin:0` reset and goes through **export sign-off**
+(§7). The `role="img"`/`aria-label` image work and the SVG-`<title>` naming are
+byte-neutral attribute additions. None of this closes **G5** (a caption + a `<title>`
+name the chart; they don't give a blind user its *data* — the data-table alternative
+stays tracked).
