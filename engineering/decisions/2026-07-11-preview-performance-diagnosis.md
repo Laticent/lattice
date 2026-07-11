@@ -125,13 +125,24 @@ hydration.
 3. **Delivery (NOT yet done):** brotli + `Cache-Control: immutable` on the
    content-hashed `v/<hash>/` assets (Cloudflare Pages, already used for PR previews)
    — GitHub Pages can express neither. Infra decision, deferred.
-4. **Returning-visitor shell (NOT yet done):** the shell is gated to first-time
-   visitors; a returning user (the screenshot case) still gets the island-gated first
-   paint. A neutral (deck-agnostic) shell for them is the next slice.
-5. **Dark-mode newcomer (NOT yet done):** the shell bakes indaco·**light** only, so a
-   first-timer whose OS is dark gets no shell (a large share of phones). Baking a dark
-   variant (render + prune the same slide in indaco-dark, pick by the seed script's
-   resolved mode) is a clean follow-up.
+4. **Returning-visitor shell — SHIPPED.** A returning user's deck lives in
+   localStorage (invisible to the build), so instead of baking their slide we
+   **snapshot the live preview on leave**: `docs/src/playground/snapshot-cache.js`
+   walks the preview iframe's already-parsed CSSOM, keeps the rules the rendered slide
+   matches (~560KB → ~120KB, native — no css-tree in the browser), captures the slide
+   HTML (chart SVGs and all) + that critical CSS + palette/mode, and stores it
+   (latest-only, size-capped). `StudioShell` captures on `pagehide`/`visibilitychange`
+   and once after the first render; a pre-paint replay script in `studio.astro` paints
+   a matching-palette/mode snapshot into the shell before hydration. **Measured
+   (returning mobile visit, Slow-4G): LCP 700ms (light) / 1267ms (dark)** — the real
+   last slide at ~FCP, versus the same ~6s blank before. Verified: the shipped replay
+   shows the snapshot slide in isolation, and end-to-end the app captures the actually
+   -rendered slide and replays it (a complex `kpi` slide re-renders faithfully from the
+   CSSOM-extracted CSS).
+5. **Dark-mode newcomer (NOT yet done):** the *build-time* newcomer shell bakes
+   indaco·**light** only, so a first-time visitor whose OS is dark gets no shell (a
+   returning dark user IS covered — their snapshot carries the dark render). Baking a
+   dark newcomer variant is the remaining slice.
 
 **Maker-checker.** An independent checker reviewed the diff before merge; its findings
 were folded back: css-tree was a phantom (transitive-only) dependency whose top-level

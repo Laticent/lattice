@@ -14,9 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
+import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
+import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
 import { CommandPalette } from './CommandPalette';
@@ -303,6 +305,55 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		const t = setTimeout(dismissSsrShell, 12000); // backstop: never trap the user
 		return () => clearTimeout(t);
 	}, [dismissSsrShell]);
+	// Snapshot the live preview's CURRENT slide (rendered HTML + just the CSS it
+	// uses, from the iframe's CSSOM) into localStorage, so a RETURNING visit paints
+	// the real last slide in the instant-shell instead of a blank screen (front A
+	// only bakes the newcomer slide at build time). Captured on leave (pagehide /
+	// tab-hide) and once shortly after the first render — never per-keystroke.
+	const previewBoxRef = React.useRef<HTMLDivElement>(null);
+	const captureLastSlide = React.useCallback(() => {
+		try {
+			const fr = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+			if (!fr) return;
+			const root = document.documentElement;
+			const geom = (fr.parentElement as { __latticeGeom?: { width: number; height: number } } | null)?.__latticeGeom;
+			const snap = captureFromFrame(fr, {
+				w: geom?.width || 1280,
+				h: geom?.height || 720,
+				palette: root.getAttribute('data-palette') || 'indaco',
+				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
+				themeUrlBase: options.themeBase,
+				ts: Date.now(),
+			});
+			if (!snap) return;
+			// DEFENSE-IN-DEPTH (#22): the replay injects this HTML into the TOP document
+			// (not a sandboxed iframe), and for a returning user it derives from whatever
+			// deck they last viewed — including a shared/AI deck. The slide was already
+			// sanitized before rendering, but re-run DOMPurify here so a stored snapshot
+			// can never carry an XSS payload into the main origin on the next visit.
+			snap.html = sanitizeSlideHtml(snap.html);
+			saveSnapshot(snap);
+		} catch {
+			/* best-effort — a failed capture just means the next visit uses the newcomer/none path */
+		}
+	}, [options.themeBase]);
+	React.useEffect(() => {
+		const onHide = () => {
+			if (document.visibilityState === 'hidden') captureLastSlide();
+		};
+		window.addEventListener('pagehide', captureLastSlide);
+		document.addEventListener('visibilitychange', onHide);
+		return () => {
+			window.removeEventListener('pagehide', captureLastSlide);
+			document.removeEventListener('visibilitychange', onHide);
+		};
+	}, [captureLastSlide]);
+	// First-render handler for the preview: dismiss the instant-shell, then capture
+	// the freshly-rendered slide (delayed so async chart/mermaid draws are included).
+	const onPreviewFirstRender = React.useCallback(() => {
+		dismissSsrShell();
+		setTimeout(captureLastSlide, 1500);
+	}, [dismissSsrShell, captureLastSlide]);
 	// Saved LOCAL components from the same shared library (kind:'component') —
 	// authored + saved in the Fabricate Component Studio. They become insertable AND
 	// render styled (their CSS is injected where the deck uses them).
@@ -1697,8 +1748,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
-				<div className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" onFirstRender={dismissSsrShell} />
+				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}

@@ -238,8 +238,12 @@ in patch versions.
   gap, no layout shift — the slide scales by its own container queries). Measured against the
   production build (headless Chrome, CPU 4×/6× + Slow-4G): **LCP 1156/1751ms → 304/531ms**,
   now decoupled from device speed (it's a static element), turning the mobile LCP needle
-  green. The engine bundle is no longer eager-warmed ahead of first paint. First-time
-  visitors only for now (a returning user keeps the prior first paint); front A of
+  green. The engine bundle is no longer eager-warmed ahead of first paint. A **returning
+  visitor** gets the same instant paint of **their own last slide**: on leaving the Studio
+  it snapshots the live preview (the rendered slide HTML + just the CSS it uses, pulled
+  from the iframe's CSSOM) to localStorage, and the pre-paint replay script paints that on
+  the next visit — measured LCP **700ms (light) / 1267ms (dark)** on a returning mobile
+  visit (was the same ~6s blank). Front A of
   `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to

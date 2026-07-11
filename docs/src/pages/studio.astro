@@ -124,15 +124,28 @@ const shell = firstDeck?.slides?.[0] ? await renderFirstSlideShell(firstDeck.sli
 // aspect box), so no JS measure is needed and there is no layout shift.
 const SHELL_CHROME_CSS = shell
 	? `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:#e7e7ea;color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
+:root[data-mode="dark"] #studio-ssr-shell{background:#0c0c0c;color:#e8e8e8;}
 #studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.08);background:#fbfbfa;}
+:root[data-mode="dark"] #studio-ssr-shell .ssr-topbar{background:#161616;border-bottom-color:rgba(255,255,255,.08);}
 #studio-ssr-shell .ssr-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 45deg,#1a3a5c,#3f6d9c,#1a3a5c);flex:0 0 auto;}
-#studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;}
+#studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #studio-ssr-shell .ssr-welcome{flex:0 0 auto;margin:0;padding:12px 16px;font-size:13px;line-height:1.5;color:#41403c;background:#f2efe9;border-bottom:1px solid rgba(0,0,0,.06);}
 #studio-ssr-shell .ssr-welcome strong{color:#1a1a1a;font-weight:600;}
+#studio-ssr-shell .ssr-welcome[hidden]{display:none;}
 #studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,4vw,32px);}
 #studio-ssr-shell .ssr-slidebox{width:100%;max-width:min(960px,100%);box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
+#studio-ssr-shell .ssr-slidebox:empty{aspect-ratio:${shell.width}/${shell.height};}
 #studio-ssr-shell .ssr-slidebox .lattice{width:100%;}
 #studio-ssr-shell .ssr-slidebox .lattice>section{width:100%!important;height:auto!important;max-width:100%;aspect-ratio:${shell.width}/${shell.height};}`
+	: '';
+
+// Pre-paint replay: pick what the instant-shell shows. (1) A RETURNING visitor with
+// a cached last-slide snapshot (matching palette+mode) → paint their real slide.
+// (2) A NEWCOMER (seed flagged data-ssr-shell="on") → the build-time welcome slide +
+// banner. (3) Otherwise the shell stays hidden. Runs inline during body parse, so
+// the choice is committed before first paint.
+const REPLAY_JS = shell
+	? "(function(){var root=document.documentElement,box=document.getElementById('ssr-slidebox');if(!box)return;var palette=root.getAttribute('data-palette')||'indaco';var mode=root.getAttribute('data-mode')==='dark'?'dark':'light';var shown=false;try{var raw=localStorage.getItem('lattice-studio-last-slide');if(raw){var snap=JSON.parse(raw);if(snap&&snap.v===1&&snap.palette===palette&&snap.mode===mode&&snap.html&&snap.css){var st=document.createElement('style');st.textContent=snap.css;document.head.appendChild(st);box.innerHTML=snap.html;shown=true;try{var idx=JSON.parse(localStorage.getItem('lattice-studio-deck-index')||'[]');if(idx[0]&&idx[0].title){var t=document.getElementById('ssr-deck-title');if(t)t.textContent=idx[0].title;}}catch(e){}}}}catch(e){}if(!shown&&root.getAttribute('data-ssr-shell')==='on'){var nc=document.getElementById('ssr-newcomer-css');if(nc)nc.media='all';var tpl=document.getElementById('ssr-newcomer');if(tpl)box.innerHTML=tpl.innerHTML;var wb=document.getElementById('ssr-welcome');if(wb)wb.hidden=false;shown=true;}if(shown)root.setAttribute('data-ssr-shell','on');})();"
 	: '';
 ---
 
@@ -147,12 +160,16 @@ const SHELL_CHROME_CSS = shell
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<style is:global>
 			html, body { margin: 0; height: 100%; overflow: hidden; }
-			/* Instant-shell (below) is hidden by default; the pre-paint seed script
-			   flips data-ssr-shell="on" only for a first-time visitor on the default look. */
+			/* Instant-shell (below) is hidden until the seed script (newcomer) or the
+			   body replay script (returning-user snapshot) flips data-ssr-shell="on". */
 			#studio-ssr-shell { display: none; }
 			:root[data-ssr-shell="on"] #studio-ssr-shell { display: flex; }
 		</style>
-		{shell && <style is:inline set:html={shell.css + SHELL_CHROME_CSS}></style>}
+		{shell && <style is:inline set:html={SHELL_CHROME_CSS}></style>}
+		{/* Newcomer critical CSS — inert (media="not all") until the replay script
+		    picks the newcomer path and flips it to media="all". A returning user uses
+		    the snapshot's own CSS instead, so this never applies for them. */}
+		{shell && <style id="ssr-newcomer-css" is:inline media="not all" set:html={shell.css}></style>}
 		<script is:inline>
 			(function () {
 				var r = document.documentElement;
@@ -198,25 +215,26 @@ const SHELL_CHROME_CSS = shell
 		</script>
 	</head>
 	<body>
-		{/* SSG instant-shell: paints DECKS[0]'s first slide (static HTML + critical
-		    CSS, no JS) so mobile LCP lands at HTML-parse time instead of after the
-		    client:only island + engine bundle. StudioShell removes #studio-ssr-shell
-		    on mount; a returning user is gated out by the seed script above. */}
 		{shell && (
-			<div id="studio-ssr-shell" aria-hidden="true">
-				<div class="ssr-topbar">
-					<span class="ssr-logo"></span>
-					<span class="ssr-deck-title">{firstDeck.title}</span>
+			<Fragment>
+				<div id="studio-ssr-shell" aria-hidden="true">
+					<div class="ssr-topbar">
+						<span class="ssr-logo"></span>
+						<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
+					</div>
+					{/* Newcomer-only welcome banner — hidden until the replay script picks
+					    the newcomer path; it's the largest above-the-fold text a first-time
+					    visitor sees, so it becomes their LCP element. */}
+					<p class="ssr-welcome" id="ssr-welcome" hidden><strong>New here?</strong> This is a sample deck about Lattice — edit any slide to make it yours. Your AI Coach and deck settings are one tap away.</p>
+					<div class="ssr-stage">
+						<div class="ssr-slidebox" id="ssr-slidebox"></div>
+					</div>
 				</div>
-				{/* Static twin of the newcomer welcome banner (StudioShell). It is the
-				    largest above-the-fold text a first-time visitor sees, so rendering it
-				    here makes the LARGEST-contentful-paint a server-rendered element at
-				    HTML-parse time — the LCP lands near FCP, not at hydration. */}
-				<p class="ssr-welcome"><strong>New here?</strong> This is a sample deck about Lattice — edit any slide to make it yours. Your AI Coach and deck settings are one tap away.</p>
-				<div class="ssr-stage">
-					<div class="ssr-slidebox" set:html={shell.html}></div>
-				</div>
-			</div>
+				{/* Build-time newcomer slide, inert until the replay script moves it into
+				    the box for a first-time visitor (a returning user gets their snapshot). */}
+				<template id="ssr-newcomer" set:html={shell.html}></template>
+				<script is:inline set:html={REPLAY_JS}></script>
+			</Fragment>
 		)}
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
