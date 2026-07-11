@@ -1,13 +1,14 @@
 ---
 status: shipped
-summary: Overflow detection today only flags the SLIDE ("Overflows" red ring + tag) with no cause. This ships a yellow "Fix Me" highlight on the specific element responsible for Case A (clip-cell geometry — certain, not a guess), drilled down to the specific stretched-row item within the cell via a content-slack signal, backed by a density.domSelector manifest field + render-verified coverage for all 26 axis-bearing components — AND Case B (§12), a hedged "Likely fix" fallback for slides with no clip-cell at all (e.g. timeline-list, kanban), keyed off each component's density.soft/hard word budget measured live off the rendered DOM.
+summary: Overflow detection today only flags the SLIDE ("Overflows" red ring + tag) with no cause. This ships a yellow "Fix Me" highlight on the specific element responsible for Case A (clip-cell geometry — certain, not a guess), drilled down to the specific stretched-row item within the cell via a content-slack signal, backed by a density.domSelector manifest field + render-verified coverage for all 26 axis-bearing components — AND Case B (§12), a hedged "Likely fix" fallback for slides with no clip-cell at all (e.g. timeline-list; kanban is Case-A-only — its card text is CSS-truncated so density can never be the true cause, §13), keyed off each component's density.soft/hard word budget measured live off the rendered DOM (a same-day fast-follow, §13, fixed a text-gluing undercount and the kanban gap after a post-merge adversarial review).
 ---
 
 # Overflow cause highlighting — a yellow "Fix Me" tag on the element responsible
 
 **Date:** 2026-07-10
-**Status:** shipped — Case A (§1-10, PR #890) and Case B (§12, follow-up PR)
-are both live.
+**Status:** shipped — Case A (§1-10, PR #890) and Case B (§12, PR #892) are
+both live; §13 is a same-day fast-follow (two confirmed bugs found by a
+post-merge adversarial review, both fixed).
 **Related:** `lib/core/overflow-probe.js`, `lib/runtime/index.js` (`startOverflowWatcher`),
 `lib/authoring/prose-budgets.js`, `lib/authoring/review-core.js`,
 `engineering/decisions/2026-06-26-frames-as-flex-cell-trees.md` (clip-cell contract),
@@ -426,4 +427,85 @@ its own visual review confirmed), only the console warning under-counts by
 one page for this specific component shape. Neither `lattice-emulator.js`
 nor its overflow-warning path is touched by this PR (Case B is preview-only,
 `lib/runtime/index.js` only) — worth a dedicated investigation, not pulled
-into this diff.
+into this diff. Tracked as
+[#894](https://github.com/SlideWright/lattice/issues/894) (a Munger-inversion
+finding during §13's adversarial review: a decision-doc mention alone doesn't
+guarantee follow-up the way a tracked issue does).
+
+## 13. Post-merge adversarial trio — two confirmed bugs, fixed same-day (2026-07-11)
+
+Merging §12 (PR #892) without first running the full HARD RULE #25 verification
+ladder was a process miss, caught when directly asked whether it had been red
+teamed. Case B touches the shared runtime kernel AND introduces a genuinely
+novel heuristic (DOM-based word counting, a deliberate deviation from this
+doc's own §6 plan) — that combination should have gotten the full adversarial
+trio (red team + Munger inversion + independent checker) before merge, not
+the single maker-checker pass it actually got. Run post-merge instead, the
+trio found two real, live, CONFIRMED bugs (plus several lower-severity/
+residual findings), fixed in a same-day fast-follow PR:
+
+**Bug 1 — `domWordCount` silently undercounted via adjacent-element text
+gluing (independent checker).** `chart-family.js` builds markup by plain
+string concatenation with NO whitespace between adjacent sibling tags —
+`<div class="timeline-title">Migrate to Argo</div><span
+class="chart-status">at-risk</span><div class="timeline-body">Some notes
+here</div>`. Reading `.textContent` on that tree and splitting the RESULT on
+whitespace glues "Argo" + "at-risk" + "Some" into one token
+("Argoat-riskSome"), silently dropping real prose words before the pill's
+own count is even subtracted — a false NEGATIVE exactly where Case B exists
+to fire. The shipped unit test couldn't catch it: its hand-rolled fake
+inserted a space (`` `${bodyText} ${statusText}` ``) that real chart-family
+markup never emits, so it validated a shape the runtime doesn't actually
+produce. **Fix:** `domWordCount` now walks the DOM tree and tokenizes each
+TEXT NODE independently (using its own local whitespace), concatenating the
+resulting token ARRAYS rather than joining raw strings across element
+boundaries first — `.chart-status` is excluded by skipping its subtree
+during the walk, not by counting-then-subtracting. New tests use real
+`jsdom` elements built with the exact no-whitespace concatenation shape,
+including a same-day regression test for the fake-vs-real gap itself.
+
+**Bug 2 — Case B could fire on `kanban` despite its text being unable to
+cause the overflow (red team).** Every kanban card text field is CSS-
+truncated (`.kanban-title-text{-webkit-line-clamp:2}`,
+`.kanban-card-body{text-overflow:ellipsis}`,
+`lib/components/chart/kanban/kanban.styles.css`), so a card's word count is
+decoupled from its rendered height entirely — a genuinely overflowing
+kanban board is a CARD-COUNT problem (`capacity`, not `density`), which
+neither Case addresses. Case A was already correctly unaffected (kanban's
+`axis`/`domSelector` still resolve its item collection for the item-level
+drill-down); the bug was narrower: Case B's word-budget check had no reason
+NOT to also run on kanban, and would tag some card's already-INVISIBLE text
+"Likely fix," misdirecting the author from the real cause. **Fix:**
+`tools/build-axis-dom-catalog.js` gained a `NO_CASE_B` set (currently just
+`kanban`) that nulls `soft`/`hard` for a listed component while leaving
+`axis`/`domSelector` untouched — Case A's drill-down is unaffected, Case B's
+`findDensityOutlier` returns `null` immediately (no `hard` to compare
+against) and draws nothing. Locked in by a catalog unit test asserting the
+exclusion.
+
+**Lower-severity / accepted-as-documented findings** (not blocking, not
+fixed this round):
+- Case B's `domSelector` query roots at the whole `<section>` (Case A roots
+  at the specific clip-cell it found — Case B has none to root at). A
+  component with a broad/generic `domSelector` (e.g. glossary's
+  `table tbody > tr`) reachable via `form: off` could in principle sweep in
+  an unrelated hand-authored table elsewhere on the slide. Judged a rare,
+  edge-case authoring pattern rather than a common-path bug; for the
+  ordinary `form: off` case there IS no wrapper to root at more tightly
+  (masthead-lift never runs), so section-scoping is the only option, not a
+  shortcut taken for convenience.
+- The `.chart-status`-only chrome exclusion is narrower than
+  `prose-budgets.js`'s generic backtick-based exclusion for the Node-side
+  linter — a FUTURE component inventing a new badge/pill class outside
+  `.chart-status` could reintroduce a smaller version of Bug 1's skew (not
+  the gluing bug, which is now fixed generically; just the "should this
+  count as chrome" judgment call). Flagged for whoever adds the next
+  chart-family-style badge, not fixed preemptively against a hypothetical.
+- Real-browser verification (both the original PR and this fast-follow)
+  covers 3-4 of the 26 `density.axis`-bearing components. Case B fails
+  closed (returns `null`, draws nothing) on an unverified shape rather than
+  guessing, which bounds the risk to false negatives (a real cause goes
+  unflagged) rather than false positives (a wrong element gets blamed) —
+  accepted as a reasonable risk profile for an already-hedged "best guess"
+  signal, not something requiring exhaustive per-component verification
+  before every future manifest change.

@@ -7,6 +7,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
+const { JSDOM } = require('jsdom');
 const { contentSlack, findCulprits, componentNameFor, domWordCount, findDensityOutlier } = require('../../../lib/core/drill-down');
 
 // A fake item: box top/bottom + a list of fake children each with their own
@@ -176,24 +177,49 @@ describe('domWordCount', () => {
     assert.equal(domWordCount(null), 0);
   });
 
-  // Maker-checker finding (2026-07-11): a status pill (`.chart-status`, the
-  // shared class kanban/timeline-list both render from a trailing backtick
-  // status like `at-risk`) is OPTIONAL per item, so counting it as prose can
-  // flip which item ranks "worst" — a card WITH a pill could outrank a
-  // longer, pill-less card on word count alone even though its own body is
-  // shorter. querySelectorAll-bearing (real DOM) elements exclude it.
-  const fakeElWithStatus = (bodyText, statusText) => ({
-    textContent: `${bodyText} ${statusText}`,
-    querySelectorAll: (sel) => (sel === '.chart-status' ? [{ textContent: statusText }] : []),
-  });
-
-  test('excludes a .chart-status pill from the count (real-DOM-shaped element)', () => {
-    const withPill = fakeElWithStatus('Card title', 'at-risk');
-    assert.equal(domWordCount(withPill), 2); // "Card title" only, "at-risk" excluded
-  });
-
-  test('a plain fake object with no querySelectorAll falls back to whole textContent', () => {
+  test('a plain fake object with no childNodes falls back to a flat textContent split', () => {
     assert.equal(domWordCount({ textContent: 'Card title at-risk' }), 3);
+  });
+
+  // Real DOM below this point — jsdom, not a hand-rolled fake — because the
+  // bugs this section guards against are properties of REAL markup shape,
+  // and a fake that doesn't reproduce that shape can't catch them. That's
+  // exactly what happened here: an earlier version of this suite used a fake
+  // `{ textContent: \`\${bodyText} \${statusText}\` }\` that inserted a space
+  // between body and pill text — real chart-family markup never does, so the
+  // fake passed while the real code silently undercounted (independent
+  // checker finding, post-merge adversarial review of PR #892, 2026-07-11).
+  function realEl(html) {
+    return new JSDOM(`<div id="card">${html}</div>`).window.document.getElementById('card');
+  }
+
+  // chart-family (lib/components/chart/_chart-family/chart-family.js) builds
+  // markup by STRING CONCATENATION with no whitespace between adjacent
+  // sibling tags — `.textContent` on such a tree glues the last word of one
+  // element straight onto the first word of the next ("Argo" + "at-risk" +
+  // "Some" → "Argoat-riskSome" if read as one flat string), silently
+  // dropping real words when split on whitespace. This is the exact shape
+  // (title, then an adjacent .chart-status pill, then a body div) kanban and
+  // timeline-list both render.
+  test('does not glue words across adjacent sibling elements with no whitespace between tags', () => {
+    const el = realEl(
+      '<div class="timeline-title">Migrate to Argo</div>' +
+      '<span class="chart-status" data-s="at-risk">at-risk</span>' +
+      '<div class="timeline-body">Some notes here</div>',
+    );
+    // "Migrate to Argo" (3) + "Some notes here" (3) — the pill's own 1 word
+    // is excluded entirely, never counted then subtracted.
+    assert.equal(domWordCount(el), 6);
+  });
+
+  test('excludes a .chart-status pill even when glued directly against prose on both sides', () => {
+    const el = realEl('<div class="kanban-card-title">Team</div><span class="chart-status">at-risk</span>');
+    assert.equal(domWordCount(el), 1); // "Team" only
+  });
+
+  test('a collection with no pill counts every word (regression: exclusion must not over-trigger)', () => {
+    const el = realEl('<div class="timeline-title">Plain milestone with no status pill at all</div>');
+    assert.equal(domWordCount(el), 8);
   });
 });
 

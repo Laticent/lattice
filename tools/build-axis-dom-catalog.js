@@ -19,6 +19,20 @@
  * (density-budget fallback, §12) reads them to flag the worst item on a
  * slide with no clip-cell at all.
  *
+ * `NO_CASE_B` (below) nulls `soft`/`hard` for a component whose axis text is
+ * NEVER the true cause of an overflow, so Case B can't fire on it even
+ * though `axis`/`domSelector` still serve Case A's item-level drill-down
+ * (§10) unaffected. Red-team finding (2026-07-11, post-merge adversarial
+ * review of PR #892): `kanban` renders every text field CSS-truncated
+ * (`.kanban-title-text{-webkit-line-clamp:2}`,
+ * `.kanban-card-body{text-overflow:ellipsis}` —
+ * lib/components/chart/kanban/kanban.styles.css), so a card's word count is
+ * decoupled from its rendered height entirely; a genuinely overflowing
+ * kanban board is a CARD-COUNT problem (`capacity`, not `density`), which
+ * neither case addresses. Without this exclusion, Case B would tag some
+ * card's already-invisible text as "Likely fix," misdirecting the author
+ * from the real cause.
+ *
  * Usage:
  *   node tools/build-axis-dom-catalog.js            regenerate
  *   node tools/build-axis-dom-catalog.js --check     freshness gate (CI)
@@ -35,15 +49,18 @@ const argv = process.argv.slice(2);
 const check = argv.includes('--check');
 const silent = argv.includes('--silent') || check;
 
+const NO_CASE_B = new Set(['kanban']);
+
 function build() {
   const catalog = {};
   for (const m of loadAll()) {
     if (!m.density?.axis) continue;
+    const eligible = !NO_CASE_B.has(m.name);
     catalog[m.name] = {
       axis: m.density.axis,
       domSelector: m.density.domSelector || null,
-      soft: Number.isInteger(m.density.soft) ? m.density.soft : null,
-      hard: Number.isInteger(m.density.hard) ? m.density.hard : null,
+      soft: eligible && Number.isInteger(m.density.soft) ? m.density.soft : null,
+      hard: eligible && Number.isInteger(m.density.hard) ? m.density.hard : null,
     };
   }
   const sortedNames = Object.keys(catalog).sort();

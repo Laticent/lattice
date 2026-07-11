@@ -30,6 +30,21 @@ describe('axis-dom catalog resolves against real rendered DOM', () => {
     }
   });
 
+  // Red-team finding (2026-07-11, post-merge adversarial review of PR #892):
+  // every kanban card text field is CSS-truncated
+  // (kanban.styles.css: `.kanban-title-text{-webkit-line-clamp:2}`,
+  // `.kanban-card-body{text-overflow:ellipsis}`), so a card's word count is
+  // decoupled from its rendered height — Case B (the density-budget
+  // fallback, §12) can never be RIGHT about kanban, only misleading. This
+  // locks in tools/build-axis-dom-catalog.js's `NO_CASE_B` exclusion so a
+  // future catalog regen can't silently drop it.
+  test('kanban is excluded from Case B (soft/hard null) while Case A drill-down stays intact', () => {
+    assert.equal(catalog.kanban.hard, null);
+    assert.equal(catalog.kanban.soft, null);
+    assert.equal(catalog.kanban.axis, 'item');
+    assert.equal(catalog.kanban.domSelector, '.kanban-cards > .kanban-card');
+  });
+
   for (const m of manifests) {
     test(`${m.name}: axis "${m.density.axis}" resolves to >=1 live element from its sample deck`, () => {
       const { html } = engine.render(m.sample);
