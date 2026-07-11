@@ -591,9 +591,23 @@ export async function shareCaptions(
 	// closing the gap where the client `.vtt` was silently empty (the CLI already projected).
 	const notes = notesCore.extractSlideNotes(sections);
 	const captions = notesCore.extractSlideCaptions(sections);
+	// Front-matter `captions:` is keyed by 1-based AUTHORED slide number. The docs render
+	// (`renderMarkdown`) never runs the emulator's Fit-Spine autosplit, so `sections` is 1:1
+	// with the authored slides and `fmCaptions.get(i+1)` binds correctly — we deliberately do
+	// NOT port the CLI's `AUTOSPLIT_APPLIES` guard (which nulls the map): here it would be a
+	// dead no-op at best, and wrong if keyed off the `autosplit:` front-matter alone. An
+	// autosplit deck's exported `.vtt` differs from the CLI's by design (the CLI splits).
 	const fmCaptions = resolveCaptionsMod.frontMatterCaptions(source);
 	const acronyms = resolveCaptionsMod.acronymSpokenMap(source);
-	const projected = await projectionMod.projectDeckSpeech(options, source, palette, extra, undefined, mode);
+	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
+	// by construction). Failure degrades to notes-only, exactly as the CLI's projection does
+	// (lattice-emulator.js projectDeckSpeechFromHtml), so a notes-full deck still exports.
+	let projected: string[] = [];
+	try {
+		projected = await projectionMod.projectSectionsToSpeech(sections);
+	} catch {
+		projected = []; // projection unavailable → note/caption text still narrates
+	}
 	const slideTexts = readAlongCore.mergeNarration(notes, projected, { captions, fmCaptions });
 
 	onStatus?.('Building captions…');

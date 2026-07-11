@@ -57,3 +57,21 @@ describe('projectDeckSpeech — live narration from the shared DOM projection', 
 		expect(out).toEqual(direct);
 	});
 });
+
+describe('projectSectionsToSpeech — project ALREADY-rendered sections (no second render)', () => {
+	it('projects each section in place, index-aligned, with no engine render', async () => {
+		// The export download (`shareCaptions`) already holds the rendered sections, so it
+		// projects them directly — no second `buildDeckRender`. This is that shared path.
+		const { projectSectionsToSpeech } = await import('./narration-projection');
+		const sections = [
+			'<section data-class="kpi"><h2>ARR grew</h2><p>Forty percent</p></section>',
+			'<section></section>', // no readable prose → '' (alignment preserved, not dropped)
+			'<section data-class="quote"><h2>Closer</h2><p>Ship it</p></section>',
+		];
+		const out = await projectSectionsToSpeech(sections);
+		expect(out).toHaveLength(3);
+		expect(out[0]).toContain('ARR grew');
+		expect(out[1]).toBe('');
+		expect(out[2]).toContain('Closer');
+	});
+});

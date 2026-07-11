@@ -43,20 +43,37 @@ export async function projectDeckSpeech(
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
 	const { html } = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
+	const { splitSections } = (await import('@/playground/deck-preview.js')) as unknown as {
+		splitSections: (h: string) => string[];
+	};
+	return projectSectionsToSpeech(splitSections(html));
+}
 
-	const [deckMod, coreMod, sanitizeMod] = await Promise.all([
-		import('@/playground/deck-preview.js'),
+/**
+ * Project ALREADY-RENDERED section HTML to per-slide narration DISPLAY text,
+ * index-aligned to `sectionHtmls`. The projection KERNEL shared by Present's
+ * `projectDeckSpeech` (which renders the deck first) and the export download's
+ * `shareCaptions` (which already holds the rendered sections — projecting them directly
+ * avoids a SECOND full render and GUARANTEES `projected[i] ≡ sectionHtmls[i]`, so the
+ * merge can never misalign a caption). Each section is sanitized (HARD RULE #22) before
+ * projecting; a section that fails to parse/project yields '' at its index rather than
+ * dropping — dropping would misalign every later slide's narration with its slide.
+ */
+export async function projectSectionsToSpeech(sectionHtmls: string[]): Promise<string[]> {
+	const [coreMod, sanitizeMod] = await Promise.all([
 		import('@/playground/player-core.generated.js'),
 		import('@/lib/sanitize-slide-html.js'),
 	]);
-	const splitSections = (deckMod as unknown as { splitSections: (h: string) => string[] }).splitSections;
 	const projectDeckToSpeech = (coreMod as unknown as { projectDeckToSpeech: (s: Element[]) => string[] }).projectDeckToSpeech;
 	const sanitize = sanitizeMod.sanitizeSlideHtml;
-
 	const parser = new DOMParser();
-	return splitSections(html).map((secHtml) => {
-		const doc = parser.parseFromString(sanitize(secHtml), 'text/html');
-		const section = doc.querySelector('section');
-		return section ? (projectDeckToSpeech([section])[0] ?? '') : '';
+	return sectionHtmls.map((secHtml) => {
+		try {
+			const doc = parser.parseFromString(sanitize(secHtml), 'text/html');
+			const section = doc.querySelector('section');
+			return section ? (projectDeckToSpeech([section])[0] ?? '') : '';
+		} catch {
+			return ''; // a bad section yields '' — never drop (would misalign later slides)
+		}
 	});
 }

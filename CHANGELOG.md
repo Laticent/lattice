@@ -150,6 +150,24 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **The docs-site "Share → Captions" download now narrates a note-free deck instead of
+  producing an empty `.vtt`.** The in-browser caption download built the track from speaker
+  notes ONLY, so a deck with no notes exported an empty caption file — while the CLI
+  `--captions` export (which gained the component-aware DOM projection earlier) produced real
+  captions. The download now resolves the SAME narration chain the CLI uses (inline
+  `<!-- caption: -->` → front-matter `captions:` → note → DOM projection) plus the deck's
+  `acronyms:` registry, via the shared `mergeNarration` (one source of truth, HARD RULE #1), so
+  the two producers can't drift. It projects the already-rendered slides (no second render) and
+  degrades to notes-only if projection is unavailable, matching the CLI. Note: for a deck a user
+  had `acronyms:`/note-free content in, the downloaded `.vtt` bytes now differ (captions where
+  there were none, acronyms expanded) — verified against the CLI's projected `.vtt`; the real
+  browser download itself is exercised only through the shared kernel (no headless Studio in CI).
+  Closes #902 (Gap 2). *(An autosplit deck's client `.vtt` intentionally tracks the docs render,
+  which doesn't run the Fit-Spine split, so it differs from the CLI's split artifact — Gap 1,
+  chart-narration parity, remains open.)*
+
 ### Changed
 
 - **The live performance panel now tells the truth about the FRAME / TOTAL numbers.**
