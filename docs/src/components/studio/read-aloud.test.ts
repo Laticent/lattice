@@ -9,7 +9,12 @@ import { previewTtsVoice, slideToSpeech, useReadAloud } from './read-aloud';
 // to drive the AUDIO clock + capture `onSentenceTiming` to exercise re-anchoring.
 const { unlockSpy, previewVoiceSpy, voiceState } = vi.hoisted(() => ({
 	unlockSpy: vi.fn(),
-	previewVoiceSpy: vi.fn(async () => ({ ok: true })),
+	// Typed with its real parameter (not `async () => ...`, a zero-arg
+	// signature) so `previewVoiceSpy.mock.calls[0][0]` below has a real
+	// element type — a bare `vi.fn(async () => ...)` infers `mock.calls` as
+	// `[][]`, and indexing a length-0 tuple is a `tsc --noEmit` error the
+	// esbuild-transformed `vitest run` never catches (caught live in CI).
+	previewVoiceSpy: vi.fn(async (_o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }) => ({ ok: true })),
 	voiceState: { rung: 'silent', audioMs: 0, onTiming: null as null | ((t: { index: number; onsetMs: number; durationMs: number }) => void) },
 }));
 vi.mock('@/playground/voice-model.js', () => ({
