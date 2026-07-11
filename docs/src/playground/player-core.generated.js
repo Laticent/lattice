@@ -614,7 +614,7 @@ html,body{margin:0;padding:0;background:var(--bg,#fff)}
    floor (html:not(.lp-js), bottom of this sheet) keeps the old scrolling document. */
 .lp-js body{display:flex;flex-direction:column;height:100vh;height:100svh;overflow:hidden}
 .lp-js #lp-bar{position:static;flex:none}
-.lp-js #lp-app{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.lp-js #lp-app{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;position:relative}
 /* Marp-equivalent chrome the CLI's own docHtml bakes in (lattice-emulator.js's
    marpSystemCss) but the browser render path's docHtml does not \u2014 so it belongs
    HERE, in the one assembler both paths share (HARD RULE #1), closing the gap for
@@ -730,7 +730,12 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
 /* The read-slides stage is the column's scrolling child (flex:1;overflow:auto). No
    bar-clearance padding \u2014 the flex bar above already reserves its own space. */
 .lp-js [data-lp-view=read-slides] #lp-stage{flex:1;min-height:0;overflow:auto}
-[data-lp-view=read-slides] #lp-stage{padding:28px 16px 120px;display:flex;flex-direction:column;align-items:center;gap:28px}
+/* Each slide is now sized to the visible stage (the SAME fit as Present \u2014 see fitRead),
+   so the first slide is identical between the two tabs (seamless switch) and the next one
+   PEEKS below the fold \u2014 the "scroll for more" hint this control-free view needs. The 40px
+   fit inset + align-items:center give the side breathing room (no more edge-to-edge); the
+   bottom padding clears the floating Home/End buttons so the last slide isn't hidden. */
+[data-lp-view=read-slides] #lp-stage{padding:32px 16px 96px;display:flex;flex-direction:column;align-items:center;gap:28px}
 /* The frame \u2014 NOT the scaled section \u2014 carries the border + shadow that makes each
    slide a distinct card. The border/shadow used to sit on the section, but the
    section is transform:scale(~.28) so the 1px border shrank to a sub-pixel hairline,
@@ -747,6 +752,29 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
 [data-lp-view=read-slides] .lp-frame{flex:none;width:calc(1280px * var(--lp-fit,.28));height:calc(720px * var(--lp-fit,.28));overflow:hidden;border-radius:12px;
  border:1px solid var(--border,#e5e5e5);box-shadow:0 10px 34px -14px rgba(0,0,0,.4)}
 [data-lp-view=read-slides] section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit,.28));transform-origin:0 0}
+/* READ\xB7SLIDES floating Home/End \u2014 an AUTO-REVEALING "jump to top / bottom" affordance,
+   OVERLAID (position:absolute over the scrolling stage), so the continuous scroll flow is
+   never obstructed by a docked row. It REVEALS on scroll / touch / tap and idle-HIDES after
+   ~1.5s (the script toggles .lp-show), so it never sits over content while you read; each button hides
+   (the hidden attribute) when its direction isn't actionable (up at the top, down at bottom).
+   Same circular pill styling as Present's prev/next; the arrow-to-line glyph reads "to the
+   very edge" (vs Present's single-chevron one-step). Anchored to #lp-app (position:relative)
+   so it rides the visible viewport; bottom-right with SAFE-AREA insets so it clears the iOS
+   home indicator + browser chrome. */
+#lp-read-nav{display:none}
+.lp-js [data-lp-view=read-slides] #lp-read-nav{display:flex;flex-direction:column;gap:10px;z-index:40;
+ position:absolute;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));
+ opacity:0;transform:translateY(6px);pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+.lp-js [data-lp-view=read-slides] #lp-read-nav.lp-show{opacity:1;transform:none;pointer-events:auto}
+#lp-top,#lp-bottom{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:999px;
+ border:1px solid var(--border,#ddd);background:var(--bg-alt,#f5f5f5);color:var(--text-secondary,#333);cursor:pointer;
+ box-shadow:0 6px 20px -8px rgba(0,0,0,.5);opacity:.92}
+#lp-top:hover,#lp-bottom:hover{opacity:1;color:var(--accent,#4338ca);border-color:var(--accent,#4338ca)}
+#lp-top[hidden],#lp-bottom[hidden]{display:none}
+/* Desktop: wheel + keys lead, so the buttons sit back (subtler until hover). */
+@media(min-width:760px){#lp-top,#lp-bottom{opacity:.72}}
+/* Honor a reduced-motion preference: snap visibility, no slide/fade. */
+@media(prefers-reduced-motion:reduce){.lp-js [data-lp-view=read-slides] #lp-read-nav{transition:none;transform:none}}
 /* READ \xB7 ARTICLE \u2014 Typora-style prose + sticky left TOC (shell; component-aware projection = P4) */
 [data-lp-view=read-article] #lp-stage{display:none}
 #lp-doc{display:none}
@@ -840,12 +868,17 @@ if(nextBtn)nextBtn.onclick=function(){t.next();};
 function fit(){if(view!=='present')return;
  var st=document.getElementById('lp-stage');if(!st)return;
  root.style.setProperty('--lp-fit-present',fitScale({stageW:st.clientWidth,stageH:st.clientHeight,slideW:1280,slideH:720,insetX:40,insetY:40}));}
-// READ\xB7SLIDES fit: scale each native 1280x720 canvas (via the .lp-frame wrapper + the
-// section's CSS transform) to fill the column exactly. The column is the stage's content
-// width (clientWidth minus its 16px side padding). Set fluidly here so the miniatures grow
-// with the window; the CSS default (.28) covers the first paint + the no-JS floor.
-function fitRead(){var stage=document.getElementById('lp-stage');if(!stage)return;
- var avail=stage.clientWidth-32;if(avail>0)root.style.setProperty('--lp-fit',(avail/1280).toFixed(4));}
+// READ\xB7SLIDES fit: size each slide to the SAME footprint Present uses \u2014 fitScale over the
+// visible stage box with the same 40px inset \u2014 so the first slide is IDENTICAL between the
+// two tabs (a seamless switch, no jump) and each slide fills the viewport with the next
+// PEEKING below (the scroll hint). Was: fill-the-width (clientWidth-32)/1280, which ran the
+// slide edge-to-edge and clipped its bottom on a wide/tall viewport. The CSS default (.28)
+// still covers the first paint + the no-JS floor.
+function fitRead(){var st=document.getElementById('lp-stage');if(!st)return;
+ // Fit into ~86% of the visible stage HEIGHT (with a 40px side inset) \u2014 nearly Present-sized,
+ // but the reserved ~14% guarantees the NEXT slide peeks below the fold on every viewport,
+ // not just sits at the exact edge. Width stays the constraint on a narrow/portrait screen.
+ root.style.setProperty('--lp-fit',fitScale({stageW:st.clientWidth,stageH:st.clientHeight*0.86,slideW:1280,slideH:720,insetX:40,insetY:0}));}
 function render(){var i=t.index;frames.forEach(function(f,n){f.classList.toggle('lp-active',n===i);});
  if(count)count.textContent=(i+1)+' / '+slides.length;
  if(prevBtn)prevBtn.disabled=i===0;
@@ -856,7 +889,7 @@ function setView(v){view=v;app.setAttribute('data-lp-view',v);
  // Both present and read-slides scale the section via a view-scoped CSS transform
  // (var(--lp-fit-present) / var(--lp-fit)), so switching views just re-applies the
  // right rule \u2014 no inline transform to clear.
- if(v==='read-slides')fitRead();
+ if(v==='read-slides'){fitRead();revealReadNav();}else hideReadNav();
  if(count)count.style.visibility=v==='present'?'visible':'hidden';if(v==='present')render();}
 addEventListener('keydown',function(e){if(view!=='present')return;
  var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;t[a]();e.preventDefault();});
@@ -874,6 +907,56 @@ var stage=document.getElementById('lp-stage'),sx=0,sy=0,sw=false;
 if(stage){stage.addEventListener('pointerdown',function(e){if(view!=='present')return;sx=e.clientX;sy=e.clientY;sw=true;},{passive:true});
  stage.addEventListener('pointerup',function(e){if(!sw||view!=='present')return;sw=false;
   var a=swipeAction({dx:e.clientX-sx,dy:e.clientY-sy});if(a)t[a]();},{passive:true});}
+// READ\xB7SLIDES Home/End \u2014 an AUTO-REVEALING scroll control. Smooth-scroll to the first /
+// last slide (instant under prefers-reduced-motion; older engines jump, still correct).
+var topBtn=document.getElementById('lp-top'),bottomBtn=document.getElementById('lp-bottom');
+var readNav=document.getElementById('lp-read-nav');
+var reduceMotion=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches);
+function scrollStage(to){var st=document.getElementById('lp-stage');if(!st)return;
+ try{st.scrollTo({top:to,behavior:reduceMotion?'auto':'smooth'});}catch(e){st.scrollTop=to;}}
+if(topBtn)topBtn.onclick=function(){scrollStage(0);};
+if(bottomBtn)bottomBtn.onclick=function(){var st=document.getElementById('lp-stage');if(st)scrollStage(st.scrollHeight);};
+// Directional: a button hides (the hidden attribute) when its edge is already reached.
+// Returns whether ANYTHING is scrollable \u2014 a short deck that fits never shows the control.
+var navIdle=null,navEngaged=false;
+function readNavDir(){var st=document.getElementById('lp-stage');if(!st)return false;
+ var max=st.scrollHeight-st.clientHeight;var atTop=st.scrollTop<=4,atBottom=st.scrollTop>=max-4;
+ if(topBtn){if(atTop)topBtn.setAttribute('hidden','');else topBtn.removeAttribute('hidden');}
+ if(bottomBtn){if(atBottom)bottomBtn.setAttribute('hidden','');else bottomBtn.removeAttribute('hidden');}
+ return max>4;}
+function hideReadNav(){if(readNav)readNav.classList.remove('lp-show');}
+// Reveal on intent; idle-hide after 1.5s unless the pointer/focus is engaged with it.
+function revealReadNav(){if(!readNav||view!=='read-slides')return;
+ if(!readNavDir()){hideReadNav();return;}
+ readNav.classList.add('lp-show');
+ if(navIdle)clearTimeout(navIdle);if(!navEngaged)navIdle=setTimeout(hideReadNav,1500);}
+if(readNav){
+ var rStage=document.getElementById('lp-stage');
+ if(rStage){
+  rStage.addEventListener('scroll',revealReadNav,{passive:true});
+  // iOS / in-app WebKit coalesces (and during momentum defers) the overflow container's
+  // scroll event, so a touch-drag scrolls the deck without firing it \u2014 the reveal never
+  // triggered on mobile (desktop masks this via the wheel + pointer paths). touchstart /
+  // touchmove fire reliably throughout the gesture; touchstart also doubles as the universal
+  // tap-to-summon-controls affordance, so a plain tap brings the buttons back.
+  rStage.addEventListener('touchstart',revealReadNav,{passive:true});
+  rStage.addEventListener('touchmove',revealReadNav,{passive:true});
+ }
+ // Keep it up while the pointer is over it / it holds focus, so it never vanishes mid-reach.
+ readNav.addEventListener('pointerenter',function(){navEngaged=true;if(navIdle)clearTimeout(navIdle);if(view==='read-slides'&&readNavDir())readNav.classList.add('lp-show');});
+ readNav.addEventListener('pointerleave',function(){navEngaged=false;if(navIdle)clearTimeout(navIdle);navIdle=setTimeout(hideReadNav,1500);});
+ readNav.addEventListener('focusin',function(){navEngaged=true;if(navIdle)clearTimeout(navIdle);if(view==='read-slides'&&readNavDir())readNav.classList.add('lp-show');});
+ readNav.addEventListener('focusout',function(){navEngaged=false;if(navIdle)clearTimeout(navIdle);navIdle=setTimeout(hideReadNav,1500);});
+}
+// PRESENT mouse wheel / trackpad \u2014 advance or reverse one slide on a decisive wheel notch,
+// debounced so one gesture = one slide (a trackpad fires a burst). Present has no native
+// scroll (the stage is a fixed centered box), so this is the desktop analogue of swipe;
+// keyboard \u2190/\u2192 + the buttons already work. Read\xB7Slides scrolls natively, so it's untouched.
+var wheelBusy=false;
+addEventListener('wheel',function(e){if(view!=='present')return;if(wheelBusy)return;
+ var d=Math.abs(e.deltaY)>=Math.abs(e.deltaX)?e.deltaY:e.deltaX;if(Math.abs(d)<8)return;
+ wheelBusy=true;setTimeout(function(){wheelBusy=false;},350);
+ t[d>0?'next':'prev']();e.preventDefault();},{passive:false});
 // Fullscreen toggle \u2014 present from the file to a room. iOS/iPadOS Safari has
 // historically shipped NO Fullscreen API for arbitrary elements (only native
 // video), so a click there would silently no-op forever, reading as "broken."
@@ -1045,6 +1128,10 @@ ${slidesHtml}
  <div id="lp-nav">
   <button id="lp-prev" type="button" aria-label="Previous slide" title="Previous slide (\u2190)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
   <button id="lp-next" type="button" aria-label="Next slide" title="Next slide (\u2192)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+ </div>
+ <div id="lp-read-nav">
+  <button id="lp-top" type="button" aria-label="Jump to first slide" title="First slide"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14"/><path d="M12 21V7"/><path d="m6 13 6-6 6 6"/></svg></button>
+  <button id="lp-bottom" type="button" aria-label="Jump to last slide" title="Last slide"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21h14"/><path d="M12 3v14"/><path d="m6 11 6 6 6-6"/></svg></button>
  </div>
  <div id="lp-notes" data-empty="true"><div id="lp-notes-body"></div></div>
  <div id="lp-doc">

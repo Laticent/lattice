@@ -508,6 +508,36 @@ test('read-slides + the no-JS floor scale each slide with a wrapped transform, n
 	assert.match(html, /var frames=\[\]\.slice\.call\(document\.querySelectorAll\('\.lp-frame'\)\)/, 'present toggles visibility on the frame wrapper, not the section');
 });
 
+test('Read·Slides is unified onto Present\'s frame, with a floating Home/End overlay + Present mouse wheel', async () => {
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	// fitRead now uses the SAME fitScale as Present (over ~86% of the stage height) so the
+	// first slide matches Present and the next peeks — NOT the old fill-the-width math.
+	assert.match(html, /function fitRead\(\)\{var st=document\.getElementById\('lp-stage'\);if\(!st\)return;[\s\S]*?fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight\*0\.86,slideW:1280,slideH:720,insetX:40,insetY:0\}\)/, 'read-slides fits to Present\'s footprint (86% height, 40px inset), reserving a peek');
+	assert.doesNotMatch(html, /avail\/1280/, 'the old fill-the-width read-slides fit is gone');
+	// The floating Home/End overlay: markup, view-scoped CSS, and the smooth-scroll handlers.
+	assert.match(html, /<div id="lp-read-nav">/, 'the floating read-slides nav is in the markup');
+	assert.match(html, /<button id="lp-top"[^>]*aria-label="Jump to first slide"/, 'a Home (top) button');
+	assert.match(html, /<button id="lp-bottom"[^>]*aria-label="Jump to last slide"/, 'an End (bottom) button');
+	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{[^}]*position:absolute;right:calc\(16px \+ env\(safe-area-inset-right,0px\)\);bottom:calc\(16px \+ env\(safe-area-inset-bottom,0px\)\)/, 'the overlay is absolute bottom-right with SAFE-AREA insets, only in read-slides — the scroll flow is unobstructed');
+	assert.match(html, /if\(topBtn\)topBtn\.onclick=function\(\)\{scrollStage\(0\);\}/, 'Home scrolls the stage to the top');
+	assert.match(html, /if\(bottomBtn\)bottomBtn\.onclick=function\(\)\{var st=document\.getElementById\('lp-stage'\);if\(st\)scrollStage\(st\.scrollHeight\);\}/, 'End scrolls the stage to the bottom');
+	// AUTO-HIDE: starts hidden (opacity:0), reveals on scroll (.lp-show), idle-hides after
+	// 1.5s, and each button hides via the `hidden` attr when its direction isn't actionable.
+	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{[^}]*opacity:0;transform:translateY\(6px\);pointer-events:none/, 'the overlay starts hidden (fades in on reveal)');
+	assert.match(html, /#lp-read-nav\.lp-show\{opacity:1;transform:none;pointer-events:auto\}/, '.lp-show reveals it');
+	assert.match(html, /#lp-top\[hidden\],#lp-bottom\[hidden\]\{display:none\}/, 'a button hides when its edge is reached');
+	assert.match(html, /@media\(prefers-reduced-motion:reduce\)\{\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{transition:none/, 'reduced-motion snaps visibility');
+	assert.match(html, /rStage\.addEventListener\('scroll',revealReadNav,\{passive:true\}\)/, 'scrolling reveals the control');
+	// iOS/in-app WebKit coalesces the overflow container's scroll event during momentum, so
+	// touch-drag never fired the reveal on mobile — touchstart/touchmove drive it reliably
+	// (touchstart also = tap-to-summon). Regression guard for "auto reveal not working on mobile".
+	assert.match(html, /rStage\.addEventListener\('touchstart',revealReadNav,\{passive:true\}\)/, 'touch (and a plain tap) reveals the control on mobile');
+	assert.match(html, /rStage\.addEventListener\('touchmove',revealReadNav,\{passive:true\}\)/, 'a touch-drag scroll reveals the control on mobile');
+	assert.match(html, /if\(navIdle\)clearTimeout\(navIdle\);if\(!navEngaged\)navIdle=setTimeout\(hideReadNav,1500\)/, 'it idle-hides after 1.5s unless engaged');
+	// Present mouse wheel — one decisive notch = one slide (debounced), present-only.
+	assert.match(html, /addEventListener\('wheel',function\(e\)\{if\(view!=='present'\)return;if\(wheelBusy\)return;[\s\S]*?t\[d>0\?'next':'prev'\]\(\);e\.preventDefault\(\);\},\{passive:false\}\)/, 'present advances/reverses on a decisive wheel delta, debounced, present-only');
+});
+
 test('fileToDataUri returns null for a missing file (feeds the honesty report)', () => {
 	assert.equal(fileToDataUri('/no/such/file.png'), null);
 });
@@ -556,13 +586,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	// Re-blessed for color-mode fidelity: the export now bakes a data-lp-scheme attribute
-	// onto <html> (the author's light/dark/system choice; light by default here), the dark
-	// rules key on =dark / @media =system instead of :not([=light]), and the JS seeds a
-	// `following` flag from the baked attribute, ALWAYS stamps a concrete attribute at load
-	// (driving even system-dark off matchMedia, not the @media gate the old WebKit ignored),
-	// and stops following on toggle.
-	assert.equal(sha, '7b9d633cb84e24e270d6d945278787f378a6417686417732e8033c1dc2a0d759', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the Read·Slides polish: read-slides fits to Present's footprint (next
+	// peeks); an AUTO-REVEALING floating Home/End overlay (#lp-read-nav — arrow-to-line icons,
+	// reveal-on-scroll + 1.5s idle-hide, directional [hidden], safe-area insets, reduced-motion
+	// aware); and Present gained a debounced mouse-wheel handler.
+	assert.equal(sha, 'f780f764ef4b11df1b870ac4d0780e71181117da5839893856c6381cf7e9efd0', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
