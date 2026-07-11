@@ -82,9 +82,15 @@ all, `lattice-runtime.js` falls back to the component's own
 `density.soft`/`density.hard` word budget (the same manifest field
 `lib/authoring/review-core.js`'s Node-side linter already enforces) and
 highlights whichever item in the slide's repeated-item collection has the
-highest LIVE word count — measured off the rendered DOM's own `textContent`,
-not the markdown source (the runtime never has source at hand in a live
-preview) — once that count clears `hard`.
+highest LIVE word count — measured off the rendered DOM by walking each text
+node individually (never a single flat `.textContent` read, which silently
+glues adjacent elements' words together when a component's markup has no
+whitespace between sibling tags — a real bug found and fixed the same day
+this shipped, §13) — once that count clears `hard`. `kanban` is Case-A-only:
+every card text field is CSS-truncated (`-webkit-line-clamp`/
+`text-overflow: ellipsis`), so its word count can never be the true cause of
+an overflow — `tools/build-axis-dom-catalog.js`'s `NO_CASE_B` set excludes
+it from this signal specifically, without touching its Case A drill-down.
 
 **This is an editorial guess, not a geometric fact, and its label says so.**
 Case A's tag reads "Fix Me" — an unhedged claim, because clipping is

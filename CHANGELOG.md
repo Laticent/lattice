@@ -337,6 +337,23 @@ in patch versions.
 
 ### Fixed
 
+- **The Fix-Me overlay's Case B (density-budget fallback, shipped hours
+  earlier the same day) undercounted words and could misfire on `kanban`.**
+  A post-merge adversarial review (red team + Munger inversion + an
+  independent checker) found two live bugs before either shipped in a
+  release: (1) the word counter read one flat `.textContent` string, which
+  silently glues adjacent elements' text together when a component's markup
+  has no whitespace between sibling tags (`kanban`/`timeline-list` both
+  build markup this way) — a genuine over-budget item could go unflagged.
+  Fixed by tokenizing each DOM text node independently instead of splitting
+  one joined string. (2) `kanban`'s card text is fully CSS-truncated
+  (2-line clamp on titles, single-line ellipsis on bodies), so its word
+  count can never be the true cause of an overflow — Case B could still tag
+  some card's already-invisible text as "Likely fix." Fixed by excluding
+  `kanban` from the density-budget signal specifically, leaving its
+  existing Case A drill-down untouched. See
+  `engineering/decisions/2026-07-10-overflow-cause-highlighting.md` §13.
+
 - **The Studio/Workbench/Playground live preview's fonts no longer 404.**
   `lattice.css`'s `@font-face` block ships a package-relative
   `url(fonts/<file>.woff2)` — correct for the npm package, where
