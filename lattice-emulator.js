@@ -1575,9 +1575,30 @@ ${stateChartScript}
       s.classList.toggle('overflow', over);
     });
   }
+  // Force every declared @font-face to load before the FIRST measurement —
+  // Marp's template lazy-loads fonts per active slide, so a bare
+  // document.fonts.ready can resolve "loaded" before a font a not-yet-
+  // rendered slide's text actually needs has been fetched, leaving that
+  // slide measured against FALLBACK metrics (wider/taller than the real
+  // font). A borderline slide can cross the 12px tolerance on fallback
+  // metrics alone and get a FALSE "Overflows" ring that never clears —
+  // this script only re-checks on 'resize', so nothing else would ever
+  // correct it on a static file a human just opens and reads (found via a
+  // Puppeteer/Playwright cross-check, #894: the exported PDF's own
+  // measureOverflow() pass already force-loads fonts first and never
+  // shows this false positive — only this embedded copy skipped that
+  // step). Mirrors measureOverflow()'s identical font-forcing recipe
+  // above in this same file.
+  function settleFontsThenCheck(){
+    try {
+      Promise.all(Array.prototype.map.call(document.fonts, function(f){
+        return f.load().catch(function(){});
+      })).then(function(){ return document.fonts.ready; }).then(check, check);
+    } catch (e) { check(); }
+  }
   if (document.readyState === 'loading')
-    document.addEventListener('DOMContentLoaded', check);
-  else check();
+    document.addEventListener('DOMContentLoaded', settleFontsThenCheck);
+  else settleFontsThenCheck();
   if (typeof window !== 'undefined') window.addEventListener('resize', check);
 })();
 </script>

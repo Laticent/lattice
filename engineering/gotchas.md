@@ -435,6 +435,42 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   page), not `pdffonts`/`get_fonts()` — a subset-embedded face often
   reports an empty name and reads as "missing" when it's actually there.
 
+### A false "Overflows" ring appears on the exported `.html` sidecar for a slide that actually fits
+
+- **Symptom:** a deck's exported `.pdf` renders fine and `lattice-emulator.js`'s
+  own console warning names the right pages — but opening the alongside
+  `.html` sidecar in a plain browser shows a red inset ring (and, for the
+  live-preview runtime, an "OVERFLOWS" tab) on a slide that isn't actually in
+  that warning list. It doesn't self-correct on its own; resizing the browser
+  window does clear it.
+- **Cause:** a font-loading race, not a measurement bug. Marp's template
+  lazy-loads a `@font-face` only when the browser first tries to PAINT text
+  using it — so `document.fonts.ready` can resolve "loaded" for the page
+  overall before a specific slide's own text has actually triggered its
+  font's fetch. The exported `.html`'s embedded overflow-watcher script used
+  to measure on `DOMContentLoaded` with no font-forcing step at all, so a
+  borderline slide (content within a few px of the frame) could get measured
+  against a wider/taller FALLBACK-font layout and cross the 12px tolerance —
+  a false positive that then never re-measures (the embedded script only
+  re-checks on `window resize`). `measureOverflow()` (the pass that generates
+  the actual PDF-export console warning) was never affected — it already
+  force-loads every declared font before its first measurement, which is why
+  the two disagreed. The live-preview runtime (`lib/runtime/index.js`) had
+  the identical gap on its very first paint, though its continuous
+  mutation-triggered re-checks usually self-correct within a keystroke.
+- **Fix:** both watchers now force every declared font to `load()` and await
+  `document.fonts.ready` before their first measurement — the exact recipe
+  `measureOverflow()` already used, now shared by every overflow-detection
+  entry point instead of just one. See
+  `engineering/decisions/2026-07-10-overflow-cause-highlighting.md` §14 and
+  issue #894.
+- **Verify the right way:** don't compare Puppeteer's numbers against a
+  DIFFERENT automation library's numbers (Playwright vs. Puppeteer can
+  render the SAME Chrome binary's fonts slightly differently depending on
+  what each has settled by the time you measure) — that's a red herring.
+  Compare the SAME tool's measurement before vs. after an explicit
+  `document.fonts.load()` + `document.fonts.ready` wait on the SAME page.
+
 ### A committed render golden doesn't match a fresh render — check staleness FIRST
 
 - **Symptom:** a committed gallery golden

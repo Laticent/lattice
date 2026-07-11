@@ -509,3 +509,58 @@ fixed this round):
   accepted as a reasonable risk profile for an already-hedged "best guess"
   signal, not something requiring exhaustive per-component verification
   before every future manifest change.
+
+## 14. Issue #894 fixed — a font-loading race, not an undercount (2026-07-11)
+
+§12's "off-path finding" logged a `lattice-emulator.js` overflow-WARNING
+undercount as issue #894, reasoning the exported `.html` sidecar's own
+`.overflow` class was ground truth and the console warning was short by one
+page. Direct investigation with a controlled Puppeteer harness (mirroring
+`measureOverflow()`'s exact setup) found the opposite: **the console warning
+was already correct.** The exported `.html` sidecar's EMBEDDED
+overflow-watcher script — the one baked into every exported `.html` file so
+opening it in a plain browser still shows the ring — measured on
+`DOMContentLoaded` with no font-forcing step at all. Marp's template
+lazy-loads a `@font-face` only when the browser first tries to paint text
+using it, so `document.fonts.ready` can resolve "loaded" before a specific
+slide's own text has actually triggered its font's fetch; measuring against
+the wider/taller fallback-font layout pushed a borderline `timeline-list`
+slide (7px over a 720px frame — well under what any real defect in this
+codebase has ever measured, per the TOL comment's own "smallest real bug
+observed was a 211px overshoot") across the 12px tolerance. Confirmed with a
+direct repro: forcing `document.fonts.load()` on every declared font +
+`document.fonts.ready`, then re-running the SAME embedded script's `check()`
+via its own `resize` listener, flipped the false `.overflow` class off with
+no other change. `measureOverflow()` was never affected — it already
+force-loads fonts first, which is exactly why it disagreed with the
+under-protected embedded copy.
+
+**Fix:** both the exported `.html`'s embedded watcher AND the
+live-preview runtime (`lib/runtime/index.js`'s `startOverflowWatcher`, which
+had the identical gap on its very first paint) now force every declared
+font to load and await `document.fonts.ready` before their first
+measurement — the same recipe `measureOverflow()` already used, now shared
+by every overflow-detection entry point. The live runtime keeps its
+IMMEDIATE first check too (for a responsive ring on the common case) and
+adds a font-settled recheck alongside it — its `schedulePostMutation`-driven
+rechecks would eventually self-correct a false positive anyway on any
+further edit, but a slide nobody touches again after initial paint could
+otherwise keep a false ring forever. The exported sidecar's embedded script,
+by contrast, has no such continuous recheck loop (only `window resize`), so
+it waits for the font-settle promise before its ONE-AND-ONLY check.
+
+**Verified**, per this repo's export-bytes sign-off requirement (the
+embedded script's own bytes changed): rendered `examples/overflow-fix-me.md`
+before and after in both light (`indaco`) and dark (`indaco-dark`) —
+identical content, the false ring on slide 5 (`timeline-list`) present
+before, absent after, sent for human inspection and confirmed. The PDF
+pixels themselves were unaffected before and after (the ring/tab are always
+stripped from the PDF regardless; `measureOverflow()`'s own warning was
+correct throughout).
+
+A methodology note for future investigators: don't cross-compare Puppeteer's
+measurement against Playwright's (or vice versa) even against the identical
+Chrome binary via `executablePath` — the two automation libraries can settle
+lazy font loading on different schedules by the time a fixed-delay check
+runs, which reads as a rendering discrepancy but isn't one. Compare the SAME
+tool's own measurement before vs. after an explicit font-settle wait.
