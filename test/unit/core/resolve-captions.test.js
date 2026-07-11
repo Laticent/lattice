@@ -49,36 +49,29 @@ test('acronyms: last duplicate wins', () => {
   assert.equal(acronyms.get('X').expansion, 'second');
 });
 
-test('captions: 1-based slide-number map, quotes stripped', () => {
-  const { captions } = parseNarrationFrontMatter(fm('captions:\n  1: "Welcome. Three things today."\n  4: The ask.'));
-  assert.equal(captions.get(1), 'Welcome. Three things today.');
-  assert.equal(captions.get(4), 'The ask.');
-  assert.equal(captions.size, 2);
+test('acronyms: a reserved field name (expansion/definition) is never a standalone term', () => {
+  // An under-indented block-object child would otherwise become a bogus term.
+  const { acronyms } = parseNarrationFrontMatter(fm('acronyms:\n  EBITDA:\n  expansion: ee bit dah'));
+  assert.equal(acronyms.has('expansion'), false);
 });
 
-test('both blocks coexist and are scoped (a dedented sibling key ends the block)', () => {
-  const { acronyms, captions } = parseNarrationFrontMatter(
-    fm('theme: indaco\nacronyms:\n  CRO: chief revenue officer\ncaptions:\n  2: "Second slide."\ncolor-mode: dark'),
+test('acronyms: the block is scoped (a dedented sibling key ends it)', () => {
+  const { acronyms } = parseNarrationFrontMatter(
+    fm('theme: indaco\nacronyms:\n  CRO: chief revenue officer\ncolor-mode: dark'),
   );
   assert.equal(acronyms.size, 1);
   assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
-  assert.equal(captions.size, 1);
-  assert.equal(captions.get(2), 'Second slide.');
 });
 
-test('absent keys → empty maps (never throws)', () => {
-  const { acronyms, captions } = parseNarrationFrontMatter(fm('theme: indaco'));
-  assert.equal(acronyms.size, 0);
-  assert.equal(captions.size, 0);
-  const none = parseNarrationFrontMatter('# no front matter\n');
-  assert.equal(none.acronyms.size, 0);
-  assert.equal(none.captions.size, 0);
+test('tolerates trailing whitespace after the opening/closing fence (parity with app parsers)', () => {
+  const { acronyms } = parseNarrationFrontMatter('--- \nacronyms:\n  CRO: chief revenue officer\n--- \n\n# Deck\n');
+  assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer'); // NOT silently dropped
 });
 
-test('non-string input is safe', () => {
+test('absent key → empty map; non-string input is safe (never throws)', () => {
+  assert.equal(parseNarrationFrontMatter(fm('theme: indaco')).acronyms.size, 0);
+  assert.equal(parseNarrationFrontMatter('# no front matter\n').acronyms.size, 0);
   for (const v of [null, undefined, 42, {}]) {
-    const r = parseNarrationFrontMatter(v);
-    assert.equal(r.acronyms.size, 0);
-    assert.equal(r.captions.size, 0);
+    assert.equal(parseNarrationFrontMatter(v).acronyms.size, 0);
   }
 });
