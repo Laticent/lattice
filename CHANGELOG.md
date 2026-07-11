@@ -150,6 +150,21 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Editing a slide in the Studio no longer re-parses the whole theme stylesheet on
+  every keystroke-render.** The Studio's live preview (`single-slide-render.ts`)
+  rewrote the entire preview-iframe document on every render — re-parsing the ~560KB
+  theme CSS and re-executing the runtime each time (~485ms on a throttled phone, the
+  bulk of the "FRAME"/"edit→paint" perf-overlay numbers). It now fingerprints
+  everything baked outside the slide (theme, mode, size, author CSS) and, when that's
+  unchanged, patches only the slide's content in the resident document — the browser
+  keeps the parsed stylesheet and the running runtime, so a warm edit drops from
+  ~485ms to ~2ms (measured, production dist, 4× CPU throttle). Any theme/mode/size
+  change still does a full rewrite so the new styles take effect. This brings the
+  single-slide preview in line with the multi-slide filmstrip, which already patched.
+  Front B of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
+
 ### Added
 
 - **The RENDER group gains a COALESCE row — how many edits the preview debounce

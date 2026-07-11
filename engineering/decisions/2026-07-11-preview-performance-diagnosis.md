@@ -153,9 +153,20 @@ uses the real faces; and the decorative overlay is `pointer-events:none` from th
 2. **Parse the CSS once.** Serve the theme sheet as a cached `<link>` / adopted
    stylesheet the frame reuses across writes, instead of re-inlining it into every
    `srcdoc`.
-3. **Give the single-slide Studio a patch path.** `single-slide-render.ts` full-writes
-   on every render; port the `patchSections` / resident-document model from
-   `deck-preview.js` so post-first renders skip the full doc rebuild.
+3. **Give the single-slide Studio a patch path. — SHIPPED.** `single-slide-render.ts`
+   full-wrote the whole preview document on every render; it now fingerprints
+   everything baked outside the `<section>` (theme·mode·geom·mermaid·author-CSS) and,
+   when unchanged, patches only the resident `.lattice` body (`patchSlideBody`) — the
+   parsed theme sheet and the running runtime stay put, and the runtime's observer
+   re-processes the swapped section. Any sig change still full-writes. **Measured
+   (production dist, real headless Chrome): a warm edit's full-document write is ~113ms
+   at 1× / ~485ms at 4× CPU; the body-patch is ~1–2ms** — the FRAME/edit→paint cost the
+   perf overlay showed red on warm edits. Verified on the real built Studio: an editor
+   keystroke re-rendered the slide in place (iframe never reloaded — a marker on its
+   `contentWindow` survived) with correct layout/theme/fonts. Cold *first* render still
+   full-writes, but front A's instant-shell already masks that behind a painted slide.
+   Since the multi-slide filmstrip (`deck-preview.js`) already patched, both preview
+   paths now avoid the per-edit reparse.
 4. **Warm the runtime** (preload) so the cold network fetch is off the first-render
    critical path.
 5. **Lazy-split the runtime's heavy transforms** (chart family + 159KB GeoJSON

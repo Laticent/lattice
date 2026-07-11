@@ -25,7 +25,7 @@
 
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
-import { linkGuardAgent } from '../playground/deck-preview.js';
+import { hashString, linkGuardAgent } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
@@ -104,8 +104,27 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // the debounce's coalesce count for the NEXT render (set by DeckPreview), which
 // renderInto consumes synchronously at render start — binding the count to THIS
 // render's sample instead of a shared module global that an overlapping render
-// could steal.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number };
+// could steal. And the render SIGNATURE of everything baked into its live srcdoc
+// OUTSIDE the <section> (theme, mode, geom, mermaid, extra/author CSS) — an
+// unchanged sig means the next render can PATCH the section in place instead of
+// rewriting the whole document.
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string };
+
+// Replace ONLY the live document's `.lattice` contents with a new (already
+// sanitized) slide — the resident theme <style> + runtime <script> stay parsed and
+// executed, so the runtime's body observer re-processes the swapped section for
+// free. Returns false if the live document is gone (caller falls back to a full
+// srcdoc write). The single-slide twin of deck-preview.js's patchSections.
+function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
+	const doc = fr.contentDocument;
+	const lattice = doc?.querySelector('.lattice');
+	if (!doc || !lattice) return false;
+	const holder = doc.createElement('div');
+	holder.innerHTML = safeHtml;
+	const fresh = holder.querySelector('.lattice');
+	lattice.innerHTML = (fresh || holder).innerHTML;
+	return true;
+}
 
 /**
  * Build a single-slide renderer bound to a theme source + runtime URL. Returns:
@@ -328,6 +347,36 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				(host as LiveHost).__latticeGeom = geom;
 				// Section count — computed here so the onload sample below captures it.
 				const slides = (out.html.match(/<\/section>/g) || []).length;
+
+				// PATCH FAST PATH. Everything baked into the srcdoc OUTSIDE the section —
+				// the theme <style> (out.css + extra/author CSS) and the runtime <script> —
+				// is fingerprinted here. When it's unchanged and a live document already
+				// exists, swap ONLY the `.lattice` body: the browser skips re-parsing the
+				// ~560KB theme sheet and re-executing the runtime (a ~485ms full-write on a
+				// throttled phone → ~2ms), and the resident runtime's observer re-processes
+				// the new section. Any change to theme/mode/size/mermaid/author-CSS misses
+				// the sig and falls through to a full rewrite so the new <style>/<script>
+				// take effect. The single-slide twin of deck-preview.js's renderDeck gate.
+				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}`;
+				const live = host.querySelector<HTMLIFrameElement>('iframe.live');
+				if (live && (host as LiveHost).__latticeFrameSig === sig && live.contentDocument?.querySelector('.lattice')) {
+					const tSan = performance.now();
+					const safe = sanitizeSlideHtml(out.html);
+					const patchSanitizeMs = performance.now() - tSan;
+					const tFrame = performance.now();
+					if (patchSlideBody(live, safe)) {
+						const tFit = performance.now();
+						scaleFrame(host);
+						const patchFitMs = performance.now() - tFit;
+						applyDebug(live, { force: null });
+						const now = performance.now();
+						recordRenderSample({ engineMs, sanitizeMs: patchSanitizeMs, frameMs: now - tFrame, fitMs: patchFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length });
+						return { ok: true, slides, error: null };
+					}
+					// The live document vanished between the guard and the patch — fall
+					// through to a full write below.
+				}
+
 				let fr = host.querySelector<HTMLIFrameElement>('iframe.live');
 				if (!fr) {
 					fr = document.createElement('iframe');
@@ -424,6 +473,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				sanitizeMs = lastSanitizeMs;
 				scaleFrame(host);
 				host.classList.add('is-live');
+				// Record the sig this full document was built for, so the NEXT render can
+				// take the patch fast path above when nothing outside the section changed.
+				(host as LiveHost).__latticeFrameSig = sig;
 				// Stamp AFTER the synchronous setup (srcdoc build + sanitize + pre-load
 				// fit) so frameMs isolates the browser's async parse/layout — the build
 				// and sanitize costs are still captured by totalMs and sanitizeMs.
