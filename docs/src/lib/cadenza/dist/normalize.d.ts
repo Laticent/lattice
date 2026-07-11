@@ -11,9 +11,18 @@ export declare function numberToWords(value: number): string;
  * through unchanged. `opts.domains` opts in domain lexicon packs (legal/finance)
  * for tokens that only resolve inside a domain (e.g. legal `v.` → "versus").
  */
-export declare function toSpoken(display: string, opts?: {
+/**
+ * A deck's author-supplied acronym registry: display token → spoken expansion, already
+ * parsed from `acronyms:` front-matter (lib/core/resolve-captions). Consulted BEFORE the
+ * built-in dictionary and every derivational pattern, so the author always wins — a
+ * whole-token, case-sensitive match, the same shape the built-in lexicon uses.
+ */
+export type AcronymRegistry = ReadonlyMap<string, string>;
+export interface SpokenOpts {
     domains?: readonly LexDomain[];
-}): string;
+    acronyms?: AcronymRegistry;
+}
+export declare function toSpoken(display: string, opts?: SpokenOpts): string;
 /**
  * Expand every token in a passage to its spoken form — the whole-sentence version of
  * `toSpoken`, for feeding a TTS the words to SAY rather than the glyphs to show
@@ -22,8 +31,6 @@ export declare function toSpoken(display: string, opts?: {
  * parsing; this gives it Cadenza's instead. `opts.domains` opts in domain lexicon
  * packs. Pure.
  */
-export declare function toSpokenText(text: string, opts?: {
-    domains?: readonly LexDomain[];
-}): string;
+export declare function toSpokenText(text: string, opts?: SpokenOpts): string;
 /** Count spoken sub-words in an expansion ("four point two million dollars" → 5). */
 export declare function spokenWordCount(spoken: string): number;

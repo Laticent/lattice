@@ -1,4 +1,5 @@
 import { type Pace } from './cadence';
+import { type AcronymRegistry } from './normalize';
 export interface Word {
     /** The glyph group shown in the caption (e.g. "$4.2M"). The highlight unit. */
     display: string;
@@ -24,6 +25,8 @@ export interface CaptionTrack {
 }
 export interface BuildOptions {
     pace?: Pace;
+    /** The deck's author-supplied acronym registry (term → spoken expansion). Author wins. */
+    acronyms?: AcronymRegistry;
 }
 /**
  * Build the estimate-baseline timeline from text. Deterministic and offline: this

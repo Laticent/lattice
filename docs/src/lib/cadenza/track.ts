@@ -6,7 +6,7 @@
 // timeline the cursor scans and vtt serializes; it owns no audio and no DOM.
 
 import { estimateWordMs, type Pace, pauseAfter } from './cadence';
-import { toSpoken } from './normalize';
+import { type AcronymRegistry, toSpoken } from './normalize';
 import { splitSentences, splitWords } from './segment';
 
 export interface Word {
@@ -37,6 +37,8 @@ export interface CaptionTrack {
 
 export interface BuildOptions {
   pace?: Pace;
+  /** The deck's author-supplied acronym registry (term → spoken expansion). Author wins. */
+  acronyms?: AcronymRegistry;
 }
 
 /**
@@ -69,7 +71,7 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       if (found >= 0) scan = found + display.length;
       if (cueCharOffset < 0) cueCharOffset = charOffset;
 
-      const spoken = toSpoken(display);
+      const spoken = toSpoken(display, { acronyms: opts.acronyms });
       const dur = estimateWordMs(spoken, pace);
       const startMs = clock;
       const endMs = startMs + dur;

@@ -275,14 +275,17 @@ var require_dist = __commonJS({
       const tok = String(display ?? "").trim();
       if (!tok) return "";
       const domains = opts.domains ?? [];
+      const acronyms = opts.acronyms;
+      if (acronyms?.has(tok)) return acronyms.get(tok);
       const whole = lookupLexicon(tok, domains);
       if (whole !== null) return whole;
       const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
       const core = punct ? tok.slice(0, -punct.length) : tok;
-      return spokenCore(core, domains) + punct;
+      return spokenCore(core, domains, acronyms) + punct;
     }
-    function spokenCore(core, domains) {
+    function spokenCore(core, domains, acronyms) {
       if (!core) return core;
+      if (acronyms?.has(core)) return acronyms.get(core);
       const lex = lookupLexicon(core, domains);
       if (lex !== null) return lex;
       const fyear = core.match(/^(FY|CY)['’]?(\d{2}|\d{4})$/);
@@ -302,7 +305,7 @@ var require_dist = __commonJS({
           const n = numberToWords(Number(rest.replace(/,/g, "")));
           return sign[1] === "+" ? n : `negative ${n}`;
         }
-        const restSpoken = spokenCore(rest, domains);
+        const restSpoken = spokenCore(rest, domains, acronyms);
         if (restSpoken !== rest) return `${sign[1] === "+" ? "up" : "down"} ${restSpoken}`;
       }
       const section = core.match(/^(§+)\s*(.*)$/);
@@ -310,9 +313,9 @@ var require_dist = __commonJS({
         const word = section[1].length > 1 ? "sections" : "section";
         const subs = [...section[2].matchAll(/\(([a-z0-9]+)\)/gi)].map((m) => m[1]);
         const base = section[2].replace(/\([a-z0-9]+\)/gi, "").trim();
-        const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains);
+        const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains, acronyms);
         let out = base ? `${word} ${baseSpoken}` : word;
-        for (const s of subs) out += `, subsection ${spokenCore(s, domains)}`;
+        for (const s of subs) out += `, subsection ${spokenCore(s, domains, acronyms)}`;
         return out;
       }
       const money = core.match(/^([$£€])([\d,]+(?:\.\d+)?)([kmbt])?$/i);
@@ -511,7 +514,7 @@ var require_dist = __commonJS({
           const charOffset = found >= 0 ? found : scan;
           if (found >= 0) scan = found + display.length;
           if (cueCharOffset < 0) cueCharOffset = charOffset;
-          const spoken = toSpoken(display);
+          const spoken = toSpoken(display, { acronyms: opts.acronyms });
           const dur = estimateWordMs(spoken, pace);
           const startMs = clock;
           const endMs = startMs + dur;
@@ -578,11 +581,12 @@ var require_read_along_build = __commonJS({
     var { buildTrack } = require_dist();
     function buildReadAlong2(slideTexts, opts) {
       const pace = opts.pace ?? "moderate";
+      const acronyms = opts.acronyms;
       const slides = [];
       for (let index = 0; index < slideTexts.length; index++) {
         const text = String(slideTexts[index] ?? "").trim();
         if (!text) continue;
-        slides.push({ index, track: buildTrack(text, { pace }) });
+        slides.push({ index, track: buildTrack(text, { pace, acronyms }) });
       }
       return {
         version: "1.0",

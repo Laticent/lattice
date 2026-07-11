@@ -118,12 +118,30 @@ function yearWords(digits: string): string {
  * through unchanged. `opts.domains` opts in domain lexicon packs (legal/finance)
  * for tokens that only resolve inside a domain (e.g. legal `v.` → "versus").
  */
-export function toSpoken(display: string, opts: { domains?: readonly LexDomain[] } = {}): string {
+/**
+ * A deck's author-supplied acronym registry: display token → spoken expansion, already
+ * parsed from `acronyms:` front-matter (lib/core/resolve-captions). Consulted BEFORE the
+ * built-in dictionary and every derivational pattern, so the author always wins — a
+ * whole-token, case-sensitive match, the same shape the built-in lexicon uses.
+ */
+export type AcronymRegistry = ReadonlyMap<string, string>;
+
+export interface SpokenOpts {
+  domains?: readonly LexDomain[];
+  acronyms?: AcronymRegistry;
+}
+
+export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   const tok = String(display ?? '').trim();
   if (!tok) return '';
   const domains = opts.domains ?? [];
+  const acronyms = opts.acronyms;
 
-  // Whole-token lexicon FIRST, before peeling punctuation — so a period-bearing
+  // Author registry FIRST — the whole token, before anything else (a deck's `CRO` wins
+  // over the built-in dictionary AND over the fiscal parser).
+  if (acronyms?.has(tok)) return acronyms.get(tok) as string;
+
+  // Whole-token lexicon next, before peeling punctuation — so a period-bearing
   // abbreviation (`v.`, `art.`, `U.S.C.`) matches its key rather than losing the
   // period to the terminator peel. The abbreviation's own period is part of it,
   // not a sentence end, and its spoken form ("versus") carries no terminator.
@@ -134,11 +152,15 @@ export function toSpoken(display: string, opts: { domains?: readonly LexDomain[]
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? '';
   const core = punct ? tok.slice(0, -punct.length) : tok;
 
-  return spokenCore(core, domains) + punct;
+  return spokenCore(core, domains, acronyms) + punct;
 }
 
-function spokenCore(core: string, domains: readonly LexDomain[]): string {
+function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: AcronymRegistry): string {
   if (!core) return core;
+
+  // 0. Author registry (case-sensitive whole token) — beats the built-in dictionary and
+  //    every pattern below, so a deck owns its own vocabulary.
+  if (acronyms?.has(core)) return acronyms.get(core) as string;
 
   // 1. Lexicon (whole-token abbreviations, symbols, initialisms).
   const lex = lookupLexicon(core, domains);
@@ -178,7 +200,7 @@ function spokenCore(core: string, domains: readonly LexDomain[]): string {
       const n = numberToWords(Number(rest.replace(/,/g, '')));
       return sign[1] === '+' ? n : `negative ${n}`;
     }
-    const restSpoken = spokenCore(rest, domains);
+    const restSpoken = spokenCore(rest, domains, acronyms);
     if (restSpoken !== rest) return `${sign[1] === '+' ? 'up' : 'down'} ${restSpoken}`;
   }
 
@@ -193,9 +215,9 @@ function spokenCore(core: string, domains: readonly LexDomain[]): string {
     const word = section[1].length > 1 ? 'sections' : 'section';
     const subs = [...section[2].matchAll(/\(([a-z0-9]+)\)/gi)].map((m) => m[1]);
     const base = section[2].replace(/\([a-z0-9]+\)/gi, '').trim();
-    const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains);
+    const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains, acronyms);
     let out = base ? `${word} ${baseSpoken}` : word;
-    for (const s of subs) out += `, subsection ${spokenCore(s, domains)}`;
+    for (const s of subs) out += `, subsection ${spokenCore(s, domains, acronyms)}`;
     return out;
   }
 
@@ -250,7 +272,7 @@ function spokenCore(core: string, domains: readonly LexDomain[]): string {
  * parsing; this gives it Cadenza's instead. `opts.domains` opts in domain lexicon
  * packs. Pure.
  */
-export function toSpokenText(text: string, opts: { domains?: readonly LexDomain[] } = {}): string {
+export function toSpokenText(text: string, opts: SpokenOpts = {}): string {
   return splitWords(text)
     .map((w) => toSpoken(w, opts))
     .join(' ');

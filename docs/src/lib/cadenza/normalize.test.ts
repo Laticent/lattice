@@ -200,6 +200,26 @@ describe('say-as lexicon — expand / word / spell (§14)', () => {
   // COLLISION GUARD (§15) — the always-on dictionary holds ONLY unambiguous tokens.
   // Encodes the IT/US lesson and the CRO/CMO demotion as CI, so a future well-meaning
   // add of a word-collision or a bimodal acronym fails a test rather than a boardroom.
+  it('author acronym registry beats the built-in dictionary AND the patterns', () => {
+    const reg = new Map([
+      ['CRO', 'conversion rate optimization'], // demoted term the author reclaims
+      ['ARR', 'a r r'], // override an always-on expansion
+      ['FY26', 'fiscal twenty-six the year of us'], // beats the fiscal parser
+      ['ACME', 'ackme'], // a name (not an acronym) — pronunciation
+    ]);
+    expect(toSpoken('CRO', { acronyms: reg })).toBe('conversion rate optimization');
+    expect(toSpoken('ARR', { acronyms: reg })).toBe('a r r');
+    expect(toSpoken('FY26', { acronyms: reg })).toBe('fiscal twenty-six the year of us');
+    expect(toSpoken('ACME', { acronyms: reg })).toBe('ackme');
+    expect(toSpoken('CRO.', { acronyms: reg })).toBe('conversion rate optimization.'); // terminator kept
+    // Case-sensitive, whole-token: lowercase and an unregistered token are untouched.
+    expect(toSpoken('cro', { acronyms: reg })).toBe('cro');
+    expect(toSpoken('KPI', { acronyms: reg })).toBe('key performance indicator'); // falls to built-in
+    expect(toSpokenText('Our CRO owns FY26.', { acronyms: reg })).toBe(
+      'Our conversion rate optimization owns fiscal twenty-six the year of us.',
+    );
+  });
+
   it('collision guard: no always-on key expands a common word or a bimodal acronym', () => {
     // Common English words (any case) must pass through untouched.
     for (const w of ['it', 'us', 'or', 'in', 'on', 'is', 'as', 'we', 'an', 'so', 'no', 'do', 'go', 'IT', 'US', 'OR', 'IP', 'AR']) {
