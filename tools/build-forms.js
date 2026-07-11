@@ -141,7 +141,7 @@ function checkSlicingTokenRefs(frames) {
     if (!f.slicing) continue;
     for (const fam of Object.keys(f.slicing)) {
       for (const cellId of Object.keys(f.slicing[fam])) {
-        const tokens = f.slicing[fam][cellId] && f.slicing[fam][cellId].tokens;
+        const tokens = f.slicing[fam][cellId]?.tokens;
         if (!tokens) continue;
         const css = cellCss(cellId);
         for (const name of Object.keys(tokens)) {

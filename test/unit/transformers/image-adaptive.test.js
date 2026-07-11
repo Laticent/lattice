@@ -40,7 +40,7 @@ test('explicit author class wins with no measurement (no asset)', () => {
 test('measures the asset and resolves bucket × orientation', () => {
   // Stub the browser Image: setting .src fires onload with a fixed natural size.
   const prev = global.Image;
-  global.Image = class { set src(_v) { this.naturalWidth = 800; this.naturalHeight = 1200; this.onload && this.onload(); } };
+  global.Image = class { set src(_v) { this.naturalWidth = 800; this.naturalHeight = 1200; this.onload?.(); } };
   try {
     const s = makeSection({ className: 'image', bgStyle: "url('tall.svg')" }); // 0.67 → tall
     imageAdaptive.applyToDom(rootOf([s]));
@@ -51,7 +51,7 @@ test('measures the asset and resolves bucket × orientation', () => {
 
 test('a load error falls to the Clean floor', () => {
   const prev = global.Image;
-  global.Image = class { set src(_v) { this.onerror && this.onerror(); } };
+  global.Image = class { set src(_v) { this.onerror?.(); } };
   try {
     const s = makeSection({ className: 'image', bgStyle: "url('broken.svg')" });
     imageAdaptive.applyToDom(rootOf([s]));

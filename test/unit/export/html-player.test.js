@@ -586,11 +586,12 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	// Re-blessed for the Read·Slides polish: read-slides fits to Present's footprint (next
-	// peeks); an AUTO-REVEALING floating Home/End overlay (#lp-read-nav — arrow-to-line icons,
-	// reveal-on-scroll + 1.5s idle-hide, directional [hidden], safe-area insets, reduced-motion
-	// aware); and Present gained a debounced mouse-wheel handler.
-	assert.equal(sha, 'f780f764ef4b11df1b870ac4d0780e71181117da5839893856c6381cf7e9efd0', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the biome hygiene cleanup: the inlined transport kernel
+	// (lib/core/present-transport.mjs, embedded VERBATIM in the player) had its one
+	// `Object.prototype.hasOwnProperty.call(map, key)` modernized to `Object.hasOwn(map, key)`
+	// (biome noPrototypeBuiltins) — behavior-identical, so the player's bytes shift but nothing
+	// it does changes. That is the ONLY player-affecting edit in this cleanup.
+	assert.equal(sha, 'c6af0c6c456db88e065b59a4d5601fd8b01e353301083a7d15ece033925cb8c7', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {

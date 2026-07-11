@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * Contrast gate for the shadcn ↔ Lattice token bridge.

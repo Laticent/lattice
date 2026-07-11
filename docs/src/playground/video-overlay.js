@@ -128,9 +128,9 @@ export async function resolveTikTokSrc(href, fetchImpl) {
 		});
 	try {
 		const r = await doFetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(String(href)));
-		if (!r || !r.ok) return null;
+		if (!r?.ok) return null;
 		const j = await r.json();
-		const html = String((j && j.html) || '');
+		const html = String((j?.html) || '');
 		const id = (html.match(/data-video-id="(\d+)"/) || html.match(/\/video\/(\d+)/) || [])[1];
 		return id ? `https://www.tiktok.com/player/v1/${id}?autoplay=1` : null;
 	} catch (_e) {
@@ -150,7 +150,7 @@ function close() {
 	if (modal.onMessage) window.removeEventListener('message', modal.onMessage, false); // IG auto-fit
 	document.documentElement.style.overflow = modal.prevOverflow; // restore page scroll
 	modal.root.remove();
-	try { modal.prevFocus && modal.prevFocus.focus && modal.prevFocus.focus(); } catch (_e) { /* focus best-effort */ }
+	try { modal.prevFocus?.focus?.(); } catch (_e) { /* focus best-effort */ }
 	modal = null;
 }
 
@@ -164,7 +164,7 @@ function close() {
 // viewport-relative even under a transformed ancestor) gives full-size controls.
 function play(poster) {
 	try {
-		const href = poster && poster.getAttribute ? poster.getAttribute('href') : null;
+		const href = poster?.getAttribute ? poster.getAttribute('href') : null;
 		const direct = embedSrc(href); // YouTube/Vimeo: id is in the URL (sync)
 		if (!direct && !isTikTok(href)) return false; // not embeddable → guard opens the tab
 		const prevFocus = document.activeElement;
@@ -327,12 +327,12 @@ export function installVideoBridge(win) {
 export function createVideoOverlay({ getFrame }) {
 	function rebind() {
 		const frame = getFrame();
-		installVideoBridge(frame && frame.contentWindow);
+		installVideoBridge(frame?.contentWindow);
 	}
 	function destroy() {
 		close();
 		const frame = getFrame();
-		const w = frame && frame.contentWindow;
+		const w = frame?.contentWindow;
 		if (w && w.__videoPlay === play) { try { delete w.__videoPlay; } catch (_e) { w.__videoPlay = undefined; } }
 	}
 	return { rebind, destroy };

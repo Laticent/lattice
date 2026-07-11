@@ -51,7 +51,7 @@ function httpGetJson(url) {
  */
 async function resolveOembed(url, fetchJson = httpGetJson) {
   const p = detectProvider(url);
-  if (!p || !p.oembedUrl) return null;
+  if (!p?.oembedUrl) return null;
   try {
     const j = await fetchJson(p.oembedUrl);
     return {

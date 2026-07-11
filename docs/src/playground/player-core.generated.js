@@ -184,7 +184,7 @@ function padInset(stageW, stageH, { factor, floor = 0 }) {
   return Math.max(floor, Math.min(stageW, stageH) * factor) * 2;
 }
 function keyAction(key, map = PRESENT_KEYMAP) {
-  return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : void 0;
+  return Object.hasOwn(map, key) ? map[key] : void 0;
 }
 function swipeAction({ dx, dy, threshold = 45, ratio = 1.3 }) {
   if (Math.abs(dx) <= threshold || Math.abs(dx) <= Math.abs(dy) * ratio) return null;

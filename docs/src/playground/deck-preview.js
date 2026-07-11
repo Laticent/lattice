@@ -261,8 +261,8 @@ export function buildSrcdoc({
 	// (drawing-board-export.js); the in-repo renderDeck path also pre-sanitizes
 	// for its innerHTML patch, so this is a no-op there.
 	html = sanitizeSlideHtml(html);
-	const gw = (geom && geom.w) || 1280;
-	const gh = (geom && geom.h) || 720;
+	const gw = (geom?.w) || 1280;
+	const gh = (geom?.h) || 720;
 	const bg = background ? background(mode) : (mode === 'dark' ? DARK_BG : LIGHT_BG);
 	const scheme = colorScheme ? ':root{color-scheme:' + colorScheme + ';}' : '';
 	const sectionRule =
@@ -337,7 +337,7 @@ export function buildSrcdoc({
 // write. `prev`/`next` are arrays of per-slide HTML strings (splitSections).
 export function patchSections(frame, next, prev) {
 	const doc = frame.contentDocument;
-	const lattice = doc && doc.querySelector('.lattice');
+	const lattice = doc?.querySelector('.lattice');
 	if (!lattice) return false;
 	const cur = lattice.querySelectorAll(':scope>section');
 	if (next.length !== cur.length) {
@@ -355,8 +355,8 @@ export function patchSections(frame, next, prev) {
 		}
 	}
 	const w = frame.contentWindow;
-	if (w && w.__latticeTag) w.__latticeTag();
-	if (w && w.__latticeFit) w.__latticeFit();
+	if (w?.__latticeTag) w.__latticeTag();
+	if (w?.__latticeFit) w.__latticeFit();
 	return true;
 }
 
@@ -381,8 +381,7 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	const canPatch =
 		!fresh &&
 		contentSig === st.frameSig &&
-		frame.contentDocument &&
-		frame.contentDocument.querySelector('.lattice');
+		frame.contentDocument?.querySelector('.lattice');
 	let patched = false;
 	if (canPatch) patched = patchSections(frame, sections, st.lastSections);
 	if (!patched) {

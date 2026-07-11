@@ -1,4 +1,3 @@
-'use strict';
 // Gallery content contract — the Specimen Book debt ledger (2026-07-05 decision §2).
 //
 // A component is CONFORMING, IN DEBT BY NAME, or EXEMPT WITH A REASON — and
@@ -100,7 +99,7 @@ function measure(m) {
   if (!stressDocOf(m)) flags.add('stressDoc');
   if (!m.density) flags.add('density');
   if (!m.specimenVoice) flags.add('voice');
-  if (m.density && m.density.axis) {
+  if (m.density?.axis) {
     const samples = [[m.sample, m.density.soft]];
     for (const vd of Object.values(m.variantDocs || {})) samples.push([vd.sample, m.density.soft]);
     const sd = stressDocOf(m);
@@ -109,7 +108,7 @@ function measure(m) {
       flags.add('budget');
     }
   }
-  if (m.capacity && m.capacity.axis && m.capacity.soft != null && m.capacity.hard != null) {
+  if (m.capacity?.axis && m.capacity.soft != null && m.capacity.hard != null) {
     const sd = stressDocOf(m);
     if (sd) {
       const n = countPrimaryCollection(sd.sample, m.capacity.axis);
@@ -156,7 +155,7 @@ test('ledger lists only real components', () => {
 test('hard gate: default sample lands at or under capacity.soft', () => {
   const over = [];
   for (const m of manifests) {
-    if (!(m.capacity && m.capacity.axis && m.capacity.soft != null && m.sample)) continue;
+    if (!(m.capacity?.axis && m.capacity.soft != null && m.sample)) continue;
     const n = countPrimaryCollection(m.sample, m.capacity.axis);
     if (n != null && n > m.capacity.soft) over.push(`${m.name} (n=${n} > soft=${m.capacity.soft})`);
   }
@@ -167,7 +166,7 @@ test('hard gate: no sample smuggles its own _footer: directive', () => {
   const offenders = [];
   for (const m of manifests) {
     const sd = stressDocOf(m);
-    const sources = [m.sample, ...Object.values(m.variantDocs || {}).map((v) => v.sample), sd && sd.sample].filter(Boolean);
+    const sources = [m.sample, ...Object.values(m.variantDocs || {}).map((v) => v.sample), sd?.sample].filter(Boolean);
     if (sources.some((s) => /<!--\s*_footer:/.test(s))) offenders.push(m.name);
   }
   assert.deepEqual(offenders, []);
@@ -177,7 +176,7 @@ test('hard gate: no placeholder-shaped content reaches a committed gallery', () 
   const offenders = [];
   for (const m of manifests) {
     const sd = stressDocOf(m);
-    const sources = [m.sample, ...Object.values(m.variantDocs || {}).flatMap((v) => [v.sample, v.caption]), sd && sd.sample, sd && sd.caption].filter(Boolean);
+    const sources = [m.sample, ...Object.values(m.variantDocs || {}).flatMap((v) => [v.sample, v.caption]), sd?.sample, sd?.caption].filter(Boolean);
     if (sources.some((s) => /\b(TBD|TODO|lorem ipsum|placeholder)\b/i.test(s))) offenders.push(m.name);
   }
   assert.deepEqual(offenders, []);
@@ -195,7 +194,7 @@ test('every galleryPlan slide carries a stable kind and a caption source', () =>
     for (const s of galleryPlan(m)) {
       assert.match(s.kind, KIND, `${m.name}: bad kind ${s.kind}`);
       assert.equal(typeof s.caption, 'string', `${m.name}/${s.kind}: caption must be a string`);
-      assert.ok(s.md && s.md.length, `${m.name}/${s.kind}: empty slide markdown`);
+      assert.ok(s.md?.length, `${m.name}/${s.kind}: empty slide markdown`);
     }
   }
 });

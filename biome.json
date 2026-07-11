@@ -60,11 +60,14 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.test.js", "test/**"],
+      "includes": ["**/*.test.js", "**/*.test.ts", "**/*.spec.ts", "test/**", "docs/e2e/**"],
       "linter": {
         "rules": {
           "suspicious": {
             "noConsole": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
           }
         }
       }

@@ -587,7 +587,7 @@ export function createModelSettings({ host, trigger, model, voice, onChange, isO
       } catch (e) {
         btn.disabled = false;
         btn.textContent = 'Connect OpenRouter';
-        err.textContent = 'Couldn’t start sign-in: ' + ((e && e.message) || e);
+        err.textContent = 'Couldn’t start sign-in: ' + ((e?.message) || e);
         err.hidden = false;
       }
     });
@@ -896,7 +896,7 @@ export function createModelSettings({ host, trigger, model, voice, onChange, isO
         play.innerHTML = '<span class="ico ico-loader spin" aria-hidden="true"></span>';
         sampleErr.hidden = true;
         let res;
-        try { res = await voice.previewVoice({ rung, voice: id }); } catch (err) { res = { ok: false, error: String((err && err.message) || err) }; }
+        try { res = await voice.previewVoice({ rung, voice: id }); } catch (err) { res = { ok: false, error: String((err?.message) || err) }; }
         if (res && res.ok === false) { sampleErr.textContent = 'Sample failed: ' + (res.error || 'unknown error'); sampleErr.hidden = false; }
         play.innerHTML = '<span class="ico ico-play" aria-hidden="true"></span>';
         play.disabled = !canSample;

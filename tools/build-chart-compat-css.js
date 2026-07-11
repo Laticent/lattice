@@ -53,7 +53,7 @@
 const fs = require('fs');
 const path = require('path');
 const postcss = require('postcss');
-const { resolveTokenExpr, resolveDeclarationValue } = require('../lib/core/resolve-token-expr');
+const { resolveDeclarationValue } = require('../lib/core/resolve-token-expr');
 const { parseRootVars, isDarkScheme } = require('../lib/core/parse-root-vars');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -221,12 +221,12 @@ function needsFallback(value, vars, setters) {
   for (const n of referencedVars(value)) {
     const raw = vars[n];
     if (raw && (MODERN_FN.test(raw) || MODERN_FN.test(resolveDeclarationValue(`var(--${n})`, vars, false)))) return true;
-    if (setters && setters.has(n)) {
+    if (setters?.has(n)) {
       for (const s of setters.get(n)) if (needsFallback(s.value, vars, null)) return true;
     }
     // An inline-kernel categorical local resolves to a slot hue (light-dark) that
     // isn't in the global map — recognise it so its painter isn't skipped.
-    if (INLINE_KERNEL_LOCAL.test(n) && !(n in vars) && (!setters || !setters.has(n))) return true;
+    if (INLINE_KERNEL_LOCAL.test(n) && !(n in vars) && (!setters?.has(n))) return true;
   }
   return false;
 }

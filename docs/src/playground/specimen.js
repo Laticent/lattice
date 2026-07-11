@@ -16,7 +16,7 @@ import { createSingleSlideRenderer } from '../lib/single-slide-render';
 import { createEditor } from './editor.js';
 
 const FLIP_MS = 350; // keep in sync with @keyframes ll-flip in components.css
-const SOURCE_KEY = 'lattice-docs-pg-source'; // shared handoff key the playground reads
+const _SOURCE_KEY = 'lattice-docs-pg-source'; // shared handoff key the playground reads
 
 const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 

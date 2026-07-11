@@ -360,11 +360,11 @@ async function buildWorld(projId = 'equal-earth') {
     addGroup(s, { label: sub, kind: 'region', source: 'UN M49 subregion (Natural Earth SUBREGION)', members: members.sort() });
   }
   // Sub-Saharan Africa = the Africa continent minus the Northern Africa subregion.
-  const ssa = (byContinent['Africa'] || []).filter((k) => regions[k] && regions[k].subregion !== 'Northern Africa');
+  const ssa = (byContinent.Africa || []).filter((k) => regions[k] && regions[k].subregion !== 'Northern Africa');
   if (ssa.length) addGroup('sub-saharan-africa', { label: 'Sub-Saharan Africa', kind: 'region', aliases: ['ssa'], source: 'Africa minus the UN Northern Africa subregion', members: ssa.sort() });
   // Latin America = South America + Central America + Mexico.
   const latam = new Set([...(byContinent['South America'] || []), ...(bySubregion['Central America'] || [])]);
-  if (regions['MX']) latam.add('MX');
+  if (regions.MX) latam.add('MX');
   if (latam.size) addGroup('latin-america', { label: 'Latin America', kind: 'region', aliases: ['latam'], source: 'South America + Central America + Mexico', members: [...latam].sort() });
   // Curated composites.
   for (const [key, g] of Object.entries(CURATED_REGIONS)) {
@@ -390,7 +390,7 @@ async function buildWorld(projId = 'equal-earth') {
     // author can colour just one region of it, e.g. `global-south-africa`.
     const southByContinent = {};
     for (const k of southMembers) {
-      const cont = regions[k] && regions[k].continent;
+      const cont = regions[k]?.continent;
       if (cont && cont !== 'Seven seas (open ocean)') (southByContinent[cont] ||= []).push(k);
     }
     for (const [cont, members] of Object.entries(southByContinent)) {
