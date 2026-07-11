@@ -23,13 +23,20 @@
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
-// Anchor at the real working dir (docs/ under `astro build`, the repo root under a
-// standalone node run) so bare specifiers resolve via node's upward node_modules
-// walk. import.meta.url would point at the bundled chunk under Vite, which can't
-// reliably reach the root node_modules where css-tree/jsdom live (devDeps).
-const require = createRequire(join(process.cwd(), 'noop.cjs'));
-const csstree = require('css-tree');
-const { JSDOM } = require('jsdom');
+// css-tree + jsdom are loaded LAZILY (first extract call), not at import time, so
+// merely importing this module can never throw — a missing dep degrades to the
+// caller's graceful null (ssg-first-slide.mjs), never a hard `astro build` break.
+// Anchor createRequire at the real cwd (docs/ under `astro build`, repo root under
+// a standalone node run) so bare specifiers resolve via node's upward
+// node_modules walk; import.meta.url would point at the bundled Vite chunk.
+let _deps = null;
+function deps() {
+	if (!_deps) {
+		const require = createRequire(join(process.cwd(), 'noop.cjs'));
+		_deps = { csstree: require('css-tree'), JSDOM: require('jsdom').JSDOM };
+	}
+	return _deps;
+}
 
 // Pseudo-classes/elements jsdom can't (or shouldn't) be asked to match; strip
 // them from the probe selector so the STRUCTURAL part still tests, and keep the
@@ -42,6 +49,7 @@ const STRIP_PSEUDO =
 const KEEP_ATRULES = new Set(['font-face', 'keyframes', '-webkit-keyframes', 'property', 'import', 'charset']);
 
 function makeMatcher(slideHtml) {
+	const { JSDOM } = deps();
 	const { document } = new JSDOM(`<!doctype html><html><head></head><body>${slideHtml}</body></html>`).window;
 	return (selectorText) => {
 		const probe = selectorText.replace(STRIP_PSEUDO, '').replace(/\s+/g, ' ').trim();
@@ -55,7 +63,7 @@ function makeMatcher(slideHtml) {
 }
 
 // Prune one block's children in place; return how many survived.
-function pruneBlock(node, matches) {
+function pruneBlock(node, matches, csstree) {
 	if (!node?.children) return 0;
 	let kept = 0;
 	node.children.forEach((child, item, list) => {
@@ -69,7 +77,7 @@ function pruneBlock(node, matches) {
 				kept++;
 			} else if (child.block) {
 				// @media / @container / @supports / @layer{…} — recurse; drop if empty.
-				if (pruneBlock(child.block, matches) > 0) kept++;
+				if (pruneBlock(child.block, matches, csstree) > 0) kept++;
 				else list.remove(item);
 			} else {
 				kept++; // bodiless at-rule (e.g. `@layer a, b;`) — keep for ordering.
@@ -88,8 +96,9 @@ function pruneBlock(node, matches) {
  * @returns {string} A pruned stylesheet containing only rules the slide can use.
  */
 export function extractCriticalCss(fullCss, slideHtml) {
+	const { csstree } = deps();
 	const matches = makeMatcher(slideHtml);
 	const ast = csstree.parse(fullCss);
-	pruneBlock(ast, matches);
+	pruneBlock(ast, matches, csstree);
 	return csstree.generate(ast);
 }

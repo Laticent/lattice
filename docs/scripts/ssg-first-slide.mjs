@@ -21,9 +21,15 @@ import { extractCriticalCss } from './critical-css.mjs';
  * @param {string} repoRoot     Absolute repo root. Pass `join(process.cwd(),'..')`
  *   from a docs/ Astro page — NOT an import.meta.url walk, which points at the
  *   bundled chunk (not this file) under `astro build`. See studio.astro.
+ * @param {string} [themeUrlBase]  Absolute URL the engine's relative `url(fonts/…)`
+ *   @font-face refs resolve against (the served themes/ base, e.g.
+ *   `/playground/v/<hash>/themes/`). Without it those refs would resolve against
+ *   `/studio/` and 404 → the slide falls back to system fonts until the live
+ *   iframe swaps in. Rewritten to absolute so the SSG slide uses the REAL faces
+ *   (matching the live render exactly, and warming the cache for it).
  * @returns {Promise<{html:string, css:string, width:number, height:number}|null>}
  */
-export async function renderFirstSlideShell(slideSource, palette, repoRoot) {
+export async function renderFirstSlideShell(slideSource, palette, repoRoot, themeUrlBase) {
 	try {
 		if (!repoRoot) return null;
 		const enginePath = join(repoRoot, 'lib/playground/index.js');
@@ -37,7 +43,8 @@ export async function renderFirstSlideShell(slideSource, palette, repoRoot) {
 		const out = api.render(slideSource, palette);
 		if (!out?.html || !out?.css) return null;
 
-		const css = extractCriticalCss(out.css, out.html);
+		let css = extractCriticalCss(out.css, out.html);
+		if (themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${themeUrlBase}fonts/`);
 		return { html: out.html, css, width: out.width || 1280, height: out.height || 720 };
 	} catch {
 		return null;

@@ -128,6 +128,21 @@ hydration.
 4. **Returning-visitor shell (NOT yet done):** the shell is gated to first-time
    visitors; a returning user (the screenshot case) still gets the island-gated first
    paint. A neutral (deck-agnostic) shell for them is the next slice.
+5. **Dark-mode newcomer (NOT yet done):** the shell bakes indaco·**light** only, so a
+   first-timer whose OS is dark gets no shell (a large share of phones). Baking a dark
+   variant (render + prune the same slide in indaco-dark, pick by the seed script's
+   resolved mode) is a clean follow-up.
+
+**Maker-checker.** An independent checker reviewed the diff before merge; its findings
+were folded back: css-tree was a phantom (transitive-only) dependency whose top-level
+require could hard-break `astro build` — now declared in `docs/package.json` and loaded
+lazily so a miss degrades to the graceful null; `onFirstRender` now fires on the iframe's
+`load` (post-paint), not when `renderInto` merely sets `srcdoc`, so the shell can't be
+dismissed over a still-blank live frame; the first-time gate was widened to the app's own
+returning-user test (`deck-index` OR any `src-` key OR `settings.onboarded`) so an edited
+newcomer no longer gets a stale-welcome flash; the kept `@font-face` `url(fonts/…)` refs
+(which 404'd at `/studio/`) are rewritten to the absolute themes/ base so the SSG slide
+uses the real faces; and the decorative overlay is `pointer-events:none` from the start.
 
 ### B. FRAME — stop re-parsing everything on every write (front-end + engine)
 1. **Scope the preview CSS to used components.** 563KB → est. 50–100KB for a typical

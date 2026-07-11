@@ -114,13 +114,16 @@ const firstDeck = DECKS[0];
 // process.cwd() is docs/ under `astro build` (the same basis the lintVocab read
 // below uses); repo root is one up. NOT an import.meta.url walk — the bundled
 // frontmatter chunk doesn't sit at src/pages/.
-const shell = firstDeck?.slides?.[0] ? await renderFirstSlideShell(firstDeck.slides[0], SSR_PALETTE, join(process.cwd(), '..')) : null;
+// options.themeBase is the served themes/ URL the engine's relative `url(fonts/…)`
+// @font-face refs resolve against — pass it so they're rewritten absolute (no 404
+// at /studio/, and the SSG slide uses the real faces, matching the live render).
+const shell = firstDeck?.slides?.[0] ? await renderFirstSlideShell(firstDeck.slides[0], SSR_PALETTE, join(process.cwd(), '..'), options.themeBase) : null;
 // Chrome + responsive-scale CSS for the instant shell. Keyed under
 // #studio-ssr-shell so it never touches the hydrated island; the slide scales
 // fluidly via its own container queries (fixed 1280×720 → width:100% + the deck's
 // aspect box), so no JS measure is needed and there is no layout shift.
 const SHELL_CHROME_CSS = shell
-	? `#studio-ssr-shell{position:fixed;inset:0;z-index:1;flex-direction:column;background:#e7e7ea;color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
+	? `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:#e7e7ea;color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
 #studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.08);background:#fbfbfa;}
 #studio-ssr-shell .ssr-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 45deg,#1a3a5c,#3f6d9c,#1a3a5c);flex:0 0 auto;}
 #studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;}
@@ -166,7 +169,15 @@ const SHELL_CHROME_CSS = shell
 					// exactly what a newcomer lands on. A returning user (any saved deck → the
 					// deck-index key exists) or a non-default palette/mode would see wrong
 					// content/theme, so they keep the prior island-gated first paint.
-					if (!localStorage.getItem('lattice-studio-deck-index') && palette === 'indaco' && mode === 'light') r.setAttribute('data-ssr-shell', 'on');
+					// Returning-user test mirrors the app's hasPriorStudioUse()+onboarded: a deck
+					// index, ANY edited-source key, or a persisted onboarded flag. Editing the
+					// welcome deck or dismissing the banner writes src-/settings but NOT the index,
+					// so keying on the index alone would wrongly show a newcomer the stale welcome
+					// slide + "New here?" banner on every later visit.
+					var returning = !!localStorage.getItem('lattice-studio-deck-index');
+					if (!returning) for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { returning = true; break; } }
+					if (!returning) { try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || '{}'); if (st && st.onboarded) returning = true; } catch (e2) {} }
+					if (!returning && palette === 'indaco' && mode === 'light') r.setAttribute('data-ssr-shell', 'on');
 					// Pre-paint seed for the editor|preview split ratio: the Studio grid
 					// consumes these as var() fallbacks, so a returning resizer's saved
 					// width applies before the island hydrates (no first-paint jump).

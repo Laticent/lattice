@@ -110,10 +110,22 @@ export function DeckPreview({
 		if (done && !firstRenderFiredRef.current) {
 			done
 				.then((st) => {
-					if (st?.ok && !firstRenderFiredRef.current) {
+					if (!st?.ok || firstRenderFiredRef.current) return;
+					const fire = () => {
+						if (firstRenderFiredRef.current) return;
 						firstRenderFiredRef.current = true;
 						onFirstRenderRef.current?.();
-					}
+					};
+					// renderInto resolves when the srcdoc is SET — the iframe's own load
+					// (parse + scale/reveal) fires LATER. Wait for that so a consumer
+					// (the SSG instant-shell dismissal) doesn't swap out its static slide
+					// while the live frame is still blank. Resolve runs as a microtask
+					// before the load macrotask, so the listener attaches in time; the
+					// readyState guard covers the already-loaded edge.
+					const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+					if (!fr) fire();
+					else if (fr.contentDocument?.readyState === 'complete') fire();
+					else fr.addEventListener('load', fire, { once: true });
 				})
 				.catch(() => {});
 		}
