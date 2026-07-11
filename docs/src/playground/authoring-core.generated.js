@@ -1843,6 +1843,40 @@ var require_notes_core = __commonJS({
         (full, body) => set.has(norm(body)) ? "" : full
       );
     }
+    var FRONT_MATTER_BLOCK = /^(﻿?---[ \t]*\r?\n)([\s\S]*?)(\r?\n---[ \t]*(?:\r?\n|$))/;
+    function stripCaptionsFrontMatter(source) {
+      const s = String(source == null ? "" : source);
+      const m = s.match(FRONT_MATTER_BLOCK);
+      if (!m) return s;
+      const [, open, body, close] = m;
+      const out = [];
+      let skipping = false;
+      let keyIndent = 0;
+      for (const line of body.split(/\r?\n/)) {
+        if (!skipping) {
+          const key = line.match(/^(\s*)captions\s*:/);
+          if (key) {
+            skipping = true;
+            keyIndent = key[1].length;
+            continue;
+          }
+          out.push(line);
+          continue;
+        }
+        if (line.trim() === "") continue;
+        if (line.match(/^(\s*)/)[1].length > keyIndent) continue;
+        skipping = false;
+        out.push(line);
+      }
+      return s.slice(0, m.index) + open + out.join("\n") + close + s.slice(m.index + m[0].length);
+    }
+    function stripCaptionsFromSource(source) {
+      const commentsStripped = String(source == null ? "" : source).replace(
+        new RegExp(COMMENT_SOURCE, "g"),
+        (full, body) => isCaptionComment(body) ? "" : full
+      );
+      return stripCaptionsFrontMatter(commentsStripped);
+    }
     module.exports = {
       MAGIC_COMMENT_MATCHERS,
       isToolingComment,
@@ -1856,7 +1890,9 @@ var require_notes_core = __commonJS({
       captionFromHtml,
       extractSlideCaptions,
       stripCommentNodes,
-      stripNotesFromSource
+      stripNotesFromSource,
+      stripCaptionsFromSource,
+      stripCaptionsFrontMatter
     };
   }
 });

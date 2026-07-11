@@ -234,6 +234,65 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.match(out, /# Slide one/, 'body content untouched');
   });
 
+  // The SEPARATE privacy strip for the caption channel (`--strip-captions`), orthogonal
+  // to the note strip: captions are structurally identified (the `caption:` prefix), so
+  // no rendered-body set is needed.
+  test('stripCaptionsFromSource removes caption COMMENTS + the front-matter captions: block — notes, describe, directives, other keys survive', () => {
+    const source = [
+      '---',
+      'theme: indaco',
+      'captions:',
+      '  1: Front matter secret caption one.',
+      '  3: Another front-matter caption, keyed by slide.',
+      'acronyms:',
+      '  ARR: annual recurring revenue',
+      '---',
+      '',
+      '# Slide one',
+      '',
+      '<!-- _class: title -->',
+      '<!-- Remember to pause here. -->',
+      '<!-- describe: A pie chart with three equal slices. -->',
+      '<!-- caption: Three equal slices, one third each. -->',
+      '<!-- Caption: a SECOND caption, case-insensitive. -->',
+      '',
+      'Body.',
+    ].join('\n');
+    const out = core.stripCaptionsFromSource(source);
+    // inline caption comments gone
+    assert.doesNotMatch(out, /Three equal slices, one third/, 'the caption comment is gone');
+    assert.doesNotMatch(out, /a SECOND caption/, 'a second, differently-cased caption is gone');
+    // front-matter captions: block gone (the leak the checker caught)
+    assert.doesNotMatch(out, /Front matter secret caption/, 'the front-matter caption text is gone');
+    assert.doesNotMatch(out, /keyed by slide/, 'every front-matter caption line is gone');
+    assert.doesNotMatch(out, /^captions:/m, 'the captions: key itself is gone');
+    // everything else survives
+    assert.match(out, /theme: indaco/, 'a sibling front-matter key before captions survives');
+    assert.match(out, /acronyms:/, 'a sibling front-matter key after captions survives');
+    assert.match(out, /ARR: annual recurring revenue/, "the acronyms block's body survives");
+    assert.match(out, /Remember to pause/, 'the speaker note is preserved');
+    assert.match(out, /describe: A pie chart/, 'the describe: a11y comment is preserved');
+    assert.match(out, /_class: title/, 'a directive comment is preserved');
+    assert.match(out, /# Slide one/, 'body content untouched');
+  });
+
+  test('stripCaptionsFrontMatter removes ONLY the captions: block; a captions word in the BODY is safe', () => {
+    const src = '---\ntheme: indaco\ncaptions:\n  2: read this\n---\n\n# S\n\nThe captions: feature is great.\n';
+    const out = core.stripCaptionsFrontMatter(src);
+    assert.doesNotMatch(out, /2: read this/, 'the front-matter caption line is gone');
+    assert.doesNotMatch(out, /^captions:/m, 'the captions: key is gone from front matter');
+    assert.match(out, /The captions: feature is great\./, 'a captions: mention in the BODY is untouched');
+    assert.match(out, /theme: indaco/, 'sibling keys survive');
+  });
+
+  test('stripCaptionsFromSource is a no-op on a deck with no captions; safe on null', () => {
+    assert.equal(core.stripCaptionsFromSource('# S\n\n<!-- a note -->\n\nBody.'), '# S\n\n<!-- a note -->\n\nBody.');
+    assert.equal(core.stripCaptionsFromSource(null), '');
+    assert.equal(core.stripCaptionsFrontMatter(null), '');
+    // a deck with no front matter at all is returned verbatim
+    assert.equal(core.stripCaptionsFrontMatter('# No front matter\n\ncaptions: in prose\n'), '# No front matter\n\ncaptions: in prose\n');
+  });
+
   test('noteBodiesFromHtml returns INDIVIDUAL bodies — a note with an internal blank line stays whole', () => {
     // The leak that was: joining then splitting on \n\n shattered a single blank-line
     // note. noteBodiesFromHtml keeps each comment's full body, so the strip set matches

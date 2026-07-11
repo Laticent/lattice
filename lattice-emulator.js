@@ -142,9 +142,14 @@ OPTIONS
                           speaker notes — one deck-level <output>.vtt (continuous
                           timeline) plus per-slide <output>.NN.vtt. Timing is
                           Cadenza's estimate (no audio, no key); honors --strip-notes
+                          and --strip-captions
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
                           shareable file with no speaker text
+      --strip-captions    Scrub the read-as caption channel (inline <!-- caption: -->
+                          and front-matter captions:) from the .vtt and embedded
+                          source — orthogonal to --strip-notes; those slides read
+                          from the note / auto projection instead
       --notes-icon        Show a clickable sticky-note icon on each slide with
                           a note (default: notes are embedded but hidden)
       --fluid             Emit the .html as the opt-in fluid-box VIEWER: each
@@ -252,6 +257,7 @@ function parseArgs(argv) {
     if (a === '--notes') { flags.notes = true; continue; }
     if (a === '--captions') { flags.captions = true; continue; }
     if (a === '--strip-notes') { flags['strip-notes'] = true; continue; }
+    if (a === '--strip-captions') { flags['strip-captions'] = true; continue; }
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
     if (a === '--player') { flags.player = true; continue; }
@@ -311,6 +317,23 @@ const CAPTIONS = !!flags.captions;
 // DOM aside, the PDF text annotation, AND the envelope `source` (design doc §Notes
 // on export) — so a shared file leaks no speaker text.
 const STRIP_NOTES = !!flags['strip-notes'];
+// `--strip-captions`: the SEPARATE privacy strip for the caption (read-as) channel —
+// orthogonal to `--strip-notes`. Notes (what you SAY) and captions (what a slide READS)
+// are independent channels, so each has its own strip. This scrubs the author's caption
+// OVERRIDES — inline `<!-- caption: -->` AND the front-matter `captions:` map — from the
+// baked copies: the read-along `.vtt` (those slides fall back to note → projection) and
+// the envelope/attached `source`. Notes and the auto DOM projection are untouched.
+const STRIP_CAPTIONS = !!flags['strip-captions'];
+// Compose the privacy strips for any re-embedded SOURCE copy (the player envelope, the
+// PDF-attached source): scrub note comments under `--strip-notes` and/or caption comments
+// under `--strip-captions`. Order-independent — the two comment classes are disjoint (a
+// `note:` body is never a `caption:` body). `noteBodies` is the set lifted from the render.
+function stripSharedSource(src, noteBodies) {
+  let out = src;
+  if (STRIP_NOTES) out = notesCore.stripNotesFromSource(out, noteBodies);
+  if (STRIP_CAPTIONS) out = notesCore.stripCaptionsFromSource(out);
+  return out;
+}
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
@@ -2060,11 +2083,12 @@ async function renderBody(browser, g, closeBrowser) {
         // clean static render (fast path, no re-serialize).
         docHtml: inflatedPlayerHtml || cleanDocHtml,
         // The envelope carries verbatim source for lossless re-import — but under
-        // `--strip-notes` that source is re-serialized WITHOUT the note comments
-        // (directive-safe: only the exact note bodies lifted from the render are
-        // removed), so the shared file leaks no speaker text. A stripped file
-        // re-imports without notes — the stated privacy tradeoff (§Notes on export).
-        source: STRIP_NOTES ? notesCore.stripNotesFromSource(rawMd, noteStripSet) : rawMd,
+        // `--strip-notes` / `--strip-captions` that source is re-serialized WITHOUT the
+        // respective comments (directive-safe: notes match only the exact bodies lifted
+        // from the render; captions match the `caption:` prefix), so the shared file leaks
+        // no speaker text and/or no caption text. A stripped file re-imports without them —
+        // the stated privacy tradeoff (§Notes on export).
+        source: stripSharedSource(rawMd, noteStripSet),
         title: deckTitle,
         theme: { name: paletteName, mode: deckScheme },
         config: deckFm,
@@ -2531,9 +2555,9 @@ async function embedSourceInPdf(pdfBytes) {
   try {
     const { PDFDocument } = require('pdf-lib');
     const doc = await PDFDocument.load(pdfBytes);
-    // Under --strip-notes the attached source is scrubbed too — else the PDF leaks
-    // the speaker notes the player was careful to remove.
-    const attachSource = STRIP_NOTES ? notesCore.stripNotesFromSource(md, noteStripSet) : md;
+    // Under --strip-notes / --strip-captions the attached source is scrubbed too — else
+    // the PDF leaks the speaker notes and/or caption text the outputs were careful to remove.
+    const attachSource = stripSharedSource(md, noteStripSet);
     await doc.attach(Buffer.from(attachSource, 'utf8'), path.basename(mdFile), {
       mimeType: 'text/markdown',
       description: 'Lattice deck source (Markdown). Re-render with: lattice-emulator <this file> out.pdf',
@@ -2673,8 +2697,14 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
     fmForMerge = null;
     if (!QUIET) console.log('Captions: front-matter captions: keys are unsafe under autosplit (section count shifts) — using inline captions / notes for those slides');
   }
+  // `--strip-captions` blanks the author's caption OVERRIDES (inline + front-matter) — a
+  // channel separate from `--strip-notes`. Those slides fall back to note → projection, so
+  // the deck still gets an auto caption track (add `--strip-notes` too to fall back to the
+  // projection alone). Inline captions come in via the `captions` arg; drop both here.
+  const inlineForMerge = STRIP_CAPTIONS ? [] : captions;
+  if (STRIP_CAPTIONS) fmForMerge = null;
   // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → note → projection.
-  const slideTexts = mergeNarration(notes, projected, { captions, fmCaptions: fmForMerge });
+  const slideTexts = mergeNarration(notes, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
