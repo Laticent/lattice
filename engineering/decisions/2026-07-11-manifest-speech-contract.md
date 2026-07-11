@@ -694,3 +694,30 @@ unused), and a locale guard. **UNVERIFIED:** audio naturalness and the in-overla
 composition (no TTS in CI); the spoken-STRING primitives (`getCaption`, `parseCaptions`,
 `presentationIndices`, `mergeNarration`, `unmatchedAcronyms`) are unit-tested and the export
 chain is verified on the real `.vtt` (HARD RULE #23).
+
+### §16.1 Follow-up — captions strip separately + a Studio caption editor (2026-07-11, SHIPPED)
+
+Two owner-requested refinements landed just after §16 merged (they missed the merge train, so
+they ship as their own PR on the same feature line — HARD RULE #17):
+
+**Captions get their OWN strip control — the compose model above is refined, not reversed.** §16
+resolved that `--strip-notes` leaves captions alone (a caption is public, a note is private). The
+missing half was a way to strip the *caption* channel independently. New flag **`--strip-captions`**
+does exactly that, ORTHOGONAL to `--strip-notes`: it scrubs the read-as OVERRIDES — inline
+`<!-- caption: -->` AND the front-matter `captions:` map — from the two surfaces where caption text
+lands in output: the read-along `.vtt` (those slides fall back to note → projection) and the
+re-embedded `source` (envelope + PDF attachment, via the new `notes-core.stripCaptionsFromSource`,
+which is structural — it matches the `caption:` prefix, needing no rendered-body set unlike the note
+strip). The two strips compose: `--strip-captions` alone → note/projection track; `--strip-captions
+--strip-notes` → projection-only, then silent. Caption comments never reach the rendered HTML/PDF
+bytes regardless (they're removed by the unconditional `stripCommentNodes` pass), so those two are
+the whole leak surface. Verified on the real `.vtt` (inline + front-matter caption words gone, note
+words retained) and the `pdfdetach`-extracted embedded source (caption comments gone, notes kept).
+
+**A Caption field in the Studio slide drawer.** The per-slide "This slide" drawer (`SlideContext.tsx`)
+already edited the speaker note and the `describe:` accessibility text; it now has a **Caption** field
+in the Notes tab, wired to the existing `slide-caption.ts` `getCaption`/`setCaption`, so an author
+sets a slide's read-as line by typing rather than hand-writing the comment. It writes only the
+`<!-- caption: -->` channel (highest narration precedence), never the presenter-note field, and joins
+the Reset baseline. Component-tested (the caption commits as its own comment and coexists with the
+note); the live overlay composition remains typecheck-only (no TTS in CI).

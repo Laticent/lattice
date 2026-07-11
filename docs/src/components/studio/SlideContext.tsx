@@ -12,12 +12,13 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
+import { Captions, Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideComments } from './SlideComments';
+import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
@@ -187,6 +188,18 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	React.useEffect(() => setNoteDraft(curNote), [curNote, slideNumber]);
 	const commitNote = () => { if (noteDraft !== curNote) onMutate((c) => setNote(c, noteDraft)); };
 
+	// Caption — the slide's read-as OVERRIDE, the highest-precedence narration source
+	// (caption → front-matter caption → note → projection). A SEPARATE channel from the
+	// speaker note: the note is what you SAY off-slide; the caption is the exact words the
+	// slide READS (read-aloud, the HTML player's Read-Article, the export `.vtt`, a11y).
+	// Same draft-then-commit shape; writes a `<!-- caption: … -->` the engine routes to
+	// narration only, never to the presenter-note field.
+	const curCaption = React.useMemo(() => getCaption(chunk), [chunk]);
+	const [captionDraft, setCaptionDraft] = React.useState(curCaption);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
+	React.useEffect(() => setCaptionDraft(curCaption), [curCaption, slideNumber]);
+	const commitCaption = () => { if (captionDraft !== curCaption) onMutate((c) => setCaption(c, captionDraft)); };
+
 	// Accessibility description — a SEPARATE channel from the note (objective
 	// equivalent of the slide, for screen readers). Same draft-then-commit shape;
 	// commits to a `<!-- describe: … -->` comment the engine routes to image alt /
@@ -238,7 +251,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: capture the baseline on open/slide change, not on every edit.
 	React.useEffect(() => { originalRef.current = chunk; }, [slideNumber, open]);
 	const dirty = chunk !== originalRef.current;
-	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); setDescDraft(getDescription(originalRef.current)); onMutate(() => originalRef.current); } };
+	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); setCaptionDraft(getCaption(originalRef.current)); setDescDraft(getDescription(originalRef.current)); onMutate(() => originalRef.current); } };
 
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
 	const editable = React.useMemo(() => canEditClass(chunk), [chunk]);
@@ -398,6 +411,23 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
 							/>
 							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Read aloud in Present, and exported to the PDF/PPTX speaker-notes field.</p>
+
+							{/* CAPTION — the read-as OVERRIDE. A separate channel from the note: the
+							    highest-precedence narration source (caption → front-matter → note →
+							    projection), for a clean caption track / Read-Article / export `.vtt`.
+							    Writes `<!-- caption: … -->`; never lands in the presenter-note field. */}
+							<div className="mt-5 border-t border-border pt-4">
+								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Captions className="size-3.5 text-[var(--accent)]" />Caption <span className="font-normal text-muted-foreground">what this slide reads aloud</span></span>
+								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">Override the exact words this slide narrates — the read-along caption track, the HTML player's Read-Article, and the export <code className="font-mono">.vtt</code>. Highest precedence: it wins over the note and the auto text. Leave empty to fall back to the note.</p>
+								<textarea
+									value={captionDraft}
+									onChange={(e) => setCaptionDraft(e.target.value)}
+									onBlur={commitCaption}
+									aria-label="Read-as caption for this slide"
+									placeholder="The exact words this slide should read aloud — e.g. “Revenue grew forty percent across three quarters.”"
+									className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
+								/>
+							</div>
 
 							{/* DESCRIPTION — a separate channel from the note (opposite register:
 							    what's ON the slide, for screen readers), exported as the image's
