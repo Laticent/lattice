@@ -212,6 +212,20 @@ in patch versions.
   what to register without ever playing audio. Demonstrated in `examples/read-along-captions.md`.
   Audio naturalness stays UNVERIFIED (no TTS in CI) — only the display→spoken string behavior is
   claimed.
+- **The Studio now paints a real first slide instantly on a cold mobile load, instead
+  of a blank page until the app hydrates.** `/studio` was a `client:only` island with an
+  empty `<body>`, so on a phone the largest paint waited on React + CodeMirror hydration —
+  a ~6s Largest-Contentful-Paint on the live-perf overlay. The page now server-renders an
+  **instant shell** for a first-time visitor: the newcomer deck's title slide is rendered
+  through the owned engine at build time to static HTML + its **critical CSS** (pruned from
+  563KB to ~15KB gzipped via css-tree + jsdom), shown immediately with a server-rendered
+  welcome banner, then dismissed the moment the live preview's first render lands (no blank
+  gap, no layout shift — the slide scales by its own container queries). Measured against the
+  production build (headless Chrome, CPU 4×/6× + Slow-4G): **LCP 1156/1751ms → 304/531ms**,
+  now decoupled from device speed (it's a static element), turning the mobile LCP needle
+  green. The engine bundle is no longer eager-warmed ahead of first paint. First-time
+  visitors only for now (a returning user keeps the prior first paint); front A of
+  `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the

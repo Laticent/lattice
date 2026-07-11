@@ -286,6 +286,23 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			.catch(() => setSavedThemes([]));
 	}, []);
 	React.useEffect(() => { refreshThemes(); }, [refreshThemes]);
+	// Dismiss the SSG instant-shell (studio.astro) once the live preview is ready.
+	// Fade over a beat so any sub-frame gap between removing the static slide and
+	// the live iframe revealing is imperceptible. Idempotent (the node is gone
+	// after the first call); a mount backstop below still clears it if the engine
+	// never signals a first render, so a broken engine can't trap the user behind it.
+	const dismissSsrShell = React.useCallback(() => {
+		const el = document.getElementById('studio-ssr-shell');
+		if (!el) return;
+		el.style.transition = 'opacity 220ms ease';
+		el.style.opacity = '0';
+		el.style.pointerEvents = 'none';
+		setTimeout(() => el.remove(), 260);
+	}, []);
+	React.useEffect(() => {
+		const t = setTimeout(dismissSsrShell, 12000); // backstop: never trap the user
+		return () => clearTimeout(t);
+	}, [dismissSsrShell]);
 	// Saved LOCAL components from the same shared library (kind:'component') —
 	// authored + saved in the Fabricate Component Studio. They become insertable AND
 	// render styled (their CSS is injected where the deck uses them).
@@ -1681,7 +1698,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
 				<div className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" onFirstRender={dismissSsrShell} />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
