@@ -323,10 +323,6 @@ function projectDeckToProse(sections) {
   });
   return { articleHtml: parts.join("\n"), toc };
 }
-function classesOf(section) {
-  const dc = section.getAttribute("data-class") || section.getAttribute("class") || "";
-  return dc.split(/\s+/).filter(Boolean);
-}
 function speechText(el) {
   return el ? el.textContent.replace(/\s+/g, " ").trim() : "";
 }
@@ -379,7 +375,7 @@ function speakQuote(stage) {
   const attrib = [...stage.querySelectorAll(":scope > p")].map((p) => speechText(p)).find((t) => /^[—–-]/.test(t));
   return attrib ? `${quote} ${terminate(attrib.replace(/^[—–-]\s*/, ""))}` : quote;
 }
-function speakTable(table) {
+function speakTable(table, wordMap = null) {
   const ownRows = (root) => [...root.querySelectorAll(":scope > tr, :scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr")];
   const allRows = ownRows(table).filter((tr) => tr.querySelector(":scope > th, :scope > td"));
   if (!allRows.length) return "";
@@ -387,7 +383,10 @@ function speakTable(table) {
   const cellText = (c) => {
     const inner = c.querySelector(":scope > ul, :scope > ol");
     if (inner) return coordinate([...inner.children].filter((x) => x.tagName === "LI").map((x) => speechText(x)));
-    return speechText(c);
+    const txt = speechText(c);
+    const sw = stateWordOf(c, wordMap);
+    if (sw) return txt ? `${txt}, ${sw}` : sw;
+    return txt;
   };
   const headers = headerRow ? [...headerRow.querySelectorAll(":scope > th, :scope > td")].map(cellText) : [];
   const body = headerRow ? allRows.filter((r) => r !== headerRow) : allRows;
@@ -400,21 +399,37 @@ function speakTable(table) {
   });
   return sentences.join(" ");
 }
-function renderListItems(list) {
+function stateWordMapFor(component) {
+  return WORD_MAPS[component] || null;
+}
+function stateWordOf(el, wordMap) {
+  if (!wordMap || !el || typeof el.className !== "string") return "";
+  const marked = STATE_SHAPE_RE.test(el.className) ? el : el.querySelector?.(":scope > .badge, :scope > .state, :scope > p > .badge, :scope > p > .state");
+  const cls = marked && typeof marked.className === "string" ? marked.className : "";
+  if (!STATE_SHAPE_RE.test(cls)) return "";
+  const m = cls.match(STATE_SEM_RE);
+  return m ? wordMap[m[1]] : "";
+}
+function renderListItems(list, wordMap = null) {
   const lis = [...list.children].filter((li) => li.tagName === "LI");
   return lis.map((li) => {
     const sub = li.querySelector(":scope > ul, :scope > ol");
     const clone = li.cloneNode(true);
     for (const n of [...clone.querySelectorAll(":scope > ul, :scope > ol")]) n.remove();
     const lead = speechText(clone).replace(/[:—–-]\s*$/, "");
-    if (!sub) return lead;
+    const sw = stateWordOf(li, wordMap);
+    if (!sub) {
+      if (sw) return lead ? `${lead}: ${sw}` : sw;
+      return lead;
+    }
     const subLis = [...sub.children].filter((x) => x.tagName === "LI");
     const allLeaves = subLis.every((x) => !x.querySelector(":scope > ul, :scope > ol"));
-    const body = allLeaves ? coordinate(subLis.map((x) => speechText(x))) : renderListItems(sub).join(", ");
-    return lead ? `${lead}: ${body}` : body;
+    const body = allLeaves ? coordinate(subLis.map((x) => stateWordOf(x, wordMap) ? `${speechText(x)}: ${stateWordOf(x, wordMap)}` : speechText(x))) : renderListItems(sub, wordMap).join(", ");
+    const head = sw ? `${lead} (${sw})` : lead;
+    return head ? `${head}: ${body}` : body;
   });
 }
-function speakGeneric(stage, eyebrow) {
+function speakGeneric(stage, eyebrow, wordMap = null) {
   const blocks = [...stage.querySelectorAll("p, ul, ol, dl, blockquote, table, figcaption, h3, h4")];
   const out = [];
   const consumed = [];
@@ -426,7 +441,7 @@ function speakGeneric(stage, eyebrow) {
     if (el.tagName === "P" && eyebrow && txt === eyebrow) continue;
     consumed.push(el);
     if (el.tagName === "TABLE") {
-      const t = speakTable(el);
+      const t = speakTable(el, wordMap);
       if (t) out.push(t);
       continue;
     }
@@ -443,7 +458,7 @@ function speakGeneric(stage, eyebrow) {
       continue;
     }
     if (el.tagName === "UL" || el.tagName === "OL") {
-      out.push(renderListItems(el).map(terminate).join(" "));
+      out.push(renderListItems(el, wordMap).map(terminate).join(" "));
       continue;
     }
     out.push(terminate(txt));
@@ -452,23 +467,23 @@ function speakGeneric(stage, eyebrow) {
 }
 function projectDeckToSpeech(sections) {
   return sections.map((section) => {
-    const classes = classesOf(section);
-    const component = classes[0] || "";
+    const component = componentOf(section);
     const { text: heading } = headingOf(section, component);
     const eyebrow = eyebrowOf(section);
     const stage = stageOf(section);
     const lead = [];
     if (eyebrow && eyebrow !== heading) lead.push(terminate(eyebrow));
     if (heading) lead.push(terminate(heading));
+    const wordMap = stateWordMapFor(component);
     let body = "";
-    if (component === "kpi" || component === "stats") body = speakStats(stage) || speakGeneric(stage, eyebrow);
-    else if (component === "quote") body = speakQuote(stage) || speakGeneric(stage, eyebrow);
-    else if (MEDIA_COMPONENTS.has(component)) body = speakGeneric(stage, eyebrow);
-    else body = speakGeneric(stage, eyebrow);
+    if (component === "kpi" || component === "stats") body = speakStats(stage) || speakGeneric(stage, eyebrow, wordMap);
+    else if (component === "quote") body = speakQuote(stage) || speakGeneric(stage, eyebrow, wordMap);
+    else if (MEDIA_COMPONENTS.has(component)) body = speakGeneric(stage, eyebrow, wordMap);
+    else body = speakGeneric(stage, eyebrow, wordMap);
     return [...lead, body].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   });
 }
-var SKIP_SELECTOR, MEDIA_COMPONENTS, prose_projection_default;
+var SKIP_SELECTOR, MEDIA_COMPONENTS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
 var init_prose_projection = __esm({
   "lib/transformers/prose-projection.mjs"() {
     SKIP_SELECTOR = "header, footer, .cell-footer, .masthead-bay, .lat-pagination, aside, script, style, .lattice-notes, .lattice-description";
@@ -491,6 +506,14 @@ var init_prose_projection = __esm({
       "video",
       "math"
     ]);
+    WORD_MAPS = {
+      checklist: { pass: "done", warn: "partial", skip: "skipped", todo: "to do", fail: "not done" },
+      "verdict-grid": { pass: "yes", warn: "partial", skip: "skipped", todo: "pending", fail: "no" },
+      pricing: { pass: "included", warn: "partial", skip: "not included", todo: "not included", fail: "not included" },
+      "obligation-matrix": { pass: "applies", warn: "partial", skip: "exempt", todo: "exempt", fail: "does not apply" }
+    };
+    STATE_SHAPE_RE = /\bstate-(full|half|empty|slashed|todo)\b/;
+    STATE_SEM_RE = /\b(pass|warn|skip|todo|fail)\b/;
     prose_projection_default = { projectDeckToProse, projectDeckToSpeech };
   }
 });

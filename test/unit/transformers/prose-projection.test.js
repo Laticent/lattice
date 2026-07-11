@@ -273,3 +273,51 @@ test('speech generic: three-level nesting never mashes words together', () => {
 	assert.doesNotMatch(t, /Designwireframes/, 'no run-together text across levels');
 	assert.match(t, /Phase one:/);
 });
+
+// ── projectDeckToSpeech: state-marker reading (Phase 3), from REAL engine renders ──
+// [x]/[-]/[ ]/[/] render with the glyph STRIPPED, meaning surviving only in a CSS
+// class; the projection recovers it. These render authored Markdown through the
+// REAL engine (not hand-written classes) so a renderer class rename fails a test
+// instead of silently muting narration — and so the COMPONENT-KEYED word register
+// (checklist "to do" vs obligation-matrix "exempt" for the same [ ]→todo class) is
+// pinned against reality.
+const engine = require('../../../lib/engine/index.js');
+function renderSpeech(md) {
+	const { html } = engine.render(md, 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	return speak([...dom.window.document.querySelectorAll('section[data-class]')]);
+}
+
+test('checklist: completion register — [x]→done, [ ]→to do, [-]→partial', () => {
+	const [t] = renderSpeech('<!-- _class: checklist -->\n\n## Gate\n\n- [x] Encryption at rest\n- [ ] SOC 2 audit\n- [-] DR drills\n');
+	assert.match(t, /Encryption at rest: done\./);
+	assert.match(t, /SOC 2 audit: to do\./);
+	assert.match(t, /DR drills: partial\./);
+});
+
+test('verdict-grid: inclusion register — [x]→yes, [ ]→no, [-]→partial (badge span)', () => {
+	const [t] = renderSpeech('<!-- _class: verdict-grid -->\n\n## Options\n\n- Path A\n  - [x] Speed\n  - [ ] Cost\n  - [-] Adoption\n');
+	assert.match(t, /Speed: yes/);
+	assert.match(t, /Cost: no/);
+	assert.match(t, /Adoption: partial/);
+});
+
+test('obligation-matrix: obligation register — [x]→applies, [ ]→EXEMPT (not "pending"), header-bound', () => {
+	const [t] = renderSpeech('<!-- _class: obligation-matrix -->\n\n## Duties\n\n| Regime | Delete | Portability |\n| --- | --- | --- |\n| GDPR | [x] | [ ] |\n| CCPA | [-] | [x] |\n');
+	assert.match(t, /GDPR — Delete: applies; Portability: exempt\./);
+	assert.match(t, /CCPA — Delete: partial; Portability: applies\./);
+	assert.doesNotMatch(t, /pending|: yes|: no/, 'exempt is never narrated as "pending"/"no"');
+});
+
+test('obligation-matrix HEAT: same marker meanings as default (only recolored)', () => {
+	const [t] = renderSpeech('<!-- _class: obligation-matrix heat -->\n\n## Exposure\n\n| Regime | Delete |\n| --- | --- |\n| GDPR | [x] |\n| CCPA | [ ] |\n');
+	assert.match(t, /GDPR — Delete: applies\./);
+	assert.match(t, /CCPA — Delete: exempt\./);
+});
+
+test('speech: a plain nested list never invents a state word from a descendant', () => {
+	const [t] = speak(sections(
+		`<section data-lattice-slide data-class="list" class="list"><div class="cell-stage"><ul><li>Roadmap<ul><li>Q1 launch</li></ul></li></ul></div></section>`,
+	));
+	assert.equal(t, 'Roadmap: Q1 launch.');
+});

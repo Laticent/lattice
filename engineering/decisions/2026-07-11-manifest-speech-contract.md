@@ -441,3 +441,22 @@ citations and cross-bucket token contamination (checker-flagged: SOC 2/SSO betwe
 sharpest new claims, F-B and F-D.2, were re-verified against source before landing here); **exact
 string→line attributions must be re-verified before any of this enters code.** Audio naturalness remains
 UNVERIFIED (HARD RULE #23) — only display→spoken string/text behavior is ever claimed.
+
+### 13.4 Phase 3 (state-marker reading) — SHIPPED (2026-07-11), adversarially reviewed
+
+The first tail item — **state-marker class-reading** — is implemented in `projectDeckToSpeech`: a stripped
+`[x]/[-]/[ ]/[/]` marker's surviving CSS class (`plugins.js` `stateClassesFor` → sem) becomes a spoken word
+via a **COMPONENT-KEYED** `WORD_MAPS` (F-D.2's non-negotiable). The Munger-inversion + red-team pass proved
+a *flat* map was confidently wrong: obligation-matrix `[ ]` = **exempt** (relief) rendered to the SAME
+`state-todo` class as checklist `[ ]` = "not started", and a global `todo → "pending"` narrated exempt as
+its near-antonym — worse than the silent drop. Fixed by keying the register per component: checklist
+completion (`done`/`to do`/`partial`), verdict-grid & pricing inclusion (`yes`/`no` · `included`/`not
+included`), obligation-matrix obligation (`applies`/`exempt`/`partial`). The `heat` variant only recolors —
+marker MEANINGS are identical — so it reads the same words (the earlier "suppress heat" special-case was
+removed; suppression would have dropped the whole matrix body). The reader is scoped to a direct-child
+badge/state span plus one `<p>` wrapper (loose lists), so a parent card never inherits a child's state.
+Tests render **real engine output** (not hand-written classes) so a renderer class rename fails a test.
+**Corrections vs the census:** `roadmap` is a phantom in the F-D "×5" — no renderer emits state classes for
+it, so it is correctly not covered (×4: checklist, verdict-grid, pricing, obligation-matrix). *Deferred:* the
+deeper table-walkers (gantt/roadmap geometry), math-equation / mermaid-graph narration, video provider
+synthesis, and the redundant "…complete: done" case where a label already lexicalizes its state.

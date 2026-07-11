@@ -152,6 +152,20 @@ in patch versions.
 
 ### Added
 
+- **Read-along captions now speak a checklist/matrix's state, which used to be
+  silent — in each component's own words.** State markers (`[x]`/`[-]`/`[ ]`/`[/]`)
+  render with the glyph removed and the meaning kept only in a CSS class, so
+  narration used to read "Encryption at rest. SOC 2 audit." and drop the whole
+  point. The export projection now recovers the state with a COMPONENT-KEYED
+  register (the same class means different things per component): a checklist reads
+  completion ("Encryption at rest: done. SOC 2 audit: to do."), a verdict grid /
+  pricing table reads inclusion ("Speed: yes, Cost: no"), and an obligation matrix
+  reads obligation status header-bound ("GDPR — Delete: applies; Portability:
+  **exempt**" — never mis-narrated as "pending", the near-antonym a flat word map
+  produced). The `heat` matrix variant only recolors, so it reads the same words.
+  Third slice of the natural-narration plan
+  (`engineering/decisions/2026-07-11-manifest-speech-contract.md` §6/§13 F-D);
+  string behavior is unit-tested from real engine renders, audio UNVERIFIED.
 - **Exported read-along captions (`.vtt`) now narrate a deck's slides even when it
   has no speaker notes — reading each component the way a person would.** Previously
   `--captions` wrote nothing for a note-free deck. An authored speaker note still
