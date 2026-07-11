@@ -263,6 +263,41 @@ describe('SlideContextBody controls', () => {
 		expect(out).not.toMatch(/<!-- note:.*bar chart/);
 	});
 
+	it('authors a read-as caption as a caption: comment under the Notes tab', () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		const box = screen.getByRole('textbox', { name: 'Read-as caption for this slide' });
+		fireEvent.change(box, { target: { value: 'Revenue grew forty percent across three quarters.' } });
+		fireEvent.blur(box);
+		const out = sourceOut();
+		expect(out).toContain('<!-- caption: Revenue grew forty percent across three quarters. -->');
+	});
+
+	it('the note field warns that a caption overrides it when one is set', () => {
+		// Precedence is caption → note; with a caption present, the note does NOT narrate.
+		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- caption: The board-facing line. -->');
+		goTab('Notes');
+		expect(screen.getByText(/caption, which overrides the note/i)).toBeTruthy();
+	});
+
+	it('the note field shows the plain read-aloud hint when NO caption is set', () => {
+		setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		expect(screen.getByText(/Read aloud in Present/i)).toBeTruthy();
+		expect(screen.queryByText(/overrides the note/i)).toBeNull();
+	});
+
+	it('the caption field is separate from the speaker note (both channels coexist)', () => {
+		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- Say this warmly. -->');
+		goTab('Notes');
+		const cap = screen.getByRole('textbox', { name: 'Read-as caption for this slide' });
+		fireEvent.change(cap, { target: { value: 'The board-facing line.' } });
+		fireEvent.blur(cap);
+		const out = sourceOut();
+		expect(out).toContain('<!-- caption: The board-facing line. -->');
+		expect(out).toContain('<!-- Say this warmly. -->'); // the note survives untouched
+	});
+
 	it('the description field is separate from the speaker note (both coexist)', () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3');
 		goTab('Notes');

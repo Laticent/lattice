@@ -246,3 +246,61 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 		assert.equal(parseEnvelope(html).source.includes('CRLFLEAK'), false, 'and from the decoded envelope source');
 	});
 });
+
+// The caption channel strips SEPARATELY from notes (`--strip-captions`), and the two flags
+// are orthogonal. This pins the HARD RULE #23 "verified on the real .vtt" claim with a
+// committed artifact: caption text gone from the .vtt AND the envelope source, notes retained
+// (the fallback), and both flags together → a silent track.
+describe('html-player export — captions + --strip-captions (orthogonal to --strip-notes)', () => {
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+	const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
+	const TIMEOUT = 120000;
+	// Single distinctive tokens survive the .vtt's word-by-word cue split.
+	const DECK = [
+		'---', 'theme: indaco', 'captions:', '  1: FRONTCAP the front-matter caption', '---', '',
+		'# One', '', '<!-- NOTEONE the first note -->', '', 'Body A.', '',
+		'---', '', '# Two', '', '<!-- caption: INLINECAP the inline caption -->', '<!-- NOTETWO the second note -->', '', 'Body B.', '',
+	].join('\n');
+
+	function render(flags) {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caps-'));
+		const out = path.join(dir, 'deck.pdf');
+		fs.writeFileSync(path.join(dir, 'deck.md'), DECK);
+		const r = spawnSync(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), out, '--quiet', '--player', '--captions', ...flags], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const vttPath = out.replace(/\.pdf$/, '.vtt');
+		return {
+			vtt: fs.existsSync(vttPath) ? fs.readFileSync(vttPath, 'utf8') : '',
+			source: parseEnvelope(fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8')).source,
+		};
+	}
+
+	test('by DEFAULT (--captions) the caption text narrates and rides in the source', { timeout: TIMEOUT }, () => {
+		const { vtt, source } = render([]);
+		assert.ok(vtt.includes('FRONTCAP'), 'the front-matter caption narrates into the .vtt');
+		assert.ok(vtt.includes('INLINECAP'), 'the inline caption narrates into the .vtt');
+		assert.ok(source.includes('FRONTCAP') && source.includes('INLINECAP'), 'both captions ride in the envelope source');
+	});
+
+	test('--strip-captions scrubs caption text from the .vtt AND the source, but KEEPS the notes (the fallback)', { timeout: TIMEOUT }, () => {
+		const { vtt, source } = render(['--strip-captions']);
+		// caption text gone from both surfaces
+		assert.equal(vtt.includes('FRONTCAP'), false, 'front-matter caption gone from the .vtt');
+		assert.equal(vtt.includes('INLINECAP'), false, 'inline caption gone from the .vtt');
+		assert.equal(source.includes('FRONTCAP'), false, 'front-matter caption gone from the source');
+		assert.equal(source.includes('INLINECAP'), false, 'inline caption gone from the source');
+		// the slides fall back to their notes — which are NOT stripped (orthogonality)
+		assert.ok(vtt.includes('NOTEONE'), 'slide 1 falls back to its note in the .vtt');
+		assert.ok(vtt.includes('NOTETWO'), 'slide 2 falls back to its note in the .vtt');
+		assert.ok(source.includes('NOTEONE') && source.includes('NOTETWO'), 'the notes still ride in the source (only captions were stripped)');
+	});
+
+	test('--strip-captions --strip-notes → a fully silent track (no caption or note narration)', { timeout: TIMEOUT }, () => {
+		const { vtt, source } = render(['--strip-captions', '--strip-notes']);
+		for (const tok of ['FRONTCAP', 'INLINECAP', 'NOTEONE', 'NOTETWO']) {
+			assert.equal(vtt.includes(tok), false, `no ${tok} in the fully-stripped .vtt`);
+			assert.equal(source.includes(tok), false, `no ${tok} in the fully-stripped source`);
+		}
+	});
+});

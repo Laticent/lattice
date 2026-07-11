@@ -248,6 +248,20 @@ in patch versions.
   never sees a brief flash of the wrong deck's last slide; the captured HTML is
   re-sanitized at the storage boundary and `@import` rules are dropped from the captured
   CSS. Front A of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
+- **Captions get their own strip control and a Studio editor.** Two follow-ups to Layer 1:
+  (1) a new **`--strip-captions`** export flag scrubs the read-as caption channel — inline
+  `<!-- caption: -->` AND the front-matter `captions:` map — from the `.vtt` and the embedded
+  source, ORTHOGONAL to `--strip-notes`. Notes (what you say) and captions (what a slide reads)
+  are independent channels, so each strips on its own: `--strip-captions` alone falls those
+  slides back to the note / auto projection; add `--strip-notes` too for a fully silent track.
+  (A slide that had BOTH a caption and a note will then narrate the NOTE — the caption was
+  masking it — so use both flags when the note is also private.) `describe:` accessibility text
+  is deliberately NOT strippable — it's a screen-reader equivalent, not a private channel.
+  Verified on the real `.vtt` and the PDF-embedded source. (2) The Studio's per-slide **"This
+  slide" drawer now has a Caption field** in the Notes tab, beside the speaker note and the
+  accessibility description — type the exact words a slide should read aloud and it writes the
+  `<!-- caption: -->` comment (highest-precedence narration), never touching the presenter-note
+  field. The in-overlay live composition is typecheck-only; the string behavior is unit-tested.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the

@@ -34,10 +34,14 @@ describe('slide-caption', () => {
 		expect(getCaption(setCaption(src, ''))).toBe('');
 	});
 
-	it('never lets the body close the comment early', () => {
+	it('never lets the body close the comment early — normal `-->` AND abrupt `--!>`', () => {
 		const src = setCaption('# Hi', 'a --> b');
 		expect(src).not.toContain('--> b -->');
 		expect(getCaption(src)).toBe('a -> b');
+		// `--!>` is a spec-valid abrupt comment close in a real HTML parser; neutralize it too.
+		const src2 = setCaption('# Hi', 'x --!> y');
+		expect(src2).not.toContain('--!>');
+		expect(getCaption(src2)).toBe('x -> y');
 	});
 
 	// The load-bearing guarantee: note, description, and caption are THREE independent

@@ -45,6 +45,8 @@ export function setCaption(chunk: string, caption: string): string {
 	let out = text;
 	for (let i = ranges.length - 1; i >= 0; i--) out = out.slice(0, ranges[i][0]) + out.slice(ranges[i][1]);
 	out = tidyOutsideFences(out).trim();
-	const t = caption.trim().replace(/--+>/g, '->'); // never let the body close the comment early
+	// Never let the body close the comment early — neutralize BOTH the normal `-->` and the
+	// spec-valid abrupt close `--!>` (a real HTML parser treats `--!>` as a comment end).
+	const t = caption.trim().replace(/--+!?>/g, '->');
 	return t ? `${out}\n\n<!-- caption: ${t} -->` : out;
 }
