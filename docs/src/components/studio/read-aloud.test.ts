@@ -1,14 +1,15 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { slideToSpeech, useReadAloud } from './read-aloud';
+import { previewTtsVoice, slideToSpeech, useReadAloud } from './read-aloud';
 
 // The spoken-audio rung is irrelevant to the teleprompter timer that drives
 // onFinish — stub the voice model so play() doesn't import the real Kokoro worker.
 // A configurable stub of the production voice ladder. Default rung 'silent' → the
 // estimate clock carries the highlight (no audio path). Tests can flip `voiceState`
 // to drive the AUDIO clock + capture `onSentenceTiming` to exercise re-anchoring.
-const { unlockSpy, voiceState } = vi.hoisted(() => ({
+const { unlockSpy, previewVoiceSpy, voiceState } = vi.hoisted(() => ({
 	unlockSpy: vi.fn(),
+	previewVoiceSpy: vi.fn(async () => ({ ok: true })),
 	voiceState: { rung: 'silent', audioMs: 0, onTiming: null as null | ((t: { index: number; onsetMs: number; durationMs: number }) => void) },
 }));
 vi.mock('@/playground/voice-model.js', () => ({
@@ -23,6 +24,7 @@ vi.mock('@/playground/voice-model.js', () => ({
 		unlock: unlockSpy,
 		audioTimeMs: () => voiceState.audioMs,
 		outputLatencyMs: () => 0,
+		previewVoice: previewVoiceSpy,
 	}),
 }));
 
@@ -294,5 +296,40 @@ describe('useReadAloud — pause/resume during the voice-arming window', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+});
+
+// Munger-inversion finding (2026-07-11, see the decision doc's TTS follow-up):
+// `speed` is a single cross-model preference — unlike voice, it's never reset
+// when the active model changes (TtsSettings.tsx's pickOrModel only resets
+// voice). Before this fix, Playing a model whose `speed` param is verified to
+// do nothing (speedSupported — tts-voice-catalog.ts) with a stale non-1 speed
+// left over from a DIFFERENT, speed-supporting model silently forced a live,
+// billed OpenRouter call: cachedSampleUrl only serves the free, committed local
+// sample at speed === 1. previewTtsVoice now clamps to 1 for a non-speed-
+// supporting model before either the cache lookup or the live fallback.
+describe('previewTtsVoice — clamps a stale cross-model speed for a model that cannot use it', () => {
+	beforeEach(() => previewVoiceSpy.mockClear());
+
+	it('clamps to speed 1 before the live fallback when the model does not support speed', async () => {
+		// Gemini is speedSupport:false; 'Callirrhoe' is a real live voice OUTSIDE
+		// its cachedVoices subset, so cachedSampleUrl deterministically misses and
+		// this always reaches the live fallback — no jsdom Audio-element ambiguity.
+		await previewTtsVoice({ rung: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Callirrhoe', speed: 1.3 });
+		expect(previewVoiceSpy).toHaveBeenCalledTimes(1);
+		expect(previewVoiceSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
+	});
+
+	it('passes a real speed through unchanged for a model that DOES support it', async () => {
+		// Kokoro is speedSupport:true and requiresAsset:false (never cached), so
+		// this also deterministically reaches the live fallback.
+		await previewTtsVoice({ rung: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1.3 });
+		expect(previewVoiceSpy).toHaveBeenCalledTimes(1);
+		expect(previewVoiceSpy.mock.calls[0][0]).toMatchObject({ speed: 1.3 });
+	});
+
+	it('defaults an omitted speed to 1 regardless of speed support', async () => {
+		await previewTtsVoice({ rung: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Callirrhoe' });
+		expect(previewVoiceSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
 	});
 });

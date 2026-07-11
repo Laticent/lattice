@@ -277,6 +277,30 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		expect(sheet.queryByPlaceholderText('af_heart')).not.toBeInTheDocument(); // the old free-text field is gone
 	});
 
+	// Independent-checker finding (2026-07-11): every OTHER slider-presence
+	// assertion in this file exercises only the DEFAULT model (Kokoro,
+	// speedSupport:true) — nothing rendered the Speed section for a model whose
+	// speed param is verified to do nothing, so a regression that always shows
+	// the slider (or crashes SpeedSection for an unsupported model) would pass
+	// CI untouched. See tts-voice-catalog.test.ts for speedSupported() itself.
+	it('renders NO speed slider — just a fixed-pace note — for a model that does not support speed', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('x-ai/grok-voice-tts-1.0'); // speedSupport:false
+		const { sheet } = openSheet();
+		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
+		expect(sheet.queryByRole('slider', { name: 'Speech speed' })).not.toBeInTheDocument();
+		expect(sheet.getByText(/doesn't support adjustable speed/i)).toBeInTheDocument();
+	});
+
+	it('renders a real, enabled speed slider for a model that DOES support speed', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('hexgrad/kokoro-82m'); // speedSupport:true
+		const { sheet } = openSheet();
+		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
+		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeEnabled();
+		expect(sheet.queryByText(/doesn't support adjustable speed/i)).not.toBeInTheDocument();
+	});
+
 	it('disables the cloud TTS model/voice/speed/preview controls until OpenRouter is connected', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		const { sheet } = openSheet();

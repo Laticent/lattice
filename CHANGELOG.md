@@ -366,9 +366,17 @@ in patch versions.
   PCM — the pre-generated sample script already knew this, but the LIVE playback/
   narration path (`voice-model.js`) didn't, so every real use of the Gemini voice
   failed outright. It now requests `pcm` for that one model and wraps the response
-  in a WAV container, mirroring the generator script. See
+  in a WAV container, mirroring the generator script. A pre-merge adversarial
+  review caught one more leak this fix would otherwise have made worse: `speed`
+  is a single cross-model preference that's never reset when the active voice
+  model changes, and "Play sample" only serves its free, committed local sample
+  at the default speed — so a non-default speed picked on one (speed-supporting)
+  model silently forced a live, billed call for every later preview on a
+  DIFFERENT model that can't use speed at all, with the removed slider no longer
+  even hinting why. `previewTtsVoice` now clamps to the default speed for a
+  model that doesn't support it. See
   `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`'s
-  speedSupport follow-up.
+  speedSupport follow-up (and its round-2 adversarial-trio section).
 - **The Studio/Workbench/Playground live preview's fonts no longer 404.**
   `lattice.css`'s `@font-face` block ships a package-relative
   `url(fonts/<file>.woff2)` — correct for the npm package, where

@@ -250,8 +250,12 @@ export function wavBlob(samples, sampleRate) {
 // design reason as orPricePerM/splitSentences above (this file must not import
 // JSON needing bundler resolution — see the file header). Mirrors
 // tools/generate-voice-samples.mjs's synth()/pcmToWav() byte-for-byte; keep the
-// two in sync if a second PCM-only model ever needs one.
-const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
+// two in sync if a second PCM-only model ever needs one — EXPORTED so
+// test/unit/playground/voice-model.test.js can assert this Set never drifts
+// from the catalog's own audioFormat:"wav" entries (red-team finding,
+// 2026-07-11): unlike the voice roster, this ISN'T live-sourced, so nothing
+// else catches a mismatch except that test.
+export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
 
 // Wraps raw 16-bit PCM bytes in a standard 44-byte WAV header, reading the real
 // sample rate/channels off the response's own Content-Type header (e.g.
