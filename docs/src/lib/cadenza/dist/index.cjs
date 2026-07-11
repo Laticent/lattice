@@ -45,45 +45,102 @@ module.exports = __toCommonJS(index_exports);
 
 // docs/src/lib/cadenza/lexicon.ts
 var BASE = {
-  // Fiscal periods (kept from the original ABBREV). NOTE: `h1`/`h2` are deliberately
-  // NOT here — they read far more often as a heading level or chemical formula than
-  // "first/second half", so the half-year reading lives in the `finance` pack.
-  q1: "Q one",
-  q2: "Q two",
-  q3: "Q three",
-  q4: "Q four",
+  // Fiscal periods, no attached year (FY26 / 4Q24 / 1H26 carry a year and are parsed
+  // in normalize.ts). Quarters read as ordinals ("third quarter"), the natural form.
+  // `h1`/`h2` are NOT here — a bare half reads via a CASE-SENSITIVE `H1`/`H2` pattern
+  // (normalize.ts), so lowercase prose and `H2O` never become "second half".
   fy: "fiscal year",
+  // `cy` is NOT here — the name "Cy" / ISO "CY" collide; it lives in BASE_CASED
+  q1: "first quarter",
+  q2: "second quarter",
+  q3: "third quarter",
+  q4: "fourth quarter",
+  // Period-over-period + period-to-date.
   yoy: "year over year",
   qoq: "quarter over quarter",
+  ytd: "year to date",
+  qtd: "quarter to date",
+  mtd: "month to date",
   eod: "end of day",
+  eoq: "end of quarter",
   eoy: "end of year",
-  // Roles / metrics initialisms (spelled). Real-word / proper-noun collisions are
-  // kept OUT of always-on BASE: `coo` (a verb), `tam` (a name) were dropped.
-  ceo: "C E O",
-  cfo: "C F O",
-  cto: "C T O",
-  kpi: "K P I",
-  arr: "A R R",
-  mrr: "M R R",
-  roi: "R O I",
-  nps: "N P S",
-  cac: "C A C",
-  ltv: "L T V",
-  sla: "S L A",
-  slo: "S L O",
-  sdk: "S D K",
-  api: "A P I",
-  ux: "U X",
-  // Acronyms said as words (well-established single-word pronunciations).
+  // Roles (expanded). Real-word / proper-noun collisions (`coo`, `cmo`, `cro`) live in
+  // BASE_CASED so the lowercase words never fire.
+  ceo: "chief executive officer",
+  cfo: "chief financial officer",
+  cto: "chief technology officer",
+  // Metrics (expanded).
+  kpi: "key performance indicator",
+  okr: "objectives and key results",
+  arr: "annual recurring revenue",
+  mrr: "monthly recurring revenue",
+  roi: "return on investment",
+  nps: "net promoter score",
+  // house-domain reading; residual: ROI=Republic of Ireland, NPS=Nat'l Park Service (§15)
+  clv: "customer lifetime value",
+  // `ltv`/`cac`/`eps` DEMOTED (§15) — bimodal by industry (loan-to-value · Common Access Card · Encapsulated PostScript)
+  arpu: "average revenue per user",
+  gmv: "gross merchandise value",
+  dau: "daily active users",
+  sku: "skew",
+  nda: "non-disclosure agreement",
+  capex: "capital expenditure",
+  opex: "operating expense",
+  "p&l": "profit and loss",
+  "r&d": "research and development",
+  // Metrics said as WORDS (expansion would be absurd to speak).
+  ebitda: "ee bit dah",
+  cagr: "cagger",
+  gaap: "gap",
+  // Product / go-to-market (expanded).
+  gtm: "go to market",
+  b2b: "business to business",
+  b2c: "business to consumer",
+  // gtm kept; residual: Google Tag Manager (§15)
+  faq: "frequently asked questions",
+  // `smb` DEMOTED (§15) — Server Message Block in an infra deck
+  // Engineering / security (expanded).
+  api: "application programming interface",
+  sdk: "software development kit",
+  // api residual: Active Pharmaceutical Ingredient (pharma) / API gravity (energy)
+  sla: "service level agreement",
+  slo: "service level objective",
+  sso: "single sign-on",
+  "2fa": "two-factor authentication",
+  // `mfa` DEMOTED (§15) — Master of Fine Arts in an arts/edu deck
+  // Established single-word pronunciations.
   saas: "sass",
+  // No natural expansion or word — spelled.
+  ui: "U I",
+  ux: "U X",
   // Symbols with a single unambiguous reading.
   "\xA7": "section",
   "\xA7\xA7": "sections",
   "\xB6": "paragraph",
   "&": "and",
-  // A decorative separator (eyebrows: "Financial · Q4 2026") — dropped, never
-  // spoken as "middle dot". An empty spoken form means "say nothing".
+  // A decorative separator (eyebrows: "Financial · Q4 2026") — dropped, never spoken
+  // as "middle dot". An empty spoken form means "say nothing".
   "\xB7": ""
+};
+var BASE_CASED = {
+  CY: "calendar year",
+  // lower-case "cy" / name "Cy" must NOT fire → cased, not BASE
+  COO: "chief operating officer",
+  // monosemic (lower-case "coo" is the verb → cased)
+  COGS: "cost of goods sold",
+  // lower-case "cogs" is the machine part
+  TAM: "total addressable market",
+  MAU: "monthly active users",
+  // MAU cased so the name "Mau" in prose never fires
+  MoM: "month over month",
+  WoW: "week over week"
+  // canonical mixed case; "mom"/"wow" the words stay safe
+  // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
+  // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
+  // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
+  // faceplant, so they are demoted to the opt-in `finance` pack (vocabulary preserved)
+  // and the author declares the meaning via `acronyms:` (§15). Only tokens UNAMBIGUOUS
+  // in a SaaS/tech-growth boardroom (the house domain) stay always-on.
 };
 var DOMAINS = {
   legal: {
@@ -98,13 +155,28 @@ var DOMAINS = {
     gdpr: "G D P R"
   },
   finance: {
+    // WoW/MoM live in BASE_CASED (canonical case). These stay for the opt-in path.
     wow: "week over week",
-    mom: "month over month"
+    mom: "month over month",
+    // Demoted from always-on (§15) — the SaaS/tech-growth-boardroom reading, preserved
+    // here for the opt-in path; per-deck, the author declares the meaning via `acronyms:`.
+    cro: "chief revenue officer",
+    cmo: "chief marketing officer",
+    cac: "customer acquisition cost",
+    eps: "earnings per share",
+    smb: "small and medium business",
+    mfa: "multi-factor authentication",
+    sam: "serviceable addressable market",
+    som: "serviceable obtainable market"
+    // `ltv` is deliberately NOT packed: bimodal even WITHIN finance (loan-to-value vs
+    // lifetime value), so no single expansion is safe — the author must declare it.
   }
 };
 function lookupLexicon(token, domains = []) {
-  const key = String(token ?? "").toLowerCase();
-  if (!key) return null;
+  const raw = String(token ?? "").trim();
+  if (!raw) return null;
+  if (Object.hasOwn(BASE_CASED, raw)) return BASE_CASED[raw];
+  const key = raw.toLowerCase();
   if (Object.hasOwn(BASE, key)) return BASE[key];
   for (const d of domains) {
     const pack = DOMAINS[d];
@@ -204,20 +276,40 @@ function unitWords(numStr, singular) {
   const n = Number(numStr.replace(/,/g, ""));
   return `${numberToWords(n)} ${singular}${n === 1 ? "" : "s"}`;
 }
+var ORDINALS = ["", "first", "second", "third", "fourth"];
+function yearWords(digits) {
+  if (digits.length === 2 && digits[0] === "0") {
+    return digits === "00" ? "two thousand" : `oh ${ONES[Number(digits[1])]}`;
+  }
+  return numberToWords(Number(digits));
+}
 function toSpoken(display, opts = {}) {
   const tok = String(display ?? "").trim();
   if (!tok) return "";
   const domains = opts.domains ?? [];
+  const acronyms = opts.acronyms;
+  if (acronyms?.has(tok)) return acronyms.get(tok);
   const whole = lookupLexicon(tok, domains);
   if (whole !== null) return whole;
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
   const core = punct ? tok.slice(0, -punct.length) : tok;
-  return spokenCore(core, domains) + punct;
+  return spokenCore(core, domains, acronyms) + punct;
 }
-function spokenCore(core, domains) {
+function spokenCore(core, domains, acronyms) {
   if (!core) return core;
+  if (acronyms?.has(core)) return acronyms.get(core);
   const lex = lookupLexicon(core, domains);
   if (lex !== null) return lex;
+  const fyear = core.match(/^(FY|CY)['’]?(\d{2}|\d{4})$/);
+  if (fyear) return `${fyear[1] === "FY" ? "fiscal" : "calendar"} year ${yearWords(fyear[2])}`;
+  const nQ = core.match(/^([1-4])Q['’]?(\d{2}|\d{4})?$/);
+  if (nQ) return `${ORDINALS[Number(nQ[1])]} quarter${nQ[2] ? ` fiscal ${yearWords(nQ[2])}` : ""}`;
+  const qY = core.match(/^Q([1-4])['’](\d{2}|\d{4})$/);
+  if (qY) return `${ORDINALS[Number(qY[1])]} quarter fiscal ${yearWords(qY[2])}`;
+  const nH = core.match(/^([12])H['’]?(\d{2}|\d{4})?$/);
+  if (nH) return `${ORDINALS[Number(nH[1])]} half${nH[2] ? ` fiscal ${yearWords(nH[2])}` : ""}`;
+  const hN = core.match(/^H([12])$/);
+  if (hN) return `${ORDINALS[Number(hN[1])]} half`;
   const sign = core.match(/^([+−-])(.+)$/);
   if (sign) {
     const rest = sign[2];
@@ -225,7 +317,7 @@ function spokenCore(core, domains) {
       const n = numberToWords(Number(rest.replace(/,/g, "")));
       return sign[1] === "+" ? n : `negative ${n}`;
     }
-    const restSpoken = spokenCore(rest, domains);
+    const restSpoken = spokenCore(rest, domains, acronyms);
     if (restSpoken !== rest) return `${sign[1] === "+" ? "up" : "down"} ${restSpoken}`;
   }
   const section = core.match(/^(§+)\s*(.*)$/);
@@ -233,9 +325,9 @@ function spokenCore(core, domains) {
     const word = section[1].length > 1 ? "sections" : "section";
     const subs = [...section[2].matchAll(/\(([a-z0-9]+)\)/gi)].map((m) => m[1]);
     const base = section[2].replace(/\([a-z0-9]+\)/gi, "").trim();
-    const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains);
+    const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains, acronyms);
     let out = base ? `${word} ${baseSpoken}` : word;
-    for (const s of subs) out += `, subsection ${spokenCore(s, domains)}`;
+    for (const s of subs) out += `, subsection ${spokenCore(s, domains, acronyms)}`;
     return out;
   }
   const money = core.match(/^([$£€])([\d,]+(?:\.\d+)?)([kmbt])?$/i);
@@ -442,7 +534,7 @@ function buildTrack(text, opts = {}) {
       const charOffset = found >= 0 ? found : scan;
       if (found >= 0) scan = found + display.length;
       if (cueCharOffset < 0) cueCharOffset = charOffset;
-      const spoken = toSpoken(display);
+      const spoken = toSpoken(display, { acronyms: opts.acronyms });
       const dur = estimateWordMs(spoken, pace);
       const startMs = clock;
       const endMs = startMs + dur;

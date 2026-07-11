@@ -1,8 +1,8 @@
 // Cadenza — display → spoken normalization.
 //
 // A caption word carries TWO forms: what's DISPLAYED ("$4.2M", "Q3", "18.5%") and
-// what's SPOKEN ("four point two million dollars", "Q three", "eighteen point five
-// percent"). They diverge in length — one displayed token can be several spoken
+// what's SPOKEN ("four point two million dollars", "third quarter", "eighteen point
+// five percent"). They diverge in length — one displayed token can be several spoken
 // words — so timing (cadence.ts) is computed on the SPOKEN form while the caption
 // renders the DISPLAY glyphs. This module maps one display token → its spoken form.
 //
@@ -94,6 +94,22 @@ function unitWords(numStr: string, singular: string): string {
   return `${numberToWords(n)} ${singular}${n === 1 ? '' : 's'}`;
 }
 
+const ORDINALS = ['', 'first', 'second', 'third', 'fourth'];
+
+/**
+ * Read a fiscal/calendar year figure — a two-digit `26` stays "twenty-six" (no century
+ * inference: the house choice is the short year, §14); a leading-zero pair reads as a
+ * year, not a bare cardinal (`05`→"oh five", `00`→"two thousand" — `Number("05")`
+ * would drop the zero and speak "five", wrong for FY2005/FY2009); a four-digit `2026`
+ * reads "two thousand twenty-six". Never a spelled "two six".
+ */
+function yearWords(digits: string): string {
+  if (digits.length === 2 && digits[0] === '0') {
+    return digits === '00' ? 'two thousand' : `oh ${ONES[Number(digits[1])]}`;
+  }
+  return numberToWords(Number(digits));
+}
+
 /**
  * Map one displayed token to its spoken form. Recognizes money ($4.2M, £3,200),
  * percentages (18.5%), signed deltas (+9% → "up nine percent"), units
@@ -102,12 +118,30 @@ function unitWords(numStr: string, singular: string): string {
  * through unchanged. `opts.domains` opts in domain lexicon packs (legal/finance)
  * for tokens that only resolve inside a domain (e.g. legal `v.` → "versus").
  */
-export function toSpoken(display: string, opts: { domains?: readonly LexDomain[] } = {}): string {
+/**
+ * A deck's author-supplied acronym registry: display token → spoken expansion, already
+ * parsed from `acronyms:` front-matter (lib/core/resolve-captions). Consulted BEFORE the
+ * built-in dictionary and every derivational pattern, so the author always wins — a
+ * whole-token, case-sensitive match, the same shape the built-in lexicon uses.
+ */
+export type AcronymRegistry = ReadonlyMap<string, string>;
+
+export interface SpokenOpts {
+  domains?: readonly LexDomain[];
+  acronyms?: AcronymRegistry;
+}
+
+export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   const tok = String(display ?? '').trim();
   if (!tok) return '';
   const domains = opts.domains ?? [];
+  const acronyms = opts.acronyms;
 
-  // Whole-token lexicon FIRST, before peeling punctuation — so a period-bearing
+  // Author registry FIRST — the whole token, before anything else (a deck's `CRO` wins
+  // over the built-in dictionary AND over the fiscal parser).
+  if (acronyms?.has(tok)) return acronyms.get(tok) as string;
+
+  // Whole-token lexicon next, before peeling punctuation — so a period-bearing
   // abbreviation (`v.`, `art.`, `U.S.C.`) matches its key rather than losing the
   // period to the terminator peel. The abbreviation's own period is part of it,
   // not a sentence end, and its spoken form ("versus") carries no terminator.
@@ -118,15 +152,40 @@ export function toSpoken(display: string, opts: { domains?: readonly LexDomain[]
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? '';
   const core = punct ? tok.slice(0, -punct.length) : tok;
 
-  return spokenCore(core, domains) + punct;
+  return spokenCore(core, domains, acronyms) + punct;
 }
 
-function spokenCore(core: string, domains: readonly LexDomain[]): string {
+function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: AcronymRegistry): string {
   if (!core) return core;
+
+  // 0. Author registry (case-sensitive whole token) — beats the built-in dictionary and
+  //    every pattern below, so a deck owns its own vocabulary.
+  if (acronyms?.has(core)) return acronyms.get(core) as string;
 
   // 1. Lexicon (whole-token abbreviations, symbols, initialisms).
   const lex = lookupLexicon(core, domains);
   if (lex !== null) return lex;
+
+  // 1b. Fiscal / calendar period shorthand carrying a year or a leading quarter/half
+  //     digit (bare Q1–Q4 come through the lexicon above). CASE-SENSITIVE on the
+  //     UPPERCASE letters, so lowercase prose and formulae never fire: `H2` → "second
+  //     half" but `h2`/`H2O` are untouched (the anchored `$` also stops `H2O`). An
+  //     optional apostrophe (`FY'26`) is absorbed; the year reads literally (§14).
+  //       FY26 / FY2026 / CY24 → "fiscal|calendar year <year>"
+  //       4Q24 / 3Q / Q3'26   → "<ordinal> quarter[ fiscal <year>]"
+  //       1H26 / 2H / H1      → "<ordinal> half[ fiscal <year>]"
+  const fyear = core.match(/^(FY|CY)['’]?(\d{2}|\d{4})$/);
+  if (fyear) return `${fyear[1] === 'FY' ? 'fiscal' : 'calendar'} year ${yearWords(fyear[2])}`;
+  const nQ = core.match(/^([1-4])Q['’]?(\d{2}|\d{4})?$/);
+  if (nQ) return `${ORDINALS[Number(nQ[1])]} quarter${nQ[2] ? ` fiscal ${yearWords(nQ[2])}` : ''}`;
+  // Q-first WITH a year requires the apostrophe (`Q3'26`) — a bare `Q324` is not a
+  // period (the digit-first `4Q24` form and bare `Q3` cover the rest), so it stays put.
+  const qY = core.match(/^Q([1-4])['’](\d{2}|\d{4})$/);
+  if (qY) return `${ORDINALS[Number(qY[1])]} quarter fiscal ${yearWords(qY[2])}`;
+  const nH = core.match(/^([12])H['’]?(\d{2}|\d{4})?$/);
+  if (nH) return `${ORDINALS[Number(nH[1])]} half${nH[2] ? ` fiscal ${yearWords(nH[2])}` : ''}`;
+  const hN = core.match(/^H([12])$/);
+  if (hN) return `${ORDINALS[Number(hN[1])]} half`;
 
   // 2. Signed prefix. Before a DELTA-BEARING value (%, pp, bps, ×, day, currency,
   //    magnitude) a '+'/'−'(U+2212)/'-' reads as "up"/"down"; before a BARE number
@@ -141,7 +200,7 @@ function spokenCore(core: string, domains: readonly LexDomain[]): string {
       const n = numberToWords(Number(rest.replace(/,/g, '')));
       return sign[1] === '+' ? n : `negative ${n}`;
     }
-    const restSpoken = spokenCore(rest, domains);
+    const restSpoken = spokenCore(rest, domains, acronyms);
     if (restSpoken !== rest) return `${sign[1] === '+' ? 'up' : 'down'} ${restSpoken}`;
   }
 
@@ -156,9 +215,9 @@ function spokenCore(core: string, domains: readonly LexDomain[]): string {
     const word = section[1].length > 1 ? 'sections' : 'section';
     const subs = [...section[2].matchAll(/\(([a-z0-9]+)\)/gi)].map((m) => m[1]);
     const base = section[2].replace(/\([a-z0-9]+\)/gi, '').trim();
-    const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains);
+    const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains, acronyms);
     let out = base ? `${word} ${baseSpoken}` : word;
-    for (const s of subs) out += `, subsection ${spokenCore(s, domains)}`;
+    for (const s of subs) out += `, subsection ${spokenCore(s, domains, acronyms)}`;
     return out;
   }
 
@@ -213,7 +272,7 @@ function spokenCore(core: string, domains: readonly LexDomain[]): string {
  * parsing; this gives it Cadenza's instead. `opts.domains` opts in domain lexicon
  * packs. Pure.
  */
-export function toSpokenText(text: string, opts: { domains?: readonly LexDomain[] } = {}): string {
+export function toSpokenText(text: string, opts: SpokenOpts = {}): string {
   return splitWords(text)
     .map((w) => toSpoken(w, opts))
     .join(' ');

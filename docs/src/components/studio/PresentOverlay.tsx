@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, FastForward, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { acronymSpokenMap } from '@/lib/resolve-captions';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
@@ -160,9 +161,15 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const autoplayRef = React.useRef(false);
 	autoplayRef.current = autoplay;
 	const autoAdvanceRef = React.useRef(false);
+	// The deck's author-supplied acronym registry (term → spoken expansion), parsed from
+	// front-matter. Author pronunciations beat the built-in dictionary and the patterns,
+	// on BOTH the live reader and the warm-ahead prefetch (same map → cache keys match).
+	const acronyms = React.useMemo(() => acronymSpokenMap(frontMatter), [frontMatter]);
+
 	const reader = useReadAloud(
 		narrationText,
 		{
+			acronyms,
 			onFinish: () => {
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
@@ -231,9 +238,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		// checker finding). A request already in flight when this fires just
 		// finishes on its own; see warm()'s own comment in voice-model.js.
 		const ctl = new AbortController();
-		warmNarration(narrationAt(clamped + 1), ctl.signal);
+		warmNarration(narrationAt(clamped + 1), ctl.signal, acronyms);
 		return () => ctl.abort();
-	}, [autoplay, clamped, set, narrationAt]);
+	}, [autoplay, clamped, set, narrationAt, acronyms]);
 	// Toggle autoplay: turning it on starts reading the deck now; off stops.
 	const toggleAutoplay = React.useCallback(() => {
 		setAutoplay((on) => {

@@ -73,3 +73,22 @@ test('mergeNarration: empty projection (e.g. --strip-notes) yields notes-only', 
 	assert.deepEqual(mergeNarration(['A', null], []), ['A', '']);
 	assert.deepEqual(mergeNarration([null, null], []), ['', '']);
 });
+
+// ── Author acronym registry threads into the exported spoken track (§15) ──────
+
+test('buildReadAlong: the deck acronym registry expands the SPOKEN form (author wins)', () => {
+	const reg = new Map([['CRO', 'chief revenue officer']]);
+	const [{ track }] = buildReadAlong(['Our CRO owns it.'], { pace: 'moderate', acronyms: reg }).slides;
+	const spoken = track.cues.flatMap((c) => c.words.map((w) => w.spoken)).join(' ');
+	assert.match(spoken, /chief revenue officer/, 'the registry expansion reached the spoken track');
+	const displays = track.cues.flatMap((c) => c.words.map((w) => w.display));
+	assert.ok(displays.includes('CRO'), 'the DISPLAY stays the glyph (captions show CRO)');
+});
+
+test('buildReadAlong: end-to-end from front-matter — resolve-captions → registry → spoken', async () => {
+	const { acronymSpokenMap } = await import('../../../lib/core/resolve-captions.mjs');
+	const md = '---\nacronyms:\n  CRO: chief revenue officer\n---\n\n# Deck\n';
+	const [{ track }] = buildReadAlong(['CRO update.'], { acronyms: acronymSpokenMap(md) }).slides;
+	const spoken = track.cues.flatMap((c) => c.words.map((w) => w.spoken)).join(' ');
+	assert.match(spoken, /chief revenue officer/);
+});

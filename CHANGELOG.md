@@ -192,6 +192,35 @@ in patch versions.
   the Studio toggle (Workspace → General → Diagnostics), the Drawing Board
   switch, or the `?perf` URL param — all the same cross-surface pref. Design + the deferred deeper-instrumentation option:
   `engineering/decisions/2026-07-11-studio-render-perf-overlay.md`.
+- **Read-aloud speaks everyday business shorthand instead of spelling it — `FY26`
+  is "fiscal year twenty-six", not "F Y 26".** Cadenza's say-as lexicon gained a
+  case-sensitive fiscal/calendar **period parser** (`FY26`/`FY2026`/`CY24`,
+  `4Q24`/`Q3`/`Q3'26`, `1H26`/`H1`/`2H` → "fiscal year twenty-six", "fourth quarter
+  fiscal twenty-four", "first half…") and a much broader **acronym dictionary** that
+  **expands** initialisms to words (`ARR`→"annual recurring revenue",
+  `KPI`→"key performance indicator", `API`→"application programming interface",
+  `EPS`, `YTD`, `R&D`, `P&L`, …), says lexicalized ones as **words**
+  (`EBITDA`→"ee bit dah", `CAGR`→"cagger", `GAAP`→"gap", `SaaS`→"sass"), and adds a
+  **case-sensitive tier** so a token that also spells a word only expands in its
+  acronym case (`COGS`→"cost of goods sold" but the lowercase word "cogs" is
+  untouched; `CY`, `TAM`, `MoM`). Quarters now read as ordinals (`Q3`→"third
+  quarter", previously "Q three"). Both the live Studio Present read-aloud and the
+  CLI/export captions share the change (one normalizer). Audio itself is unverified
+  (no TTS in CI) — only the spoken string is claimed.
+- **A deck can teach read-aloud its own acronyms — `acronyms:` front-matter, and the
+  built-in dictionary is now conservative so it's never confidently wrong in a
+  boardroom.** A deck declares its vocabulary in front-matter (`acronyms: { CRO:
+  chief revenue officer }`, or the object form with an optional `definition`); the
+  author's pronunciations beat the built-in dictionary **and** every pattern
+  (case-sensitive, whole-token), on both the live Present read-aloud and the exported
+  `.vtt` (one shared parser, so they never diverge). To keep the deck-blind default
+  safe, acronyms that flip meaning by industry **no longer auto-expand** — `CRO`,
+  `CMO`, `LTV` (loan-to-value), `SMB` (Server Message Block), `MFA` (Master of Fine
+  Arts), `CAC` (Common Access Card), `EPS` (Encapsulated PostScript), `SAM`, `SOM` —
+  declare the one you mean via `acronyms:`. The always-on set is now scoped to what's
+  unambiguous in a SaaS/tech-growth boardroom, enforced by a `KNOWN_BIMODAL` denylist
+  test so re-adding a bimodal fails CI. Audio is unverified (no TTS in CI) — only the
+  spoken string is claimed.
 - **A first-class `color-mode:` front-matter key — `light` · `dark` · `system` ·
   `inherited` — that every surface honors.** Color mode was authored through the
   overloaded `class: dark`/`class: light` token axis; it now has a dedicated,

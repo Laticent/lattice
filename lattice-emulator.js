@@ -2634,6 +2634,15 @@ async function writeCaptionsSidecar(outPath, notes, docHtml) {
   const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png)$/i, '');
+  // Deck acronym registry (author `acronyms:` front-matter) → term→spoken map; author
+  // pronunciations win over the built-in dictionary and the patterns (§15).
+  let acronyms;
+  try {
+    const { acronymSpokenMap } = await import('./lib/core/resolve-captions.mjs');
+    acronyms = acronymSpokenMap(rawMd);
+  } catch (e) {
+    if (!QUIET) console.warn(`  note: acronym registry parse failed (${e?.message})`);
+  }
   const projected = STRIP_NOTES ? [] : await projectDeckSpeechFromHtml(docHtml);
   // A length mismatch (an autosplit deck renders more sections than authored slides)
   // makes the index mapping unsafe, so mergeNarration drops the projection wholesale
@@ -2646,6 +2655,7 @@ async function writeCaptionsSidecar(outPath, notes, docHtml) {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
     pace: 'moderate',
+    acronyms,
   });
   if (!readAlong.slides.length) {
     if (!QUIET) console.log('Captions: nothing to narrate (no notes, no projectable slide prose) — no .vtt written');
