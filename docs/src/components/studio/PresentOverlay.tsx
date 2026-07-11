@@ -1,16 +1,17 @@
 import { ChevronLeft, ChevronRight, FastForward, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
-import { acronymSpokenMap } from '@/lib/resolve-captions';
+import { acronymSpokenMap, frontMatterCaptions } from '@/lib/resolve-captions';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
 import { createPresenterController } from '@/playground/presenter-window.js';
 import { narrateChart } from './chart-narration';
 import { LensPicker } from './lens-picker';
-import { type PresentLens, presentationSet } from './lint';
+import { type PresentLens, presentationIndices, presentationSet } from './lint';
 import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
+import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
 import { buildPresenterStageDoc } from './studio-presenter';
 
@@ -43,6 +44,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const [elapsed, setElapsed] = React.useState(0); // rehearsal seconds
 
 	const set = React.useMemo(() => presentationSet(slides, lens), [slides, lens]);
+	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
+	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered lens
+	// (exec/onepager reorders/drops slides) we resolve it through the original index, not the
+	// position in the filtered set — else a caption would bind to the wrong slide.
+	const setIndices = React.useMemo(() => presentationIndices(slides, lens), [slides, lens]);
+	// Front-matter `captions:` (Layer 1, §16) — slide NUMBER (1-based) → read-as text. Memoized on
+	// the front matter, symmetric with the acronym registry memo below.
+	const fmCaptions = React.useMemo(() => frontMatterCaptions(frontMatter), [frontMatter]);
 	const count = set.length;
 	const clamped = Math.min(idx, Math.max(0, count - 1));
 	const cur = set[clamped] ?? '';
@@ -81,14 +90,18 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const narrationAt = React.useCallback(
 		(i: number) => {
 			const md = set[i] ?? '';
-			const note = getNote(md);
+			const caption = getCaption(md); // 1. inline <!-- caption: --> — highest precedence
+			if (caption) return caption;
+			const fm = fmCaptions.get((setIndices[i] ?? i) + 1); // 2. front-matter captions[author slide number]
+			if (fm) return fm;
+			const note = getNote(md); // 3. speaker note
 			if (note) return note;
 			const chart = narrateChart(md);
 			if (chart) return chart;
-			if (projected.set === set) return projected.texts[i] ?? '';
+			if (projected.set === set) return projected.texts[i] ?? ''; // 4. DOM projection
 			return slideToSpeech(md);
 		},
-		[set, projected],
+		[set, setIndices, fmCaptions, projected],
 	);
 	const narrationAtRef = React.useRef(narrationAt);
 	narrationAtRef.current = narrationAt;

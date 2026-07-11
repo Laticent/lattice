@@ -13,14 +13,14 @@
 // was fence-blind (it ate `<!-- … -->` shown inside code fences). Both are fixed
 // by routing through `comments()` + `isDirectiveBody()`.
 
-import { comments, isDescriptionBody, isDirectiveBody, tidyOutsideFences } from './slide-directives';
+import { comments, isCaptionBody, isDescriptionBody, isDirectiveBody, tidyOutsideFences } from './slide-directives';
 
-/** The slide's speaker note (the first non-directive, non-description comment), or ''.
- *  A `describe:` comment is the accessibility description (a separate channel,
- *  see slide-descriptions.ts) — never the speaker note. */
+/** The slide's speaker note (the first non-directive, non-description, non-caption comment),
+ *  or ''. A `describe:` comment is the accessibility description and a `caption:` comment is
+ *  the read-as narration text (both separate channels) — never the speaker note. */
 export function getNote(chunk: string): string {
 	for (const c of comments(chunk)) {
-		if (isDirectiveBody(c.body) || isDescriptionBody(c.body)) continue;
+		if (isDirectiveBody(c.body) || isDescriptionBody(c.body) || isCaptionBody(c.body)) continue;
 		return c.body.trim().replace(/^note:\s*/i, '').trim();
 	}
 	return '';
@@ -34,11 +34,12 @@ export function getNote(chunk: string): string {
  */
 export function setNote(chunk: string, note: string): string {
 	const text = String(chunk || '');
-	// Ranges of existing note comments (non-directive, non-description, outside
-	// fences), right-to-left. A `describe:` comment is the accessibility channel —
-	// leave it untouched so setting the note never clobbers the description.
+	// Ranges of existing note comments (non-directive, non-description, non-caption,
+	// outside fences), right-to-left. A `describe:` comment is the accessibility channel
+	// and a `caption:` comment is the read-as narration — leave both untouched so setting
+	// the note never clobbers them.
 	const ranges = comments(text)
-		.filter((c) => !isDirectiveBody(c.body) && !isDescriptionBody(c.body))
+		.filter((c) => !isDirectiveBody(c.body) && !isDescriptionBody(c.body) && !isCaptionBody(c.body))
 		.map((c) => [c.start, c.end] as [number, number]);
 	let out = text;
 	for (let i = ranges.length - 1; i >= 0; i--) out = out.slice(0, ranges[i][0]) + out.slice(ranges[i][1]);
