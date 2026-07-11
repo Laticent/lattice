@@ -299,6 +299,9 @@ test('the baked scheme rides onto <html> from the authored mode (light default, 
 	assert.match(dark.html, /<html lang="en" data-lp-scheme="dark">/, 'theme.mode dark is baked');
 	const system = await buildPlayerHtml({ docHtml, source, now: 0, theme: { name: 't', mode: 'system' } });
 	assert.match(system.html, /<html lang="en" data-lp-scheme="system">/, 'theme.mode system is baked');
+	// A standalone player has no host to inherit from, so `inherited` bakes as `system`.
+	const inherited = await buildPlayerHtml({ docHtml, source, now: 0, theme: { name: 't', mode: 'inherited' } });
+	assert.match(inherited.html, /<html lang="en" data-lp-scheme="system">/, 'theme.mode inherited bakes as system in a standalone player');
 });
 
 test('the export carries NO light-dark() and ships an explicit dark-mode block (works on WebKit < 17.5)', async () => {
