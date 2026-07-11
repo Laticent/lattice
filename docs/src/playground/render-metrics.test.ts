@@ -22,8 +22,8 @@ describe('recordRenderSample per-regime smoothing', () => {
 		// Seed the patch regime low, then a single expensive rebuild, then patches again.
 		recordRenderSample(base({ frameMs: 2, writePath: 'patch' }));
 		recordRenderSample(base({ frameMs: 485, writePath: 'write' }));
-		let last = recordRenderSample(base({ frameMs: 2, writePath: 'patch' }));
-		last = recordRenderSample(base({ frameMs: 2, writePath: 'patch' }));
+		recordRenderSample(base({ frameMs: 2, writePath: 'patch' }));
+		const last = recordRenderSample(base({ frameMs: 2, writePath: 'patch' }));
 		// The patch bucket never saw the 485ms write, so it stays near 2 — not a blend
 		// pulled up toward the hundreds. (With one shared EMA it would be ~100+.)
 		expect(last.frameMs).toBeLessThan(10);
