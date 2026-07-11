@@ -465,6 +465,9 @@ function buildTrack(text, opts = {}) {
 function pad(n, width = 2) {
   return String(n).padStart(width, "0");
 }
+function escapeCueText(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 function formatTimestamp(ms, comma = false) {
   const clamped = Math.max(0, Math.round(ms));
   const h = Math.floor(clamped / 36e5);
@@ -478,9 +481,9 @@ function toVtt(track) {
   for (const cue of track.cues) {
     if (!cue.words.length) continue;
     out.push(`${formatTimestamp(cue.startMs)} --> ${formatTimestamp(cue.endMs)}`);
-    let line = cue.words[0].display;
+    let line = escapeCueText(cue.words[0].display);
     for (let i = 1; i < cue.words.length; i++) {
-      line += ` <${formatTimestamp(cue.words[i].startMs)}>${cue.words[i].display}`;
+      line += ` <${formatTimestamp(cue.words[i].startMs)}>${escapeCueText(cue.words[i].display)}`;
     }
     out.push(line, "");
   }
@@ -493,7 +496,7 @@ function toSrt(track) {
     blocks.push(
       `${i + 1}
 ${formatTimestamp(cue.startMs, true)} --> ${formatTimestamp(cue.endMs, true)}
-${cue.display}
+${escapeCueText(cue.display)}
 `
     );
   });

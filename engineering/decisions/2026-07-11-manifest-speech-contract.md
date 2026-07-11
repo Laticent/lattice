@@ -178,6 +178,25 @@ on the DOM, not in the markdown flatten — and it serves BOTH the article expor
 caveat: the live Present path is markdown-only today, so giving *it* the DOM-projected narration (so live
 and export match) is the real work of unification, not a free rename.
 
+**Phase 2 — SHIPPED (2026-07-11), adversarially reviewed.** `projectDeckToSpeech(sections)` +
+the export producer (`writeCaptionsSidecar`, now async): a note-free deck now narrates its slides. Primitive
+by component: kpi/stats reorder to label-first (the metric NAME fronted, value focal, secondary lines
+trailing); quote reads verbatim + attribution; a `<dl>` ledger (wifi/contact) reads "term: definition"; a
+table reads header-bound ONLY when a real header row exists (else linear, no fabricated binding); a
+chart/diagram/math visual is SKIPPED (heading + eyebrow + figcaption only, never the SVG). The export
+sanitizes each section (HARD RULE #22) before projecting, and merges `note ?? projected` via the shared,
+tested `mergeNarration` only when the projection aligns 1:1 with the authored slides. *Scope honesty
+(a review finding):* this makes the **export** narrate component prose — it is NOT full producer
+unification. The live Present path still narrates from markdown (`slideToSpeech`/`narrateChart`), so the
+same deck narrates differently in Present vs. the exported `.vtt`, and for the 5 chart narrators the export
+(which skips the visual) is *poorer* than Present until Phase 3 gives Present the DOM projection and adds
+the chart narrators to the export. *F-B (variant keying) is deferred to Phase 3*, where the
+variant-sensitive narrators (state markers, list-tabular pills, obligation-matrix `heat`) live; Phase 2's
+primitives key on the component only. Trio findings folded: WebVTT payload escaping (`&`/`<`/`>`, so deck
+prose like "R&D"/"5<10" can't corrupt a cue), the delta-first / value-in-wrapper KPI reorder bugs, the
+headerless-table fabrication, dropped `<dl>`/figcaption prose, the 3-level list text-mash, `--strip-notes`
+suppressing projection too, and surfacing the misalignment fallback + swallowed projection errors.
+
 **Phase 3 — a per-component `speech` field: NOT recommended.** A first-pass census of all 56 manifests
 (§12) tested the case that would justify it — a component mixing a reference number and a quantity number.
 That case DOES exist (`authority-chain`, `regulatory-update`, `statute-stack`, `redline`), refuting the

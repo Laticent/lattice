@@ -455,6 +455,9 @@ var require_dist = __commonJS({
     function pad(n, width = 2) {
       return String(n).padStart(width, "0");
     }
+    function escapeCueText(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
     function formatTimestamp(ms, comma = false) {
       const clamped = Math.max(0, Math.round(ms));
       const h = Math.floor(clamped / 36e5);
@@ -468,9 +471,9 @@ var require_dist = __commonJS({
       for (const cue of track.cues) {
         if (!cue.words.length) continue;
         out.push(`${formatTimestamp(cue.startMs)} --> ${formatTimestamp(cue.endMs)}`);
-        let line = cue.words[0].display;
+        let line = escapeCueText(cue.words[0].display);
         for (let i = 1; i < cue.words.length; i++) {
-          line += ` <${formatTimestamp(cue.words[i].startMs)}>${cue.words[i].display}`;
+          line += ` <${formatTimestamp(cue.words[i].startMs)}>${escapeCueText(cue.words[i].display)}`;
         }
         out.push(line, "");
       }
@@ -483,7 +486,7 @@ var require_dist = __commonJS({
         blocks.push(
           `${i + 1}
 ${formatTimestamp(cue.startMs, true)} --> ${formatTimestamp(cue.endMs, true)}
-${cue.display}
+${escapeCueText(cue.display)}
 `
         );
       });
@@ -512,7 +515,15 @@ var require_read_along_build = __commonJS({
         slides
       };
     }
-    module.exports = { buildReadAlong: buildReadAlong2 };
+    function mergeNarration(notes, projected) {
+      const proj = Array.isArray(projected) ? projected : [];
+      const aligned = proj.length === notes.length;
+      return notes.map((note, i) => {
+        if (String(note ?? "").trim()) return note;
+        return aligned ? proj[i] || "" : "";
+      });
+    }
+    module.exports = { buildReadAlong: buildReadAlong2, mergeNarration };
   }
 });
 

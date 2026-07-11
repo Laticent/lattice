@@ -11,6 +11,19 @@ function pad(n: number, width = 2): string {
   return String(n).padStart(width, '0');
 }
 
+/**
+ * Escape a cue's TEXT payload for WebVTT/SRT: `&`, `<`, `>` become entities. Per
+ * the WebVTT spec the cue payload must escape `&`/`<` (an unescaped `<` opens a cue
+ * span) and must not contain the substring `-->` (escaping `>` → `--&gt;` neutralizes
+ * it). Applied ONLY to the word/display text — never to the serializer's own
+ * `<timestamp>` karaoke tags, which are structural markup, not payload. Matters
+ * because the projected narration now routes arbitrary deck headings/prose
+ * ("R&D", "5<10") into this sink.
+ */
+function escapeCueText(s: string): string {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /** ms → "HH:MM:SS.mmm" (VTT) or "HH:MM:SS,mmm" (SRT, comma decimal). */
 export function formatTimestamp(ms: number, comma = false): string {
   const clamped = Math.max(0, Math.round(ms));
@@ -30,9 +43,9 @@ export function toVtt(track: CaptionTrack): string {
   for (const cue of track.cues) {
     if (!cue.words.length) continue;
     out.push(`${formatTimestamp(cue.startMs)} --> ${formatTimestamp(cue.endMs)}`);
-    let line = cue.words[0].display;
+    let line = escapeCueText(cue.words[0].display);
     for (let i = 1; i < cue.words.length; i++) {
-      line += ` <${formatTimestamp(cue.words[i].startMs)}>${cue.words[i].display}`;
+      line += ` <${formatTimestamp(cue.words[i].startMs)}>${escapeCueText(cue.words[i].display)}`;
     }
     out.push(line, '');
   }
@@ -45,7 +58,7 @@ export function toSrt(track: CaptionTrack): string {
   track.cues.forEach((cue, i) => {
     if (!cue.words.length) return;
     blocks.push(
-      `${i + 1}\n${formatTimestamp(cue.startMs, true)} --> ${formatTimestamp(cue.endMs, true)}\n${cue.display}\n`,
+      `${i + 1}\n${formatTimestamp(cue.startMs, true)} --> ${formatTimestamp(cue.endMs, true)}\n${escapeCueText(cue.display)}\n`,
     );
   });
   return blocks.join('\n');

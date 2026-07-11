@@ -152,6 +152,22 @@ in patch versions.
 
 ### Added
 
+- **Exported read-along captions (`.vtt`) now narrate a deck's slides even when it
+  has no speaker notes — reading each component the way a person would.** Previously
+  `--captions` wrote nothing for a note-free deck. An authored speaker note still
+  wins per slide, but where a slide has none, a component-aware DOM speech
+  projection narrates it: evidence components read label-first
+  ("Total revenue: $2.4B", not "$2.4B, total revenue"), quotes read verbatim with
+  their attribution, a `wifi`/`contact` ledger reads "Network: ACME-Guest", tables
+  read header-bound when they have a header row, and a chart/diagram/math visual is
+  skipped (heading + caption only, never SVG read aloud). Combined with the token
+  normalizer above, a KPI tile speaks "Total revenue: two point four billion
+  dollars, up nine percent." `--strip-notes` still suppresses captions entirely.
+  (This improves the EXPORT; the on-screen Present read-along still narrates from
+  markdown, so the two can differ for chart slides until a later slice unifies
+  them.) Second slice of the natural-narration plan
+  (`engineering/decisions/2026-07-11-manifest-speech-contract.md` §6 Phase 2);
+  string/structure behavior is unit-tested, audio on the Kokoro voice is UNVERIFIED.
 - **The exported `.html` player now respects the color mode it was authored in —
   and Share → Webpage lets you choose light, dark, or system.** A shared deck is a
   document: it should open the way the sender made it, the way a PDF does. The
