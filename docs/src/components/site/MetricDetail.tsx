@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import type { RenderStats } from '@/playground/render-metrics';
-import { bandLabel, formatValue, type MetricMeta, type Rating } from './perf-metrics';
+import { bandLabel, formatValue, type MetricMeta, type Rating, REGIME_WORD, type Regime } from './perf-metrics';
 
 const RATING_COLOR: Record<string, string> = {
 	good: '#16a34a',
@@ -52,14 +52,17 @@ export type MetricDatum = {
 	raw?: number | null;
 	/** For the RENDER row: the engine's per-stage breakdown (item 1). */
 	breakdown?: RenderStats;
+	/** FRAME/TOTAL only: the live render regime, so the row + card can label whether
+	 * this number is a warm 'patch' or a cold 'rebuild' and rate it accordingly. */
+	regime?: Regime;
 };
 
 // The shared explanation — identical in the popover and the sheet. `reserveClose`
 // pads the header right so the value clears the sheet's top-right close button.
 function DetailBody({ meta, datum, reserveClose }: { meta: MetricMeta; datum: MetricDatum; reserveClose?: boolean }) {
-	const { value, rating, raw } = datum;
+	const { value, rating, raw, regime } = datum;
 	const color = rating ? RATING_COLOR[rating] : GREY;
-	const band = bandLabel(meta);
+	const band = bandLabel(meta, regime);
 	const zones: { key: Rating; label: string }[] = [
 		{ key: 'good', label: 'Good' },
 		{ key: 'needs-improvement', label: 'OK' },
@@ -77,6 +80,13 @@ function DetailBody({ meta, datum, reserveClose }: { meta: MetricMeta; datum: Me
 					{value == null ? '–' : formatValue(meta, value)}
 				</div>
 			</div>
+
+			{regime && (
+				<div className="-mt-1 font-mono text-[10.5px] text-muted-foreground">
+					this render: <span className="text-foreground/80">{REGIME_WORD[regime]}</span>
+					{regime === 'patch' ? ' — slide body swapped in place' : ' — full stylesheet reparse'}
+				</div>
+			)}
 
 			<p className="text-[12.5px] leading-relaxed text-foreground/90">{meta.what}</p>
 			<p className="text-[12px] leading-relaxed text-muted-foreground">{meta.why}</p>
@@ -208,7 +218,12 @@ const Row = React.forwardRef<HTMLButtonElement, { meta: MetricMeta; datum: Metri
 					{meta.label}
 					{meta.approximate && <span className="text-[10px] opacity-70">≈</span>}
 				</span>
-				<span className="font-mono font-medium tabular-nums text-foreground">
+				<span className="flex items-center gap-1 font-mono font-medium tabular-nums text-foreground">
+					{datum.regime && (
+						<span className="rounded-sm bg-muted px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground" title={datum.regime === 'patch' ? 'in-place patch — no stylesheet reparse' : 'full rebuild — stylesheet reparsed'}>
+							{REGIME_WORD[datum.regime]}
+						</span>
+					)}
 					{datum.value == null ? '–' : formatValue(meta, datum.value)}
 				</span>
 			</button>

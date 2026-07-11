@@ -393,7 +393,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// count + engine per-stage stats + settled overflow), so the RENDER
 						// breakdown / COALESCE / overflow chip stay accurate on patched renders
 						// too — not just on full writes.
-						const rec = recordRenderSample({ engineMs, sanitizeMs: patchSanitizeMs, frameMs: now - tFrame, fitMs: patchFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length, coalesced, stats: out.stats });
+						const rec = recordRenderSample({ engineMs, sanitizeMs: patchSanitizeMs, frameMs: now - tFrame, fitMs: patchFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length, coalesced, stats: out.stats, writePath: 'patch' });
 						if (out.stats) {
 							const countOverflow = () => {
 								try {
@@ -478,6 +478,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						srcBytes,
 						coalesced,
 						stats: out.stats,
+						writePath: 'write',
 					});
 					// Overflow settles AFTER load (font settle → the runtime's overflow
 					// watcher toggles `section.overflow` inside the same-origin frame). Read
