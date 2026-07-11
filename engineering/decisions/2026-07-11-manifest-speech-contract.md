@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Design record for making TTS/read-along captions sound natural by teaching narration the slide's semantics. A five-lens review (linguist + phonetician personas, red-team + Munger-inversion + independent-checker trio) reframed the ask — a `speech` field on all 56 manifests. A SECOND adversarial trio, run against this doc itself, then found load-bearing errors in the synthesis (see §11) and corrected the recommendation: the verifiable win is a component-blind normalizer lexicon fix; the natural value→label reorder lives on the DOM projection path keyed on `data-class` (no manifest field); a per-component `speech` field is NOT recommended until a real intra-component mixed-number case exists. Records the verified spine, the invariants, the reuse map, and the corrected forks.
+summary: Design record for making TTS/read-along captions sound natural by teaching narration the slide's semantics. A five-lens review (linguist + phonetician personas, red-team + Munger-inversion + independent-checker trio) reframed the ask — a `speech` field on all 56 manifests. A SECOND adversarial trio, run against this doc itself, then found load-bearing errors in the synthesis (see §11) and corrected the recommendation: the verifiable win is a component-blind normalizer lexicon fix; the natural value→label reorder lives on the DOM projection path keyed on `data-class` (no manifest field); a per-component `speech` field is NOT recommended. A first-pass census of all 56 manifests (§12) then found the design rested on a partial sample — it refuted a shipped claim (mixed reference/quantity components DO exist), re-scoped Phase 1 to need a legal/finance domain lexicon, and surfaced a per-item hard edge no option fixes; the recommendation is the current best read, provisional until a full authoring-semantics census is complete.
 companion:
   - ./2026-07-09-cadenza-narration-quality.md
   - ./2026-07-07-cadenza-caption-timeline.md
@@ -166,10 +166,17 @@ on the DOM, not in the markdown flatten — and it serves BOTH the article expor
 caveat: the live Present path is markdown-only today, so giving *it* the DOM-projected narration (so live
 and export match) is the real work of unification, not a free rename.
 
-**Phase 3 — a per-component `speech` field: NOT recommended yet.** The one case that would justify it —
-a single component carrying BOTH a reference number and a quantity number, where `data-class` is too
-coarse — has not been shown to exist in any shipping deck. Until it does, component identity + the
-normalizer lexicon + the 5 JS narrators cover the field. See §10.
+**Phase 3 — a per-component `speech` field: NOT recommended.** A first-pass census of all 56 manifests
+(§12) tested the case that would justify it — a component mixing a reference number and a quantity number.
+That case DOES exist (`authority-chain`, `regulatory-update`, `statute-stack`, `redline`), refuting the
+draft's "not shown to exist" claim. But reading them shows it does NOT justify a manifest field: the
+distinction is carried by the **token glyph** (`§`/`U.S.C.`/`C.F.R.`/`Art.` = reference vs `$`/`%` =
+quantity), so it belongs in the Phase 1 **legal/finance domain lexicon** (component-blind), not a
+per-component field. The one genuinely unresolvable residual — a **bare** number that is a year vs a
+quantity (`Congress, 1998`), intermixed with quantities in a single `ol > li` slot — is **per-item**, so a
+per-slot/per-component `number-mode` field would not fix it either; it needs a token heuristic (4-digit
+19xx/20xx → year) or is left to the voice and flagged. Net: the census **strengthens Phase 1's lexicon and
+further weakens A**. See §10 and §12.
 
 **Also: the genuine defects found while tracing (log, fix independently; HARD RULE #18).** Not
 "latent-meaning" bugs as the first draft framed them (that framing was wrong — §11/F3), but raw-glyph
@@ -235,12 +242,15 @@ case with no new field.
 |---|---|---|---|
 | Shape | `lead` + `number-mode` + `machine`/`chrome` on manifests | full closed vocabulary ×56 | narrators stay JS; normalizer + `projectDeckToSpeech` keyed on `data-class` carry the rest |
 | Pros | small surface | most expressive | zero new schema/migration/rot; number-mode & order come from `data-class` (verified reuse); a computed-fact component just adds a JS narrator |
-| Cons | its justifying discriminator is refuted (§11/F2); still needs JS walkers for table/legal-gloss; buys carrying cost for a payoff `data-class` already gives | the §3.2 "speculative genericity" the war-diary deferred, ×56; monolingual baked connectives; still doesn't remove JS | the ONE case it can't cover — a single component mixing a reference AND a quantity number — is unproven; if one appears, escalate to A for that component only |
+| Cons | its justifying discriminator is refuted (§11/F2 + §12: the real mixed case is token-glyph-driven or per-item, neither of which a per-slot field fixes); still needs JS walkers for table/legal-gloss | the §3.2 "speculative genericity" the war-diary deferred, ×56; monolingual baked connectives; still doesn't remove JS | the residual it can't fully cover — a bare year-vs-quantity number intermixed in one slot (§12) — is per-item, so A wouldn't fix it either; a token heuristic + domain lexicon is the answer |
 
-**Recommendation: C.** Build number-mode and the value→label reorder into `projectDeckToSpeech` keyed on
-`data-class` (Phase 2); keep the 5 computed-fact narrators in JS; ship the normalizer lexicon (Phase 1).
-Add a per-component `speech` field **only if** a real intra-component mixed-number slide is produced —
-at which point A, scoped to that one component, is the escalation. Decision is the owner's; not locked.
+**Recommendation: C** (reinforced by the §12 census). Build number-mode and the value→label reorder into
+`projectDeckToSpeech` keyed on `data-class` (Phase 2); keep the 5 computed-fact narrators in JS; ship the
+normalizer lexicon — now scoped to include a **legal/finance domain pronunciation pack** the census showed
+is needed (Phase 1). The mixed reference/quantity case the draft treated as A's justification turns out to
+be token-glyph-driven (→ the lexicon) or per-item (→ a token heuristic), neither of which a per-slot
+`speech` field resolves — so A is not the escalation it was framed as. Decision is the owner's; not locked,
+and it should not be locked until the full authoring-semantics census (§12) is complete.
 
 ## 11. Second adversarial pass — the trio found errors in THIS doc's synthesis
 
@@ -287,3 +297,31 @@ is verified and sound; the first draft's *headline sell* ("Phase 0+1 banks the K
 *Phase-3 = A* recommendation were wrong and are corrected here. The honest, verifiable win is the
 normalizer lexicon; the natural reorder is a Phase-2 projection keyed on `data-class`; no manifest field
 is recommended.
+
+## 12. Census gap — the design rests on a partial sample (open)
+
+Asked whether these decisions rest on a full profile of all component manifests and their authoring
+semantics, the honest answer is **no.** The design was built from the schema, the 5 hardened narrators,
+the shared narration code, and ~6–8 manifests (kpi, stats, big-number, compare-table, citation-card,
+list-steps, list-tabular) across 5 of 13 buckets. The other ~48 and whole buckets (math, code, diagram,
+connect, most of inventory/comparison/legal, chart's non-narrated members) were reasoned from the schema,
+not read.
+
+A **first-pass mechanical census** (slot inventory + a token-class scan of every manifest's
+skeleton/sample/variant samples across all 56) was then run, and it immediately moved the design:
+
+- **It refuted a shipped claim.** "No component mixes a reference and a quantity number" was false —
+  `authority-chain`, `regulatory-update`, `statute-stack` (legal) and `redline` (comparison) all do.
+- **It re-scoped Phase 1.** The reference/quantity distinction is token-glyph-driven (`§`, `U.S.C.`,
+  `C.F.R.`, `Art.`, `·`, date forms), so Phase 1's normalizer needs a real **legal/finance domain
+  pronunciation pack**, not just the boardroom units the draft scoped from one exemplar.
+- **It surfaced a hard edge no option covered.** A bare year vs a quantity (`Congress, 1998`) intermixed
+  with `$245M` in one `ol > li` slot is disambiguable by neither token, `data-class`, nor slot — and it's
+  per-*item*, so option A (a per-slot field) would not fix it. It needs a token heuristic or is flagged.
+
+**What is still NOT done (the real next step):** a full authoring-semantics census — reading every
+manifest AND its `<name>.docs.md` across all 13 buckets, cataloging per-slot the narratable structure and
+number/token kinds (math's TeX, code's fenced source + focus lines, connect's QR/contact data, glossary's
+`dl`, chart's non-narrated members, the roadmap/gantt/kanban token grammars, etc.). The §8 taxonomy and
+the phase scoping should be treated as **provisional** until that census is complete; the recommendation
+(C + a domain-lexicon-scoped Phase 1) is the current best read, not a locked conclusion.
