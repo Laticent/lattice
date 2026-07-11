@@ -7,40 +7,40 @@
 // the CLI `--strip-notes`. Accessible slide descriptions are kept (they're the slide's
 // text alternative, not private speaker copy). See share-export.ts › shareHtmlPlayer.
 
-import { ArrowLeft, Globe, Loader2, MicOff, Monitor, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Globe, Layers, Loader2, MicOff, Monitor, Moon, Sun } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-type Scheme = 'light' | 'dark' | 'system';
+type Scheme = 'light' | 'dark' | 'system' | 'inherited';
 
 export function WebpageOptionsPanel({
 	busy,
 	status,
-	mode,
+	defaultScheme,
 	onBack,
 	onExport,
 }: {
 	busy?: boolean;
 	status?: string | null;
-	// The Studio's current preview mode — the default color mode the export opens in,
-	// so the shared file is WYSIWYG unless the author chooses otherwise.
-	mode: 'light' | 'dark';
+	// The color mode the export defaults to — the deck's authored `color-mode:` when it has
+	// one, else the current preview mode. So the panel reflects a system/inherited deck, and
+	// a plain deck is WYSIWYG. The author can still override for this one export.
+	defaultScheme: Scheme;
 	onBack: () => void;
 	onExport: (stripNotes: boolean, scheme: Scheme) => void;
 }) {
 	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
 	const [stripNotes, setStripNotes] = React.useState(false);
-	// The exported player's default color mode. Initialized from the current preview so the
-	// download matches what the author sees; 'system' defers to the receiver's OS. The panel
-	// remounts each time the export step is opened (ShareSheet renders it conditionally), so
-	// this mount-time default already re-syncs to the live mode — no effect needed, and none
-	// added, so an explicit user pick is never silently clobbered by a background mode flip.
-	const [scheme, setScheme] = React.useState<Scheme>(mode);
+	// The exported player's default color mode. The panel remounts each time the export step
+	// is opened (ShareSheet renders it conditionally), so this mount-time default already
+	// re-syncs — no effect needed, so an explicit user pick is never silently clobbered.
+	const [scheme, setScheme] = React.useState<Scheme>(defaultScheme);
 
 	const SCHEMES: { value: Scheme; label: string; icon: React.ReactNode }[] = [
 		{ value: 'light', label: 'Light', icon: <Sun className="size-3.5" /> },
 		{ value: 'dark', label: 'Dark', icon: <Moon className="size-3.5" /> },
 		{ value: 'system', label: 'System', icon: <Monitor className="size-3.5" /> },
+		{ value: 'inherited', label: 'Match site', icon: <Layers className="size-3.5" /> },
 	];
 
 	return (
@@ -56,16 +56,16 @@ export function WebpageOptionsPanel({
 				</div>
 
 				{/* Color mode — the document-fidelity choice. Light/Dark PIN the export to that
-				    mode on every device; System defers to the receiver's OS. The in-player
-				    toggle still lets any viewer override for themselves. */}
+				    mode on every device; System and Match-site both defer to the reader's OS in a
+				    standalone file. The in-player toggle still lets any viewer override themselves. */}
 				<div className="rounded-xl border border-border bg-background p-3.5">
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Color mode</span>
 					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
-						{scheme === 'system'
-							? 'The player opens in the viewer’s OS mode — light or dark follows their device. A viewer can still toggle.'
+						{scheme === 'system' || scheme === 'inherited'
+							? 'The player follows the reader’s device — light or dark tracks their OS. (Match site and System are the same in a downloaded file, which has no host to inherit from.) A viewer can still toggle.'
 							: `The player always opens in ${scheme} mode, on every device. A viewer can still toggle.`}
 					</span>
-					<div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-lg bg-[var(--accent-soft)] p-1">
+					<div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-lg bg-[var(--accent-soft)] p-1">
 						{SCHEMES.map((s) => (
 							<button
 								key={s.value}

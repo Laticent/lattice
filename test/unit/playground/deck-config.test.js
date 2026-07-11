@@ -229,6 +229,18 @@ describe('writeFrontMatter', () => {
     assert.equal(writeFrontMatter(sketched, 'mode', 'boardroom'), CLEAN);
   });
 
+  test('color-mode: light/dark/system/inherited are written; theme-default (empty) omitted', async () => {
+    const { writeFrontMatter, readFrontMatter } = await import(MOD);
+    for (const v of ['light', 'dark', 'system', 'inherited']) {
+      assert.ok(writeFrontMatter(CLEAN, 'color-mode', v).includes(`color-mode: ${v}`), `color-mode: ${v} should be written`);
+    }
+    assert.equal(writeFrontMatter(CLEAN, 'color-mode', ''), CLEAN, 'theme default → no key');
+    const sys = writeFrontMatter(CLEAN, 'color-mode', 'system');
+    assert.equal(readFrontMatter(sys)['color-mode'], 'system');
+    assert.equal(writeFrontMatter(sys, 'color-mode', ''), CLEAN, 'clearing to default drops the key');
+    assert.equal(readFrontMatter(sys).configured, true, 'a color-mode: value marks the deck configured');
+  });
+
   test('split: rule is written; headings (the default) is omitted/cleared', async () => {
     const { writeFrontMatter, readFrontMatter } = await import(MOD);
     const r = writeFrontMatter(CLEAN, 'split', 'rule');

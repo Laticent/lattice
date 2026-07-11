@@ -134,10 +134,15 @@ There are four ways to get a dark canvas:
 
 | Goal | Front-matter / source |
 |---|---|
-| Whole deck dark, simplest | `theme: cuoio-dark` (or `indaco-dark`) — a 3-line wrapper that does the next path internally. |
-| Whole deck dark, any theme | `style: ":root{color-scheme:dark}"` — Marp's native `style:` directive, one line. |
-| Follow viewer's OS preference | `style: ":root{color-scheme:light dark}"` — `light-dark()` resolves per the viewer's `prefers-color-scheme`. |
-| Single slide on an otherwise-light deck | `<!-- _class: dark -->` on that slide — `section.dark { color-scheme: dark }` flips just that section. |
+| Whole deck dark (or light) | `color-mode: dark` (or `color-mode: light`) — the first-class key; pins the canvas on every surface (`section.dark { color-scheme: dark }` on every slide). |
+| Follow the viewer's OS preference | `color-mode: system` — `section.color-system { color-scheme: light dark }`, so `light-dark()` resolves per `prefers-color-scheme`. |
+| Adopt the host (site toggle / reader's OS) | `color-mode: inherited` — `section.color-inherited { color-scheme: inherit }` takes the host's mode. |
+| Whole deck dark, simplest theme swap | `theme: cuoio-dark` (or `indaco-dark`) — a 3-line wrapper pinning `:root{color-scheme:dark}`. |
+| Single slide on an otherwise-light deck | `<!-- _class: dark -->` on that slide — flips just that section. |
+
+The legacy deck-wide `class: dark`/`class: light` (and a raw
+`style: ":root{color-scheme:dark}"`) still work, but `color-mode:` is the
+documented, typo-checked way — and the only one offering `system` / `inherited`.
 
 Default is light. With no directive, `:where(:root) { color-scheme: light }`
 applies at zero specificity, so any author override wins the cascade

@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 paginate: true
-class: dark
+color-mode: dark
 footer: "SlideWright · read-along captions"
 ---
 

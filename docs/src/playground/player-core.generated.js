@@ -1008,7 +1008,7 @@ async function assemblePlayer(data, caps) {
   const lang = doc.documentElement.getAttribute("lang") || "en";
   const title = data.title || doc.querySelector("title")?.textContent || "Lattice deck";
   const rawScheme = data.theme?.mode || data.mode;
-  const exportedScheme = rawScheme === "dark" || rawScheme === "system" ? rawScheme : "light";
+  const exportedScheme = rawScheme === "dark" ? "dark" : rawScheme === "system" || rawScheme === "inherited" ? "system" : "light";
   const js = await playerJs();
   const jsHash = await caps.sha256(js);
   const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'`;

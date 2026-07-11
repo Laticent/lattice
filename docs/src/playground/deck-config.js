@@ -50,6 +50,11 @@ const FIELD_DEFAULTS = {
   // '' / 'boardroom' is the baseline (omitted), 'sketch' / 'sketch-clean' opt in.
   // Orthogonal to `finish:` — the two compose.
   mode: '',
+  // `color-mode` is the deck-wide COLOR-MODE key (lib/core/resolve-color-mode.js):
+  // '' (theme default) is the baseline (omitted); light/dark PIN a side, `system`
+  // follows the viewer's OS, `inherited` adopts the host (site) mode. The first-class
+  // successor to the legacy `class: dark/light` color axis.
+  'color-mode': '',
   // (The `tokens:` directive + its Drawing-Board A/B toggle were retired once the
   // universal-token canonical flip completed — there is one vocabulary now.)
   // `split` is how the body divides into slides (lib/core/resolve-split.js):
@@ -99,9 +104,18 @@ const MODE_LABELS = {
   'sketch-clean': 'Sketch · clean body',
 };
 
+// The color-mode options + labels (a fixed 4-value register + the theme-default baseline).
+const COLOR_MODE_OPTIONS = [
+  ['', 'Theme default'],
+  ['light', 'Light'],
+  ['dark', 'Dark'],
+  ['system', 'System — follow the OS'],
+  ['inherited', 'Match site / host'],
+];
+
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'mode', 'finish', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
 //   author  — every field (the Drawing Board: full set, theme three-way synced).
@@ -113,12 +127,12 @@ const EMIT_ORDER = ['marp', 'theme', 'mode', 'finish', 'split', 'autosplit', 'si
 //             with no deck chrome and no theme, which the studio itself owns).
 export const CONFIG_PROFILES = Object.freeze({
   author: null,
-  noTheme: ['mode', 'finish', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
+  noTheme: ['mode', 'color-mode', 'finish', 'split', 'autosplit', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
   // `autosplit` is a deck-AUTHORING concern (does my over-capacity content
   // divide?), not a theme/component PREVIEW register — so it's deliberately out
   // of the preview profile (a fixed specimen never overflows). It rides the full
   // author set + the Playground (noTheme) only.
-  preview: ['mode', 'finish', 'size', 'paginate', 'form'],
+  preview: ['mode', 'color-mode', 'finish', 'size', 'paginate', 'form'],
 });
 
 const TRUEY = /^(true|yes|on|1)$/i;
@@ -191,6 +205,7 @@ export function readFrontMatter(source) {
   return {
     theme: map.theme || '',
     mode: map.mode || '',
+    'color-mode': map['color-mode'] || '',
     finish: map.finish || '',
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
     // `autosplit` is binary — surfaced as a boolean (like paginate) for the switch.
@@ -470,6 +485,16 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
       host.append(selectRow('mode', 'Mode',
         'The rendering hand — clean or sketch — applies to the whole deck',
         modes.map((s) => [s, MODE_LABELS[s] || titleCase(s)]), current));
+    }
+
+    // Color mode — the deck-wide COLOR-MODE key. Theme default is the baseline (picking
+    // it clears the key); light/dark PIN a side, System follows the viewer's OS, and
+    // "Match site / host" adopts the host container's mode. Honored by every render surface.
+    if (show('color-mode')) {
+      const cur = COLOR_MODE_OPTIONS.some(([v]) => v === fm['color-mode']) ? fm['color-mode'] : '';
+      host.append(selectRow('color-mode', 'Color mode',
+        'The mode the deck opens in everywhere — pin light/dark, follow the OS, or match the host',
+        COLOR_MODE_OPTIONS, cur));
     }
 
     // Finish — the deck-wide BACKDROP register (none / atrium … gallery), the

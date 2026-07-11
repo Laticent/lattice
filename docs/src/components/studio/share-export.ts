@@ -252,11 +252,12 @@ export async function shareHtmlPlayer(
 	stripNotes = false,
 	// The color mode the EXPORTED player defaults to — the author's document-fidelity
 	// choice, baked onto <html> so the shared file opens the way the sender made it:
-	//   · 'light' / 'dark' → PINNED: always that mode, never re-themed by the receiver's OS.
-	//   · 'system'         → DEFER: the effective mode follows the receiver's OS preference.
+	//   · 'light' / 'dark'      → PINNED: always that mode, never re-themed by the receiver.
+	//   · 'system' / 'inherited' → DEFER: follow the receiver's OS (a standalone player has no
+	//     host to inherit from, so player-core bakes 'inherited' as 'system' — identical here).
 	// Independent of `mode` (which selects the render theme); the in-player toggle still
 	// overrides per viewer. Defaults to the current preview mode so the export is WYSIWYG.
-	scheme: 'light' | 'dark' | 'system' = mode,
+	scheme: 'light' | 'dark' | 'system' | 'inherited' = mode,
 ): Promise<void> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);

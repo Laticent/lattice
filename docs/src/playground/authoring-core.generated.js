@@ -653,6 +653,8 @@ ${indent}   - ${body.trim()}`;
       if (vocab.mapRegions) findings.push(...findUnknownMapRegions(source, vocab.mapRegions));
       if (vocab.finishNames) findings.push(...findUnknownFinish(source, vocab.finishNames));
       if (vocab.modeNames) findings.push(...findUnknownMode(source, vocab.modeNames));
+      if (vocab.colorModeNames) findings.push(...findUnknownColorMode(source, vocab.colorModeNames));
+      findings.push(...findDeprecatedClassColorMode(source));
       if (vocab.claimNames) findings.push(...findUnknownClaim(source, vocab.claimNames));
       if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
       if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
@@ -924,6 +926,44 @@ ${indent}   - ${body.trim()}`;
         fix: `Set front-matter \`mode:\` to one of: ${[...modeNames].join(", ")}.`
       }];
     }
+    function findUnknownColorMode(source, colorModeNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fm = fmBlock[1].match(/^\s*color-mode:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fm) return [];
+      const value = fm[1].trim();
+      const known = new Set([...colorModeNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-color-mode",
+        severity: "warning",
+        classToken: value,
+        line: fm[0].trim(),
+        message: `'${value}' is not a known color-mode \u2014 the deck would silently render the theme default`,
+        fix: `Set front-matter \`color-mode:\` to one of: ${[...colorModeNames].join(", ")}.`
+      }];
+    }
+    function findDeprecatedClassColorMode(source) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const body = fmBlock[1];
+      const cm = body.match(/^\s*class:\s*["']?([^"'\n]*)["']?\s*$/m);
+      if (!cm) return [];
+      const token = cm[1].split(/\s+/).filter(Boolean).find((t2) => t2.toLowerCase() === "dark" || t2.toLowerCase() === "light");
+      if (!token) return [];
+      const t = token.toLowerCase();
+      const hasKey = /^\s*color-mode:\s*\S/m.test(body);
+      return [{
+        slide: 0,
+        rule: "deprecated-class-color-mode",
+        severity: "info",
+        classToken: token,
+        line: cm[0].trim(),
+        message: hasKey ? `\`class: ${t}\` is superseded by the \`color-mode:\` key present in this deck \u2014 the key wins, so this legacy color token is redundant` : `\`class: ${t}\` is the legacy color axis \u2014 prefer the first-class \`color-mode: ${t}\` (which also offers system / inherited)`,
+        fix: hasKey ? `Remove the redundant \`${t}\` from the deck-wide \`class:\` (the \`color-mode:\` key already governs color).` : `Replace the deck-wide \`class: ${t}\` with \`color-mode: ${t}\`.`
+      }];
+    }
     function findUnknownClaim(source, claimNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
@@ -1092,6 +1132,8 @@ ${indent}   - ${body.trim()}`;
       findAutosplitOrientationMismatch,
       findUnknownFinish,
       findUnknownMode,
+      findUnknownColorMode,
+      findDeprecatedClassColorMode,
       findUnknownStamp,
       findUnknownToneStyle,
       findUnknownSpectrum,

@@ -1,6 +1,7 @@
 import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
 import * as React from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { deckColorMode } from '@/lib/deck-theme';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
@@ -84,9 +85,12 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 
 	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
 	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
-	const exportHtml = (stripNotes: boolean, scheme: 'light' | 'dark' | 'system') => {
+	const exportHtml = (stripNotes: boolean, scheme: 'light' | 'dark' | 'system' | 'inherited') => {
 		run('html', 'Webpage', (onStatus) => shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, stripNotes, scheme));
 	};
+	// The export defaults to the deck's authored `color-mode:` when it has one (so a
+	// system/inherited deck's panel reflects that), else the current preview mode.
+	const deckDefaultScheme = deckColorMode(artifactSource) ?? mode;
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -99,7 +103,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					{view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'html' ? (
-						<WebpageOptionsPanel busy={busy === 'html'} status={progress} mode={mode} onBack={() => setView('menu')} onExport={exportHtml} />
+						<WebpageOptionsPanel busy={busy === 'html'} status={progress} defaultScheme={deckDefaultScheme} onBack={() => setView('menu')} onExport={exportHtml} />
 					) : (
 						<>
 							<section className="space-y-2">
