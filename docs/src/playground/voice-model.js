@@ -313,10 +313,16 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
   return {
     name: 'openrouter-tts',
     ready() { return !!getKey(); },
-    async synth({ text, voice, signal, speed }) {
+    // `model`, if given, overrides the persisted "active" model for THIS call
+    // only (never writes it) — the escape hatch previewVoice() needs to
+    // audition a model-picker ROW that isn't selected yet (bug: 2026-07-09-
+    // studio-cloud-ondevice-config-split.md's "model-row-preview" follow-up).
+    // speak()'s own narration path never passes this — it always narrates the
+    // one active model — so `getModel()` remains its only source, unaffected.
+    async synth({ text, voice, signal, speed, model: modelOverride }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
-      const model = getModel();
+      const model = modelOverride || getModel();
       const wantsPcm = PCM_ONLY_MODELS.has(model);
       // OpenAI-compatible speech route: POST the text, get a raw audio byte stream
       // back (mp3 for almost every model; PCM for the rare exception above, wrapped
@@ -1037,7 +1043,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // Returns { ok, error } so the UI can SHOW why a sample failed (the synth HTTP
     // error, an unsupported-MP3 decode, or audio still blocked) instead of silently
     // doing nothing — the only way to diagnose iOS without a Mac/console.
-    async previewVoice({ rung, voice: v, speed } = {}) {
+    async previewVoice({ rung, voice: v, speed, model } = {}) {
       const r = rung === 'openrouter' ? openrouter : rung === 'kokoro' ? kokoro : null;
       if (!r) return { ok: false, error: 'unknown voice' };
       if (!r.ready()) return { ok: false, error: rung === 'openrouter' ? 'cloud voice not connected' : 'voice not ready' };
@@ -1051,12 +1057,26 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // here is the caller's tier NAME ('openrouter'/'kokoro'), matching
       // r.ready()'s own ternary above.
       const effVoice = v || (rung === 'openrouter' ? orVoice() : kokoroVoice());
+      // `model` is an explicit per-call override — the Workspace model
+      // PICKER's own ▶ row-preview button passes the id of the row being
+      // auditioned, which may not be the currently ACTIVE model at all
+      // (previewTtsVoice already resolved it for the CACHE lookup one layer
+      // up; this is the live-fallback half of that same fix). Without this,
+      // `modelIdFor` falls back to the persisted active model regardless of
+      // which row was clicked — a live preview of an unselected, uncached
+      // model silently played through whatever model WAS active instead (bug,
+      // 2026-07-09-studio-cloud-ondevice-config-split.md's "model-row-preview"
+      // follow-up). Kokoro has no alternate-model concept, so this only
+      // applies to the openrouter rung. Used for BOTH the cache key and the
+      // synth call below — a mismatch between the two would mean a row
+      // preview could read or write another model's cache entry.
+      const effModel = (rung === 'openrouter' && model) || modelIdFor(r.name);
       // Repeat "Play sample" clicks for the SAME voice/model/speed are pure
       // duplicate synths of a fixed string — the same cache speak() uses, keyed
       // by the rung's real name (r.name — 'openrouter-tts'/'kokoro', not the
       // caller's shorthand) so a preview and a later spoken sentence that happen
       // to share text could even share a cache entry.
-      const cacheKey = cacheKeyFor(r.name, modelIdFor(r.name), effVoice, effSpeed, PREVIEW_TEXT);
+      const cacheKey = cacheKeyFor(r.name, effModel, effVoice, effSpeed, PREVIEW_TEXT);
       // The PLAYBACK phase below already has an 8s watchdog; the SYNTH phase (the
       // network fetch to OpenRouter, or the Kokoro worker round-trip) previously had
       // NONE — a hung request left this awaiting forever, stuck on "Playing…" with no
@@ -1071,7 +1091,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       try {
         const cached = audioCache.get(cacheKey);
         const blob = cached ?? await Promise.race([
-          r.synth({ text: PREVIEW_TEXT, voice: v, speed: effSpeed, signal: ctl.signal }).then((b) => {
+          r.synth({ text: PREVIEW_TEXT, voice: v, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: ctl.signal }).then((b) => {
             if (b) cacheSet(cacheKey, b);
             return b;
           }).finally(() => clearTimeout(synthTimer)),

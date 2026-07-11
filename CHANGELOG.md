@@ -372,7 +372,20 @@ in patch versions.
   originally misdiagnosed this as the opposite: an undercount in the
   console warning, rather than an overcount in the sidecar's own ring). See
   `engineering/decisions/2026-07-10-overflow-cause-highlighting.md` §14-15.
-
+- **Previewing an unselected model row in the Studio's cloud TTS picker no
+  longer silently plays the CURRENTLY ACTIVE model instead of the row you
+  clicked.** Clicking ▶ next to a model you hadn't picked yet correctly used
+  that row's id for the cache lookup, but the live fallback (`voice-model.js`'s
+  `previewVoice`) ignored it entirely and always synthesized through whatever
+  model was already active — a real, pre-existing bug flagged (but out of
+  scope) by the independent checker during the Speed-slider redesign's
+  pre-merge review. `openRouterRung.synth` now accepts a per-call `model`
+  override, used for both the live request and the cache key so a row preview
+  can't collide with another model's cache entry either; the main "Play
+  sample" button, which always already passes its own active model
+  explicitly, is unaffected. See
+  `engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md`'s
+  model-row-preview follow-up.
 - **The Fix-Me overlay's Case B (density-budget fallback, shipped hours
   earlier the same day) undercounted words and could misfire on `kanban`.**
   A post-merge adversarial review (red team + Munger inversion + an
