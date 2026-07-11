@@ -23,10 +23,11 @@
 // pulls bundled .woff2 that Node can't load, so a static import would break this
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
+import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { linkGuardAgent } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
-import { hasRenderListeners, type RenderStats, recordRenderSample } from '../playground/render-metrics';
+import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
@@ -285,6 +286,27 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					if (out.stats) {
 						const s = out.stats;
 						s.otherMs = Math.max(0, engineMs - (s.parseMs + s.transformsMs + s.assembleMs + s.cssMs));
+						// Deck context (item 2): count chart-layout sections + mermaid fences
+						// in the output, detect math from the source. Chart slides carry their
+						// layout class (piechart/gantt/…) on the <section> in the engine HTML
+						// string; the `chart-frame` marker is added at RUNTIME (applyToDom) and
+						// isn't in the string yet — so we match the layout class, not the marker.
+						// This alternation MIRRORS `CHART_LAYOUTS` in
+						// lib/components/chart/_chart-family/chart-family.js (all 13 layouts) —
+						// keep it in sync when a chart type is added there (neither the engine
+						// nor the playground re-exports the list, so it can't be imported here).
+						// Overflow is read from the live frame after it settles (below) — 0 here
+						// as a placeholder.
+						s.charts = (out.html.match(/<section\b[^>]*\bclass="[^"]*\b(?:progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|funnel|map|journey|word-cloud|roadmap)\b/g) || []).length;
+						s.mermaid = (out.html.match(/language-mermaid/g) || []).length;
+						// Match the engine's OWN KaTeX gate exactly — renderMarkdown
+						// (render-engine.ts) loads KaTeX when `sourceHasMath(source)` is true on
+						// the UN-stripped source, and that cold-load cost lands in `other`. Using
+						// the same gate makes the "math" chip mean precisely "this render
+						// triggered a KaTeX load"; stripping code here would hide math whose cost
+						// the engine still paid (e.g. a `$…$` inside a code fence).
+						s.math = sourceHasMath(markdown);
+						s.overflow = 0;
 					}
 				} catch (e) {
 					console.error('single-slide render failed', e);
@@ -350,7 +372,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// to play the clip in a centered lightbox (the link guard bridges to it).
 					installVideoBridge(fr.contentWindow);
 					const now = performance.now();
-					recordRenderSample({
+					const rec = recordRenderSample({
 						engineMs,
 						sanitizeMs,
 						frameMs: now - tFrameStart,
@@ -360,6 +382,29 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						srcBytes,
 						stats: out.stats,
 					});
+					// Overflow settles AFTER load (font settle → the runtime's overflow
+					// watcher toggles `section.overflow` inside the same-origin frame). Read
+					// it once now and again after it settles, patching the sample in place
+					// so the count is accurate without re-timing the render. Best-effort:
+					// a cross-doc read can throw during teardown.
+					if (out.stats) {
+						const countOverflow = () => {
+							try {
+								return fr?.contentDocument?.querySelectorAll('section.overflow').length ?? 0;
+							} catch {
+								return 0;
+							}
+						};
+						// Publish the immediate read AND a settled re-read through patchOverflow
+						// — never an in-place mutation of the recorded sample. Mutating
+						// `out.stats.overflow` here would poison patchOverflow's own
+						// `overflow === n` change-guard, so a slide that already overflows at
+						// load (immediate read == settled read) would never fire a re-render and
+						// the chip would stay hidden. patchOverflow returns whichever sample is
+						// now displayed, so the settled read patches the CURRENT one, not `rec`.
+						const shownSample = patchOverflow(rec, countOverflow());
+						setTimeout(() => patchOverflow(shownSample, countOverflow()), 600);
+					}
 				};
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared

@@ -35,6 +35,15 @@ export type RenderStats = {
 	otherMs: number;
 	/** Per-transform timing, keyed by transformer name. */
 	transforms: Record<string, number>;
+	// ── Deck context (item 2): what heavy content this render carries. ──
+	/** Chart-layout sections in the rendered HTML. */
+	charts: number;
+	/** Mermaid diagrams in the rendered HTML. */
+	mermaid: number;
+	/** Whether the source contains math (KaTeX). */
+	math: boolean;
+	/** Slides overflowing their box (Fit Spine ring), read from the live frame. */
+	overflow: number;
 };
 
 export type RenderSample = {
@@ -76,13 +85,18 @@ function smooth(key: string, v: number): number {
 	return ema[key];
 }
 
-/** Record one completed render. Cheap no-op-ish when the overlay is off. */
-export function recordRenderSample(sample: RenderSample): void {
+/**
+ * Record one completed render. Cheap no-op-ish when the overlay is off. Returns
+ * the stored sample (raw when no consumer, smoothed otherwise) so the caller can
+ * later patch a late-arriving field (overflow) on the EXACT sample it recorded,
+ * not the module-global `last` (which a newer render may have replaced).
+ */
+export function recordRenderSample(sample: RenderSample): RenderSample {
 	// No consumer → skip smoothing + fan-out entirely; just keep the latest raw
 	// so a later mount can paint something immediately.
 	if (listeners.size === 0) {
 		last = sample;
-		return;
+		return sample;
 	}
 	const smoothed: RenderSample = { ...sample, raw: sample };
 	for (const k of TIMING_KEYS) smoothed[k] = smooth(k, sample[k]);
@@ -92,10 +106,37 @@ export function recordRenderSample(sample: RenderSample): void {
 			fn(last);
 		} catch {}
 	}
+	return last;
 }
 
 /** Latest sample (smoothed once a consumer exists), or null before the first render. */
 export function latestRenderSample(): RenderSample | null {
+	return last;
+}
+
+/**
+ * Patch the overflow count on a SPECIFIC recorded sample and re-notify only if
+ * it's still the displayed one. Overflow settles inside the preview frame AFTER
+ * the sample is recorded (font settle → the runtime's watcher), so
+ * single-slide-render reads it late and calls this — passing the exact sample it
+ * recorded — rather than re-recording (which would perturb the EMA timings).
+ * Scoping to the sample means a late timer from one live host can't overwrite a
+ * newer render's overflow from a different host.
+ */
+export function patchOverflow(sample: RenderSample | null, n: number): RenderSample | null {
+	if (!sample?.stats || sample.stats.overflow === n) return sample;
+	// Only touch the on-screen sample; a late timer from an older render must not
+	// clobber a newer one. Publish a NEW object (not an in-place mutation) so the
+	// overlay's React setState doesn't hit the Object.is bailout and actually
+	// re-renders with the settled count. Return the now-displayed sample so a
+	// follow-up (settled) patch chains onto it, not the pre-patch reference.
+	if (sample !== last) return sample;
+	last = { ...sample, stats: { ...sample.stats, overflow: n } };
+	for (const fn of listeners) {
+		try {
+			fn(last);
+		} catch {}
+	}
 	return last;
 }
 

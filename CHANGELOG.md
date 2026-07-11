@@ -152,6 +152,14 @@ in patch versions.
 
 ### Added
 
+- **The RENDER breakdown now shows deck context — why a render costs what it
+  does.** Below the stage bars, chips report the heavy content the render
+  carried: how many charts and Mermaid diagrams, whether the source has math,
+  and whether the previewed slide overflows its box. All computed docs-side from
+  the rendered HTML + source (chart-layout sections, `language-mermaid` fences,
+  code-stripped math detection) and the live frame (overflow, read after it
+  settles and patched onto the sample without re-timing the render). Chips show
+  only when relevant, so a plain slide stays clean.
 - **The performance overlay's RENDER row drills into a per-stage engine
   breakdown.** Tapping RENDER now shows *where the time went* — parse /
   transforms / assemble / css / other, with proportional bars — plus the slowest

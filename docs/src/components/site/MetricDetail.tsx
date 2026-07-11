@@ -156,6 +156,34 @@ function EngineBreakdown({ stats }: { stats: RenderStats }) {
 					))}
 				</div>
 			)}
+			<DeckContext stats={stats} />
+		</div>
+	);
+}
+
+// Deck context (item 2): WHY this render costs what it does — how many transforms
+// fired, and which heavy content is present. Chips render only when relevant.
+function DeckContext({ stats }: { stats: RenderStats }) {
+	const chips: { label: string; warn?: boolean }[] = [];
+	if (stats.charts > 0) chips.push({ label: `${stats.charts} chart${stats.charts === 1 ? '' : 's'}` });
+	if (stats.mermaid > 0) chips.push({ label: `${stats.mermaid} mermaid` });
+	if (stats.math) chips.push({ label: 'math' });
+	// Single-slide preview → 0 or 1; label the slide, not a deck-wide tally.
+	if (stats.overflow > 0) chips.push({ label: stats.overflow === 1 ? 'overflows' : `${stats.overflow} overflowing`, warn: true });
+	if (chips.length === 0) return null;
+	return (
+		<div className="mt-1 flex flex-col gap-1">
+			<div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">deck context</div>
+			<div className="flex flex-wrap gap-1">
+				{chips.map((c) => (
+					<span
+						key={c.label}
+						className={cn('rounded border px-1.5 py-0.5 text-[10.5px]', c.warn ? 'border-transparent bg-[#dc2626] text-white' : 'border-border text-muted-foreground')}
+					>
+						{c.label}
+					</span>
+				))}
+			</div>
 		</div>
 	);
 }
