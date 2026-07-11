@@ -1776,12 +1776,16 @@ var require_notes_core = __commonJS({
     function isDescriptionComment(body) {
       return DESCRIBE_MATCHER.test(String(body == null ? "" : body).trim());
     }
+    var CAPTION_MATCHER = /^caption\s*:/i;
+    function isCaptionComment(body) {
+      return CAPTION_MATCHER.test(String(body == null ? "" : body).trim());
+    }
     function noteBodiesFromHtml(sectionHtml) {
       const re = new RegExp(COMMENT_SOURCE, "g");
       const bodies = [];
       for (const m of String(sectionHtml == null ? "" : sectionHtml).matchAll(re)) {
         const body = m[1].trim();
-        if (!body || isToolingComment(body) || isDescriptionComment(body)) continue;
+        if (!body || isToolingComment(body) || isDescriptionComment(body) || isCaptionComment(body)) continue;
         bodies.push(body);
       }
       return bodies;
@@ -1804,6 +1808,21 @@ var require_notes_core = __commonJS({
     function extractSlideDescriptions(slidesHtml) {
       const arr = Array.isArray(slidesHtml) ? slidesHtml : [slidesHtml];
       return arr.map(descriptionFromHtml);
+    }
+    function captionFromHtml(sectionHtml) {
+      const re = new RegExp(COMMENT_SOURCE, "g");
+      let caption = null;
+      for (const m of String(sectionHtml == null ? "" : sectionHtml).matchAll(re)) {
+        const body = m[1].trim();
+        if (!isCaptionComment(body)) continue;
+        const text = body.replace(CAPTION_MATCHER, "").trim();
+        if (text) caption = text;
+      }
+      return caption;
+    }
+    function extractSlideCaptions(slidesHtml) {
+      const arr = Array.isArray(slidesHtml) ? slidesHtml : [slidesHtml];
+      return arr.map(captionFromHtml);
     }
     function extractSlideNotes(slidesHtml) {
       const arr = Array.isArray(slidesHtml) ? slidesHtml : [slidesHtml];
@@ -1828,11 +1847,14 @@ var require_notes_core = __commonJS({
       MAGIC_COMMENT_MATCHERS,
       isToolingComment,
       isDescriptionComment,
+      isCaptionComment,
       noteBodiesFromHtml,
       notesFromHtml,
       extractSlideNotes,
       descriptionFromHtml,
       extractSlideDescriptions,
+      captionFromHtml,
+      extractSlideCaptions,
       stripCommentNodes,
       stripNotesFromSource
     };

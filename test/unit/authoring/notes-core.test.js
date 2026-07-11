@@ -168,6 +168,53 @@ describe('notes-core: accessible-description channel (describe:)', () => {
     ];
     assert.deepEqual(core.extractSlideDescriptions(slides), ['First. Second.', null, 'Third.']);
   });
+});
+
+describe('notes-core: caption channel (caption:)', () => {
+  test('isCaptionComment recognizes the caption: prefix, not a note', () => {
+    assert.equal(core.isCaptionComment('caption: FY26 revenue grew forty percent.'), true);
+    assert.equal(core.isCaptionComment('Caption:  case-insensitive'), true);
+    assert.equal(core.isCaptionComment('note: say this'), false);
+    assert.equal(core.isCaptionComment('describe: whats there'), false);
+    assert.equal(core.isCaptionComment('caption the figure'), false); // no colon → prose note
+  });
+
+  test('a caption: comment is NOT collected as a speaker note (never embedded in the PDF)', () => {
+    assert.equal(core.notesFromHtml(sec('<!-- caption: The exact words this slide reads. -->')), null);
+  });
+
+  test('captionFromHtml returns the caption, prefix stripped; last-wins on override', () => {
+    assert.equal(
+      core.captionFromHtml(sec('<!-- caption: Net dollar retention held at one twenty. -->')),
+      'Net dollar retention held at one twenty.',
+    );
+    assert.equal(core.captionFromHtml(sec('<!-- a plain note -->')), null);
+    // a caption REPLACES narration, so a second one supersedes (not concatenates)
+    assert.equal(core.captionFromHtml(sec('<!-- caption: first -->\n<!-- caption: second -->')), 'second');
+  });
+
+  test('note, description, and caption coexist on one slide without cross-contamination', () => {
+    const html = sec('<!-- Pause here. --><!-- describe: A pie chart. --><!-- caption: Three equal slices. -->');
+    assert.equal(core.notesFromHtml(html), 'Pause here.'); // note only (caption + describe excluded)
+    assert.equal(core.descriptionFromHtml(html), 'A pie chart.'); // description only
+    assert.equal(core.captionFromHtml(html), 'Three equal slices.'); // caption only
+  });
+
+  test('extractSlideCaptions is index-aligned; null where a slide has no caption', () => {
+    const slides = [
+      sec('<!-- caption: Opener. -->'),
+      sec('<!-- just a note -->'),
+      sec('<!-- describe: a chart --><!-- caption: Closer. -->'),
+    ];
+    assert.deepEqual(core.extractSlideCaptions(slides), ['Opener.', null, 'Closer.']);
+  });
+
+  test('stripCommentNodes removes a caption comment from the rendered HTML (no double-render)', () => {
+    const html = sec('<!-- caption: read this -->\n<p>Body</p>');
+    const out = core.stripCommentNodes(html);
+    assert.doesNotMatch(out, /caption:/);
+    assert.match(out, /<p>Body<\/p>/);
+  });
 
   // The privacy strip for the self-contained player's envelope (design doc §Notes on export).
   test('stripNotesFromSource removes ONLY the known note comments — directives + tooling survive', () => {

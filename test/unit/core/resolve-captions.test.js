@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test.
-let parseNarrationFrontMatter;
+let parseNarrationFrontMatter, frontMatterCaptions;
 test.before(async () => {
-  ({ parseNarrationFrontMatter } = await import('../../../lib/core/resolve-captions.mjs'));
+  ({ parseNarrationFrontMatter, frontMatterCaptions } = await import('../../../lib/core/resolve-captions.mjs'));
 });
 
 const fm = (body) => `---\n${body}\n---\n\n# Deck\n`;
@@ -74,4 +74,57 @@ test('absent key → empty map; non-string input is safe (never throws)', () => 
   for (const v of [null, undefined, 42, {}]) {
     assert.equal(parseNarrationFrontMatter(v).acronyms.size, 0);
   }
+});
+
+// ── captions: (Layer 1 — slide-number-keyed read-as text) ───────────────────────────
+
+test('captions: slide-number keys → text, kept as authored 1-based numbers', () => {
+  const { captions } = parseNarrationFrontMatter(fm('captions:\n  3: FY26 revenue grew forty percent.\n  5: Net dollar retention held.'));
+  assert.equal(captions.get(3), 'FY26 revenue grew forty percent.');
+  assert.equal(captions.get(5), 'Net dollar retention held.');
+  assert.equal(captions.size, 2);
+});
+
+test('captions: a quoted value keeps its leading/trailing space (quotes stripped)', () => {
+  const { captions } = parseNarrationFrontMatter(fm('captions:\n  2: "  spaced read.  "'));
+  assert.equal(captions.get(2), '  spaced read.  ');
+});
+
+test('captions: a non-integer key is skipped; an empty value is skipped', () => {
+  const { captions } = parseNarrationFrontMatter(fm('captions:\n  intro: not a number\n  4:\n  6: kept'));
+  assert.equal(captions.has(4), false); // empty value
+  assert.equal(captions.size, 1);
+  assert.equal(captions.get(6), 'kept');
+});
+
+test('captions: last duplicate key wins', () => {
+  const { captions } = parseNarrationFrontMatter(fm('captions:\n  1: first\n  1: second'));
+  assert.equal(captions.get(1), 'second');
+});
+
+test('captions: a lone YAML block/folded scalar indicator is skipped (never narrates the glyph)', () => {
+  // `3: >` / `4: |` / `5: >-` are multi-line YAML forms the flat parser can't read; the body is
+  // on deeper lines it skips — so it must NOT store the bare `>`/`|` as the caption.
+  const { captions } = parseNarrationFrontMatter(
+    fm('captions:\n  3: >\n    folded body it cannot read\n  4: |\n  5: >-\n  6: kept line.'),
+  );
+  assert.equal(captions.has(3), false);
+  assert.equal(captions.has(4), false);
+  assert.equal(captions.has(5), false);
+  assert.equal(captions.get(6), 'kept line.'); // a normal value on the same block still works
+});
+
+test('captions: the block is scoped (a dedented sibling key ends it) and coexists with acronyms', () => {
+  const { captions, acronyms } = parseNarrationFrontMatter(
+    fm('acronyms:\n  CRO: chief revenue officer\ncaptions:\n  1: opener line.\ntheme: indaco'),
+  );
+  assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
+  assert.equal(captions.get(1), 'opener line.');
+  assert.equal(captions.size, 1);
+});
+
+test('frontMatterCaptions is the captions map directly; absent key + bad input → empty, never throws', () => {
+  assert.equal(frontMatterCaptions(fm('captions:\n  7: line.')).get(7), 'line.');
+  assert.equal(frontMatterCaptions(fm('theme: indaco')).size, 0);
+  for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterCaptions(v).size, 0);
 });

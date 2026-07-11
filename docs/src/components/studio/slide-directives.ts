@@ -47,6 +47,14 @@ export function isDescriptionBody(body: string): boolean {
 	return /^describe\s*:/i.test(String(body).trim());
 }
 
+/** True when the comment body is the slide's `caption:` read-as text — the highest-
+ *  precedence narration source, a separate channel from the speaker note (mirrors
+ *  notes-core.isCaptionComment). Kept distinct so the note reader/writer never treats
+ *  a caption as a note. */
+export function isCaptionBody(body: string): boolean {
+	return /^caption\s*:/i.test(String(body).trim());
+}
+
 // ── Fence awareness ──────────────────────────────────────────────────────────
 // A `---` or a `<!-- … -->` INSIDE a fenced code block is content, not structure.
 // The old splitter (lint.ts) and note transform were fence-blind, so a mermaid

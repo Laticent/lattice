@@ -74,6 +74,47 @@ test('mergeNarration: empty projection (e.g. --strip-notes) yields notes-only', 
 	assert.deepEqual(mergeNarration([null, null], []), ['', '']);
 });
 
+// ── Layer-1 captions precedence: caption → fmCaption → note → projection (§16) ─────
+
+test('mergeNarration: an inline caption outranks note AND projection', () => {
+	const merged = mergeNarration(
+		['Authored note.', 'Note two.'],
+		['PROJ 0', 'PROJ 1'],
+		{ captions: ['Inline caption zero.', '  '] }, // slide 1 caption; slide 2 blank → falls through
+	);
+	assert.deepEqual(merged, ['Inline caption zero.', 'Note two.']);
+});
+
+test('mergeNarration: a front-matter caption (1-based slide number) outranks note + projection, below inline', () => {
+	const fmCaptions = new Map([[1, 'FM caption for slide 1.'], [3, 'FM caption for slide 3.']]);
+	const merged = mergeNarration(
+		['Note A.', 'Note B.', null],
+		['P0', 'P1', 'P2'],
+		{ captions: ['Inline wins.', null, null], fmCaptions },
+	);
+	// slide 1: inline beats its own fmCaption; slide 2: no caption → note; slide 3: fmCaption beats projection
+	assert.deepEqual(merged, ['Inline wins.', 'Note B.', 'FM caption for slide 3.']);
+});
+
+test('mergeNarration: fmCaptions keys are 1-based (get(i+1)), never off-by-one', () => {
+	const fmCaptions = new Map([[2, 'Second slide reads this.']]);
+	const merged = mergeNarration([null, null, null], [], { fmCaptions });
+	assert.deepEqual(merged, ['', 'Second slide reads this.', '']); // index 1 ← key 2
+});
+
+test('mergeNarration: the 2-arg form is unchanged (back-compat), and a non-Map fmCaptions is ignored', () => {
+	assert.deepEqual(mergeNarration(['A', null], ['P0', 'P1']), ['A', 'P1']);
+	assert.deepEqual(mergeNarration(['A', null], ['P0', 'P1'], { fmCaptions: {} }), ['A', 'P1']);
+});
+
+test('mergeNarration: a whitespace-only fm caption falls through to the note (trim guard; live parity)', () => {
+	// A quoted "   " survives parseCaptions (space is protectable), but an all-whitespace caption
+	// is silence — the export trims-to-decide and falls through; PresentOverlay uses the same
+	// String(fm ?? "").trim() guard so the two producers agree (§16 F3 fix).
+	const merged = mergeNarration(['Note one.', null], [], { fmCaptions: new Map([[1, '   '], [2, 'Real caption.']]) });
+	assert.deepEqual(merged, ['Note one.', 'Real caption.']); // slide 1: blank fm → note; slide 2: fm
+});
+
 // ── Author acronym registry threads into the exported spoken track (§15) ──────
 
 test('buildReadAlong: the deck acronym registry expands the SPOKEN form (author wins)', () => {

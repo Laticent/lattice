@@ -1286,6 +1286,11 @@ const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 // blank-line note and leaks it.
 const noteStripSet = STRIP_NOTES ? new Set(slides.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
+// Per-slide inline `<!-- caption: … -->` read-as text (Layer 1, §16) — the highest-precedence
+// narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A
+// caption is public-facing narration (the caption track), not a private note, so it is NOT blanked
+// by `--strip-notes` (which removes the note channel) — the two flags compose.
+const slideCaptions = notesCore.extractSlideCaptions(slides);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);
   const note = materializedNotes[i];
@@ -2100,10 +2105,13 @@ async function renderBody(browser, g, closeBrowser) {
     fs.writeFileSync(outHtml, toFluidViewer(cleanDocHtml));
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
-  // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next
-  // to the deck, not baked into its bytes. Uses `materializedNotes` so --strip-notes
-  // scrubs the captions too (a stripped deck emits no narration).
-  if (CAPTIONS) await writeCaptionsSidecar(outFile, materializedNotes, cleanDocHtml);
+  // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next to the deck,
+  // not baked into its bytes. `--strip-notes` blanks the note channel (materializedNotes) and the
+  // projection, but NOT the captions: a caption is public-facing narration the author opts into via
+  // `--captions`, not a private note, so it composes with `--strip-notes` (ship captions, drop notes).
+  if (CAPTIONS) {
+    await writeCaptionsSidecar(outFile, materializedNotes, cleanDocHtml, slideCaptions);
+  }
 }
 
 // P6 — used-selector CSS prune for the self-contained player. Drops the rules of
@@ -2630,18 +2638,21 @@ async function projectDeckSpeechFromHtml(docHtml) {
 // giving Present the same DOM projection is Phase 3, not done here.
 // `--strip-notes` intentionally suppresses BOTH notes AND projection (a stripped
 // deck emits no narration, honoring the documented contract).
-async function writeCaptionsSidecar(outPath, notes, docHtml) {
+async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png)$/i, '');
-  // Deck acronym registry (author `acronyms:` front-matter) → term→spoken map; author
-  // pronunciations win over the built-in dictionary and the patterns (§15).
+  // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
+  // front-matter `captions:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
+  // the shared resolver so both producers can't drift (#904).
   let acronyms;
+  let fmCaptions;
   try {
-    const { acronymSpokenMap } = await import('./lib/core/resolve-captions.mjs');
+    const { acronymSpokenMap, frontMatterCaptions } = await import('./lib/core/resolve-captions.mjs');
     acronyms = acronymSpokenMap(rawMd);
+    fmCaptions = frontMatterCaptions(rawMd);
   } catch (e) {
-    if (!QUIET) console.warn(`  note: acronym registry parse failed (${e?.message})`);
+    if (!QUIET) console.warn(`  note: narration front-matter parse failed (${e?.message})`);
   }
   const projected = STRIP_NOTES ? [] : await projectDeckSpeechFromHtml(docHtml);
   // A length mismatch (an autosplit deck renders more sections than authored slides)
@@ -2650,7 +2661,20 @@ async function writeCaptionsSidecar(outPath, notes, docHtml) {
   if (projected.length && projected.length !== notes.length && !QUIET) {
     console.log(`Captions: slide count and rendered sections differ (${notes.length} vs ${projected.length}) — narrating authored notes only`);
   }
-  const slideTexts = mergeNarration(notes, projected);
+  // The front-matter `captions:` map is keyed by AUTHORED slide number, but `notes` is indexed
+  // per RENDERED section. Autosplit ADDS sections, so rendered-index+1 ≠ the author's number and a
+  // number-keyed caption would misbind past a split — so drop the front-matter map under autosplit
+  // (with a note). Inline `<!-- caption: -->` is unaffected: it rides with its section, staying
+  // index-aligned. (Present resolves the same map through the original source index; the export has
+  // no such map here.) NOTE: captions are NOT stripped by `--strip-notes` — that flag removes the
+  // private NOTE channel; a caption is public-facing narration the author opts into via `--captions`.
+  let fmForMerge = fmCaptions;
+  if (AUTOSPLIT_APPLIES && fmCaptions && fmCaptions.size) {
+    fmForMerge = null;
+    if (!QUIET) console.log('Captions: front-matter captions: keys are unsafe under autosplit (section count shifts) — using inline captions / notes for those slides');
+  }
+  // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → note → projection.
+  const slideTexts = mergeNarration(notes, projected, { captions, fmCaptions: fmForMerge });
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },

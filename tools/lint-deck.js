@@ -62,6 +62,29 @@ function discoverDecks() {
   return [...new Set(out)];
 }
 
+// Format / file / web initialisms that are CONVENTIONALLY spoken letter-by-letter ("P-D-F",
+// "H-T-M-L") — flagging them as "register these to speak as words" would be wrong and trains
+// authors to ignore the hint. So the discovery lint skips them; a genuinely deck-specific token
+// (a company/product initialism) still surfaces. Kept deliberately tight, not a spell-out dump.
+const COMMON_INITIALISMS = new Set([
+  'PDF', 'HTML', 'VTT', 'PPTX', 'PNG', 'JPG', 'JPEG', 'SVG', 'GIF', 'CSV', 'CSS', 'JS', 'JSON',
+  'XML', 'YAML', 'HTTP', 'HTTPS', 'URL', 'URI', 'API', 'SDK', 'CLI', 'UI', 'UX', 'FAQ', 'RSS',
+  'SQL', 'PPT', 'DOC', 'DOCX', 'XLS', 'XLSX', 'TSV', 'MD', 'ID', 'OK',
+]);
+
+// Approximate a deck's NARRATED text for acronym discovery: drop the front-matter block,
+// fenced code, and inline code — their all-caps tokens (HTTP, JSON, enum constants) aren't
+// spoken. What's left — prose plus note/caption comment bodies — is what read-along narrates.
+// The lazy `[\s\S]*?` between literal fences is the linear match-to-delimiter idiom (no nested
+// quantifier). Advisory hint, so an approximation is fine.
+function narrationText(source) {
+  return String(source ?? '')
+    .replace(/^﻿?---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n?/, '') // front matter
+    .replace(/```[\s\S]*?```/g, ' ') // fenced code (backtick)
+    .replace(/~~~[\s\S]*?~~~/g, ' ') // fenced code (tilde)
+    .replace(/`[^`]*`/g, ' '); // inline code
+}
+
 function expandArgs(patterns) {
   // Minimal glob: support a single `*` within a directory listing. Anything
   // without a `*` is taken literally. Keeps the tool dependency-free.
@@ -79,7 +102,7 @@ function expandArgs(patterns) {
   return [...new Set(files)];
 }
 
-function main(argv) {
+async function main(argv) {
   const flags = new Set(argv.filter((a) => a.startsWith('--')));
   const patterns = argv.filter((a) => !a.startsWith('--'));
   const strict = flags.has('--strict');
@@ -102,6 +125,20 @@ function main(argv) {
   const bucketOf = (n) => { const m = byName.get(n); return m ? (m.bucket || m.function) : null; };
   const densityOf = (n) => byName.get(n)?.density || null;
 
+  // Narration acronym-discovery pass (§16): list multi-letter all-caps tokens that read
+  // letter-by-letter in narration because NOTHING expands them — not the built-in lexicon and
+  // not the deck's own `acronyms:` registry — so the author can register the ones they want
+  // spoken as words. Advisory (never affects the exit code). Off under --all (the gallery sweep
+  // would list every acronym as noise). Uses the shared front-matter parser (HARD RULE #1) and
+  // cadenza's normalizer (Node layer can require the built package; lint-core cannot).
+  const doDiscover = !flags.has('--all');
+  let acronymSpokenMap = null;
+  let unmatchedAcronyms = null;
+  if (doDiscover) {
+    ({ acronymSpokenMap } = await import('../lib/core/resolve-captions.mjs'));
+    ({ unmatchedAcronyms } = require('@slidewright/cadenza'));
+  }
+
   const report = [];
   const suggestions = [];
   let errors = 0;
@@ -117,6 +154,19 @@ function main(argv) {
     }
     if (doReview) {
       for (const s of reviewText(source, { bucketOf, densityOf })) suggestions.push({ file, ...s });
+    }
+    if (doDiscover) {
+      const unknown = unmatchedAcronyms(narrationText(source), { acronyms: acronymSpokenMap(source) })
+        .filter((t) => !COMMON_INITIALISMS.has(t)); // format/web initialisms read fine letter-by-letter
+      if (unknown.length) {
+        suggestions.push({
+          file,
+          slide: 0, // deck-level (front-matter registry), not a single slide
+          rule: 'narration-acronyms',
+          message: `${unknown.length} all-caps token(s) will read letter-by-letter in narration: ${unknown.join(', ')}.`,
+          fix: `Register any you want spoken as words in the deck's acronyms: front matter, e.g.\nacronyms:\n  ${unknown[0]}: <spoken expansion>`,
+        });
+      }
     }
   }
 
@@ -153,6 +203,11 @@ function main(argv) {
   return errors > 0 || (strict && warnings > 0) ? 1 : 0;
 }
 
-if (require.main === module) process.exit(main(process.argv.slice(2)));
+if (require.main === module) {
+  main(process.argv.slice(2)).then(
+    (code) => process.exit(code),
+    (err) => { process.stderr.write(`lint:deck — ${err?.stack || err}\n`); process.exit(1); },
+  );
+}
 
-module.exports = { main, expandArgs, discoverDecks };
+module.exports = { main, expandArgs, discoverDecks, narrationText };

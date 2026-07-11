@@ -45,7 +45,8 @@ var require_dist = __commonJS({
       toSpoken: () => toSpoken,
       toSpokenText: () => toSpokenText,
       toSrt: () => toSrt,
-      toVtt: () => toVtt
+      toVtt: () => toVtt,
+      unmatchedAcronyms: () => unmatchedAcronyms
     });
     module.exports = __toCommonJS(index_exports);
     var BASE = {
@@ -361,6 +362,25 @@ var require_dist = __commonJS({
     function spokenWordCount(spoken) {
       return String(spoken ?? "").trim().split(/[\s-]+/).filter(Boolean).length;
     }
+    var isAlphaNum = (c) => c >= "0" && c <= "9" || c >= "A" && c <= "Z" || c >= "a" && c <= "z";
+    function edgeTrim(raw) {
+      let a = 0;
+      let b = raw.length;
+      while (a < b && !isAlphaNum(raw[a])) a++;
+      while (b > a && !isAlphaNum(raw[b - 1])) b--;
+      return raw.slice(a, b);
+    }
+    function unmatchedAcronyms(text, opts = {}) {
+      const seen = /* @__PURE__ */ new Set();
+      const out = [];
+      for (const raw of splitWords(text)) {
+        const tok = edgeTrim(raw);
+        if (!/^[A-Z]{2,}$/.test(tok) || seen.has(tok)) continue;
+        seen.add(tok);
+        if (toSpoken(tok, opts) === tok) out.push(tok);
+      }
+      return out;
+    }
     var PACE_WPM = { slow: 120, moderate: 145, fast: 175 };
     var PAUSE_MS = {
       ",": 160,
@@ -608,10 +628,16 @@ var require_read_along_build = __commonJS({
         slides
       };
     }
-    function mergeNarration(notes, projected) {
+    function mergeNarration(notes, projected, opts = {}) {
       const proj = Array.isArray(projected) ? projected : [];
       const aligned = proj.length === notes.length;
+      const captions = Array.isArray(opts.captions) ? opts.captions : [];
+      const fmCaptions = opts.fmCaptions instanceof Map ? opts.fmCaptions : null;
       return notes.map((note, i) => {
+        const inline = String(captions[i] ?? "").trim();
+        if (inline) return inline;
+        const fm = fmCaptions ? fmCaptions.get(i + 1) : void 0;
+        if (String(fm ?? "").trim()) return fm;
         if (String(note ?? "").trim()) return note;
         return aligned ? proj[i] || "" : "";
       });

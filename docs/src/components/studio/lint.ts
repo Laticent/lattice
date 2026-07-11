@@ -83,21 +83,40 @@ export function slideStartOffset(src: string, index: number): number {
 
 export type PresentLens = 'full' | 'exec' | 'onepager';
 
-/** The slides to present under a reader lens (plan §17: "meet the reader where
- *  they are"). `full` = the whole deck; `exec` = the headline slides only;
- *  `onepager` = the single most load-bearing slide. Pure; always non-empty when
- *  given a non-empty deck (falls back to the full deck rather than nothing). */
-export function presentationSet(slides: string[], lens: PresentLens): string[] {
-	const all = Array.isArray(slides) ? slides.filter((s) => typeof s === 'string') : [];
+/** The slides to present under a reader lens, EACH PAIRED with its original 0-based deck
+ *  index (the author's slide order). This is the core that `presentationSet` and
+ *  `presentationIndices` share, so a filtered/reordered lens still maps every shown slide
+ *  back to the number the author wrote — which the front-matter `captions:` map is keyed on.
+ *  `full` = the whole deck; `exec` = the headline slides only; `onepager` = the single most
+ *  load-bearing slide. Pure; always non-empty when given a non-empty deck. */
+export function presentationPairs(slides: string[], lens: PresentLens): Array<{ slide: string; index: number }> {
+	const all = (Array.isArray(slides) ? slides : [])
+		.map((slide, index) => ({ slide, index })) // index = ORIGINAL author position (survives the lens filter)
+		.filter((p) => typeof p.slide === 'string');
 	if (lens === 'full' || all.length === 0) return all;
 	if (lens === 'exec') {
 		const keep = new Set(['title', 'kpi', 'stats', 'big-number', 'closing']);
-		const sub = all.filter((s) => keep.has(slideClass(s)));
+		const sub = all.filter((p) => keep.has(slideClass(p.slide)));
 		return sub.length ? sub : all;
 	}
 	// onepager — the single most "headline" slide, else the opener.
-	const hero = all.find((s) => ['kpi', 'stats', 'big-number'].includes(slideClass(s)));
+	const hero = all.find((p) => ['kpi', 'stats', 'big-number'].includes(slideClass(p.slide)));
 	return [hero ?? all[0]];
+}
+
+/** The slides to present under a reader lens (plan §17: "meet the reader where
+ *  they are"). Pure; always non-empty when given a non-empty deck (falls back to the
+ *  full deck rather than nothing). */
+export function presentationSet(slides: string[], lens: PresentLens): string[] {
+	return presentationPairs(slides, lens).map((p) => p.slide);
+}
+
+/** The ORIGINAL 0-based deck index of each slide in `presentationSet(slides, lens)`,
+ *  positionally aligned: `presentationIndices(...)[i]` is the author slide index of the
+ *  i-th presented slide. So a number-keyed front-matter caption resolves under ANY lens —
+ *  `fmCaptions.get(presentationIndices(slides, lens)[i] + 1)` — not just `full`. */
+export function presentationIndices(slides: string[], lens: PresentLens): number[] {
+	return presentationPairs(slides, lens).map((p) => p.index);
 }
 
 export type DeckScore = {

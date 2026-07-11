@@ -34,3 +34,4 @@ export declare function toSpoken(display: string, opts?: SpokenOpts): string;
 export declare function toSpokenText(text: string, opts?: SpokenOpts): string;
 /** Count spoken sub-words in an expansion ("four point two million dollars" → 5). */
 export declare function spokenWordCount(spoken: string): number;
+export declare function unmatchedAcronyms(text: string, opts?: SpokenOpts): string[];

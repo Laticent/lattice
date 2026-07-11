@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { presentationSet, scoreDeck, slideClass, slideIndexAt, slideStartOffset, splitSlides, unknownComponents, usedComponents } from './lint';
+import { presentationIndices, presentationSet, scoreDeck, slideClass, slideIndexAt, slideStartOffset, splitSlides, unknownComponents, usedComponents } from './lint';
 
 const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'stats'];
 // Component-name-ish tokens (won't accidentally contain a `-->` or a fence).
@@ -185,5 +185,40 @@ describe('presentationSet (reader lenses, fuzz)', () => {
 	it('handles an empty deck without throwing', () => {
 		expect(presentationSet([], 'exec')).toEqual([]);
 		expect(presentationSet(undefined as unknown as string[], 'full')).toEqual([]);
+	});
+
+	// presentationIndices is what lets a front-matter `captions:` map (keyed by author slide
+	// NUMBER) resolve under a FILTERED lens — each shown slide maps back to its original index.
+	it('presentationIndices is positionally aligned with presentationSet and holds ORIGINAL indices', () => {
+		fc.assert(
+			fc.property(slideArb, fc.constantFrom('full', 'exec', 'onepager'), (slides, lens) => {
+				const set = presentationSet(slides, lens as 'full' | 'exec' | 'onepager');
+				const idx = presentationIndices(slides, lens as 'full' | 'exec' | 'onepager');
+				expect(idx.length).toBe(set.length); // same length, positionally aligned
+				for (let i = 0; i < set.length; i++) {
+					expect(slides[idx[i]]).toBe(set[i]); // idx[i] is the slide's original deck position
+					expect(idx[i]).toBeGreaterThanOrEqual(0);
+					expect(idx[i]).toBeLessThan(slides.length);
+				}
+			}),
+		);
+	});
+
+	it('under `full`, presentationIndices is the identity 0..n-1', () => {
+		const slides = ['<!-- _class: title -->\n# a', '<!-- _class: kpi -->\n# b', '<!-- _class: quote -->\n# c'];
+		expect(presentationIndices(slides, 'full')).toEqual([0, 1, 2]);
+	});
+
+	it('under a FILTERING lens, a dropped slide shifts the ORIGINAL index, not the set position', () => {
+		// exec keeps title/kpi/stats/big-number/closing; the middle `quote` is dropped.
+		const slides = [
+			'<!-- _class: title -->\n# t', // 0 — kept
+			'<!-- _class: quote -->\n# q', // 1 — dropped by exec
+			'<!-- _class: kpi -->\n# k', // 2 — kept
+		];
+		expect(presentationSet(slides, 'exec')).toEqual([slides[0], slides[2]]);
+		// The second SHOWN slide is authored slide 3 (index 2), NOT set-position 2 → its
+		// front-matter caption is keyed on 3, resolved via presentationIndices[1] + 1.
+		expect(presentationIndices(slides, 'exec')).toEqual([0, 2]);
 	});
 });
