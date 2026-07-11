@@ -63,10 +63,42 @@ full design (including the deliberately-deferred Case B: a grow-to-fit-grid
 fallback for slides with NO clip-cell at all, keyed off the prose-density
 word budget).
 
-If a slide overflows for a reason neither the clip-cell probe nor (once built)
-Case B can safely attribute — an oversized image, a long code block, a wide
-table — no Fix-Me tag appears. The ring alone still fires; guessing wrong
-would be worse than staying silent.
+If a slide overflows for a reason neither Case A nor Case B can safely
+attribute — an oversized image, a long code block, a wide table — no Fix-Me
+tag appears. The ring alone still fires; guessing wrong would be worse than
+staying silent.
+
+---
+
+## Fix-Me overlay — the density-budget fallback (Case B)
+
+Case A needs a bounded clip-cell to blame; some layouts (`kanban`,
+`timeline-list` — the `STAGE_DEFERRED` bucket in
+`lib/forms/cell/masthead/masthead.transform.js`, plus any component under
+`form: off`/`no-form`) never get wrapped in one, so a genuine "grow-to-fit
+push" overflow on those slides gives Case A nothing to point at. Case B
+covers that gap: when a section overflows with **zero** clip-cell spill at
+all, `lattice-runtime.js` falls back to the component's own
+`density.soft`/`density.hard` word budget (the same manifest field
+`lib/authoring/review-core.js`'s Node-side linter already enforces) and
+highlights whichever item in the slide's repeated-item collection has the
+highest LIVE word count — measured off the rendered DOM's own `textContent`,
+not the markdown source (the runtime never has source at hand in a live
+preview) — once that count clears `hard`.
+
+**This is an editorial guess, not a geometric fact, and its label says so.**
+Case A's tag reads "Fix Me" — an unhedged claim, because clipping is
+provably true. Case B's tag reads "Likely fix" instead, with a native
+tooltip ("Likely cause — Nw words, over budget") carrying the fuller,
+still-hedged detail. Never the same string for both — see HARD RULE #23 (a
+claim must never overclaim its own certainty).
+
+Case A and Case B are mutually exclusive per section: Case B only runs in
+`check()`'s `else` branch, when Case A's `overCells` found nothing at all.
+Architecture, the `kanban`-doesn't-actually-repro-it finding (its card
+text is CSS-truncated, so it can't overflow via prose length —
+`timeline-list` is the real one), and full verification are in
+`engineering/decisions/2026-07-10-overflow-cause-highlighting.md` §12.
 
 ---
 
