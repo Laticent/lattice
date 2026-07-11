@@ -273,6 +273,20 @@ describe('SlideContextBody controls', () => {
 		expect(out).toContain('<!-- caption: Revenue grew forty percent across three quarters. -->');
 	});
 
+	it('the note field warns that a caption overrides it when one is set', () => {
+		// Precedence is caption → note; with a caption present, the note does NOT narrate.
+		setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- caption: The board-facing line. -->');
+		goTab('Notes');
+		expect(screen.getByText(/caption, which overrides the note/i)).toBeTruthy();
+	});
+
+	it('the note field shows the plain read-aloud hint when NO caption is set', () => {
+		setup('<!-- _class: kpi -->\n\n# Q3');
+		goTab('Notes');
+		expect(screen.getByText(/Read aloud in Present/i)).toBeTruthy();
+		expect(screen.queryByText(/overrides the note/i)).toBeNull();
+	});
+
 	it('the caption field is separate from the speaker note (both channels coexist)', () => {
 		const { sourceOut } = setup('<!-- _class: kpi -->\n\n# Q3\n\n<!-- Say this warmly. -->');
 		goTab('Notes');

@@ -254,6 +254,9 @@ in patch versions.
   source, ORTHOGONAL to `--strip-notes`. Notes (what you say) and captions (what a slide reads)
   are independent channels, so each strips on its own: `--strip-captions` alone falls those
   slides back to the note / auto projection; add `--strip-notes` too for a fully silent track.
+  (A slide that had BOTH a caption and a note will then narrate the NOTE — the caption was
+  masking it — so use both flags when the note is also private.) `describe:` accessibility text
+  is deliberately NOT strippable — it's a screen-reader equivalent, not a private channel.
   Verified on the real `.vtt` and the PDF-embedded source. (2) The Studio's per-slide **"This
   slide" drawer now has a Caption field** in the Notes tab, beside the speaker note and the
   accessibility description — type the exact words a slide should read aloud and it writes the

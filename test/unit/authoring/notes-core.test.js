@@ -285,6 +285,39 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.match(out, /theme: indaco/, 'sibling keys survive');
   });
 
+  test('stripCaptionsFrontMatter is TOP-LEVEL only — a NESTED key named captions is preserved', () => {
+    // The trio caught this: `^(\s*)captions` matched any indent and deleted an unrelated
+    // nested key. A `captions:` under another mapping is a different key, not the channel.
+    const src = '---\nspeaker:\n  captions: a stage direction\n  name: Bob\ncaptions:\n  1: the real caption map\n---\n\n# S\n';
+    const out = core.stripCaptionsFrontMatter(src);
+    assert.match(out, /captions: a stage direction/, 'the NESTED captions key is preserved');
+    assert.match(out, /name: Bob/, 'its sibling under speaker is preserved');
+    assert.doesNotMatch(out, /the real caption map/, 'the TOP-LEVEL captions map is removed');
+    assert.doesNotMatch(out, /^captions:/m, 'the top-level captions: key is gone');
+  });
+
+  test('stripCaptionsFrontMatter preserves CRLF line endings — byte-identical, and a no-op on a CRLF deck with no captions', () => {
+    // The trio caught this: split(/\r?\n/)+join('\n') rewrote every CRLF body line to LF.
+    const withCaps = '---\r\ntheme: indaco\r\ncaptions:\r\n  1: x\r\ntitle: y\r\n---\r\n\r\n# S\r\n';
+    const out = core.stripCaptionsFrontMatter(withCaps);
+    assert.doesNotMatch(out, /1: x/, 'the caption line is gone');
+    assert.match(out, /theme: indaco\r\n/, 'a CRLF sibling BEFORE captions keeps its CRLF');
+    assert.match(out, /title: y\r\n/, 'a CRLF sibling AFTER captions keeps its CRLF');
+    assert.doesNotMatch(out, /theme: indaco\n(?!\r)/, 'no CRLF→LF rewrite (no mixed endings)');
+    // and with NO captions key, a CRLF deck is returned byte-identical
+    const noCaps = '---\r\ntheme: indaco\r\ntitle: y\r\n---\r\n\r\n# S\r\n';
+    assert.equal(core.stripCaptionsFrontMatter(noCaps), noCaps, 'no-captions CRLF deck round-trips unchanged');
+  });
+
+  test('reverse orthogonality: stripNotesFromSource PRESERVES a caption comment', () => {
+    // The note strip must never touch the caption channel (the trio flagged this direction
+    // was unpinned). A caption body is never in the note-strip set (noteBodiesFromHtml excludes it).
+    const src = '# S\n\n<!-- Pause here. -->\n<!-- caption: The exact read-as line. -->\n\nBody.';
+    const out = core.stripNotesFromSource(src, new Set(['Pause here.']));
+    assert.doesNotMatch(out, /Pause here/, 'the note is stripped');
+    assert.match(out, /caption: The exact read-as line\./, 'the caption comment survives the NOTE strip');
+  });
+
   test('stripCaptionsFromSource is a no-op on a deck with no captions; safe on null', () => {
     assert.equal(core.stripCaptionsFromSource('# S\n\n<!-- a note -->\n\nBody.'), '# S\n\n<!-- a note -->\n\nBody.');
     assert.equal(core.stripCaptionsFromSource(null), '');

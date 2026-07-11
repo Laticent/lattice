@@ -721,3 +721,18 @@ sets a slide's read-as line by typing rather than hand-writing the comment. It w
 `<!-- caption: -->` channel (highest narration precedence), never the presenter-note field, and joins
 the Reset baseline. Component-tested (the caption commits as its own comment and coexists with the
 note); the live overlay composition remains typecheck-only (no TTS in CI).
+
+**Adversarial trio (red team + Munger inversion + independent checker) — findings folded before merge.**
+The core privacy invariant held under all three (no active caption leak, no hang, no crash; the strip
+is a strict superset of the reader). Fixed: the front-matter block stripper is now **top-level only**
+(a nested key named `captions` under another mapping is preserved) and **byte-preserving** (a CRLF deck
+keeps its line endings — the old `split(/\r?\n/)`+`join('\n')` rewrote them); the player-envelope
+`config` drops any `captions` key under the flag (belt-and-braces — the engine's shallow parse doesn't
+surface the map, but an inline form would echo); the Studio caption sanitizer neutralizes the abrupt
+`--!>` close as well as `-->`. Pinned by new tests: a committed **integration** test proves the
+orthogonality on the real `.vtt` (caption gone, note retained; both flags → silent) and the reverse
+(the note strip keeps captions). Two behaviors documented rather than changed: (1) stripping a caption
+that was *masking* a note lets the **note** narrate — call out in the flag help + CHANGELOG, and the
+Studio note field shows an override hint when a caption is set; (2) **`describe:` is deliberately NOT a
+strippable channel** — it is a screen-reader accessibility equivalent (WCAG), not private presenter
+content, so `--strip-notes`/`--strip-captions` leave it intact by design (no `--strip-descriptions`).

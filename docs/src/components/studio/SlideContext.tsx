@@ -410,7 +410,11 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								placeholder="What you'll say on this slide — read aloud in Present, exported to PDF/PPTX notes."
 								className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
 							/>
-							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Read aloud in Present, and exported to the PDF/PPTX speaker-notes field.</p>
+							<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+								{curCaption
+									? 'Exported to the PDF/PPTX speaker-notes field. Note: this slide has a caption, which overrides the note in read-aloud / the caption track.'
+									: 'Read aloud in Present, and exported to the PDF/PPTX speaker-notes field.'}
+							</p>
 
 							{/* CAPTION — the read-as OVERRIDE. A separate channel from the note: the
 							    highest-precedence narration source (caption → front-matter → note →

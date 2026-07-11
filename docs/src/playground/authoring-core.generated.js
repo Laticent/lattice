@@ -1844,6 +1844,13 @@ var require_notes_core = __commonJS({
       );
     }
     var FRONT_MATTER_BLOCK = /^(﻿?---[ \t]*\r?\n)([\s\S]*?)(\r?\n---[ \t]*(?:\r?\n|$))/;
+    function splitKeepEnds(str) {
+      const out = [];
+      const re = /[^\r\n]*(?:\r\n|\r|\n)?/g;
+      let m;
+      while ((m = re.exec(str)) && m[0] !== "") out.push(m[0]);
+      return out;
+    }
     function stripCaptionsFrontMatter(source) {
       const s = String(source == null ? "" : source);
       const m = s.match(FRONT_MATTER_BLOCK);
@@ -1851,24 +1858,21 @@ var require_notes_core = __commonJS({
       const [, open, body, close] = m;
       const out = [];
       let skipping = false;
-      let keyIndent = 0;
-      for (const line of body.split(/\r?\n/)) {
+      for (const line of splitKeepEnds(body)) {
+        const content = line.replace(/[\r\n]+$/, "");
         if (!skipping) {
-          const key = line.match(/^(\s*)captions\s*:/);
-          if (key) {
+          if (/^captions[ \t]*:/.test(content)) {
             skipping = true;
-            keyIndent = key[1].length;
             continue;
           }
           out.push(line);
           continue;
         }
-        if (line.trim() === "") continue;
-        if (line.match(/^(\s*)/)[1].length > keyIndent) continue;
+        if (content === "" || /^[ \t]/.test(content)) continue;
         skipping = false;
         out.push(line);
       }
-      return s.slice(0, m.index) + open + out.join("\n") + close + s.slice(m.index + m[0].length);
+      return s.slice(0, m.index) + open + out.join("") + close + s.slice(m.index + m[0].length);
     }
     function stripCaptionsFromSource(source) {
       const commentsStripped = String(source == null ? "" : source).replace(

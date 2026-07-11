@@ -148,8 +148,10 @@ OPTIONS
                           shareable file with no speaker text
       --strip-captions    Scrub the read-as caption channel (inline <!-- caption: -->
                           and front-matter captions:) from the .vtt and embedded
-                          source — orthogonal to --strip-notes; those slides read
-                          from the note / auto projection instead
+                          source — orthogonal to --strip-notes; those slides fall back
+                          to the note / auto projection. NOTE: a slide that had BOTH a
+                          caption and a note will now narrate the NOTE — add
+                          --strip-notes too if the note is also private
       --notes-icon        Show a clickable sticky-note icon on each slide with
                           a note (default: notes are embedded but hidden)
       --fluid             Emit the .html as the opt-in fluid-box VIEWER: each
@@ -2091,7 +2093,11 @@ async function renderBody(browser, g, closeBrowser) {
         source: stripSharedSource(rawMd, noteStripSet),
         title: deckTitle,
         theme: { name: paletteName, mode: deckScheme },
-        config: deckFm,
+        // The engine's shallow front-matter parse doesn't read the nested `captions:` map (it
+        // surfaces as `""`), so `config` normally carries no caption text — but an inline
+        // `captions: {…}` form would echo here. Under `--strip-captions` drop the key outright
+        // so the envelope config can't carry ANY caption-labeled text (privacy, not just the map).
+        config: STRIP_CAPTIONS ? { ...deckFm, captions: undefined } : deckFm,
         notes: !STRIP_NOTES,
         now: Date.now(),
         build: ENGINE_BUILD,
