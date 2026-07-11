@@ -19,6 +19,24 @@
 // EMA-smoothed (alpha 0.3) so the overlay reads a steady value; counts (slides,
 // srcBytes) are reported raw. The RAW sample is preserved on `.raw`.
 
+/** Per-stage breakdown of engineMs, from the engine's opt-in `stats` (item 1). */
+export type RenderStats = {
+	/** Source lift + the markdown-it parse (core rulers + plugins + math). */
+	parseMs: number;
+	/** The component-transformer registry as a whole. */
+	transformsMs: number;
+	/** Everything else in renderHtml (parser build, tiles, image structure…). */
+	assembleMs: number;
+	/** Theme CSS + geometry resolution. */
+	cssMs: number;
+	/** Docs-side overhead inside engineMs but outside the engine buckets —
+	 * the math prescan, a cold-cache KaTeX load, front-matter parse. Computed by
+	 * the caller (single-slide-render) so the four buckets + other == engineMs. */
+	otherMs: number;
+	/** Per-transform timing, keyed by transformer name. */
+	transforms: Record<string, number>;
+};
+
 export type RenderSample = {
 	/** PG.render() — markdown parse + component transforms + geometry. */
 	engineMs: number;
@@ -34,6 +52,8 @@ export type RenderSample = {
 	slides: number;
 	/** source length in code units (the workload size). */
 	srcBytes: number;
+	/** Per-stage engine breakdown, present only when the overlay requested it. */
+	stats?: RenderStats;
 	/** The unsmoothed sample, attached once a consumer exists. */
 	raw?: RenderSample;
 };
@@ -85,4 +105,13 @@ export function onRenderSample(fn: Listener): () => void {
 	return () => {
 		listeners.delete(fn);
 	};
+}
+
+/**
+ * True when a consumer (the overlay) is subscribed. The render path checks this
+ * to decide whether to ask the engine for its opt-in `stats` breakdown — so the
+ * extra per-stage timing is collected ONLY while the overlay is showing.
+ */
+export function hasRenderListeners(): boolean {
+	return listeners.size > 0;
 }

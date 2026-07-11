@@ -152,6 +152,16 @@ in patch versions.
 
 ### Added
 
+- **The performance overlay's RENDER row drills into a per-stage engine
+  breakdown.** Tapping RENDER now shows *where the time went* — parse /
+  transforms / assemble / css / other, with proportional bars — plus the slowest
+  component transforms by name, so "render was slow" becomes "the chart transform
+  was slow." The engine emits this only when asked (`opts.stats`, set solely
+  while the overlay is subscribed): `render()` collects per-stage timings and a
+  per-transform map, threaded through `lib/engine` + `lib/transformers` and the
+  playground wrapper; the buckets reconcile to the raw `engineMs` (an `other`
+  bucket carries the docs-side math prescan / cold-KaTeX cost). A normal render —
+  CLI, export, or overlay-off — is byte-identical and pays nothing.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the

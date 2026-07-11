@@ -126,13 +126,15 @@ is gated on `PERF_OVERLAY_AVAILABLE` (the GA gate).
 Logged here so it is tracked, not lost (HARD RULE #18 — off-path defects/gaps
 get recorded, not silently pulled into this diff or ignored):
 
-- **Option 2 — per-transform decomposition.** Break RENDER (`engineMs`) into
-  markdown-parse / each component-transform family / geometry, via
-  `performance.mark`/`measure` calls *inside* the engine kernel (`lib/engine`,
-  `lib/transformers`). Runtime cost is still trivial (marks are as cheap as
-  `now()`), but it means instrumenting the shared render kernel (HARD RULE #1
-  blast radius) — warranted only once the whole-render number points somewhere
-  specific. Do it behind a flag, with maker-checker.
+- **Option 2 — per-transform decomposition. BUILT (follow-up PR).** RENDER
+  (`engineMs`) now drills into parse / transforms / assemble / css / other
+  buckets + a per-transform timing map, collected opt-in via `opts.stats`
+  threaded through the engine kernel (`lib/engine`, `lib/transformers`) and the
+  playground wrapper — gated so it runs only while the overlay is subscribed, and
+  byte-identical for CLI/export/overlay-off. Reconciles to the raw `engineMs`
+  (the `other` bucket carries the docs-side math-prescan / cold-KaTeX cost).
+  Verified on the real (static) build; hardened by the adversarial trio (red team
+  caught the under-summing that the `other` bucket fixes).
 - **Overflow count.** How many slides trip the Fit Spine red-ring. Not on the
   live single-slide path — overflow is measured at export time (the emulator's
   `measureOverflow` + `resplitDoc` loop), so surfacing it live would mean running

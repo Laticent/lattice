@@ -18,8 +18,8 @@ export interface LatticePlaygroundEngine {
 	render: (
 		source: string,
 		theme: string,
-		opts?: { baseUrl?: string },
-	) => { html: string; css: string; width?: number; height?: number };
+		opts?: { baseUrl?: string; stats?: boolean },
+	) => { html: string; css: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 	addThemes: (css: string[]) => void;
 	hasTheme: (name: string) => boolean;
 }

@@ -26,7 +26,7 @@
 import { applyDebug } from '../playground/debug-overlay.js';
 import { linkGuardAgent } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
-import { recordRenderSample } from '../playground/render-metrics';
+import { hasRenderListeners, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
@@ -264,7 +264,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		return themeReady
 			.then(async () => {
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
-				let out: { html: string; css: string; width?: number; height?: number };
+				let out: { html: string; css: string; width?: number; height?: number; stats?: RenderStats };
 				let engineMs = 0;
 				try {
 					// Resolve a sample deck's `![bg](sample-image-*.svg)` against the
@@ -273,8 +273,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// WHATWG-URL resolver needs an absolute base.
 					const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
 					const tEngine = performance.now();
-					out = await renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase });
+					// Ask the engine for its per-stage breakdown ONLY while the overlay is
+					// subscribed — otherwise it collects nothing (off = free).
+					out = await renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase, stats: hasRenderListeners() });
 					engineMs = performance.now() - tEngine;
+					// engineMs brackets the WHOLE renderMarkdown call, which also does the
+					// math prescan + (cold) KaTeX load before the engine's own render. Fold
+					// that gap into an `other` bucket so the breakdown reconciles to
+					// engineMs — otherwise the bars silently under-sum the headline and
+					// point a perf-debugging user at the wrong stage.
+					if (out.stats) {
+						const s = out.stats;
+						s.otherMs = Math.max(0, engineMs - (s.parseMs + s.transformsMs + s.assembleMs + s.cssMs));
+					}
 				} catch (e) {
 					console.error('single-slide render failed', e);
 					return { ok: false, slides: 0, error: String((e as Error)?.message || e) };
@@ -347,6 +358,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						totalMs: now - tStart,
 						slides,
 						srcBytes,
+						stats: out.stats,
 					});
 				};
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);

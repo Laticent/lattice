@@ -30,8 +30,8 @@ import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import type { LatticePlaygroundEngine } from './playground-global';
 
-export type RenderMarkdownOpts = { baseUrl?: string };
-export type RenderMarkdownResult = { html: string; css: string; width?: number; height?: number };
+export type RenderMarkdownOpts = { baseUrl?: string; stats?: boolean };
+export type RenderMarkdownResult = { html: string; css: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 
 /**
  * Render `source` through the engine. `PG` is passed explicitly (never read
