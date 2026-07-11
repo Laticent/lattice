@@ -518,9 +518,17 @@ test('Read·Slides is unified onto Present\'s frame, with a floating Home/End ov
 	assert.match(html, /<div id="lp-read-nav">/, 'the floating read-slides nav is in the markup');
 	assert.match(html, /<button id="lp-top"[^>]*aria-label="Jump to first slide"/, 'a Home (top) button');
 	assert.match(html, /<button id="lp-bottom"[^>]*aria-label="Jump to last slide"/, 'an End (bottom) button');
-	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{display:flex;flex-direction:column;gap:10px;position:absolute;right:16px;bottom:16px/, 'the overlay is absolute bottom-right, only in read-slides, so the scroll flow is unobstructed');
+	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{[^}]*position:absolute;right:calc\(16px \+ env\(safe-area-inset-right,0px\)\);bottom:calc\(16px \+ env\(safe-area-inset-bottom,0px\)\)/, 'the overlay is absolute bottom-right with SAFE-AREA insets, only in read-slides — the scroll flow is unobstructed');
 	assert.match(html, /if\(topBtn\)topBtn\.onclick=function\(\)\{scrollStage\(0\);\}/, 'Home scrolls the stage to the top');
 	assert.match(html, /if\(bottomBtn\)bottomBtn\.onclick=function\(\)\{var st=document\.getElementById\('lp-stage'\);if\(st\)scrollStage\(st\.scrollHeight\);\}/, 'End scrolls the stage to the bottom');
+	// AUTO-HIDE: starts hidden (opacity:0), reveals on scroll (.lp-show), idle-hides after
+	// 1.5s, and each button hides via the `hidden` attr when its direction isn't actionable.
+	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{[^}]*opacity:0;transform:translateY\(6px\);pointer-events:none/, 'the overlay starts hidden (fades in on reveal)');
+	assert.match(html, /#lp-read-nav\.lp-show\{opacity:1;transform:none;pointer-events:auto\}/, '.lp-show reveals it');
+	assert.match(html, /#lp-top\[hidden\],#lp-bottom\[hidden\]\{display:none\}/, 'a button hides when its edge is reached');
+	assert.match(html, /@media\(prefers-reduced-motion:reduce\)\{\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{transition:none/, 'reduced-motion snaps visibility');
+	assert.match(html, /rStage\.addEventListener\('scroll',revealReadNav,\{passive:true\}\)/, 'scrolling reveals the control');
+	assert.match(html, /if\(navIdle\)clearTimeout\(navIdle\);if\(!navEngaged\)navIdle=setTimeout\(hideReadNav,1500\)/, 'it idle-hides after 1.5s unless engaged');
 	// Present mouse wheel — one decisive notch = one slide (debounced), present-only.
 	assert.match(html, /addEventListener\('wheel',function\(e\)\{if\(view!=='present'\)return;if\(wheelBusy\)return;[\s\S]*?t\[d>0\?'next':'prev'\]\(\);e\.preventDefault\(\);\},\{passive:false\}\)/, 'present advances/reverses on a decisive wheel delta, debounced, present-only');
 });
@@ -573,11 +581,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	// Re-blessed for the Read·Slides polish: read-slides now fits each slide to the SAME
-	// footprint as Present (fitRead uses fitScale over ~86% of the stage height, was
-	// fill-the-width), so the first slide matches Present and the next peeks; a floating
-	// Home/End (#lp-read-nav) overlay was added; and Present gained a mouse-wheel handler.
-	assert.equal(sha, '816f122cd5bf70b3e6cbff0942b80e1a502e1d67bebe47ae22898b349f43731e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the Read·Slides polish: read-slides fits to Present's footprint (next
+	// peeks); an AUTO-REVEALING floating Home/End overlay (#lp-read-nav — arrow-to-line icons,
+	// reveal-on-scroll + 1.5s idle-hide, directional [hidden], safe-area insets, reduced-motion
+	// aware); and Present gained a debounced mouse-wheel handler.
+	assert.equal(sha, 'adc19d6621e3c7a8aab405d82de5d1a55d6db1863b4ef291f30bf00ac192f037', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
