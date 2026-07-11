@@ -459,11 +459,18 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   the identical gap on its very first paint, though its continuous
   mutation-triggered re-checks usually self-correct within a keystroke.
 - **Fix:** both watchers now force every declared font to `load()` and await
-  `document.fonts.ready` before their first measurement — the exact recipe
-  `measureOverflow()` already used, now shared by every overflow-detection
-  entry point instead of just one. See
-  `engineering/decisions/2026-07-10-overflow-cause-highlighting.md` §14 and
-  issue #894.
+  `document.fonts.ready` (bounded by a timeout — a hung fetch must not
+  suppress the ring forever either) before their first measurement, via a
+  shared, unit-tested `lib/core/font-settle.js` helper. Watch the exact
+  form: `document.fonts` is iterable (`.forEach`/`.size`) but NOT array-like
+  (no `.length`) — `Array.prototype.map.call(document.fonts, fn)` silently
+  loops ZERO times and never calls `fn`, no error, no warning. The first cut
+  of this fix shipped exactly that bug (caught by a pre-merge adversarial
+  review, not CI — nothing in the test suite exercised the real
+  `FontFaceSet` shape). Use `fontSet.forEach(...)` or `[...fontSet].map(...)`
+  (spread), never any bare `Array.prototype` method called on the set
+  itself. See `engineering/decisions/2026-07-10-overflow-cause-highlighting.md`
+  §14-15 and issue #894.
 - **Verify the right way:** don't compare Puppeteer's numbers against a
   DIFFERENT automation library's numbers (Playwright vs. Puppeteer can
   render the SAME Chrome binary's fonts slightly differently depending on

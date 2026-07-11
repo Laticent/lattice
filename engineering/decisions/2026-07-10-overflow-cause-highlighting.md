@@ -564,3 +564,89 @@ Chrome binary via `executablePath` — the two automation libraries can settle
 lazy font loading on different schedules by the time a fixed-delay check
 runs, which reads as a rendering discrepancy but isn't one. Compare the SAME
 tool's own measurement before vs. after an explicit font-settle wait.
+
+## 15. §14's first fix shipped as a silent no-op — caught pre-merge this time (2026-07-11, same day)
+
+Asked directly whether §14's fix had been through a red team + Munger
+inversion + independent checker before merge — it had not; only self-review
+and the export-bytes screenshot sign-off. Given the change touched
+`lattice-emulator.js` (export pipeline) and the shared runtime kernel in two
+places, that was under-verified per HARD RULE #25, so the full trio ran
+**before** merge this time (§13 ran it only after, on Case B).
+
+**Confirmed by red team AND the independent checker independently, then
+verified directly:** `Array.prototype.map.call(document.fonts, fn)` —
+used in BOTH of §14's font-forcing blocks — returns `[]` and never calls
+`fn` at all. `document.fonts` (`FontFaceSet`) is iterable (`.forEach`,
+`.size`) but not array-like (no `.length`); `Array.prototype.map`'s
+algorithm reads `.length` to find its loop bound, gets `undefined`, coerces
+to `0`, and the loop body — including every `f.load()` call — never runs.
+No error, no warning, just silence. §14's fix reduced to a bare
+`document.fonts.ready` wait with nothing force-loaded: **exactly the
+mechanism the original bug already proved insufficient.** Reproduced
+directly (Node + real Chrome via Puppeteer): a `FontFaceSet`-shaped fake and
+the real `document.fonts` both give `Array.prototype.map.call(...).length
+=== 0` while `[...document.fonts].map(...)` (the pattern the ALREADY-correct
+`measureOverflow()` used, which §14's commit message claimed to "mirror" —
+it didn't) correctly returns one entry per font.
+
+**Why §14's own verification didn't catch it.** The before/after screenshots
+were real and the false ring genuinely did disappear — but the repro method
+(forcing fonts via a SEPARATE, correct call, then re-running the SAME
+embedded `check()` via its `resize` listener) tested the DETECTION logic in
+isolation, never the SHIPPED font-forcing code path end to end. The actual
+shipped fix likely "worked" by coincidence: the extra microtask tick before
+`document.fonts.ready` resolves was, this once, enough time for the
+browser's own in-flight lazy fetch (already triggered by an earlier
+`measureOverflow()` pass sharing the same Puppeteer page/cache) to complete
+anyway — not because the fix force-loaded anything. A lesson for future
+verification: confirm the MECHANISM fired (instrument `FontFace.prototype
+.load` and assert it was actually called), not just that the SYMPTOM
+resolved — a symptom can clear for the wrong reason.
+
+**Fix:** extracted the recipe into `lib/core/font-settle.js`
+(`settleFonts(fontSet, timeoutMs)`) — pure, self-contained so `.toString()`
+injects into the exported `.html`'s embedded script exactly like
+`overflow-probe.js`'s `PROBE_SRC` (HARD RULE #1, one source of truth,
+now genuinely shared instead of duplicated-and-drifted). Uses
+`fontSet.forEach(...)` (spec-standard on `FontFaceSet`, no array coercion
+needed) instead of any `Array.prototype` method. Also adds a bounded
+timeout (`Promise.race` against a 2s timer, a Munger-inversion finding): a
+hung font fetch must not suppress the ring FOREVER — that would trade the
+original rare false positive for a worse silent false negative. Both
+`lattice-emulator.js`'s embedded watcher and `lib/runtime/index.js`'s
+`startOverflowWatcher` now call the shared helper instead of their own
+inline (and, in the export path's case, ALSO now-deduplicated) copies.
+`measureOverflow()`'s own pre-existing, already-correct font-forcing code
+(spread-based, no bug) was deliberately left as its own inline
+`page.evaluate` call rather than folded onto the shared helper — different
+invocation shape (Node-side `async`/`await` inside `page.evaluate`, not a
+browser-injected Promise chain) and it sits in the hot measure/auto-split
+path; refactoring untouched, already-correct code in that path for pure
+consistency was judged higher risk than benefit for this fix.
+
+**New unit coverage** (`test/unit/core/font-settle.test.js`, 5 tests): a
+fake `FontFaceSet` shaped EXACTLY like the real gap (`.forEach`/`.size`,
+deliberately no `.length`) so a regression back to any `Array.prototype`
+method on the raw set fails loudly — confirmed by deliberately reproducing
+the bug against the SAME fake before writing the fix (`Array.prototype.map
+.call(fake, ...).length === 0`, matching real `document.fonts`). Also
+covers: an empty set resolves immediately (not stuck), a rejected per-font
+load doesn't reject the whole settle, and a hung load respects the timeout
+bound.
+
+**Re-verified for real this time** — direct instrumentation, not
+symptom-only: `FontFace.prototype.load` patched via
+`page.evaluateOnNewDocument`/`addInitScript` before navigation, then counted
+actual calls. Exported `.html`: 74 `.load()` calls observed, exactly
+matching `document.fonts.size` (74) — one call per font, not zero. Live
+runtime (via the compiled `dist/lattice-runtime.js`): 37 calls, exactly
+matching that page's `document.fonts.size` (37). Re-confirmed the export's
+`timeline-list` slide 5 still resolves `over: false` (no false ring) and
+Case B's own demo tag (§12/§13) still fires correctly on the SAME slide's
+genuinely-over-budget milestone ("Likely fix", 50 words) — addressing a
+Munger-inversion concern that correcting the metrics could have coincidentally
+also erased Case B's demo repro, since that repro is also `timeline-list`
+content (it doesn't: Case B's repro is deliberately padded 2× past its
+24-word budget, nowhere near the ~7px-over-tolerance borderline the false
+ring needed).

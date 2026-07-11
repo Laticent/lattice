@@ -349,12 +349,13 @@ in patch versions.
   script only re-checks on window resize). The PDF/PPTX export itself was
   never affected — a separate measurement pass already force-loads fonts
   first. Fixed by making both the exported sidecar's script and the
-  live-preview runtime force-load every font before their first
-  measurement, the same recipe the PDF path already used. Closes #894
-  (which had originally misdiagnosed this as the opposite: an undercount in
-  the console warning, rather than an overcount in the sidecar's own ring).
-  See `engineering/decisions/2026-07-10-overflow-cause-highlighting.md`
-  §14.
+  live-preview runtime force every declared font to load and settle before
+  their first measurement, via a new shared, unit-tested
+  `lib/core/font-settle.js` helper (bounded by a timeout, so a hung font
+  fetch can't suppress the ring forever either). Closes #894 (which had
+  originally misdiagnosed this as the opposite: an undercount in the
+  console warning, rather than an overcount in the sidecar's own ring). See
+  `engineering/decisions/2026-07-10-overflow-cause-highlighting.md` §14-15.
 
 - **The Fix-Me overlay's Case B (density-budget fallback, shipped hours
   earlier the same day) undercounted words and could misfire on `kanban`.**
