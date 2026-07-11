@@ -61,6 +61,9 @@ export type RenderSample = {
 	slides: number;
 	/** source length in code units (the workload size). */
 	srcBytes: number;
+	/** Edits collapsed into this one render by the preview debounce (≥1). Set by
+	 * recordRenderSample from the debounce bridge, so callers omit it. */
+	coalesced?: number;
 	/** Per-stage engine breakdown, present only when the overlay requested it. */
 	stats?: RenderStats;
 	/** The unsmoothed sample, attached once a consumer exists. */

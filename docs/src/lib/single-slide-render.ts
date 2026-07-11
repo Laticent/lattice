@@ -100,8 +100,12 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 }
 
 // Host carries its resolved slide box so scaleFrame divides by the right width
-// (a `size: 4K` deck pins a 3840×2160 box, not the HD default).
-type LiveHost = HTMLElement & { __latticeGeom?: Geom };
+// (a `size: 4K` deck pins a 3840×2160 box, not the HD default). It also carries
+// the debounce's coalesce count for the NEXT render (set by DeckPreview), which
+// renderInto consumes synchronously at render start — binding the count to THIS
+// render's sample instead of a shared module global that an overlapping render
+// could steal.
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number };
 
 /**
  * Build a single-slide renderer bound to a theme source + runtime URL. Returns:
@@ -254,6 +258,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Perf-overlay timing: whole edit→paint span starts here (includes the
 		// usually-warm theme ensure below); per-stage deltas are taken inline.
 		const tStart = performance.now();
+		// Consume the coalesce count DeckPreview stamped on the host for this render
+		// (edits collapsed by the debounce), synchronously here so it's bound to THIS
+		// render. Reset to 1 so a follow-up palette/rising-edge render (which doesn't
+		// go through the debounce) correctly reports "no coalescing".
+		const liveHost = host as LiveHost;
+		const coalesced = liveHost.__latticeCoalesce ?? 1;
+		liveHost.__latticeCoalesce = 1;
 		const themeReady = extra
 			? Promise.all([themes.ensureBase(), ensurePreviewFonts()]).then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited
@@ -380,6 +391,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						totalMs: now - tStart,
 						slides,
 						srcBytes,
+						coalesced,
 						stats: out.stats,
 					});
 					// Overflow settles AFTER load (font settle → the runtime's overflow

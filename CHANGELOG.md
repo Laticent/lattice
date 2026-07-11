@@ -152,6 +152,15 @@ in patch versions.
 
 ### Added
 
+- **The RENDER group gains a COALESCE row — how many edits the preview debounce
+  folded into this render.** A fast typing burst lands many source changes inside
+  the 140ms preview window, and the debounce collapses them into ONE engine
+  render; COALESCE reports that fold factor (e.g. `26→1` after a burst, `1→1`
+  when a single edit renders on its own). It reads the count DeckPreview stamps
+  on the live host per paint — bound to that exact render, not a shared global an
+  overlapping render could steal — so the overlay shows real work spared, each
+  collapsed keystroke being ~38ms of main-thread time you didn't pay while
+  typing. Docs-side only; a plain render still shows `1→1`.
 - **The RENDER breakdown now shows deck context — why a render costs what it
   does.** Below the stage bars, chips report the heavy content the render
   carried: how many charts and Mermaid diagrams, whether the source has math,

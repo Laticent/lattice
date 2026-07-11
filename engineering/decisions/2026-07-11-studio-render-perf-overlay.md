@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The Studio gains a live performance overlay, toggleable under Workspace → General → Diagnostics. The existing PerfOverlay (Web Vitals + runtime FPS/MEM/CPU) grows a third RENDER group that times each edit→preview pipeline stage — engine (PG.render), sanitize (DOMPurify), frame (srcdoc parse/layout), fit (scaleFrame), and the total edit→paint span — plus the source workload size. Timing is a handful of performance.now() deltas in single-slide-render.ts (piggybacking the existing fit read, no added reflow), published through a tiny dependency-free bus (render-metrics.js) the overlay subscribes to only while shown, so overlay-off surfaces pay nothing. The Studio switch drives the shared cross-surface pref (perf-overlay-prefs.js), NOT a new StudioSettings field. Option 2 — per-transform decomposition via performance.mark inside lib/engine — plus three deferred metrics (overflow count, active-transform count, coalesce ratio) are logged here as the next rung, not built.
+summary: The Studio gains a live performance overlay, toggleable under Workspace → General → Diagnostics. The existing PerfOverlay (Web Vitals + runtime FPS/MEM/CPU) grows a third RENDER group that times each edit→preview pipeline stage — engine (PG.render), sanitize (DOMPurify), frame (srcdoc parse/layout), fit (scaleFrame), and the total edit→paint span — plus the source workload size. Timing is a handful of performance.now() deltas in single-slide-render.ts (piggybacking the existing fit read, no added reflow), published through a tiny dependency-free bus (render-metrics.js) the overlay subscribes to only while shown, so overlay-off surfaces pay nothing. The Studio switch drives the shared cross-surface pref (perf-overlay-prefs.js), NOT a new StudioSettings field. Option 2 — per-transform decomposition threaded through lib/engine — plus the three then-deferred metrics (overflow count, deck-context chart/mermaid/math chips, coalesce ratio) were logged as the next rung in the first PR and BUILT in the follow-up PR (see §7).
 ---
 
 # Studio render-performance overlay — live per-stage pipeline timing
@@ -121,30 +121,57 @@ sources of truth. The switch subscribes to `onPerfOverlayEnabledChange` so it
 tracks a flip made from the overlay's × button or the URL param. The whole group
 is gated on `PERF_OVERLAY_AVAILABLE` (the GA gate).
 
-## 7. What was deliberately NOT built (the next rung)
+## 7. The next rung — BUILT in the follow-up PR
 
-Logged here so it is tracked, not lost (HARD RULE #18 — off-path defects/gaps
-get recorded, not silently pulled into this diff or ignored):
+This section logged what the first PR (#906) deliberately deferred. The follow-up
+PR then built all of it; each item is marked below with what shipped, so this
+record stays true to the code (HARD RULE #6 / #18).
 
-- **Option 2 — per-transform decomposition. BUILT (follow-up PR).** RENDER
-  (`engineMs`) now drills into parse / transforms / assemble / css / other
-  buckets + a per-transform timing map, collected opt-in via `opts.stats`
-  threaded through the engine kernel (`lib/engine`, `lib/transformers`) and the
-  playground wrapper — gated so it runs only while the overlay is subscribed, and
-  byte-identical for CLI/export/overlay-off. Reconciles to the raw `engineMs`
-  (the `other` bucket carries the docs-side math-prescan / cold-KaTeX cost).
-  Verified on the real (static) build; hardened by the adversarial trio (red team
-  caught the under-summing that the `other` bucket fixes).
-- **Overflow count.** How many slides trip the Fit Spine red-ring. Not on the
-  live single-slide path — overflow is measured at export time (the emulator's
-  `measureOverflow` + `resplitDoc` loop), so surfacing it live would mean running
-  `overflow-probe.js` in the preview frame. Deferred.
-- **Active-transform count.** How many of the 15 registry transforms fired, and
-  chart/mermaid/math presence — high explanatory value ("*why* was that render
-  slow"), but needs the engine to *report* what it did (option-2-adjacent).
-- **Coalesce ratio.** Keystrokes collapsed per actual render — lives at the
-  `DeckPreview.tsx` debounce boundary, which this change deliberately left
-  untouched to keep the blast radius to the orchestrator + overlay + settings.
+- **Option 2 — per-transform decomposition. BUILT.** RENDER (`engineMs`) now
+  drills into parse / transforms / assemble / css / other buckets + a
+  per-transform timing map, collected opt-in via `opts.stats` threaded through
+  the engine kernel (`lib/engine`, `lib/transformers`) and the playground wrapper
+  — gated so it runs only while the overlay is subscribed, and byte-identical for
+  CLI/export/overlay-off. Reconciles to the raw `engineMs` (the `other` bucket
+  carries the docs-side math-prescan / cold-KaTeX cost).
+- **Overflow count. BUILT.** The deck-context panel reports how many previewed
+  slides trip the Fit Spine ring, read from the live same-origin frame
+  (`section.overflow`) after it settles and patched onto the recorded sample
+  without re-timing the render — no export-path `overflow-probe.js` needed.
+- **Active-transform presence. BUILT (as deck-context chips).** Rather than a raw
+  fired-transform count (which counts transformers, not the components an author
+  reasons about — dropped as misleading during the build), the panel shows the
+  heavy content that drove the cost: chart-layout and Mermaid counts (from the
+  engine HTML string) and whether the source triggers KaTeX (the engine's own
+  math gate). Item 1's per-transform map already answers "which transform was
+  slow" by name.
+- **Coalesce ratio. BUILT.** A COALESCE row reports how many edits the 140ms
+  preview debounce folded into one render. This DID touch the `DeckPreview.tsx`
+  debounce boundary (the earlier PR left it untouched): DeckPreview now counts
+  changes since the last committed paint and stamps the total on the live host,
+  which `renderInto` consumes synchronously — so the count is bound to that
+  render, not a shared global.
+
+### Verified on / known limitations
+
+- **Verification surface (HARD RULE #23):** the RENDER breakdown, deck-context
+  chips, and COALESCE are LIVE-editing behaviors — they only populate while the
+  real Studio re-renders. They were exercised in the actual Studio Playground
+  (static docs build + real editor typing), not merely a unit harness; the static
+  build is the *host*, the real edit→preview loop is the surface driven. The
+  responsive detail popover/sheet on real iOS Safari remains UNVERIFIED from this
+  sandbox.
+- **Known limitations, logged (HARD RULE #18), not fixed in this PR:** (a)
+  `engineMs` brackets a first-render cold KaTeX network fetch and EMA-smears it
+  across the next few renders — a pre-existing `engineMs` definition from #906,
+  not introduced here; the `other` bucket at least surfaces it. (b) The
+  `parse`/`assemble` split books the markdown-it instance *construction* under
+  `assemble`, not `parse`. (c) The breakdown is empty for the render that
+  preceded the overlay being enabled and permanently empty on a static
+  never-re-rendering surface (it self-heals on the next Studio edit). (d) The
+  COALESCE count can be mis-stamped between two renders of the SAME host during a
+  cold engine load, and is dropped for edits coalesced while a host is inactive —
+  both cold-window/hidden-tab edge cases on a debug-only metric.
 
 ## 8. Relationship to the benchmark (HARD RULE #19)
 
