@@ -389,7 +389,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// gets this for free by drawing in onload, post-layout).
 						requestAnimationFrame(() => applyDebug(live, { force: null }));
 						const now = performance.now();
-						recordRenderSample({ engineMs, sanitizeMs: patchSanitizeMs, frameMs: now - tFrame, fitMs: patchFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length });
+						// Feed the SAME overlay signals the full-write path does (coalesce
+						// count + engine per-stage stats + settled overflow), so the RENDER
+						// breakdown / COALESCE / overflow chip stay accurate on patched renders
+						// too — not just on full writes.
+						const rec = recordRenderSample({ engineMs, sanitizeMs: patchSanitizeMs, frameMs: now - tFrame, fitMs: patchFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length, coalesced, stats: out.stats });
+						if (out.stats) {
+							const countOverflow = () => {
+								try {
+									return live.contentDocument?.querySelectorAll('section.overflow').length ?? 0;
+								} catch {
+									return 0;
+								}
+							};
+							const shown = patchOverflow(rec, countOverflow());
+							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
+						}
 						return { ok: true, slides, error: null };
 					}
 					// The live document vanished between the guard and the patch — fall
