@@ -126,4 +126,18 @@ describe('resolveDeclarationValue (whole-declaration flatten)', () => {
     // `my-var(...)` must NOT be treated as `var(...)`.
     assert.equal(resolveDeclarationValue('my-var(--x)', vars, false), 'my-var(--x)');
   });
+
+  test('color-mix with a var() PERCENTAGE resolves (the canonical chart fill)', () => {
+    // The chart-fill gradient writes the mix ratio as a token, not a literal:
+    // `color-mix(in oklab, var(--hue) var(--pct), var(--bg))`. Both the colour
+    // AND the percentage are var()s — the percentage must resolve too.
+    const m = {
+      hue: '#0a6ce0', bg: '#ffffff', pct: '24%',
+    };
+    const out = resolveDeclarationValue('color-mix(in oklab, var(--hue) var(--pct), var(--bg))', m, false);
+    assert.match(out, /^#[0-9a-f]{6}$/i, `expected a hex, got ${out}`);
+    // Same colour as the literal-percentage form.
+    const lit = resolveTokenExpr('color-mix(in oklab, #0a6ce0 24%, #ffffff)', {}, false);
+    assert.equal(out, lit);
+  });
 });
