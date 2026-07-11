@@ -1,14 +1,13 @@
 ---
-status: in-progress
-summary: Overflow detection today only flags the SLIDE ("Overflows" red ring + tag) with no cause. This ships a yellow "Fix Me" highlight on the specific element responsible for Case A (clip-cell geometry — certain, not a guess), now drilled down to the specific stretched-row item within the cell (not just the whole cell) via a content-slack signal, backed by a new density.domSelector manifest field + render-verified coverage for all 26 axis-bearing components. Case B (a prose-density word-budget fallback for slides with no clip-cell at all) remains a deferred follow-up.
+status: shipped
+summary: Overflow detection today only flags the SLIDE ("Overflows" red ring + tag) with no cause. This ships a yellow "Fix Me" highlight on the specific element responsible for Case A (clip-cell geometry — certain, not a guess), drilled down to the specific stretched-row item within the cell via a content-slack signal, backed by a density.domSelector manifest field + render-verified coverage for all 26 axis-bearing components — AND Case B (§12), a hedged "Likely fix" fallback for slides with no clip-cell at all (e.g. timeline-list, kanban), keyed off each component's density.soft/hard word budget measured live off the rendered DOM.
 ---
 
 # Overflow cause highlighting — a yellow "Fix Me" tag on the element responsible
 
 **Date:** 2026-07-10
-**Status:** in-progress — Case A shipped, including the item-level
-drill-down (§10). Case B (density-budget fallback for the no-clip-cell case)
-remains a follow-up PR.
+**Status:** shipped — Case A (§1-10, PR #890) and Case B (§12, follow-up PR)
+are both live.
 **Related:** `lib/core/overflow-probe.js`, `lib/runtime/index.js` (`startOverflowWatcher`),
 `lib/authoring/prose-budgets.js`, `lib/authoring/review-core.js`,
 `engineering/decisions/2026-06-26-frames-as-flex-cell-trees.md` (clip-cell contract),
@@ -327,3 +326,104 @@ majority-anomaly cases above. Re-verified in the real browser across all 5
 demo components after both fixes, plus a clean re-check that cards-grid and
 split-compare (both single-group cases, unaffected by the new gate in
 principle) still resolve identically to before.
+
+## 12. Case B — the density-budget fallback (2026-07-10/11, follow-up PR)
+
+**Was it still needed, or did the Form/flex-cell-tree migration make it
+moot?** With `.cell-stage` now wrapping almost every component's body
+(§10's `STAGE_MIGRATED` bucket), it was worth re-checking whether ANY
+density-axis component could still overflow with zero clip-cell registering
+spill — Case B's whole trigger condition. It's not moot: `masthead.transform.js`
+keeps a second bucket, `STAGE_DEFERRED` — "band + direct-child body,"
+deliberately NOT wrapped in `.cell-stage` — and two of its members
+(`kanban`, `timeline-list`) carry a `density` block. A `form: off`/`no-form`
+escape hatch reaches the same no-clip-cell shape for any of the 26.
+
+**But `kanban` turned out NOT to be the repro it looked like.** Every text
+field on a kanban card is CSS-truncated —
+`.kanban-title-text` (`-webkit-line-clamp: 2`), `.kanban-card-meta`, and
+`.kanban-card-body` (`white-space: nowrap; text-overflow: ellipsis`) all cap
+at a fixed number of lines. A long title or body doesn't grow the card; it
+gets visually clipped at render time, so the card's box height — and the
+board's — can never grow from prose length alone. `timeline-list` has no
+such defense (`timeline-list.styles.css` has zero `line-clamp`/`ellipsis`
+rules), so it became the real repro and the one used for verification below.
+This is worth recording as a general note: a `density.axis`-bearing
+component with defensive CSS truncation is not automatically exempt from
+needing the check, but it may already be safe from THIS particular failure
+mode — worth a quick CSS read before assuming a component is a live Case B
+repro, not just a structural (STAGE_DEFERRED) one.
+
+**Implementation deviated from §6 item 4's original plan.** The plan on
+paper was to bundle `prose-budgets.js` and run `elementWordCounts` against
+"the live slide markdown/DOM" client-side. In practice the runtime never has
+the deck's markdown source at hand in a live preview — only the rendered
+document — and there is no clean way to get it there: correlating a
+per-slide markdown substring back to its rendered `<section>` by position
+breaks the instant `headingSplit`/`focusSteps`
+(`lib/integrations/markdown-it/plugins.js`) are in play, since both can
+expand ONE authored slide into SEVERAL rendered ones, desyncing any naive
+index correspondence between source-slide-N and section-N. Rather than carry
+that fragility, Case B counts words directly off each item's live
+`textContent` (`domWordCount`, `lib/core/drill-down.js`) — the same
+"measure the rendered DOM, not a symbolic model of it" philosophy `contentSlack`
+(§10) already uses for Case A. This can run a couple of words high on a
+component whose chrome (a kanban-style size badge, a status pill) isn't
+backtick-quoted prose in the DOM the way it is in source — an acceptable
+bias since it's roughly uniform across every item in the same collection, so
+it never changes WHICH item is worst, only the shown count's precision. This
+does mean Case B's number can drift slightly from what
+`lib/authoring/review-core.js`'s Node-side linter would report for the same
+slide; both are already labeled as guidance, not fact, so this is a
+difference in precision, not in kind.
+
+**Architecture:**
+- `tools/build-axis-dom-catalog.js` → `lib/runtime/axis-dom-catalog.generated.js`
+  now also carries `soft`/`hard` per component (from the same
+  `density` manifest block), so the runtime never needs the full manifest
+  catalog just to know a budget.
+- `lib/core/drill-down.js` gained `domWordCount(el)` and
+  `findDensityOutlier(items, budget)` — the single worst item past
+  `budget.hard`, mirroring `review-core.js`'s own
+  `worst = Math.max(...counts)` (HARD RULE #15), unit-tested with plain fake
+  `{textContent}` objects.
+- `lib/runtime/index.js` — `drillDownDensityOutlier(section)`: resolves the
+  section's own axis collection (same override/default logic as Case A's
+  `drillDownCulprits`, just rooted at the whole section instead of one
+  cell, since Case B by definition has no cell to root at) and runs
+  `findDensityOutlier`. Wired into `check()`'s `else` branch — Case B never
+  fires on a section where Case A's `overCells` already found something,
+  and vice versa; the two are mutually exclusive per slide.
+- The Fix-Me overlay's target list is now `[{el, label, hint?}]` instead of
+  bare elements, so Case A (`label: 'Fix Me'`, no hint) and Case B
+  (`label: 'Likely fix'`, `hint` carrying "Likely cause — Nw, over budget"
+  as a native tooltip) read differently at a glance without a second colour
+  — §8's "different label per case," implemented as a short, chip-sized
+  hedge word plus the fuller hedge on hover rather than the doc's originally
+  longer suggested strings, which don't fit the existing tab's small
+  corner-chip footprint.
+
+**Verified** (real-browser, headless Chromium, not emulation): a
+`timeline-list` slide with one milestone padded well past its 24-word `hard`
+budget draws a single yellow box around exactly that milestone (not its
+three normal-length siblings), labeled "Likely fix" with a tooltip reporting
+the live word count; a budget-compliant `timeline-list` slide (no overflow)
+draws nothing; `cards-grid` and `split-compare` (both Case A) re-verified
+unchanged after the `{el, label, hint}` refactor of the shared overlay
+target shape; adding an OPTIONAL `.chart-status` status pill to the other,
+compliant milestones changes neither the flagged item nor its reported word
+count (the maker-checker fix above).
+
+**Off-path finding, logged not fixed (HARD RULE #18).** Building the demo
+deck's `timeline-list` slide surfaced a pre-existing, unrelated quirk in
+`lattice-emulator.js`'s own export-time overflow WARNING (`measureOverflow`,
+the console message naming which pages exceed the frame): opening the same
+exported HTML independently in a fresh browser correctly shows the
+`timeline-list` slide as `.overflow`, but the emulator's own internal
+Puppeteer pass that generates the printed warning list omits it — the
+export's actual PDF bytes are unaffected (the slide still clips cleanly, as
+its own visual review confirmed), only the console warning under-counts by
+one page for this specific component shape. Neither `lattice-emulator.js`
+nor its overflow-warning path is touched by this PR (Case B is preview-only,
+`lib/runtime/index.js` only) — worth a dedicated investigation, not pulled
+into this diff.

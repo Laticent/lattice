@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
  * Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup
- * (component name → { axis, domSelector }) for every component that declares
- * a `density.axis` in its manifest, bundled into dist/lattice-runtime.js so
- * the live preview can find a component's repeated-element collection
- * without shipping the whole manifest catalog to the browser.
+ * (component name → { axis, domSelector, soft, hard }) for every component
+ * that declares a `density.axis` in its manifest, bundled into
+ * dist/lattice-runtime.js so the live preview can find a component's
+ * repeated-element collection — and its word budget — without shipping the
+ * whole manifest catalog to the browser.
  *
  * `domSelector` is populated ONLY when a component's own manifest declares
  * one (a component whose transform retags the axis elements — e.g.
@@ -12,6 +13,11 @@
  * is `null` and the runtime falls back to the universal per-axis default
  * (lib/core/collections.js's domItemElements/domRowElements). See
  * engineering/decisions/2026-07-10-overflow-cause-highlighting.md §10.
+ *
+ * `soft`/`hard` mirror the manifest's own `density.soft`/`density.hard` word
+ * budget (null when a manifest omits either) — the Fix-Me overlay's Case B
+ * (density-budget fallback, §12) reads them to flag the worst item on a
+ * slide with no clip-cell at all.
  *
  * Usage:
  *   node tools/build-axis-dom-catalog.js            regenerate
@@ -33,7 +39,12 @@ function build() {
   const catalog = {};
   for (const m of loadAll()) {
     if (!m.density?.axis) continue;
-    catalog[m.name] = { axis: m.density.axis, domSelector: m.density.domSelector || null };
+    catalog[m.name] = {
+      axis: m.density.axis,
+      domSelector: m.density.domSelector || null,
+      soft: Number.isInteger(m.density.soft) ? m.density.soft : null,
+      hard: Number.isInteger(m.density.hard) ? m.density.hard : null,
+    };
   }
   const sortedNames = Object.keys(catalog).sort();
   const sorted = {};

@@ -174,9 +174,23 @@ in patch versions.
   throughout (never in an exported PDF/PPTX/HTML), drawn as a zero-flow
   overlay layer so it can never shift `nth-child` indices or corrupt
   Fit-Spine measurement. See `lib/helpers/overflow/overflow.docs.md` and
-  `engineering/decisions/2026-07-10-overflow-cause-highlighting.md`. The
-  grow-to-fit-grid case with NO clip-cell at all (a prose-density word-budget
-  fallback) remains a deferred follow-up.
+  `engineering/decisions/2026-07-10-overflow-cause-highlighting.md`.
+
+- **The Fix-Me overlay's deferred follow-up: a "Likely fix" density-budget
+  fallback for slides that overflow with NO clip-cell at all.** Some layouts
+  (`kanban`, `timeline-list`, or any component under `form: off`/`no-form`)
+  never get wrapped in a bounded clip cell, so a genuine grow-to-fit-push
+  overflow on those slides gave the clip-cell signal nothing to point at.
+  When a section overflows with zero clip-cell spill, the overlay now falls
+  back to the component's own `density.soft`/`density.hard` word budget and
+  highlights whichever item in its repeated-item collection has the highest
+  live word count past `hard` — measured off the rendered DOM directly
+  (never the markdown source, which the runtime doesn't have in a live
+  preview), excluding the shared `.chart-status` pill class so an optional
+  status badge can't skew which item ranks worst. Labeled "Likely fix" (a
+  tooltip carries the word count) — deliberately never Case A's unhedged
+  "Fix Me," since this is an editorial guess, not a geometric certainty. See
+  `engineering/decisions/2026-07-10-overflow-cause-highlighting.md` §12.
 
 - **A "Send feedback" entry point in the Studio topbar and the sitewide
   header.** Opens a sheet (category, one-line summary, details) and hands

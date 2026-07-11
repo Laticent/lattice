@@ -11,9 +11,9 @@ header: "Lattice · overflow cause highlighting"
 
 # See what's overflowing, not just that it is.
 
-The existing red "Overflows" ring names the slide. This adds a yellow
-"Fix Me" tag that names the specific element responsible — when the cause
-can be proven, not guessed.
+The existing red "Overflows" ring names the slide. This adds a yellow tag
+that names the specific element responsible — "Fix Me" when the cause can
+be proven, "Likely fix" when it's the best available guess.
 
 ---
 
@@ -78,14 +78,42 @@ is a real content outlier — never its stretched neighbor.
 
 ---
 
+<!-- _class: timeline-list -->
+
+`Case B · no clip-cell in play`
+
+## Which milestone actually blew the budget?
+
+`timeline-list` is never wrapped in a bounded cell, so a clip-cell probe
+finds nothing here even though this slide genuinely overflows — the exact
+gap Case B closes. Open this in a live preview: the yellow tag reads
+"Likely fix," not "Fix Me," because a word count past budget is the best
+available guess, never a geometric certainty.
+
+1. `Q1` Kickoff `on-track`
+   - One clause says what changed here.
+2. `Q2` The scope quietly tripled after every stakeholder demanded their own
+   pet feature get bolted onto the roadmap, and nobody on the steering
+   committee was willing to say no to any of it, so the plan just kept
+   absorbing more work every single week
+   - A tag names the milestone's kind.
+3. `Q3` Recovery `at-risk`
+   - Sixteen words is each entry's budget.
+4. `Q4` Launch `blocked`
+   - Four to six entries reads best.
+
+---
+
 <!-- _class: content -->
 
-## No clip-cell at all is a different, still-open case.
+## No clip-cell at all is now covered, hedged honestly.
 
-A slide that overflows with no bounded content cell in play — an oversized
-image, a long code block, a wide table — has no geometric signal to drill
-into yet. A prose-density word-budget fallback for that case is a deferred
-follow-up, not part of this change.
+A slide with no bounded cell in play now falls back to the component's own
+word budget: whichever item has the highest live word count past
+`density.hard` is the best content-grounded guess. Copy says so — Case A
+reads "Fix Me," Case B reads "Likely fix." An oversized image, a wide
+table, or a long code block still has no signal to drill into; the red
+ring alone still fires there.
 
 ---
 

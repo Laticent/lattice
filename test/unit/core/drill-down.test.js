@@ -7,7 +7,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { contentSlack, findCulprits, componentNameFor } = require('../../../lib/core/drill-down');
+const { contentSlack, findCulprits, componentNameFor, domWordCount, findDensityOutlier } = require('../../../lib/core/drill-down');
 
 // A fake item: box top/bottom + a list of fake children each with their own
 // bottom-most content edge. `contentBottom` (relative to the item's own
@@ -160,6 +160,74 @@ describe('findCulprits', () => {
       moderateCulprit, moderateBystander, extremeCulprit, extremeBystander,
     ]);
     assert.deepEqual(result, [mildCulprit, moderateCulprit, extremeCulprit]);
+  });
+});
+
+describe('domWordCount', () => {
+  test('counts whitespace-separated words in textContent', () => {
+    assert.equal(domWordCount({ textContent: 'Six months of unstructured notes' }), 5);
+  });
+  test('collapses multiple/irregular whitespace (nested-element textContent)', () => {
+    assert.equal(domWordCount({ textContent: '  Card title  \n  team-a  at-risk  ' }), 4);
+  });
+  test('empty/missing textContent → 0', () => {
+    assert.equal(domWordCount({ textContent: '' }), 0);
+    assert.equal(domWordCount({}), 0);
+    assert.equal(domWordCount(null), 0);
+  });
+
+  // Maker-checker finding (2026-07-11): a status pill (`.chart-status`, the
+  // shared class kanban/timeline-list both render from a trailing backtick
+  // status like `at-risk`) is OPTIONAL per item, so counting it as prose can
+  // flip which item ranks "worst" — a card WITH a pill could outrank a
+  // longer, pill-less card on word count alone even though its own body is
+  // shorter. querySelectorAll-bearing (real DOM) elements exclude it.
+  const fakeElWithStatus = (bodyText, statusText) => ({
+    textContent: `${bodyText} ${statusText}`,
+    querySelectorAll: (sel) => (sel === '.chart-status' ? [{ textContent: statusText }] : []),
+  });
+
+  test('excludes a .chart-status pill from the count (real-DOM-shaped element)', () => {
+    const withPill = fakeElWithStatus('Card title', 'at-risk');
+    assert.equal(domWordCount(withPill), 2); // "Card title" only, "at-risk" excluded
+  });
+
+  test('a plain fake object with no querySelectorAll falls back to whole textContent', () => {
+    assert.equal(domWordCount({ textContent: 'Card title at-risk' }), 3);
+  });
+});
+
+describe('findDensityOutlier', () => {
+  const fakeText = (textContent) => ({ textContent });
+
+  test('no items → null', () => {
+    assert.equal(findDensityOutlier([], { soft: 8, hard: 14 }), null);
+  });
+
+  test('no hard budget on the entry → null (nothing to compare against)', () => {
+    const items = [fakeText('one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen')];
+    assert.equal(findDensityOutlier(items, { soft: 8, hard: null }), null);
+    assert.equal(findDensityOutlier(items, null), null);
+  });
+
+  test('every item under budget → null', () => {
+    const items = [fakeText('a short card'), fakeText('another short one')];
+    assert.equal(findDensityOutlier(items, { soft: 2, hard: 5 }), null);
+  });
+
+  test('flags the single worst item once it clears hard, ignoring items still under it', () => {
+    const short = fakeText('a terse card title');
+    const long = fakeText('six months of unstructured meeting notes crammed into a single card because nobody wanted to write a real ticket');
+    const result = findDensityOutlier([short, long], { soft: 8, hard: 14 });
+    assert.equal(result.el, long);
+    assert.equal(result.words, domWordCount(long));
+  });
+
+  test('two over-budget items — returns the WORST one, not the first', () => {
+    const overA = fakeText('one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen');
+    const overB = fakeText('one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen');
+    const result = findDensityOutlier([overA, overB], { soft: 8, hard: 14 });
+    assert.equal(result.el, overB);
   });
 });
 
