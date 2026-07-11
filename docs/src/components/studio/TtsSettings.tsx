@@ -20,7 +20,7 @@ import {
 	voiceAvailability,
 } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
-import { KOKORO_MODEL_ID, NO_VOICES_HINT, resolveVoice, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
 // generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
@@ -48,6 +48,25 @@ function SpeedControl({ value, onChange, disabled }: { value: number; onChange: 
 				className="h-1.5 flex-1 accent-[var(--accent)] disabled:opacity-50"
 			/>
 			<span className="w-[42px] shrink-0 text-right font-mono text-[12px] text-muted-foreground">{value.toFixed(2)}×</span>
+		</div>
+	);
+}
+
+/** The Speed section for one tier — a real, live slider when the ACTIVE model's
+ *  `speed` param is verified to do something (speedSupported), or, when it
+ *  isn't, no slider at all: a plain fixed-pace note in its place. A disabled-
+ *  but-visible slider stuck at an arbitrary value would look like a broken
+ *  control (drag it, hit Play, nothing changes) rather than an honest "this
+ *  voice has no speed control" — the same reasoning VoicePicker already
+ *  applies to a model with no voice roster (NO_VOICES_HINT, above). `disabled`
+ *  is the ORTHOGONAL reason (tier not connected/downloaded yet) — still
+ *  applies to the slider when speed IS supported. */
+function SpeedSection({ modelId, value, onChange, disabled }: { modelId: string; value: number; onChange: (n: number) => void; disabled?: boolean }) {
+	const ok = speedSupported(modelId);
+	return (
+		<div>
+			<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Speed</div>
+			{ok ? <SpeedControl value={value} onChange={onChange} disabled={disabled} /> : <p className="text-[12px] text-muted-foreground">{NO_SPEED_HINT}</p>}
 		</div>
 	);
 }
@@ -354,8 +373,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 				</div>
 
 				<div className="mt-3">
-					<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Speed</div>
-					<SpeedControl value={speed} onChange={changeSpeed} disabled={!avail.openRouterReady} />
+					<SpeedSection modelId={effectiveOrModel} value={speed} onChange={changeSpeed} disabled={!avail.openRouterReady} />
 				</div>
 
 				<PreviewButton
@@ -423,8 +441,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 			</div>
 
 			<div className="mt-3">
-				<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Speed</div>
-				<SpeedControl value={speed} onChange={changeSpeed} disabled={!ready} />
+				<SpeedSection modelId={KOKORO_MODEL_ID} value={speed} onChange={changeSpeed} disabled={!ready} />
 			</div>
 
 			<PreviewButton

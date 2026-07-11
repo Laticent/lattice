@@ -23,7 +23,22 @@ class FakeAudioContext {
   createBuffer() {
     return {};
   }
-  decodeAudioData(_ab: ArrayBuffer, ok: (buf: { duration: number }) => void) {
+  decodeAudioData(ab: ArrayBuffer, ok: (buf: { duration: number }) => void, err?: (e: unknown) => void) {
+    // Mirrors a REAL browser's decodeAudioData: it DETACHES the ArrayBuffer it's
+    // given (byteLength drops to 0) as a side effect of decoding. A caller that
+    // hands back the SAME ArrayBuffer instance on a replay (a cached blob-like
+    // object whose `arrayBuffer()` doesn't return a fresh copy) fails on the
+    // second play with exactly the real error this simulates — a bug the OLD,
+    // no-op fake here couldn't catch (see the PCM-wrap replay test below).
+    if (ab.byteLength === 0) {
+      err?.(new Error('Cannot decode detached ArrayBuffer'));
+      return;
+    }
+    try {
+      structuredClone(ab, { transfer: [ab] });
+    } catch {
+      /* structuredClone transfer unsupported in this environment — skip simulating detachment */
+    }
     ok({ duration: 0.5 }); // every clip "lasts" 500ms
   }
   createBufferSource() {
@@ -843,6 +858,85 @@ describe('speak() — per-sentence synth timeout (same regression, narration pat
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('openrouter synth: PCM-only model quirk (Gemini 400s on mp3, only returns raw PCM)', () => {
+  it('requests response_format:"pcm" for the one model that needs it, and mp3 for everything else', async () => {
+    const requests: Array<{ response_format?: string }> = [];
+    const fetchImpl = async (_url: string, opts: { body: string }) => {
+      const body = JSON.parse(opts.body);
+      requests.push(body);
+      if (body.response_format === 'pcm') {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'audio/pcm;rate=24000;channels=1' : null) },
+          arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+        };
+      }
+      return { ok: true, status: 200, blob: async () => ({ size: 256, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(256) }) };
+    };
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
+
+    model.setOrModel('google/gemini-3.1-flash-tts-preview');
+    await model.speak({ text: 'Gemini line.' });
+    expect(requests[0].response_format).toBe('pcm');
+
+    model.setOrModel('x-ai/grok-voice-tts-1.0');
+    await model.speak({ text: 'Grok line.' });
+    expect(requests[1].response_format).toBe('mp3');
+  });
+
+  it('wraps the PCM response in a playable 44-byte-header WAV blob, reading sample rate/channels off Content-Type', async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'audio/pcm;rate=24000;channels=1' : null) },
+      arrayBuffer: async () => new Uint8Array([10, 20, 30, 40]).buffer,
+    });
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
+    model.setOrModel('google/gemini-3.1-flash-tts-preview');
+
+    // Capture the ArrayBuffer speak() actually hands to WebAudio's decodeAudioData
+    // (FakeAudioContext, wired file-wide in beforeEach) — the concrete proof the
+    // wrapped WAV is a real, decodable blob, not just that speak() didn't throw.
+    let decodedByteLength = -1;
+    (window as unknown as { AudioContext: unknown }).AudioContext = class extends FakeAudioContext {
+      decodeAudioData(ab: ArrayBuffer, ok: (buf: { duration: number }) => void) {
+        decodedByteLength = ab.byteLength;
+        super.decodeAudioData(ab, ok);
+      }
+    };
+
+    const onSentenceTiming = vi.fn();
+    await model.speak({ text: 'Gemini line.', onSentenceTiming });
+    expect(onSentenceTiming).toHaveBeenCalledTimes(1); // reached real playback, not a thrown/undecodable blob
+    expect(decodedByteLength).toBe(44 + 4); // WAV header + our 4 raw PCM bytes
+  });
+
+  it("replays a CACHED pcm-wrapped blob a second time without throwing 'Cannot decode detached ArrayBuffer' (regression: live-caught in a real browser)", async () => {
+    // decodeAudioData DETACHES the ArrayBuffer it decodes (real browser behavior,
+    // simulated by FakeAudioContext above). The pcm-wrap helper's blob-like object
+    // is cached and REPLAYED (identical text/voice/speed/model → same audioCache
+    // entry) — "Play sample" clicked twice, or the same narration sentence spoken
+    // again. An earlier version handed back the SAME ArrayBuffer instance on every
+    // `.arrayBuffer()` call, so the first play decoded fine and the second threw
+    // exactly this error — never caught by the sibling test above (single play) or
+    // by jsdom's ORIGINAL no-op decodeAudioData mock (didn't detach anything).
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'audio/pcm;rate=24000;channels=1' : null) },
+      arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+    });
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
+    model.setOrModel('google/gemini-3.1-flash-tts-preview');
+
+    const onSentenceTiming = vi.fn();
+    await model.speak({ text: 'Same line.', onSentenceTiming }); // first play — populates the cache
+    await model.speak({ text: 'Same line.', onSentenceTiming }); // second play — must replay the SAME cached blob successfully
+    expect(onSentenceTiming).toHaveBeenCalledTimes(2); // both plays reached real playback, neither threw
   });
 });
 

@@ -513,3 +513,83 @@ reverting it) and passes with it.
   redesign found it does (`supported_voices`, the same field every other engine
   uses) — Kokoro's picker is now the full live 54-voice roster like everything
   else; only the 10-voice CACHE remains a bounded, hand-picked subset.
+
+## Follow-up: the Speed slider worked on models that don't support speed at all
+
+Raised directly, from a screenshot of the Workspace's Voice section: a "voice
+model that doesn't exist" (a listed, selectable model whose real playback
+fails), a Speed slider enabled for a model that doesn't support speed, and a
+slider that accepts values a model silently can't honor — "we cannot look
+inept to the user." Asked for a full evaluation of what's actually available,
+and a redesign of the slider.
+
+**The investigation was empirical, not documentation-sourced** (the earlier
+`zoe`/roster lesson applies here too) — this session had a funded
+`OPEN_ROUTER_KEY`, so every claim below is a live round trip, not a guess:
+
+1. **OpenRouter's own `supported_parameters` field never lists `speed` for any
+   of the 9 TTS models** — not diagnostic on its own (it's a generic
+   completions-params list, and TTS `speed` isn't a completions param at all),
+   but it ruled out a cheap catalog-only answer and forced a real test.
+2. **Live A/B: synth the same short sentence at `speed` unset, `0.6`, and
+   `1.6`, measure real audio duration with `ffprobe`.** A model whose `speed`
+   genuinely works produces a duration inversely proportional to the
+   multiplier; a model that ignores it produces noise.
+3. **A repeat baseline (two identical, speed-less calls) measured each model's
+   OWN take-to-take duration variance** — the noise floor a real speed effect
+   must clear. This mattered: Orpheus/CSM/Voxtral's 0.6x/1.6x readings moved,
+   just not more than their own ~17-51% natural variance (CSM's own variance
+   hit 51% — this model's duration is close to non-deterministic regardless of
+   any parameter), and in Orpheus/Voxtral's case the direction was backwards
+   from what a real multiplier would produce.
+4. **Result: only 4 of 9 engines genuinely respond to `speed`** — Kokoro
+   (near-exact multiplier match: 0.6x/1.6x landed within a few percent of the
+   mathematically expected duration), MAI-Voice-2 and both Zonos variants
+   (large, monotonic, correctly-directed swings well beyond their noise
+   floors, though not perfectly linear at the extremes). Grok, Gemini,
+   Orpheus, CSM, and Voxtral silently ignore it — no error, just no effect,
+   which is exactly what makes an always-enabled slider on those five look
+   broken rather than absent.
+5. **A boundary probe on the 4 working engines** (`speed` 0.1/0.25/2/3/4/10)
+   found Kokoro and Zonos both 422 outside roughly `[0.25, 4]`; MAI-Voice-2
+   never errored even at the extremes tested but plateaus around a ~1.5s floor
+   past roughly `3x`. The Studio's existing `0.75-1.5` UI range sits safely
+   inside all three — the RANGE was never the bug, only which models the
+   control was offered on at all.
+6. **The "voice model that doesn't exist" report turned out to be
+   `voice-model.js`'s live playback path, not the picker.** Gemini's speech
+   endpoint 400s on `response_format:"mp3"` and only returns raw PCM — already
+   known and handled in `tools/generate-voice-samples.mjs` (the asset
+   generator requests `pcm` and wraps it in a WAV container for this one
+   model), but that fix never made it into the LIVE runtime path
+   (`openRouterRung.synth`), which hardcoded `mp3` for every model. Gemini
+   showed up as a real, priced, 30-voice model in the picker — selectable,
+   seemingly there — and then failed on every actual "Play sample" or
+   narration call. Fixed by mirroring the generator's recipe at runtime: probe
+   the response's `Content-Type` for the real sample rate/channels (never
+   hardcoded — a per-model quirk), wrap the raw PCM in a 44-byte WAV header,
+   return a Blob `decodeAudioData` can play directly — the same shape Kokoro's
+   own `wavBlob()` already produces from its Float32 samples.
+
+**The fix.** `tts-voice-catalog.json` gains a `speedSupport: boolean` per
+engine (a genuinely hand-maintained fact, like `requiresAsset`/`audioFormat` —
+OpenRouter's catalog doesn't expose it) plus a `_speedNote` recording the
+measurement each verdict rests on. `tts-voice-catalog.ts` exports
+`speedSupported(modelId)`, defaulting `false` for an uncataloged model — the
+same "admit we don't know" stance `NO_VOICES_HINT` already takes for an empty
+voice roster, now mirrored as `NO_SPEED_HINT`. `TtsSettings.tsx`'s new
+`SpeedSection` renders the real, existing slider ONLY when the active model
+supports it; otherwise it renders no slider at all — a plain fixed-pace note
+in its place, not a disabled-but-visible control stuck at an arbitrary value.
+This directly answers "maybe this shouldn't even be a slider": for the 5
+engines that don't support it, it isn't one anymore; for the 4 that do, a
+slider is the technically honest control (live-tested as smooth and
+proportional, not stepped), so it stays a slider there rather than becoming
+stepped chips for every engine regardless of what the data shows.
+
+**What's explicitly not changed.** The `0.75-1.5` UI range (already safely
+inside every supported engine's real working range — narrowing/widening it
+wasn't the bug). No model-picker badge surfacing speed support before you
+select a model — the Speed section's own disabled-state note already explains
+it the moment you do, and a picker-row indicator is a legitimate future nicety
+rather than something the "look inept" complaint required.

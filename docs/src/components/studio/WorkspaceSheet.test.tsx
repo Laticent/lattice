@@ -251,8 +251,14 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	// corrected id once the live roster loads.
 	it('reconciles a stale (pre-migration-casing) stored voice id against the live roster, and persists the fix', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		vi.mocked(readAloud.ttsOrModel).mockResolvedValue('x-ai/grok-voice-tts-1.0');
-		vi.mocked(readAloud.ttsOrVoice).mockResolvedValue('Eve'); // the old capitalized id — no longer in the live roster
+		// *Once*, not a standing override: `vi.clearAllMocks()` (this file's afterEach)
+		// clears CALLS but not a `mockResolvedValue` IMPLEMENTATION, so a standing
+		// override here would leak into every later test in the file (each reads
+		// ttsOrModel/ttsOrVoice exactly once per TtsSettings mount) — silently
+		// swapping their default Kokoro model for Grok's, which doesn't support
+		// speed, and breaking any later test that expects the Speed slider to render.
+		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('x-ai/grok-voice-tts-1.0');
+		vi.mocked(readAloud.ttsOrVoice).mockResolvedValueOnce('Eve'); // the old capitalized id — no longer in the live roster
 		const { sheet } = openSheet();
 		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
 		// The precise, unambiguous signal: the corrected LIVE (lowercase) id gets
