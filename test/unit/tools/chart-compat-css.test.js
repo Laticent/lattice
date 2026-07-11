@@ -91,12 +91,45 @@ describe('chart-compat-css generator', () => {
       /\.wedge:nth-of-type\(6n\+1\)\s*\{[^}]*fill:[^}]*!important/, // piechart
       /\.gantt-bar\[data-s="on-track"\][^{]*\{[^}]*background:[^}]*linear-gradient/, // gantt bars
       /--journey-mood-5:\s*#[0-9a-f]{6}/i, // journey mood ramp (setter-flatten)
-      /\.map-region\b[^{]*\{[^}]*fill:\s*#[0-9a-f]{6}[^}]*!important/i, // map regions
+      // Choropleth (--on) AND highlight (--hl) map regions — the `--hl` rule was
+      // silently missing (its --region-hue is inline-only); assert it EXPLICITLY so
+      // the `\b`-matches-`--on` blind spot can't return.
+      /\.map-region--on\b[^{]*\{[^}]*fill:\s*#[0-9a-f]{6}[^}]*!important/i,
+      /\.map-region--hl\b[^{]*\{[^}]*fill:\s*#[0-9a-f]{6}[^}]*!important/i,
       /\.quadrant-tint\[data-cell="0"\][^{]*\{[^}]*fill:[^}]*!important/, // quadrant tints
     ];
     for (const re of required) {
       assert.match(css, re, `missing fallback coverage for ${re}`);
     }
+  });
+
+  test('inline-kernel categorical locals get a coarse fallback (not skipped)', () => {
+    // --region-hue / --series-color / --actor-color are set inline by the kernel
+    // with no CSS setter. They must still resolve to a literal (a representative
+    // on-brand tone) — the class of gap the maker-checker/red-team caught. Assert
+    // the fallback body references none of them unresolved.
+    const b = body(chartCompatCssForTheme('indaco', BASE));
+    for (const local of ['region-hue', 'series-color', 'actor-color']) {
+      assert.doesNotMatch(b, new RegExp(`var\\(\\s*--${local}\\b`),
+        `--${local} left unresolved in the fallback (inline-kernel local skipped)`);
+    }
+  });
+
+  test('per-slide scheme override selectors are well-formed (no phantom section)', () => {
+    // The override must merge the modifier class onto a section-rooted selector
+    // (`section.chart-frame.dark`), NOT concatenate a second element
+    // (`section.darksection.chart-frame` → phantom `.darksection` class).
+    for (const theme of ['indaco', 'indaco-dark']) {
+      const css = chartCompatCssForTheme(theme, BASE);
+      assert.doesNotMatch(css, /section\.(dark|light)section/,
+        `${theme}: phantom concatenated section in an override selector`);
+      assert.doesNotMatch(css, /section\.(dark|light) section\.(chart-frame|journey|map|math)\b/,
+        `${theme}: dead descendant override (sections are not nested)`);
+    }
+    // A light theme flips section.dark slides via a MERGED class.
+    assert.match(chartCompatCssForTheme('indaco', BASE), /section\.chart-frame\.dark\b/);
+    // A *-dark theme flips section.light slides via a MERGED class.
+    assert.match(chartCompatCssForTheme('indaco-dark', BASE), /section\.chart-frame\.light\b/);
   });
 
   test('modern-browser safety: every generated rule is inside the @supports guard', () => {

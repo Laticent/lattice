@@ -71,6 +71,16 @@ const CHART_ROOTS = 'section.chart-frame, section.journey, section.map, section.
 // agreed coarse-flat on-brand degradation for the one continuous per-instance fill.
 const MAP_RAMP_REPRESENTATIVE_MIX = 65;
 
+// Categorical locals the TRANSFORM sets inline per instance (no CSS setter rule to
+// join): the highlight map's `--region-hue`, radar's `--series-color`, journey's
+// `--actor-color`. Each is assigned a categorical slot hue inline, so a static
+// stylesheet can't recover WHICH slot per element. They degrade to a single
+// representative on-brand hue (coarse-flat — per-category distinction is lost on
+// old engines, a documented degradation) instead of dropping to the neutral base /
+// transparent. Per-category fidelity would need a kernel data-attr hook (follow-up).
+const INLINE_KERNEL_LOCAL = /^(region-hue|series-color|actor-color)$/;
+const INLINE_KERNEL_REPRESENTATIVE = 'var(--chart-cat-1-hue)';
+
 const MODERN_FN = /\blight-dark\(|\bcolor-mix\(/;
 // Colour properties whose LOSS turns a chart black or colourless — the ones worth
 // a fallback. Deliberately EXCLUDES box-shadow / outline / filter glows: those
@@ -214,6 +224,9 @@ function needsFallback(value, vars, setters) {
     if (setters && setters.has(n)) {
       for (const s of setters.get(n)) if (needsFallback(s.value, vars, null)) return true;
     }
+    // An inline-kernel categorical local resolves to a slot hue (light-dark) that
+    // isn't in the global map — recognise it so its painter isn't skipped.
+    if (INLINE_KERNEL_LOCAL.test(n) && !(n in vars) && (!setters || !setters.has(n))) return true;
   }
   return false;
 }
@@ -300,6 +313,20 @@ function buildRules(themeCss, baseCss) {
       if (m) rules.push({ selector: p.selector, prop: p.prop, light: m.light, dark: m.dark, important: true });
       continue;
     }
+    // (3b') inline-kernel categorical locals (--region-hue / --series-color /
+    // --actor-color, set inline per instance, no CSS setter) → bind to a
+    // representative slot hue so the paint degrades to a single on-brand tone
+    // rather than dropping. Covers the highlight-map fill, radar area fill, and
+    // journey actor chip; the map key swatches + solid actor dots are inline
+    // presentation attributes a stylesheet can't reach (kernel-hook follow-up).
+    const inlineLocals = localsUsed.filter((n) => INLINE_KERNEL_LOCAL.test(n) && !model.setters.has(n));
+    if (inlineLocals.length) {
+      const locals = {};
+      for (const n of inlineLocals) locals[n] = INLINE_KERNEL_REPRESENTATIVE;
+      const m = bothModes(p.value, vars, locals);
+      if (m) rules.push({ selector: p.selector, prop: p.prop, light: m.light, dark: m.dark, important: true });
+      continue;
+    }
     // (3c) same-element local (a variant sets the local on the very element the
     // painter styles). For each setter, append its variant SUFFIX to the painter's
     // OWN selector — targets the same element carrying that variant, whether the
@@ -360,15 +387,39 @@ function serialize(rules, declaredDark) {
   const block = (map, indent) => [...map.entries()]
     .map(([sel, decls]) => `${indent}${sel} { ${decls.join('; ')} }`).join('\n');
 
+  // The per-slide modifier that selects the opposite scheme (base.modifiers.css:
+  // section.dark / section.light flip a slide's color-scheme).
   const overrideMod = declaredDark ? 'section.light' : 'section.dark';
+  const overrideClass = overrideMod.slice('section'.length); // `.light` / `.dark`
+
+  // Scope one selector to the modifier. A chart slide IS the `<section>`, and the
+  // chart-frame classes sit on that SAME section (chart-family.js appends
+  // `chart-frame`, and `_class: dark` adds `dark` — one element). So:
+  //   • `:root`        → the tokens are redefined ON the modifier section
+  //     (`section.dark { --journey-mood-5: … }`), descendants inherit.
+  //   • `section…`     → SAME element: merge the modifier class onto the section's
+  //     first compound (`section.chart-frame` → `section.chart-frame.dark`), never
+  //     a phantom `section.darksection.…` concatenation or a never-matching
+  //     `section.dark section.…` descendant.
+  //   • anything else  → a descendant of the section (`.gantt-bar` →
+  //     `section.dark .gantt-bar`).
+  const scopeOne = (s) => {
+    const t = s.trim();
+    if (t === ':root') return overrideMod;
+    if (/^section(?![\w-])/.test(t)) {
+      const comb = t.match(/[ >+~]/);
+      const cut = comb ? comb.index : t.length;
+      return t.slice(0, cut) + overrideClass + t.slice(cut);
+    }
+    return `${overrideMod} ${t}`;
+  };
+
   let out = `@supports ${SUPPORTS_GUARD} {\n`;
   out += block(base, '  ');
   if (override.size) {
-    // Scope each override to the per-slide modifier — matched both as an ancestor
-    // (`section.dark .x`) and on the section itself (`section.dark.x`).
     const scoped = new Map(
       [...override.entries()].map(([sel, decls]) => [
-        sel.split(',').map((s) => `${overrideMod} ${s.trim()}, ${overrideMod}${s.trim()}`).join(', '),
+        sel.split(',').map(scopeOne).join(', '),
         decls,
       ]),
     );
