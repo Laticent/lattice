@@ -754,8 +754,8 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
 [data-lp-view=read-slides] section[data-lattice-slide]{width:1280px!important;height:720px!important;transform:scale(var(--lp-fit,.28));transform-origin:0 0}
 /* READ\xB7SLIDES floating Home/End \u2014 an AUTO-REVEALING "jump to top / bottom" affordance,
    OVERLAID (position:absolute over the scrolling stage), so the continuous scroll flow is
-   never obstructed by a docked row. It REVEALS on scroll and idle-HIDES after ~1.5s (the
-   script toggles .lp-show), so it never sits over content while you read; each button hides
+   never obstructed by a docked row. It REVEALS on scroll / touch / tap and idle-HIDES after
+   ~1.5s (the script toggles .lp-show), so it never sits over content while you read; each button hides
    (the hidden attribute) when its direction isn't actionable (up at the top, down at bottom).
    Same circular pill styling as Present's prev/next; the arrow-to-line glyph reads "to the
    very edge" (vs Present's single-chevron one-step). Anchored to #lp-app (position:relative)
@@ -932,7 +932,16 @@ function revealReadNav(){if(!readNav||view!=='read-slides')return;
  if(navIdle)clearTimeout(navIdle);if(!navEngaged)navIdle=setTimeout(hideReadNav,1500);}
 if(readNav){
  var rStage=document.getElementById('lp-stage');
- if(rStage)rStage.addEventListener('scroll',revealReadNav,{passive:true});
+ if(rStage){
+  rStage.addEventListener('scroll',revealReadNav,{passive:true});
+  // iOS / in-app WebKit coalesces (and during momentum defers) the overflow container's
+  // scroll event, so a touch-drag scrolls the deck without firing it \u2014 the reveal never
+  // triggered on mobile (desktop masks this via the wheel + pointer paths). touchstart /
+  // touchmove fire reliably throughout the gesture; touchstart also doubles as the universal
+  // tap-to-summon-controls affordance, so a plain tap brings the buttons back.
+  rStage.addEventListener('touchstart',revealReadNav,{passive:true});
+  rStage.addEventListener('touchmove',revealReadNav,{passive:true});
+ }
  // Keep it up while the pointer is over it / it holds focus, so it never vanishes mid-reach.
  readNav.addEventListener('pointerenter',function(){navEngaged=true;if(navIdle)clearTimeout(navIdle);if(view==='read-slides'&&readNavDir())readNav.classList.add('lp-show');});
  readNav.addEventListener('pointerleave',function(){navEngaged=false;if(navIdle)clearTimeout(navIdle);navIdle=setTimeout(hideReadNav,1500);});

@@ -528,6 +528,11 @@ test('Read·Slides is unified onto Present\'s frame, with a floating Home/End ov
 	assert.match(html, /#lp-top\[hidden\],#lp-bottom\[hidden\]\{display:none\}/, 'a button hides when its edge is reached');
 	assert.match(html, /@media\(prefers-reduced-motion:reduce\)\{\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{transition:none/, 'reduced-motion snaps visibility');
 	assert.match(html, /rStage\.addEventListener\('scroll',revealReadNav,\{passive:true\}\)/, 'scrolling reveals the control');
+	// iOS/in-app WebKit coalesces the overflow container's scroll event during momentum, so
+	// touch-drag never fired the reveal on mobile — touchstart/touchmove drive it reliably
+	// (touchstart also = tap-to-summon). Regression guard for "auto reveal not working on mobile".
+	assert.match(html, /rStage\.addEventListener\('touchstart',revealReadNav,\{passive:true\}\)/, 'touch (and a plain tap) reveals the control on mobile');
+	assert.match(html, /rStage\.addEventListener\('touchmove',revealReadNav,\{passive:true\}\)/, 'a touch-drag scroll reveals the control on mobile');
 	assert.match(html, /if\(navIdle\)clearTimeout\(navIdle\);if\(!navEngaged\)navIdle=setTimeout\(hideReadNav,1500\)/, 'it idle-hides after 1.5s unless engaged');
 	// Present mouse wheel — one decisive notch = one slide (debounced), present-only.
 	assert.match(html, /addEventListener\('wheel',function\(e\)\{if\(view!=='present'\)return;if\(wheelBusy\)return;[\s\S]*?t\[d>0\?'next':'prev'\]\(\);e\.preventDefault\(\);\},\{passive:false\}\)/, 'present advances/reverses on a decisive wheel delta, debounced, present-only');
@@ -585,7 +590,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// peeks); an AUTO-REVEALING floating Home/End overlay (#lp-read-nav — arrow-to-line icons,
 	// reveal-on-scroll + 1.5s idle-hide, directional [hidden], safe-area insets, reduced-motion
 	// aware); and Present gained a debounced mouse-wheel handler.
-	assert.equal(sha, 'adc19d6621e3c7a8aab405d82de5d1a55d6db1863b4ef291f30bf00ac192f037', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, 'f780f764ef4b11df1b870ac4d0780e71181117da5839893856c6381cf7e9efd0', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
