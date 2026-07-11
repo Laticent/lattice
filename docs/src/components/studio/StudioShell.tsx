@@ -17,6 +17,7 @@ import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
+import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
 import { CommandPalette } from './CommandPalette';
@@ -178,6 +179,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
 	const [activeSlide, setActiveSlide] = React.useState(0); // 0-based; index into the VIEWED set
+	// Live mirrors of the active deck id + slide index, so the leave-capture (a stable
+	// callback that must NOT re-subscribe its pagehide listener per deck/slide change)
+	// can stamp WHICH deck/slide it snapshotted without taking them as deps.
+	const captureDeckRef = React.useRef('');
+	captureDeckRef.current = deck.id;
+	const activeSlideRef = React.useRef(0);
+	activeSlideRef.current = activeSlide;
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
 	// First-run state. A newcomer (never engaged) gets a reduced-density shell —
 	// side panels closed, a one-time welcome cue — so the killer intro deck and the
@@ -286,6 +294,97 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			.catch(() => setSavedThemes([]));
 	}, []);
 	React.useEffect(() => { refreshThemes(); }, [refreshThemes]);
+	// Dismiss the SSG instant-shell (studio.astro) once the live preview is ready.
+	// Fade over a beat so any sub-frame gap between removing the static slide and
+	// the live iframe revealing is imperceptible. Idempotent (the node is gone
+	// after the first call); a mount backstop below still clears it if the engine
+	// never signals a first render, so a broken engine can't trap the user behind it.
+	const dismissSsrShell = React.useCallback(() => {
+		const el = document.getElementById('studio-ssr-shell');
+		if (!el) return;
+		el.style.transition = 'opacity 220ms ease';
+		el.style.opacity = '0';
+		el.style.pointerEvents = 'none';
+		setTimeout(() => {
+			el.remove();
+			// Remove the shell's SLIDE CSS too, or its bare element selectors (the engine
+			// theme styles `section`/`li`/`h1` etc.) would bleed onto the hydrated app's
+			// own chrome once the shell is gone. The snapshot CSS is a tagged <style>;
+			// the newcomer critical CSS goes back inert (it was flipped to media="all").
+			document.getElementById('ssr-snap-css')?.remove();
+			const nc = document.getElementById('ssr-newcomer-css') as HTMLStyleElement | null;
+			if (nc) nc.media = 'not all';
+		}, 260);
+	}, []);
+	React.useEffect(() => {
+		// Backstop: never trap the user behind the static shell if the engine never
+		// signals a first render. 8s — the primary dismissal is onPreviewFirstRender
+		// (fires on the live iframe's load event, reliable even on slow mobile once the
+		// island hydrates), so this only fires on a genuinely broken engine, where a
+		// shorter fade-out is better than a long stare. 8s is a deliberate compromise:
+		// shortened from 12s (which left a broken-engine user waiting far too long) but
+		// NOT down to 5s — on a slow-3G phone a working engine's 505KB fetch + hydrate +
+		// first render can plausibly exceed 5s, and dismissing then would prematurely
+		// reveal the app's own un-rendered preview (checker finding; the exact ceiling
+		// wants real-device confirmation, #23).
+		const t = setTimeout(dismissSsrShell, 8000);
+		return () => clearTimeout(t);
+	}, [dismissSsrShell]);
+	// Snapshot the live preview's CURRENT slide (rendered HTML + just the CSS it
+	// uses, from the iframe's CSSOM) into localStorage, so a RETURNING visit paints
+	// the real last slide in the instant-shell instead of a blank screen (front A
+	// only bakes the newcomer slide at build time). Captured on leave (pagehide /
+	// tab-hide) and once shortly after the first render — never per-keystroke.
+	const previewBoxRef = React.useRef<HTMLDivElement>(null);
+	const lastCaptureRef = React.useRef(0);
+	const captureLastSlide = React.useCallback(() => {
+		try {
+			const fr = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+			if (!fr) return;
+			// Dedupe back-to-back captures: pagehide + visibilitychange both fire on a
+			// mobile nav, and the post-first-render timer can overlap — the CSSOM walk +
+			// ~140KB write isn't worth running twice within a beat.
+			const now = Date.now();
+			if (now - lastCaptureRef.current < 500) return;
+			lastCaptureRef.current = now;
+			const root = document.documentElement;
+			const geom = (fr.parentElement as { __latticeGeom?: { width: number; height: number } } | null)?.__latticeGeom;
+			// captureFromFrame sanitizes the slide HTML at the chokepoint (#22) before it
+			// can ever be stored + replayed into the top document — nothing to do here.
+			const snap = captureFromFrame(fr, {
+				w: geom?.width || 1280,
+				h: geom?.height || 720,
+				palette: root.getAttribute('data-palette') || 'indaco',
+				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
+				// Stamp WHICH deck/slide this is, so the pre-paint replay paints it only when
+				// the app is about to boot this same deck — never deck B's slide over deck A.
+				deckId: captureDeckRef.current,
+				slideIndex: activeSlideRef.current,
+				themeUrlBase: options.themeBase,
+				ts: now,
+			});
+			if (snap) saveSnapshot(snap);
+		} catch {
+			/* best-effort — a failed capture just means the next visit uses the newcomer/none path */
+		}
+	}, [options.themeBase]);
+	React.useEffect(() => {
+		const onHide = () => {
+			if (document.visibilityState === 'hidden') captureLastSlide();
+		};
+		window.addEventListener('pagehide', captureLastSlide);
+		document.addEventListener('visibilitychange', onHide);
+		return () => {
+			window.removeEventListener('pagehide', captureLastSlide);
+			document.removeEventListener('visibilitychange', onHide);
+		};
+	}, [captureLastSlide]);
+	// First-render handler for the preview: dismiss the instant-shell, then capture
+	// the freshly-rendered slide (delayed so async chart/mermaid draws are included).
+	const onPreviewFirstRender = React.useCallback(() => {
+		dismissSsrShell();
+		setTimeout(captureLastSlide, 1500);
+	}, [dismissSsrShell, captureLastSlide]);
 	// Saved LOCAL components from the same shared library (kind:'component') —
 	// authored + saved in the Fabricate Component Studio. They become insertable AND
 	// render styled (their CSS is injected where the deck uses them).
@@ -1680,8 +1779,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
-				<div className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" />
+				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}

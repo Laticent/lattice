@@ -150,6 +150,21 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Editing a slide in the Studio no longer re-parses the whole theme stylesheet on
+  every keystroke-render.** The Studio's live preview (`single-slide-render.ts`)
+  rewrote the entire preview-iframe document on every render — re-parsing the ~560KB
+  theme CSS and re-executing the runtime each time (~485ms on a throttled phone, the
+  bulk of the "FRAME"/"edit→paint" perf-overlay numbers). It now fingerprints
+  everything baked outside the slide (theme, mode, size, author CSS) and, when that's
+  unchanged, patches only the slide's content in the resident document — the browser
+  keeps the parsed stylesheet and the running runtime, so a warm edit drops from
+  ~485ms to ~2ms (measured, production dist, 4× CPU throttle). Any theme/mode/size
+  change still does a full rewrite so the new styles take effect. This brings the
+  single-slide preview in line with the multi-slide filmstrip, which already patched.
+  Front B of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
+
 ### Added
 
 - **The RENDER group gains a COALESCE row — how many edits the preview debounce
@@ -212,6 +227,27 @@ in patch versions.
   what to register without ever playing audio. Demonstrated in `examples/read-along-captions.md`.
   Audio naturalness stays UNVERIFIED (no TTS in CI) — only the display→spoken string behavior is
   claimed.
+- **The Studio now paints a real first slide instantly on a cold mobile load, instead
+  of a blank page until the app hydrates.** `/studio` was a `client:only` island with an
+  empty `<body>`, so on a phone the largest paint waited on React + CodeMirror hydration —
+  a ~6s Largest-Contentful-Paint on the live-perf overlay. The page now server-renders an
+  **instant shell** for a first-time visitor: the newcomer deck's title slide is rendered
+  through the owned engine at build time to static HTML + its **critical CSS** (pruned from
+  563KB to ~15KB gzipped via css-tree + jsdom), shown immediately with a server-rendered
+  welcome banner, then dismissed the moment the live preview's first render lands (no blank
+  gap, no layout shift — the slide scales by its own container queries). Measured against the
+  production build (headless Chrome, CPU 4×/6× + Slow-4G): **LCP 1156/1751ms → 304/531ms**,
+  now decoupled from device speed (it's a static element), turning the mobile LCP needle
+  green. The engine bundle is no longer eager-warmed ahead of first paint. A **returning
+  visitor** gets the same instant paint of **their own last slide**: on leaving the Studio
+  it snapshots the live preview (the rendered slide HTML + just the CSS it uses, pulled
+  from the iframe's CSSOM) to localStorage, and the pre-paint replay script paints that on
+  the next visit — measured LCP **700ms (light) / 1267ms (dark)** on a returning mobile
+  visit (was the same ~6s blank). The replayed snapshot is stamped with its own deck id
+  and only paints when it matches the deck the app is about to boot, so a returning user
+  never sees a brief flash of the wrong deck's last slide; the captured HTML is
+  re-sanitized at the storage boundary and `@import` rules are dropped from the captured
+  CSS. Front A of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
 - **The exported `.html` player's Read·Slides view now matches Present's frame, with
   floating Home/End buttons and mouse-wheel navigation in Present.** Read·Slides used to
   size each slide to fill the full width (edge-to-edge, no breathing room) and clipped the

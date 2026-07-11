@@ -52,6 +52,13 @@ export type DeckPreviewProps = {
 	className?: string;
 	'aria-label'?: string;
 	role?: React.AriaRole;
+	/**
+	 * Fired ONCE, after the first successful render resolves — the signal that the
+	 * live preview has taken over. studio.astro's SSG instant-shell listens for
+	 * this to dismiss itself, so the static first slide stays up until the live one
+	 * is ready (never a blank-preview gap).
+	 */
+	onFirstRender?: () => void;
 };
 
 /**
@@ -71,6 +78,7 @@ export function DeckPreview({
 	debounceMs = 0,
 	className,
 	role,
+	onFirstRender,
 	...aria
 }: DeckPreviewProps) {
 	// One renderer instance for this host (holds the theme + font caches).
@@ -82,6 +90,11 @@ export function DeckPreview({
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);
 	activeRef.current = active;
+	// One-shot first-render signal (SSG instant-shell dismissal). Held in refs so
+	// firing it never enters `render`'s dependency list.
+	const onFirstRenderRef = React.useRef(onFirstRender);
+	onFirstRenderRef.current = onFirstRender;
+	const firstRenderFiredRef = React.useRef(false);
 
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED
@@ -92,7 +105,30 @@ export function DeckPreview({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: extraTheme is read whole; its identity is captured by (name, css) — depending on the wrapper object would thrash.
 	const render = React.useCallback(() => {
 		const host = stageRef.current;
-		if (host && activeRef.current) engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss);
+		if (!host || !activeRef.current) return;
+		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss);
+		if (done && !firstRenderFiredRef.current) {
+			done
+				.then((st) => {
+					if (!st?.ok || firstRenderFiredRef.current) return;
+					const fire = () => {
+						if (firstRenderFiredRef.current) return;
+						firstRenderFiredRef.current = true;
+						onFirstRenderRef.current?.();
+					};
+					// renderInto resolves when the srcdoc is SET — the iframe's own load
+					// (parse + scale/reveal) fires LATER. Wait for that so a consumer
+					// (the SSG instant-shell dismissal) doesn't swap out its static slide
+					// while the live frame is still blank. Resolve runs as a microtask
+					// before the load macrotask, so the listener attaches in time; the
+					// readyState guard covers the already-loaded edge.
+					const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+					if (!fr) fire();
+					else if (fr.contentDocument?.readyState === 'complete') fire();
+					else fr.addEventListener('load', fire, { once: true });
+				})
+				.catch(() => {});
+		}
 	}, [sample, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
 	// Always hold the LATEST render closure in a ref, so the active rising-edge
