@@ -10,7 +10,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr');
+const { resolveTokenExpr, resolveDeclarationValue } = require('../../../lib/core/resolve-token-expr');
 
 describe('resolve-token-expr', () => {
   test('plain literals pass through verbatim (byte-identical)', () => {
@@ -66,5 +66,64 @@ describe('resolve-token-expr', () => {
   test('non-resolvable color-mix stops pass through (no crash on currentColor)', () => {
     const out = resolveTokenExpr('color-mix(in srgb, currentColor 10%, transparent)', {}, false);
     assert.ok(typeof out === 'string');
+  });
+});
+
+// The old-browser CSS-fallback generator (tools/build-chart-compat-css.js)
+// flattens WHOLE declaration values — multi-stop gradients whose stops are
+// light-dark(color-mix(...)) — not just single-colour token chains. These pin
+// that embedded-resolution behaviour: every colour function in the value must
+// collapse to a literal, the surrounding gradient syntax must survive intact,
+// and a value with no colour function must come out byte-identical.
+describe('resolveDeclarationValue (whole-declaration flatten)', () => {
+  // A cascade like the real chart-family kernel resolves against.
+  const vars = {
+    bg: 'light-dark(#ffffff, #0d1b2a)',
+    'chart-cat-1-hue': 'var(--chart-cat1, light-dark(#0A6CE0, #2E8BFF))',
+    'chart-cat-base': 'light-dark(var(--bg), black)',
+    'state-pass-hue': 'var(--chart-state-pass, light-dark(#1E9E48, #34D058))',
+  };
+
+  test('a value with no colour function is byte-identical', () => {
+    assert.equal(resolveDeclarationValue('180deg', vars, false), '180deg');
+    assert.equal(resolveDeclarationValue('1px solid transparent', vars, false), '1px solid transparent');
+  });
+
+  test('the pie radial stop (bare color-mix embedded) resolves to a hex', () => {
+    const out = resolveDeclarationValue(
+      'color-mix(in oklab, var(--chart-cat-1-hue) 42%, var(--chart-cat-base))', vars, false);
+    assert.match(out, /^#[0-9a-f]{6}$/i, `expected a hex, got ${out}`);
+  });
+
+  test('the gantt bar 4-stop gradient: every stop flattens, offsets + angle survive', () => {
+    const grad = 'linear-gradient(180deg, '
+      + 'light-dark(color-mix(in oklab, var(--state-pass-hue) 20%, var(--bg)), '
+      +            'color-mix(in oklab, var(--state-pass-hue) 48%, black)) 0%, '
+      + 'light-dark(color-mix(in oklab, var(--state-pass-hue) 38%, var(--bg)), '
+      +            'color-mix(in oklab, var(--state-pass-hue) 64%, black)) 100%)';
+    const light = resolveDeclarationValue(grad, vars, false);
+    const dark = resolveDeclarationValue(grad, vars, true);
+    // No modern colour function may survive — that is the whole point of the fallback.
+    for (const [mode, out] of [['light', light], ['dark', dark]]) {
+      assert.doesNotMatch(out, /light-dark\(|color-mix\(/, `${mode} still has a modern fn: ${out}`);
+      assert.match(out, /^linear-gradient\(180deg, #[0-9a-f]{6} 0%, #[0-9a-f]{6} 100%\)$/i,
+        `${mode} shape wrong: ${out}`);
+    }
+    // Light and dark must actually differ (the branch was really taken).
+    assert.notEqual(light, dark);
+  });
+
+  test('radial-gradient with three stops keeps its geometry keywords', () => {
+    const grad = 'radial-gradient(circle at 50% 40%, '
+      + 'color-mix(in oklab, var(--chart-cat-1-hue) 42%, var(--chart-cat-base)) 0%, '
+      + 'color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base)) 100%)';
+    const out = resolveDeclarationValue(grad, vars, false);
+    assert.doesNotMatch(out, /color-mix\(/, out);
+    assert.match(out, /^radial-gradient\(circle at 50% 40%, #[0-9a-f]{6} 0%, #[0-9a-f]{6} 100%\)$/i, out);
+  });
+
+  test('an ident ending in a colour-func name does not false-match', () => {
+    // `my-var(...)` must NOT be treated as `var(...)`.
+    assert.equal(resolveDeclarationValue('my-var(--x)', vars, false), 'my-var(--x)');
   });
 });
