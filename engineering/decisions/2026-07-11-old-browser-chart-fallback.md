@@ -47,9 +47,7 @@ flat-literal twin of every chart colour inside
 `@supports not (color: light-dark(#000, #fff))`. A modern engine evaluates the
 guard to *false* and never applies the block (byte-identical render, provable
 with `pixel-check` and the inert-block gate); an old engine applies it and gets a
-parseable colour. Light values are the default; dark values ride
-`@media (prefers-color-scheme: dark)` + `section.dark` — so the fallback flips
-per canvas with **no JS and no first-paint flash**. This is the Mermaid
+parseable colour, with **no JS and no first-paint flash**. This is the Mermaid
 dual-bake philosophy (resolve at build, toggle by scheme) expressed through
 `@supports`. The block is appended to each `dist/themes/*.min.css`, the sheet the
 exported HTML bundles for browsers (`lib/core/marp-bundle.js`); the PDF path
@@ -93,6 +91,27 @@ cross-element cases (a journey face reads `--mood-color` set on its *parent*
 
 The recipe stays in the authored CSS; the generator mirrors it flattened via the
 shared offline evaluator (`lib/core/resolve-token-expr.js`), so it can't drift.
+
+### Dark mode — `color-scheme`, not OS preference
+
+Lattice drives dark by **`color-scheme`**: a `-dark` theme sets
+`:root { color-scheme: dark }` (deck-wide) and the `section.dark` / `section.light`
+modifiers flip a single slide (`base.modifiers.css`). `light-dark()` follows that,
+**not** the OS. So the fallback:
+
+- resolves its **default** branch at the theme's *declared* scheme — a light theme
+  bakes light literals, a `-dark` theme bakes **dark** literals (the first draft
+  defaulted every theme to light, which would have painted a `-dark` deck's charts
+  in light colours on the TV — caught in maker-checker);
+- scopes the **opposite** scheme to the per-slide modifier that selects it
+  (`section.dark …` on a light theme, `section.light …` on a dark theme).
+
+An OS `@media (prefers-color-scheme: dark)` variant is deliberately NOT emitted: a
+light-theme deck's `light-dark()` stays light regardless of OS, so keying the
+fallback off the OS would flip charts to dark on a dark-OS TV where the live render
+would not. (A deck that opts into `color-scheme: light dark` to follow the OS is a
+rare ad-hoc `style:` directive; its old-engine charts stay on the theme's declared
+scheme — a documented gap.)
 
 ### Scope
 
