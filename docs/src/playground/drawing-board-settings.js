@@ -24,7 +24,7 @@ import {
   PERF_OVERLAY_AVAILABLE,
   perfOverlayEnabled,
   setPerfOverlayEnabled,
-} from './perf-overlay-prefs.js';
+} from './perf-overlay-prefs.ts';
 import { setToursEnabled, toursEnabled } from './tour-prefs.js';
 
 const MODEL_KEY = 'lattice-db-model'; // master on/off

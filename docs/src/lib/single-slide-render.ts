@@ -26,6 +26,7 @@
 import { applyDebug } from '../playground/debug-overlay.js';
 import { linkGuardAgent } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
+import { recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
@@ -115,6 +116,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	const mermaidUrl = opts.mermaidUrl || MERMAID;
 	const themes = createThemeFetcher(themeBase);
 
+	// Last sanitize duration (ms), stashed by srcdoc() and read by renderInto for
+	// the perf-overlay RENDER group. A closure var (not a return value) keeps the
+	// srcdoc signature — and the #22 sanitize call site — untouched; renderInto
+	// copies it into a local right after the call so a second concurrent host
+	// can't clobber the sample.
+	let lastSanitizeMs = 0;
+
 	// Self-hosted preview fonts. Lazy-imported + cached: font-embed.js pulls
 	// bundled .woff2 that Node can't load, so a static import would break this
 	// module's unit test. The @font-face references the woff2 by URL (browser
@@ -142,7 +150,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Strip script-bearing content before it enters this same-origin,
 		// un-sandboxed frame (#616 T-CONTENT) — the runtime/Mermaid scripts are
 		// appended separately below, so they're untouched.
+		const tSanitize = performance.now();
 		html = sanitizeSlideHtml(html);
+		lastSanitizeMs = performance.now() - tSanitize;
 		const bg = mode === 'dark' ? '#0c0c0c' : '#e7e7ea';
 		// Register the vendored faces first (@font-face is position-independent,
 		// but keeping it up top documents intent). Without this the iframe has no
@@ -240,6 +250,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		if (!PG) return Promise.resolve({ ok: false, slides: 0, error: 'engine not loaded' });
 		const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 		const mode = modeOverride ?? docMode;
+		// Perf-overlay timing: whole edit→paint span starts here (includes the
+		// usually-warm theme ensure below); per-stage deltas are taken inline.
+		const tStart = performance.now();
 		const themeReady = extra
 			? Promise.all([themes.ensureBase(), ensurePreviewFonts()]).then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited
@@ -252,13 +265,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			.then(async () => {
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
 				let out: { html: string; css: string; width?: number; height?: number };
+				let engineMs = 0;
 				try {
 					// Resolve a sample deck's `![bg](sample-image-*.svg)` against the
 					// staged samples/ dir (sibling of themes/ under the hashed root).
 					// Make it ABSOLUTE — themeBase is root-relative, and the engine's
 					// WHATWG-URL resolver needs an absolute base.
 					const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
+					const tEngine = performance.now();
 					out = await renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase });
+					engineMs = performance.now() - tEngine;
 				} catch (e) {
 					console.error('single-slide render failed', e);
 					return { ok: false, slides: 0, error: String((e as Error)?.message || e) };
@@ -266,6 +282,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Stash the resolved slide box so scaleFrame divides by the right width.
 				const geom: Geom = { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H };
 				(host as LiveHost).__latticeGeom = geom;
+				// Section count — computed here so the onload sample below captures it.
+				const slides = (out.html.match(/<\/section>/g) || []).length;
 				let fr = host.querySelector<HTMLIFrameElement>('iframe.live');
 				if (!fr) {
 					fr = document.createElement('iframe');
@@ -301,17 +319,46 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// single-slide path strictly FOLLOWS THE DECK (force:null) — it never reads
 				// the toolbar override, so a specimen on the landing/showcase pages can't
 				// inherit a debug flag a viewer flipped in the Studio/Playground.
+				// Declared before onload so the (async) load handler closes over the
+				// final values, stamped just below after the synchronous srcdoc setup.
+				// srcBytes is captured as a number here so the closure doesn't retain
+				// the whole `markdown` source string per live host.
+				let tFrameStart = 0;
+				let sanitizeMs = 0;
+				const srcBytes = markdown.length;
 				fr.onload = () => {
+					// Fit first (timed around the existing clientWidth read — no extra
+					// reflow), then debug overlay + video bridge which are outside the
+					// measured fit. frameMs is the browser's own parse/layout of the
+					// srcdoc: from the end of our synchronous setup below to this load event.
+					const tFit = performance.now();
 					scaleFrame(host);
+					const fitMs = performance.now() - tFit;
 					applyDebug(fr, { force: null });
 					// Parent-hosted video playback: tap a video poster in a Studio preview
 					// to play the clip in a centered lightbox (the link guard bridges to it).
 					installVideoBridge(fr.contentWindow);
+					const now = performance.now();
+					recordRenderSample({
+						engineMs,
+						sanitizeMs,
+						frameMs: now - tFrameStart,
+						fitMs,
+						totalMs: now - tStart,
+						slides,
+						srcBytes,
+					});
 				};
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
+				// srcdoc() runs the sanitize pass; copy its duration out of the shared
+				// closure var before an interleaved render can overwrite it.
+				sanitizeMs = lastSanitizeMs;
 				scaleFrame(host);
 				host.classList.add('is-live');
-				const slides = (out.html.match(/<\/section>/g) || []).length;
+				// Stamp AFTER the synchronous setup (srcdoc build + sanitize + pre-load
+				// fit) so frameMs isolates the browser's async parse/layout — the build
+				// and sanitize costs are still captured by totalMs and sanitizeMs.
+				tFrameStart = performance.now();
 				return { ok: true, slides, error: null };
 			})
 			.catch((e) => {
