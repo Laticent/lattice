@@ -13635,6 +13635,16 @@ section.light {
 }
 
 
+/* ── LIGHT VARIANT (deck-wide `color-mode: light`) ──
+ * The deck-wide light pin. A color-scheme-only token, deliberately distinct from the
+ * bare `.light` (which doubles as the `divider.light` LAYOUT component) so pinning a
+ * whole deck light never re-lays-out its dividers. Same effect as `.light` otherwise:
+ * forces `color-scheme: light` so the palette's light-dark() tokens resolve light. */
+section.color-light {
+  color-scheme: light;
+}
+
+
 /* ── SYSTEM VARIANT (deck-wide `color-mode: system`) ──
  * The section follows the RECEIVER's OS: `color-scheme: light dark` lets the UA
  * pick a side from `prefers-color-scheme`, and the palette's light-dark() surface

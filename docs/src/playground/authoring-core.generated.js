@@ -948,19 +948,20 @@ ${indent}   - ${body.trim()}`;
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
       const body = fmBlock[1];
-      if (/^\s*color-mode:\s*\S/m.test(body)) return [];
       const cm = body.match(/^\s*class:\s*["']?([^"'\n]*)["']?\s*$/m);
       if (!cm) return [];
-      const token = cm[1].split(/\s+/).filter(Boolean).find((t) => t.toLowerCase() === "dark" || t.toLowerCase() === "light");
+      const token = cm[1].split(/\s+/).filter(Boolean).find((t2) => t2.toLowerCase() === "dark" || t2.toLowerCase() === "light");
       if (!token) return [];
+      const t = token.toLowerCase();
+      const hasKey = /^\s*color-mode:\s*\S/m.test(body);
       return [{
         slide: 0,
         rule: "deprecated-class-color-mode",
         severity: "info",
         classToken: token,
         line: cm[0].trim(),
-        message: `\`class: ${token.toLowerCase()}\` is the legacy color axis \u2014 prefer the first-class \`color-mode: ${token.toLowerCase()}\` (which also offers system / inherited)`,
-        fix: `Replace the deck-wide \`class: ${token.toLowerCase()}\` with \`color-mode: ${token.toLowerCase()}\`.`
+        message: hasKey ? `\`class: ${t}\` is superseded by the \`color-mode:\` key present in this deck \u2014 the key wins, so this legacy color token is redundant` : `\`class: ${t}\` is the legacy color axis \u2014 prefer the first-class \`color-mode: ${t}\` (which also offers system / inherited)`,
+        fix: hasKey ? `Remove the redundant \`${t}\` from the deck-wide \`class:\` (the \`color-mode:\` key already governs color).` : `Replace the deck-wide \`class: ${t}\` with \`color-mode: ${t}\`.`
       }];
     }
     function findUnknownClaim(source, claimNames) {

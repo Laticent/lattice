@@ -189,13 +189,15 @@ describe('deck linter', () => {
     }
   });
 
-  test('nudges a deck-wide `class: dark`/`light` toward `color-mode:` (info), suppressed when the key is present', () => {
+  test('nudges a deck-wide `class: dark`/`light` toward `color-mode:` (info); flags it as redundant when the key is also present', () => {
     const nudge = lintText('---\ntheme: indaco\nclass: dark\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'deprecated-class-color-mode');
     assert.ok(nudge, 'the legacy color alias should nudge');
     assert.equal(nudge.severity, 'info');
     assert.match(nudge.fix, /color-mode: dark/);
-    // Suppressed once the first-class key is present (the alias is inert then).
-    assert.equal(lintText('---\ntheme: indaco\nclass: dark\ncolor-mode: light\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'deprecated-class-color-mode').length, 0);
+    // Half-migrated (both present): still flagged, now as a redundant leftover to remove.
+    const halfMigrated = lintText('---\ntheme: indaco\nclass: dark\ncolor-mode: light\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'deprecated-class-color-mode');
+    assert.ok(halfMigrated, 'a leftover class: alias beside the key should still be flagged');
+    assert.match(halfMigrated.message, /superseded|redundant/);
     // A non-color class token is never nudged.
     assert.equal(lintText('---\ntheme: indaco\nclass: numbered\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'deprecated-class-color-mode').length, 0);
   });

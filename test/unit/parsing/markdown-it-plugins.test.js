@@ -166,13 +166,24 @@ describe('markdown-it-plugins', () => {
     assert.ok(cls.includes('color-inherited'), `missing 'color-inherited'; got [${cls.join(', ')}]`);
   });
 
-  test('deckClassPropagate: `color-mode: dark|light` maps to the dark/light section token', () => {
-    for (const [val, tok] of [['dark', 'dark'], ['light', 'light']]) {
+  test('deckClassPropagate: `color-mode: dark` stamps `dark`; `light` stamps the collision-free `color-light`', () => {
+    // light maps to `color-light` (not bare `light`, which is the divider.light LAYOUT component).
+    for (const [val, tok] of [['dark', 'dark'], ['light', 'color-light']]) {
       const m = makeHost(plugins.deckClassPropagate);
       const { html } = m.render(['---', `color-mode: ${val}`, '---', '', '# Slide'].join('\n'));
       const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
       assert.ok(cls.includes(tok), `color-mode: ${val} should stamp '${tok}'; got [${cls.join(', ')}]`);
     }
+  });
+
+  test('deckClassPropagate: `color-mode: light` does NOT stamp the bare `light` (would re-layout divider.light)', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const md = ['---', 'color-mode: light', '---', '', '<!-- _class: divider -->', '# Part Two'].join('\n');
+    const { html } = m.render(md);
+    const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
+    assert.ok(cls.includes('color-light'), `should stamp 'color-light'; got [${cls.join(', ')}]`);
+    assert.ok(cls.includes('divider'), `divider layout preserved; got [${cls.join(', ')}]`);
+    assert.ok(!cls.includes('light'), `must NOT add bare 'light' (that is the divider.light subtopic variant); got [${cls.join(', ')}]`);
   });
 
   test('deckClassPropagate: `color-mode:` WINS over the legacy `class: dark` alias (no conflicting token)', () => {

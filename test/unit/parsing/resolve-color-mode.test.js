@@ -23,7 +23,8 @@ const { COLOR_MODE_TOKENS } = require('../../../lib/core/color-mode');
 
 describe('resolve-color-mode', () => {
   test('register maps each name to its section token', () => {
-    assert.equal(colorModeClass('light'), 'light');
+    // light → `color-light` (NOT bare `light`, which is the divider.light layout component)
+    assert.equal(colorModeClass('light'), 'color-light');
     assert.equal(colorModeClass('dark'), 'dark');
     assert.equal(colorModeClass('system'), 'color-system');
     assert.equal(colorModeClass('inherited'), 'color-inherited');

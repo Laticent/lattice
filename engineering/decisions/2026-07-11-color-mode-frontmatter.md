@@ -81,9 +81,14 @@ PNG, HTML player) inherit it with no per-surface color code.
 
 Per value, the CSS emitted:
 
-- **light / dark** → the existing `section.light` / `section.dark` tokens (`color-scheme: light|dark`),
-  stamped per-section. Robust: a direct declaration on the section beats inheritance — the fix #897
-  relied on when it found an older engine repaints `:root` but doesn't re-propagate to deep sections.
+- **light / dark** → a per-section `color-scheme` token. `dark` reuses the existing `section.dark`
+  (which also carries the dark-canvas background treatment). `light` maps to a NEW, collision-free
+  `section.color-light { color-scheme: light }` — deliberately NOT the bare `section.light`, because
+  `section.<x>.light` is a pre-existing LAYOUT component (the bright centered `divider.light`
+  "subtopic" variant), so a deck-wide `light` stamp would silently re-lay-out every divider. Robust:
+  a direct declaration on the section beats inheritance — the fix #897 relied on when it found an
+  older engine repaints `:root` but doesn't re-propagate to deep sections. (The per-slide
+  `<!-- _class: light -->` still uses the bare `light` — it's an explicit single-slide choice.)
 - **system** → a new `section.color-system { color-scheme: light dark }` token — the section follows
   the OS, and the palette's `light-dark()` picks the side. (Same effect the CLI already got from a
   hand-written `color-scheme: light dark`.)

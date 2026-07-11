@@ -1007,15 +1007,22 @@ function renderMermaid(definition, dark) {
 const { resolveSize, orientationFor, orientationCss } = require('./lib/engine/css');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 function preprocessMermaid(source) {
-  const fmMatch = source.match(/^---\n[\s\S]*?\n---/);
+  const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
   const fm = fmMatch ? fmMatch[0] : '';
-  // `color-mode: dark` (the first-class key) OR the legacy `class: … dark` alias OR a
-  // raw `color-scheme: dark`. system/inherited bake LIGHT (a static Mermaid SVG can't
-  // follow the OS/host), matching the static-export default.
-  const globalDark =
-    /^\s*color-mode:\s*["']?dark\b/m.test(fm) ||
-    /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm) ||
-    /color-scheme\s*:\s*dark/.test(fm);
+  // The first-class `color-mode:` key WINS (it supersedes the legacy `class:` color axis),
+  // so when a known color-mode is present the Mermaid bake follows it ALONE — otherwise a
+  // half-migrated deck (`color-mode: light` + a leftover `class: dark`) would render light
+  // slides with DARK-baked diagrams. Only `dark` bakes dark; light/system/inherited bake
+  // LIGHT (a static Mermaid SVG can't follow the OS/host — the static-export default).
+  // When no `color-mode:` key is present, fall back to the legacy `class: … dark` alias / a
+  // raw `color-scheme: dark`. Case-insensitive, matching colorModeClass + deckScheme.
+  const cmDark = /^\s*color-mode:\s*["']?([A-Za-z]+)\b/mi.exec(fm);
+  const cmKey = cmDark ? cmDark[1].toLowerCase() : '';
+  const knownCm = cmKey === 'light' || cmKey === 'dark' || cmKey === 'system' || cmKey === 'inherited';
+  const globalDark = knownCm
+    ? cmKey === 'dark'
+    : /^\s*class:\s*["']?[^"'\n]*\bdark\b/mi.test(fm) ||
+      /color-scheme\s*:\s*dark/i.test(fm);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
