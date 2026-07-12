@@ -15181,7 +15181,7 @@ section.chart-frame {
  * (see below). Components consume only --catN-fill / --catN-ink and stay
  * palette-blind. Eight slots — past ~6 categories perceptual distinction
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
-/* chart-palette recipe compiled to per-theme planes — see build-chart-palette-css.js */
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
 
 /* ── Non-colour chart constants — SHIPPED as-is. calc/clamp/cqi predate
  *    color-mix by a decade and are safe on every engine, so these stay OUT of the

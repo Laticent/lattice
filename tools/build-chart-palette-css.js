@@ -132,26 +132,39 @@ function expandTemplates(region) {
   );
 }
 
-/** Read the sentinel-delimited recipe region from chart-family.css → an ordered
- *  list of `{ name, value }` token definitions (the colours to compile). Template
- *  blocks (`@expand … @end`) are expanded first. */
+/** Collect `{ name, value }` recipe tokens from every `>>> chart-palette-recipe >>>`
+ *  … `<<< chart-palette-recipe` region across the scanned chart files. chart-family.css
+ *  holds the shared spectrum; a component `*.styles.css` may add its OWN region for its
+ *  bespoke colour tokens (co-located with the component, discovered automatically —
+ *  no central-file edit, so components stay independent). Template blocks
+ *  (`@expand … @end`) are expanded first; first definition wins across files. */
 function recipeTokens() {
-  const css = fs.readFileSync(CHART_FAMILY, 'utf8');
-  const start = css.indexOf('>>> chart-palette-recipe');
-  const end = css.indexOf('<<< chart-palette-recipe');
-  if (start === -1 || end === -1 || end < start) {
-    throw new Error('build-chart-palette-css: chart-palette-recipe sentinels not found in chart-family.css');
-  }
-  // Expand templates BEFORE stripping comments (the templates ARE comments), then
-  // strip the remaining (documentation) comments and read the declarations.
-  const region = expandTemplates(css.slice(start, end)).replace(/\/\*[\s\S]*?\*\//g, '');
   const out = [];
   const seen = new Set();
-  for (const m of region.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
-    const name = m[1].slice(2);
-    if (seen.has(name)) continue; // first definition wins (source order)
-    seen.add(name);
-    out.push({ name, value: m[2].trim() });
+  // chart-family first (the shared spectrum other tokens build on), then the rest.
+  const files = [CHART_FAMILY, ...scannedFiles().filter((f) => f !== CHART_FAMILY)];
+  for (const file of files) {
+    const css = fs.readFileSync(file, 'utf8');
+    let idx = 0;
+    for (;;) {
+      const start = css.indexOf('>>> chart-palette-recipe', idx);
+      if (start === -1) break;
+      const end = css.indexOf('<<< chart-palette-recipe', start);
+      if (end === -1) throw new Error(`build-chart-palette-css: unterminated chart-palette-recipe in ${file}`);
+      // Expand templates BEFORE stripping comments (the templates ARE comments), then
+      // strip the remaining (documentation) comments and read the declarations.
+      const region = expandTemplates(css.slice(start, end)).replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const m of region.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
+        const name = m[1].slice(2);
+        if (seen.has(name)) continue;
+        seen.add(name);
+        out.push({ name, value: m[2].trim() });
+      }
+      idx = end + ('<<< chart-palette-recipe'.length);
+    }
+  }
+  if (!out.length) {
+    throw new Error('build-chart-palette-css: no chart-palette-recipe region found in chart-family.css');
   }
   return out;
 }

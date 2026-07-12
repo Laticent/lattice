@@ -494,20 +494,8 @@ function bundle() {
   }
   const chartFamily = readIfExists(CHART_FAMILY_SOURCE);
   if (chartFamily) {
-    // Strip the chart-palette recipe (the `light-dark()`/`color-mix()` colour token
-    // definitions) from the SHIPPED bundle — it is a build-time INPUT that
-    // build-chart-palette-css.js compiles to flat per-theme planes (appended to each
-    // dist/themes/*.min.css). Shipping it raw would break old engines. The sentinel
-    // pair delimits the region; the geometry/weight tokens live OUTSIDE it and stay.
-    const stripped = chartFamily.replace(
-      /\/\*\s*>>> chart-palette-recipe[\s\S]*?<<< chart-palette-recipe : end <<<\s*\*\//,
-      '/* chart-palette recipe compiled to per-theme planes — see build-chart-palette-css.js */',
-    );
-    if (stripped === chartFamily) {
-      throw new Error('build-css: chart-palette-recipe sentinels not found in chart-family.css (strip failed)');
-    }
     parts.push(`/* === ${CHART_FAMILY_SOURCE} === */`);
-    parts.push(stripped);
+    parts.push(chartFamily);
   }
   const qrGeneral = readIfExists(QR_GENERAL_SOURCE);
   if (qrGeneral) {
@@ -555,7 +543,18 @@ function bundle() {
     parts.push('/* === generated: Form per-family slicing (frame manifests `slicing`) === */');
     parts.push(slicing);
   }
-  return parts.join('\n');
+  // Strip EVERY chart-palette recipe region (chart-family's shared spectrum + any
+  // per-component region) from the SHIPPED bundle — they are build-time INPUTS that
+  // build-chart-palette-css.js compiles to flat per-theme planes (appended to each
+  // dist/themes/*.min.css). Shipping the raw `light-dark()`/`color-mix()` recipe would
+  // break old engines. The generator reads the regions from SOURCE, so they stay.
+  const RECIPE_REGION = /\/\*\s*>>> chart-palette-recipe[\s\S]*?<<< chart-palette-recipe : end <<<\s*\*\//g;
+  const joined = parts.join('\n');
+  const stripped = joined.replace(RECIPE_REGION, '/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */');
+  if (stripped === joined) {
+    throw new Error('build-css: no chart-palette-recipe region found to strip — is chart-family.css\'s recipe intact?');
+  }
+  return stripped;
 }
 
 function main(argv) {
