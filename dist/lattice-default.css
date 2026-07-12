@@ -5073,8 +5073,12 @@ section.journey .journey-face {
   width: 2.8125cqi;
   height: 2.8125cqi;
   color: var(--mood-color);
-  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--text-body) 10%, transparent));
+  filter: drop-shadow(0 1px 0 var(--journey-face-shadow));
 }
+/* The face disc's fill via a CSS rule (not the emitted `fill="var(--journey-face-bg)"`
+ * presentation attr — var() in a `fill=` attr is flaky on old WebKit → black; a CSS
+ * `fill: var()` is safe). --journey-face-bg is already a compiled flat token. */
+section.journey .journey-face-disc { fill: var(--journey-face-bg); }
 section.journey .journey-mood[data-mood="5"] { --mood-color: var(--journey-mood-5); }
 section.journey .journey-mood[data-mood="4"] { --mood-color: var(--journey-mood-4); }
 section.journey .journey-mood[data-mood="3"] { --mood-color: var(--journey-mood-3); }
@@ -5186,7 +5190,7 @@ section.journey.curve .journey-curve {
    * scale survives non-uniform viewBox stretching. */
 }
 section.journey.curve .journey-curve polyline {
-  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--text-body) 6%, transparent));
+  filter: drop-shadow(0 1px 0 var(--journey-vface-shadow));
 }
 section.journey.curve .journey-curve .journey-curve-grid {
   /* `stroke="currentColor"` on the line element resolves via the
