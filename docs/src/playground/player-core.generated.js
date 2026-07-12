@@ -354,8 +354,11 @@ function terminate(t) {
   return /[.!?;:…]$/.test(s) ? s : `${s}.`;
 }
 function labelValue(label, value) {
-  const l = String(label ?? "").replace(/[.!?;:…,—–-]+\s*$/, "").trim();
+  const raw = String(label ?? "").trim();
   const v = String(value ?? "");
+  if (!raw) return v;
+  if (/[?!]$/.test(raw)) return v ? `${raw} ${v}` : raw;
+  const l = raw.replace(/[.;:…,—–-]+\s*$/, "").trim();
   return l ? `${l}: ${v}` : v;
 }
 function coordinate(items) {

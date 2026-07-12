@@ -1134,3 +1134,13 @@ a DISPLAY/caption change (unlike the colon→comma spoken softening above): it c
 caption text and therefore the exported `.vtt` display glyphs — flagged for export sign-off, though
 `test:core`/`test:export` pass unchanged (no fixture used a terminator-bearing label). Guarded in
 `prose-projection.test.js` (the "Write." card asserts no `Write.:` and a clean `Write: …`).
+
+*Refinement (maker-checker, same day).* The first cut of `labelValue` stripped `?`/`!` too, which
+silently muted the `q-and-a` component — its pairs author the lead as a literal QUESTION ("Will the
+board raise cost?"), and dropping the `?` both lost the question and (had it been kept) doubled as
+"raise?:". Fixed: a label ending in a STRONG terminator (`?`/`!`) is kept and the value follows as its
+own sentence ("…raise cost? Yes, and here is the plan."), no colon; only a period/separator run strips
+to a colon. Guarded by a q-and-a assertion in `prose-projection.test.js`. Accepted edges (logged, not
+fixed): an abbreviation used AS a label loses its final period ("U.S." → "U.S:", rare for a card
+title/th/dt); and a period-lead combined with a state word + sublist can leave one uncleaned period
+mid-caption ("Write. (done): body") — a narrow checklist/obligation-matrix combination.

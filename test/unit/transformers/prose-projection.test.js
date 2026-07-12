@@ -425,6 +425,14 @@ test('speech generic: a card title ending in a period drops it before the colon 
 	assert.match(t, /Choose a component: Tag a slide\./);
 });
 
+test('speech generic: a question lead (q-and-a) KEEPS its "?" and is not fronted with a colon', () => {
+	const [t] = speak(sections(
+		`<section data-lattice-slide data-class="q-and-a" class="q-and-a"><div class="cell-stage"><ul><li>Will the board raise cost?<ul><li>Yes, and here is the plan.</li></ul></li></ul></div></section>`,
+	));
+	assert.match(t, /raise cost\? Yes, and here is the plan\./, 'question mark kept, answer follows as its own sentence');
+	assert.doesNotMatch(t, /raise cost[?:]*:/, 'no colon fronting (and no "?:" doubling) after a question');
+});
+
 // ── projectDeckToSpeech: state-marker reading (Phase 3), from REAL engine renders ──
 // [x]/[-]/[ ]/[/] render with the glyph STRIPPED, meaning surviving only in a CSS
 // class; the projection recovers it. These render authored Markdown through the
