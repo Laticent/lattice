@@ -41,6 +41,12 @@ const {
   CANONICAL_FS_TOKENS,
   SINGLETON_TAGS,
   checkPreviewHtmlSinks,
+  checkSnapshotHtmlSinks,
+  SANCTIONED_SNAPSHOT_SINKS,
+  SNAPSHOT_INJECT_MARKER,
+  SNAPSHOT_WRITE_MARKER,
+  SNAPSHOT_KEY_LITERAL,
+  referencesSnapshot,
   checkOpenRouterBudget,
   SANCTIONED_OPENROUTER_SPENDERS,
   SANCTIONED_OPENROUTER_WORKFLOWS,
@@ -367,6 +373,55 @@ describe('check-ownership', () => {
       const stripped = src.replace(new RegExp(SANITIZE_CALL.source, 'g'), 'noop(');
       assert.ok(PREVIEW_BUILDER_MARKER.test(stripped), 'still a builder');
       assert.ok(!SANITIZE_CALL.test(stripped), 'sanitize call gone → gate would flag it');
+    });
+  });
+
+  // HARD RULE #22 part 2 — the returning-visitor SNAPSHOT (a MAIN-document injection path).
+  describe('snapshot-sink sanitization gate (HARD RULE #22, #616)', () => {
+    const ROOT = path.join(__dirname, '..', '..', '..');
+
+    test('the live tree raises no snapshot #22 violations', () => {
+      const errors = [];
+      checkSnapshotHtmlSinks(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('the allowlist is truthful: producer sanitizes, both sanctioned files reference the snapshot', () => {
+      const producer = SANCTIONED_SNAPSHOT_SINKS.find((s) => s.role === 'producer');
+      const psrc = fs.readFileSync(path.join(ROOT, producer.file), 'utf8');
+      assert.ok(SANITIZE_CALL.test(psrc), `${producer.file} (sole writer) must call sanitizeSlideHtml`);
+      for (const s of SANCTIONED_SNAPSHOT_SINKS) {
+        assert.ok(referencesSnapshot(fs.readFileSync(path.join(ROOT, s.file), 'utf8')), `${s.file} should reference the snapshot`);
+      }
+    });
+
+    test('the gate bites: producer dropping sanitize is flagged', () => {
+      const producer = SANCTIONED_SNAPSHOT_SINKS.find((s) => s.role === 'producer');
+      const src = fs.readFileSync(path.join(ROOT, producer.file), 'utf8');
+      const stripped = src.replace(new RegExp(SANITIZE_CALL.source, 'g'), 'noop(');
+      assert.ok(referencesSnapshot(stripped), 'still the producer');
+      assert.ok(!SANITIZE_CALL.test(stripped), 'sanitize gone → gate would flag it');
+    });
+
+    test('the gate bites: a NEW writer of the key (setItem) is on the snapshot path + write-marked', () => {
+      // A poisoned second writer — the actual trust-boundary attack.
+      const evil = `export function poison(html) { localStorage.setItem('${SNAPSHOT_KEY_LITERAL}', JSON.stringify({ v: 1, html })); }`;
+      assert.ok(referencesSnapshot(evil), 'writer is on the snapshot path (raw key)');
+      assert.ok(SNAPSHOT_WRITE_MARKER.test(evil), 'setItem write is detected → an unsanctioned writer would be flagged');
+    });
+
+    test('the gate bites: a reader via the imported loadSnapshot API (no literal) is still seen + inject-marked', () => {
+      // The idiomatic evasion the literal-only check missed.
+      const evil = "import { loadSnapshot } from '../playground/snapshot-cache.js';\nel.innerHTML = loadSnapshot().html;";
+      assert.ok(!evil.includes(SNAPSHOT_KEY_LITERAL), 'never names the raw key');
+      assert.ok(referencesSnapshot(evil), 'still on the snapshot path via the imported API');
+      assert.ok(SNAPSHOT_INJECT_MARKER.test(evil), 'innerHTML inject detected → an unsanctioned sink would be flagged');
+    });
+
+    test('the injection marker covers the non-innerHTML idioms too', () => {
+      for (const idiom of ['el.outerHTML = x', 'el.insertAdjacentHTML("beforeend", x)', 'document.write(x)', 'r.createContextualFragment(x)', 'dangerouslySetInnerHTML={{__html:x}}', '<Fragment set:html={x} />']) {
+        assert.ok(SNAPSHOT_INJECT_MARKER.test(idiom), `should match: ${idiom}`);
+      }
     });
   });
 

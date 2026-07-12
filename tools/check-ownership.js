@@ -1176,23 +1176,42 @@ function checkPreviewHtmlSinks(errors) {
 // HARD RULE #22, part 2 — the returning-visitor SNAPSHOT is a SECOND untrusted-HTML path,
 // but a MAIN-DOCUMENT one the srcdoc-builder check above can't see: the Studio caches the
 // last rendered slide's HTML in localStorage and `studio.astro`'s pre-paint replay injects
-// it via `innerHTML` into the TOP document (not a sandboxed srcdoc), and that HTML derives
-// from whatever deck the user last viewed (incl. a shared / AI-generated one). The gate
-// above scans only `.js/.ts` for the split-`<script>` srcdoc idiom, so it sees NEITHER the
-// `.astro` injection sink NOR the capture module. This closes both blind spots:
-//   • PRODUCER (`snapshot-cache.js`) is the sanitize chokepoint — it MUST keep its
-//     sanitizeSlideHtml calls (capture + storage boundary) or a poisoned snapshot gets stored.
-//   • SINK (`studio.astro` REPLAY) injects the ALREADY-sanitized snapshot; it is safe ONLY
-//     because the producer sanitized. Any NEW file that reads the snapshot key and injects it
-//     into a document (`innerHTML` / `set:html`) must be sanctioned here with its reasoning.
-// Same allowlist + anti-rot shape as the check above (unlisted sink fails, producer dropping
-// sanitize fails, stale entry fails). See engineering/decisions/2026-07-11-preview-performance-diagnosis.md.
+// it via `innerHTML` into the TOP (un-sandboxed, same-origin) document, and that HTML derives
+// from whatever deck the user last viewed (incl. a shared / AI-generated one) → #616 XSS →
+// OpenRouter-key theft. The srcdoc gate above scans only `.js/.ts` for the split-`<script>`
+// idiom, so it sees NEITHER the `.astro` injection sink NOR the capture module.
+//
+// The ACTUAL trust boundary is the VALUE stored under the key — the replay reads it raw, so
+// safety needs every WRITER to have sanitized. So this gate keys on the WRITE, not on today's
+// syntax:
+//   • PRODUCER (`snapshot-cache.js`) is the SOLE sanctioned writer + the sanitize chokepoint —
+//     it MUST keep its sanitizeSlideHtml calls. Any OTHER docs/src file that WRITES the key
+//     (`localStorage.setItem`) fails: a second, unsanitized writer would poison the replay.
+//   • SINK (`studio.astro` REPLAY) reads the already-sanitized value; safe because the producer
+//     is the only writer. A NEW file that reads the snapshot (the raw key OR the exported
+//     `SNAPSHOT_KEY`/`loadSnapshot` API — both idiomatic) and injects it into a document (a
+//     WIDE verb set) must be sanctioned here, for review, even though the sole-writer rule
+//     already makes the value clean.
+// COVERAGE BOUNDARY (be honest — a syntactic gate is defense-in-depth, not a proof): scanned
+// scope is `docs/src` only; a raw script under `docs/public` is out of scope. The load-bearing
+// guarantee is the sole-sanitizing-writer rule + `saveSnapshot`'s storage-boundary sanitize,
+// NOT sink enumeration. Same allowlist + anti-rot shape as the srcdoc gate above.
+// See engineering/decisions/2026-07-11-preview-performance-diagnosis.md.
 const SNAPSHOT_KEY_LITERAL = 'lattice-studio-last-slide';
-const SNAPSHOT_INJECT_MARKER = /\.innerHTML\s*=|set:html/;
+// A wide main-document injection verb set (the srcdoc gate's `.innerHTML=|set:html` misses most).
+const SNAPSHOT_INJECT_MARKER = /\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML|document\.write|createContextualFragment|dangerouslySetInnerHTML|set:html/;
+const SNAPSHOT_WRITE_MARKER = /\.setItem\s*\(/;
 const SANCTIONED_SNAPSHOT_SINKS = [
-  { file: 'docs/src/playground/snapshot-cache.js', role: 'producer', mustSanitize: true, why: 'captureFromFrame + saveSnapshot — sanitizes the slide HTML at BOTH the capture chokepoint and the storage boundary before it can be stored.' },
-  { file: 'docs/src/pages/studio.astro', role: 'sink', mustSanitize: false, why: 'REPLAY_JS pre-paint injects the already-sanitized snapshot into the instant-shell; safe by construction because the producer sanitized before storing.' },
+  { file: 'docs/src/playground/snapshot-cache.js', role: 'producer', why: 'The SOLE writer of the snapshot key — saveSnapshot sanitizes at the storage boundary AND captureFromFrame at the capture chokepoint, so the stored value is always clean.' },
+  { file: 'docs/src/pages/studio.astro', role: 'sink', why: 'REPLAY_JS pre-paint injects the already-sanitized snapshot into the instant-shell; safe because the producer is the only writer.' },
 ];
+
+// A file is "part of the snapshot path" if it names the raw key OR pulls the key/loader symbol
+// from snapshot-cache (the exported API — the idiomatic reader the literal-only test missed).
+function referencesSnapshot(src) {
+  if (src.includes(SNAPSHOT_KEY_LITERAL)) return true;
+  return /from\s+['"][^'"]*snapshot-cache/.test(src) && /\b(?:SNAPSHOT_KEY|loadSnapshot)\b/.test(src);
+}
 
 function listSnapshotFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
@@ -1211,26 +1230,33 @@ function checkSnapshotHtmlSinks(errors) {
   const seen = new Set();
   for (const file of listSnapshotFiles(DOCS_SRC)) {
     const rel = path.relative(ROOT, file);
-    if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
+    if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue; // tests assert payloads, not real sinks
     const src = fs.readFileSync(file, 'utf8');
-    if (!src.includes(SNAPSHOT_KEY_LITERAL)) continue; // not part of the snapshot path
+    if (!referencesSnapshot(src)) continue; // not part of the snapshot path
     const s = sanctioned.get(rel);
     if (s) {
       seen.add(rel);
-      if (s.mustSanitize && !SANITIZE_CALL.test(src)) {
+      if (s.role === 'producer' && !SANITIZE_CALL.test(src)) {
         errors.push(
-          `${rel} produces the returning-visitor snapshot HTML but no longer calls sanitizeSlideHtml (HARD RULE #22) — ` +
+          `${rel} is the sole snapshot writer but no longer calls sanitizeSlideHtml (HARD RULE #22) — ` +
           `restore the sanitize at capture + storage, or the replay injects unsanitized HTML into the top document (#616 XSS).`,
         );
       }
       continue;
     }
-    // An unsanctioned file that touches the snapshot key AND injects HTML into a document is a new sink.
-    if (SNAPSHOT_INJECT_MARKER.test(src)) {
+    // Unsanctioned file on the snapshot path: a WRITER (poisons the value) or a SINK (injects it).
+    if (SNAPSHOT_WRITE_MARKER.test(src)) {
       errors.push(
-        `${rel} injects the '${SNAPSHOT_KEY_LITERAL}' snapshot into a document (innerHTML/set:html) but is not a sanctioned ` +
-        `snapshot sink (HARD RULE #22) — the snapshot is untrusted, main-document, un-sandboxed HTML. Ensure it flows only from ` +
-        `the sanitized snapshot-cache producer, then add this file to SANCTIONED_SNAPSHOT_SINKS in tools/check-ownership.js with a justification.`,
+        `${rel} writes the '${SNAPSHOT_KEY_LITERAL}' snapshot key but is not the sanctioned producer (HARD RULE #22) — ` +
+        `only the sanitizing producer (snapshot-cache.js) may store it; a second writer could store unsanitized HTML the ` +
+        `pre-paint replay injects into the top document (#616 XSS). Route the write through saveSnapshot, or add this file to ` +
+        `SANCTIONED_SNAPSHOT_SINKS with a justification.`,
+      );
+    } else if (SNAPSHOT_INJECT_MARKER.test(src)) {
+      errors.push(
+        `${rel} injects snapshot-derived HTML into a document but is not a sanctioned snapshot sink (HARD RULE #22) — the ` +
+        `snapshot is untrusted, main-document, un-sandboxed HTML. Ensure it flows only from the sanitized snapshot-cache ` +
+        `producer, then add this file to SANCTIONED_SNAPSHOT_SINKS in tools/check-ownership.js with a justification.`,
       );
     }
   }
@@ -1734,6 +1760,13 @@ module.exports = {
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
   checkPreviewHtmlSinks,
+  checkSnapshotHtmlSinks,
+  SANCTIONED_SNAPSHOT_SINKS,
+  SNAPSHOT_INJECT_MARKER,
+  SNAPSHOT_WRITE_MARKER,
+  SNAPSHOT_KEY_LITERAL,
+  listSnapshotFiles,
+  referencesSnapshot,
   checkOpenRouterBudget,
   SANCTIONED_OPENROUTER_SPENDERS,
   SANCTIONED_OPENROUTER_WORKFLOWS,
