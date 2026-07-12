@@ -1,5 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildTrack } from '@/lib/cadenza';
+import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
 import { previewTtsVoice, slideToSpeech, useReadAloud } from './read-aloud';
 
 // The spoken-audio rung is irrelevant to the teleprompter timer that drives
@@ -200,6 +202,45 @@ describe('useReadAloud — audio-clock sync', () => {
 		});
 		const a = result.current.active;
 		expect(a && a.cueIndex === 0 && a.wordIndex > 0).toBe(true); // advanced WITHIN sentence 0, on the audio clock
+	});
+
+	// Per-voice pace calibration (2026-07-12-per-voice-pace-calibration.md) — slice 1 is
+	// MEASURE-ONLY: collect samples, but never let the fitted k rescale the played track yet.
+	it('records a calibration sample on each measured onset (the collection tap)', async () => {
+		resetCalibration();
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie delta. Echo foxtrot.'));
+		await act(async () => {
+			await Promise.resolve(); // warm
+			await Promise.resolve();
+		});
+		act(() => result.current.play());
+		await act(async () => {
+			await Promise.resolve(); // getVoice().then → resolves the 'kokoro' voice key, captures onTiming
+			await Promise.resolve();
+		});
+		expect(loadCalibration('kokoro').n).toBe(0); // nothing recorded before the first onset
+		act(() => voiceState.onTiming?.({ index: 0, onsetMs: 1000, durationMs: 1600 }));
+		act(() => voiceState.onTiming?.({ index: 1, onsetMs: 3000, durationMs: 1600 }));
+		expect(loadCalibration('kokoro').n).toBe(2); // one clean sample per measured onset
+	});
+
+	it('measure-only: an existing per-voice calibration does NOT rescale the played track', async () => {
+		resetCalibration();
+		// Seed a strong calibration for the voice this test resolves to ('kokoro'): k would be
+		// 1.5× if it were ever applied to the estimate.
+		for (let i = 0; i < 10; i++) recordObservation('kokoro', 100, 150, 1);
+		const text = 'Alpha bravo charlie delta. Echo foxtrot.';
+		const baseline = buildTrack(text); // the unscaled (rateScale 1) prediction
+		const { result } = renderHook(() => useReadAloud(text));
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		// The track the reader plays matches the UNSCALED baseline, not 1.5× — proving the
+		// fitted k never reaches buildTrack in this slice (the guard the apply-slice must keep).
+		const played = result.current.track.cues[0];
+		const base = baseline.cues[0];
+		expect(played.endMs - played.startMs).toBe(base.endMs - base.startMs);
 	});
 });
 
