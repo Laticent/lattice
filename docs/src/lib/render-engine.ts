@@ -26,6 +26,7 @@
 // and issue #870, which logged the same call-site-migration exemption for a
 // different fix.)
 
+import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import type { LatticePlaygroundEngine } from './playground-global';
@@ -52,9 +53,14 @@ export async function renderMarkdown(
 	theme: string,
 	opts?: RenderMarkdownOpts,
 ): Promise<RenderMarkdownResult> {
-	if (sourceHasMath(source)) {
+	// Auto-glossary (#920): the SAME source transform the CLI/export runs, applied at the one
+	// chokepoint every docs render surface passes through — so a `glossary: auto` deck grows its
+	// reference-appendix slide live in the Studio exactly as it does in the export (HARD RULE #1).
+	// A no-op unless the deck opts in and defines terms; idempotent (strips its own trigger).
+	const rendered = appendAutoGlossary(source);
+	if (sourceHasMath(rendered)) {
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
-	return PG.render(source, theme, opts);
+	return PG.render(rendered, theme, opts);
 }

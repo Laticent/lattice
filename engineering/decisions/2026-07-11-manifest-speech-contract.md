@@ -870,3 +870,64 @@ egress); the shared kernel makes its spoken string identical to the CLI's, which
 prose ("forty percent of the prior stage") by construction — they are English-only pilots (§13.6), a
 separate layer from this lexicon/normalizer guard. A non-English deck's chart slide would still narrate
 those computed facts in English; locale-aware narrator templates are a deeper, separate follow-up.
+
+## §18 Auto-glossary — the acronym registry's `definition` gets a surface (2026-07-12, #920, owner-confirmed design)
+
+The §16 deferral "the glossary surface that consumes `definition`" is designed and confirmed. The
+author acronym registry (`acronyms:` front-matter, #905) stores an optional `definition` per term
+that `lib/core/resolve-captions.mjs` parses and carries but nothing consumed — narration speaks only
+the `expansion`. This gives `definition` a home.
+
+**The design model — the two open axes and the confirmed picks.**
+
+*Axis 1 — the surface (where a definition appears).* Candidates: (a) a generated glossary appendix
+slide reusing the shipped `glossary` component; (b) an on-hover tooltip / `<abbr title>` on first use;
+(c) an `<abbr>`/`aria-description` on first use; (d) an export-manifest field only. **Confirmed: (a) +
+(d) — a generated glossary slide AND the manifest field.** (a) is highest-value/lowest-risk and reuses
+a shipped component (HARD RULE #15); because it's a *source* transform → a normal slide, every surface
+(PDF/PPTX/HTML/Studio) renders it by construction — no per-surface work. (d) rides along cheaply: the
+term→definition map in the export manifest lets a downstream tool read it without parsing the slide.
+Rejected (b)/(c): they reach only interactive HTML (not the PDF/PPTX a boardroom deck ships as) and
+need first-use detection + hover UI for a "working gloss" that a reference page serves better.
+
+*Axis 2 — the trigger (how an author opts in).* Candidates: (a) a placed empty `<!-- _class: glossary
+auto -->` marker; (b) a deck-level front-matter flag; (c) a CLI/export flag. **Confirmed: (b) —
+front-matter `glossary: auto`.** Simplest to author, one deck-level switch, and (unlike a CLI flag) it
+lives in the source so every surface agrees. The generated glossary appends at the end of the deck (a
+reference appendix); a future "placed marker" for mid-deck control is an easy follow-on if wanted.
+
+*The Studio affordance (owner-requested follow-up).* `glossary: auto` also gets a first-class
+**toggle in the deck-setup drawer** — the front matter is the source of truth, the switch is the UI
+that writes it. Added as a binary field in the shared config panel (`docs/src/playground/deck-config.js`,
+the `createConfigPanel` schema every deck-settings surface mounts), alongside `autosplit`/`paginate`:
+on ⇔ `glossary: auto` in the front matter, off removes the key (a deck at the default carries none).
+Unlike `autosplit` (export-only), the auto-glossary DOES appear in the live preview (the transform runs
+at the shared render chokepoint), so its hint carries no "export only" caveat but does name the
+prerequisite — an `acronyms:` registry with at least one definition — so the toggle doesn't read as
+broken on a deck without one.
+
+**Shape.** A shared source transform `lib/core/glossary-auto` (ESM, reusing `resolve-captions`'s
+`parseNarrationFrontMatter`): when the deck's front-matter carries `glossary: auto` AND the registry
+has ≥1 entry with a `definition`, it appends a `<!-- _class: glossary -->` slide whose body is the
+entries — sorted alphabetically by term — as the component's nested `- Term` / `  - Definition` list
+(the runtime auto-derives the A–Z range pill). Entries with only an `expansion` (no `definition`) are
+omitted — there's nothing to define. No qualifying entries → no slide (a no-op, never an empty
+glossary). Wired at the two render chokepoints so BOTH surfaces get it from one transform (HARD RULE
+#1): the CLI/export builds `rawMd` through it (alongside `preprocessMermaid`), and the docs site runs
+it in `render-engine.ts` `renderMarkdown` (the single point every docs render surface — Studio preview,
+Share/export — passes through). The export manifest (`lib/core/lattice-doc.js buildManifest`) gains an
+optional `glossary` projection carrying the term→definition entries.
+
+*Verification plan (HARD RULE #23):* unit tests on the transform (the append fires only on `glossary:
+auto` + definitions; alphabetical sort; expansion-only entries omitted; the emitted markdown renders
+through the real `glossary` component to a term/definition table) and the manifest field; an
+end-to-end real-CLI render of a demo deck showing the generated glossary slide. Live Studio Present is
+UNVERIFIED in the sandbox (blocks browser egress); the shared transform makes its output identical to
+the CLI's, which is verified. Out of scope (noted): a placed mid-deck marker; the manifest projection
+carries only on the `glossary: auto` opt-in (so a deck that merely defines terms stays byte-identical),
+and it's present on both export surfaces (CLI + docs Share) for parity; and multi-slide alphabetical
+splitting for a very long registry. On that last point the honest limitation is that a registry with
+more defined terms than fit one slide currently overflows a single generated glossary slide (the
+emulator prints its standard overflow warning and exports it clipped — the Fit Spine does NOT split a
+machine-generated slide, and its "trim content" remedy doesn't apply to one); a dedicated alphabetical
+split across slides is the follow-on.

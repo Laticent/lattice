@@ -76,6 +76,20 @@ test('a deck without a read-along carries no readAlong key (lean envelope, addit
 	assert.ok(!('readAlong' in m), 'absent when the deck has no read-along');
 });
 
+test('the auto-glossary term→definition projection round-trips when present (#920)', () => {
+	const glossary = [
+		{ term: 'ARR', definition: 'Revenue that recurs yearly.' },
+		{ term: 'CAC', definition: 'Cost to win one customer.' },
+	];
+	const m = parseEnvelope(buildEnvelope({ ...sampleDeck, glossary }));
+	assert.deepEqual(m.glossary, glossary);
+});
+
+test('a deck with no glossary (or an empty one) carries no glossary key (lean envelope, additive)', () => {
+	assert.ok(!('glossary' in parseEnvelope(buildEnvelope(sampleDeck))), 'absent when unset');
+	assert.ok(!('glossary' in buildManifest({ ...sampleDeck, glossary: [] })), 'empty array omitted');
+});
+
 test('escape-safety: a hostile </script> title cannot break out of the envelope', () => {
 	const hostile = {
 		source: '# ok\n\n```\n</script><script>alert(1)</script>\n```\n',

@@ -28,6 +28,26 @@ describe('renderMarkdown', () => {
 		expect(render).toHaveBeenCalledWith('# hi', 'indaco', undefined);
 	});
 
+	// The docs render chokepoint runs the SAME auto-glossary transform the CLI export does
+	// (#920), so a `glossary: auto` deck grows its reference-appendix slide live in the Studio.
+	it('appends the auto-glossary slide on `glossary: auto` before handing source to PG.render', async () => {
+		const render = vi.fn().mockReturnValue({ html: '', css: '' });
+		const PG = { render, addThemes: vi.fn(), hasTheme: vi.fn() };
+		const src = '---\nglossary: auto\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Recurs yearly." }\n---\n\n# Deck\n';
+		await renderMarkdown(PG, src, 'indaco');
+		const forwarded = render.mock.calls[0][0] as string;
+		expect(forwarded).toContain('<!-- _class: glossary -->');
+		expect(forwarded).toContain('- ARR\n  - Recurs yearly.');
+	});
+
+	it('is a byte-identical no-op for a deck without `glossary: auto`', async () => {
+		const render = vi.fn().mockReturnValue({ html: '', css: '' });
+		const PG = { render, addThemes: vi.fn(), hasTheme: vi.fn() };
+		const src = '---\nacronyms:\n  ARR: { expansion: annual recurring revenue, definition: "Recurs yearly." }\n---\n\n# Deck\n';
+		await renderMarkdown(PG, src, 'indaco');
+		expect(render.mock.calls[0][0]).toBe(src); // unchanged — no opt-in
+	});
+
 	it('turns a synchronous throw from PG.render into a rejected promise', async () => {
 		const PG = {
 			render: vi.fn(() => {

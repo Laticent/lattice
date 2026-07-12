@@ -80,6 +80,15 @@ describe('readFrontMatter', () => {
     assert.equal(readFrontMatter('---\nmarp: true\nautosplit: on\n---\n').configured, true);
   });
 
+  test('glossary toggle (#920): auto → true (boolean); off/absent → false; auto counts as configured', async () => {
+    const { readFrontMatter } = await import(MOD);
+    assert.equal(readFrontMatter('---\nmarp: true\nglossary: auto\n---\n').glossary, true);
+    assert.equal(readFrontMatter('---\nmarp: true\nglossary: AUTO\n---\n').glossary, true); // case-insensitive
+    assert.equal(readFrontMatter('---\nmarp: true\nglossary: off\n---\n').glossary, false);
+    assert.equal(readFrontMatter(CLEAN).glossary, false);
+    assert.equal(readFrontMatter('---\nmarp: true\nglossary: auto\n---\n').configured, true);
+  });
+
   test('validate: default ON; off/false/no → false and counts as configured', async () => {
     const { readFrontMatter } = await import(MOD);
     assert.equal(readFrontMatter(CLEAN).validate, true); // absent → on (the default)
@@ -150,6 +159,23 @@ describe('writeFrontMatter', () => {
     // round-trips, and switching it off over an existing on clears it.
     assert.equal(readFrontMatter(writeFrontMatter(CLEAN, 'autosplit', true)).autosplit, true);
     assert.ok(!writeFrontMatter(writeFrontMatter(CLEAN, 'autosplit', true), 'autosplit', false).includes('autosplit'));
+  });
+
+  test('glossary (#920): writes the canonical auto; a falsy value omits it; sits after autosplit', async () => {
+    const { writeFrontMatter, readFrontMatter } = await import(MOD);
+    // Boolean true (the switch) canonicalises to `auto`.
+    assert.ok(writeFrontMatter(CLEAN, 'glossary', true).includes('glossary: auto\n'));
+    // off / false is the default → no key.
+    assert.equal(writeFrontMatter(CLEAN, 'glossary', false), CLEAN);
+    // canonical slot: autosplit, then glossary, then size.
+    let src = writeFrontMatter(CLEAN, 'size', 'portrait');
+    src = writeFrontMatter(src, 'autosplit', true);
+    src = writeFrontMatter(src, 'glossary', true);
+    const block = src.slice(0, src.indexOf('\n---\n'));
+    assert.equal(block, '---\nmarp: true\nautosplit: on\nglossary: auto\nsize: portrait');
+    // round-trips, and switching it off over an existing on clears it.
+    assert.equal(readFrontMatter(writeFrontMatter(CLEAN, 'glossary', true)).glossary, true);
+    assert.ok(!writeFrontMatter(writeFrontMatter(CLEAN, 'glossary', true), 'glossary', false).includes('glossary'));
   });
 
   test('validate: default ON is omitted; only an opt-out writes the canonical off', async () => {
@@ -422,6 +448,20 @@ describe('createConfigPanel (DOM)', () => {
     sw.checked = false;
     sw.dispatchEvent(new dom.window.Event('change'));
     assert.ok(!get().includes('autosplit'), 'disabling clears the key (back to default)');
+  });
+
+  test('toggling the auto-glossary switch writes glossary: auto (and clears it back off) — #920', async () => {
+    const { panel, host, get } = await mount(CLEAN);
+    panel.render();
+    const sw = host.querySelector('input[aria-label="Auto-glossary"]');
+    assert.ok(sw, 'the auto-glossary switch renders in the deck-setup drawer');
+    assert.equal(sw.checked, false, 'off by default on a clean deck');
+    sw.checked = true;
+    sw.dispatchEvent(new dom.window.Event('change'));
+    assert.ok(get().includes('glossary: auto'), 'enabling writes the canonical glossary: auto');
+    sw.checked = false;
+    sw.dispatchEvent(new dom.window.Event('change'));
+    assert.ok(!get().includes('glossary'), 'disabling clears the key (back to default)');
   });
 
   test('theme select is pre-filled (deck theme, else default) and writes on change', async () => {

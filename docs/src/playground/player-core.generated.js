@@ -69,6 +69,7 @@ var require_lattice_doc = __commonJS({
       if (deck.config) manifest.config = deck.config;
       if (typeof deck.notes === "boolean") manifest.notes = deck.notes;
       if (deck.readAlong) manifest.readAlong = deck.readAlong;
+      if (Array.isArray(deck.glossary) && deck.glossary.length) manifest.glossary = deck.glossary;
       return manifest;
     }
     function toBase64(str) {
@@ -1133,7 +1134,7 @@ async function assemblePlayer(data, caps) {
   const jsHash = await caps.sha256(js);
   const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'`;
   const envelope = (0, import_lattice_doc.buildEnvelope)(
-    { source, title, theme: data.theme, config: data.config, notes: data.notes },
+    { source, title, theme: data.theme, config: data.config, notes: data.notes, glossary: data.glossary },
     { now: data.now, build: data.build, playerVersion: data.playerVersion }
   );
   const out = `<!DOCTYPE html>
