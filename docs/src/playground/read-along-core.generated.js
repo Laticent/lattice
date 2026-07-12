@@ -27,8 +27,10 @@ var require_dist = __commonJS({
     var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
     var index_exports = {};
     __export(index_exports, {
+      FINAL_LENGTHEN_MS: () => FINAL_LENGTHEN_MS,
       LEX_DOMAINS: () => LEX_DOMAINS,
       PACE_WPM: () => PACE_WPM,
+      SYLLABLE_MS: () => SYLLABLE_MS,
       buildTrack: () => buildTrack,
       estimateWordMs: () => estimateWordMs,
       formatTimestamp: () => formatTimestamp,
@@ -43,6 +45,7 @@ var require_dist = __commonJS({
       splitSentences: () => splitSentences,
       splitWords: () => splitWords,
       spokenWordCount: () => spokenWordCount,
+      syllableCount: () => syllableCount,
       toSpoken: () => toSpoken,
       toSpokenText: () => toSpokenText,
       toSrt: () => toSrt,
@@ -394,15 +397,17 @@ var require_dist = __commonJS({
       }
       return out;
     }
-    var PACE_WPM = { slow: 120, moderate: 145, fast: 175 };
+    var PACE_WPM = { slow: 120, moderate: 150, fast: 175 };
+    var SYLLABLE_MS = { slow: 250, moderate: 205, fast: 165 };
+    var FINAL_LENGTHEN_MS = 30;
     var PAUSE_MS = {
-      ",": 160,
-      ";": 220,
-      ":": 220,
-      ".": 360,
-      "!": 360,
-      "?": 360,
-      "\u2026": 420
+      ",": 200,
+      ";": 350,
+      ":": 350,
+      ".": 550,
+      "!": 550,
+      "?": 550,
+      "\u2026": 650
     };
     function pauseAfter(display) {
       const m = String(display ?? "").match(/[.,!?;:…]+$/);
@@ -411,16 +416,31 @@ var require_dist = __commonJS({
       for (const ch of m[0]) max = Math.max(max, PAUSE_MS[ch] ?? 0);
       return max;
     }
-    function estimateWordMs(spoken, pace = "moderate") {
-      const base = 6e4 / PACE_WPM[pace];
-      const subWords = String(spoken ?? "").trim().split(/[\s-]+/).filter(Boolean);
-      if (!subWords.length) return 0;
-      let ms = 0;
-      for (const w of subWords) {
-        const weight = Math.max(0.55, Math.min(1.9, w.replace(/[^A-Za-z0-9]/g, "").length / 4.5));
-        ms += base * weight;
+    function syllableCount(spoken) {
+      const raw = String(spoken ?? "").replace(/['’]/g, "");
+      const tokens = raw.split(/[^A-Za-z0-9]+/).filter(Boolean);
+      let total = 0;
+      for (const tok of tokens) {
+        if (/^\d+$/.test(tok)) {
+          total += tok.length;
+          continue;
+        }
+        const w = tok.toLowerCase();
+        const groups = w.match(/[aeiouy]+/g);
+        let n = groups ? groups.length : 0;
+        if (n === 0) {
+          total += tok.length > 1 && tok === tok.toUpperCase() ? tok.length : 1;
+          continue;
+        }
+        if (n > 1 && /[^aeiouy]e$/.test(w) && !/[^aeiouy]le$/.test(w)) n -= 1;
+        total += Math.max(1, n);
       }
-      return Math.round(ms);
+      return Math.max(1, total);
+    }
+    function estimateWordMs(spoken, pace = "moderate") {
+      const s = String(spoken ?? "").trim();
+      if (!s) return 0;
+      return Math.round(SYLLABLE_MS[pace] * syllableCount(s));
     }
     function readMs(spoken, pace = "moderate") {
       const words = spokenWordCount(spoken);
@@ -560,11 +580,12 @@ var require_dist = __commonJS({
           if (found >= 0) scan = found + display.length;
           if (cueCharOffset < 0) cueCharOffset = charOffset;
           const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang });
-          const dur = estimateWordMs(spoken, pace);
+          const pause = pauseAfter(display);
+          const dur = estimateWordMs(spoken, pace) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
           const startMs = clock;
           const endMs = startMs + dur;
           words.push({ display, spoken, startMs, endMs, charOffset });
-          clock = endMs + pauseAfter(display);
+          clock = endMs + pause;
         }
         const cueEnd = words[words.length - 1].endMs;
         cues.push({

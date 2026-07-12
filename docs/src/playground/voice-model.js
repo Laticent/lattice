@@ -463,6 +463,22 @@ function kokoroRung({ getVoice }) {
   };
 }
 
+// The BREATH inserted between one sentence's clip and the next — sized from the
+// sentence's trailing punctuation. A clocked voice plays each sentence's clip back to
+// back, so without a gap the narration rushes ("no time to breathe"). But the clip ALSO
+// already carries its own sentence-final silence, so the AUDIO gap is only a fraction of
+// the caption estimate's pause. These values are cadenza's graded PAUSE_MS (cadence.ts:
+// comma 200 / clause 350 / sentence 550 / ellipsis 650) × 0.3 — the CLIP-SILENCE DISCOUNT.
+// This is a DELIBERATE second copy of the ratio, not the same table: voice-model.js is
+// node-loadable with no `@/` alias or TS import (see the file header), so it structurally
+// CANNOT import cadence.ts — the two must be kept in step by hand. The ratio (breath ≤
+// estimate pauseAfter) is what makes it race-SAFE: the estimate re-anchors the next
+// sentence to `realEnd + gap`, and any `gap ≤ estimate pauseAfter` leaves the highlight
+// resting in the silence rather than racing into it (only a LARGER gap reintroduces the
+// race). A cross-file test pins `SENTENCE_PAUSE_MS[k] ≤ pauseAfter(k)` so the copies can't
+// silently drift. A sentence with no terminator gets no breath.
+export const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 165, '?': 165, '…': 195 };
+
 // ── The adapter ───────────────────────────────────────────────────────────────
 
 // NOTE: no `= false`/`= 'db'` default on any destructured param here — a defaulted
@@ -644,9 +660,32 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
             if (ctx.state === 'suspended') ctx.resume().catch(() => {});
             src = ctx.createBufferSource();
             src.buffer = audioBuf;
-            src.connect(ctx.destination);
             src.onended = () => finish({ ok: true });
             currentSource = src;
+            // A short head/tail gain ramp so each clip eases in and out of silence. A TTS
+            // clip rarely begins or ends exactly on a zero-crossing, so a hard start(0)/stop
+            // steps from silence to a non-zero sample — an audible click at every sentence
+            // boundary (worst on slides that narrate many short fragments, e.g. a stat row).
+            // ~8 ms is below the threshold for losing speech content but removes the
+            // discontinuity. Guarded + best-effort: any mock/older engine without full gain
+            // automation falls back to a direct connect (no fade, but still plays).
+            let ramped = false;
+            const dur = audioBuf?.duration || 0;
+            try {
+              if (dur > 0 && typeof ctx.createGain === 'function') {
+                const g = ctx.createGain();
+                const t0 = ctx.currentTime;
+                const ramp = Math.min(0.008, dur / 2);
+                g.gain.setValueAtTime(0, t0);
+                g.gain.linearRampToValueAtTime(1, t0 + ramp);
+                g.gain.setValueAtTime(1, t0 + Math.max(ramp, dur - ramp));
+                g.gain.linearRampToValueAtTime(0, t0 + dur);
+                src.connect(g);
+                g.connect(ctx.destination);
+                ramped = true;
+              }
+            } catch { ramped = false; }
+            if (!ramped) src.connect(ctx.destination);
             src.start(0);
             // The measured span, captured at the real start. Best-effort + guarded so
             // instrumentation can never break playback.
@@ -676,16 +715,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     });
   }
 
-  // The BREATH inserted between one sentence's clip and the next — sized from the
-  // sentence's trailing punctuation. A clocked voice synthesizes each sentence as its
-  // own clip with almost no trailing silence, and the loop below plays them back to
-  // back, so without this the narration rushes ("no time to breathe"). These values
-  // MIRROR cadenza's PAUSE_MS (docs/src/lib/cadenza/cadence.ts) on purpose: the caption
-  // estimate already bakes this exact gap in AFTER each cue, so an equal audio gap lets
-  // the word-highlight REST in the silence (it re-anchors the next sentence to this
-  // later onset) instead of racing ahead into it — a LARGER value here would reintroduce
-  // that race. Keep the two in lockstep. A sentence with no terminator gets no breath.
-  const SENTENCE_PAUSE_MS = { ',': 160, ';': 220, ':': 220, '.': 360, '!': 360, '?': 360, '…': 420 };
+  // The inter-sentence breath, from the module-scope SENTENCE_PAUSE_MS table above.
   function sentenceGapMs(sentence) {
     const m = String(sentence ?? '').match(/[.,!?;:…]+$/);
     if (!m) return 0;

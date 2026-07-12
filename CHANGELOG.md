@@ -17,6 +17,11 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **Read-aloud no longer clicks/pops between sentences.** Each TTS clip now eases in and out of
+  silence through a short (~8 ms) head/tail gain ramp, instead of a hard `start(0)`/stop that steps
+  from silence to a mid-waveform sample — the step was an audible click at every sentence boundary,
+  worst on slides that narrate many short fragments (e.g. a stat row). On-device report; fixed in
+  `voice-model.js` `playBlob`.
 - **The exported `.html` player is now a flex-column shell — Present centers
   reliably on mobile and dark mode reaches the slides, not just the page.** Two
   on-device follow-ups after the previous round: (1) **dark mode flipped the page
@@ -331,6 +336,22 @@ in patch versions.
   arm.
 
 ### Changed
+
+- **Read-aloud timing is now a prosody-grounded pace model, not a flat wpm × character-length
+  guess.** Word duration rides a **syllable count** (~200 ms/syllable at a ~150-wpm boardroom
+  default), not character length, so an 8-letter one-syllable word no longer out-dwells a short
+  three-syllable one — an all-caps initialism ("PDF", "HTML") counts its spelled-out letters, and a
+  contraction ("I'll", "don't") stays one word, so the highlight no longer stalls on either. Pauses
+  are **graded by boundary depth** (comma ~200 · clause ~350 · sentence
+  ~550 · trailing-off ~650 ms) instead of one flat value; the word before a boundary gets
+  **phrase-final lengthening**; the inter-sentence audio "breath" mirrors the same graded table
+  (× a clip-silence discount, kept in step by a cross-file test), so the silent estimate and the
+  audio pace stay aligned; and the
+  word-highlight is **biased ~40 ms ahead** of the voice (a lagging highlight is the more noticeable
+  sync error — asymmetric lip-sync tolerance). Grounded in a speech-science research pass
+  (`engineering/decisions/2026-07-12-narration-pace-model.md`), structured so a later thread can
+  calibrate the coefficients per-voice against measured TTS onsets. Caption `.vtt` *text* is
+  unchanged; its word *timestamps* shift with the new model.
 
 - **The flow-height charts — roadmap, progress, kanban, gantt, timeline-list — now render live
   in the exported player's Read·Article view instead of a raw table / placeholder.** These are

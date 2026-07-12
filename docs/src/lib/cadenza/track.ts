@@ -5,7 +5,7 @@
 // estimated start/end ms and a char offset back into the source text. This is the
 // timeline the cursor scans and vtt serializes; it owns no audio and no DOM.
 
-import { estimateWordMs, type Pace, pauseAfter } from './cadence';
+import { estimateWordMs, FINAL_LENGTHEN_MS, type Pace, pauseAfter } from './cadence';
 import { type AcronymRegistry, toSpoken } from './normalize';
 import { splitSentences, splitWords } from './segment';
 
@@ -75,7 +75,10 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       if (cueCharOffset < 0) cueCharOffset = charOffset;
 
       const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang });
-      const dur = estimateWordMs(spoken, pace);
+      const pause = pauseAfter(display);
+      // Phrase-final lengthening: a word before a boundary (it carries trailing punctuation)
+      // stretches, so its highlight holds a beat longer instead of the cursor running ahead.
+      const dur = estimateWordMs(spoken, pace) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
       const startMs = clock;
       const endMs = startMs + dur;
       words.push({ display, spoken, startMs, endMs, charOffset });
@@ -83,7 +86,7 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       // Advance the clock past this word, plus the pause its punctuation implies
       // (the silence BEFORE the next word / cue). The trailing pause after the last
       // word becomes the gap before the next cue, so cues read with a beat between.
-      clock = endMs + pauseAfter(display);
+      clock = endMs + pause;
     }
 
     const cueEnd = words[words.length - 1].endMs;

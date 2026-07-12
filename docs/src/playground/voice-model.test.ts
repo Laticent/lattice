@@ -23,6 +23,23 @@ class FakeAudioContext {
   createBuffer() {
     return {};
   }
+  // Records the gain automation playBlob schedules, so a test can assert the
+  // anti-click head/tail fade envelope (see "clip fade" test below).
+  gainEvents: Array<{ kind: string; value: number; time: number }> = [];
+  createGain() {
+    const events = this.gainEvents;
+    return {
+      gain: {
+        setValueAtTime(value: number, time: number) {
+          events.push({ kind: 'set', value, time });
+        },
+        linearRampToValueAtTime(value: number, time: number) {
+          events.push({ kind: 'ramp', value, time });
+        },
+      },
+      connect() {},
+    };
+  }
   decodeAudioData(ab: ArrayBuffer, ok: (buf: { duration: number }) => void, err?: (e: unknown) => void) {
     // Mirrors a REAL browser's decodeAudioData: it DETACHES the ArrayBuffer it's
     // given (byteLength drops to 0) as a side effect of decoding. A caller that
@@ -988,6 +1005,38 @@ describe('openrouter synth: PCM-only model quirk (Gemini 400s on mp3, only retur
     await model.speak({ text: 'Same line.', onSentenceTiming }); // first play — populates the cache
     await model.speak({ text: 'Same line.', onSentenceTiming }); // second play — must replay the SAME cached blob successfully
     expect(onSentenceTiming).toHaveBeenCalledTimes(2); // both plays reached real playback, neither threw
+  });
+});
+
+describe('clip playback: anti-click fade envelope', () => {
+  it('fades each clip in from and out to silence, so a hard buffer edge cannot click at a sentence boundary', async () => {
+    // A TTS clip rarely starts/ends on a zero-crossing; a hard start(0)/stop steps from
+    // silence to a non-zero sample = an audible pop between sentences. playBlob wraps the
+    // source in a GainNode with a short head/tail ramp. Assert that envelope is scheduled.
+    let ctxInstance: FakeAudioContext | null = null;
+    (window as unknown as { AudioContext: unknown }).AudioContext = class extends FakeAudioContext {
+      constructor() {
+        super();
+        ctxInstance = this;
+      }
+    };
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      blob: async () => ({ size: 256, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(256) }),
+    });
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
+    model.setOrModel('hexgrad/kokoro-82m'); // cloud Kokoro — the clocked openrouter-tts rung
+
+    await model.speak({ text: 'One clip.' });
+
+    const ev = ctxInstance!.gainEvents;
+    expect(ev.length).toBeGreaterThan(0); // a gain envelope was scheduled at all
+    expect(ev[0]).toMatchObject({ kind: 'set', value: 0 }); // starts from silence
+    const rampUp = ev.find((e) => e.kind === 'ramp' && e.value === 1);
+    expect(rampUp).toBeDefined(); // fades IN to full gain
+    expect(ev[ev.length - 1]).toMatchObject({ kind: 'ramp', value: 0 }); // fades OUT to silence last
+    expect(rampUp!.time).toBeLessThan(ev[ev.length - 1].time); // in before out
   });
 });
 
