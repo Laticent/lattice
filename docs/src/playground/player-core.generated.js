@@ -270,7 +270,7 @@ function projectMedia(stage, heading, component) {
   if (!visual) return null;
   const node = visual.tagName === "FIGURE" ? visual.innerHTML : visual.outerHTML;
   const cap = heading ? `<figcaption>${esc(heading)}</figcaption>` : "";
-  const cls = CHART_TOKEN_COMPONENTS.has(component) ? "lp-figure chart-frame" : component === "diagram" ? "lp-figure lp-figure-hold" : "lp-figure";
+  const cls = CHART_TOKEN_COMPONENTS.has(component) ? "lp-figure chart-frame" : "lp-figure";
   return `<figure class="${cls}">${node}${cap}</figure>`;
 }
 function projectQuote(stage) {
@@ -803,10 +803,9 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
  padding:48px 32px 140px;font-family:'Outfit',system-ui,sans-serif;
  color:var(--text-body,#1a1a1a);font-size:18px;line-height:1.72}
 #lp-article>*{grid-column:prose-start/prose-end;min-width:0}
-#lp-article>.lp-figure:not(.lp-figure-hold):not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:var(--lp-fig-max)}
-/* Held figures (diagram/mermaid \u2014 node fills are still section-scoped, so a wider box would
-   only enlarge the uncoloured render) and the visual-layout placeholder note (a text card)
-   stay in the readable prose column; charts / math / images break out above. */
+#lp-article>.lp-figure:not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:var(--lp-fig-max)}
+/* The visual-layout placeholder note (a text card) stays in the readable prose column;
+   charts / diagrams / math / images break out above. */
 #lp-article h1{font-family:'Playfair Display',serif;font-size:40px;line-height:1.1;color:var(--text-heading,#0d0d0d);margin:1.4em 0 .4em;letter-spacing:-.02em}
 #lp-article h1:first-child{margin-top:0}
 #lp-article h2{font-family:'Playfair Display',serif;font-size:27px;line-height:1.15;color:var(--text-heading,#111);margin:1.7em 0 .4em}
