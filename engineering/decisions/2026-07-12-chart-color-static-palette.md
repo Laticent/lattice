@@ -100,18 +100,34 @@ themes define as `light-dark()` at `:root`. The retired `@supports` fork used to
 so deleting the fork regressed every one of those components to black on old engines. The fix is a
 second **diagram group**:
 
-- **Selector:** `section, figure` — the same ancestor the Mermaid + diagram paints target, so the flat
-  literals land where those `var()` consumers can read them. A `:root` `light-dark()` def dropped by an
-  old engine leaves `--cat-1-fill` guaranteed-invalid at `:root`; a flat literal declared directly on
-  the `section` (a different element, so no same-element cascade fight) wins for that subtree. The
-  override plane uses the TYPE-subject anchors `section.dark` / `[data-lp-scheme=dark] section` / the
-  OS-system arms — every one strictly above the `section` base.
-- **Token set (reference-driven):** every `var(--X)` referenced by the diagram-family CSS whose theme
+- **Selector: the SCOPED diagram/chart root union — `.chart-frame, section.diagram, .lp-figure`** — NOT a
+  bare `section, figure`. A `:root` `light-dark()` def dropped by an old engine leaves `--cat-1-fill`
+  guaranteed-invalid at `:root`; a flat literal declared on a diagram/chart ROOT (a different element,
+  so no same-element cascade fight) wins for that subtree. The three arms cover every place diagram/chart
+  content renders: `.chart-frame` (journey / roadmap / every chart-frame chart + their Read·Article
+  re-host `figure.chart-frame`), `section.diagram` (a Mermaid slide — Mermaid is the `diagram` bucket,
+  not a chart-frame; the SVG inherits from the section), and `.lp-figure` (the Read·Article re-host
+  figures, incl. the bare `figure.lp-figure` a Mermaid diagram re-hosts into). The override arms compose
+  onto each root (`section.diagram.dark`, `[data-lp-scheme=dark] .chart-frame`, the OS-system arms, the
+  restore-base arm) — every one strictly above its base.
+
+  > **Why scoped, not `section, figure` (a real defect, caught and fixed).** This group's token set
+  > necessarily includes CORE engine tokens (`--bg`, `--text-*`, `--accent`, `--border`, `--pass/warn/fail`)
+  > because Mermaid reads them DIRECTLY in an SVG paint (`fill: var(--text-heading)`). An early version
+  > emitted those flat literals on a bare `section, figure` — i.e. on EVERY slide — which froze the whole
+  > engine's colour system to build-time literals deck-wide, taking core colour off the theme's live
+  > `:root light-dark()` and routing every slide's text/bg through this compiler's scheme logic. That is
+  > **wrong and dangerous**: a bug in the scheme logic (and the red-team P1 proved such bugs exist) would
+  > then mis-colour every slide, not just a chart. It was rationalized at the time as a "no-op on modern"
+  > because the literal equals the theme's resolved value — but that only accounts for one static render;
+  > it ignored native `color-scheme` following and the fallibility of the scheme selectors. Scoping the
+  > emission to the diagram/chart roots (matching the retired fork's intent) confines the flattening to
+  > where diagram content actually renders; the rest of the deck keeps its live `:root` core tokens.
+- **Token set (reference-driven):** every `var(--X)` referenced by the diagram-family CSS (mermaid +
+  journey + roadmap — scope-matched to the fork; legal / decision are deliberately out) whose theme
   definition resolves through a modern function — auto-discovered, so it can't rot as the CSS changes.
   This captures the categorical family, the `--diagram-*` structurals, AND the core tokens those SVG
-  paints read directly (`--text-heading`, `--bg`, `--bg-alt`, …). Emitting the core tokens flat on
-  every `section` is a **no-op on modern** (the literal equals the theme's own resolved value) and the
-  old-engine fix; the per-slide/player/OS overrides keep the scheme flip exact.
+  paints read directly. The per-slide/player/OS/restore-base overrides keep the scheme flip exact.
 - **Component-derived + direct-paint tokens** ride `[diagram]`-tagged `>>> chart-palette-recipe >>>`
   regions, stripped from the bundle and compiled into this group (e.g. the Mermaid mindmap branch-edge
   `--mindmap-edge-N` — the one place a `color-mix()` sat in the PAINT itself, now a flat token).
@@ -205,20 +221,25 @@ exported HTML player, the docs-site engine, and dist all carry identical planes.
   direct-paint painters still shipped raw; **phase 2 (2a–2k) completes old-browser paint coverage** —
   the "modern == old" claim now holds for the whole chart family, not just token consumers — and the
   Phase-3 paint-flatness gate (landed) now enforces it at `build:check`, so the end state can't rot.
-- **Diagram-group blast radius is deck-wide, not chart-scoped (checker finding 4).** The diagram plane
-  re-declares ~20 core tokens (`--bg`, `--text-*`, `--accent`, `--pass/warn/fail`, …) flat on *every*
-  `section, figure`, not just chart roots. Verified a no-op on modern for the indaco family (house
-  style is `light-dark(hex, hex)` → the offline resolver returns the branch hex verbatim = the native
-  computed value), but the ±3/255 resolver↔Chromium tolerance from "Byte-identical" above now applies
-  to any core token a theme defines via `color-mix()` at `:root`, across the whole deck — not only
-  chart tokens. No such token exists in the shipped themes today.
+- **Diagram-group blast radius — was deck-wide, now scoped (checker finding 4, FIXED).** The diagram
+  plane re-declares ~20 core tokens (`--bg`, `--text-*`, `--accent`, `--pass/warn/fail`, …) flat,
+  because Mermaid reads them directly in an SVG paint. The first cut emitted them on a bare
+  `section, figure` — i.e. on *every* slide, deck-wide — which froze the whole engine's core colour to
+  build-time literals and took it off the theme's live `:root light-dark()`. That is a real defect, not
+  a cosmetic one: any bug in the compiler's scheme logic would then mis-colour the entire deck's text
+  and background, not just chart content. **Fixed** by scoping the emission to the diagram/chart root
+  union — `.chart-frame, section.diagram, .lp-figure` — so the flat core literals land only where
+  diagram/chart content actually renders (journey/roadmap/chart frames + their `figure.chart-frame`
+  re-hosts; bare Mermaid slides `section.diagram`; Read·Article re-host figures `.lp-figure`). Every
+  other slide keeps its core colour on the theme's live `:root`. Gated: the compiler test asserts the
+  scoped union and `doesNotMatch` any bare `section, figure` plane.
 - **Nested `<figure>` under a per-slide `section.dark`/`.light` (checker finding 2, LOW).** The diagram
-  base plane declares core tokens directly on bare `figure` (0,0,1), shadowing inheritance from the
-  flipped section; the override arms match `figure.dark` / `[data-lp-scheme] figure` but not a plain
-  `figure` inside a `section.dark`, so such a figure would read default-scheme core tokens. Exposure is
-  ~zero today (diagram SVGs render div/svg content that inherits from the section; chart re-host figures
-  carry `data-lp-scheme`). A `.dark figure, .light figure` descendant arm closes it if a nested-figure
-  diagram ever ships.
+  base plane declares core tokens directly on `.lp-figure` (0,0,1), shadowing inheritance from a
+  flipped parent section; the override arms match `.lp-figure.dark` / `[data-lp-scheme] .lp-figure` but
+  not a plain `.lp-figure` inside a `section.dark`, so such a figure would read default-scheme core
+  tokens. Exposure is ~zero today (diagram SVGs render div/svg content that inherits from the section;
+  chart re-host figures carry `data-lp-scheme`). A `.dark .lp-figure, .light .lp-figure` descendant arm
+  closes it if a nested-figure diagram ever ships.
 
 ## The durable invariants (gated at `build:check`, phase 3)
 

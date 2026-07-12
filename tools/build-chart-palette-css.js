@@ -91,8 +91,9 @@ function unflattened(v) {
 }
 
 /** The valid plane-group tags a `>>> chart-palette-recipe [group] >>>` region may carry.
- *  `chart` (default) paints on `.chart-frame`; `diagram` paints on `section, figure`. An
- *  unknown tag is a build error, not a silent mis-route to the chart group. */
+ *  `chart` (default) paints on `.chart-frame`; `diagram` paints on the scoped diagram/chart
+ *  root union (DIAGRAM_PLANE_SELECTOR). An unknown tag is a build error, not a silent
+ *  mis-route to the chart group. */
 const PLANE_GROUPS = new Set(['chart', 'diagram']);
 
 /** The kernel selectors the DEFAULT plane paints on. Bare `.chart-frame` is
@@ -102,31 +103,37 @@ const PLANE_GROUPS = new Set(['chart', 'diagram']);
  *  (`--math-error-bg`), so it joins the union too. */
 const DEFAULT_PLANE_SELECTOR = 'section.chart-frame, section.word-cloud, section.math, .chart-frame';
 
-/** The DIAGRAM group's DEFAULT-plane selector. The engine-wide `--cat-*` categorical
- *  palette + the `--diagram-*` structural tokens (and the per-component mood / phase
- *  ramps built off them) are consumed by the Mermaid subtree AND by journey / roadmap /
- *  legal / decision — none of which is a `.chart-frame` (a Mermaid slide is a bare
- *  `section.diagram`). So this group paints on the SAME ancestor the Mermaid + diagram
- *  paints target: `section, figure`. The values are the theme's own resolved literals,
- *  so a modern engine is byte-identical; an old engine, which drops the theme's raw
- *  `light-dark()`/`color-mix()` `:root` definitions, now reads a flat literal set
- *  DIRECTLY on the section (a section-level declaration beats the invalidated `:root`
- *  inheritance). This recovers the coverage the retired `@supports` fork's
- *  GLOBAL-REDEFINE arm gave these components. */
-const DIAGRAM_PLANE_SELECTOR = 'section, figure';
+/** The DIAGRAM group's DEFAULT-plane selector — the engine-wide `--cat-*` categorical
+ *  palette + the `--diagram-*` structurals (and the per-component mood / phase ramps built
+ *  off them) that the Mermaid subtree and journey / roadmap consume. This group's token set
+ *  necessarily includes CORE engine tokens (`--bg`, `--text-*`, `--accent`, `--border`,
+ *  `--pass/warn/fail`) because Mermaid reads them DIRECTLY in an SVG paint (`fill:
+ *  var(--text-heading)`). Emitting those flat literals must therefore be SCOPED to where
+ *  diagram/chart content actually renders — NOT the whole deck: a bare `section, figure`
+ *  would freeze the engine's entire colour system to build-time literals on every slide,
+ *  taking core colour off the theme's live `:root light-dark()` and routing it through this
+ *  compiler's scheme logic deck-wide (so a bug in that logic would mis-colour every slide's
+ *  text/bg, not just a chart). The scope that matches the retired `@supports` fork's intent:
+ *    • `.chart-frame`      — journey / roadmap / every chart-frame chart, AND their
+ *                            Read·Article re-host `figure.chart-frame` (prose-projection.mjs).
+ *    • `section.diagram`   — a Mermaid slide (Mermaid is the `diagram` bucket, NOT a
+ *                            chart-frame; the SVG inherits from the section).
+ *    • `.lp-figure`        — the Read·Article re-host figures, incl. the bare
+ *                            `figure.lp-figure` a Mermaid diagram re-hosts into.
+ *  Everything OUTSIDE this union keeps the theme's native `:root` core tokens, untouched. */
+const DIAGRAM_PLANE_SELECTOR = '.chart-frame, section.diagram, .lp-figure';
 
-/** Build the subject-anchored OPPOSITE-scheme union for a plane group. `subjects` are
- *  the consuming elements the custom props must land ON (tree-depth inheritance beats
+/** Build the subject-anchored OPPOSITE-scheme union for a plane group. `subjects` are the
+ *  FULL simple selectors the custom props must land ON (tree-depth inheritance beats
  *  specificity for inherited props — the override must be on the subject, never a bare
- *  ancestor). `isType` picks how a subject composes with a scheme/OS modifier: a CLASS
- *  subject (`chart-frame`) → `.chart-frame.dark`; a TYPE subject (`section`) →
- *  `section.dark`. Every arm is strictly higher specificity than the group's DEFAULT
- *  plane arm, so the opposite scheme always wins on its own subtree. */
-function schemeAnchors(scheme, subjects = ['chart-frame', 'word-cloud', 'math'], isType = false) {
-  const sel = (s) => (isType ? s : `.${s}`);        // subject as a simple selector
-  const compound = (s, cls) => (isType ? `${s}.${cls}` : `.${s}.${cls}`); // subject + class on the SAME element
-  // Per-slide modifier (`section.dark`/`.light` — the class is on the section, which IS
-  // the subject for a type group and IS the .chart-frame for a class group).
+ *  ancestor): a class (`.chart-frame`), a compound (`section.diagram`), whatever the group
+ *  paints on. A scheme/OS modifier composes onto the SAME element (`.chart-frame.dark`,
+ *  `section.diagram.dark`). Every arm is strictly higher specificity than the group's
+ *  DEFAULT plane arm, so the opposite scheme always wins on its own subtree. */
+function schemeAnchors(scheme, subjects) {
+  const sel = (s) => s;                             // the subject IS the selector
+  const compound = (s, cls) => `${s}.${cls}`;       // subject + class on the SAME element
+  // Per-slide modifier (`section.dark`/`.light`) — the class is on the consuming subject.
   const perSlide = subjects.map((s) => compound(s, scheme));
   // Exported player / Read·Article figure host → pinned `data-lp-scheme` on an ancestor.
   const attr = subjects.map((s) => `[data-lp-scheme=${scheme}] ${sel(s)}`);
@@ -250,26 +257,19 @@ function themeVarMap(themeCss, baseCss, recipe) {
 }
 
 /** The component paint files that consume the engine-wide `--cat-*` / `--diagram-*`
- *  palette (the DIAGRAM plane group's audience): the Mermaid override sheet plus the
- *  non-chart-frame diagram/connect components. Their `var()` references drive the
- *  reference-driven token set below. */
+ *  palette (the DIAGRAM plane group's audience). SCOPE-MATCHED to the retired `@supports`
+ *  fork, which covered `lib/components/chart/**` + mermaid ONLY — Mermaid (a bare
+ *  `section.diagram`) plus the two chart-bucket members that read the engine-wide palette
+ *  (journey mood, roadmap phase ramp). Legal / comparison-decision are DELIBERATELY absent:
+ *  the fork never covered them, they're not on the diagram-plane selector, and pulling their
+ *  `var()` refs in would over-widen the flattened token set for no coverage. Their reference-
+ *  driven `var()`s drive the token set the diagram plane flattens. */
 function diagramFiles() {
-  const rel = [
+  return [
     'lib/integrations/mermaid/mermaid.css',
     'lib/components/chart/journey/journey.styles.css',
     'lib/components/chart/roadmap/roadmap.styles.css',
-    'lib/components/comparison/decision/decision.styles.css',
-  ];
-  const out = rel.map((r) => path.join(ROOT, r));
-  const legalDir = path.join(ROOT, 'lib', 'components', 'legal');
-  if (fs.existsSync(legalDir)) {
-    for (const ent of fs.readdirSync(legalDir, { withFileTypes: true })) {
-      if (!ent.isDirectory()) continue;
-      const f = path.join(legalDir, ent.name, `${ent.name}.styles.css`);
-      if (fs.existsSync(f)) out.push(f);
-    }
-  }
-  return out.filter((p) => fs.existsSync(p));
+  ].map((r) => path.join(ROOT, r)).filter((p) => fs.existsSync(p));
 }
 
 /** True when `raw` (a token's authored value) would be DROPPED by an engine that lacks
@@ -357,9 +357,8 @@ function buildPlanes(themeCss, baseCss) {
 
 /** Serialize ONE plane group (base + opposite-scheme override + strict OS arm). No
  *  `@supports` — this is the primary paint. `baseSelector` is the group's default-plane
- *  union; `subjects`/`isType` shape the override anchors (class subjects for the chart
- *  group, type subjects for the diagram group). */
-function serializeGroup(rules, declaredDark, baseSelector, subjects, isType) {
+ *  union; `subjects` are the FULL simple selectors the override anchors compose onto. */
+function serializeGroup(rules, declaredDark, baseSelector, subjects) {
   if (!rules.length) return '';
   const baseBody = rules.map((r) => `--${r.name}: ${r.base}`).join('; ');
   let out = `${baseSelector} { ${baseBody} }\n`;
@@ -368,7 +367,7 @@ function serializeGroup(rules, declaredDark, baseSelector, subjects, isType) {
   if (overrides.length) {
     // The opposite scheme: a light theme's override is DARK; a dark theme's is LIGHT.
     const scheme = declaredDark ? 'light' : 'dark';
-    const { plain, sel, compound } = schemeAnchors(scheme, subjects, isType);
+    const { plain, sel, compound } = schemeAnchors(scheme, subjects);
     const body = overrides.map((r) => `--${r.name}: ${r.override}`).join('; ');
     out += `${plain.join(', ')} { ${body} }\n`;
     // OS arm — for surfaces that follow the OS. Two anchors:
@@ -412,8 +411,8 @@ function serializeGroup(rules, declaredDark, baseSelector, subjects, isType) {
 function chartPaletteCssForTheme(themeName, baseCss) {
   const themeCss = resolveThemeCascade(themeName);
   const { chart, diagram, declaredDark } = buildPlanes(themeCss, baseCss);
-  return serializeGroup(chart, declaredDark, DEFAULT_PLANE_SELECTOR, ['chart-frame', 'word-cloud', 'math'], false)
-    + serializeGroup(diagram, declaredDark, DIAGRAM_PLANE_SELECTOR, ['section', 'figure'], true);
+  return serializeGroup(chart, declaredDark, DEFAULT_PLANE_SELECTOR, ['.chart-frame', '.word-cloud', '.math'])
+    + serializeGroup(diagram, declaredDark, DIAGRAM_PLANE_SELECTOR, ['.chart-frame', 'section.diagram', '.lp-figure']);
 }
 
 /** The recipe token names — the compile-time contract (Gate 3: the compiled planes

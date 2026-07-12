@@ -84,6 +84,21 @@ describe('chart-palette-css compiler', () => {
     assert.doesNotMatch(css, /:not\(\[data-lp-scheme/, 'must not use the loose :not([=light]) form');
   });
 
+  test('diagram plane is SCOPED to diagram/chart roots — it never seizes core tokens deck-wide', () => {
+    // The diagram group flattens CORE engine tokens (`--bg`, `--text-heading`, `--accent`, …) because
+    // Mermaid reads them directly in an SVG paint. Those flat literals MUST be scoped to where diagram/
+    // chart content renders — NOT a bare `section, figure`, which would freeze the whole engine's colour
+    // to build-time literals on every slide and take core colour off the theme's live `:root light-dark()`.
+    const css = chartPaletteCssForTheme('indaco', BASE);
+    assert.match(css, /\.chart-frame, section\.diagram, \.lp-figure \{/, 'diagram base plane on the scoped root union');
+    assert.doesNotMatch(css, /(^|[,{}])\s*section, ?figure\s*\{/m, 'must NOT emit any plane on the deck-wide `section, figure`');
+    // The core tokens live ONLY inside the scoped diagram plane, never on a bare `section`/`figure`.
+    for (const core of ['--bg', '--text-heading', '--accent']) {
+      const onBareSection = new RegExp(`(^|[,{}])\\s*(section|figure)\\s*\\{[^}]*${core}\\s*:`, 'm');
+      assert.doesNotMatch(css, onBareSection, `${core} must not be redefined on a bare section/figure (deck-wide seizure)`);
+    }
+  });
+
   test('RESTORE-BASE arm — a per-slide base-scheme class wins over an opposite deck pin (red-team P1)', () => {
     // A `_class: light` slide on a `color-mode: dark` deck (light theme) must paint LIGHT, even though
     // the deck-wide `[data-lp-scheme=dark] section/.chart-frame` override (0,1,1) beats the base plane
@@ -91,7 +106,10 @@ describe('chart-palette-css compiler', () => {
     // at (0,2,1). Without it, the light slide silently rendered dark on modern AND old engines.
     const css = chartPaletteCssForTheme('indaco', BASE);
     assert.match(css, /\[data-lp-scheme=dark\]\s+\.chart-frame\.light\b/, 'chart-group restore-base arm (deck pin)');
-    assert.match(css, /\[data-lp-scheme=dark\]\s+section\.light\b/, 'diagram-group restore-base arm (deck pin)');
+    // The diagram group is SCOPED to diagram/chart roots (not deck-wide `section`); a Mermaid slide is
+    // `section.diagram`, so its restore arm is `section.diagram.light` — NOT a bare `section.light`.
+    assert.match(css, /\[data-lp-scheme=dark\]\s+section\.diagram\.light\b/, 'diagram-group restore-base arm (deck pin)');
+    assert.doesNotMatch(css, /(^|[,{])\s*section, ?figure\s*\{/m, 'diagram plane must NOT paint deck-wide on bare `section, figure`');
     // The restore arm carries the LIGHT (base) --chart-cat-base, not black — a light theme's base is --bg.
     const m = css.match(/\[data-lp-scheme=dark\]\s+\.chart-frame\.light[^{]*\{[^}]*--chart-cat-base:\s*([^;}]+)/);
     assert.ok(m && m[1].trim().toLowerCase() !== 'black', `restore arm must carry the LIGHT base, got ${m?.[1]}`);
