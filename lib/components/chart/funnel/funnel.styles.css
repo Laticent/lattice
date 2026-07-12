@@ -35,16 +35,16 @@
  * polygons in the figure, so the count tracks stage order. (Same rotation idiom
  * as piechart.styles.css; see the gotchas note on nth-of-type vs nth-child.) */
 :is(section.funnel, figure.chart-frame) .funnel-band {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg));
+  fill: var(--chart-cat-1-solid);
   stroke: var(--bg);
   stroke-width: 0.75;
 }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 2) { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 3) { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 4) { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 5) { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 6) { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: var(--chart-cat-1-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 2) { fill: var(--chart-cat-2-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 3) { fill: var(--chart-cat-3-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 4) { fill: var(--chart-cat-4-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 5) { fill: var(--chart-cat-5-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 6) { fill: var(--chart-cat-6-solid); }
 
 /* Stage label — left column, right-aligned to the band. */
 :is(section.funnel, figure.chart-frame) .funnel-label {

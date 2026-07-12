@@ -265,6 +265,8 @@ section.word-cloud,
   --chart-spine-mid: color-mix(in oklab, var(--accent) 60%, transparent);
   --chart-muted-key: color-mix(in oklab, var(--text-muted) 32%, var(--bg));
   --math-error-bg: color-mix(in srgb, var(--warn) 10%, transparent);
+  --state-edge-back: color-mix(in oklab, var(--diagram-line) 55%, transparent);
+  --chart-chip-fill: color-mix(in oklab, var(--bg-alt) 60%, transparent);
 }
 /* <<< chart-palette-recipe : end <<< */
 

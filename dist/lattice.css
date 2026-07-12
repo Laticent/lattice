@@ -3644,16 +3644,16 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
  * polygons in the figure, so the count tracks stage order. (Same rotation idiom
  * as piechart.styles.css; see the gotchas note on nth-of-type vs nth-child.) */
 :is(section.funnel, figure.chart-frame) .funnel-band {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg));
+  fill: var(--chart-cat-1-solid);
   stroke: var(--bg);
   stroke-width: 0.75;
 }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 2) { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 3) { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 4) { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 5) { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--bg)); }
-:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 6) { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: var(--chart-cat-1-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 2) { fill: var(--chart-cat-2-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 3) { fill: var(--chart-cat-3-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 4) { fill: var(--chart-cat-4-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 5) { fill: var(--chart-cat-5-solid); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 6) { fill: var(--chart-cat-6-solid); }
 
 /* Stage label — left column, right-aligned to the band. */
 :is(section.funnel, figure.chart-frame) .funnel-label {
@@ -11724,7 +11724,6 @@ section.state-chart {
   --state-node-ink: var(--text-heading);
   --state-node-stroke: var(--diagram-stroke);
   --state-edge: var(--diagram-line);
-  --state-edge-back: color-mix(in oklab, var(--diagram-line) 55%, transparent);
   --state-index-ink: var(--text-muted);
   --state-marker: var(--diagram-line);
   --state-label-bg: var(--bg);
@@ -11804,14 +11803,10 @@ section.state-chart .state-node {
    * slate tile, exactly like a kanban card with no lane. The node fill is ALWAYS
    * neutral — status colour lives only in the index badge (see below), never the
    * node fill, so a green "on-track" node can't blend into a green wash. */
-  --fill-hue: var(--text-muted);
+  --fill-grad: var(--chart-neutral-fillgrad); --fill-edge: var(--chart-neutral-edge);
   --fill-ink: var(--diagram-stroke);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black)) 100%);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
+  background: var(--fill-grad);
+  border: var(--chart-hairline) solid var(--fill-edge);
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
   color: var(--state-node-ink);
   border-radius: 0.46875cqi;
@@ -11848,28 +11843,26 @@ section.state-chart .state-node .state-index {
 /* Shared status-tone swatch recipe (badge + legend dot). */
 section.state-chart .state-index[data-s],
 section.state-chart .state-dot {
-  --pill-hue: var(--state-info-hue);
+  --pill-grad: var(--state-info-pillgrad);
   --pill-ink: var(--state-info-ink);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--pill-hue) 33%, var(--bg)), color-mix(in oklab, var(--pill-hue) 48%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--pill-hue) 54%, var(--bg)), color-mix(in oklab, var(--pill-hue) 64%, black)) 100%);
+  background: var(--pill-grad);
   border: var(--chart-hairline) solid var(--pill-ink);
 }
 section.state-chart .state-index[data-s="on-track"], section.state-chart .state-dot[data-s="on-track"],
 section.state-chart .state-index[data-s="done"],     section.state-chart .state-dot[data-s="done"],
 section.state-chart .state-index[data-s="live"],     section.state-chart .state-dot[data-s="live"]
-  { --pill-hue: var(--state-pass-hue); --pill-ink: var(--state-pass-ink); }
+  { --pill-grad: var(--state-pass-pillgrad); --pill-ink: var(--state-pass-ink); }
 section.state-chart .state-index[data-s="at-risk"],  section.state-chart .state-dot[data-s="at-risk"],
 section.state-chart .state-index[data-s="warn"],     section.state-chart .state-dot[data-s="warn"]
-  { --pill-hue: var(--state-warn-hue); --pill-ink: var(--state-warn-ink); }
+  { --pill-grad: var(--state-warn-pillgrad); --pill-ink: var(--state-warn-ink); }
 section.state-chart .state-index[data-s="blocked"],  section.state-chart .state-dot[data-s="blocked"],
 section.state-chart .state-index[data-s="fail"],     section.state-chart .state-dot[data-s="fail"]
-  { --pill-hue: var(--state-fail-hue); --pill-ink: var(--state-fail-ink); }
+  { --pill-grad: var(--state-fail-pillgrad); --pill-ink: var(--state-fail-ink); }
 section.state-chart .state-index[data-s="pilot"],    section.state-chart .state-dot[data-s="pilot"],
 section.state-chart .state-index[data-s="decision"], section.state-chart .state-dot[data-s="decision"]
-  { --pill-hue: var(--state-info-hue); --pill-ink: var(--state-info-ink); }
+  { --pill-grad: var(--state-info-pillgrad); --pill-ink: var(--state-info-ink); }
 section.state-chart .state-index[data-s="deferred"], section.state-chart .state-dot[data-s="deferred"]
-  { --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink); }
+  { --pill-grad: var(--state-mute-pillgrad); --pill-ink: var(--state-mute-ink); }
 
 /* Status badge — the numeral inside a coloured disc, overhanging the top-right
  * corner (so it never overlaps the label). The wide horizontal node gutter
@@ -12058,14 +12051,10 @@ section.state-chart.horizontal .state-node-row {
   padding: var(--sp-sm) var(--sp-md);
   /* Row spacing is the container's flex gap now (was margin: 0.3125cqi 0). */
   /* Same canonical tile as the SVG-variant nodes above. */
-  --fill-hue: var(--text-muted);
+  --fill-grad: var(--chart-neutral-fillgrad); --fill-edge: var(--chart-neutral-edge);
   --fill-ink: var(--diagram-stroke);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black)) 100%);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
+  background: var(--fill-grad);
+  border: var(--chart-hairline) solid var(--fill-edge);
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
   color: var(--state-node-ink);
   border-radius: 0.46875cqi;
@@ -12138,7 +12127,7 @@ section.state-chart.horizontal .state-chip {
   padding: var(--pill-pad-y) var(--pill-pad-x);
   border: var(--chart-hairline) solid var(--state-node-stroke);
   border-radius: var(--pill-radius);
-  background: color-mix(in oklab, var(--state-node-fill) 60%, transparent);
+  background: var(--chart-chip-fill);
 }
 
 section.state-chart.inline .state-chip[data-dir="back"],
