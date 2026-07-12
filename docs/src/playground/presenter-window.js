@@ -89,16 +89,20 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		'fitEl.style.width=(sc*' + sw + ')+"px";fitEl.style.height=(sc*' + sh + ')+"px";' +
 		'var i=cur<0?0:(cur>s.length-1?s.length-1:cur);' +
 		'var top=s[i].offsetTop||i*' + sh + ';' +
+		// Hide the non-current sections (visibility, so layout/offsetTop is preserved): only the
+		// current slide paints/composites — bounds the cost on a big deck (each stage iframe would
+		// otherwise paint the WHOLE deck) and stops an adjacent slide bleeding through the rehearsal
+		// stage's rounded-corner cards. The engine writes no section styles, so this never fights it.
+		'for(var k=0;k<s.length;k++){s[k].style.visibility=k===i?"":"hidden"}' +
 		'film.style.transform="scale("+sc+") translateY("+(-top)+"px)";}' +
 		'function show(n){cur=n|0;fit()}' +
 		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)show(e.data.pv)});' +
 		'window.addEventListener("resize",fit);window.addEventListener("orientationchange",fit);' +
 		'if(window.visualViewport){try{window.visualViewport.addEventListener("resize",fit)}catch(e){}}' +
-		// Observe documentElement (its scroll size changes when the engine paints the deck)
-		// AND re-fit when the film's subtree repaints — the engine renders AFTER this inline
-		// script, so a one-shot fit would measure an empty film. childList-only, so our own
-		// transform writes never re-trigger it.
-		'if(typeof ResizeObserver!=="undefined"){try{var ro=new ResizeObserver(fit);ro.observe(stage);ro.observe(document.documentElement)}catch(e){}}' +
+		// Re-fit when the stage resizes, and when the film's subtree repaints (the engine may
+		// re-render the deck AFTER this inline script). childList-only, so our own style writes
+		// never re-trigger it; the timers are the backstop if neither fires.
+		'if(typeof ResizeObserver!=="undefined"){try{new ResizeObserver(fit).observe(stage)}catch(e){}}' +
 		'if(typeof MutationObserver!=="undefined"){try{new MutationObserver(fit).observe(film,{childList:true,subtree:true})}catch(e){}}' +
 		'[60,300,1200,2500].forEach(function(t){setTimeout(fit,t)});show(0);' +
 		'})();';
@@ -109,7 +113,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		'<style>html,body{margin:0;padding:0;height:100%;background:' + bg + ';overflow:hidden;touch-action:manipulation;-webkit-text-size-adjust:100%;}' +
 		'#latt-stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;visibility:hidden;}' +
 		'#latt-fit{overflow:hidden;}' +
-		'#latt-film{position:relative;transform-origin:top left;will-change:transform;}' +
+		'#latt-film{position:relative;transform-origin:top left;}' +
 		'#latt-film .lattice{margin:0;padding:0;}' +
 		slideBox(sw, sh) +
 		css + '</style></head><body>' +

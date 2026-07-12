@@ -19,6 +19,28 @@ describe('presenter-window — buildStageDoc', () => {
 		expect(doc).not.toContain('stylesheet');
 		expect(doc).toContain('/r.js');
 	});
+	it('binds the inlined fit kernel to the names its call sites use (the presenter-crop guard)', () => {
+		// The fit inlines fitScale/padInset via Function.toString(); the bundler renames the
+		// imports, so a BARE `${fn.toString()}` printed a renamed/anonymous body while the call
+		// sites used the literal names → `fit()` threw "padInset is not defined" and the slide
+		// never scaled (the long-standing presenter crop). The `var name = …` binding is what
+		// keeps the names alive — assert both the binding AND the call sites, so a revert to the
+		// bare form fails here instead of silently re-cropping every presenter.
+		const doc = buildStageDoc({ html: '<div class="lattice"><section>A</section></div>', width: 1280, height: 720, bg: '#000', css: '', runtimeUrl: '/r.js' });
+		expect(doc).toMatch(/var fitScale\s*=\s*function|var fitScale\s*=\s*\(/);
+		expect(doc).toMatch(/var padInset\s*=\s*function|var padInset\s*=\s*\(/);
+		expect(doc).toContain('padInset(');
+		expect(doc).toContain('fitScale(');
+	});
+	it('drives a private #latt-film filmstrip clipped to the current slide (never the engine sections)', () => {
+		// The stage scales + translates OUR OWN #latt-film wrapper and hides the non-current
+		// sections, rather than transforming the engine's <section>s (which the engine re-manages).
+		const doc = buildStageDoc({ html: '<div class="lattice"><section>A</section><section>B</section></div>', width: 1280, height: 720, bg: '#000', css: '', runtimeUrl: '/r.js' });
+		expect(doc).toContain('id="latt-film"');
+		expect(doc).toContain('scale(');
+		expect(doc).toContain('translateY(');
+		expect(doc).toContain('.style.visibility'); // only the current slide paints
+	});
 });
 
 describe('presenter-window — buildPresenterDoc', () => {
