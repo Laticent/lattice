@@ -6,7 +6,7 @@
  * Stack of horizontal bars, one per list item. Each row carries a label,
  * a bar (filled to --pct), a numeric readout, and an optional status pill.
  * The fill colour tints with the status. */
-section.progress.chart-frame .chart-body {
+:is(section.progress, figure.progress).chart-frame .chart-body {
   /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding so
    * the surface panel matches every other chart — the old width:100% +
    * max-width:76.5cqi made the progress panel noticeably narrower (big side
@@ -17,13 +17,13 @@ section.progress.chart-frame .chart-body {
 /* Every row uses the SAME fixed grid template, so the 1fr track is
  * identical across rows. `auto` columns would size to per-row content
  * (varying status-pill widths) and make tracks disagree. */
-section.progress .progress-bars {
+:is(section.progress, figure.progress) .progress-bars {
   display: flex;
   flex-direction: column;
   row-gap: 0.46875cqi;
   width: 100%;
 }
-section.progress .progress-row {
+:is(section.progress, figure.progress) .progress-row {
   display: grid;
   /* label · track · pill — the % readout now lives INSIDE the fill (right-
    * aligned on the colored bar, like a gantt bar's in-bar label), so it no
@@ -32,13 +32,13 @@ section.progress .progress-row {
   align-items: center;
   column-gap: var(--sp-md);
 }
-section.progress .progress-label {
+:is(section.progress, figure.progress) .progress-label {
   font-size: var(--fs-body);
   font-weight: 500;
   color: var(--text-heading);
   text-align: right;
 }
-section.progress .progress-track {
+:is(section.progress, figure.progress) .progress-track {
   position: relative;
   /* NO rail. The track is a transparent positioning context only — the fill is
    * a self-contained bordered tile that "shoots forward" on the bare canvas
@@ -51,7 +51,7 @@ section.progress .progress-track {
   border-radius: 0.46875cqi;
   overflow: hidden;
 }
-section.progress .progress-fill {
+:is(section.progress, figure.progress) .progress-fill {
   position: absolute;
   inset: 0 auto 0 0;
   width: calc(var(--pct) * 1%);
@@ -92,15 +92,15 @@ section.progress .progress-fill {
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
  * Canvas-aware via light-dark(), so one rule each. */
-section.progress .progress-fill[data-s="on-track"],
-section.progress .progress-fill[data-s="done"],
-section.progress .progress-fill[data-s="live"] { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
-section.progress .progress-fill[data-s="at-risk"],
-section.progress .progress-fill[data-s="warn"]   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
-section.progress .progress-fill[data-s="blocked"],
-section.progress .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-section.progress .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
-section.progress .progress-pct {
+:is(section.progress, figure.progress) .progress-fill[data-s="on-track"],
+:is(section.progress, figure.progress) .progress-fill[data-s="done"],
+:is(section.progress, figure.progress) .progress-fill[data-s="live"] { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="at-risk"],
+:is(section.progress, figure.progress) .progress-fill[data-s="warn"]   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="blocked"],
+:is(section.progress, figure.progress) .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
+:is(section.progress, figure.progress) .progress-pct {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   font-weight: 700;
@@ -123,12 +123,12 @@ section.progress .progress-pct {
   line-height: 1;
 }
 /* Pills right-align in their column so all pill right edges line up. */
-section.progress .progress-row > .chart-status,
-section.progress .progress-row > .chart-status-empty {
+:is(section.progress, figure.progress) .progress-row > .chart-status,
+:is(section.progress, figure.progress) .progress-row > .chart-status-empty {
   justify-self: end;
 }
 /* Optional row sub-bullet — rendered as a small footnote under the bar. */
-section.progress .progress-note {
+:is(section.progress, figure.progress) .progress-note {
   grid-column: 2 / 3;
   /* Nudge the note up under the bar via transform (was margin-top: -0.3125cqi).
    * Transform is the measurable, margin-free equivalent — no margin to collapse
@@ -145,11 +145,11 @@ section.progress .progress-note {
  * Keyed on the nearest `lattice` container; landscape untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
 @container lattice (aspect-ratio <= 1.05) {
-  section.progress .progress-bars {
+  :is(section.progress, figure.progress) .progress-bars {
     height: 100%;
     justify-content: space-evenly;
     row-gap: var(--sp-md);
   }
-  section.progress .progress-track { height: 4cqi; }
-  section.progress .progress-label { font-size: var(--fs-message); }
+  :is(section.progress, figure.progress) .progress-track { height: 4cqi; }
+  :is(section.progress, figure.progress) .progress-label { font-size: var(--fs-message); }
 }

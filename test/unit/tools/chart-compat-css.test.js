@@ -132,6 +132,23 @@ describe('chart-compat-css generator', () => {
     assert.match(chartCompatCssForTheme('indaco-dark', BASE), /section\.chart-frame\.light\b/);
   });
 
+  test('a `:is(section.X, figure.X)`-broadened component emits NO bare `:is` arm (regression)', () => {
+    // Chart component CSS broadens `section.<comp>` → `:is(section.<comp>, figure.<comp>)` so the
+    // layout also paints in the Read·Article <figure> re-host. The generator's selector splitting
+    // is not `:is()`-aware, so it used to break the inner `section.X, figure.X` on its comma and
+    // emit a bogus bare `:is` arm — and in a comma selector LIST one invalid arm drops the WHOLE
+    // rule, silently losing the compat colour. unbroadenIsFigure() normalizes to the section arm.
+    for (const theme of ['indaco', 'indaco-dark', 'a11y-deuteranopia']) {
+      const css = chartCompatCssForTheme(theme, BASE);
+      // A bare `:is` (pseudo-class with no argument list) — invalid, rule-dropping.
+      assert.doesNotMatch(css, /:is(?!\s*\()/,
+        `${theme}: a bare \`:is\` arm invalidates its whole flattened rule`);
+      // And the figure arm must be gone entirely (compat CSS is a slide fallback only).
+      assert.doesNotMatch(css, /figure\.(chart-frame|roadmap|gantt|kanban|progress)/,
+        `${theme}: the figure re-host arm must not leak into the slide compat CSS`);
+    }
+  });
+
   test('modern-browser safety: every generated rule is inside the @supports guard', () => {
     // Nothing may leak OUTSIDE the guard — a stray rule would change modern render.
     const css = chartCompatCssForTheme('indaco', BASE).trim();

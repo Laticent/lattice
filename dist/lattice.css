@@ -3481,7 +3481,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
  * .gantt-bars using percentage math anchored on --gantt-cols, --gantt-col-start,
  * and --gantt-col-span — no subgrid needed. */
 
-section.gantt.chart-frame .chart-body {
+:is(section.gantt, figure.gantt).chart-frame .chart-body {
   /* Inherit the shared .chart-body width AND padding (sp-lg / sp-2xl) so the
    * surface panel is the same size and inset as every other chart — don't
    * re-assert width:100% (it spanned edge-to-edge) or a tighter padding (the
@@ -3832,14 +3832,14 @@ section.gantt.chart-frame .chart-body {
  * Keyed on the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md §10. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.gantt.chart-frame .gantt-chart { height: 100%; }
+  :is(section.gantt, figure.gantt).chart-frame .gantt-chart { height: 100%; }
 
   /* Ticks span the full width — no left label column in portrait. */
-  section.gantt .gantt-axis-row { flex: 0 0 auto; }
-  section.gantt .gantt-axis-spacer { flex-basis: 0; width: 0; padding: 0; }
+  :is(section.gantt, figure.gantt) .gantt-axis-row { flex: 0 0 auto; }
+  :is(section.gantt, figure.gantt) .gantt-axis-spacer { flex-basis: 0; width: 0; padding: 0; }
 
   /* Lanes distribute down the canvas; each is a label-over-bars block. */
-  section.gantt .gantt-lane {
+  :is(section.gantt, figure.gantt) .gantt-lane {
     flex: 1 1 0;
     flex-direction: column;
     align-items: stretch;
@@ -3852,10 +3852,10 @@ section.gantt.chart-frame .chart-body {
   }
   /* The portrait lane border (above) out-specifies the base last-child reset, so
    * re-drop it here or the bottom stacked lane keeps a trailing hairline. */
-  section.gantt .gantt-lane:last-child { border-bottom: none; }
+  :is(section.gantt, figure.gantt) .gantt-lane:last-child { border-bottom: none; }
 
   /* Label rides above its bars — full width, left-aligned, no ellipsis. */
-  section.gantt .gantt-lane-label {
+  :is(section.gantt, figure.gantt) .gantt-lane-label {
     flex: 0 0 auto;
     width: auto;
     text-align: left;
@@ -3872,18 +3872,18 @@ section.gantt.chart-frame .chart-body {
    * by a column (span is inclusive) with the later bar drawn on top — so a
    * left-aligned label sits in the visible left portion, while a centred one
    * would slide under the neighbouring bar and clip. */
-  section.gantt .gantt-bars {
+  :is(section.gantt, figure.gantt) .gantt-bars {
     flex: 0 0 auto;
     height: 9.5cqi;
   }
 
   /* No label column in portrait — the today line spans the full bars width, so
    * drop the 14cqi offset and place it directly at its percent. */
-  section.gantt .gantt-today {
+  :is(section.gantt, figure.gantt) .gantt-today {
     left: calc(var(--gantt-x) * 1%);
   }
   /* A milestone label can wrap in the tall box rather than clip. */
-  section.gantt .gantt-milestone { white-space: normal; }
+  :is(section.gantt, figure.gantt) .gantt-milestone { white-space: normal; }
 }
 
 /* === lib/components/inventory/glossary/glossary.styles.css === */
@@ -5324,7 +5324,7 @@ section.journey .journey-vmood .journey-face {
  *   • `tinted`  — columns tinted by STAGE (reinforces the pipeline flow)
  * Author as `<!-- _class: kanban -->` / `kanban keyline` / `kanban tinted`. */
 
-section.kanban.chart-frame .chart-body {
+:is(section.kanban, figure.kanban).chart-frame .chart-body {
   /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding
    * (sp-lg / sp-2xl) so the surface panel matches every other chart — the old
    * width:100% pushed it full-bleed (no side margin) and the sp-xs bottom let
@@ -5436,7 +5436,7 @@ section.kanban.chart-frame .chart-body {
 .kanban-card[data-s="decision"] { --status-fill: var(--state-info-fill); --status-ink: var(--state-info-ink); }
 .kanban-card[data-s="deferred"] { --status-fill: var(--state-mute-fill); --status-ink: var(--state-mute-ink); }
 
-section.kanban:not(.keyline):not(.tinted) .kanban-card[data-s] {
+:is(section.kanban, figure.kanban):not(.keyline):not(.tinted) .kanban-card[data-s] {
   background: light-dark(
     color-mix(in oklab, var(--status-fill) 55%, var(--bg-alt)),
     color-mix(in oklab, var(--status-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
@@ -5479,7 +5479,7 @@ section.kanban:not(.keyline):not(.tinted) .kanban-card[data-s] {
  * secondary metric, so it should not add a box to every card. (One rule for
  * both canvases — overrides any earlier dark size treatment.) */
 .kanban-size,
-section.kanban.dark .kanban-size {
+:is(section.kanban, figure.kanban).dark .kanban-size {
   display: inline-flex;
   align-items: center;
   width: auto;
@@ -5555,7 +5555,7 @@ section.kanban.dark .kanban-size {
  * shadow); the lane colour appears ONLY as a crisp left keyline. Status stays on
  * the chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
  * ════════════════════════════════════════════════════════════════════════════ */
-section.kanban.keyline .kanban-card {
+:is(section.kanban, figure.kanban).keyline .kanban-card {
   /* Flat uniform tile — light barely warms --bg-alt; dark mixes a stronger step
    * toward --border so the card stops sinking into the near-black canvas. */
   background: light-dark(
@@ -5569,12 +5569,12 @@ section.kanban.keyline .kanban-card {
   border-radius: 0 0.46875cqi 0.46875cqi 0;
   box-shadow: none;
 }
-section.kanban.keyline.dark .kanban-card {
+:is(section.kanban, figure.kanban).keyline.dark .kanban-card {
   border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
 }
 /* Lane label quiet; the keyline carries the colour, so drop the dot. */
-section.kanban.keyline .kanban-lane { color: var(--text-secondary); }
-section.kanban.keyline .kanban-lane::before { display: none; }
+:is(section.kanban, figure.kanban).keyline .kanban-lane { color: var(--text-secondary); }
+:is(section.kanban, figure.kanban).keyline .kanban-lane::before { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════════
  * VARIANT: `tinted` — colour encodes STAGE, not category.
@@ -5583,7 +5583,7 @@ section.kanban.keyline .kanban-lane::before { display: none; }
  * header underline. Cards go uniformly neutral and lift off the lane. Status
  * stays the one accent chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
  * ════════════════════════════════════════════════════════════════════════════ */
-section.kanban.tinted .kanban-column {
+:is(section.kanban, figure.kanban).tinted .kanban-column {
   --col-hue: var(--chart-cat-1-hue);
   --col-tint: 5%;
   background: color-mix(in oklab, var(--col-hue) var(--col-tint), var(--bg));
@@ -5594,18 +5594,18 @@ section.kanban.tinted .kanban-column {
 /* Stage progression blue → orange → teal → pass-green (no green-on-green at the
  * end); warm/green hues read heavier, so they take a lower mix % to feel the
  * same whisper. */
-section.kanban.tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-tint: 6%; }
-section.kanban.tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-tint: 4%; }
-section.kanban.tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-tint: 5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-tint: 6%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-tint: 4%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-tint: 5%; }
 /* 4th/5th active lanes (boards up to the hard cap of 6 columns) stay distinct
  * rather than wrapping back to blue. The done lane is keyed by [data-done]
  * below, which always wins its own position regardless of count. */
-section.kanban.tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-tint: 5%; }
-section.kanban.tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-tint: 4.5%; }
-section.kanban.tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-tint: 4.5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-tint: 5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-tint: 4.5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-tint: 4.5%; }
 
 /* Header: neutral mono register; the hue lives only on the underline. */
-section.kanban.tinted .kanban-column-header {
+:is(section.kanban, figure.kanban).tinted .kanban-column-header {
   color: var(--text-label);
   /* Underline inset var(--sp-3xs) each side (was an inset border-bottom + a
    * horizontal margin:0 var(--sp-3xs)). Drawn as a bottom-anchored gradient so
@@ -5617,13 +5617,13 @@ section.kanban.tinted .kanban-column-header {
     no-repeat center bottom / calc(100% - 2 * var(--sp-3xs)) 1.5px;
   padding: 0 var(--sp-2xs) 0.6cqi;
 }
-section.kanban.tinted .kanban-column[data-done] .kanban-column-header {
+:is(section.kanban, figure.kanban).tinted .kanban-column[data-done] .kanban-column-header {
   color: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
 }
 
 /* Cards lift OFF the tinted lane: light = plain --bg paper + soft hue shadow;
  * dark = a touch lighter than the lane with a defined hairline. */
-section.kanban.tinted .kanban-card {
+:is(section.kanban, figure.kanban).tinted .kanban-card {
   background: light-dark(var(--bg), var(--bg-alt));
   border: var(--chart-hairline) solid var(--border);
   box-shadow: light-dark(
@@ -5631,17 +5631,17 @@ section.kanban.tinted .kanban-card {
 }
 /* Dark: tint the lane a hair stronger so the stage colour survives near-black,
  * and lift the cards above it. */
-section.kanban.tinted.dark .kanban-column {
+:is(section.kanban, figure.kanban).tinted.dark .kanban-column {
   background: color-mix(in oklab, var(--col-hue) calc(var(--col-tint) + 5%), var(--bg));
   border-color: color-mix(in oklab, var(--col-hue) 22%, var(--border));
 }
-section.kanban.tinted.dark .kanban-card {
+:is(section.kanban, figure.kanban).tinted.dark .kanban-card {
   background: color-mix(in oklab, var(--bg-alt) 88%, white);
   border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
 }
 /* Lane label quiet; drop the dot (colour now lives on the lane, not the card). */
-section.kanban.tinted .kanban-lane { color: var(--text-muted); }
-section.kanban.tinted .kanban-lane::before { display: none; }
+:is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }
+:is(section.kanban, figure.kanban).tinted .kanban-lane::before { display: none; }
 
 /* ── Box-local RESTRUCTURE (tall + strip, ≤0.9): the side-by-side board becomes
  * a vertical stack — each lane is now a full-width band, and its cards flow as a
@@ -5649,21 +5649,21 @@ section.kanban.tinted .kanban-lane::before { display: none; }
  * the nearest `lattice` container; landscape (side-by-side board) untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.kanban .kanban-board {
+  :is(section.kanban, figure.kanban) .kanban-board {
     flex-direction: column;
     height: 100%;
     justify-content: space-evenly;
   }
-  section.kanban .kanban-cards { flex-direction: row; flex-wrap: wrap; }
-  section.kanban .kanban-card { flex: 1 1 14cqi; min-width: 0; }
+  :is(section.kanban, figure.kanban) .kanban-cards { flex-direction: row; flex-wrap: wrap; }
+  :is(section.kanban, figure.kanban) .kanban-card { flex: 1 1 14cqi; min-width: 0; }
 
   /* Auto-split lane slides (carousel.js kanban-lanes): one lane has the WHOLE slide, so its
    * cards stack as a full-width column instead of wrapping into a cramped row (which clipped
    * the titles). More specific than the all-lanes reflow above, so it wins for split bodies. */
-  section.kanban.lat-split-native .kanban-board { justify-content: flex-start; }
-  section.kanban.lat-split-native .kanban-column { width: 100%; }
-  section.kanban.lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
-  section.kanban.lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
+  :is(section.kanban, figure.kanban).lat-split-native .kanban-board { justify-content: flex-start; }
+  :is(section.kanban, figure.kanban).lat-split-native .kanban-column { width: 100%; }
+  :is(section.kanban, figure.kanban).lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  :is(section.kanban, figure.kanban).lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
 }
 
 /* === lib/components/evidence/kpi/kpi.styles.css === */
@@ -8625,7 +8625,7 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
  * Stack of horizontal bars, one per list item. Each row carries a label,
  * a bar (filled to --pct), a numeric readout, and an optional status pill.
  * The fill colour tints with the status. */
-section.progress.chart-frame .chart-body {
+:is(section.progress, figure.progress).chart-frame .chart-body {
   /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding so
    * the surface panel matches every other chart — the old width:100% +
    * max-width:76.5cqi made the progress panel noticeably narrower (big side
@@ -8636,13 +8636,13 @@ section.progress.chart-frame .chart-body {
 /* Every row uses the SAME fixed grid template, so the 1fr track is
  * identical across rows. `auto` columns would size to per-row content
  * (varying status-pill widths) and make tracks disagree. */
-section.progress .progress-bars {
+:is(section.progress, figure.progress) .progress-bars {
   display: flex;
   flex-direction: column;
   row-gap: 0.46875cqi;
   width: 100%;
 }
-section.progress .progress-row {
+:is(section.progress, figure.progress) .progress-row {
   display: grid;
   /* label · track · pill — the % readout now lives INSIDE the fill (right-
    * aligned on the colored bar, like a gantt bar's in-bar label), so it no
@@ -8651,13 +8651,13 @@ section.progress .progress-row {
   align-items: center;
   column-gap: var(--sp-md);
 }
-section.progress .progress-label {
+:is(section.progress, figure.progress) .progress-label {
   font-size: var(--fs-body);
   font-weight: 500;
   color: var(--text-heading);
   text-align: right;
 }
-section.progress .progress-track {
+:is(section.progress, figure.progress) .progress-track {
   position: relative;
   /* NO rail. The track is a transparent positioning context only — the fill is
    * a self-contained bordered tile that "shoots forward" on the bare canvas
@@ -8670,7 +8670,7 @@ section.progress .progress-track {
   border-radius: 0.46875cqi;
   overflow: hidden;
 }
-section.progress .progress-fill {
+:is(section.progress, figure.progress) .progress-fill {
   position: absolute;
   inset: 0 auto 0 0;
   width: calc(var(--pct) * 1%);
@@ -8711,15 +8711,15 @@ section.progress .progress-fill {
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
  * Canvas-aware via light-dark(), so one rule each. */
-section.progress .progress-fill[data-s="on-track"],
-section.progress .progress-fill[data-s="done"],
-section.progress .progress-fill[data-s="live"] { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
-section.progress .progress-fill[data-s="at-risk"],
-section.progress .progress-fill[data-s="warn"]   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
-section.progress .progress-fill[data-s="blocked"],
-section.progress .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-section.progress .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
-section.progress .progress-pct {
+:is(section.progress, figure.progress) .progress-fill[data-s="on-track"],
+:is(section.progress, figure.progress) .progress-fill[data-s="done"],
+:is(section.progress, figure.progress) .progress-fill[data-s="live"] { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="at-risk"],
+:is(section.progress, figure.progress) .progress-fill[data-s="warn"]   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="blocked"],
+:is(section.progress, figure.progress) .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
+:is(section.progress, figure.progress) .progress-pct {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   font-weight: 700;
@@ -8742,12 +8742,12 @@ section.progress .progress-pct {
   line-height: 1;
 }
 /* Pills right-align in their column so all pill right edges line up. */
-section.progress .progress-row > .chart-status,
-section.progress .progress-row > .chart-status-empty {
+:is(section.progress, figure.progress) .progress-row > .chart-status,
+:is(section.progress, figure.progress) .progress-row > .chart-status-empty {
   justify-self: end;
 }
 /* Optional row sub-bullet — rendered as a small footnote under the bar. */
-section.progress .progress-note {
+:is(section.progress, figure.progress) .progress-note {
   grid-column: 2 / 3;
   /* Nudge the note up under the bar via transform (was margin-top: -0.3125cqi).
    * Transform is the measurable, margin-free equivalent — no margin to collapse
@@ -8764,13 +8764,13 @@ section.progress .progress-note {
  * Keyed on the nearest `lattice` container; landscape untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
 @container lattice (aspect-ratio <= 1.05) {
-  section.progress .progress-bars {
+  :is(section.progress, figure.progress) .progress-bars {
     height: 100%;
     justify-content: space-evenly;
     row-gap: var(--sp-md);
   }
-  section.progress .progress-track { height: 4cqi; }
-  section.progress .progress-label { font-size: var(--fs-message); }
+  :is(section.progress, figure.progress) .progress-track { height: 4cqi; }
+  :is(section.progress, figure.progress) .progress-label { font-size: var(--fs-message); }
 }
 
 /* === lib/components/inventory/q-and-a/q-and-a.styles.css === */
@@ -10530,7 +10530,7 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
  * .roadmap-figure inside .chart-body — so the section layout, h2 chrome, and
  * the opt-in `.canvas` surface panel all come from chart-family.css. The
  * figure fills the body height; the table/grid fills the figure. */
-section.roadmap .roadmap-figure {
+:is(section.roadmap, figure.roadmap) .roadmap-figure {
   display:flex; flex-direction:column; width:100%; flex:1; min-height:0;
 }
 
@@ -10543,7 +10543,7 @@ section.roadmap .roadmap-figure {
  * the figure. Each chip reuses the EXACT disc+masked-glyph recipe the cells use
  * (one source of truth: a theme tuning --mark-* / --state-color updates both).
  * Sized to read without squinting, weighted to key the grid, not compete. */
-section.roadmap .roadmap-legend {
+:is(section.roadmap, figure.roadmap) .roadmap-legend {
   align-self:center;
   /* The top separation from the grid (was margin:var(--sp-lg) 0 0) folds into
    * padding-top — measurable inside the flex content box, margin-free. */
@@ -10556,32 +10556,32 @@ section.roadmap .roadmap-legend {
   gap:var(--sp-sm) var(--sp-xl);
   font-size:var(--fs-body-compact);
 }
-section.roadmap .roadmap-legend-item {
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item {
   display:inline-flex;
   align-items:center;
   gap:var(--sp-sm);
   color:var(--text-secondary);
 }
-section.roadmap .roadmap-legend-mark {
+:is(section.roadmap, figure.roadmap) .roadmap-legend-mark {
   position:relative;
   width:0.95em;
   height:0.95em;
   flex:0 0 auto;
 }
 /* Per-state tokens, legend scope — mirror the cell tokens above. */
-section.roadmap .roadmap-legend-item.state-shipped { --state-color:var(--pass);        --state-mark:var(--mark-check); }
-section.roadmap .roadmap-legend-item.state-wip     { --state-color:var(--warn);        --state-mark:var(--mark-dash);  }
-section.roadmap .roadmap-legend-item.state-planned { --state-color:var(--text-label); }
-section.roadmap .roadmap-legend-item.state-skipped { --state-color:var(--text-muted);  --state-mark:var(--mark-slash); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-shipped { --state-color:var(--pass);        --state-mark:var(--mark-check); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-wip     { --state-color:var(--warn);        --state-mark:var(--mark-dash);  }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--text-label); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--text-muted);  --state-mark:var(--mark-slash); }
 /* Disc (::before) + canvas-knockout glyph (::after) — same recipe as cells. */
-section.roadmap .roadmap-legend-mark::before {
+:is(section.roadmap, figure.roadmap) .roadmap-legend-mark::before {
   content:'';
   position:absolute;
   inset:0;
   border-radius:50%;
   background-color:var(--state-color, var(--text-muted));
 }
-section.roadmap .roadmap-legend-mark::after {
+:is(section.roadmap, figure.roadmap) .roadmap-legend-mark::after {
   content:'';
   position:absolute;
   inset:0;
@@ -10590,22 +10590,22 @@ section.roadmap .roadmap-legend-mark::after {
           mask:var(--state-mark) center / 72% 72% no-repeat;
 }
 /* planned = true hollow ring (no centre glyph), matching the cell. */
-section.roadmap .roadmap-legend-item.state-planned .roadmap-legend-mark::before {
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned .roadmap-legend-mark::before {
   background-color:transparent;
   box-shadow:inset 0 0 0 2px var(--state-color);
 }
-section.roadmap .roadmap-legend-item.state-planned .roadmap-legend-mark::after {
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned .roadmap-legend-mark::after {
   display:none;
 }
-section.roadmap table {
+:is(section.roadmap, figure.roadmap) table {
   width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0;
   /* Dense grid inside the frame: opt down to the compact content step so
    * four–five workstream rows clear the centered chart-header without the
    * chart-body's overflow:hidden clipping the last row. */
   font-size:var(--fs-body-compact); flex:1;
 }
-section.roadmap thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
-section.roadmap thead th {
+:is(section.roadmap, figure.roadmap) thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+:is(section.roadmap, figure.roadmap) thead th {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);
   font-weight:600;
@@ -10622,7 +10622,7 @@ section.roadmap thead th {
    right-anchored on the spectrum line under the th, carrying the
    column's categorical accent. Authoring guidance: header text =
    phase name; pill = optional meta (date, status tag, owner). */
-section.roadmap thead th:not(:first-child) {
+:is(section.roadmap, figure.roadmap) thead th:not(:first-child) {
   position:relative;
   padding-top:var(--sp-sm);
   padding-bottom:calc(var(--sp-md) + 0.46875cqi);
@@ -10631,7 +10631,7 @@ section.roadmap thead th:not(:first-child) {
 /* Universal trailing pill — overrides the global `section code` chrome
    (bg-alt fill, square radius). The pill sits ON the spectrum line
    at the bottom-right of the header cell. */
-section.roadmap thead th:not(:first-child) > code {
+:is(section.roadmap, figure.roadmap) thead th:not(:first-child) > code {
   position:absolute;
   right:var(--sp-md);
   bottom:-0.546875cqi;
@@ -10653,24 +10653,24 @@ section.roadmap thead th:not(:first-child) > code {
    The workstream column reads `--phase-accent` for its lane stripe
    per row; phase columns read it for their leading column-accent
    stripe per column. */
-section.roadmap thead th:nth-child(8n+2),
-section.roadmap tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); }
-section.roadmap thead th:nth-child(8n+3),
-section.roadmap tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); }
-section.roadmap thead th:nth-child(8n+4),
-section.roadmap tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); }
-section.roadmap thead th:nth-child(8n+5),
-section.roadmap tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); }
-section.roadmap thead th:nth-child(8n+6),
-section.roadmap tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); }
-section.roadmap thead th:nth-child(8n+7),
-section.roadmap tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); }
-section.roadmap thead th:nth-child(8n),
-section.roadmap tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); }
-section.roadmap thead th:nth-child(8n+1),
-section.roadmap tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); }
+:is(section.roadmap, figure.roadmap) thead th:nth-child(8n+2),
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); }
+:is(section.roadmap, figure.roadmap) thead th:nth-child(8n+3),
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); }
+:is(section.roadmap, figure.roadmap) thead th:nth-child(8n+4),
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); }
+:is(section.roadmap, figure.roadmap) thead th:nth-child(8n+5),
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); }
+:is(section.roadmap, figure.roadmap) thead th:nth-child(8n+6),
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); }
+:is(section.roadmap, figure.roadmap) thead th:nth-child(8n+7),
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); }
+:is(section.roadmap, figure.roadmap) thead th:nth-child(8n),
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); }
+:is(section.roadmap, figure.roadmap) thead th:nth-child(8n+1),
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); }
 
-section.roadmap td {
+:is(section.roadmap, figure.roadmap) td {
   padding:var(--sp-xs) var(--sp-md);
   border-bottom:var(--chart-hairline) solid var(--border);
   border-left:var(--chart-hairline) solid var(--border);
@@ -10678,14 +10678,14 @@ section.roadmap td {
   vertical-align:top;
   line-height:var(--lh-snug);
 }
-section.roadmap td:first-child {
+:is(section.roadmap, figure.roadmap) td:first-child {
   font-weight:700;
   color:var(--text-heading);
   background:color-mix(in srgb, var(--phase-accent, var(--accent)) 6%, var(--bg-alt));
   border-left:var(--chart-fill-accent) solid var(--phase-accent, var(--accent));
 }
 /* Empty cells render as a muted dash. */
-section.roadmap td:empty::before {
+:is(section.roadmap, figure.roadmap) td:empty::before {
   content:'—';
   color:var(--text-muted);
   font-family:var(--font-mono);
@@ -10715,25 +10715,25 @@ section.roadmap td:empty::before {
  * ──────────────────────────────────────────────────────────────────── */
 
 /* Per-state colour tokens — used by both light + heavy treatments. */
-section.roadmap td.cell-state.state-shipped,
-section.roadmap.horizons .horizon-rows > li.cell-state.state-shipped {
+:is(section.roadmap, figure.roadmap) td.cell-state.state-shipped,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-shipped {
   --state-color:var(--pass);
   --state-mark:var(--mark-check);
   --cell-state-bg:color-mix(in srgb, var(--pass) 8%, transparent);
 }
-section.roadmap td.cell-state.state-wip,
-section.roadmap.horizons .horizon-rows > li.cell-state.state-wip {
+:is(section.roadmap, figure.roadmap) td.cell-state.state-wip,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-wip {
   --state-color:var(--warn);
   --state-mark:var(--mark-dash);
   --cell-state-bg:color-mix(in srgb, var(--warn) 9%, transparent);
 }
-section.roadmap td.cell-state.state-planned,
-section.roadmap.horizons .horizon-rows > li.cell-state.state-planned {
+:is(section.roadmap, figure.roadmap) td.cell-state.state-planned,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned {
   --state-color:var(--text-label);
   --cell-state-bg:var(--bg-alt);
 }
-section.roadmap td.cell-state.state-skipped,
-section.roadmap.horizons .horizon-rows > li.cell-state.state-skipped {
+:is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped {
   --state-color:var(--text-muted);
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
@@ -10756,7 +10756,7 @@ section.roadmap.horizons .horizon-rows > li.cell-state.state-skipped {
                                   verdict-grid's genuine "not met"
      skipped  → ╱ diagonal slash (out of scope; plus strike-through on text)
    The eyebrow label is rendered for the heavy treatment but hidden here. */
-section.roadmap td.cell-state .cell-state-label { display:none; }
+:is(section.roadmap, figure.roadmap) td.cell-state .cell-state-label { display:none; }
 /* Leading state token = a solid --state-color disc (::before) carrying the
  * shared --state-mark symbol (::after), knocked out in the canvas colour via
  * a CSS mask — the SAME recipe checklist / verdict-grid / obligation-matrix
@@ -10765,16 +10765,16 @@ section.roadmap td.cell-state .cell-state-label { display:none; }
  * they overlap exactly; the marks are vector masks, pixel-crisp in PDF / HTML
  * / raster. Mark vocabulary: shipped → check, wip → dash, planned → open ring
  * (neutral todo), skipped → slash. */
-section.roadmap td.cell-state .cell-state-text,
-section.roadmap.horizons .horizon-rows > li.cell-state .row-text {
+:is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text {
   position:relative;
   padding-left:1.4em;
 }
-section.roadmap td.cell-state .cell-state-text { color:var(--text-body); }
-section.roadmap td.cell-state .cell-state-text::before,
-section.roadmap td.cell-state .cell-state-text::after,
-section.roadmap.horizons .horizon-rows > li.cell-state .row-text::before,
-section.roadmap.horizons .horizon-rows > li.cell-state .row-text::after {
+:is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text { color:var(--text-body); }
+:is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text::before,
+:is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text::after,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::before,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::after {
   content:'';
   position:absolute;
   left:0;
@@ -10783,13 +10783,13 @@ section.roadmap.horizons .horizon-rows > li.cell-state .row-text::after {
   height:0.95em;
   box-sizing:border-box;
 }
-section.roadmap td.cell-state .cell-state-text::before,
-section.roadmap.horizons .horizon-rows > li.cell-state .row-text::before {
+:is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text::before,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::before {
   border-radius:50%;
   background-color:var(--state-color, var(--text-muted));
 }
-section.roadmap td.cell-state .cell-state-text::after,
-section.roadmap.horizons .horizon-rows > li.cell-state .row-text::after {
+:is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text::after,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::after {
   background-color:var(--bg);
   -webkit-mask:var(--state-mark) center / 72% 72% no-repeat;
           mask:var(--state-mark) center / 72% 72% no-repeat;
@@ -10798,17 +10798,17 @@ section.roadmap.horizons .horizon-rows > li.cell-state .row-text::after {
    mark (which reads as a "selected" bullseye): transparent ::before with a
    --state-color ring, ::after mark suppressed. No centre dot. Matches the
    checklist / obligation-matrix neutral-todo hollow ring. */
-section.roadmap td.cell-state.state-planned .cell-state-text::before,
-section.roadmap.horizons .horizon-rows > li.cell-state.state-planned .row-text::before {
+:is(section.roadmap, figure.roadmap) td.cell-state.state-planned .cell-state-text::before,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned .row-text::before {
   background-color:transparent;
   box-shadow:inset 0 0 0 2px var(--state-color);
 }
-section.roadmap td.cell-state.state-planned .cell-state-text::after,
-section.roadmap.horizons .horizon-rows > li.cell-state.state-planned .row-text::after {
+:is(section.roadmap, figure.roadmap) td.cell-state.state-planned .cell-state-text::after,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned .row-text::after {
   display:none;
 }
-section.roadmap td.cell-state.state-skipped .cell-state-text,
-section.roadmap.horizons .horizon-rows > li.cell-state.state-skipped .row-text {
+:is(section.roadmap, figure.roadmap) td.cell-state.state-skipped .cell-state-text,
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped .row-text {
   color:var(--text-muted);
   text-decoration:line-through;
   text-decoration-color:color-mix(in srgb, var(--text-muted) 60%, transparent);
@@ -10816,21 +10816,21 @@ section.roadmap.horizons .horizon-rows > li.cell-state.state-skipped .row-text {
 
 /* Horizons row left rail picks up the state colour (overrides the
    default phase-accent rail when a state class is present). */
-section.roadmap.horizons .horizon-rows > li.cell-state {
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state {
   border-left-color:color-mix(in srgb, var(--state-color) 60%, var(--border));
 }
 
 /* Heavy treatment (`.status` modifier): full ribbon + tinted ground +
    visible state-label eyebrow. Wins over the light treatment via
    higher specificity. */
-section.roadmap.status td.cell-state {
+:is(section.roadmap, figure.roadmap).status td.cell-state {
   position:relative;
   background:var(--cell-state-bg, transparent);
   border-left:var(--chart-fill-accent) solid var(--state-color, var(--border));
   padding-left:calc(var(--sp-md) - var(--chart-fill-accent) + 0.46875cqi);
   display:table-cell;
 }
-section.roadmap.status td.cell-state .cell-state-label {
+:is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-label {
   display:block;
   font-family:var(--font-mono);
   font-size:var(--fs-meta);
@@ -10841,13 +10841,13 @@ section.roadmap.status td.cell-state .cell-state-label {
   padding-bottom:2px; /* sanctioned: hairline-scale label spacing (was margin-bottom, kept in-box) */
   line-height:1.2;
 }
-section.roadmap.status td.cell-state .cell-state-text {
+:is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text {
   display:block;
   color:var(--text-body);
 }
 /* In heavy mode the cell already conveys state via ribbon + ground;
    suppress the inline dot to keep the cell uncluttered. */
-section.roadmap.status td.cell-state .cell-state-text::before {
+:is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text::before {
   display:none;
 }
 
@@ -10860,14 +10860,14 @@ section.roadmap.status td.cell-state .cell-state-text::before {
  *   skipped → diagonal slash
  * Shape via CSS, no font dependency; the cell's text label is the third,
  * redundant channel. */
-section.roadmap.status td.cell-state { padding-right:calc(1.4em + var(--sp-md)); }
+:is(section.roadmap, figure.roadmap).status td.cell-state { padding-right:calc(1.4em + var(--sp-md)); }
 /* Corner state token — the SAME disc + masked --state-mark recipe as the light
  * treatment, in the cell's top-right: ::after is the --state-color disc,
  * ::before is the canvas-knockout mark masked by the shared --state-mark (set
  * per state above). Token-uniform with checklist / verdict-grid / obligation-
  * matrix; vector masks, pixel-crisp in every export. */
-section.roadmap.status td.cell-state::after,
-section.roadmap.status td.cell-state::before {
+:is(section.roadmap, figure.roadmap).status td.cell-state::after,
+:is(section.roadmap, figure.roadmap).status td.cell-state::before {
   content:'';
   position:absolute;
   top:var(--sp-sm);
@@ -10877,22 +10877,22 @@ section.roadmap.status td.cell-state::before {
   box-sizing:border-box;
   pointer-events:none;
 }
-section.roadmap.status td.cell-state::after {
+:is(section.roadmap, figure.roadmap).status td.cell-state::after {
   border-radius:50%;
   background-color:var(--state-color, var(--text-muted));
 }
-section.roadmap.status td.cell-state::before {
+:is(section.roadmap, figure.roadmap).status td.cell-state::before {
   background-color:var(--bg);
   -webkit-mask:var(--state-mark) center / 72% 72% no-repeat;
           mask:var(--state-mark) center / 72% 72% no-repeat;
   z-index:1;
 }
 /* planned corner = hollow ring (no centre dot), matching the light treatment. */
-section.roadmap.status td.cell-state.state-planned::after {
+:is(section.roadmap, figure.roadmap).status td.cell-state.state-planned::after {
   background-color:transparent;
   box-shadow:inset 0 0 0 2px var(--state-color);
 }
-section.roadmap.status td.cell-state.state-planned::before { display:none; }
+:is(section.roadmap, figure.roadmap).status td.cell-state.state-planned::before { display:none; }
 
 /* ── ROADMAP HORIZONS — Now / Next / Later vertical phase cards ──────
  * lib/roadmap.js transposes the workstream × phase table into a row
@@ -10900,7 +10900,7 @@ section.roadmap.status td.cell-state.state-planned::before { display:none; }
  * (Phase 01/02/…), a phase title (the phase header text), and a list
  * of workstream rows underneath.
  * ──────────────────────────────────────────────────────────────────── */
-section.roadmap.horizons .horizons {
+:is(section.roadmap, figure.roadmap).horizons .horizons {
   display:grid;
   grid-template-columns:repeat(var(--horizon-count, 3), 1fr);
   gap:var(--sp-md);
@@ -10909,17 +10909,17 @@ section.roadmap.horizons .horizons {
   flex:0 1 auto;
   min-height:0;
 }
-section.roadmap.horizons .roadmap-figure {
+:is(section.roadmap, figure.roadmap).horizons .roadmap-figure {
   justify-content:center;
   gap:var(--sp-sm);
 }
-section.roadmap.horizons .roadmap-legend {
+:is(section.roadmap, figure.roadmap).horizons .roadmap-legend {
   /* Horizons tightens the legend separation: the former margin-top:var(--sp-sm)
    * plus the base padding-top:var(--sp-sm) → a single var(--sp-sm)*2 padding-top
    * (overrides the base calc; margin-free). */
   padding-top:calc(var(--sp-sm) * 2);
 }
-section.roadmap.horizons .horizon-card {
+:is(section.roadmap, figure.roadmap).horizons .horizon-card {
   display:flex;
   flex-direction:column;
   /* head→rows spacing is the card's single flex gap now (was a margin-bottom on
@@ -10932,7 +10932,7 @@ section.roadmap.horizons .horizon-card {
   padding:var(--sp-md) var(--sp-md) var(--sp-sm);
   min-width:0;
 }
-section.roadmap.horizons .horizon-head {
+:is(section.roadmap, figure.roadmap).horizons .horizon-head {
   display:flex;
   flex-direction:column;
   gap:2px; /* sanctioned: hairline-scale gap in the horizon head */
@@ -10942,7 +10942,7 @@ section.roadmap.horizons .horizon-head {
 }
 /* Universal meta pill — right-anchored on the head's bottom border,
    matching the trailing-code pill on the non-transposed roadmaps. */
-section.roadmap.horizons .horizon-meta {
+:is(section.roadmap, figure.roadmap).horizons .horizon-meta {
   position:absolute;
   right:0;
   bottom:-0.546875cqi;
@@ -10960,7 +10960,7 @@ section.roadmap.horizons .horizon-meta {
   white-space:nowrap;
   z-index:1;
 }
-section.roadmap.horizons .horizon-eyebrow {
+:is(section.roadmap, figure.roadmap).horizons .horizon-eyebrow {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);
   font-weight:700;
@@ -10968,14 +10968,14 @@ section.roadmap.horizons .horizon-eyebrow {
   text-transform:uppercase;
   color:var(--phase-accent, var(--accent));
 }
-section.roadmap.horizons .horizon-title {
+:is(section.roadmap, figure.roadmap).horizons .horizon-title {
   font-family:var(--font-display);
   font-size:var(--fs-body);
   font-weight:700;
   color:var(--text-heading);
   line-height:var(--lh-snug);
 }
-section.roadmap.horizons .horizon-rows {
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows {
   list-style:none;
   margin:0;
   padding:0;
@@ -10985,14 +10985,14 @@ section.roadmap.horizons .horizon-rows {
    * chart-header without chart-body's overflow:hidden clipping the card. */
   gap:var(--sp-xs);
 }
-section.roadmap.horizons .horizon-rows > li {
+:is(section.roadmap, figure.roadmap).horizons .horizon-rows > li {
   display:flex;
   flex-direction:column;
   gap:2px; /* sanctioned: hairline-scale gap in the horizon row */
   padding-left:var(--sp-sm);
   border-left:2px solid color-mix(in srgb, var(--phase-accent, var(--accent)) 40%, var(--border));
 }
-section.roadmap.horizons .row-label {
+:is(section.roadmap, figure.roadmap).horizons .row-label {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);
   font-weight:600;
@@ -11000,12 +11000,12 @@ section.roadmap.horizons .row-label {
   text-transform:uppercase;
   color:var(--text-label);
 }
-section.roadmap.horizons .row-text {
+:is(section.roadmap, figure.roadmap).horizons .row-text {
   font-size:var(--fs-body-compact);
   color:var(--text-body);
   line-height:var(--lh-snug);
 }
-section.roadmap.horizons .row-text.row-empty {
+:is(section.roadmap, figure.roadmap).horizons .row-text.row-empty {
   color:var(--text-muted);
   font-family:var(--font-mono);
 }
@@ -11019,31 +11019,31 @@ section.roadmap.horizons .row-text.row-empty {
  * Keyed on the nearest `lattice` container; landscape (N-across) untouched.
  * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md §10. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.roadmap.horizons .horizons {
+  :is(section.roadmap, figure.roadmap).horizons .horizons {
     grid-template-columns: 1fr;
     gap: var(--sp-sm);
     flex: 1 1 auto;
   }
-  section.roadmap.horizons .horizon-card {
+  :is(section.roadmap, figure.roadmap).horizons .horizon-card {
     padding: var(--sp-sm) var(--sp-md);
     gap: var(--sp-xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
   }
-  section.roadmap.horizons .horizon-head {
+  :is(section.roadmap, figure.roadmap).horizons .horizon-head {
     flex-direction: row;
     align-items: baseline;
     gap: var(--sp-sm);
     padding-bottom: var(--sp-xs);
   }
-  section.roadmap.horizons .horizon-title { font-size: var(--fs-body-compact); }
-  section.roadmap.horizons .horizon-rows { gap: var(--sp-xs); }
+  :is(section.roadmap, figure.roadmap).horizons .horizon-title { font-size: var(--fs-body-compact); }
+  :is(section.roadmap, figure.roadmap).horizons .horizon-rows { gap: var(--sp-xs); }
   /* Each workstream row collapses to ONE line (LABEL · value) — halves the card
    * body so 4+ phases stack without overflow. */
-  section.roadmap.horizons .horizon-rows > li {
+  :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li {
     flex-direction: row;
     align-items: baseline;
     gap: var(--sp-sm);
   }
-  section.roadmap.horizons .row-label { flex: 0 0 auto; }
+  :is(section.roadmap, figure.roadmap).horizons .row-label { flex: 0 0 auto; }
 }
 
 /* ── ROADMAP SWIMLANE — per-workstream track of phase pills ──────────
@@ -11052,11 +11052,11 @@ section.roadmap.horizons .row-text.row-empty {
  * ground; phase cells render as outlined pills separated by gaps.
  * Pure CSS — no DOM rewrite.
  * ──────────────────────────────────────────────────────────────────── */
-section.roadmap.swimlane table {
+:is(section.roadmap, figure.roadmap).swimlane table {
   border-spacing:0 var(--sp-sm);
   border-collapse:separate;
 }
-section.roadmap.swimlane tbody tr > td:first-child {
+:is(section.roadmap, figure.roadmap).swimlane tbody tr > td:first-child {
   background:color-mix(in srgb, var(--phase-accent, var(--accent)) 14%, var(--bg-alt));
   border-left:var(--chart-accent-lg) solid var(--phase-accent, var(--accent));
   border-top:var(--chart-hairline) solid var(--border);
@@ -11069,7 +11069,7 @@ section.roadmap.swimlane tbody tr > td:first-child {
   font-size:var(--fs-body);
   padding:var(--sp-sm) var(--sp-md);
 }
-section.roadmap.swimlane tbody td:not(:first-child) {
+:is(section.roadmap, figure.roadmap).swimlane tbody td:not(:first-child) {
   background:var(--bg);
   border:var(--chart-hairline) solid var(--border);
   border-left:0;
@@ -11077,7 +11077,7 @@ section.roadmap.swimlane tbody td:not(:first-child) {
   padding:var(--sp-sm) var(--sp-md);
   position:relative;
 }
-section.roadmap.swimlane tbody td:not(:first-child)::before {
+:is(section.roadmap, figure.roadmap).swimlane tbody td:not(:first-child)::before {
   content:'';
   position:absolute;
   left:0; top:25%; bottom:25%;
@@ -11085,17 +11085,17 @@ section.roadmap.swimlane tbody td:not(:first-child)::before {
   background:color-mix(in srgb, var(--phase-accent, var(--accent)) 60%, var(--border));
   border-radius:2px;
 }
-section.roadmap.swimlane tbody tr > td:last-child {
+:is(section.roadmap, figure.roadmap).swimlane tbody tr > td:last-child {
   border-radius:0 var(--radius-md) var(--radius-md) 0;
 }
-section.roadmap.swimlane tbody td:empty {
+:is(section.roadmap, figure.roadmap).swimlane tbody td:empty {
   background:transparent;
   border:var(--chart-hairline) dashed var(--border);
 }
-section.roadmap.swimlane tbody td:empty::before {
+:is(section.roadmap, figure.roadmap).swimlane tbody td:empty::before {
   display:none;
 }
-section.roadmap.swimlane tbody td:empty::after {
+:is(section.roadmap, figure.roadmap).swimlane tbody td:empty::after {
   content:'—';
   color:var(--text-muted);
   font-family:var(--font-mono);
@@ -11109,7 +11109,7 @@ section.roadmap.swimlane tbody td:empty::after {
  * as a calendar. The pill itself is the universal meta pill from
  * the base rule — no milestone-specific pill chrome.
  * ──────────────────────────────────────────────────────────────────── */
-section.roadmap.milestones tbody td:not(:first-child) {
+:is(section.roadmap, figure.roadmap).milestones tbody td:not(:first-child) {
   background:color-mix(in srgb, var(--bg-alt) 45%, transparent);
 }
 
@@ -12283,7 +12283,7 @@ section.statute-stack.lane td:last-child {
  * Ordered list rendered as a left-to-right spine with dots at each item.
  * Date pill sits above the dot; title + status pill + body sit below.
  * Items distribute evenly along the spine. */
-section.timeline-list.chart-frame .chart-body {
+:is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
   /* Inherit the shared .chart-body width so the surface panel matches every
    * other chart's size — don't re-assert width:100% (it spanned edge-to-edge,
    * wider than the rest). The timeline-spine already caps at max-width. */
@@ -12291,7 +12291,7 @@ section.timeline-list.chart-frame .chart-body {
   align-items: center;
   justify-content: center;
 }
-section.timeline-list .timeline-spine {
+:is(section.timeline-list, figure.timeline-list) .timeline-spine {
   position: relative;
   display: grid;
   grid-auto-flow: column;
@@ -12305,7 +12305,7 @@ section.timeline-list .timeline-spine {
  * is 1.09375cqi tall with 3px border on each side — its centre is 0.546875cqi
  * from the top of timeline-item content. Spine padding-top is 0.9375cqi so
  * the dot appears at y=0.9375cqi, centre at y≈1.484375cqi; line is at same. */
-section.timeline-list .timeline-spine::before {
+:is(section.timeline-list, figure.timeline-list) .timeline-spine::before {
   content: '';
   position: absolute;
   top: 1.484375cqi;
@@ -12322,7 +12322,7 @@ section.timeline-list .timeline-spine::before {
   transform: translateY(-1px);
   z-index: 0;
 }
-section.timeline-list .timeline-item {
+:is(section.timeline-list, figure.timeline-list) .timeline-item {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -12335,7 +12335,7 @@ section.timeline-list .timeline-item {
  * the flex content box and break virtual-list scrollHeight). The visible ring
  * keeps its exact 1.09375cqi size + position, so the spine-line math (centre at
  * 0.546875cqi from the item content top) is unchanged. */
-section.timeline-list .timeline-dot {
+:is(section.timeline-list, figure.timeline-list) .timeline-dot {
   position: relative;
   /* Footprint = the original ring's border-box (content 1.09375cqi + 3px border
    * each side). The ring is now drawn on ::before so this box can carry the
@@ -12347,7 +12347,7 @@ section.timeline-list .timeline-dot {
   --timeline-dot-ink: var(--chart-cat-1-ink); /* per-stage colour, cycled below */
   flex: 0 0 auto;
 }
-section.timeline-list .timeline-dot::before {
+:is(section.timeline-list, figure.timeline-list) .timeline-dot::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;   /* fills the dot's ring footprint (left+right:0); square via aspect-ratio — no px */
@@ -12362,13 +12362,13 @@ section.timeline-list .timeline-dot::before {
  * matching pie / kanban / word-cloud — categorical colour for sequential
  * stages. Six-rotation, like the other categorical members. The spine and
  * date pills stay accent so the row still reads as one timeline. */
-section.timeline-list .timeline-item:nth-child(6n+1) .timeline-dot { --timeline-dot-ink: var(--chart-cat-1-ink); }
-section.timeline-list .timeline-item:nth-child(6n+2) .timeline-dot { --timeline-dot-ink: var(--chart-cat-2-ink); }
-section.timeline-list .timeline-item:nth-child(6n+3) .timeline-dot { --timeline-dot-ink: var(--chart-cat-3-ink); }
-section.timeline-list .timeline-item:nth-child(6n+4) .timeline-dot { --timeline-dot-ink: var(--chart-cat-4-ink); }
-section.timeline-list .timeline-item:nth-child(6n+5) .timeline-dot { --timeline-dot-ink: var(--chart-cat-5-ink); }
-section.timeline-list .timeline-item:nth-child(6n)   .timeline-dot { --timeline-dot-ink: var(--chart-cat-6-ink); }
-section.timeline-list .timeline-pill {
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+1) .timeline-dot { --timeline-dot-ink: var(--chart-cat-1-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+2) .timeline-dot { --timeline-dot-ink: var(--chart-cat-2-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+3) .timeline-dot { --timeline-dot-ink: var(--chart-cat-3-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+4) .timeline-dot { --timeline-dot-ink: var(--chart-cat-4-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+5) .timeline-dot { --timeline-dot-ink: var(--chart-cat-5-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n)   .timeline-dot { --timeline-dot-ink: var(--chart-cat-6-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-pill {
   display: inline-flex;
   align-items: center;
   height: 1.875cqi;
@@ -12387,10 +12387,10 @@ section.timeline-list .timeline-pill {
   white-space: nowrap;
   flex: 0 0 auto;
 }
-section.timeline-list .timeline-pill--empty {
+:is(section.timeline-list, figure.timeline-list) .timeline-pill--empty {
   visibility: hidden;
 }
-section.timeline-list .timeline-title {
+:is(section.timeline-list, figure.timeline-list) .timeline-title {
   font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-heading);
@@ -12403,7 +12403,7 @@ section.timeline-list .timeline-title {
   line-height: var(--lh-tight);
   max-width: 17.1875cqi;
 }
-section.timeline-list .timeline-body {
+:is(section.timeline-list, figure.timeline-list) .timeline-body {
   font-size: var(--fs-meta);
   color: var(--text-secondary);
   text-align: center;
@@ -12413,7 +12413,7 @@ section.timeline-list .timeline-body {
 /* status→body gap (was the .chart-status margin-bottom: var(--sp-xs)). Scoped to
  * an immediately-preceding status so a body without a status doesn't inherit the
  * gap — the status pill is filled, so the spacing rides the body's padding-top. */
-section.timeline-list .chart-status + .timeline-body {
+:is(section.timeline-list, figure.timeline-list) .chart-status + .timeline-body {
   padding-top: var(--sp-xs);
 }
 
@@ -12423,12 +12423,12 @@ section.timeline-list .chart-status + .timeline-body {
  * `lattice` container (the section), so it fires on a portrait deck AND inside a
  * narrow nested cell. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.timeline-list.chart-frame .chart-body {
+  :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
     align-items: stretch;
     justify-content: center;
     padding: var(--sp-lg) var(--sp-xl);
   }
-  section.timeline-list .timeline-spine {
+  :is(section.timeline-list, figure.timeline-list) .timeline-spine {
     grid-auto-flow: row;
     grid-template-columns: 1fr;
     grid-auto-columns: auto;
@@ -12440,7 +12440,7 @@ section.timeline-list .chart-status + .timeline-body {
     align-content: space-evenly;
   }
   /* The spine line runs vertically through the dots on the left rail. */
-  section.timeline-list .timeline-spine::before {
+  :is(section.timeline-list, figure.timeline-list) .timeline-spine::before {
     top: 1.5cqi;
     bottom: 1.5cqi;
     left: 0.546875cqi;
@@ -12456,7 +12456,7 @@ section.timeline-list .chart-status + .timeline-body {
     );
     transform: translateX(-1px);
   }
-  section.timeline-list .timeline-item {
+  :is(section.timeline-list, figure.timeline-list) .timeline-item {
     display: grid;
     grid-template-columns: auto 1fr;
     column-gap: var(--sp-md);
@@ -12464,12 +12464,12 @@ section.timeline-list .chart-status + .timeline-body {
     padding: 0;
   }
   /* Dot anchors the left rail; everything else fills the right column. */
-  section.timeline-list .timeline-item > * {
+  :is(section.timeline-list, figure.timeline-list) .timeline-item > * {
     grid-column: 2;
     text-align: left;
     align-self: start;
   }
-  section.timeline-list .timeline-dot {
+  :is(section.timeline-list, figure.timeline-list) .timeline-dot {
     grid-column: 1;
     grid-row: 1;
     /* Portrait: the dot rides its own left-rail grid cell, so it needs no
@@ -12480,16 +12480,16 @@ section.timeline-list .chart-status + .timeline-body {
   }
   /* Chips hug their content; the title/body keep the default stretch so prose
    * fills the column and wraps. */
-  section.timeline-list .timeline-dot,
-  section.timeline-list .timeline-pill,
-  section.timeline-list .timeline-item .chart-status { justify-self: start; }
+  :is(section.timeline-list, figure.timeline-list) .timeline-dot,
+  :is(section.timeline-list, figure.timeline-list) .timeline-pill,
+  :is(section.timeline-list, figure.timeline-list) .timeline-item .chart-status { justify-self: start; }
   /* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
    * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
    * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
    * the pill itself. */
-  section.timeline-list .timeline-title { padding-top: var(--sp-2xs); }
-  section.timeline-list .timeline-title,
-  section.timeline-list .timeline-body { max-width: none; }
+  :is(section.timeline-list, figure.timeline-list) .timeline-title { padding-top: var(--sp-2xs); }
+  :is(section.timeline-list, figure.timeline-list) .timeline-title,
+  :is(section.timeline-list, figure.timeline-list) .timeline-body { max-width: none; }
 }
 
 /* === lib/components/anchor/title/title.styles.css === */

@@ -17,7 +17,7 @@
  *   • `tinted`  — columns tinted by STAGE (reinforces the pipeline flow)
  * Author as `<!-- _class: kanban -->` / `kanban keyline` / `kanban tinted`. */
 
-section.kanban.chart-frame .chart-body {
+:is(section.kanban, figure.kanban).chart-frame .chart-body {
   /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding
    * (sp-lg / sp-2xl) so the surface panel matches every other chart — the old
    * width:100% pushed it full-bleed (no side margin) and the sp-xs bottom let
@@ -129,7 +129,7 @@ section.kanban.chart-frame .chart-body {
 .kanban-card[data-s="decision"] { --status-fill: var(--state-info-fill); --status-ink: var(--state-info-ink); }
 .kanban-card[data-s="deferred"] { --status-fill: var(--state-mute-fill); --status-ink: var(--state-mute-ink); }
 
-section.kanban:not(.keyline):not(.tinted) .kanban-card[data-s] {
+:is(section.kanban, figure.kanban):not(.keyline):not(.tinted) .kanban-card[data-s] {
   background: light-dark(
     color-mix(in oklab, var(--status-fill) 55%, var(--bg-alt)),
     color-mix(in oklab, var(--status-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
@@ -172,7 +172,7 @@ section.kanban:not(.keyline):not(.tinted) .kanban-card[data-s] {
  * secondary metric, so it should not add a box to every card. (One rule for
  * both canvases — overrides any earlier dark size treatment.) */
 .kanban-size,
-section.kanban.dark .kanban-size {
+:is(section.kanban, figure.kanban).dark .kanban-size {
   display: inline-flex;
   align-items: center;
   width: auto;
@@ -248,7 +248,7 @@ section.kanban.dark .kanban-size {
  * shadow); the lane colour appears ONLY as a crisp left keyline. Status stays on
  * the chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
  * ════════════════════════════════════════════════════════════════════════════ */
-section.kanban.keyline .kanban-card {
+:is(section.kanban, figure.kanban).keyline .kanban-card {
   /* Flat uniform tile — light barely warms --bg-alt; dark mixes a stronger step
    * toward --border so the card stops sinking into the near-black canvas. */
   background: light-dark(
@@ -262,12 +262,12 @@ section.kanban.keyline .kanban-card {
   border-radius: 0 0.46875cqi 0.46875cqi 0;
   box-shadow: none;
 }
-section.kanban.keyline.dark .kanban-card {
+:is(section.kanban, figure.kanban).keyline.dark .kanban-card {
   border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
 }
 /* Lane label quiet; the keyline carries the colour, so drop the dot. */
-section.kanban.keyline .kanban-lane { color: var(--text-secondary); }
-section.kanban.keyline .kanban-lane::before { display: none; }
+:is(section.kanban, figure.kanban).keyline .kanban-lane { color: var(--text-secondary); }
+:is(section.kanban, figure.kanban).keyline .kanban-lane::before { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════════
  * VARIANT: `tinted` — colour encodes STAGE, not category.
@@ -276,7 +276,7 @@ section.kanban.keyline .kanban-lane::before { display: none; }
  * header underline. Cards go uniformly neutral and lift off the lane. Status
  * stays the one accent chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
  * ════════════════════════════════════════════════════════════════════════════ */
-section.kanban.tinted .kanban-column {
+:is(section.kanban, figure.kanban).tinted .kanban-column {
   --col-hue: var(--chart-cat-1-hue);
   --col-tint: 5%;
   background: color-mix(in oklab, var(--col-hue) var(--col-tint), var(--bg));
@@ -287,18 +287,18 @@ section.kanban.tinted .kanban-column {
 /* Stage progression blue → orange → teal → pass-green (no green-on-green at the
  * end); warm/green hues read heavier, so they take a lower mix % to feel the
  * same whisper. */
-section.kanban.tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-tint: 6%; }
-section.kanban.tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-tint: 4%; }
-section.kanban.tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-tint: 5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-tint: 6%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-tint: 4%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-tint: 5%; }
 /* 4th/5th active lanes (boards up to the hard cap of 6 columns) stay distinct
  * rather than wrapping back to blue. The done lane is keyed by [data-done]
  * below, which always wins its own position regardless of count. */
-section.kanban.tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-tint: 5%; }
-section.kanban.tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-tint: 4.5%; }
-section.kanban.tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-tint: 4.5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-tint: 5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-tint: 4.5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-tint: 4.5%; }
 
 /* Header: neutral mono register; the hue lives only on the underline. */
-section.kanban.tinted .kanban-column-header {
+:is(section.kanban, figure.kanban).tinted .kanban-column-header {
   color: var(--text-label);
   /* Underline inset var(--sp-3xs) each side (was an inset border-bottom + a
    * horizontal margin:0 var(--sp-3xs)). Drawn as a bottom-anchored gradient so
@@ -310,13 +310,13 @@ section.kanban.tinted .kanban-column-header {
     no-repeat center bottom / calc(100% - 2 * var(--sp-3xs)) 1.5px;
   padding: 0 var(--sp-2xs) 0.6cqi;
 }
-section.kanban.tinted .kanban-column[data-done] .kanban-column-header {
+:is(section.kanban, figure.kanban).tinted .kanban-column[data-done] .kanban-column-header {
   color: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
 }
 
 /* Cards lift OFF the tinted lane: light = plain --bg paper + soft hue shadow;
  * dark = a touch lighter than the lane with a defined hairline. */
-section.kanban.tinted .kanban-card {
+:is(section.kanban, figure.kanban).tinted .kanban-card {
   background: light-dark(var(--bg), var(--bg-alt));
   border: var(--chart-hairline) solid var(--border);
   box-shadow: light-dark(
@@ -324,17 +324,17 @@ section.kanban.tinted .kanban-card {
 }
 /* Dark: tint the lane a hair stronger so the stage colour survives near-black,
  * and lift the cards above it. */
-section.kanban.tinted.dark .kanban-column {
+:is(section.kanban, figure.kanban).tinted.dark .kanban-column {
   background: color-mix(in oklab, var(--col-hue) calc(var(--col-tint) + 5%), var(--bg));
   border-color: color-mix(in oklab, var(--col-hue) 22%, var(--border));
 }
-section.kanban.tinted.dark .kanban-card {
+:is(section.kanban, figure.kanban).tinted.dark .kanban-card {
   background: color-mix(in oklab, var(--bg-alt) 88%, white);
   border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
 }
 /* Lane label quiet; drop the dot (colour now lives on the lane, not the card). */
-section.kanban.tinted .kanban-lane { color: var(--text-muted); }
-section.kanban.tinted .kanban-lane::before { display: none; }
+:is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }
+:is(section.kanban, figure.kanban).tinted .kanban-lane::before { display: none; }
 
 /* ── Box-local RESTRUCTURE (tall + strip, ≤0.9): the side-by-side board becomes
  * a vertical stack — each lane is now a full-width band, and its cards flow as a
@@ -342,19 +342,19 @@ section.kanban.tinted .kanban-lane::before { display: none; }
  * the nearest `lattice` container; landscape (side-by-side board) untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.kanban .kanban-board {
+  :is(section.kanban, figure.kanban) .kanban-board {
     flex-direction: column;
     height: 100%;
     justify-content: space-evenly;
   }
-  section.kanban .kanban-cards { flex-direction: row; flex-wrap: wrap; }
-  section.kanban .kanban-card { flex: 1 1 14cqi; min-width: 0; }
+  :is(section.kanban, figure.kanban) .kanban-cards { flex-direction: row; flex-wrap: wrap; }
+  :is(section.kanban, figure.kanban) .kanban-card { flex: 1 1 14cqi; min-width: 0; }
 
   /* Auto-split lane slides (carousel.js kanban-lanes): one lane has the WHOLE slide, so its
    * cards stack as a full-width column instead of wrapping into a cramped row (which clipped
    * the titles). More specific than the all-lanes reflow above, so it wins for split bodies. */
-  section.kanban.lat-split-native .kanban-board { justify-content: flex-start; }
-  section.kanban.lat-split-native .kanban-column { width: 100%; }
-  section.kanban.lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
-  section.kanban.lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
+  :is(section.kanban, figure.kanban).lat-split-native .kanban-board { justify-content: flex-start; }
+  :is(section.kanban, figure.kanban).lat-split-native .kanban-column { width: 100%; }
+  :is(section.kanban, figure.kanban).lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  :is(section.kanban, figure.kanban).lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
 }

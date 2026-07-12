@@ -6,7 +6,7 @@
  * Ordered list rendered as a left-to-right spine with dots at each item.
  * Date pill sits above the dot; title + status pill + body sit below.
  * Items distribute evenly along the spine. */
-section.timeline-list.chart-frame .chart-body {
+:is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
   /* Inherit the shared .chart-body width so the surface panel matches every
    * other chart's size — don't re-assert width:100% (it spanned edge-to-edge,
    * wider than the rest). The timeline-spine already caps at max-width. */
@@ -14,7 +14,7 @@ section.timeline-list.chart-frame .chart-body {
   align-items: center;
   justify-content: center;
 }
-section.timeline-list .timeline-spine {
+:is(section.timeline-list, figure.timeline-list) .timeline-spine {
   position: relative;
   display: grid;
   grid-auto-flow: column;
@@ -28,7 +28,7 @@ section.timeline-list .timeline-spine {
  * is 1.09375cqi tall with 3px border on each side — its centre is 0.546875cqi
  * from the top of timeline-item content. Spine padding-top is 0.9375cqi so
  * the dot appears at y=0.9375cqi, centre at y≈1.484375cqi; line is at same. */
-section.timeline-list .timeline-spine::before {
+:is(section.timeline-list, figure.timeline-list) .timeline-spine::before {
   content: '';
   position: absolute;
   top: 1.484375cqi;
@@ -45,7 +45,7 @@ section.timeline-list .timeline-spine::before {
   transform: translateY(-1px);
   z-index: 0;
 }
-section.timeline-list .timeline-item {
+:is(section.timeline-list, figure.timeline-list) .timeline-item {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -58,7 +58,7 @@ section.timeline-list .timeline-item {
  * the flex content box and break virtual-list scrollHeight). The visible ring
  * keeps its exact 1.09375cqi size + position, so the spine-line math (centre at
  * 0.546875cqi from the item content top) is unchanged. */
-section.timeline-list .timeline-dot {
+:is(section.timeline-list, figure.timeline-list) .timeline-dot {
   position: relative;
   /* Footprint = the original ring's border-box (content 1.09375cqi + 3px border
    * each side). The ring is now drawn on ::before so this box can carry the
@@ -70,7 +70,7 @@ section.timeline-list .timeline-dot {
   --timeline-dot-ink: var(--chart-cat-1-ink); /* per-stage colour, cycled below */
   flex: 0 0 auto;
 }
-section.timeline-list .timeline-dot::before {
+:is(section.timeline-list, figure.timeline-list) .timeline-dot::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;   /* fills the dot's ring footprint (left+right:0); square via aspect-ratio — no px */
@@ -85,13 +85,13 @@ section.timeline-list .timeline-dot::before {
  * matching pie / kanban / word-cloud — categorical colour for sequential
  * stages. Six-rotation, like the other categorical members. The spine and
  * date pills stay accent so the row still reads as one timeline. */
-section.timeline-list .timeline-item:nth-child(6n+1) .timeline-dot { --timeline-dot-ink: var(--chart-cat-1-ink); }
-section.timeline-list .timeline-item:nth-child(6n+2) .timeline-dot { --timeline-dot-ink: var(--chart-cat-2-ink); }
-section.timeline-list .timeline-item:nth-child(6n+3) .timeline-dot { --timeline-dot-ink: var(--chart-cat-3-ink); }
-section.timeline-list .timeline-item:nth-child(6n+4) .timeline-dot { --timeline-dot-ink: var(--chart-cat-4-ink); }
-section.timeline-list .timeline-item:nth-child(6n+5) .timeline-dot { --timeline-dot-ink: var(--chart-cat-5-ink); }
-section.timeline-list .timeline-item:nth-child(6n)   .timeline-dot { --timeline-dot-ink: var(--chart-cat-6-ink); }
-section.timeline-list .timeline-pill {
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+1) .timeline-dot { --timeline-dot-ink: var(--chart-cat-1-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+2) .timeline-dot { --timeline-dot-ink: var(--chart-cat-2-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+3) .timeline-dot { --timeline-dot-ink: var(--chart-cat-3-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+4) .timeline-dot { --timeline-dot-ink: var(--chart-cat-4-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+5) .timeline-dot { --timeline-dot-ink: var(--chart-cat-5-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n)   .timeline-dot { --timeline-dot-ink: var(--chart-cat-6-ink); }
+:is(section.timeline-list, figure.timeline-list) .timeline-pill {
   display: inline-flex;
   align-items: center;
   height: 1.875cqi;
@@ -110,10 +110,10 @@ section.timeline-list .timeline-pill {
   white-space: nowrap;
   flex: 0 0 auto;
 }
-section.timeline-list .timeline-pill--empty {
+:is(section.timeline-list, figure.timeline-list) .timeline-pill--empty {
   visibility: hidden;
 }
-section.timeline-list .timeline-title {
+:is(section.timeline-list, figure.timeline-list) .timeline-title {
   font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-heading);
@@ -126,7 +126,7 @@ section.timeline-list .timeline-title {
   line-height: var(--lh-tight);
   max-width: 17.1875cqi;
 }
-section.timeline-list .timeline-body {
+:is(section.timeline-list, figure.timeline-list) .timeline-body {
   font-size: var(--fs-meta);
   color: var(--text-secondary);
   text-align: center;
@@ -136,7 +136,7 @@ section.timeline-list .timeline-body {
 /* status→body gap (was the .chart-status margin-bottom: var(--sp-xs)). Scoped to
  * an immediately-preceding status so a body without a status doesn't inherit the
  * gap — the status pill is filled, so the spacing rides the body's padding-top. */
-section.timeline-list .chart-status + .timeline-body {
+:is(section.timeline-list, figure.timeline-list) .chart-status + .timeline-body {
   padding-top: var(--sp-xs);
 }
 
@@ -146,12 +146,12 @@ section.timeline-list .chart-status + .timeline-body {
  * `lattice` container (the section), so it fires on a portrait deck AND inside a
  * narrow nested cell. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.timeline-list.chart-frame .chart-body {
+  :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
     align-items: stretch;
     justify-content: center;
     padding: var(--sp-lg) var(--sp-xl);
   }
-  section.timeline-list .timeline-spine {
+  :is(section.timeline-list, figure.timeline-list) .timeline-spine {
     grid-auto-flow: row;
     grid-template-columns: 1fr;
     grid-auto-columns: auto;
@@ -163,7 +163,7 @@ section.timeline-list .chart-status + .timeline-body {
     align-content: space-evenly;
   }
   /* The spine line runs vertically through the dots on the left rail. */
-  section.timeline-list .timeline-spine::before {
+  :is(section.timeline-list, figure.timeline-list) .timeline-spine::before {
     top: 1.5cqi;
     bottom: 1.5cqi;
     left: 0.546875cqi;
@@ -179,7 +179,7 @@ section.timeline-list .chart-status + .timeline-body {
     );
     transform: translateX(-1px);
   }
-  section.timeline-list .timeline-item {
+  :is(section.timeline-list, figure.timeline-list) .timeline-item {
     display: grid;
     grid-template-columns: auto 1fr;
     column-gap: var(--sp-md);
@@ -187,12 +187,12 @@ section.timeline-list .chart-status + .timeline-body {
     padding: 0;
   }
   /* Dot anchors the left rail; everything else fills the right column. */
-  section.timeline-list .timeline-item > * {
+  :is(section.timeline-list, figure.timeline-list) .timeline-item > * {
     grid-column: 2;
     text-align: left;
     align-self: start;
   }
-  section.timeline-list .timeline-dot {
+  :is(section.timeline-list, figure.timeline-list) .timeline-dot {
     grid-column: 1;
     grid-row: 1;
     /* Portrait: the dot rides its own left-rail grid cell, so it needs no
@@ -203,14 +203,14 @@ section.timeline-list .chart-status + .timeline-body {
   }
   /* Chips hug their content; the title/body keep the default stretch so prose
    * fills the column and wraps. */
-  section.timeline-list .timeline-dot,
-  section.timeline-list .timeline-pill,
-  section.timeline-list .timeline-item .chart-status { justify-self: start; }
+  :is(section.timeline-list, figure.timeline-list) .timeline-dot,
+  :is(section.timeline-list, figure.timeline-list) .timeline-pill,
+  :is(section.timeline-list, figure.timeline-list) .timeline-item .chart-status { justify-self: start; }
   /* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
    * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
    * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
    * the pill itself. */
-  section.timeline-list .timeline-title { padding-top: var(--sp-2xs); }
-  section.timeline-list .timeline-title,
-  section.timeline-list .timeline-body { max-width: none; }
+  :is(section.timeline-list, figure.timeline-list) .timeline-title { padding-top: var(--sp-2xs); }
+  :is(section.timeline-list, figure.timeline-list) .timeline-title,
+  :is(section.timeline-list, figure.timeline-list) .timeline-body { max-width: none; }
 }

@@ -217,6 +217,21 @@ in patch versions.
 
 ### Changed
 
+- **The flow-height charts — roadmap, progress, kanban, gantt, timeline-list — now render live
+  in the exported player's Read·Article view instead of a raw table / placeholder.** These are
+  pure HTML+CSS layouts (no SVG) sized only in `cqi`; re-hosting their inner table/list dropped
+  the `section.<comp>`-scoped styling (roadmap's state markers collapsed into run-together text,
+  and its bare table overflowed a narrow column) or fell back to a bullet list. Each one's whole
+  `.chart-body` is now re-hosted into a `.lp-chart` figure — a WIDTH container
+  (`container-type: inline-size`, content-driven height, unlike the aspect-locked word cloud) —
+  and each component's CSS is broadened `section.<comp>` → `:is(section.<comp>, figure.<comp>)`
+  (specificity-preserving; the `section` arm keeps every slide render byte-identical) so the board
+  paints in the figure exactly as on the slide, variant modifiers and `--chart-cat-*` colours and
+  all. The figure breaks out to the ~1200px cap; a wide roadmap on a narrow viewport scrolls in
+  its own box, never the page. Verified light + dark at 390 / 1440px with no page overflow.
+  *(journey and state-chart stay on the placeholder — they bake pixel geometry / height-relative
+  fills at export and need a runtime re-measure in the article box; tracked follow-up.)*
+
 - **A word-cloud now renders live in the exported player's Read·Article view instead of a
   placeholder.** Spatial charts lay out in `cqi`/`%` units and can't re-host as a bare SVG (no
   container context → overflow/overlap), so they showed a "best seen in Present / Read·Slides"

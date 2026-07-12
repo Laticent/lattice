@@ -281,6 +281,16 @@ function projectSpatial(stage, heading, component) {
   const cls = String(component).replace(/[^a-z0-9-]/gi, "");
   return `<figure class="lp-figure lp-spatial chart-frame ${cls}">${bodyEl.outerHTML}${cap}</figure>`;
 }
+function classTokens(section) {
+  const dc = section.getAttribute("data-class") || section.getAttribute("class") || "";
+  return dc.split(/\s+/).map((t) => t.replace(/[^a-z0-9-]/gi, "")).filter((t) => t && !SCHEME_MODIFIERS.has(t)).join(" ");
+}
+function projectFlow(stage, section, heading) {
+  const bodyEl = stage.querySelector(":scope .chart-body") || stage.querySelector(".chart-body");
+  if (!bodyEl) return null;
+  const cap = heading ? `<figcaption>${esc(heading)}</figcaption>` : "";
+  return `<figure class="lp-figure lp-chart chart-frame ${classTokens(section)}">${bodyEl.outerHTML}${cap}</figure>`;
+}
 function projectQuote(stage) {
   const bq = stage.querySelector(":scope > blockquote, blockquote");
   if (!bq) return null;
@@ -325,6 +335,7 @@ function projectDeckToProse(sections) {
     let body = null;
     if (SPATIAL_PLACEHOLDER_COMPONENTS.has(component)) body = projectPlaceholder(component, headingText);
     else if (SPATIAL_BOUNDED_COMPONENTS.has(component)) body = projectSpatial(stage, headingText, component);
+    else if (FLOW_CHART_COMPONENTS.has(component)) body = projectFlow(stage, section, headingText);
     else if (component === "kpi" || component === "stats") body = projectStats(stage);
     else if (component === "quote") body = projectQuote(stage);
     else if (MEDIA_COMPONENTS.has(component)) body = projectMedia(stage, headingText, component);
@@ -494,32 +505,29 @@ function projectDeckToSpeech(sections) {
     return [...lead, body].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   });
 }
-var SKIP_SELECTOR, MEDIA_COMPONENTS, CHART_TOKEN_COMPONENTS, SPATIAL_BOUNDED_COMPONENTS, SPATIAL_PLACEHOLDER_COMPONENTS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
+var SKIP_SELECTOR, MEDIA_COMPONENTS, FLOW_CHART_COMPONENTS, CHART_TOKEN_COMPONENTS, SPATIAL_BOUNDED_COMPONENTS, SPATIAL_PLACEHOLDER_COMPONENTS, SCHEME_MODIFIERS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
 var init_prose_projection = __esm({
   "lib/transformers/prose-projection.mjs"() {
     SKIP_SELECTOR = "header, footer, .cell-footer, .masthead-bay, .lat-pagination, aside, script, style, .lattice-notes, .lattice-description";
     MEDIA_COMPONENTS = /* @__PURE__ */ new Set([
       "funnel",
-      "gantt",
       "journey",
-      "kanban",
       "map",
       "piechart",
-      "progress",
       "quadrant",
       "radar",
-      "roadmap",
       "state-chart",
-      "timeline-list",
       "word-cloud",
       "diagram",
       "image",
       "video",
       "math"
     ]);
+    FLOW_CHART_COMPONENTS = /* @__PURE__ */ new Set(["roadmap", "progress", "kanban", "gantt", "timeline-list"]);
     CHART_TOKEN_COMPONENTS = /* @__PURE__ */ new Set(["funnel", "map", "piechart", "quadrant", "radar"]);
     SPATIAL_BOUNDED_COMPONENTS = /* @__PURE__ */ new Set(["word-cloud"]);
     SPATIAL_PLACEHOLDER_COMPONENTS = /* @__PURE__ */ new Set(["journey", "state-chart"]);
+    SCHEME_MODIFIERS = /* @__PURE__ */ new Set(["dark", "light"]);
     WORD_MAPS = {
       checklist: { pass: "done", warn: "partial", skip: "skipped", todo: "to do", fail: "not done" },
       "verdict-grid": { pass: "yes", warn: "partial", skip: "skipped", todo: "pending", fail: "no" },
@@ -845,12 +853,26 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
 #lp-article .lp-spatial{container-type:size;width:100%;position:relative;overflow:hidden}
 #lp-article .lp-spatial>.chart-body{width:100%;height:100%}
 #lp-article .lp-spatial.word-cloud{aspect-ratio:3/2}
+/* FLOW-HEIGHT figure (roadmap / progress / kanban / gantt / timeline-list): a WIDTH container
+   (container-type:inline-size) that re-establishes the cqi context these HTML+CSS layouts need,
+   with content-driven height \u2014 they have no cqh/cqb, so no aspect lock (unlike lp-spatial).
+   Breakout supplies the width (up to 1200px); the re-hosted chart-body fills it. overflow-x
+   guards a wide roadmap table on a narrow viewport \u2014 it scrolls in its own box, never breaks
+   the page. Height is auto: the layout is exactly as tall as its content. */
+#lp-article .lp-chart{container-type:inline-size;width:100%;overflow-x:auto}
+#lp-article .lp-chart>.chart-body{width:100%}
 #lp-article figcaption{font-size:.85em;color:var(--text-muted,#888);margin-top:.5em;text-align:center}
 #lp-article .lp-figure-note{border:1px dashed var(--border,#ccc);border-radius:10px;padding:1.1em 1.3em;background:var(--bg-alt,#f7f7f7)}
 #lp-article .lp-visual-note{margin:0;color:var(--text-secondary,#555);font-size:.95em}
-#lp-article table{border-collapse:collapse;width:100%;margin:0 0 1.3em;font-size:.92em}
-#lp-article th,#lp-article td{border:1px solid var(--border,#e2e2e2);padding:.4em .7em;text-align:left}
-#lp-article th{background:var(--bg-alt,#f5f5f5);font-weight:600}
+/* Generic article-table chrome \u2014 for a re-hosted COMPARISON/data table. Scoped OUT of a chart
+   re-host (.lp-chart, e.g. roadmap): those OWN their table look via each component's
+   figure-broadened CSS, and this rule is ID-specific (1,1,1) \u2014 it would beat the component's
+   class-level (0,1,2) cell rules and zero roadmap's grid hairlines / padding / accent stripe.
+   The :not(.lp-chart *) guard (a Selectors-4 complex :not, fine on the modern-only article
+   surface) keeps this off chart tables so the component styling is the sole source, as on the slide. */
+#lp-article table:not(.lp-chart table){border-collapse:collapse;width:100%;margin:0 0 1.3em;font-size:.92em}
+#lp-article th:not(.lp-chart *),#lp-article td:not(.lp-chart *){border:1px solid var(--border,#e2e2e2);padding:.4em .7em;text-align:left}
+#lp-article th:not(.lp-chart *){background:var(--bg-alt,#f5f5f5);font-weight:600}
 #lp-article pre{background:var(--bg-alt,#f5f5f5);padding:1em;border-radius:8px;overflow:auto;margin:0 0 1.3em;font-size:.85em}
 #lp-article code{font-family:'JetBrains Mono',monospace;font-size:.88em}
 @media (max-width:820px){[data-lp-view=read-article] #lp-doc{grid-template-columns:1fr}#lp-toc{display:none}}
