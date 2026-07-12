@@ -139,10 +139,27 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// teardown fires no onFinish. The projection is picked up on the next slide instead.
 	const [narrationText, setNarrationText] = React.useState('');
 	const playingRef = React.useRef(false);
+	// Autoplay intent (chain across slides) + a per-advance flag. Declared HERE (read by
+	// the projection-upgrade guard below) though set later; the guard runs post-commit
+	// when both reflect the live state. `autoAdvanceRef` is true across the whole
+	// between-slides hand-off — the window the plain `!playingRef` guard used to miss.
+	const autoplayRef = React.useRef(false);
+	autoplayRef.current = autoplay;
+	const autoAdvanceRef = React.useRef(false);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: navigation trigger (slide/lens); narrationAt read via ref so a projection landing doesn't re-fire this.
 	React.useEffect(() => { setNarrationText(narrationAtRef.current(clamped)); }, [clamped, set]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: projection-landing upgrade; skipped while playing to avoid a mid-read teardown. Reads clamped/narrationAt via refs.
-	React.useEffect(() => { if (!playingRef.current) setNarrationText(narrationAtRef.current(clamped)); }, [projected]);
+	// Projection-landing upgrade: swap the CURRENT slide's fallback narration for the
+	// richer DOM-projection text once it resolves — but ONLY when the slide is idle and
+	// NOT in an autoplay run. During autoplay (including the brief between-slides hand-off
+	// where `playingRef` is momentarily false) this in-place swap would rebuild the track
+	// and tear the reader down WITHOUT firing onFinish, hanging the chain — the #904
+	// regression. Every navigation already adopts projection text via the effect above
+	// once `projected` has landed, so autoplay loses nothing by skipping the in-place swap.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: projection-landing upgrade; reads clamped/narrationAt/intent via refs by design.
+	React.useEffect(() => {
+		if (playingRef.current || autoplayRef.current || autoAdvanceRef.current) return;
+		setNarrationText(narrationAtRef.current(clamped));
+	}, [projected]);
 
 	// ── Dual-screen presenter window (the shared kernel; same speaker view as the
 	// Drawing Board). We render THIS deck's stage doc asynchronously (the engine)
@@ -205,11 +222,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// track) — else a recognized chart's computed facts (narrateChart; a funnel's
 	// stage-to-stage conversion % exists only in the render, never the source
 	// slideToSpeech reads) — else the generic on-slide prose.
-	// Autoplay = read-aloud that chains across slides. Refs let the once-bound
-	// onFinish read live position/intent without re-binding the reader each slide.
-	const autoplayRef = React.useRef(false);
-	autoplayRef.current = autoplay;
-	const autoAdvanceRef = React.useRef(false);
+	// Autoplay = read-aloud that chains across slides. Refs (declared above, near the
+	// narration state the projection-upgrade guard reads) let the once-bound onFinish read
+	// live position/intent without re-binding the reader each slide.
 	// The deck's author-supplied acronym registry (term → spoken expansion), parsed from
 	// front-matter. Author pronunciations beat the built-in dictionary and the patterns,
 	// on BOTH the live reader and the warm-ahead prefetch (same map → cache keys match).
@@ -236,21 +251,29 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			},
 		},
 	);
-	// After an autoplay advance, start the new slide's reader. Deferred a frame so
-	// the reader's own slide-change stop() settles first; only fires for an auto
-	// advance (manual prev/next/jump leave it untouched).
+	// After an autoplay advance, start the NEW slide's reader. Keyed on `reader.track`,
+	// NOT `clamped` — this is the #904 fix. Since narration is async STATE, the slide
+	// index changes ONE commit before the track (and thus the reader) is rebuilt for the
+	// new text; a play() fired on the index-change commit (the old `[clamped]` + rAF)
+	// raced that rebuild and, on a loaded main thread, ran on a reader the pending rebuild
+	// then tore down — reader.playing=false, no caption, chain frozen (the "two slides
+	// then stops" report). `useReadAloud` is called before this effect, so its per-track
+	// rebuild effect is registered first and runs first in the SAME commit; playing here
+	// (no rAF) therefore always hits the freshly-built reader, deterministically, on fast
+	// and slow devices alike. The autoAdvanceRef guard keeps manual prev/next/jump (which
+	// also change the track) from auto-playing. (Edge: two ADJACENT slides whose narration
+	// is byte-identical share a track object, so this wouldn't re-fire — the skip-empty
+	// effect covers identical EMPTY slides; identical non-empty adjacent narration is a
+	// pathological case a real deck doesn't hit, tracked but not handled here.)
 	const readerRef = React.useRef(reader);
 	readerRef.current = reader;
-	// So the projection-upgrade effect can skip a mid-read text swap (the reader is
-	// declared after that effect, hence the ref).
 	playingRef.current = reader.playing;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `clamped` is the TRIGGER — the effect must run on each slide change; it reads reader/flag via refs by design.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `reader.track` is the rebuild signal (the new slide's reader is ready once it changes); reader is read via ref by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
 		autoAdvanceRef.current = false;
-		const id = requestAnimationFrame(() => readerRef.current.play());
-		return () => cancelAnimationFrame(id);
-	}, [clamped]);
+		readerRef.current.play();
+	}, [reader.track]);
 	// A slide with no readable prose never fires onFinish (nothing to read), which
 	// would stall the chain — so while autoplaying, skip an empty slide straight to
 	// the next (or end the run if it's the last).

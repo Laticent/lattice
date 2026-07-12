@@ -180,6 +180,17 @@ in patch versions.
   spoken string changes — the on-screen slide and caption are untouched. Fixes the
   live-site report where a big-number slide narrated as "zero" alone. See
   `engineering/decisions/2026-07-11-manifest-speech-contract.md` §19.
+- **Present autoplay ("Play") now chains through the whole deck instead of freezing after ~two
+  slides.** Since narration became async state (#904), the slide index changed one render commit
+  before the reader was rebuilt for the new slide's text — so on a real (slower) device the
+  auto-advance's `play()`, scheduled a frame earlier, ran against a reader the pending rebuild
+  then tore down (leaving playback stopped, no caption, and — since a teardown fires no
+  "finished" signal — no way to advance again). A second path did the same when the whole-deck
+  narration projection landed mid-hand-off and swapped the current slide's text. Both are fixed
+  structurally (no timers): the auto-advance is now bound to the reader's track rebuild so it
+  always starts the freshly-built reader in the same commit, and the projection upgrade can no
+  longer swap text during an autoplay run. Found via an independent-checker + red-team +
+  Munger-inversion trio; the prefetch/warm-ahead was exonerated. (Studio Present.)
 - **A non-English deck's narration no longer gets English words injected into it.** Cadenza's
   say-as machinery — the abbreviation lexicon, number-to-words, and the fiscal/period parser
   (`FY26` → "fiscal year twenty-six", `40%` → "forty percent") — is US-English, so a deck
