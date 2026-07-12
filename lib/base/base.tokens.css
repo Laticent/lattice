@@ -456,6 +456,17 @@
   --print-diagram-today:         #6E6E6E;
   --print-diagram-note:          #F5F5F5;
 
+  /* Chart series (foreground: bars, pie wedges, word-cloud ink, line strokes).
+   * Interleaved dark grays so adjacent series stay distinct; the chart-family
+   * derives its pale --chart-cat-N-fill from these by mixing toward white. All
+   * ≤ #6E so white-on-mark ink clears AA. SVG hatch/dot patterns (added by the
+   * renderers, later slice) do the separating past ~5 series. --print-seq-500
+   * re-anchors the sequential/heat ramp to gray; its 50-900 stops derive. */
+  --print-chart-1: #333333; --print-chart-2: #6E6E6E; --print-chart-3: #4D4D4D;
+  --print-chart-4: #606060; --print-chart-5: #3D3D3D; --print-chart-6: #565656;
+  --print-chart-7: #454545; --print-chart-8: #686868;
+  --print-seq-500: #5A5A5A;
+
 
   /* ── Sequential ramp (--seq-50 … --seq-900) ────────────────────────────
    * Tailwind/Carbon-style 10-stop ramp anchored on --seq-500. Used for

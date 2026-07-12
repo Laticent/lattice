@@ -422,6 +422,23 @@ section.print {
   --diagram-critical-mark: var(--print-diagram-critical-mark);
   --diagram-today: var(--print-diagram-today);
   --diagram-note: var(--print-diagram-note);
+  /* Chart series ride the theme's --chart-catN source (the .chart-frame hues
+   * derive from it via var(--chart-catN)), so remap the source to gray here. */
+  --chart-cat1: var(--print-chart-1); --chart-cat2: var(--print-chart-2);
+  --chart-cat3: var(--print-chart-3); --chart-cat4: var(--print-chart-4);
+  --chart-cat5: var(--print-chart-5); --chart-cat6: var(--print-chart-6);
+  --chart-cat7: var(--print-chart-7); --chart-cat8: var(--print-chart-8);
+  --chart-state-pass: var(--print-pass);
+  --chart-state-warn: var(--print-warn);
+  --chart-state-fail: var(--print-fail);
+  --chart-state-info: var(--print-text-secondary);
+  --chart-state-mute: var(--print-text-muted);
+  --seq-500: var(--print-seq-500);
+  /* Chrome: inline-code chips + the Marp header/footer are theme-accent-tinted;
+   * ink them so nothing but content carries tone. */
+  --code-inline-fg: var(--print-text-body);
+  --marp-slide-header-color: var(--print-text-muted);
+  --marp-slide-footer-color: var(--print-text-muted);
   background: var(--bg);            /* paper white; no spectrum ribbon (saves toner, drops hue) */
   border-top: none;
 }
