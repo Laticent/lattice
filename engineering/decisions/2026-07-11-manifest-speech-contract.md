@@ -896,6 +896,16 @@ front-matter `glossary: auto`.** Simplest to author, one deck-level switch, and 
 lives in the source so every surface agrees. The generated glossary appends at the end of the deck (a
 reference appendix); a future "placed marker" for mid-deck control is an easy follow-on if wanted.
 
+*The Studio affordance (owner-requested follow-up).* `glossary: auto` also gets a first-class
+**toggle in the deck-setup drawer** — the front matter is the source of truth, the switch is the UI
+that writes it. Added as a binary field in the shared config panel (`docs/src/playground/deck-config.js`,
+the `createConfigPanel` schema every deck-settings surface mounts), alongside `autosplit`/`paginate`:
+on ⇔ `glossary: auto` in the front matter, off removes the key (a deck at the default carries none).
+Unlike `autosplit` (export-only), the auto-glossary DOES appear in the live preview (the transform runs
+at the shared render chokepoint), so its hint carries no "export only" caveat but does name the
+prerequisite — an `acronyms:` registry with at least one definition — so the toggle doesn't read as
+broken on a deck without one.
+
 **Shape.** A shared source transform `lib/core/glossary-auto` (ESM, reusing `resolve-captions`'s
 `parseNarrationFrontMatter`): when the deck's front-matter carries `glossary: auto` AND the registry
 has ≥1 entry with a `definition`, it appends a `<!-- _class: glossary -->` slide whose body is the

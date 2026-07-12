@@ -306,8 +306,9 @@ in patch versions.
   alphabetically; an acronym with only an expansion (no definition) is omitted. The exported
   `.html` manifest also gains a `glossary` term→definition projection for downstream tools. The
   generated slide is idempotent — it strips its own trigger, so a `.html` round-trip renders it
-  once and never regenerates. Off by default (no `glossary:` key → byte-identical to today). See
-  `engineering/decisions/2026-07-11-manifest-speech-contract.md` §18.
+  once and never regenerates. Off by default (no `glossary:` key → byte-identical to today). Toggle it
+  from the **deck-setup drawer** (a switch alongside Auto-split / Page numbers) or by hand in the front
+  matter. See `engineering/decisions/2026-07-11-manifest-speech-contract.md` §18.
 - **The RENDER group gains a COALESCE row — how many edits the preview debounce
   folded into this render.** A fast typing burst lands many source changes inside
   the 140ms preview window, and the debounce collapses them into ONE engine
