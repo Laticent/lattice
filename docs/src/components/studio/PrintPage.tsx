@@ -69,11 +69,19 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 	const autoPrinted = React.useRef(false);
 
 	// ── 1. Handshake: announce ready, receive the deck (trust only the opener). ──
+	const lastSig = React.useRef('');
 	React.useEffect(() => {
 		function onMsg(e: MessageEvent) {
-			if (e.source !== window.opener) return;
+			// Same-origin only (opener is our Studio); + the exact opener handle.
+			if (e.origin !== window.location.origin || e.source !== window.opener) return;
 			const d = e.data as { __latticePrint?: string } & Partial<Payload>;
 			if (!d || d.__latticePrint !== 'init') return;
+			// Dedupe: the opener may push the same deck twice (fresh reply + proactive
+			// post); only (re-)render when the deck actually changed — so a reused tab
+			// re-renders for a NEW/edited deck but a duplicate is ignored.
+			const sig = JSON.stringify([d.source, d.palette, d.mode, d.name, d.extraCss, d.extraTheme?.css]);
+			if (sig === lastSig.current) return;
+			lastSig.current = sig;
 			setPayload({ source: d.source || '', palette: d.palette || 'indaco', mode: d.mode === 'dark' ? 'dark' : 'light', extraTheme: d.extraTheme, extraCss: d.extraCss, name: d.name || 'deck' });
 		}
 		window.addEventListener('message', onMsg);

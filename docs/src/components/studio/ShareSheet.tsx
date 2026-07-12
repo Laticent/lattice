@@ -98,9 +98,11 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// Print opens the on-brand Print page in a new tab (paper / colour + Print/Download
 	// live there); it renders + builds the PDF itself in that foreground tab. We just
 	// open it in-gesture (pop-up-safe) and hand off the deck over a postMessage handshake.
+	// Not via `run` — the hand-off returns immediately, so a "Print ready" toast would fire
+	// before anything printed; surface only a real failure (e.g. pop-up blocked).
 	const printDeck = () => {
 		close();
-		run('print', 'Print', () => sharePrintDeck(artifactSource, name, palette, mode, extraTheme, extraCss));
+		sharePrintDeck(artifactSource, name, palette, mode, extraTheme, extraCss).catch((e) => notify(`Print failed: ${(e as Error)?.message || 'unexpected error'}`));
 	};
 
 	return (

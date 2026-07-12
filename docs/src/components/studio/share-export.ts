@@ -518,21 +518,21 @@ export async function sharePrintDeck(source: string, name: string, palette: stri
 	const win = opened; // non-null in the closure below
 	const origin = window.location.origin;
 	const payload = { __latticePrint: 'init', source, palette, mode, extraTheme: extra, extraCss, name };
-	// The page posts { __latticePrint: 'ready' } once its listener is attached; reply with
-	// the deck on the SAME handle. Guard on `e.source === win` (the exact tab we opened).
-	let sent = false;
+	const post = () => { try { win.postMessage(payload, origin); } catch { /* gone */ } };
+	// Two delivery paths, because the tab is a NAMED target that a browser may REUSE:
+	//   • a FRESH tab posts { __latticePrint: 'ready' } once mounted → we reply (below);
+	//   • a REUSED, already-loaded tab won't re-post 'ready' (iOS Safari focuses it without
+	//     reloading — the exact platform this feature targets), so we ALSO push the deck
+	//     proactively for the first couple seconds. The page dedupes identical payloads, so
+	//     the two paths can't double-render. Trust rides on `e.source === win`.
 	function onMsg(e: MessageEvent) {
 		if (e.source !== win) return;
 		const d = e.data as { __latticePrint?: string } | null;
-		if (d && d.__latticePrint === 'ready' && !sent) {
-			sent = true;
-			try { win.postMessage(payload, origin); } catch { /* gone */ }
-			window.removeEventListener('message', onMsg);
-		}
+		if (d && d.__latticePrint === 'ready') post();
 	}
 	window.addEventListener('message', onMsg);
-	// Reclaim the listener if the page never handshakes (blocked / closed).
-	setTimeout(() => window.removeEventListener('message', onMsg), 30_000);
+	const timers = [0, 250, 700, 1500].map((t) => setTimeout(post, t));
+	setTimeout(() => { window.removeEventListener('message', onMsg); for (const t of timers) clearTimeout(t); }, 30_000);
 }
 
 type ReadAlongCore = {
