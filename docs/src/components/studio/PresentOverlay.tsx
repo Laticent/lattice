@@ -62,7 +62,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const [showHint, setShowHint] = React.useState(false);
 
 	const set = React.useMemo(() => presentationSet(slides, lens), [slides, lens]);
-	// Deck sections (from section/divider slides) — the grouping the single progress rail uses.
+	// Deck sections (from `divider` slides) — the grouping the single progress rail uses.
 	const sections = React.useMemo(() => sectionsFromSlides(set), [set]);
 	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
 	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered lens
@@ -299,7 +299,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		if (readerRef.current.playing) {
 			readerRef.current.pause();
 			setAutoplay(false); // pausing stops the chain; resume re-enables it. Prevents the empty-slide
-			// auto-skip from resurrecting playback when you navigate onto a section/divider after Pause.
+			// auto-skip from resurrecting playback when you navigate onto a divider after Pause.
 		} else {
 			setAutoplay(true);
 			readerRef.current.play();

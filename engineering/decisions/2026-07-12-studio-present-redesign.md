@@ -11,7 +11,7 @@ summary: >
   (with the transport, at the bottom) beat B (rail under the toolbar) 83–63 across
   an independent-checker + red-team + Munger-inversion trio. Presenter window is
   brand-dark, on-brand, whole (uncropped) current + next slides. Sections derive
-  from existing section/divider slides; captions reuse the existing 'silent' rung.
+  from existing divider slides; captions reuse the existing 'silent' rung.
 last-status-update: 2026-07-12
 ---
 
@@ -120,9 +120,11 @@ agents each), then the adversarial trio on the finalist:
 - **Captions without TTS → the `'silent'` rung.** `read-aloud.ts` already supports a wall-clock
   cadence estimate with no audio (`rung: 'silent'`). CC-on/Voice-off = run the reader in `silent`;
   CC-on/Voice-on = TTS. Wiring, not new engine code.
-- **Sections → existing section/divider slides.** `section`/`divider` are real slide layouts
-  (`HEADING_ONLY_OK`; "Section 01 · Foundations"). The rail groups by those boundaries, named by
-  the section slide's heading; a deck with no sections degrades to a flat segmented rail.
+- **Sections → existing `divider` slides.** `divider` (anchor/divider — dark canvas + heading,
+  eyebrow "Section 01", `light` sub-section variant) is the real section-break layout. The rail
+  groups by those boundaries, named by the divider's heading; a deck with no dividers degrades to a
+  flat segmented rail. *(Corrected in S6: the S1 draft also treated a `section` class as a boundary,
+  but there is no `section` component — `divider` is the section marker. See S6 note below.)*
 - **Transport kernel is shared + frozen** (`lib/core/present-transport.mjs`): keymap, swipe, fit,
   `createTransport`. Nav comes for free and stays identical in the export player.
 
@@ -165,7 +167,7 @@ remain **S6 real-surface checks** (HARD RULE #23) — jsdom can't exercise width
 Each slice builds + tests green on its own (HARD RULE #18); the six long-running galleries stay
 isolated (#8); docs + CHANGELOG land with the change (#6, #10).
 
-- **S1 — Section model + segmented rail.** Derive sections from section/divider slides
+- **S1 — Section model + segmented rail.** Derive sections from divider slides
   (shared helper, tested); build the rail component (grouped segments, fill, click-to-jump,
   `aria-current`, keyboard). Replaces the dual counter.
 - **S2 — Caption crawl.** Teleprompter (active line centered, cross-fade, word highlight) fed by
@@ -200,9 +202,29 @@ isolated (#8); docs + CHANGELOG land with the change (#6, #10).
   iframes — the headless popup doesn't complete the engine render (frames show the themed card but
   not content); this is pre-existing (the diff never touches the render path) and needs a real
   second screen to confirm. Flagged for the S6 real-surface pass.
-- **S6 — Verify on real surfaces.** Build the docs, drive the real Playground Present on desktop +
-  a real device (touch, iOS Safari) — mark anything unreachable UNVERIFIED (#23). Per-feature demo
-  deck (#9). Maker-checker on the engine-adjacent diffs; the export-player parity is a separate PR (#17).
+- **S6 — Verify on real surfaces + demo deck. ✅** Built the docs and drove the REAL built Studio
+  Present via Playwright — the Quiet Bloom dock, the section rail (grouped by real `divider` slides),
+  the film-subtitle caption, and the brand-dark presenter (adopting the site accent) all exercised on
+  the running surface, captured at **390 / 820 / 1440px viewports in headless Chromium, light + dark,
+  at rest + playing**. *Scope of that claim (HARD RULE #23):* this is the real built site + the real
+  engine + real DOM/CSS at three viewport widths — NOT device verification. Headless Chromium at 390px
+  proves responsive layout, not iOS Safari or touch; the mouse/keyboard/wheel paths were driven, the
+  **swipe/touch path was not**. Per-feature demo deck shipped (`examples/studio-present.md` + committed
+  PDF, 10 slides, a title cover + 3 `divider` sections + speaker notes; dark bookends carry no
+  footer/page-number; HARD RULE #9). E2E: `journeys/author-present.spec.ts` reconciled to the one-Play
+  name and **run directly (green)** — note it is untagged, so `test:e2e:smoke` (which passed) does NOT
+  cover it; `present.spec.ts` + `scenarios/presenter-run.spec.ts` (real presenter popup + note
+  round-trip) also green. The shared `CHROME` map and the presenter/`Reader view`/`Next slide` names
+  were unchanged. Maker-checker/trio ran per slice.
+  **Corrections the S6 pass earned (#23 — the real render + the trio caught what jsdom couldn't):**
+  (1) the S1 model treated a phantom `section` class as a boundary — there is no `section` component;
+  `divider` is the real section-break. (2) `divider light` is a *within-section* waypoint (its docs),
+  so it must NOT open a rail group — the boundary test now excludes it. (3) the slides before the first
+  divider are a NAMELESS cover run — else the rail printed the (truncated) deck title as a phantom
+  "section". Model + tests + the demo deck updated accordingly.
+  **UNVERIFIED (#23):** real touch / iOS Safari and the presenter's live in-popup engine paint —
+  unreachable from a headless sandbox; marked UNVERIFIED, not claimed. Export-player parity is a
+  separate PR (#17).
 
 ## Open items
 
