@@ -164,6 +164,17 @@ in patch versions.
   download, and live Studio Present read-aloud — so they agree. Audio is unaffected in CI
   (no TTS); only the spoken string is claimed. See
   `engineering/decisions/2026-07-11-manifest-speech-contract.md` §17.
+- **Mermaid diagrams no longer render as black nodes in the exported player's Read·Article
+  view — and diagram figures now break out to full width like the charts.** Read·Article
+  re-hosts a diagram's SVG into a `<figure>` outside its slide `<section>`, but every mermaid
+  colour rule in `lib/integrations/mermaid/mermaid.css` was scoped to `section ` (the Marp slide
+  root), so nothing matched once re-hosted and each node fell to SVG's black initial fill. The
+  guard is now `:is(section, figure) ` — element-only, so it's specificity-identical (0,0,1) to
+  the old `section ` and leaves every slide/PDF cascade byte-unchanged, while the `figure` arm
+  colours the re-hosted diagram (mermaid's class names are unique to a mermaid SVG, so it can
+  never leak onto another figure). With colour restored, diagram figures drop the temporary
+  prose-width hold from the responsive pass and break out like the other charts. Verified the
+  article diagram renders identically to the slide (nodes, edges, labels) in light and dark.
 - **The docs-site "Share → Captions" download now narrates a note-free deck instead of
   producing an empty `.vtt`.** The in-browser caption download built the track from speaker
   notes ONLY, so a deck with no notes exported an empty caption file — while the CLI
