@@ -8,14 +8,14 @@ import { slideCount } from './galleries.mjs';
 // matter. The count must be right for both — the old formula assumed front
 // matter and undercounted every front-matter-less deck by two.
 
-const slides = (n) => Array.from({ length: n }, (_, i) => `<!-- _class: x -->\n\n# Slide ${i + 1}`);
+const slides = (n: number) => Array.from({ length: n }, (_, i) => `<!-- _class: x -->\n\n# Slide ${i + 1}`);
 
-function frontMatterDeck(n) {
+function frontMatterDeck(n: number) {
   const fm = ['---', 'marp: true', 'theme: indaco', '---'].join('\n');
   return `${fm}\n\n${slides(n).join('\n\n---\n\n')}`;
 }
 
-function bareDeck(n) {
+function bareDeck(n: number) {
   // No front matter: first line is a `_class` directive, slides joined by `---`.
   return slides(n).join('\n\n---\n\n');
 }
