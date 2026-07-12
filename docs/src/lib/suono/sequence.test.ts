@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { makeSequence, type SequenceStage } from './sequence';
-import type { Bytes, Clip, PlayOptions } from './types';
+import type { Bytes, Clip, PlayOptions, StageState } from './types';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 const bytes = (): Bytes => ({ size: 8, type: 'audio/wav', arrayBuffer: async () => new ArrayBuffer(8) });
 
-/** A fake stage that records play order and lets a test observe onStart. Decode/play are instant. */
-function fakeStage() {
+/** A fake stage that records play order and lets a test observe onStart. Decode/play are instant.
+ *  `opts.hangDecode` makes decode() never resolve (to exercise the run's decode watchdog/abort race);
+ *  `opts.stateNone` makes state() return 'none' (to exercise warm's pre-gesture decode guard). */
+function fakeStage(opts?: { hangDecode?: boolean; stateNone?: boolean }) {
 	const played: number[] = [];
 	const onStarts: Array<{ onsetMs: number; durationMs: number }> = [];
 	let clock = 0;
@@ -17,20 +19,22 @@ function fakeStage() {
 		decodedKeys,
 		async decode(_b: Bytes, key?: string): Promise<Clip> {
 			decodedKeys.push(key ?? '');
+			if (opts?.hangDecode) return new Promise<Clip>(() => {}); // never resolves
 			return { buffer: {} as AudioBuffer, durationMs: 10 };
 		},
-		play(clip: Clip, opts?: PlayOptions) {
+		play(clip: Clip, playOpts?: PlayOptions) {
 			clock += 10;
 			played.push(clock);
-			if (opts?.onStart) {
+			if (playOpts?.onStart) {
 				const o = { onsetMs: clock, durationMs: clip.durationMs };
 				onStarts.push(o);
-				opts.onStart(o);
+				playOpts.onStart(o);
 			}
 			return { done: Promise.resolve({ ok: true }), stop() {} };
 		},
 		suspend: vi.fn(),
 		resume: vi.fn(),
+		state: (): StageState => (opts?.stateNone ? 'none' : 'running'),
 	};
 	return stage;
 }
@@ -241,5 +245,119 @@ describe('makeSequence — dedup & warm', () => {
 		await finished;
 		expect(produce).toHaveBeenCalledTimes(2); // unchanged — cache hits
 		expect(stage.played.length).toBe(2); // …and both still played
+	});
+
+	it('warm() does NOT create a context / decode-ahead when state is none (pre-gesture guard)', async () => {
+		const stage = fakeStage({ stateNone: true });
+		const produce = vi.fn(async () => bytes());
+		const seq = makeSequence(stage, { items: [0, 1], produce, keyOf: (i) => `k${i}`, produceTimeoutMs: 5000 });
+		seq.warm([0, 1]);
+		await flush();
+		await flush();
+		expect(produce).toHaveBeenCalledTimes(2); // bytes still prefetched
+		expect(stage.decodedKeys.length).toBe(0); // but NO decode-ahead — that would instantiate the context
+		seq.stop();
+	});
+});
+
+describe('makeSequence — hardening (adversarial trio)', () => {
+	it('keyOf throwing does not reject the run — the item is produced uncached (never-rejects)', async () => {
+		const stage = fakeStage();
+		const produce = vi.fn(async () => bytes());
+		let done: () => void;
+		const finished = new Promise<void>((r) => (done = r));
+		const seq = makeSequence(stage, {
+			items: [0, 1],
+			produce,
+			keyOf: () => {
+				throw new Error('keyOf boom');
+			},
+			onState: (e) => {
+				if (!e.playing) done();
+			},
+		});
+		seq.play();
+		await finished;
+		expect(produce).toHaveBeenCalledTimes(2); // still produced (just uncached)
+		expect(stage.played.length).toBe(2);
+	});
+
+	it('gapMs throwing does not reject the run (never-rejects)', async () => {
+		const stage = fakeStage();
+		let done: () => void;
+		const finished = new Promise<void>((r) => (done = r));
+		const seq = makeSequence(stage, {
+			items: [0, 1],
+			produce: async () => bytes(),
+			keyOf: (i) => `k${i}`,
+			gapMs: () => {
+				throw new Error('gap boom');
+			},
+			onState: (e) => {
+				if (!e.playing) done();
+			},
+		});
+		seq.play();
+		await finished;
+		expect(stage.played.length).toBe(2);
+	});
+
+	it('a hung decode does not wedge the run — stop() unwedges it and emits an aborted terminal', async () => {
+		const stage = fakeStage({ hangDecode: true });
+		let terminal: { playing: boolean; aborted?: boolean } | null = null;
+		const seq = makeSequence(stage, {
+			items: [0],
+			produce: async () => bytes(),
+			keyOf: (i) => `k${i}`,
+			produceTimeoutMs: 100000, // long — so the ABORT, not the watchdog, is what settles it
+			onState: (e) => {
+				if (!e.playing) terminal = e;
+			},
+		});
+		seq.play();
+		await flush();
+		expect(terminal).toBeNull(); // parked at the never-resolving decode
+		seq.stop();
+		await flush();
+		expect(terminal).not.toBeNull(); // stop() unwedged it
+		expect(terminal!.aborted).toBe(true); // …and marked it cut-short (Munger #1)
+	});
+
+	it('a natural end emits a terminal playing:false with aborted falsy', async () => {
+		const stage = fakeStage();
+		let terminal: { playing: boolean; aborted?: boolean } | null = null;
+		let done: () => void;
+		const finished = new Promise<void>((r) => (done = r));
+		const seq = makeSequence(stage, {
+			items: [0],
+			produce: async () => bytes(),
+			keyOf: (i) => `k${i}`,
+			onState: (e) => {
+				if (!e.playing) {
+					terminal = e;
+					done();
+				}
+			},
+		});
+		seq.play();
+		await finished;
+		expect(terminal!.playing).toBe(false);
+		expect(terminal!.aborted).toBeFalsy(); // natural end ≠ aborted
+	});
+
+	it('clamps caller concurrency to the ceiling (no million-wide produce burst)', async () => {
+		const stage = fakeStage();
+		const d = deferredProduce(30);
+		const seq = makeSequence(stage, {
+			items: Array.from({ length: 30 }, (_, i) => i),
+			produce: d.produce,
+			keyOf: (i) => `k${i}`,
+			concurrency: 1000, // absurd — must be clamped
+			produceTimeoutMs: 100000,
+		});
+		seq.play();
+		await flush();
+		expect(d.started()).toBe(16); // MAX_CONCURRENCY, not 1000 or 30
+		seq.stop();
 	});
 });

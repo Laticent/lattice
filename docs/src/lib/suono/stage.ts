@@ -9,16 +9,30 @@
 // channel that ignores the hardware ringer switch — whereas a programmatic <audio>.play() after
 // the gesture is gone stays silent. decodeAudioData also handles both MP3 and WAV.
 
-import { createBoundedCache } from './cache';
 import { clampFadeMs } from './envelope';
 import { makeSequence } from './sequence';
 import type { Bytes, Clip, PlayHandle, PlayOptions, PlayResult, SequenceOptions, Stage, StageOptions, StageState } from './types';
 
 const DEFAULT_DECODED_LIMIT = 64;
-const DEFAULT_MAX_DECODE_BYTES = 32 * 1024 * 1024; // 32 MiB — decode-bomb guard
+const DEFAULT_MAX_DECODE_BYTES = 32 * 1024 * 1024; // 32 MiB — decode-bomb guard on the ENCODED input
+const DEFAULT_MAX_DECODED_BYTES = 256 * 1024 * 1024; // 256 MiB — aggregate budget for DECODED PCM
 const DEFAULT_FADE_MS = 8; // declick ramp at each clip head/tail — inaudible as a fade, kills the click
 
 const hasWindow = typeof window !== 'undefined';
+
+/** The declared byte size of an input WITHOUT reading it — so an oversized payload is rejected
+ *  before it's materialized (an `ArrayBuffer.slice(0)` doubles memory; a huge `Blob.arrayBuffer()`
+ *  OOMs during the read). 0 when unknowable. */
+function byteSizeOf(bytes: Bytes): number {
+	if (bytes instanceof ArrayBuffer) return bytes.byteLength;
+	return typeof (bytes as { size?: number }).size === 'number' ? (bytes as { size: number }).size : 0;
+}
+
+/** Approximate decoded PCM footprint of a clip: samples × channels × 4 (Float32). */
+function clipBytes(clip: Clip): number {
+	const b = clip.buffer;
+	return (b?.length || 0) * (b?.numberOfChannels || 1) * 4;
+}
 
 async function toArrayBuffer(bytes: Bytes): Promise<ArrayBuffer> {
 	if (bytes instanceof ArrayBuffer) return bytes.slice(0);
@@ -41,8 +55,27 @@ function decodeArrayBuffer(ctx: AudioContext, ab: ArrayBuffer): Promise<AudioBuf
 export function createStage(opts: StageOptions = {}): Stage {
 	const compensateLatency = opts.compensateLatency !== false;
 	const maxDecodeBytes = opts.maxDecodeBytes ?? DEFAULT_MAX_DECODE_BYTES;
+	const maxDecodedBytes = opts.maxDecodedBytes ?? DEFAULT_MAX_DECODED_BYTES;
+	const decodedLimit = opts.decodedCacheLimit ?? DEFAULT_DECODED_LIMIT;
 	const fadeMs = opts.fadeMs ?? DEFAULT_FADE_MS;
-	const decodedCache = createBoundedCache<Clip>(opts.decodedCacheLimit ?? DEFAULT_DECODED_LIMIT);
+
+	// Decoded-clip cache, bounded by BOTH entry count AND aggregate decoded bytes — a count cap alone
+	// can't stop N huge clips (each under the encoded-input cap) ballooning into gigabytes of PCM.
+	const decoded = new Map<string, Clip>();
+	let decodedBytes = 0;
+	function decodedSet(key: string, clip: Clip): void {
+		if (decoded.has(key)) return; // idempotent — keep the first decode of a key
+		decoded.set(key, clip);
+		decodedBytes += clipBytes(clip);
+		// Evict oldest (FIFO) until under both bounds — but never evict the entry just added.
+		while (decoded.size > 1 && (decoded.size > decodedLimit || decodedBytes > maxDecodedBytes)) {
+			const oldest = decoded.keys().next().value;
+			if (oldest === undefined || oldest === key) break;
+			const c = decoded.get(oldest);
+			decoded.delete(oldest);
+			if (c) decodedBytes -= clipBytes(c);
+		}
+	}
 
 	let audioCtx: AudioContext | null = null;
 	// EVERY live source, not just the latest. Overlapping play() calls are legal at this level
@@ -90,16 +123,22 @@ export function createStage(opts: StageOptions = {}): Stage {
 
 	async function decode(bytes: Bytes, key?: string): Promise<Clip> {
 		if (key) {
-			const hit = decodedCache.get(key);
+			const hit = decoded.get(key);
 			if (hit) return hit;
 		}
 		const ctx = getCtx();
 		if (!ctx) throw new Error('no AudioContext');
+		// Reject an oversized payload from its DECLARED size BEFORE materializing it — reading a huge
+		// Blob/BlobLike (or slicing a huge ArrayBuffer, which doubles memory) is the real OOM window,
+		// upstream of decodeAudioData.
+		const declared = byteSizeOf(bytes);
+		if (declared > maxDecodeBytes) throw new Error('audio too large (' + declared + ' > ' + maxDecodeBytes + ' bytes)');
 		const ab = await toArrayBuffer(bytes);
+		// Re-check the REAL length too — a BlobLike could lie about `.size`.
 		if (ab.byteLength > maxDecodeBytes) throw new Error('audio too large (' + ab.byteLength + ' > ' + maxDecodeBytes + ' bytes)');
 		const buffer = await decodeArrayBuffer(ctx, ab);
 		const clip: Clip = { buffer, durationMs: (buffer.duration || 0) * 1000 };
-		if (key) decodedCache.set(key, clip);
+		if (key) decodedSet(key, clip);
 		return clip;
 	}
 
@@ -152,22 +191,37 @@ export function createStage(opts: StageOptions = {}): Stage {
 			// playback never steps from/to a non-zero sample (the click/pop at a non-zero-crossing clip
 			// boundary — audible as "abrupt when switching," worst on many-short-fragment slides). A
 			// few ms is inaudible as a fade but removes the discontinuity. fadeMs:0 disables it.
+			let connected = false;
 			const fade = clampFadeMs(clip.durationMs, fadeMs);
 			if (fade > 0 && typeof ctx.createGain === 'function') {
-				gain = ctx.createGain();
-				const t0 = ctx.currentTime;
-				const f = fade / 1000;
-				const dur = clip.durationMs / 1000;
-				const g = gain.gain;
-				g.setValueAtTime(0, t0);
-				g.linearRampToValueAtTime(1, t0 + f);
-				g.setValueAtTime(1, t0 + (dur - f)); // hold at full until the tail (dur - f >= f, since fade ≤ dur/2)
-				g.linearRampToValueAtTime(0, t0 + dur);
-				src.connect(gain);
-				gain.connect(ctx.destination);
-			} else {
-				src.connect(ctx.destination);
+				// Own try/catch: if the gain automation throws (a flaky/partial-mock engine where
+				// createGain exists but linearRampToValueAtTime doesn't), fall back to a plain connect —
+				// no fade, but the clip STILL PLAYS. Dropping this fallback (as an earlier revision did)
+				// turned "click-y but audible" into "silent" on exactly the flaky Safari/iOS engines this
+				// library exists to serve — the whole point is reliability, so degrade, don't fail.
+				try {
+					gain = ctx.createGain();
+					const t0 = ctx.currentTime;
+					const f = fade / 1000;
+					const dur = clip.durationMs / 1000;
+					const g = gain.gain;
+					g.setValueAtTime(0, t0);
+					g.linearRampToValueAtTime(1, t0 + f);
+					g.setValueAtTime(1, t0 + (dur - f)); // hold at full until the tail (dur - f >= f, since fade ≤ dur/2)
+					g.linearRampToValueAtTime(0, t0 + dur);
+					src.connect(gain);
+					gain.connect(ctx.destination);
+					connected = true;
+				} catch {
+					try {
+						gain?.disconnect();
+					} catch {
+						/* best-effort */
+					}
+					gain = null;
+				}
 			}
+			if (!connected) src.connect(ctx.destination);
 			src.onended = () => finish({ ok: true });
 			activeSources.add(src);
 			src.start(0);
@@ -246,7 +300,8 @@ export function createStage(opts: StageOptions = {}): Stage {
 				/* best-effort */
 			}
 			audioCtx = null;
-			decodedCache.clear();
+			decoded.clear();
+			decodedBytes = 0;
 		},
 	};
 	return stage;

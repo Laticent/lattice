@@ -1566,7 +1566,15 @@ function checkCadenzaBoundary(errors) {
 // specifier or a `../` escape both breaks the spin-off promise AND risks dragging
 // the network/key concern back over the boundary this library exists to keep out.
 const SUONO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'suono');
-const SUONO_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
+// Collect a module specifier from EVERY import form, not just the tidy static `… from 'x'` — a
+// red-team pass showed the single-`from` regex let a real host/remote coupling slip through as a
+// side-effect import (`import 'x'`), a dynamic `import('x')`, or a `require('x')`. Each pattern
+// captures the specifier in group 1.
+const SUONO_SPEC_PATTERNS = [
+  /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g, // import/export … from 'x'
+  /(?:^|[\n;{}(])\s*import\s+['"]([^'"]+)['"]/g,                      // side-effect import 'x'
+  /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,                    // dynamic import('x') / require('x')
+];
 
 function checkSuonoBoundary(errors) {
   if (!fs.existsSync(SUONO_DIR)) return; // library not present — nothing to guard
@@ -1575,16 +1583,22 @@ function checkSuonoBoundary(errors) {
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
     const src = fs.readFileSync(file, 'utf8');
-    for (const m of src.matchAll(SUONO_IMPORT)) {
-      const spec = m[1];
-      if (spec.startsWith('./')) continue; // in-folder relative — fine
-      if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
-      errors.push(
-        `${rel} imports '${spec}', which escapes the Suono folder. The audio engine is zero-dependency, ` +
-        `bytes-only, and spin-off-able (2026-07-12-suono-audio-library.md): every import must resolve ` +
-        `inside docs/src/lib/suono/ (\`./x\`). Move shared code into the folder — Suono has no peer-dep ` +
-        `seam and must not couple to the host (or reach the network/a key).`,
-      );
+    const seen = new Set();
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        const spec = m[1];
+        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+        if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
+        seen.add(spec);
+        errors.push(
+          `${rel} imports '${spec}', which escapes the Suono folder. The audio engine is zero-dependency, ` +
+          `bytes-only, and spin-off-able (2026-07-12-suono-audio-library.md): every import (static, ` +
+          `side-effect, dynamic \`import()\`, or \`require()\`) must resolve inside docs/src/lib/suono/ ` +
+          `(\`./x\`). Move shared code into the folder — Suono has no peer-dep seam and must not couple ` +
+          `to the host (or reach the network/a key).`,
+        );
+      }
     }
   }
 }

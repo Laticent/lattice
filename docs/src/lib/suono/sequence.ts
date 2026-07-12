@@ -9,7 +9,7 @@
 // See the ADR: engineering/decisions/2026-07-12-suono-audio-library.md
 
 import { createBoundedCache, createInflight } from './cache';
-import type { Bytes, Clip, PlayOptions, PlayResult, Sequence, SequenceOptions, WarmOptions } from './types';
+import type { Bytes, Clip, PlayOptions, PlayResult, Sequence, SequenceOptions, StageState, WarmOptions } from './types';
 
 /** The slice of a Stage the scheduler needs — narrow, so a test injects a fake. */
 export interface SequenceStage {
@@ -17,12 +17,17 @@ export interface SequenceStage {
 	play(clip: Clip, opts?: PlayOptions): { done: Promise<PlayResult>; stop(): void };
 	suspend(): void;
 	resume(): void;
+	/** Context lifecycle — used to avoid creating an AudioContext during a pre-gesture warm. */
+	state(): StageState;
 }
 
 const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_CACHE_LIMIT = 200;
 const DEFAULT_PRODUCE_TIMEOUT_MS = 20000;
 const DEFAULT_WARM_CONCURRENCY = 1;
+// A hard ceiling on caller-supplied concurrency — a `concurrency: 1e6` (sequence or warm) must not
+// fire a million simultaneous produce()/decode requests at a paid backend. Bounds the burst.
+const MAX_CONCURRENCY = 16;
 
 const errStr = (e: unknown): string => ((e as Error)?.message ? (e as Error).message : String(e || 'unknown'));
 
@@ -46,7 +51,28 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	const produce = opts.produce;
 	const keyOf = opts.keyOf;
 	const gapMs = opts.gapMs;
-	const concurrency = Math.max(1, opts.concurrency ?? DEFAULT_CONCURRENCY);
+	const concurrency = Math.min(MAX_CONCURRENCY, Math.max(1, opts.concurrency ?? DEFAULT_CONCURRENCY));
+	// Guarded wrappers for the two caller callbacks that run OUTSIDE a try in the hot path — a throw
+	// from keyOf (in fillSlots' sync scheduling) or gapMs would otherwise reject a detached
+	// promise/`void run()` and kill the run, breaking the never-rejects contract. keyOf throwing → no
+	// cache identity (produce still runs, uncached); gapMs throwing → no breath (0).
+	const safeKey = (item: T): string | null => {
+		if (!keyOf) return null;
+		try {
+			return keyOf(item);
+		} catch {
+			return null;
+		}
+	};
+	const safeGap = (item: T, next: T | null): number => {
+		if (!gapMs) return 0;
+		try {
+			const g = gapMs(item, next);
+			return Number.isFinite(g) && g > 0 ? g : 0;
+		} catch {
+			return 0;
+		}
+	};
 	const produceTimeoutMs = opts.produceTimeoutMs ?? DEFAULT_PRODUCE_TIMEOUT_MS;
 	const onItemStart = opts.onItemStart;
 	const onState = opts.onState;
@@ -58,10 +84,10 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	let running = false;
 	let pausedGate: Promise<void> | null = null;
 	let resumeFn: (() => void) | null = null;
-	function emitState(playing: boolean, index: number, error: string | null): void {
+	function emitState(playing: boolean, index: number, error: string | null, aborted = false): void {
 		if (!onState) return;
 		try {
-			onState({ playing, index, error: error || undefined });
+			onState({ playing, index, error: error || undefined, aborted: aborted || undefined });
 		} catch {
 			/* a consumer's handler must never break the scheduler */
 		}
@@ -97,7 +123,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		// Produce one item's bytes, with cache + in-flight dedup (when keyOf is given) + a watchdog.
 		// Defined INSIDE run() so it closes over THIS run's `sig` + `firstError`, never a prior run's.
 		const produceBytes = (item: T, index: number): Promise<Bytes | null> => {
-			const key = keyOf ? keyOf(item) : null;
+			const key = safeKey(item);
 			if (key) {
 				const cached = bytesCache.get(key);
 				if (cached) return Promise.resolve(cached);
@@ -161,12 +187,30 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 				if (sig.aborted) break;
 				emitState(true, i, firstError);
 				if (bytes) {
+					// Race decode against abort AND a watchdog: stage.decode isn't passed the signal and
+					// calls bytes.arrayBuffer(), which an adversarial BlobLike can make hang forever —
+					// without this race the loop parks here for good (stop() would never unwedge it, since
+					// it only re-checks sig.aborted AFTER the await returns). Loser isn't cancelable
+					// (decodeAudioData/a hung read can't be aborted), but the RUN proceeds — never-hangs.
 					let clip: Clip | null = null;
-					try {
-						clip = await stage.decode(bytes, keyOf ? keyOf(items[i]) : undefined);
-					} catch (e) {
-						setError(errStr(e));
-					}
+					let decodeTimer: ReturnType<typeof setTimeout>;
+					const decodeKey = safeKey(items[i]) ?? undefined;
+					clip = await Promise.race<Clip | null>([
+						stage.decode(bytes, decodeKey).catch((e) => {
+							setError(errStr(e));
+							return null;
+						}),
+						new Promise<null>((res) => {
+							decodeTimer = setTimeout(() => {
+								setError('timed out decoding audio (' + produceTimeoutMs + 'ms)');
+								res(null);
+							}, produceTimeoutMs);
+						}),
+						new Promise<null>((res) => {
+							if (sig.aborted) res(null);
+							else sig.addEventListener('abort', () => res(null), { once: true });
+						}),
+					]).finally(() => clearTimeout(decodeTimer));
 					if (sig.aborted) break;
 					if (clip) {
 						const onStart = onItemStart
@@ -178,8 +222,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 				}
 				// Breathe between items — a real pause the clip itself doesn't carry. Not after the last.
 				if (i < items.length - 1 && !sig.aborted) {
-					const g = gapMs ? gapMs(items[i], items[i + 1] ?? null) : 0;
-					await sleep(g, sig);
+					await sleep(safeGap(items[i], items[i + 1] ?? null), sig);
 				}
 			}
 		} finally {
@@ -207,6 +250,11 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	// context (decodeAudioData doesn't need it running) and best-effort (a failure just leaves it to be
 	// decoded for real at play time).
 	const preloadDecode = (bytes: Bytes, key: string): void => {
+		// Skip decode-ahead until a context already exists — a background, pre-gesture warm must NOT be
+		// the thing that instantiates the AudioContext (iOS is finicky about pre-gesture context
+		// creation, and it spends the ~6-per-page budget). Once a real play() has created the context,
+		// warm decodes ahead freely. Best-effort; a still-undecoded warmed clip just decodes at play.
+		if (stage.state() === 'none') return;
 		void stage.decode(bytes, key).catch(() => {});
 	};
 	const warmQueue: Array<{ item: T; signal?: AbortSignal }> = [];
@@ -218,12 +266,9 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 			if (!entry) break;
 			if (entry.signal?.aborted) continue;
 			if (!keyOf) continue; // no cache identity → nothing to warm
-			const key = keyOf(entry.item);
-			const cachedBytes = bytesCache.get(key);
-			if (cachedBytes) {
-				preloadDecode(cachedBytes, key); // bytes already prefetched — just ensure the decode too
-				continue;
-			}
+			const key = safeKey(entry.item);
+			if (key === null) continue; // keyOf threw — no identity to warm
+			if (bytesCache.has(key)) continue; // already prefetched; decode-ahead for it happens at first play (NOT here — firing preloadDecode for every already-cached item in this unbounded loop was a decode storm)
 			if (inflight.join(key)) continue;
 			warmActive++;
 			const sig = new AbortController().signal; // this request's OWN lifetime — never the caller's
@@ -259,6 +304,11 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		r?.();
 	}
 	function stop(): void {
+		// Was a run live (playing or paused)? If so, THIS is its terminal event — the run's own finally
+		// is gated by `ctl === localCtl`, which is false once we null ctl below, so it won't emit.
+		// Without this, an explicit stop()/barge-in produced NO final playing:false (Munger finding #1),
+		// so a consumer could never tell "stopped" from "still running." aborted:true marks it as cut short.
+		const wasActive = running || !!pausedGate;
 		if (ctl) {
 			try {
 				ctl.abort();
@@ -269,6 +319,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		}
 		releaseGate();
 		running = false;
+		if (wasActive) emitState(false, -1, null, true);
 	}
 
 	return {
@@ -302,7 +353,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		},
 		warm(warmItems: readonly unknown[], warmOpts?: WarmOptions) {
 			if (!keyOf || !Array.isArray(warmItems) || !warmItems.length) return;
-			warmConcurrency = Math.max(1, warmOpts?.concurrency ?? DEFAULT_WARM_CONCURRENCY);
+			warmConcurrency = Math.min(MAX_CONCURRENCY, Math.max(1, warmOpts?.concurrency ?? DEFAULT_WARM_CONCURRENCY));
 			for (const item of warmItems) warmQueue.push({ item: item as T, signal: warmOpts?.signal });
 			pumpWarm();
 		},

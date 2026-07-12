@@ -13,6 +13,9 @@
  * yields 0 — the caller then connects the source straight through, no gain node.
  */
 export function clampFadeMs(durationMs: number, fadeMs: number): number {
-	if (!(fadeMs > 0) || !(durationMs > 0)) return 0;
+	// Reject non-finite too (a caller-constructed Clip could carry Infinity/NaN durationMs) —
+	// Infinity > 0 is true, so a bare `> 0` check would let `t0 + Infinity` reach
+	// linearRampToValueAtTime and throw a RangeError. Non-finite → no fade (straight connect).
+	if (!Number.isFinite(durationMs) || !Number.isFinite(fadeMs) || !(fadeMs > 0) || !(durationMs > 0)) return 0;
 	return Math.min(fadeMs, durationMs / 2);
 }

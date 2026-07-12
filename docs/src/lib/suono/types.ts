@@ -29,8 +29,13 @@ export interface StageOptions {
 	compensateLatency?: boolean;
 	/** Max decoded-buffer cache entries (FIFO). Default 64. */
 	decodedCacheLimit?: number;
-	/** Reject `decode()` inputs larger than this many bytes (decode-bomb guard). Default 32 MiB. */
+	/** Reject `decode()` inputs larger than this many bytes (decode-bomb guard on the ENCODED input,
+	 *  checked from `.size`/`.byteLength` BEFORE the buffer is read). Default 32 MiB. */
 	maxDecodeBytes?: number;
+	/** Aggregate byte budget for the DECODED cache (raw PCM is far larger than the compressed input,
+	 *  so bounding entry COUNT alone can still balloon memory). Oldest clips are evicted until the sum
+	 *  of decoded PCM fits. Default 256 MiB. */
+	maxDecodedBytes?: number;
 	/** Declick fade at each clip's head + tail, in ms — a short gain ramp so playback never steps
 	 *  from/to a non-zero sample (the click/pop at a non-zero-crossing clip boundary). Default 8.
 	 *  0 disables it (source connects straight to the destination). Clamped to half the clip. */
@@ -39,7 +44,10 @@ export interface StageOptions {
 
 /** The measured span of a clip, read at its TRUE audio start (not schedule time). */
 export interface Onset {
-	/** WebAudio clock time (ms) at which this clip actually started. */
+	/** RAW WebAudio clock time (ms, `ctx.currentTime`) at which this clip actually started — NOT
+	 *  latency-compensated. Pairs with the latency-compensated `clockMs()`: `clockMs() - onsetMs`
+	 *  already yields the HEARD elapsed time (the latency is subtracted exactly once, by `clockMs`),
+	 *  so a caption cursor must NOT subtract `latencyMs()` again. (See `Stage.clockMs`.) */
 	onsetMs: number;
 	/** Decoded clip duration (ms). */
 	durationMs: number;
@@ -77,11 +85,17 @@ export interface Clip {
 export interface Stage {
 	/** Resume + bless the context inside a user gesture (iOS). Call SYNCHRONOUSLY in the tap. */
 	unlock(): void;
-	/** Bytes → a cached, decoded clip. `key` (optional) enables the decoded-buffer cache. */
+	/** Bytes → a cached, decoded clip. `key` (optional) enables the decoded-buffer cache. FOOTGUN:
+	 *  a key hit returns the cached clip WITHOUT comparing `bytes` — the key MUST be content-complete
+	 *  (include everything that changes the audio: voice, model, speed, text, …), or a stale hit
+	 *  replays the wrong clip. Omit `key` if you can't guarantee that. */
 	decode(bytes: Bytes, key?: string): Promise<Clip>;
 	/** Play a decoded clip. Returns a handle; resolves nothing (fire-and-forget with callbacks). */
 	play(clip: Clip, opts?: PlayOptions): PlayHandle;
-	/** The owned WebAudio clock in ms (latency-compensated per StageOptions). 0 before any audio. */
+	/** The owned WebAudio clock in ms, latency-compensated by default (`ctx.currentTime*1000 -
+	 *  latencyMs()`), so a caption tracks what's HEARD. Pairs with the RAW `Onset.onsetMs`:
+	 *  `clockMs() - onsetMs` is the heard-elapsed time (latency subtracted once) — do NOT subtract
+	 *  `latencyMs()` again. Set `StageOptions.compensateLatency=false` for the raw clock. 0 before any audio. */
 	clockMs(): number;
 	/** Hardware output latency in ms (0 where unreported). */
 	latencyMs(): number;
@@ -110,6 +124,9 @@ export interface SequenceStateEvent {
 	index: number;
 	/** The first failure reason this run, if any (never rejects — reports here instead). */
 	error?: string;
+	/** True on the TERMINAL event of a run cut short by `stop()` or a barge-in (vs. a natural end).
+	 *  A consumer distinguishes "stopped" from "ended with no audio" by this flag. */
+	aborted?: boolean;
 }
 
 export interface SequenceOptions<T> {
@@ -148,6 +165,10 @@ export interface Sequence {
 	/** True while a run is active (not paused, not stopped). */
 	playing(): boolean;
 	/** Preload `items` without playing: prefetch their bytes AND decode them into the stage cache,
-	 *  so a later play() of a warmed item skips both the produce and the decode. Best-effort. */
+	 *  so a later play() of a warmed item skips both the produce and the decode. Best-effort.
+	 *  CALLER JUDGMENT: warming hides latency only for a source whose cost is a NETWORK round trip
+	 *  (genuinely parallel). Warming a CPU/GPU-bound LOCAL producer (e.g. an on-device model on one
+	 *  worker) just adds a competing consumer that can delay the clip already playing — Suono can't
+	 *  tell which yours is, so scope `warm()` to network-backed producers yourself. */
 	warm(items: readonly unknown[], opts?: WarmOptions): void;
 }

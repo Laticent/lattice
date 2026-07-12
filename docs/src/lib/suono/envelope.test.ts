@@ -18,4 +18,11 @@ describe('clampFadeMs', () => {
 		expect(clampFadeMs(0, 8)).toBe(0);
 		expect(clampFadeMs(-5, 8)).toBe(0);
 	});
+
+	it('returns 0 for non-finite duration/fade (a fabricated Clip must not throw in ramp scheduling)', () => {
+		expect(clampFadeMs(Number.POSITIVE_INFINITY, 8)).toBe(0);
+		expect(clampFadeMs(Number.NaN, 8)).toBe(0);
+		expect(clampFadeMs(500, Number.POSITIVE_INFINITY)).toBe(0);
+		expect(clampFadeMs(500, Number.NaN)).toBe(0);
+	});
 });

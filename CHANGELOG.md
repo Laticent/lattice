@@ -174,7 +174,12 @@ in patch versions.
   (worst on many-short-fragment narration like "53 / 14 / 4 / 1"). `warm()` now **preloads** a
   batch (bytes AND decoded buffers, so a later play skips both); the stage tracks every live
   source so `stopAll()`/`dispose()` reach all overlapping clips (concurrency is a scheduler
-  policy over the same hardened stage, not a mixer in the core — see the ADR §6a).
+  policy over the same hardened stage, not a mixer in the core — see the ADR §6a). Hardened by an
+  adversarial trio before merge (ADR §8a): `keyOf`/`gapMs` throws and a hung decode can no longer
+  reject or wedge a run; the decoded cache is bounded by aggregate PCM bytes and the decode-bomb
+  guard checks declared size before reading; caller `concurrency`/`warm` is clamped; declick degrades
+  to a plain connect (still plays) on a flaky engine; `onState` emits a terminal `aborted` event on
+  stop/barge-in; and the boundary gate now catches side-effect/dynamic/`require` imports.
 
 ### Changed
 

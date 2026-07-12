@@ -302,6 +302,37 @@ Until slice 2 lands, `voice-model.js` keeps its own context (correct, and the re
 gate is sequenced after, not now). This doc commits to *retiring* that duplication via Suono rather
 than growing a second audio engine beside it.
 
+## 8a. Adversarial-trio hardening (red team + Munger inversion + independent checker)
+
+Before the human merge, the full trio (HARD RULE #25) ran against the shipping diff. The pure kernels
+and the scheduler mechanics held; the trio's real findings were folded (with regression tests):
+
+- **Never-rejects / never-hangs holes closed.** `keyOf`/`gapMs` throwing no longer rejects the run
+  (guarded → uncached / no-breath); the `decode` step is now raced against abort + a watchdog, so a
+  hung `arrayBuffer()`/decode can't wedge the run forever.
+- **Resource bounds.** The decode-bomb guard now checks the *declared* size before reading (the OOM
+  window was upstream of it), and the decoded cache is bounded by *aggregate PCM bytes* (256 MiB
+  default), not entry count alone (64 huge clips could balloon past the encoded-input cap). Caller
+  `concurrency`/`warm` concurrency is clamped to a ceiling (no million-wide burst). `warm()` no longer
+  creates the `AudioContext` pre-gesture, and its cached-branch decode storm is removed.
+- **Declick degrades, doesn't fail.** The gain ramp is wrapped in its own try/catch → a plain connect
+  (no fade, still plays) on a flaky/partial engine — restoring the reliability `voice-model` had.
+- **Boundary gate hardened.** `checkSuonoBoundary` now also catches side-effect (`import 'x'`),
+  dynamic (`import('x')`), and `require('x')` imports — the static-`from` regex alone let those slip.
+
+**Migration constraints surfaced (must hold for the slice-2 migration to be "thin"):**
+
+- **`onState` now emits a terminal event on `stop()`/barge-in, carrying `aborted`** — Cadenza's
+  synth-failed→silent fallback distinguishes "stopped" from "ended with no audio" on exactly this.
+- **Clock convention documented:** `Onset.onsetMs` is RAW and `clockMs()` is latency-compensated, so
+  `clockMs() - onsetMs` is the heard-elapsed time (latency once). A migration that keeps
+  `voice-model`'s manual `- lat` would double-subtract — the convention is now spelled out on both.
+- **`speechSynthesis` cannot cross the bytes-only boundary** (it produces no bytes; it plays itself),
+  so voice-model retains a *parallel* branch for that rung and forwards pause/resume/stop to it. The
+  §2 stack diagram is the blob-rung path; "thin consumer" means *thinner*, not literally one path.
+- **The "don't warm an expensive local source" judgment stays with the caller** (documented on
+  `warm()`) — Suono can't tell a network producer from a CPU-bound one.
+
 ## 9. Alternatives weighed
 
 - **Playback-only kernel (no sequencer).** Smaller surface, but every consumer re-implements the
