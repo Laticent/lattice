@@ -335,7 +335,8 @@ in patch versions.
 - **Read-aloud timing is now a prosody-grounded pace model, not a flat wpm × character-length
   guess.** Word duration rides a **syllable count** (~200 ms/syllable at a ~150-wpm boardroom
   default), not character length, so an 8-letter one-syllable word no longer out-dwells a short
-  three-syllable one. Pauses are **graded by boundary depth** (comma ~200 · clause ~350 · sentence
+  three-syllable one — and a spelled-out initialism ("PDF", "HTML") now counts its letters as
+  syllables, so the highlight no longer races through it. Pauses are **graded by boundary depth** (comma ~200 · clause ~350 · sentence
   ~550 · trailing-off ~650 ms) instead of one flat value; the word before a boundary gets
   **phrase-final lengthening**; the inter-sentence audio "breath" derives from the same graded table
   (× a clip-silence discount), so the silent estimate and the audio pace share one model; and the
