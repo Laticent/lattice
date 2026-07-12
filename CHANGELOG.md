@@ -552,6 +552,14 @@ in patch versions.
 
 ### Added
 
+- **Read-aloud now learns each voice's true pace (groundwork).** Every clocked narration
+  (Kokoro / OpenRouter) folds the measured clip duration vs the model's prediction into a robust
+  per-voice rate scalar `k`, stored per device. This slice is **measure-only** — it collects and
+  surfaces `k` (with sample count and a per-voice reset) in the read-aloud diagnostics overlay,
+  but does not yet change pacing; a later slice applies `k` to the silent estimate + cold-start
+  window (design: `engineering/decisions/2026-07-12-per-voice-pace-calibration.md`). It also lays
+  the residual signal a future "hard-to-say caption" pass will use.
+
 - **Read-aloud diagnostics overlay — a first-class, draggable live readout for Present narration.**
   A twin of the performance overlay: toggle it in **Workspace → General → Diagnostics**
   ("Read-aloud diagnostics") or with `?readaloud-debug=1`, and while narrating a slide it shows the
