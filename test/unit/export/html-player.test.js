@@ -586,13 +586,13 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	// Re-blessed for the biome hygiene cleanup: the inlined transport kernel
-	// (lib/core/present-transport.mjs, embedded VERBATIM in the player) had its one
-	// `Object.prototype.hasOwnProperty.call(map, key)` modernized to `Object.hasOwn(map, key)`
-	// (biome noPrototypeBuiltins) — behavior-identical, so the player's bytes shift but nothing
-	// it does changes. (The Read·Article chart-colour fix is byte-neutral for THIS fixture — it
-	// has no chart slide, and that fix added no player CSS — so this sha is unchanged by it.)
-	assert.equal(sha, 'c6af0c6c456db88e065b59a4d5601fd8b01e353301083a7d15ece033925cb8c7', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the Read·Article RESPONSIVE pass: the article CSS gained a breakout grid
+	// (prose holds ~740px; charts/math/images break OUT to a ~1200px cap, height-capped at 78vh
+	// to stay visible), diagram/placeholder figures HOLD at prose width, and the JS gained a
+	// ResizeObserver "sitter" that keeps the active TOC link in view on reflow. Those are
+	// always-on player bytes; the KaTeX overflow rule is math-conditional (this fixture has no
+	// math, so it stays katex-free — see the math-less test above). Deliberate player change.
+	assert.equal(sha, '4373b4f8891aaafe5190fd0ce39115ee7c8c9e73cf9ab25c62402404da8841bf', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
