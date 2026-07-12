@@ -249,6 +249,8 @@ section.word-cloud,
   --state-S-fillgrad: linear-gradient(180deg, light-dark(color-mix(in oklab, var(--state-S-hue) var(--chart-fill-top-l), var(--bg)), color-mix(in oklab, var(--state-S-hue) var(--chart-fill-top-d), black)) 0%, light-dark(color-mix(in oklab, var(--state-S-hue) var(--chart-fill-bottom-l), var(--bg)), color-mix(in oklab, var(--state-S-hue) var(--chart-fill-bottom-d), black)) 100%);
   --state-S-edge: color-mix(in oklab, var(--state-S-hue) var(--chart-fill-edge), var(--border));
   --state-S-pillgrad: linear-gradient(180deg, light-dark(color-mix(in oklab, var(--state-S-hue) 33%, var(--bg)), color-mix(in oklab, var(--state-S-hue) 48%, black)) 0%, light-dark(color-mix(in oklab, var(--state-S-hue) 54%, var(--bg)), color-mix(in oklab, var(--state-S-hue) 64%, black)) 100%);
+  --state-S-glow-strong: color-mix(in oklab, var(--state-S-ink) 36%, transparent);
+  --state-S-glow-soft: color-mix(in oklab, var(--state-S-ink) 26%, transparent);
   @end */
 
   /* Neutral fill (state-chart node — the canonical wash with the muted hue). */

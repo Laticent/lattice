@@ -3743,6 +3743,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
    * (set per status below), so the chip matches its bar exactly. */
   --fill-grad: var(--state-info-fillgrad); --fill-edge: var(--state-info-edge);
   --fill-ink: var(--state-info-ink);
+  --fill-glow-strong: var(--state-info-glow-strong); --fill-glow-soft: var(--state-info-glow-soft);
   background: var(--fill-grad);
   border: var(--chart-hairline) solid var(--fill-ink);
 }
@@ -3909,6 +3910,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
    * only its semantic --fill-grad / --fill-edge / --fill-ink (per status, below). */
   --fill-grad: var(--state-info-fillgrad); --fill-edge: var(--state-info-edge);
   --fill-ink: var(--state-info-ink);
+  --fill-glow-strong: var(--state-info-glow-strong); --fill-glow-soft: var(--state-info-glow-soft);
   background: var(--fill-grad);
   border: var(--chart-hairline) solid var(--fill-edge);
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
@@ -3930,20 +3932,21 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
  * Canvas-aware via light-dark(), so one rule per status, both modes. */
 .gantt-bar[data-s="on-track"],
 .gantt-bar[data-s="done"],
-.gantt-bar[data-s="live"]     { --fill-grad: var(--state-pass-fillgrad); --fill-edge: var(--state-pass-edge); --fill-ink: var(--state-pass-ink); }
+.gantt-bar[data-s="live"]     { --fill-grad: var(--state-pass-fillgrad); --fill-edge: var(--state-pass-edge); --fill-ink: var(--state-pass-ink); --fill-glow-strong: var(--state-pass-glow-strong); --fill-glow-soft: var(--state-pass-glow-soft); }
 .gantt-bar[data-s="at-risk"],
-.gantt-bar[data-s="warn"]     { --fill-grad: var(--state-warn-fillgrad); --fill-edge: var(--state-warn-edge); --fill-ink: var(--state-warn-ink); }
+.gantt-bar[data-s="warn"]     { --fill-grad: var(--state-warn-fillgrad); --fill-edge: var(--state-warn-edge); --fill-ink: var(--state-warn-ink); --fill-glow-strong: var(--state-warn-glow-strong); --fill-glow-soft: var(--state-warn-glow-soft); }
 .gantt-bar[data-s="blocked"],
-.gantt-bar[data-s="fail"]     { --fill-grad: var(--state-fail-fillgrad); --fill-edge: var(--state-fail-edge); --fill-ink: var(--state-fail-ink); }
+.gantt-bar[data-s="fail"]     { --fill-grad: var(--state-fail-fillgrad); --fill-edge: var(--state-fail-edge); --fill-ink: var(--state-fail-ink); --fill-glow-strong: var(--state-fail-glow-strong); --fill-glow-soft: var(--state-fail-glow-soft); }
 .gantt-bar[data-s="pilot"],
-.gantt-bar[data-s="decision"] { --fill-grad: var(--state-info-fillgrad); --fill-edge: var(--state-info-edge); --fill-ink: var(--state-info-ink); }
-.gantt-bar[data-s="deferred"] { --fill-grad: var(--state-mute-fillgrad); --fill-edge: var(--state-mute-edge); --fill-ink: var(--state-mute-ink); }
+.gantt-bar[data-s="decision"] { --fill-grad: var(--state-info-fillgrad); --fill-edge: var(--state-info-edge); --fill-ink: var(--state-info-ink); --fill-glow-strong: var(--state-info-glow-strong); --fill-glow-soft: var(--state-info-glow-soft); }
+.gantt-bar[data-s="deferred"] { --fill-grad: var(--state-mute-fillgrad); --fill-edge: var(--state-mute-edge); --fill-ink: var(--state-mute-ink); --fill-glow-strong: var(--state-mute-glow-strong); --fill-glow-soft: var(--state-mute-glow-soft); }
 
 /* Unparseable / missing span — a muted full-width placeholder so the task stays
  * visible (lint-core flags the cause); never a silent drop. */
 .gantt-bar--unscaled {
   --fill-grad: var(--state-mute-fillgrad); --fill-edge: var(--state-mute-edge);
   --fill-ink: var(--state-mute-ink);
+  --fill-glow-strong: var(--state-mute-glow-strong); --fill-glow-soft: var(--state-mute-glow-soft);
   opacity: 0.5;
 }
 
@@ -3966,17 +3969,18 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
   color: var(--text-heading);
   --fill-grad: var(--state-info-fillgrad); --fill-edge: var(--state-info-edge);
   --fill-ink: var(--state-info-ink);
+  --fill-glow-strong: var(--state-info-glow-strong); --fill-glow-soft: var(--state-info-glow-soft);
 }
 .gantt-milestone[data-s="on-track"],
 .gantt-milestone[data-s="done"],
-.gantt-milestone[data-s="live"]     { --fill-grad: var(--state-pass-fillgrad); --fill-edge: var(--state-pass-edge); --fill-ink: var(--state-pass-ink); }
+.gantt-milestone[data-s="live"]     { --fill-grad: var(--state-pass-fillgrad); --fill-edge: var(--state-pass-edge); --fill-ink: var(--state-pass-ink); --fill-glow-strong: var(--state-pass-glow-strong); --fill-glow-soft: var(--state-pass-glow-soft); }
 .gantt-milestone[data-s="at-risk"],
-.gantt-milestone[data-s="warn"]     { --fill-grad: var(--state-warn-fillgrad); --fill-edge: var(--state-warn-edge); --fill-ink: var(--state-warn-ink); }
+.gantt-milestone[data-s="warn"]     { --fill-grad: var(--state-warn-fillgrad); --fill-edge: var(--state-warn-edge); --fill-ink: var(--state-warn-ink); --fill-glow-strong: var(--state-warn-glow-strong); --fill-glow-soft: var(--state-warn-glow-soft); }
 .gantt-milestone[data-s="blocked"],
-.gantt-milestone[data-s="fail"]     { --fill-grad: var(--state-fail-fillgrad); --fill-edge: var(--state-fail-edge); --fill-ink: var(--state-fail-ink); }
+.gantt-milestone[data-s="fail"]     { --fill-grad: var(--state-fail-fillgrad); --fill-edge: var(--state-fail-edge); --fill-ink: var(--state-fail-ink); --fill-glow-strong: var(--state-fail-glow-strong); --fill-glow-soft: var(--state-fail-glow-soft); }
 .gantt-milestone[data-s="pilot"],
-.gantt-milestone[data-s="decision"] { --fill-grad: var(--state-info-fillgrad); --fill-edge: var(--state-info-edge); --fill-ink: var(--state-info-ink); }
-.gantt-milestone[data-s="deferred"] { --fill-grad: var(--state-mute-fillgrad); --fill-edge: var(--state-mute-edge); --fill-ink: var(--state-mute-ink); }
+.gantt-milestone[data-s="decision"] { --fill-grad: var(--state-info-fillgrad); --fill-edge: var(--state-info-edge); --fill-ink: var(--state-info-ink); --fill-glow-strong: var(--state-info-glow-strong); --fill-glow-soft: var(--state-info-glow-soft); }
+.gantt-milestone[data-s="deferred"] { --fill-grad: var(--state-mute-fillgrad); --fill-edge: var(--state-mute-edge); --fill-ink: var(--state-mute-ink); --fill-glow-strong: var(--state-mute-glow-strong); --fill-glow-soft: var(--state-mute-glow-soft); }
 .gantt-diamond {
   flex: 0 0 auto;
   width: 1.9cqi;
@@ -4007,12 +4011,15 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
  * (incl. --end's translateX) is never disturbed. */
 .gantt-bar.chart-mark-active {
   transform: translateY(-1.5px) scale(1.012);  /* sanctioned: small fixed focus lift, hairline-scale */
-  box-shadow: 0 0.4cqi 1.4cqi color-mix(in oklab, var(--fill-ink) 36%, transparent);
+  /* --fill-glow-strong is the compiled 36%-into-transparent tint of the bar's own state
+   * ink, set by the same status setter as --fill-ink — flat token, no color-mix in the paint. */
+  box-shadow: 0 0.4cqi 1.4cqi var(--fill-glow-strong);
   z-index: 3;
 }
 .gantt-milestone.chart-mark-active .gantt-diamond {
   transform: translateX(-50%) rotate(45deg) scale(1.22);
-  box-shadow: 0 0 0 0.4cqi color-mix(in oklab, var(--fill-ink) 26%, transparent);
+  /* --fill-glow-soft: the 26%-into-transparent tint of the milestone's state ink (flat token). */
+  box-shadow: 0 0 0 0.4cqi var(--fill-glow-soft);
 }
 .gantt-milestone--end.chart-mark-active .gantt-diamond {
   transform: translateX(50%) rotate(45deg) scale(1.22);
@@ -5785,15 +5792,15 @@ section.journey .journey-vmood .journey-face {
 /* Stage progression blue → orange → teal → pass-green (no green-on-green at the
  * end); warm/green hues read heavier, so they take a lower mix % to feel the
  * same whisper (baked into each --kanban-lane-N-bg slot's tint). */
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-bg: var(--kanban-lane-1-bg); --col-border: var(--kanban-lane-1-border); --col-underline: var(--kanban-lane-1-underline); }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-bg: var(--kanban-lane-2-bg); --col-border: var(--kanban-lane-2-border); --col-underline: var(--kanban-lane-2-underline); }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-bg: var(--kanban-lane-3-bg); --col-border: var(--kanban-lane-3-border); --col-underline: var(--kanban-lane-3-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-cardshadow: var(--kanban-lane-1-cardshadow); --col-bg: var(--kanban-lane-1-bg); --col-border: var(--kanban-lane-1-border); --col-underline: var(--kanban-lane-1-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-cardshadow: var(--kanban-lane-2-cardshadow); --col-bg: var(--kanban-lane-2-bg); --col-border: var(--kanban-lane-2-border); --col-underline: var(--kanban-lane-2-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-cardshadow: var(--kanban-lane-3-cardshadow); --col-bg: var(--kanban-lane-3-bg); --col-border: var(--kanban-lane-3-border); --col-underline: var(--kanban-lane-3-underline); }
 /* 4th/5th active lanes (boards up to the hard cap of 6 columns) stay distinct
  * rather than wrapping back to blue. The done lane is keyed by [data-done]
  * below, which always wins its own position regardless of count. */
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-bg: var(--kanban-lane-4-bg); --col-border: var(--kanban-lane-4-border); --col-underline: var(--kanban-lane-4-underline); }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-bg: var(--kanban-lane-5-bg); --col-border: var(--kanban-lane-5-border); --col-underline: var(--kanban-lane-5-underline); }
-:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-bg: var(--kanban-lane-done-bg); --col-border: var(--kanban-lane-done-border); --col-underline: var(--kanban-lane-done-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-cardshadow: var(--kanban-lane-4-cardshadow); --col-bg: var(--kanban-lane-4-bg); --col-border: var(--kanban-lane-4-border); --col-underline: var(--kanban-lane-4-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-cardshadow: var(--kanban-lane-5-cardshadow); --col-bg: var(--kanban-lane-5-bg); --col-border: var(--kanban-lane-5-border); --col-underline: var(--kanban-lane-5-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-cardshadow: var(--kanban-lane-done-cardshadow); --col-bg: var(--kanban-lane-done-bg); --col-border: var(--kanban-lane-done-border); --col-underline: var(--kanban-lane-done-underline); }
 
 /* Header: neutral mono register; the hue lives only on the underline. */
 :is(section.kanban, figure.kanban).tinted .kanban-column-header {
@@ -5816,8 +5823,10 @@ section.journey .journey-vmood .journey-face {
 :is(section.kanban, figure.kanban).tinted .kanban-card {
   background: var(--kanban-tinted-card-bg);
   border: var(--chart-hairline) solid var(--kanban-tinted-card-border);
-  box-shadow: light-dark(
-    0 0.1cqi 0.3cqi color-mix(in oklab, var(--col-hue) 12%, transparent), none);
+  /* --col-cardshadow is the compiled per-lane lift COLOR (soft same-hue on light,
+   * transparent on dark ≡ no shadow), set by the column nth-child setter — flat token,
+   * no color-mix in the paint. Lengths live here; the token carries only the colour. */
+  box-shadow: 0 0.1cqi 0.3cqi var(--col-cardshadow);
 }
 /* Dark: the lane tint (light-dark dark arm = light + 5%), the lane border (14→22%),
  * and the lifted card surface all fold into the flat tokens' dark arms above — so

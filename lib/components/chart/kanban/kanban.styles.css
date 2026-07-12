@@ -79,6 +79,21 @@
   --kanban-lane-done-border: light-dark(color-mix(in oklab, var(--state-pass-hue) 14%, var(--border)), color-mix(in oklab, var(--state-pass-hue) 22%, var(--border)));
   --kanban-lane-done-underline: color-mix(in oklab, var(--state-pass-hue) 60%, transparent);
 
+  /* Per-lane tinted-card lift shadow COLOR — the tinted card's box-shadow was a direct
+   * light-dark(color-mix(--col-hue 12%, transparent), none) paint (--col-hue is the
+   * column's categorical hue). Since --col-hue cycles the fixed lane hue map, the color
+   * compiles per lane: a soft same-hue tint on light, transparent on dark (the dark tile
+   * lifts off the near-black canvas without a colored shadow — a transparent shadow reads
+   * as none). Only the COLOR lives in the token; the box-shadow LENGTHS stay in the paint
+   * (the offline resolver flattens a color-mix that is a whole light-dark arm, not one that
+   * trails bare lengths). The nth-child setters re-point --col-cardshadow per lane. */
+  --kanban-lane-1-cardshadow: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, transparent), transparent);
+  --kanban-lane-2-cardshadow: light-dark(color-mix(in oklab, var(--chart-cat-2-hue) 12%, transparent), transparent);
+  --kanban-lane-3-cardshadow: light-dark(color-mix(in oklab, var(--chart-cat-5-hue) 12%, transparent), transparent);
+  --kanban-lane-4-cardshadow: light-dark(color-mix(in oklab, var(--chart-cat-6-hue) 12%, transparent), transparent);
+  --kanban-lane-5-cardshadow: light-dark(color-mix(in oklab, var(--chart-cat-4-hue) 12%, transparent), transparent);
+  --kanban-lane-done-cardshadow: light-dark(color-mix(in oklab, var(--state-pass-hue) 12%, transparent), transparent);
+
   /* Tinted done-header ink + tinted card surface (light-dark folds the old
    * `.tinted.dark .kanban-card` bg/border overrides into the dark arm). */
   --kanban-tinted-done-ink: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
@@ -353,15 +368,15 @@
 /* Stage progression blue → orange → teal → pass-green (no green-on-green at the
  * end); warm/green hues read heavier, so they take a lower mix % to feel the
  * same whisper (baked into each --kanban-lane-N-bg slot's tint). */
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-bg: var(--kanban-lane-1-bg); --col-border: var(--kanban-lane-1-border); --col-underline: var(--kanban-lane-1-underline); }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-bg: var(--kanban-lane-2-bg); --col-border: var(--kanban-lane-2-border); --col-underline: var(--kanban-lane-2-underline); }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-bg: var(--kanban-lane-3-bg); --col-border: var(--kanban-lane-3-border); --col-underline: var(--kanban-lane-3-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-cardshadow: var(--kanban-lane-1-cardshadow); --col-bg: var(--kanban-lane-1-bg); --col-border: var(--kanban-lane-1-border); --col-underline: var(--kanban-lane-1-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-cardshadow: var(--kanban-lane-2-cardshadow); --col-bg: var(--kanban-lane-2-bg); --col-border: var(--kanban-lane-2-border); --col-underline: var(--kanban-lane-2-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-cardshadow: var(--kanban-lane-3-cardshadow); --col-bg: var(--kanban-lane-3-bg); --col-border: var(--kanban-lane-3-border); --col-underline: var(--kanban-lane-3-underline); }
 /* 4th/5th active lanes (boards up to the hard cap of 6 columns) stay distinct
  * rather than wrapping back to blue. The done lane is keyed by [data-done]
  * below, which always wins its own position regardless of count. */
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-bg: var(--kanban-lane-4-bg); --col-border: var(--kanban-lane-4-border); --col-underline: var(--kanban-lane-4-underline); }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-bg: var(--kanban-lane-5-bg); --col-border: var(--kanban-lane-5-border); --col-underline: var(--kanban-lane-5-underline); }
-:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-bg: var(--kanban-lane-done-bg); --col-border: var(--kanban-lane-done-border); --col-underline: var(--kanban-lane-done-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-cardshadow: var(--kanban-lane-4-cardshadow); --col-bg: var(--kanban-lane-4-bg); --col-border: var(--kanban-lane-4-border); --col-underline: var(--kanban-lane-4-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-cardshadow: var(--kanban-lane-5-cardshadow); --col-bg: var(--kanban-lane-5-bg); --col-border: var(--kanban-lane-5-border); --col-underline: var(--kanban-lane-5-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-cardshadow: var(--kanban-lane-done-cardshadow); --col-bg: var(--kanban-lane-done-bg); --col-border: var(--kanban-lane-done-border); --col-underline: var(--kanban-lane-done-underline); }
 
 /* Header: neutral mono register; the hue lives only on the underline. */
 :is(section.kanban, figure.kanban).tinted .kanban-column-header {
@@ -384,8 +399,10 @@
 :is(section.kanban, figure.kanban).tinted .kanban-card {
   background: var(--kanban-tinted-card-bg);
   border: var(--chart-hairline) solid var(--kanban-tinted-card-border);
-  box-shadow: light-dark(
-    0 0.1cqi 0.3cqi color-mix(in oklab, var(--col-hue) 12%, transparent), none);
+  /* --col-cardshadow is the compiled per-lane lift COLOR (soft same-hue on light,
+   * transparent on dark ≡ no shadow), set by the column nth-child setter — flat token,
+   * no color-mix in the paint. Lengths live here; the token carries only the colour. */
+  box-shadow: 0 0.1cqi 0.3cqi var(--col-cardshadow);
 }
 /* Dark: the lane tint (light-dark dark arm = light + 5%), the lane border (14→22%),
  * and the lifted card surface all fold into the flat tokens' dark arms above — so
