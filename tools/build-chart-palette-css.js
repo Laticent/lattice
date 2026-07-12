@@ -105,8 +105,36 @@ function resolveThemeCascade(themeName, seen = new Set()) {
   return out + css;
 }
 
+/**
+ * Expand `@expand VAR in LIST … @end` template blocks into concrete declarations.
+ * The template lives INSIDE a CSS comment, so only this compiler sees it — every
+ * other reader (parseVars, the contrast assessment) strips comments and ignores the
+ * placeholders. LIST is a `a..b` numeric range or a comma list; each item replaces
+ * VAR (a bare capital token, matched case-sensitively) throughout the body. This
+ * keeps the ~150 per-slot/-state derived tokens (solid / gradient stops / pill /
+ * card / ramp) as a compact FORMULA in the recipe source rather than hand-listed.
+ *
+ *   /* @expand N in 1..8
+ *      --chart-cat-N-solid: color-mix(in oklab, var(--chart-cat-N-hue) 82%, var(--bg));
+ *    @end *​/
+ */
+function expandTemplates(region) {
+  return region.replace(
+    /\/\*\s*@expand\s+([A-Z]\w*)\s+in\s+([^\n]+?)\s*\n([\s\S]*?)@end\s*\*\//g,
+    (_m, varName, listSpec, body) => {
+      const range = listSpec.trim().match(/^(\d+)\.\.(\d+)$/);
+      const items = range
+        ? Array.from({ length: +range[2] - +range[1] + 1 }, (_v, i) => String(+range[1] + i))
+        : listSpec.split(',').map((s) => s.trim()).filter(Boolean);
+      const re = new RegExp(varName, 'g');
+      return items.map((it) => body.replace(re, it)).join('\n');
+    },
+  );
+}
+
 /** Read the sentinel-delimited recipe region from chart-family.css → an ordered
- *  list of `{ name, value }` token definitions (the colours to compile). */
+ *  list of `{ name, value }` token definitions (the colours to compile). Template
+ *  blocks (`@expand … @end`) are expanded first. */
 function recipeTokens() {
   const css = fs.readFileSync(CHART_FAMILY, 'utf8');
   const start = css.indexOf('>>> chart-palette-recipe');
@@ -114,7 +142,9 @@ function recipeTokens() {
   if (start === -1 || end === -1 || end < start) {
     throw new Error('build-chart-palette-css: chart-palette-recipe sentinels not found in chart-family.css');
   }
-  const region = css.slice(start, end).replace(/\/\*[\s\S]*?\*\//g, '');
+  // Expand templates BEFORE stripping comments (the templates ARE comments), then
+  // strip the remaining (documentation) comments and read the declarations.
+  const region = expandTemplates(css.slice(start, end)).replace(/\/\*[\s\S]*?\*\//g, '');
   const out = [];
   const seen = new Set();
   for (const m of region.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
@@ -132,7 +162,16 @@ function recipeTokens() {
  *  even though neither is a `:root` token). */
 function themeVarMap(themeCss, baseCss, recipe) {
   const vars = parseRootVars(`${baseCss}\n${themeCss}`);
-  for (const t of recipe) if (!(t.name in vars)) vars[t.name] = t.value;
+  // Chart-family's own non-`:root` tokens (the geometry constants like
+  // `--chart-fill-top-l` that the gradient recipe references) live on `.chart-frame`,
+  // so parseRootVars misses them — scan the file for every `--x: y` and layer them
+  // in. The recipe's OWN (expanded) definitions win last for any recipe token.
+  const family = fs.readFileSync(CHART_FAMILY, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const m of family.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;{}]+)/gi)) {
+    const n = m[1].slice(2);
+    if (!(n in vars)) vars[n] = m[2].trim();
+  }
+  for (const t of recipe) vars[t.name] = t.value;
   return vars;
 }
 
@@ -147,8 +186,12 @@ function buildPlanes(themeCss, baseCss) {
   const declaredDark = isDarkScheme(`${baseCss}\n${themeCss}`);
   const rules = [];
   for (const t of recipe) {
-    const light = resolveDeclarationValue(`var(--${t.name})`, vars, false);
-    const dark = resolveDeclarationValue(`var(--${t.name})`, vars, true);
+    // Resolve the token's VALUE (not `var(--name)`): resolveDeclarationValue scans
+    // colour functions EMBEDDED in a larger value — e.g. the light-dark(color-mix(…))
+    // stops inside a `-fillgrad` linear-gradient() — which a whole-value var() hop
+    // would return verbatim. Chases var() chains through the map for plain tokens.
+    const light = resolveDeclarationValue(t.value, vars, false);
+    const dark = resolveDeclarationValue(t.value, vars, true);
     // Fail the BUILD, not just the test tier, on ANY unflattened output: a surviving
     // color-mix()/light-dark() breaks old engines, and a surviving var() (an
     // undefined/misreferenced recipe token resolves to a literal `var(--x)`) blacks

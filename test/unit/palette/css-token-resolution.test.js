@@ -173,6 +173,15 @@ describe('CSS token resolution', () => {
     for (const d of defs) allDefs.add(d);
   }
 
+  // The chart-palette recipe tokens are DEFINED by the compiler in each
+  // dist/themes/*.min.css plane — including the ones authored as `@expand N in 1..8`
+  // template blocks (comments the source scan can't see). Register the compiler's
+  // authoritative token list as defined; a var() to a chart token NOT in the recipe
+  // (a typo) still fails, because it won't be in this set either.
+  for (const n of require('../../../tools/build-chart-palette-css').recipeTokenNames()) {
+    allDefs.add(`--${n}`);
+  }
+
   test('var(--token) references match the unresolved-baseline exactly', () => {
     const unresolved = new Map(); // token → sites[]
     for (const [token, sites] of allRefs) {

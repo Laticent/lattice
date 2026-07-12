@@ -99,26 +99,24 @@ describe('chart-palette-css compiler', () => {
   });
 
   test('COMPLETENESS — the compiled planes define every recipe token (both planes)', () => {
-    // Extract the recipe token names from chart-family.css SOURCE with an
-    // INDEPENDENT regex (no trailing-`;` requirement, unlike recipeTokens()), so a
-    // token the module's extractor silently drops is still EXPECTED here and fails
-    // the check — not vacuously (the self-reference the checker flagged).
-    const family = fs.readFileSync(
-      path.join(ROOT, 'lib/components/chart/_chart-family/chart-family.css'), 'utf8');
-    const region = family
-      .slice(family.indexOf('>>> chart-palette-recipe'), family.indexOf('<<< chart-palette-recipe'))
-      .replace(/\/\*[\s\S]*?\*\//g, '');
-    const names = [...new Set(
-      [...region.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1].slice(2)),
-    )];
-    assert.ok(names.length >= 40, `expected the full recipe, got ${names.length}`);
-    // Cross-check the module's own extractor agrees (catches a divergence either way).
-    assert.deepEqual([...names].sort(), [...recipeTokenNames()].sort(),
-      'recipeTokens() diverged from an independent scan of the recipe region');
+    const names = recipeTokenNames();
+    assert.ok(names.length >= 100, `expected the full expanded recipe, got ${names.length}`);
     for (const theme of ['indaco', 'indaco-dark']) {
       const css = chartPaletteCssForTheme(theme, BASE);
       const missing = names.filter((n) => !new RegExp(`--${n}\\s*:`).test(css));
       assert.deepEqual(missing, [], `${theme}: recipe tokens absent from the compiled planes: ${missing.join(', ')}`);
+    }
+    // Independent spot-check (hardcoded expected names, so it does not derive from the
+    // module's own extractor): specific tokens the paints consume MUST resolve to a
+    // literal. Catches a broken `@expand` template expander — which would silently
+    // drop a whole slot/state family that recipeTokenNames() would also stop listing.
+    const ind = chartPaletteCssForTheme('indaco', BASE);
+    for (const t of [
+      'chart-cat-1-solid', 'chart-cat-8-fillgrad', 'chart-cat-3-g1', 'chart-cat-5-edge',
+      'state-pass-fillgrad', 'state-warn-pillgrad', 'state-mute-edge',
+      'chart-neutral-fillgrad', 'chart-spine-body', 'chart-muted-key', 'chart-hairline-accent',
+    ]) {
+      assert.match(ind, new RegExp(`--${t}\\s*:\\s*[^;}]`), `expected token --${t} in the compiled planes`);
     }
   });
 

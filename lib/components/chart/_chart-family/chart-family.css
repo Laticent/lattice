@@ -219,6 +219,53 @@ section.chart-frame,
    * reads at the same weight, matching the chart eyebrow's accent register. */
   --chart-rule: color-mix(in oklab, var(--accent) 24%, transparent);
 }
+
+/* ── Enumerated PAINT tokens ───────────────────────────────────────────────────
+ * The per-slot / per-state / one-off flat tokens the chart PAINTS read via plain
+ * var(), so no color-mix()/light-dark() ships in a paint declaration (which would
+ * break old engines). The FORMULA lives here (single source of truth); the paints
+ * just reference the compiled result. The `@expand … @end` blocks are COMMENTS —
+ * only build-chart-palette-css.js expands them (per slot 1..8 / per state); every
+ * other reader ignores the placeholders. Compiled to literals per plane. */
+section.chart-frame,
+section.word-cloud,
+.chart-frame {
+  /* Categorical slots. `-solid` = 82% tint (swatches / funnel / map highlight);
+   * `-g0/-g1/-g2` = the SVG radial stops (pie wedge, quadrant tint); `-fillgrad` =
+   * the canonical vertical wash (a whole gradient — one token, so a painter is
+   * `background: var(--fill-grad)`); `-edge` = the fill border. */
+  /* @expand N in 1..8
+  --chart-cat-N-solid: color-mix(in oklab, var(--chart-cat-N-hue) 82%, var(--bg));
+  --chart-cat-N-g0: color-mix(in oklab, var(--chart-cat-N-hue) 42%, var(--chart-cat-base));
+  --chart-cat-N-g1: color-mix(in oklab, var(--chart-cat-N-hue) 58%, var(--chart-cat-base));
+  --chart-cat-N-g2: color-mix(in oklab, var(--chart-cat-N-hue) 82%, var(--chart-cat-base));
+  --chart-cat-N-fillgrad: linear-gradient(180deg, light-dark(color-mix(in oklab, var(--chart-cat-N-hue) var(--chart-fill-top-l), var(--bg)), color-mix(in oklab, var(--chart-cat-N-hue) var(--chart-fill-top-d), black)) 0%, light-dark(color-mix(in oklab, var(--chart-cat-N-hue) var(--chart-fill-bottom-l), var(--bg)), color-mix(in oklab, var(--chart-cat-N-hue) var(--chart-fill-bottom-d), black)) 100%);
+  --chart-cat-N-edge: color-mix(in oklab, var(--chart-cat-N-hue) var(--chart-fill-edge), var(--border));
+  @end */
+
+  /* Semantic states. `-fillgrad` = the bar/card wash; `-edge` = its border;
+   * `-pillgrad` = the status-pill gradient (33/48 → 54/64). */
+  /* @expand S in pass,warn,fail,info,mute
+  --state-S-fillgrad: linear-gradient(180deg, light-dark(color-mix(in oklab, var(--state-S-hue) var(--chart-fill-top-l), var(--bg)), color-mix(in oklab, var(--state-S-hue) var(--chart-fill-top-d), black)) 0%, light-dark(color-mix(in oklab, var(--state-S-hue) var(--chart-fill-bottom-l), var(--bg)), color-mix(in oklab, var(--state-S-hue) var(--chart-fill-bottom-d), black)) 100%);
+  --state-S-edge: color-mix(in oklab, var(--state-S-hue) var(--chart-fill-edge), var(--border));
+  --state-S-pillgrad: linear-gradient(180deg, light-dark(color-mix(in oklab, var(--state-S-hue) 33%, var(--bg)), color-mix(in oklab, var(--state-S-hue) 48%, black)) 0%, light-dark(color-mix(in oklab, var(--state-S-hue) 54%, var(--bg)), color-mix(in oklab, var(--state-S-hue) 64%, black)) 100%);
+  @end */
+
+  /* Neutral fill (state-chart node — the canonical wash with the muted hue). */
+  --chart-neutral-fillgrad: linear-gradient(180deg, light-dark(color-mix(in oklab, var(--text-muted) var(--chart-fill-top-l), var(--bg)), color-mix(in oklab, var(--text-muted) var(--chart-fill-top-d), black)) 0%, light-dark(color-mix(in oklab, var(--text-muted) var(--chart-fill-bottom-l), var(--bg)), color-mix(in oklab, var(--text-muted) var(--chart-fill-bottom-d), black)) 100%);
+  --chart-neutral-edge: color-mix(in oklab, var(--text-muted) var(--chart-fill-edge), var(--border));
+
+  /* Shared one-offs. */
+  --chart-hairline-accent: color-mix(in oklab, var(--accent) 50%, transparent);
+  --chart-border-soft: color-mix(in oklab, var(--border) 50%, transparent);
+  --chart-caption-rule: color-mix(in oklab, var(--border) 90%, transparent);
+  --chart-spine-edge: color-mix(in oklab, var(--accent) 12%, transparent);
+  --chart-spine-body: color-mix(in oklab, var(--accent) 55%, transparent);
+  --chart-spine-soft: color-mix(in oklab, var(--accent) 32%, transparent);
+  --chart-spine-mid: color-mix(in oklab, var(--accent) 60%, transparent);
+  --chart-muted-key: color-mix(in oklab, var(--text-muted) 32%, var(--bg));
+  --math-error-bg: color-mix(in srgb, var(--warn) 10%, transparent);
+}
 /* <<< chart-palette-recipe : end <<< */
 
 /* ── Non-colour chart constants — SHIPPED as-is. calc/clamp/cqi predate
