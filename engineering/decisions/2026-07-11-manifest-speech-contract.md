@@ -1035,3 +1035,32 @@ between an `attempt` and its `timing` is hypothesis 1's signature; a stuck `ctx`
 count is hypothesis 2's. Pushed to the Cloudflare PR preview so the reporter can read it off the real
 iPhone; the actual fix follows once the readout names the layer. The readout is removed (or reduced to
 a permanent guard) when the root cause is pinned.
+
+### Systematic sandbox audit (deterministic layer, corpus-wide)
+
+To treat this as the systematic issue it is — not one slide — the deterministic **text → track**
+layer was audited across **144 real slides**: the Welcome deck (`DECKS[0]`, 7), the full
+component/design-system gallery (`test/integration/baseline-decks/gallery.md`, 117), and a 20-slide
+slice of the jargon deck (`examples/gallery-jargon.md`). For each slide: `slideToSpeech → buildTrack`,
+then compare `spoken.length` (the sentences handed to the voice, after the same `map(trim).filter`
+voice-model applies) against `track.cues.length`, and inspect cue shapes.
+
+Result:
+
+- **Invariant breaks: 0 / 144.** `spoken.length === track.cues.length` on every slide of every deck —
+  the index-cascade theory is dead empirically as well as by proof.
+- **Empty-spoken cues: 0 / 144.** No cue ever collapses to blank, so `filter(Boolean)` never drops one.
+- **A real (secondary) systematic risk surfaced: long single cues.** Content-dense slides fold a long
+  unpunctuated run (a blockquote, a run-on bullet) into ONE cue — worst cases `gallery#102` (110 words /
+  ~41.6 s in a single cue), `#27` (99), `#66` (86). A cue is the re-anchor unit, so a 40 s cue gets ONE
+  measured onset; its words are then distributed purely by the *estimate* stretched to the real
+  duration, with no correction until the next cue. Over ~100 words, estimate-vs-real proportion error
+  accumulates into a visible *within-cue* drift. This is distinct from the primary between-sentence
+  race and is a candidate follow-on (sub-cue segmentation, or a better long-cue word model), tracked
+  here rather than folded into the diagnostic PR.
+
+So the deterministic layer is cleared corpus-wide, and the "skips words / races" symptom is confirmed
+to live in the audio/clock layer — which is exactly what the enhanced on-device readout measures: a
+`peakAhead` counter (how many cues the highlight got ahead of the last sentence the voice actually
+started) plus a per-sentence `attempt`-vs-`timing` trace that ACCUMULATES across an autoplay pass, so
+one run over each deck yields a full-deck trace rather than a single-slide snapshot.

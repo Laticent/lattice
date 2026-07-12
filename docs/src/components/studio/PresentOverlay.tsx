@@ -254,6 +254,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			lang,
 			muted,
 			debug: readAloudDebug,
+			debugLabel: `slide ${clamped + 1}/${count}`,
 			onFinish: () => {
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
@@ -664,13 +665,29 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 // Remove once the root cause is pinned. Deliberately plain (no shadcn/theme
 // tokens) so it reads clearly over any slide and can't itself be mistaken for a
 // styling regression. Non-interactive except its own scroll.
+// Serialize one event to a single trace line (also the copy-paste format).
+function fmtDebugEvent(e: ReadAloudDebugEvent): string {
+	if (e.kind === 'read') return `── ${e.label ?? 'read'} · spoken/cues ${e.spokenCount}/${e.cueCount}${e.spokenCount !== e.cueCount ? ' ⚠MISMATCH' : ''} · ctx ${e.ctxState}`;
+	if (e.kind === 'timing') return `t#${e.index} on=${e.relOnsetMs} dur=${e.durationMs} ${e.ctxState} +${e.sincePlayMs}ms`;
+	return `a#${e.index} ${e.ctxState} +${e.sincePlayMs}ms`;
+}
+
 function ReadAloudDebugPanel({ live, events, source }: { live: ReadAloudDebugLive | null; events: ReadAloudDebugEvent[]; source: string }) {
 	// A count mismatch between what the voice speaks and the track's cues is the
 	// single clearest desync tell — every later onset re-anchors the wrong cue.
 	const countMismatch = live && live.spokenCount > 0 && live.spokenCount !== live.cueCount;
+	// The full accumulated trace as selectable text — one autoplay pass over a deck
+	// fills this, and it's far easier to select-all + paste from an iPhone than to
+	// screenshot every slide. Prefixed with the live summary for context.
+	const traceText = React.useMemo(() => {
+		const head = live
+			? `source=${source} rung=${live.rung} mode=${live.mode} ctx=${live.ctxState} peakAhead=${live.peakAhead} spoken/cues=${live.spokenCount}/${live.cueCount}`
+			: `source=${source} (idle)`;
+		return `${head}\n${events.map(fmtDebugEvent).join('\n')}`;
+	}, [events, live, source]);
 	return (
 		<div
-			className="pointer-events-auto absolute left-2 top-2 z-50 max-h-[70vh] w-[300px] max-w-[80vw] overflow-auto rounded-lg border border-white/20 bg-black/85 p-2.5 font-mono text-[11px] leading-tight text-white shadow-xl"
+			className="pointer-events-auto absolute left-2 top-2 z-50 flex max-h-[80vh] w-[320px] max-w-[85vw] flex-col rounded-lg border border-white/20 bg-black/85 p-2.5 font-mono text-[11px] leading-tight text-white shadow-xl"
 			style={{ fontVariantNumeric: 'tabular-nums' }}
 		>
 			<div className="mb-1 font-bold text-emerald-300">read-aloud debug</div>
@@ -690,7 +707,11 @@ function ReadAloudDebugPanel({ live, events, source }: { live: ReadAloudDebugLiv
 						<span className="text-white/60">reader/audio ms:</span> {live.elapsedMs} / {live.audioClockMs}
 					</div>
 					<div>
-						<span className="text-white/60">active cue/word:</span> {live.activeCue} / {live.activeWord}
+						<span className="text-white/60">active cue/word:</span> {live.activeCue} / {live.activeWord} · <span className="text-white/60">timed:</span> {live.lastTimedCue}
+					</div>
+					<div className={live.peakAhead > 0 ? 'font-bold text-amber-300' : ''}>
+						<span className="text-white/60">ahead now/peak:</span> {live.aheadCues} / {live.peakAhead}
+						{live.peakAhead > 0 ? ' ⚠ RACING' : ''}
 					</div>
 					<div className={countMismatch ? 'font-bold text-red-400' : ''}>
 						<span className="text-white/60">spoken/cues:</span> {live.spokenCount} / {live.cueCount}
@@ -700,19 +721,27 @@ function ReadAloudDebugPanel({ live, events, source }: { live: ReadAloudDebugLiv
 			) : (
 				<div className="text-white/60">idle — press play</div>
 			)}
-			<div className="mt-1.5 mb-0.5 border-t border-white/15 pt-1 font-bold text-emerald-300">events</div>
-			{events.length === 0 ? (
-				<div className="text-white/50">none yet</div>
-			) : (
-				events.map((e, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: an append-only diagnostic log; entries never reorder.
-					<div key={i} className={e.kind === 'timing' ? 'text-sky-300' : 'text-white/70'}>
-						{e.kind === 'timing'
-							? `t#${e.index} on=${e.relOnsetMs} dur=${e.durationMs} ${e.ctxState} +${e.sincePlayMs}ms`
-							: `a#${e.index} ${e.ctxState} +${e.sincePlayMs}ms`}
-					</div>
-				))
-			)}
+			<div className="mt-1.5 mb-0.5 border-t border-white/15 pt-1 font-bold text-emerald-300">trace ({events.length})</div>
+			<div className="min-h-0 flex-1 overflow-auto">
+				{events.length === 0 ? (
+					<div className="text-white/50">none yet</div>
+				) : (
+					events.map((e, i) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: an append-only diagnostic log; entries never reorder.
+						<div key={i} className={e.kind === 'read' ? 'mt-1 font-bold text-emerald-300' : e.kind === 'timing' ? 'text-sky-300' : 'text-white/70'}>
+							{fmtDebugEvent(e)}
+						</div>
+					))
+				)}
+			</div>
+			{/* Select-all + copy target — paste the whole run back instead of screenshotting each slide. */}
+			<textarea
+				readOnly
+				value={traceText}
+				onFocus={(ev) => ev.currentTarget.select()}
+				className="mt-1.5 h-16 w-full shrink-0 resize-none rounded border border-white/20 bg-black/60 p-1 text-[10px] text-white/80"
+				aria-label="read-aloud debug trace (tap to select all, then copy)"
+			/>
 		</div>
 	);
 }

@@ -40,10 +40,15 @@ const OR_KEY_LS = 'lattice-db-or-key';
  * a real iOS device, so we surface the numbers the desync would show up in.
  */
 export type ReadAloudDebugEvent = {
-	/** 'attempt' — voice reached this sentence; 'timing' — its measured onset landed. */
-	kind: 'attempt' | 'timing';
+	/** 'read' — a fresh play() started (a slide boundary in an autoplay trace);
+	 *  'attempt' — voice reached this sentence; 'timing' — its measured onset landed. */
+	kind: 'read' | 'attempt' | 'timing';
 	/** The sentence index the VOICE reports (its position in the filtered spoken array). */
 	index: number;
+	/** 'read' events only: the slide label + its spoken/cue counts, delimiting a slide in the trace. */
+	label?: string;
+	spokenCount?: number;
+	cueCount?: number;
 	/** Measured audio onset (ms, WebAudio clock) — 'timing' events only. */
 	onsetMs?: number;
 	/** Onset relative to sentence-0's onset (the reader's time origin) — 'timing' events only. */
@@ -71,6 +76,12 @@ export type ReadAloudDebugLive = {
 	/** #spoken sentences handed to the voice vs #cues in the track — a mismatch is the desync tell. */
 	spokenCount: number;
 	cueCount: number;
+	/** The last cue index whose measured audio onset landed (−1 before any). */
+	lastTimedCue: number;
+	/** How many cues the highlight is AHEAD of the last-spoken sentence — the rush, quantified. */
+	aheadCues: number;
+	/** Peak `aheadCues` seen this read — the worst the highlight raced past the voice. */
+	peakAhead: number;
 };
 
 export type ReadAloudState = {
@@ -221,7 +232,7 @@ export function warmNarration(text: string, signal?: AbortSignal, acronyms?: Rea
  */
 export function useReadAloud(
 	text: string,
-	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string>; lang?: string; muted?: boolean; debug?: boolean },
+	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string>; lang?: string; muted?: boolean; debug?: boolean; debugLabel?: string },
 ): ReadAloudState {
 	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
 	// "$4.2M" is said "four point two million dollars"), while the cursor highlights the
@@ -235,6 +246,9 @@ export function useReadAloud(
 	const mutedRef = React.useRef(false);
 	mutedRef.current = !!opts?.muted;
 	const debug = !!opts?.debug;
+	const debugLabel = opts?.debugLabel;
+	const debugLabelRef = React.useRef(debugLabel);
+	debugLabelRef.current = debugLabel;
 	const track = React.useMemo(() => buildTrack(text, { acronyms, lang }), [text, acronyms, lang]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
@@ -253,6 +267,10 @@ export function useReadAloud(
 	const spokenCountRef = React.useRef(0);
 	const cueCountRef = React.useRef(track.cues.length);
 	cueCountRef.current = track.cues.length;
+	// Rush tracking: the last cue the voice actually started, and the worst the
+	// highlight got ahead of it this read.
+	const lastTimedCueRef = React.useRef(-1);
+	const peakAheadRef = React.useRef(0);
 
 	// Read the latest onFinish through a ref so it never re-creates the reader effect.
 	const onFinishRef = React.useRef(opts?.onFinish);
@@ -391,16 +409,28 @@ export function useReadAloud(
 		setProgress(dur ? Math.min(1, elapsedRef.current / dur) : 0);
 		if (debugRef.current) {
 			const v = voiceRef.current;
+			const activeCue = activeNow?.cueIndex ?? -1;
+			// How far the highlight has raced past the last sentence the voice truly
+			// started. In 'audio' mode a positive value means the clock free-ran through
+			// a synth/decode gap — the systematic "moves fast / skips" signature.
+			const ahead =
+				modeRef.current === 'audio' && activeCue >= 0 && lastTimedCueRef.current >= 0
+					? Math.max(0, activeCue - lastTimedCueRef.current)
+					: 0;
+			if (ahead > peakAheadRef.current) peakAheadRef.current = ahead;
 			setDebugLive({
 				mode: modeRef.current,
 				rung: rungRef.current,
 				ctxState: v?.audioState ? v.audioState() : 'none',
 				elapsedMs: Math.round(elapsedRef.current),
 				audioClockMs: Math.round(v?.audioTimeMs ? v.audioTimeMs() : 0),
-				activeCue: activeNow?.cueIndex ?? -1,
+				activeCue,
 				activeWord: activeNow?.wordIndex ?? -1,
 				spokenCount: spokenCountRef.current,
 				cueCount: cueCountRef.current,
+				lastTimedCue: lastTimedCueRef.current,
+				aheadCues: ahead,
+				peakAhead: peakAheadRef.current,
 			});
 		}
 		if (playingRef.current) rafRef.current = requestAnimationFrame(tick);
@@ -449,15 +479,18 @@ export function useReadAloud(
 		ctlRef.current = ctl;
 		elapsedRef.current = 0;
 		audioBaseRef.current = null;
+		lastTimedCueRef.current = -1;
+		peakAheadRef.current = 0;
 		modeRef.current = 'silent'; // the default mode; overridden below once the rung is known
 		armedRef.current = false;
 		reader.reset();
 		playingRef.current = true;
 		setPlaying(true);
 		if (debugRef.current) {
+			// Accumulate across slides so ONE autoplay pass = a full-deck trace (a 'read'
+			// marker below delimits each slide); sincePlayMs is per-slide (this reset).
 			playStartRef.current = nowMs();
 			spokenCountRef.current = 0;
-			setDebugEvents([]);
 		}
 		// The RAF loop's FIRST tick is deferred to getVoice().then() below, once the
 		// mode (audio vs. estimate) is actually decided — starting it here, in
@@ -522,7 +555,20 @@ export function useReadAloud(
 				spokenCountRef.current = spoken.length;
 				const dbg = debugRef.current;
 				const pushEvent = (e: ReadAloudDebugEvent) =>
-					setDebugEvents((prev) => (prev.length >= 200 ? prev : [...prev, e]));
+					setDebugEvents((prev) => (prev.length >= 500 ? prev : [...prev, e]));
+				if (dbg) {
+					// Slide boundary in the accumulated trace, carrying the counts whose
+					// mismatch would be the desync tell (spoken sentences vs. track cues).
+					pushEvent({
+						kind: 'read',
+						index: -1,
+						label: debugLabelRef.current,
+						spokenCount: spoken.length,
+						cueCount: track.cues.length,
+						ctxState: voiceRef.current?.audioState ? voiceRef.current.audioState() : 'none',
+						sincePlayMs: 0,
+					});
+				}
 				// The voice loop calls onSentence strictly in playback order, so a local
 				// counter recovers the attempt index (the callback itself carries only text).
 				let attemptSeq = 0;
@@ -550,6 +596,7 @@ export function useReadAloud(
 						? ({ index, onsetMs, durationMs }) => {
 								if (audioBaseRef.current == null) audioBaseRef.current = onsetMs; // cue-0 onset = time 0
 								reader.align(index, onsetMs - audioBaseRef.current, durationMs);
+								if (index > lastTimedCueRef.current) lastTimedCueRef.current = index;
 								if (dbg) {
 									const v = voiceRef.current;
 									pushEvent({
