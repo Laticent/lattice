@@ -19,6 +19,28 @@ describe('presenter-window — buildStageDoc', () => {
 		expect(doc).not.toContain('stylesheet');
 		expect(doc).toContain('/r.js');
 	});
+	it('binds the inlined fit kernel to the names its call sites use (the presenter-crop guard)', () => {
+		// The fit inlines fitScale/padInset via Function.toString(); the bundler renames the
+		// imports, so a BARE `${fn.toString()}` printed a renamed/anonymous body while the call
+		// sites used the literal names → `fit()` threw "padInset is not defined" and the slide
+		// never scaled (the long-standing presenter crop). The `var name = …` binding is what
+		// keeps the names alive — assert both the binding AND the call sites, so a revert to the
+		// bare form fails here instead of silently re-cropping every presenter.
+		const doc = buildStageDoc({ html: '<div class="lattice"><section>A</section></div>', width: 1280, height: 720, bg: '#000', css: '', runtimeUrl: '/r.js' });
+		expect(doc).toMatch(/var fitScale\s*=\s*function|var fitScale\s*=\s*\(/);
+		expect(doc).toMatch(/var padInset\s*=\s*function|var padInset\s*=\s*\(/);
+		expect(doc).toContain('padInset(');
+		expect(doc).toContain('fitScale(');
+	});
+	it('drives a private #latt-film filmstrip clipped to the current slide (never the engine sections)', () => {
+		// The stage scales + translates OUR OWN #latt-film wrapper and hides the non-current
+		// sections, rather than transforming the engine's <section>s (which the engine re-manages).
+		const doc = buildStageDoc({ html: '<div class="lattice"><section>A</section><section>B</section></div>', width: 1280, height: 720, bg: '#000', css: '', runtimeUrl: '/r.js' });
+		expect(doc).toContain('id="latt-film"');
+		expect(doc).toContain('scale(');
+		expect(doc).toContain('translateY(');
+		expect(doc).toContain('.style.visibility'); // only the current slide paints
+	});
 });
 
 describe('presenter-window — buildPresenterDoc', () => {
@@ -34,6 +56,10 @@ describe('presenter-window — buildPresenterDoc', () => {
 		expect(doc).toContain('d.ppInit');
 		expect(doc).toContain('d.ppIndex');
 		expect(doc).toContain('"go"');
+		// Brand-dark chrome adopts a forwarded accent (S5) and guards the destructive reset.
+		expect(doc).toContain('--pp-accent');
+		expect(doc).toContain('d.accent');
+		expect(doc).toContain('Confirm reset');
 	});
 });
 
@@ -104,6 +130,17 @@ describe('presenter-window — createPresenterController', () => {
 		ctl.refresh();
 		expect(win.postMessage).toHaveBeenCalledWith({ ppInit: true, doc: '<stage/>', total: 3 }, '*');
 		expect(win.postMessage).toHaveBeenCalledWith({ ppIndex: 0, note: 'updated' }, '*');
+	});
+
+	it('forwards the opener accent into ppInit only when getState provides it', () => {
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		// A Studio-style getState that resolves the site accent tokens.
+		const ctl = createPresenterController({ buildDoc: () => '<stage/>', getState: () => ({ index: 0, total: 2, note: '', accent: '#006fa8', onAccent: '#ffffff' }), onGo: vi.fn(), onToggle: vi.fn() });
+		ctl.toggle();
+		postFromPresenter({ pp: 'ready' }, win);
+		// The presenter chrome adopts the deck's accent (not the hardcoded cuoio fallback).
+		expect(win.postMessage).toHaveBeenCalledWith({ ppInit: true, doc: '<stage/>', total: 2, accent: '#006fa8', onAccent: '#ffffff' }, '*');
 	});
 
 	it('toggling again closes the held window', () => {

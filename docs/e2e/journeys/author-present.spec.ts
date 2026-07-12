@@ -37,12 +37,14 @@ test('draft a deck, present it, and the last slide speaks its note', async ({ pa
 	await page.keyboard.press('ArrowRight');
 	await expect(dialog.getByText('3 / 3', { exact: true })).toBeVisible();
 
-	// The note renders: read-aloud's teleprompter reads the slide's SPEAKER NOTE
-	// when one exists (the real talk track, not the on-slide prose) — captions are
-	// exact even on the silent no-voice rung, so this proves the note round-tripped
-	// from the authored source into Present.
-	await dialog.getByRole('button', { name: 'Play read-aloud' }).click();
-	await expect(dialog.getByText(NOTE)).toBeVisible();
+	// The note round-trips into Present: the ONE Play (present redesign S3) starts read-aloud,
+	// whose teleprompter caption reads the slide's SPEAKER NOTE (the real talk track, not the
+	// on-slide prose) — exact even on the silent no-voice rung. This is a note-ROUND-TRIP oracle:
+	// if the note failed to reach Present, `getByText(NOTE)` matches nothing and fails. The
+	// caption renders the line twice — a scoped `role=status` live region (first in DOM) and the
+	// aria-hidden visual crawl — so `.first()` targets the live region; both prove the round-trip.
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	await expect(dialog.getByText(NOTE).first()).toBeVisible();
 
 	// And the journey exits cleanly.
 	await page.keyboard.press('Escape');

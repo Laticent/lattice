@@ -152,6 +152,19 @@ in patch versions.
 
 ### Fixed
 
+- **The dual-screen presenter's current + next slides are no longer cropped — they render
+  whole, scaled to fit their frames.** The presenter stage inlines the shared fit kernel
+  (`fitScale`/`padInset`) into its isolated iframe via `Function.toString()`, but the production
+  bundler renames those imports, so the inlined bodies printed under renamed/anonymous names
+  while the fit's call sites still used the literal names — every fit call threw "padInset is not
+  defined" and silently never scaled the slide, so it painted at full 1280px and the frame
+  cropped it (visible in production too). The kernel is now bound as `var fitScale = …; var
+  padInset = …;` so the names survive bundling. The stage also stopped scaling the engine's own
+  `<section>`s (which the engine runtime re-manages) — the deck is wrapped in a private
+  `#latt-film` element that's scaled + translated as a filmstrip clipped to the current slide, so
+  nothing fights the engine. Fixes the Studio presenter and, via the shared kernel, the Drawing
+  Board's presenter and rehearsal stage. (Studio Present.)
+
 - **"Print deck" now prints the deck, not a screenshot of the app — and lands on
   the right paper.** Two problems in the Studio Share → "Print deck" path. (1) It
   mounted the print render in a **hidden** iframe (`opacity:0`, zero-sized) and
@@ -180,6 +193,17 @@ in patch versions.
   spoken string changes — the on-screen slide and caption are untouched. Fixes the
   live-site report where a big-number slide narrated as "zero" alone. See
   `engineering/decisions/2026-07-11-manifest-speech-contract.md` §19.
+- **Present autoplay ("Play") now chains through the whole deck instead of freezing after ~two
+  slides.** Since narration became async state (#904), the slide index changed one render commit
+  before the reader was rebuilt for the new slide's text — so on a real (slower) device the
+  auto-advance's `play()`, scheduled a frame earlier, ran against a reader the pending rebuild
+  then tore down (leaving playback stopped, no caption, and — since a teardown fires no
+  "finished" signal — no way to advance again). A second path did the same when the whole-deck
+  narration projection landed mid-hand-off and swapped the current slide's text. Both are fixed
+  structurally (no timers): the auto-advance is now bound to the reader's track rebuild so it
+  always starts the freshly-built reader in the same commit, and the projection upgrade can no
+  longer swap text during an autoplay run. Found via an independent-checker + red-team +
+  Munger-inversion trio; the prefetch/warm-ahead was exonerated. (Studio Present.)
 - **A non-English deck's narration no longer gets English words injected into it.** Cadenza's
   say-as machinery — the abbreviation lexicon, number-to-words, and the fiscal/period parser
   (`FY26` → "fiscal year twenty-six", `40%` → "forty percent") — is US-English, so a deck
@@ -271,6 +295,38 @@ in patch versions.
   baked to the slide's pixel measurements at export and can't be re-aligned without a runtime
   re-measure in the article box; journey's affect-contour fill is height-relative and doesn't
   translate to an article box without ballooning — both tracked follow-ups.)*
+- **The dual-screen presenter view is now brand-dark and speaks the deck's accent.** The
+  second-screen speaker view (current + next slide, speaker notes, timer) was off-brand hardcoded
+  grays; it's now a warm near-black frame that **adopts the same accent as the Studio it launched
+  from** — the wordmark, the forward control, and the panel outlines take the live `--accent`
+  (forwarded to the popup), so a blue-themed deck gets a blue-accented presenter and a cuoio deck a
+  gold one (cuoio gold is only the fallback). Notes are larger and wrap long strings; the slides
+  render whole and uncropped in their own theme inside 16/9 frames; and **Reset timer now arms then
+  confirms** so a stray click can't wipe your elapsed time mid-talk. Chrome only — the
+  window/postMessage protocol and slide-stage pipeline are unchanged, so the Drawing Board's
+  presenter inherits the restyle (gold fallback, since it forwards no accent). (Studio Present
+  redesign — S5.)
+
+- **Present mode is redesigned around "Quiet Bloom" — the slide owns the screen; the
+  chrome blooms on intent.** At rest only the essentials show (Play, position, the section
+  title and a hair-thin rail); the flanking circular arrows fade to faint, and the CC / Voice
+  controls and caption fold away — then bloom back the moment you move the pointer, wheel,
+  press a key or touch the screen, and fold again after a beat (pointer-over or keyboard focus
+  pins them open so a click never chases a fading control). The dock now follows one order —
+  **caption → controls → section title → full-width rail** — with the caption a transparent
+  film-subtitle (no box) that grows in on Play and folds on Pause, so the slide never fights it.
+  Navigation gains **swipe** (touch) and **mouse-wheel** (desktop) alongside the keyboard, sharing
+  the same geometry as the export player's transport kernel; the section rail now shows on mobile
+  too. A one-time first-run cue teaches the gestures. Reduced-motion keeps the controls permanently
+  visible (a stable UI) and drops the animations. Verified light + dark at 390 / 820 / 1440px.
+  (Studio Present redesign — `engineering/decisions/2026-07-12-studio-present-redesign.md`, S4.)
+
+- **Present mode now has one Play and independent Captions / Voice.** Play narrates the
+  current slide and advances through the deck like a video — the separate "Autoplay" toggle
+  is gone (it was the same action). Captions (**CC**) and **Voice** are now two independent
+  toggles: show the captions with no voice (they run on a reading-cadence clock) or speak them
+  aloud. Voice defaults to muted, so Present never talks over you unasked. (Studio Present
+  redesign — S3.)
 
 - **The exported `.html` player's Read·Article view is now responsive — charts break out of
   the reading column and use the screen.** The article was a fixed ~740px column, so on a wide
@@ -305,6 +361,12 @@ in patch versions.
   Changes the exported `.vtt` bytes for decks with chart slides; audio is unaffected (captions
   time off pace, not a voice). See `engineering/decisions/2026-07-11-manifest-speech-contract.md`
   §13.6.
+
+- **Present-mode captions are now a teleprompter crawl instead of a box that buried
+  the slide.** As read-aloud plays, the sentence being read stays centered, already-read
+  lines lift up and out, upcoming lines rise from the bottom, and words highlight as they
+  are spoken — only a ~3-line focus band is ever visible, so the caption can no longer
+  cover the slide the way the old full-narration box did. (Studio Present redesign — S2.)
 - **Editing in the Studio is dramatically snappier — a warm edit's engine cost dropped
   ~15× (≈141 ms → 9 ms on a throttled phone profile).** The engine re-packed the whole
   ~1 MB theme stylesheet into its ~560 KB per-render form on *every* keystroke, even though
@@ -381,6 +443,12 @@ in patch versions.
   once and never regenerates. Off by default (no `glossary:` key → byte-identical to today). Toggle it
   from the **deck-setup drawer** (a switch alongside Auto-split / Page numbers) or by hand in the front
   matter. See `engineering/decisions/2026-07-11-manifest-speech-contract.md` §18.
+- **Present mode gains a segmented, section-grouped progress rail — one honest
+  progress element replacing the old dual counter.** One segment per slide,
+  grouped by the deck's `divider` slides with a centered section title
+  above; the current segment fills as read-aloud plays, and clicking a segment
+  jumps to it. Replaces the separate slide-position bar and read-aloud cue count
+  that sat side by side. (Studio Present redesign — `engineering/decisions/2026-07-12-studio-present-redesign.md`, S1.)
 - **The RENDER group gains a COALESCE row — how many edits the preview debounce
   folded into this render.** A fast typing burst lands many source changes inside
   the 140ms preview window, and the debounce collapses them into ONE engine

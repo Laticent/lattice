@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, FastForward, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang } from '@/lib/resolve-captions';
@@ -12,8 +12,14 @@ import { createPresenterController } from '@/playground/presenter-window.js';
 // surfaces (they agree on which Markdown is a chart slide under the house `---`-per-
 // section convention; the export aligns to rendered sections, this to the `---` set). #902
 import { narrateChart } from '@/playground/read-along-core.generated.js';
+// The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
+// vanilla export player uses, so a swipe means the same thing in both surfaces.
+import { swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationIndices, presentationSet } from './lint';
+import { PresentCaption } from './PresentCaption';
+import { PresentRail } from './PresentRail';
+import { sectionsFromSlides } from './present-sections';
 import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
@@ -47,8 +53,21 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const [autoplay, setAutoplay] = React.useState(false); // chain read-aloud across slides
 	const [rehearse, setRehearse] = React.useState(false); // Practice mode — folded into Present (plan §line 266)
 	const [elapsed, setElapsed] = React.useState(0); // rehearsal seconds
+	const [captionsOn, setCaptionsOn] = React.useState(true); // CC — show/hide the caption crawl (independent of voice)
+	const [muted, setMuted] = React.useState(true); // Voice — muted by default (boardroom-safe); captions still run on the silent cadence
+	// Quiet Bloom (S4): the chrome is quiet at rest (Play + position + section title + thin
+	// rail) and BLOOMS the arrows / CC / Voice / caption on intent (pointer move, wheel, key,
+	// touch), then folds back. `revealed` drives the bloom; `showHint` is the one-time cue.
+	const [revealed, setRevealed] = React.useState(true);
+	const [showHint, setShowHint] = React.useState(false);
+	// The slide sizes to the AVAILABLE row height (16:9), so the caption/controls/rail
+	// dock always keeps its space and the slide never creeps into the chrome or clips.
+	const slideRowRef = React.useRef<HTMLDivElement>(null);
+	const [slideMaxW, setSlideMaxW] = React.useState(960);
 
 	const set = React.useMemo(() => presentationSet(slides, lens), [slides, lens]);
+	// Deck sections (from `divider` slides) — the grouping the single progress rail uses.
+	const sections = React.useMemo(() => sectionsFromSlides(set), [set]);
 	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
 	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered lens
 	// (exec/onepager reorders/drops slides) we resolve it through the original index, not the
@@ -120,10 +139,27 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// teardown fires no onFinish. The projection is picked up on the next slide instead.
 	const [narrationText, setNarrationText] = React.useState('');
 	const playingRef = React.useRef(false);
+	// Autoplay intent (chain across slides) + a per-advance flag. Declared HERE (read by
+	// the projection-upgrade guard below) though set later; the guard runs post-commit
+	// when both reflect the live state. `autoAdvanceRef` is true across the whole
+	// between-slides hand-off — the window the plain `!playingRef` guard used to miss.
+	const autoplayRef = React.useRef(false);
+	autoplayRef.current = autoplay;
+	const autoAdvanceRef = React.useRef(false);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: navigation trigger (slide/lens); narrationAt read via ref so a projection landing doesn't re-fire this.
 	React.useEffect(() => { setNarrationText(narrationAtRef.current(clamped)); }, [clamped, set]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: projection-landing upgrade; skipped while playing to avoid a mid-read teardown. Reads clamped/narrationAt via refs.
-	React.useEffect(() => { if (!playingRef.current) setNarrationText(narrationAtRef.current(clamped)); }, [projected]);
+	// Projection-landing upgrade: swap the CURRENT slide's fallback narration for the
+	// richer DOM-projection text once it resolves — but ONLY when the slide is idle and
+	// NOT in an autoplay run. During autoplay (including the brief between-slides hand-off
+	// where `playingRef` is momentarily false) this in-place swap would rebuild the track
+	// and tear the reader down WITHOUT firing onFinish, hanging the chain — the #904
+	// regression. Every navigation already adopts projection text via the effect above
+	// once `projected` has landed, so autoplay loses nothing by skipping the in-place swap.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: projection-landing upgrade; reads clamped/narrationAt/intent via refs by design.
+	React.useEffect(() => {
+		if (playingRef.current || autoplayRef.current || autoAdvanceRef.current) return;
+		setNarrationText(narrationAtRef.current(clamped));
+	}, [projected]);
 
 	// ── Dual-screen presenter window (the shared kernel; same speaker view as the
 	// Drawing Board). We render THIS deck's stage doc asynchronously (the engine)
@@ -141,7 +177,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	if (!presenterRef.current) {
 		presenterRef.current = createPresenterController({
 			buildDoc: () => stageDocRef.current,
-			getState: () => ({ index: clampedRef.current, total: countRef.current, note: getNote(curRef.current) || '' }),
+			// Forward the Studio's resolved accent so the brand-dark presenter window speaks the
+			// SAME accent as this overlay (both read the site `--accent`/`--on-accent`), instead
+			// of a hardcoded one. Read live so a mid-present palette change is reflected on refresh.
+			getState: () => {
+				const cs = getComputedStyle(document.documentElement);
+				return {
+					index: clampedRef.current,
+					total: countRef.current,
+					note: getNote(curRef.current) || '',
+					accent: cs.getPropertyValue('--accent').trim() || undefined,
+					onAccent: cs.getPropertyValue('--on-accent').trim() || undefined,
+				};
+			},
 			onGo: (delta: number) => setIdx((i) => Math.max(0, Math.min(i + delta, countRef.current - 1))),
 			onToggle: (on: boolean) => setPresenterOn(on),
 		});
@@ -174,11 +222,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// track) — else a recognized chart's computed facts (narrateChart; a funnel's
 	// stage-to-stage conversion % exists only in the render, never the source
 	// slideToSpeech reads) — else the generic on-slide prose.
-	// Autoplay = read-aloud that chains across slides. Refs let the once-bound
-	// onFinish read live position/intent without re-binding the reader each slide.
-	const autoplayRef = React.useRef(false);
-	autoplayRef.current = autoplay;
-	const autoAdvanceRef = React.useRef(false);
+	// Autoplay = read-aloud that chains across slides. Refs (declared above, near the
+	// narration state the projection-upgrade guard reads) let the once-bound onFinish read
+	// live position/intent without re-binding the reader each slide.
 	// The deck's author-supplied acronym registry (term → spoken expansion), parsed from
 	// front-matter. Author pronunciations beat the built-in dictionary and the patterns,
 	// on BOTH the live reader and the warm-ahead prefetch (same map → cache keys match).
@@ -193,6 +239,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		{
 			acronyms,
 			lang,
+			muted,
 			onFinish: () => {
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
@@ -204,21 +251,29 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			},
 		},
 	);
-	// After an autoplay advance, start the new slide's reader. Deferred a frame so
-	// the reader's own slide-change stop() settles first; only fires for an auto
-	// advance (manual prev/next/jump leave it untouched).
+	// After an autoplay advance, start the NEW slide's reader. Keyed on `reader.track`,
+	// NOT `clamped` — this is the #904 fix. Since narration is async STATE, the slide
+	// index changes ONE commit before the track (and thus the reader) is rebuilt for the
+	// new text; a play() fired on the index-change commit (the old `[clamped]` + rAF)
+	// raced that rebuild and, on a loaded main thread, ran on a reader the pending rebuild
+	// then tore down — reader.playing=false, no caption, chain frozen (the "two slides
+	// then stops" report). `useReadAloud` is called before this effect, so its per-track
+	// rebuild effect is registered first and runs first in the SAME commit; playing here
+	// (no rAF) therefore always hits the freshly-built reader, deterministically, on fast
+	// and slow devices alike. The autoAdvanceRef guard keeps manual prev/next/jump (which
+	// also change the track) from auto-playing. (Edge: two ADJACENT slides whose narration
+	// is byte-identical share a track object, so this wouldn't re-fire — the skip-empty
+	// effect covers identical EMPTY slides; identical non-empty adjacent narration is a
+	// pathological case a real deck doesn't hit, tracked but not handled here.)
 	const readerRef = React.useRef(reader);
 	readerRef.current = reader;
-	// So the projection-upgrade effect can skip a mid-read text swap (the reader is
-	// declared after that effect, hence the ref).
 	playingRef.current = reader.playing;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `clamped` is the TRIGGER — the effect must run on each slide change; it reads reader/flag via refs by design.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `reader.track` is the rebuild signal (the new slide's reader is ready once it changes); reader is read via ref by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
 		autoAdvanceRef.current = false;
-		const id = requestAnimationFrame(() => readerRef.current.play());
-		return () => cancelAnimationFrame(id);
-	}, [clamped]);
+		readerRef.current.play();
+	}, [reader.track]);
 	// A slide with no readable prose never fires onFinish (nothing to read), which
 	// would stall the chain — so while autoplaying, skip an empty slide straight to
 	// the next (or end the run if it's the last).
@@ -251,7 +306,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// there), just a case where the design's "whole slide's playback
 	// duration" head-start assumption doesn't hold. Not fixed here.
 	React.useEffect(() => {
-		if (!autoplay) return;
+		if (!autoplay || muted) return; // never synth (bill) TTS the user won't hear while Voice is muted
 		const next = set[clamped + 1];
 		if (next === undefined) return;
 		// Stop this warm from firing any FURTHER requests once it's superseded —
@@ -263,15 +318,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		const ctl = new AbortController();
 		warmNarration(narrationAt(clamped + 1), ctl.signal, acronyms, lang);
 		return () => ctl.abort();
-	}, [autoplay, clamped, set, narrationAt, acronyms, lang]);
-	// Toggle autoplay: turning it on starts reading the deck now; off stops.
-	const toggleAutoplay = React.useCallback(() => {
-		setAutoplay((on) => {
-			const next = !on;
-			if (next) readerRef.current.play();
-			else readerRef.current.stop();
-			return next;
-		});
+	}, [autoplay, muted, clamped, set, narrationAt, acronyms, lang]);
+	// The ONE Play (present redesign S3): Play narrates the current slide AND advances (like a
+	// video) — it enables autoplay-chaining and plays; Pause pauses (autoplay stays on, so resume
+	// keeps chaining; the deck's natural end turns autoplay off via onFinish). No separate "Auto".
+	const togglePresentation = React.useCallback(() => {
+		if (readerRef.current.playing) {
+			readerRef.current.pause();
+			setAutoplay(false); // pausing stops the chain; resume re-enables it. Prevents the empty-slide
+			// auto-skip from resurrecting playback when you navigate onto a divider after Pause.
+		} else {
+			setAutoplay(true);
+			readerRef.current.play();
+		}
 	}, []);
 	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
 
@@ -338,12 +397,94 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	React.useEffect(() => {
 		if (!open) { setRehearse(false); setElapsed(0); setPlaying(false); setAutoplay(false); presenterRef.current?.close(); }
 	}, [open]);
-	const goNext = React.useCallback(() => setIdx((i) => Math.min(i + 1, count - 1)), [count]);
-	const goPrev = React.useCallback(() => setIdx((i) => Math.max(i - 1, 0)), []);
+	const goNext = React.useCallback(() => { setShowHint(false); setIdx((i) => Math.min(i + 1, count - 1)); }, [count]);
+	const goPrev = React.useCallback(() => { setShowHint(false); setIdx((i) => Math.max(i - 1, 0)); }, []);
+
+	// ── Quiet Bloom reveal (S4) ────────────────────────────────────────────────
+	// `wake()` reveals the bloom chrome and arms a fold-back timer; a pointer over the
+	// dock (or focus within it) PINS it open so it can't fold while you're aiming a click.
+	const pinnedRef = React.useRef(false);
+	const hideTimer = React.useRef<number | null>(null);
+	const wake = React.useCallback(() => {
+		setRevealed(true);
+		if (hideTimer.current) window.clearTimeout(hideTimer.current);
+		hideTimer.current = window.setTimeout(() => {
+			if (!pinnedRef.current) setRevealed(false);
+		}, 2800);
+	}, []);
+	React.useEffect(() => {
+		if (open) {
+			pinnedRef.current = false; // a pin can't survive a close (pointerLeave/blur never fires on unmount)
+			wake();
+		}
+		return () => {
+			if (hideTimer.current) window.clearTimeout(hideTimer.current);
+		};
+	}, [open, wake]);
+
+	// Measure the slide row and cap the slide width so a 16:9 box fits the available
+	// height (`rowH × 16/9`). A ResizeObserver keeps it live as the caption band grows
+	// on Play (which shrinks the row) or the viewport changes — no chrome overlap, no clip.
+	React.useEffect(() => {
+		if (!open) return;
+		const row = slideRowRef.current;
+		if (!row || typeof ResizeObserver === 'undefined') return;
+		const measure = () => setSlideMaxW(Math.max(240, Math.min(960, Math.floor(((row.clientHeight - 12) * 16) / 9))));
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(row);
+		return () => ro.disconnect();
+	}, [open]);
+
+	// Swipe (touch) + wheel (desktop) navigation, alongside the keyboard. Swipe reuses the
+	// shared kernel's geometry (threshold/ratio) so it matches the export player exactly;
+	// wheel is throttled so one flick advances one slide, not ten.
+	const touchRef = React.useRef<{ x: number; y: number } | null>(null);
+	const wheelAt = React.useRef(0);
+	const onTouchStart = React.useCallback((e: React.TouchEvent) => {
+		wake();
+		const t = e.touches[0];
+		touchRef.current = t ? { x: t.clientX, y: t.clientY } : null;
+	}, [wake]);
+	const onTouchEnd = React.useCallback((e: React.TouchEvent) => {
+		const s = touchRef.current;
+		touchRef.current = null;
+		const t = e.changedTouches[0];
+		if (!s || !t || overviewOpen) return; // the overview owns navigation by tap while it's open
+		const act = swipeAction({ dx: t.clientX - s.x, dy: t.clientY - s.y });
+		if (act === 'next') goNext();
+		else if (act === 'prev') goPrev();
+	}, [goNext, goPrev, overviewOpen]);
+	const onWheel = React.useCallback((e: React.WheelEvent) => {
+		wake();
+		if (overviewOpen) return; // don't scrub the deck behind the open overview
+		const now = e.timeStamp;
+		if (now - wheelAt.current < 480) return;
+		const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+		if (Math.abs(d) < 40) return; // a firm flick, not a reflexive scroll-to-read
+		wheelAt.current = now;
+		if (d > 0) goNext();
+		else goPrev();
+	}, [wake, goNext, goPrev, overviewOpen]);
+
+	// First-run hint — teach the bloom + gestures exactly once (persisted), auto-fading.
+	React.useEffect(() => {
+		if (!open) { setShowHint(false); return; }
+		// Default to "seen" so a broken/blocked localStorage never nags (the init IS the
+		// fallback used when getItem throws — the empty catch leaves it true).
+		let seen = true;
+		try { seen = !!window.localStorage.getItem('lattice-present-hint'); } catch {}
+		if (seen) return;
+		setShowHint(true);
+		try { window.localStorage.setItem('lattice-present-hint', '1'); } catch {}
+		const id = window.setTimeout(() => setShowHint(false), 5200);
+		return () => window.clearTimeout(id);
+	}, [open]);
 
 	React.useEffect(() => {
 		if (!open) return;
 		const onKey = (e: KeyboardEvent) => {
+			wake();
 			// In the overview, Escape just closes the sorter (not all of Present), and
 			// the deck keys are inert (the grid owns navigation by click).
 			if (overviewOpen) {
@@ -367,15 +508,31 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [open, onClose, goNext, goPrev, overviewOpen]);
+	}, [open, onClose, goNext, goPrev, overviewOpen, wake]);
 	// Close the sorter whenever Present closes, so re-opening starts on the slide.
 	React.useEffect(() => {
 		if (!open) setOverviewOpen(false);
 	}, [open]);
 
 	if (!open) return null;
+	// The caption band reserves space only while it's actually crawling (playing) — so
+	// pressing Play BLOOMS it in and the slide shrinks to fit, and Pause folds it back
+	// (Quiet Bloom). The vertical grow/shrink is animated (motion-reduce snaps).
+	const showCaption = !rehearse && captionsOn && reader.playing && reader.track.cues.length > 0;
+	// Faint-persistent flanking arrows: never fully gone (mouse-presenter "back" safety),
+	// dim when the slide edge is reached, full on reveal.
+	const arrowCls = (disabled: boolean) => cn('hidden shrink-0 rounded-full border border-border bg-card/85 p-2.5 text-foreground shadow-[0_4px_16px_rgba(10,22,40,.12)] backdrop-blur transition-opacity duration-300 hover:text-[var(--accent)] motion-reduce:transition-none sm:block', disabled ? 'pointer-events-none opacity-20' : revealed ? 'opacity-100' : 'opacity-40');
 	return (
-		<div role="dialog" aria-modal="true" aria-label="Present" className="lx-ui fixed inset-0 z-[100] flex flex-col items-center overflow-x-hidden bg-background">
+		<div
+			role="dialog"
+			aria-modal="true"
+			aria-label="Present"
+			className="lx-ui fixed inset-0 z-[100] flex flex-col items-center overflow-x-hidden bg-background"
+			onPointerMove={wake}
+			onWheel={onWheel}
+			onTouchStart={onTouchStart}
+			onTouchEnd={onTouchEnd}
+		>
 			<div className="flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">
 				<button type="button" onClick={onClose} className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-foreground" aria-label="Exit present"><X className="size-5" /></button>
 				{/* Lens switch — the shared LensPicker (same widget as the editor's preview
@@ -388,10 +545,20 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<button type="button" onClick={() => { const wasOpen = presenterRef.current?.isOpen(); presenterRef.current?.toggle(); if (!wasOpen && !presenterRef.current?.isOpen()) notify('Allow pop-ups to open the presenter view on your second screen.'); }} aria-pressed={presenterOn} title="Presenter view on your second screen — current + next slide, speaker notes, timer" className={cn('hidden shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] font-semibold hover:text-foreground md:inline-flex', presenterOn ? 'text-[var(--accent)]' : 'text-muted-foreground')}><Monitor className="size-4" />{presenterOn ? 'Presenter on' : 'Presenter screen'}</button>
 			</div>
 
-			<div className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-4 px-4 sm:px-6">
-				<button type="button" onClick={goPrev} disabled={clamped === 0} className="hidden shrink-0 rounded-full border border-border bg-card p-2 text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:block" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
-				<DeckPreview options={options} sample={frontMatter ? frontMatter + cur : cur} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="relative aspect-video w-full max-w-[960px] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]" aria-label="Presented slide" />
-				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="hidden shrink-0 rounded-full border border-border bg-card p-2 text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:block" aria-label="Next slide"><ChevronRight className="size-5" /></button>
+			{/* Slide row. The slide centers in the space above the dock (flex-1 guarantees the
+			    caption + controls + rail dock its full height, so the slide never crowds it).
+			    Circular arrows flank the slide in the gutter — never over it. */}
+			<div ref={slideRowRef} className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 sm:gap-5 sm:px-6">
+				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
+				{/* The slide is a true flex child: its width is capped to what the AVAILABLE ROW
+				    HEIGHT allows at 16:9 (`rowH × 16/9`), so it shrinks to reserve the caption /
+				    controls / rail space instead of creeping into the chrome or getting clipped.
+				    DeckPreview fits the slide to its box WIDTH, so the box must stay 16:9 — hence a
+				    measured width cap on this sizer, not `max-height` (which would clip). */}
+				<div className="flex w-full min-w-0 justify-center" style={{ maxWidth: slideMaxW }}>
+					<DeckPreview options={options} sample={frontMatter ? frontMatter + cur : cur} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]" aria-label="Presented slide" />
+				</div>
+				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={arrowCls(clamped >= count - 1)} aria-label="Next slide"><ChevronRight className="size-5" /></button>
 				{/* Real delivery coaching — the plan's role-specific guidance, with the
 				    active timed beat surfacing as you cross its mark in the slide. */}
 				{rehearse && playing && coach && (
@@ -399,52 +566,64 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						<span className="inline-flex max-w-[680px] items-center gap-2 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg))] px-3.5 py-2 text-center text-[13px] font-semibold text-[var(--text-heading)] shadow-[0_8px_24px_rgba(10,22,40,.14)]"><Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" />{coach}</span>
 					</div>
 				)}
-				{/* Read-aloud teleprompter — the narration, with the word being spoken NOW
-				    highlighted live (the cursor re-anchors to the real voice when clocked). */}
-				{!rehearse && reader.playing && reader.track.cues.length > 0 && (
-					<div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-4">
-						<output className="max-w-[760px] rounded-2xl border border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-4 py-2.5 text-center text-[15px] leading-snug shadow-[0_8px_24px_rgba(10,22,40,.16)] backdrop-blur-sm sm:text-[17px]">
-							{reader.track.cues.map((cue, ci) =>
-								cue.words.map((w, wi) => {
-									const on = reader.active?.cueIndex === ci && reader.active?.wordIndex === wi;
-									return (
-										// biome-ignore lint/suspicious/noArrayIndexKey: a static track never reorders, and word text repeats — (cueIndex, wordIndex) IS the word's stable identity.
-										<span key={`${ci}:${wi}`} className={cn('transition-colors', on ? 'font-semibold text-[var(--text-heading)]' : 'text-muted-foreground/70')}>
-											{w.display}{' '}
-										</span>
-									);
-								}),
-							)}
-						</output>
+				{/* First-run cue — teaches the bloom + gestures once, then never again. */}
+				{showHint && (
+					<div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 motion-reduce:hidden">
+						<span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">Swipe or use ← → to move · controls reveal as you go</span>
 					</div>
 				)}
 			</div>
 
-			{/* Bottom control bar. It fits the viewport BY CONSTRUCTION: the counter never
-			    wraps, and on phones the secondary read-aloud controls (Auto + the voice
-			    status) fold into a ⋯ Playback menu so the pill can't overflow. A max-w
-			    backstop guards against any future addition. */}
-			<div className="mb-7 mt-4 flex max-w-[calc(100vw-1.5rem)] items-center gap-3 rounded-full border border-border bg-card px-3 py-2 shadow-[0_8px_24px_rgba(10,22,40,.10)] sm:gap-3.5 sm:px-3.5 sm:py-2.5">
-				<button type="button" onClick={goPrev} disabled={clamped === 0} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
-				<span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-[var(--text-heading)]">{clamped + 1} / {count}</span>
-				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
-				<span className="h-5 w-px shrink-0 bg-border" />
-				<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : reader.toggle())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause read-aloud' : 'Play read-aloud'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
-				<div className="relative hidden h-[5px] w-[180px] rounded-full bg-border sm:block">
-					<span className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300" style={{ width: `${rehearse ? Math.min(100, (elapsed / target) * 100) : Math.round(reader.progress * 100)}%` }} />
+			{/* Bottom dock (layout A, 2026-07-12 redesign): caption (top) → controls (middle) →
+			    section title → full-width rail (bottom). Pointer-over / focus-within PINS the
+			    bloom open so aiming a click never makes it fold. */}
+			<div
+				className="flex w-full max-w-[760px] flex-col items-center gap-2 px-3 pb-6 pt-1 sm:pb-8"
+				onPointerEnter={() => { pinnedRef.current = true; setRevealed(true); }}
+				onPointerLeave={() => { pinnedRef.current = false; wake(); }}
+				onFocusCapture={() => { pinnedRef.current = true; setRevealed(true); }}
+				onBlurCapture={() => { pinnedRef.current = false; wake(); }}
+			>
+				{/* Caption band — film-subtitle crawl; grows in on Play, folds on Pause. Mounted only
+				    while it should show (playing + CC on), so its live region can't keep announcing to
+				    a screen reader when captions are off, paused, or in Rehearse. announce=muted: when
+				    Voice speaks the line, the TTS is the audio, so the SR announcement is suppressed. */}
+				<div className={cn('flex w-full justify-center overflow-hidden transition-[max-height,opacity] duration-300 motion-reduce:transition-none', showCaption ? 'max-h-[80px] opacity-100' : 'max-h-0 opacity-0')}>
+					{showCaption && <PresentCaption track={reader.track} active={reader.active} announce={muted} />}
 				</div>
-				<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{rehearse ? `${fmt(elapsed)} / ${fmt(target)}` : reader.track.cues.length ? `${(reader.active?.cueIndex ?? -1) + 1} / ${reader.track.cues.length}` : '0 / 0'}</span>
-				{rehearse ? (
-					<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
-				) : (
-					<>
-						{/* Autoplay stays inline as an icon on phones (no ⋯) — the "Auto" word
-						    shows at ≥ sm. The voice/caption status is non-essential, so it's the
-						    one thing hidden below sm. */}
-						<button type="button" onClick={toggleAutoplay} aria-pressed={autoplay} aria-label="Autoplay" title="Autoplay — read every slide, advancing on its own" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[12px] font-semibold sm:px-2.5', autoplay ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><FastForward className="size-3.5 shrink-0" /><span className="hidden sm:inline">Auto</span></button>
-						<span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] sm:inline-flex"><Volume2 className="size-3.5" />{rungLabel}</span>
-					</>
-				)}
+
+				{/* Controls row (middle). The transport pill is always-on and hugs its content
+				    (Play + position); the CC / Voice cluster BLOOMS beside it — collapsing to zero
+				    width at rest so the resting pill stays tight and centered, no trailing void. */}
+				<div className="flex max-w-full items-center gap-2">
+					<div className="flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-2 shadow-[0_8px_24px_rgba(10,22,40,.10)] sm:gap-3">
+						<button type="button" onClick={goPrev} disabled={clamped === 0} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
+						<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : togglePresentation())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause' : 'Play the presentation'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
+						<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
+						<span className="h-5 w-px shrink-0 bg-border" />
+						<span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-[var(--text-heading)]">{clamped + 1} / {count}</span>
+						{rehearse && (
+							<>
+								<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{fmt(elapsed)} / {fmt(target)}</span>
+								<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
+							</>
+						)}
+					</div>
+					{/* CC + Voice are INDEPENDENT (S3) and bloom on intent (S4): CC shows/hides the
+					    crawl; Voice speaks it aloud. Their FOOTPRINT is reserved (fixed) so the
+					    transport pill never shifts as they bloom — at rest they dim to faint-persistent
+					    (like the flanking arrows), brighten on intent, and stay reachable at rest so a
+					    phone user can always find captions. Reduced-motion holds them fully lit. */}
+					{!rehearse && (
+						<div className={cn('flex items-center gap-2 transition-opacity duration-300 motion-reduce:!opacity-100 motion-reduce:transition-none', revealed ? 'opacity-100' : 'opacity-50')}>
+							<button type="button" onClick={() => setCaptionsOn((v) => !v)} aria-pressed={captionsOn} aria-label="Captions" title="Captions — show the narration as text" className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-2 text-[12px] font-extrabold tracking-wide', captionsOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>CC</button>
+							<button type="button" onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} title="Voice — speak the narration aloud" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button>
+						</div>
+					)}
+				</div>
+
+				{/* Section title + full-width rail (bottom) — the ONE progress element. */}
+				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} onJump={(i) => setIdx(i)} className="w-full" />
 			</div>
 			<SlideOverview open={overviewOpen} onClose={() => setOverviewOpen(false)} options={options} set={set} frontMatter={frontMatter} current={clamped} onJump={setIdx} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} />
 		</div>
