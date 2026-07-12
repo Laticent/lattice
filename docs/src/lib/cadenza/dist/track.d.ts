@@ -30,6 +30,9 @@ export interface BuildOptions {
     /** The deck's language tag (Marp `lang:`). A non-English deck bypasses the English
      *  lexicon + number/period expansion (the author registry still applies) — #919. */
     lang?: string;
+    /** Per-voice pace calibration multiplier (default 1); scales the syllable estimate to a
+     *  measured voice rate. See `calibrate.ts` and the per-voice-calibration decision doc. */
+    rateScale?: number;
 }
 /**
  * Build the estimate-baseline timeline from text. Deterministic and offline: this

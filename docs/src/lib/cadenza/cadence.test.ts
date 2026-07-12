@@ -63,6 +63,15 @@ describe('estimateWordMs — syllable-based, not char-length', () => {
 		expect(estimateWordMs('revenue', 'fast')).toBeLessThan(estimateWordMs('revenue', 'moderate'));
 		expect(estimateWordMs('revenue', 'slow')).toBeGreaterThan(estimateWordMs('revenue', 'moderate'));
 	});
+	it('rateScale stretches/compresses for a per-voice calibration (default 1 = unchanged)', () => {
+		const base = estimateWordMs('revenue', 'moderate');
+		expect(estimateWordMs('revenue', 'moderate', 1)).toBe(base);
+		expect(estimateWordMs('revenue', 'moderate', 1.5)).toBe(Math.round(base * 1.5));
+		expect(estimateWordMs('revenue', 'moderate', 0.8)).toBe(Math.round(base * 0.8));
+		// A garbage scale falls back to 1, never zero/negative duration.
+		expect(estimateWordMs('revenue', 'moderate', 0)).toBe(base);
+		expect(estimateWordMs('revenue', 'moderate', Number.NaN)).toBe(base);
+	});
 });
 
 describe('pauseAfter — graded by boundary depth', () => {

@@ -27,11 +27,17 @@ var require_dist = __commonJS({
     var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
     var index_exports = {};
     __export(index_exports, {
+      CALIBRATION_MAX_K: () => CALIBRATION_MAX_K,
+      CALIBRATION_MIN_K: () => CALIBRATION_MIN_K,
+      CALIBRATION_MIN_N: () => CALIBRATION_MIN_N,
+      CALIBRATION_WINDOW: () => CALIBRATION_WINDOW,
       FINAL_LENGTHEN_MS: () => FINAL_LENGTHEN_MS,
       LEX_DOMAINS: () => LEX_DOMAINS,
       PACE_WPM: () => PACE_WPM,
       SYLLABLE_MS: () => SYLLABLE_MS,
       buildTrack: () => buildTrack,
+      deserializeCalibration: () => deserializeCalibration,
+      emptyCalibration: () => emptyCalibration,
       estimateWordMs: () => estimateWordMs,
       formatTimestamp: () => formatTimestamp,
       integerToWords: () => integerToWords,
@@ -40,8 +46,11 @@ var require_dist = __commonJS({
       makeCursor: () => makeCursor,
       makeReader: () => makeReader,
       numberToWords: () => numberToWords,
+      observe: () => observe,
       pauseAfter: () => pauseAfter,
+      rateScale: () => rateScale,
       readMs: () => readMs,
+      serializeCalibration: () => serializeCalibration,
       splitSentences: () => splitSentences,
       splitWords: () => splitWords,
       spokenWordCount: () => spokenWordCount,
@@ -437,15 +446,62 @@ var require_dist = __commonJS({
       }
       return Math.max(1, total);
     }
-    function estimateWordMs(spoken, pace = "moderate") {
+    function estimateWordMs(spoken, pace = "moderate", rateScale2 = 1) {
       const s = String(spoken ?? "").trim();
       if (!s) return 0;
-      return Math.round(SYLLABLE_MS[pace] * syllableCount(s));
+      const k = Number.isFinite(rateScale2) && rateScale2 > 0 ? rateScale2 : 1;
+      return Math.round(SYLLABLE_MS[pace] * syllableCount(s) * k);
     }
     function readMs(spoken, pace = "moderate") {
       const words = spokenWordCount(spoken);
       const raw = 300 + 6e4 / PACE_WPM[pace] * words;
       return Math.round(Math.min(6e3, Math.max(1e3, raw)));
+    }
+    var CALIBRATION_WINDOW = 15;
+    var CALIBRATION_MIN_N = 5;
+    var CALIBRATION_MIN_K = 0.6;
+    var CALIBRATION_MAX_K = 1.6;
+    var SAMPLE_MIN_RATIO = 0.2;
+    var SAMPLE_MAX_RATIO = 5;
+    function emptyCalibration() {
+      return { samples: [], n: 0, updatedAt: 0 };
+    }
+    function observe(state, estDurMs, measuredDurMs, atMs) {
+      if (!Number.isFinite(estDurMs) || !Number.isFinite(measuredDurMs) || estDurMs <= 0 || measuredDurMs <= 0) {
+        return state;
+      }
+      const ratio = measuredDurMs / estDurMs;
+      if (ratio < SAMPLE_MIN_RATIO || ratio > SAMPLE_MAX_RATIO) return state;
+      const samples = state.samples.concat(ratio);
+      if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
+      return {
+        samples,
+        n: state.n + 1,
+        updatedAt: atMs ?? state.updatedAt
+      };
+    }
+    function median(xs) {
+      if (!xs.length) return 1;
+      const s = xs.slice().sort((a, b) => a - b);
+      const mid = s.length >> 1;
+      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    }
+    function rateScale(state) {
+      if (!state || state.n < CALIBRATION_MIN_N || !state.samples.length) return 1;
+      const k = median(state.samples);
+      return Math.min(CALIBRATION_MAX_K, Math.max(CALIBRATION_MIN_K, k));
+    }
+    function serializeCalibration(state) {
+      return { samples: state.samples.slice(), n: state.n, updatedAt: state.updatedAt };
+    }
+    function deserializeCalibration(raw) {
+      if (!raw || typeof raw !== "object") return emptyCalibration();
+      const r = raw;
+      const samples = Array.isArray(r.samples) ? r.samples.filter((x) => typeof x === "number" && Number.isFinite(x)) : [];
+      if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
+      const n = typeof r.n === "number" && Number.isFinite(r.n) ? Math.max(0, Math.floor(r.n)) : samples.length;
+      const updatedAt = typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt) ? r.updatedAt : 0;
+      return { samples, n, updatedAt };
     }
     function cloneTrack(track) {
       return {
@@ -562,6 +618,7 @@ var require_dist = __commonJS({
     }
     function buildTrack(text, opts = {}) {
       const pace = opts.pace ?? "moderate";
+      const rateScale2 = opts.rateScale ?? 1;
       const source = String(text ?? "");
       const sentences = splitSentences(source);
       const cues = [];
@@ -581,7 +638,7 @@ var require_dist = __commonJS({
           if (cueCharOffset < 0) cueCharOffset = charOffset;
           const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang });
           const pause = pauseAfter(display);
-          const dur = estimateWordMs(spoken, pace) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
+          const dur = estimateWordMs(spoken, pace, rateScale2) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
           const startMs = clock;
           const endMs = startMs + dur;
           words.push({ display, spoken, startMs, endMs, charOffset });
