@@ -416,6 +416,15 @@ test('speech generic: three-level nesting never mashes words together', () => {
 	assert.match(t, /Phase one:/);
 });
 
+test('speech generic: a card title ending in a period drops it before the colon (no "Write.:")', () => {
+	const [t] = speak(sections(
+		`<section data-lattice-slide data-class="cards-grid" class="cards-grid"><div class="cell-stage"><ul><li>Write.<ul><li>Plain Markdown.</li></ul></li><li>Choose a component.<ul><li>Tag a slide.</li></ul></li></ul></div></section>`,
+	));
+	assert.doesNotMatch(t, /Write\.:/, 'authored period is not doubled with the composed colon');
+	assert.match(t, /Write: Plain Markdown\./);
+	assert.match(t, /Choose a component: Tag a slide\./);
+});
+
 // ── projectDeckToSpeech: state-marker reading (Phase 3), from REAL engine renders ──
 // [x]/[-]/[ ]/[/] render with the glyph STRIPPED, meaning surviving only in a CSS
 // class; the projection recovers it. These render authored Markdown through the

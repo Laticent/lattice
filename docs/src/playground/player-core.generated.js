@@ -353,6 +353,11 @@ function terminate(t) {
   if (!s) return "";
   return /[.!?;:…]$/.test(s) ? s : `${s}.`;
 }
+function labelValue(label, value) {
+  const l = String(label ?? "").replace(/[.!?;:…,—–-]+\s*$/, "").trim();
+  const v = String(value ?? "");
+  return l ? `${l}: ${v}` : v;
+}
 function coordinate(items) {
   const xs = items.filter(Boolean);
   if (xs.length <= 1) return xs.join("");
@@ -384,7 +389,7 @@ function speakStats(stage) {
     const idx = nameIdx >= 0 ? nameIdx : 0;
     const name = labels[idx];
     const rest = labels.filter((_, i) => i !== idx);
-    let s = `${name}: ${value}`;
+    let s = labelValue(name, value);
     if (rest.length) s += `, ${rest.join(", ")}`;
     return terminate(s);
   });
@@ -432,7 +437,7 @@ function speakTable(table, wordMap = null) {
   const sentences = body.map((tr) => {
     const cells = [...tr.querySelectorAll(":scope > th, :scope > td")].map(cellText);
     const key = cells[0] || "";
-    const rest = cells.slice(1).map((v, i) => headers[i + 1] ? `${headers[i + 1]}: ${v}` : v).filter((s) => s && !/:\s*$/.test(s));
+    const rest = cells.slice(1).map((v, i) => headers[i + 1] ? labelValue(headers[i + 1], v) : v).filter((s) => s && !/:\s*$/.test(s));
     return terminate(rest.length ? `${key} \u2014 ${rest.join("; ")}` : key);
   });
   return sentences.join(" ");
@@ -457,14 +462,14 @@ function renderListItems(list, wordMap = null) {
     const lead = speechText(clone).replace(/[:—–-]\s*$/, "");
     const sw = stateWordOf(li, wordMap);
     if (!sub) {
-      if (sw) return lead ? `${lead}: ${sw}` : sw;
+      if (sw) return lead ? labelValue(lead, sw) : sw;
       return lead;
     }
     const subLis = [...sub.children].filter((x) => x.tagName === "LI");
     const allLeaves = subLis.every((x) => !x.querySelector(":scope > ul, :scope > ol"));
-    const body = allLeaves ? coordinate(subLis.map((x) => stateWordOf(x, wordMap) ? `${speechText(x)}: ${stateWordOf(x, wordMap)}` : speechText(x))) : renderListItems(sub, wordMap).join(", ");
+    const body = allLeaves ? coordinate(subLis.map((x) => stateWordOf(x, wordMap) ? labelValue(speechText(x), stateWordOf(x, wordMap)) : speechText(x))) : renderListItems(sub, wordMap).join(", ");
     const head = sw ? `${lead} (${sw})` : lead;
-    return head ? `${head}: ${body}` : body;
+    return head ? labelValue(head, body) : body;
   });
 }
 function speakGeneric(stage, eyebrow, wordMap = null) {
@@ -490,7 +495,7 @@ function speakGeneric(stage, eyebrow, wordMap = null) {
         if (kids[i].tagName !== "DT") continue;
         const dt = speechText(kids[i]);
         const dd = kids[i + 1] && kids[i + 1].tagName === "DD" ? speechText(kids[i + 1]) : "";
-        pairs.push(terminate(dd ? `${dt}: ${dd}` : dt));
+        pairs.push(terminate(dd ? labelValue(dt, dd) : dt));
       }
       if (pairs.length) out.push(pairs.join(" "));
       continue;

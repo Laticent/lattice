@@ -1114,3 +1114,23 @@ the value," which the on-device readout confirms.
 *The audio-clock instrumentation (the `?readaloud-debug=1` readout) stays* for now — it corroborates the
 fix (peakAhead should fall to ~0 on the stats slides once the value is spoken) and remains useful for any
 residual between-sentence drift; it is removed once this fix is confirmed clean on device.
+
+### Follow-up (2026-07-12): doubled punctuation in `label: value` captions ("Write.: …")
+
+On-device caption review surfaced a second, related defect: a card title that ends in an
+authored period ("- Write.", "- Choose a component." on the Welcome `cards-grid` slide) rendered
+as **"Write.: value"** — the projection composes `${label}: ${value}`, and when the label already
+carries a terminator the colon doubles it. The prior `renderListItems` lead-strip
+(`replace(/[:—–-]\s*$/, '')`) removed a trailing colon/dash but NOT a period, so the period
+survived into the join.
+
+**Fix.** One shared `labelValue(label, value)` helper (prose-projection.mjs) that strips a trailing
+terminator/separator run (`.!?;:…,—–-`) from the LABEL before appending the colon, then every
+`label: value` join site routes through it — `speakStats` (kpi/stats tiles), `speakTable`,
+`renderListItems` (nested `- Title` / `  - body` and state markers), and the `<dl>` walker. Now
+"Write." → "Write: value"; a label with no trailing punctuation is unchanged. Centralizing it means
+the rule can't drift between the four walkers (the previous per-site `replace` already had). This is
+a DISPLAY/caption change (unlike the colon→comma spoken softening above): it changes the projected
+caption text and therefore the exported `.vtt` display glyphs — flagged for export sign-off, though
+`test:core`/`test:export` pass unchanged (no fixture used a terminator-bearing label). Guarded in
+`prose-projection.test.js` (the "Write." card asserts no `Write.:` and a clean `Write: …`).

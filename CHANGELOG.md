@@ -163,6 +163,16 @@ in patch versions.
   overlap, ishikawa printed a stray `fishbone` head and quoted effect, and C4 rendered a redundant
   floating title. All three now render clean — the same fixes already shipped in the playground tour.
 
+- **Component captions no longer double their punctuation — a card title that ends in a
+  period reads "Write: …", not "Write.: …".** The prose projection joins a component's
+  `label: value` narration, but a label that already ended in a sentence terminator (an
+  authored card title "Write.", "Choose a component.") or a stray separator produced a
+  doubled "Write.:" in the caption crawl and the exported `.vtt`. All `label: value` joins
+  (stats/kpi, tables, nested lists, definition lists, state markers) now route through one
+  `labelValue` helper that drops a trailing terminator/separator from the label before the
+  colon, so the rule can't drift between walkers. Regression-guarded in
+  `test/unit/transformers/prose-projection.test.js`.
+
 - **Read-aloud no longer drops the value after a colon — a "label: value" caption is now
   spoken in full.** The live Present narration projects component captions as `label: value`
   ("components: 53", "Total revenue: $1.2M"), but a colon is a TTS hard-stop: Kokoro (and many
