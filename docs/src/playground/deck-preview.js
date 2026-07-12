@@ -239,24 +239,66 @@ export function linkGuardAgent() {
 //   3. Hold a 9mm safe margin — it also dodges the ~3-5mm unprintable edge every
 //      physical printer clips, so full-bleed content never loses its border.
 // Never crops; a slide narrower than the sheet centers with white letterbox bands.
-function buildPrintCss(gw, gh) {
-	const PX_PER_MM = 96 / 25.4; // CSS px are 1/96in
-	const SAFE = Math.round(9 * PX_PER_MM); // 9mm ≈ 34px, per printable edge
+// Paper sheets in CSS px at 96dpi, PORTRAIT (w×h). Landscape swaps them.
+export const PRINT_SHEETS = {
+	letter: [816, 1056],   // 8.5×11in
+	legal: [816, 1344],    // 8.5×14in
+	a4: [794, 1123],       // 210×297mm
+};
+
+// 9mm safe margin in px @96dpi (≈34px) — also dodges the ~3-5mm unprintable edge
+// every physical printer clips. Shared by the vector print CSS and the print PDF.
+export const PRINT_SAFE_PX = Math.round(9 * (96 / 25.4));
+
+// Resolve the print SHEET (paper + orientation + px dimensions) for a deck's box.
+// `opts` (all optional): { paper:'auto'|'letter'|'legal'|'a4', orientation:'auto'
+// |'landscape'|'portrait' }. Auto picks the least-wasteful sheet + orientation for
+// the deck's aspect; explicit values override. ONE source of truth for the paper
+// decision (HARD RULE #1) — the Drawing Board's vector print CSS AND the Studio's
+// print-to-PDF (share-export.ts, bakes the sheet into the real PDF MediaBox) both
+// call this, so the two surfaces can never disagree on which sheet a deck prints on.
+export function resolvePrintSheet(gw, gh, opts) {
+	const o = opts || {};
 	const aspect = gw / gh;
-	// Landscape sheets are W×H in CSS px at 96dpi (Legal 14×8.5in, Letter 11×8.5in);
-	// portrait Letter is 8.5×11in. Thresholds sit between the named aspects
-	// (16:9≈1.78, 3:2=1.5, 4:3≈1.33, 1:1, portrait<1) so each deck lands on its
-	// least-wasteful sheet.
-	let size, pageW, pageH;
-	if (aspect >= 1.55) { size = 'legal landscape'; pageW = 1344; pageH = 816; }
-	else if (aspect >= 1.15) { size = 'letter landscape'; pageW = 1056; pageH = 816; }
-	else { size = 'letter portrait'; pageW = 816; pageH = 1056; }
+	// Paper: auto → least-wasteful sheet for the aspect (16:9→Legal, 4:3/other→Letter).
+	const paper = ['letter', 'legal', 'a4'].includes(o.paper) ? o.paper : (aspect >= 1.55 ? 'legal' : 'letter');
+	// Orientation: auto → landscape for a wide deck, portrait for a tall one.
+	const orientation = o.orientation === 'landscape' || o.orientation === 'portrait'
+		? o.orientation
+		: (gw >= gh ? 'landscape' : 'portrait');
+	const [pw, ph] = PRINT_SHEETS[paper];
+	const [pageW, pageH] = orientation === 'landscape' ? [ph, pw] : [pw, ph];
+	return { paper, orientation, pageW, pageH };
+}
+
+// Fit + center a slide box onto a sheet (all px @96dpi), holding the 9mm safe margin.
+// Returns the placement rect for the slide image on the page. `fit:'actual'` prints
+// at 1:1 (may exceed the printable box → clip); default scales to fit, never upscaled.
+// The print PDF (share-export.ts) uses this to place each rasterized slide on its page.
+export function fitSlideOnSheet(gw, gh, pageW, pageH, fit) {
+	const availW = pageW - 2 * PRINT_SAFE_PX;
+	const availH = pageH - 2 * PRINT_SAFE_PX;
+	const scale = fit === 'actual' ? 1 : Math.min(Math.min(availW / gw, availH / gh), 1);
+	const w = gw * scale;
+	const h = gh * scale;
+	return { x: (pageW - w) / 2, y: (pageH - h) / 2, w, h };
+}
+
+// Vector print CSS for the browser ⌘P path (the Drawing Board print; the Studio's
+// "Print deck" now prints a real PDF instead — share-export.ts). `opts`:
+// { paper, orientation, fit:'page'|'actual' }; auto by default.
+function buildPrintCss(gw, gh, opts) {
+	const o = opts || {};
+	const SAFE = PRINT_SAFE_PX; // 9mm ≈ 34px, per printable edge
+	const { paper, orientation, pageW, pageH } = resolvePrintSheet(gw, gh, o);
+	const size = paper + ' ' + orientation;
 	// GUARD: shave 2px off the printable box before fitting. At an exact fit (e.g. a
 	// 9:16 slide whose scaled height equals the page), sub-pixel rounding can nudge the
 	// box a hair over the page and spill every slide onto a second sheet — the guard +
 	// floor keep the scaled box strictly inside, so it's always one slide per page.
 	const k = Math.min((pageW - 2 * SAFE - 2) / gw, (pageH - 2 * SAFE - 2) / gh);
-	const zoom = Math.floor(Math.min(k, 1) * 10000) / 10000; // floor (never round up); never upscale past 1:1
+	// fit:'actual' → 1:1 (native size, may clip); default → scale to fit, floored, never upscaled.
+	const zoom = o.fit === 'actual' ? 1 : Math.floor(Math.min(k, 1) * 10000) / 10000;
 	return (
 		'@page{size:' + size + ';margin:9mm;}' +
 		'@media print{html,body{padding:0;margin:0;background:#fff;}' +
@@ -302,6 +344,9 @@ export function buildSrcdoc({
 	cursor = false,
 	activeOutline = null, // accent color string, or null
 	printRules = false,
+	// { paper, orientation, fit } for buildPrintCss (undefined → auto). Structural type
+	// so a caller's PrintOptions (which also carries `color`) is assignable.
+	printOpts = /** @type {{paper?:string,orientation?:string,fit?:string}|undefined} */ (undefined),
 	clamp = true,
 	sync = false,
 	center = false, // vertically center a short deck instead of pinning it to the top
@@ -328,7 +373,7 @@ export function buildSrcdoc({
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';
-	const printCss = printRules ? buildPrintCss(gw, gh) : '';
+	const printCss = printRules ? buildPrintCss(gw, gh, printOpts) : '';
 	const GEOM_GLOBALS = 'window.__SLIDE_W=' + gw + ';window.__SLIDE_H=' + gh + ';';
 	// srcdoc (a fresh browsing context per write), NOT doc.open()/write()/close():
 	// the latter keeps the iframe window, so lattice-runtime.js's one-shot Mermaid
@@ -366,8 +411,15 @@ export function buildSrcdoc({
 		slideBox(gw, gh) +
 		sectionRule +
 		activeRule +
-		printCss +
 		css +
+		// printCss LAST so its `@page` wins. CSS merges same-named `@page` rules with
+		// the LATER declaration winning per-descriptor, and the engine `css` carries its
+		// own `@page{size:<slide-px>;margin:0}` (one-slide-per-page for the colour PDF).
+		// Emitted before `css`, our `@page{size:<paper>;margin:9mm}` would be overridden
+		// and every print came out on the raw slide sheet, edge-to-edge — defeating the
+		// paper pick + safe margin. After `css`, the print sheet + margin win. (The
+		// `@media print` block is already `!important`, so order never mattered for it.)
+		printCss +
 		'</style></head><body>' +
 		a11yDefs +
 		html +

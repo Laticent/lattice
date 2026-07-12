@@ -15,6 +15,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { getFrontMatter, mergeClassTokens, setFrontMatter } from './front-matter';
+import type { PrintOptions } from './PrintOptionsPanel';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -495,83 +496,59 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 }
 
 /**
- * Vector, selectable Print — the browser's own PDF engine. Builds a printable
- * full-deck frame from the render (print rules ON, visible to the print box) and
- * invokes print; the frame is removed once the dialog closes.
+ * Print — build a real, print-ready PDF and open it in a NEW TAB to print/save.
+ *
+ * Why a real PDF, not a CSS-print HTML page: the deck must print one-slide-per-page
+ * at the chosen paper size on a PHONE, and iOS Safari **ignores CSS `@page {size}`**
+ * and won't reliably page-break a scaled layout — so a vector print tab clips and
+ * flows continuously on iOS (the reported bug, IMG_2945). A real PDF carries its page
+ * geometry in the MediaBox, which iOS honors exactly: reliable one-slide-per-page at
+ * the right size on iPhone AND desktop. We reuse the existing per-slide PDF pipeline
+ * (renderPdfBlob) with a `sheet` = the chosen paper baked into each page, the slide
+ * fit + centered with a 9mm safe margin. B&W stamps `class: print` so the deck
+ * rasterizes through the section.print band.
+ *
+ * Why we render BEFORE opening the tab (not a reserved pop-up): the rasterizer
+ * (html-to-image + rAF) needs a FOREGROUND document, and `window.open` immediately
+ * marks THIS tab `document.hidden`, which pauses rAF and freezes the very render the
+ * pop-up is waiting on. So we build the PDF while the Studio tab is still foreground,
+ * then open the finished blob. If that open is pop-up-blocked (the async render spent
+ * the click's activation), we fall back to a download — the user opens the saved PDF
+ * to print. See engineering/decisions/2026-06-14-deck-print-styling.md.
  */
-export async function sharePrintDeck(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string): Promise<void> {
-	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
-	const { buildSrcdoc } = await import('@/playground/deck-preview.js');
-	const ex = await exporters();
-	// The print frame must be a REAL, on-screen, focusable target. The old host was
-	// hidden (`opacity:0`, zero-sized, `overflow:hidden`) — an ambiguous print target:
-	// a browser that won't move focus into an invisible frame (Firefox) runs
-	// `contentWindow.print()` against the TOP document instead, so the "deck" printed
-	// as a screenshot of the Studio chrome (the reported bug). Mounting it
-	// full-viewport, opaque, and on top makes it the unambiguous target in every
-	// browser — exactly like the Drawing Board's visible preview frame, which never
-	// had this bug. It shows for a frame or two before the print dialog opens.
-	const host = document.createElement('div');
-	host.dataset.studioPrint = 'deck';
-	host.setAttribute('aria-hidden', 'true');
-	host.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#fff;';
-	const frame = document.createElement('iframe');
-	frame.title = 'Print render';
-	frame.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;';
-	// A quiet status line that is also the manual escape hatch's affordance: this
-	// overlay is opaque and covers the whole app, so if the print dialog is blocked
-	// or its close event never fires, the user must be able to get out of it.
-	const hint = document.createElement('div');
-	hint.textContent = 'Opening the print dialog… (press Esc to close)';
-	hint.style.cssText = 'position:absolute;left:50%;bottom:6%;transform:translateX(-50%);font:600 13px/1.4 system-ui,sans-serif;color:#64748b;cursor:default;';
-	host.appendChild(frame);
-	host.appendChild(hint);
-	document.body.appendChild(host);
-	// Tear down EXACTLY once, removing every listener it registered so none lingers to
-	// fire on the user's next unrelated print. It runs on whichever signal arrives
-	// first: `afterprint`, the window regaining focus or the tab becoming visible again
-	// (the dialog closing — the cross-browser backstop when `afterprint` misfires), a
-	// click / Escape (manual escape hatch), or a short safety timer. Removing the
-	// overlay after `print()` has been called is safe — the print snapshot is taken.
-	let torndown = false;
-	const offs: Array<() => void> = [];
-	const cleanup = () => {
-		if (torndown) return;
-		torndown = true;
-		for (const off of offs) off();
-		host.remove();
-	};
-	const on = (t: EventTarget, ev: string, fn: (e: Event) => void) => {
-		t.addEventListener(ev, fn);
-		offs.push(() => t.removeEventListener(ev, fn));
-	};
-	// Bound the load wait — a srcdoc whose `load` never fires must not hang the
-	// export forever (mirrors createCaptureFrame's withTimeout in the export core).
-	await new Promise<void>((res) => {
-		const t = window.setTimeout(res, 10000);
-		frame.addEventListener('load', () => { window.clearTimeout(t); res(); }, { once: true });
-		frame.srcdoc = buildSrcdoc({ html: render.html, css: render.css, mode: render.mode, geom: render.geom, runtimeUrl: render.runtimeUrl, fontCss: render.fontCss, contentVisibility: false, cursor: false, sync: false, printRules: true, lang: getFrontMatter(source, 'lang') || 'en' });
-	});
-	try {
-		const win = frame.contentWindow as (Window & { __latticeFit?: () => void }) | null;
-		win?.__latticeFit?.();
-		// Two frames so the fit/layout paints before the browser snapshots for print.
-		await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
-		// Register the close/escape signals only NOW (right before printing) so setup
-		// focus churn can't trip them: the *next* focus / visibility change is the dialog
-		// closing. The frame's own listener dies with the iframe on teardown.
-		win?.addEventListener('afterprint', cleanup, { once: true });
-		on(window, 'afterprint', cleanup);
-		on(window, 'focus', cleanup);
-		on(document, 'visibilitychange', () => { if (!document.hidden) cleanup(); });
-		on(host, 'click', cleanup);
-		on(window, 'keydown', (e) => { if ((e as KeyboardEvent).key === 'Escape') cleanup(); });
-		window.setTimeout(cleanup, 30000); // backstop for a browser that fires none of the above
-		ex.exportPrint(frame, { deck: name, engine: 'lattice' });
-	} catch (e) {
-		cleanup();
-		throw e;
+export async function sharePrintDeck(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', printOpts: PrintOptions, extra?: ExtraTheme, extraCss?: string, onStatus?: (m: string) => void): Promise<void> {
+	// B&W → stamp the deck-wide print band (class: print) before rendering; the engine
+	// propagates it onto every section, so section.print inks the whole deck.
+	const printSource = printOpts.color === 'bw' ? mergeClassTokens(source, 'print') : source;
+	const render = await buildDeckRender(options, printSource, palette, mode, extra, extraCss);
+	const [ex, deckMod] = await Promise.all([exporters(), import('@/playground/deck-preview.js')]);
+	const gw = render.geom?.w || 1280;
+	const gh = render.geom?.h || 720;
+	// The chosen sheet (auto-pick or explicit) → the PDF MediaBox; each slide fit +
+	// centered on it. resolvePrintSheet is the ONE source of truth for the paper pick
+	// (shared with the Drawing Board's vector print CSS — HARD RULE #1).
+	const { pageW, pageH } = deckMod.resolvePrintSheet(gw, gh, printOpts);
+	const blob = await ex.renderPdfBlob(render, name, onStatus, { deck: name, engine: 'lattice' }, { sheet: { pageW, pageH, fit: printOpts.fit } });
+	const url = URL.createObjectURL(blob);
+	const filename = `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`;
+	// Open the finished PDF in a new tab; its native viewer's Print/Share does the actual
+	// print (on a phone: Share → Print — reliable one-slide-per-page at the chosen size).
+	const win = window.open(url, '_blank');
+	if (win) {
+		try { win.focus(); } catch { /* best-effort */ }
+	} else {
+		// Pop-up blocked (a slow render can outlast the click's activation) → download,
+		// which never needs a gesture. `<a download>` triggers a Save; the user opens it.
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename;
+		a.rel = 'noopener';
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
 	}
+	// Revoke once the tab/download has had time to load the PDF (immediate revoke aborts it).
+	setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* noop */ } }, 60_000);
 }
 
 type ReadAlongCore = {

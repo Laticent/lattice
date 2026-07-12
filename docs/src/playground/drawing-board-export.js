@@ -29,7 +29,7 @@
 
 import { themeImportNames } from '../lib/theme-fetch.ts';
 import { notesCore } from './authoring-core.generated.js';
-import { buildSrcdoc } from './deck-preview.js';
+import { buildSrcdoc, fitSlideOnSheet } from './deck-preview.js';
 import { embedComponentsInMarkdown } from './layout-core.generated.js';
 import { addPageStickyNotes } from './pdf-sticky-notes.js';
 
@@ -288,7 +288,18 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		if (win?.__latticeFit) win.__latticeFit();
 		// Let fonts, layout, and any async diagrams (Mermaid) settle before capture.
 		try { if (doc.fonts?.ready) await withTimeout(doc.fonts.ready, 8000); } catch (_e) {}
-		await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+		// Settle one more paint — but rAF is PAUSED in a backgrounded tab, and the print
+		// export runs with the Studio tab backgrounded behind the new PDF tab it just
+		// opened. A bare double-rAF would hang the whole export there, so race it against
+		// a short timer fallback (timers only throttle, never pause). Foreground exports
+		// still settle on the rAF (fires first, ~32ms); a backgrounded one proceeds on the
+		// fallback. Capture reads layout + computed styles, which stay valid while hidden.
+		await new Promise((res) => {
+			let settled = false;
+			const finish = () => { if (!settled) { settled = true; res(); } };
+			requestAnimationFrame(() => requestAnimationFrame(finish));
+			setTimeout(finish, 500);
+		});
 		await waitForDiagrams(doc);
 		if (win?.__latticeFit) win.__latticeFit();
 	} catch (e) {
@@ -630,18 +641,37 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat) {
 	});
 }
 
-// Legacy lane: the original all-main-thread jsPDF build.
-async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations) {
+// Legacy lane: the original all-main-thread jsPDF build. Also the ONLY lane for the
+// print `sheet` mode (Studio "Print deck"): a chosen paper-size MediaBox with the
+// slide fit + centered on a white page, so the PDF's own page geometry — which iOS
+// honors exactly, unlike CSS @page — gives reliable one-slide-per-page at the right
+// size. `sheet` = { pageW, pageH, fit } in px @96dpi; absent → the slide-sized page
+// (full-bleed) the colour PDF/PPTX use.
+async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, sheet) {
 	const { jsPDF } = await import('jspdf');
 	const { w: boxW, h: boxH } = slideGeom(sections[0]);
-	const { pageW, pageH } = pdfPageGeom(boxW, boxH);
-	const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [pageW, pageH], compress: true });
+	const { pageW, pageH } = sheet ? { pageW: sheet.pageW, pageH: sheet.pageH } : pdfPageGeom(boxW, boxH);
+	// Slide placement: full-page (slide-sized MediaBox) or fit+centered on the sheet.
+	const place = sheet ? fitSlideOnSheet(boxW, boxH, pageW, pageH, sheet.fit) : { x: 0, y: 0, w: pageW, h: pageH };
+	// Full-page keeps its historical hardcoded 'landscape' (unchanged); sheet mode derives
+	// orientation from the chosen page so a portrait sheet isn't forced landscape.
+	const orientation = sheet ? (pageW >= pageH ? 'landscape' : 'portrait') : 'landscape';
+	// Sheet mode wants a PHYSICALLY correct MediaBox (so iOS/print shows "US Legal", not
+	// a giant custom size): the `px_scaling` hotfix makes jsPDF treat px as 96dpi (1px =
+	// 0.75pt), so pageW=1344px → 1008pt = 14in. The full-page colour PDF keeps its legacy
+	// px scaling (unchanged) — its absolute size never mattered, printers fit-to-page it.
+	const pdf = new jsPDF(sheet
+		? { orientation, unit: 'px', format: [pageW, pageH], compress: true, hotfixes: ['px_scaling'] }
+		: { orientation, unit: 'px', format: [pageW, pageH], compress: true });
 	pdf.setProperties(pdfProps(name, meta, sections.length));
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat);
-		if (i > 0) pdf.addPage([pageW, pageH], 'landscape');
-		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, pageW, pageH);
+		if (i > 0) pdf.addPage([pageW, pageH], orientation);
+		// White page under a fit+centered slide so the letterbox bands print white, not
+		// transparent (a transparent PNG over nothing composites to black on some viewers).
+		if (sheet) { pdf.setFillColor(255, 255, 255); pdf.rect(0, 0, pageW, pageH, 'F'); }
+		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', place.x, place.y, place.w, place.h);
 		// Review comments for this slide → sticky notes on the page just drawn (same
 		// helper + placement the worker lane uses, so the two lanes stay identical).
 		if (annotations) addPageStickyNotes(pdf, annotations[i], pageW);
@@ -660,10 +690,13 @@ async function buildPdfBlob(render, name, onStatus, meta, opts) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	// Per-page comment sticky notes (opt-in via the export panel); absent → none.
 	const annotations = opts?.annotations || null;
+	// Print `sheet` mode (paper-size MediaBox + fit+center) is main-thread only — the
+	// worker lane hardcodes a full-page slide-sized image, so route sheet past it.
+	const sheet = opts?.sheet || null;
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
-		if (canUsePdfWorker()) {
+		if (!sheet && canUsePdfWorker()) {
 			try {
 				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
 			} catch (e) {
@@ -671,7 +704,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts) {
 				console.warn('[lattice-export] PDF worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 			}
 		}
-		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
+		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, sheet);
 	} finally {
 		dispose();
 	}
