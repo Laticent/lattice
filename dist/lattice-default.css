@@ -4967,7 +4967,7 @@ section.journey .journey-task {
   min-height: 4.375cqi;
   font-size: var(--fs-meta);
   text-align: center;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--text-body) 8%, transparent);
+  box-shadow: 0 1px 0 var(--journey-row-shadow);
 }
 /* Inset top-left corner — no overhang. The dot's own letter avatar is
  * the actor identifier; no white ring is needed to lift it off the chip. */
@@ -5258,10 +5258,10 @@ section.journey .journey-lane-track {
   grid-row: var(--row);
   align-self: center;
   height: 2px;  /* sanctioned: actor connector rule — a hairline, resolution-stable by design */
-  /* DYNAMIC: --actor-color is set inline per actor from the markup (not a fixed
-   * palette slot), so this mix can't be pre-compiled to a flat token — it stays
-   * a live color-mix() on the runtime local. */
-  background: color-mix(in oklab, var(--actor-color) 35%, transparent);
+  /* --actor-track is the compiled 35%-into-transparent tint of the lane's cat hue,
+   * set inline by the transform alongside --actor-color (both cycle the fixed
+   * JOURNEY_ACTOR_PALETTE), so no color-mix ships in the paint. */
+  background: var(--actor-track);
   border-radius: 1px;
 }
 section.journey .journey-lane-dot {
@@ -5274,7 +5274,9 @@ section.journey .journey-lane-dot {
   border-radius: 50%;
   background: var(--mood-color);
   border: 2px solid var(--bg);
-  box-shadow: 0 0 0 1px color-mix(in oklab, var(--actor-color) 70%, transparent);
+  /* --actor-ring is the compiled 70%-into-transparent tint of the lane's cat hue
+   * (set inline with --actor-color) — flat token, no color-mix in the paint. */
+  box-shadow: 0 0 0 1px var(--actor-ring);
   z-index: 1;
 }
 section.journey .journey-lane-dot[data-mood="5"] { --mood-color: var(--journey-mood-5); }
@@ -5444,7 +5446,7 @@ section.journey .journey-vtask {
   background: var(--journey-task-bg);
   border-radius: var(--radius-sm);
   padding: var(--sp-xs) var(--sp-sm);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--text-body) 8%, transparent);
+  box-shadow: 0 1px 0 var(--journey-row-shadow);
 }
 section.journey .journey-board[data-orient="vertical"] .journey-task-actors {
   position: static;
@@ -10934,21 +10936,21 @@ section.regulatory-update > .cell-stage {
    border / eyebrow) AND the FLAT lane-tint tokens the color-mix paints used to
    compute inline — so td:first-child / swimlane grounds read a compiled literal. */
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+2),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); --phase-tint-6:var(--cat-1-phasetint-6); --phase-tint-14:var(--cat-1-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); --phase-tint-6:var(--cat-1-phasetint-6); --phase-tint-14:var(--cat-1-phasetint-14); --phase-border:var(--cat-1-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+3),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); --phase-tint-6:var(--cat-2-phasetint-6); --phase-tint-14:var(--cat-2-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); --phase-tint-6:var(--cat-2-phasetint-6); --phase-tint-14:var(--cat-2-phasetint-14); --phase-border:var(--cat-2-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+4),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); --phase-tint-6:var(--cat-3-phasetint-6); --phase-tint-14:var(--cat-3-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); --phase-tint-6:var(--cat-3-phasetint-6); --phase-tint-14:var(--cat-3-phasetint-14); --phase-border:var(--cat-3-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+5),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); --phase-tint-6:var(--cat-4-phasetint-6); --phase-tint-14:var(--cat-4-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); --phase-tint-6:var(--cat-4-phasetint-6); --phase-tint-14:var(--cat-4-phasetint-14); --phase-border:var(--cat-4-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+6),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); --phase-tint-6:var(--cat-5-phasetint-6); --phase-tint-14:var(--cat-5-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); --phase-tint-6:var(--cat-5-phasetint-6); --phase-tint-14:var(--cat-5-phasetint-14); --phase-border:var(--cat-5-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+7),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); --phase-tint-6:var(--cat-6-phasetint-6); --phase-tint-14:var(--cat-6-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); --phase-tint-6:var(--cat-6-phasetint-6); --phase-tint-14:var(--cat-6-phasetint-14); --phase-border:var(--cat-6-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); --phase-tint-6:var(--cat-7-phasetint-6); --phase-tint-14:var(--cat-7-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); --phase-tint-6:var(--cat-7-phasetint-6); --phase-tint-14:var(--cat-7-phasetint-14); --phase-border:var(--cat-7-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+1),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); --phase-tint-6:var(--cat-8-phasetint-6); --phase-tint-14:var(--cat-8-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); --phase-tint-6:var(--cat-8-phasetint-6); --phase-tint-14:var(--cat-8-phasetint-14); --phase-border:var(--cat-8-phaseborder); }
 
 :is(section.roadmap, figure.roadmap) td {
   padding:var(--sp-xs) var(--sp-md);
@@ -11274,11 +11276,12 @@ section.regulatory-update > .cell-stage {
   flex-direction:column;
   gap:2px; /* sanctioned: hairline-scale gap in the horizon row */
   padding-left:var(--sp-sm);
-  /* DYNAMIC (chart-palette rule #3): --phase-accent here is set INLINE per
-     horizon-card by lib/roadmap.js (HORIZON_ACCENTS), a per-element runtime local
-     that can't be pre-compiled — so this ONE mix stays a live color-mix(). A
-     cell-state row overrides border-left-color with the flat --state-rail above. */
-  border-left:2px solid color-mix(in srgb, var(--phase-accent, var(--accent)) 40%, var(--border));
+  /* --phase-border is the compiled 40%-into-border tint of the card's cat hue, set by
+     the same rotation that sets --phase-accent (CSS nth-child for the grid; lib/roadmap.js
+     inline for the transposed horizons). Reads a flat token via plain var() — no color-mix
+     in the paint. The empty-grid fallback is the accent-default border. A cell-state row
+     overrides border-left-color with the flat --state-rail above. */
+  border-left:2px solid var(--phase-border, var(--roadmap-accent-border));
 }
 :is(section.roadmap, figure.roadmap).horizons .row-label {
   font-family:var(--font-mono);

@@ -8,25 +8,27 @@
  * build-css.js strips it from the shipped bundle, so every paint below reads a
  * flat token through plain var() — no color-mix()/light-dark() ships in a paint.
  *
- * DYNAMIC exception (rule #3): the HORIZONS phase rail (.horizon-rows > li
- * border-left, ~40% mix) reads --phase-accent, which lib/roadmap.js sets INLINE
- * per horizon-card (HORIZON_ACCENTS → var(--cat-K-mark)). A per-element runtime
- * local can't be pre-compiled, so that ONE paint keeps its color-mix(). The
- * NON-transposed grid assigns --phase-accent via the CSS nth-child rotation, so
- * its lane tints ARE compiled here (per-cat --cat-K-phasetint-*). */
+ * The HORIZONS phase rail (.horizon-rows > li border-left, 40% mix) reads --phase-accent,
+ * which cycles the fixed cat rotation on BOTH paths — the CSS nth-child rotation (grid) and
+ * lib/roadmap.js's HORIZON_ACCENTS inline (transposed). Because that hue is a fixed 8-slot
+ * set, the 40%-into-border result compiles here as per-cat --cat-K-phaseborder tokens; the
+ * same rotation setters re-point --phase-border at the matching slot, so NO color-mix ships
+ * in the border paint (old-engine safe). Same construction as the --cat-K-phasetint lane tints. */
 :is(section.roadmap, figure.roadmap) {
-  /* Per-cat workstream-lane tints — --phase-accent is var(--cat-K-mark), set by the
-   * nth-child rotation below; these mirror it at the fixed 6% (grid) / 14% (swimlane)
-   * mix into --bg-alt, re-pointed by the same rotation setters. */
+  /* Per-cat workstream-lane tints + phase-rail border — --phase-accent is var(--cat-K-mark),
+   * set by the nth-child rotation below; these mirror it at the fixed 6% (grid) / 14% (swimlane)
+   * tint into --bg-alt and the 40% border mix into --border, re-pointed by the same setters. */
   /* @expand K in 1..8
   --cat-K-phasetint-6: color-mix(in srgb, var(--cat-K-mark) 6%, var(--bg-alt));
   --cat-K-phasetint-14: color-mix(in srgb, var(--cat-K-mark) 14%, var(--bg-alt));
+  --cat-K-phaseborder: color-mix(in srgb, var(--cat-K-mark) 40%, var(--border));
   @end */
 
-  /* Accent-default lane tints — the rotation always assigns a cat, so these are the
+  /* Accent-default lane tints + border — the rotation always assigns a cat, so these are the
    * defensive fallback (empty grid), matching the old var(--phase-accent, var(--accent)). */
   --roadmap-accent-tint-6: color-mix(in srgb, var(--accent) 6%, var(--bg-alt));
   --roadmap-accent-tint-14: color-mix(in srgb, var(--accent) 14%, var(--bg-alt));
+  --roadmap-accent-border: color-mix(in srgb, var(--accent) 40%, var(--border));
   /* Swimlane phase-cell edge rule — the phase COLUMN cells carry no --phase-accent
    * (the rotation sets it only on th + td:first-child), so this is the accent default. */
   --roadmap-swim-edge: color-mix(in srgb, var(--accent) 60%, var(--border));
@@ -210,21 +212,21 @@
    border / eyebrow) AND the FLAT lane-tint tokens the color-mix paints used to
    compute inline — so td:first-child / swimlane grounds read a compiled literal. */
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+2),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); --phase-tint-6:var(--cat-1-phasetint-6); --phase-tint-14:var(--cat-1-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); --phase-tint-6:var(--cat-1-phasetint-6); --phase-tint-14:var(--cat-1-phasetint-14); --phase-border:var(--cat-1-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+3),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); --phase-tint-6:var(--cat-2-phasetint-6); --phase-tint-14:var(--cat-2-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); --phase-tint-6:var(--cat-2-phasetint-6); --phase-tint-14:var(--cat-2-phasetint-14); --phase-border:var(--cat-2-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+4),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); --phase-tint-6:var(--cat-3-phasetint-6); --phase-tint-14:var(--cat-3-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); --phase-tint-6:var(--cat-3-phasetint-6); --phase-tint-14:var(--cat-3-phasetint-14); --phase-border:var(--cat-3-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+5),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); --phase-tint-6:var(--cat-4-phasetint-6); --phase-tint-14:var(--cat-4-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); --phase-tint-6:var(--cat-4-phasetint-6); --phase-tint-14:var(--cat-4-phasetint-14); --phase-border:var(--cat-4-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+6),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); --phase-tint-6:var(--cat-5-phasetint-6); --phase-tint-14:var(--cat-5-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); --phase-tint-6:var(--cat-5-phasetint-6); --phase-tint-14:var(--cat-5-phasetint-14); --phase-border:var(--cat-5-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+7),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); --phase-tint-6:var(--cat-6-phasetint-6); --phase-tint-14:var(--cat-6-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); --phase-tint-6:var(--cat-6-phasetint-6); --phase-tint-14:var(--cat-6-phasetint-14); --phase-border:var(--cat-6-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); --phase-tint-6:var(--cat-7-phasetint-6); --phase-tint-14:var(--cat-7-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); --phase-tint-6:var(--cat-7-phasetint-6); --phase-tint-14:var(--cat-7-phasetint-14); --phase-border:var(--cat-7-phaseborder); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+1),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); --phase-tint-6:var(--cat-8-phasetint-6); --phase-tint-14:var(--cat-8-phasetint-14); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); --phase-tint-6:var(--cat-8-phasetint-6); --phase-tint-14:var(--cat-8-phasetint-14); --phase-border:var(--cat-8-phaseborder); }
 
 :is(section.roadmap, figure.roadmap) td {
   padding:var(--sp-xs) var(--sp-md);
@@ -550,11 +552,12 @@
   flex-direction:column;
   gap:2px; /* sanctioned: hairline-scale gap in the horizon row */
   padding-left:var(--sp-sm);
-  /* DYNAMIC (chart-palette rule #3): --phase-accent here is set INLINE per
-     horizon-card by lib/roadmap.js (HORIZON_ACCENTS), a per-element runtime local
-     that can't be pre-compiled — so this ONE mix stays a live color-mix(). A
-     cell-state row overrides border-left-color with the flat --state-rail above. */
-  border-left:2px solid color-mix(in srgb, var(--phase-accent, var(--accent)) 40%, var(--border));
+  /* --phase-border is the compiled 40%-into-border tint of the card's cat hue, set by
+     the same rotation that sets --phase-accent (CSS nth-child for the grid; lib/roadmap.js
+     inline for the transposed horizons). Reads a flat token via plain var() — no color-mix
+     in the paint. The empty-grid fallback is the accent-default border. A cell-state row
+     overrides border-left-color with the flat --state-rail above. */
+  border-left:2px solid var(--phase-border, var(--roadmap-accent-border));
 }
 :is(section.roadmap, figure.roadmap).horizons .row-label {
   font-family:var(--font-mono);

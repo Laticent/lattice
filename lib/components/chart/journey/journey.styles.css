@@ -82,6 +82,20 @@ section.journey {
   --journey-mood-4-wfill: color-mix(in oklab, var(--journey-mood-4) 28%, var(--bg-alt));
   --journey-mood-5-wfill: color-mix(in oklab, var(--journey-mood-5) 28%, var(--bg-alt));
 
+  /* Per-cat actor connector + dot-ring alphas. --actor-color cycles the fixed cat
+   * palette (JOURNEY_ACTOR_PALETTE), so the 35%/70%-into-transparent mixes the lane
+   * connector track + the lane-dot ring paint compile to flat per-cat tokens; the
+   * transform sets --actor-track / --actor-ring inline on the lane (parallel to
+   * --actor-color), so no color-mix ships in either paint (old-engine safe). */
+  /* @expand K in 1..8
+  --journey-cat-K-track: color-mix(in oklab, var(--cat-K-mark) 35%, transparent);
+  --journey-cat-K-ring: color-mix(in oklab, var(--cat-K-mark) 70%, transparent);
+  @end */
+
+  /* Chip footnote hairline shadow — text-body at 8% into transparent, one token
+   * both the vertical-task and swimlane chips read (was a direct color-mix paint). */
+  --journey-row-shadow: color-mix(in srgb, var(--text-body) 8%, transparent);
+
   /* Surfaces */
   --journey-stage-bg: color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
   /* Section bar bg mixes toward --surface-inverse → always a dark surface; its
@@ -320,7 +334,7 @@ section.journey .journey-task {
   min-height: 4.375cqi;
   font-size: var(--fs-meta);
   text-align: center;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--text-body) 8%, transparent);
+  box-shadow: 0 1px 0 var(--journey-row-shadow);
 }
 /* Inset top-left corner — no overhang. The dot's own letter avatar is
  * the actor identifier; no white ring is needed to lift it off the chip. */
@@ -611,10 +625,10 @@ section.journey .journey-lane-track {
   grid-row: var(--row);
   align-self: center;
   height: 2px;  /* sanctioned: actor connector rule — a hairline, resolution-stable by design */
-  /* DYNAMIC: --actor-color is set inline per actor from the markup (not a fixed
-   * palette slot), so this mix can't be pre-compiled to a flat token — it stays
-   * a live color-mix() on the runtime local. */
-  background: color-mix(in oklab, var(--actor-color) 35%, transparent);
+  /* --actor-track is the compiled 35%-into-transparent tint of the lane's cat hue,
+   * set inline by the transform alongside --actor-color (both cycle the fixed
+   * JOURNEY_ACTOR_PALETTE), so no color-mix ships in the paint. */
+  background: var(--actor-track);
   border-radius: 1px;
 }
 section.journey .journey-lane-dot {
@@ -627,7 +641,9 @@ section.journey .journey-lane-dot {
   border-radius: 50%;
   background: var(--mood-color);
   border: 2px solid var(--bg);
-  box-shadow: 0 0 0 1px color-mix(in oklab, var(--actor-color) 70%, transparent);
+  /* --actor-ring is the compiled 70%-into-transparent tint of the lane's cat hue
+   * (set inline with --actor-color) — flat token, no color-mix in the paint. */
+  box-shadow: 0 0 0 1px var(--actor-ring);
   z-index: 1;
 }
 section.journey .journey-lane-dot[data-mood="5"] { --mood-color: var(--journey-mood-5); }
@@ -797,7 +813,7 @@ section.journey .journey-vtask {
   background: var(--journey-task-bg);
   border-radius: var(--radius-sm);
   padding: var(--sp-xs) var(--sp-sm);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--text-body) 8%, transparent);
+  box-shadow: 0 1px 0 var(--journey-row-shadow);
 }
 section.journey .journey-board[data-orient="vertical"] .journey-task-actors {
   position: static;
