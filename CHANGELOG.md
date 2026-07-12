@@ -260,6 +260,20 @@ in patch versions.
   *(journey and state-chart stay on the placeholder — they bake pixel geometry / height-relative
   fills at export and need a runtime re-measure in the article box; tracked follow-up.)*
 
+- **The playground's "Diagrams" gallery is now a curated fourteen-type Mermaid tour, not a
+  single flowchart.** The diagram bucket has one component, so its generated survey gallery was
+  one slide — the playground's "Diagrams" entry loaded that lone flowchart. The bucket gallery is
+  now hand-authored (`galleryAuthored` marker, same opt-out as `legal`): twenty-two slides that
+  walk every graph-substance Mermaid type Lattice renders well — flowchart, sequence, sankey,
+  class, ER, requirement, packet, mindmap, tree, architecture, C4, ishikawa, venn, gitgraph —
+  grouped by purpose (flow, structure, hierarchy, cause) and told over one running product story
+  so it reads with the chart gallery, not against it. It deliberately **hands the quantitative
+  shapes off to native charts**: a closing `compare-table` maps gantt/timeline/journey →
+  `gantt`/`timeline-list`/`roadmap`/`journey`, pie/quadrant/radar → `piechart`/`quadrant`/`radar`,
+  and kanban/stateDiagram → `kanban`/`state-chart`, because the native SVG components are
+  themeable, lighter, and export-clean. Every diagram was rewritten fresh (not lifted from the
+  component-level type reference), verified in both themes and in the live playground.
+
 - **A word-cloud now renders live in the exported player's Read·Article view instead of a
   placeholder.** Spatial charts lay out in `cqi`/`%` units and can't re-host as a bare SVG (no
   container context → overflow/overlap), so they showed a "best seen in Present / Read·Slides"
