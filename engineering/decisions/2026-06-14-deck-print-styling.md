@@ -40,9 +40,12 @@ freezes it — and a `window.open` **after an await** is pop-up-blocked (the tap
 user-activation is spent). On-demand building can't satisfy both in one tap on iOS, so:
 - **Desktop** — Print prints the vector HTML via a hidden iframe. No PDF, no await, one tap.
 - **iOS** — Print is **two taps**: tap 1 builds the PDF in the **foreground** (no tab open →
-  no freeze); the button then arms to **"Open PDF to print"**, and tap 2 opens the cached
-  file **synchronously in that gesture** (never blocked) for the native Share → Print. A
-  pop-up-blocked open falls back to a download (never navigates the Studio away).
+  no freeze); the button arms to **"Open PDF to print"**, and tap 2 hands the built file to
+  **`navigator.share({ files })`** synchronously in that gesture — the native share sheet has
+  Print/AirPrint and renders reliably across iOS browsers. This matters: `window.open(blobURL)`
+  on iOS WebKit (notably **iOS Firefox**) *downloads* the PDF instead of showing it, so the
+  user never reaches Print. Where Web Share files aren't supported, fall back to opening the
+  blob in a tab (never navigating the Studio away).
 - **Download** (both) — build on click (cache-aware), then `<a download>`.
 
 **Architecture:**

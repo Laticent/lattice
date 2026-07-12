@@ -157,8 +157,9 @@ in patch versions.
   controls right there, then **Print** or **Download**. The PDF is built **on demand** — only when
   you click Print or Download, never on a config change — and cached by settings so a repeat click
   reuses it. Desktop opens the print dialog with the crisp vector deck (no PDF needed); on iPhone
-  Print takes two taps — one to prepare the PDF, one to open it for the native Share → Print (iOS
-  can't both build and open in a single tap). Download saves the PDF on both. Every slide is always
+  Print takes two taps — one to prepare the PDF, one to hand it to the iOS share sheet for
+  Print/AirPrint (iOS can't both build and hand off in a single tap, and going through the share
+  sheet avoids the blob-download quirk in iOS browsers). Download saves the PDF on both. Every slide is always
   scaled to fit its page, centred — **never cropped**. (This replaces the short-lived separate
   `/studio/print` tab + its `postMessage` handshake, which earned no payoff for its cost.) See
   `engineering/decisions/2026-06-14-deck-print-styling.md`.
