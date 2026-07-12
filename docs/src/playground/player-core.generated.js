@@ -390,6 +390,22 @@ function speakStats(stage) {
   });
   return [...pre, ...sentences].join(" ");
 }
+function speakBigNumber(stage) {
+  const list = stage.querySelector(":scope > ul, :scope > ol") || stage.querySelector("ul, ol");
+  if (!list) return null;
+  const items = [...list.children].filter((li) => li.tagName === "LI");
+  if (!items.length) return null;
+  const pre = [...stage.querySelectorAll("h3, h4, p")].filter((el) => !el.closest(SKIP_SELECTOR) && !list.contains(el) && list.compareDocumentPosition(el) & 2 && speechText(el)).map((el) => terminate(speechText(el)));
+  const parts = items.map((li) => {
+    const sub = li.querySelector(":scope > ul, :scope > ol");
+    const clone = li.cloneNode(true);
+    for (const n of [...clone.querySelectorAll(":scope > ul, :scope > ol")]) n.remove();
+    const value = speechText(clone).replace(/[:—–-]\s*$/, "");
+    const label = sub ? [...sub.children].filter((x) => x.tagName === "LI").map((x) => speechText(x)).filter(Boolean).join(" ") : "";
+    return terminate([value, label].filter(Boolean).join(" "));
+  }).filter(Boolean);
+  return [...pre, ...parts].length ? [...pre, ...parts].join(" ") : null;
+}
 function speakQuote(stage) {
   const bq = stage.querySelector(":scope > blockquote, blockquote");
   if (!bq) return null;
@@ -499,6 +515,7 @@ function projectDeckToSpeech(sections) {
     const wordMap = stateWordMapFor(component);
     let body = "";
     if (component === "kpi" || component === "stats") body = speakStats(stage) || speakGeneric(stage, eyebrow, wordMap);
+    else if (component === "big-number") body = speakBigNumber(stage) || speakGeneric(stage, eyebrow, wordMap);
     else if (component === "quote") body = speakQuote(stage) || speakGeneric(stage, eyebrow, wordMap);
     else if (MEDIA_COMPONENTS.has(component)) body = speakGeneric(stage, eyebrow, wordMap);
     else body = speakGeneric(stage, eyebrow, wordMap);
