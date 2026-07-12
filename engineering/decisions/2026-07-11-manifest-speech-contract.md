@@ -1159,3 +1159,39 @@ strong consumed. Guarded against false positives: an author's inline bold sits i
 DISPLAY/caption change (adds the header text to captions + the exported `.vtt`) — flagged for export
 sign-off; `test:core`/`test:export` pass unchanged. Guarded in `prose-projection.test.js` (a real
 engine render of split-compare asserts both column headers label their bullets).
+
+### Follow-up (2026-07-12): cadence "breath" + TTS-settings state propagation
+
+Two on-device findings from the stress-deck review, both fixed in `voice-model.js`.
+
+**1. Narration felt rushed even at speed 1 ("no time to breathe").** A clocked voice synthesizes each
+sentence as its OWN clip with almost no trailing silence, and the blob playback loop played them
+back-to-back (`await playBlob(i)` then straight to `i+1`), so there was no pause between thoughts.
+Fix: insert an inter-sentence pause after each clip, sized by the sentence's trailing punctuation.
+The value MIRRORS cadenza's `PAUSE_MS` (cadence.ts) on purpose — `buildTrack` already bakes exactly
+that gap in after each cue, and `align()` preserves it, so setting the AUDIO gap equal to the estimate
+gap means the word-cursor rests cleanly in the silence: after cue i is re-anchored, cue i+1's estimated
+start sits at `realEnd_i + pauseAfter`, and the next clip's real onset lands at `realEnd_i + gap` — the
+same point — so the highlight never races into the gap. A LARGER audio gap than the estimate WOULD
+reintroduce that race (the same free-running-clock failure the colon fix's `peakAhead` metric measures),
+so the two constants are kept in lockstep (discipline; a sentence with no terminator gets no breath).
+Audio-path change, no exported bytes; needs on-device feel sign-off.
+
+**2. Changing the model/voice/speed in settings didn't propagate.** Only `setRungPref` emitted
+`db-voice-changed`; `setOrModel`/`setOrVoice`/`setKokoroVoice`/`setSpeed` wrote localStorage but
+broadcast nothing, so a subscribed surface (TtsSettings, the Present voice indicator, a second open
+Workspace — all already listening for `db-voice-changed`) kept showing the stale pick until remount.
+Fix: all four setters now `emitChange()`, matching `setRungPref`. This is the minimal, correct fix —
+the reporter suggested adopting a shared-state library (nanostores/Zustand), but the defect was a
+missing broadcast on four setters, not a fundamental state-management failure: the event-bus pattern
+already in place (mirrored from architect-model's `db-model-changed`) works once every mutation emits.
+A broader store migration remains an option for a SEPARATE change if the Studio's cross-surface state
+grows past what the event bus handles cleanly; it is out of scope here (a large refactor, its own PR).
+
+*Logged perf follow-ups (maker-checker, not fixed here — off the correctness path).* (1) The TTS
+speed `Slider` fires `onChange` per drag tick, so with the new `setSpeed`→`emitChange` each tick
+triggers a `voiceAvailability()` re-read + re-render in TtsSettings — a minor storm while actively
+dragging (no correctness issue; a debounce or commit-on-release would remove it). (2) Drawing-board's
+voice-pick handler calls `refresh()` AND now rides the emit-driven render, so a pick rebuilds twice
+(idempotent, harmless); the Drawing Board is FROZEN (2026-07-03-studio-succession.md), so it's left
+as-is. Both are cosmetic; tracked, not pulled into this diff.

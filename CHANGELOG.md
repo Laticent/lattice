@@ -163,6 +163,20 @@ in patch versions.
   overlap, ishikawa printed a stray `fishbone` head and quoted effect, and C4 rendered a redundant
   floating title. All three now render clean — the same fixes already shipped in the playground tour.
 
+- **Read-aloud breathes between sentences instead of rushing.** A clocked voice (Kokoro et al.)
+  synthesizes each sentence as its own clip with almost no trailing silence, and playback ran them
+  back-to-back — so even at the default speed the narration felt hurried, "like the reader never
+  stopped for air." Playback now inserts a short pause between sentences, sized to the sentence's
+  punctuation and set EQUAL to the caption estimate's own inter-sentence gap so the word-highlight
+  rests in the silence rather than racing ahead of the voice. (Audio-path change; no exported bytes
+  change.)
+
+- **Changing the TTS model / voice / speed now updates every surface immediately.** Only the rung
+  setter broadcast a change event, so picking a different model wrote the preference but left the
+  settings panel, the Present voice indicator, and any second open surface showing the stale choice
+  until they remounted. All four pref setters (`setOrModel` / `setOrVoice` / `setKokoroVoice` /
+  `setSpeed`) now emit `db-voice-changed`, which every voice-aware surface already listens for.
+
 - **Read-aloud now speaks a `split-compare` column's header — "Slide editors: …", "Lattice: …",
   not just the unattributed bullets.** Each column renders as `.option > <strong>header</strong> +
   <ul>bullets`, but a bare `<strong>` is not a block the generic narration walker selected, so the
