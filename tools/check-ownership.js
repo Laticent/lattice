@@ -1173,6 +1173,77 @@ function checkPreviewHtmlSinks(errors) {
   }
 }
 
+// HARD RULE #22, part 2 — the returning-visitor SNAPSHOT is a SECOND untrusted-HTML path,
+// but a MAIN-DOCUMENT one the srcdoc-builder check above can't see: the Studio caches the
+// last rendered slide's HTML in localStorage and `studio.astro`'s pre-paint replay injects
+// it via `innerHTML` into the TOP document (not a sandboxed srcdoc), and that HTML derives
+// from whatever deck the user last viewed (incl. a shared / AI-generated one). The gate
+// above scans only `.js/.ts` for the split-`<script>` srcdoc idiom, so it sees NEITHER the
+// `.astro` injection sink NOR the capture module. This closes both blind spots:
+//   • PRODUCER (`snapshot-cache.js`) is the sanitize chokepoint — it MUST keep its
+//     sanitizeSlideHtml calls (capture + storage boundary) or a poisoned snapshot gets stored.
+//   • SINK (`studio.astro` REPLAY) injects the ALREADY-sanitized snapshot; it is safe ONLY
+//     because the producer sanitized. Any NEW file that reads the snapshot key and injects it
+//     into a document (`innerHTML` / `set:html`) must be sanctioned here with its reasoning.
+// Same allowlist + anti-rot shape as the check above (unlisted sink fails, producer dropping
+// sanitize fails, stale entry fails). See engineering/decisions/2026-07-11-preview-performance-diagnosis.md.
+const SNAPSHOT_KEY_LITERAL = 'lattice-studio-last-slide';
+const SNAPSHOT_INJECT_MARKER = /\.innerHTML\s*=|set:html/;
+const SANCTIONED_SNAPSHOT_SINKS = [
+  { file: 'docs/src/playground/snapshot-cache.js', role: 'producer', mustSanitize: true, why: 'captureFromFrame + saveSnapshot — sanitizes the slide HTML at BOTH the capture chokepoint and the storage boundary before it can be stored.' },
+  { file: 'docs/src/pages/studio.astro', role: 'sink', mustSanitize: false, why: 'REPLAY_JS pre-paint injects the already-sanitized snapshot into the instant-shell; safe by construction because the producer sanitized before storing.' },
+];
+
+function listSnapshotFiles(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listSnapshotFiles(p, out);
+    else if (/\.(?:js|ts|tsx|mjs|cjs|astro)$/.test(e.name)) out.push(p); // NOTE: includes .astro
+  }
+  return out;
+}
+
+function checkSnapshotHtmlSinks(errors) {
+  const DOCS_SRC = path.join(ROOT, 'docs', 'src');
+  const sanctioned = new Map(SANCTIONED_SNAPSHOT_SINKS.map((s) => [s.file, s]));
+  const seen = new Set();
+  for (const file of listSnapshotFiles(DOCS_SRC)) {
+    const rel = path.relative(ROOT, file);
+    if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
+    const src = fs.readFileSync(file, 'utf8');
+    if (!src.includes(SNAPSHOT_KEY_LITERAL)) continue; // not part of the snapshot path
+    const s = sanctioned.get(rel);
+    if (s) {
+      seen.add(rel);
+      if (s.mustSanitize && !SANITIZE_CALL.test(src)) {
+        errors.push(
+          `${rel} produces the returning-visitor snapshot HTML but no longer calls sanitizeSlideHtml (HARD RULE #22) — ` +
+          `restore the sanitize at capture + storage, or the replay injects unsanitized HTML into the top document (#616 XSS).`,
+        );
+      }
+      continue;
+    }
+    // An unsanctioned file that touches the snapshot key AND injects HTML into a document is a new sink.
+    if (SNAPSHOT_INJECT_MARKER.test(src)) {
+      errors.push(
+        `${rel} injects the '${SNAPSHOT_KEY_LITERAL}' snapshot into a document (innerHTML/set:html) but is not a sanctioned ` +
+        `snapshot sink (HARD RULE #22) — the snapshot is untrusted, main-document, un-sandboxed HTML. Ensure it flows only from ` +
+        `the sanitized snapshot-cache producer, then add this file to SANCTIONED_SNAPSHOT_SINKS in tools/check-ownership.js with a justification.`,
+      );
+    }
+  }
+  for (const s of SANCTIONED_SNAPSHOT_SINKS) {
+    if (!seen.has(s.file)) {
+      errors.push(
+        `stale snapshot-sink sanction in tools/check-ownership.js — ${s.file} no longer references the snapshot key ` +
+        `(HARD RULE #22). Remove the SANCTIONED_SNAPSHOT_SINKS entry so the allowlist stays honest.`,
+      );
+    }
+  }
+}
+
 // ── HARD RULE #24: OpenRouter budget — our paid key stays off the site AND out of tests ──
 // Two separate invariants (engineering/workflow.md §OpenRouter budget):
 //   1. NO EXPOSURE — our server-side OPEN_ROUTER_KEY must never reach the deployed site.
@@ -1602,6 +1673,7 @@ function run() {
   checkSolverIntentDeclared(manifests, errors);
   checkDensityCoverage(manifests, errors);
   checkPreviewHtmlSinks(errors);
+  checkSnapshotHtmlSinks(errors);
   checkOpenRouterBudget(errors);
   checkVoiceSampleAssets(errors);
   checkVetrinaBoundary(errors);

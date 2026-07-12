@@ -13,6 +13,7 @@ import EngineWarm from '../components/site/EngineWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { DECKS } from '../components/studio/decks';
+import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { renderFirstSlideShell } from '../../scripts/ssg-first-slide.mjs';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -178,13 +179,17 @@ const REPLAY_JS = shell
 		    picks the newcomer path and flips it to media="all". A returning user uses
 		    the snapshot's own CSS instead, so this never applies for them. */}
 		{shell && <style id="ssr-newcomer-css" is:inline media="not all" set:html={shell.css}></style>}
-		<script is:inline>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES }}>
 			(function () {
 				var r = document.documentElement;
 				try {
 					var p = localStorage.getItem('lattice-studio-palette');
 					var palette = 'indaco';
-					if (p && ['indaco','cuoio','burgundy','laguna','crepuscolo','atelier','carbone','onyx'].indexOf(p) !== -1) { r.setAttribute('data-palette', p); palette = p; }
+					// KNOWN_PALETTES is injected from the shared ../components/studio/palettes
+					// list (define:vars), so EVERY built-in palette is honored at first paint —
+					// not the stale 8-of-18 subset that dropped a returning visitor on a
+					// non-curated palette back to indaco (lost instant-shell + color flash).
+					if (p && KNOWN_PALETTES.indexOf(p) !== -1) { r.setAttribute('data-palette', p); palette = p; }
 					var m = localStorage.getItem('lattice-docs-mode');
 					var mode = 'light';
 					if (m === 'light' || m === 'dark') { r.setAttribute('data-mode', m); mode = m; }
