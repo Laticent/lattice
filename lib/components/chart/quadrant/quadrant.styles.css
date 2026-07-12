@@ -48,17 +48,27 @@
  * from the same slot (`--cN-light` / `--cN-dark`). Cohort inherits the
  * same `[data-cell]` routing — its groups are categories too. Themes tune
  * the look by tuning cN, not a quadrant-only token set. */
+/* >>> chart-palette-recipe : quadrant paint tokens (build-time input) >>>
+ * Build-time SOURCE only — tools/build-chart-palette-css.js resolves each token
+ * to two flat-literal planes per theme and tools/build-css.js strips this region
+ * from the shipped bundle. The paints below read the compiled result via plain
+ * var(). Only theme tokens (--text-muted) and literal colours may be referenced
+ * here. See engineering/decisions/2026-07-12-chart-color-static-palette.md. */
 :is(section.quadrant, figure.chart-frame) {
-  --quadrant-frame:   color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --quadrant-split:   color-mix(in srgb, var(--text-muted) 28%, transparent);
-  --quadrant-target:  color-mix(in srgb, var(--text-muted) 78%, transparent);
+  /* Plot frame, split lines, target lines — faint text-muted washes; the dark
+   * arm lifts each for dark-canvas contrast (folds the old .dark overrides). */
+  --quadrant-frame:   light-dark(color-mix(in srgb, var(--text-muted) 42%, transparent), color-mix(in srgb, var(--text-muted) 58%, transparent));
+  --quadrant-split:   light-dark(color-mix(in srgb, var(--text-muted) 28%, transparent), color-mix(in srgb, var(--text-muted) 42%, transparent));
+  --quadrant-target:  light-dark(color-mix(in srgb, var(--text-muted) 78%, transparent), color-mix(in srgb, var(--text-muted) 88%, transparent));
+  /* minimal modifier — fainter frame/split; one formula, --text-muted flips per plane. */
+  --quadrant-frame-minimal: color-mix(in srgb, var(--text-muted) 28%, transparent);
+  --quadrant-split-minimal: color-mix(in srgb, var(--text-muted) 18%, transparent);
   /* On-field labels sit on the vivid pie-matched zone fills, so they take
    * maximum-contrast ink rather than the softened --text-heading: true black
-   * on the light canvas, true white on dark. light-dark() flips it off the
-   * same color-scheme that drives every other token, so dark decks get white
-   * labels automatically. */
+   * on the light canvas, true white on dark, flipping with the canvas. */
   --quadrant-label-ink: light-dark(black, white);
 }
+/* <<< chart-palette-recipe : end <<< */
 
 /* Categorical routing — reading-order cN, mapped onto the shared chart
  * category model (fill = --catN-fill, ink/border = --catN-ink). That model
@@ -94,7 +104,7 @@ section.quadrant.chart-frame .chart-header {
 section.quadrant.chart-frame .chart-header::after {
   width: 7.5cqi;
   height: var(--chart-hairline);
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
+  background: var(--chart-hairline-accent);
 }
 
 :is(section.quadrant, figure.chart-frame) .quadrant-figure {
@@ -333,8 +343,8 @@ section.quadrant.minimal .quadrant-tint {
   fill: none;
 }
 section.quadrant.minimal {
-  --quadrant-frame: color-mix(in srgb, var(--text-muted) 28%, transparent);
-  --quadrant-split: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  --quadrant-frame: var(--quadrant-frame-minimal);
+  --quadrant-split: var(--quadrant-split-minimal);
 }
 section.quadrant.minimal .quadrant-bubble {
   fill: none;
@@ -343,9 +353,8 @@ section.quadrant.minimal .quadrant-hull {
   fill: none;
 }
 
-/* ── dark: lift frame + split for dark surfaces (composable) ──────────── */
-section.quadrant.dark {
-  --quadrant-frame:  color-mix(in srgb, var(--text-muted) 58%, transparent);
-  --quadrant-split:  color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --quadrant-target: color-mix(in srgb, var(--text-muted) 88%, transparent);
-}
+/* ── dark: lift frame + split for dark surfaces (composable) ──────────────
+ * The dark-canvas lift for the frame / split / target lines is now the DARK ARM
+ * of the recipe --quadrant-frame/-split/-target light-dark() tokens (the compiled
+ * override plane keys on .chart-frame.dark), so no per-modifier override is
+ * needed here — section.quadrant.dark picks up the dark plane automatically. */

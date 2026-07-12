@@ -17,6 +17,76 @@
  *   • `tinted`  — columns tinted by STAGE (reinforces the pipeline flow)
  * Author as `<!-- _class: kanban -->` / `kanban keyline` / `kanban tinted`. */
 
+/* >>> chart-palette-recipe : kanban paint tokens (build-time input) >>> */
+/* Bespoke flat PAINT tokens for the board. tools/build-chart-palette-css.js
+ * resolves each to a flat literal per plane (it picks the light-dark() arm per
+ * scheme), and tools/build-css.js strips this region from the shipped bundle —
+ * so every kanban paint below reads a token via plain var() and NO
+ * color-mix()/light-dark() ships in a paint declaration (which would drop
+ * invalid-at-computed-value on an old engine). The two-flat-literal-plane model:
+ * engineering/decisions/2026-07-12-chart-color-static-palette.md. */
+:is(section.kanban, figure.kanban) {
+  /* Default "premium tile" surface + hairline (dark lifts off the near-black canvas). */
+  --kanban-card-bg: light-dark(var(--bg-alt), color-mix(in oklab, var(--bg-alt) 88%, white));
+  --kanban-card-border: light-dark(var(--border), color-mix(in oklab, var(--border) 78%, white));
+
+  /* "Done" column header underline rule (non-tinted board). */
+  --kanban-done-rule: color-mix(in oklab, var(--state-pass-ink) 40%, transparent);
+
+  /* Status-tinted card (default board). The card FILL/INK are per-`[data-s]`
+   * runtime locals, so the flat, precompilable slot is a paired card token per
+   * state; the `[data-s]` setter re-points --status-cardbg / --status-cardborder
+   * at the matching pair, and the card paint reads those (gantt's setter idiom). */
+  --state-pass-cardfill: light-dark(color-mix(in oklab, var(--state-pass-fill) 55%, var(--bg-alt)), color-mix(in oklab, var(--state-pass-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
+  --state-warn-cardfill: light-dark(color-mix(in oklab, var(--state-warn-fill) 55%, var(--bg-alt)), color-mix(in oklab, var(--state-warn-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
+  --state-fail-cardfill: light-dark(color-mix(in oklab, var(--state-fail-fill) 55%, var(--bg-alt)), color-mix(in oklab, var(--state-fail-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
+  --state-info-cardfill: light-dark(color-mix(in oklab, var(--state-info-fill) 55%, var(--bg-alt)), color-mix(in oklab, var(--state-info-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
+  --state-mute-cardfill: light-dark(color-mix(in oklab, var(--state-mute-fill) 55%, var(--bg-alt)), color-mix(in oklab, var(--state-mute-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
+  --state-pass-cardborder: color-mix(in oklab, var(--state-pass-ink) 35%, var(--border));
+  --state-warn-cardborder: color-mix(in oklab, var(--state-warn-ink) 35%, var(--border));
+  --state-fail-cardborder: color-mix(in oklab, var(--state-fail-ink) 35%, var(--border));
+  --state-info-cardborder: color-mix(in oklab, var(--state-info-ink) 35%, var(--border));
+  --state-mute-cardborder: color-mix(in oklab, var(--state-mute-ink) 35%, var(--border));
+
+  /* VARIANT keyline — flat tile surface + hairline (border a hair stronger on dark;
+   * the old `.keyline.dark` border-color override folds into the dark arm here). */
+  --kanban-keyline-bg: light-dark(color-mix(in oklab, var(--bg-alt) 92%, var(--border)), color-mix(in oklab, var(--bg-alt) 72%, var(--border)));
+  --kanban-keyline-border: light-dark(color-mix(in oklab, var(--border) 65%, var(--text-muted)), color-mix(in oklab, var(--border) 70%, var(--text-muted)));
+
+  /* VARIANT tinted — per-column STAGE tint. Each column's nth-child setter points
+   * --col-bg / --col-border / --col-underline at one slot below. The tint % is fixed
+   * per slot (a categorical hue × a slot-specific ratio); the dark arm is light + 5%,
+   * folding the old `.tinted.dark .kanban-column` bg/border overrides into light-dark. */
+  --kanban-lane-base-bg: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 5%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 10%, var(--bg)));
+  --kanban-lane-base-border: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--border)), color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--border)));
+  --kanban-lane-base-underline: color-mix(in oklab, var(--chart-cat-1-hue) 60%, transparent);
+  --kanban-lane-1-bg: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 6%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 11%, var(--bg)));
+  --kanban-lane-1-border: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--border)), color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--border)));
+  --kanban-lane-1-underline: color-mix(in oklab, var(--chart-cat-1-hue) 60%, transparent);
+  --kanban-lane-2-bg: light-dark(color-mix(in oklab, var(--chart-cat-2-hue) 4%, var(--bg)), color-mix(in oklab, var(--chart-cat-2-hue) 9%, var(--bg)));
+  --kanban-lane-2-border: light-dark(color-mix(in oklab, var(--chart-cat-2-hue) 14%, var(--border)), color-mix(in oklab, var(--chart-cat-2-hue) 22%, var(--border)));
+  --kanban-lane-2-underline: color-mix(in oklab, var(--chart-cat-2-hue) 60%, transparent);
+  --kanban-lane-3-bg: light-dark(color-mix(in oklab, var(--chart-cat-5-hue) 5%, var(--bg)), color-mix(in oklab, var(--chart-cat-5-hue) 10%, var(--bg)));
+  --kanban-lane-3-border: light-dark(color-mix(in oklab, var(--chart-cat-5-hue) 14%, var(--border)), color-mix(in oklab, var(--chart-cat-5-hue) 22%, var(--border)));
+  --kanban-lane-3-underline: color-mix(in oklab, var(--chart-cat-5-hue) 60%, transparent);
+  --kanban-lane-4-bg: light-dark(color-mix(in oklab, var(--chart-cat-6-hue) 5%, var(--bg)), color-mix(in oklab, var(--chart-cat-6-hue) 10%, var(--bg)));
+  --kanban-lane-4-border: light-dark(color-mix(in oklab, var(--chart-cat-6-hue) 14%, var(--border)), color-mix(in oklab, var(--chart-cat-6-hue) 22%, var(--border)));
+  --kanban-lane-4-underline: color-mix(in oklab, var(--chart-cat-6-hue) 60%, transparent);
+  --kanban-lane-5-bg: light-dark(color-mix(in oklab, var(--chart-cat-4-hue) 4.5%, var(--bg)), color-mix(in oklab, var(--chart-cat-4-hue) 9.5%, var(--bg)));
+  --kanban-lane-5-border: light-dark(color-mix(in oklab, var(--chart-cat-4-hue) 14%, var(--border)), color-mix(in oklab, var(--chart-cat-4-hue) 22%, var(--border)));
+  --kanban-lane-5-underline: color-mix(in oklab, var(--chart-cat-4-hue) 60%, transparent);
+  --kanban-lane-done-bg: light-dark(color-mix(in oklab, var(--state-pass-hue) 4.5%, var(--bg)), color-mix(in oklab, var(--state-pass-hue) 9.5%, var(--bg)));
+  --kanban-lane-done-border: light-dark(color-mix(in oklab, var(--state-pass-hue) 14%, var(--border)), color-mix(in oklab, var(--state-pass-hue) 22%, var(--border)));
+  --kanban-lane-done-underline: color-mix(in oklab, var(--state-pass-hue) 60%, transparent);
+
+  /* Tinted done-header ink + tinted card surface (light-dark folds the old
+   * `.tinted.dark .kanban-card` bg/border overrides into the dark arm). */
+  --kanban-tinted-done-ink: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
+  --kanban-tinted-card-bg: light-dark(var(--bg), color-mix(in oklab, var(--bg-alt) 88%, white));
+  --kanban-tinted-card-border: light-dark(var(--border), color-mix(in oklab, var(--border) 70%, var(--text-muted)));
+}
+/* <<< chart-palette-recipe : end <<< */
+
 :is(section.kanban, figure.kanban).chart-frame .chart-body {
   /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding
    * (sp-lg / sp-2xl) so the surface panel matches every other chart — the old
@@ -69,7 +139,7 @@
 /* "Done" column: header turns pass-green, cards dim to signal completion */
 .kanban-column[data-done] .kanban-column-header {
   color: var(--state-pass-ink);
-  border-bottom-color: color-mix(in oklab, var(--state-pass-ink) 40%, transparent);
+  border-bottom-color: var(--kanban-done-rule);
 }
 .kanban-column[data-done] .kanban-card { opacity: 0.52; }
 
@@ -90,11 +160,8 @@
  * inert by default; the variants opt back into it. */
 .kanban-card {
   /* Distinctly elevated above the canvas in BOTH modes: lighter than canvas. */
-  background: light-dark(
-    var(--bg-alt),
-    color-mix(in oklab, var(--bg-alt) 88%, white));
-  border: var(--chart-hairline) solid
-    light-dark(var(--border), color-mix(in oklab, var(--border) 78%, white));
+  background: var(--kanban-card-bg);
+  border: var(--chart-hairline) solid var(--kanban-card-border);
   border-radius: 0.85cqi;
   padding: 0.75cqi var(--sp-sm);
   /* Soft drop-shadow in light; in dark a top inset highlight reads as elevation
@@ -120,20 +187,18 @@
  * variants keep status on the chip alone (their thesis). */
 .kanban-card[data-s="on-track"],
 .kanban-card[data-s="done"],
-.kanban-card[data-s="live"]     { --status-fill: var(--state-pass-fill); --status-ink: var(--state-pass-ink); }
+.kanban-card[data-s="live"]     { --status-cardbg: var(--state-pass-cardfill); --status-cardborder: var(--state-pass-cardborder); }
 .kanban-card[data-s="at-risk"],
-.kanban-card[data-s="warn"]     { --status-fill: var(--state-warn-fill); --status-ink: var(--state-warn-ink); }
+.kanban-card[data-s="warn"]     { --status-cardbg: var(--state-warn-cardfill); --status-cardborder: var(--state-warn-cardborder); }
 .kanban-card[data-s="blocked"],
-.kanban-card[data-s="fail"]     { --status-fill: var(--state-fail-fill); --status-ink: var(--state-fail-ink); }
+.kanban-card[data-s="fail"]     { --status-cardbg: var(--state-fail-cardfill); --status-cardborder: var(--state-fail-cardborder); }
 .kanban-card[data-s="pilot"],
-.kanban-card[data-s="decision"] { --status-fill: var(--state-info-fill); --status-ink: var(--state-info-ink); }
-.kanban-card[data-s="deferred"] { --status-fill: var(--state-mute-fill); --status-ink: var(--state-mute-ink); }
+.kanban-card[data-s="decision"] { --status-cardbg: var(--state-info-cardfill); --status-cardborder: var(--state-info-cardborder); }
+.kanban-card[data-s="deferred"] { --status-cardbg: var(--state-mute-cardfill); --status-cardborder: var(--state-mute-cardborder); }
 
 :is(section.kanban, figure.kanban):not(.keyline):not(.tinted) .kanban-card[data-s] {
-  background: light-dark(
-    color-mix(in oklab, var(--status-fill) 55%, var(--bg-alt)),
-    color-mix(in oklab, var(--status-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
-  border-color: color-mix(in oklab, var(--status-ink) 35%, var(--border));
+  background: var(--status-cardbg);
+  border-color: var(--status-cardborder);
 }
 
 .kanban-card-title {
@@ -251,10 +316,8 @@
 :is(section.kanban, figure.kanban).keyline .kanban-card {
   /* Flat uniform tile — light barely warms --bg-alt; dark mixes a stronger step
    * toward --border so the card stops sinking into the near-black canvas. */
-  background: light-dark(
-    color-mix(in oklab, var(--bg-alt) 92%, var(--border)),
-    color-mix(in oklab, var(--bg-alt) 72%, var(--border)));
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--border) 65%, var(--text-muted));
+  background: var(--kanban-keyline-bg);
+  border: var(--chart-hairline) solid var(--kanban-keyline-border);
   /* THE one category cue: a crisp left keyline at the full lane ink. */
   border-left: 0.42cqi solid var(--lane-color, var(--border));
   /* Square the LEFT corners so the keyline reads as one continuous edge; right
@@ -262,9 +325,7 @@
   border-radius: 0 0.46875cqi 0.46875cqi 0;
   box-shadow: none;
 }
-:is(section.kanban, figure.kanban).keyline.dark .kanban-card {
-  border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
-}
+/* (dark border folds into --kanban-keyline-border's dark arm — no .keyline.dark rule) */
 /* Lane label quiet; the keyline carries the colour, so drop the dot. */
 :is(section.kanban, figure.kanban).keyline .kanban-lane { color: var(--text-secondary); }
 :is(section.kanban, figure.kanban).keyline .kanban-lane::before { display: none; }
@@ -277,25 +338,30 @@
  * stays the one accent chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
  * ════════════════════════════════════════════════════════════════════════════ */
 :is(section.kanban, figure.kanban).tinted .kanban-column {
+  /* --col-hue stays a per-column local (the card box-shadow below still reads it);
+   * the tinted bg/border/underline PAINTS read the flat --col-* locals, which each
+   * column's setter re-points at one precompiled lane slot (recipe region above). */
   --col-hue: var(--chart-cat-1-hue);
-  --col-tint: 5%;
-  background: color-mix(in oklab, var(--col-hue) var(--col-tint), var(--bg));
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--col-hue) 14%, var(--border));
+  --col-bg: var(--kanban-lane-base-bg);
+  --col-border: var(--kanban-lane-base-border);
+  --col-underline: var(--kanban-lane-base-underline);
+  background: var(--col-bg);
+  border: var(--chart-hairline) solid var(--col-border);
   border-radius: 0.7cqi;
   padding: var(--sp-sm) var(--sp-xs);
 }
 /* Stage progression blue → orange → teal → pass-green (no green-on-green at the
  * end); warm/green hues read heavier, so they take a lower mix % to feel the
- * same whisper. */
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-tint: 6%; }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-tint: 4%; }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-tint: 5%; }
+ * same whisper (baked into each --kanban-lane-N-bg slot's tint). */
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-bg: var(--kanban-lane-1-bg); --col-border: var(--kanban-lane-1-border); --col-underline: var(--kanban-lane-1-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-bg: var(--kanban-lane-2-bg); --col-border: var(--kanban-lane-2-border); --col-underline: var(--kanban-lane-2-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-bg: var(--kanban-lane-3-bg); --col-border: var(--kanban-lane-3-border); --col-underline: var(--kanban-lane-3-underline); }
 /* 4th/5th active lanes (boards up to the hard cap of 6 columns) stay distinct
  * rather than wrapping back to blue. The done lane is keyed by [data-done]
  * below, which always wins its own position regardless of count. */
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-tint: 5%; }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-tint: 4.5%; }
-:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-tint: 4.5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-bg: var(--kanban-lane-4-bg); --col-border: var(--kanban-lane-4-border); --col-underline: var(--kanban-lane-4-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-bg: var(--kanban-lane-5-bg); --col-border: var(--kanban-lane-5-border); --col-underline: var(--kanban-lane-5-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-bg: var(--kanban-lane-done-bg); --col-border: var(--kanban-lane-done-border); --col-underline: var(--kanban-lane-done-underline); }
 
 /* Header: neutral mono register; the hue lives only on the underline. */
 :is(section.kanban, figure.kanban).tinted .kanban-column-header {
@@ -305,33 +371,25 @@
    * the side inset lives in background-size — no border-box-narrowing margin,
    * and the column's flex gap still owns the header→cards spacing. */
   background:
-    linear-gradient(color-mix(in oklab, var(--col-hue) 60%, transparent),
-                    color-mix(in oklab, var(--col-hue) 60%, transparent))
+    linear-gradient(var(--col-underline), var(--col-underline))
     no-repeat center bottom / calc(100% - 2 * var(--sp-3xs)) 1.5px;
   padding: 0 var(--sp-2xs) 0.6cqi;
 }
 :is(section.kanban, figure.kanban).tinted .kanban-column[data-done] .kanban-column-header {
-  color: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
+  color: var(--kanban-tinted-done-ink);
 }
 
 /* Cards lift OFF the tinted lane: light = plain --bg paper + soft hue shadow;
  * dark = a touch lighter than the lane with a defined hairline. */
 :is(section.kanban, figure.kanban).tinted .kanban-card {
-  background: light-dark(var(--bg), var(--bg-alt));
-  border: var(--chart-hairline) solid var(--border);
+  background: var(--kanban-tinted-card-bg);
+  border: var(--chart-hairline) solid var(--kanban-tinted-card-border);
   box-shadow: light-dark(
     0 0.1cqi 0.3cqi color-mix(in oklab, var(--col-hue) 12%, transparent), none);
 }
-/* Dark: tint the lane a hair stronger so the stage colour survives near-black,
- * and lift the cards above it. */
-:is(section.kanban, figure.kanban).tinted.dark .kanban-column {
-  background: color-mix(in oklab, var(--col-hue) calc(var(--col-tint) + 5%), var(--bg));
-  border-color: color-mix(in oklab, var(--col-hue) 22%, var(--border));
-}
-:is(section.kanban, figure.kanban).tinted.dark .kanban-card {
-  background: color-mix(in oklab, var(--bg-alt) 88%, white);
-  border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
-}
+/* Dark: the lane tint (light-dark dark arm = light + 5%), the lane border (14→22%),
+ * and the lifted card surface all fold into the flat tokens' dark arms above — so
+ * the old `.tinted.dark .kanban-column` / `.kanban-card` overrides are gone. */
 /* Lane label quiet; drop the dot (colour now lives on the lane, not the card). */
 :is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }
 :is(section.kanban, figure.kanban).tinted .kanban-lane::before { display: none; }

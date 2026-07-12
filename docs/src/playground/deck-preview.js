@@ -369,6 +369,11 @@ export function buildSrcdoc({
 	const gh = (geom?.h) || 720;
 	const bg = background ? background(mode) : (mode === 'dark' ? DARK_BG : LIGHT_BG);
 	const scheme = colorScheme ? ':root{color-scheme:' + colorScheme + ';}' : '';
+	// Stamp the forced scheme as `data-lp-scheme` on the root too: the compiled chart
+	// palette follows an explicit scheme attribute, not the raw `color-scheme` property,
+	// so a forced-dark preview (the Studio) would otherwise leave charts on the light
+	// plane while the surfaces went dark.
+	const schemeAttr = colorScheme ? ' data-lp-scheme="' + colorScheme + '"' : '';
 	const sectionRule =
 		'.lattice>section{display:block;transform-origin:top left;' +
 		(cursor ? 'cursor:pointer;' : '') +
@@ -394,7 +399,7 @@ export function buildSrcdoc({
 	const needsKatex = html.indexOf('katex') !== -1;
 	const needsMermaid = html.indexOf('language-mermaid') !== -1;
 	return (
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + schemeAttr + '><head><meta charset="utf-8">' +
 		(needsKatex ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
 		(fontCss ? '<style>' + fontCss + '</style>' : '') +
 		'<style>html,body{margin:0;padding:' + padding + 'px;background:' + bg + ';}' +

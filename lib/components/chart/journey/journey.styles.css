@@ -36,7 +36,24 @@
  * must agree (parity contract).
  * ──────────────────────────────────────────────────────────────────── */
 
-:root {
+/* >>> chart-palette-recipe : journey paint tokens (build-time input) >>>
+ * Journey's colour tokens — the mood ramp, board surfaces, and the per-mood
+ * washes the variants paint. This region is a BUILD-TIME INPUT, identical in
+ * kind to chart-family.css's recipe: tools/build-chart-palette-css.js resolves
+ * every token to two flat-literal planes per theme (its declared scheme + the
+ * opposite, picked by plain selector cascade — no light-dark() survives), and
+ * tools/build-css.js STRIPS this whole region from the shipped bundle. So the
+ * color-mix()/var() below is legit recipe SOURCE, never shipped raw; the paints
+ * further down read the compiled result via plain var().
+ * See engineering/decisions/2026-07-12-chart-color-static-palette.md.
+ *
+ * (The old section.print.journey greyscale re-resolution is retired: once these
+ * tokens compile to flat literals, a live var(--cat-N-mark) remap on the print
+ * section can no longer reach them. Journey's per-component print re-resolution
+ * was the family's lone holdout — print now flows through the compiled planes
+ * exactly like every other chart, which lost the same live remap in this
+ * migration.) */
+section.journey {
   /* Mood ramp — 5 (delight, green) → 3 (neutral, orange) → 1 (pain, rose). */
   --journey-mood-5: var(--cat-2-mark);
   --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
@@ -44,65 +61,61 @@
   --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
   --journey-mood-1: var(--cat-6-mark);
 
-  /* Deep variants — used for filled chips that carry white text. */
+  /* Deep variants — filled chips that carry white text. */
   --journey-mood-5-deep: var(--cat-2-mark);
   --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
   --journey-mood-3-deep: var(--cat-4-mark);
   --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
   --journey-mood-1-deep: var(--cat-6-mark);
+
+  /* Per-mood chip washes. Heatmap tints the chip 22% into --bg-alt; weighted
+   * pushes to 28%. Fixed 1..5 slots, so they compile to flat tokens the
+   * [data-mood] setters point --mood-fill at (the SETTER pattern, like gantt). */
+  --journey-mood-1-fill: color-mix(in oklab, var(--journey-mood-1) 22%, var(--bg-alt));
+  --journey-mood-2-fill: color-mix(in oklab, var(--journey-mood-2) 22%, var(--bg-alt));
+  --journey-mood-3-fill: color-mix(in oklab, var(--journey-mood-3) 22%, var(--bg-alt));
+  --journey-mood-4-fill: color-mix(in oklab, var(--journey-mood-4) 22%, var(--bg-alt));
+  --journey-mood-5-fill: color-mix(in oklab, var(--journey-mood-5) 22%, var(--bg-alt));
+  --journey-mood-1-wfill: color-mix(in oklab, var(--journey-mood-1) 28%, var(--bg-alt));
+  --journey-mood-2-wfill: color-mix(in oklab, var(--journey-mood-2) 28%, var(--bg-alt));
+  --journey-mood-3-wfill: color-mix(in oklab, var(--journey-mood-3) 28%, var(--bg-alt));
+  --journey-mood-4-wfill: color-mix(in oklab, var(--journey-mood-4) 28%, var(--bg-alt));
+  --journey-mood-5-wfill: color-mix(in oklab, var(--journey-mood-5) 28%, var(--bg-alt));
 
   /* Surfaces */
-  --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
-  /* Section bar bg mixes toward --surface-inverse on BOTH canvases → always a dark
-   * surface. --on-accent flips to --surface-inverse in dark mode (same value) giving
-   * near-zero contrast (~2.5:1). Use --on-dark-primary (always-light token)
-   * so section labels remain legible in both light and dark themes. */
-  --journey-stage-fg:   var(--on-dark-primary);
-  --journey-task-bg:      color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
-  --journey-task-fg:      var(--text-body);
-  --journey-timeline:     color-mix(in srgb, var(--text-body) 55%, transparent);
-  --journey-plumb:        color-mix(in srgb, var(--text-body) 50%, transparent);
-  --journey-face-bg:      var(--bg);
-  /* All journey tokens that resolve to a half-transparent fg use the
-   * `srgb` color-mix space — Chromium 1194 (Playwright build that runs
-   * the PDF rasterizer) silently drops `oklab` color-mix(... transparent)
-   * in stroke/border-color/background contexts. */
-  --journey-axis:         color-mix(in srgb, var(--text-body) 32%, transparent);
+  --journey-stage-bg: color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
+  /* Section bar bg mixes toward --surface-inverse → always a dark surface; its
+   * label uses the always-light --on-dark-primary so it stays legible on both
+   * canvases (--on-accent would flip to near-zero contrast on dark). */
+  --journey-stage-fg: var(--on-dark-primary);
+  --journey-task-bg: color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
+  --journey-task-fg: var(--text-body);
+  --journey-timeline: color-mix(in srgb, var(--text-body) 55%, transparent);
+  --journey-plumb: color-mix(in srgb, var(--text-body) 50%, transparent);
+  --journey-face-bg: var(--bg);
+  --journey-axis: color-mix(in srgb, var(--text-body) 32%, transparent);
+  /* Dashed reach rule (vertical-board mood line) — a faded timeline tone.
+   * Derived straight from the OPAQUE --text-body (not --journey-timeline) so it
+   * compiles to a flat literal: 55% of the timeline's own 55% alpha ≈ 30%, so
+   * this reads identically while avoiding an unflattenable transparent-on-rgba mix. */
+  --journey-reach-rule: color-mix(in srgb, var(--text-body) 30%, transparent);
 
-  /* Per-row height in the mood band. Drives both the band's total
-   * height (5 rows = 5 × this) and the plumb-line length calc. Smaller
-   * value = more vertical room for the rest of the board (legend,
-   * sections, insight callout). */
-  --journey-mood-row: 2.03125cqi;
+  /* Vertical-board row washes — pain(1) warm → delight(5) cool, off the
+   * semantic state hues, over the task-bg surface. Fixed ratios per mood
+   * (mood 3 is the bare task surface, so it needs no derived token). */
+  --journey-vtask-mood-1-bg: color-mix(in oklab, var(--state-fail-hue) 15%, var(--journey-task-bg));
+  --journey-vtask-mood-2-bg: color-mix(in oklab, var(--state-warn-hue) 13%, var(--journey-task-bg));
+  --journey-vtask-mood-4-bg: color-mix(in oklab, var(--state-pass-hue) 10%, var(--journey-task-bg));
+  --journey-vtask-mood-5-bg: color-mix(in oklab, var(--state-pass-hue) 17%, var(--journey-task-bg));
 }
+/* <<< chart-palette-recipe : end <<< */
 
-/* PRINT — re-resolve the derived ramp/surfaces against the print band.
- * The tokens above are declared at :root, so their var(--cat-N-mark)/var(--bg-alt)
- * substitute against :ROOT's colored values — a custom property that references
- * another resolves at its DECLARATION scope, so section.print's remap (on the
- * section) can't reach a :root-declared derived token. Re-declaring the SAME
- * derivations here, on the print section, re-resolves them against the print
- * greyscale cat-marks / ink surfaces. Keep in SYNC with the :root block above.
- * (Print-only; light/dark output is untouched.) */
-section.print.journey {
-  --journey-mood-5: var(--cat-2-mark);
-  --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3: var(--cat-4-mark);
-  --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1: var(--cat-6-mark);
-  --journey-mood-5-deep: var(--cat-2-mark);
-  --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3-deep: var(--cat-4-mark);
-  --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1-deep: var(--cat-6-mark);
-  --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
-  --journey-stage-fg:   var(--on-dark-primary);
-  --journey-task-bg:    color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
-  --journey-task-fg:    var(--text-body);
-  --journey-timeline:   color-mix(in srgb, var(--text-body) 55%, transparent);
-  --journey-plumb:      color-mix(in srgb, var(--text-body) 50%, transparent);
-  --journey-face-bg:    var(--bg);
-  --journey-axis:       color-mix(in srgb, var(--text-body) 32%, transparent);
+:root {
+  /* Per-row height in the mood band. NON-colour, so it ships as-is (it is not
+   * part of the compiled colour recipe above). Drives both the band's total
+   * height (5 rows = 5 × this) and the plumb-line length calc. Smaller value =
+   * more vertical room for the rest of the board (legend, sections, callout). */
+  --journey-mood-row: 2.03125cqi;
 }
 
 /* Shared base — applies to every journey variant. */
@@ -455,15 +468,17 @@ section.journey.heatmap .journey-tasks {
 section.journey.heatmap .journey-task {
   min-height: 7.5cqi;
   padding: var(--sp-md) var(--sp-sm) var(--sp-sm);
-  background: color-mix(in oklab, var(--mood-bg) 22%, var(--bg-alt));
+  /* --mood-bg = the solid mood tone (border + badge); --mood-fill = the compiled
+   * 22% chip wash. Both set per [data-mood] below (fixed 1..5 slots). */
+  background: var(--mood-fill);
   border-top: 3px solid var(--mood-bg);
   position: relative;
 }
-section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); }
-section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); }
-section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); }
-section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); }
-section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
+section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); --mood-fill: var(--journey-mood-5-fill); }
+section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); --mood-fill: var(--journey-mood-4-fill); }
+section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); --mood-fill: var(--journey-mood-3-fill); }
+section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); --mood-fill: var(--journey-mood-2-fill); }
+section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); --mood-fill: var(--journey-mood-1-fill); }
 /* Mood score badge in the top-right of each chip — redundant
  * encoding so the heatmap remains legible to grayscale / colorblind
  * readers. */
@@ -596,6 +611,9 @@ section.journey .journey-lane-track {
   grid-row: var(--row);
   align-self: center;
   height: 2px;  /* sanctioned: actor connector rule — a hairline, resolution-stable by design */
+  /* DYNAMIC: --actor-color is set inline per actor from the markup (not a fixed
+   * palette slot), so this mix can't be pre-compiled to a flat token — it stays
+   * a live color-mix() on the runtime local. */
   background: color-mix(in oklab, var(--actor-color) 35%, transparent);
   border-radius: 1px;
 }
@@ -653,17 +671,19 @@ section.journey.weighted .journey-task {
   min-width: 4.375cqi;
   padding: var(--sp-md) var(--sp-sm) var(--sp-sm);
   min-height: 6.875cqi;
-  background: color-mix(in oklab, var(--mood-bg) 28%, var(--bg-alt));
+  /* --mood-fill = the compiled 28% chip wash (stronger than heatmap's 22%);
+   * --mood-bg = the solid tone for the top border + % badge. */
+  background: var(--mood-fill);
   border-top-width: 4px;
   border-top-style: solid;
   border-top-color: var(--mood-bg);
   position: relative;
 }
-section.journey.weighted .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); }
-section.journey.weighted .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); }
-section.journey.weighted .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); }
-section.journey.weighted .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); }
-section.journey.weighted .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
+section.journey.weighted .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); --mood-fill: var(--journey-mood-5-wfill); }
+section.journey.weighted .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); --mood-fill: var(--journey-mood-4-wfill); }
+section.journey.weighted .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); --mood-fill: var(--journey-mood-3-wfill); }
+section.journey.weighted .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); --mood-fill: var(--journey-mood-2-wfill); }
+section.journey.weighted .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); --mood-fill: var(--journey-mood-1-wfill); }
 /* Volume percentage badge — large, dropped to top-center so the
  * "this is the volume share" read is the dominant signal alongside
  * the task name. */
@@ -795,11 +815,11 @@ section.journey .journey-vtask .journey-task-label {
  * by mood with a reach to the spine (precision). Colour gives the at-a-glance
  * read; position gives the exact value. §10 (journey). */
 /* Row wash: pain (1) warm → delight (5) cool, off the semantic state hues. */
-section.journey .journey-vtask[data-mood="1"] { background: color-mix(in oklab, var(--state-fail-hue) 15%, var(--journey-task-bg)); }
-section.journey .journey-vtask[data-mood="2"] { background: color-mix(in oklab, var(--state-warn-hue) 13%, var(--journey-task-bg)); }
+section.journey .journey-vtask[data-mood="1"] { background: var(--journey-vtask-mood-1-bg); }
+section.journey .journey-vtask[data-mood="2"] { background: var(--journey-vtask-mood-2-bg); }
 section.journey .journey-vtask[data-mood="3"] { background: var(--journey-task-bg); }
-section.journey .journey-vtask[data-mood="4"] { background: color-mix(in oklab, var(--state-pass-hue) 10%, var(--journey-task-bg)); }
-section.journey .journey-vtask[data-mood="5"] { background: color-mix(in oklab, var(--state-pass-hue) 17%, var(--journey-task-bg)); }
+section.journey .journey-vtask[data-mood="4"] { background: var(--journey-vtask-mood-4-bg); }
+section.journey .journey-vtask[data-mood="5"] { background: var(--journey-vtask-mood-5-bg); }
 
 /* The mood track: a faint pain→delight rail with the face plotted at x = mood
  * and a dashed reach from the pain (left) edge. */
@@ -817,7 +837,7 @@ section.journey .journey-vmood::before {
   inset: 0;
   background-image: repeating-linear-gradient(
     to right,
-    color-mix(in oklab, var(--border) 50%, transparent) 0 1px,
+    var(--chart-border-soft) 0 1px,
     transparent 1px calc(100% / 4));
   opacity: 0.5;
 }
@@ -828,7 +848,7 @@ section.journey .journey-vmood-line {
   left: 0;
   width: calc((var(--mood) - 1) / 4 * 100%);
   height: 0;
-  border-top: 2px dashed color-mix(in oklab, var(--journey-timeline) 55%, transparent);
+  border-top: 2px dashed var(--journey-reach-rule);
   transform: translateY(-50%);
 }
 /* Face plotted at x = mood (1 = pain/left, 5 = delight/right). */

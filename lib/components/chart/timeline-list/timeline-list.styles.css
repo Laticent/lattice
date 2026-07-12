@@ -2,6 +2,19 @@
  * See lib/components/timeline-list/timeline-list.manifest.json for the component contract.
  */
 
+/* >>> chart-palette-recipe : timeline-list paint tokens (build-time input) >>> */
+/* Build-time SOURCE (see chart-family.css's region for the full rationale):
+ * tools/build-chart-palette-css.js resolves this to flat per-theme literals and
+ * build-css.js strips it from the shipped bundle, so the paint below reads the
+ * compiled result via plain var() — no color-mix()/light-dark() ships. The spine
+ * gradient stops reuse the SHARED --chart-spine-edge/-body tokens (already in the
+ * chart-family recipe), so only the date-pill border is bespoke here. */
+:is(section.timeline-list, figure.timeline-list) {
+  /* Date-pill border — a 40% accent wash into the border hairline. */
+  --timeline-chip-border: color-mix(in oklab, var(--accent) 40%, var(--border));
+}
+/* <<< chart-palette-recipe : end <<< */
+
 /* ── TIMELINE-LIST · horizontal ──
  * Ordered list rendered as a left-to-right spine with dots at each item.
  * Date pill sits above the dot; title + status pill + body sit below.
@@ -37,10 +50,10 @@
   height: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
   background: linear-gradient(
     to right,
-    color-mix(in oklab, var(--accent) 12%, transparent) 0%,
-    color-mix(in oklab, var(--accent) 55%, transparent) 12%,
-    color-mix(in oklab, var(--accent) 55%, transparent) 88%,
-    color-mix(in oklab, var(--accent) 12%, transparent) 100%
+    var(--chart-spine-edge) 0%,
+    var(--chart-spine-body) 12%,
+    var(--chart-spine-body) 88%,
+    var(--chart-spine-edge) 100%
   );
   transform: translateY(-1px);
   z-index: 0;
@@ -101,7 +114,7 @@
    * outside the flex content box). */
   border-radius: 0.9375cqi;
   background: var(--bg);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--accent) 40%, var(--border));
+  border: var(--chart-hairline) solid var(--timeline-chip-border);
   color: var(--accent);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
@@ -172,10 +185,10 @@
     height: auto;
     background: linear-gradient(
       to bottom,
-      color-mix(in oklab, var(--accent) 12%, transparent) 0%,
-      color-mix(in oklab, var(--accent) 55%, transparent) 8%,
-      color-mix(in oklab, var(--accent) 55%, transparent) 92%,
-      color-mix(in oklab, var(--accent) 12%, transparent) 100%
+      var(--chart-spine-edge) 0%,
+      var(--chart-spine-body) 8%,
+      var(--chart-spine-body) 92%,
+      var(--chart-spine-edge) 100%
     );
     transform: translateX(-1px);
   }

@@ -38,11 +38,34 @@
  *   - lattice-runtime.js    DOM transform for marp-vscode preview
  */
 
+/* >>> chart-palette-recipe : radar paint tokens (build-time input) >>>
+ * Build-time SOURCE only — tools/build-chart-palette-css.js resolves each token
+ * to two flat-literal planes per theme and tools/build-css.js strips this region
+ * from the shipped bundle. The paints below read the compiled result via plain
+ * var(). Only theme tokens (--text-muted / --text-heading) and chart-family
+ * recipe tokens (--state-pass-ink) may be referenced here. See
+ * engineering/decisions/2026-07-12-chart-color-static-palette.md. */
 :is(section.radar, figure.chart-frame) {
-  --radar-grid:       color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --radar-grid-soft:  color-mix(in srgb, var(--text-muted) 20%, transparent);
-  --radar-spoke:      color-mix(in srgb, var(--text-muted) 34%, transparent);
-  --radar-fill:       18%;   /* series-colour share in the polygon fill */
+  /* Concentric ring + spoke grid — faint text-muted washes; the dark arm lifts
+   * each for contrast on the dark canvas (folds the old .dark overrides). */
+  --radar-grid:       light-dark(color-mix(in srgb, var(--text-muted) 42%, transparent), color-mix(in srgb, var(--text-muted) 62%, transparent));
+  --radar-grid-soft:  light-dark(color-mix(in srgb, var(--text-muted) 20%, transparent), color-mix(in srgb, var(--text-muted) 32%, transparent));
+  --radar-spoke:      light-dark(color-mix(in srgb, var(--text-muted) 34%, transparent), color-mix(in srgb, var(--text-muted) 52%, transparent));
+  /* minimal modifier — fainter grid; one formula, --text-muted flips per plane. */
+  --radar-grid-minimal:      color-mix(in srgb, var(--text-muted) 26%, transparent);
+  --radar-grid-soft-minimal: color-mix(in srgb, var(--text-muted) 13%, transparent);
+  /* benchmark min–max envelope band. */
+  --radar-band-fill:   color-mix(in srgb, var(--text-muted) 22%, transparent);
+  --radar-band-stroke: color-mix(in srgb, var(--text-muted) 48%, transparent);
+  /* over-target gap segment — state-pass ink, quieted. */
+  --radar-gap-over:    color-mix(in srgb, var(--state-pass-ink) 60%, transparent);
+  /* cover-variant tick ink — lifted off --text-heading for full-bleed legibility. */
+  --radar-tick-ink-hero: color-mix(in srgb, var(--text-heading) 80%, transparent);
+}
+/* <<< chart-palette-recipe : end <<< */
+
+:is(section.radar, figure.chart-frame) {
+  --radar-fill:       18%;   /* series-colour share in the polygon fill (non-colour runtime input) */
 }
 
 /* radar is a chart-family member — section layout, header/body/caption
@@ -163,7 +186,7 @@
   stroke: var(--state-fail-ink);
 }
 :is(section.radar, figure.chart-frame) .radar-gap[data-dir="over"] {
-  stroke: color-mix(in srgb, var(--state-pass-ink) 60%, transparent);
+  stroke: var(--radar-gap-over);
   stroke-width: 2;
 }
 
@@ -184,8 +207,8 @@
 
 /* ── benchmark: hero series over a min–max envelope band ──────────────── */
 :is(section.radar, figure.chart-frame) .radar-band {
-  fill: color-mix(in srgb, var(--text-muted) 22%, transparent);
-  stroke: color-mix(in srgb, var(--text-muted) 48%, transparent);
+  fill: var(--radar-band-fill);
+  stroke: var(--radar-band-stroke);
   stroke-width: 1;
 }
 :is(section.radar, figure.chart-frame) .radar-poly--hero {
@@ -254,8 +277,8 @@ section.radar.minimal .radar-poly--hero {
   fill: none;
 }
 section.radar.minimal {
-  --radar-grid:      color-mix(in srgb, var(--text-muted) 26%, transparent);
-  --radar-grid-soft: color-mix(in srgb, var(--text-muted) 13%, transparent);
+  --radar-grid:      var(--radar-grid-minimal);
+  --radar-grid-soft: var(--radar-grid-soft-minimal);
 }
 section.radar.minimal .radar-band {
   fill: none;
@@ -263,12 +286,11 @@ section.radar.minimal .radar-band {
 
 /* ── dark: lift grid for the dark surface (composable) ───────────────────
  * --text-heading / --text-body / --bg follow light-dark(), so axis labels,
- * legend ink and the dot halo flip on their own — only the grid tokens
- * (built on the fixed --text-muted) need a nudge for dark-surface contrast. */
+ * legend ink and the dot halo flip on their own. The grid/spoke lift for the
+ * dark canvas is now the DARK ARM of the recipe --radar-grid/-soft/-spoke
+ * light-dark() tokens (the compiled override plane keys on .chart-frame.dark),
+ * so only the non-colour polygon-fill share needs a per-modifier nudge here. */
 section.radar.dark {
-  --radar-grid:       color-mix(in srgb, var(--text-muted) 62%, transparent);
-  --radar-grid-soft:  color-mix(in srgb, var(--text-muted) 32%, transparent);
-  --radar-spoke:      color-mix(in srgb, var(--text-muted) 52%, transparent);
   --radar-fill:       24%;
 }
 
@@ -306,7 +328,7 @@ section.radar:is(.claim-hero, .claim-bleed) .radar-svg {
 /* Scale ticks read too faint at full-bleed size — lift them off --text-muted
  * to a stronger heading mix and add weight so the 0–10 scale stays legible. */
 section.radar:is(.claim-hero, .claim-bleed) .radar-tick {
-  fill: color-mix(in srgb, var(--text-heading) 80%, transparent);
+  fill: var(--radar-tick-ink-hero);
   font-weight: 600;
 }
 

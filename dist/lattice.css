@@ -4740,73 +4740,14 @@ section.inventory.cards > .cell-stage {
  * must agree (parity contract).
  * ──────────────────────────────────────────────────────────────────── */
 
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
+
 :root {
-  /* Mood ramp — 5 (delight, green) → 3 (neutral, orange) → 1 (pain, rose). */
-  --journey-mood-5: var(--cat-2-mark);
-  --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3: var(--cat-4-mark);
-  --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1: var(--cat-6-mark);
-
-  /* Deep variants — used for filled chips that carry white text. */
-  --journey-mood-5-deep: var(--cat-2-mark);
-  --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3-deep: var(--cat-4-mark);
-  --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1-deep: var(--cat-6-mark);
-
-  /* Surfaces */
-  --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
-  /* Section bar bg mixes toward --surface-inverse on BOTH canvases → always a dark
-   * surface. --on-accent flips to --surface-inverse in dark mode (same value) giving
-   * near-zero contrast (~2.5:1). Use --on-dark-primary (always-light token)
-   * so section labels remain legible in both light and dark themes. */
-  --journey-stage-fg:   var(--on-dark-primary);
-  --journey-task-bg:      color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
-  --journey-task-fg:      var(--text-body);
-  --journey-timeline:     color-mix(in srgb, var(--text-body) 55%, transparent);
-  --journey-plumb:        color-mix(in srgb, var(--text-body) 50%, transparent);
-  --journey-face-bg:      var(--bg);
-  /* All journey tokens that resolve to a half-transparent fg use the
-   * `srgb` color-mix space — Chromium 1194 (Playwright build that runs
-   * the PDF rasterizer) silently drops `oklab` color-mix(... transparent)
-   * in stroke/border-color/background contexts. */
-  --journey-axis:         color-mix(in srgb, var(--text-body) 32%, transparent);
-
-  /* Per-row height in the mood band. Drives both the band's total
-   * height (5 rows = 5 × this) and the plumb-line length calc. Smaller
-   * value = more vertical room for the rest of the board (legend,
-   * sections, insight callout). */
+  /* Per-row height in the mood band. NON-colour, so it ships as-is (it is not
+   * part of the compiled colour recipe above). Drives both the band's total
+   * height (5 rows = 5 × this) and the plumb-line length calc. Smaller value =
+   * more vertical room for the rest of the board (legend, sections, callout). */
   --journey-mood-row: 2.03125cqi;
-}
-
-/* PRINT — re-resolve the derived ramp/surfaces against the print band.
- * The tokens above are declared at :root, so their var(--cat-N-mark)/var(--bg-alt)
- * substitute against :ROOT's colored values — a custom property that references
- * another resolves at its DECLARATION scope, so section.print's remap (on the
- * section) can't reach a :root-declared derived token. Re-declaring the SAME
- * derivations here, on the print section, re-resolves them against the print
- * greyscale cat-marks / ink surfaces. Keep in SYNC with the :root block above.
- * (Print-only; light/dark output is untouched.) */
-section.print.journey {
-  --journey-mood-5: var(--cat-2-mark);
-  --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3: var(--cat-4-mark);
-  --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1: var(--cat-6-mark);
-  --journey-mood-5-deep: var(--cat-2-mark);
-  --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3-deep: var(--cat-4-mark);
-  --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1-deep: var(--cat-6-mark);
-  --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
-  --journey-stage-fg:   var(--on-dark-primary);
-  --journey-task-bg:    color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
-  --journey-task-fg:    var(--text-body);
-  --journey-timeline:   color-mix(in srgb, var(--text-body) 55%, transparent);
-  --journey-plumb:      color-mix(in srgb, var(--text-body) 50%, transparent);
-  --journey-face-bg:    var(--bg);
-  --journey-axis:       color-mix(in srgb, var(--text-body) 32%, transparent);
 }
 
 /* Shared base — applies to every journey variant. */
@@ -5159,15 +5100,17 @@ section.journey.heatmap .journey-tasks {
 section.journey.heatmap .journey-task {
   min-height: 7.5cqi;
   padding: var(--sp-md) var(--sp-sm) var(--sp-sm);
-  background: color-mix(in oklab, var(--mood-bg) 22%, var(--bg-alt));
+  /* --mood-bg = the solid mood tone (border + badge); --mood-fill = the compiled
+   * 22% chip wash. Both set per [data-mood] below (fixed 1..5 slots). */
+  background: var(--mood-fill);
   border-top: 3px solid var(--mood-bg);
   position: relative;
 }
-section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); }
-section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); }
-section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); }
-section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); }
-section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
+section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); --mood-fill: var(--journey-mood-5-fill); }
+section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); --mood-fill: var(--journey-mood-4-fill); }
+section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); --mood-fill: var(--journey-mood-3-fill); }
+section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); --mood-fill: var(--journey-mood-2-fill); }
+section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); --mood-fill: var(--journey-mood-1-fill); }
 /* Mood score badge in the top-right of each chip — redundant
  * encoding so the heatmap remains legible to grayscale / colorblind
  * readers. */
@@ -5300,6 +5243,9 @@ section.journey .journey-lane-track {
   grid-row: var(--row);
   align-self: center;
   height: 2px;  /* sanctioned: actor connector rule — a hairline, resolution-stable by design */
+  /* DYNAMIC: --actor-color is set inline per actor from the markup (not a fixed
+   * palette slot), so this mix can't be pre-compiled to a flat token — it stays
+   * a live color-mix() on the runtime local. */
   background: color-mix(in oklab, var(--actor-color) 35%, transparent);
   border-radius: 1px;
 }
@@ -5357,17 +5303,19 @@ section.journey.weighted .journey-task {
   min-width: 4.375cqi;
   padding: var(--sp-md) var(--sp-sm) var(--sp-sm);
   min-height: 6.875cqi;
-  background: color-mix(in oklab, var(--mood-bg) 28%, var(--bg-alt));
+  /* --mood-fill = the compiled 28% chip wash (stronger than heatmap's 22%);
+   * --mood-bg = the solid tone for the top border + % badge. */
+  background: var(--mood-fill);
   border-top-width: 4px;
   border-top-style: solid;
   border-top-color: var(--mood-bg);
   position: relative;
 }
-section.journey.weighted .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); }
-section.journey.weighted .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); }
-section.journey.weighted .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); }
-section.journey.weighted .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); }
-section.journey.weighted .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
+section.journey.weighted .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); --mood-fill: var(--journey-mood-5-wfill); }
+section.journey.weighted .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); --mood-fill: var(--journey-mood-4-wfill); }
+section.journey.weighted .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); --mood-fill: var(--journey-mood-3-wfill); }
+section.journey.weighted .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); --mood-fill: var(--journey-mood-2-wfill); }
+section.journey.weighted .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); --mood-fill: var(--journey-mood-1-wfill); }
 /* Volume percentage badge — large, dropped to top-center so the
  * "this is the volume share" read is the dominant signal alongside
  * the task name. */
@@ -5499,11 +5447,11 @@ section.journey .journey-vtask .journey-task-label {
  * by mood with a reach to the spine (precision). Colour gives the at-a-glance
  * read; position gives the exact value. §10 (journey). */
 /* Row wash: pain (1) warm → delight (5) cool, off the semantic state hues. */
-section.journey .journey-vtask[data-mood="1"] { background: color-mix(in oklab, var(--state-fail-hue) 15%, var(--journey-task-bg)); }
-section.journey .journey-vtask[data-mood="2"] { background: color-mix(in oklab, var(--state-warn-hue) 13%, var(--journey-task-bg)); }
+section.journey .journey-vtask[data-mood="1"] { background: var(--journey-vtask-mood-1-bg); }
+section.journey .journey-vtask[data-mood="2"] { background: var(--journey-vtask-mood-2-bg); }
 section.journey .journey-vtask[data-mood="3"] { background: var(--journey-task-bg); }
-section.journey .journey-vtask[data-mood="4"] { background: color-mix(in oklab, var(--state-pass-hue) 10%, var(--journey-task-bg)); }
-section.journey .journey-vtask[data-mood="5"] { background: color-mix(in oklab, var(--state-pass-hue) 17%, var(--journey-task-bg)); }
+section.journey .journey-vtask[data-mood="4"] { background: var(--journey-vtask-mood-4-bg); }
+section.journey .journey-vtask[data-mood="5"] { background: var(--journey-vtask-mood-5-bg); }
 
 /* The mood track: a faint pain→delight rail with the face plotted at x = mood
  * and a dashed reach from the pain (left) edge. */
@@ -5521,7 +5469,7 @@ section.journey .journey-vmood::before {
   inset: 0;
   background-image: repeating-linear-gradient(
     to right,
-    color-mix(in oklab, var(--border) 50%, transparent) 0 1px,
+    var(--chart-border-soft) 0 1px,
     transparent 1px calc(100% / 4));
   opacity: 0.5;
 }
@@ -5532,7 +5480,7 @@ section.journey .journey-vmood-line {
   left: 0;
   width: calc((var(--mood) - 1) / 4 * 100%);
   height: 0;
-  border-top: 2px dashed color-mix(in oklab, var(--journey-timeline) 55%, transparent);
+  border-top: 2px dashed var(--journey-reach-rule);
   transform: translateY(-50%);
 }
 /* Face plotted at x = mood (1 = pain/left, 5 = delight/right). */
@@ -5566,6 +5514,8 @@ section.journey .journey-vmood .journey-face {
  *   • `keyline` — category as a single crisp left edge (ownership at a glance)
  *   • `tinted`  — columns tinted by STAGE (reinforces the pipeline flow)
  * Author as `<!-- _class: kanban -->` / `kanban keyline` / `kanban tinted`. */
+
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
 
 :is(section.kanban, figure.kanban).chart-frame .chart-body {
   /* Inherit the base width (calc(100cqi - 2*sp-2xl), centered) and padding
@@ -5619,7 +5569,7 @@ section.journey .journey-vmood .journey-face {
 /* "Done" column: header turns pass-green, cards dim to signal completion */
 .kanban-column[data-done] .kanban-column-header {
   color: var(--state-pass-ink);
-  border-bottom-color: color-mix(in oklab, var(--state-pass-ink) 40%, transparent);
+  border-bottom-color: var(--kanban-done-rule);
 }
 .kanban-column[data-done] .kanban-card { opacity: 0.52; }
 
@@ -5640,11 +5590,8 @@ section.journey .journey-vmood .journey-face {
  * inert by default; the variants opt back into it. */
 .kanban-card {
   /* Distinctly elevated above the canvas in BOTH modes: lighter than canvas. */
-  background: light-dark(
-    var(--bg-alt),
-    color-mix(in oklab, var(--bg-alt) 88%, white));
-  border: var(--chart-hairline) solid
-    light-dark(var(--border), color-mix(in oklab, var(--border) 78%, white));
+  background: var(--kanban-card-bg);
+  border: var(--chart-hairline) solid var(--kanban-card-border);
   border-radius: 0.85cqi;
   padding: 0.75cqi var(--sp-sm);
   /* Soft drop-shadow in light; in dark a top inset highlight reads as elevation
@@ -5670,20 +5617,18 @@ section.journey .journey-vmood .journey-face {
  * variants keep status on the chip alone (their thesis). */
 .kanban-card[data-s="on-track"],
 .kanban-card[data-s="done"],
-.kanban-card[data-s="live"]     { --status-fill: var(--state-pass-fill); --status-ink: var(--state-pass-ink); }
+.kanban-card[data-s="live"]     { --status-cardbg: var(--state-pass-cardfill); --status-cardborder: var(--state-pass-cardborder); }
 .kanban-card[data-s="at-risk"],
-.kanban-card[data-s="warn"]     { --status-fill: var(--state-warn-fill); --status-ink: var(--state-warn-ink); }
+.kanban-card[data-s="warn"]     { --status-cardbg: var(--state-warn-cardfill); --status-cardborder: var(--state-warn-cardborder); }
 .kanban-card[data-s="blocked"],
-.kanban-card[data-s="fail"]     { --status-fill: var(--state-fail-fill); --status-ink: var(--state-fail-ink); }
+.kanban-card[data-s="fail"]     { --status-cardbg: var(--state-fail-cardfill); --status-cardborder: var(--state-fail-cardborder); }
 .kanban-card[data-s="pilot"],
-.kanban-card[data-s="decision"] { --status-fill: var(--state-info-fill); --status-ink: var(--state-info-ink); }
-.kanban-card[data-s="deferred"] { --status-fill: var(--state-mute-fill); --status-ink: var(--state-mute-ink); }
+.kanban-card[data-s="decision"] { --status-cardbg: var(--state-info-cardfill); --status-cardborder: var(--state-info-cardborder); }
+.kanban-card[data-s="deferred"] { --status-cardbg: var(--state-mute-cardfill); --status-cardborder: var(--state-mute-cardborder); }
 
 :is(section.kanban, figure.kanban):not(.keyline):not(.tinted) .kanban-card[data-s] {
-  background: light-dark(
-    color-mix(in oklab, var(--status-fill) 55%, var(--bg-alt)),
-    color-mix(in oklab, var(--status-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
-  border-color: color-mix(in oklab, var(--status-ink) 35%, var(--border));
+  background: var(--status-cardbg);
+  border-color: var(--status-cardborder);
 }
 
 .kanban-card-title {
@@ -5801,10 +5746,8 @@ section.journey .journey-vmood .journey-face {
 :is(section.kanban, figure.kanban).keyline .kanban-card {
   /* Flat uniform tile — light barely warms --bg-alt; dark mixes a stronger step
    * toward --border so the card stops sinking into the near-black canvas. */
-  background: light-dark(
-    color-mix(in oklab, var(--bg-alt) 92%, var(--border)),
-    color-mix(in oklab, var(--bg-alt) 72%, var(--border)));
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--border) 65%, var(--text-muted));
+  background: var(--kanban-keyline-bg);
+  border: var(--chart-hairline) solid var(--kanban-keyline-border);
   /* THE one category cue: a crisp left keyline at the full lane ink. */
   border-left: 0.42cqi solid var(--lane-color, var(--border));
   /* Square the LEFT corners so the keyline reads as one continuous edge; right
@@ -5812,9 +5755,7 @@ section.journey .journey-vmood .journey-face {
   border-radius: 0 0.46875cqi 0.46875cqi 0;
   box-shadow: none;
 }
-:is(section.kanban, figure.kanban).keyline.dark .kanban-card {
-  border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
-}
+/* (dark border folds into --kanban-keyline-border's dark arm — no .keyline.dark rule) */
 /* Lane label quiet; the keyline carries the colour, so drop the dot. */
 :is(section.kanban, figure.kanban).keyline .kanban-lane { color: var(--text-secondary); }
 :is(section.kanban, figure.kanban).keyline .kanban-lane::before { display: none; }
@@ -5827,25 +5768,30 @@ section.journey .journey-vmood .journey-face {
  * stays the one accent chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
  * ════════════════════════════════════════════════════════════════════════════ */
 :is(section.kanban, figure.kanban).tinted .kanban-column {
+  /* --col-hue stays a per-column local (the card box-shadow below still reads it);
+   * the tinted bg/border/underline PAINTS read the flat --col-* locals, which each
+   * column's setter re-points at one precompiled lane slot (recipe region above). */
   --col-hue: var(--chart-cat-1-hue);
-  --col-tint: 5%;
-  background: color-mix(in oklab, var(--col-hue) var(--col-tint), var(--bg));
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--col-hue) 14%, var(--border));
+  --col-bg: var(--kanban-lane-base-bg);
+  --col-border: var(--kanban-lane-base-border);
+  --col-underline: var(--kanban-lane-base-underline);
+  background: var(--col-bg);
+  border: var(--chart-hairline) solid var(--col-border);
   border-radius: 0.7cqi;
   padding: var(--sp-sm) var(--sp-xs);
 }
 /* Stage progression blue → orange → teal → pass-green (no green-on-green at the
  * end); warm/green hues read heavier, so they take a lower mix % to feel the
- * same whisper. */
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-tint: 6%; }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-tint: 4%; }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-tint: 5%; }
+ * same whisper (baked into each --kanban-lane-N-bg slot's tint). */
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(1) { --col-hue: var(--chart-cat-1-hue); --col-bg: var(--kanban-lane-1-bg); --col-border: var(--kanban-lane-1-border); --col-underline: var(--kanban-lane-1-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(2) { --col-hue: var(--chart-cat-2-hue); --col-bg: var(--kanban-lane-2-bg); --col-border: var(--kanban-lane-2-border); --col-underline: var(--kanban-lane-2-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(3) { --col-hue: var(--chart-cat-5-hue); --col-bg: var(--kanban-lane-3-bg); --col-border: var(--kanban-lane-3-border); --col-underline: var(--kanban-lane-3-underline); }
 /* 4th/5th active lanes (boards up to the hard cap of 6 columns) stay distinct
  * rather than wrapping back to blue. The done lane is keyed by [data-done]
  * below, which always wins its own position regardless of count. */
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-tint: 5%; }
-:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-tint: 4.5%; }
-:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-tint: 4.5%; }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(4) { --col-hue: var(--chart-cat-6-hue); --col-bg: var(--kanban-lane-4-bg); --col-border: var(--kanban-lane-4-border); --col-underline: var(--kanban-lane-4-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column:nth-child(5) { --col-hue: var(--chart-cat-4-hue); --col-bg: var(--kanban-lane-5-bg); --col-border: var(--kanban-lane-5-border); --col-underline: var(--kanban-lane-5-underline); }
+:is(section.kanban, figure.kanban).tinted .kanban-column[data-done]   { --col-hue: var(--state-pass-hue); --col-bg: var(--kanban-lane-done-bg); --col-border: var(--kanban-lane-done-border); --col-underline: var(--kanban-lane-done-underline); }
 
 /* Header: neutral mono register; the hue lives only on the underline. */
 :is(section.kanban, figure.kanban).tinted .kanban-column-header {
@@ -5855,33 +5801,25 @@ section.journey .journey-vmood .journey-face {
    * the side inset lives in background-size — no border-box-narrowing margin,
    * and the column's flex gap still owns the header→cards spacing. */
   background:
-    linear-gradient(color-mix(in oklab, var(--col-hue) 60%, transparent),
-                    color-mix(in oklab, var(--col-hue) 60%, transparent))
+    linear-gradient(var(--col-underline), var(--col-underline))
     no-repeat center bottom / calc(100% - 2 * var(--sp-3xs)) 1.5px;
   padding: 0 var(--sp-2xs) 0.6cqi;
 }
 :is(section.kanban, figure.kanban).tinted .kanban-column[data-done] .kanban-column-header {
-  color: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
+  color: var(--kanban-tinted-done-ink);
 }
 
 /* Cards lift OFF the tinted lane: light = plain --bg paper + soft hue shadow;
  * dark = a touch lighter than the lane with a defined hairline. */
 :is(section.kanban, figure.kanban).tinted .kanban-card {
-  background: light-dark(var(--bg), var(--bg-alt));
-  border: var(--chart-hairline) solid var(--border);
+  background: var(--kanban-tinted-card-bg);
+  border: var(--chart-hairline) solid var(--kanban-tinted-card-border);
   box-shadow: light-dark(
     0 0.1cqi 0.3cqi color-mix(in oklab, var(--col-hue) 12%, transparent), none);
 }
-/* Dark: tint the lane a hair stronger so the stage colour survives near-black,
- * and lift the cards above it. */
-:is(section.kanban, figure.kanban).tinted.dark .kanban-column {
-  background: color-mix(in oklab, var(--col-hue) calc(var(--col-tint) + 5%), var(--bg));
-  border-color: color-mix(in oklab, var(--col-hue) 22%, var(--border));
-}
-:is(section.kanban, figure.kanban).tinted.dark .kanban-card {
-  background: color-mix(in oklab, var(--bg-alt) 88%, white);
-  border-color: color-mix(in oklab, var(--border) 70%, var(--text-muted));
-}
+/* Dark: the lane tint (light-dark dark arm = light + 5%), the lane border (14→22%),
+ * and the lifted card surface all fold into the flat tokens' dark arms above — so
+ * the old `.tinted.dark .kanban-column` / `.kanban-card` overrides are gone. */
 /* Lane label quiet; drop the dot (colour now lives on the lane, not the card). */
 :is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }
 :is(section.kanban, figure.kanban).tinted .kanban-lane::before { display: none; }
@@ -7721,7 +7659,7 @@ section.math .math-error {
   color: var(--warn);
   font-family: var(--font-mono);
   font-size: 0.85em;
-  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  background: var(--math-error-bg);
   padding: 0.1em 0.4em;
   border-radius: var(--radius-sm);
 }
@@ -9496,17 +9434,7 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
  * from the same slot (`--cN-light` / `--cN-dark`). Cohort inherits the
  * same `[data-cell]` routing — its groups are categories too. Themes tune
  * the look by tuning cN, not a quadrant-only token set. */
-:is(section.quadrant, figure.chart-frame) {
-  --quadrant-frame:   color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --quadrant-split:   color-mix(in srgb, var(--text-muted) 28%, transparent);
-  --quadrant-target:  color-mix(in srgb, var(--text-muted) 78%, transparent);
-  /* On-field labels sit on the vivid pie-matched zone fills, so they take
-   * maximum-contrast ink rather than the softened --text-heading: true black
-   * on the light canvas, true white on dark. light-dark() flips it off the
-   * same color-scheme that drives every other token, so dark decks get white
-   * labels automatically. */
-  --quadrant-label-ink: light-dark(black, white);
-}
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
 
 /* Categorical routing — reading-order cN, mapped onto the shared chart
  * category model (fill = --catN-fill, ink/border = --catN-ink). That model
@@ -9542,7 +9470,7 @@ section.quadrant.chart-frame .chart-header {
 section.quadrant.chart-frame .chart-header::after {
   width: 7.5cqi;
   height: var(--chart-hairline);
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
+  background: var(--chart-hairline-accent);
 }
 
 :is(section.quadrant, figure.chart-frame) .quadrant-figure {
@@ -9781,8 +9709,8 @@ section.quadrant.minimal .quadrant-tint {
   fill: none;
 }
 section.quadrant.minimal {
-  --quadrant-frame: color-mix(in srgb, var(--text-muted) 28%, transparent);
-  --quadrant-split: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  --quadrant-frame: var(--quadrant-frame-minimal);
+  --quadrant-split: var(--quadrant-split-minimal);
 }
 section.quadrant.minimal .quadrant-bubble {
   fill: none;
@@ -9791,12 +9719,11 @@ section.quadrant.minimal .quadrant-hull {
   fill: none;
 }
 
-/* ── dark: lift frame + split for dark surfaces (composable) ──────────── */
-section.quadrant.dark {
-  --quadrant-frame:  color-mix(in srgb, var(--text-muted) 58%, transparent);
-  --quadrant-split:  color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --quadrant-target: color-mix(in srgb, var(--text-muted) 88%, transparent);
-}
+/* ── dark: lift frame + split for dark surfaces (composable) ──────────────
+ * The dark-canvas lift for the frame / split / target lines is now the DARK ARM
+ * of the recipe --quadrant-frame/-split/-target light-dark() tokens (the compiled
+ * override plane keys on .chart-frame.dark), so no per-modifier override is
+ * needed here — section.quadrant.dark picks up the dark plane automatically. */
 
 /* === lib/components/statement/quote/quote.styles.css === */
 /* quote — statement.canvas.quote
@@ -9865,11 +9792,10 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
  *   - lattice-runtime.js    DOM transform for marp-vscode preview
  */
 
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
+
 :is(section.radar, figure.chart-frame) {
-  --radar-grid:       color-mix(in srgb, var(--text-muted) 42%, transparent);
-  --radar-grid-soft:  color-mix(in srgb, var(--text-muted) 20%, transparent);
-  --radar-spoke:      color-mix(in srgb, var(--text-muted) 34%, transparent);
-  --radar-fill:       18%;   /* series-colour share in the polygon fill */
+  --radar-fill:       18%;   /* series-colour share in the polygon fill (non-colour runtime input) */
 }
 
 /* radar is a chart-family member — section layout, header/body/caption
@@ -9990,7 +9916,7 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
   stroke: var(--state-fail-ink);
 }
 :is(section.radar, figure.chart-frame) .radar-gap[data-dir="over"] {
-  stroke: color-mix(in srgb, var(--state-pass-ink) 60%, transparent);
+  stroke: var(--radar-gap-over);
   stroke-width: 2;
 }
 
@@ -10011,8 +9937,8 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
 
 /* ── benchmark: hero series over a min–max envelope band ──────────────── */
 :is(section.radar, figure.chart-frame) .radar-band {
-  fill: color-mix(in srgb, var(--text-muted) 22%, transparent);
-  stroke: color-mix(in srgb, var(--text-muted) 48%, transparent);
+  fill: var(--radar-band-fill);
+  stroke: var(--radar-band-stroke);
   stroke-width: 1;
 }
 :is(section.radar, figure.chart-frame) .radar-poly--hero {
@@ -10081,8 +10007,8 @@ section.radar.minimal .radar-poly--hero {
   fill: none;
 }
 section.radar.minimal {
-  --radar-grid:      color-mix(in srgb, var(--text-muted) 26%, transparent);
-  --radar-grid-soft: color-mix(in srgb, var(--text-muted) 13%, transparent);
+  --radar-grid:      var(--radar-grid-minimal);
+  --radar-grid-soft: var(--radar-grid-soft-minimal);
 }
 section.radar.minimal .radar-band {
   fill: none;
@@ -10090,12 +10016,11 @@ section.radar.minimal .radar-band {
 
 /* ── dark: lift grid for the dark surface (composable) ───────────────────
  * --text-heading / --text-body / --bg follow light-dark(), so axis labels,
- * legend ink and the dot halo flip on their own — only the grid tokens
- * (built on the fixed --text-muted) need a nudge for dark-surface contrast. */
+ * legend ink and the dot halo flip on their own. The grid/spoke lift for the
+ * dark canvas is now the DARK ARM of the recipe --radar-grid/-soft/-spoke
+ * light-dark() tokens (the compiled override plane keys on .chart-frame.dark),
+ * so only the non-colour polygon-fill share needs a per-modifier nudge here. */
 section.radar.dark {
-  --radar-grid:       color-mix(in srgb, var(--text-muted) 62%, transparent);
-  --radar-grid-soft:  color-mix(in srgb, var(--text-muted) 32%, transparent);
-  --radar-spoke:      color-mix(in srgb, var(--text-muted) 52%, transparent);
   --radar-fill:       24%;
 }
 
@@ -10133,7 +10058,7 @@ section.radar:is(.claim-hero, .claim-bleed) .radar-svg {
 /* Scale ticks read too faint at full-bleed size — lift them off --text-muted
  * to a stronger heading mix and add weight so the 0–10 scale stays legible. */
 section.radar:is(.claim-hero, .claim-bleed) .radar-tick {
-  fill: color-mix(in srgb, var(--text-heading) 80%, transparent);
+  fill: var(--radar-tick-ink-hero);
   font-weight: 600;
 }
 
@@ -10801,6 +10726,8 @@ section.regulatory-update > .cell-stage {
  * See lib/components/roadmap/roadmap.manifest.json for the component contract.
  */
 
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
+
 /* ── ROADMAP ───────────────────────────────────────────────────────────
  * ## heading
  * | Workstream | Phase 01 | Phase 02 | Phase 03 |
@@ -10960,22 +10887,25 @@ section.regulatory-update > .cell-stage {
    The workstream column reads `--phase-accent` for its lane stripe
    per row; phase columns read it for their leading column-accent
    stripe per column. */
+/* Each block sets the dynamic solid --phase-accent (read directly for the pill /
+   border / eyebrow) AND the FLAT lane-tint tokens the color-mix paints used to
+   compute inline — so td:first-child / swimlane grounds read a compiled literal. */
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+2),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); --phase-tint-6:var(--cat-1-phasetint-6); --phase-tint-14:var(--cat-1-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+3),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); --phase-tint-6:var(--cat-2-phasetint-6); --phase-tint-14:var(--cat-2-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+4),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); --phase-tint-6:var(--cat-3-phasetint-6); --phase-tint-14:var(--cat-3-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+5),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); --phase-tint-6:var(--cat-4-phasetint-6); --phase-tint-14:var(--cat-4-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+6),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); --phase-tint-6:var(--cat-5-phasetint-6); --phase-tint-14:var(--cat-5-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+7),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); --phase-tint-6:var(--cat-6-phasetint-6); --phase-tint-14:var(--cat-6-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); --phase-tint-6:var(--cat-7-phasetint-6); --phase-tint-14:var(--cat-7-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+1),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); --phase-tint-6:var(--cat-8-phasetint-6); --phase-tint-14:var(--cat-8-phasetint-14); }
 
 :is(section.roadmap, figure.roadmap) td {
   padding:var(--sp-xs) var(--sp-md);
@@ -10988,7 +10918,7 @@ section.regulatory-update > .cell-stage {
 :is(section.roadmap, figure.roadmap) td:first-child {
   font-weight:700;
   color:var(--text-heading);
-  background:color-mix(in srgb, var(--phase-accent, var(--accent)) 6%, var(--bg-alt));
+  background:var(--phase-tint-6, var(--roadmap-accent-tint-6));
   border-left:var(--chart-fill-accent) solid var(--phase-accent, var(--accent));
 }
 /* Empty cells render as a muted dash. */
@@ -11026,24 +10956,28 @@ section.regulatory-update > .cell-stage {
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-shipped {
   --state-color:var(--pass);
   --state-mark:var(--mark-check);
-  --cell-state-bg:color-mix(in srgb, var(--pass) 8%, transparent);
+  --cell-state-bg:var(--roadmap-cellbg-shipped);
+  --state-rail:var(--roadmap-rail-shipped);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-wip,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-wip {
   --state-color:var(--warn);
   --state-mark:var(--mark-dash);
-  --cell-state-bg:color-mix(in srgb, var(--warn) 9%, transparent);
+  --cell-state-bg:var(--roadmap-cellbg-wip);
+  --state-rail:var(--roadmap-rail-wip);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-planned,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned {
   --state-color:var(--text-label);
   --cell-state-bg:var(--bg-alt);
+  --state-rail:var(--roadmap-rail-planned);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped {
   --state-color:var(--text-muted);
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
+  --state-rail:var(--roadmap-rail-skipped);
 }
 
 /* Light treatment (default, any variant): a small state-coloured
@@ -11118,13 +11052,13 @@ section.regulatory-update > .cell-stage {
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped .row-text {
   color:var(--text-muted);
   text-decoration:line-through;
-  text-decoration-color:color-mix(in srgb, var(--text-muted) 60%, transparent);
+  text-decoration-color:var(--roadmap-strike);
 }
 
 /* Horizons row left rail picks up the state colour (overrides the
    default phase-accent rail when a state class is present). */
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state {
-  border-left-color:color-mix(in srgb, var(--state-color) 60%, var(--border));
+  border-left-color:var(--state-rail);
 }
 
 /* Heavy treatment (`.status` modifier): full ribbon + tinted ground +
@@ -11297,6 +11231,10 @@ section.regulatory-update > .cell-stage {
   flex-direction:column;
   gap:2px; /* sanctioned: hairline-scale gap in the horizon row */
   padding-left:var(--sp-sm);
+  /* DYNAMIC (chart-palette rule #3): --phase-accent here is set INLINE per
+     horizon-card by lib/roadmap.js (HORIZON_ACCENTS), a per-element runtime local
+     that can't be pre-compiled — so this ONE mix stays a live color-mix(). A
+     cell-state row overrides border-left-color with the flat --state-rail above. */
   border-left:2px solid color-mix(in srgb, var(--phase-accent, var(--accent)) 40%, var(--border));
 }
 :is(section.roadmap, figure.roadmap).horizons .row-label {
@@ -11364,7 +11302,7 @@ section.regulatory-update > .cell-stage {
   border-collapse:separate;
 }
 :is(section.roadmap, figure.roadmap).swimlane tbody tr > td:first-child {
-  background:color-mix(in srgb, var(--phase-accent, var(--accent)) 14%, var(--bg-alt));
+  background:var(--phase-tint-14, var(--roadmap-accent-tint-14));
   border-left:var(--chart-accent-lg) solid var(--phase-accent, var(--accent));
   border-top:var(--chart-hairline) solid var(--border);
   border-bottom:var(--chart-hairline) solid var(--border);
@@ -11389,7 +11327,10 @@ section.regulatory-update > .cell-stage {
   position:absolute;
   left:0; top:25%; bottom:25%;
   width:3px; /* sanctioned: phase-accent edge rule — a hairline, resolution-stable by design */
-  background:color-mix(in srgb, var(--phase-accent, var(--accent)) 60%, var(--border));
+  /* Phase COLUMN cells carry no --phase-accent (the nth-child rotation sets it only
+     on th + td:first-child), so this always resolved to the accent default — now a
+     flat token. */
+  background:var(--roadmap-swim-edge);
   border-radius:2px;
 }
 :is(section.roadmap, figure.roadmap).swimlane tbody tr > td:last-child {
@@ -11417,7 +11358,7 @@ section.regulatory-update > .cell-stage {
  * the base rule — no milestone-specific pill chrome.
  * ──────────────────────────────────────────────────────────────────── */
 :is(section.roadmap, figure.roadmap).milestones tbody td:not(:first-child) {
-  background:color-mix(in srgb, var(--bg-alt) 45%, transparent);
+  background:var(--roadmap-milestone-ground);
 }
 
 /* === lib/components/comparison/split-compare/split-compare.styles.css === */
@@ -12618,6 +12559,8 @@ section.statute-stack > .cell-stage {
  * See lib/components/timeline-list/timeline-list.manifest.json for the component contract.
  */
 
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
+
 /* ── TIMELINE-LIST · horizontal ──
  * Ordered list rendered as a left-to-right spine with dots at each item.
  * Date pill sits above the dot; title + status pill + body sit below.
@@ -12653,10 +12596,10 @@ section.statute-stack > .cell-stage {
   height: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
   background: linear-gradient(
     to right,
-    color-mix(in oklab, var(--accent) 12%, transparent) 0%,
-    color-mix(in oklab, var(--accent) 55%, transparent) 12%,
-    color-mix(in oklab, var(--accent) 55%, transparent) 88%,
-    color-mix(in oklab, var(--accent) 12%, transparent) 100%
+    var(--chart-spine-edge) 0%,
+    var(--chart-spine-body) 12%,
+    var(--chart-spine-body) 88%,
+    var(--chart-spine-edge) 100%
   );
   transform: translateY(-1px);
   z-index: 0;
@@ -12717,7 +12660,7 @@ section.statute-stack > .cell-stage {
    * outside the flex content box). */
   border-radius: 0.9375cqi;
   background: var(--bg);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--accent) 40%, var(--border));
+  border: var(--chart-hairline) solid var(--timeline-chip-border);
   color: var(--accent);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
@@ -12788,10 +12731,10 @@ section.statute-stack > .cell-stage {
     height: auto;
     background: linear-gradient(
       to bottom,
-      color-mix(in oklab, var(--accent) 12%, transparent) 0%,
-      color-mix(in oklab, var(--accent) 55%, transparent) 8%,
-      color-mix(in oklab, var(--accent) 55%, transparent) 92%,
-      color-mix(in oklab, var(--accent) 12%, transparent) 100%
+      var(--chart-spine-edge) 0%,
+      var(--chart-spine-body) 8%,
+      var(--chart-spine-body) 92%,
+      var(--chart-spine-edge) 100%
     );
     transform: translateX(-1px);
   }
@@ -13378,6 +13321,8 @@ section.wifi .qr-row dd.qr-mono {
  * See lib/components/word-cloud/word-cloud.manifest.json for the component contract.
  */
 
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
+
 /* ── WORD-CLOUD ──────────────────────────────────────────────────────────────
  * Curated word cloud: real 2D spiral packing, multi-hue, axis-aligned.
  *
@@ -13477,12 +13422,9 @@ section.wifi .qr-row dd.qr-mono {
 :is(section.word-cloud, figure.chart-frame) {
   --chart-spine-h: 78%;                  /* spine height — % of body, never spills */
   --chart-spine-w: clamp(2px, 0.156cqi, 4px); /* spine thickness (res-stable)    */
-  --chart-spine: linear-gradient(to bottom,
-    transparent 0%,
-    color-mix(in oklab, var(--accent) 32%, transparent) 14%,
-    color-mix(in oklab, var(--accent) 60%, transparent) 50%,
-    color-mix(in oklab, var(--accent) 32%, transparent) 86%,
-    transparent 100%);
+  /* --chart-spine (the gradient itself) is a PAINT token — defined in the
+   * chart-palette-recipe region at the top of this file so it compiles to flat
+   * literals (no color-mix ships). Consumed by .word-cloud-canvas::after below. */
 }
 
 /* The cloud packs into the LEFT 70% of the canvas; a gradient spine at the
@@ -15271,7 +15213,7 @@ section.chart-frame .chart-header::after {
   transform: translateX(-50%);
   width: 7.5cqi;
   height: var(--chart-hairline);
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
+  background: var(--chart-hairline-accent);
 }
 
 section.chart-frame .chart-eyebrow {
@@ -15433,16 +15375,10 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
    * (no second background) and the glass is read from the soft dark float
    * shadow + a crisp hairline edge + the white top rim. On a DARK slide a
    * translucent WHITE frost veil reads cleanly (lighter than the canvas), so
-   * the fill is a faint white gradient. light-dark() picks the right one. */
-  background: light-dark(
-    transparent,
-    linear-gradient(180deg,
-      color-mix(in oklab, white 13%, transparent) 0%,
-      color-mix(in oklab, white 5%, transparent) 100%));
+   * the fill is a faint white gradient. The token flips it per canvas. */
+  background: var(--chart-glass-fill);
   /* The glass EDGE: a faint cool hairline on light, a luminous edge on dark. */
-  border: var(--chart-hairline) solid light-dark(
-    color-mix(in oklab, var(--text-heading) 10%, transparent),
-    color-mix(in oklab, white 14%, transparent));
+  border: var(--chart-hairline) solid var(--chart-glass-edge);
   /* Apple-squircle-ish corner — larger, continuous-feeling radius. */
   border-radius: 2.25cqi;
   /* Float + specular rim. The elevation shadow is always DARK (black-based);
@@ -15484,7 +15420,7 @@ section.chart-frame .chart-caption::before {
   width: 7.5cqi;
   height: var(--chart-hairline);
   margin: 0;
-  background: color-mix(in oklab, var(--border) 90%, transparent);
+  background: var(--chart-caption-rule);
 }
 
 /* The earlier `.minimal` modifier (no gradient, short hairline) is
@@ -15510,12 +15446,12 @@ section.chart-frame .chart-status {
   /* Same depth-gradient recipe as the gantt bar so a status reads identically
    * as a pill or a bar: hue-into-bg gradient + vivid ink border + the shared
    * --text-heading label (flips dark-on-light / light-on-dark). Defaults to
-   * info; each status below re-points --pill-hue / --pill-ink. */
-  --pill-hue: var(--state-info-hue);
+   * info; each status below re-points --pill-grad / --pill-ink. The pill gradient
+   * is the compiled --state-*-pillgrad token (same recipe, flattened per plane —
+   * no color-mix ships in the paint), set per status like state-chart's badge. */
+  --pill-grad: var(--state-info-pillgrad);
   --pill-ink: var(--state-info-ink);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--pill-hue) 33%, var(--bg)), color-mix(in oklab, var(--pill-hue) 48%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--pill-hue) 54%, var(--bg)), color-mix(in oklab, var(--pill-hue) 64%, black)) 100%);
+  background: var(--pill-grad);
   border: var(--chart-hairline) solid var(--pill-ink);
   color: var(--text-heading);
 }
@@ -15523,22 +15459,22 @@ section.chart-frame .chart-status {
 section.chart-frame .chart-status[data-s="on-track"],
 section.chart-frame .chart-status[data-s="done"],
 section.chart-frame .chart-status[data-s="live"] {
-  --pill-hue: var(--state-pass-hue); --pill-ink: var(--state-pass-ink);
+  --pill-grad: var(--state-pass-pillgrad); --pill-ink: var(--state-pass-ink);
 }
 section.chart-frame .chart-status[data-s="at-risk"],
 section.chart-frame .chart-status[data-s="warn"] {
-  --pill-hue: var(--state-warn-hue); --pill-ink: var(--state-warn-ink);
+  --pill-grad: var(--state-warn-pillgrad); --pill-ink: var(--state-warn-ink);
 }
 section.chart-frame .chart-status[data-s="blocked"],
 section.chart-frame .chart-status[data-s="fail"] {
-  --pill-hue: var(--state-fail-hue); --pill-ink: var(--state-fail-ink);
+  --pill-grad: var(--state-fail-pillgrad); --pill-ink: var(--state-fail-ink);
 }
 section.chart-frame .chart-status[data-s="pilot"],
 section.chart-frame .chart-status[data-s="decision"] {
-  --pill-hue: var(--state-info-hue); --pill-ink: var(--state-info-ink);
+  --pill-grad: var(--state-info-pillgrad); --pill-ink: var(--state-info-ink);
 }
 section.chart-frame .chart-status[data-s="deferred"] {
-  --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink);
+  --pill-grad: var(--state-mute-pillgrad); --pill-ink: var(--state-mute-ink);
 }
 
 /* (Dark-canvas progress-fill overrides removed — the --state-*-ink tokens are
@@ -15760,11 +15696,8 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-h
   max-width: none;
   box-sizing: border-box;
   padding: 1.8cqi var(--cover-gutter) 0.4cqi;
-  background: radial-gradient(150% 200% at 50% -25%,
-    color-mix(in oklab, var(--text-heading) 15%, var(--bg)) 0%,
-    color-mix(in oklab, var(--text-heading) 8%, var(--bg)) 55%,
-    color-mix(in oklab, var(--text-heading) 5%, var(--bg)) 100%);
-  border-top: var(--chart-hairline) solid color-mix(in oklab, var(--text-heading) 13%, transparent);
+  background: var(--chart-cover-sheen);
+  border-top: var(--chart-hairline) solid var(--chart-cover-rule);
   color: var(--text-heading);
   font-family: var(--font-display);
   font-size: var(--fs-h3);
@@ -15780,7 +15713,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > p:last
   z-index: 2;
   box-sizing: border-box;
   padding: 0 var(--cover-gutter) 1.4cqi;
-  background: color-mix(in oklab, var(--text-heading) 5%, var(--bg));
+  background: var(--chart-cover-note-bg);
   color: var(--text-body);
   font-family: var(--font-body);
   font-size: var(--fs-body);
@@ -15794,7 +15727,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > p:last
 /* Pagination reads through the band — lifted above it and recoloured. */
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed)::after {
   z-index: 3;
-  color: color-mix(in oklab, var(--text-heading) 62%, transparent);
+  color: var(--chart-cover-pagination-ink);
 }
 /* Under Form the chart's title is LIFTED into the masthead Cell (not the
  * `.chart-header` the sheen rules above target), and this block zeroes the

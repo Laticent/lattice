@@ -267,6 +267,26 @@ section.word-cloud,
   --math-error-bg: color-mix(in srgb, var(--warn) 10%, transparent);
   --state-edge-back: color-mix(in oklab, var(--diagram-line) 55%, transparent);
   --chart-chip-fill: color-mix(in oklab, var(--bg-alt) 60%, transparent);
+
+  /* Glass surface panel (.canvas .chart-body). The FILL is a white-frost veil on
+   * dark and clear on light — authored as ONE gradient whose stops are per-scheme
+   * light-dark() (light → transparent stops = a fully-clear gradient, identical to
+   * `background: transparent`; dark → the faint white frost), so the whole value
+   * stays a top-level gradient the compiler can flatten (a gradient nested INSIDE
+   * light-dark() would not deep-resolve). The EDGE is a cool hairline on light, a
+   * luminous white edge on dark. */
+  --chart-glass-fill: linear-gradient(180deg, light-dark(transparent, color-mix(in oklab, white 13%, transparent)) 0%, light-dark(transparent, color-mix(in oklab, white 5%, transparent)) 100%);
+  --chart-glass-edge: light-dark(color-mix(in oklab, var(--text-heading) 10%, transparent), color-mix(in oklab, white 14%, transparent));
+
+  /* claim-hero/bleed cover chrome (piechart·radar). The title sheen is a whole
+   * radial gradient (--text-heading→--bg wash) in one token; the rule is its top
+   * hairline; the note-bg is the flat base of the sheen; the pagination-ink is the
+   * page-number reading through the band. All scheme-invariant (color-mix into
+   * --text-heading / --bg / transparent — the compiler flattens per plane). */
+  --chart-cover-sheen: radial-gradient(150% 200% at 50% -25%, color-mix(in oklab, var(--text-heading) 15%, var(--bg)) 0%, color-mix(in oklab, var(--text-heading) 8%, var(--bg)) 55%, color-mix(in oklab, var(--text-heading) 5%, var(--bg)) 100%);
+  --chart-cover-rule: color-mix(in oklab, var(--text-heading) 13%, transparent);
+  --chart-cover-note-bg: color-mix(in oklab, var(--text-heading) 5%, var(--bg));
+  --chart-cover-pagination-ink: color-mix(in oklab, var(--text-heading) 62%, transparent);
 }
 /* <<< chart-palette-recipe : end <<< */
 
@@ -358,7 +378,7 @@ section.chart-frame .chart-header::after {
   transform: translateX(-50%);
   width: 7.5cqi;
   height: var(--chart-hairline);
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
+  background: var(--chart-hairline-accent);
 }
 
 section.chart-frame .chart-eyebrow {
@@ -520,16 +540,10 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
    * (no second background) and the glass is read from the soft dark float
    * shadow + a crisp hairline edge + the white top rim. On a DARK slide a
    * translucent WHITE frost veil reads cleanly (lighter than the canvas), so
-   * the fill is a faint white gradient. light-dark() picks the right one. */
-  background: light-dark(
-    transparent,
-    linear-gradient(180deg,
-      color-mix(in oklab, white 13%, transparent) 0%,
-      color-mix(in oklab, white 5%, transparent) 100%));
+   * the fill is a faint white gradient. The token flips it per canvas. */
+  background: var(--chart-glass-fill);
   /* The glass EDGE: a faint cool hairline on light, a luminous edge on dark. */
-  border: var(--chart-hairline) solid light-dark(
-    color-mix(in oklab, var(--text-heading) 10%, transparent),
-    color-mix(in oklab, white 14%, transparent));
+  border: var(--chart-hairline) solid var(--chart-glass-edge);
   /* Apple-squircle-ish corner — larger, continuous-feeling radius. */
   border-radius: 2.25cqi;
   /* Float + specular rim. The elevation shadow is always DARK (black-based);
@@ -571,7 +585,7 @@ section.chart-frame .chart-caption::before {
   width: 7.5cqi;
   height: var(--chart-hairline);
   margin: 0;
-  background: color-mix(in oklab, var(--border) 90%, transparent);
+  background: var(--chart-caption-rule);
 }
 
 /* The earlier `.minimal` modifier (no gradient, short hairline) is
@@ -597,12 +611,12 @@ section.chart-frame .chart-status {
   /* Same depth-gradient recipe as the gantt bar so a status reads identically
    * as a pill or a bar: hue-into-bg gradient + vivid ink border + the shared
    * --text-heading label (flips dark-on-light / light-on-dark). Defaults to
-   * info; each status below re-points --pill-hue / --pill-ink. */
-  --pill-hue: var(--state-info-hue);
+   * info; each status below re-points --pill-grad / --pill-ink. The pill gradient
+   * is the compiled --state-*-pillgrad token (same recipe, flattened per plane —
+   * no color-mix ships in the paint), set per status like state-chart's badge. */
+  --pill-grad: var(--state-info-pillgrad);
   --pill-ink: var(--state-info-ink);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--pill-hue) 33%, var(--bg)), color-mix(in oklab, var(--pill-hue) 48%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--pill-hue) 54%, var(--bg)), color-mix(in oklab, var(--pill-hue) 64%, black)) 100%);
+  background: var(--pill-grad);
   border: var(--chart-hairline) solid var(--pill-ink);
   color: var(--text-heading);
 }
@@ -610,22 +624,22 @@ section.chart-frame .chart-status {
 section.chart-frame .chart-status[data-s="on-track"],
 section.chart-frame .chart-status[data-s="done"],
 section.chart-frame .chart-status[data-s="live"] {
-  --pill-hue: var(--state-pass-hue); --pill-ink: var(--state-pass-ink);
+  --pill-grad: var(--state-pass-pillgrad); --pill-ink: var(--state-pass-ink);
 }
 section.chart-frame .chart-status[data-s="at-risk"],
 section.chart-frame .chart-status[data-s="warn"] {
-  --pill-hue: var(--state-warn-hue); --pill-ink: var(--state-warn-ink);
+  --pill-grad: var(--state-warn-pillgrad); --pill-ink: var(--state-warn-ink);
 }
 section.chart-frame .chart-status[data-s="blocked"],
 section.chart-frame .chart-status[data-s="fail"] {
-  --pill-hue: var(--state-fail-hue); --pill-ink: var(--state-fail-ink);
+  --pill-grad: var(--state-fail-pillgrad); --pill-ink: var(--state-fail-ink);
 }
 section.chart-frame .chart-status[data-s="pilot"],
 section.chart-frame .chart-status[data-s="decision"] {
-  --pill-hue: var(--state-info-hue); --pill-ink: var(--state-info-ink);
+  --pill-grad: var(--state-info-pillgrad); --pill-ink: var(--state-info-ink);
 }
 section.chart-frame .chart-status[data-s="deferred"] {
-  --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink);
+  --pill-grad: var(--state-mute-pillgrad); --pill-ink: var(--state-mute-ink);
 }
 
 /* (Dark-canvas progress-fill overrides removed — the --state-*-ink tokens are
@@ -847,11 +861,8 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-h
   max-width: none;
   box-sizing: border-box;
   padding: 1.8cqi var(--cover-gutter) 0.4cqi;
-  background: radial-gradient(150% 200% at 50% -25%,
-    color-mix(in oklab, var(--text-heading) 15%, var(--bg)) 0%,
-    color-mix(in oklab, var(--text-heading) 8%, var(--bg)) 55%,
-    color-mix(in oklab, var(--text-heading) 5%, var(--bg)) 100%);
-  border-top: var(--chart-hairline) solid color-mix(in oklab, var(--text-heading) 13%, transparent);
+  background: var(--chart-cover-sheen);
+  border-top: var(--chart-hairline) solid var(--chart-cover-rule);
   color: var(--text-heading);
   font-family: var(--font-display);
   font-size: var(--fs-h3);
@@ -867,7 +878,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > p:last
   z-index: 2;
   box-sizing: border-box;
   padding: 0 var(--cover-gutter) 1.4cqi;
-  background: color-mix(in oklab, var(--text-heading) 5%, var(--bg));
+  background: var(--chart-cover-note-bg);
   color: var(--text-body);
   font-family: var(--font-body);
   font-size: var(--fs-body);
@@ -881,7 +892,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > p:last
 /* Pagination reads through the band — lifted above it and recoloured. */
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed)::after {
   z-index: 3;
-  color: color-mix(in oklab, var(--text-heading) 62%, transparent);
+  color: var(--chart-cover-pagination-ink);
 }
 /* Under Form the chart's title is LIFTED into the masthead Cell (not the
  * `.chart-header` the sheen rules above target), and this block zeroes the

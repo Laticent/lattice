@@ -2,6 +2,51 @@
  * See lib/components/roadmap/roadmap.manifest.json for the component contract.
  */
 
+/* >>> chart-palette-recipe : roadmap paint tokens (build-time input) >>> */
+/* Build-time SOURCE (see chart-family.css's region for the full rationale):
+ * tools/build-chart-palette-css.js resolves this to flat per-theme literals and
+ * build-css.js strips it from the shipped bundle, so every paint below reads a
+ * flat token through plain var() — no color-mix()/light-dark() ships in a paint.
+ *
+ * DYNAMIC exception (rule #3): the HORIZONS phase rail (.horizon-rows > li
+ * border-left, ~40% mix) reads --phase-accent, which lib/roadmap.js sets INLINE
+ * per horizon-card (HORIZON_ACCENTS → var(--cat-K-mark)). A per-element runtime
+ * local can't be pre-compiled, so that ONE paint keeps its color-mix(). The
+ * NON-transposed grid assigns --phase-accent via the CSS nth-child rotation, so
+ * its lane tints ARE compiled here (per-cat --cat-K-phasetint-*). */
+:is(section.roadmap, figure.roadmap) {
+  /* Per-cat workstream-lane tints — --phase-accent is var(--cat-K-mark), set by the
+   * nth-child rotation below; these mirror it at the fixed 6% (grid) / 14% (swimlane)
+   * mix into --bg-alt, re-pointed by the same rotation setters. */
+  /* @expand K in 1..8
+  --cat-K-phasetint-6: color-mix(in srgb, var(--cat-K-mark) 6%, var(--bg-alt));
+  --cat-K-phasetint-14: color-mix(in srgb, var(--cat-K-mark) 14%, var(--bg-alt));
+  @end */
+
+  /* Accent-default lane tints — the rotation always assigns a cat, so these are the
+   * defensive fallback (empty grid), matching the old var(--phase-accent, var(--accent)). */
+  --roadmap-accent-tint-6: color-mix(in srgb, var(--accent) 6%, var(--bg-alt));
+  --roadmap-accent-tint-14: color-mix(in srgb, var(--accent) 14%, var(--bg-alt));
+  /* Swimlane phase-cell edge rule — the phase COLUMN cells carry no --phase-accent
+   * (the rotation sets it only on th + td:first-child), so this is the accent default. */
+  --roadmap-swim-edge: color-mix(in srgb, var(--accent) 60%, var(--border));
+
+  /* Per-state horizon rails (--state-color is set by the CSS state classes below). */
+  --roadmap-rail-shipped: color-mix(in srgb, var(--pass) 60%, var(--border));
+  --roadmap-rail-wip: color-mix(in srgb, var(--warn) 60%, var(--border));
+  --roadmap-rail-planned: color-mix(in srgb, var(--text-label) 60%, var(--border));
+  --roadmap-rail-skipped: color-mix(in srgb, var(--text-muted) 60%, var(--border));
+
+  /* Heavy-treatment tinted cell grounds (per state). */
+  --roadmap-cellbg-shipped: color-mix(in srgb, var(--pass) 8%, transparent);
+  --roadmap-cellbg-wip: color-mix(in srgb, var(--warn) 9%, transparent);
+
+  /* Skipped-cell strike-through + milestone calendar band. */
+  --roadmap-strike: color-mix(in srgb, var(--text-muted) 60%, transparent);
+  --roadmap-milestone-ground: color-mix(in srgb, var(--bg-alt) 45%, transparent);
+}
+/* <<< chart-palette-recipe : end <<< */
+
 /* ── ROADMAP ───────────────────────────────────────────────────────────
  * ## heading
  * | Workstream | Phase 01 | Phase 02 | Phase 03 |
@@ -161,22 +206,25 @@
    The workstream column reads `--phase-accent` for its lane stripe
    per row; phase columns read it for their leading column-accent
    stripe per column. */
+/* Each block sets the dynamic solid --phase-accent (read directly for the pill /
+   border / eyebrow) AND the FLAT lane-tint tokens the color-mix paints used to
+   compute inline — so td:first-child / swimlane grounds read a compiled literal. */
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+2),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); --phase-tint-6:var(--cat-1-phasetint-6); --phase-tint-14:var(--cat-1-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+3),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); --phase-tint-6:var(--cat-2-phasetint-6); --phase-tint-14:var(--cat-2-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+4),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); --phase-tint-6:var(--cat-3-phasetint-6); --phase-tint-14:var(--cat-3-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+5),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); --phase-tint-6:var(--cat-4-phasetint-6); --phase-tint-14:var(--cat-4-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+6),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); --phase-tint-6:var(--cat-5-phasetint-6); --phase-tint-14:var(--cat-5-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+7),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); --phase-tint-6:var(--cat-6-phasetint-6); --phase-tint-14:var(--cat-6-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); --phase-tint-6:var(--cat-7-phasetint-6); --phase-tint-14:var(--cat-7-phasetint-14); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+1),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); --phase-tint-6:var(--cat-8-phasetint-6); --phase-tint-14:var(--cat-8-phasetint-14); }
 
 :is(section.roadmap, figure.roadmap) td {
   padding:var(--sp-xs) var(--sp-md);
@@ -189,7 +237,7 @@
 :is(section.roadmap, figure.roadmap) td:first-child {
   font-weight:700;
   color:var(--text-heading);
-  background:color-mix(in srgb, var(--phase-accent, var(--accent)) 6%, var(--bg-alt));
+  background:var(--phase-tint-6, var(--roadmap-accent-tint-6));
   border-left:var(--chart-fill-accent) solid var(--phase-accent, var(--accent));
 }
 /* Empty cells render as a muted dash. */
@@ -227,24 +275,28 @@
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-shipped {
   --state-color:var(--pass);
   --state-mark:var(--mark-check);
-  --cell-state-bg:color-mix(in srgb, var(--pass) 8%, transparent);
+  --cell-state-bg:var(--roadmap-cellbg-shipped);
+  --state-rail:var(--roadmap-rail-shipped);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-wip,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-wip {
   --state-color:var(--warn);
   --state-mark:var(--mark-dash);
-  --cell-state-bg:color-mix(in srgb, var(--warn) 9%, transparent);
+  --cell-state-bg:var(--roadmap-cellbg-wip);
+  --state-rail:var(--roadmap-rail-wip);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-planned,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned {
   --state-color:var(--text-label);
   --cell-state-bg:var(--bg-alt);
+  --state-rail:var(--roadmap-rail-planned);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped {
   --state-color:var(--text-muted);
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
+  --state-rail:var(--roadmap-rail-skipped);
 }
 
 /* Light treatment (default, any variant): a small state-coloured
@@ -319,13 +371,13 @@
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped .row-text {
   color:var(--text-muted);
   text-decoration:line-through;
-  text-decoration-color:color-mix(in srgb, var(--text-muted) 60%, transparent);
+  text-decoration-color:var(--roadmap-strike);
 }
 
 /* Horizons row left rail picks up the state colour (overrides the
    default phase-accent rail when a state class is present). */
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state {
-  border-left-color:color-mix(in srgb, var(--state-color) 60%, var(--border));
+  border-left-color:var(--state-rail);
 }
 
 /* Heavy treatment (`.status` modifier): full ribbon + tinted ground +
@@ -498,6 +550,10 @@
   flex-direction:column;
   gap:2px; /* sanctioned: hairline-scale gap in the horizon row */
   padding-left:var(--sp-sm);
+  /* DYNAMIC (chart-palette rule #3): --phase-accent here is set INLINE per
+     horizon-card by lib/roadmap.js (HORIZON_ACCENTS), a per-element runtime local
+     that can't be pre-compiled — so this ONE mix stays a live color-mix(). A
+     cell-state row overrides border-left-color with the flat --state-rail above. */
   border-left:2px solid color-mix(in srgb, var(--phase-accent, var(--accent)) 40%, var(--border));
 }
 :is(section.roadmap, figure.roadmap).horizons .row-label {
@@ -565,7 +621,7 @@
   border-collapse:separate;
 }
 :is(section.roadmap, figure.roadmap).swimlane tbody tr > td:first-child {
-  background:color-mix(in srgb, var(--phase-accent, var(--accent)) 14%, var(--bg-alt));
+  background:var(--phase-tint-14, var(--roadmap-accent-tint-14));
   border-left:var(--chart-accent-lg) solid var(--phase-accent, var(--accent));
   border-top:var(--chart-hairline) solid var(--border);
   border-bottom:var(--chart-hairline) solid var(--border);
@@ -590,7 +646,10 @@
   position:absolute;
   left:0; top:25%; bottom:25%;
   width:3px; /* sanctioned: phase-accent edge rule — a hairline, resolution-stable by design */
-  background:color-mix(in srgb, var(--phase-accent, var(--accent)) 60%, var(--border));
+  /* Phase COLUMN cells carry no --phase-accent (the nth-child rotation sets it only
+     on th + td:first-child), so this always resolved to the accent default — now a
+     flat token. */
+  background:var(--roadmap-swim-edge);
   border-radius:2px;
 }
 :is(section.roadmap, figure.roadmap).swimlane tbody tr > td:last-child {
@@ -618,5 +677,5 @@
  * the base rule — no milestone-specific pill chrome.
  * ──────────────────────────────────────────────────────────────────── */
 :is(section.roadmap, figure.roadmap).milestones tbody td:not(:first-child) {
-  background:color-mix(in srgb, var(--bg-alt) 45%, transparent);
+  background:var(--roadmap-milestone-ground);
 }

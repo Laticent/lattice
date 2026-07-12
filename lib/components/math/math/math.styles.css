@@ -114,7 +114,7 @@ section.math .math-error {
   color: var(--warn);
   font-family: var(--font-mono);
   font-size: 0.85em;
-  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  background: var(--math-error-bg);
   padding: 0.1em 0.4em;
   border-radius: var(--radius-sm);
 }

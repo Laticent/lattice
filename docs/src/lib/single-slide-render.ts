@@ -185,9 +185,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Force the canvas color-scheme to the rendered mode so a theme's
 		// `light-dark()` pairs resolve as chosen (the same knob deck-preview.js's
 		// renderDeck exposes as `colorScheme`). Without it a derived theme rendered
-		// in dark would still resolve its light sides.
+		// in dark would still resolve its light sides. ALSO stamp `data-lp-scheme` on
+		// the root: the compiled chart palette follows an explicit scheme attribute,
+		// not the raw `color-scheme` property, so without this a dark preview would
+		// leave the charts on the light plane while the surfaces went dark.
 		let s =
-			'<!doctype html><html><head><meta charset="utf-8"><style>' +
+			'<!doctype html><html data-lp-scheme="' +
+			mode +
+			'"><head><meta charset="utf-8"><style>' +
 			fontFaceCss +
 			singleSlideFrame(geom.width, geom.height) +
 			':root{color-scheme:' +

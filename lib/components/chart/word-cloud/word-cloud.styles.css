@@ -2,6 +2,24 @@
  * See lib/components/word-cloud/word-cloud.manifest.json for the component contract.
  */
 
+/* >>> chart-palette-recipe : word-cloud paint tokens (build-time input) >>> */
+/* Build-time SOURCE (see chart-family.css's region for the full rationale):
+ * tools/build-chart-palette-css.js resolves this to flat per-theme literals and
+ * build-css.js strips it from the shipped bundle, so the paint below reads the
+ * compiled result via plain var() — no color-mix()/light-dark() ships. The spine
+ * is a whole gradient held in a custom prop; the raw color-mix stops are inlined
+ * here (the compiler flattens the embedded stops), matching the shared
+ * --chart-spine-soft (32%) / --chart-spine-mid (60%) accent washes. */
+:is(section.word-cloud, figure.chart-frame) {
+  --chart-spine: linear-gradient(to bottom,
+    transparent 0%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 14%,
+    color-mix(in oklab, var(--accent) 60%, transparent) 50%,
+    color-mix(in oklab, var(--accent) 32%, transparent) 86%,
+    transparent 100%);
+}
+/* <<< chart-palette-recipe : end <<< */
+
 /* ── WORD-CLOUD ──────────────────────────────────────────────────────────────
  * Curated word cloud: real 2D spiral packing, multi-hue, axis-aligned.
  *
@@ -101,12 +119,9 @@
 :is(section.word-cloud, figure.chart-frame) {
   --chart-spine-h: 78%;                  /* spine height — % of body, never spills */
   --chart-spine-w: clamp(2px, 0.156cqi, 4px); /* spine thickness (res-stable)    */
-  --chart-spine: linear-gradient(to bottom,
-    transparent 0%,
-    color-mix(in oklab, var(--accent) 32%, transparent) 14%,
-    color-mix(in oklab, var(--accent) 60%, transparent) 50%,
-    color-mix(in oklab, var(--accent) 32%, transparent) 86%,
-    transparent 100%);
+  /* --chart-spine (the gradient itself) is a PAINT token — defined in the
+   * chart-palette-recipe region at the top of this file so it compiles to flat
+   * literals (no color-mix ships). Consumed by .word-cloud-canvas::after below. */
 }
 
 /* The cloud packs into the LEFT 70% of the canvas; a gradient spine at the
