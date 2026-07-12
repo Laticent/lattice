@@ -362,7 +362,6 @@ gitGraph
 
 ```mermaid
 C4Context
-  title Decision Framework
   Person(eng, "Engineer", "Builds SDK")
   Person(ops, "Framework operator", "Owns policy")
   System(platform, "Framework", "SDK + calibration loop")
@@ -656,11 +655,11 @@ venn-beta
   set A["Pilot teams"]
   set B["Eligible PMs"]
   set V["Eval tools"]
-  union A, B["shared cadence"]
-  union B, V["tool pilot"]
+  union A, B
+  union B, V
 ```
 
-> Inherits from core. `union A, B` for two-set overlap; `set X["Label"]` to give a display name distinct from the identifier; `union A, B["..."]` to label an intersection region.
+> Inherits from core. `union A, B` overlaps two sets; `set X["Label"]` gives a display name distinct from the identifier. Intersection labels (`union A, B["…"]`) are supported but crowd a three-set diagram, so this example leaves the regions unlabeled.
 
 ---
 
@@ -672,8 +671,7 @@ venn-beta
 
 ```mermaid
 ishikawa-beta
-fishbone
-    Effect: "Outcome reconciliation drift"
+    Outcome reconciliation drift
     People:
         Skill gap on signal scoring
         On-call rotation thin

@@ -81,13 +81,18 @@ function galleryAssetRefs(src, galleryDir) {
   return out;
 }
 
-// Slide count = horizontal-rule fences minus the one that closes front matter
-// (the opening fence is line 0, so N `---` lines yield N-1 slide separators →
-// N-1 slides for a deck that opens with front matter). Good enough for a meta
-// label; these decks don't use `---` for anything but slide breaks.
-function slideCount(src) {
+// Slide count = the `---` slide separators, plus one, corrected for a front-
+// matter block. A deck that OPENS with front matter spends two fences on it
+// (`---` … `---`), so N slides read as N+1 fences → subtract one. A deck with NO
+// front matter (the bucket + showcase galleries, which open with an HTML comment
+// or `_class` directive) has exactly N-1 separators → add one. The old formula
+// assumed front matter unconditionally and undercounted every front-matter-less
+// deck by two. Good enough for a meta label; these decks don't use `---` for
+// anything but front matter and slide breaks.
+export function slideCount(src) {
   const fences = (src.match(/^---[ \t]*$/gm) || []).length;
-  return Math.max(1, fences - 1);
+  const hasFrontMatter = /^---[ \t]*\r?\n/.test(src);
+  return Math.max(1, hasFrontMatter ? fences - 1 : fences + 1);
 }
 
 function loadOne(repoRoot, { id, label, file, group }) {

@@ -152,7 +152,16 @@ in patch versions.
 
 ### Fixed
 
-- **The dual-screen presenter's current + next slides are no longer cropped — they render
+- **The playground's gallery drawer now labels front-matter-less decks with the right slide
+  count, and the diagram-component reference gallery's three experimental diagrams render
+  clean.** Two follow-ups from the curated-diagram-gallery work: (1) `galleries.mjs slideCount()`
+  assumed every deck opens with YAML front matter and subtracted its two fences — so the bucket
+  and showcase galleries that open with a comment or `_class` directive (chart, data-viz, diagram)
+  were undercounted by two (the 22-slide Diagrams tour read "20"). It now detects front matter and
+  counts either shape correctly (unit-tested). (2) The component-level `diagram` reference gallery
+  still carried the pre-fix Mermaid: venn's two labeled intersections collided into unreadable
+  overlap, ishikawa printed a stray `fishbone` head and quoted effect, and C4 rendered a redundant
+  floating title. All three now render clean — the same fixes already shipped in the playground tour.
   whole, scaled to fit their frames.** The presenter stage inlines the shared fit kernel
   (`fitScale`/`padInset`) into its isolated iframe via `Function.toString()`, but the production
   bundler renames those imports, so the inlined bodies printed under renamed/anonymous names
