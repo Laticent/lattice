@@ -204,4 +204,34 @@ describe('contrast', () => {
       });
     }
   }
+
+  // ── Print band — B&W-safe on white ──────────────────────────────────────
+  // The universal --print-* band (base.tokens.css) is what a printed deck
+  // resolves to (section.print). Every print text token must clear WCAG AA
+  // against paper white, so "print is B&W-safe" is GATED, not hoped. The band
+  // is theme-independent (universal), so one pass suffices; loaded via indaco →
+  // @import lattice → dist/lattice.css, where the band lives.
+  test('contrast: the print band clears AA on white', () => {
+    const vars = loadPaletteWithImports('indaco', 'light');
+    const white = vars['print-bg'];
+    const failures = [];
+    assert.equal(white, '#FFFFFF', 'print-bg is paper white');
+    const check = (textKey, fillKey, fillVal) => {
+      const text = vars[textKey];
+      if (!text || !fillVal) { failures.push(`${textKey} or ${fillKey} undefined`); return; }
+      const ratio = contrastRatio(fillVal, text);
+      if (ratio < AA_THRESHOLD) failures.push(`--${textKey} (${text}) on --${fillKey} (${fillVal}) = ${ratio.toFixed(2)}:1`);
+    };
+    // Ink ramp + status on paper white.
+    for (const t of ['print-text-heading', 'print-text-body', 'print-text-label', 'print-text-secondary', 'print-pass', 'print-warn', 'print-fail']) {
+      check(t, 'print-bg', white);
+    }
+    // On-fill ink on every categorical fill; on-mark ink on every mark (bars carry white).
+    for (let i = 1; i <= 12; i++) {
+      check('print-cat-on-fill', `print-cat-${i}-fill`, vars[`print-cat-${i}-fill`]);
+      check('print-cat-on-mark', `print-cat-${i}-mark`, vars[`print-cat-${i}-mark`]);
+    }
+    check('print-on-accent', 'print-accent', vars['print-accent']);
+    assert.deepEqual(failures, [], `Print band WCAG AA failures:\n  ${failures.join('\n  ')}`);
+  });
 });

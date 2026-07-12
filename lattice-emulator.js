@@ -172,6 +172,12 @@ OPTIONS
                           slides stay presenter-driven (no auto-advance). PDF only.
                           Can also be enabled per-deck with a 'present: true'
                           front-matter key.
+      --print             Render in PRINT mode: a B&W-safe, ink-on-white band
+                          (grayscale + hatch/dot textures for chart & diagram
+                          series) for paper handouts, instead of the screen /
+                          colour palette. Every text token clears WCAG AA on
+                          white. Any output format; also settable per-deck with
+                          'class: print'.
       --raster            Print the PDF as one full-bleed slide image per page
                           (2x JPEG, from the same screenshots the PPTX path
                           takes) instead of vector pages. Maximum viewer
@@ -264,6 +270,7 @@ function parseArgs(argv) {
     if (a === '--fluid') { flags.fluid = true; continue; }
     if (a === '--player') { flags.player = true; continue; }
     if (a === '--present') { flags.present = true; continue; }
+    if (a === '--print') { flags.print = true; continue; }
     if (a === '--raster') { flags.raster = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
     if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
@@ -385,7 +392,22 @@ function readFileOrDie(p, label) {
   }
 }
 
-const md = readFileOrDie(mdFile, 'source markdown');
+// --print stamps the deck-wide `print` canvas class (the B&W-safe ink-on-white
+// band; base.modifiers.css section.print) by merging it into the front-matter
+// `class:`, so the existing deck-class propagation (plugins.js deckClassPropagate)
+// applies it to every slide — the same path as authoring `class: print` directly.
+function withPrintClass(src) {
+  const fm = src.match(/^(---\r?\n)([\s\S]*?)(\r?\n---\r?\n)/);
+  if (!fm) return `---\nclass: print\n---\n\n${src}`; // no front matter → add one
+  const [full, open, body, close] = fm;
+  if (/^\s*class:.*\bprint\b/m.test(body)) return src; // already present
+  const merged = /^\s*class:\s*/m.test(body)
+    ? body.replace(/^(\s*class:\s*["']?)([^"'\n]*?)(["']?\s*)$/m, (_m, a, val, c) => `${a}${val.trim()}${val.trim() ? ' ' : ''}print${c}`)
+    : `${body}\nclass: print`;
+  return src.replace(full, open + merged + close);
+}
+const mdRaw = readFileOrDie(mdFile, 'source markdown');
+const md = flags.print ? withPrintClass(mdRaw) : mdRaw;
 
 // Resolve palette name from the precedence chain (CLI > env > front
 // matter > default). Logic lives in lib/resolve-palette.js so it can
@@ -1069,7 +1091,6 @@ function preprocessMermaid(source) {
   // Deck-wide print applies to EVERY slide (the propagation kernel merges it into each
   // section), so it isn't overridden by a slide's own `_class:`.
   const globalPrint = !!flags.print ||
-    cmKey === 'print' ||
     /^\s*class:\s*["']?[^"'\n]*\bprint\b/mi.test(fm);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
