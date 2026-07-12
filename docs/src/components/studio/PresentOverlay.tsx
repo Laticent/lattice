@@ -14,6 +14,8 @@ import { createPresenterController } from '@/playground/presenter-window.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationIndices, presentationSet } from './lint';
+import { PresentRail } from './PresentRail';
+import { sectionsFromSlides } from './present-sections';
 import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
@@ -49,6 +51,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const [elapsed, setElapsed] = React.useState(0); // rehearsal seconds
 
 	const set = React.useMemo(() => presentationSet(slides, lens), [slides, lens]);
+	// Deck sections (from section/divider slides) — the grouping the single progress rail uses.
+	const sections = React.useMemo(() => sectionsFromSlides(set), [set]);
 	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
 	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered lens
 	// (exec/onepager reorders/drops slides) we resolve it through the original index, not the
@@ -430,10 +434,10 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
 				<span className="h-5 w-px shrink-0 bg-border" />
 				<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : reader.toggle())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause read-aloud' : 'Play read-aloud'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
-				<div className="relative hidden h-[5px] w-[180px] rounded-full bg-border sm:block">
-					<span className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-300" style={{ width: `${rehearse ? Math.min(100, (elapsed / target) * 100) : Math.round(reader.progress * 100)}%` }} />
-				</div>
-				<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{rehearse ? `${fmt(elapsed)} / ${fmt(target)}` : reader.track.cues.length ? `${(reader.active?.cueIndex ?? -1) + 1} / ${reader.track.cues.length}` : '0 / 0'}</span>
+				{/* The ONE progress element — a segmented, section-grouped rail (replaces the old
+				    slide-bar + read-aloud cue counter dual-counter). */}
+				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} onJump={(i) => setIdx(i)} />
+				{rehearse && <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{fmt(elapsed)} / {fmt(target)}</span>}
 				{rehearse ? (
 					<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
 				) : (

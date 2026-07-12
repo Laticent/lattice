@@ -381,6 +381,12 @@ in patch versions.
   once and never regenerates. Off by default (no `glossary:` key → byte-identical to today). Toggle it
   from the **deck-setup drawer** (a switch alongside Auto-split / Page numbers) or by hand in the front
   matter. See `engineering/decisions/2026-07-11-manifest-speech-contract.md` §18.
+- **Present mode gains a segmented, section-grouped progress rail — one honest
+  progress element replacing the old dual counter.** One segment per slide,
+  grouped by the deck's `section`/`divider` slides with a centered section title
+  above; the current segment fills as read-aloud plays, and clicking a segment
+  jumps to it. Replaces the separate slide-position bar and read-aloud cue count
+  that sat side by side. (Studio Present redesign — `engineering/decisions/2026-07-12-studio-present-redesign.md`, S1.)
 - **The RENDER group gains a COALESCE row — how many edits the preview debounce
   folded into this render.** A fast typing burst lands many source changes inside
   the 140ms preview window, and the debounce collapses them into ONE engine
