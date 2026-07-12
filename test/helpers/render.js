@@ -69,6 +69,22 @@ function hashFiles(h, files) {
   }
 }
 
+// Recursively list source files under `dir` with any of `exts`. The emulator
+// requires lib/ live at runtime (transforms, component .styles.css, the chart
+// palette recipe), so the cache must hash ALL of it — a top-level `lib/*.js` scan
+// missed lib/components/** and would serve a stale render after a transform or a
+// chart-colour edit (build-chart-palette-css reads chart-family.css directly).
+function listFilesRec(dir, exts, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (ent.name === 'node_modules') continue;
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) listFilesRec(p, exts, out);
+    else if (exts.some((e) => ent.name.endsWith(e))) out.push(p);
+  }
+  return out;
+}
+
 function emulatorCacheKey(mdPath, palette) {
   const h = crypto.createHash('sha256');
   hashFiles(h, [
@@ -77,7 +93,9 @@ function emulatorCacheKey(mdPath, palette) {
     THEME,
     MERMAID_JS,
     LOCKFILE,
-    ...listFiles(path.join(ROOT, 'lib'), '.js'),
+    // The chart-palette compiler + its recipe input travel with the emulator render.
+    path.join(ROOT, 'tools', 'build-chart-palette-css.js'),
+    ...listFilesRec(path.join(ROOT, 'lib'), ['.js', '.mjs', '.css']),
     ...listFiles(path.join(ROOT, 'themes'), '.css'),
   ].sort());
   h.update(palette);

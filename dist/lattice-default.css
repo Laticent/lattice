@@ -15219,110 +15219,13 @@ section.chart-frame {
  * (see below). Components consume only --catN-fill / --catN-ink and stay
  * palette-blind. Eight slots — past ~6 categories perceptual distinction
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
-section.chart-frame,
-section.word-cloud,
-.chart-frame { /* word-cloud is a chart-frame member; the bare `.chart-frame` also covers the Read·Article prose projection, which re-hosts a chart SVG in a <figure class="chart-frame"> outside its section — the SVG's --chart-cat-* colours must still resolve there (2026-07-… read-article-chart-tokens) */
-  /* Apple-inspired categorical spectrum — the chart-family's OWN palette,
-   * decoupled from the engine-wide cN accents (which still drive roadmap /
-   * journey / legal / decision). Each slot is `light-dark(lightCanvasVivid,
-   * darkCanvasVivid)` where the dark-canvas value is a brighter same-hue
-   * sibling (Apple ships its system colours this way: blue #007AFF→#0A84FF,
-   * green #34C759→#30D158, …). The hues are well-spaced around the wheel and
-   * tuned a touch off Apple's exact values — inspired, not copied.
-   *
-   * Theme-overridable: a theme sets `--chart-catN` (same light-dark shape) at
-   * :root to flavour the spectrum to its character; the var() indirection lets
-   * the theme always win, and untuned themes inherit this master set. */
-  --chart-cat-1-hue: var(--chart-cat1, light-dark(#0A6CE0, #2E8BFF));  /* blue   */
-  --chart-cat-2-hue: var(--chart-cat2, light-dark(#C2670A, #FFA630));  /* orange */
-  --chart-cat-3-hue: var(--chart-cat3, light-dark(#1E9E48, #34D058));  /* green  */
-  --chart-cat-4-hue: var(--chart-cat4, light-dark(#9333D6, #BE5AF2));  /* purple */
-  --chart-cat-5-hue: var(--chart-cat5, light-dark(#0E96AE, #3FC8E0));  /* teal   */
-  --chart-cat-6-hue: var(--chart-cat6, light-dark(#E11D48, #FF4D6A));  /* rose   */
-  --chart-cat-7-hue: var(--chart-cat7, light-dark(#B5860A, #FFD426));  /* gold   */
-  --chart-cat-8-hue: var(--chart-cat8, light-dark(#4B49C9, #6E6CF0));  /* indigo */
+/* chart-palette recipe compiled to per-theme planes — see build-chart-palette-css.js */
 
-  --chart-cat-1-fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 40%, black));
-  --chart-cat-2-fill: light-dark(color-mix(in oklab, var(--chart-cat-2-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-2-hue) 40%, black));
-  --chart-cat-3-fill: light-dark(color-mix(in oklab, var(--chart-cat-3-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-3-hue) 40%, black));
-  --chart-cat-4-fill: light-dark(color-mix(in oklab, var(--chart-cat-4-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-4-hue) 40%, black));
-  --chart-cat-5-fill: light-dark(color-mix(in oklab, var(--chart-cat-5-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-5-hue) 40%, black));
-  --chart-cat-6-fill: light-dark(color-mix(in oklab, var(--chart-cat-6-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-6-hue) 40%, black));
-  --chart-cat-7-fill: light-dark(color-mix(in oklab, var(--chart-cat-7-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-7-hue) 40%, black));
-  --chart-cat-8-fill: light-dark(color-mix(in oklab, var(--chart-cat-8-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-8-hue) 40%, black));
-
-  --chart-cat-1-ink: light-dark(var(--chart-cat-1-hue), color-mix(in oklab, var(--chart-cat-1-hue) 78%, white));
-  --chart-cat-2-ink: light-dark(var(--chart-cat-2-hue), color-mix(in oklab, var(--chart-cat-2-hue) 78%, white));
-  --chart-cat-3-ink: light-dark(var(--chart-cat-3-hue), color-mix(in oklab, var(--chart-cat-3-hue) 78%, white));
-  --chart-cat-4-ink: light-dark(var(--chart-cat-4-hue), color-mix(in oklab, var(--chart-cat-4-hue) 78%, white));
-  --chart-cat-5-ink: light-dark(var(--chart-cat-5-hue), color-mix(in oklab, var(--chart-cat-5-hue) 78%, white));
-  --chart-cat-6-ink: light-dark(var(--chart-cat-6-hue), color-mix(in oklab, var(--chart-cat-6-hue) 78%, white));
-  --chart-cat-7-ink: light-dark(var(--chart-cat-7-hue), color-mix(in oklab, var(--chart-cat-7-hue) 78%, white));
-  --chart-cat-8-ink: light-dark(var(--chart-cat-8-hue), color-mix(in oklab, var(--chart-cat-8-hue) 78%, white));
-
-  /* The mix target for the categorical SVG gradients (pie wedges, quadrant
-   * zones — emitted inline by the transforms). Light canvas mixes the hue into
-   * the slide --bg (a pale tint); dark canvas mixes toward BLACK, NOT the navy
-   * --bg, because a warm hue mixed into a cool canvas neutralizes to brown.
-   * Toward black the hue stays true. The transforms mix `color-mix(hue X%,
-   * var(--chart-cat-base))` so the same stop flips per canvas via this var —
-   * mirroring --catN-fill / --state-*-fill / the canonical chart fill, so a
-   * quadrant zone, a pie wedge, a gantt bar, and a status pill all darken the
-   * same way on dark. (The light side is unchanged from the old `var(--bg)`.) */
-  --chart-cat-base: light-dark(var(--bg), black);
-}
-
-/* ── Chart SEMANTIC / status colour model ─────────────────────────────────
- * The status counterpart to the catN categorical spectrum. Charts that
- * encode MEANING (gantt bars, progress fills, status pills, state-chart,
- * timeline-list) draw from this set — NOT the engine-wide --pass / --warn /
- * --fail (those serve the whole engine; charts get their own curated,
- * boardroom-tuned semantic palette so the family reads as one coherent
- * system, vivid and on-brand, chart to chart).
- *
- * Same construction as catN, so bars/wedges/pills share a visual language:
- *   --state-X-hue   curated semantic hue (green=good, amber=caution,
- *                   red=stop, blue=info/pilot/decision, gray=deferred),
- *                   `light-dark(lightVivid, darkVivid)` so it flips canvas.
- *   --state-X-fill  pale tint on light / muted-deep tint on dark — the
- *                   bar/zone/pill FILL (same 24% / 34% mix as catN-fill).
- *   --state-X-ink   the saturated mark — bar border, pill text, the
- *                   thin progress fill — lifted toward white on dark.
- *
- * Theme-overridable: a theme sets --chart-state-{pass,warn,fail,info,mute}
- * at :root to curate the semantics to its character; untuned themes inherit
- * this master set. One rule per state now serves both canvases (the old
- * per-`.dark` overrides collapse into the light-dark() pairs). */
+/* ── Non-colour chart constants — SHIPPED as-is. calc/clamp/cqi predate
+ *    color-mix by a decade and are safe on every engine, so these stay OUT of the
+ *    compiled recipe above and ride the base bundle unchanged. */
 section.chart-frame,
 .chart-frame {
-  --state-pass-hue: var(--chart-state-pass, light-dark(#1E9E48, #34D058));  /* green  — done/on-track/live   */
-  --state-warn-hue: var(--chart-state-warn, light-dark(#C2790A, #FFB02E));  /* amber  — at-risk/warn         */
-  --state-fail-hue: var(--chart-state-fail, light-dark(#CE2F2F, #FF5B52));  /* red    — blocked/fail         */
-  --state-info-hue: var(--chart-state-info, light-dark(#0A6CE0, #2E8BFF));  /* blue   — pilot/decision/info  */
-  --state-mute-hue: var(--chart-state-mute, light-dark(#6B7480, #9AA7B6));  /* gray   — deferred             */
-
-  /* Light: a 24% tint into the canvas (proven, like catN). Dark: deepen the
-   * hue toward BLACK, not the navy --bg — mixing amber/orange into a blue
-   * canvas neutralizes to brown (near-complementary). Toward black the hue
-   * stays true and vivid for every status, so the bar/pill reads as its
-   * colour, not mud. ~58% keeps it rich but dark enough for white text. */
-  --state-pass-fill: light-dark(color-mix(in oklab, var(--state-pass-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-pass-hue) 58%, black));
-  --state-warn-fill: light-dark(color-mix(in oklab, var(--state-warn-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-warn-hue) 58%, black));
-  --state-fail-fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 58%, black));
-  --state-info-fill: light-dark(color-mix(in oklab, var(--state-info-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-info-hue) 58%, black));
-  --state-mute-fill: light-dark(color-mix(in oklab, var(--state-mute-hue) 22%, var(--bg)), color-mix(in oklab, var(--state-mute-hue) 46%, black));
-
-  --state-pass-ink: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 78%, white));
-  --state-warn-ink: light-dark(var(--state-warn-hue), color-mix(in oklab, var(--state-warn-hue) 78%, white));
-  --state-fail-ink: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 78%, white));
-  --state-info-ink: light-dark(var(--state-info-hue), color-mix(in oklab, var(--state-info-hue) 78%, white));
-  --state-mute-ink: light-dark(var(--state-mute-hue), color-mix(in oklab, var(--state-mute-hue) 72%, white));
-
-  /* Shared accent header-rule — the hairline under a data header (gantt quarter
-   * axis, kanban column headers). One token so every chart's header underline
-   * reads at the same weight, matching the chart eyebrow's accent register. */
-  --chart-rule: color-mix(in oklab, var(--accent) 24%, transparent);
-
   /* ── THE CANONICAL CHART FILL ──────────────────────────────────────────────
    * Kanban set the family's fill language; these four constants make it the
    * SINGLE SOURCE OF TRUTH so every rectangular data fill — kanban card, gantt

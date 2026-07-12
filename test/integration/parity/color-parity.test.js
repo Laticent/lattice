@@ -177,7 +177,7 @@ describe('color-parity (offline resolver ↔ real engine-rendered DOM getCompute
       assert.deepEqual(drift, [], `color-mix drift:\n${drift.join('\n')}`);
     });
 
-  // The old-browser chart-colour fallback (tools/build-chart-compat-css.js) bakes
+  // The static chart-palette compiler (tools/build-chart-palette-css.js) bakes
   // literals with resolveDeclarationValue, whose color-mix stops take a var()
   // PERCENTAGE — the canonical chart-fill gradient
   // `color-mix(in oklab, var(--hue) var(--pct), var(--bg))`. Pin that exact path

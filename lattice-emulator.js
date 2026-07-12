@@ -461,7 +461,15 @@ function loadPaletteWithImports(filePath, seen = new Set(), label = null) {
 
 const paletteCSS = loadPaletteWithImports(palettePath);
 const layoutCSS  = loadPaletteWithImports(cssFile, new Set(), 'layout CSS');
-const css = paletteCSS + '\n' + layoutCSS;
+// Compile the chart colour recipe (stripped from the base bundle) to this theme's
+// two flat-literal planes and append them, so the CLI PDF + the exported HTML
+// player carry the SAME colours the dist/themes/*.min.css sheets do — modern and
+// old browsers run byte-identical chart CSS, no `@supports` fork. The generator is
+// a pure module resolving against the base bundle (layoutCSS stands in for
+// `@import 'lattice'`). See 2026-07-12-chart-color-static-palette.md.
+const { chartPaletteCssForTheme } = require('./tools/build-chart-palette-css');
+const chartPalettePlanes = chartPaletteCssForTheme(paletteName, layoutCSS);
+const css = paletteCSS + '\n' + layoutCSS + '\n' + chartPalettePlanes;
 
 // ── Fail fast on an unknown `size:` directive (#502) ──────────────────────
 // A typo'd size name (`size: storyy`) otherwise resolves SILENTLY to the first

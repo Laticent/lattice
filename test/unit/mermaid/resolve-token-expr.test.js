@@ -69,7 +69,7 @@ describe('resolve-token-expr', () => {
   });
 });
 
-// The old-browser CSS-fallback generator (tools/build-chart-compat-css.js)
+// The static chart-palette compiler (tools/build-chart-palette-css.js)
 // flattens WHOLE declaration values — multi-stop gradients whose stops are
 // light-dark(color-mix(...)) — not just single-colour token chains. These pin
 // that embedded-resolution behaviour: every colour function in the value must

@@ -103,6 +103,18 @@ section.chart-frame {
  * (see below). Components consume only --catN-fill / --catN-ink and stay
  * palette-blind. Eight slots — past ~6 categories perceptual distinction
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
+/* >>> chart-palette-recipe : BUILD-TIME INPUT — do NOT ship raw >>>
+ * Everything between these sentinels is the chart colour recipe. It is a
+ * build-time SOURCE: `light-dark()` / `color-mix()` break on old WebKit / smart-TV
+ * Chromium (the whole declaration is dropped invalid-at-computed-value → SVG fill
+ * falls to black). So `tools/build-chart-palette-css.js` RESOLVES this recipe to
+ * two flat-literal planes per theme (default scheme + opposite-scheme override,
+ * selected by plain selector cascade — never light-dark()), and `tools/build-css.js`
+ * STRIPS this region from the shipped bundle, injecting the compiled planes into
+ * each `dist/themes/*.min.css` (and the emulator appends the same planes). Modern
+ * and old browsers then run byte-identical chart colour. Keep the recipe here as
+ * the single source of truth; edit colours here, never in the generated planes.
+ * See engineering/decisions/2026-07-12-chart-color-static-palette.md. */
 section.chart-frame,
 section.word-cloud,
 .chart-frame { /* word-cloud is a chart-frame member; the bare `.chart-frame` also covers the Read·Article prose projection, which re-hosts a chart SVG in a <figure class="chart-frame"> outside its section — the SVG's --chart-cat-* colours must still resolve there (2026-07-… read-article-chart-tokens) */
@@ -206,7 +218,14 @@ section.chart-frame,
    * axis, kanban column headers). One token so every chart's header underline
    * reads at the same weight, matching the chart eyebrow's accent register. */
   --chart-rule: color-mix(in oklab, var(--accent) 24%, transparent);
+}
+/* <<< chart-palette-recipe : end <<< */
 
+/* ── Non-colour chart constants — SHIPPED as-is. calc/clamp/cqi predate
+ *    color-mix by a decade and are safe on every engine, so these stay OUT of the
+ *    compiled recipe above and ride the base bundle unchanged. */
+section.chart-frame,
+.chart-frame {
   /* ── THE CANONICAL CHART FILL ──────────────────────────────────────────────
    * Kanban set the family's fill language; these four constants make it the
    * SINGLE SOURCE OF TRUTH so every rectangular data fill — kanban card, gantt

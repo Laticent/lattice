@@ -9,8 +9,8 @@
  *      the current manifests. Add/rename/retire a chart or math component (or edit
  *      its `sample`) without rebuilding the deck and CI goes red. This is the
  *      "a new component silently misses the gallery" worry, gated.
- *   2. FALLBACK PARITY — the deck's component set must equal the set the
- *      old-browser colour fallback (tools/build-chart-compat-css.js) scans. The
+ *   2. PALETTE PARITY — the deck's component set must equal the set the compiled
+ *      chart palette (tools/build-chart-palette-css.js) scans. The
  *      demonstration/test deck and the fix it demonstrates are driven off the same
  *      component dirs; this asserts they never drift apart.
  */
@@ -23,7 +23,7 @@ const { loadAll, groupByBucket } = require('../../../lib/components');
 const {
   SHOWCASES, composeShowcase, galleryMarkdownPath, showcaseComponentNames,
 } = require('../../../tools/build-showcase-galleries');
-const { scannedFiles } = require('../../../tools/build-chart-compat-css');
+const { scannedFiles } = require('../../../tools/build-chart-palette-css');
 
 const groups = groupByBucket(loadAll());
 

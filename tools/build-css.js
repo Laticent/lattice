@@ -44,7 +44,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { minifyCss } = require('./minify-css');
-const { chartCompatCssForTheme } = require('./build-chart-compat-css');
+const { chartPaletteCssForTheme } = require('./build-chart-palette-css');
 const { typographyTokensCss } = require('../lib/typography/emit');
 const { TEXT_FACES } = require('../lib/fonts/text-faces');
 
@@ -78,14 +78,15 @@ function buildThemes(baseCss) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
     const src = fs.readFileSync(path.join(THEMES_SRC, file), 'utf8');
-    // Append the old-browser chart-colour fallback for THIS theme. It bakes the
-    // theme's resolved literals into an `@supports not (color: light-dark(...))`
-    // block (inert on modern engines; applied on the old webOS/smart-TV Chromium
-    // that render charts black). The exported HTML bundles this per-palette sheet
-    // (lib/core/marp-bundle.js), so the fallback ships wherever the theme does.
-    // baseCss stands in for each theme's `@import 'lattice'` (the base bundle).
-    const fallback = baseCss ? chartCompatCssForTheme(name, baseCss) : '';
-    const themed = fallback ? `${src}\n${fallback}\n` : src;
+    // Append the COMPILED chart-palette planes for THIS theme — the chart colour
+    // recipe (stripped from the base bundle above) resolved to two flat-literal
+    // planes (default scheme + opposite-scheme override), so modern and old
+    // browsers run byte-identical chart CSS with no `@supports` fork. The exported
+    // HTML bundles this per-palette sheet (lib/core/marp-bundle.js), so the planes
+    // ship wherever the theme does. baseCss stands in for the `@import 'lattice'`.
+    // See engineering/decisions/2026-07-12-chart-color-static-palette.md.
+    const planes = baseCss ? chartPaletteCssForTheme(name, baseCss) : '';
+    const themed = planes ? `${src}\n${planes}\n` : src;
     out[`${name}.min.css`] = minifyCss(themed, themeMinBanner(name)) + '\n';
   }
   return out;
@@ -493,8 +494,20 @@ function bundle() {
   }
   const chartFamily = readIfExists(CHART_FAMILY_SOURCE);
   if (chartFamily) {
+    // Strip the chart-palette recipe (the `light-dark()`/`color-mix()` colour token
+    // definitions) from the SHIPPED bundle — it is a build-time INPUT that
+    // build-chart-palette-css.js compiles to flat per-theme planes (appended to each
+    // dist/themes/*.min.css). Shipping it raw would break old engines. The sentinel
+    // pair delimits the region; the geometry/weight tokens live OUTSIDE it and stay.
+    const stripped = chartFamily.replace(
+      /\/\*\s*>>> chart-palette-recipe[\s\S]*?<<< chart-palette-recipe : end <<<\s*\*\//,
+      '/* chart-palette recipe compiled to per-theme planes — see build-chart-palette-css.js */',
+    );
+    if (stripped === chartFamily) {
+      throw new Error('build-css: chart-palette-recipe sentinels not found in chart-family.css (strip failed)');
+    }
     parts.push(`/* === ${CHART_FAMILY_SOURCE} === */`);
-    parts.push(chartFamily);
+    parts.push(stripped);
   }
   const qrGeneral = readIfExists(QR_GENERAL_SOURCE);
   if (qrGeneral) {

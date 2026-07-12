@@ -51,15 +51,22 @@ function parseVars(content) {
   return vars;
 }
 
-// Load a theme plus the tokens it @imports from lattice (the engine fallback
-// spectrum lives there). Theme declarations win (parsed last).
+// Load a theme plus the tokens it @imports from lattice (the engine base
+// spectrum) AND the chart-palette recipe. The colour recipe (`--chart-cat*`,
+// `--state-*`) is a BUILD-TIME INPUT: it lives between sentinels in
+// chart-family.css SOURCE (compiled to flat per-theme planes for the shipped
+// bundle by build-chart-palette-css.js), so this assessment reads it from source
+// — where the raw `light-dark()`/`color-mix()` recipe still is — to check BOTH
+// canvases per-expression. Theme declarations win (parsed last).
+const ROOT_DIR = path.join(THEMES_DIR, '..');
 function loadTheme(name) {
-  const order = ['../dist/lattice.css', `themes/${name}.css`];
+  const files = [
+    path.join(ROOT_DIR, 'dist', 'lattice.css'),
+    path.join(ROOT_DIR, 'lib', 'components', 'chart', '_chart-family', 'chart-family.css'),
+    path.join(THEMES_DIR, `${name}.css`),
+  ];
   let vars = {};
-  for (const rel of order) {
-    const p = rel.startsWith('themes/')
-      ? path.join(THEMES_DIR, `${name}.css`)
-      : path.join(THEMES_DIR, '..', 'dist', 'lattice.css');
+  for (const p of files) {
     try { vars = { ...vars, ...parseVars(fs.readFileSync(p, 'utf8')) }; } catch { /* skip */ }
   }
   return vars;
