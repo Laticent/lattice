@@ -1068,7 +1068,20 @@ function preprocessMermaid(source) {
 }
 
 
-const rawMd = preprocessMermaid(md);
+// Auto-glossary (#920): when the deck opts in with front-matter `glossary: auto`, append a
+// reference-appendix slide built from the acronym registry's `definition` fields (reusing the
+// `glossary` component). A source transform, so the generated slide flows through render / notes /
+// captions / the manifest source like any authored slide; it's idempotent (strips its own trigger),
+// so a `.html` round-trip renders it once and never regenerates. No-op unless `glossary: auto` +
+// ≥1 defined term. Shared with the docs render path (render-engine.ts) — HARD RULE #1.
+const { appendAutoGlossary, glossaryEntries, resolveGlossaryMode } = require('./lib/core/glossary-auto.mjs');
+const preGlossaryMd = preprocessMermaid(md);
+const rawMd = appendAutoGlossary(preGlossaryMd);
+// The manifest term→definition projection is part of the SAME `glossary: auto` opt-in as the
+// slide (design §18) — gate it so a deck with acronym definitions but no `glossary: auto` stays
+// byte-identical. Read the mode off the pre-append source: `rawMd` has had the trigger stripped
+// (the idempotency mechanism), so its mode always resolves to 'off'.
+const autoGlossaryEntries = resolveGlossaryMode(preGlossaryMd) === 'auto' ? glossaryEntries(preGlossaryMd) : [];
 const fmMatch = rawMd.match(/^---([\s\S]*?)---\n/);
 const fm      = fmMatch ? fmMatch[1] : '';
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
@@ -2099,6 +2112,10 @@ async function renderBody(browser, g, closeBrowser) {
         // so the envelope config can't carry ANY caption-labeled text (privacy, not just the map).
         config: STRIP_CAPTIONS ? { ...deckFm, captions: undefined } : deckFm,
         notes: !STRIP_NOTES,
+        // Term→definition projection from the acronym registry (#920) — carried in the manifest
+        // for downstream tools; gated on the `glossary: auto` opt-in, so a deck that merely defines
+        // terms (without opting in) is byte-identical. Empty → omitted (lean envelope).
+        glossary: autoGlossaryEntries,
         now: Date.now(),
         build: ENGINE_BUILD,
         playerVersion: PLAYER_VERSION,

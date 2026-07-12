@@ -297,6 +297,17 @@ in patch versions.
 
 ### Added
 
+- **`glossary: auto` — a deck writes its own glossary from the acronym registry.** The
+  `acronyms:` front-matter carries an optional one-sentence `definition` per term (alongside
+  the spoken `expansion`), which was parsed but never shown. Add `glossary: auto` to the front
+  matter and Lattice appends a reference-appendix slide built from those definitions — reusing
+  the shipped `glossary` component, so the term/definition table (with its auto A–Z range pill)
+  ships on **every** surface: PDF, PPTX, the HTML player, and the live Studio. Terms are listed
+  alphabetically; an acronym with only an expansion (no definition) is omitted. The exported
+  `.html` manifest also gains a `glossary` term→definition projection for downstream tools. The
+  generated slide is idempotent — it strips its own trigger, so a `.html` round-trip renders it
+  once and never regenerates. Off by default (no `glossary:` key → byte-identical to today). See
+  `engineering/decisions/2026-07-11-manifest-speech-contract.md` §18.
 - **The RENDER group gains a COALESCE row — how many edits the preview debounce
   folded into this render.** A fast typing burst lands many source changes inside
   the 140ms preview window, and the debounce collapses them into ONE engine

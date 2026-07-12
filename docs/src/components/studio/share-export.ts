@@ -13,6 +13,7 @@ import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
+import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { getFrontMatter, mergeClassTokens, setFrontMatter } from './front-matter';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
@@ -208,6 +209,7 @@ type PlayerCore = {
 			theme?: unknown;
 			config?: unknown;
 			notes?: boolean;
+			glossary?: { term: string; definition: string }[];
 			now?: number;
 			build?: string;
 			playerVersion?: string;
@@ -358,6 +360,9 @@ export async function shareHtmlPlayer(
 			theme: { name: palette, mode: scheme },
 			config: undefined,
 			notes: !stripNotes,
+			// The auto-glossary term→definition projection, gated on the `glossary: auto` opt-in —
+			// parity with the CLI export's manifest field (#920); omitted otherwise.
+			glossary: resolveGlossaryMode(source) === 'auto' ? glossaryEntries(source) : [],
 			now: Date.now(),
 			build: 'studio',
 			playerVersion: 'studio',
