@@ -67,6 +67,32 @@ const SUPPORTS_GUARD = 'not (color: light-dark(#000, #fff))';
 // rest of the deck. Every scanned component renders under one of these.
 const CHART_ROOTS = 'section.chart-frame, section.journey, section.map, section.math';
 
+// The DIAGRAM GROUP — non-chart components that ride the ENGINE-WIDE categorical
+// palette (`--cat-N-fill` / `--cat-N-mark` / `--cat-on-fill` / the `--diagram-*`
+// tokens, all `light-dark()`-valued) but are NOT `.chart-frame`, so the chart
+// scan above never sees them. On a pre-Chromium-123 engine every `--cat-*` token
+// drops (its `light-dark()` value is invalid at computed-value time), so these
+// paint solid black just like the charts did — the exact bug the fallback exists
+// to fix — yet they had no coverage because the generator only walked the chart
+// bucket. Scanning their authored CSS here lets the same SETTER / PAINTER flatten
+// machinery emit their flat twins, scoped to each component's OWN `section.<comp>`
+// selector (mermaid's `:is(section, figure)` guards un-broaden to `section` via
+// unbroadenIsFigure, so the compat stays a slide-only fallback).
+//
+//   • mermaid diagrams — the DIAGRAM OVERRIDES paint `.section-N` bands / mindmap
+//     edges / radar curves directly with `var(--cat-N-fill|mark)`.
+//   • legal authority-chain / statute-stack — per-tier `--cat-N-mark` accents.
+//   • comparison decision — per-option `--cat-N-mark` accents.
+//
+// journey / roadmap already ride the chart scan (journey is a CHART_ROOT; roadmap
+// is a `.chart-frame` member), so they are NOT re-listed here.
+const DIAGRAM_GROUP_FILES = [
+  path.join('lib', 'integrations', 'mermaid', 'mermaid.css'),
+  path.join('lib', 'components', 'legal', 'authority-chain', 'authority-chain.styles.css'),
+  path.join('lib', 'components', 'legal', 'statute-stack', 'statute-stack.styles.css'),
+  path.join('lib', 'components', 'comparison', 'decision', 'decision.styles.css'),
+];
+
 // The map choropleth ramp degrades to a representative upper-mid tone — the
 // agreed coarse-flat on-brand degradation for the one continuous per-instance fill.
 const MAP_RAMP_REPRESENTATIVE_MIX = 65;
@@ -115,7 +141,9 @@ function resolveThemeCascade(themeName, seen = new Set()) {
 }
 
 /** Chart bucket (every chart is an HTML+SVG hybrid) + the shared kernel CSS +
- *  math (the one non-chart component that re-colours SVG through themed tokens). */
+ *  math (the one non-chart component that re-colours SVG through themed tokens) +
+ *  the DIAGRAM GROUP (mermaid / legal / decision — non-chart components that ride
+ *  the engine-wide `--cat-*` palette; see DIAGRAM_GROUP_FILES). */
 function scannedFiles() {
   const out = [];
   const chartRoot = path.join(ROOT, 'lib', 'components', 'chart');
@@ -129,6 +157,7 @@ function scannedFiles() {
   walk(chartRoot);
   out.push(path.join(ROOT, 'lib', 'components', 'chart', '_chart-family', 'chart-family.css'));
   out.push(path.join(ROOT, 'lib', 'components', 'math', 'math', 'math.styles.css'));
+  for (const rel of DIAGRAM_GROUP_FILES) out.push(path.join(ROOT, rel));
   return [...new Set(out)].filter((p) => fs.existsSync(p)).sort();
 }
 

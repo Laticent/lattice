@@ -152,6 +152,19 @@ in patch versions.
 
 ### Fixed
 
+- **Mermaid diagrams, legal (authority-chain / statute-stack), and the decision layout no
+  longer render solid black on an old smart-TV / webOS browser.** The old-browser flat-literal
+  fallback (`@supports not (color: light-dark(...))`, shipped 2026-07-11) only covered the chart
+  bucket — its generator walked `lib/components/chart/**` + `math`. But these three families ride
+  the *engine-wide* `--cat-*` palette (`--cat-N-fill` / `--cat-N-mark`, all `light-dark()`-valued)
+  while **not** being `.chart-frame` members, so they were never scanned and dropped to black on a
+  pre-Chromium-123 engine exactly as the charts did. `tools/build-chart-compat-css.js` now also
+  scans a **DIAGRAM GROUP** (`DIAGRAM_GROUP_FILES`: Mermaid overrides, legal authority-chain /
+  statute-stack, comparison decision); the existing setter/painter flatten emits their flat twins
+  scoped to each component's own `section.<comp>` selector. Modern render is byte-unchanged (the
+  `@supports` block is inert on modern engines). `journey` / `roadmap` were already covered and are
+  untouched; direct-`color-mix()` non-chart consumers remain a tracked follow-up. See
+  `engineering/decisions/2026-07-12-diagram-group-old-browser-fallback.md`.
 - **The playground's gallery drawer now labels front-matter-less decks with the right slide
   count, and the diagram-component reference gallery's three experimental diagrams render
   clean.** Two follow-ups from the curated-diagram-gallery work: (1) `galleries.mjs slideCount()`

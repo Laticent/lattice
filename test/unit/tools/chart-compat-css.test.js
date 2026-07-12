@@ -103,6 +103,31 @@ describe('chart-compat-css generator', () => {
     }
   });
 
+  test('the DIAGRAM GROUP (non-chart --cat-* consumers) each get a flattened rule', () => {
+    // mermaid diagrams + legal (authority-chain / statute-stack) + comparison
+    // decision ride the ENGINE-WIDE `--cat-*` palette but are NOT `.chart-frame`,
+    // so the chart scan never saw them — they rendered solid black on a
+    // pre-Chromium-123 engine exactly like the charts did. DIAGRAM_GROUP_FILES in
+    // the generator now scans their CSS; assert each recovers so a future refactor
+    // that drops the group fails here. (2026-07-12 diagram-group-palette-fix.)
+    const css = chartCompatCssForTheme('indaco', BASE);
+    const required = [
+      // mermaid: a `.section-N` band fill (painter-flatten, direct `--cat-N-fill`)
+      /\.section-1 rect[^{]*\{[^}]*fill:\s*#[0-9a-f]{6}[^}]*!important/i,
+      // mermaid: a mindmap edge (painter-flatten, color-mix over `--cat-N-mark`)
+      /\.section-edge-0[^{]*\{[^}]*stroke:\s*#[0-9a-f]{6}[^}]*!important/i,
+      // legal authority-chain: per-tier `--cat-N-mark` accent (setter-flatten)
+      /section\.authority-chain[^{]*\{[^}]*--tier-hue:\s*#[0-9a-f]{6}/i,
+      // legal statute-stack: per-jurisdiction `--cat-N-mark` accent (setter-flatten)
+      /section\.statute-stack[^{]*\{[^}]*--jur-accent:\s*#[0-9a-f]{6}/i,
+      // comparison decision: per-option `--cat-N-mark` accent (setter-flatten)
+      /section\.decision[^{]*\{[^}]*--decision-accent:\s*#[0-9a-f]{6}/i,
+    ];
+    for (const re of required) {
+      assert.match(css, re, `missing DIAGRAM GROUP fallback coverage for ${re}`);
+    }
+  });
+
   test('inline-kernel categorical locals get a coarse fallback (not skipped)', () => {
     // --region-hue / --series-color / --actor-color are set inline by the kernel
     // with no CSS setter. They must still resolve to a literal (a representative
