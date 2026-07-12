@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: A prosody-grounded replacement for read-aloud's crude timing estimate (flat 145 wpm × character length + fixed punctuation pauses). A deep-research pass into the speech-science literature grounds a deterministic model in published norms — ~200 ms/syllable word duration (not character length), a boundary-graded pause table (comma ~200 / clause ~350 / sentence ~550 / paragraph ~1000 ms), phrase-final lengthening (~+30 ms on the pre-boundary syllable), and an asymmetric audio↔highlight sync budget from broadcast lip-sync standards (highlight may lead the voice ~125 ms but should lag ≤45 ms, so bias it slightly ahead). Unifies the three ad-hoc timing sources (silent estimate, caption positions, audio breath) into one cadence.ts model; structured so a later thread can CALIBRATE it per-voice against the measured TTS onsets the diagnostics overlay already captures (the "genetic/ML" path). Design proposal — awaiting go-ahead before implementation.
+summary: A prosody-grounded replacement for read-aloud's crude timing estimate (flat 145 wpm × character length + fixed punctuation pauses). A deep-research pass into the speech-science literature grounds a deterministic model in published norms — ~200 ms/syllable word duration (not character length), a boundary-graded pause table (comma ~200 / clause ~350 / sentence ~550 / paragraph ~1000 ms), phrase-final lengthening (~+30 ms on the pre-boundary syllable), and an asymmetric audio↔highlight sync budget from broadcast lip-sync standards (highlight may lead the voice ~125 ms but should lag ≤45 ms, so bias it slightly ahead). Unifies the three ad-hoc timing sources (silent estimate, caption positions, audio breath) into one cadence.ts model; structured so a later thread can CALIBRATE it per-voice against the measured TTS onsets the diagnostics overlay already captures (the "genetic/ML" path). Implemented in #944; the adversarial-trio review then added an anti-click clip-fade envelope and fixed a contraction/initialism syllable miscount.
 companion:
   - ./2026-07-11-manifest-speech-contract.md
   - ./2026-07-09-cadenza-narration-quality.md
@@ -81,9 +81,11 @@ Make `cadence.ts` the single pace model that feeds all three consumers:
 - **`estimateWordMs(spoken)`** → `SYLLABLE_MS(pace) × syllableCount(spoken)` (pure per-syllable, no
   per-word constant — a word's floor of one syllable already covers the shortest words), where
   `SYLLABLE_MS ≈ 200 ms` at the default pace and steps by the speed pref; `syllableCount` is a
-  lightweight vowel-group heuristic (count vowel runs, −1 for common silent-e, floor 1) with one
-  extra rule: a **vowelless multi-letter token is an initialism the voice spells out** ("PDF" → 3,
-  "HTML" → 4), not a one-beat word. Drop the character-length weight.
+  lightweight vowel-group heuristic (count vowel runs, −1 for common silent-e, floor 1) with two
+  extra rules: (a) a **vowelless ALL-CAPS token is an initialism the voice spells out** ("PDF" → 3,
+  "HTML" → 4), while a lowercase vowelless token ("hmm", "nth") stays one beat — case is the signal;
+  (b) **apostrophes are folded before splitting** so a contraction stays one token ("I'll" → 1), not
+  a vowelless remnant the initialism rule would over-count. Drop the character-length weight.
 - **`PAUSE_MS` → a graded boundary table** keyed by boundary *type*, not raw glyph: comma 200,
   semicolon/colon 350, sentence 550, ellipsis 650, paragraph 1000 (from §3). Punctuation maps to a
   boundary type; a colon in a `label: value` is a clause boundary (its spoken form is already a
@@ -94,10 +96,13 @@ Make `cadence.ts` the single pace model that feeds all three consumers:
   §4 actually describes (stronger boundary → more lengthening); we apply a flat bump rather than
   grading it by boundary strength, a deliberate simplification calibration can refine later. The
   effect: the pre-boundary word ends a beat later, so the highlight holds instead of running past it.
-- **The audio "breath"** (`voice-model.js`) is **derived from the same graded table**, discounted by
-  the fraction the TTS clip already carries as trailing silence (≈ 0.4–0.5) — so it stays smaller
-  than the estimate gap (race-safe, per the #940 analysis) and there's ONE table, not two constants
-  that drift. This replaces today's interim hand-tuned `SENTENCE_PAUSE_MS`.
+- **The audio "breath"** (`voice-model.js` `SENTENCE_PAUSE_MS`) mirrors the same graded shape at a
+  **0.3 discount** — the fraction left after the TTS clip's own trailing silence — so it stays
+  smaller than the estimate gap (race-safe, per the #940 analysis). It is a **deliberate second
+  copy, not one shared table**: `voice-model.js` is node-loadable with no TS import (its header), so
+  it structurally cannot import `cadence.ts`'s `PAUSE_MS`; the two are kept in step by hand. A
+  cross-file test (`cadence.test.ts`) now pins `SENTENCE_PAUSE_MS[k] ≤ pauseAfter(k)` for every key
+  so the copies can't silently drift. This replaces the earlier interim hand-tuned values.
 - **Sync bias** (`read-aloud.ts` tick / `cursor.align`): apply an intentional small **lead bias**
   (~30–50 ms, within the tolerance budget) so the highlight sits on-or-slightly-ahead of the voice
   rather than lagging (§5). The measured-onset re-anchoring stays; this just tunes the offset sign.
@@ -115,22 +120,45 @@ Not in this slice — but the model is structured so calibration is a coefficien
 - `docs/src/lib/cadenza/cadence.ts` — syllable-based `estimateWordMs`, graded `PAUSE_MS` by
   boundary type, phrase-final lengthening, a `syllableCount` helper. (+ unit tests)
 - `docs/src/lib/cadenza/track.ts` — apply final lengthening at cue ends; map punctuation → boundary.
-- `docs/src/playground/voice-model.js` — derive the breath from the shared graded table (× clip-silence
-  discount) instead of the interim constant.
+- `docs/src/playground/voice-model.js` — the breath table (`SENTENCE_PAUSE_MS`, graded × 0.3, now
+  module-scoped + exported so a test can pin the race-safety ratio); a **short head/tail gain-ramp
+  fade** on each clip so a hard buffer edge can't click at a sentence boundary.
 - `docs/src/components/studio/read-aloud.ts` — the small sync lead-bias in the tick clock.
 - Regenerate `@slidewright/cadenza` + `read-along-core` bundles. Audio-path + silent-estimate change;
   **`.vtt` display bytes unchanged** (timings shift, but the `.vtt` word timestamps are derived from
   this estimate — so `.vtt` *timestamps* DO change; caption TEXT does not). Flag for export sign-off.
 
-## Open decisions (for the go-ahead)
+## Decisions (confirmed 2026-07-12)
 
-1. **Default rate:** 150 wpm (deliberate/boardroom) vs. 165 (a touch livelier). Recommend **150**,
-   tunable by the existing speed pref.
-2. **Sync bias sign/size:** confirm we want the highlight biased **slightly ahead** (~+40 ms), per
-   the asymmetric tolerance. Recommend yes.
-3. **Scope of this PR:** land the pace model + breath unification here; the syllable heuristic's
-   accuracy (English is irregular) is ~85% — acceptable for timing (an off-by-one syllable is tens
-   of ms), and calibration later tightens it. Recommend shipping the heuristic, not a dictionary.
+1. **Default rate:** **150 wpm** (deliberate/boardroom), tunable by the existing speed pref.
+2. **Sync bias:** highlight biased **~+40 ms ahead** of the voice, per the asymmetric tolerance.
+3. **Heuristic, not a dictionary:** the syllable heuristic is ~85% accurate (English is irregular) —
+   acceptable for timing (an off-by-one syllable is tens of ms); calibration later tightens it.
+
+## What actually reaches a CLOCKED voice (honest scope)
+
+The reporter uses cloud Kokoro (`hexgrad/kokoro-82m`, the `openrouter-tts` *clocked* rung). For a
+clocked voice, `cursor.align()` re-anchors every cue to the **measured** onset + clip duration and
+rescales the cue's words to fit — so the model's **absolute** per-syllable pace and its
+**sentence-boundary** `PAUSE_MS` are largely washed out (the measured audio governs those). What
+this PR actually changes for that voice is: (a) **relative word distribution *within* a sentence**
+(the syllable model spaces the highlight across a cue far better than char-length did — this is the
+real fix for "the highlight skips/rushes mid-sentence"); (b) the **inter-sentence breath**
+(`SENTENCE_PAUSE_MS`, shorter now); (c) the **+40 ms highlight lead**; and (d) the **anti-click
+clip-fade**. The full syllable + graded-pause model still governs the **silent** read-along (no
+audio to re-anchor against). This scoping is why the win is real but narrower than "we rebuilt the
+pace model" implies — and it's the same reason per-voice calibration (below) is the bigger lever.
+
+## Known limitations (logged, not fixed here)
+
+- **Non-English digit runs over-count.** For `lang≠en`, `toSpoken` leaves numbers un-expanded and
+  `syllableCount`'s digit-run branch counts ~1 syllable/digit ("100" → 3, vs German "hundert" → 2).
+  Only affects the silent estimate on non-English decks; a language-aware number syllabifier is the
+  fix, out of scope here.
+- **The +40 ms lead releases the last word ~40 ms early.** At a cue's final word the biased clock
+  reaches the word's end slightly before the audio does, so the highlight lets go a hair early. It's
+  the deliberate asymmetric-tolerance trade (a lagging highlight is worse); revisit if on-device
+  review finds it distracting.
 
 ## Sources
 

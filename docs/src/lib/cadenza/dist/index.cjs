@@ -419,17 +419,19 @@ function pauseAfter(display) {
   return max;
 }
 function syllableCount(spoken) {
-  const words = String(spoken ?? "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const raw = String(spoken ?? "").replace(/['’]/g, "");
+  const tokens = raw.split(/[^A-Za-z0-9]+/).filter(Boolean);
   let total = 0;
-  for (const w of words) {
-    if (/^\d+$/.test(w)) {
-      total += w.length;
+  for (const tok of tokens) {
+    if (/^\d+$/.test(tok)) {
+      total += tok.length;
       continue;
     }
+    const w = tok.toLowerCase();
     const groups = w.match(/[aeiouy]+/g);
     let n = groups ? groups.length : 0;
-    if (n === 0 && w.length > 1) {
-      total += w.length;
+    if (n === 0) {
+      total += tok.length > 1 && tok === tok.toUpperCase() ? tok.length : 1;
       continue;
     }
     if (n > 1 && /[^aeiouy]e$/.test(w) && !/[^aeiouy]le$/.test(w)) n -= 1;

@@ -27,9 +27,10 @@ export const PACE_WPM: Record<Pace, number> = { slow: 120, moderate: 150, fast: 
  *  graded pauses below. The speed pref scales this preset. */
 export const SYLLABLE_MS: Record<Pace, number> = { slow: 250, moderate: 205, fast: 165 };
 
-/** Phrase-final lengthening — the pre-boundary syllable stretches (Klatt: ~+40 ms). Added to a
- *  word that carries trailing punctuation, so a cue's last word ENDS later (which is exactly
- *  where a highlight tends to run ahead of the voice). */
+/** Phrase-final lengthening — the pre-boundary syllable stretches (Klatt: ~+40 ms). Added to ANY
+ *  word carrying trailing punctuation (every prosodic boundary — comma, clause, sentence), so the
+ *  pre-boundary word ENDS later, exactly where a highlight tends to run ahead of the voice. A flat
+ *  +30 rather than Klatt's boundary-graded ~+40; calibration can refine the grade later. */
 export const FINAL_LENGTHEN_MS = 30;
 
 /** Pause added AFTER a word carrying this trailing punctuation, in ms — GRADED by boundary
@@ -60,20 +61,26 @@ export function pauseAfter(display: string): number {
  * pre-expanded to words upstream (toSpoken); a stray digit run counts ~1 syllable/digit.
  */
 export function syllableCount(spoken: string): number {
-  const words = String(spoken ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  // Fold apostrophes FIRST so a contraction stays ONE token ("I'll" → "Ill" → 1 vowel
+  // group), not split on the apostrophe into a vowelless remnant ("ll") that the
+  // initialism rule below would mis-count as spelled-out letters. Both straight and curly.
+  const raw = String(spoken ?? '').replace(/['’]/g, '');
+  const tokens = raw.split(/[^A-Za-z0-9]+/).filter(Boolean);
   let total = 0;
-  for (const w of words) {
-    if (/^\d+$/.test(w)) {
-      total += w.length; // pre-expansion is the norm; a bare digit run is ~1 syllable/digit
+  for (const tok of tokens) {
+    if (/^\d+$/.test(tok)) {
+      total += tok.length; // pre-expansion is the norm; a bare digit run is ~1 syllable/digit
       continue;
     }
+    const w = tok.toLowerCase();
     const groups = w.match(/[aeiouy]+/g);
     let n = groups ? groups.length : 0;
-    if (n === 0 && w.length > 1) {
-      // A vowelless multi-letter token is an initialism the voice SPELLS OUT
-      // ("PDF" → "P D F" ≈ 3 syllables, "HTML" → 4), not a one-beat word. Real English
-      // words always carry a vowel, so this only fires on consonant clusters / initialisms.
-      total += w.length;
+    if (n === 0) {
+      // A vowelless token: an ALL-CAPS one is an initialism the voice SPELLS OUT ("PDF" →
+      // "P D F" ≈ 3 beats, "HTML" → 4). A lowercase vowelless token is an interjection or
+      // rare word ("hmm", "nth", "tsk") — one beat. Case is the signal that separates them;
+      // it's why we keep the token's original case until here instead of lowercasing upfront.
+      total += tok.length > 1 && tok === tok.toUpperCase() ? tok.length : 1;
       continue;
     }
     // Silent trailing `e` ("make" = 1), but NOT a syllabic `-le` ("table" = 2).

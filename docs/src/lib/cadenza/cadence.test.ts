@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SENTENCE_PAUSE_MS } from '../../playground/voice-model.js';
 import { estimateWordMs, FINAL_LENGTHEN_MS, pauseAfter, SYLLABLE_MS, syllableCount } from './cadence';
 import { buildTrack } from './track';
 
@@ -21,11 +22,27 @@ describe('syllableCount — lightweight English heuristic', () => {
 		// "$4.2M" → "four point two million dollars": four+point+two+mil+lion+dol+lars
 		expect(syllableCount('four point two million dollars')).toBe(7);
 	});
-	it('spells out a vowelless initialism letter-by-letter', () => {
-		// The voice says "P D F" (3 beats), not one — a vowelless token is an initialism.
+	it('spells out an ALL-CAPS initialism letter-by-letter', () => {
+		// The voice says "P D F" (3 beats), not one — an all-caps vowelless token is an initialism.
 		expect(syllableCount('PDF')).toBe(3);
 		expect(syllableCount('HTML')).toBe(4);
 		expect(syllableCount('x')).toBe(1); // a lone consonant is still one beat
+	});
+	it('does NOT spell out lowercase vowelless interjections / rare words', () => {
+		// Case is the signal: "hmm"/"nth" are one beat, not 3 spelled-out letters.
+		expect(syllableCount('hmm')).toBe(1);
+		expect(syllableCount('nth')).toBe(1);
+		expect(syllableCount('tsk')).toBe(1);
+	});
+	it('keeps a contraction as ONE token (the apostrophe does not split it into a fake initialism)', () => {
+		// Regression: splitting on the apostrophe left "ll"/"t" remnants that the initialism
+		// rule counted as spelled-out letters, so "I'll" read as 3 beats and stalled the highlight.
+		expect(syllableCount("I'll")).toBe(1);
+		expect(syllableCount("we'll")).toBe(1);
+		expect(syllableCount("you'll")).toBe(1);
+		expect(syllableCount("don't")).toBe(1);
+		expect(syllableCount("it's")).toBe(1);
+		expect(syllableCount('it’s')).toBe(1); // curly apostrophe too
 	});
 	it('never returns less than 1', () => {
 		expect(syllableCount('')).toBe(1);
@@ -62,6 +79,21 @@ describe('pauseAfter — graded by boundary depth', () => {
 	});
 	it('no trailing punctuation → no pause', () => {
 		expect(pauseAfter('word')).toBe(0);
+	});
+});
+
+describe('race-safety: the audio breath never exceeds the estimate pause (two hand-kept tables)', () => {
+	// voice-model.js can't import cadence.ts (it's node-loadable, no TS import), so the breath
+	// table is a deliberate second copy at a 0.3 discount. If a future edit lets a breath grow
+	// past its estimate pause, the highlight would race into the silence — the #940 regression.
+	// This pins the invariant across the two files so the copies can't silently drift.
+	it('SENTENCE_PAUSE_MS[k] ≤ pauseAfter(k) for every punctuation class', () => {
+		for (const ch of Object.keys(SENTENCE_PAUSE_MS)) {
+			const breath = SENTENCE_PAUSE_MS[ch as keyof typeof SENTENCE_PAUSE_MS];
+			const estimate = pauseAfter(`a${ch}`);
+			expect(estimate, `pauseAfter for "${ch}"`).toBeGreaterThan(0);
+			expect(breath, `breath ≤ estimate for "${ch}"`).toBeLessThanOrEqual(estimate);
+		}
 	});
 });
 

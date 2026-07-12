@@ -7,9 +7,10 @@ export declare const PACE_WPM: Record<Pace, number>;
  *  syllable-duration norms). The GROSS ~150 wpm boardroom pace emerges from this plus the
  *  graded pauses below. The speed pref scales this preset. */
 export declare const SYLLABLE_MS: Record<Pace, number>;
-/** Phrase-final lengthening — the pre-boundary syllable stretches (Klatt: ~+40 ms). Added to a
- *  word that carries trailing punctuation, so a cue's last word ENDS later (which is exactly
- *  where a highlight tends to run ahead of the voice). */
+/** Phrase-final lengthening — the pre-boundary syllable stretches (Klatt: ~+40 ms). Added to ANY
+ *  word carrying trailing punctuation (every prosodic boundary — comma, clause, sentence), so the
+ *  pre-boundary word ENDS later, exactly where a highlight tends to run ahead of the voice. A flat
+ *  +30 rather than Klatt's boundary-graded ~+40; calibration can refine the grade later. */
 export declare const FINAL_LENGTHEN_MS = 30;
 /** The longest trailing pause implied by a token's punctuation (0 if none). */
 export declare function pauseAfter(display: string): number;
