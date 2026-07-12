@@ -667,6 +667,33 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     });
   }
 
+  // A cancelable delay — resolves after `ms`, or immediately if `signal` aborts.
+  function sleep(ms, signal) {
+    return new Promise((res) => {
+      if (ms <= 0 || signal?.aborted) { res(); return; }
+      const t = setTimeout(res, ms);
+      signal?.addEventListener?.('abort', () => { clearTimeout(t); res(); }, { once: true });
+    });
+  }
+
+  // The BREATH inserted between one sentence's clip and the next — sized from the
+  // sentence's trailing punctuation. A clocked voice synthesizes each sentence as its
+  // own clip with almost no trailing silence, and the loop below plays them back to
+  // back, so without this the narration rushes ("no time to breathe"). These values
+  // MIRROR cadenza's PAUSE_MS (docs/src/lib/cadenza/cadence.ts) on purpose: the caption
+  // estimate already bakes this exact gap in AFTER each cue, so an equal audio gap lets
+  // the word-highlight REST in the silence (it re-anchors the next sentence to this
+  // later onset) instead of racing ahead into it — a LARGER value here would reintroduce
+  // that race. Keep the two in lockstep. A sentence with no terminator gets no breath.
+  const SENTENCE_PAUSE_MS = { ',': 160, ';': 220, ':': 220, '.': 360, '!': 360, '?': 360, '…': 420 };
+  function sentenceGapMs(sentence) {
+    const m = String(sentence ?? '').match(/[.,!?;:…]+$/);
+    if (!m) return 0;
+    let max = 0;
+    for (const ch of m[0]) max = Math.max(max, SENTENCE_PAUSE_MS[ch] ?? 0);
+    return max;
+  }
+
   // speak() narrates `text`, sentence by sentence, and resolves when finished (or
   // aborted). It NEVER rejects — a rung failure falls through to silence. A new
   // speak() (or stop()) cancels any in-flight narration first (barge-in).
@@ -836,6 +863,10 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
           if (played && played.ok === false && played.error && played.error !== 'no audio' && !lastError) {
             lastError = played.error;
           }
+          // Breathe between sentences — a real pause the clip itself doesn't carry, sized
+          // to match the caption estimate's gap so the highlight rests in it (see
+          // sentenceGapMs). Not after the last sentence, and short-circuited on abort.
+          if (i < sentences.length - 1 && !sig.aborted) await sleep(sentenceGapMs(sentences[i]), sig);
         }
       }
     } finally {
@@ -1113,11 +1144,15 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       finally { clearTimeout(synthTimer); if (activeCtl === ctl) activeCtl = null; }
     },
     // Prefs.
+    // Every pref setter emits `db-voice-changed` so EVERY subscribed surface re-reads —
+    // the TTS settings panel, the Present voice indicator, a second open Workspace. Only
+    // setRungPref did before, so changing the MODEL/voice/speed wrote to storage but
+    // broadcast nothing, and other surfaces kept showing the stale pick until remount.
     rungPref, setRungPref(name) { writeLS(K.RUNG, name || null); emitChange(); },
-    orVoice, setOrVoice(v) { writeLS(K.OR_VOICE, v || null); },
-    orModel, setOrModel(m) { writeLS(K.OR_TTS_MODEL, m || null); },
-    kokoroVoice, setKokoroVoice(v) { writeLS(K.KOKORO_VOICE, v || null); },
-    speedPref, setSpeed(n) { const v = Number(n); writeLS(K.SPEED, Number.isFinite(v) && v > 0 && v !== 1 ? String(v) : null); },
+    orVoice, setOrVoice(v) { writeLS(K.OR_VOICE, v || null); emitChange(); },
+    orModel, setOrModel(m) { writeLS(K.OR_TTS_MODEL, m || null); emitChange(); },
+    kokoroVoice, setKokoroVoice(v) { writeLS(K.KOKORO_VOICE, v || null); emitChange(); },
+    speedPref, setSpeed(n) { const v = Number(n); writeLS(K.SPEED, Number.isFinite(v) && v > 0 && v !== 1 ? String(v) : null); emitChange(); },
     webgpu: detectWebGPU(),
     // Test hooks (exercise the ladder + sequencing without real audio/models).
     __setRung(b) { injected = b; },

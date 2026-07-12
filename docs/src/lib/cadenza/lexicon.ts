@@ -68,9 +68,11 @@ const BASE: Record<string, string> = {
   ui: 'U I', ux: 'U X',
   // Symbols with a single unambiguous reading.
   '§': 'section', '§§': 'sections', '¶': 'paragraph', '&': 'and',
-  // A decorative separator (eyebrows: "Financial · Q4 2026") — dropped, never spoken
-  // as "middle dot". An empty spoken form means "say nothing".
-  '·': '',
+  // NOTE: decorative separators (interpunct "·", pipe "|", bullet "•" …) are handled in
+  // normalize.ts's `toSpoken` — spoken as a soft PAUSE (a comma), not dropped, so an eyebrow
+  // like "Financial · Q4 2026" reads "Financial, Q4 2026" instead of running together. One
+  // rule there covers the whole family; keeping a `'·': ''` entry here would just be a dead,
+  // contradicting duplicate.
 };
 
 // ── BASE_CASED — EXACT-CASE keys, always on (letters that also spell a word) ──

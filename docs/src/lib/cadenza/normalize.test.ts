@@ -15,6 +15,49 @@ describe('isEnglishLang', () => {
 	});
 });
 
+describe('toSpoken — trailing-colon hard-stop softening (#904 live-narration regression)', () => {
+	// A projected "label: value" caption ("components: 53") is voiced by Kokoro as just
+	// "components" — the colon is a hard stop that drops the value. Soften a TRAILING
+	// colon/semicolon to a comma in the SPOKEN form so the value is spoken; the DISPLAY
+	// token keeps its colon (caption/.vtt glyphs are display-text).
+	it('softens a trailing colon to a comma in the spoken form', () => {
+		expect(toSpoken('components:')).toBe('components,');
+		expect(toSpoken('revenue:')).toBe('revenue,');
+		// A number-bearing label word keeps its say-as, colon softened.
+		expect(toSpoken('Q3:')).toBe('third quarter,');
+	});
+	it('softens a trailing semicolon too', () => {
+		expect(toSpoken('first;')).toBe('first,');
+	});
+	it('does NOT touch a mid-token colon (times, ratios) — only a TRAILING one', () => {
+		expect(toSpoken('3:30')).toBe('3:30');
+		expect(toSpoken('16:9')).toBe('16:9');
+	});
+	it('the display word is unchanged — only the SPOKEN form softens', () => {
+		// toSpokenText joins spoken forms; the caller keeps the display token separately.
+		expect(toSpokenText('components: 53')).toBe('components, fifty-three');
+	});
+});
+
+describe('toSpoken — decorative separator glyphs read as a pause', () => {
+	// A standalone interpunct / pipe / bullet has no good TTS reading; speak it as a comma
+	// pause so an eyebrow like "Lattice · A guided tour" narrates naturally. Display unchanged.
+	it('translates a standalone separator glyph to a comma', () => {
+		for (const g of ['·', '|', '•', '∙', '‖', '・']) expect(toSpoken(g)).toBe(',');
+	});
+	it('reads a "·"/"|"-separated eyebrow with a pause, not a literal glyph', () => {
+		expect(toSpokenText('Lattice · A guided tour')).toBe('Lattice , A guided tour');
+		expect(toSpokenText('Board | Q3 2026')).toBe('Board , third quarter two thousand twenty-six');
+	});
+	it('leaves a separator glyph INSIDE a token alone (voice ids, URLs)', () => {
+		expect(toSpoken('Heart·US')).toBe('Heart·US');
+		expect(toSpoken('a|b')).toBe('a|b');
+	});
+	it('translates separators in every language (they read badly everywhere)', () => {
+		expect(toSpoken('·', { lang: 'fr' })).toBe(',');
+	});
+});
+
 describe('toSpoken — locale guard', () => {
 	it('non-English deck: fiscal / percent / number tokens pass through unexpanded', () => {
 		expect(toSpoken('FY26', { lang: 'fr' })).toBe('FY26');
@@ -105,11 +148,6 @@ describe('toSpoken', () => {
     expect(toSpoken('§1798.100')).toBe('section one thousand seven hundred ninety-eight point one zero zero'); // zeros kept
     expect(toSpoken('§6501')).toBe('section six thousand five hundred one');
     expect(toSpoken('§101(a)(5)')).toBe('section one hundred one, subsection a, subsection five');
-  });
-
-  it('drops decorative middot separators instead of speaking them', () => {
-    expect(toSpoken('·')).toBe('');
-    expect(toSpokenText('Financial · Q3')).toBe('Financial  third quarter'); // the · drops to nothing
   });
 
   it('opts in domain packs only when asked, and threads domains through toSpokenText', () => {

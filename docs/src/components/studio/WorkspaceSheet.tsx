@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
+import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
@@ -138,6 +139,13 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 		return () => {
 			off();
 		};
+	}, []);
+	// Read-aloud diagnostics overlay — same shared-pref pattern as the perf overlay;
+	// the `?readaloud-debug=1` URL param writes the same flag.
+	const [readAloudOverlay, setReadAloudOverlay] = React.useState(false);
+	React.useEffect(() => {
+		setReadAloudOverlay(readAloudOverlayEnabled());
+		return onReadAloudOverlayEnabledChange(setReadAloudOverlay);
 	}, []);
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
@@ -467,6 +475,17 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											<span className="block text-[11px] text-muted-foreground">A live on-screen readout: render-pipeline timings (engine, sanitize, frame, fit), Core Web Vitals, and runtime FPS/memory. Drag to reposition; measured by your own browser.</span>
 										</span>
 									</label>
+									{READALOUD_OVERLAY_AVAILABLE && (
+										<label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+											<button type="button" role="switch" aria-checked={readAloudOverlay} aria-label="Read-aloud diagnostics" onClick={() => { const next = !readAloudOverlay; setReadAloudOverlay(next); setReadAloudOverlayEnabled(next); notify(next ? 'Read-aloud diagnostics on — voice, sync & cadence in Present.' : 'Read-aloud diagnostics off.'); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', readAloudOverlay ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
+												<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', readAloudOverlay ? 'translate-x-[18px]' : 'translate-x-0.5')} />
+											</button>
+											<span className="min-w-0">
+												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Read-aloud diagnostics</span>
+												<span className="block text-[11px] text-muted-foreground">A live readout in Present while narrating: active voice/model, AudioContext state, sync (spoken vs. cues), cadence drift, and a per-sentence trace. Drag to reposition; also via <code>?readaloud-debug=1</code>.</span>
+											</span>
+										</label>
+									)}
 								</div>
 							)}
 						</div>

@@ -162,6 +162,63 @@ in patch versions.
   still carried the pre-fix Mermaid: venn's two labeled intersections collided into unreadable
   overlap, ishikawa printed a stray `fishbone` head and quoted effect, and C4 rendered a redundant
   floating title. All three now render clean — the same fixes already shipped in the playground tour.
+
+- **Read-aloud breathes between sentences instead of rushing.** A clocked voice (Kokoro et al.)
+  synthesizes each sentence as its own clip with almost no trailing silence, and playback ran them
+  back-to-back — so even at the default speed the narration felt hurried, "like the reader never
+  stopped for air." Playback now inserts a short pause between sentences, sized to the sentence's
+  punctuation and set EQUAL to the caption estimate's own inter-sentence gap so the word-highlight
+  rests in the silence rather than racing ahead of the voice. (Audio-path change; no exported bytes
+  change.)
+
+- **Changing the TTS model / voice / speed now updates every surface immediately.** Only the rung
+  setter broadcast a change event, so picking a different model wrote the preference but left the
+  settings panel, the Present voice indicator, and any second open surface showing the stale choice
+  until they remounted. All four pref setters (`setOrModel` / `setOrVoice` / `setKokoroVoice` /
+  `setSpeed`) now emit `db-voice-changed`, which every voice-aware surface already listens for.
+
+- **Read-aloud now speaks a `split-compare` column's header — "Slide editors: …", "Lattice: …",
+  not just the unattributed bullets.** Each column renders as `.option > <strong>header</strong> +
+  <ul>bullets`, but a bare `<strong>` is not a block the generic narration walker selected, so the
+  column header was dropped and its bullets read with no owner. The walker now picks up a bare
+  `<strong>` immediately preceding a list and reads it as the list's label (via the same
+  `labelValue` helper). Only a bare strong sibling triggers it — an author's inline bold inside a
+  paragraph is unaffected. Guarded in `test/unit/transformers/prose-projection.test.js`.
+
+- **Component captions no longer double their punctuation — a card title that ends in a
+  period reads "Write: …", not "Write.: …".** The prose projection joins a component's
+  `label: value` narration, but a label that already ended in a sentence terminator (an
+  authored card title "Write.", "Choose a component.") or a stray separator produced a
+  doubled "Write.:" in the caption crawl and the exported `.vtt`. All `label: value` joins
+  (stats/kpi, tables, nested lists, definition lists, state markers) now route through one
+  `labelValue` helper that drops a trailing period/ellipsis/separator from the label before
+  the colon, so the rule can't drift between walkers. A label ending in a **strong terminator
+  (`?` or `!`)** keeps it and takes **no** colon — the value follows as its own sentence
+  ("What's the ROI? Forty percent."), so the voice's question/exclamation inflection does the
+  work. Regression-guarded in `test/unit/transformers/prose-projection.test.js`.
+
+- **Read-aloud reads a decorative separator as a pause, not a swallowed word — an eyebrow like
+  "Lattice · A guided tour" now narrates "Lattice, A guided tour".** A standalone interpunct
+  (`·`), pipe (`|`), bullet (`•`) and kin have no good TTS reading; the old rule dropped `·` to
+  nothing, so the two label halves ran together ("Lattice A guided tour"). They're now spoken as a
+  soft comma pause (whole-token only — a `·` inside a voice id like "Heart·US" is untouched), in the
+  SPOKEN form only, so captions and the `.vtt` keep the glyph. One rule in cadenza `toSpoken` owns
+  the family; the dead `'·': ''` lexicon entry is retired. Guarded in `cadenza/normalize.test.ts`.
+
+- **Read-aloud no longer drops the value after a colon — a "label: value" caption is now
+  spoken in full.** The live Present narration projects component captions as `label: value`
+  ("components: 53", "Total revenue: $1.2M"), but a colon is a TTS hard-stop: Kokoro (and many
+  voices) speak only the label and drop the number, and because the resulting clip is short the
+  word-highlight then crams the whole line into it and visibly races. This was the
+  live-narration regression the shared DOM projection (#904) introduced — the old Markdown
+  flatten carried no such colon, which is why it "used to work." Fixed in the one canonical place
+  (cadenza `toSpoken`): a **trailing colon/semicolon is softened to a comma in the SPOKEN form
+  only** — a soft prosodic pause the voice honors without dropping the value. The DISPLAY word
+  keeps its colon, so caption crawls and the exported `.vtt` (display-text glyphs) are **byte-for-
+  byte unchanged**; only what the voice says changes. Mid-token colons (times `3:30`, ratios
+  `16:9`) are untouched. Regression-guarded in `cadenza/normalize.test.ts`.
+
+- **The dual-screen presenter's current + next slides are no longer cropped — they render
   whole, scaled to fit their frames.** The presenter stage inlines the shared fit kernel
   (`fitScale`/`padInset`) into its isolated iframe via `Function.toString()`, but the production
   bundler renames those imports, so the inlined bodies printed under renamed/anonymous names
@@ -433,6 +490,17 @@ in patch versions.
   Front B of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
 
 ### Added
+
+- **Read-aloud diagnostics overlay — a first-class, draggable live readout for Present narration.**
+  A twin of the performance overlay: toggle it in **Workspace → General → Diagnostics**
+  ("Read-aloud diagnostics") or with `?readaloud-debug=1`, and while narrating a slide it shows the
+  active voice/model, `AudioContext` state, sync (spoken sentences vs. track cues), cadence drift
+  (how far the highlight ran ahead of the voice, peak), the reader-vs-audio clock, the narration
+  source (projection vs. fallback), and a per-sentence `attempt`/`timing` trace with a **copy trace**
+  button. It wears the same on-brand `popover` surface, 6-dot drag grip, status dots, and × as the
+  perf overlay, is theme-aware (light/dark), portals to `<body>`, remembers its position, and is a
+  true no-op when off. Born from the on-device hunt for the "skips words / races" regression; kept as
+  a permanent QA aid for tuning voice + cadence on a real device (HARD RULE #23).
 
 - **Print mode — a B&W-safe, ink-on-white render of the whole deck for paper handouts.**
   Every theme's palette encodes meaning in hue, which a grayscale office printer throws away;

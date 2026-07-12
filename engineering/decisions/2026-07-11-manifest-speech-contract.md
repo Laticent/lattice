@@ -983,3 +983,230 @@ it's recorded here rather than pulled into this PR.
 so a stage-scoped scan never touches it; the "double" only appeared in a hand-written test fixture whose
 shape the engine never produces. The guard and its claim were **reverted** — this fix is exactly the
 colon change, nothing more.
+
+---
+
+## Follow-up (2026-07-12): pinning the "skips words / races" regression on the CLOCKED cloud voice
+
+The scope boundary above tracked the "reads faster / skips words" symptom as a separate,
+device-only investigation. A fresh live report sharpened it: it reproduces on the DEFAULT voice —
+cloud Kokoro "Heart · US", the `openrouter-tts` rung — on multiple slides of the "Welcome to
+Lattice" deck (`DECKS[0]`), it is **intermittent**, and **a page refresh fixes it**. It USED TO
+WORK → a regression, not a new bug.
+
+**Correction to the earlier theory.** The scope-boundary note above explained the symptom as "the
+plain browser voice reports no measured word onsets, so its highlight rides a pure estimate." That
+explanation does NOT cover this repro: `openrouter-tts` is a *clocked* rung — it reports a measured
+onset + duration per sentence, and `read-aloud.ts` re-anchors each cue to it (`reader.align`). So the
+desync lives in the **alignment / audio-clock** path (or the AudioContext lifecycle), not a pure
+estimate. The two live hypotheses:
+
+1. *Free-running clock through a synth/decode gap.* The reader rides `audioTimeMs() − base − latency`
+   (the shared WebAudio clock, which advances in real time even during the silence between one
+   sentence's `onended` and the next sentence's `src.start(0)`). If a mid-deck sentence's synth or
+   (iOS) MP3 decode stalls, the highlight races ahead through cues on the estimate during that
+   silence, then snaps back when the real onset lands and `align` shifts the tail — reading exactly
+   as "skips words / moves fast." Intermittent because it is gated by per-sentence network/decode
+   latency, which varies. iOS-plausible (slow MP3 decode; the user is on iPhone Safari).
+2. *AudioContext wedge / mid-play text swap.* The one shared `audioCtx` is reused all session and
+   never rebuilt (refresh = fresh context), and the `#904` fallback→projection text upgrade can, in a
+   narrow race, swap `narrationText` while a read is in flight — tearing down and rebuilding the
+   track under the still-playing audio. Fits the "sometimes no sound" half and the refresh-fixes-it
+   clue.
+
+**Ruled OUT — the sentence-index cascade.** A tempting theory was that `voice.speak()` filters the
+provided spoken sentences (`providedSentences.map(trim).filter(Boolean)`), so an empty/whitespace cue
+would drop out and shift every later `onSentenceTiming(index)` onto the WRONG cue — a cascading
+skip/rush. This cannot happen: `buildTrack` never emits an empty cue (`splitWords` filters blanks and
+skips a cue with no display words), and `toSpoken` returns `''` only for an empty token, so
+`cue.words.map(w => w.spoken).join(' ')` is non-empty for every cue. Therefore
+`spoken.length === track.cues.length` always and `filter(Boolean)` drops nothing — cue index i always
+equals the spoken sentence index the voice times. Confirmed by reading the cadenza segmenter/normalizer;
+the invariant is structural, not incidental.
+
+**Why instrumentation before a fix (HARD RULE #23).** iOS Safari audio/timing cannot be exercised in
+the sandbox (no WebAudio, no TTS, egress blocked), and a prior session shipped a speculative audio
+guess a checker found to be a no-op. So this change lands **only a temporary on-device debug readout**
+— gated behind `?readaloud-debug=1`, invisible in normal use — that surfaces, per read: the active
+narration source (projection vs. fallback), the live rung/`AudioContext.state`/reader-clock vs.
+audio-clock/active cue+word, the spoken-vs-cue count (the mismatch tell), and a per-sentence event log
+of `attempt` (voice reached sentence i) vs. `timing` (its measured onset/duration landed). A gap
+between an `attempt` and its `timing` is hypothesis 1's signature; a stuck `ctx` state or a mismatched
+count is hypothesis 2's. Pushed to the Cloudflare PR preview so the reporter can read it off the real
+iPhone; the actual fix follows once the readout names the layer. The readout is removed (or reduced to
+a permanent guard) when the root cause is pinned.
+
+### Systematic sandbox audit (deterministic layer, corpus-wide)
+
+To treat this as the systematic issue it is — not one slide — the deterministic **text → track**
+layer was audited across **144 real slides**: the Welcome deck (`DECKS[0]`, 7), the full
+component/design-system gallery (`test/integration/baseline-decks/gallery.md`, 117), and a 20-slide
+slice of the jargon deck (`examples/gallery-jargon.md`). For each slide: `slideToSpeech → buildTrack`,
+then compare `spoken.length` (the sentences handed to the voice, after the same `map(trim).filter`
+voice-model applies) against `track.cues.length`, and inspect cue shapes.
+
+Result:
+
+- **Invariant breaks: 0 / 144.** `spoken.length === track.cues.length` on every slide of every deck —
+  the index-cascade theory is dead empirically as well as by proof.
+- **Empty-spoken cues: 0 / 144.** No cue ever collapses to blank, so `filter(Boolean)` never drops one.
+- **A real (secondary) systematic risk surfaced: long single cues.** Content-dense slides fold a long
+  unpunctuated run (a blockquote, a run-on bullet) into ONE cue — worst cases `gallery#102` (110 words /
+  ~41.6 s in a single cue), `#27` (99), `#66` (86). A cue is the re-anchor unit, so a 40 s cue gets ONE
+  measured onset; its words are then distributed purely by the *estimate* stretched to the real
+  duration, with no correction until the next cue. Over ~100 words, estimate-vs-real proportion error
+  accumulates into a visible *within-cue* drift. This is distinct from the primary between-sentence
+  race and is a candidate follow-on (sub-cue segmentation, or a better long-cue word model), tracked
+  here rather than folded into the diagnostic PR.
+
+So the deterministic layer is cleared corpus-wide, and the "skips words / races" symptom is confirmed
+to live in the audio/clock layer — which is exactly what the enhanced on-device readout measures: a
+`peakAhead` counter (how many cues the highlight got ahead of the last sentence the voice actually
+started) plus a per-sentence `attempt`-vs-`timing` trace that ACCUMULATES across an autoplay pass, so
+one run over each deck yields a full-deck trace rather than a single-slide snapshot.
+
+### ROOT CAUSE FOUND (2026-07-12): the colon hard-stop is the "skips words / races" regression
+
+On-device report, unambiguous: on the Welcome deck the voice "reads everything up to the `:` then
+skips the rest." That is the SAME colon hard-stop this doc first met in the big-number `0: boxes`
+case (#938) — but the earlier scope note was WRONG to confine it to tiny tokens. It confidently
+claimed "a `stats` tile reads `components: 53`, a colon after a full word, which is correct
+label:value grammar and NOT the tiny-token hard-stop." The device disproves that: Kokoro hard-stops
+after ANY trailing colon, full word or not. Verified in-sandbox — `projectDeckToSpeech` on the
+Welcome `stats` slide yields `"… components: 53. themes: 14. export formats: 4. source file: 1."`;
+every tile is `label: value`, so the voice speaks `components / themes / export formats / source
+file` and drops every NUMBER.
+
+**This is ONE root cause for BOTH reported symptoms, and it explains every clue:**
+
+- *"Everything after the colon is skipped"* — the voice hard-stops at the colon (direct).
+- *"Reads faster / skips words"* — a hard-stopped clip is SHORT (just "components"), so `align`
+  re-anchors the cue to that short measured duration and the cursor crams the whole line
+  ("components 53") into it → the highlight races. The audio-clock instrumentation would have shown
+  this as a large `peakAhead`; the real cause is upstream, in the text the voice was handed.
+- *"Used to work" (a regression)* — #904 SWAPPED the live producer from the Markdown flatten
+  (`slideToSpeech`, which emits no `label: value` colon) to the DOM projection (`projectDeckToSpeech`,
+  which does). The colon entered live narration at #904.
+- *Intermittent + a refresh fixes it* — the projection is async with the colon-free Markdown flatten
+  as the instant fallback (#904). Tap play before the projection lands → the fallback (no colon) is
+  spoken and it reads fine; after it lands → the projection (with colons) is spoken and it skips. A
+  refresh re-runs the race and sometimes the fallback wins.
+
+**Fix (the one canonical place — cadenza `toSpoken`, HARD RULE #1).** Soften a TRAILING colon (and
+semicolon) to a COMMA in the SPOKEN form only. A comma is a soft prosodic pause every voice honors
+without dropping the tail — and the decks are already full of commas that narrate correctly, so this
+is safe by the reporter's own evidence. The DISPLAY word keeps its colon, and since the `.vtt`/caption
+serializes DISPLAY glyphs (cadenza/vtt.ts), **no exported byte changes** — only the live TTS audio and
+its (colon-vs-comma-identical) word-timing estimate. Verified end-to-end in-sandbox: the Welcome stats
+slide now builds cues whose DISPLAY is `"components: 53."` while SPOKEN is `"components, fifty-three."`.
+Fixing it in `toSpoken` (not the six projection `label: value` sites) keeps the readable colon in the
+caption, catches EVERY colon source at once (stats, kpi, tables, definition lists, state words, authored
+notes), and needs no per-walker restructuring. #938's big-number projection fix stays — that colon was
+also a DISPLAY-grammar error (the number reads INTO its label), a different concern from this
+spoken-only softening.
+
+*Export sign-off (Quality Bar).* This changes the AUDIO path, so it is flagged for sign-off — but the
+exported artifacts (`.vtt` display text + timestamps, PDF/PPTX/HTML) are byte-unchanged (confirmed: the
+`.vtt` serializes `cue.words[].display`, and colon→comma leaves the word-count estimate identical, so
+`test:core`/`test:export` pass unchanged). The behavior to sign off is purely "the live voice now speaks
+the value," which the on-device readout confirms.
+
+*The audio-clock instrumentation (the `?readaloud-debug=1` readout) stays* for now — it corroborates the
+fix (peakAhead should fall to ~0 on the stats slides once the value is spoken) and remains useful for any
+residual between-sentence drift; it is removed once this fix is confirmed clean on device.
+
+### Follow-up (2026-07-12): doubled punctuation in `label: value` captions ("Write.: …")
+
+On-device caption review surfaced a second, related defect: a card title that ends in an
+authored period ("- Write.", "- Choose a component." on the Welcome `cards-grid` slide) rendered
+as **"Write.: value"** — the projection composes `${label}: ${value}`, and when the label already
+carries a terminator the colon doubles it. The prior `renderListItems` lead-strip
+(`replace(/[:—–-]\s*$/, '')`) removed a trailing colon/dash but NOT a period, so the period
+survived into the join.
+
+**Fix.** One shared `labelValue(label, value)` helper (prose-projection.mjs) that strips a trailing
+terminator/separator run (`.!?;:…,—–-`) from the LABEL before appending the colon, then every
+`label: value` join site routes through it — `speakStats` (kpi/stats tiles), `speakTable`,
+`renderListItems` (nested `- Title` / `  - body` and state markers), and the `<dl>` walker. Now
+"Write." → "Write: value"; a label with no trailing punctuation is unchanged. Centralizing it means
+the rule can't drift between the four walkers (the previous per-site `replace` already had). This is
+a DISPLAY/caption change (unlike the colon→comma spoken softening above): it changes the projected
+caption text and therefore the exported `.vtt` display glyphs — flagged for export sign-off, though
+`test:core`/`test:export` pass unchanged (no fixture used a terminator-bearing label). Guarded in
+`prose-projection.test.js` (the "Write." card asserts no `Write.:` and a clean `Write: …`).
+
+*Refinement (maker-checker, same day).* The first cut of `labelValue` stripped `?`/`!` too, which
+silently muted the `q-and-a` component — its pairs author the lead as a literal QUESTION ("Will the
+board raise cost?"), and dropping the `?` both lost the question and (had it been kept) doubled as
+"raise?:". Fixed: a label ending in a STRONG terminator (`?`/`!`) is kept and the value follows as its
+own sentence ("…raise cost? Yes, and here is the plan."), no colon; only a period/separator run strips
+to a colon. Guarded by a q-and-a assertion in `prose-projection.test.js`. Accepted edges (logged, not
+fixed): an abbreviation used AS a label loses its final period ("U.S." → "U.S:", rare for a card
+title/th/dt); and a period-lead combined with a state word + sublist can leave one uncleaned period
+mid-caption ("Write. (done): body") — a narrow checklist/obligation-matrix combination.
+
+### Follow-up (2026-07-12): split-compare column headers were dropped from narration
+
+On-device caption review: the `split-compare` slide read its bullets but SKIPPED each column's
+header ("Slide editors", "Lattice"), so the two sides' points ran together with no owner. Root
+cause: the engine renders a column as `.option > <strong>header</strong> + <ul>bullets`, and the
+generic speech walker (`speakGeneric`) selects only `p, ul, ol, dl, blockquote, table, figcaption,
+h3, h4` — a BARE `<strong>` is not on that list, so the header was never narrated while the `<ul>`
+was. Fix: when the walker reaches a `<ul>/<ol>` whose immediate `previousElementSibling` is a bare
+`<strong>`, that strong is the list's label — read "header: bullets" via `labelValue`, and mark the
+strong consumed. Guarded against false positives: an author's inline bold sits inside a `<p>`, whose
+`previousElementSibling` is the `<p>` (not the `<strong>`), so ordinary prose is untouched. This is a
+DISPLAY/caption change (adds the header text to captions + the exported `.vtt`) — flagged for export
+sign-off; `test:core`/`test:export` pass unchanged. Guarded in `prose-projection.test.js` (a real
+engine render of split-compare asserts both column headers label their bullets).
+
+### Follow-up (2026-07-12): cadence "breath" + TTS-settings state propagation
+
+Two on-device findings from the stress-deck review, both fixed in `voice-model.js`.
+
+**1. Narration felt rushed even at speed 1 ("no time to breathe").** A clocked voice synthesizes each
+sentence as its OWN clip with almost no trailing silence, and the blob playback loop played them
+back-to-back (`await playBlob(i)` then straight to `i+1`), so there was no pause between thoughts.
+Fix: insert an inter-sentence pause after each clip, sized by the sentence's trailing punctuation.
+The value MIRRORS cadenza's `PAUSE_MS` (cadence.ts) on purpose — `buildTrack` already bakes exactly
+that gap in after each cue, and `align()` preserves it, so setting the AUDIO gap equal to the estimate
+gap means the word-cursor rests cleanly in the silence: after cue i is re-anchored, cue i+1's estimated
+start sits at `realEnd_i + pauseAfter`, and the next clip's real onset lands at `realEnd_i + gap` — the
+same point — so the highlight never races into the gap. A LARGER audio gap than the estimate WOULD
+reintroduce that race (the same free-running-clock failure the colon fix's `peakAhead` metric measures),
+so the two constants are kept in lockstep (discipline; a sentence with no terminator gets no breath).
+Audio-path change, no exported bytes; needs on-device feel sign-off.
+
+**2. Changing the model/voice/speed in settings didn't propagate.** Only `setRungPref` emitted
+`db-voice-changed`; `setOrModel`/`setOrVoice`/`setKokoroVoice`/`setSpeed` wrote localStorage but
+broadcast nothing, so a subscribed surface (TtsSettings, the Present voice indicator, a second open
+Workspace — all already listening for `db-voice-changed`) kept showing the stale pick until remount.
+Fix: all four setters now `emitChange()`, matching `setRungPref`. This is the minimal, correct fix —
+the reporter suggested adopting a shared-state library (nanostores/Zustand), but the defect was a
+missing broadcast on four setters, not a fundamental state-management failure: the event-bus pattern
+already in place (mirrored from architect-model's `db-model-changed`) works once every mutation emits.
+A broader store migration remains an option for a SEPARATE change if the Studio's cross-surface state
+grows past what the event bus handles cleanly; it is out of scope here (a large refactor, its own PR).
+
+*Logged perf follow-ups (maker-checker, not fixed here — off the correctness path).* (1) The TTS
+speed `Slider` fires `onChange` per drag tick, so with the new `setSpeed`→`emitChange` each tick
+triggers a `voiceAvailability()` re-read + re-render in TtsSettings — a minor storm while actively
+dragging (no correctness issue; a debounce or commit-on-release would remove it). (2) Drawing-board's
+voice-pick handler calls `refresh()` AND now rides the emit-driven render, so a pick rebuilds twice
+(idempotent, harmless); the Drawing Board is FROZEN (2026-07-03-studio-succession.md), so it's left
+as-is. Both are cosmetic; tracked, not pulled into this diff.
+
+### Promoted to a first-class feature (2026-07-12): the read-aloud diagnostics overlay
+
+The temporary `?readaloud-debug=1` readout proved genuinely useful for tuning voice + cadence on a
+real device, so — at the reporter's request ("don't delete it; make it first-class, like the perf
+overlay") — it is promoted rather than removed. It now mirrors the performance overlay
+(site/PerfOverlay.tsx) exactly: a shared cross-surface enabled pref (`readaloud-overlay-prefs.ts`,
+localStorage + `?readaloud-debug=1`), a draggable `<body>`-portaled panel on shadcn `popover` tokens
+(theme-aware, position remembered), the same 6-dot grip / status dots / uppercase separators / ×, and
+a Workspace → Diagnostics switch beside "Performance overlay". `ReadAloudOverlay.tsx` is PARENT-fed —
+PresentOverlay owns the reader, so it passes the live snapshot + event trace down (the overlay can't
+measure them itself, unlike PerfOverlay which reads browser metrics). The reader's capture
+(`debugLive`/`debugEvents`) is unchanged; only its gate moved from a raw query flag to the shared
+pref. Verified on-brand in both light and dark via a real Present render (puppeteer). The
+`audioState()` method on the voice model is now a permanent (not diagnostic-only) API the overlay reads.

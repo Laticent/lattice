@@ -416,6 +416,23 @@ test('speech generic: three-level nesting never mashes words together', () => {
 	assert.match(t, /Phase one:/);
 });
 
+test('speech generic: a card title ending in a period drops it before the colon (no "Write.:")', () => {
+	const [t] = speak(sections(
+		`<section data-lattice-slide data-class="cards-grid" class="cards-grid"><div class="cell-stage"><ul><li>Write.<ul><li>Plain Markdown.</li></ul></li><li>Choose a component.<ul><li>Tag a slide.</li></ul></li></ul></div></section>`,
+	));
+	assert.doesNotMatch(t, /Write\.:/, 'authored period is not doubled with the composed colon');
+	assert.match(t, /Write: Plain Markdown\./);
+	assert.match(t, /Choose a component: Tag a slide\./);
+});
+
+test('speech generic: a question lead (q-and-a) KEEPS its "?" and is not fronted with a colon', () => {
+	const [t] = speak(sections(
+		`<section data-lattice-slide data-class="q-and-a" class="q-and-a"><div class="cell-stage"><ul><li>Will the board raise cost?<ul><li>Yes, and here is the plan.</li></ul></li></ul></div></section>`,
+	));
+	assert.match(t, /raise cost\? Yes, and here is the plan\./, 'question mark kept, answer follows as its own sentence');
+	assert.doesNotMatch(t, /raise cost[?:]*:/, 'no colon fronting (and no "?:" doubling) after a question');
+});
+
 // ── projectDeckToSpeech: state-marker reading (Phase 3), from REAL engine renders ──
 // [x]/[-]/[ ]/[/] render with the glyph STRIPPED, meaning surviving only in a CSS
 // class; the projection recovers it. These render authored Markdown through the
@@ -439,6 +456,17 @@ test('stats: the label-first KPI reorder holds on a REAL engine render, not just
 	const [t] = renderSpeech('<!-- _class: stats -->\n\n## Quarter\n\n1. $2.4B\n   - Total revenue\n2. 4.2×\n   - Signal recall\n');
 	assert.match(t, /Total revenue: \$2\.4B/, 'metric name fronted, value focal');
 	assert.doesNotMatch(t, /\$2\.4B\. Total revenue/, 'never value-before-label');
+});
+
+test('split-compare: each column\'s <strong> header labels its bullets (not dropped)', () => {
+	// split-compare renders a column as `.option > <strong>header</strong> + <ul>`; a bare
+	// <strong> is not a block the generic walker selects, so the header was silently dropped
+	// and the bullets read unattributed. It must read "header: bullets".
+	const [t] = renderSpeech(
+		'<!-- _class: split-compare -->\n\n## Old vs new.\n\n- Slide editors\n  - You place every box by hand\n- Lattice\n  - You write the content\n',
+	);
+	assert.match(t, /Slide editors: You place every box by hand/);
+	assert.match(t, /Lattice: You write the content/);
 });
 
 test('checklist: completion register — [x]→done, [ ]→to do, [-]→partial', () => {

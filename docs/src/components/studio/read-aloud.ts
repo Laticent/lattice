@@ -33,6 +33,62 @@ export { slideToSpeech } from '@/playground/read-along-core.generated.js';
 // The OpenRouter key the architect/voice ladder share (lattice-db-* namespace).
 const OR_KEY_LS = 'lattice-db-or-key';
 
+/**
+ * One captured audio-timing event, for the on-device read-aloud diagnostics
+ * (gated behind `?readaloud-debug=1` in Present). Purely observational — the
+ * regression this exists to pin ("skips words / races") can only be verified on
+ * a real iOS device, so we surface the numbers the desync would show up in.
+ */
+export type ReadAloudDebugEvent = {
+	/** 'read' — a fresh play() started (a slide boundary in an autoplay trace);
+	 *  'attempt' — voice reached this sentence; 'timing' — its measured onset landed. */
+	kind: 'read' | 'attempt' | 'timing';
+	/** The sentence index the VOICE reports (its position in the filtered spoken array). */
+	index: number;
+	/** 'read' events only: the slide label + its spoken/cue counts, delimiting a slide in the trace. */
+	label?: string;
+	spokenCount?: number;
+	cueCount?: number;
+	/** 'read' events only: the model/voice that synthesized this slide (`model · voice`) — so a
+	 *  multi-model trace self-labels which voice produced each slide's behavior. */
+	voice?: string;
+	/** Measured audio onset (ms, WebAudio clock) — 'timing' events only. */
+	onsetMs?: number;
+	/** Onset relative to sentence-0's onset (the reader's time origin) — 'timing' events only. */
+	relOnsetMs?: number;
+	/** Measured clip duration (ms) — 'timing' events only. */
+	durationMs?: number;
+	/** AudioContext state at capture ('none' | 'suspended' | 'running'). */
+	ctxState: string;
+	/** Wall-clock ms since play() started, for spotting stalls between events. */
+	sincePlayMs: number;
+};
+
+/** A live snapshot of the reader clock vs the audio clock, refreshed each frame in debug mode. */
+export type ReadAloudDebugLive = {
+	mode: 'silent' | 'audio';
+	rung: string | null;
+	/** The active model/voice (`model · voice`) this read is synthesizing through. */
+	voice: string;
+	ctxState: string;
+	/** The reader clock (ms) driving the highlight this frame. */
+	elapsedMs: number;
+	/** Raw WebAudio clock (ms), before subtracting the base + latency. */
+	audioClockMs: number;
+	/** Active highlight position this frame. */
+	activeCue: number;
+	activeWord: number;
+	/** #spoken sentences handed to the voice vs #cues in the track — a mismatch is the desync tell. */
+	spokenCount: number;
+	cueCount: number;
+	/** The last cue index whose measured audio onset landed (−1 before any). */
+	lastTimedCue: number;
+	/** How many cues the highlight is AHEAD of the last-spoken sentence — the rush, quantified. */
+	aheadCues: number;
+	/** Peak `aheadCues` seen this read — the worst the highlight raced past the voice. */
+	peakAhead: number;
+};
+
 export type ReadAloudState = {
 	/** Read-along active (the play button is in its playing state). */
 	playing: boolean;
@@ -44,6 +100,10 @@ export type ReadAloudState = {
 	progress: number;
 	/** The active voice rung — 'silent' (captions only) | 'openrouter-tts' | 'kokoro' | … */
 	rung: string | null;
+	/** Captured audio-timing events this read (debug mode only; empty otherwise). */
+	debugEvents: ReadAloudDebugEvent[];
+	/** Live clock snapshot (debug mode only; null otherwise). */
+	debugLive: ReadAloudDebugLive | null;
 	play: () => void;
 	pause: () => void;
 	toggle: () => void;
@@ -58,6 +118,8 @@ type VoiceModel = {
 		text: string;
 		sentences?: string[];
 		signal?: AbortSignal;
+		/** Fired as the voice reaches each sentence (in playback order), before its audio plays. */
+		onSentence?: (sentence: string) => void;
 		onSentenceTiming?: (t: { index: number; onsetMs: number; durationMs: number }) => void;
 		onState?: (s: { rung?: string; speaking?: boolean; aborted?: boolean; error?: string }) => void;
 	}) => void;
@@ -71,6 +133,8 @@ type VoiceModel = {
 	unlock: () => void;
 	/** The owned WebAudio clock (ms) — the time source the word cursor rides during TTS. */
 	audioTimeMs: () => number;
+	/** The AudioContext lifecycle state ('none' | 'suspended' | 'running') — diagnostics only. */
+	audioState: () => string;
 	/** Output latency (ms) — subtracted so the highlight tracks what's HEARD, not the buffer. */
 	outputLatencyMs: () => number;
 	// The config surface the Workspace TTS settings panel drives (below) — same
@@ -173,7 +237,7 @@ export function warmNarration(text: string, signal?: AbortSignal, acronyms?: Rea
  */
 export function useReadAloud(
 	text: string,
-	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string>; lang?: string; muted?: boolean },
+	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string>; lang?: string; muted?: boolean; debug?: boolean; debugLabel?: string },
 ): ReadAloudState {
 	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
 	// "$4.2M" is said "four point two million dollars"), while the cursor highlights the
@@ -186,11 +250,35 @@ export function useReadAloud(
 	// a ref so play() sees the current value without re-creating the reader (present redesign S3).
 	const mutedRef = React.useRef(false);
 	mutedRef.current = !!opts?.muted;
+	const debug = !!opts?.debug;
+	const debugLabel = opts?.debugLabel;
+	const debugLabelRef = React.useRef(debugLabel);
+	debugLabelRef.current = debugLabel;
 	const track = React.useMemo(() => buildTrack(text, { acronyms, lang }), [text, acronyms, lang]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
 	const [progress, setProgress] = React.useState(0);
 	const [rung, setRung] = React.useState<string | null>(null);
+	const [debugEvents, setDebugEvents] = React.useState<ReadAloudDebugEvent[]>([]);
+	const [debugLive, setDebugLive] = React.useState<ReadAloudDebugLive | null>(null);
+	// Read via refs so the tick/play closures never re-create (they're deps-`[]` by
+	// design — the RAF loop captures one `tick` for the whole read).
+	const debugRef = React.useRef(debug);
+	debugRef.current = debug;
+	const rungRef = React.useRef<string | null>(rung);
+	rungRef.current = rung;
+	// Origin for the "sincePlayMs" column — set at each fresh play().
+	const playStartRef = React.useRef(0);
+	const spokenCountRef = React.useRef(0);
+	const cueCountRef = React.useRef(track.cues.length);
+	cueCountRef.current = track.cues.length;
+	// Rush tracking: the last cue the voice actually started, and the worst the
+	// highlight got ahead of it this read.
+	const lastTimedCueRef = React.useRef(-1);
+	const peakAheadRef = React.useRef(0);
+	// The model/voice this read synthesizes through — resolved once per play() (below), so
+	// a multi-model device trace self-labels which voice produced each slide's behavior.
+	const voiceLabelRef = React.useRef('');
 
 	// Read the latest onFinish through a ref so it never re-creates the reader effect.
 	const onFinishRef = React.useRef(opts?.onFinish);
@@ -244,6 +332,7 @@ export function useReadAloud(
 		setActive(null);
 		setProgress(0);
 		setPlaying(false);
+		if (debugRef.current) setDebugLive(null);
 	}, [cancelRaf]);
 
 	// Warm the voice model as soon as the reader mounts (Present opens), so it's ready
@@ -323,9 +412,36 @@ export function useReadAloud(
 			elapsedRef.current += now - lastTRef.current;
 		}
 		lastTRef.current = now;
-		reader.sync(elapsedRef.current);
+		const activeNow = reader.sync(elapsedRef.current);
 		const dur = reader.durationMs();
 		setProgress(dur ? Math.min(1, elapsedRef.current / dur) : 0);
+		if (debugRef.current) {
+			const v = voiceRef.current;
+			const activeCue = activeNow?.cueIndex ?? -1;
+			// How far the highlight has raced past the last sentence the voice truly
+			// started. In 'audio' mode a positive value means the clock free-ran through
+			// a synth/decode gap — the systematic "moves fast / skips" signature.
+			const ahead =
+				modeRef.current === 'audio' && activeCue >= 0 && lastTimedCueRef.current >= 0
+					? Math.max(0, activeCue - lastTimedCueRef.current)
+					: 0;
+			if (ahead > peakAheadRef.current) peakAheadRef.current = ahead;
+			setDebugLive({
+				mode: modeRef.current,
+				rung: rungRef.current,
+				voice: voiceLabelRef.current,
+				ctxState: v?.audioState ? v.audioState() : 'none',
+				elapsedMs: Math.round(elapsedRef.current),
+				audioClockMs: Math.round(v?.audioTimeMs ? v.audioTimeMs() : 0),
+				activeCue,
+				activeWord: activeNow?.wordIndex ?? -1,
+				spokenCount: spokenCountRef.current,
+				cueCount: cueCountRef.current,
+				lastTimedCue: lastTimedCueRef.current,
+				aheadCues: ahead,
+				peakAhead: peakAheadRef.current,
+			});
+		}
 		if (playingRef.current) rafRef.current = requestAnimationFrame(tick);
 	}, []);
 
@@ -372,11 +488,20 @@ export function useReadAloud(
 		ctlRef.current = ctl;
 		elapsedRef.current = 0;
 		audioBaseRef.current = null;
+		lastTimedCueRef.current = -1;
+		peakAheadRef.current = 0;
+		voiceLabelRef.current = '';
 		modeRef.current = 'silent'; // the default mode; overridden below once the rung is known
 		armedRef.current = false;
 		reader.reset();
 		playingRef.current = true;
 		setPlaying(true);
+		if (debugRef.current) {
+			// Accumulate across slides so ONE autoplay pass = a full-deck trace (a 'read'
+			// marker below delimits each slide); sincePlayMs is per-slide (this reset).
+			playStartRef.current = nowMs();
+			spokenCountRef.current = 0;
+		}
 		// The RAF loop's FIRST tick is deferred to getVoice().then() below, once the
 		// mode (audio vs. estimate) is actually decided — starting it here, in
 		// 'silent' mode, before knowing whether a clocked voice would attach made the
@@ -416,6 +541,20 @@ export function useReadAloud(
 				r = 'silent';
 			}
 			setRung(r);
+			if (debugRef.current) {
+				// Resolve the concrete model/voice behind the rung so a multi-model device
+				// trace self-labels which voice produced each slide (best-effort, guarded).
+				try {
+					voiceLabelRef.current =
+						r === 'openrouter-tts'
+							? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
+							: r === 'kokoro'
+								? `kokoro · ${voice.kokoroVoice?.() || '?'}`
+								: r;
+				} catch {
+					voiceLabelRef.current = r;
+				}
+			}
 			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on
 			// the estimate (it speaks in parallel but reports no onsets).
 			const clocked = r === 'openrouter-tts' || r === 'kokoro';
@@ -437,15 +576,64 @@ export function useReadAloud(
 			if (!pausedRef.current) startLoop();
 			if (r && r !== 'silent') {
 				const spoken = track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
+				spokenCountRef.current = spoken.length;
+				const dbg = debugRef.current;
+				const pushEvent = (e: ReadAloudDebugEvent) =>
+					setDebugEvents((prev) => (prev.length >= 500 ? prev : [...prev, e]));
+				if (dbg) {
+					// Slide boundary in the accumulated trace, carrying the counts whose
+					// mismatch would be the desync tell (spoken sentences vs. track cues).
+					pushEvent({
+						kind: 'read',
+						index: -1,
+						label: debugLabelRef.current,
+						spokenCount: spoken.length,
+						cueCount: track.cues.length,
+						voice: voiceLabelRef.current,
+						ctxState: voiceRef.current?.audioState ? voiceRef.current.audioState() : 'none',
+						sincePlayMs: 0,
+					});
+				}
+				// The voice loop calls onSentence strictly in playback order, so a local
+				// counter recovers the attempt index (the callback itself carries only text).
+				let attemptSeq = 0;
 				voice.speak({
 					// One spoken sentence per cue keeps index i == cue i for re-anchoring.
 					text: spoken.join(' '),
 					sentences: spoken,
 					signal: ctl.signal,
+					// Debug only: the voice reached this sentence (before its audio plays).
+					// A gap between an 'attempt' and its matching 'timing' event = a synth/
+					// decode stall the free-running audio clock races through (the "skips
+					// / moves fast" tell). Omitted entirely off debug — no runtime cost.
+					onSentence: dbg
+						? () => {
+								const v = voiceRef.current;
+								pushEvent({
+									kind: 'attempt',
+									index: attemptSeq++,
+									ctxState: v?.audioState ? v.audioState() : 'none',
+									sincePlayMs: Math.round(nowMs() - playStartRef.current),
+								});
+							}
+						: undefined,
 					onSentenceTiming: clocked
 						? ({ index, onsetMs, durationMs }) => {
 								if (audioBaseRef.current == null) audioBaseRef.current = onsetMs; // cue-0 onset = time 0
 								reader.align(index, onsetMs - audioBaseRef.current, durationMs);
+								if (index > lastTimedCueRef.current) lastTimedCueRef.current = index;
+								if (dbg) {
+									const v = voiceRef.current;
+									pushEvent({
+										kind: 'timing',
+										index,
+										onsetMs: Math.round(onsetMs),
+										relOnsetMs: Math.round(onsetMs - (audioBaseRef.current ?? 0)),
+										durationMs: Math.round(durationMs),
+										ctxState: v?.audioState ? v.audioState() : 'none',
+										sincePlayMs: Math.round(nowMs() - playStartRef.current),
+									});
+								}
 							}
 						: undefined,
 					onState: (s) => {
@@ -504,7 +692,7 @@ export function useReadAloud(
 		}
 	}, [mutedProp]);
 
-	return { playing, track, active, progress, rung, play, pause, toggle, stop };
+	return { playing, track, active, progress, rung, debugEvents, debugLive, play, pause, toggle, stop };
 }
 
 // ── TTS settings bridge (the Workspace AI-tab TTS section) ──────────────────

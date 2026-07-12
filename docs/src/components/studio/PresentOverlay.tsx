@@ -12,6 +12,7 @@ import { createPresenterController } from '@/playground/presenter-window.js';
 // surfaces (they agree on which Markdown is a chart slide under the house `---`-per-
 // section convention; the export aligns to rendered sections, this to the `---` set). #902
 import { narrateChart } from '@/playground/read-along-core.generated.js';
+import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
@@ -20,6 +21,7 @@ import { type PresentLens, presentationIndices, presentationSet } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { sectionsFromSlides } from './present-sections';
+import ReadAloudOverlay from './ReadAloudOverlay';
 import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
@@ -48,6 +50,17 @@ type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: Rehe
 export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
 	const [lens, setLens] = React.useState<PresentLens>('full');
 	const [idx, setIdx] = React.useState(0);
+	// Read-aloud diagnostics overlay — a first-class, draggable on-brand readout
+	// (ReadAloudOverlay), toggled by the shared cross-surface pref (the Workspace
+	// "Read-aloud diagnostics" switch AND the `?readaloud-debug=1` URL param). When on,
+	// the reader captures its live clock/sync/trace and the overlay renders it. Off, it's
+	// a true no-op — no capture, no panel. Subscribes so a flip mounts/unmounts it live.
+	const [readAloudDebug, setReadAloudDebug] = React.useState(false);
+	React.useEffect(() => {
+		applyReadAloudDebugParam();
+		setReadAloudDebug(readAloudOverlayEnabled());
+		return onReadAloudOverlayEnabledChange(setReadAloudDebug);
+	}, []);
 	const [playing, setPlaying] = React.useState(false);
 	const [overviewOpen, setOverviewOpen] = React.useState(false); // slide sorter (G)
 	const [autoplay, setAutoplay] = React.useState(false); // chain read-aloud across slides
@@ -240,6 +253,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			acronyms,
 			lang,
 			muted,
+			debug: readAloudDebug,
+			debugLabel: `slide ${clamped + 1}/${count}`,
 			onFinish: () => {
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
@@ -571,6 +586,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 					<div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 motion-reduce:hidden">
 						<span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">Swipe or use ← → to move · controls reveal as you go</span>
 					</div>
+				)}
+				{readAloudDebug && (
+					<ReadAloudOverlay
+						live={reader.debugLive}
+						events={reader.debugEvents}
+						source={
+							projected.set === set
+								? narrationText === (projected.texts[clamped] ?? '')
+									? 'projection'
+									: 'fallback (landed, not adopted)'
+								: 'fallback (projection pending)'
+						}
+					/>
 				)}
 			</div>
 

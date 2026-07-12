@@ -123,10 +123,12 @@ var require_dist = __commonJS({
       "\xA7": "section",
       "\xA7\xA7": "sections",
       "\xB6": "paragraph",
-      "&": "and",
-      // A decorative separator (eyebrows: "Financial · Q4 2026") — dropped, never spoken
-      // as "middle dot". An empty spoken form means "say nothing".
-      "\xB7": ""
+      "&": "and"
+      // NOTE: decorative separators (interpunct "·", pipe "|", bullet "•" …) are handled in
+      // normalize.ts's `toSpoken` — spoken as a soft PAUSE (a comma), not dropped, so an eyebrow
+      // like "Financial · Q4 2026" reads "Financial, Q4 2026" instead of running together. One
+      // rule there covers the whole family; keeping a `'·': ''` entry here would just be a dead,
+      // contradicting duplicate.
     };
     var BASE_CASED = {
       CY: "calendar year",
@@ -296,13 +298,15 @@ var require_dist = __commonJS({
       const acronyms = opts.acronyms;
       const english = isEnglishLang(opts.lang);
       if (acronyms?.has(tok)) return acronyms.get(tok);
+      if (/^[·•∙‖¦⁃・|]+$/.test(tok)) return ",";
       if (english) {
         const whole = lookupLexicon(tok, domains);
         if (whole !== null) return whole;
       }
       const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
       const core = punct ? tok.slice(0, -punct.length) : tok;
-      return spokenCore(core, domains, acronyms, english) + punct;
+      const spokenPunct = punct.replace(/[:;]/g, ",");
+      return spokenCore(core, domains, acronyms, english) + spokenPunct;
     }
     function spokenCore(core, domains, acronyms, english = true) {
       if (!core) return core;
