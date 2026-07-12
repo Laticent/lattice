@@ -90,7 +90,10 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	};
 	// The export defaults to the deck's authored `color-mode:` when it has one (so a
 	// system/inherited deck's panel reflects that), else the current preview mode.
-	const deckDefaultScheme = deckColorMode(artifactSource) ?? mode;
+	// `print` is a paper medium, not a screen scheme — the .html player has no print
+	// mode, so a print-authored deck falls back to the current light/dark for the web player.
+	const deckCm = deckColorMode(artifactSource);
+	const deckDefaultScheme = deckCm && deckCm !== 'print' ? deckCm : mode;
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>

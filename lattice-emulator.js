@@ -1084,7 +1084,7 @@ function preprocessMermaid(source) {
   // raw `color-scheme: dark`. Case-insensitive, matching colorModeClass + deckScheme.
   const cmDark = /^\s*color-mode:\s*["']?([A-Za-z]+)\b/mi.exec(fm);
   const cmKey = cmDark ? cmDark[1].toLowerCase() : '';
-  const knownCm = cmKey === 'light' || cmKey === 'dark' || cmKey === 'system' || cmKey === 'inherited';
+  const knownCm = cmKey === 'light' || cmKey === 'dark' || cmKey === 'system' || cmKey === 'inherited' || cmKey === 'print';
   const globalDark = knownCm
     ? cmKey === 'dark'
     : /^\s*class:\s*["']?[^"'\n]*\bdark\b/mi.test(fm) ||
@@ -1094,6 +1094,7 @@ function preprocessMermaid(source) {
   // Deck-wide print applies to EVERY slide (the propagation kernel merges it into each
   // section), so it isn't overridden by a slide's own `_class:`.
   const globalPrint = !!flags.print ||
+    cmKey === 'print' ||
     /^\s*class:\s*["']?[^"'\n]*\bprint\b/mi.test(fm);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
