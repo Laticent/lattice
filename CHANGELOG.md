@@ -271,6 +271,20 @@ in patch versions.
   baked to the slide's pixel measurements at export and can't be re-aligned without a runtime
   re-measure in the article box; journey's affect-contour fill is height-relative and doesn't
   translate to an article box without ballooning — both tracked follow-ups.)*
+- **Present mode is redesigned around "Quiet Bloom" — the slide owns the screen; the
+  chrome blooms on intent.** At rest only the essentials show (Play, position, the section
+  title and a hair-thin rail); the flanking circular arrows fade to faint, and the CC / Voice
+  controls and caption fold away — then bloom back the moment you move the pointer, wheel,
+  press a key or touch the screen, and fold again after a beat (pointer-over or keyboard focus
+  pins them open so a click never chases a fading control). The dock now follows one order —
+  **caption → controls → section title → full-width rail** — with the caption a transparent
+  film-subtitle (no box) that grows in on Play and folds on Pause, so the slide never fights it.
+  Navigation gains **swipe** (touch) and **mouse-wheel** (desktop) alongside the keyboard, sharing
+  the same geometry as the export player's transport kernel; the section rail now shows on mobile
+  too. A one-time first-run cue teaches the gestures. Reduced-motion keeps the controls permanently
+  visible (a stable UI) and drops the animations. Verified light + dark at 390 / 820 / 1440px.
+  (Studio Present redesign — `engineering/decisions/2026-07-12-studio-present-redesign.md`, S4.)
+
 - **Present mode now has one Play and independent Captions / Voice.** Play narrates the
   current slide and advances through the deck like a video — the separate "Autoplay" toggle
   is gone (it was the same action). Captions (**CC**) and **Voice** are now two independent

@@ -69,18 +69,25 @@ export function PresentRail({
 	const curSec = sectionOfIndex(sections, current);
 	const name = curSec >= 0 ? sections[curSec].name : '';
 	return (
-		<div className={`hidden min-w-0 flex-1 flex-col items-stretch gap-1.5 sm:flex ${className ?? ''}`}>
-			{/* STABLE polite live region — text updates in place so a section change is announced
-			    (a key-remounted region is not); the visual cross-fade is applied to the text, not the node. */}
-			<div className="truncate text-center text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground" aria-live="polite">
-				{name}
-			</div>
+		<div className={`flex min-w-0 flex-col items-stretch gap-1.5 ${className ?? ''}`}>
+			{/* Section title — ONE centered line above a full-width rail (2026-07-12 redesign,
+			    layout A). STABLE polite live region so a section change is announced (a
+			    key-remounted region is not); the visual cross-fade rides a keyed INNER span so
+			    the announced node itself never remounts. Only rendered when the deck has named
+			    sections (a flat deck degrades to the bare rail). */}
+			{name ? (
+				<div className="h-[13px] truncate text-center text-[10px] font-bold uppercase leading-none tracking-[0.16em] text-muted-foreground" aria-live="polite">
+					<span key={name} className="inline-block animate-[lx-fade-rise_.4s_ease] motion-reduce:animate-none">
+						{name}
+					</span>
+				</div>
+			) : null}
 			{/* biome-ignore lint/a11y/useSemanticElements: role=group + aria-label is the correct ARIA for a segmented progress/jump control (not a fieldset form group) */}
-			<div className="flex min-w-0 items-end gap-2 overflow-hidden" role="group" aria-label="Deck progress — jump to a slide" onKeyDown={onKeyDown}>
+			<div className="flex min-w-0 items-end gap-1.5 overflow-hidden" role="group" aria-label="Deck progress — jump to a slide" onKeyDown={onKeyDown}>
 				{sections.map((sec, si) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: sections are positional + stable per render
 					<div key={si} className="flex min-w-0 flex-col" style={{ flex: sec.count }}>
-						<div className="flex min-w-0 gap-[3px]">
+						<div className="flex min-w-0 gap-[2px]">
 							{Array.from({ length: sec.count }).map((_, k) => {
 								const gi = sec.start + k;
 								const done = gi < current;
@@ -98,7 +105,7 @@ export function PresentRail({
 										onFocus={() => setFocusIdx(gi)}
 										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}`}
 										aria-current={here ? 'step' : undefined}
-										className="relative h-[3px] min-w-[2px] flex-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
+										className="relative h-[3px] min-w-0 flex-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
 									>
 										<span className="absolute inset-0 overflow-hidden rounded-full" style={{ background: here ? 'color-mix(in srgb, var(--accent) 36%, var(--border))' : 'var(--border)' }}>
 											<span className="absolute inset-y-0 left-0 rounded-full transition-[right] duration-150" style={{ right: `${right}%`, background: 'var(--accent)' }} />

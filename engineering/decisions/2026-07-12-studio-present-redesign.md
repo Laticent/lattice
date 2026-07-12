@@ -134,6 +134,32 @@ agents each), then the adversarial trio on the finalist:
 4. **UNVERIFIED / on-device:** deliberate-tap guard against accidental rail activation in the
    phone thumb-rest zone — must be verified on a real device (HARD RULE #23), not a headless render.
 
+### Fixes folded from the S4 trio (independent-checker + red-team + Munger-inversion)
+
+All three converged on one root defect and a cluster of a11y/robustness follow-ups; folded before commit:
+
+1. **The transport pill glided sideways (~50–80px) on every bloom/fold** — the CC/Voice cluster
+   animated `max-w-0 ↔ max-w-[260px]`, so the always-on row re-centered and the *primary Play button
+   drifted on its own, unattended, mid-playback*. Fix: the CC/Voice cluster's **footprint is now
+   reserved** (no width collapse); it blooms by **opacity only** (faint `opacity-50` at rest → full on
+   intent, exactly like the flanking arrows). This is a deliberate refinement of the locked "CC/Voice
+   hidden at rest" wording — the trio showed a hidden cluster both janks the pill AND makes captions
+   **undiscoverable on touch** (no hover/focus pin fires); faint-persistent (the arrows' own sanctioned
+   treatment) keeps the resting state quiet while fixing both.
+2. **Caption live region kept announcing when it shouldn't** — `PresentCaption` was mounted
+   unconditionally inside the (collapsed) band, so its `role=status` region announced to a screen
+   reader even with **CC off / paused / in Rehearse**. Fix: mount it only while `showCaption`, and add
+   an `announce` prop wired to `muted` so a Voice (TTS) read isn't **double-spoken** by the live region.
+3. **`pinnedRef` could stick `true` across a close** (tab to a dock control → Escape → reopen → chrome
+   never folds). Fix: reset the pin in the open effect.
+4. **Rail could clip/orphan late segments on a large deck** — fixed per-segment `min-w` + gaps overflowed
+   `overflow-hidden` past ~40 slides. Fix: `min-w-0` (flex segments can't force overflow) + tighter gaps.
+5. Wheel-nav threshold raised (24→40) so a reflexive scroll-to-read doesn't jump a slide.
+
+Deferred (logged, not folded): the slide shrinks as the caption band grows on Play — that is the
+*intended* "slide becomes smaller" behavior (animated), not jank. On-device tap-race + large-deck rail
+remain **S6 real-surface checks** (HARD RULE #23) — jsdom can't exercise width/touch/hover/reflow.
+
 ## Implementation plan (slices, this branch)
 
 Each slice builds + tests green on its own (HARD RULE #18); the six long-running galleries stay
@@ -146,8 +172,15 @@ isolated (#8); docs + CHANGELOG land with the change (#6, #10).
   the reader; driven by the `'silent'` cadence when muted. Replaces the occluding box.
 - **S3 — Control model rewire.** One Play (narrate + advance) folding today's autoplay; CC / Voice
   as independent toggles over the reader rungs; kill the second counter. Behavior change → docs + CHANGELOG.
-- **S4 — Quiet Bloom chrome.** Resting/Playing bloom, flanking auto-hiding circular arrows, first-run
-  hint, layout A dock order, both themes, reduced-motion, focus states.
+- **S4 — Quiet Bloom chrome. ✅** Resting/Playing bloom (a `revealed` state armed by
+  pointer/wheel/key/touch, folding after ~2.8s; pointer-over + focus-within PIN it open),
+  faint-persistent flanking circular arrows, first-run hint (persisted once), layout A dock
+  order (caption → controls → section title → full-width rail), the caption a transparent
+  film-subtitle that grows on Play / folds on Pause, swipe + wheel nav (shared transport kernel
+  `swipeAction`), rail shown on mobile, both themes, reduced-motion (controls stay visible,
+  animations dropped), focus states. Also closed a broken window from S3: the `Autoplay`/
+  `Play read-aloud` control names were deleted but their unit tests weren't updated — rewritten
+  to the one-Play model (`studio.present-playback.test.tsx`, `studio.controls.test.tsx`).
 - **S5 — Presenter window.** Brand-dark, on-brand tokens, whole (uncropped) current + next slides,
   redesigned notes + controls in the same language (`presenter-window.js`).
 - **S6 — Verify on real surfaces.** Build the docs, drive the real Playground Present on desktop +

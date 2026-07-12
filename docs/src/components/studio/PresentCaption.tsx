@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 //    sentence (not the whole narration).
 const MASK = 'linear-gradient(180deg, transparent 0%, #000 22%, #000 78%, transparent 100%)';
 
-export function PresentCaption({ track, active, className }: { track: CaptionTrack; active: Active | null; className?: string }) {
+export function PresentCaption({ track, active, className, announce = true }: { track: CaptionTrack; active: Active | null; className?: string; announce?: boolean }) {
 	const winRef = React.useRef<HTMLDivElement>(null);
 	const trackRef = React.useRef<HTMLDivElement>(null);
 	// Latch the last non-null cursor so a punctuation/sentence GAP (active===null) holds position.
@@ -52,11 +52,18 @@ export function PresentCaption({ track, active, className }: { track: CaptionTra
 	if (!cueCount) return null;
 	const activeText = track.cues[activeCue].words.map((w) => w.display).join(' ');
 	return (
-		<div className={cn('block h-[80px] w-[min(88vw,640px)] overflow-hidden rounded-2xl border border-border bg-[color-mix(in_srgb,var(--bg)_90%,transparent)] px-4 py-1.5 shadow-[0_8px_24px_rgba(10,22,40,.14)] backdrop-blur-sm', className)}>
-			{/* Scoped live region — announces only the sentence being read (not the whole narration). */}
-			<span className="sr-only" aria-live="polite" aria-atomic="true">
-				{activeText}
-			</span>
+		// Film-subtitle, NOT a pill (2026-07-12 redesign): transparent, full-width, docked
+		// between the slide and the transport — no card/border/shadow to read as a box. The
+		// vertical mask alone fades read/upcoming lines so the active line reads clean.
+		<div className={cn('block h-[76px] w-full max-w-[720px] overflow-hidden px-4', className)}>
+			{/* Scoped live status region — announces only the sentence being read (not the whole
+			    narration). role=status makes the read-along queryable as the live prompter. Skipped
+			    when Voice (TTS) is speaking, so a screen-reader user doesn't hear each line twice. */}
+			{announce ? (
+				<span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+					{activeText}
+				</span>
+			) : null}
 			<div ref={winRef} aria-hidden="true" className="relative h-full" style={{ WebkitMaskImage: MASK, maskImage: MASK }}>
 				<div ref={trackRef} className="absolute inset-x-0 will-change-transform [transition:transform_.5s_cubic-bezier(.22,.61,.36,1)] motion-reduce:transition-none">
 					{track.cues.map((cue, ci) => {
@@ -64,7 +71,7 @@ export function PresentCaption({ track, active, className }: { track: CaptionTra
 						const up = ci > activeCue;
 						return (
 							// biome-ignore lint/suspicious/noArrayIndexKey: a static caption track never reorders; the cue index is its stable identity
-							<div key={ci} data-cue={ci} className={cn('px-2 py-0.5 text-center text-[15px] font-semibold leading-snug transition-colors duration-300 sm:text-[17px]', read ? 'text-muted-foreground/50' : up ? 'text-muted-foreground/60' : 'text-[var(--text-heading)]')}>
+							<div key={ci} data-cue={ci} className={cn('px-2 py-0.5 text-center text-[16px] font-semibold leading-snug transition-colors duration-300 sm:text-[18px]', read ? 'text-muted-foreground/45' : up ? 'text-muted-foreground/55' : 'text-[var(--text-heading)]')}>
 								{cue.words.map((w, wi) => (
 									<span
 										// biome-ignore lint/suspicious/noArrayIndexKey: (cueIndex, wordIndex) IS the word's stable identity on a static track
