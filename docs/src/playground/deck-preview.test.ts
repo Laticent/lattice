@@ -34,3 +34,45 @@ describe('buildSrcdoc — asset gating', () => {
 		expect(doc).not.toContain('katex.css');
 	});
 });
+
+// Print CSS (browser ⌘P / "Print deck") — pick the least-wasteful standard sheet for
+// the deck's aspect, pre-select the orientation, and scale each slide to fit the page.
+// (engineering/decisions/2026-06-14-deck-print-styling.md, Build A.)
+describe('buildSrcdoc — print sheet + fit', () => {
+	const zoomOf = (doc: string) => Number((doc.match(/zoom:([0-9.]+)/) || [])[1]);
+	const pageOf = (doc: string) => (doc.match(/@page\{size:([^;]+);/) || [])[1];
+
+	it('screen preview (printRules off) emits no @page/print block', () => {
+		const doc = buildSrcdoc({ ...base, html: '<section id="1"></section>' });
+		expect(doc).not.toContain('@page');
+		expect(doc).not.toContain('@media print');
+	});
+
+	it('16:9 → US Legal landscape (the least-wasteful sheet), fit ≤ 1', () => {
+		const doc = buildSrcdoc({ ...base, geom: { w: 1280, h: 720 }, printRules: true, html: '<section id="1"></section>' });
+		expect(pageOf(doc)).toBe('legal landscape');
+		expect(zoomOf(doc)).toBeGreaterThan(0.9);
+		expect(zoomOf(doc)).toBeLessThanOrEqual(1);
+	});
+
+	it('4:3 → US Letter landscape (fits ~edge-to-edge, never upscaled past 1)', () => {
+		const doc = buildSrcdoc({ ...base, geom: { w: 960, h: 720 }, printRules: true, html: '<section id="1"></section>' });
+		expect(pageOf(doc)).toBe('letter landscape');
+		expect(zoomOf(doc)).toBe(1);
+	});
+
+	it('tall (9:16) → Letter portrait, scaled well down to fit the page', () => {
+		const doc = buildSrcdoc({ ...base, geom: { w: 1080, h: 1920 }, printRules: true, html: '<section id="1"></section>' });
+		expect(pageOf(doc)).toBe('letter portrait');
+		expect(zoomOf(doc)).toBeLessThan(0.6);
+	});
+
+	it('the fit factor is floored (never rounded up past the printable box)', () => {
+		// A 9:16 slide fits the page height near-exactly; rounding UP would spill every
+		// slide onto a second sheet. The value must be floored, so scaled height < page.
+		const doc = buildSrcdoc({ ...base, geom: { w: 1080, h: 1920 }, printRules: true, html: '<section id="1"></section>' });
+		const SAFE = Math.round(9 * (96 / 25.4));
+		const printableH = 1056 - 2 * SAFE - 2; // Letter portrait height px, minus safe margin + guard
+		expect(zoomOf(doc) * 1920).toBeLessThanOrEqual(printableH);
+	});
+});

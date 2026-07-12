@@ -223,6 +223,61 @@ export function linkGuardAgent() {
 	].join('\n');
 }
 
+// Print CSS for the browser ⌘P / "Print deck" surface (the shared kernel for the
+// Studio's sharePrintDeck AND the Drawing Board print — HARD RULE #1). Three jobs
+// beyond one-slide-per-page:
+//   1. Pick the standard sheet that wastes the least page for this deck's aspect and
+//      pre-select landscape in the dialog — 16:9 → US Legal (far less letterbox than
+//      Letter), 4:3 → Letter landscape (near edge-to-edge), tall decks → Letter
+//      portrait. The
+//      MediaBox/orientation IS how a PDF tells the printer, so this fixes the old
+//      "16:9 shrunk into portrait A4" default (2026-06-14-deck-print-styling.md).
+//   2. Scale each fixed slide box to the printable area with `zoom`, not `transform`:
+//      zoom scales the LAYOUT box, so pagination and centering see the fitted size
+//      (a transform would leave a 1280px box overflowing an 816px page). `zoom` is
+//      supported in print by current Chromium and Firefox (≥126).
+//   3. Hold a 9mm safe margin — it also dodges the ~3-5mm unprintable edge every
+//      physical printer clips, so full-bleed content never loses its border.
+// Never crops; a slide narrower than the sheet centers with white letterbox bands.
+function buildPrintCss(gw, gh) {
+	const PX_PER_MM = 96 / 25.4; // CSS px are 1/96in
+	const SAFE = Math.round(9 * PX_PER_MM); // 9mm ≈ 34px, per printable edge
+	const aspect = gw / gh;
+	// Landscape sheets are W×H in CSS px at 96dpi (Legal 14×8.5in, Letter 11×8.5in);
+	// portrait Letter is 8.5×11in. Thresholds sit between the named aspects
+	// (16:9≈1.78, 3:2=1.5, 4:3≈1.33, 1:1, portrait<1) so each deck lands on its
+	// least-wasteful sheet.
+	let size, pageW, pageH;
+	if (aspect >= 1.55) { size = 'legal landscape'; pageW = 1344; pageH = 816; }
+	else if (aspect >= 1.15) { size = 'letter landscape'; pageW = 1056; pageH = 816; }
+	else { size = 'letter portrait'; pageW = 816; pageH = 1056; }
+	// GUARD: shave 2px off the printable box before fitting. At an exact fit (e.g. a
+	// 9:16 slide whose scaled height equals the page), sub-pixel rounding can nudge the
+	// box a hair over the page and spill every slide onto a second sheet — the guard +
+	// floor keep the scaled box strictly inside, so it's always one slide per page.
+	const k = Math.min((pageW - 2 * SAFE - 2) / gw, (pageH - 2 * SAFE - 2) / gh);
+	const zoom = Math.floor(Math.min(k, 1) * 10000) / 10000; // floor (never round up); never upscale past 1:1
+	return (
+		'@page{size:' + size + ';margin:9mm;}' +
+		'@media print{html,body{padding:0;margin:0;background:#fff;}' +
+		// Flex column centers each slide horizontally (align-items) without a margin,
+		// so a slide narrower than the sheet letterboxes evenly instead of hugging the
+		// left edge. Vertical slack rides at the bottom (design doc: fit-to-width, top).
+		'.lattice{visibility:visible!important;height:auto!important;overflow:visible!important;' +
+		'display:flex!important;flex-direction:column!important;align-items:center!important;}' +
+		// `margin:0!important` is load-bearing: the FIT agent (__latticeFit) sets an
+		// INLINE marginBottom on every section for the on-screen inter-slide gap, and an
+		// inline style beats a non-!important rule — so without this reset that gap leaks
+		// into print (flex items honor margins) and can push a slide onto a blank second
+		// sheet. `transform:none` likewise clears the preview's fit transform; `zoom` is
+		// what actually scales the slide to the page here.
+		'.lattice>section{content-visibility:visible!important;transform:none!important;margin:0!important;' +
+		'zoom:' + zoom + ';box-shadow:none!important;border-radius:0!important;outline:none!important;' +
+		'break-after:page;break-inside:avoid;}' +
+		'.lattice>section:last-child{break-after:auto;}}'
+	);
+}
+
 // Build the full srcdoc for a rendered deck. `geom` is the resolved `@size` box
 // {w,h}; every visual knob defaults to the simplest (playground) host.
 export function buildSrcdoc({
@@ -273,13 +328,7 @@ export function buildSrcdoc({
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';
-	const printCss = printRules
-		? '@page{size:' + gw + 'px ' + gh + 'px;margin:0;}' +
-			'@media print{html,body{padding:0;margin:0;background:#fff;}' +
-			'.lattice{visibility:visible!important;height:auto!important;overflow:visible!important;}' +
-			'.lattice>section{content-visibility:visible!important;transform:none!important;margin:0!important;box-shadow:none!important;border-radius:0!important;outline:none!important;break-after:page;}' +
-			'.lattice>section:last-child{break-after:auto;}}'
-		: '';
+	const printCss = printRules ? buildPrintCss(gw, gh) : '';
 	const GEOM_GLOBALS = 'window.__SLIDE_W=' + gw + ';window.__SLIDE_H=' + gh + ';';
 	// srcdoc (a fresh browsing context per write), NOT doc.open()/write()/close():
 	// the latter keeps the iframe window, so lattice-runtime.js's one-shot Mermaid

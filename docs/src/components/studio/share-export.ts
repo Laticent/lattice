@@ -503,29 +503,74 @@ export async function sharePrintDeck(options: SingleSlideOptions, source: string
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const { buildSrcdoc } = await import('@/playground/deck-preview.js');
 	const ex = await exporters();
+	// The print frame must be a REAL, on-screen, focusable target. The old host was
+	// hidden (`opacity:0`, zero-sized, `overflow:hidden`) — an ambiguous print target:
+	// a browser that won't move focus into an invisible frame (Firefox) runs
+	// `contentWindow.print()` against the TOP document instead, so the "deck" printed
+	// as a screenshot of the Studio chrome (the reported bug). Mounting it
+	// full-viewport, opaque, and on top makes it the unambiguous target in every
+	// browser — exactly like the Drawing Board's visible preview frame, which never
+	// had this bug. It shows for a frame or two before the print dialog opens.
 	const host = document.createElement('div');
 	host.dataset.studioPrint = 'deck';
-	host.style.cssText = 'position:fixed;inset:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none;';
+	host.setAttribute('aria-hidden', 'true');
+	host.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#fff;';
 	const frame = document.createElement('iframe');
 	frame.title = 'Print render';
-	frame.style.cssText = `width:${render.geom.w}px;height:${render.geom.h}px;border:0;`;
+	frame.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;';
+	// A quiet status line that is also the manual escape hatch's affordance: this
+	// overlay is opaque and covers the whole app, so if the print dialog is blocked
+	// or its close event never fires, the user must be able to get out of it.
+	const hint = document.createElement('div');
+	hint.textContent = 'Opening the print dialog… (press Esc to close)';
+	hint.style.cssText = 'position:absolute;left:50%;bottom:6%;transform:translateX(-50%);font:600 13px/1.4 system-ui,sans-serif;color:#64748b;cursor:default;';
 	host.appendChild(frame);
+	host.appendChild(hint);
 	document.body.appendChild(host);
+	// Tear down EXACTLY once, removing every listener it registered so none lingers to
+	// fire on the user's next unrelated print. It runs on whichever signal arrives
+	// first: `afterprint`, the window regaining focus or the tab becoming visible again
+	// (the dialog closing — the cross-browser backstop when `afterprint` misfires), a
+	// click / Escape (manual escape hatch), or a short safety timer. Removing the
+	// overlay after `print()` has been called is safe — the print snapshot is taken.
+	let torndown = false;
+	const offs: Array<() => void> = [];
+	const cleanup = () => {
+		if (torndown) return;
+		torndown = true;
+		for (const off of offs) off();
+		host.remove();
+	};
+	const on = (t: EventTarget, ev: string, fn: (e: Event) => void) => {
+		t.addEventListener(ev, fn);
+		offs.push(() => t.removeEventListener(ev, fn));
+	};
 	// Bound the load wait — a srcdoc whose `load` never fires must not hang the
 	// export forever (mirrors createCaptureFrame's withTimeout in the export core).
 	await new Promise<void>((res) => {
-		const done = () => res();
-		const t = window.setTimeout(done, 10000);
-		frame.addEventListener('load', () => { window.clearTimeout(t); done(); }, { once: true });
+		const t = window.setTimeout(res, 10000);
+		frame.addEventListener('load', () => { window.clearTimeout(t); res(); }, { once: true });
 		frame.srcdoc = buildSrcdoc({ html: render.html, css: render.css, mode: render.mode, geom: render.geom, runtimeUrl: render.runtimeUrl, fontCss: render.fontCss, contentVisibility: false, cursor: false, sync: false, printRules: true, lang: getFrontMatter(source, 'lang') || 'en' });
 	});
 	try {
-		if (frame.contentWindow && (frame.contentWindow as Window & { __latticeFit?: () => void }).__latticeFit) (frame.contentWindow as Window & { __latticeFit?: () => void }).__latticeFit?.();
+		const win = frame.contentWindow as (Window & { __latticeFit?: () => void }) | null;
+		win?.__latticeFit?.();
+		// Two frames so the fit/layout paints before the browser snapshots for print.
 		await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+		// Register the close/escape signals only NOW (right before printing) so setup
+		// focus churn can't trip them: the *next* focus / visibility change is the dialog
+		// closing. The frame's own listener dies with the iframe on teardown.
+		win?.addEventListener('afterprint', cleanup, { once: true });
+		on(window, 'afterprint', cleanup);
+		on(window, 'focus', cleanup);
+		on(document, 'visibilitychange', () => { if (!document.hidden) cleanup(); });
+		on(host, 'click', cleanup);
+		on(window, 'keydown', (e) => { if ((e as KeyboardEvent).key === 'Escape') cleanup(); });
+		window.setTimeout(cleanup, 30000); // backstop for a browser that fires none of the above
 		ex.exportPrint(frame, { deck: name, engine: 'lattice' });
-	} finally {
-		// Remove after the print dialog settles (give the browser a beat).
-		window.setTimeout(() => host.remove(), 1000);
+	} catch (e) {
+		cleanup();
+		throw e;
 	}
 }
 

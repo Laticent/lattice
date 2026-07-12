@@ -162,7 +162,7 @@ it is load-bearing.
 - ☐ [2026-06-16-orientation-in-the-form-model.md](2026-06-16-orientation-in-the-form-model.md) — Where portrait/landscape orientation lives in the Form model and how a layout declares vs is made to support portrait
 - ☐ [2026-06-16-rtl-vertical-text-support.md](2026-06-16-rtl-vertical-text-support.md) — Design model for directional text — RTL, LTR, and vertical CJK via a dir directive, a logical-CSS refactor, and self-hosted OFL fonts
 - ☐ [2026-06-15-webrtc-av-collaboration.md](2026-06-15-webrtc-av-collaboration.md) — Design exploration for adding talk-while-you-edit audio/video to the Drawing Board over the same WebRTC pipe as Yjs document sync
-- ☐ [2026-06-14-deck-print-styling.md](2026-06-14-deck-print-styling.md) — Print support that survives the boardroom on paper, in colour and B&W, via a per-theme print token band and auto-paper-fit
+- ◐ [2026-06-14-deck-print-styling.md](2026-06-14-deck-print-styling.md) — Print support that survives the boardroom on paper, in colour and B&W, via a per-theme print token band and auto-paper-fit
 - ☐ [2026-06-14-github-project-management.md](2026-06-14-github-project-management.md) — Kanban-light project management keeping ADRs in markdown while adding GitHub Issues as a claimable queue mirrored to BACKLOG.md
 - ☐ [2026-06-14-plugin-extension-system.md](2026-06-14-plugin-extension-system.md) — LPM — a unified plugin model promoting Lattice's six ad-hoc extension idioms into one spec'd, shared-kernel system
 - ☐ [2026-06-14-presentation-import.md](2026-06-14-presentation-import.md) — Importing across board + bench — brand-faithful themes (Workbench) and Lattice-native content (Drawing Board)

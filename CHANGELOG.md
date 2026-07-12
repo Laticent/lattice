@@ -152,6 +152,23 @@ in patch versions.
 
 ### Fixed
 
+- **"Print deck" now prints the deck, not a screenshot of the app — and lands on
+  the right paper.** Two problems in the Studio Share → "Print deck" path. (1) It
+  mounted the print render in a **hidden** iframe (`opacity:0`, zero-sized) and
+  printed it via `contentWindow.print()`. A hidden iframe is an ambiguous print
+  target: a browser that won't focus an invisible frame (Firefox) printed the
+  **top document** instead, so the export came out as a screen-grab of the Share
+  sheet and toolbar. The print frame is now a real full-viewport, opaque, focused
+  overlay (torn down on `afterprint` + a safety timeout) — the unambiguous target
+  in every browser, like the Drawing Board's visible preview frame. (2) The shared
+  print CSS sized the sheet to the raw slide pixels, so the OS print dialog
+  defaulted a 16:9 slide onto portrait A4/Letter — shrunk, with a URL/date
+  header/footer. It now picks the least-wasteful standard sheet for the deck's
+  aspect and pre-selects orientation (**16:9 → US Legal landscape** ~93% fill, 4:3
+  → Letter landscape, tall decks → Letter portrait), scales each slide to fit with
+  `zoom`, and holds a 9mm safe margin — one slide per page, centered, never
+  cropped. Colour-only for now; a black-and-white-safe print band is the still-open
+  Build B of `engineering/decisions/2026-06-14-deck-print-styling.md`.
 - **A non-English deck's narration no longer gets English words injected into it.** Cadenza's
   say-as machinery — the abbreviation lexicon, number-to-words, and the fiscal/period parser
   (`FY26` → "fiscal year twenty-six", `40%` → "forty percent") — is US-English, so a deck

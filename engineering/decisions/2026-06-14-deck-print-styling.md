@@ -1,16 +1,60 @@
 ---
-status: proposed
+status: in-progress
 summary: Print support that survives the boardroom on paper, in colour and B&W, via a per-theme print token band and auto-paper-fit
 ---
 
 # Print styling — a deck that survives the trip to the boardroom, on paper, in colour *and* black-and-white
 
-> **Not canonical.** A design *decision* (all open questions resolved
-> 2026-06-14) but written ahead of implementation — no shipped behaviour yet.
-> When this note and a shipped surface disagree, the shipped surface wins.
-> Purpose: fix the *shape* of print support — the two deliverables, the
-> dedicated print theme band, and how we prefill orientation — before any CSS
-> or transform lands.
+> **Build A shipped 2026-07-12; Build B still proposed.** The web-print path
+> now picks the least-wasteful standard sheet, pre-selects orientation, and
+> scales each slide to fit (see *Shipped* below). Build B — the per-theme
+> `--print-*` band that survives black-and-white — remains a design decision
+> written ahead of implementation. When this note and a shipped surface
+> disagree, the shipped surface wins.
+
+## Shipped — Build A + a worse-than-ugly bug (2026-07-12)
+
+The half of this note that "fixes the reported wound" landed, plus a bug the
+original complaint understated.
+
+**The bug: the Studio "Print deck" printed the *app*, not the deck.** The
+complaint wasn't only "ugly" — `sharePrintDeck`
+(`docs/src/components/studio/share-export.ts`) mounted the print render in a
+**hidden** iframe (`opacity:0`, zero-sized, `overflow:hidden`) and called
+`iframe.contentWindow.focus(); print()`. A hidden iframe is an *ambiguous print
+target*: a browser that won't move focus into an invisible frame (Firefox) runs
+`print()` against the **top document** instead — so the export came out as a
+screenshot of the Studio chrome (Share sheet, toolbar, toast). The Drawing
+Board never hit this because it prints its **visible** on-screen preview frame.
+Fix: mount the Studio print frame as a real full-viewport, opaque, focused
+overlay (torn down on `afterprint` + a safety timeout) — the unambiguous target
+in every browser.
+
+**Build A: correct paper defaults.** The shared print CSS
+(`docs/src/playground/deck-preview.js` `buildPrintCss`, used by BOTH the Studio
+"Print deck" and the Drawing Board print — HARD RULE #1) now:
+
+- picks the least-wasteful standard sheet for the deck's aspect and pre-selects
+  orientation — **16:9 → US Legal landscape** (~93% fill), 4:3 → Letter
+  landscape, tall decks → Letter portrait;
+- scales each fixed slide box to the printable area with `zoom` (not
+  `transform`, so pagination sees the fitted size), **floored** with a 2px guard
+  so an exact-fit slide never rounds into a spill onto a second sheet;
+- holds a **9mm safe margin** (also dodges the printer's unprintable edge),
+  centers each slide, and never crops.
+
+Verified on the real Chromium print engine (`page.pdf`, `preferCSSPageSize`):
+16:9/4:3/portrait each land on the right sheet at one slide per page; a real
+themed deck fits and centers. **Firefox's print *dialog* was not reproducible in
+the headless sandbox (HARD RULE #23)** — the target fix is argued from the
+spec-level visible-vs-hidden-frame distinction and the Drawing Board's working
+precedent, not a Firefox artifact.
+
+**Still colour-only.** Build A prints the deck faithfully *as authored* — a dark
+full-bleed cover still prints as a dark rectangle. Grayscale survivability is
+**Build B** (below), unshipped.
+
+> **Original design decision follows (Build B is the open part).**
 
 ## Symptom — "our print export is about as ugly as sin"
 
