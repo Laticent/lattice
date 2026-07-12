@@ -177,6 +177,10 @@ const TAIL_SOURCES = [
   ...FORMS_CELL_CSS_SOURCES,
   ...FORMS_TILE_CSS_SOURCES,
   'lib/integrations/mermaid/mermaid.css',
+  // Print-mode categorical TEXTURE fills — after mermaid + chart CSS so the
+  // `fill: url(#latt-a11y-tex-N) !important` overrides win (incl. Mermaid's baked
+  // node fills). Scoped to section.print; inert on every non-print deck.
+  'lib/base/base.print-textures.css',
   // Fluid-box viewer mode — inert unless :root[data-lattice-view="fluid"] is set
   // (lattice-emulator --fluid + the runtime fluid controller). Last so its
   // viewport-box override also wins on source order, not just specificity.

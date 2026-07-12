@@ -76,6 +76,35 @@
   --journey-mood-row: 2.03125cqi;
 }
 
+/* PRINT — re-resolve the derived ramp/surfaces against the print band.
+ * The tokens above are declared at :root, so their var(--cat-N-mark)/var(--bg-alt)
+ * substitute against :ROOT's colored values — a custom property that references
+ * another resolves at its DECLARATION scope, so section.print's remap (on the
+ * section) can't reach a :root-declared derived token. Re-declaring the SAME
+ * derivations here, on the print section, re-resolves them against the print
+ * greyscale cat-marks / ink surfaces. Keep in SYNC with the :root block above.
+ * (Print-only; light/dark output is untouched.) */
+section.print.journey {
+  --journey-mood-5: var(--cat-2-mark);
+  --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
+  --journey-mood-3: var(--cat-4-mark);
+  --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
+  --journey-mood-1: var(--cat-6-mark);
+  --journey-mood-5-deep: var(--cat-2-mark);
+  --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
+  --journey-mood-3-deep: var(--cat-4-mark);
+  --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
+  --journey-mood-1-deep: var(--cat-6-mark);
+  --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
+  --journey-stage-fg:   var(--on-dark-primary);
+  --journey-task-bg:    color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
+  --journey-task-fg:    var(--text-body);
+  --journey-timeline:   color-mix(in srgb, var(--text-body) 55%, transparent);
+  --journey-plumb:      color-mix(in srgb, var(--text-body) 50%, transparent);
+  --journey-face-bg:    var(--bg);
+  --journey-axis:       color-mix(in srgb, var(--text-body) 32%, transparent);
+}
+
 /* Shared base — applies to every journey variant. */
 section.journey {
   display: flex;

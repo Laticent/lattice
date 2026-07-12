@@ -4639,6 +4639,35 @@ section.inventory.editorial > .cell-stage > ul > li strong {
   --journey-mood-row: 2.03125cqi;
 }
 
+/* PRINT — re-resolve the derived ramp/surfaces against the print band.
+ * The tokens above are declared at :root, so their var(--cat-N-mark)/var(--bg-alt)
+ * substitute against :ROOT's colored values — a custom property that references
+ * another resolves at its DECLARATION scope, so section.print's remap (on the
+ * section) can't reach a :root-declared derived token. Re-declaring the SAME
+ * derivations here, on the print section, re-resolves them against the print
+ * greyscale cat-marks / ink surfaces. Keep in SYNC with the :root block above.
+ * (Print-only; light/dark output is untouched.) */
+section.print.journey {
+  --journey-mood-5: var(--cat-2-mark);
+  --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
+  --journey-mood-3: var(--cat-4-mark);
+  --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
+  --journey-mood-1: var(--cat-6-mark);
+  --journey-mood-5-deep: var(--cat-2-mark);
+  --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
+  --journey-mood-3-deep: var(--cat-4-mark);
+  --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
+  --journey-mood-1-deep: var(--cat-6-mark);
+  --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
+  --journey-stage-fg:   var(--on-dark-primary);
+  --journey-task-bg:    color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
+  --journey-task-fg:    var(--text-body);
+  --journey-timeline:   color-mix(in srgb, var(--text-body) 55%, transparent);
+  --journey-plumb:      color-mix(in srgb, var(--text-body) 50%, transparent);
+  --journey-face-bg:    var(--bg);
+  --journey-axis:       color-mix(in srgb, var(--text-body) 32%, transparent);
+}
+
 /* Shared base — applies to every journey variant. */
 section.journey {
   display: flex;
@@ -19560,6 +19589,97 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 /* Mermaid gantt — taskTextOutsideLeft/Right ignore taskTextOutsideColor for some
  * bar widths; force dark text in the outside-the-bar margin (was gantt.styles.css). */
 :is(section, figure) .taskTextOutsideLeft, :is(section, figure) .taskTextOutsideRight { fill: var(--text-heading) !important; }
+
+/* === lib/base/base.print-textures.css === */
+/* base.print-textures.css — categorical SVG PATTERN fills for print mode.
+ *
+ * Print is B&W-safe: category distinction rides on stepped gray + border for
+ * ≤~5 slots, but past that, gray alone collapses. So — exactly like the
+ * a11y-achromatopsia theme (themes/a11y-base.css) — print overlays each
+ * categorical fill with a hatch/dot/cross TEXTURE. The `<pattern>` <defs> these
+ * `url(#latt-a11y-tex-N)` refs point at are emitted by the engine on EVERY
+ * render (lib/core/accessibility-textures.js, injected at lattice-emulator.js
+ * and lib/runtime), so they resolve here with no extra plumbing — same-document
+ * paint-server refs.
+ *
+ * This is the SAME wiring as themes/a11y-base.css, re-scoped from the a11y theme
+ * to `section.print`; keep the section→texture index mapping in SYNC with that
+ * file (the `printTextureParity` test guards it). The `!important` overrides the
+ * component's own fill — including Mermaid's OFFLINE-BAKED hex node fills, which
+ * a token remap can't reach (that's why Mermaid needs this and not a themeVars
+ * bake). See engineering/decisions/2026-06-14-deck-print-styling.md.
+ */
+
+/* Status GLYPHS — the RAG/lifecycle disc keeps its meaning by shape, not just
+ * the (now-gray) fill: ✓ done · ! at-risk · ✗ blocked · ◆ decision · – deferred. */
+section.print .chart-status[data-s="on-track"]::before,
+section.print .chart-status[data-s="done"]::before,
+section.print .chart-status[data-s="live"]::before { content: "\2713\00a0"; }
+section.print .chart-status[data-s="at-risk"]::before,
+section.print .chart-status[data-s="warn"]::before { content: "\0021\00a0"; }
+section.print .chart-status[data-s="blocked"]::before,
+section.print .chart-status[data-s="fail"]::before { content: "\2717\00a0"; }
+section.print .chart-status[data-s="pilot"]::before,
+section.print .chart-status[data-s="decision"]::before { content: "\25C6\00a0"; }
+section.print .chart-status[data-s="deferred"]::before { content: "\2013\00a0"; }
+section.print .chart-status::before { font-weight: 700; speak: never; }
+
+/* Mermaid categorical nodes/clusters — .section-N carries the cycle; texture it
+ * so the OFFLINE-BAKED node fill is overridden in the PDF. */
+section.print .section--1 path, section.print .section--1 circle { fill: url(#latt-a11y-tex-1) !important; }
+section.print .cluster.section-0 rect, section.print .section-0 rect, section.print .section-0 path, section.print .section-0 circle { fill: url(#latt-a11y-tex-1) !important; }
+section.print .cluster.section-1 rect, section.print .section-1 rect, section.print .section-1 path, section.print .section-1 circle { fill: url(#latt-a11y-tex-2) !important; }
+section.print .cluster.section-2 rect, section.print .section-2 rect, section.print .section-2 path, section.print .section-2 circle { fill: url(#latt-a11y-tex-3) !important; }
+section.print .cluster.section-3 rect, section.print .section-3 rect, section.print .section-3 path, section.print .section-3 circle { fill: url(#latt-a11y-tex-4) !important; }
+section.print .cluster.section-4 rect, section.print .section-4 rect, section.print .section-4 path, section.print .section-4 circle { fill: url(#latt-a11y-tex-5) !important; }
+section.print .cluster.section-5 rect, section.print .section-5 rect, section.print .section-5 path, section.print .section-5 circle { fill: url(#latt-a11y-tex-6) !important; }
+section.print .cluster.section-6 rect, section.print .section-6 rect, section.print .section-6 path, section.print .section-6 circle { fill: url(#latt-a11y-tex-7) !important; }
+section.print .cluster.section-7 rect, section.print .section-7 rect, section.print .section-7 path, section.print .section-7 circle { fill: url(#latt-a11y-tex-8) !important; }
+section.print .cluster.section-8 rect, section.print .section-8 rect, section.print .section-8 path, section.print .section-8 circle { fill: url(#latt-a11y-tex-9) !important; }
+section.print .cluster.section-9 rect, section.print .section-9 rect, section.print .section-9 path, section.print .section-9 circle { fill: url(#latt-a11y-tex-10) !important; }
+section.print .cluster.section-10 rect, section.print .section-10 rect, section.print .section-10 path, section.print .section-10 circle { fill: url(#latt-a11y-tex-11) !important; }
+section.print .cluster.section-11 rect, section.print .section-11 rect, section.print .section-11 path, section.print .section-11 circle { fill: url(#latt-a11y-tex-12) !important; }
+
+/* Mermaid pie — path.pieCircle painted from the --cat ramp, mod-12. */
+section.print .pieCircle:nth-of-type(12n+1) { fill: url(#latt-a11y-tex-1) !important; }
+section.print .pieCircle:nth-of-type(12n+2) { fill: url(#latt-a11y-tex-2) !important; }
+section.print .pieCircle:nth-of-type(12n+3) { fill: url(#latt-a11y-tex-3) !important; }
+section.print .pieCircle:nth-of-type(12n+4) { fill: url(#latt-a11y-tex-4) !important; }
+section.print .pieCircle:nth-of-type(12n+5) { fill: url(#latt-a11y-tex-5) !important; }
+section.print .pieCircle:nth-of-type(12n+6) { fill: url(#latt-a11y-tex-6) !important; }
+section.print .pieCircle:nth-of-type(12n+7) { fill: url(#latt-a11y-tex-7) !important; }
+section.print .pieCircle:nth-of-type(12n+8) { fill: url(#latt-a11y-tex-8) !important; }
+section.print .pieCircle:nth-of-type(12n+9) { fill: url(#latt-a11y-tex-9) !important; }
+section.print .pieCircle:nth-of-type(12n+10) { fill: url(#latt-a11y-tex-10) !important; }
+section.print .pieCircle:nth-of-type(12n+11) { fill: url(#latt-a11y-tex-11) !important; }
+section.print .pieCircle:nth-of-type(12n)    { fill: url(#latt-a11y-tex-12) !important; }
+
+/* Native chart-family (SVG) — texture the categorical fills (chart-cat set). */
+section.print.piechart .wedge:nth-of-type(6n+1) { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.piechart .wedge:nth-of-type(6n+2) { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.piechart .wedge:nth-of-type(6n+3) { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.piechart .wedge:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.piechart .wedge:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.piechart .wedge:nth-of-type(6n)   { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* Legend swatches carry the SAME texture as their wedge (data-cat = 0-based). */
+section.print.piechart .chart-key-swatch[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.piechart .chart-key-swatch[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.piechart .chart-key-swatch[data-cat="2"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.piechart .chart-key-swatch[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.piechart .chart-key-swatch[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.piechart .chart-key-swatch[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+1) { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+2) { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+3) { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+6) { fill: url(#latt-a11y-chart-tex-6) !important; }
+
+/* Multi-series line charts (radar) — greyscale overlaps, so a distinct
+ * stroke-dasharray per series carries the distinction hue can't. */
+section.print.radar .radar-poly[data-series="0"] { stroke-dasharray: none !important; }
+section.print.radar .radar-poly[data-series="1"] { stroke-dasharray: 7 4 !important; }
+section.print.radar .radar-poly[data-series="2"] { stroke-dasharray: 1.5 3.5 !important; stroke-linecap: round; }
 
 /* === lib/base/base.fluid-view.css === */
 /* Fluid-box viewer mode — opt-in responsive *viewing* of a fixed deck.

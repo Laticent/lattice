@@ -816,6 +816,21 @@ const MERMAID_THEME_VARS = resolveMermaidThemeVars(PALETTE_VARS);
 const DUAL_RENDER = process.env.LATTICE_MERMAID_SINGLE !== '1';
 const PALETTE_VARS_DARK = parsePaletteVars(layoutCSS + '\n' + paletteCSS, true);
 const MERMAID_THEME_VARS_DARK = resolveMermaidThemeVars(PALETTE_VARS_DARK);
+// Print-resolved set — the print analog of the dark bake. A Mermaid SVG bakes
+// its themeVariables to literal hex offline, so a `section.print` CSS remap can't
+// recolor its NODE TEXT / EDGE LINES (the categorical node FILLS get textured by
+// base.print-textures.css, which CSS !important CAN override). We overlay the flat
+// `--print-*` band onto its base tokens (cat-*-fill/mark, diagram-line/stroke,
+// cat-on-fill, …) and bake once; a print slide selects this set. The --print-*
+// values are single-scheme literals, so no light-dark() branch is needed.
+function overlayPrintVars(vars) {
+  const out = { ...vars };
+  for (const k of Object.keys(vars)) {
+    if (Object.hasOwn(vars, `print-${k}`)) out[k] = vars[`print-${k}`];
+  }
+  return out;
+}
+const MERMAID_THEME_VARS_PRINT = resolveMermaidThemeVars(overlayPrintVars(PALETTE_VARS));
 
 // ── Puppeteer config — chrome auto-detection ─────────────────────────────
 // The renderer shells out to mmdc (mermaid-cli) which uses puppeteer to
@@ -1018,8 +1033,9 @@ function renderMermaidOne(definition, themeVars, extraClass) {
 // Author-supplied %%{init}%% diagrams keep their own theming.
 // LATTICE_MERMAID_SINGLE=1 forces the light bake everywhere (fallback to the
 // CSS-override path).
-function renderMermaid(definition, dark) {
-  const themeVars = dark && DUAL_RENDER ? MERMAID_THEME_VARS_DARK : MERMAID_THEME_VARS;
+function renderMermaid(definition, mode) {
+  const themeVars = mode === 'print' ? MERMAID_THEME_VARS_PRINT
+    : (mode === 'dark' && DUAL_RENDER ? MERMAID_THEME_VARS_DARK : MERMAID_THEME_VARS);
   return renderMermaidOne(definition, themeVars, null);
 }
 
@@ -1048,6 +1064,13 @@ function preprocessMermaid(source) {
     ? cmKey === 'dark'
     : /^\s*class:\s*["']?[^"'\n]*\bdark\b/mi.test(fm) ||
       /color-scheme\s*:\s*dark/i.test(fm);
+  // Print is a deck-wide canvas axis (stamped by `color-mode: print` / `class: print`
+  // / the engine --print flag) and WINS over dark — a print slide bakes ink-on-white.
+  // Deck-wide print applies to EVERY slide (the propagation kernel merges it into each
+  // section), so it isn't overridden by a slide's own `_class:`.
+  const globalPrint = !!flags.print ||
+    cmKey === 'print' ||
+    /^\s*class:\s*["']?[^"'\n]*\bprint\b/mi.test(fm);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
@@ -1057,11 +1080,12 @@ function preprocessMermaid(source) {
   return source.replace(/```mermaid\n([\s\S]*?)```/g, (_match, def, offset) => {
     const before = source.slice(0, offset);
     const classDirectives = [...before.matchAll(/<!--\s*_class:\s*([^>]*?)\s*-->/g)];
-    const slideDark = classDirectives.length
-      ? /\bdark\b/.test(classDirectives[classDirectives.length - 1][1])
-      : globalDark;
-    if (!QUIET) process.stdout.write(`  Rendering mermaid diagram (${slideDark ? 'dark' : 'light'})...`);
-    const svg = renderMermaid(reorientMermaidForPortrait(def.trim(), orientation), slideDark);
+    const lastClass = classDirectives.length ? classDirectives[classDirectives.length - 1][1] : '';
+    const slidePrint = globalPrint || /\bprint\b/.test(lastClass);
+    const slideDark = classDirectives.length ? /\bdark\b/.test(lastClass) : globalDark;
+    const slideMode = slidePrint ? 'print' : (slideDark ? 'dark' : 'light');
+    if (!QUIET) process.stdout.write(`  Rendering mermaid diagram (${slideMode})...`);
+    const svg = renderMermaid(reorientMermaidForPortrait(def.trim(), orientation), slideMode);
     if (!QUIET) console.log(' done');
     return svg;
   });
