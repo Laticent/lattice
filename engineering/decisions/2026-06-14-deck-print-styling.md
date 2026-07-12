@@ -1,16 +1,31 @@
 ---
-status: in-progress
-summary: Print support that survives the boardroom on paper, in colour and B&W, via a per-theme print token band and auto-paper-fit
+status: shipped
+summary: Print support that survives the boardroom on paper, in colour and B&W, via a print token band + textures and auto-paper-fit
 ---
 
 # Print styling — a deck that survives the trip to the boardroom, on paper, in colour *and* black-and-white
 
-> **Build A shipped 2026-07-12; Build B still proposed.** The web-print path
-> now picks the least-wasteful standard sheet, pre-selects orientation, and
-> scales each slide to fit (see *Shipped* below). Build B — the per-theme
-> `--print-*` band that survives black-and-white — remains a design decision
-> written ahead of implementation. When this note and a shipped surface
+> **Build A + Build B shipped 2026-07-12.** The web-print path picks the
+> least-wasteful standard sheet, pre-selects orientation, and scales each slide
+> to fit (Build A). The B&W-safe print band + textures + triggers + contrast gate
+> shipped as Build B (see *Shipped — Build B* below). Two pieces are deliberately
+> deferred to a follow-up: the first-class **`color-mode: print`** front-matter key
+> (it touches the lint vocab + Studio color-mode picker; `class: print` and the
+> `--print` flag cover authoring + export today), and the **auto-paper-fit
+> downloaded PDF** with a baked paper-size MediaBox for the CLI (Build A already
+> gives the web path its paper fit). When this note and a shipped surface
 > disagree, the shipped surface wins.
+>
+> **Build B — what shipped (2026-07-12):** a universal `--print-*` band
+> (`base.tokens.css`, one default every theme inherits — no per-theme band needed,
+> since print is brand-neutral ink-on-white); a `section.print` token remap
+> (`base.modifiers.css`); categorical **texture** fills re-scoped from the a11y set
+> to print (`base.print-textures.css` — pie/funnel/Mermaid/pie-slice + radar
+> dash-arrays + status glyphs); a Mermaid `forcePrint` themeVars bake
+> (`lattice-emulator.js`) for its offline-baked node text/lines; the journey
+> component's `:root`-derived ramp re-resolved on `section.print.journey`; the
+> `--print` engine flag; and a **contrast gate** asserting the band vs white
+> (`test/unit/palette/contrast.test.js`). Demo: `examples/print-mode.md`.
 
 ## Shipped — Build A + a worse-than-ugly bug (2026-07-12)
 
