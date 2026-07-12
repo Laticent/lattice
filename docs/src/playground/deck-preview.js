@@ -224,7 +224,7 @@ export function linkGuardAgent() {
 }
 
 // Print CSS for the browser ⌘P / "Print deck" surface (the shared kernel for the
-// Studio's sharePrintDeck AND the Drawing Board print — HARD RULE #1). Three jobs
+// Studio's Print drawer AND the Drawing Board print — HARD RULE #1). Three jobs
 // beyond one-slide-per-page:
 //   1. Pick the standard sheet that wastes the least page for this deck's aspect and
 //      pre-select landscape in the dialog — 16:9 → US Legal (far less letterbox than

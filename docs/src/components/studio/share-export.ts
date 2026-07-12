@@ -14,7 +14,6 @@ import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
-import { joinBase } from '../../lib/base-url.mjs';
 import { getFrontMatter, mergeClassTokens, setFrontMatter } from './front-matter';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
@@ -493,54 +492,6 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
 	await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' });
-}
-
-/**
- * Print — open the on-brand Print page (`/studio/print`) in a new tab and hand it the
- * deck over a postMessage handshake. The Print page renders the preview and builds the
- * real per-slide PDF ITSELF, in that foreground tab.
- *
- * Why the page renders (not us): the rasterizer (html-to-image + rAF) needs a FOREGROUND
- * document, and `window.open` immediately marks THIS tab `document.hidden`, pausing rAF —
- * so if we built the PDF after opening the tab it would freeze. Opening the page in-gesture
- * dodges the pop-up block; the page being foreground dodges the freeze. We send only the
- * deck source + options (small text) on the held handle — trust rides on `e.source === win`
- * (unforgeable, same-origin), mirroring presenter-window.js. Paper/colour and Print/Download
- * all live in the page now. See engineering/decisions/2026-06-14-deck-print-styling.md.
- */
-// The Print page's current target + latest deck payload, plus a ONE-TIME listener. Kept at
-// module scope so the responder outlives any single call: the print tab can re-request the
-// deck at ANY time (a fresh mount, a REUSED named tab, OR a back-navigation after iOS shows
-// the PDF), and we always reply with the latest deck to the current handle. A per-call
-// listener with a 30s timeout would leave a returning tab blank.
-let printWin: Window | null = null;
-let printPayload: Record<string, unknown> | null = null;
-let printResponderAttached = false;
-
-// `options` (engine URLs) is intentionally absent: the Print page route supplies its own,
-// so the Studio hands off only the deck source + theme.
-export async function sharePrintDeck(source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string): Promise<void> {
-	// Open the Print page tab SYNCHRONOUSLY inside the click (so it isn't pop-up-blocked).
-	const printUrl = joinBase(import.meta.env.BASE_URL, 'studio/print');
-	const opened = window.open(printUrl, 'lattice-print');
-	if (!opened) throw new Error('Pop-up blocked — allow pop-ups to open the print view.');
-	printWin = opened;
-	printPayload = { __latticePrint: 'init', source, palette, mode, extraTheme: extra, extraCss, name };
-	const origin = window.location.origin;
-	const post = () => { try { printWin?.postMessage(printPayload, origin); } catch { /* gone */ } };
-	// Persistent responder (attached once): reply to the print tab's 'ready' with the LATEST
-	// deck, for the opener's lifetime — trust rides on `e.source === printWin` (unforgeable).
-	if (!printResponderAttached) {
-		printResponderAttached = true;
-		window.addEventListener('message', (e: MessageEvent) => {
-			if (!printWin || e.source !== printWin) return;
-			if ((e.data as { __latticePrint?: string } | null)?.__latticePrint === 'ready') post();
-		});
-	}
-	// Also push proactively for the first couple seconds — a REUSED, already-loaded tab (iOS
-	// focuses a named tab without reloading) won't re-post 'ready'. The page dedupes identical
-	// payloads, so the reply + proactive paths can't double-render.
-	for (const t of [0, 250, 700, 1500]) setTimeout(post, t);
 }
 
 type ReadAlongCore = {

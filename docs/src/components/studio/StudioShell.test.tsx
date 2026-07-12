@@ -43,7 +43,6 @@ const shareSpies = vi.hoisted(() => ({
 		) => {},
 	),
 	sharePptx: vi.fn(async () => {}),
-	sharePrintDeck: vi.fn(async () => {}),
 	sharePrintSource: vi.fn(() => {}),
 }));
 vi.mock('./share-export', () => shareSpies);

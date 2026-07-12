@@ -5,59 +5,53 @@ summary: Print support that survives the boardroom on paper, in colour and B&W, 
 
 # Print styling — a deck that survives the trip to the boardroom, on paper, in colour *and* black-and-white
 
-## The "Print page" (shipped 2026-07-12)
+## The "Print drawer" (shipped 2026-07-12) — supersedes the separate Print page
 
-> **Built.** The dedicated `/studio/print` page (`PrintPage.tsx`) is live: the Studio's
-> "Print deck" opens it in-gesture, hands off the deck over the postMessage handshake,
-> and the page renders a faithful live preview (a `.lattice`-wrapped `buildSrcdoc` iframe
-> per slide). Paper/orientation/colour live in the page; Fit removed (never crops).
-> **Print is platform-split, each with the right tool:** on DESKTOP it prints the *vector*
-> deck via a hidden HTML iframe (`buildSrcdoc` `printRules`) — HTML-in-iframe `print()`
-> reliably opens the dialog, unlike a PDF-in-iframe which Chrome refuses to auto-print, and
-> desktop honors `@page` so it's crisp + one-slide-per-page; on iOS it opens the *real PDF*
-> for the native Share → Print (iOS ignores `@page`). **Download** is always the real PDF.
-> Verified end-to-end on the live Studio: handshake, preview, live reconfig, the desktop
-> vector print (7 sections, `@page` legal landscape, print() called, output 1008×612pt) and
-> the Download PDF (7 pages, 1008×612pt). `PrintOptionsPanel` retired.
+> **Built.** "Print deck" is now a **sub-drawer of the Share sheet** (`PrintOptionsPanel.tsx`),
+> alongside the PDF-export options step — not a separate tab. It carries the same
+> brass-on-navy boardroom look as the page it replaces: a navy preview stage, the white
+> sheet with the dashed safe-margin, a live per-slide `buildSrcdoc` preview + pager, and
+> brass segmented controls for paper (auto/Letter/Legal/A4) · orientation · colour
+> (colour / B&W → `class: print`). **Print stays platform-best:** DESKTOP prints the
+> *vector* deck via a hidden HTML iframe (`buildSrcdoc` `printRules`) — HTML-in-iframe
+> `print()` reliably opens the dialog (a PDF-in-iframe won't auto-print in Chrome) and
+> desktop honors `@page`, so it's crisp + one-slide-per-page; iOS opens the cached *real
+> PDF* for the native Share → Print (iOS ignores `@page` + forbids scripted printing).
+> **Download** saves the cached PDF on both. Fit stays removed — always scaled to fit,
+> centred, never cropped.
 >
-> After #939 (real per-slide PDF) shipped, the remaining friction was the *handoff*:
-> the PDF built in the Studio tab, then a pop-up-blocked open fell back to a
-> **download** (the render outlasts the click's activation, and opening a tab first
-> would background the Studio and freeze the render — `window.open` marks the opener
-> `document.hidden`, pausing rAF + stalling html-to-image). Owner-approved redesign:
-> a dedicated **on-brand Print page** in its own tab. Mock approved
-> (brass-on-navy, live paper-accurate preview as the hero, controls in the page).
+> **Why the pivot (owner call):** the separate `/studio/print` page worked but earned no
+> payoff for its cost — a whole route, a postMessage handshake, a second full-tab UI to
+> maintain — *given every browser's print constraints land the same either way.* The
+> drawer keeps the beloved preview + config in one place the user already is, and drops
+> the handshake entirely.
 
-**The insight that makes it work:** open the new tab **synchronously in the click**
-(no pop-up block) and let *that tab* — which is foreground — do the render + PDF
-build itself. The freeze only happened because the render ran in the *backgrounded
-opener*; a foreground print tab renders fine.
+**The insight that makes it reliable across browsers:** the pop-up block / render-freeze
+that plagued the in-tab attempts both came from generating the PDF *after* the Print
+click — the `await` burned the tap's user-activation (so the in-gesture `window.open`
+was blocked), and a background render froze the rasterizer (`window.open` marks the
+opener `document.hidden`, pausing rAF). The drawer inverts this: it lives in the
+**foreground Studio tab** (no `window.open` during render → no freeze) and
+**pre-generates + caches the per-slide PDF** the moment the deck is ready (and on each
+paper/orientation change). So the Print tap has the file already — it opens
+**synchronously, inside the gesture**, never blocked, on every browser including iOS.
+No handshake, no second tab, no download-fallback surprise.
 
-**Architecture (mirrors the Present dual-screen handshake, `presenter-window.js`):**
-- The Studio's "Print deck" opens `window.open('<base>/studio/print', 'lattice-print')`
-  in-gesture, holds the handle, and waits for the page to `postMessage({print:'ready'})`.
-- It then sends the deck **source + render options** (small text) on the held handle;
-  trust rides on `e.source === printWin` (unforgeable), same-origin, no localStorage.
-- `/studio/print` is a real route mounting `PrintPage` (React island) with the engine
-  `options` (theme/runtime/mermaid/katex URLs), exactly like `studio.astro`. It renders
-  the deck ITSELF: `buildDeckRender` → a live per-slide preview (a `buildSrcdoc` iframe
-  fit into the paper sheet), and `renderPdfBlob` (the #939 `sheet` mode) for the PDF —
-  all in its own foreground tab, so no freeze and no pop-up block.
+**Architecture:**
+- `ShareSheet` gains a `'print'` view; the "Print deck" row opens it (like the PDF row).
+  `PrintOptionsPanel` receives the deck source + render `options` as props — no cross-tab
+  transport, so the whole `postMessage` handshake (`sharePrintDeck`, the module-scope
+  responder) and the `/studio/print` route + `PrintPage.tsx` are **deleted**.
+- The panel renders the deck itself: `buildDeckRender` → a live per-slide preview
+  (`buildSrcdoc` fit into the paper sheet), and `renderPdfBlob` (the #939 `sheet` mode)
+  eagerly into a cached blob URL. **Print** = desktop `printHtmlDoc(buildSrcdoc printRules)`
+  / iOS `window.open(cachedPdfUrl)`; **Download** = `<a download>` on the cached URL.
+- Shared kernel unchanged (HARD RULE #1): `resolvePrintSheet` / `fitSlideOnSheet` /
+  `buildSrcdoc` / `renderPdfBlob` `sheet` mode all still live in the playground engine.
 
-**Controls in the page** (owner pick): paper (auto/Letter/Legal/A4) · orientation ·
-colour (colour / B&W → `class: print` band). **Fit is removed** — the slide is ALWAYS
-scaled proportionally to fit, centred, **never cropped** (the old `Actual size` could
-crop a smaller sheet; it contradicts this note's own "never crops" rule, so it goes,
-in the panel AND `PrintOptionsPanel`/`buildPrintCss`/`fitSlideOnSheet` `fit` args).
-
-**Print/Download + the auto-print reality:** you can only *script* `print()` on a page
-you control, and iOS forbids scripted printing of a PDF. So (owner pick "auto on
-desktop, one-tap on iOS"): **Download** = `<a download>` (always works); **Print** =
-build the PDF, then on desktop embed it in a hidden iframe and call
-`iframe.contentWindow.print()` (auto-fires the dialog); on iOS open the blob / native
-share so the user taps Print once. Desktop auto-prints once when ready.
-
-**Deferred still:** CLI `--paper` PDF; N-up (2/4 per sheet); speaker-notes handout.
+**Deferred still:** CLI `--paper` PDF; N-up (2/4 per sheet); speaker-notes handout;
+and a possible optimization — cache the rasterized slide images so a paper/orientation
+change re-places rather than re-rasterizes (today each config change rebuilds the PDF).
 
 ---
 
