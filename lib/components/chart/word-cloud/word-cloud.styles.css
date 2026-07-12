@@ -65,7 +65,7 @@
  * box, so a masthead band / tall caption shrinks it to fit instead of
  * overflowing. The cloud + key + spine are all %-relative to the canvas, and the
  * wc-svg viewBox uses `meet`, so everything scales down together — no clip. */
-section.word-cloud .word-cloud-canvas {
+:is(section.word-cloud, figure.chart-frame) .word-cloud-canvas {
   position: relative;
   width: 85.9375cqi;
   height: 25cqi;
@@ -82,7 +82,7 @@ section.word-cloud .word-cloud-canvas {
  * coordinates are viewBox units, so word positions/sizes scale with the SVG.
  * overflow:visible lets a glyph's optical bbox breathe past the viewBox edge
  * (the packer already keeps anchors inside), matching the old span behaviour. */
-section.word-cloud .wc-svg {
+:is(section.word-cloud, figure.chart-frame) .wc-svg {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -98,7 +98,7 @@ section.word-cloud .wc-svg {
  * CSS spine — owns them. A pure accent fade, transparent at both ends so it
  * reads as a rule, not a hard divider. See
  * engineering/decisions/2026-06-13-svg-native-legend.md §7b. */
-section.word-cloud {
+:is(section.word-cloud, figure.chart-frame) {
   --chart-spine-h: 78%;                  /* spine height — % of body, never spills */
   --chart-spine-w: clamp(2px, 0.156cqi, 4px); /* spine thickness (res-stable)    */
   --chart-spine: linear-gradient(to bottom,
@@ -112,7 +112,7 @@ section.word-cloud {
 /* The cloud packs into the LEFT 70% of the canvas; a gradient spine at the
  * boundary divides it from the "size = frequency" key in the right 30% rail —
  * the same 70/30 split + spine the categorical charts use. */
-section.word-cloud .word-cloud-canvas::after {
+:is(section.word-cloud, figure.chart-frame) .word-cloud-canvas::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -128,7 +128,7 @@ section.word-cloud .word-cloud-canvas::after {
 /* "size = frequency" key — word size encodes weight, an implicit mapping a
  * reader can't quantify. A vertical A-ramp (large = more frequent) keys it,
  * centred in the right rail. */
-section.word-cloud .wc-key {
+:is(section.word-cloud, figure.chart-frame) .wc-key {
   position: absolute;
   top: 50%;
   right: 0;
@@ -140,7 +140,7 @@ section.word-cloud .wc-key {
   gap: 0.35em;
   pointer-events: none;
 }
-section.word-cloud .wc-key-label {
+:is(section.word-cloud, figure.chart-frame) .wc-key-label {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   letter-spacing: 0.08em;
@@ -150,7 +150,7 @@ section.word-cloud .wc-key-label {
    * it inside the box (was margin-bottom — collapses outside the flex content). */
   padding-bottom: 0.2em;
 }
-section.word-cloud .wc-key-ramp {
+:is(section.word-cloud, figure.chart-frame) .wc-key-ramp {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -160,10 +160,10 @@ section.word-cloud .wc-key-ramp {
   color: var(--text-secondary);
   line-height: 0.95;
 }
-section.word-cloud .wc-key-a--1 { font-size: var(--fs-body); }
-section.word-cloud .wc-key-a--2 { font-size: var(--fs-message); }
-section.word-cloud .wc-key-a--3 { font-size: var(--fs-emphasis); }
-section.word-cloud .wc-key-edge {
+:is(section.word-cloud, figure.chart-frame) .wc-key-a--1 { font-size: var(--fs-body); }
+:is(section.word-cloud, figure.chart-frame) .wc-key-a--2 { font-size: var(--fs-message); }
+:is(section.word-cloud, figure.chart-frame) .wc-key-a--3 { font-size: var(--fs-emphasis); }
+:is(section.word-cloud, figure.chart-frame) .wc-key-edge {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   letter-spacing: 0.06em;
@@ -173,7 +173,7 @@ section.word-cloud .wc-key-edge {
 /* Each word is an SVG <text>. Position (x/y), font-size, and any rotation are
  * presentation attributes emitted by the packer; text-anchor + dominant-baseline
  * centre the glyph on its anchor (replacing the old translate(-50%,-50%)). */
-section.word-cloud .wc-word {
+:is(section.word-cloud, figure.chart-frame) .wc-word {
   font-family: var(--font-display);
   font-weight: 700;
   fill: var(--wc-color);
@@ -185,19 +185,19 @@ section.word-cloud .wc-word {
 /* Bottom-tier words read as supporting vocabulary — lighter weight and
  * tracked tighter so the eye groups them as ambient context rather
  * than competing with the focal tier. */
-section.word-cloud .wc-word[data-weight="1"],
-section.word-cloud .wc-word[data-weight^="1."] {
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-weight="1"],
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-weight^="1."] {
   font-weight: 500;
   letter-spacing: 0.01em;
 }
 
 /* Top tier — slight letter-spacing tightening for visual mass. */
-section.word-cloud .wc-word[data-weight="5"],
-section.word-cloud .wc-word[data-weight^="4.5"],
-section.word-cloud .wc-word[data-weight^="4.6"],
-section.word-cloud .wc-word[data-weight^="4.7"],
-section.word-cloud .wc-word[data-weight^="4.8"],
-section.word-cloud .wc-word[data-weight^="4.9"] {
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-weight="5"],
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-weight^="4.5"],
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-weight^="4.6"],
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-weight^="4.7"],
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-weight^="4.8"],
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-weight^="4.9"] {
   font-weight: 800;
   letter-spacing: -0.03em;
 }
@@ -205,7 +205,7 @@ section.word-cloud .wc-word[data-weight^="4.9"] {
 /* Vertical (90°) words pick up tighter spacing — when read top-to-bottom
  * they need to feel like they belong to the same family as the
  * horizontal ones, not like inserted captions. */
-section.word-cloud .wc-word[data-rotated="1"] {
+:is(section.word-cloud, figure.chart-frame) .wc-word[data-rotated="1"] {
   letter-spacing: -0.01em;
 }
 

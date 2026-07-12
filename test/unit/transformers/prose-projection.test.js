@@ -101,6 +101,25 @@ test('a SPATIAL chart (state-chart) goes to the placeholder, NOT a broken SVG re
 	assert.match(articleHtml, /lp-figure-note[\s\S]*best seen/, 'projects to the visual-layout placeholder');
 });
 
+test('a SPATIAL-BOUNDED chart (word-cloud) re-hosts its .chart-body into a bounded .lp-spatial box', () => {
+	// word-cloud lays out in cqi/%, so it can't re-host as a bare SVG (no container context) —
+	// but its whole .chart-body renders cleanly inside a bounded container-type:size box. The
+	// figure carries `lp-spatial` + the component class (+ chart-frame for the colour scope).
+	const secs = sections(
+		`<section data-lattice-slide class="word-cloud"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Themes</h2></div>
+			<div class="chart-body"><svg class="wc-svg"><text class="wc-word">growth</text></svg></div>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(
+		articleHtml,
+		/<figure class="lp-figure lp-spatial chart-frame word-cloud"><div class="chart-body">/,
+		'the word-cloud re-hosts its .chart-body in a bounded lp-spatial figure',
+	);
+	assert.match(articleHtml, /wc-word">growth/, 'the cloud content is preserved');
+});
+
 test('a component whose PRIMARY chart SVG is aria-hidden (funnel) still re-hosts in colour', () => {
 	// funnel / map / quadrant / radar mark their MAIN chart svg aria-hidden (the data
 	// rides the label / mark-detail channel). aria-hidden must NOT gate re-hosting — these

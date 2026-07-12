@@ -217,6 +217,18 @@ in patch versions.
 
 ### Changed
 
+- **A word-cloud now renders live in the exported player's Read·Article view instead of a
+  placeholder.** Spatial charts lay out in `cqi`/`%` units and can't re-host as a bare SVG (no
+  container context → overflow/overlap), so they showed a "best seen in Present / Read·Slides"
+  card. The word-cloud's whole `.chart-body` is now re-hosted into a bounded `.lp-spatial` figure
+  (`container-type: size` + `aspect-ratio`) that re-establishes the definite box its layout needs —
+  the same box the slide's cell-stage gives it — and the component CSS is `figure`-scoped so the
+  words paint in full theme colour. It breaks out to the ~1200px cap like the other charts, light
+  and dark. *(The other two spatial charts stay on the placeholder for now: state-chart's edges are
+  baked to the slide's pixel measurements at export and can't be re-aligned without a runtime
+  re-measure in the article box; journey's affect-contour fill is height-relative and doesn't
+  translate to an article box without ballooning — both tracked follow-ups.)*
+
 - **The exported `.html` player's Read·Article view is now responsive — charts break out of
   the reading column and use the screen.** The article was a fixed ~740px column, so on a wide
   display a chart rendered at ~676px with the rest of the screen empty. It's now a breakout

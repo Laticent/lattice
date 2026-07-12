@@ -274,6 +274,13 @@ function projectMedia(stage, heading, component) {
   const cls = CHART_TOKEN_COMPONENTS.has(component) ? "lp-figure chart-frame" : "lp-figure";
   return `<figure class="${cls}">${node}${cap}</figure>`;
 }
+function projectSpatial(stage, heading, component) {
+  const bodyEl = stage.querySelector(":scope .chart-body") || stage.querySelector(".chart-body");
+  if (!bodyEl) return null;
+  const cap = heading ? `<figcaption>${esc(heading)}</figcaption>` : "";
+  const cls = String(component).replace(/[^a-z0-9-]/gi, "");
+  return `<figure class="lp-figure lp-spatial chart-frame ${cls}">${bodyEl.outerHTML}${cap}</figure>`;
+}
 function projectQuote(stage) {
   const bq = stage.querySelector(":scope > blockquote, blockquote");
   if (!bq) return null;
@@ -317,6 +324,7 @@ function projectDeckToProse(sections) {
     parts.push(`<h${level} id="${id}">${esc(headingText)}</h${level}>`);
     let body = null;
     if (SPATIAL_PLACEHOLDER_COMPONENTS.has(component)) body = projectPlaceholder(component, headingText);
+    else if (SPATIAL_BOUNDED_COMPONENTS.has(component)) body = projectSpatial(stage, headingText, component);
     else if (component === "kpi" || component === "stats") body = projectStats(stage);
     else if (component === "quote") body = projectQuote(stage);
     else if (MEDIA_COMPONENTS.has(component)) body = projectMedia(stage, headingText, component);
@@ -486,7 +494,7 @@ function projectDeckToSpeech(sections) {
     return [...lead, body].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   });
 }
-var SKIP_SELECTOR, MEDIA_COMPONENTS, CHART_TOKEN_COMPONENTS, SPATIAL_PLACEHOLDER_COMPONENTS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
+var SKIP_SELECTOR, MEDIA_COMPONENTS, CHART_TOKEN_COMPONENTS, SPATIAL_BOUNDED_COMPONENTS, SPATIAL_PLACEHOLDER_COMPONENTS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
 var init_prose_projection = __esm({
   "lib/transformers/prose-projection.mjs"() {
     SKIP_SELECTOR = "header, footer, .cell-footer, .masthead-bay, .lat-pagination, aside, script, style, .lattice-notes, .lattice-description";
@@ -510,7 +518,8 @@ var init_prose_projection = __esm({
       "math"
     ]);
     CHART_TOKEN_COMPONENTS = /* @__PURE__ */ new Set(["funnel", "map", "piechart", "quadrant", "radar"]);
-    SPATIAL_PLACEHOLDER_COMPONENTS = /* @__PURE__ */ new Set(["journey", "state-chart", "word-cloud"]);
+    SPATIAL_BOUNDED_COMPONENTS = /* @__PURE__ */ new Set(["word-cloud"]);
+    SPATIAL_PLACEHOLDER_COMPONENTS = /* @__PURE__ */ new Set(["journey", "state-chart"]);
     WORD_MAPS = {
       checklist: { pass: "done", warn: "partial", skip: "skipped", todo: "to do", fail: "not done" },
       "verdict-grid": { pass: "yes", warn: "partial", skip: "skipped", todo: "pending", fail: "no" },
@@ -825,6 +834,17 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
    or square chart VISIBLE \u2014 "meet" letterboxes inside the capped box, no distortion. */
 #lp-article .lp-figure svg{width:100%;height:auto;max-height:78vh;display:block;margin-inline:auto}
 #lp-article .lp-figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
+/* SPATIAL-BOUNDED figure (word-cloud / journey): a definite box that re-establishes the
+   container-type:size + cqi context these layouts need (the slide's cell-stage gave them
+   one). Breakout supplies the width (up to 1200px); aspect-ratio derives the height; the
+   re-hosted chart-body fills it. word-cloud reads squarer, journey wider. */
+/* word-cloud packs SVG text at viewBox coords + a %-positioned key, so it needs a DEFINITE
+   box (container-type:size + aspect-ratio) for the % to resolve \u2014 the same box the slide's
+   cell-stage gave it. Breakout supplies the width (up to 1200px); aspect-ratio derives the
+   height; the re-hosted chart-body fills it. */
+#lp-article .lp-spatial{container-type:size;width:100%;position:relative;overflow:hidden}
+#lp-article .lp-spatial>.chart-body{width:100%;height:100%}
+#lp-article .lp-spatial.word-cloud{aspect-ratio:3/2}
 #lp-article figcaption{font-size:.85em;color:var(--text-muted,#888);margin-top:.5em;text-align:center}
 #lp-article .lp-figure-note{border:1px dashed var(--border,#ccc);border-radius:10px;padding:1.1em 1.3em;background:var(--bg-alt,#f7f7f7)}
 #lp-article .lp-visual-note{margin:0;color:var(--text-secondary,#555);font-size:.95em}
