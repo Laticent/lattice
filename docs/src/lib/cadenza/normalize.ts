@@ -175,10 +175,23 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? '';
   const core = punct ? tok.slice(0, -punct.length) : tok;
 
+  // A trailing COLON (or semicolon) is a TTS hard-stop hazard: many voices — Kokoro
+  // among them — treat "word: " as a full stop and speak NOTHING after it, so a
+  // component-aware "label: value" caption ("components: 53", "Total revenue: $1.2M")
+  // is voiced as just "components" / "Total revenue" — the value is DROPPED, and because
+  // the clip is then short the highlight crams the whole cue into it and races. This is
+  // the live-narration regression #904 introduced (the old markdown flatten carried no
+  // such colon). Soften it to a COMMA in the SPOKEN form only — a soft prosodic pause
+  // the voice honors without dropping the value. The DISPLAY word keeps its colon (the
+  // caption/`.vtt` glyphs are display-text, unchanged — see cadenza/vtt.ts), so only what
+  // the voice SAYS changes. Mid-token colons (times `3:30`, ratios `16:9`) have no
+  // TRAILING colon and are untouched. See engineering/decisions/2026-07-11-manifest-speech-contract.md.
+  const spokenPunct = punct.replace(/[:;]/g, ',');
+
   // Peel punctuation and consult the author registry on the CORE even for a non-English
   // deck (so `CRO,` still expands), but the English lexicon/fiscal/number expansion below
   // is bypassed there — `spokenCore` returns the core unchanged when `english` is false.
-  return spokenCore(core, domains, acronyms, english) + punct;
+  return spokenCore(core, domains, acronyms, english) + spokenPunct;
 }
 
 function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: AcronymRegistry, english = true): string {

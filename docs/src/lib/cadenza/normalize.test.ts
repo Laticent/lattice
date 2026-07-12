@@ -15,6 +15,30 @@ describe('isEnglishLang', () => {
 	});
 });
 
+describe('toSpoken — trailing-colon hard-stop softening (#904 live-narration regression)', () => {
+	// A projected "label: value" caption ("components: 53") is voiced by Kokoro as just
+	// "components" — the colon is a hard stop that drops the value. Soften a TRAILING
+	// colon/semicolon to a comma in the SPOKEN form so the value is spoken; the DISPLAY
+	// token keeps its colon (caption/.vtt glyphs are display-text).
+	it('softens a trailing colon to a comma in the spoken form', () => {
+		expect(toSpoken('components:')).toBe('components,');
+		expect(toSpoken('revenue:')).toBe('revenue,');
+		// A number-bearing label word keeps its say-as, colon softened.
+		expect(toSpoken('Q3:')).toBe('third quarter,');
+	});
+	it('softens a trailing semicolon too', () => {
+		expect(toSpoken('first;')).toBe('first,');
+	});
+	it('does NOT touch a mid-token colon (times, ratios) — only a TRAILING one', () => {
+		expect(toSpoken('3:30')).toBe('3:30');
+		expect(toSpoken('16:9')).toBe('16:9');
+	});
+	it('the display word is unchanged — only the SPOKEN form softens', () => {
+		// toSpokenText joins spoken forms; the caller keeps the display token separately.
+		expect(toSpokenText('components: 53')).toBe('components, fifty-three');
+	});
+});
+
 describe('toSpoken — locale guard', () => {
 	it('non-English deck: fiscal / percent / number tokens pass through unexpanded', () => {
 		expect(toSpoken('FY26', { lang: 'fr' })).toBe('FY26');

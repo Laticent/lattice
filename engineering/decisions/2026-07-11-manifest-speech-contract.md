@@ -1064,3 +1064,53 @@ to live in the audio/clock layer — which is exactly what the enhanced on-devic
 `peakAhead` counter (how many cues the highlight got ahead of the last sentence the voice actually
 started) plus a per-sentence `attempt`-vs-`timing` trace that ACCUMULATES across an autoplay pass, so
 one run over each deck yields a full-deck trace rather than a single-slide snapshot.
+
+### ROOT CAUSE FOUND (2026-07-12): the colon hard-stop is the "skips words / races" regression
+
+On-device report, unambiguous: on the Welcome deck the voice "reads everything up to the `:` then
+skips the rest." That is the SAME colon hard-stop this doc first met in the big-number `0: boxes`
+case (#938) — but the earlier scope note was WRONG to confine it to tiny tokens. It confidently
+claimed "a `stats` tile reads `components: 53`, a colon after a full word, which is correct
+label:value grammar and NOT the tiny-token hard-stop." The device disproves that: Kokoro hard-stops
+after ANY trailing colon, full word or not. Verified in-sandbox — `projectDeckToSpeech` on the
+Welcome `stats` slide yields `"… components: 53. themes: 14. export formats: 4. source file: 1."`;
+every tile is `label: value`, so the voice speaks `components / themes / export formats / source
+file` and drops every NUMBER.
+
+**This is ONE root cause for BOTH reported symptoms, and it explains every clue:**
+
+- *"Everything after the colon is skipped"* — the voice hard-stops at the colon (direct).
+- *"Reads faster / skips words"* — a hard-stopped clip is SHORT (just "components"), so `align`
+  re-anchors the cue to that short measured duration and the cursor crams the whole line
+  ("components 53") into it → the highlight races. The audio-clock instrumentation would have shown
+  this as a large `peakAhead`; the real cause is upstream, in the text the voice was handed.
+- *"Used to work" (a regression)* — #904 SWAPPED the live producer from the Markdown flatten
+  (`slideToSpeech`, which emits no `label: value` colon) to the DOM projection (`projectDeckToSpeech`,
+  which does). The colon entered live narration at #904.
+- *Intermittent + a refresh fixes it* — the projection is async with the colon-free Markdown flatten
+  as the instant fallback (#904). Tap play before the projection lands → the fallback (no colon) is
+  spoken and it reads fine; after it lands → the projection (with colons) is spoken and it skips. A
+  refresh re-runs the race and sometimes the fallback wins.
+
+**Fix (the one canonical place — cadenza `toSpoken`, HARD RULE #1).** Soften a TRAILING colon (and
+semicolon) to a COMMA in the SPOKEN form only. A comma is a soft prosodic pause every voice honors
+without dropping the tail — and the decks are already full of commas that narrate correctly, so this
+is safe by the reporter's own evidence. The DISPLAY word keeps its colon, and since the `.vtt`/caption
+serializes DISPLAY glyphs (cadenza/vtt.ts), **no exported byte changes** — only the live TTS audio and
+its (colon-vs-comma-identical) word-timing estimate. Verified end-to-end in-sandbox: the Welcome stats
+slide now builds cues whose DISPLAY is `"components: 53."` while SPOKEN is `"components, fifty-three."`.
+Fixing it in `toSpoken` (not the six projection `label: value` sites) keeps the readable colon in the
+caption, catches EVERY colon source at once (stats, kpi, tables, definition lists, state words, authored
+notes), and needs no per-walker restructuring. #938's big-number projection fix stays — that colon was
+also a DISPLAY-grammar error (the number reads INTO its label), a different concern from this
+spoken-only softening.
+
+*Export sign-off (Quality Bar).* This changes the AUDIO path, so it is flagged for sign-off — but the
+exported artifacts (`.vtt` display text + timestamps, PDF/PPTX/HTML) are byte-unchanged (confirmed: the
+`.vtt` serializes `cue.words[].display`, and colon→comma leaves the word-count estimate identical, so
+`test:core`/`test:export` pass unchanged). The behavior to sign off is purely "the live voice now speaks
+the value," which the on-device readout confirms.
+
+*The audio-clock instrumentation (the `?readaloud-debug=1` readout) stays* for now — it corroborates the
+fix (peakAhead should fall to ~0 on the stats slides once the value is spoken) and remains useful for any
+residual between-sentence drift; it is removed once this fix is confirmed clean on device.

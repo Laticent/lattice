@@ -302,7 +302,8 @@ function toSpoken(display, opts = {}) {
   }
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
   const core = punct ? tok.slice(0, -punct.length) : tok;
-  return spokenCore(core, domains, acronyms, english) + punct;
+  const spokenPunct = punct.replace(/[:;]/g, ",");
+  return spokenCore(core, domains, acronyms, english) + spokenPunct;
 }
 function spokenCore(core, domains, acronyms, english = true) {
   if (!core) return core;

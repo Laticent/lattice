@@ -162,6 +162,21 @@ in patch versions.
   still carried the pre-fix Mermaid: venn's two labeled intersections collided into unreadable
   overlap, ishikawa printed a stray `fishbone` head and quoted effect, and C4 rendered a redundant
   floating title. All three now render clean — the same fixes already shipped in the playground tour.
+
+- **Read-aloud no longer drops the value after a colon — a "label: value" caption is now
+  spoken in full.** The live Present narration projects component captions as `label: value`
+  ("components: 53", "Total revenue: $1.2M"), but a colon is a TTS hard-stop: Kokoro (and many
+  voices) speak only the label and drop the number, and because the resulting clip is short the
+  word-highlight then crams the whole line into it and visibly races. This was the
+  live-narration regression the shared DOM projection (#904) introduced — the old Markdown
+  flatten carried no such colon, which is why it "used to work." Fixed in the one canonical place
+  (cadenza `toSpoken`): a **trailing colon/semicolon is softened to a comma in the SPOKEN form
+  only** — a soft prosodic pause the voice honors without dropping the value. The DISPLAY word
+  keeps its colon, so caption crawls and the exported `.vtt` (display-text glyphs) are **byte-for-
+  byte unchanged**; only what the voice says changes. Mid-token colons (times `3:30`, ratios
+  `16:9`) are untouched. Regression-guarded in `cadenza/normalize.test.ts`.
+
+- **The dual-screen presenter's current + next slides are no longer cropped — they render
   whole, scaled to fit their frames.** The presenter stage inlines the shared fit kernel
   (`fitScale`/`padInset`) into its isolated iframe via `Function.toString()`, but the production
   bundler renames those imports, so the inlined bodies printed under renamed/anonymous names
