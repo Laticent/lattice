@@ -12,9 +12,12 @@ import { cn } from '@/lib/utils';
 
 // The palette-name lists live in the dependency-free ./palettes module (so the
 // pre-paint seed script in studio.astro can import the SAME source without pulling in
-// this React component). Re-exported here so existing importers are unaffected.
-// A Fabricated theme is NOT here — it has no on-disk CSS and renders via extraTheme.
-export { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES } from './palettes';
+// this React component). Imported for local use here AND re-exported so existing
+// importers (StudioShell, PaletteControls, …) are unaffected. A Fabricated theme is
+// NOT here — it has no on-disk CSS and renders via extraTheme.
+import { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES } from './palettes';
+
+export { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES };
 // US-English label (the shared site one uses the British "colour"); HARD RULE #21.
 export const A11Y_LABEL = 'Accessibility · color-blind safe';
 
