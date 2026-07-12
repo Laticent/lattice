@@ -58,6 +58,16 @@ test('present-sections: a boundary slide with no heading falls back to Section N
 	assert.equal(secs[0].name, 'Section 1');
 });
 
+test('present-sections: a heading with a trailing HTML comment keeps only the visible title', () => {
+	// The comment strip cuts at the first `<!--` (no fragile regex that can leave a partial
+	// `<!--` or miss a newline comment — CodeQL-clean). A heading is text before its comment.
+	const secs = sectionsFromSlides([`<!-- _class: section -->\n# Rollout <!-- speaker: pace this -->\nbody`, slide('', 'x')]);
+	assert.equal(secs[0].name, 'Rollout');
+	// A malformed / unterminated comment can't leak a dangling marker into the title.
+	const secs2 = sectionsFromSlides([`<!-- _class: section -->\n# Framing <!--<!--\nbody`, slide('', 'x')]);
+	assert.equal(secs2[0].name, 'Framing');
+});
+
 test('present-sections: sectionOfIndex maps every slide to its section', () => {
 	const secs = sectionsFromSlides([slide('section', 'A'), slide('', 'a2'), slide('section', 'B'), slide('', 'b2')]);
 	assert.equal(sectionOfIndex(secs, 0), 0);

@@ -417,8 +417,10 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// First-run hint — teach the bloom + gestures exactly once (persisted), auto-fading.
 	React.useEffect(() => {
 		if (!open) { setShowHint(false); return; }
+		// Default to "seen" so a broken/blocked localStorage never nags (the init IS the
+		// fallback used when getItem throws — the empty catch leaves it true).
 		let seen = true;
-		try { seen = !!window.localStorage.getItem('lattice-present-hint'); } catch { seen = true; }
+		try { seen = !!window.localStorage.getItem('lattice-present-hint'); } catch {}
 		if (seen) return;
 		setShowHint(true);
 		try { window.localStorage.setItem('lattice-present-hint', '1'); } catch {}

@@ -18,11 +18,17 @@ function headingOf(md: string): string {
 	for (const raw of String(md || '').split('\n')) {
 		const line = raw.trim();
 		if (/^#{1,6}\s+/.test(line)) {
-			return line
-				.replace(/^#{1,6}\s+/, '')
-				.replace(/[*_`~]/g, '')
-				.replace(/<!--.*?-->/g, '')
-				.trim();
+			return (
+				line
+					.replace(/^#{1,6}\s+/, '')
+					.replace(/[*_`~]/g, '')
+					// Drop any trailing HTML comment by cutting at the first `<!--` — a regex
+					// strip (`/<!--.*?-->/g`) can leave a partial `<!--` and misses newline
+					// comments (CodeQL: incomplete multi-character sanitization / bad HTML regexp).
+					// A heading's text ends where a comment begins, so the prefix is the title.
+					.split('<!--')[0]
+					.trim()
+			);
 		}
 	}
 	return '';
