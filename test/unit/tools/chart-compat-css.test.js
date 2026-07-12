@@ -20,7 +20,9 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { chartCompatCssForTheme, coverageSites } = require('../../../tools/build-chart-compat-css');
+const {
+  chartCompatCssForTheme, coverageSites, splitTopLevelCommas, firstCombinatorIndex,
+} = require('../../../tools/build-chart-compat-css');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const BASE = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
@@ -214,5 +216,29 @@ describe('chart-compat-css generator', () => {
 
   test('coverageSites enumerates a non-trivial set (the audit surface)', () => {
     assert.ok(coverageSites().length > 50, 'expected many chart colour sites');
+  });
+
+  test('splitTopLevelCommas / firstCombinatorIndex are nesting- AND string-aware', () => {
+    // These drive the per-slide override scoping. A comma / bracket / space that
+    // lives inside `:is(…)`, `[…]`, or a QUOTED attribute value must not be treated
+    // as a top-level list separator or combinator — otherwise the depth counter
+    // desyncs and a top-level comma mis-splits, dropping the whole flattened rule.
+    assert.deepEqual(splitTopLevelCommas('a, b, c'), ['a', ' b', ' c']);
+    assert.deepEqual(splitTopLevelCommas(':is(.a, .b, .c)'), [':is(.a, .b, .c)']);
+    assert.deepEqual(splitTopLevelCommas('x:is(.a, .b) > y, z'), ['x:is(.a, .b) > y', ' z']);
+    // Comma inside a quoted attribute value stays put.
+    assert.deepEqual(splitTopLevelCommas('[data-x="a,b"]'), ['[data-x="a,b"]']);
+    // Stray bracket/paren inside a quoted string must NOT desync depth (the latent
+    // footgun the red team flagged): the following top-level comma still splits.
+    assert.deepEqual(splitTopLevelCommas('[data-x="a)b"] , z'), ['[data-x="a)b"] ', ' z']);
+
+    // First TOP-LEVEL combinator: the space inside `:is(.a, .b)` / a quoted attr
+    // value is skipped; the real ` > ` is found.
+    const withIs = 'section.x:is(.a, .b) > .c';
+    assert.equal(withIs.slice(0, firstCombinatorIndex(withIs)), 'section.x:is(.a, .b)');
+    const withAttrSpace = 'section.x[data-k="a b"] .c';
+    assert.equal(withAttrSpace.slice(0, firstCombinatorIndex(withAttrSpace)), 'section.x[data-k="a b"]');
+    // A single compound (no combinator) → full length.
+    assert.equal(firstCombinatorIndex('section.decision'), 'section.decision'.length);
   });
 });

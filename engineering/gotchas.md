@@ -59,11 +59,15 @@ unflattened). Full rationale:
 `engineering/decisions/2026-07-11-old-browser-chart-fallback.md`,
 `engineering/decisions/2026-07-12-diagram-group-old-browser-fallback.md`.
 
-**Known remaining gaps (off this fix's path).** Non-chart components that use
-`color-mix()` directly (comparison `redline` / `verdict-grid` / `pricing`, legal
-`obligation-matrix`) and compare-prose's `--cat-on-mark` ink are still uncovered
-on old engines — a separate mechanism (direct `color-mix`, not the `--cat-*`
-palette), noted as a follow-up in
+**Known remaining gaps (off this fix's path — no completeness gate yet).** The
+diagram-group scan is a hand-maintained list, so other non-chart `--cat-*`
+consumers are still uncovered on old engines: `evidence/kpi` `.trajectory`
+(direct `border-top-color: var(--cat-N-mark)` — needs painter-flatten machinery,
+not just a list entry), `inventory/actors` & `inventory/logo-wall` (`--cat-N-mark`
+via local setters — a scan away), `obligation-matrix.lanes` (`--lane-hue` setter
+in `base.modifiers.css`), the `color-mix()`-direct consumers (comparison `redline`
+/ `verdict-grid` / `pricing`), and compare-prose's `--cat-on-mark` ink. Closing
+these plus adding a completeness gate is a tracked follow-up — see
 `engineering/decisions/2026-07-12-diagram-group-old-browser-fallback.md`.
 
 ### Pie wedge borders off-by-one (`nth-child` vs `<defs>`)

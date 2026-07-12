@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The old-browser flat-literal fallback (@supports not (color: light-dark(...)), 2026-07-11) only covered the CHART bucket + math — its generator (tools/build-chart-compat-css.js) walked lib/components/chart plus math.styles.css. But three non-chart component families ride the ENGINE-WIDE --cat-* palette (--cat-N-fill / --cat-N-mark / --cat-on-fill, all light-dark()-valued) while NOT being .chart-frame members, so they were never scanned and rendered solid black on a pre-Chromium-123 engine exactly like the charts did: Mermaid diagrams (DIAGRAM OVERRIDES paint .section-N bands, mindmap edges, radar curves directly with var(--cat-N-fill|mark)), legal authority-chain / statute-stack (per-tier --cat-N-mark accents), and comparison decision (per-option --cat-N-mark accents). Fix: a DIAGRAM_GROUP_FILES list added to scannedFiles() so the SAME setter/painter flatten machinery emits their flat twins, scoped to each component's own section.<comp> selector (mermaid's :is(section, figure) guards un-broaden to section via the existing unbroadenIsFigure, keeping the compat a slide-only fallback). No CHART_ROOTS / global-redefine change was needed — every diagram-group colour is a direct painter (mermaid) or a variant setter (legal / decision), both already-handled paths; zero new leaks across all themes. journey / roadmap were already covered (journey is a CHART_ROOT; roadmap is a .chart-frame member) and are NOT re-listed. Known remaining gaps, noted off this path (decision-doc + gotchas follow-up, not folded in): non-chart color-mix() consumers (comparison redline / verdict-grid / pricing, legal obligation-matrix) and compare-prose's --cat-on-mark ink. Modern render is byte-unchanged (the @supports block is inert on modern engines; dist/lattice.css untouched). The real old-TV surface is UNVERIFIED from CI — validated transitively via the resolver↔browser color-parity test that pins each flat literal to Chromium's computed value.
+summary: The old-browser flat-literal fallback (@supports not (color: light-dark(...)), 2026-07-11) only covered the CHART bucket + math — its generator (tools/build-chart-compat-css.js) walked lib/components/chart plus math.styles.css. But three non-chart component families ride the ENGINE-WIDE --cat-* palette (--cat-N-fill / --cat-N-mark / --cat-on-fill, all light-dark()-valued) while NOT being .chart-frame members, so they were never scanned and rendered solid black on a pre-Chromium-123 engine exactly like the charts did: Mermaid diagrams (DIAGRAM OVERRIDES paint .section-N bands, mindmap edges, radar curves directly with var(--cat-N-fill|mark)), legal authority-chain / statute-stack (per-tier --cat-N-mark accents), and comparison decision (per-option --cat-N-mark accents). Fix: a DIAGRAM_GROUP_FILES list added to scannedFiles() so the SAME setter/painter flatten machinery emits their flat twins, scoped to each component's own section.<comp> selector (mermaid's :is(section, figure) guards un-broaden to section via the existing unbroadenIsFigure, keeping the compat a slide-only fallback). No CHART_ROOTS was hand-edited, though its global-redefine RULE grew by 13 value-preserving declarations (--cat-*-fill / --c-subcontainer, pulled in by mermaid's direct fills) — harmless but wider than the group's own selectors, so recorded not hidden. journey / roadmap were already covered (journey is a CHART_ROOT; roadmap is a .chart-frame member) and are NOT re-listed. IMPORTANT — this closes the diagram group ONLY, not the whole non-chart --cat-* gap: an adversarial (red-team / inversion / checker) pass found MORE non-chart --cat-N-mark consumers still black on old engines and NOT covered — evidence.kpi (.trajectory), inventory.actors, inventory.logo-wall, and obligation-matrix.lanes — plus the color-mix()-direct consumers (comparison redline / verdict-grid / pricing) and compare-prose's --cat-on-mark ink. The list-based DIAGRAM_GROUP_FILES has no completeness gate, so those omissions are silent; closing them (and adding a gate) is a tracked follow-up, deliberately NOT folded in here to keep scope to the named group (HARD RULE #17/#18). actors/logo-wall route through :nth-child local setters (a scan away); kpi's direct HTML border read needs painter-flatten machinery it doesn't have today. Modern render is byte-unchanged (the @supports block is inert on modern engines; dist/lattice.css untouched). The real old-TV surface is UNVERIFIED from CI — validated transitively via the resolver↔browser color-parity test that pins each flat literal to Chromium's computed value.
 ---
 
 # Diagram-group old-browser fallback — extend the flatten scan past the chart bucket
@@ -78,29 +78,57 @@ work with no new machinery:
   the cascade (no painter-flatten needed — same pattern as the journey mood
   ramp).
 
-### Why no `CHART_ROOTS` / global-redefine change
+### `CHART_ROOTS` was not hand-edited (but its redefine set grew automatically)
 
-The global-redefine source exists for `:root` tokens **inherited** to an HTML
-consumer with no local setter to flatten. Every diagram-group colour is either a
+No *manual* `CHART_ROOTS` edit was needed: every diagram-group colour is either a
 direct painter (Mermaid) or a variant setter (legal / decision) — both
-already-covered paths — so the section roots did not need to join `CHART_ROOTS`.
-Confirmed empirically: **zero** new `light-dark()` / `color-mix()` / colour-`var()`
-leaks across all themes (the generator's leak gate stays green).
+already-covered paths — so the diagram-group section roots did **not** need to
+join the global-redefine scope. Confirmed empirically: **zero** new `light-dark()`
+/ `color-mix()` / colour-`var()` leaks across all themes (the generator's leak
+gate stays green).
 
-### What was deliberately NOT pulled in (scope)
+One honest side effect, though: the `CHART_ROOTS` global-redefine RULE *did* grow
+by 13 declarations (`--cat-1-fill … --cat-12-fill`, `--c-subcontainer`). Mermaid's
+`.section-N rect { fill: var(--cat-N-fill) }` pulls those `:root` tokens into the
+source-2 `referenced` set, so they are now redefined (flat) under
+`section.chart-frame, section.journey, section.map, section.math` too. It is
+value-preserving and harmless — correct flat literals, scoped to chart roots, and
+Mermaid's own coverage comes from its painter twins, not this — but the blast
+radius is slightly wider than "the diagram group's own selectors," so it is
+recorded here rather than left as a silent surprise.
+
+### What was deliberately NOT pulled in (scope) — and the completeness risk
 
 - **journey / roadmap** were already covered — journey is a `CHART_ROOT`, roadmap
   is a `.chart-frame` member — so they are not re-listed.
+- **MORE non-chart `--cat-N-mark` consumers exist and are STILL black on old
+  engines** — surfaced by the adversarial trio (red-team / inversion / checker),
+  *not* by the original scan:
+  - `evidence/kpi` `.trajectory` cards — `border-top-color: var(--cat-N-mark)`, a
+    **direct HTML global read**. This one needs machinery, not a list entry:
+    painter-flatten (source 3) fires only for SVG paints or literal modern-fn
+    values and `continue`s past a non-SVG paint that references a var, and the
+    global-redefine (source 2) is scoped to `CHART_ROOTS`. So even listing
+    `kpi.styles.css` would not flatten its border.
+  - `inventory/actors`, `inventory/logo-wall` — `--pill-border` / `--logo-ink`
+    via `:nth-child` **local setters**: these *would* flatten if their files were
+    scanned (a scan away, no machinery).
+  - `obligation-matrix.lanes` — `--lane-hue: var(--cat-N-mark)` via a `:nth-child`
+    setter that lives in `lib/base/base.modifiers.css` (not the component file),
+    so covering it means scanning base modifiers, not just a component.
 - **`color-mix()`-direct non-chart consumers** (comparison `redline` /
-  `verdict-grid` / `pricing`, legal `obligation-matrix`) and **compare-prose's
-  `--cat-on-mark`** ink are also uncovered on old engines, but they are a
-  *different* mechanism (direct `color-mix`, not the `--cat-*` palette) with its
-  own flatten questions (some read inline-only locals). Noted here + in
-  `gotchas.md` as a follow-up rather than folded in (HARD RULE #18): a `redline`
-  op's `color-mix` fill and a `verdict-grid` cell would need the same
-  painter-flatten (with the inline-local coarse-flat treatment where a local has
-  no CSS setter), which is a materially larger scan than the `--cat-*` group and
-  deserves its own change.
+  `verdict-grid` / `pricing`) and **compare-prose's `--cat-on-mark`** ink are also
+  uncovered — a *different* mechanism (direct `color-mix`, sometimes over
+  inline-only locals) needing the coarse-flat treatment.
+- **No completeness gate.** `DIAGRAM_GROUP_FILES` is a hand-maintained literal;
+  unlike the auto-walked chart bucket, nothing asserts that every non-chart
+  `--cat-*` consumer is covered-or-waived, so the omissions above are *silent* and
+  a future component would rot the same way. Closing the remaining consumers **and
+  adding a gate** (scan `lib/components/**` + `lib/base/**` for a `--cat-*`-valued
+  colour/setter and assert each file is covered or on a justified waiver) is the
+  right next step — deliberately held as a tracked follow-up to keep this change
+  to its named scope (HARD RULE #17/#18), pending an explicit go-ahead on the
+  wider sweep.
 
 ## Verification
 
@@ -112,5 +140,16 @@ leaks across all themes (the generator's leak gate stays green).
   flat literal the generator emits equals the modern computed colour (e.g. indaco
   decision option 1 → `#2E608A` = `--cat-1-mark` light).
 - Full unit suite (3532) + lint + `build:check`: green.
+- The override-branch selector split is nesting- AND string-aware
+  (`splitTopLevelCommas` / `firstCombinatorIndex`, unit-tested directly) — a comma
+  / bracket / space inside `:is(…)`, `[…]`, or a quoted attribute value can't
+  desync the depth counter and mis-split a rule (red-team hardening; no such
+  selector in the corpus today, but the failure mode is a silently-dropped rule).
+- **Adversarial trio run** (red team + Munger inversion + independent checker) on
+  the shipping diff: no attack landed, the change is a strict superset of the old
+  behaviour, and the paren-aware fix additionally repairs pre-existing *chart*
+  override mangles already shipping on `main`. The trio's load-bearing finding is
+  the completeness gap above (more non-chart `--cat-*` consumers + no gate), held
+  as a follow-up.
 - **UNVERIFIED:** the real old webOS/smart-TV surface — unreachable from CI, same
   caveat as the 2026-07-11 note. The parity test is the transitive stand-in.

@@ -193,39 +193,52 @@ function variantSuffix(compound) {
   return parts.join('');
 }
 
-/** Split a selector LIST on its TOP-LEVEL commas only. A comma inside `:is(…)` /
- *  `:where(…)` / `[…]` is part of ONE compound, not a list separator — the naive
- *  `.split(',')` shattered a same-element `:is(.a, .b, .c)` arm (statute-stack's
- *  `.hierarchy/.bands/.preemption` variant) into never-matching descendant
- *  fragments in the per-slide override branch. */
-function splitTopLevelCommas(sel) {
-  const out = [];
+/** Walk a selector char-by-char yielding `(index, char, atTopLevel)`, where
+ *  `atTopLevel` is true only OUTSIDE any `()` / `[]` nesting AND outside any
+ *  `'…'` / `"…"` string. Both the comma-split and the combinator scan below need
+ *  the same "is this punctuation structural?" test, and both must ignore a comma /
+ *  bracket / space that lives inside an attribute-value string (`[data-x="a)b"]`) —
+ *  otherwise the depth counter desyncs and a following top-level comma mis-splits,
+ *  silently dropping the whole flattened rule (one bad arm drops a comma list). */
+function scanSelector(sel, visit) {
   let depth = 0;
-  let start = 0;
+  let quote = '';
   for (let i = 0; i < sel.length; i++) {
     const ch = sel[i];
+    if (quote) { if (ch === quote && sel[i - 1] !== '\\') quote = ''; continue; }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
     if (ch === '(' || ch === '[') depth++;
     else if (ch === ')' || ch === ']') depth--;
-    else if (ch === ',' && depth === 0) { out.push(sel.slice(start, i)); start = i + 1; }
+    else if (visit(i, ch, depth === 0) === true) return;
   }
+}
+
+/** Split a selector LIST on its TOP-LEVEL commas only. A comma inside `:is(…)` /
+ *  `:where(…)` / `[…]` / a quoted attribute value is part of ONE compound, not a
+ *  list separator — the naive `.split(',')` shattered a same-element `:is(.a, .b,
+ *  .c)` arm (statute-stack's `.hierarchy/.bands/.preemption` variant) into
+ *  never-matching descendant fragments in the per-slide override branch. */
+function splitTopLevelCommas(sel) {
+  const out = [];
+  let start = 0;
+  scanSelector(sel, (i, ch, top) => {
+    if (ch === ',' && top) { out.push(sel.slice(start, i)); start = i + 1; }
+  });
   out.push(sel.slice(start));
   return out;
 }
 
 /** Index of the first TOP-LEVEL combinator (descendant space / `>` / `+` / `~`) —
- *  one NOT inside `:is(…)` / `[…]`, so a leading `:is(.a, .b)` compound's internal
- *  space (or an `:nth-child(8n+1)` `+`) is never mistaken for a combinator when the
- *  override branch merges the modifier class onto the section's first compound.
- *  Returns sel.length if the selector is a single compound. */
+ *  one NOT inside `:is(…)` / `[…]` / a quoted string, so a leading `:is(.a, .b)`
+ *  compound's internal space (or an `:nth-child(8n+1)` `+`) is never mistaken for a
+ *  combinator when the override branch merges the modifier class onto the section's
+ *  first compound. Returns sel.length if the selector is a single compound. */
 function firstCombinatorIndex(sel) {
-  let depth = 0;
-  for (let i = 0; i < sel.length; i++) {
-    const ch = sel[i];
-    if (ch === '(' || ch === '[') depth++;
-    else if (ch === ')' || ch === ']') depth--;
-    else if (depth === 0 && (ch === ' ' || ch === '>' || ch === '+' || ch === '~')) return i;
-  }
-  return sel.length;
+  let idx = -1;
+  scanSelector(sel, (i, ch, top) => {
+    if (top && (ch === ' ' || ch === '>' || ch === '+' || ch === '~')) { idx = i; return true; }
+  });
+  return idx === -1 ? sel.length : idx;
 }
 
 /**
@@ -531,4 +544,7 @@ function coverageSites() {
     .map((p) => ({ selector: p.selector, prop: p.prop }));
 }
 
-module.exports = { chartCompatCssForTheme, coverageSites, scannedFiles, buildRules, SUPPORTS_GUARD };
+module.exports = {
+  chartCompatCssForTheme, coverageSites, scannedFiles, buildRules, SUPPORTS_GUARD,
+  splitTopLevelCommas, firstCombinatorIndex,
+};
