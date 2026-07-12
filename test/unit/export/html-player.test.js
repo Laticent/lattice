@@ -586,12 +586,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	// Re-blessed for the mermaid-in-article colour fix: mermaid.css's `section ` guard broadened to
-	// `:is(section, figure) ` (so a re-hosted diagram colours instead of rendering black nodes) flows
-	// into the player's embedded dist stylesheet, and the article breakout selector dropped its
-	// now-dead `:not(.lp-figure-hold)` (diagram figures break out like the charts now). Byte shift,
-	// no behaviour change for this mermaid-free fixture. Deliberate player change.
-	assert.equal(sha, '535d343605f2e10985ffcd4d63abb312a63792f0f6aab3b9f4da9e1f343cb079', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the live word-cloud in Read·Article: the article CSS gained the `.lp-spatial`
+	// bounded-container rules (container-type:size + aspect-ratio) that let a re-hosted word-cloud's
+	// `.chart-body` render in a definite box instead of a placeholder. Always-on player bytes; this
+	// mermaid/word-cloud-free fixture has no spatial figure, so no behaviour change here. Deliberate.
+	assert.equal(sha, '4376bd353a4f961b7dcb99594c859d770ca7ff5428770a817a4e6c3671e9bcef', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test.after(() => {
