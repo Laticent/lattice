@@ -15,7 +15,6 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { getFrontMatter, mergeClassTokens, setFrontMatter } from './front-matter';
-import type { PrintOptions } from './PrintOptionsPanel';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -493,62 +492,6 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
 	const ex = await exporters();
 	await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' });
-}
-
-/**
- * Print — build a real, print-ready PDF and open it in a NEW TAB to print/save.
- *
- * Why a real PDF, not a CSS-print HTML page: the deck must print one-slide-per-page
- * at the chosen paper size on a PHONE, and iOS Safari **ignores CSS `@page {size}`**
- * and won't reliably page-break a scaled layout — so a vector print tab clips and
- * flows continuously on iOS (the reported bug, IMG_2945). A real PDF carries its page
- * geometry in the MediaBox, which iOS honors exactly: reliable one-slide-per-page at
- * the right size on iPhone AND desktop. We reuse the existing per-slide PDF pipeline
- * (renderPdfBlob) with a `sheet` = the chosen paper baked into each page, the slide
- * fit + centered with a 9mm safe margin. B&W stamps `class: print` so the deck
- * rasterizes through the section.print band.
- *
- * Why we render BEFORE opening the tab (not a reserved pop-up): the rasterizer
- * (html-to-image + rAF) needs a FOREGROUND document, and `window.open` immediately
- * marks THIS tab `document.hidden`, which pauses rAF and freezes the very render the
- * pop-up is waiting on. So we build the PDF while the Studio tab is still foreground,
- * then open the finished blob. If that open is pop-up-blocked (the async render spent
- * the click's activation), we fall back to a download — the user opens the saved PDF
- * to print. See engineering/decisions/2026-06-14-deck-print-styling.md.
- */
-export async function sharePrintDeck(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', printOpts: PrintOptions, extra?: ExtraTheme, extraCss?: string, onStatus?: (m: string) => void): Promise<void> {
-	// B&W → stamp the deck-wide print band (class: print) before rendering; the engine
-	// propagates it onto every section, so section.print inks the whole deck.
-	const printSource = printOpts.color === 'bw' ? mergeClassTokens(source, 'print') : source;
-	const render = await buildDeckRender(options, printSource, palette, mode, extra, extraCss);
-	const [ex, deckMod] = await Promise.all([exporters(), import('@/playground/deck-preview.js')]);
-	const gw = render.geom?.w || 1280;
-	const gh = render.geom?.h || 720;
-	// The chosen sheet (auto-pick or explicit) → the PDF MediaBox; each slide fit +
-	// centered on it. resolvePrintSheet is the ONE source of truth for the paper pick
-	// (shared with the Drawing Board's vector print CSS — HARD RULE #1).
-	const { pageW, pageH } = deckMod.resolvePrintSheet(gw, gh, printOpts);
-	const blob = await ex.renderPdfBlob(render, name, onStatus, { deck: name, engine: 'lattice' }, { sheet: { pageW, pageH, fit: printOpts.fit } });
-	const url = URL.createObjectURL(blob);
-	const filename = `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`;
-	// Open the finished PDF in a new tab; its native viewer's Print/Share does the actual
-	// print (on a phone: Share → Print — reliable one-slide-per-page at the chosen size).
-	const win = window.open(url, '_blank');
-	if (win) {
-		try { win.focus(); } catch { /* best-effort */ }
-	} else {
-		// Pop-up blocked (a slow render can outlast the click's activation) → download,
-		// which never needs a gesture. `<a download>` triggers a Save; the user opens it.
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = filename;
-		a.rel = 'noopener';
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-	}
-	// Revoke once the tab/download has had time to load the PDF (immediate revoke aborts it).
-	setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* noop */ } }, 60_000);
 }
 
 type ReadAlongCore = {

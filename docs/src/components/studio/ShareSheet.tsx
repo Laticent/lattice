@@ -8,8 +8,8 @@ import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
-import { type PrintOptions, PrintOptionsPanel } from './PrintOptionsPanel';
-import { shareCaptions, shareHtmlPlayer, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintDeck, sharePrintSource } from './share-export';
+import { PrintOptionsPanel } from './PrintOptionsPanel';
+import { shareCaptions, shareHtmlPlayer, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { WebpageOptionsPanel } from './WebpageOptionsPanel';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
@@ -28,8 +28,9 @@ function Row({ icon, title, desc, dev, busy, status, onClick }: { icon: React.Re
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent, notify }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; notify: (msg: string) => void }) {
 	const close = () => onOpenChange(false);
-	// The sheet has three views: the format MENU, and a pre-export OPTIONS step for
-	// PDF (comments as sticky notes) and for the Webpage player (strip speaker notes).
+	// The sheet has four views: the format MENU, and a pre-export OPTIONS step for
+	// PDF (comments as sticky notes), the Webpage player (strip speaker notes), and
+	// PRINT (paper / colour + live preview, prepares the PDF, then prints or saves).
 	// Reset to the menu whenever the sheet re-opens so it never lands mid-flow.
 	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print'>('menu');
 	React.useEffect(() => { if (open) setView('menu'); }, [open]);
@@ -96,14 +97,6 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const deckCm = deckColorMode(artifactSource);
 	const deckDefaultScheme = deckCm && deckCm !== 'print' ? deckCm : mode;
 
-	// Print from its options step: build a real PDF (chosen paper / orientation / color /
-	// fit baked into the page geometry) and open it in a new tab to print/save. A real
-	// PDF prints one-slide-per-page at the right size on iOS too, where CSS @page is
-	// ignored. sharePrintDeck opens the tab synchronously so it isn't popup-blocked.
-	const printDeck = (opts: PrintOptions) => {
-		run('print', 'Print', (onStatus) => sharePrintDeck(options, artifactSource, name, palette, mode, opts, extraTheme, extraCss, onStatus));
-	};
-
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="w-full gap-0 sm:max-w-[440px]">
@@ -117,7 +110,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					) : view === 'html' ? (
 						<WebpageOptionsPanel busy={busy === 'html'} status={progress} defaultScheme={deckDefaultScheme} onBack={() => setView('menu')} onExport={exportHtml} />
 					) : view === 'print' ? (
-						<PrintOptionsPanel busy={busy === 'print'} status={progress} onBack={() => setView('menu')} onPrint={printDeck} />
+						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} notify={notify} />
 					) : (
 						<>
 							<section className="space-y-2">
@@ -126,7 +119,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<Row icon={<Link2 className="size-4" />} title="Present link" desc="A live, themed link that opens in Present" onClick={() => { close(); onPresent(); }} />
 								<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page — choose what rides along" onClick={() => setView('pdf')} />
 								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', (onStatus) => sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
-								<Row busy={busy === 'print'} status={progress} icon={<Printer className="size-4" />} title="Print deck" desc="Print or Save as PDF — pick paper, color & fit" onClick={() => setView('print')} />
+								<Row icon={<Printer className="size-4" />} title="Print deck" desc="Pick paper &amp; colour, preview, then print or save" onClick={() => setView('print')} />
 									<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => setView('html')} />
 									<Row busy={busy === 'captions'} status={progress} icon={<Captions className="size-4" />} title="Captions (.vtt)" desc="Read-along WebVTT from your speaker notes — no audio, no key" onClick={() => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus))} />
 							</section>
