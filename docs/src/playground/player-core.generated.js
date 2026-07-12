@@ -278,7 +278,8 @@ function projectSpatial(stage, heading, component) {
   const bodyEl = stage.querySelector(":scope .chart-body") || stage.querySelector(".chart-body");
   if (!bodyEl) return null;
   const cap = heading ? `<figcaption>${esc(heading)}</figcaption>` : "";
-  return `<figure class="lp-figure lp-spatial chart-frame ${esc(component)}">${bodyEl.outerHTML}${cap}</figure>`;
+  const cls = String(component).replace(/[^a-z0-9-]/gi, "");
+  return `<figure class="lp-figure lp-spatial chart-frame ${cls}">${bodyEl.outerHTML}${cap}</figure>`;
 }
 function projectQuote(stage) {
   const bq = stage.querySelector(":scope > blockquote, blockquote");
