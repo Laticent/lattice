@@ -20,7 +20,7 @@ import { type PresentLens, presentationIndices, presentationSet } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { sectionsFromSlides } from './present-sections';
-import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
+import { type ReadAloudDebugEvent, type ReadAloudDebugLive, slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
@@ -48,6 +48,19 @@ type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: Rehe
 export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
 	const [lens, setLens] = React.useState<PresentLens>('full');
 	const [idx, setIdx] = React.useState(0);
+	// Temporary on-device read-aloud diagnostics — gated behind `?readaloud-debug=1`
+	// so it ships to the Cloudflare preview for an iPhone repro but is invisible in
+	// normal use. Pins the "skips words / races" regression: iOS audio/timing can't be
+	// verified in the sandbox (no WebAudio, no TTS — HARD RULE #23), so we surface the
+	// numbers the desync shows up in and read them off the real device.
+	const readAloudDebug = React.useMemo(() => {
+		if (typeof window === 'undefined') return false;
+		try {
+			return new URLSearchParams(window.location.search).get('readaloud-debug') === '1';
+		} catch {
+			return false;
+		}
+	}, []);
 	const [playing, setPlaying] = React.useState(false);
 	const [overviewOpen, setOverviewOpen] = React.useState(false); // slide sorter (G)
 	const [autoplay, setAutoplay] = React.useState(false); // chain read-aloud across slides
@@ -240,6 +253,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			acronyms,
 			lang,
 			muted,
+			debug: readAloudDebug,
 			onFinish: () => {
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
@@ -572,6 +586,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						<span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">Swipe or use ← → to move · controls reveal as you go</span>
 					</div>
 				)}
+				{readAloudDebug && (
+					<ReadAloudDebugPanel
+						live={reader.debugLive}
+						events={reader.debugEvents}
+						source={
+							projected.set === set
+								? narrationText === (projected.texts[clamped] ?? '')
+									? 'projection'
+									: 'fallback (projection landed, not adopted)'
+								: 'fallback (projection pending)'
+						}
+					/>
+				)}
 			</div>
 
 			{/* Bottom dock (layout A, 2026-07-12 redesign): caption (top) → controls (middle) →
@@ -626,6 +653,66 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} onJump={(i) => setIdx(i)} className="w-full" />
 			</div>
 			<SlideOverview open={overviewOpen} onClose={() => setOverviewOpen(false)} options={options} set={set} frontMatter={frontMatter} current={clamped} onJump={setIdx} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} />
+		</div>
+	);
+}
+
+// ── Temporary on-device read-aloud diagnostics (?readaloud-debug=1) ──────────
+// A fixed, scrollable panel that surfaces the numbers the "skips words / races"
+// regression shows up in — read off a real iPhone via the Cloudflare preview,
+// since neither iOS Safari nor WebAudio exists in the sandbox (HARD RULE #23).
+// Remove once the root cause is pinned. Deliberately plain (no shadcn/theme
+// tokens) so it reads clearly over any slide and can't itself be mistaken for a
+// styling regression. Non-interactive except its own scroll.
+function ReadAloudDebugPanel({ live, events, source }: { live: ReadAloudDebugLive | null; events: ReadAloudDebugEvent[]; source: string }) {
+	// A count mismatch between what the voice speaks and the track's cues is the
+	// single clearest desync tell — every later onset re-anchors the wrong cue.
+	const countMismatch = live && live.spokenCount > 0 && live.spokenCount !== live.cueCount;
+	return (
+		<div
+			className="pointer-events-auto absolute left-2 top-2 z-50 max-h-[70vh] w-[300px] max-w-[80vw] overflow-auto rounded-lg border border-white/20 bg-black/85 p-2.5 font-mono text-[11px] leading-tight text-white shadow-xl"
+			style={{ fontVariantNumeric: 'tabular-nums' }}
+		>
+			<div className="mb-1 font-bold text-emerald-300">read-aloud debug</div>
+			<div className="mb-1 break-words">
+				<span className="text-white/60">source:</span> {source}
+			</div>
+			{live ? (
+				<>
+					<div>
+						<span className="text-white/60">rung:</span> {live.rung ?? '—'} · <span className="text-white/60">mode:</span> {live.mode}
+					</div>
+					<div>
+						<span className="text-white/60">ctx:</span>{' '}
+						<span className={live.ctxState === 'running' ? 'text-emerald-300' : 'text-amber-300'}>{live.ctxState}</span>
+					</div>
+					<div>
+						<span className="text-white/60">reader/audio ms:</span> {live.elapsedMs} / {live.audioClockMs}
+					</div>
+					<div>
+						<span className="text-white/60">active cue/word:</span> {live.activeCue} / {live.activeWord}
+					</div>
+					<div className={countMismatch ? 'font-bold text-red-400' : ''}>
+						<span className="text-white/60">spoken/cues:</span> {live.spokenCount} / {live.cueCount}
+						{countMismatch ? ' ⚠ MISMATCH' : ''}
+					</div>
+				</>
+			) : (
+				<div className="text-white/60">idle — press play</div>
+			)}
+			<div className="mt-1.5 mb-0.5 border-t border-white/15 pt-1 font-bold text-emerald-300">events</div>
+			{events.length === 0 ? (
+				<div className="text-white/50">none yet</div>
+			) : (
+				events.map((e, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: an append-only diagnostic log; entries never reorder.
+					<div key={i} className={e.kind === 'timing' ? 'text-sky-300' : 'text-white/70'}>
+						{e.kind === 'timing'
+							? `t#${e.index} on=${e.relOnsetMs} dur=${e.durationMs} ${e.ctxState} +${e.sincePlayMs}ms`
+							: `a#${e.index} ${e.ctxState} +${e.sincePlayMs}ms`}
+					</div>
+				))
+			)}
 		</div>
 	);
 }

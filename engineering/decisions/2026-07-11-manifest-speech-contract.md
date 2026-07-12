@@ -983,3 +983,55 @@ it's recorded here rather than pulled into this PR.
 so a stage-scoped scan never touches it; the "double" only appeared in a hand-written test fixture whose
 shape the engine never produces. The guard and its claim were **reverted** — this fix is exactly the
 colon change, nothing more.
+
+---
+
+## Follow-up (2026-07-12): pinning the "skips words / races" regression on the CLOCKED cloud voice
+
+The scope boundary above tracked the "reads faster / skips words" symptom as a separate,
+device-only investigation. A fresh live report sharpened it: it reproduces on the DEFAULT voice —
+cloud Kokoro "Heart · US", the `openrouter-tts` rung — on multiple slides of the "Welcome to
+Lattice" deck (`DECKS[0]`), it is **intermittent**, and **a page refresh fixes it**. It USED TO
+WORK → a regression, not a new bug.
+
+**Correction to the earlier theory.** The scope-boundary note above explained the symptom as "the
+plain browser voice reports no measured word onsets, so its highlight rides a pure estimate." That
+explanation does NOT cover this repro: `openrouter-tts` is a *clocked* rung — it reports a measured
+onset + duration per sentence, and `read-aloud.ts` re-anchors each cue to it (`reader.align`). So the
+desync lives in the **alignment / audio-clock** path (or the AudioContext lifecycle), not a pure
+estimate. The two live hypotheses:
+
+1. *Free-running clock through a synth/decode gap.* The reader rides `audioTimeMs() − base − latency`
+   (the shared WebAudio clock, which advances in real time even during the silence between one
+   sentence's `onended` and the next sentence's `src.start(0)`). If a mid-deck sentence's synth or
+   (iOS) MP3 decode stalls, the highlight races ahead through cues on the estimate during that
+   silence, then snaps back when the real onset lands and `align` shifts the tail — reading exactly
+   as "skips words / moves fast." Intermittent because it is gated by per-sentence network/decode
+   latency, which varies. iOS-plausible (slow MP3 decode; the user is on iPhone Safari).
+2. *AudioContext wedge / mid-play text swap.* The one shared `audioCtx` is reused all session and
+   never rebuilt (refresh = fresh context), and the `#904` fallback→projection text upgrade can, in a
+   narrow race, swap `narrationText` while a read is in flight — tearing down and rebuilding the
+   track under the still-playing audio. Fits the "sometimes no sound" half and the refresh-fixes-it
+   clue.
+
+**Ruled OUT — the sentence-index cascade.** A tempting theory was that `voice.speak()` filters the
+provided spoken sentences (`providedSentences.map(trim).filter(Boolean)`), so an empty/whitespace cue
+would drop out and shift every later `onSentenceTiming(index)` onto the WRONG cue — a cascading
+skip/rush. This cannot happen: `buildTrack` never emits an empty cue (`splitWords` filters blanks and
+skips a cue with no display words), and `toSpoken` returns `''` only for an empty token, so
+`cue.words.map(w => w.spoken).join(' ')` is non-empty for every cue. Therefore
+`spoken.length === track.cues.length` always and `filter(Boolean)` drops nothing — cue index i always
+equals the spoken sentence index the voice times. Confirmed by reading the cadenza segmenter/normalizer;
+the invariant is structural, not incidental.
+
+**Why instrumentation before a fix (HARD RULE #23).** iOS Safari audio/timing cannot be exercised in
+the sandbox (no WebAudio, no TTS, egress blocked), and a prior session shipped a speculative audio
+guess a checker found to be a no-op. So this change lands **only a temporary on-device debug readout**
+— gated behind `?readaloud-debug=1`, invisible in normal use — that surfaces, per read: the active
+narration source (projection vs. fallback), the live rung/`AudioContext.state`/reader-clock vs.
+audio-clock/active cue+word, the spoken-vs-cue count (the mismatch tell), and a per-sentence event log
+of `attempt` (voice reached sentence i) vs. `timing` (its measured onset/duration landed). A gap
+between an `attempt` and its `timing` is hypothesis 1's signature; a stuck `ctx` state or a mismatched
+count is hypothesis 2's. Pushed to the Cloudflare PR preview so the reporter can read it off the real
+iPhone; the actual fix follows once the readout names the layer. The readout is removed (or reduced to
+a permanent guard) when the root cause is pinned.
