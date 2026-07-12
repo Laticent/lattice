@@ -60,6 +60,10 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// touch), then folds back. `revealed` drives the bloom; `showHint` is the one-time cue.
 	const [revealed, setRevealed] = React.useState(true);
 	const [showHint, setShowHint] = React.useState(false);
+	// The slide sizes to the AVAILABLE row height (16:9), so the caption/controls/rail
+	// dock always keeps its space and the slide never creeps into the chrome or clips.
+	const slideRowRef = React.useRef<HTMLDivElement>(null);
+	const [slideMaxW, setSlideMaxW] = React.useState(960);
 
 	const set = React.useMemo(() => presentationSet(slides, lens), [slides, lens]);
 	// Deck sections (from `divider` slides) — the grouping the single progress rail uses.
@@ -395,6 +399,20 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		};
 	}, [open, wake]);
 
+	// Measure the slide row and cap the slide width so a 16:9 box fits the available
+	// height (`rowH × 16/9`). A ResizeObserver keeps it live as the caption band grows
+	// on Play (which shrinks the row) or the viewport changes — no chrome overlap, no clip.
+	React.useEffect(() => {
+		if (!open) return;
+		const row = slideRowRef.current;
+		if (!row || typeof ResizeObserver === 'undefined') return;
+		const measure = () => setSlideMaxW(Math.max(240, Math.min(960, Math.floor(((row.clientHeight - 12) * 16) / 9))));
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(row);
+		return () => ro.disconnect();
+	}, [open]);
+
 	// Swipe (touch) + wheel (desktop) navigation, alongside the keyboard. Swipe reuses the
 	// shared kernel's geometry (threshold/ratio) so it matches the export player exactly;
 	// wheel is throttled so one flick advances one slide, not ten.
@@ -507,9 +525,16 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			{/* Slide row. The slide centers in the space above the dock (flex-1 guarantees the
 			    caption + controls + rail dock its full height, so the slide never crowds it).
 			    Circular arrows flank the slide in the gutter — never over it. */}
-			<div className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 sm:gap-5 sm:px-6">
+			<div ref={slideRowRef} className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 sm:gap-5 sm:px-6">
 				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
-				<DeckPreview options={options} sample={frontMatter ? frontMatter + cur : cur} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="relative aspect-video w-full max-w-[960px] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]" aria-label="Presented slide" />
+				{/* The slide is a true flex child: its width is capped to what the AVAILABLE ROW
+				    HEIGHT allows at 16:9 (`rowH × 16/9`), so it shrinks to reserve the caption /
+				    controls / rail space instead of creeping into the chrome or getting clipped.
+				    DeckPreview fits the slide to its box WIDTH, so the box must stay 16:9 — hence a
+				    measured width cap on this sizer, not `max-height` (which would clip). */}
+				<div className="flex w-full min-w-0 justify-center" style={{ maxWidth: slideMaxW }}>
+					<DeckPreview options={options} sample={frontMatter ? frontMatter + cur : cur} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]" aria-label="Presented slide" />
+				</div>
 				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={arrowCls(clamped >= count - 1)} aria-label="Next slide"><ChevronRight className="size-5" /></button>
 				{/* Real delivery coaching — the plan's role-specific guidance, with the
 				    active timed beat surfacing as you cross its mark in the slide. */}
