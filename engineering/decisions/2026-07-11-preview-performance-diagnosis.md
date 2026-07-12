@@ -1,18 +1,35 @@
 ---
-status: in-progress
-summary: Diagnosis of why the live PERFORMANCE overlay shows LCP/FRAME/TOTAL red on mobile, measured against the production build. The owned engine render is already fast (39ms/58 slides, the green RENDER 19ms); the red needles are all cold-start / full-write BROWSER costs — LCP (6049ms) is gated on the Studio's client:only island hydration (empty <body>), and FRAME (1027ms) is a full iframe srcdoc write re-parsing 563KB of unscoped CSS plus a cold-fetched runtime. Front A (LCP) is SHIPPED here as an SSG instant-shell for studio.astro — the newcomer's first slide (DECKS[0]) rendered to static HTML + jsdom/css-tree critical CSS (563KB→15KB gz) plus a server-rendered welcome banner, gated to first-time indaco·light visitors, dismissed by StudioShell on the live preview's first render (DeckPreview onFirstRender). Measured before→after at CPU 4x/6x + Slow-4G: LCP 1156/1751ms → 304/531ms, now decoupled from hydration (LCP===FCP), turning the real-phone 6049ms green. EngineWarm downgraded from allowEager (was competing with first paint). Follow-on (not yet done): a neutral shell for RETURNING visitors (the screenshot case); docs-side then engine-side CSS scoping for FRAME; runtime lazy-split; metrics-band recalibration + a browser-side FRAME/LCP bench.
+status: shipped
+summary: Diagnosis + program for why the live PERFORMANCE overlay showed LCP/FRAME/TOTAL red on mobile, measured against the production build, and the four merged fixes that turned them green. The owned engine render was already fast; the red needles were all cold-start / full-write BROWSER costs. SHIPPED (#913/#917/#921/#924): (A) an SSG instant-shell + returning-visitor snapshot → LCP ~6000ms → ~370ms; (B) a resident-document PATCH path → warm-edit FRAME ~485ms → ~2ms; (C) a regime-honest perf panel + a browser-side FRAME/LCP bench; (D) memoized theme→CSS composition → warm-edit RENDER ~141ms → ~9ms (4× CPU). PARKED: per-component CSS scoping (dominated by the existing pruner) and the map-basemap runtime split (would blank Marp-export maps). See the Status ledger below for the current truth; the body keeps the full reasoning + measurements.
 ---
 
 # Preview performance — where the red needles actually come from
 
-**Date:** 2026-07-11 · **Status:** diagnosis + proposed program (pre-implementation)
-**Trigger:** the live PERFORMANCE overlay on `lattice.style` shows LCP, FRAME, and
+**Date:** 2026-07-11 · **Status:** SHIPPED (#913/#917/#921/#924) — see the ledger below
+**Trigger:** the live PERFORMANCE overlay on `lattice.style` showed LCP, FRAME, and
 TOTAL in the red on mobile; "I'm not feeling the performance numbers."
 
-This note is the *understanding* deliverable. It records what was measured, against
-the **production build**, and what it means — before any optimization lands. All
-per-stage costs below are reproducible headless-Chrome measurements at 1× and 4×
-CPU throttle (4× ≈ a mid-tier phone), plus the committed engine bench.
+## Status ledger — what's the current truth (read this first)
+
+| Item | State | Result |
+|---|---|---|
+| **A. LCP** — SSG instant-shell + returning-visitor snapshot (§A) | **SHIPPED** #913 | LCP ~6000ms → ~370ms (newcomer) / ~700ms (returning) |
+| **B③. FRAME** — resident-document patch path (§B) | **SHIPPED** #913 | warm edit ~485ms → ~2ms (4×) |
+| **C1. Metrics honesty** — regime-split FRAME/TOTAL panel (§C) | **SHIPPED** #917 | panel rates patch vs rebuild honestly |
+| **C2. Browser FRAME/LCP bench** (`npm run perf:frame`, §C) | **SHIPPED** #921 | the measurement surface for all of the above |
+| **D. RENDER** — memoized theme→CSS composition (§D) | **SHIPPED** #924 | warm edit RENDER ~141ms → ~9ms (4×) |
+| **A5. Dark-mode NEWCOMER shell** | **OPEN** | first-time dark-OS visitor gets no build-time shell (returning dark users are covered) |
+| **B①. CSS scoping / per-component composition** | **PARKED** | dominated by the existing `player-prune` kernel; ~2× ceiling; low ROI post-B③ |
+| **B⑤. Map-basemap runtime split** | **REVERTED** | would blank maps in the Export-to-Marp path (runtime is the sole map renderer there) |
+| Follow-ups (gates/cleanups) | **OPEN** | #22-gate → `.astro`/snapshot sinks; boot-last-active-deck; scope captured CSS under `#studio-ssr-shell` |
+
+**Trigger:** the live PERFORMANCE overlay on `lattice.style` showed LCP, FRAME, and
+TOTAL in the red on mobile; "I'm not feeling the performance numbers."
+
+This note began as the *understanding* deliverable — what was measured, against the
+**production build**, before any optimization landed — and grew into the program record
+as A–D shipped. All per-stage costs below are reproducible headless-Chrome measurements
+at 1× and 4× CPU throttle (4× ≈ a mid-tier phone), plus the committed engine bench.
 
 ---
 
@@ -386,18 +403,6 @@ the existing `player-prune.js` kernel (one sheet, one parse, order preserved, no
 optionally serving theme/mode/size switches from an adopted pre-pruned stylesheet
 (snapshot-cache CSSOM pattern). Higher-leverage cold-start work lives in the JS bundle (B④
 preload runtime, B⑤ lazy-split transforms), where gzip actually pays.
-
-**Correction to B①'s premise (found while scoping it).** The engine map showed the
-PDF/PPTX/PNG export path (`lattice-emulator.js`) **discards `render().css`** — it inlines
-the full disk `lattice.css` and *rasterizes*, so no CSS bytes ship in those artifacts, and
-the HTML player already prunes its own copy. The **only** consumer of `render().css` is the
-live browser preview. So engine-side CSS scoping of `render().css` does **not** change any
-exported artifact's bytes (no export sign-off gate fires) — and, post-B③, its remaining win
-is narrower than first framed: it helps theme/size/mode switches (full-writes) and the
-Playground's shell-less cold render, not the warm edit the patch path already made ~2ms.
-Deferred by owner in favor of metrics honesty (C①); a trusted selector-prune kernel already
-exists (`lib/export/player-prune.js`) to reuse at **build time** (rule→required-components
-tagging + a runtime set-filter, no browser css-tree) when it's picked up.
 
 **Correction to B①'s premise (found while scoping it).** The engine map showed the
 PDF/PPTX/PNG export path (`lattice-emulator.js`) **discards `render().css`** — it inlines

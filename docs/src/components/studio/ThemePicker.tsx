@@ -10,13 +10,14 @@ import { cn } from '@/lib/utils';
 // shipped palettes. REUSE (#15): `paletteLabel` is the same label formatter the
 // site-wide PaletteControls use; the engine fetches any of these by name.
 
-export const CURATED = ['indaco', 'cuoio', 'burgundy', 'laguna', 'crepuscolo', 'atelier', 'carbone', 'onyx'];
-export const MORE_THEMES = ['ardesia', 'brina', 'carta', 'concrete', 'magnolia', 'mustard'];
-// AA / CVD color-blind-safe palettes (themes/a11y-*.css) — contrast-verified.
-export const A11Y_THEMES = ['a11y-achromatopsia', 'a11y-deuteranopia', 'a11y-protanopia', 'a11y-tritanopia'];
-// Every on-disk theme the Studio can drive through `data-palette` (a Fabricated
-// theme is NOT here — it has no on-disk CSS and renders via extraTheme).
-export const BUILTIN_PALETTES = [...CURATED, ...MORE_THEMES, ...A11Y_THEMES];
+// The palette-name lists live in the dependency-free ./palettes module (so the
+// pre-paint seed script in studio.astro can import the SAME source without pulling in
+// this React component). Imported for local use here AND re-exported so existing
+// importers (StudioShell, PaletteControls, …) are unaffected. A Fabricated theme is
+// NOT here — it has no on-disk CSS and renders via extraTheme.
+import { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES } from './palettes';
+
+export { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES };
 // US-English label (the shared site one uses the British "colour"); HARD RULE #21.
 export const A11Y_LABEL = 'Accessibility · color-blind safe';
 
