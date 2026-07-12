@@ -119,6 +119,15 @@ describe('resolvePrintSheet / fitSlideOnSheet — print-PDF page geometry', () =
 		expect(resolvePrintSheet(1080, 1920)).toEqual({ paper: 'letter', orientation: 'portrait', pageW: 816, pageH: 1056 });
 	});
 
+	it('a near-square deck (1.0 ≤ aspect < 1.15) stays letter PORTRAIT (not gw≥gh landscape)', () => {
+		// Preserves the original three-way ladder for the shared Drawing Board vector print:
+		// a bare `gw >= gh` would flip these wide-of-square-but-not-really decks to landscape.
+		expect(resolvePrintSheet(1080, 1080)).toEqual({ paper: 'letter', orientation: 'portrait', pageW: 816, pageH: 1056 }); // 1:1
+		expect(resolvePrintSheet(1100, 1000)).toEqual({ paper: 'letter', orientation: 'portrait', pageW: 816, pageH: 1056 }); // 1.10
+		// …and just past the threshold flips to landscape.
+		expect(resolvePrintSheet(1150, 1000).orientation).toBe('landscape'); // 1.15
+	});
+
 	it('explicit paper/orientation override the auto pick (→ the PDF MediaBox)', () => {
 		expect(resolvePrintSheet(1280, 720, { paper: 'a4', orientation: 'portrait' })).toEqual({ paper: 'a4', orientation: 'portrait', pageW: 794, pageH: 1123 });
 		expect(resolvePrintSheet(1280, 720, { paper: 'letter', orientation: 'landscape' })).toEqual({ paper: 'letter', orientation: 'landscape', pageW: 1056, pageH: 816 });

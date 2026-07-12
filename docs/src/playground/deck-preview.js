@@ -262,10 +262,14 @@ export function resolvePrintSheet(gw, gh, opts) {
 	const aspect = gw / gh;
 	// Paper: auto → least-wasteful sheet for the aspect (16:9→Legal, 4:3/other→Letter).
 	const paper = ['letter', 'legal', 'a4'].includes(o.paper) ? o.paper : (aspect >= 1.55 ? 'legal' : 'letter');
-	// Orientation: auto → landscape for a wide deck, portrait for a tall one.
+	// Orientation: auto → landscape only once the deck is meaningfully wider than square
+	// (aspect ≥ 1.15), else portrait. The 1.15 threshold — NOT `gw >= gh` — preserves the
+	// original three-way ladder: a near-square deck (1.0 ≤ aspect < 1.15) prints letter
+	// PORTRAIT, matching the pre-existing Drawing Board vector print exactly (a bare
+	// `gw >= gh` would silently flip those to landscape). Explicit orientation overrides.
 	const orientation = o.orientation === 'landscape' || o.orientation === 'portrait'
 		? o.orientation
-		: (gw >= gh ? 'landscape' : 'portrait');
+		: (aspect >= 1.15 ? 'landscape' : 'portrait');
 	const [pw, ph] = PRINT_SHEETS[paper];
 	const [pageW, pageH] = orientation === 'landscape' ? [ph, pw] : [pw, ph];
 	return { paper, orientation, pageW, pageH };
