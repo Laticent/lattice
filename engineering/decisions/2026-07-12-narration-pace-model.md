@@ -86,8 +86,12 @@ Make `cadence.ts` the single pace model that feeds all three consumers:
   semicolon/colon 350, sentence 550, ellipsis 650, paragraph 1000 (from §3). Punctuation maps to a
   boundary type; a colon in a `label: value` is a clause boundary (its spoken form is already a
   comma from the #940 fix, so it lands as ~comma/clause).
-- **Phrase-final lengthening**: the last word of a cue gets **+~30 ms (or +25%)** on its final
-  syllable (§4), so the cue's estimated end matches reality and the highlight doesn't run past it.
+- **Phrase-final lengthening**: any word that sits *before a boundary* (it carries trailing
+  punctuation → a non-zero pause) gets **+FINAL_LENGTHEN_MS (~30 ms)** (§4). Lengthening happens at
+  every prosodic boundary — comma, clause, sentence — not only the cue's last word, which is what
+  §4 actually describes (stronger boundary → more lengthening); we apply a flat bump rather than
+  grading it by boundary strength, a deliberate simplification calibration can refine later. The
+  effect: the pre-boundary word ends a beat later, so the highlight holds instead of running past it.
 - **The audio "breath"** (`voice-model.js`) is **derived from the same graded table**, discounted by
   the fraction the TTS clip already carries as trailing silence (≈ 0.4–0.5) — so it stays smaller
   than the estimate gap (race-safe, per the #940 analysis) and there's ONE table, not two constants
