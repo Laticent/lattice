@@ -31,6 +31,10 @@ export interface StageOptions {
 	decodedCacheLimit?: number;
 	/** Reject `decode()` inputs larger than this many bytes (decode-bomb guard). Default 32 MiB. */
 	maxDecodeBytes?: number;
+	/** Declick fade at each clip's head + tail, in ms — a short gain ramp so playback never steps
+	 *  from/to a non-zero sample (the click/pop at a non-zero-crossing clip boundary). Default 8.
+	 *  0 disables it (source connects straight to the destination). Clamped to half the clip. */
+	fadeMs?: number;
 }
 
 /** The measured span of a clip, read at its TRUE audio start (not schedule time). */

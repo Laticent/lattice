@@ -187,6 +187,13 @@ Each of these is a real bug voice-model.js paid for once. In Suono they are the 
   returns a **fresh copy** per call (`decodeAudioData` detaches its input; the cache replays).
 - **Caption sync.** `clockMs()` + `latencyMs()` are exposed and latency is subtracted so a highlight
   tracks the ear, not the buffer; `onItemStart` carries the *measured* onset for `reader.align`.
+- **Audio quality — declick.** A synth/TTS clip rarely starts or ends on a zero-crossing, so playing
+  it raw steps from silence straight to a non-zero sample — a discontinuity the ear hears as a
+  click/pop, worst on decks that narrate many short fragments back to back ("53 / 14 / 4 / 1"), and
+  packed tighter by a shorter breath gap. `play()` routes every clip through a `GainNode` that ramps
+  0→1 at the head and 1→0 at the tail (default 8 ms, clamped to half the clip) — inaudible as a fade,
+  but it removes the step so no surface ever ships clicky audio (`fadeMs` opt-out). The clamp math is
+  a pure, unit-tested helper (`envelope.ts`); the ramp scheduling is browser-only.
 
 ## 6. Security posture — the boundary IS the safety
 

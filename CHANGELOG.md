@@ -169,6 +169,9 @@ in patch versions.
   the engine + skeleton (pure `encode`/`cache` kernels and the scheduler are
   Vitest-tested; the browser stage is verified when `voice-model.js` migrates onto it)
   plus the `checkSuonoBoundary` import gate. Design: `engineering/decisions/2026-07-12-suono-audio-library.md`.
+  Playback declicks by default — a few-ms gain ramp at each clip's head/tail (`fadeMs`) so a
+  synth clip that doesn't begin/end on a zero-crossing no longer clicks/pops at the boundary
+  (worst on many-short-fragment narration like "53 / 14 / 4 / 1").
 
 ### Changed
 

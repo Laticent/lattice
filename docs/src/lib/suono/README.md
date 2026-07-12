@@ -71,6 +71,8 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 - Never rejects: a produce/decode failure degrades to silence and reports via `onState.error`.
   Barge-in via `AbortController`; a watchdog skips a hung producer.
 - Latency-compensated clock so a caption tracks the ear, not the buffer.
+- **Declick:** a few-ms gain ramp at each clip's head + tail so playback never steps from/to a
+  non-zero sample — the click/pop at a clip boundary, worst on many-short-fragment slides (`fadeMs`).
 
 ## API
 

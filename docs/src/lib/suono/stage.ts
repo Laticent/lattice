@@ -10,11 +10,13 @@
 // the gesture is gone stays silent. decodeAudioData also handles both MP3 and WAV.
 
 import { createBoundedCache } from './cache';
+import { clampFadeMs } from './envelope';
 import { makeSequence } from './sequence';
 import type { Bytes, Clip, PlayHandle, PlayOptions, PlayResult, SequenceOptions, Stage, StageOptions, StageState } from './types';
 
 const DEFAULT_DECODED_LIMIT = 64;
 const DEFAULT_MAX_DECODE_BYTES = 32 * 1024 * 1024; // 32 MiB — decode-bomb guard
+const DEFAULT_FADE_MS = 8; // declick ramp at each clip head/tail — inaudible as a fade, kills the click
 
 const hasWindow = typeof window !== 'undefined';
 
@@ -39,6 +41,7 @@ function decodeArrayBuffer(ctx: AudioContext, ab: ArrayBuffer): Promise<AudioBuf
 export function createStage(opts: StageOptions = {}): Stage {
 	const compensateLatency = opts.compensateLatency !== false;
 	const maxDecodeBytes = opts.maxDecodeBytes ?? DEFAULT_MAX_DECODE_BYTES;
+	const fadeMs = opts.fadeMs ?? DEFAULT_FADE_MS;
 	const decodedCache = createBoundedCache<Clip>(opts.decodedCacheLimit ?? DEFAULT_DECODED_LIMIT);
 
 	let audioCtx: AudioContext | null = null;
@@ -99,6 +102,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 	function play(clip: Clip, playOpts: PlayOptions = {}): PlayHandle {
 		const { onStart, signal } = playOpts;
 		let src: AudioBufferSourceNode | null = null;
+		let gain: GainNode | null = null;
 		let settled = false;
 		let resolveDone!: (r: PlayResult) => void;
 		const done = new Promise<PlayResult>((res) => {
@@ -108,6 +112,11 @@ export function createStage(opts: StageOptions = {}): Stage {
 			if (settled) return;
 			settled = true;
 			signal?.removeEventListener?.('abort', onAbort);
+			try {
+				gain?.disconnect();
+			} catch {
+				/* best-effort */
+			}
 			if (currentSource === src) currentSource = null;
 			resolveDone(r);
 		};
@@ -135,7 +144,26 @@ export function createStage(opts: StageOptions = {}): Stage {
 			if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 			src = ctx.createBufferSource();
 			src.buffer = clip.buffer;
-			src.connect(ctx.destination);
+			// Declick: route through a GainNode that ramps 0→1 at the head and 1→0 at the tail, so
+			// playback never steps from/to a non-zero sample (the click/pop at a non-zero-crossing clip
+			// boundary — audible as "abrupt when switching," worst on many-short-fragment slides). A
+			// few ms is inaudible as a fade but removes the discontinuity. fadeMs:0 disables it.
+			const fade = clampFadeMs(clip.durationMs, fadeMs);
+			if (fade > 0 && typeof ctx.createGain === 'function') {
+				gain = ctx.createGain();
+				const t0 = ctx.currentTime;
+				const f = fade / 1000;
+				const dur = clip.durationMs / 1000;
+				const g = gain.gain;
+				g.setValueAtTime(0, t0);
+				g.linearRampToValueAtTime(1, t0 + f);
+				g.setValueAtTime(1, t0 + (dur - f)); // hold at full until the tail (dur - f >= f, since fade ≤ dur/2)
+				g.linearRampToValueAtTime(0, t0 + dur);
+				src.connect(gain);
+				gain.connect(ctx.destination);
+			} else {
+				src.connect(ctx.destination);
+			}
 			src.onended = () => finish({ ok: true });
 			currentSource = src;
 			src.start(0);
