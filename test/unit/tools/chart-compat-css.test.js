@@ -157,6 +157,30 @@ describe('chart-compat-css generator', () => {
     assert.match(chartCompatCssForTheme('indaco-dark', BASE), /section\.chart-frame\.light\b/);
   });
 
+  test('a same-element multi-arm `:is(.a, .b, .c)` variant is NOT split in the override branch (regression)', () => {
+    // statute-stack's per-tier pill setter is scoped to
+    // `section.statute-stack:is(.hierarchy, .bands, .preemption) > … > code…`.
+    // The override branch used to comma-split that selector NAIVELY — shattering
+    // the `:is()` arm into `section.statute-stack:is(.hierarchy.dark`,
+    // `section.dark .bands`, `section.dark .preemption` — so a `.bands`/`.preemption`
+    // slide that flips scheme kept the WRONG scheme's pill colour (the class is ON
+    // the section, so the descendant `section.dark .bands` never matches). The split
+    // is now paren-aware (splitTopLevelCommas / firstCombinatorIndex).
+    for (const theme of ['indaco', 'indaco-dark']) {
+      const css = chartCompatCssForTheme(theme, BASE);
+      // The modifier merges onto the section's OWN compound, `:is()` arms intact.
+      assert.match(css, /section\.statute-stack:is\(\.hierarchy, ?\.bands, ?\.preemption\)\.(dark|light)\b/,
+        `${theme}: statute-stack :is() variant lost its modifier merge`);
+      // And NO arm degraded to a never-matching `section.<mod> .bands`/`.preemption`.
+      assert.doesNotMatch(css, /section\.(dark|light) \.(bands|preemption)\b/,
+        `${theme}: a same-element :is() arm was mangled into a descendant selector`);
+      // The mid-selector `:is(ul, ol)` element arm must also stay intact (not become
+      // `:is(ul, section.<mod> ol)`).
+      assert.doesNotMatch(css, /:is\(ul, ?section\.(dark|light) ol\)/,
+        `${theme}: the :is(ul, ol) list arm was mangled in the override`);
+    }
+  });
+
   test('a `:is(section.X, figure.X)`-broadened component emits NO bare `:is` arm (regression)', () => {
     // Chart component CSS broadens `section.<comp>` → `:is(section.<comp>, figure.<comp>)` so the
     // layout also paints in the Read·Article <figure> re-host. The generator's selector splitting

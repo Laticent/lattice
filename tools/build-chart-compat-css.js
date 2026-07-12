@@ -193,6 +193,41 @@ function variantSuffix(compound) {
   return parts.join('');
 }
 
+/** Split a selector LIST on its TOP-LEVEL commas only. A comma inside `:is(…)` /
+ *  `:where(…)` / `[…]` is part of ONE compound, not a list separator — the naive
+ *  `.split(',')` shattered a same-element `:is(.a, .b, .c)` arm (statute-stack's
+ *  `.hierarchy/.bands/.preemption` variant) into never-matching descendant
+ *  fragments in the per-slide override branch. */
+function splitTopLevelCommas(sel) {
+  const out = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < sel.length; i++) {
+    const ch = sel[i];
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    else if (ch === ',' && depth === 0) { out.push(sel.slice(start, i)); start = i + 1; }
+  }
+  out.push(sel.slice(start));
+  return out;
+}
+
+/** Index of the first TOP-LEVEL combinator (descendant space / `>` / `+` / `~`) —
+ *  one NOT inside `:is(…)` / `[…]`, so a leading `:is(.a, .b)` compound's internal
+ *  space (or an `:nth-child(8n+1)` `+`) is never mistaken for a combinator when the
+ *  override branch merges the modifier class onto the section's first compound.
+ *  Returns sel.length if the selector is a single compound. */
+function firstCombinatorIndex(sel) {
+  let depth = 0;
+  for (let i = 0; i < sel.length; i++) {
+    const ch = sel[i];
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    else if (depth === 0 && (ch === ' ' || ch === '>' || ch === '+' || ch === '~')) return i;
+  }
+  return sel.length;
+}
+
 /**
  * Parse the scanned CSS once:
  *   customProps — [{ selector, name, value, variant }]  every --x declaration
@@ -452,8 +487,7 @@ function serialize(rules, declaredDark) {
     const t = s.trim();
     if (t === ':root') return overrideMod;
     if (/^section(?![\w-])/.test(t)) {
-      const comb = t.match(/[ >+~]/);
-      const cut = comb ? comb.index : t.length;
+      const cut = firstCombinatorIndex(t);
       return t.slice(0, cut) + overrideClass + t.slice(cut);
     }
     return `${overrideMod} ${t}`;
@@ -464,7 +498,7 @@ function serialize(rules, declaredDark) {
   if (override.size) {
     const scoped = new Map(
       [...override.entries()].map(([sel, decls]) => [
-        sel.split(',').map(scopeOne).join(', '),
+        splitTopLevelCommas(sel).map(scopeOne).join(', '),
         decls,
       ]),
     );
