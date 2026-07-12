@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, FastForward, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang } from '@/lib/resolve-captions';
@@ -50,6 +50,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const [autoplay, setAutoplay] = React.useState(false); // chain read-aloud across slides
 	const [rehearse, setRehearse] = React.useState(false); // Practice mode — folded into Present (plan §line 266)
 	const [elapsed, setElapsed] = React.useState(0); // rehearsal seconds
+	const [captionsOn, setCaptionsOn] = React.useState(true); // CC — show/hide the caption crawl (independent of voice)
+	const [muted, setMuted] = React.useState(true); // Voice — muted by default (boardroom-safe); captions still run on the silent cadence
 
 	const set = React.useMemo(() => presentationSet(slides, lens), [slides, lens]);
 	// Deck sections (from section/divider slides) — the grouping the single progress rail uses.
@@ -198,6 +200,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		{
 			acronyms,
 			lang,
+			muted,
 			onFinish: () => {
 				if (!autoplayRef.current) return;
 				if (clampedRef.current < countRef.current - 1) {
@@ -256,7 +259,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// there), just a case where the design's "whole slide's playback
 	// duration" head-start assumption doesn't hold. Not fixed here.
 	React.useEffect(() => {
-		if (!autoplay) return;
+		if (!autoplay || muted) return; // never synth (bill) TTS the user won't hear while Voice is muted
 		const next = set[clamped + 1];
 		if (next === undefined) return;
 		// Stop this warm from firing any FURTHER requests once it's superseded —
@@ -268,15 +271,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		const ctl = new AbortController();
 		warmNarration(narrationAt(clamped + 1), ctl.signal, acronyms, lang);
 		return () => ctl.abort();
-	}, [autoplay, clamped, set, narrationAt, acronyms, lang]);
-	// Toggle autoplay: turning it on starts reading the deck now; off stops.
-	const toggleAutoplay = React.useCallback(() => {
-		setAutoplay((on) => {
-			const next = !on;
-			if (next) readerRef.current.play();
-			else readerRef.current.stop();
-			return next;
-		});
+	}, [autoplay, muted, clamped, set, narrationAt, acronyms, lang]);
+	// The ONE Play (present redesign S3): Play narrates the current slide AND advances (like a
+	// video) — it enables autoplay-chaining and plays; Pause pauses (autoplay stays on, so resume
+	// keeps chaining; the deck's natural end turns autoplay off via onFinish). No separate "Auto".
+	const togglePresentation = React.useCallback(() => {
+		if (readerRef.current.playing) {
+			readerRef.current.pause();
+			setAutoplay(false); // pausing stops the chain; resume re-enables it. Prevents the empty-slide
+			// auto-skip from resurrecting playback when you navigate onto a section/divider after Pause.
+		} else {
+			setAutoplay(true);
+			readerRef.current.play();
+		}
 	}, []);
 	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
 
@@ -407,7 +414,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				{/* Read-aloud caption — a teleprompter CRAWL (the active line stays centered,
 				    read lines lift out, upcoming lines rise), NOT the old full-narration box that
 				    buried the slide. */}
-				{!rehearse && reader.playing && reader.track.cues.length > 0 && (
+				{!rehearse && captionsOn && reader.playing && reader.track.cues.length > 0 && (
 					<div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-4">
 						<PresentCaption track={reader.track} active={reader.active} />
 					</div>
@@ -423,7 +430,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-[var(--text-heading)]">{clamped + 1} / {count}</span>
 				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
 				<span className="h-5 w-px shrink-0 bg-border" />
-				<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : reader.toggle())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause read-aloud' : 'Play read-aloud'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
+				<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : togglePresentation())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause' : 'Play the presentation'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
 				{/* The ONE progress element — a segmented, section-grouped rail (replaces the old
 				    slide-bar + read-aloud cue counter dual-counter). */}
 				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} onJump={(i) => setIdx(i)} />
@@ -432,11 +439,11 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 					<span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold', behind ? 'border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_45%,transparent)] text-[var(--chart-2,#9c3f00)]' : 'border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] text-[var(--chart-3,#2e6f00)]')}><Timer className="size-3.5" />{behind ? 'Behind pace' : 'On pace'}</span>
 				) : (
 					<>
-						{/* Autoplay stays inline as an icon on phones (no ⋯) — the "Auto" word
-						    shows at ≥ sm. The voice/caption status is non-essential, so it's the
-						    one thing hidden below sm. */}
-						<button type="button" onClick={toggleAutoplay} aria-pressed={autoplay} aria-label="Autoplay" title="Autoplay — read every slide, advancing on its own" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[12px] font-semibold sm:px-2.5', autoplay ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><FastForward className="size-3.5 shrink-0" /><span className="hidden sm:inline">Auto</span></button>
-						<span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] sm:inline-flex"><Volume2 className="size-3.5" />{rungLabel}</span>
+						{/* CC (captions) and Voice are INDEPENDENT toggles (present redesign S3): CC
+						    shows/hides the crawl; Voice speaks it aloud. Captions run without voice, on
+						    the silent cadence. Voice's status label is non-essential, so it hides below sm. */}
+						<button type="button" onClick={() => setCaptionsOn((v) => !v)} aria-pressed={captionsOn} aria-label="Captions" title="Captions — show the narration as text" className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[12px] font-extrabold tracking-wide', captionsOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}>CC</button>
+						<button type="button" onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} title="Voice — speak the narration aloud" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[12px] font-semibold sm:px-2.5', muted ? 'border-border text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button>
 					</>
 				)}
 			</div>

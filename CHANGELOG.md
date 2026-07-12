@@ -271,6 +271,12 @@ in patch versions.
   baked to the slide's pixel measurements at export and can't be re-aligned without a runtime
   re-measure in the article box; journey's affect-contour fill is height-relative and doesn't
   translate to an article box without ballooning — both tracked follow-ups.)*
+- **Present mode now has one Play and independent Captions / Voice.** Play narrates the
+  current slide and advances through the deck like a video — the separate "Autoplay" toggle
+  is gone (it was the same action). Captions (**CC**) and **Voice** are now two independent
+  toggles: show the captions with no voice (they run on a reading-cadence clock) or speak them
+  aloud. Voice defaults to muted, so Present never talks over you unasked. (Studio Present
+  redesign — S3.)
 
 - **The exported `.html` player's Read·Article view is now responsive — charts break out of
   the reading column and use the screen.** The article was a fixed ~740px column, so on a wide

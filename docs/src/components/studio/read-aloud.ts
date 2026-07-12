@@ -173,7 +173,7 @@ export function warmNarration(text: string, signal?: AbortSignal, acronyms?: Rea
  */
 export function useReadAloud(
 	text: string,
-	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string>; lang?: string },
+	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string>; lang?: string; muted?: boolean },
 ): ReadAloudState {
 	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
 	// "$4.2M" is said "four point two million dollars"), while the cursor highlights the
@@ -182,6 +182,10 @@ export function useReadAloud(
 	// deck's `lang` gates the English say-as so a non-English deck isn't anglicized (#919).
 	const acronyms = opts?.acronyms;
 	const lang = opts?.lang;
+	// Voice muted — captions still run (the silent cadence estimate), no TTS is attached. Read via
+	// a ref so play() sees the current value without re-creating the reader (present redesign S3).
+	const mutedRef = React.useRef(false);
+	mutedRef.current = !!opts?.muted;
 	const track = React.useMemo(() => buildTrack(text, { acronyms, lang }), [text, acronyms, lang]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
@@ -395,6 +399,15 @@ export function useReadAloud(
 				if (!pausedRef.current) startLoop();
 				return;
 			}
+			// Voice MUTED — run the silent cadence estimate (captions) and attach NO TTS. Same
+			// "always runs" path as a failed voice load, but chosen deliberately by the user. The
+			// captions/teleprompter still animate word-by-word off Cadenza's built-in timings.
+			if (mutedRef.current) {
+				setRung('silent');
+				armedRef.current = true;
+				if (!pausedRef.current) startLoop();
+				return;
+			}
 			voiceRef.current = voice;
 			let r: string;
 			try {
@@ -472,6 +485,24 @@ export function useReadAloud(
 		if (playingRef.current) pause();
 		else play();
 	}, [pause, play]);
+
+	// React to a mid-playback Voice MUTE (present redesign S3): `muted` is otherwise only sampled at
+	// play() start, so muting mid-speech would leave the deck talking to the end of the slide. Stop the
+	// in-flight TTS and fall the loop back to the silent cadence (mirrors the synth-failed fallback);
+	// the captions keep animating. Unmuting mid-slide takes effect on the NEXT slide (deliberate — a
+	// mid-slide voice restart would snap the highlight back to word 0).
+	const mutedProp = !!opts?.muted;
+	React.useEffect(() => {
+		if (mutedProp && playingRef.current && modeRef.current === 'audio') {
+			try {
+				voiceRef.current?.stop();
+			} catch {
+				/* best-effort */
+			}
+			modeRef.current = 'silent';
+			lastTRef.current = nowMs();
+		}
+	}, [mutedProp]);
 
 	return { playing, track, active, progress, rung, play, pause, toggle, stop };
 }
