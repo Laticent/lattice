@@ -463,6 +463,68 @@
   --code-inline-border: color-mix(in srgb, currentColor 22%, transparent);
 
 
+  /* ── Print band — universal ink-on-white defaults ─────────────────────────
+   * The THIRD canvas axis (paper). light-dark() has only two slots, so print
+   * can't ride a color-scheme flip like .dark/.light; instead section.print
+   * (base.modifiers.css) REMAPS the main tokens to this --print-* band, stamped
+   * deck-wide by `class: print` / `color-mode: print` / the engine `--print`
+   * flag — NOT @media print, so the colour PDF export is untouched.
+   *
+   * These are brand-neutral (ink on white), so — like the universal --pass/
+   * --warn/--fail trio above — they live here as the default EVERY theme
+   * inherits; a theme overrides a specific --print-* token only if it wants a
+   * distinct paper treatment. B&W-safe by construction: every text token clears
+   * WCAG AA against white (gated, test/unit/palette/contrast.test.js), and
+   * category distinction rides on stepped lightness + borders (+ SVG patterns
+   * for chart/diagram series, added by the renderers), never hue.
+   * See engineering/decisions/2026-06-14-deck-print-styling.md. */
+  --print-bg:              #FFFFFF;
+  --print-bg-alt:          #F5F5F5;
+  --print-surface-inverse: #ECECEC;  /* bookend panels → light framed, not a toner-heavy flood */
+  --print-border:          #7A7A7A;  /* promoted to a real ink rule so adjacent fills separate */
+
+  --print-text-display:    #111111;  /* on the (now light) bookend panels */
+  --print-text-heading:    #000000;
+  --print-text-body:       #1A1A1A;
+  --print-text-label:      #2E2E2E;
+  --print-text-secondary:  #3D3D3D;
+  --print-text-muted:      #6E6E6E;
+
+  --print-accent:          #1A1A1A;  /* accent is text-bearing → ink, not hue */
+  --print-accent-soft:     #ECECEC;
+  --print-on-accent:       #FFFFFF;
+
+  /* Status keeps its glyph/label; lightness + border carry it in gray. */
+  --print-pass:            #2E2E2E;
+  --print-warn:            #555555;
+  --print-fail:            #111111;
+
+  /* Categorical fills → stepped grays; the border + (for series) pattern fills
+   * do the work past ~5 categories. */
+  --print-cat-1-fill:  #EDEDED; --print-cat-2-fill:  #DADADA; --print-cat-3-fill:  #C7C7C7;
+  --print-cat-4-fill:  #E3E3E3; --print-cat-5-fill:  #D0D0D0; --print-cat-6-fill:  #BDBDBD;
+  --print-cat-7-fill:  #E8E8E8; --print-cat-8-fill:  #D5D5D5; --print-cat-9-fill:  #C2C2C2;
+  --print-cat-10-fill: #DEDEDE; --print-cat-11-fill: #CBCBCB; --print-cat-12-fill: #B8B8B8;
+  --print-cat-on-fill: #1A1A1A;
+
+  /* Categorical marks (bars/strokes carry white ink) → dark grays, all capped
+   * dark enough that --print-cat-on-mark (#FFF) clears AA on every step. */
+  --print-cat-1-mark:  #333333; --print-cat-2-mark:  #383838; --print-cat-3-mark:  #3D3D3D;
+  --print-cat-4-mark:  #424242; --print-cat-5-mark:  #474747; --print-cat-6-mark:  #4C4C4C;
+  --print-cat-7-mark:  #515151; --print-cat-8-mark:  #565656; --print-cat-9-mark:  #5B5B5B;
+  --print-cat-10-mark: #606060; --print-cat-11-mark: #656565; --print-cat-12-mark: #6A6A6A;
+  --print-cat-on-mark: #FFFFFF;
+
+  /* Diagram */
+  --print-diagram-stroke:        #333333;
+  --print-diagram-line:          #1A1A1A;
+  --print-diagram-active:        #E3E3E3; --print-diagram-active-mark:   #3A3A3A;
+  --print-diagram-done:          #EDEDED; --print-diagram-done-mark:     #5A5A5A;
+  --print-diagram-critical:      #BDBDBD; --print-diagram-critical-mark: #111111;
+  --print-diagram-today:         #6E6E6E;
+  --print-diagram-note:          #F5F5F5;
+
+
   /* ── Sequential ramp (--seq-50 … --seq-900) ────────────────────────────
    * Tailwind/Carbon-style 10-stop ramp anchored on --seq-500. Used for
    * sequential / quantitative encoding: heatmap intensity, progress
@@ -13619,6 +13681,68 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
 section.dark {
   color-scheme: dark;
   background: var(--spectrum) top / 100% 1px no-repeat, var(--bg);
+  border-top: none;
+}
+
+
+/* ── PRINT BAND ──
+ * A third canvas axis for paper: ink-on-white, B&W-safe. Unlike .dark/.light
+ * (pure color-scheme flips that ride the theme's light-dark() pairs), print is
+ * a THIRD mode light-dark() can't reach, so this rule REMAPS every consumed main
+ * token to the --print-* band (universal defaults in base.tokens.css; a theme may
+ * override any). Stamped deck-wide by `class: print` / `color-mode: print` / the
+ * engine `--print` flag — never @media print, so the colour PDF export is left
+ * alone. Layouts are palette-blind, so they inherit the band for free.
+ * See engineering/decisions/2026-06-14-deck-print-styling.md. */
+section.print {
+  color-scheme: light;              /* pin so any light-dark() input resolves predictably */
+  --bg: var(--print-bg);
+  --bg-alt: var(--print-bg-alt);
+  --surface-inverse: var(--print-surface-inverse);
+  --border: var(--print-border);
+  --text-display: var(--print-text-display);
+  --text-heading: var(--print-text-heading);
+  --text-body: var(--print-text-body);
+  --text-label: var(--print-text-label);
+  --text-secondary: var(--print-text-secondary);
+  --text-muted: var(--print-text-muted);
+  --accent: var(--print-accent);
+  --accent-soft: var(--print-accent-soft);
+  --on-accent: var(--print-on-accent);
+  /* Bookends (title/divider/closing) flip from dark flood to light framed panel,
+   * so their white-based on-dark ink tier must invert to dark ink too. */
+  --on-dark-primary: var(--print-text-heading);
+  --on-dark-secondary: var(--print-text-secondary);
+  --on-dark-ghost: var(--print-text-muted);
+  --on-dark-watermark: color-mix(in srgb, black 10%, transparent);
+  --pass: var(--print-pass);
+  --warn: var(--print-warn);
+  --fail: var(--print-fail);
+  --cat-1-fill: var(--print-cat-1-fill);   --cat-2-fill: var(--print-cat-2-fill);
+  --cat-3-fill: var(--print-cat-3-fill);   --cat-4-fill: var(--print-cat-4-fill);
+  --cat-5-fill: var(--print-cat-5-fill);   --cat-6-fill: var(--print-cat-6-fill);
+  --cat-7-fill: var(--print-cat-7-fill);   --cat-8-fill: var(--print-cat-8-fill);
+  --cat-9-fill: var(--print-cat-9-fill);   --cat-10-fill: var(--print-cat-10-fill);
+  --cat-11-fill: var(--print-cat-11-fill); --cat-12-fill: var(--print-cat-12-fill);
+  --cat-on-fill: var(--print-cat-on-fill);
+  --cat-1-mark: var(--print-cat-1-mark);   --cat-2-mark: var(--print-cat-2-mark);
+  --cat-3-mark: var(--print-cat-3-mark);   --cat-4-mark: var(--print-cat-4-mark);
+  --cat-5-mark: var(--print-cat-5-mark);   --cat-6-mark: var(--print-cat-6-mark);
+  --cat-7-mark: var(--print-cat-7-mark);   --cat-8-mark: var(--print-cat-8-mark);
+  --cat-9-mark: var(--print-cat-9-mark);   --cat-10-mark: var(--print-cat-10-mark);
+  --cat-11-mark: var(--print-cat-11-mark); --cat-12-mark: var(--print-cat-12-mark);
+  --cat-on-mark: var(--print-cat-on-mark);
+  --diagram-stroke: var(--print-diagram-stroke);
+  --diagram-line: var(--print-diagram-line);
+  --diagram-active: var(--print-diagram-active);
+  --diagram-active-mark: var(--print-diagram-active-mark);
+  --diagram-done: var(--print-diagram-done);
+  --diagram-done-mark: var(--print-diagram-done-mark);
+  --diagram-critical: var(--print-diagram-critical);
+  --diagram-critical-mark: var(--print-diagram-critical-mark);
+  --diagram-today: var(--print-diagram-today);
+  --diagram-note: var(--print-diagram-note);
+  background: var(--bg);            /* paper white; no spectrum ribbon (saves toner, drops hue) */
   border-top: none;
 }
 

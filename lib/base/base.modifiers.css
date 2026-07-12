@@ -365,6 +365,68 @@ section.dark {
 }
 
 
+/* ── PRINT BAND ──
+ * A third canvas axis for paper: ink-on-white, B&W-safe. Unlike .dark/.light
+ * (pure color-scheme flips that ride the theme's light-dark() pairs), print is
+ * a THIRD mode light-dark() can't reach, so this rule REMAPS every consumed main
+ * token to the --print-* band (universal defaults in base.tokens.css; a theme may
+ * override any). Stamped deck-wide by `class: print` / `color-mode: print` / the
+ * engine `--print` flag — never @media print, so the colour PDF export is left
+ * alone. Layouts are palette-blind, so they inherit the band for free.
+ * See engineering/decisions/2026-06-14-deck-print-styling.md. */
+section.print {
+  color-scheme: light;              /* pin so any light-dark() input resolves predictably */
+  --bg: var(--print-bg);
+  --bg-alt: var(--print-bg-alt);
+  --surface-inverse: var(--print-surface-inverse);
+  --border: var(--print-border);
+  --text-display: var(--print-text-display);
+  --text-heading: var(--print-text-heading);
+  --text-body: var(--print-text-body);
+  --text-label: var(--print-text-label);
+  --text-secondary: var(--print-text-secondary);
+  --text-muted: var(--print-text-muted);
+  --accent: var(--print-accent);
+  --accent-soft: var(--print-accent-soft);
+  --on-accent: var(--print-on-accent);
+  /* Bookends (title/divider/closing) flip from dark flood to light framed panel,
+   * so their white-based on-dark ink tier must invert to dark ink too. */
+  --on-dark-primary: var(--print-text-heading);
+  --on-dark-secondary: var(--print-text-secondary);
+  --on-dark-ghost: var(--print-text-muted);
+  --on-dark-watermark: color-mix(in srgb, black 10%, transparent);
+  --pass: var(--print-pass);
+  --warn: var(--print-warn);
+  --fail: var(--print-fail);
+  --cat-1-fill: var(--print-cat-1-fill);   --cat-2-fill: var(--print-cat-2-fill);
+  --cat-3-fill: var(--print-cat-3-fill);   --cat-4-fill: var(--print-cat-4-fill);
+  --cat-5-fill: var(--print-cat-5-fill);   --cat-6-fill: var(--print-cat-6-fill);
+  --cat-7-fill: var(--print-cat-7-fill);   --cat-8-fill: var(--print-cat-8-fill);
+  --cat-9-fill: var(--print-cat-9-fill);   --cat-10-fill: var(--print-cat-10-fill);
+  --cat-11-fill: var(--print-cat-11-fill); --cat-12-fill: var(--print-cat-12-fill);
+  --cat-on-fill: var(--print-cat-on-fill);
+  --cat-1-mark: var(--print-cat-1-mark);   --cat-2-mark: var(--print-cat-2-mark);
+  --cat-3-mark: var(--print-cat-3-mark);   --cat-4-mark: var(--print-cat-4-mark);
+  --cat-5-mark: var(--print-cat-5-mark);   --cat-6-mark: var(--print-cat-6-mark);
+  --cat-7-mark: var(--print-cat-7-mark);   --cat-8-mark: var(--print-cat-8-mark);
+  --cat-9-mark: var(--print-cat-9-mark);   --cat-10-mark: var(--print-cat-10-mark);
+  --cat-11-mark: var(--print-cat-11-mark); --cat-12-mark: var(--print-cat-12-mark);
+  --cat-on-mark: var(--print-cat-on-mark);
+  --diagram-stroke: var(--print-diagram-stroke);
+  --diagram-line: var(--print-diagram-line);
+  --diagram-active: var(--print-diagram-active);
+  --diagram-active-mark: var(--print-diagram-active-mark);
+  --diagram-done: var(--print-diagram-done);
+  --diagram-done-mark: var(--print-diagram-done-mark);
+  --diagram-critical: var(--print-diagram-critical);
+  --diagram-critical-mark: var(--print-diagram-critical-mark);
+  --diagram-today: var(--print-diagram-today);
+  --diagram-note: var(--print-diagram-note);
+  background: var(--bg);            /* paper white; no spectrum ribbon (saves toner, drops hue) */
+  border-top: none;
+}
+
+
 /* ── LIGHT VARIANT ──
  * The mirror of `.dark`: a per-slide LIGHT canvas. Forces this section's
  * color-scheme to light, so the palette's light-dark() surface tokens resolve to
