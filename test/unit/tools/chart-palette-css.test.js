@@ -84,6 +84,22 @@ describe('chart-palette-css compiler', () => {
     assert.doesNotMatch(css, /:not\(\[data-lp-scheme/, 'must not use the loose :not([=light]) form');
   });
 
+  test('RESTORE-BASE arm — a per-slide base-scheme class wins over an opposite deck pin (red-team P1)', () => {
+    // A `_class: light` slide on a `color-mode: dark` deck (light theme) must paint LIGHT, even though
+    // the deck-wide `[data-lp-scheme=dark] section/.chart-frame` override (0,1,1) beats the base plane
+    // (0,0,1). The restore arm re-emits the BASE tokens on `[data-lp-scheme=dark] .chart-frame.light`
+    // at (0,2,1). Without it, the light slide silently rendered dark on modern AND old engines.
+    const css = chartPaletteCssForTheme('indaco', BASE);
+    assert.match(css, /\[data-lp-scheme=dark\]\s+\.chart-frame\.light\b/, 'chart-group restore-base arm (deck pin)');
+    assert.match(css, /\[data-lp-scheme=dark\]\s+section\.light\b/, 'diagram-group restore-base arm (deck pin)');
+    // The restore arm carries the LIGHT (base) --chart-cat-base, not black — a light theme's base is --bg.
+    const m = css.match(/\[data-lp-scheme=dark\]\s+\.chart-frame\.light[^{]*\{[^}]*--chart-cat-base:\s*([^;}]+)/);
+    assert.ok(m && m[1].trim().toLowerCase() !== 'black', `restore arm must carry the LIGHT base, got ${m?.[1]}`);
+    // A *-dark theme's restore arm is the mirror: base-DARK on `[data-lp-scheme=light] .chart-frame.dark`.
+    const darkCss = chartPaletteCssForTheme('indaco-dark', BASE);
+    assert.match(darkCss, /\[data-lp-scheme=light\]\s+\.chart-frame\.dark\b/, 'dark theme mirror restore arm');
+  });
+
   test('a *-dark theme defaults to its DARK literals with a LIGHT override (regression: F1)', () => {
     const css = chartPaletteCssForTheme('indaco-dark', BASE);
     // --chart-cat-base flips --bg (light) → black (dark); a dark theme's DEFAULT is black.

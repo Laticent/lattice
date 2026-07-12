@@ -1699,6 +1699,14 @@ const CHART_PAINT_DIRS = [
   path.join(LIB_DIR, 'integrations', 'mermaid'),
 ];
 
+// Modern colour FUNCTIONS an old engine (Safari < 16.2 / old smart-TV Chromium) drops. NOT just
+// color-mix()/light-dark(): the same black-out hits the CSS Color 4 functions (oklch/oklab/lab/lch/
+// hwb/color()) and RELATIVE colour (`rgb(from …)` / `hsl(from …)`, Safari 16.4). A denylist of colour
+// functions (rather than an allowlist of every CSS function) is right for the PAINT scan — a paint
+// legitimately uses var()/calc()/gradient()/url(), so an allowlist would false-positive on
+// transform/filter/clip-path. `in oklab,` (a color-mix SPACE) is not matched — only `oklab(` is.
+const MODERN_COLOR_FN = /\b(?:color-mix|light-dark|oklch|oklab|lab|lch|hwb|color)\(|\b(?:rgba?|hsla?)\(\s*from\b/i;
+
 // Remove each `>>> chart-palette-recipe … <<< chart-palette-recipe` region — the whole enclosing
 // comment span (the sentinels live inside `/* … */`), so the recipe's build-time color-mix SOURCE
 // is not mistaken for a shipped paint.
@@ -1726,13 +1734,16 @@ function checkChartPaintFlatness(errors) {
     for (const file of listCssFiles(dir)) {
       const rel = path.relative(ROOT, file);
       const css = stripComments(stripRecipeRegions(fs.readFileSync(file, 'utf8')));
-      for (const m of css.matchAll(/([a-zA-Z-]+)\s*:\s*([^;{}]*(?:color-mix|light-dark)\([^;{}]*)/g)) {
-        errors.push(
-          `chart paint flatness: ${rel} — \`${m[1]}: ${m[2].trim().slice(0, 70)}\` ships ` +
-          `color-mix()/light-dark() outside a \`>>> chart-palette-recipe >>>\` region. Old WebKit ` +
-          `drops it (→ black). Move the formula into the component's recipe region so it compiles to ` +
-          `a flat token, and read it via plain var(). See 2026-07-12-chart-color-static-palette.md.`,
-        );
+      for (const m of css.matchAll(/(--?[a-zA-Z-]+)\s*:\s*([^;{}]*)/g)) {
+        if (MODERN_COLOR_FN.test(m[2])) {
+          errors.push(
+            `chart paint flatness: ${rel} — \`${m[1]}: ${m[2].trim().slice(0, 70)}\` ships a modern ` +
+            `colour function outside a \`>>> chart-palette-recipe >>>\` region (color-mix/light-dark/` +
+            `oklch/lab/relative-colour — all dropped by old WebKit → black). Move the formula into the ` +
+            `component's recipe region so it compiles to a flat token, read via plain var(). ` +
+            `See 2026-07-12-chart-color-static-palette.md.`,
+          );
+        }
       }
     }
   }
@@ -1743,20 +1754,32 @@ function checkChartPaintFlatness(errors) {
     for (const file of listSourceFiles(dir)) {
       if (!file.endsWith('.js')) continue;
       const rel = path.relative(ROOT, file);
-      const js = stripComments(fs.readFileSync(file, 'utf8'));
-      for (const m of js.matchAll(/style=(["'`])([^"'`]*(?:color-mix|light-dark)\([^"'`]*)\1/g)) {
-        errors.push(
-          `chart paint flatness: ${rel} — inline \`style="${m[2].slice(0, 60)}"\` emits ` +
-          `color-mix()/light-dark() in an SVG paint (breaks old WebKit → black). Read a compiled ` +
-          `--chart-cat-N-* / component recipe token via plain var() instead.`,
-        );
+      // Strip BOTH block and line comments before scanning — a `//` comment that describes the
+      // anti-pattern (e.g. mentions `stroke="var()"`) must not be read as a real paint. The `[^:]`
+      // guard leaves `http://` in a string intact.
+      const js = stripComments(fs.readFileSync(file, 'utf8')).replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+      for (const m of js.matchAll(/style=(["'`])([^"'`]*)\1/g)) {
+        if (MODERN_COLOR_FN.test(m[2])) {
+          errors.push(
+            `chart paint flatness: ${rel} — inline \`style="${m[2].slice(0, 60)}"\` emits a modern ` +
+            `colour function in an SVG paint (breaks old WebKit → black). Read a compiled ` +
+            `--chart-cat-N-* / component recipe token via plain var() instead.`,
+          );
+        }
       }
-      for (const m of js.matchAll(/\b(fill|stroke|stop-color)=(["'`])((?:var\(|[^"'`]*(?:color-mix|light-dark)\()[^"'`]*)\2/g)) {
-        errors.push(
-          `chart paint flatness: ${rel} — \`${m[1]}="${m[3].slice(0, 50)}"\` puts var()/color-mix() ` +
-          `in a PRESENTATION ATTRIBUTE (flaky on old WebKit → black). Move it to a CSS rule ` +
-          `(\`${m[1]}: var(--token)\` keyed on a class) — CSS var() is old-safe.`,
-        );
+      // A `var()` OR a modern colour function in a `fill=`/`stroke=`/`stop-color=` presentation
+      // ATTRIBUTE (flaky on old WebKit → black). NB this is a source-literal scan: a value routed
+      // through a JS `${…}` template variable is invisible here — the discipline is to never build a
+      // presentation-attr paint from a dynamic value (route it through a class + CSS instead), which
+      // keeps this scan sufficient. See engineering/decisions/2026-07-12-chart-color-static-palette.md.
+      for (const m of js.matchAll(/\b(fill|stroke|stop-color)=(["'`])([^"'`]*)\2/g)) {
+        if (/\bvar\(/.test(m[3]) || MODERN_COLOR_FN.test(m[3])) {
+          errors.push(
+            `chart paint flatness: ${rel} — \`${m[1]}="${m[3].slice(0, 50)}"\` puts var()/a modern colour ` +
+            `function in a PRESENTATION ATTRIBUTE (flaky on old WebKit → black). Move it to a CSS rule ` +
+            `(\`${m[1]}: var(--token)\` keyed on a class) — CSS var() is old-safe.`,
+          );
+        }
       }
     }
   }

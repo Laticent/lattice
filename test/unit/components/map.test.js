@@ -81,9 +81,11 @@ describe('map kernel', () => {
       const m = parseMap(ul([['California', '4'], ['Atlantis', '9']]));
       const html = buildMap(m, 'choropleth');
       assert.match(html, /data-unmatched="Atlantis"/);
-      // SVG-native key (2026-06-13-svg-native-legend.md): the unmatched row is a
-      // hollow swatch (fill:transparent) with a "?" value, inside the diagram <svg>.
-      assert.match(html, /class="chart-key-swatch"[^>]*fill="transparent"/);
+      // SVG-native key (2026-06-13-svg-native-legend.md): the unmatched row is a hollow "?" chip.
+      // Its swatch paints via `data-unmatched` + a CSS rule (fill:transparent; stroke:--text-muted),
+      // NEVER an inline `fill=`/`stroke=` presentation attr (flaky on old WebKit → black; D2).
+      assert.match(html, /class="chart-key-swatch" data-unmatched=""/);
+      assert.doesNotMatch(html, /class="chart-key-swatch"[^>]*\b(?:fill|stroke)=/, 'no inline swatch paint attr');
       assert.match(html, /class="chart-key-value"[^>]*>\?<\/text>/);
     });
 

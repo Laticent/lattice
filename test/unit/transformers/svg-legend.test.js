@@ -30,13 +30,18 @@ test('wrapLabelToLines: empty input yields a single empty line', () => {
 
 test('buildSvgLegend: returns geometry + a11y desc; emits swatch/label/value', () => {
   const key = buildSvgLegend({
-    rows: [{ swatchFill: 'red', swatchStroke: 'darkred', label: 'Alpha', value: '46%' }],
+    // Swatches paint via a data-* key (data-cat/-ramp/-muted/-unmatched) + a CSS rule, NEVER an
+    // inline fill=/stroke= presentation attr (var()/color-mix() there is flaky on old WebKit → black).
+    rows: [{ cat: 0, label: 'Alpha', value: '46%' }],
     diagramRight: 180, diagramHeight: 200, hasValues: true,
   });
   assert.ok(key.viewW > 180, 'viewW includes the rail past the diagram');
   assert.equal(key.viewH, 200, 'a one-row key fits the diagram height (no growth)');
   assert.equal(key.diagramDy, 0, 'no vertical offset when the key fits');
-  assert.match(key.body, /class="chart-key-swatch"[^>]*fill="red"[^>]*stroke="darkred"/);
+  assert.match(key.body, /class="chart-key-swatch" data-cat="0"/);
+  // The swatch rect carries stroke-WIDTH (a plain number) but NO fill=/stroke= colour attr.
+  assert.doesNotMatch(key.body, /class="chart-key-swatch"[^>]*\bfill=/, 'no inline fill= on the swatch');
+  assert.doesNotMatch(key.body, /class="chart-key-swatch"[^>]*\bstroke=/, 'no inline stroke= colour on the swatch');
   assert.match(key.body, /class="chart-key-label"[^>]*>.*Alpha/);
   assert.match(key.body, /class="chart-key-value"[^>]*text-anchor="end">46%</);
   // a11y: the row data is re-enumerated in a <desc> (it lives inside role="img").
@@ -120,10 +125,10 @@ test('buildSvgLegend: landscape output is FROZEN to a pre-§9 golden (byte-ident
   // doing its job. To re-bless: confirm the new geometry is correct by eye
   // (render the legend), then replace GOLDEN below with the new `got` string and
   // note the reason in the commit. Never re-capture blindly to silence a red run.
-  const GOLDEN = '{"viewW":377,"viewH":200,"diagramDx":0,"diagramDy":0,"fs":9,"defs":"<linearGradient id=\\"chart-spine-N\\" x1=\\"0\\" y1=\\"0\\" x2=\\"0\\" y2=\\"1\\"><stop offset=\\"0%\\" style=\\"stop-color:transparent\\"/><stop offset=\\"14%\\" style=\\"stop-color:var(--chart-spine-soft)\\"/><stop offset=\\"50%\\" style=\\"stop-color:var(--chart-spine-mid)\\"/><stop offset=\\"86%\\" style=\\"stop-color:var(--chart-spine-soft)\\"/><stop offset=\\"100%\\" style=\\"stop-color:transparent\\"/></linearGradient>","body":"<rect class=\\"chart-key-swatch\\" data-cat=\\"0\\" stroke-width=\\"0.84\\" x=\\"244.00\\" y=\\"83.62\\" width=\\"9.36\\" height=\\"9.36\\" rx=\\"2.06\\"/><text class=\\"chart-key-label\\" font-size=\\"9.00\\"><tspan x=\\"258.36\\" y=\\"91.36\\">Alpha</tspan></text><text class=\\"chart-key-value\\" font-size=\\"9.00\\" x=\\"368.16\\" y=\\"91.36\\" text-anchor=\\"end\\">60%</text><rect class=\\"chart-key-swatch\\" fill=\\"F2\\" x=\\"244.00\\" y=\\"99.46\\" width=\\"9.36\\" height=\\"9.36\\" rx=\\"2.06\\"/><text class=\\"chart-key-label\\" font-size=\\"9.00\\"><tspan x=\\"258.36\\" y=\\"107.20\\">Beta beta beta</tspan><tspan x=\\"258.36\\" y=\\"117.64\\">beta</tspan></text><text class=\\"chart-key-value\\" font-size=\\"9.00\\" x=\\"368.16\\" y=\\"107.20\\" text-anchor=\\"end\\">40%</text><rect x=\\"211.20\\" y=\\"22.00\\" width=\\"1.60\\" height=\\"156.00\\" rx=\\"0.80\\" fill=\\"url(#chart-spine-N)\\"/>","desc":"<desc>Key — Alpha 60%, Beta beta beta beta 40%</desc>"}';
+  const GOLDEN = '{"viewW":377,"viewH":200,"diagramDx":0,"diagramDy":0,"fs":9,"defs":"<linearGradient id=\\"chart-spine-N\\" x1=\\"0\\" y1=\\"0\\" x2=\\"0\\" y2=\\"1\\"><stop offset=\\"0%\\" style=\\"stop-color:transparent\\"/><stop offset=\\"14%\\" style=\\"stop-color:var(--chart-spine-soft)\\"/><stop offset=\\"50%\\" style=\\"stop-color:var(--chart-spine-mid)\\"/><stop offset=\\"86%\\" style=\\"stop-color:var(--chart-spine-soft)\\"/><stop offset=\\"100%\\" style=\\"stop-color:transparent\\"/></linearGradient>","body":"<rect class=\\"chart-key-swatch\\" data-cat=\\"0\\" stroke-width=\\"0.84\\" x=\\"244.00\\" y=\\"83.62\\" width=\\"9.36\\" height=\\"9.36\\" rx=\\"2.06\\"/><text class=\\"chart-key-label\\" font-size=\\"9.00\\"><tspan x=\\"258.36\\" y=\\"91.36\\">Alpha</tspan></text><text class=\\"chart-key-value\\" font-size=\\"9.00\\" x=\\"368.16\\" y=\\"91.36\\" text-anchor=\\"end\\">60%</text><rect class=\\"chart-key-swatch\\" data-unmatched=\\"\\" stroke-width=\\"0.84\\" x=\\"244.00\\" y=\\"99.46\\" width=\\"9.36\\" height=\\"9.36\\" rx=\\"2.06\\"/><text class=\\"chart-key-label\\" font-size=\\"9.00\\"><tspan x=\\"258.36\\" y=\\"107.20\\">Beta beta beta</tspan><tspan x=\\"258.36\\" y=\\"117.64\\">beta</tspan></text><text class=\\"chart-key-value\\" font-size=\\"9.00\\" x=\\"368.16\\" y=\\"107.20\\" text-anchor=\\"end\\">40%</text><rect x=\\"211.20\\" y=\\"22.00\\" width=\\"1.60\\" height=\\"156.00\\" rx=\\"0.80\\" fill=\\"url(#chart-spine-N)\\"/>","desc":"<desc>Key — Alpha 60%, Beta beta beta beta 40%</desc>"}';
   const key = buildSvgLegend({ rows: [
-    { swatchFill: 'F1', swatchStroke: 'S1', label: 'Alpha', value: '60%', cat: 0 },
-    { swatchFill: 'F2', label: 'Beta beta beta beta', value: '40%' },
+    { label: 'Alpha', value: '60%', cat: 0 },
+    { label: 'Beta beta beta beta', value: '40%', unmatched: true },
   ], diagramRight: 180, diagramHeight: 200, hasValues: true });
   const got = JSON.stringify({
     viewW: key.viewW, viewH: key.viewH, diagramDx: key.diagramDx, diagramDy: key.diagramDy,

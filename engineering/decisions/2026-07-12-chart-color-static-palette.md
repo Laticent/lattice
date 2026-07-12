@@ -161,8 +161,31 @@ exported HTML player, the docs-site engine, and dist all carry identical planes.
   `color-mix()` embedded after bare lengths inside a `light-dark()` arm (a per-scheme box-shadow), so a
   whole scheme-structural shadow compiles as one token. Remaining: collapse
   `:is(section.X, figure.X)` → `.chart-frame.X` (mermaid excepted, test-locked); extend the plane tests.
-- **Phase 4 — verification + sign-off.** Simulation harness (labeled UNVERIFIED); export-byte
-  sign-off (dark + light); full adversarial trio on the shipping diff.
+- **Phase 4 (in progress) — verification + sign-off.** Per-feature demo deck shipped
+  (`examples/chart-color-static-palette.md` + PDF). The **full adversarial trio ran on the shipping
+  diff** (red team + Munger inversion + independent checker) and surfaced four real items, all fixed:
+  - **P1 (red team, confirmed rendered regression).** A per-slide `_class` returning a slide to the
+    theme's DECLARED scheme, on a deck pinned to the OPPOSITE scheme (`indaco` + `color-mode: dark` +
+    `_class: … light`), rendered wrong-scheme — the deck-wide `[data-lp-scheme=dark] section` override
+    (0,1,1) beat the base plane (0,0,1) and nothing restored the base for the exempted slide. Fixed
+    with a **restore-base arm**: the base tokens re-emitted on `[data-lp-scheme=opp] <subject>.<base-class>`
+    at (0,2,1), plus the OS-`system` mirror. Verified both directions; locked by a test.
+  - **Invisible-rot seam (Munger inversion).** The compiler's flatten-guard and the gate keyed on a
+    2-function DENYLIST (`color-mix`/`light-dark`), so a future `oklch()`/`lab()`/relative-colour would
+    ship to old engines unthrown, ungated. Flipped both to an **old-safe ALLOWLIST** (`unflattened()` +
+    `MODERN_COLOR_FN`) — anything not provably old-safe now fails the build.
+  - **Wrong mix-space math (Munger inversion).** The offline resolver computed any non-`srgb` space as
+    `oklab`, so a future `color-mix(in oklch, …)` would ship a literal that diverges from the browser
+    (parity break on modern too). It now computes ONLY `oklab`/`srgb` and passes anything else through
+    verbatim → the compiler throws.
+  - **Gate blind spot (independent checker F1).** The map "unmatched" chip emitted `stroke="var()"`
+    through a `${…}` template variable, invisible to the source-literal gate — the one real
+    presentation-attr `var()` left. Routed through `data-unmatched` + a CSS rule (like the other
+    swatches); the three-pattern sweep is now genuinely zero. Discipline noted: never build a
+    presentation-attr paint from a dynamic value.
+
+  Remaining Phase-4 gates need the human: **export-byte sign-off** (the demo deck renders dark + light
+  for inspection) and **merge authorization**.
 
 ## Honest limits
 

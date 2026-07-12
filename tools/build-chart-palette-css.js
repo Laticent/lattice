@@ -61,8 +61,34 @@ const ROOT = path.resolve(__dirname, '..');
 const THEMES_DIR = path.join(ROOT, 'themes');
 const CHART_FAMILY = path.join(ROOT, 'lib', 'components', 'chart', '_chart-family', 'chart-family.css');
 
-/** Any modern colour function that breaks an old engine. */
+/** Any modern colour function that breaks an old engine. Used for the reference-driven
+ *  "does this token need flattening?" test — a token whose value transitively uses one of
+ *  these must be compiled. (The OUTPUT flatness check is an allowlist, `unflattened` below,
+ *  not this denylist — so a NEW modern colour function is caught even if it isn't listed here.) */
 const MODERN_FN = /\blight-dark\(|\bcolor-mix\(/;
+
+/** The functions an OLD engine (Safari < 16.2 / old smart-TV Chromium) parses. A compiled
+ *  plane value may contain ONLY these — everything else (color-mix/light-dark/oklch/lab/lch/
+ *  hwb/color()/relative-color rgb(from …), AND a surviving `var()` that means an undefined
+ *  token) is a black-out on old engines and fails the build. Allowlist, not denylist: a modern
+ *  colour function invented next year is rejected by default, closing the invisible-rot seam. */
+const OLD_SAFE_FNS = new Set([
+  'rgb', 'rgba', 'hsl', 'hsla',
+  'linear-gradient', 'radial-gradient', 'conic-gradient',
+  'repeating-linear-gradient', 'repeating-radial-gradient',
+  'calc', 'min', 'max', 'clamp',
+]);
+
+/** True if `v` (a compiled plane value) contains any function NOT on the old-safe allowlist —
+ *  i.e. it did not fully flatten to something an old engine can paint. `rgb(from …)` relative
+ *  colour is caught because the `from` keyword makes it un-flat here (we never emit it) — but
+ *  even a bare `oklch(`/`lab(`/`var(` trips it. */
+function unflattened(v) {
+  for (const m of String(v).matchAll(/([a-z][a-z0-9-]*)\(/gi)) {
+    if (!OLD_SAFE_FNS.has(m[1].toLowerCase())) return true;
+  }
+  return false;
+}
 
 /** The valid plane-group tags a `>>> chart-palette-recipe [group] >>>` region may carry.
  *  `chart` (default) paints on `.chart-frame`; `diagram` paints on `section, figure`. An
@@ -295,9 +321,8 @@ function resolveToken(name, value, vars, declaredDark) {
   // a `-fillgrad` linear-gradient() — which a whole-value var() hop would return verbatim.
   const light = resolveDeclarationValue(value, vars, false);
   const dark = resolveDeclarationValue(value, vars, true);
-  const bad = (v) => MODERN_FN.test(v) || /\bvar\(/.test(v);
-  if (bad(light) || bad(dark)) {
-    throw new Error(`build-chart-palette-css: --${name} did not fully flatten to a literal (light=${light} dark=${dark})`);
+  if (unflattened(light) || unflattened(dark)) {
+    throw new Error(`build-chart-palette-css: --${name} did not fully flatten to an OLD-SAFE literal (light=${light} dark=${dark}). Every function must be in the old-safe allowlist [${[...OLD_SAFE_FNS].join(', ')}] — a color-mix()/light-dark()/oklch()/lab()/relative-color, or a surviving var() (undefined token), blacks the mark out on an old engine. Compile the colour to a flat literal in the recipe.`);
   }
   const base = declaredDark ? dark : light;
   const override = declaredDark ? light : dark;
@@ -360,6 +385,20 @@ function serializeGroup(rules, declaredDark, baseSelector, subjects, isType) {
       ...subjects.map((s) => `.color-system ${sel(s)}`),
     ].join(', ');
     out += `@media (prefers-color-scheme:${scheme}) { ${osSel} { ${body} } }\n`;
+
+    // RESTORE-BASE arm. A per-slide class that returns a slide to the theme's DECLARED scheme
+    // (`.light` on a light theme, `.dark` on a dark theme) must win over a deck pinned to the
+    // OPPOSITE scheme. Without this, the override's `[data-lp-scheme=opp] <subject>` (0,1,1) beats
+    // the base plane's bare `<subject>` (0,0,1), so a `_class: light` slide on a `color-mode: dark`
+    // deck paints the DARK tokens (red-team P1). Re-emit the BASE tokens on the base-scheme class at
+    // (0,2,1): once for the `data-lp-scheme` deck pin (color-mode:/class:), once for the OS `system`
+    // receiver inside the opposite-scheme media block. (A per-slide OVERRIDE class already wins — it
+    // has the override arm above; only the base-class-under-opposite-pin case was unrestored.)
+    const baseClass = declaredDark ? 'dark' : 'light';
+    const restorePinned = subjects.map((s) => `[data-lp-scheme=${scheme}] ${compound(s, baseClass)}`).join(', ');
+    out += `${restorePinned} { ${baseBody} }\n`;
+    const restoreOs = subjects.map((s) => `:root[data-lp-scheme=system] ${compound(s, baseClass)}`).join(', ');
+    out += `@media (prefers-color-scheme:${scheme}) { ${restoreOs} { ${baseBody} } }\n`;
   }
   return out;
 }

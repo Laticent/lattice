@@ -15611,6 +15611,9 @@ section.chart-frame .chart-status[data-s="deferred"] {
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="6"] { fill: var(--chart-cat-7-solid); stroke: var(--chart-cat-7-ink); }
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="7"] { fill: var(--chart-cat-8-solid); stroke: var(--chart-cat-8-ink); }
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-muted] { fill: var(--chart-muted-key); stroke: var(--text-muted); }
+/* The "unmatched" ("?") chip — a transparent swatch with a quiet outline. Via a CSS rule,
+ * not an inline `stroke="var()"` presentation attr (flaky on old WebKit → black; D2). */
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-unmatched] { fill: transparent; stroke: var(--text-muted); }
 
 /* SVG-NATIVE FIGURE SIZING — radar / map / cohort-quadrant. Each figure now holds
  * ONE self-contained <svg> (diagram + spine + key in one viewBox, emitted by
