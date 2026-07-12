@@ -1,5 +1,5 @@
 export type { Pace } from './cadence';
-export { estimateWordMs, PACE_WPM, pauseAfter, readMs } from './cadence';
+export { estimateWordMs, FINAL_LENGTHEN_MS, PACE_WPM, pauseAfter, readMs, SYLLABLE_MS, syllableCount } from './cadence';
 export type { Active, Cursor } from './cursor';
 export { makeCursor } from './cursor';
 export type { LexDomain } from './lexicon';

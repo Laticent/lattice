@@ -678,17 +678,16 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
 
   // The BREATH inserted between one sentence's clip and the next — sized from the
   // sentence's trailing punctuation. A clocked voice plays each sentence's clip back to
-  // back, so without a gap the narration rushes ("no time to breathe"). But the clip
-  // ALSO already carries its own sentence-final silence, so this is only a LIGHT top-up,
-  // NOT the full caption-estimate pause — a first cut at the pause matched the estimate's
-  // pauseAfter (cadence.ts) exactly and read too long. These values are deliberately
-  // SMALLER than cadence.ts's PAUSE_MS, which is race-SAFE: the estimate re-anchors the
-  // next sentence to `realEnd + gap`, and any `gap ≤ estimate pauseAfter` leaves the
-  // highlight resting in the silence rather than racing into it (only a LARGER gap would
-  // reintroduce the race). INTERIM — these constants are a heuristic pending a proper
-  // prosody/human-pace model (2026-07-12 narration-pace thread). A sentence with no
-  // terminator gets no breath.
-  const SENTENCE_PAUSE_MS = { ',': 70, ';': 100, ':': 100, '.': 160, '!': 160, '?': 160, '…': 200 };
+  // back, so without a gap the narration rushes ("no time to breathe"). But the clip ALSO
+  // already carries its own sentence-final silence, so the AUDIO gap is only a fraction of
+  // the caption estimate's pause. These values are cadenza's graded PAUSE_MS (cadence.ts:
+  // comma 200 / clause 350 / sentence 550 / ellipsis 650) × ~0.3 — the CLIP-SILENCE DISCOUNT
+  // — so the audio breath and the silent-estimate pause share ONE graded model (keep this in
+  // step with cadence.ts). Being smaller than the estimate is also race-SAFE: the estimate
+  // re-anchors the next sentence to `realEnd + gap`, and any `gap ≤ estimate pauseAfter`
+  // leaves the highlight resting in the silence rather than racing into it (only a LARGER
+  // gap reintroduces the race). A sentence with no terminator gets no breath.
+  const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 165, '?': 165, '…': 195 };
   function sentenceGapMs(sentence) {
     const m = String(sentence ?? '').match(/[.,!?;:…]+$/);
     if (!m) return 0;

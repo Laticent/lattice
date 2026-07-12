@@ -33,6 +33,10 @@ export { slideToSpeech } from '@/playground/read-along-core.generated.js';
 // The OpenRouter key the architect/voice ladder share (lattice-db-* namespace).
 const OR_KEY_LS = 'lattice-db-or-key';
 
+// How far (ms) to bias the word-highlight AHEAD of the heard voice — a lagging highlight is
+// the more noticeable sync error (asymmetric lip-sync tolerance; see the pace-model doc §5).
+const SYNC_LEAD_MS = 40;
+
 /**
  * One captured audio-timing event, for the on-device read-aloud diagnostics
  * (gated behind `?readaloud-debug=1` in Present). Purely observational — the
@@ -407,7 +411,12 @@ export function useReadAloud(
 			// Mirrors the /cadenza demo exactly.
 			const v = voiceRef.current;
 			const lat = v.outputLatencyMs ? v.outputLatencyMs() : 0;
-			elapsedRef.current = audioBaseRef.current == null ? 0 : Math.max(0, v.audioTimeMs() - audioBaseRef.current - lat);
+			// SYNC_LEAD_MS biases the highlight slightly AHEAD of the heard word. Broadcast
+			// lip-sync tolerance is asymmetric (ITU-R BT.1359 / EBU R37): a visual leading its
+			// audio is far more forgivable (~125 ms) than lagging it (~45 ms), so a small lead
+			// keeps the reader's eye on-or-ahead of the voice rather than trailing it — the more
+			// noticeable error. See 2026-07-12-narration-pace-model.md §5.
+			elapsedRef.current = audioBaseRef.current == null ? 0 : Math.max(0, v.audioTimeMs() - audioBaseRef.current - lat + SYNC_LEAD_MS);
 		} else {
 			elapsedRef.current += now - lastTRef.current;
 		}

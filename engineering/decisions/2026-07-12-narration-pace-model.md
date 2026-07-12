@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: A prosody-grounded replacement for read-aloud's crude timing estimate (flat 145 wpm × character length + fixed punctuation pauses). A deep-research pass into the speech-science literature grounds a deterministic model in published norms — ~200 ms/syllable word duration (not character length), a boundary-graded pause table (comma ~200 / clause ~350 / sentence ~550 / paragraph ~1000 ms), phrase-final lengthening (~+30 ms on the pre-boundary syllable), and an asymmetric audio↔highlight sync budget from broadcast lip-sync standards (highlight may lead the voice ~125 ms but should lag ≤45 ms, so bias it slightly ahead). Unifies the three ad-hoc timing sources (silent estimate, caption positions, audio breath) into one cadence.ts model; structured so a later thread can CALIBRATE it per-voice against the measured TTS onsets the diagnostics overlay already captures (the "genetic/ML" path). Design proposal — awaiting go-ahead before implementation.
 companion:
   - ./2026-07-11-manifest-speech-contract.md
@@ -9,9 +9,13 @@ companion:
 
 # A prosody-grounded narration pace & sync model
 
-**Status:** design proposal (research done; awaiting go-ahead before implementation)
+**Status:** ACCEPTED + implemented (research → grounded design → confirmed → built)
 **Thread:** read-aloud narration quality (follows `2026-07-11-manifest-speech-contract.md`)
 **Branch/PR:** `claude/read-aloud-skip-rush-regression-ha22xs` → #944
+
+**Confirmed decisions (2026-07-12):** default rate **150 wpm** (tunable by the speed pref);
+**bias the highlight ~+40 ms ahead** of the voice (asymmetric sync tolerance); ship the
+**syllable heuristic** (not a pronunciation dictionary). All three implemented as below.
 
 ## Problem
 
