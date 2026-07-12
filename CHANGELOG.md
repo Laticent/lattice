@@ -154,13 +154,14 @@ in patch versions.
 
 - **"Print deck" now opens a Print drawer inside Share** — a sub-step of the Share sheet (like the
   PDF-export options), with a live, paper-accurate preview and the paper / orientation / colour
-  controls right there, then **Print** or **Download**. The drawer pre-generates the real per-slide
-  PDF in the foreground Studio tab and **caches** it, so the Print tap opens a ready file
-  synchronously — never pop-up-blocked, and consistent across browsers. Desktop opens the print
-  dialog (crisp vector, honoring the chosen paper); iPhone opens the cached PDF for the native
-  Share → Print. Every slide is always scaled to fit its page, centred — **never cropped**. (This
-  replaces the short-lived separate `/studio/print` tab + its `postMessage` handshake, which earned
-  no payoff for its cost.) See `engineering/decisions/2026-06-14-deck-print-styling.md`.
+  controls right there, then **Print** or **Download**. The PDF is built **on demand** — only when
+  you click Print or Download, never on a config change — and cached by settings so a repeat click
+  reuses it. Desktop opens the print dialog with the crisp vector deck (no PDF needed); on iPhone
+  Print takes two taps — one to prepare the PDF, one to open it for the native Share → Print (iOS
+  can't both build and open in a single tap). Download saves the PDF on both. Every slide is always
+  scaled to fit its page, centred — **never cropped**. (This replaces the short-lived separate
+  `/studio/print` tab + its `postMessage` handshake, which earned no payoff for its cost.) See
+  `engineering/decisions/2026-06-14-deck-print-styling.md`.
 
 ### Fixed
 

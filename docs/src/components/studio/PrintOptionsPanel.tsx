@@ -3,22 +3,27 @@
 // of the Print page it replaces — navy preview stage, white sheet with a dashed
 // safe-margin, brass segmented controls — recomposed to the drawer's width.
 //
-// THE RELIABILITY IDEA (why a drawer beats the separate tab). Printing broke across
-// browsers because we generated the PDF AFTER the Print click: the await burned the
-// tap's user-activation, so the in-gesture `window.open` was pop-up-blocked (the
-// "builds but nothing opens" bug), and a background render froze the rasterizer.
-// Here the drawer lives in the FOREGROUND Studio tab (no `window.open`, so the
-// rasterizer never pauses) and PRE-GENERATES the per-slide PDF the moment the deck is
-// ready, caching it. So the Print tap has the file already — it opens synchronously,
-// inside the gesture, and is never blocked, on every browser including iOS.
+// ON-DEMAND, NOT EAGER. The heavy work — rasterizing every slide into a PDF — happens
+// ONLY when the user clicks Print or Download, never on a config change. The live
+// preview is cheap engine HTML (re-rendered only on a colour change; paper/orientation
+// just re-fit the same render via CSS), so flipping paper/orientation/colour is free.
+// A built PDF is cached by (render, paper, orientation), so a second Print/Download with
+// the same settings reuses it instead of re-rasterizing.
 //
-// Print is platform-best: desktop honors CSS `@page`, so it prints the crisp VECTOR
-// deck via a hidden HTML iframe (a reliable auto-dialog — a PDF-in-iframe won't
-// auto-print in Chrome); iOS ignores `@page` and forbids scripted printing, so there
-// we open the cached real PDF for the native Share → Print. Download saves the cached
-// PDF on both. See engineering/decisions/2026-06-14-deck-print-styling.md.
+// PRINT IS PLATFORM-BEST:
+//   · DESKTOP honors CSS `@page`, so Print prints the crisp VECTOR deck through a hidden
+//     HTML iframe (a reliable dialog — a PDF-in-iframe won't auto-print in Chrome). This
+//     needs NO PDF at all, so desktop Print is one instant tap.
+//   · iOS ignores `@page` + forbids scripted printing, so Print needs the real PDF opened
+//     for the native Share → Print. Two hard constraints collide: the rasterizer only runs
+//     in a FOREGROUND tab (opening a tab backgrounds the opener and freezes it), and a
+//     `window.open` AFTER an await is pop-up-blocked (the tap's activation is spent). You
+//     can't build-then-open in one tap. So iOS Print is TWO taps: tap 1 builds the PDF in
+//     the foreground (no tab open → no freeze); the button then arms to "Open PDF", and tap
+//     2 opens the cached file synchronously, inside that gesture → never blocked.
+// Download saves the (built-on-click) PDF on both. See engineering/decisions/2026-06-14-deck-print-styling.md.
 
-import { ArrowLeft, Download, Loader2, Printer } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Loader2, Printer } from 'lucide-react';
 import * as React from 'react';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // Engine helpers (shared kernel, HARD RULE #1): the paper decision + slide placement
@@ -91,18 +96,30 @@ export function PrintOptionsPanel({
 	const [sections, setSections] = React.useState<string[]>([]);
 	const [slide, setSlide] = React.useState(0);
 	const [status, setStatus] = React.useState('Rendering the deck…');
-	// The cached, pre-generated PDF (blob URL) — Print (iOS) + Download open this
-	// synchronously, so neither waits on a render inside the gesture.
-	const [pdfUrl, setPdfUrl] = React.useState<string | null>(null);
-	// Two distinct in-flight signals so a config change drops readiness at once (never
-	// serving a STALE artifact) AND desktop Print doesn't wait on a PDF it won't use:
-	//   · rendering — effect 1 is (re-)rendering the deck (colour / source / theme change)
-	//   · preparing — effect 2 is (re-)building the cached PDF (any config change)
+	// `rendering` = the deck is (re-)rendering (colour / source / theme change); readiness
+	// drops the instant any render input changes so a stale preview is never treated fresh.
 	const [rendering, setRendering] = React.useState(true);
-	const [preparing, setPreparing] = React.useState(true);
-	// Platform is stable per device; decide the print path once (iOS opens the cached PDF,
-	// desktop prints the vector HTML) so the button gating can differ by platform.
+	// Which action (if any) is mid-build — the button spinner + a re-entrancy guard.
+	const [building, setBuilding] = React.useState<'print' | 'download' | null>(null);
+	// The one built PDF, keyed by the exact inputs that change its bytes (the render identity
+	// carries colour/theme; paper + orientation set the sheet). Kept in STATE so the iOS
+	// button can flip to "Open PDF" the moment a build for the current settings exists; a
+	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
+	// key check when any setting changes.
+	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; url: string } | null>(null);
+	// Platform is stable per device; decide the print path once.
 	const ios = React.useMemo(() => isIOSLike(), []);
+
+	const mountedRef = React.useRef(true);
+	const builtUrlRef = React.useRef<string | null>(null);
+	React.useEffect(() => { builtUrlRef.current = builtPdf?.url ?? null; }, [builtPdf]);
+	React.useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			if (builtUrlRef.current) { try { URL.revokeObjectURL(builtUrlRef.current); } catch { /* noop */ } }
+		};
+	}, []);
 
 	// Measure the preview stage so the sheet fits it in BOTH dimensions (a wide landscape
 	// sheet must not overflow the narrow drawer — height alone would blow past the width).
@@ -118,10 +135,8 @@ export function PrintOptionsPanel({
 		return () => ro.disconnect();
 	}, []);
 
-	// ── 1. Render the deck whenever the colour changes (B&W remaps class tokens). ──
-	// `rendering` goes true synchronously here so `render`/`sections` are never treated as
-	// fresh mid-re-render — otherwise a colour flip would leave the buttons enabled on the
-	// PREVIOUS colour's artifact until the new render resolves (the maker-checker race).
+	// ── Render the deck whenever the colour changes (B&W remaps class tokens). This is the
+	// only re-render; paper/orientation just re-fit the SAME render via the CSS math below. ──
 	React.useEffect(() => {
 		let alive = true;
 		setRendering(true);
@@ -177,37 +192,36 @@ export function PrintOptionsPanel({
 		});
 	}, [render, sections, slide]);
 
-	// ── 2. Pre-generate + cache the per-slide PDF (foreground → no freeze) whenever the
-	// render or paper/orientation changes. Print (iOS) + Download then open it in-gesture. ──
 	const { paper, orientation } = opts;
-	React.useEffect(() => {
-		if (!render) return;
-		let alive = true;
-		let url: string | null = null;
-		setPreparing(true);
-		setStatus('Preparing print…');
-		(async () => {
-			try {
-				// Colour changes re-render (above); the sheet depends only on paper/orientation.
-				const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
-				const ex = await import('@/playground/drawing-board-export.js');
-				const blob = await ex.renderPdfBlob(render, name, (m: string) => { if (alive) setStatus(m); }, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH } });
-				if (!alive) return;
-				url = URL.createObjectURL(blob);
-				setPdfUrl(url);
-				setStatus('');
-				setPreparing(false);
-			} catch {
-				if (alive) { setStatus('Could not prepare the PDF.'); setPreparing(false); }
-			}
-		})();
-		return () => {
-			alive = false;
-			// Revoke the superseded URL after a grace period — a print/download tab opened
-			// from it may still be loading (revoking the string won't unload a loaded blob).
-			if (url) { const u = url; setTimeout(() => { try { URL.revokeObjectURL(u); } catch { /* noop */ } }, 60_000); }
-		};
-	}, [render, name, paper, orientation]);
+	// Does the built PDF match the CURRENT settings? Drives the iOS button (build vs open).
+	const cachedForCurrent = !!builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation;
+
+	// Build the per-slide PDF for the current settings, or return the cached one when the
+	// key still matches. The ONLY place rasterization happens — driven by a click, not a
+	// config change — and only ever in the FOREGROUND (no tab is open during the build, so
+	// the rasterizer never freezes). Revokes a superseded URL after a grace period (a tab
+	// opened from it may still be loading — revoking the string won't unload a loaded blob).
+	const buildPdf = React.useCallback(async (): Promise<string> => {
+		if (!render) throw new Error('deck not ready');
+		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation) return builtPdf.url;
+		const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
+		const ex = await import('@/playground/drawing-board-export.js');
+		const blob = await ex.renderPdfBlob(render, name, (m: string) => { if (mountedRef.current) setStatus(m); }, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH } });
+		const url = URL.createObjectURL(blob);
+		const prevUrl = builtPdf?.url;
+		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
+		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, url });
+		return url;
+	}, [render, name, paper, orientation, builtPdf]);
+
+	const triggerDownload = React.useCallback((url: string) => {
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+	}, [name]);
 
 	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
 	// DESKTOP print path — desktop honors CSS @page, so this prints crisp + correct.
@@ -223,40 +237,49 @@ export function PrintOptionsPanel({
 		});
 	}, [render, opts.paper, opts.orientation]);
 
-	const doDownload = React.useCallback(() => {
-		if (!pdfUrl) return;
-		const a = document.createElement('a');
-		a.href = pdfUrl;
-		a.download = `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`;
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-	}, [pdfUrl, name]);
+	const doDownload = React.useCallback(async () => {
+		if (!render || building) return;
+		setBuilding('download');
+		try {
+			triggerDownload(await buildPdf());
+		} catch {
+			notify('Could not build the PDF.');
+		} finally {
+			if (mountedRef.current) { setBuilding(null); setStatus(''); }
+		}
+	}, [render, building, buildPdf, triggerDownload, notify]);
+
+	// Open the cached PDF in a new tab, synchronously inside the click (never pop-up-blocked
+	// because nothing awaits first). iOS shows the PDF with the native Share → Print. If a
+	// blocker still nulls the open, DOWNLOAD instead — never navigate the Studio away.
+	const openPdfTab = React.useCallback((url: string) => {
+		const w = window.open(url, '_blank');
+		if (!w) { triggerDownload(url); notify('Pop-up blocked — the PDF was saved. Open it, then Share → Print.'); }
+	}, [triggerDownload, notify]);
 
 	const doPrint = React.useCallback(() => {
-		if (!render) return;
-		if (ios) {
-			// iOS: open the cached real PDF (only a real PDF prints right — iOS ignores @page).
-			// The file is already built, so this open is synchronous and inside the gesture →
-			// never pop-up-blocked. iOS forbids scripted printing; the native viewer's Share →
-			// Print does it. If a blocker still nulls the open, DOWNLOAD it (never navigate the
-			// Studio away) so the user can still reach Share → Print from the file.
-			if (!pdfUrl) return;
-			const w = window.open(pdfUrl, '_blank');
-			if (!w) { doDownload(); notify('Pop-up blocked — the PDF was saved. Open it, then Share → Print.'); }
-		} else {
-			// Desktop: print the vector deck via a hidden HTML iframe → reliable print dialog.
+		if (!render || building) return;
+		if (!ios) {
+			// Desktop: print the vector deck via a hidden HTML iframe → reliable dialog, no PDF.
 			printHtmlDoc(printDoc());
+			return;
 		}
-	}, [render, ios, pdfUrl, printDoc, notify, doDownload]);
+		// iOS, tap 2 — the PDF for these settings is already built: open it in-gesture.
+		if (cachedForCurrent && builtPdf) { openPdfTab(builtPdf.url); return; }
+		// iOS, tap 1 — build the PDF in the FOREGROUND (no tab open → no freeze). When it
+		// lands, `cachedForCurrent` flips true and the button arms to "Open PDF" for tap 2.
+		setBuilding('print');
+		buildPdf()
+			.then(() => { if (mountedRef.current) notify('PDF ready — tap “Open PDF” to print.'); })
+			.catch(() => notify('Could not build the PDF.'))
+			.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
+	}, [render, building, ios, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, notify]);
 
-	// A fresh render (no re-render in flight) is all desktop Print needs — it prints the
-	// vector HTML, not the cached PDF, so it shouldn't wait on the PDF build. iOS Print +
-	// Download DO need the cached PDF ready. Both drop the instant any config change starts.
-	const renderReady = !!render && !!sections.length && !rendering;
-	const pdfReady = renderReady && !!pdfUrl && !preparing;
-	const printBusy = ios ? rendering || preparing : rendering;
-	const printDisabled = ios ? !pdfReady : !renderReady;
+	// A fresh render (no re-render in flight) is all either action needs to START — the PDF
+	// is built on click, not up front. Both drop the instant a colour change begins.
+	const ready = !!render && !!sections.length && !rendering;
+	// iOS Print is a two-step affordance: build (tap 1) → open (tap 2, once armed).
+	const printReadyToOpen = ios && cachedForCurrent;
 	const count = sections.length || 1;
 	const seg = <K extends keyof Opts>(k: K, v: Opts[K]) => () => setOpts((o) => ({ ...o, [k]: v }));
 
@@ -270,7 +293,7 @@ export function PrintOptionsPanel({
 
 			<section className="space-y-1">
 				<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Print deck</h3>
-				<p className="text-[12px] text-muted-foreground">Every slide is scaled to fit its page, centered — never cropped. The PDF is prepared as you configure.</p>
+				<p className="text-[12px] text-muted-foreground">Every slide is scaled to fit its page, centered — never cropped. The PDF is built when you print or download.</p>
 			</section>
 
 			{/* Preview — the beloved navy stage + white sheet + dashed safe margin, compact. */}
@@ -304,14 +327,15 @@ export function PrintOptionsPanel({
 			</div>
 
 			<div className="space-y-2.5">
-				<button type="button" className="pod-btn pod-primary" disabled={printDisabled} onClick={doPrint}>
-					{printBusy ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
-					{printBusy ? status || 'Preparing print…' : 'Print'}
+				<button type="button" className="pod-btn pod-primary" disabled={!ready || !!building} onClick={doPrint}>
+					{rendering || building === 'print' ? <Loader2 className="size-4 animate-spin" /> : printReadyToOpen ? <ExternalLink className="size-4" /> : <Printer className="size-4" />}
+					{building === 'print' ? status || 'Preparing print…' : rendering ? 'Rendering…' : printReadyToOpen ? 'Open PDF to print' : 'Print'}
 				</button>
-				<button type="button" className="pod-btn pod-ghost" disabled={!pdfReady} onClick={doDownload}>
-					{preparing ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}Download PDF
+				<button type="button" className="pod-btn pod-ghost" disabled={!ready || !!building} onClick={doDownload}>
+					{building === 'download' ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+					{building === 'download' ? status || 'Building PDF…' : 'Download PDF'}
 				</button>
-				<p className="pod-plat"><span className="pod-dot">●</span> Opens the print dialog on desktop. On iPhone the PDF opens — tap Share, then Print.</p>
+				<p className="pod-plat"><span className="pod-dot">●</span> {ios ? 'On iPhone: tap Print to prepare the PDF, then Open — then tap Share → Print.' : 'Opens the print dialog on desktop.'}</p>
 			</div>
 		</div>
 	);
