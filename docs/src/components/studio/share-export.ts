@@ -508,6 +508,15 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
  * (unforgeable, same-origin), mirroring presenter-window.js. Paper/colour and Print/Download
  * all live in the page now. See engineering/decisions/2026-06-14-deck-print-styling.md.
  */
+// The Print page's current target + latest deck payload, plus a ONE-TIME listener. Kept at
+// module scope so the responder outlives any single call: the print tab can re-request the
+// deck at ANY time (a fresh mount, a REUSED named tab, OR a back-navigation after iOS shows
+// the PDF), and we always reply with the latest deck to the current handle. A per-call
+// listener with a 30s timeout would leave a returning tab blank.
+let printWin: Window | null = null;
+let printPayload: Record<string, unknown> | null = null;
+let printResponderAttached = false;
+
 // `options` (engine URLs) is intentionally absent: the Print page route supplies its own,
 // so the Studio hands off only the deck source + theme.
 export async function sharePrintDeck(source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, extraCss?: string): Promise<void> {
@@ -515,24 +524,23 @@ export async function sharePrintDeck(source: string, name: string, palette: stri
 	const printUrl = joinBase(import.meta.env.BASE_URL, 'studio/print');
 	const opened = window.open(printUrl, 'lattice-print');
 	if (!opened) throw new Error('Pop-up blocked — allow pop-ups to open the print view.');
-	const win = opened; // non-null in the closure below
+	printWin = opened;
+	printPayload = { __latticePrint: 'init', source, palette, mode, extraTheme: extra, extraCss, name };
 	const origin = window.location.origin;
-	const payload = { __latticePrint: 'init', source, palette, mode, extraTheme: extra, extraCss, name };
-	const post = () => { try { win.postMessage(payload, origin); } catch { /* gone */ } };
-	// Two delivery paths, because the tab is a NAMED target that a browser may REUSE:
-	//   • a FRESH tab posts { __latticePrint: 'ready' } once mounted → we reply (below);
-	//   • a REUSED, already-loaded tab won't re-post 'ready' (iOS Safari focuses it without
-	//     reloading — the exact platform this feature targets), so we ALSO push the deck
-	//     proactively for the first couple seconds. The page dedupes identical payloads, so
-	//     the two paths can't double-render. Trust rides on `e.source === win`.
-	function onMsg(e: MessageEvent) {
-		if (e.source !== win) return;
-		const d = e.data as { __latticePrint?: string } | null;
-		if (d && d.__latticePrint === 'ready') post();
+	const post = () => { try { printWin?.postMessage(printPayload, origin); } catch { /* gone */ } };
+	// Persistent responder (attached once): reply to the print tab's 'ready' with the LATEST
+	// deck, for the opener's lifetime — trust rides on `e.source === printWin` (unforgeable).
+	if (!printResponderAttached) {
+		printResponderAttached = true;
+		window.addEventListener('message', (e: MessageEvent) => {
+			if (!printWin || e.source !== printWin) return;
+			if ((e.data as { __latticePrint?: string } | null)?.__latticePrint === 'ready') post();
+		});
 	}
-	window.addEventListener('message', onMsg);
-	const timers = [0, 250, 700, 1500].map((t) => setTimeout(post, t));
-	setTimeout(() => { window.removeEventListener('message', onMsg); for (const t of timers) clearTimeout(t); }, 30_000);
+	// Also push proactively for the first couple seconds — a REUSED, already-loaded tab (iOS
+	// focuses a named tab without reloading) won't re-post 'ready'. The page dedupes identical
+	// payloads, so the reply + proactive paths can't double-render.
+	for (const t of [0, 250, 700, 1500]) setTimeout(post, t);
 }
 
 type ReadAlongCore = {

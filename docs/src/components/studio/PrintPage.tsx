@@ -193,13 +193,22 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 	const doPrint = React.useCallback(async () => {
 		if (!render) return;
 		if (isIOSLike()) {
-			// iOS: open the real PDF; the native viewer's Share → Print prints it (one tap).
+			// iOS: show the real PDF (only a real PDF prints right — iOS ignores @page); the
+			// native viewer's Share → Print does the print. Building the PDF is async, so a
+			// new-tab open would be pop-up-blocked (the tap's activation expired mid-render) —
+			// that's the "builds but nothing opens" bug. So try a new tab, and if it's blocked
+			// NAVIGATE this tab to the PDF instead (navigation isn't activation-gated). The
+			// deck source lives with the Studio opener, so returning is a back-tap away.
 			if (busy) return;
 			setBusy(true);
 			try {
 				const url = await buildPdf();
 				setStatus('');
-				window.open(url, '_blank');
+				const w = window.open(url, '_blank');
+				if (!w) {
+					window.location.href = url; // pop-up blocked → view the PDF here
+					return; // page unloads; leave the blob for the viewer
+				}
 				setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* noop */ } }, 60_000);
 			} catch {
 				setStatus('Could not open the PDF.');
@@ -302,7 +311,7 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 						<button type="button" className="lpr-btn lpr-ghost" disabled={!ready || busy} onClick={doDownload}>
 							<DownloadIcon />Download PDF
 						</button>
-						<p className="lpr-plat"><span className="lpr-dot">●</span> Opens the print dialog automatically on desktop · one tap on iPhone</p>
+						<p className="lpr-plat"><span className="lpr-dot">●</span> Opens the print dialog automatically on desktop. On iPhone the PDF opens — tap Share, then Print.</p>
 					</div>
 				</aside>
 			</div>
