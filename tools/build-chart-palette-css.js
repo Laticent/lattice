@@ -64,6 +64,11 @@ const CHART_FAMILY = path.join(ROOT, 'lib', 'components', 'chart', '_chart-famil
 /** Any modern colour function that breaks an old engine. */
 const MODERN_FN = /\blight-dark\(|\bcolor-mix\(/;
 
+/** The valid plane-group tags a `>>> chart-palette-recipe [group] >>>` region may carry.
+ *  `chart` (default) paints on `.chart-frame`; `diagram` paints on `section, figure`. An
+ *  unknown tag is a build error, not a silent mis-route to the chart group. */
+const PLANE_GROUPS = new Set(['chart', 'diagram']);
+
 /** The kernel selectors the DEFAULT plane paints on. Bare `.chart-frame` is
  *  included so the Read·Article <figure> re-host (a chart SVG re-hosted outside its
  *  section, #925) resolves the exact same literals as the slide. `section.math` is a
@@ -71,20 +76,35 @@ const MODERN_FN = /\blight-dark\(|\bcolor-mix\(/;
  *  (`--math-error-bg`), so it joins the union too. */
 const DEFAULT_PLANE_SELECTOR = 'section.chart-frame, section.word-cloud, section.math, .chart-frame';
 
-/** The subject-anchored union that selects the OPPOSITE scheme. `subj` is the
- *  consuming element (`.chart-frame` / `.word-cloud`) so custom props land on it
- *  directly (tree-depth inheritance beats specificity for inherited props — the
- *  override must be ON the subject, never a bare ancestor). Every arm is strictly
- *  higher specificity than the DEFAULT plane's matching arm. */
-function schemeAnchors(scheme) {
-  const subjects = ['chart-frame', 'word-cloud', 'math'];
-  // Per-slide modifier (`section.dark`/`.light` add the class to the chart section,
-  // which IS the .chart-frame element) → compound-subject `.chart-frame.<scheme>`.
-  const perSlide = subjects.map((s) => `.${s}.${scheme}`);
-  // Exported player / Read·Article figure host → the pinned `data-lp-scheme`
-  // attribute on an ancestor, subject = the consuming element.
-  const attr = subjects.map((s) => `[data-lp-scheme=${scheme}] .${s}`);
-  return { plain: [...perSlide, ...attr], subjects };
+/** The DIAGRAM group's DEFAULT-plane selector. The engine-wide `--cat-*` categorical
+ *  palette + the `--diagram-*` structural tokens (and the per-component mood / phase
+ *  ramps built off them) are consumed by the Mermaid subtree AND by journey / roadmap /
+ *  legal / decision — none of which is a `.chart-frame` (a Mermaid slide is a bare
+ *  `section.diagram`). So this group paints on the SAME ancestor the Mermaid + diagram
+ *  paints target: `section, figure`. The values are the theme's own resolved literals,
+ *  so a modern engine is byte-identical; an old engine, which drops the theme's raw
+ *  `light-dark()`/`color-mix()` `:root` definitions, now reads a flat literal set
+ *  DIRECTLY on the section (a section-level declaration beats the invalidated `:root`
+ *  inheritance). This recovers the coverage the retired `@supports` fork's
+ *  GLOBAL-REDEFINE arm gave these components. */
+const DIAGRAM_PLANE_SELECTOR = 'section, figure';
+
+/** Build the subject-anchored OPPOSITE-scheme union for a plane group. `subjects` are
+ *  the consuming elements the custom props must land ON (tree-depth inheritance beats
+ *  specificity for inherited props — the override must be on the subject, never a bare
+ *  ancestor). `isType` picks how a subject composes with a scheme/OS modifier: a CLASS
+ *  subject (`chart-frame`) → `.chart-frame.dark`; a TYPE subject (`section`) →
+ *  `section.dark`. Every arm is strictly higher specificity than the group's DEFAULT
+ *  plane arm, so the opposite scheme always wins on its own subtree. */
+function schemeAnchors(scheme, subjects = ['chart-frame', 'word-cloud', 'math'], isType = false) {
+  const sel = (s) => (isType ? s : `.${s}`);        // subject as a simple selector
+  const compound = (s, cls) => (isType ? `${s}.${cls}` : `.${s}.${cls}`); // subject + class on the SAME element
+  // Per-slide modifier (`section.dark`/`.light` — the class is on the section, which IS
+  // the subject for a type group and IS the .chart-frame for a class group).
+  const perSlide = subjects.map((s) => compound(s, scheme));
+  // Exported player / Read·Article figure host → pinned `data-lp-scheme` on an ancestor.
+  const attr = subjects.map((s) => `[data-lp-scheme=${scheme}] ${sel(s)}`);
+  return { plain: [...perSlide, ...attr], subjects, sel, compound };
 }
 
 /**
@@ -134,12 +154,15 @@ function expandTemplates(region) {
   );
 }
 
-/** Collect `{ name, value }` recipe tokens from every `>>> chart-palette-recipe >>>`
+/** Collect `{ name, value, group }` recipe tokens from every `>>> chart-palette-recipe >>>`
  *  … `<<< chart-palette-recipe` region across the scanned chart files. chart-family.css
  *  holds the shared spectrum; a component `*.styles.css` may add its OWN region for its
  *  bespoke colour tokens (co-located with the component, discovered automatically —
- *  no central-file edit, so components stay independent). Template blocks
- *  (`@expand … @end`) are expanded first; first definition wins across files. */
+ *  no central-file edit, so components stay independent). A region opens with an
+ *  optional `[group]` tag right after the sentinel — `>>> chart-palette-recipe [diagram] : …`
+ *  routes its tokens to the DIAGRAM plane group (emitted on `section, figure`); with no
+ *  tag they default to the CHART group (`.chart-frame`). Template blocks (`@expand … @end`)
+ *  are expanded first; first definition wins across files. */
 function recipeTokens() {
   const out = [];
   const seen = new Set();
@@ -153,6 +176,16 @@ function recipeTokens() {
       if (start === -1) break;
       const end = css.indexOf('<<< chart-palette-recipe', start);
       if (end === -1) throw new Error(`build-chart-palette-css: unterminated chart-palette-recipe in ${file}`);
+      // An optional `[group]` tag routes the region's tokens to a plane group. It must
+      // sit IMMEDIATELY after the sentinel marker (anchored, so a `[word]` in the trailing
+      // description can't be misread as the tag), on the opening line. No tag → chart.
+      const nl = css.indexOf('\n', start);
+      const header = css.slice(start, nl === -1 ? css.length : nl);
+      const tag = header.match(/^>>> chart-palette-recipe\s*\[([a-z-]+)\]/);
+      const group = tag ? tag[1] : 'chart';
+      if (!PLANE_GROUPS.has(group)) {
+        throw new Error(`build-chart-palette-css: unknown recipe group [${group}] in ${file} — known groups: ${[...PLANE_GROUPS].join(', ')}`);
+      }
       // Expand templates BEFORE stripping comments (the templates ARE comments), then
       // strip the remaining (documentation) comments and read the declarations.
       const region = expandTemplates(css.slice(start, end)).replace(/\/\*[\s\S]*?\*\//g, '');
@@ -160,7 +193,7 @@ function recipeTokens() {
         const name = m[1].slice(2);
         if (seen.has(name)) continue;
         seen.add(name);
-        out.push({ name, value: m[2].trim() });
+        out.push({ name, value: m[2].trim(), group });
       }
       idx = end + ('<<< chart-palette-recipe'.length);
     }
@@ -190,53 +223,127 @@ function themeVarMap(themeCss, baseCss, recipe) {
   return vars;
 }
 
+/** The component paint files that consume the engine-wide `--cat-*` / `--diagram-*`
+ *  palette (the DIAGRAM plane group's audience): the Mermaid override sheet plus the
+ *  non-chart-frame diagram/connect components. Their `var()` references drive the
+ *  reference-driven token set below. */
+function diagramFiles() {
+  const rel = [
+    'lib/integrations/mermaid/mermaid.css',
+    'lib/components/chart/journey/journey.styles.css',
+    'lib/components/chart/roadmap/roadmap.styles.css',
+    'lib/components/comparison/decision/decision.styles.css',
+  ];
+  const out = rel.map((r) => path.join(ROOT, r));
+  const legalDir = path.join(ROOT, 'lib', 'components', 'legal');
+  if (fs.existsSync(legalDir)) {
+    for (const ent of fs.readdirSync(legalDir, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      const f = path.join(legalDir, ent.name, `${ent.name}.styles.css`);
+      if (fs.existsSync(f)) out.push(f);
+    }
+  }
+  return out.filter((p) => fs.existsSync(p));
+}
+
+/** True when `raw` (a token's authored value) would be DROPPED by an engine that lacks
+ *  `light-dark()`/`color-mix()` — either it uses one directly, or it `var()`s through a
+ *  token that does. These are the tokens the DIAGRAM group must re-emit flattened; a
+ *  token already a flat literal (`--diagram-stroke: #1F4A6E`) is old-safe as-is and is
+ *  left alone. Cycle-guarded via `seen`. */
+function resolvesThroughModern(raw, vars, seen = new Set()) {
+  if (raw == null) return false;
+  if (MODERN_FN.test(raw)) return true;
+  for (const m of String(raw).matchAll(/var\(\s*(--[a-z0-9-]+)/gi)) {
+    const name = m[1].slice(2);
+    if (seen.has(name)) continue;
+    seen.add(name);
+    if (resolvesThroughModern(vars[name], vars, seen)) return true;
+  }
+  return false;
+}
+
+/** The theme-level tokens the diagram-family paints REFERENCE that need flattening —
+ *  every `var(--X)` in those files whose theme/base definition resolves through a modern
+ *  function. Excludes names already emitted by a recipe region (`exclude`): the CHART
+ *  group serves its own `--chart-*`/`--state-*` tokens on `.chart-frame` (journey/roadmap
+ *  ARE chart-frames), and the DIAGRAM recipe regions serve their own. Order-stable. */
+function diagramReferencedTokenNames(vars, exclude) {
+  const names = [];
+  const seen = new Set();
+  for (const file of diagramFiles()) {
+    const css = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of css.matchAll(/var\(\s*(--[a-z0-9-]+)/gi)) {
+      const name = m[1].slice(2);
+      if (seen.has(name) || exclude.has(name)) continue;
+      seen.add(name);
+      if (name in vars && resolvesThroughModern(vars[name], vars)) names.push(name);
+    }
+  }
+  return names;
+}
+
 /**
- * Compile one theme's recipe → { rules, declaredDark } where each rule is
- * `{ name, base, override }` (base = the theme's declared scheme, override = the
- * opposite; override omitted when identical).
+ * Resolve one token to `{ name, base, override }` (base = the theme's declared scheme,
+ * override = the opposite; override null when identical). Throws on any unflattened
+ * output — a surviving color-mix()/light-dark() breaks old engines, a surviving var()
+ * blacks out the mark on EVERY engine; either is the exact bug this compiler prevents.
+ */
+function resolveToken(name, value, vars, declaredDark) {
+  // Resolve the token's VALUE (not `var(--name)`): resolveDeclarationValue scans colour
+  // functions EMBEDDED in a larger value — e.g. the light-dark(color-mix(…)) stops inside
+  // a `-fillgrad` linear-gradient() — which a whole-value var() hop would return verbatim.
+  const light = resolveDeclarationValue(value, vars, false);
+  const dark = resolveDeclarationValue(value, vars, true);
+  const bad = (v) => MODERN_FN.test(v) || /\bvar\(/.test(v);
+  if (bad(light) || bad(dark)) {
+    throw new Error(`build-chart-palette-css: --${name} did not fully flatten to a literal (light=${light} dark=${dark})`);
+  }
+  const base = declaredDark ? dark : light;
+  const override = declaredDark ? light : dark;
+  return { name, base, override: override === base ? null : override };
+}
+
+/**
+ * Compile one theme's recipe → { chart, diagram, declaredDark } where `chart` and
+ * `diagram` are each a `[{ name, base, override }]` rule list for their plane group.
+ * The CHART group is the `--chart-*`/`--state-*` recipe on `.chart-frame`; the DIAGRAM
+ * group is the engine-wide `--cat-*`/`--diagram-*` palette + the `[diagram]`-tagged
+ * component recipe tokens, reference-driven from the diagram-family paints, on
+ * `section, figure`.
  */
 function buildPlanes(themeCss, baseCss) {
   const recipe = recipeTokens();
   const vars = themeVarMap(themeCss, baseCss, recipe);
   const declaredDark = isDarkScheme(`${baseCss}\n${themeCss}`);
-  const rules = [];
+
+  const chart = [];
+  const diagram = [];
+  const recipeNames = new Set(recipe.map((t) => t.name));
   for (const t of recipe) {
-    // Resolve the token's VALUE (not `var(--name)`): resolveDeclarationValue scans
-    // colour functions EMBEDDED in a larger value — e.g. the light-dark(color-mix(…))
-    // stops inside a `-fillgrad` linear-gradient() — which a whole-value var() hop
-    // would return verbatim. Chases var() chains through the map for plain tokens.
-    const light = resolveDeclarationValue(t.value, vars, false);
-    const dark = resolveDeclarationValue(t.value, vars, true);
-    // Fail the BUILD, not just the test tier, on ANY unflattened output: a surviving
-    // color-mix()/light-dark() breaks old engines, and a surviving var() (an
-    // undefined/misreferenced recipe token resolves to a literal `var(--x)`) blacks
-    // out the mark on EVERY engine. Either is the exact bug this compiler prevents.
-    const bad = (v) => MODERN_FN.test(v) || /\bvar\(/.test(v);
-    if (bad(light) || bad(dark)) {
-      throw new Error(`build-chart-palette-css: --${t.name} did not fully flatten to a literal (light=${light} dark=${dark})`);
-    }
-    const base = declaredDark ? dark : light;
-    const override = declaredDark ? light : dark;
-    rules.push({ name: t.name, base, override: override === base ? null : override });
+    (t.group === 'diagram' ? diagram : chart).push(resolveToken(t.name, t.value, vars, declaredDark));
   }
-  return { rules, declaredDark };
+  // Reference-driven: the theme-level tokens the diagram paints read that need flattening.
+  for (const name of diagramReferencedTokenNames(vars, recipeNames)) {
+    diagram.push(resolveToken(name, `var(--${name})`, vars, declaredDark));
+  }
+  return { chart, diagram, declaredDark };
 }
 
-/** Serialize the two planes to CSS (no `@supports` — this is the primary paint). */
-function serialize(rules, declaredDark) {
+/** Serialize ONE plane group (base + opposite-scheme override + strict OS arm). No
+ *  `@supports` — this is the primary paint. `baseSelector` is the group's default-plane
+ *  union; `subjects`/`isType` shape the override anchors (class subjects for the chart
+ *  group, type subjects for the diagram group). */
+function serializeGroup(rules, declaredDark, baseSelector, subjects, isType) {
   if (!rules.length) return '';
-  const decls = (pick) => rules
-    .map((r) => `--${r.name}: ${pick(r)}`)
-    .join('; ');
-
-  const baseBody = decls((r) => r.base);
-  let out = `${DEFAULT_PLANE_SELECTOR} { ${baseBody} }\n`;
+  const baseBody = rules.map((r) => `--${r.name}: ${r.base}`).join('; ');
+  let out = `${baseSelector} { ${baseBody} }\n`;
 
   const overrides = rules.filter((r) => r.override != null);
   if (overrides.length) {
     // The opposite scheme: a light theme's override is DARK; a dark theme's is LIGHT.
     const scheme = declaredDark ? 'light' : 'dark';
-    const { plain, subjects } = schemeAnchors(scheme);
+    const { plain, sel, compound } = schemeAnchors(scheme, subjects, isType);
     const body = overrides.map((r) => `--${r.name}: ${r.override}`).join('; ');
     out += `${plain.join(', ')} { ${body} }\n`;
     // OS arm — for surfaces that follow the OS. Two anchors:
@@ -245,13 +352,12 @@ function serialize(rules, declaredDark) {
     //     export is untouched by the viewer's OS); and
     //   • `.color-system` — the `color-mode: system` per-slide modifier
     //     (base.modifiers.css `section.color-system{color-scheme:light dark}`), which
-    //     follows the OS on ANY surface (not just the player). Compound (`.color-system.chart-frame`,
-    //     the section IS the chart-frame) AND descendant (`.color-system .chart-frame`,
-    //     a nested figure re-host) both covered, both strictly above the default plane.
+    //     follows the OS on ANY surface. Compound (the section IS the subject) AND
+    //     descendant (a nested figure re-host) both covered, both above the default plane.
     const osSel = [
-      ...subjects.map((s) => `:root[data-lp-scheme=system] .${s}`),
-      ...subjects.map((s) => `.color-system.${s}`),
-      ...subjects.map((s) => `.color-system .${s}`),
+      ...subjects.map((s) => `:root[data-lp-scheme=system] ${sel(s)}`),
+      ...subjects.map((s) => compound(s, 'color-system')),
+      ...subjects.map((s) => `.color-system ${sel(s)}`),
     ].join(', ');
     out += `@media (prefers-color-scheme:${scheme}) { ${osSel} { ${body} } }\n`;
   }
@@ -259,15 +365,16 @@ function serialize(rules, declaredDark) {
 }
 
 /**
- * Generate the compiled chart-palette planes for one theme.
+ * Generate the compiled chart-palette planes for one theme — both plane groups.
  * @param {string} themeName  theme file basename (e.g. 'indaco', 'indaco-dark')
  * @param {string} baseCss    the assembled base bundle (stands in for `@import 'lattice'`)
- * @returns {string} the two-plane CSS (empty if the recipe is empty)
+ * @returns {string} the compiled CSS (empty if the recipe is empty)
  */
 function chartPaletteCssForTheme(themeName, baseCss) {
   const themeCss = resolveThemeCascade(themeName);
-  const { rules, declaredDark } = buildPlanes(themeCss, baseCss);
-  return serialize(rules, declaredDark);
+  const { chart, diagram, declaredDark } = buildPlanes(themeCss, baseCss);
+  return serializeGroup(chart, declaredDark, DEFAULT_PLANE_SELECTOR, ['chart-frame', 'word-cloud', 'math'], false)
+    + serializeGroup(diagram, declaredDark, DIAGRAM_PLANE_SELECTOR, ['section', 'figure'], true);
 }
 
 /** The recipe token names — the compile-time contract (Gate 3: the compiled planes

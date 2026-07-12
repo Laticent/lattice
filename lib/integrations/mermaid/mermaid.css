@@ -675,21 +675,37 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * Mindmap draws each branch in its section's cScale colour (themeVar
  * cScale0-11 → --cN-dark). Those bake at the light branch and, more to the
  * point, the saturated --cN-dark tone reads dark on a dark canvas. Re-point
- * each `.section-edge-N` at the matching category, brightened via color-mix
- * toward the flipping ink (lighter on a dark slide, slightly deeper on a light
- * slide) so the branches stay COLOURED and read brightly in both modes.
- * Scoped to svg.mindmapDiagram so no other diagram's edges are touched.
- * (Restores the per-branch colour an earlier over-broad edge rule flattened.)
- * Section indices mirror the mindmap-node fill mapping below: 0→c1 … 5→c6. */
+ * each `.section-edge-N` at the matching category, brightened toward the
+ * flipping ink (lighter on a dark slide, slightly deeper on a light slide) so
+ * the branches stay COLOURED and read brightly in both modes. Scoped to
+ * svg.mindmapDiagram so no other diagram's edges are touched. Section indices
+ * mirror the mindmap-node fill mapping below: 0→c1 … 5→c6 (6→c1, 7→c2 cycle). */
+/* >>> chart-palette-recipe [diagram] : mindmap branch-edge stroke tokens (build-time input) >>>
+ * The brightened per-branch stroke is `color-mix(--cat-N-mark 78%, --cat-on-fill)` — a
+ * color-mix in the PAINT itself, which an old engine drops (branch falls to black). So it
+ * is precompiled here to a flat `--mindmap-edge-N` literal per plane (routed to the DIAGRAM
+ * plane group — the mindmap SVG lives on a bare `section.diagram`, not a `.chart-frame`),
+ * and the stroke below reads it via plain var(). */
+:is(section, figure) svg.mindmapDiagram {
+  --mindmap-edge-0: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill));
+  --mindmap-edge-1: color-mix(in srgb, var(--cat-2-mark) 78%, var(--cat-on-fill));
+  --mindmap-edge-2: color-mix(in srgb, var(--cat-3-mark) 78%, var(--cat-on-fill));
+  --mindmap-edge-3: color-mix(in srgb, var(--cat-4-mark) 78%, var(--cat-on-fill));
+  --mindmap-edge-4: color-mix(in srgb, var(--cat-5-mark) 78%, var(--cat-on-fill));
+  --mindmap-edge-5: color-mix(in srgb, var(--cat-6-mark) 78%, var(--cat-on-fill));
+  --mindmap-edge-6: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill));
+  --mindmap-edge-7: color-mix(in srgb, var(--cat-2-mark) 78%, var(--cat-on-fill));
+}
+/* <<< chart-palette-recipe : end <<< */
 :is(section, figure) svg.mindmapDiagram .section-edge--1,
-:is(section, figure) svg.mindmapDiagram .section-edge-0 { stroke: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-1 { stroke: color-mix(in srgb, var(--cat-2-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-2 { stroke: color-mix(in srgb, var(--cat-3-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-3 { stroke: color-mix(in srgb, var(--cat-4-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-4 { stroke: color-mix(in srgb, var(--cat-5-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-5 { stroke: color-mix(in srgb, var(--cat-6-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-6 { stroke: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-7 { stroke: color-mix(in srgb, var(--cat-2-mark) 78%, var(--cat-on-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-0 { stroke: var(--mindmap-edge-0) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-1 { stroke: var(--mindmap-edge-1) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-2 { stroke: var(--mindmap-edge-2) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-3 { stroke: var(--mindmap-edge-3) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-4 { stroke: var(--mindmap-edge-4) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-5 { stroke: var(--mindmap-edge-5) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-6 { stroke: var(--mindmap-edge-6) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-7 { stroke: var(--mindmap-edge-7) !important; }
 
 
 /* ── TIMELINE diagram overrides (Mermaid) — relocated from the retired

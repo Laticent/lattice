@@ -90,6 +90,38 @@ to follow natively), the override anchors must capture **every** dark-selection 
 regresses too: the theme's declared scheme (build-time), the per-slide `section.dark`/`.light`
 class, the player's `data-lp-scheme`, and the no-JS OS arm are all emitted.
 
+### Two plane GROUPS — chart-frame and diagram
+The compiler emits the planes above as the **chart group**, on the `.chart-frame` union. But the
+`.chart-frame` skeleton is not the whole story: a **Mermaid** diagram renders on a bare
+`section.diagram` (never a chart-frame), and **journey / roadmap / legal / decision** draw from the
+OLDER *engine-wide* `--cat-N-fill/mark`, `--cat-on-fill/mark`, and `--diagram-*` palette — tokens the
+themes define as `light-dark()` at `:root`. The retired `@supports` fork used to flatten those too
+(its GLOBAL-REDEFINE arm, scoped to `section.chart-frame, section.journey, section.map, section.math`),
+so deleting the fork regressed every one of those components to black on old engines. The fix is a
+second **diagram group**:
+
+- **Selector:** `section, figure` — the same ancestor the Mermaid + diagram paints target, so the flat
+  literals land where those `var()` consumers can read them. A `:root` `light-dark()` def dropped by an
+  old engine leaves `--cat-1-fill` guaranteed-invalid at `:root`; a flat literal declared directly on
+  the `section` (a different element, so no same-element cascade fight) wins for that subtree. The
+  override plane uses the TYPE-subject anchors `section.dark` / `[data-lp-scheme=dark] section` / the
+  OS-system arms — every one strictly above the `section` base.
+- **Token set (reference-driven):** every `var(--X)` referenced by the diagram-family CSS whose theme
+  definition resolves through a modern function — auto-discovered, so it can't rot as the CSS changes.
+  This captures the categorical family, the `--diagram-*` structurals, AND the core tokens those SVG
+  paints read directly (`--text-heading`, `--bg`, `--bg-alt`, …). Emitting the core tokens flat on
+  every `section` is a **no-op on modern** (the literal equals the theme's own resolved value) and the
+  old-engine fix; the per-slide/player/OS overrides keep the scheme flip exact.
+- **Component-derived + direct-paint tokens** ride `[diagram]`-tagged `>>> chart-palette-recipe >>>`
+  regions, stripped from the bundle and compiled into this group (e.g. the Mermaid mindmap branch-edge
+  `--mindmap-edge-N` — the one place a `color-mix()` sat in the PAINT itself, now a flat token).
+
+Component *direct-paint* `color-mix()`/`light-dark()` (radar/journey/gantt/roadmap/kanban fills,
+backgrounds, shadows) are the remaining phase-2 tail — a token can't carry a per-instance mix, so
+those are refactored paint-side (the `fill-opacity` equivalent for a mix-with-transparent, or a
+`data-*` bucket like the map ramp). Non-chart components (redline, video, checklist, verdict-grid) the
+fork never covered stay out of scope (pre-existing; HARD RULE #18 logged, not pulled into this diff).
+
 ### One source of truth (HARD RULE #1)
 The compiler is a pure module. `build-css.js` injects its planes into every `dist/themes/*.min.css`;
 `lattice-emulator.js` appends the same planes to its palette CSS (the emulator loads palettes from

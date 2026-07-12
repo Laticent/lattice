@@ -9811,7 +9811,7 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
 /* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
 
 :is(section.radar, figure.chart-frame) {
-  --radar-fill:       18%;   /* series-colour share in the polygon fill (non-colour runtime input) */
+  --radar-fill:       0.18;  /* series-colour fill-opacity for the area polygon (0–1; was an 18% color-mix share — now a plain fill-opacity so no color-mix ships in the paint, old-engine safe) */
 }
 
 /* radar is a chart-family member — section layout, header/body/caption
@@ -9896,7 +9896,16 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
 
 /* ── Series polygons + vertex dots ────────────────────────────────────── */
 :is(section.radar, figure.chart-frame) .radar-poly {
-  fill: color-mix(in srgb, var(--series-color) var(--radar-fill), transparent);
+  /* Flat fill + fill-opacity, NOT color-mix(series-color, transparent): a color-mix
+   * in the paint breaks old engines (fill falls to solid black). Mixing a colour into
+   * `transparent` at N% IS an N% fill-opacity of that colour, so this renders identically
+   * on modern and paints correctly on old. --series-color is already a flat literal
+   * (RADAR_PALETTE = --chart-cat-N-hue, compiled on .chart-frame). The DEFAULT variant
+   * overrides `fill` inline with an area gradient (fill:url(#…)) AND pins `fill-opacity:1`
+   * inline so this base opacity does not double-dim the gradient; `minimal` sets
+   * fill:none. So this rule paints the delta / benchmark-hero / before-after polygons. */
+  fill: var(--series-color);
+  fill-opacity: var(--radar-fill);
   stroke: var(--series-color);
   stroke-width: 2;
   stroke-linejoin: round;
@@ -9963,7 +9972,10 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
 
 /* ── quadrant: axes grouped into tinted sectors ───────────────────────── */
 :is(section.radar, figure.chart-frame) .radar-sector {
-  fill: color-mix(in srgb, var(--series-color) 8%, transparent);
+  /* 8% flat fill-opacity — the old-engine-safe equivalent of the former
+   * color-mix(--series-color 8%, transparent). Sectors carry no gradient. */
+  fill: var(--series-color);
+  fill-opacity: 0.08;
   stroke: none;
 }
 :is(section.radar, figure.chart-frame) .radar-sector-mean {
@@ -10037,7 +10049,7 @@ section.radar.minimal .radar-band {
  * light-dark() tokens (the compiled override plane keys on .chart-frame.dark),
  * so only the non-colour polygon-fill share needs a per-modifier nudge here. */
 section.radar.dark {
-  --radar-fill:       24%;
+  --radar-fill:       0.24;
 }
 
 /* ── RADAR · COVER ──────────────────────────────────────────────────────
@@ -19632,21 +19644,21 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * Mindmap draws each branch in its section's cScale colour (themeVar
  * cScale0-11 → --cN-dark). Those bake at the light branch and, more to the
  * point, the saturated --cN-dark tone reads dark on a dark canvas. Re-point
- * each `.section-edge-N` at the matching category, brightened via color-mix
- * toward the flipping ink (lighter on a dark slide, slightly deeper on a light
- * slide) so the branches stay COLOURED and read brightly in both modes.
- * Scoped to svg.mindmapDiagram so no other diagram's edges are touched.
- * (Restores the per-branch colour an earlier over-broad edge rule flattened.)
- * Section indices mirror the mindmap-node fill mapping below: 0→c1 … 5→c6. */
+ * each `.section-edge-N` at the matching category, brightened toward the
+ * flipping ink (lighter on a dark slide, slightly deeper on a light slide) so
+ * the branches stay COLOURED and read brightly in both modes. Scoped to
+ * svg.mindmapDiagram so no other diagram's edges are touched. Section indices
+ * mirror the mindmap-node fill mapping below: 0→c1 … 5→c6 (6→c1, 7→c2 cycle). */
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
 :is(section, figure) svg.mindmapDiagram .section-edge--1,
-:is(section, figure) svg.mindmapDiagram .section-edge-0 { stroke: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-1 { stroke: color-mix(in srgb, var(--cat-2-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-2 { stroke: color-mix(in srgb, var(--cat-3-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-3 { stroke: color-mix(in srgb, var(--cat-4-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-4 { stroke: color-mix(in srgb, var(--cat-5-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-5 { stroke: color-mix(in srgb, var(--cat-6-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-6 { stroke: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill)) !important; }
-:is(section, figure) svg.mindmapDiagram .section-edge-7 { stroke: color-mix(in srgb, var(--cat-2-mark) 78%, var(--cat-on-fill)) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-0 { stroke: var(--mindmap-edge-0) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-1 { stroke: var(--mindmap-edge-1) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-2 { stroke: var(--mindmap-edge-2) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-3 { stroke: var(--mindmap-edge-3) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-4 { stroke: var(--mindmap-edge-4) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-5 { stroke: var(--mindmap-edge-5) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-6 { stroke: var(--mindmap-edge-6) !important; }
+:is(section, figure) svg.mindmapDiagram .section-edge-7 { stroke: var(--mindmap-edge-7) !important; }
 
 
 /* ── TIMELINE diagram overrides (Mermaid) — relocated from the retired
