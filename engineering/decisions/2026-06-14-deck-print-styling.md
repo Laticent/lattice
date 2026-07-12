@@ -10,10 +10,15 @@ summary: Print support that survives the boardroom on paper, in colour and B&W, 
 > **Built.** The dedicated `/studio/print` page (`PrintPage.tsx`) is live: the Studio's
 > "Print deck" opens it in-gesture, hands off the deck over the postMessage handshake,
 > and the page renders a faithful live preview (a `.lattice`-wrapped `buildSrcdoc` iframe
-> per slide) + builds the real per-slide PDF itself. Paper/orientation/colour live in the
-> page; auto-print on desktop (hidden-iframe `print()`), one-tap on iOS; Download always
-> available; Fit removed (never crops). Verified end-to-end on the live Studio (handshake,
-> preview, live reconfig, Legal PDF at 1008×612pt). `PrintOptionsPanel` retired.
+> per slide). Paper/orientation/colour live in the page; Fit removed (never crops).
+> **Print is platform-split, each with the right tool:** on DESKTOP it prints the *vector*
+> deck via a hidden HTML iframe (`buildSrcdoc` `printRules`) — HTML-in-iframe `print()`
+> reliably opens the dialog, unlike a PDF-in-iframe which Chrome refuses to auto-print, and
+> desktop honors `@page` so it's crisp + one-slide-per-page; on iOS it opens the *real PDF*
+> for the native Share → Print (iOS ignores `@page`). **Download** is always the real PDF.
+> Verified end-to-end on the live Studio: handshake, preview, live reconfig, the desktop
+> vector print (7 sections, `@page` legal landscape, print() called, output 1008×612pt) and
+> the Download PDF (7 pages, 1008×612pt). `PrintOptionsPanel` retired.
 >
 > After #939 (real per-slide PDF) shipped, the remaining friction was the *handoff*:
 > the PDF built in the Studio tab, then a pop-up-blocked open fell back to a

@@ -33,28 +33,30 @@ function isIOSLike(): boolean {
 	return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
 }
 
-// Print a PDF blob by loading it into a hidden iframe and calling its print() — the
-// desktop auto-print path (native pagination, scripted). iOS forbids scripted PDF
-// printing, so there we open the blob for the native Share → Print instead.
-function printBlob(url: string): void {
-	if (isIOSLike()) {
-		window.open(url, '_blank');
-		return;
-	}
+// Desktop print: mount the print-ready HTML in a hidden iframe and call its print().
+// HTML-in-iframe printing RELIABLY opens the browser's print dialog — unlike a PDF blob
+// in an iframe, which Chrome routinely refuses to print programmatically (the reported
+// "generates the print but no dialog" bug). Desktop honors CSS `@page`, so the vector
+// deck prints one-slide-per-page at the chosen paper, crisp. (iOS can't do this — it
+// ignores @page — so there we open the real PDF for the native Share → Print instead.)
+function printHtmlDoc(doc: string): void {
 	const frame = document.createElement('iframe');
-	frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-	frame.src = url;
+	frame.setAttribute('aria-hidden', 'true');
+	// Off-screen at a real size (not 0×0/hidden) so fonts + layout actually render before
+	// print; the @media print rules (not the on-screen size) drive the printed output.
+	frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:720px;border:0;';
+	frame.srcdoc = doc;
+	const reclaim = () => setTimeout(() => { try { frame.remove(); } catch { /* noop */ } }, 1000);
 	frame.onload = () => {
 		try {
 			frame.contentWindow?.focus();
-			frame.contentWindow?.print();
-		} catch {
-			window.open(url, '_blank');
-		}
+			frame.contentWindow?.addEventListener('afterprint', reclaim);
+			// A beat for the FIT agent + web fonts to settle before the dialog captures the page.
+			setTimeout(() => { try { frame.contentWindow?.print(); } catch { /* noop */ } }, 450);
+		} catch { /* noop */ }
 	};
 	document.body.appendChild(frame);
-	// Leave the frame mounted while the dialog is open; reclaim it later.
-	setTimeout(() => { try { frame.remove(); } catch { /* noop */ } }, 60_000);
+	setTimeout(reclaim, 60_000); // safety reclaim if afterprint never fires
 }
 
 export default function PrintPage({ options }: { options: SingleSlideOptions }) {
@@ -164,7 +166,8 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 		});
 	}, [render, sections, slide]);
 
-	// ── 3. Build the PDF (foreground → no freeze) and hand it to print / download. ──
+	// ── 3. Build the PDF (foreground → no freeze) — for Download (both platforms) and
+	// for iOS Print (where CSS @page is ignored, so only a real PDF prints right). ──
 	const buildPdf = React.useCallback(async (): Promise<string> => {
 		if (!render || !payload) throw new Error('not ready');
 		const s = resolvePrintSheet(render.geom.w, render.geom.h, opts);
@@ -173,20 +176,41 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 		return URL.createObjectURL(blob);
 	}, [render, payload, opts]);
 
+	// The print-ready HTML (vector deck, one slide per page at the chosen paper) for the
+	// DESKTOP print path — desktop honors CSS @page, so this prints crisp + correct.
+	const printDoc = React.useCallback((): string => {
+		if (!render) return '';
+		return buildSrcdoc({
+			html: render.html, css: render.css, mode: render.mode, geom: render.geom,
+			runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
+			...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
+			printRules: true,
+			printOpts: { paper: opts.paper, orientation: opts.orientation, fit: 'page' },
+			contentVisibility: false, cursor: false, sync: false,
+		});
+	}, [render, opts]);
+
 	const doPrint = React.useCallback(async () => {
-		if (busy || !render) return;
-		setBusy(true);
-		try {
-			const url = await buildPdf();
-			setStatus('');
-			printBlob(url);
-			setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* noop */ } }, 60_000);
-		} catch {
-			setStatus('Could not build the PDF.');
-		} finally {
-			setBusy(false);
+		if (!render) return;
+		if (isIOSLike()) {
+			// iOS: open the real PDF; the native viewer's Share → Print prints it (one tap).
+			if (busy) return;
+			setBusy(true);
+			try {
+				const url = await buildPdf();
+				setStatus('');
+				window.open(url, '_blank');
+				setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* noop */ } }, 60_000);
+			} catch {
+				setStatus('Could not open the PDF.');
+			} finally {
+				setBusy(false);
+			}
+		} else {
+			// Desktop: print the vector deck via a hidden HTML iframe → reliable print dialog.
+			printHtmlDoc(printDoc());
 		}
-	}, [busy, render, buildPdf]);
+	}, [busy, render, buildPdf, printDoc]);
 
 	const doDownload = React.useCallback(async () => {
 		if (busy || !render || !payload) return;
