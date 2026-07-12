@@ -155,6 +155,21 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **Suono — a framework-free, zero-dependency audio playback + sequencing library
+  (`docs/src/lib/suono/`), the third spin-off-able sibling beside Cadenza and
+  Vetrina.** Give it audio *bytes* and it plays them reliably on one owned
+  `AudioContext` (iOS unlock + silent-switch fix, decode + buffer/byte caching,
+  in-flight dedup, a latency-compensated clock); give it an ordered *sequence* plus
+  a caller-supplied `produce(item)` and it schedules bounded synth-ahead, plays with
+  tuned "breath" gaps, and forwards each clip's measured onset (the anchor Cadenza's
+  `reader.align` consumes). It owns no network, no key, and no model — the security
+  boundary that keeps our OpenRouter key and SSRF off it by construction. This lands
+  the engine + skeleton (pure `encode`/`cache` kernels and the scheduler are
+  Vitest-tested; the browser stage is verified when `voice-model.js` migrates onto it)
+  plus the `checkSuonoBoundary` import gate. Design: `engineering/decisions/2026-07-12-suono-audio-library.md`.
+
 ### Changed
 
 - **"Print deck" now opens a Print drawer inside Share** — a sub-step of the Share sheet (like the

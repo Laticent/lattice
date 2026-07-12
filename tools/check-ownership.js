@@ -1558,6 +1558,37 @@ function checkCadenzaBoundary(errors) {
   }
 }
 
+// ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
+// The same self-containment antibody as Cadenza, plus a HARDER security invariant
+// baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
+// Suono is bytes-only — it holds no network, no key, no remote import — so every
+// import must resolve inside the folder (`./x`) or be a `node:` built-in. A bare
+// specifier or a `../` escape both breaks the spin-off promise AND risks dragging
+// the network/key concern back over the boundary this library exists to keep out.
+const SUONO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'suono');
+const SUONO_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
+
+function checkSuonoBoundary(errors) {
+  if (!fs.existsSync(SUONO_DIR)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(SUONO_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const base = path.basename(file);
+    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
+    const src = fs.readFileSync(file, 'utf8');
+    for (const m of src.matchAll(SUONO_IMPORT)) {
+      const spec = m[1];
+      if (spec.startsWith('./')) continue; // in-folder relative — fine
+      if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+      errors.push(
+        `${rel} imports '${spec}', which escapes the Suono folder. The audio engine is zero-dependency, ` +
+        `bytes-only, and spin-off-able (2026-07-12-suono-audio-library.md): every import must resolve ` +
+        `inside docs/src/lib/suono/ (\`./x\`). Move shared code into the folder — Suono has no peer-dep ` +
+        `seam and must not couple to the host (or reach the network/a key).`,
+      );
+    }
+  }
+}
+
 // The gesture alphabet is a CURATED vocabulary, not a motion library: a gesture
 // earns its place by carrying a distinct MEANING the eye reads (§6.1), so the
 // `Gesture` union in stage.ts is frozen to exactly this registry. Adding one is
@@ -1708,6 +1739,7 @@ function run() {
   checkVoiceSampleAssets(errors);
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
+  checkSuonoBoundary(errors);
   checkSanctionedGestures(errors);
   return {
     errors,
@@ -1795,6 +1827,7 @@ module.exports = {
   SINGLETON_TAGS,
   checkVetrinaBoundary,
   checkCadenzaBoundary,
+  checkSuonoBoundary,
   checkSanctionedGestures,
   SANCTIONED_GESTURES,
   VETRINA_DIR,
