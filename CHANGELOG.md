@@ -483,6 +483,17 @@ in patch versions.
 
 ### Added
 
+- **Read-aloud diagnostics overlay — a first-class, draggable live readout for Present narration.**
+  A twin of the performance overlay: toggle it in **Workspace → General → Diagnostics**
+  ("Read-aloud diagnostics") or with `?readaloud-debug=1`, and while narrating a slide it shows the
+  active voice/model, `AudioContext` state, sync (spoken sentences vs. track cues), cadence drift
+  (how far the highlight ran ahead of the voice, peak), the reader-vs-audio clock, the narration
+  source (projection vs. fallback), and a per-sentence `attempt`/`timing` trace with a **copy trace**
+  button. It wears the same on-brand `popover` surface, 6-dot drag grip, status dots, and × as the
+  perf overlay, is theme-aware (light/dark), portals to `<body>`, remembers its position, and is a
+  true no-op when off. Born from the on-device hunt for the "skips words / races" regression; kept as
+  a permanent QA aid for tuning voice + cadence on a real device (HARD RULE #23).
+
 - **Print mode — a B&W-safe, ink-on-white render of the whole deck for paper handouts.**
   Every theme's palette encodes meaning in hue, which a grayscale office printer throws away;
   print mode swaps in a universal `--print-*` band so nothing depends on color. Turn it on

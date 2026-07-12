@@ -12,6 +12,7 @@ import { createPresenterController } from '@/playground/presenter-window.js';
 // surfaces (they agree on which Markdown is a chart slide under the house `---`-per-
 // section convention; the export aligns to rendered sections, this to the `---` set). #902
 import { narrateChart } from '@/playground/read-along-core.generated.js';
+import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
@@ -20,7 +21,8 @@ import { type PresentLens, presentationIndices, presentationSet } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { sectionsFromSlides } from './present-sections';
-import { type ReadAloudDebugEvent, type ReadAloudDebugLive, slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
+import ReadAloudOverlay from './ReadAloudOverlay';
+import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
@@ -48,18 +50,16 @@ type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: Rehe
 export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
 	const [lens, setLens] = React.useState<PresentLens>('full');
 	const [idx, setIdx] = React.useState(0);
-	// Temporary on-device read-aloud diagnostics — gated behind `?readaloud-debug=1`
-	// so it ships to the Cloudflare preview for an iPhone repro but is invisible in
-	// normal use. Pins the "skips words / races" regression: iOS audio/timing can't be
-	// verified in the sandbox (no WebAudio, no TTS — HARD RULE #23), so we surface the
-	// numbers the desync shows up in and read them off the real device.
-	const readAloudDebug = React.useMemo(() => {
-		if (typeof window === 'undefined') return false;
-		try {
-			return new URLSearchParams(window.location.search).get('readaloud-debug') === '1';
-		} catch {
-			return false;
-		}
+	// Read-aloud diagnostics overlay — a first-class, draggable on-brand readout
+	// (ReadAloudOverlay), toggled by the shared cross-surface pref (the Workspace
+	// "Read-aloud diagnostics" switch AND the `?readaloud-debug=1` URL param). When on,
+	// the reader captures its live clock/sync/trace and the overlay renders it. Off, it's
+	// a true no-op — no capture, no panel. Subscribes so a flip mounts/unmounts it live.
+	const [readAloudDebug, setReadAloudDebug] = React.useState(false);
+	React.useEffect(() => {
+		applyReadAloudDebugParam();
+		setReadAloudDebug(readAloudOverlayEnabled());
+		return onReadAloudOverlayEnabledChange(setReadAloudDebug);
 	}, []);
 	const [playing, setPlaying] = React.useState(false);
 	const [overviewOpen, setOverviewOpen] = React.useState(false); // slide sorter (G)
@@ -588,14 +588,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 					</div>
 				)}
 				{readAloudDebug && (
-					<ReadAloudDebugPanel
+					<ReadAloudOverlay
 						live={reader.debugLive}
 						events={reader.debugEvents}
 						source={
 							projected.set === set
 								? narrationText === (projected.texts[clamped] ?? '')
 									? 'projection'
-									: 'fallback (projection landed, not adopted)'
+									: 'fallback (landed, not adopted)'
 								: 'fallback (projection pending)'
 						}
 					/>
@@ -654,97 +654,6 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} onJump={(i) => setIdx(i)} className="w-full" />
 			</div>
 			<SlideOverview open={overviewOpen} onClose={() => setOverviewOpen(false)} options={options} set={set} frontMatter={frontMatter} current={clamped} onJump={setIdx} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} />
-		</div>
-	);
-}
-
-// ── Temporary on-device read-aloud diagnostics (?readaloud-debug=1) ──────────
-// A fixed, scrollable panel that surfaces the numbers the "skips words / races"
-// regression shows up in — read off a real iPhone via the Cloudflare preview,
-// since neither iOS Safari nor WebAudio exists in the sandbox (HARD RULE #23).
-// Remove once the root cause is pinned. Deliberately plain (no shadcn/theme
-// tokens) so it reads clearly over any slide and can't itself be mistaken for a
-// styling regression. Non-interactive except its own scroll.
-// Serialize one event to a single trace line (also the copy-paste format).
-function fmtDebugEvent(e: ReadAloudDebugEvent): string {
-	if (e.kind === 'read') return `── ${e.label ?? 'read'} · ${e.voice || '—'} · spoken/cues ${e.spokenCount}/${e.cueCount}${e.spokenCount !== e.cueCount ? ' ⚠MISMATCH' : ''} · ctx ${e.ctxState}`;
-	if (e.kind === 'timing') return `t#${e.index} on=${e.relOnsetMs} dur=${e.durationMs} ${e.ctxState} +${e.sincePlayMs}ms`;
-	return `a#${e.index} ${e.ctxState} +${e.sincePlayMs}ms`;
-}
-
-function ReadAloudDebugPanel({ live, events, source }: { live: ReadAloudDebugLive | null; events: ReadAloudDebugEvent[]; source: string }) {
-	// A count mismatch between what the voice speaks and the track's cues is the
-	// single clearest desync tell — every later onset re-anchors the wrong cue.
-	const countMismatch = live && live.spokenCount > 0 && live.spokenCount !== live.cueCount;
-	// The full accumulated trace as selectable text — one autoplay pass over a deck
-	// fills this, and it's far easier to select-all + paste from an iPhone than to
-	// screenshot every slide. Prefixed with the live summary for context.
-	const traceText = React.useMemo(() => {
-		const head = live
-			? `source=${source} voice=${live.voice || '—'} rung=${live.rung} mode=${live.mode} ctx=${live.ctxState} peakAhead=${live.peakAhead} spoken/cues=${live.spokenCount}/${live.cueCount}`
-			: `source=${source} (idle)`;
-		return `${head}\n${events.map(fmtDebugEvent).join('\n')}`;
-	}, [events, live, source]);
-	return (
-		<div
-			className="pointer-events-auto absolute left-2 top-2 z-50 flex max-h-[80vh] w-[320px] max-w-[85vw] flex-col rounded-lg border border-white/20 bg-black/85 p-2.5 font-mono text-[11px] leading-tight text-white shadow-xl"
-			style={{ fontVariantNumeric: 'tabular-nums' }}
-		>
-			<div className="mb-1 font-bold text-emerald-300">read-aloud debug</div>
-			<div className="mb-1 break-words">
-				<span className="text-white/60">source:</span> {source}
-			</div>
-			{live ? (
-				<>
-					<div>
-						<span className="text-white/60">rung:</span> {live.rung ?? '—'} · <span className="text-white/60">mode:</span> {live.mode}
-					</div>
-					<div className="break-words">
-						<span className="text-white/60">voice:</span> {live.voice || '—'}
-					</div>
-					<div>
-						<span className="text-white/60">ctx:</span>{' '}
-						<span className={live.ctxState === 'running' ? 'text-emerald-300' : 'text-amber-300'}>{live.ctxState}</span>
-					</div>
-					<div>
-						<span className="text-white/60">reader/audio ms:</span> {live.elapsedMs} / {live.audioClockMs}
-					</div>
-					<div>
-						<span className="text-white/60">active cue/word:</span> {live.activeCue} / {live.activeWord} · <span className="text-white/60">timed:</span> {live.lastTimedCue}
-					</div>
-					<div className={live.peakAhead > 0 ? 'font-bold text-amber-300' : ''}>
-						<span className="text-white/60">ahead now/peak:</span> {live.aheadCues} / {live.peakAhead}
-						{live.peakAhead > 0 ? ' ⚠ RACING' : ''}
-					</div>
-					<div className={countMismatch ? 'font-bold text-red-400' : ''}>
-						<span className="text-white/60">spoken/cues:</span> {live.spokenCount} / {live.cueCount}
-						{countMismatch ? ' ⚠ MISMATCH' : ''}
-					</div>
-				</>
-			) : (
-				<div className="text-white/60">idle — press play</div>
-			)}
-			<div className="mt-1.5 mb-0.5 border-t border-white/15 pt-1 font-bold text-emerald-300">trace ({events.length})</div>
-			<div className="min-h-0 flex-1 overflow-auto">
-				{events.length === 0 ? (
-					<div className="text-white/50">none yet</div>
-				) : (
-					events.map((e, i) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: an append-only diagnostic log; entries never reorder.
-						<div key={i} className={e.kind === 'read' ? 'mt-1 font-bold text-emerald-300' : e.kind === 'timing' ? 'text-sky-300' : 'text-white/70'}>
-							{fmtDebugEvent(e)}
-						</div>
-					))
-				)}
-			</div>
-			{/* Select-all + copy target — paste the whole run back instead of screenshotting each slide. */}
-			<textarea
-				readOnly
-				value={traceText}
-				onFocus={(ev) => ev.currentTarget.select()}
-				className="mt-1.5 h-16 w-full shrink-0 resize-none rounded border border-white/20 bg-black/60 p-1 text-[10px] text-white/80"
-				aria-label="read-aloud debug trace (tap to select all, then copy)"
-			/>
 		</div>
 	);
 }

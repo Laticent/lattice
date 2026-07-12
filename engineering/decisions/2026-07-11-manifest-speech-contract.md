@@ -1195,3 +1195,18 @@ dragging (no correctness issue; a debounce or commit-on-release would remove it)
 voice-pick handler calls `refresh()` AND now rides the emit-driven render, so a pick rebuilds twice
 (idempotent, harmless); the Drawing Board is FROZEN (2026-07-03-studio-succession.md), so it's left
 as-is. Both are cosmetic; tracked, not pulled into this diff.
+
+### Promoted to a first-class feature (2026-07-12): the read-aloud diagnostics overlay
+
+The temporary `?readaloud-debug=1` readout proved genuinely useful for tuning voice + cadence on a
+real device, so — at the reporter's request ("don't delete it; make it first-class, like the perf
+overlay") — it is promoted rather than removed. It now mirrors the performance overlay
+(site/PerfOverlay.tsx) exactly: a shared cross-surface enabled pref (`readaloud-overlay-prefs.ts`,
+localStorage + `?readaloud-debug=1`), a draggable `<body>`-portaled panel on shadcn `popover` tokens
+(theme-aware, position remembered), the same 6-dot grip / status dots / uppercase separators / ×, and
+a Workspace → Diagnostics switch beside "Performance overlay". `ReadAloudOverlay.tsx` is PARENT-fed —
+PresentOverlay owns the reader, so it passes the live snapshot + event trace down (the overlay can't
+measure them itself, unlike PerfOverlay which reads browser metrics). The reader's capture
+(`debugLive`/`debugEvents`) is unchanged; only its gate moved from a raw query flag to the shared
+pref. Verified on-brand in both light and dark via a real Present render (puppeteer). The
+`audioState()` method on the voice model is now a permanent (not diagnostic-only) API the overlay reads.
