@@ -270,7 +270,7 @@ function projectMedia(stage, heading, component) {
   if (!visual) return null;
   const node = visual.tagName === "FIGURE" ? visual.innerHTML : visual.outerHTML;
   const cap = heading ? `<figcaption>${esc(heading)}</figcaption>` : "";
-  const cls = CHART_TOKEN_COMPONENTS.has(component) ? "lp-figure chart-frame" : "lp-figure";
+  const cls = CHART_TOKEN_COMPONENTS.has(component) ? "lp-figure chart-frame" : component === "diagram" ? "lp-figure lp-figure-hold" : "lp-figure";
   return `<figure class="${cls}">${node}${cap}</figure>`;
 }
 function projectQuote(stage) {
@@ -793,8 +793,20 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
 #lp-toc a.lp-lvl2{padding-left:20px;color:var(--text-muted,#888)}
 #lp-toc a:hover{background:var(--bg-alt,#f4f4f4)}
 #lp-toc a.lp-on{color:var(--accent,#4338ca);border-left-color:var(--accent,#4338ca);background:var(--bg-alt,#f4f4f4);font-weight:600}
-#lp-article{max-width:740px;margin:0 auto;padding:48px 32px 140px;font-family:'Outfit',system-ui,sans-serif;
+/* BREAKOUT GRID \u2014 prose holds a readable ~740px measure in the centre track;
+   figures (charts/diagrams/tables) break OUT to a wider band (cap --lp-fig-max)
+   so a chart uses the big screen instead of being trapped in the prose column.
+   The 1fr side tracks centre the prose; a figure spans them and self-caps. */
+#lp-article{--lp-prose:740px;--lp-fig-max:1200px;
+ display:grid;
+ grid-template-columns:[fig-start] minmax(0,1fr) [prose-start] min(var(--lp-prose),100%) [prose-end] minmax(0,1fr) [fig-end];
+ padding:48px 32px 140px;font-family:'Outfit',system-ui,sans-serif;
  color:var(--text-body,#1a1a1a);font-size:18px;line-height:1.72}
+#lp-article>*{grid-column:prose-start/prose-end;min-width:0}
+#lp-article>.lp-figure:not(.lp-figure-hold):not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:var(--lp-fig-max)}
+/* Held figures (diagram/mermaid \u2014 node fills are still section-scoped, so a wider box would
+   only enlarge the uncoloured render) and the visual-layout placeholder note (a text card)
+   stay in the readable prose column; charts / math / images break out above. */
 #lp-article h1{font-family:'Playfair Display',serif;font-size:40px;line-height:1.1;color:var(--text-heading,#0d0d0d);margin:1.4em 0 .4em;letter-spacing:-.02em}
 #lp-article h1:first-child{margin-top:0}
 #lp-article h2{font-family:'Playfair Display',serif;font-size:27px;line-height:1.15;color:var(--text-heading,#111);margin:1.7em 0 .4em}
@@ -807,7 +819,12 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
 #lp-article .lp-stats{display:grid;grid-template-columns:auto 1fr;gap:.35em 1em;margin:0 0 1.3em;align-items:baseline}
 #lp-article .lp-stats dt{font-family:'Playfair Display',serif;font-size:1.5em;font-weight:700;color:var(--text-heading,#0d0d0d);font-variant-numeric:tabular-nums}
 #lp-article .lp-stats dd{margin:0;color:var(--text-secondary,#333)}
-#lp-article .lp-figure{margin:1.4em 0}#lp-article .lp-figure svg,#lp-article .lp-figure img{max-width:100%;height:auto}
+#lp-article .lp-figure{margin:1.9em 0}
+/* Chart/diagram SVGs are viewBox-only + preserveAspectRatio="meet": width:100% fills
+   the (up to 1200px) figure, height:auto keeps aspect, and max-height keeps a tall
+   or square chart VISIBLE \u2014 "meet" letterboxes inside the capped box, no distortion. */
+#lp-article .lp-figure svg{width:100%;height:auto;max-height:78vh;display:block;margin-inline:auto}
+#lp-article .lp-figure img{max-width:100%;height:auto;display:block;margin-inline:auto}
 #lp-article figcaption{font-size:.85em;color:var(--text-muted,#888);margin-top:.5em;text-align:center}
 #lp-article .lp-figure-note{border:1px dashed var(--border,#ccc);border-radius:10px;padding:1.1em 1.3em;background:var(--bg-alt,#f7f7f7)}
 #lp-article .lp-visual-note{margin:0;color:var(--text-secondary,#555);font-size:.95em}
@@ -1027,9 +1044,25 @@ if(following&&window.matchMedia){try{matchMedia('(prefers-color-scheme:dark)').a
 // A tap commits a concrete choice for this viewer and STOPS live-following.
 if(mode)mode.onclick=function(){following=false;isDark=!isDark;applyScheme();};
 var links=[].slice.call(document.querySelectorAll('#lp-toc a'));
-if(links.length&&window.IntersectionObserver){var spy=new IntersectionObserver(function(es){es.forEach(function(e){
- if(e.isIntersecting)links.forEach(function(l){l.classList.toggle('lp-on',l.getAttribute('href')==='#'+e.target.id);});});},
- {rootMargin:'-48px 0px -70% 0px'});[].forEach.call(document.querySelectorAll('#lp-article [id^=lp-sec-]'),function(h){spy.observe(h);});}
+if(links.length&&window.IntersectionObserver){
+ var toc=document.getElementById('lp-toc');
+ // Keep the ACTIVE toc link visible inside the independently-scrolling rail \u2014 called on spy
+ // changes AND on resize, so a reflow (window / breakout figure) never strands the highlight
+ // off-screen in a long deck's TOC. block:'nearest' scrolls the rail minimally, not the page.
+ function keepActiveTocVisible(){if(!toc)return;var on=toc.querySelector('a.lp-on');if(!on)return;
+  var r=on.getBoundingClientRect(),tr=toc.getBoundingClientRect();
+  if(r.top<tr.top||r.bottom>tr.bottom)on.scrollIntoView({block:'nearest'});}
+ var spy=new IntersectionObserver(function(es){es.forEach(function(e){
+  if(e.isIntersecting)links.forEach(function(l){l.classList.toggle('lp-on',l.getAttribute('href')==='#'+e.target.id);});});
+  keepActiveTocVisible();},
+  {rootMargin:'-48px 0px -70% 0px'});[].forEach.call(document.querySelectorAll('#lp-article [id^=lp-sec-]'),function(h){spy.observe(h);});
+ // RESIZE SITTER \u2014 a ResizeObserver on the article scroll box re-syncs the TOC as the window,
+ // rail, or a breakout figure reflows the layout. (IntersectionObserver already re-fires the
+ // active-section spy on reflow; this keeps the rail's highlight in view and is the hook for
+ // any resize-driven re-fit.)
+ var lpdoc=document.getElementById('lp-doc');
+ if(lpdoc&&window.ResizeObserver){var ro=new ResizeObserver(function(){keepActiveTocVisible();});ro.observe(lpdoc);}
+}
 setView('present');
 }catch(e){if(root){root.className=root.className.replace(/(^|\\s)lp-js\\b/,'');}}
 })();`;
@@ -1069,7 +1102,8 @@ async function assemblePlayer(data, caps) {
       report.missing.push("katex.min.css");
       return "";
     }
-    return `<style>${minifyCss(raw)}</style>`;
+    const mathArticleCss = "#lp-article .lp-figure .katex-display{overflow-x:auto;overflow-y:hidden;max-width:100%;margin-inline:auto}";
+    return `<style>${minifyCss(raw)}${mathArticleCss}</style>`;
   });
   const doc = caps.parseHtml(html);
   for (const s of [...doc.querySelectorAll('script:not([type="application/lattice+json"])')]) s.remove();

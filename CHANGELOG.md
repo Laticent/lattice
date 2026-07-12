@@ -194,6 +194,22 @@ in patch versions.
 
 ### Changed
 
+- **The exported `.html` player's Read·Article view is now responsive — charts break out of
+  the reading column and use the screen.** The article was a fixed ~740px column, so on a wide
+  display a chart rendered at ~676px with the rest of the screen empty. It's now a breakout
+  grid: prose keeps its readable ~740px measure, while figures (the color charts — funnel, map,
+  quadrant, radar, piechart — plus display math and images) break OUT to a ~1200px cap, centered,
+  and are height-capped at `78vh` so a tall or square chart stays fully visible instead of forcing
+  a scroll past one giant figure (`preserveAspectRatio="meet"` letterboxes cleanly — no distortion).
+  A `ResizeObserver` "sitter" keeps the active TOC entry scrolled into view as the window or a
+  breakout figure reflows the layout; display math scrolls horizontally inside its figure rather
+  than overflowing the page (injected only with the KaTeX stylesheet, so a math-less deck stays
+  katex-free). Verified light + dark at 390 / 820 / 1440 / 1680px with no horizontal overflow.
+  *(Diagram/mermaid figures are HELD at prose width for now — their node fills are still
+  `section `-scoped and render uncolored once re-hosted; widening them would only enlarge that,
+  so the in-article mermaid colour fix and live rendering of the spatial charts — word-cloud,
+  journey, state-chart — are tracked follow-ups.)*
+
 - **Editing in the Studio is dramatically snappier — a warm edit's engine cost dropped
   ~15× (≈141 ms → 9 ms on a throttled phone profile).** The engine re-packed the whole
   ~1 MB theme stylesheet into its ~560 KB per-render form on *every* keystroke, even though
