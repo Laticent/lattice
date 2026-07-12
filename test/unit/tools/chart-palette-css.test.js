@@ -99,8 +99,22 @@ describe('chart-palette-css compiler', () => {
   });
 
   test('COMPLETENESS — the compiled planes define every recipe token (both planes)', () => {
-    const names = recipeTokenNames();
+    // Extract the recipe token names from chart-family.css SOURCE with an
+    // INDEPENDENT regex (no trailing-`;` requirement, unlike recipeTokens()), so a
+    // token the module's extractor silently drops is still EXPECTED here and fails
+    // the check — not vacuously (the self-reference the checker flagged).
+    const family = fs.readFileSync(
+      path.join(ROOT, 'lib/components/chart/_chart-family/chart-family.css'), 'utf8');
+    const region = family
+      .slice(family.indexOf('>>> chart-palette-recipe'), family.indexOf('<<< chart-palette-recipe'))
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    const names = [...new Set(
+      [...region.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1].slice(2)),
+    )];
     assert.ok(names.length >= 40, `expected the full recipe, got ${names.length}`);
+    // Cross-check the module's own extractor agrees (catches a divergence either way).
+    assert.deepEqual([...names].sort(), [...recipeTokenNames()].sort(),
+      'recipeTokens() diverged from an independent scan of the recipe region');
     for (const theme of ['indaco', 'indaco-dark']) {
       const css = chartPaletteCssForTheme(theme, BASE);
       const missing = names.filter((n) => !new RegExp(`--${n}\\s*:`).test(css));

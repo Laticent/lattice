@@ -217,6 +217,21 @@ in patch versions.
   keeps its colon, so caption crawls and the exported `.vtt` (display-text glyphs) are **byte-for-
   byte unchanged**; only what the voice says changes. Mid-token colons (times `3:30`, ratios
   `16:9`) are untouched. Regression-guarded in `cadenza/normalize.test.ts`.
+- **Charts render in full colour on old browsers (Safari < 16.2 / old smart-TV Chromium)
+  across every surface — figures, legend swatches, and mermaid included.** Every chart colour
+  now compiles at build time to plain literals + plain `var()`, scheme-switched by selector
+  cascade, and the `@supports not (light-dark)` fork is DELETED. That fork was never executed
+  by headless Chromium, so four regressions rode through it invisibly; now modern and old
+  browsers run byte-identical chart CSS, and a regression surfaces on modern where it is
+  testable. The chart colour recipe becomes a build-time input (sentinel-delimited in
+  `chart-family.css`), resolved per theme to two flat planes by
+  `tools/build-chart-palette-css.js`, stripped from the shipped bundle, and injected into every
+  `dist/themes/*.min.css` and the emulator (which also stamps `data-lp-scheme` on the root so a
+  deck that goes dark via a theme, `color-mode:`, or a raw `style: :root{color-scheme:dark}`
+  keeps its charts in step with the surface). Real old-iOS behaviour remains UNVERIFIED (no old
+  WebKit is drivable in CI), but Chromium parity is now materially stronger evidence — old iOS
+  runs the same bytes Chromium does. See
+  `engineering/decisions/2026-07-12-chart-color-static-palette.md`.
 
 - **The dual-screen presenter's current + next slides are no longer cropped — they render
   whole, scaled to fit their frames.** The presenter stage inlines the shared fit kernel

@@ -1652,9 +1652,33 @@ const deckTitle =
   path.basename(outFile).replace(/\.[^.]+$/, '') ||
   'Lattice deck';
 
+// Resolve the deck's effective colour scheme → 'light' | 'dark' | 'system'. The
+// first-class `color-mode:` key wins (light/dark pin; system/inherited follow the
+// OS); else infer from the effective `color-scheme` (a `*-dark` theme, a deck
+// `style: ":root{color-scheme:dark}"`, or a `class: … dark` alias). Comment-strip the
+// palette so a doc comment mentioning `color-scheme:light dark` (indaco's does) is
+// not read as a declaration. Shared by the root stamp below and the player export.
+function resolveDeckLpScheme(fmText, paletteCss) {
+  const cmKey = ((fmText.match(/^\s*color-mode:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1] || '').trim().toLowerCase();
+  if (cmKey === 'light' || cmKey === 'dark') return cmKey;
+  if (cmKey === 'system' || cmKey === 'inherited') return 'system';
+  const decls = String(paletteCss).replace(/\/\*[\s\S]*?\*\//g, '');
+  const csDeclares = (re) => re.test(decls) || re.test(fmText);
+  if (csDeclares(/color-scheme\s*:\s*(light\s+dark|dark\s+light)\b/)) return 'system';
+  if (csDeclares(/color-scheme\s*:\s*dark\b/) || /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fmText)) return 'dark';
+  return 'light';
+}
+// Stamp the resolved scheme on the root as `data-lp-scheme`, so the compiled
+// chart-palette override plane selects the right scheme on EVERY surface — including
+// a deck that goes dark via a raw `style: ":root{color-scheme:dark}"` or
+// `color-mode: system`, which set no per-slide `.dark` class for the chart anchors to
+// key on (charts would otherwise stay on the light default plane while the surfaces
+// follow `color-scheme` natively). Mirrors the exported player's own baking.
+const deckLpScheme = resolveDeckLpScheme(fm, paletteCSS);
+
 // ── HTML document ─────────────────────────────────────────────────────────────
 const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
+<html lang="${escapeHtml(deckLang)}" data-lp-scheme="${deckLpScheme}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${embeddedFonts}
 ${katexCssLink}
@@ -2140,15 +2164,10 @@ async function renderBody(browser, g, closeBrowser) {
       //   · anything else → LIGHT.
       // Strip CSS comments from the palette first — a theme's DOC comment mentioning
       // `color-scheme:light dark` (indaco's does) must NOT read as an actual declaration.
-      const cmKey = ((fm.match(/^\s*color-mode:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1] || '').trim().toLowerCase();
-      const paletteDecls = paletteCSS.replace(/\/\*[\s\S]*?\*\//g, '');
-      const csDeclares = (re) => re.test(paletteDecls) || re.test(fm);
-      const deckScheme =
-        cmKey === 'light' || cmKey === 'dark' ? cmKey
-          : cmKey === 'system' || cmKey === 'inherited' ? 'system'
-            : csDeclares(/color-scheme\s*:\s*(light\s+dark|dark\s+light)\b/) ? 'system'
-              : csDeclares(/color-scheme\s*:\s*dark\b/) || /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm) ? 'dark'
-                : 'light';
+      // Same resolution as the root `data-lp-scheme` stamp (resolveDeckLpScheme) —
+      // the player bakes this as its default mode so the shared file opens the way
+      // the sender chose, not re-themed by the receiver's OS.
+      const deckScheme = resolveDeckLpScheme(fm, paletteCSS);
       const { html: playerHtml, report } = await buildPlayerHtml({
         // Prefer the browser-inflated DOM when the deck has dynamic components, so
         // state-chart / function-plot ship as baked static SVG (§A2b); else the

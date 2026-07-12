@@ -149,8 +149,13 @@ function buildPlanes(themeCss, baseCss) {
   for (const t of recipe) {
     const light = resolveDeclarationValue(`var(--${t.name})`, vars, false);
     const dark = resolveDeclarationValue(`var(--${t.name})`, vars, true);
-    if (MODERN_FN.test(light) || MODERN_FN.test(dark)) {
-      throw new Error(`build-chart-palette-css: --${t.name} did not fully flatten (light=${light} dark=${dark})`);
+    // Fail the BUILD, not just the test tier, on ANY unflattened output: a surviving
+    // color-mix()/light-dark() breaks old engines, and a surviving var() (an
+    // undefined/misreferenced recipe token resolves to a literal `var(--x)`) blacks
+    // out the mark on EVERY engine. Either is the exact bug this compiler prevents.
+    const bad = (v) => MODERN_FN.test(v) || /\bvar\(/.test(v);
+    if (bad(light) || bad(dark)) {
+      throw new Error(`build-chart-palette-css: --${t.name} did not fully flatten to a literal (light=${light} dark=${dark})`);
     }
     const base = declaredDark ? dark : light;
     const override = declaredDark ? light : dark;
@@ -176,10 +181,20 @@ function serialize(rules, declaredDark) {
     const { plain, subjects } = schemeAnchors(scheme);
     const body = overrides.map((r) => `--${r.name}: ${r.override}`).join('; ');
     out += `${plain.join(', ')} { ${body} }\n`;
-    // Strict OS arm — byte-matches the exported player (player-core.mjs): only the
-    // no-JS `system` receiver follows the OS, and it keys on `=system`, never
-    // `:not([=light])`, so a pinned export is untouched by the viewer's OS.
-    const osSel = subjects.map((s) => `:root[data-lp-scheme=system] .${s}`).join(', ');
+    // OS arm — for surfaces that follow the OS. Two anchors:
+    //   • the exported player's strict `:root[data-lp-scheme=system]` (byte-matches
+    //     player-core.mjs: keys on `=system`, never `:not([=light])`, so a pinned
+    //     export is untouched by the viewer's OS); and
+    //   • `.color-system` — the `color-mode: system` per-slide modifier
+    //     (base.modifiers.css `section.color-system{color-scheme:light dark}`), which
+    //     follows the OS on ANY surface (not just the player). Compound (`.color-system.chart-frame`,
+    //     the section IS the chart-frame) AND descendant (`.color-system .chart-frame`,
+    //     a nested figure re-host) both covered, both strictly above the default plane.
+    const osSel = [
+      ...subjects.map((s) => `:root[data-lp-scheme=system] .${s}`),
+      ...subjects.map((s) => `.color-system.${s}`),
+      ...subjects.map((s) => `.color-system .${s}`),
+    ].join(', ');
     out += `@media (prefers-color-scheme:${scheme}) { ${osSel} { ${body} } }\n`;
   }
   return out;
