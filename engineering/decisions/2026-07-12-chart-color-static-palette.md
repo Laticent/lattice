@@ -117,10 +117,19 @@ second **diagram group**:
   `--mindmap-edge-N` — the one place a `color-mix()` sat in the PAINT itself, now a flat token).
 
 Component *direct-paint* `color-mix()`/`light-dark()` (radar/journey/gantt/roadmap/kanban fills,
-backgrounds, shadows) are the remaining phase-2 tail — a token can't carry a per-instance mix, so
-those are refactored paint-side (the `fill-opacity` equivalent for a mix-with-transparent, or a
-`data-*` bucket like the map ramp). Non-chart components (redline, video, checklist, verdict-grid) the
-fork never covered stay out of scope (pre-existing; HARD RULE #18 logged, not pulled into this diff).
+backgrounds, shadows) can't be carried by a shared token when the mix is per-instance — but every one
+of them mixes a hue that **cycles a fixed palette** (the cat slots / the state set), so none is truly
+dynamic: each compiles to a per-slot flat token the setter re-points, exactly like the map ramp. The
+paint-side moves used: `fill: var(); fill-opacity: N` for a mix-with-transparent (radar area); per-cat
+`--*-track`/`-ring`/`-phaseborder`/`-cardshadow` tokens set inline or by the nth-child rotation
+(journey / roadmap / kanban); per-state `--state-*-glow-*` tokens (gantt focus lift); and — for the
+inline-SVG paths the CSS sweep misses — the pie/quadrant radial stops read the compiled
+`--chart-cat-N-g0/g1/g2`, and the journey face disc moved off a flaky `fill="var()"` presentation
+attribute onto a CSS rule. **As of Phase 2k the three-pattern sweep — CSS declarations, inline
+`style=`, and `fill=`/`stroke=`/`stop-color=` presentation attributes — is ZERO across the whole chart
+bucket + math + mermaid.** Non-chart components (redline, video, checklist, verdict-grid, legal
+obligation-matrix) the fork never covered stay out of scope (pre-existing; HARD RULE #18 logged, not
+pulled into this diff).
 
 ### One source of truth (HARD RULE #1)
 The compiler is a pure module. `build-css.js` injects its planes into every `dist/themes/*.min.css`;
@@ -134,12 +143,24 @@ exported HTML player, the docs-site engine, and dist all carry identical planes.
   wiring; cache-key fix; the old `@supports`-fork generator + test retired; `chart-palette-css.test.js`
   as the new gate. Modern-neutral: token consumers now read flat literals identical to what
   `light-dark()`/`color-mix()` resolved to.
-- **Phase 2 — transforms + component paints.** Value-rewrite the ~81 inline `color-mix()` painters
-  (canonical fill gradient, legend swatches → a CSS rule + `data-cat` not a presentation-attr,
-  choropleth ramp quantized at K≈16, spine tokens, radar muted, mermaid edges) and the ~40 indirect
-  local colour-token defs to read enumerated flat plane tokens. Live renderers stamp `data-lp-scheme`.
-- **Phase 3 — marker collapse + gates + tests.** Collapse `:is(section.X, figure.X)` → `.chart-frame.X`
-  (mermaid excepted, test-locked); wire the durable gates into `build:check`; extend the tests.
+- **Phase 2 (DONE, 2a–2k) — transforms + component paints.** Value-rewrote every inline `color-mix()`
+  painter (canonical fill gradient, legend swatches → a CSS rule + `data-cat` not a presentation-attr,
+  choropleth ramp quantized at K=16, spine tokens, radar area via `fill-opacity`, mermaid mindmap
+  edges, progress `--pct` via `background-size`, roadmap phase-border, journey actor track/ring +
+  faces, gantt focus glow, kanban card shadow, pie/quadrant radial stops) and the indirect local
+  colour-token defs to read enumerated flat plane tokens. Added the **diagram plane group** (2g) so
+  the engine-wide `--cat-*`/`--diagram-*` palette the fork's GLOBAL-REDEFINE arm covered is recovered
+  on `section, figure`. Live renderers stamp `data-lp-scheme`. **End state: zero modern-fn / flaky
+  presentation-attr paint anywhere in the chart family.**
+- **Phase 3 (in progress) — marker collapse + gates + tests.** The **paint-flatness gate is LANDED**
+  (`checkChartPaintFlatness` in `tools/check-ownership.js`, via `build:check`): with the recipe regions
+  removed it fails the build on ANY `color-mix()`/`light-dark()` in a chart CSS paint AND any inline
+  `style=`/`fill=`/`stroke=`/`stop-color=` modern-fn or flaky presentation-attr `var()` in a chart
+  transform — the anti-rot lock for the Phase-2 end state (it immediately caught two multi-line neutral
+  shadows a line-based sweep missed). Landing it also fixed the offline resolver to flatten a
+  `color-mix()` embedded after bare lengths inside a `light-dark()` arm (a per-scheme box-shadow), so a
+  whole scheme-structural shadow compiles as one token. Remaining: collapse
+  `:is(section.X, figure.X)` → `.chart-frame.X` (mermaid excepted, test-locked); extend the plane tests.
 - **Phase 4 — verification + sign-off.** Simulation harness (labeled UNVERIFIED); export-byte
   sign-off (dark + light); full adversarial trio on the shipping diff.
 
@@ -157,10 +178,24 @@ exported HTML player, the docs-site engine, and dist all carry identical planes.
   offline-resolver↔Chromium tolerance (±3/255 per channel, per the parity test); the parity sweep
   pins sample expressions + the bridge tokens, not all recipe tokens × all themes. Gallery
   pixel-diffs are the backstop.
-- **Phase-scoped coverage.** After phase 1 the recipe *tokens* are old-safe, but the inline
-  direct-paint `color-mix()`/`light-dark()` painters still ship raw and are not yet covered on old
-  engines. Old-browser paint coverage is completed in phase 2 — until then the "modern == old" claim
-  holds for token consumers only.
+- **Phase-scoped coverage.** After phase 1 the recipe *tokens* were old-safe but the inline
+  direct-paint painters still shipped raw; **phase 2 (2a–2k) completes old-browser paint coverage** —
+  the "modern == old" claim now holds for the whole chart family, not just token consumers — and the
+  Phase-3 paint-flatness gate (landed) now enforces it at `build:check`, so the end state can't rot.
+- **Diagram-group blast radius is deck-wide, not chart-scoped (checker finding 4).** The diagram plane
+  re-declares ~20 core tokens (`--bg`, `--text-*`, `--accent`, `--pass/warn/fail`, …) flat on *every*
+  `section, figure`, not just chart roots. Verified a no-op on modern for the indaco family (house
+  style is `light-dark(hex, hex)` → the offline resolver returns the branch hex verbatim = the native
+  computed value), but the ±3/255 resolver↔Chromium tolerance from "Byte-identical" above now applies
+  to any core token a theme defines via `color-mix()` at `:root`, across the whole deck — not only
+  chart tokens. No such token exists in the shipped themes today.
+- **Nested `<figure>` under a per-slide `section.dark`/`.light` (checker finding 2, LOW).** The diagram
+  base plane declares core tokens directly on bare `figure` (0,0,1), shadowing inheritance from the
+  flipped section; the override arms match `figure.dark` / `[data-lp-scheme] figure` but not a plain
+  `figure` inside a `section.dark`, so such a figure would read default-scheme core tokens. Exposure is
+  ~zero today (diagram SVGs render div/svg content that inherits from the section; chart re-host figures
+  carry `data-lp-scheme`). A `.dark figure, .light figure` descendant arm closes it if a nested-figure
+  diagram ever ships.
 
 ## The durable invariants (gated at `build:check`, phase 3)
 

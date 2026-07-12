@@ -127,6 +127,21 @@ describe('resolveDeclarationValue (whole-declaration flatten)', () => {
     assert.equal(resolveDeclarationValue('my-var(--x)', vars, false), 'my-var(--x)');
   });
 
+  test('light-dark arm that is a COMPOUND value flattens its embedded color-mix (box-shadow)', () => {
+    // A per-scheme box-shadow: each light-dark arm trails bare lengths before the color-mix
+    // (`0 0.1cqi 0.2cqi color-mix(…)`) and the dark arm changes STRUCTURE (`inset …`). The arm
+    // must be resolved through the embedded scanner, not treated as one whole colour call —
+    // otherwise the color-mix survives and breaks an old engine. (2026-07-12 static palette.)
+    const shadow = 'light-dark(0 0.1cqi 0.2cqi color-mix(in oklab, black 7%, transparent), '
+      + 'inset 0 0.09cqi 0 color-mix(in oklab, white 13%, transparent))';
+    const light = resolveDeclarationValue(shadow, vars, false);
+    const dark = resolveDeclarationValue(shadow, vars, true);
+    assert.doesNotMatch(light, /color-mix\(|light-dark\(/, light);
+    assert.doesNotMatch(dark, /color-mix\(|light-dark\(/, dark);
+    assert.equal(light, '0 0.1cqi 0.2cqi rgba(0,0,0,0.070)');
+    assert.equal(dark, 'inset 0 0.09cqi 0 rgba(255,255,255,0.130)');
+  });
+
   test('color-mix with a var() PERCENTAGE resolves (the canonical chart fill)', () => {
     // The chart-fill gradient writes the mix ratio as a token, not a literal:
     // `color-mix(in oklab, var(--hue) var(--pct), var(--bg))`. Both the colour

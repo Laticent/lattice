@@ -29,6 +29,12 @@
   /* Default "premium tile" surface + hairline (dark lifts off the near-black canvas). */
   --kanban-card-bg: light-dark(var(--bg-alt), color-mix(in oklab, var(--bg-alt) 88%, white));
   --kanban-card-border: light-dark(var(--border), color-mix(in oklab, var(--border) 78%, white));
+  /* Premium-tile elevation — a soft drop-shadow in light; on near-black dark a top inset
+   * highlight reads as lift where a drop-shadow cannot. The two layers each carry a per-scheme
+   * STRUCTURE (drop vs inset), so the whole multi-layer box-shadow compiles as ONE token per
+   * plane (the offline resolver flattens the color-mix inside each light-dark arm); the card
+   * paint reads it via plain var() — no light-dark()/color-mix() in the shadow paint. */
+  --kanban-card-shadow: light-dark(0 0.1cqi 0.2cqi color-mix(in oklab, black 7%, transparent), inset 0 0.09cqi 0 color-mix(in oklab, white 13%, transparent)), light-dark(0 0.32cqi 0.7cqi color-mix(in oklab, black 8%, transparent), 0 0.4cqi 1cqi color-mix(in oklab, black 32%, transparent));
 
   /* "Done" column header underline rule (non-tinted board). */
   --kanban-done-rule: color-mix(in oklab, var(--state-pass-ink) 40%, transparent);
@@ -181,11 +187,7 @@
   padding: 0.75cqi var(--sp-sm);
   /* Soft drop-shadow in light; in dark a top inset highlight reads as elevation
    * where a drop-shadow on near-black cannot. */
-  box-shadow:
-    light-dark(0 0.1cqi 0.2cqi color-mix(in oklab, black 7%, transparent),
-               inset 0 0.09cqi 0 color-mix(in oklab, white 13%, transparent)),
-    light-dark(0 0.32cqi 0.7cqi color-mix(in oklab, black 8%, transparent),
-               0 0.4cqi 1cqi color-mix(in oklab, black 32%, transparent));
+  box-shadow: var(--kanban-card-shadow);
   display: flex;
   flex-direction: column;
   gap: 0.62cqi;

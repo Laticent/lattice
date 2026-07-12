@@ -1684,6 +1684,84 @@ function checkDensityCoverage(manifests, errors) {
   }
 }
 
+// HARD RULE (chart-color static palette, 2026-07-12) — the chart family ships FLAT paint.
+// The `@supports not (light-dark)` fork is deleted; every chart colour compiles at build time to a
+// flat literal read via plain `var()`. A modern colour FUNCTION (`color-mix()`/`light-dark()`) in a
+// shipped chart PAINT — or a `var()`/modern-fn in a `fill=`/`stroke=`/`stop-color=` presentation
+// ATTRIBUTE (flaky on old WebKit) — is the exact regression the compilation exists to end: it drops
+// to black on old engines while riding through modern-only CI unseen (#925/#936). This gate scans the
+// shipped chart surface and fails the build on any such paint. The `>>> chart-palette-recipe >>>`
+// regions ARE the sanctioned build-time colour SOURCE (stripped from the bundle, compiled to planes),
+// so they're excluded. See engineering/decisions/2026-07-12-chart-color-static-palette.md.
+const CHART_PAINT_DIRS = [
+  path.join(LIB_DIR, 'components', 'chart'),
+  path.join(LIB_DIR, 'components', 'math'),
+  path.join(LIB_DIR, 'integrations', 'mermaid'),
+];
+
+// Remove each `>>> chart-palette-recipe … <<< chart-palette-recipe` region — the whole enclosing
+// comment span (the sentinels live inside `/* … */`), so the recipe's build-time color-mix SOURCE
+// is not mistaken for a shipped paint.
+function stripRecipeRegions(css) {
+  let out = '';
+  let i = 0;
+  for (;;) {
+    const marker = css.indexOf('>>> chart-palette-recipe', i);
+    if (marker === -1) { out += css.slice(i); break; }
+    const open = css.lastIndexOf('/*', marker);
+    const closeMarker = css.indexOf('<<< chart-palette-recipe', marker);
+    if (closeMarker === -1) { out += css.slice(i); break; } // unterminated — the compiler errors on this
+    const close = css.indexOf('*/', closeMarker);
+    out += css.slice(i, open === -1 ? marker : open);
+    i = close === -1 ? css.length : close + 2;
+  }
+  return out;
+}
+
+function checkChartPaintFlatness(errors) {
+  // (1) CSS — with the recipe regions removed, NO color-mix()/light-dark() may remain anywhere in the
+  // chart CSS (a paint OR an un-compiled token def; the recipe region is the only sanctioned home).
+  for (const dir of CHART_PAINT_DIRS) {
+    if (!fs.existsSync(dir)) continue;
+    for (const file of listCssFiles(dir)) {
+      const rel = path.relative(ROOT, file);
+      const css = stripComments(stripRecipeRegions(fs.readFileSync(file, 'utf8')));
+      for (const m of css.matchAll(/([a-zA-Z-]+)\s*:\s*([^;{}]*(?:color-mix|light-dark)\([^;{}]*)/g)) {
+        errors.push(
+          `chart paint flatness: ${rel} — \`${m[1]}: ${m[2].trim().slice(0, 70)}\` ships ` +
+          `color-mix()/light-dark() outside a \`>>> chart-palette-recipe >>>\` region. Old WebKit ` +
+          `drops it (→ black). Move the formula into the component's recipe region so it compiles to ` +
+          `a flat token, and read it via plain var(). See 2026-07-12-chart-color-static-palette.md.`,
+        );
+      }
+    }
+  }
+  // (2) Transforms — inline `style="…color-mix/light-dark…"` in emitted SVG, and `var()`/modern-fn in
+  // a `fill=`/`stroke=`/`stop-color=` presentation ATTRIBUTE (flaky on old WebKit → black).
+  for (const dir of CHART_PAINT_DIRS) {
+    if (!fs.existsSync(dir)) continue;
+    for (const file of listSourceFiles(dir)) {
+      if (!file.endsWith('.js')) continue;
+      const rel = path.relative(ROOT, file);
+      const js = stripComments(fs.readFileSync(file, 'utf8'));
+      for (const m of js.matchAll(/style=(["'`])([^"'`]*(?:color-mix|light-dark)\([^"'`]*)\1/g)) {
+        errors.push(
+          `chart paint flatness: ${rel} — inline \`style="${m[2].slice(0, 60)}"\` emits ` +
+          `color-mix()/light-dark() in an SVG paint (breaks old WebKit → black). Read a compiled ` +
+          `--chart-cat-N-* / component recipe token via plain var() instead.`,
+        );
+      }
+      for (const m of js.matchAll(/\b(fill|stroke|stop-color)=(["'`])((?:var\(|[^"'`]*(?:color-mix|light-dark)\()[^"'`]*)\2/g)) {
+        errors.push(
+          `chart paint flatness: ${rel} — \`${m[1]}="${m[3].slice(0, 50)}"\` puts var()/color-mix() ` +
+          `in a PRESENTATION ATTRIBUTE (flaky on old WebKit → black). Move it to a CSS rule ` +
+          `(\`${m[1]}: var(--token)\` keyed on a class) — CSS var() is old-safe.`,
+        );
+      }
+    }
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -1709,6 +1787,7 @@ function run() {
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
   checkSanctionedGestures(errors);
+  checkChartPaintFlatness(errors);
   return {
     errors,
     counts: {
@@ -1797,6 +1876,9 @@ module.exports = {
   checkCadenzaBoundary,
   checkSanctionedGestures,
   SANCTIONED_GESTURES,
+  checkChartPaintFlatness,
+  stripRecipeRegions,
+  CHART_PAINT_DIRS,
   VETRINA_DIR,
   VETRINA_ADAPTER,
   VETRINA_IMPORT,
