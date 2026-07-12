@@ -80,6 +80,13 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	const bytesCache = createBoundedCache<Bytes>(opts.cacheLimit ?? DEFAULT_CACHE_LIMIT);
 	const inflight = createInflight<Bytes | null>();
 
+	// GLOBAL in-flight produce count across BOTH the run scheduler AND warm — so the aggregate can't
+	// reach 2×concurrency (run's cap + warm's cap counted separately, the red team's finding). The run
+	// (playback) is the PRIORITY path and is never gated by this — gating its fillSlots could leave a
+	// `pending[i]` slot unfilled and silently skip the item; only warm (background prefetch) yields to
+	// the shared ceiling. Counts REAL produces only (a cache hit / joined dedup adds nothing).
+	let liveProduce = 0;
+
 	let ctl: AbortController | null = null;
 	let running = false;
 	let pausedGate: Promise<void> | null = null;
@@ -131,6 +138,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 				if (joined) return joined;
 			}
 			let timer: ReturnType<typeof setTimeout>;
+			liveProduce++; // real produce (past the cache/join early-returns) — counts toward the global cap
 			const p: Promise<Bytes | null> = Promise.race<Bytes | null>([
 				Promise.resolve()
 					.then(() => produce(item, { signal: sig, index }))
@@ -150,7 +158,9 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 					}, produceTimeoutMs);
 				}),
 			]).finally(() => {
+				liveProduce--;
 				if (key) inflight.settle(key, p);
+				pumpWarm(); // a run produce freed global budget — let warm use it
 			});
 			if (key) inflight.set(key, p, sig);
 			return p;
@@ -192,6 +202,10 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 					// without this race the loop parks here for good (stop() would never unwedge it, since
 					// it only re-checks sig.aborted AFTER the await returns). Loser isn't cancelable
 					// (decodeAudioData/a hung read can't be aborted), but the RUN proceeds — never-hangs.
+					// TWO ACCEPTED RESIDUALS (inherent to un-cancelable decode, red-team-noted): (1) a deck
+					// of genuinely-hung items crawls at ~produceTimeoutMs per item (degraded, not wedged);
+					// (2) a barge-in OVER a hung decode leaves that one orphaned read pending for the
+					// session. A real TTS/file source never hangs, so both are adversarial-input only.
 					let clip: Clip | null = null;
 					let decodeTimer: ReturnType<typeof setTimeout>;
 					const decodeKey = safeKey(items[i]) ?? undefined;
@@ -261,7 +275,9 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	let warmActive = 0;
 	let warmConcurrency = DEFAULT_WARM_CONCURRENCY;
 	function pumpWarm(): void {
-		while (warmActive < warmConcurrency && warmQueue.length) {
+		// Gate on the GLOBAL liveProduce ceiling too — warm YIELDS to the run so warm's cap and the
+		// run's cap can't sum to 2×MAX_CONCURRENCY real produces at a paid backend (red-team finding).
+		while (warmActive < warmConcurrency && liveProduce < MAX_CONCURRENCY && warmQueue.length) {
 			const entry = warmQueue.shift();
 			if (!entry) break;
 			if (entry.signal?.aborted) continue;
@@ -271,6 +287,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 			if (bytesCache.has(key)) continue; // already prefetched; decode-ahead for it happens at first play (NOT here — firing preloadDecode for every already-cached item in this unbounded loop was a decode storm)
 			if (inflight.join(key)) continue;
 			warmActive++;
+			liveProduce++;
 			const sig = new AbortController().signal; // this request's OWN lifetime — never the caller's
 			let timer: ReturnType<typeof setTimeout>;
 			const p: Promise<Bytes | null> = Promise.race<Bytes | null>([
@@ -289,6 +306,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 					timer = setTimeout(() => res(null), produceTimeoutMs);
 				}),
 			]).finally(() => {
+				liveProduce--;
 				inflight.settle(key, p);
 				warmActive--;
 				pumpWarm();

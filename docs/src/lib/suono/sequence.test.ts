@@ -360,4 +360,78 @@ describe('makeSequence — hardening (adversarial trio)', () => {
 		expect(d.started()).toBe(16); // MAX_CONCURRENCY, not 1000 or 30
 		seq.stop();
 	});
+
+	it('clamps warm concurrency to the ceiling', async () => {
+		const stage = fakeStage();
+		let inFlight = 0;
+		let peak = 0;
+		const produce = vi.fn(() => {
+			inFlight++;
+			peak = Math.max(peak, inFlight);
+			return Promise.resolve(bytes()).finally(() => {
+				inFlight--;
+			});
+		});
+		const seq = makeSequence(stage, { items: [], produce, keyOf: (i) => `w${i}` });
+		seq.warm(
+			Array.from({ length: 30 }, (_, i) => i),
+			{ concurrency: 1000 }, // absurd — must be clamped
+		);
+		await flush();
+		expect(peak).toBe(16); // MAX_CONCURRENCY, not 30
+		seq.stop();
+	});
+
+	it('GLOBAL cap: warm yields to the run so aggregate real produces ≤ MAX_CONCURRENCY', async () => {
+		const stage = fakeStage();
+		let warmProduces = 0;
+		// Run items (<100) hang until abort → hold the whole global budget; warm items (≥100) resolve.
+		const produce = (item: number, { signal }: { signal: AbortSignal }) => {
+			if (item >= 100) {
+				warmProduces++;
+				return Promise.resolve(bytes());
+			}
+			return new Promise<Bytes | null>((res) => signal.addEventListener('abort', () => res(bytes()), { once: true }));
+		};
+		const seq = makeSequence(stage, {
+			items: Array.from({ length: 20 }, (_, i) => i),
+			produce,
+			keyOf: (i) => `k${i}`,
+			concurrency: 1000, // → 16 hung run produces hold the global budget
+			produceTimeoutMs: 100000,
+		});
+		seq.play();
+		await flush();
+		seq.warm([100, 101, 102, 103, 104], { concurrency: 16 });
+		await flush();
+		await flush();
+		expect(warmProduces).toBe(0); // fully gated — the run holds all 16 of the global budget
+		seq.stop(); // aborts → run produces resolve → budget frees
+		await flush();
+		await flush();
+		await flush();
+		expect(warmProduces).toBe(5); // now warm drains
+	});
+
+	it('a hung decode times out via the watchdog even with no stop()', async () => {
+		const stage = fakeStage({ hangDecode: true });
+		let terminal: { error?: string } | null = null;
+		let done: () => void;
+		const finished = new Promise<void>((r) => (done = r));
+		const seq = makeSequence(stage, {
+			items: [0],
+			produce: async () => bytes(),
+			keyOf: (i) => `k${i}`,
+			produceTimeoutMs: 30, // short — the decode watchdog fires
+			onState: (e) => {
+				if (!e.playing) {
+					terminal = e;
+					done();
+				}
+			},
+		});
+		seq.play();
+		await finished;
+		expect(terminal!.error).toMatch(/timed out decoding/);
+	});
 });

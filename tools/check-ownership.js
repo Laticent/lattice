@@ -1571,7 +1571,11 @@ const SUONO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'suono');
 // side-effect import (`import 'x'`), a dynamic `import('x')`, or a `require('x')`. Each pattern
 // captures the specifier in group 1.
 const SUONO_SPEC_PATTERNS = [
-  /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g, // import/export … from 'x'
+  // import/export … from 'x' — `[^;]*?` (not the old `[^;\n]*?`) allows the gap to cross NEWLINES, so
+  // a MULTI-LINE import (the default formatter wrap of a `{ … }` list) can't slip the gate by putting
+  // `from` on its own line — but stays bounded by `;` so an `export interface`/`export function` with
+  // no `from` can't run forward into a `from "…"` sitting in a later comment/string (false positive).
+  /(?:^|\n)\s*(?:import|export)\b[^;]*?\bfrom\s*['"]([^'"]+)['"]/g,
   /(?:^|[\n;{}(])\s*import\s+['"]([^'"]+)['"]/g,                      // side-effect import 'x'
   /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,                    // dynamic import('x') / require('x')
 ];

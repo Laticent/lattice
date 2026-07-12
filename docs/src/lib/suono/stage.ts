@@ -59,12 +59,18 @@ export function createStage(opts: StageOptions = {}): Stage {
 	const decodedLimit = opts.decodedCacheLimit ?? DEFAULT_DECODED_LIMIT;
 	const fadeMs = opts.fadeMs ?? DEFAULT_FADE_MS;
 
-	// Decoded-clip cache, bounded by BOTH entry count AND aggregate decoded bytes — a count cap alone
-	// can't stop N huge clips (each under the encoded-input cap) ballooning into gigabytes of PCM.
+	// Decoded-clip cache, bounded by BOTH entry count AND aggregate decoded bytes. IMPORTANT — this is
+	// a RETENTION cap (bounds steady-state cache growth across a long session), NOT an allocation
+	// guard: decodeAudioData has already allocated the full PCM before decodedSet runs, so it cannot
+	// prevent a single hostile clip's transient decode OOM. The pre-allocation front-line is the
+	// ENCODED-size `maxDecodeBytes` check in decode() — a caller facing untrusted compressed audio
+	// (which can decode to 100×+ its size) should set THAT low. A single clip larger than the whole
+	// decoded budget is not retained at all (it plays once, then GCs).
 	const decoded = new Map<string, Clip>();
 	let decodedBytes = 0;
 	function decodedSet(key: string, clip: Clip): void {
 		if (decoded.has(key)) return; // idempotent — keep the first decode of a key
+		if (clipBytes(clip) > maxDecodedBytes) return; // one clip bigger than the whole budget → don't retain it
 		decoded.set(key, clip);
 		decodedBytes += clipBytes(clip);
 		// Evict oldest (FIFO) until under both bounds — but never evict the entry just added.

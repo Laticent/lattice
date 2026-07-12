@@ -310,15 +310,23 @@ and the scheduler mechanics held; the trio's real findings were folded (with reg
 - **Never-rejects / never-hangs holes closed.** `keyOf`/`gapMs` throwing no longer rejects the run
   (guarded → uncached / no-breath); the `decode` step is now raced against abort + a watchdog, so a
   hung `arrayBuffer()`/decode can't wedge the run forever.
-- **Resource bounds.** The decode-bomb guard now checks the *declared* size before reading (the OOM
-  window was upstream of it), and the decoded cache is bounded by *aggregate PCM bytes* (256 MiB
-  default), not entry count alone (64 huge clips could balloon past the encoded-input cap). Caller
-  `concurrency`/`warm` concurrency is clamped to a ceiling (no million-wide burst). `warm()` no longer
-  creates the `AudioContext` pre-gesture, and its cached-branch decode storm is removed.
+- **Resource bounds.** The decode-bomb guard checks the *declared* size before reading (the OOM
+  window was upstream of it) — the **encoded-size `maxDecodeBytes` is the pre-allocation front-line**;
+  a caller facing untrusted compressed audio should set it low. The decoded-cache byte budget (256 MiB
+  default) is a **retention cap** (bounds steady-state cache growth), *not* an allocation guard —
+  `decodeAudioData` allocates the PCM before the cache sees it, so it can't stop a single hostile
+  clip's transient decode (an honest limit surfaced by the second red-team pass; a single clip over
+  the whole budget is simply never retained). Caller `concurrency`/`warm` is clamped to a ceiling AND
+  a **global `liveProduce` cap** stops warm + run summing to 2× real produces at a paid backend.
+  `warm()` no longer creates the `AudioContext` pre-gesture, and its cached-branch decode storm is
+  removed. **Accepted residuals** (inherent to un-cancelable WebAudio decode): a deck of genuinely-hung
+  producers crawls at ~timeout-per-item, and a barge-in over a hung decode orphans that one read —
+  both adversarial-input only.
 - **Declick degrades, doesn't fail.** The gain ramp is wrapped in its own try/catch → a plain connect
   (no fade, still plays) on a flaky/partial engine — restoring the reliability `voice-model` had.
 - **Boundary gate hardened.** `checkSuonoBoundary` now also catches side-effect (`import 'x'`),
-  dynamic (`import('x')`), and `require('x')` imports — the static-`from` regex alone let those slip.
+  dynamic (`import('x')`), `require('x')`, AND multi-line `import { … } from 'x'` (the default
+  formatter wrap the single-line `from` regex missed) — the second red-team pass' HIGH gate finding.
 
 **Migration constraints surfaced (must hold for the slice-2 migration to be "thin"):**
 
