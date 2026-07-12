@@ -16,6 +16,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { buildSrcdoc, fitSlideOnSheet, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
 import { mergeClassTokens } from './front-matter';
+import { LatticeMark } from './LatticeMark';
 import { buildDeckRender, type DeckRender } from './share-export';
 
 type Paper = 'auto' | 'letter' | 'legal' | 'a4';
@@ -258,7 +259,7 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 			{/* biome-ignore lint/security/noDangerouslySetInnerHtml: static, self-authored page CSS (no user data). */}
 			<style dangerouslySetInnerHTML={{ __html: STYLE }} />
 			<header className="lpr-top">
-				<span className="lpr-brand"><span className="lpr-mark">L</span><span className="lpr-name">Lattice</span></span>
+				<span className="lpr-brand"><LatticeMark mode="dark" className="lpr-mark" /><span className="lpr-name">Lattice</span></span>
 				<span className="lpr-sep" />
 				<span className="lpr-doc"><span className="lpr-k">Print</span><span className="lpr-t">{payload?.name || 'deck'}</span></span>
 				<span className="lpr-spacer" />
@@ -349,7 +350,7 @@ min-height:100vh;display:grid;grid-template-rows:auto 1fr;grid-template-columns:
 :root[data-mode="light"] .lpr-app,:root[data-palette] .lpr-app{}
 .lpr-top{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--soft);position:sticky;top:0;z-index:6;background:var(--g);}
 .lpr-brand{display:flex;align-items:center;gap:10px;}
-.lpr-mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#8a5f1a);display:grid;place-items:center;color:var(--acink);font-family:var(--serif);font-weight:700;font-size:15px;box-shadow:inset 0 1px 0 rgba(255,255,255,.35);}
+.lpr-mark{width:28px;height:28px;flex:0 0 auto;}
 .lpr-name{font-family:var(--serif);font-size:17px;}
 .lpr-sep{width:1px;height:22px;background:var(--line);}
 .lpr-doc{display:flex;align-items:baseline;gap:8px;min-width:0;flex:0 1 auto;overflow:hidden;}
