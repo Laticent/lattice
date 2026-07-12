@@ -265,12 +265,13 @@ function projectStats(stage) {
   });
   return `${pre}<dl class="lp-stats">${rows.join("")}</dl>`;
 }
-function projectMedia(stage, heading) {
+function projectMedia(stage, heading, component) {
   const visual = stage.querySelector(":scope svg, :scope img, :scope .katex-display, :scope figure");
   if (!visual) return null;
   const node = visual.tagName === "FIGURE" ? visual.innerHTML : visual.outerHTML;
   const cap = heading ? `<figcaption>${esc(heading)}</figcaption>` : "";
-  return `<figure class="lp-figure">${node}${cap}</figure>`;
+  const cls = CHART_TOKEN_COMPONENTS.has(component) ? "lp-figure chart-frame" : "lp-figure";
+  return `<figure class="${cls}">${node}${cap}</figure>`;
 }
 function projectQuote(stage) {
   const bq = stage.querySelector(":scope > blockquote, blockquote");
@@ -314,9 +315,10 @@ function projectDeckToProse(sections) {
     if (eyebrow && eyebrow !== heading) parts.push(`<p class="lp-kicker">${esc(eyebrow)}</p>`);
     parts.push(`<h${level} id="${id}">${esc(headingText)}</h${level}>`);
     let body = null;
-    if (component === "kpi" || component === "stats") body = projectStats(stage);
+    if (SPATIAL_PLACEHOLDER_COMPONENTS.has(component)) body = projectPlaceholder(component, headingText);
+    else if (component === "kpi" || component === "stats") body = projectStats(stage);
     else if (component === "quote") body = projectQuote(stage);
-    else if (MEDIA_COMPONENTS.has(component)) body = projectMedia(stage, headingText);
+    else if (MEDIA_COMPONENTS.has(component)) body = projectMedia(stage, headingText, component);
     if (!body?.trim()) body = projectGeneric(stage, eyebrow);
     if (!body?.trim()) body = projectPlaceholder(component, headingText);
     parts.push(body);
@@ -483,7 +485,7 @@ function projectDeckToSpeech(sections) {
     return [...lead, body].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   });
 }
-var SKIP_SELECTOR, MEDIA_COMPONENTS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
+var SKIP_SELECTOR, MEDIA_COMPONENTS, CHART_TOKEN_COMPONENTS, SPATIAL_PLACEHOLDER_COMPONENTS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
 var init_prose_projection = __esm({
   "lib/transformers/prose-projection.mjs"() {
     SKIP_SELECTOR = "header, footer, .cell-footer, .masthead-bay, .lat-pagination, aside, script, style, .lattice-notes, .lattice-description";
@@ -506,6 +508,8 @@ var init_prose_projection = __esm({
       "video",
       "math"
     ]);
+    CHART_TOKEN_COMPONENTS = /* @__PURE__ */ new Set(["funnel", "map", "piechart", "quadrant", "radar"]);
+    SPATIAL_PLACEHOLDER_COMPONENTS = /* @__PURE__ */ new Set(["journey", "state-chart", "word-cloud"]);
     WORD_MAPS = {
       checklist: { pass: "done", warn: "partial", skip: "skipped", todo: "to do", fail: "not done" },
       "verdict-grid": { pass: "yes", warn: "partial", skip: "skipped", todo: "pending", fail: "no" },

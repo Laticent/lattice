@@ -9,7 +9,7 @@
  * unnamed regions take the neutral base fill. Unlayered like every other
  * component file (broad @layer activation is blocked — see cascade.md). */
 
-section.map .map-figure {
+:is(section.map, figure.chart-frame) .map-figure {
   /* The neutral fill an unnamed region takes — and the ANCHOR the choropleth
    * ramp mixes the hue into, so every valued region reads as "neutral + N%
    * hue". That keeps the ramp monotonic ABOVE the neutral in both light and
@@ -23,7 +23,11 @@ section.map .map-figure {
   justify-content: center;
   gap: 3cqi;
 }
-section.map .map-svg {
+:is(section.map, figure.chart-frame) .map-svg {
+  /* Also define --map-base on the SVG itself (not just .map-figure): Read·Article
+   * re-hosts the bare .map-svg outside .map-figure, so the choropleth/neutral
+   * regions need the base anchor on an ancestor that survives the re-host. */
+  --map-base: color-mix(in oklab, var(--text-muted) 16%, var(--bg));
   min-width: 0;
   /* Width-driven (a world map is wide-short): FILL the 70% canvas zone so the
    * map scales to the room it's actually given (it was pinned small at 56cqi).
@@ -41,7 +45,7 @@ section.map .map-svg {
  * Unnamed regions sit on a quiet neutral fill so the named ones carry the
  * read. A hairline canvas-coloured stroke keeps adjacent states crisp —
  * the same crisp-divider idiom funnel uses between bands. */
-section.map .map-region {
+:is(section.map, figure.chart-frame) .map-region {
   fill: var(--map-base);
   stroke: var(--bg);
   stroke-width: 0.6;
@@ -52,7 +56,7 @@ section.map .map-region {
  * base (--map-base) so low values read as a faint tint of the hue OVER the
  * empty fill, never below it. The kernel sets --mix (a color-mix percentage)
  * per region: low → faint hue, high → saturated. Low→high on the ramp. */
-section.map .map-region--on {
+:is(section.map, figure.chart-frame) .map-region--on {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--map-base));
 }
 
@@ -60,7 +64,7 @@ section.map .map-region--on {
  * the same 82% richness the piechart wedges + funnel bands use, so the
  * three categorical charts read as one family. The kernel sets --region-hue
  * to the slot's var reference. */
-section.map .map-region--hl {
+:is(section.map, figure.chart-frame) .map-region--hl {
   fill: color-mix(in oklab, var(--region-hue) 82%, var(--bg));
 }
 

@@ -48,7 +48,7 @@
  * from the same slot (`--cN-light` / `--cN-dark`). Cohort inherits the
  * same `[data-cell]` routing — its groups are categories too. Themes tune
  * the look by tuning cN, not a quadrant-only token set. */
-section.quadrant {
+:is(section.quadrant, figure.chart-frame) {
   --quadrant-frame:   color-mix(in srgb, var(--text-muted) 42%, transparent);
   --quadrant-split:   color-mix(in srgb, var(--text-muted) 28%, transparent);
   --quadrant-target:  color-mix(in srgb, var(--text-muted) 78%, transparent);
@@ -65,10 +65,10 @@ section.quadrant {
  * lives in _chart-family.css and guarantees fill + border share a hue and
  * flip with the canvas (pale fill / deep border on light, deep fill / pale
  * border on dark). The quadrant just assigns slots 1-4 in reading order. */
-section.quadrant [data-cell="0"] { --cell-fill: var(--chart-cat-1-fill); --cell-ink: var(--chart-cat-1-ink); }
-section.quadrant [data-cell="1"] { --cell-fill: var(--chart-cat-2-fill); --cell-ink: var(--chart-cat-2-ink); }
-section.quadrant [data-cell="2"] { --cell-fill: var(--chart-cat-3-fill); --cell-ink: var(--chart-cat-3-ink); }
-section.quadrant [data-cell="3"] { --cell-fill: var(--chart-cat-4-fill); --cell-ink: var(--chart-cat-4-ink); }
+:is(section.quadrant, figure.chart-frame) [data-cell="0"] { --cell-fill: var(--chart-cat-1-fill); --cell-ink: var(--chart-cat-1-ink); }
+:is(section.quadrant, figure.chart-frame) [data-cell="1"] { --cell-fill: var(--chart-cat-2-fill); --cell-ink: var(--chart-cat-2-ink); }
+:is(section.quadrant, figure.chart-frame) [data-cell="2"] { --cell-fill: var(--chart-cat-3-fill); --cell-ink: var(--chart-cat-3-ink); }
+:is(section.quadrant, figure.chart-frame) [data-cell="3"] { --cell-fill: var(--chart-cat-4-fill); --cell-ink: var(--chart-cat-4-ink); }
 
 /* quadrant is a chart-family member — section layout, header/body/caption
  * skeleton and h2 styling all come from section.chart-frame. The figure
@@ -97,7 +97,7 @@ section.quadrant.chart-frame .chart-header::after {
   background: color-mix(in oklab, var(--accent) 50%, transparent);
 }
 
-section.quadrant .quadrant-figure {
+:is(section.quadrant, figure.chart-frame) .quadrant-figure {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -113,7 +113,7 @@ section.quadrant .quadrant-figure {
  * key in one viewBox) and is sized by the shared rule in chart-family.css, so the
  * old square-ish `aspect-ratio:420/320` + `50cqh` cap (which would letterbox the
  * now-wider unit) must not reach it. */
-section.quadrant .quadrant-svg:not(.quadrant-svg--cohort) {
+:is(section.quadrant, figure.chart-frame) .quadrant-svg:not(.quadrant-svg--cohort) {
   /* Section-relative fill, capped at 50cqh (50% slide height). Outside the
    * Form the common quadrant is NOT in a query-container figure, so `cqh`
    * here means the SLIDE; keep the resolution-stable cqh cap it shipped
@@ -169,24 +169,24 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * stronger than the same hue's airy radar wash). fill-opacity drops the four
  * tints ~40% into the family's quiet register so identity is carried by the
  * vivid white-ringed dots at the edge, not by shouting region blocks. */
-section.quadrant .quadrant-tint {
+:is(section.quadrant, figure.chart-frame) .quadrant-tint {
   fill: var(--cell-fill);
   fill-opacity: 0.6;
   stroke: none;
 }
 
 /* ── Plot frame + split lines ─────────────────────────────────────────── */
-section.quadrant .quadrant-bounds {
+:is(section.quadrant, figure.chart-frame) .quadrant-bounds {
   fill: none;
   stroke: var(--quadrant-frame);
   stroke-width: 1.25;
 }
-section.quadrant .quadrant-split {
+:is(section.quadrant, figure.chart-frame) .quadrant-split {
   stroke: var(--quadrant-split);
   stroke-width: 1;
 }
 /* Threshold variant: target lines pop more than ordinary centerlines. */
-section.quadrant .quadrant-split[data-kind="target"] {
+:is(section.quadrant, figure.chart-frame) .quadrant-split[data-kind="target"] {
   stroke: var(--quadrant-target);
   stroke-width: 1.75;
   stroke-dasharray: 5 4;
@@ -195,19 +195,19 @@ section.quadrant .quadrant-split[data-kind="target"] {
 /* ── Axis labels + corner ticks ───────────────────────────────────────── */
 /* SVG font-size bypass: labels sit inside a ~420×320-unit SVG viewBox, so
  * CSS px ≠ pt. Values are intentional deviations from the 12-token scale;
- * scoped to section.quadrant so themes can override per-component via the token. */
-section.quadrant {
+ * scoped to :is(section.quadrant, figure.chart-frame) so themes can override per-component via the token. */
+:is(section.quadrant, figure.chart-frame) {
   --quadrant-axis-size: 12px;  /* raised from 11px — axis name, still below token min */
   --quadrant-tick-size: 10px;  /* raised from 8px (≈5.7pt at desk) */
 }
-section.quadrant .quadrant-axis-name {
+:is(section.quadrant, figure.chart-frame) .quadrant-axis-name {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-size: var(--quadrant-axis-size);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-section.quadrant .quadrant-tick {
+:is(section.quadrant, figure.chart-frame) .quadrant-tick {
   fill: var(--text-muted);
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--quadrant-tick-size);
@@ -220,7 +220,7 @@ section.quadrant .quadrant-tick {
  * dark) — no --bg halo. cN-dark ink can't clear AA as text on its own tint,
  * so text never uses cell-ink; and softened --text-heading reads a touch
  * light on the vivid zones, so the labels take true black/white instead. */
-section.quadrant .quadrant-label {
+:is(section.quadrant, figure.chart-frame) .quadrant-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 11px;
@@ -229,23 +229,23 @@ section.quadrant .quadrant-label {
   text-transform: uppercase;
 }
 /* Magic variant: heavier, more ceremonial labels with extra tracking. */
-section.quadrant .quadrant-label--magic {
+:is(section.quadrant, figure.chart-frame) .quadrant-label--magic {
   font-size: 12px;
   letter-spacing: 0.08em;
 }
 /* Threshold variant: zone names live ON the chart as action prompts. */
-section.quadrant .quadrant-label--zone {
+:is(section.quadrant, figure.chart-frame) .quadrant-label--zone {
   font-size: 10.5px;
   letter-spacing: 0.06em;
 }
 
 /* ── Scatter dots + per-dot labels ────────────────────────────────────── */
-section.quadrant .quadrant-dot {
+:is(section.quadrant, figure.chart-frame) .quadrant-dot {
   fill: var(--cell-ink);
   stroke: var(--bg);
   stroke-width: 2;
 }
-section.quadrant .quadrant-dot-label {
+:is(section.quadrant, figure.chart-frame) .quadrant-dot-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 8.5px;
@@ -253,7 +253,7 @@ section.quadrant .quadrant-dot-label {
 }
 
 /* ── Bubble variant: √-area bubble + smart label position ─────────────── */
-section.quadrant .quadrant-bubble {
+:is(section.quadrant, figure.chart-frame) .quadrant-bubble {
   fill: var(--cell-fill);
   stroke: var(--cell-ink);
   stroke-width: 1.5;
@@ -261,13 +261,13 @@ section.quadrant .quadrant-bubble {
 /* Value text is neutral heading ink — high-contrast both inside the pale
  * cN-light bubble fill and above it on the canvas (cN-dark would not clear
  * AA on its own same-hue tint). */
-section.quadrant .quadrant-bubble-value {
+:is(section.quadrant, figure.chart-frame) .quadrant-bubble-value {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-size: 8.5px;
   font-weight: 700;
 }
-section.quadrant .quadrant-bubble-label {
+:is(section.quadrant, figure.chart-frame) .quadrant-bubble-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 8.5px;
@@ -275,40 +275,40 @@ section.quadrant .quadrant-bubble-label {
 }
 
 /* ── Trail variant: faded before + dashed connector + solid after ─────── */
-section.quadrant .quadrant-trail-line {
+:is(section.quadrant, figure.chart-frame) .quadrant-trail-line {
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   stroke-dasharray: 3 3;
   stroke-linecap: round;
   opacity: 0.7;
 }
-section.quadrant .quadrant-trail-before {
+:is(section.quadrant, figure.chart-frame) .quadrant-trail-before {
   fill: none;
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   opacity: 0.6;
 }
-section.quadrant .quadrant-trail-after {
+:is(section.quadrant, figure.chart-frame) .quadrant-trail-after {
   fill: var(--cell-ink);
   stroke: var(--bg);
   stroke-width: 1.5;
 }
 
 /* ── Cohort variant: convex hulls + centroid labels + legend ──────────── */
-section.quadrant .quadrant-hull {
+:is(section.quadrant, figure.chart-frame) .quadrant-hull {
   fill: var(--cell-fill);
   stroke: var(--cell-ink);
   stroke-width: 1.25;
   stroke-linejoin: round;
   opacity: 0.65;
 }
-section.quadrant .quadrant-hull-line {
+:is(section.quadrant, figure.chart-frame) .quadrant-hull-line {
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   stroke-linecap: round;
   opacity: 0.65;
 }
-section.quadrant .quadrant-cohort-label {
+:is(section.quadrant, figure.chart-frame) .quadrant-cohort-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 11px;
@@ -321,7 +321,7 @@ section.quadrant .quadrant-cohort-label {
  * retired with it. See 2026-06-13-svg-native-legend.md. */
 
 /* ── Threshold variant: target badges at the axis crossings ───────────── */
-section.quadrant .quadrant-target-badge {
+:is(section.quadrant, figure.chart-frame) .quadrant-target-badge {
   fill: var(--quadrant-target);
   font-family: var(--font-mono, var(--font-body));
   font-size: 9px;

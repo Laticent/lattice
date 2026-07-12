@@ -3416,14 +3416,14 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
  * ramp off --chart-cat-1-hue; text uses the canvas ink tokens. Unlayered like every
  * other component file (broad @layer activation is blocked — see cascade.md). */
 
-section.funnel .funnel-figure {
+:is(section.funnel, figure.chart-frame) .funnel-figure {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-section.funnel .funnel-svg {
+:is(section.funnel, figure.chart-frame) .funnel-svg {
   width: 100%;
   height: 100%;
   display: block;
@@ -3442,20 +3442,20 @@ section.funnel .funnel-svg {
  * :nth-of-type counts <polygon> siblings — every band is a polygon and the only
  * polygons in the figure, so the count tracks stage order. (Same rotation idiom
  * as piechart.styles.css; see the gotchas note on nth-of-type vs nth-child.) */
-section.funnel .funnel-band {
+:is(section.funnel, figure.chart-frame) .funnel-band {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg));
   stroke: var(--bg);
   stroke-width: 0.75;
 }
-section.funnel .funnel-band:nth-of-type(6n + 1) { fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 2) { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 3) { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 4) { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 5) { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--bg)); }
-section.funnel .funnel-band:nth-of-type(6n + 6) { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 2) { fill: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 3) { fill: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 4) { fill: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 5) { fill: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--bg)); }
+:is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 6) { fill: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--bg)); }
 
 /* Stage label — left column, right-aligned to the band. */
-section.funnel .funnel-label {
+:is(section.funnel, figure.chart-frame) .funnel-label {
   fill: var(--text-body);
   font-family: var(--font-body);
   font-size: 8.5px;
@@ -3464,7 +3464,7 @@ section.funnel .funnel-label {
 }
 
 /* Value — right column, left-aligned, the figure that matters. */
-section.funnel .funnel-value {
+:is(section.funnel, figure.chart-frame) .funnel-value {
   fill: var(--text-heading);
   font-family: var(--font-display);
   font-size: 9px;
@@ -3474,7 +3474,7 @@ section.funnel .funnel-value {
 }
 
 /* Conversion rate — small, muted, centred in the gap below each band. */
-section.funnel .funnel-conv {
+:is(section.funnel, figure.chart-frame) .funnel-conv {
   fill: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 6.5px;
@@ -7280,7 +7280,7 @@ section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark
  * unnamed regions take the neutral base fill. Unlayered like every other
  * component file (broad @layer activation is blocked — see cascade.md). */
 
-section.map .map-figure {
+:is(section.map, figure.chart-frame) .map-figure {
   /* The neutral fill an unnamed region takes — and the ANCHOR the choropleth
    * ramp mixes the hue into, so every valued region reads as "neutral + N%
    * hue". That keeps the ramp monotonic ABOVE the neutral in both light and
@@ -7294,7 +7294,11 @@ section.map .map-figure {
   justify-content: center;
   gap: 3cqi;
 }
-section.map .map-svg {
+:is(section.map, figure.chart-frame) .map-svg {
+  /* Also define --map-base on the SVG itself (not just .map-figure): Read·Article
+   * re-hosts the bare .map-svg outside .map-figure, so the choropleth/neutral
+   * regions need the base anchor on an ancestor that survives the re-host. */
+  --map-base: color-mix(in oklab, var(--text-muted) 16%, var(--bg));
   min-width: 0;
   /* Width-driven (a world map is wide-short): FILL the 70% canvas zone so the
    * map scales to the room it's actually given (it was pinned small at 56cqi).
@@ -7312,7 +7316,7 @@ section.map .map-svg {
  * Unnamed regions sit on a quiet neutral fill so the named ones carry the
  * read. A hairline canvas-coloured stroke keeps adjacent states crisp —
  * the same crisp-divider idiom funnel uses between bands. */
-section.map .map-region {
+:is(section.map, figure.chart-frame) .map-region {
   fill: var(--map-base);
   stroke: var(--bg);
   stroke-width: 0.6;
@@ -7323,7 +7327,7 @@ section.map .map-region {
  * base (--map-base) so low values read as a faint tint of the hue OVER the
  * empty fill, never below it. The kernel sets --mix (a color-mix percentage)
  * per region: low → faint hue, high → saturated. Low→high on the ramp. */
-section.map .map-region--on {
+:is(section.map, figure.chart-frame) .map-region--on {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--map-base));
 }
 
@@ -7331,7 +7335,7 @@ section.map .map-region--on {
  * the same 82% richness the piechart wedges + funnel bands use, so the
  * three categorical charts read as one family. The kernel sets --region-hue
  * to the slot's var reference. */
-section.map .map-region--hl {
+:is(section.map, figure.chart-frame) .map-region--hl {
   fill: color-mix(in oklab, var(--region-hue) 82%, var(--bg));
 }
 
@@ -8364,7 +8368,7 @@ section.obligation-matrix.heat thead tr th:last-child {
 /* .chart-body inherits the shared width + padding (sp-lg / sp-2xl) so the
  * surface panel matches every other chart's size and inset — no
  * piechart-specific override. */
-section.piechart .piechart-figure {
+:is(section.piechart, figure.chart-frame) .piechart-figure {
   /* SVG-native legend (2026-06-13-svg-native-legend.md): the figure holds ONE
      self-contained <svg> (diagram + spine + key in one viewBox). It only needs
      to centre + size that SVG; the 70/30 split, spine and key now live INSIDE
@@ -8379,7 +8383,7 @@ section.piechart .piechart-figure {
   min-height: 0;
   container-type: size;
 }
-section.piechart .piechart-svg {
+:is(section.piechart, figure.chart-frame) .piechart-svg {
   flex: 0 0 auto;
   /* CONTAINER-FILL (2026-07-04-chart-container-fill-sizing.md). The parent
      (.piechart-figure) is a container-type:size
@@ -8444,7 +8448,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
   width: 100%;
   height: 100%;
 }
-section.piechart .piechart-svg .wedge {
+:is(section.piechart, figure.chart-frame) .piechart-svg .wedge {
   /* Stroke colour is the slot's --catN-ink (set per nth-child below); the
    * wedge fill is the same hue's --catN-fill. Pale fill + deep border on a
    * light canvas, deep fill + pale border on dark — the shared chart model. */
@@ -8472,12 +8476,12 @@ section.piechart .piechart-svg .wedge {
  * SVG <rect class="pie-key-swatch"> coloured inline by the kernel (slot hue +
  * --catN-ink edge), so they no longer ride these selectors.
  * See engineering/gotchas.md "Pie wedge borders off-by-one". */
-section.piechart .wedge:nth-of-type(6n+1) { fill: var(--chart-cat-1-fill); stroke: var(--chart-cat-1-ink); }
-section.piechart .wedge:nth-of-type(6n+2) { fill: var(--chart-cat-2-fill); stroke: var(--chart-cat-2-ink); }
-section.piechart .wedge:nth-of-type(6n+3) { fill: var(--chart-cat-3-fill); stroke: var(--chart-cat-3-ink); }
-section.piechart .wedge:nth-of-type(6n+4) { fill: var(--chart-cat-4-fill); stroke: var(--chart-cat-4-ink); }
-section.piechart .wedge:nth-of-type(6n+5) { fill: var(--chart-cat-5-fill); stroke: var(--chart-cat-5-ink); }
-section.piechart .wedge:nth-of-type(6n)   { fill: var(--chart-cat-6-fill); stroke: var(--chart-cat-6-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+1) { fill: var(--chart-cat-1-fill); stroke: var(--chart-cat-1-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+2) { fill: var(--chart-cat-2-fill); stroke: var(--chart-cat-2-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+3) { fill: var(--chart-cat-3-fill); stroke: var(--chart-cat-3-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+4) { fill: var(--chart-cat-4-fill); stroke: var(--chart-cat-4-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+5) { fill: var(--chart-cat-5-fill); stroke: var(--chart-cat-5-ink); }
+:is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n)   { fill: var(--chart-cat-6-fill); stroke: var(--chart-cat-6-ink); }
 
 /* === lib/components/comparison/pricing/pricing.styles.css === */
 /* pricing — plan tiers with prices, feature checklists, and one recommended
@@ -9220,7 +9224,7 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
  * from the same slot (`--cN-light` / `--cN-dark`). Cohort inherits the
  * same `[data-cell]` routing — its groups are categories too. Themes tune
  * the look by tuning cN, not a quadrant-only token set. */
-section.quadrant {
+:is(section.quadrant, figure.chart-frame) {
   --quadrant-frame:   color-mix(in srgb, var(--text-muted) 42%, transparent);
   --quadrant-split:   color-mix(in srgb, var(--text-muted) 28%, transparent);
   --quadrant-target:  color-mix(in srgb, var(--text-muted) 78%, transparent);
@@ -9237,10 +9241,10 @@ section.quadrant {
  * lives in _chart-family.css and guarantees fill + border share a hue and
  * flip with the canvas (pale fill / deep border on light, deep fill / pale
  * border on dark). The quadrant just assigns slots 1-4 in reading order. */
-section.quadrant [data-cell="0"] { --cell-fill: var(--chart-cat-1-fill); --cell-ink: var(--chart-cat-1-ink); }
-section.quadrant [data-cell="1"] { --cell-fill: var(--chart-cat-2-fill); --cell-ink: var(--chart-cat-2-ink); }
-section.quadrant [data-cell="2"] { --cell-fill: var(--chart-cat-3-fill); --cell-ink: var(--chart-cat-3-ink); }
-section.quadrant [data-cell="3"] { --cell-fill: var(--chart-cat-4-fill); --cell-ink: var(--chart-cat-4-ink); }
+:is(section.quadrant, figure.chart-frame) [data-cell="0"] { --cell-fill: var(--chart-cat-1-fill); --cell-ink: var(--chart-cat-1-ink); }
+:is(section.quadrant, figure.chart-frame) [data-cell="1"] { --cell-fill: var(--chart-cat-2-fill); --cell-ink: var(--chart-cat-2-ink); }
+:is(section.quadrant, figure.chart-frame) [data-cell="2"] { --cell-fill: var(--chart-cat-3-fill); --cell-ink: var(--chart-cat-3-ink); }
+:is(section.quadrant, figure.chart-frame) [data-cell="3"] { --cell-fill: var(--chart-cat-4-fill); --cell-ink: var(--chart-cat-4-ink); }
 
 /* quadrant is a chart-family member — section layout, header/body/caption
  * skeleton and h2 styling all come from section.chart-frame. The figure
@@ -9269,7 +9273,7 @@ section.quadrant.chart-frame .chart-header::after {
   background: color-mix(in oklab, var(--accent) 50%, transparent);
 }
 
-section.quadrant .quadrant-figure {
+:is(section.quadrant, figure.chart-frame) .quadrant-figure {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9285,7 +9289,7 @@ section.quadrant .quadrant-figure {
  * key in one viewBox) and is sized by the shared rule in chart-family.css, so the
  * old square-ish `aspect-ratio:420/320` + `50cqh` cap (which would letterbox the
  * now-wider unit) must not reach it. */
-section.quadrant .quadrant-svg:not(.quadrant-svg--cohort) {
+:is(section.quadrant, figure.chart-frame) .quadrant-svg:not(.quadrant-svg--cohort) {
   /* Section-relative fill, capped at 50cqh (50% slide height). Outside the
    * Form the common quadrant is NOT in a query-container figure, so `cqh`
    * here means the SLIDE; keep the resolution-stable cqh cap it shipped
@@ -9341,24 +9345,24 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * stronger than the same hue's airy radar wash). fill-opacity drops the four
  * tints ~40% into the family's quiet register so identity is carried by the
  * vivid white-ringed dots at the edge, not by shouting region blocks. */
-section.quadrant .quadrant-tint {
+:is(section.quadrant, figure.chart-frame) .quadrant-tint {
   fill: var(--cell-fill);
   fill-opacity: 0.6;
   stroke: none;
 }
 
 /* ── Plot frame + split lines ─────────────────────────────────────────── */
-section.quadrant .quadrant-bounds {
+:is(section.quadrant, figure.chart-frame) .quadrant-bounds {
   fill: none;
   stroke: var(--quadrant-frame);
   stroke-width: 1.25;
 }
-section.quadrant .quadrant-split {
+:is(section.quadrant, figure.chart-frame) .quadrant-split {
   stroke: var(--quadrant-split);
   stroke-width: 1;
 }
 /* Threshold variant: target lines pop more than ordinary centerlines. */
-section.quadrant .quadrant-split[data-kind="target"] {
+:is(section.quadrant, figure.chart-frame) .quadrant-split[data-kind="target"] {
   stroke: var(--quadrant-target);
   stroke-width: 1.75;
   stroke-dasharray: 5 4;
@@ -9367,19 +9371,19 @@ section.quadrant .quadrant-split[data-kind="target"] {
 /* ── Axis labels + corner ticks ───────────────────────────────────────── */
 /* SVG font-size bypass: labels sit inside a ~420×320-unit SVG viewBox, so
  * CSS px ≠ pt. Values are intentional deviations from the 12-token scale;
- * scoped to section.quadrant so themes can override per-component via the token. */
-section.quadrant {
+ * scoped to :is(section.quadrant, figure.chart-frame) so themes can override per-component via the token. */
+:is(section.quadrant, figure.chart-frame) {
   --quadrant-axis-size: 12px;  /* raised from 11px — axis name, still below token min */
   --quadrant-tick-size: 10px;  /* raised from 8px (≈5.7pt at desk) */
 }
-section.quadrant .quadrant-axis-name {
+:is(section.quadrant, figure.chart-frame) .quadrant-axis-name {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-size: var(--quadrant-axis-size);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-section.quadrant .quadrant-tick {
+:is(section.quadrant, figure.chart-frame) .quadrant-tick {
   fill: var(--text-muted);
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--quadrant-tick-size);
@@ -9392,7 +9396,7 @@ section.quadrant .quadrant-tick {
  * dark) — no --bg halo. cN-dark ink can't clear AA as text on its own tint,
  * so text never uses cell-ink; and softened --text-heading reads a touch
  * light on the vivid zones, so the labels take true black/white instead. */
-section.quadrant .quadrant-label {
+:is(section.quadrant, figure.chart-frame) .quadrant-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 11px;
@@ -9401,23 +9405,23 @@ section.quadrant .quadrant-label {
   text-transform: uppercase;
 }
 /* Magic variant: heavier, more ceremonial labels with extra tracking. */
-section.quadrant .quadrant-label--magic {
+:is(section.quadrant, figure.chart-frame) .quadrant-label--magic {
   font-size: 12px;
   letter-spacing: 0.08em;
 }
 /* Threshold variant: zone names live ON the chart as action prompts. */
-section.quadrant .quadrant-label--zone {
+:is(section.quadrant, figure.chart-frame) .quadrant-label--zone {
   font-size: 10.5px;
   letter-spacing: 0.06em;
 }
 
 /* ── Scatter dots + per-dot labels ────────────────────────────────────── */
-section.quadrant .quadrant-dot {
+:is(section.quadrant, figure.chart-frame) .quadrant-dot {
   fill: var(--cell-ink);
   stroke: var(--bg);
   stroke-width: 2;
 }
-section.quadrant .quadrant-dot-label {
+:is(section.quadrant, figure.chart-frame) .quadrant-dot-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 8.5px;
@@ -9425,7 +9429,7 @@ section.quadrant .quadrant-dot-label {
 }
 
 /* ── Bubble variant: √-area bubble + smart label position ─────────────── */
-section.quadrant .quadrant-bubble {
+:is(section.quadrant, figure.chart-frame) .quadrant-bubble {
   fill: var(--cell-fill);
   stroke: var(--cell-ink);
   stroke-width: 1.5;
@@ -9433,13 +9437,13 @@ section.quadrant .quadrant-bubble {
 /* Value text is neutral heading ink — high-contrast both inside the pale
  * cN-light bubble fill and above it on the canvas (cN-dark would not clear
  * AA on its own same-hue tint). */
-section.quadrant .quadrant-bubble-value {
+:is(section.quadrant, figure.chart-frame) .quadrant-bubble-value {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-size: 8.5px;
   font-weight: 700;
 }
-section.quadrant .quadrant-bubble-label {
+:is(section.quadrant, figure.chart-frame) .quadrant-bubble-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 8.5px;
@@ -9447,40 +9451,40 @@ section.quadrant .quadrant-bubble-label {
 }
 
 /* ── Trail variant: faded before + dashed connector + solid after ─────── */
-section.quadrant .quadrant-trail-line {
+:is(section.quadrant, figure.chart-frame) .quadrant-trail-line {
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   stroke-dasharray: 3 3;
   stroke-linecap: round;
   opacity: 0.7;
 }
-section.quadrant .quadrant-trail-before {
+:is(section.quadrant, figure.chart-frame) .quadrant-trail-before {
   fill: none;
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   opacity: 0.6;
 }
-section.quadrant .quadrant-trail-after {
+:is(section.quadrant, figure.chart-frame) .quadrant-trail-after {
   fill: var(--cell-ink);
   stroke: var(--bg);
   stroke-width: 1.5;
 }
 
 /* ── Cohort variant: convex hulls + centroid labels + legend ──────────── */
-section.quadrant .quadrant-hull {
+:is(section.quadrant, figure.chart-frame) .quadrant-hull {
   fill: var(--cell-fill);
   stroke: var(--cell-ink);
   stroke-width: 1.25;
   stroke-linejoin: round;
   opacity: 0.65;
 }
-section.quadrant .quadrant-hull-line {
+:is(section.quadrant, figure.chart-frame) .quadrant-hull-line {
   stroke: var(--cell-ink);
   stroke-width: 1.5;
   stroke-linecap: round;
   opacity: 0.65;
 }
-section.quadrant .quadrant-cohort-label {
+:is(section.quadrant, figure.chart-frame) .quadrant-cohort-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);
   font-size: 11px;
@@ -9493,7 +9497,7 @@ section.quadrant .quadrant-cohort-label {
  * retired with it. See 2026-06-13-svg-native-legend.md. */
 
 /* ── Threshold variant: target badges at the axis crossings ───────────── */
-section.quadrant .quadrant-target-badge {
+:is(section.quadrant, figure.chart-frame) .quadrant-target-badge {
   fill: var(--quadrant-target);
   font-family: var(--font-mono, var(--font-body));
   font-size: 9px;
@@ -9589,7 +9593,7 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
  *   - lattice-runtime.js    DOM transform for marp-vscode preview
  */
 
-section.radar {
+:is(section.radar, figure.chart-frame) {
   --radar-grid:       color-mix(in srgb, var(--text-muted) 42%, transparent);
   --radar-grid-soft:  color-mix(in srgb, var(--text-muted) 20%, transparent);
   --radar-spoke:      color-mix(in srgb, var(--text-muted) 34%, transparent);
@@ -9603,7 +9607,7 @@ section.radar {
  * surface panel matches every other chart's size and inset — no radar-specific
  * override. */
 
-section.radar .radar-figure {
+:is(section.radar, figure.chart-frame) .radar-figure {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9616,7 +9620,7 @@ section.radar .radar-figure {
   min-height: 0;
 }
 
-section.radar .radar-svg {
+:is(section.radar, figure.chart-frame) .radar-svg {
   /* Sizing (height-bound on the unified viewBox aspect — diagram + key as one
    * unit) is the shared SVG-native rule in _chart-family/chart-family.css. The
    * old square `aspect-ratio:1/1` is retired: the viewBox is no longer square
@@ -9639,15 +9643,15 @@ section.radar .radar-svg {
  */
 
 /* ── Grid: concentric ring polygons + radial spokes ───────────────────── */
-section.radar .radar-ring {
+:is(section.radar, figure.chart-frame) .radar-ring {
   fill: none;
   stroke: var(--radar-grid-soft);
   stroke-width: 1;
 }
-section.radar .radar-ring[data-ring="4"] {
+:is(section.radar, figure.chart-frame) .radar-ring[data-ring="4"] {
   stroke: var(--radar-grid);   /* outer ring carries the chart edge */
 }
-section.radar .radar-spoke {
+:is(section.radar, figure.chart-frame) .radar-spoke {
   stroke: var(--radar-spoke);
   stroke-width: 1;
 }
@@ -9656,18 +9660,18 @@ section.radar .radar-spoke {
 /* SVG font-size bypass: axis/tick labels sit inside a ~300-unit SVG viewBox,
  * so CSS px ≠ pt. 15px ≈ 11.25pt would be too large for rim labels on a
  * 300-unit viewBox. These are intentional deviations from the 12-token scale.
- * Scoped to section.radar so themes can override per-component via the token. */
-section.radar {
+ * Scoped to :is(section.radar, figure.chart-frame) so themes can override per-component via the token. */
+:is(section.radar, figure.chart-frame) {
   --radar-axis-label-size: 11px;  /* raised from 9px (≈6.4pt at desk) */
   --radar-tick-size:        9px;  /* raised from 6.5px (≈4.6pt at desk) */
 }
-section.radar .radar-axis-label {
+:is(section.radar, figure.chart-frame) .radar-axis-label {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-size: var(--radar-axis-label-size);
   font-weight: 600;
 }
-section.radar .radar-tick {
+:is(section.radar, figure.chart-frame) .radar-tick {
   fill: var(--text-muted);
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--radar-tick-size);
@@ -9677,13 +9681,13 @@ section.radar .radar-tick {
 }
 
 /* ── Series polygons + vertex dots ────────────────────────────────────── */
-section.radar .radar-poly {
+:is(section.radar, figure.chart-frame) .radar-poly {
   fill: color-mix(in srgb, var(--series-color) var(--radar-fill), transparent);
   stroke: var(--series-color);
   stroke-width: 2;
   stroke-linejoin: round;
 }
-section.radar .radar-dot {
+:is(section.radar, figure.chart-frame) .radar-dot {
   fill: var(--series-color);
   stroke: var(--bg);
   stroke-width: 1;
@@ -9697,58 +9701,58 @@ section.radar .radar-dot {
  * 2026-06-13-svg-native-legend.md. */
 
 /* ── target: actual vs a reference polygon, per-axis gap segments ─────── */
-section.radar .radar-poly--target {
+:is(section.radar, figure.chart-frame) .radar-poly--target {
   fill: none;
   stroke: var(--text-muted);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
-section.radar .radar-gap {
+:is(section.radar, figure.chart-frame) .radar-gap {
   stroke-width: 3;
   stroke-linecap: round;
 }
 /* Semantic state tokens — --pass / --fail come from lattice.css :root,
  * tuned per theme. Was --cat-green / --cat-rose before the 2026-05-15
  * themes refactor (commit 552e84a) removed the named-cat tokens. */
-section.radar .radar-gap[data-dir="under"] {
+:is(section.radar, figure.chart-frame) .radar-gap[data-dir="under"] {
   stroke: var(--state-fail-ink);
 }
-section.radar .radar-gap[data-dir="over"] {
+:is(section.radar, figure.chart-frame) .radar-gap[data-dir="over"] {
   stroke: color-mix(in srgb, var(--state-pass-ink) 60%, transparent);
   stroke-width: 2;
 }
 
 /* ── delta: before → after, per-axis change segments ──────────────────── */
-section.radar .radar-poly--before {
+:is(section.radar, figure.chart-frame) .radar-poly--before {
   fill: none;
   stroke: var(--text-muted);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
-section.radar .radar-delta-seg {
+:is(section.radar, figure.chart-frame) .radar-delta-seg {
   stroke-width: 3;
   stroke-linecap: round;
 }
-section.radar .radar-delta-seg[data-dir="up"]   { stroke: var(--state-pass-ink); }
-section.radar .radar-delta-seg[data-dir="down"] { stroke: var(--state-fail-ink); }
-section.radar .radar-delta-seg[data-dir="flat"] { stroke: var(--radar-spoke); }
+:is(section.radar, figure.chart-frame) .radar-delta-seg[data-dir="up"]   { stroke: var(--state-pass-ink); }
+:is(section.radar, figure.chart-frame) .radar-delta-seg[data-dir="down"] { stroke: var(--state-fail-ink); }
+:is(section.radar, figure.chart-frame) .radar-delta-seg[data-dir="flat"] { stroke: var(--radar-spoke); }
 
 /* ── benchmark: hero series over a min–max envelope band ──────────────── */
-section.radar .radar-band {
+:is(section.radar, figure.chart-frame) .radar-band {
   fill: color-mix(in srgb, var(--text-muted) 22%, transparent);
   stroke: color-mix(in srgb, var(--text-muted) 48%, transparent);
   stroke-width: 1;
 }
-section.radar .radar-poly--hero {
+:is(section.radar, figure.chart-frame) .radar-poly--hero {
   stroke-width: 2.75;
 }
 
 /* ── quadrant: axes grouped into tinted sectors ───────────────────────── */
-section.radar .radar-sector {
+:is(section.radar, figure.chart-frame) .radar-sector {
   fill: color-mix(in srgb, var(--series-color) 8%, transparent);
   stroke: none;
 }
-section.radar .radar-sector-mean {
+:is(section.radar, figure.chart-frame) .radar-sector-mean {
   fill: none;
   stroke: var(--series-color);
   stroke-width: 2;
@@ -9756,7 +9760,7 @@ section.radar .radar-sector-mean {
   stroke-dasharray: 2 3;
   opacity: 0.8;
 }
-section.radar .radar-sector-label {
+:is(section.radar, figure.chart-frame) .radar-sector-label {
   fill: var(--series-color);
   font-family: var(--font-body);
   font-size: 9px;
@@ -9766,10 +9770,10 @@ section.radar .radar-sector-label {
 }
 
 /* ── small-multiples: one mini radar per series ───────────────────────── */
-section.radar .radar-figure[data-variant="small-multiples"] {
+:is(section.radar, figure.chart-frame) .radar-figure[data-variant="small-multiples"] {
   gap: 0;
 }
-section.radar .radar-multiples {
+:is(section.radar, figure.chart-frame) .radar-multiples {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -9777,21 +9781,21 @@ section.radar .radar-multiples {
   gap: var(--sp-md) var(--sp-lg);
   flex: 1 1 auto;
 }
-section.radar .radar-mini {
+:is(section.radar, figure.chart-frame) .radar-mini {
   margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-3xs);
 }
-section.radar .radar-svg--mini {
+:is(section.radar, figure.chart-frame) .radar-svg--mini {
   width: 188px;
   height: 188px;
 }
-section.radar .radar-svg--mini .radar-axis-label {
+:is(section.radar, figure.chart-frame) .radar-svg--mini .radar-axis-label {
   font-size: 11px;   /* viewBox is unchanged, so scale label units up */
 }
-section.radar .radar-mini-label {
+:is(section.radar, figure.chart-frame) .radar-mini-label {
   font-size: var(--fs-meta);
   font-weight: 600;
   color: var(--series-color);
@@ -14741,7 +14745,8 @@ section.chart-frame {
  * palette-blind. Eight slots — past ~6 categories perceptual distinction
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
 section.chart-frame,
-section.word-cloud { /* word-cloud is a chart-frame member; the bare selector also covers the rare un-transformed fallback (no h2/list) */
+section.word-cloud,
+.chart-frame { /* word-cloud is a chart-frame member; the bare `.chart-frame` also covers the Read·Article prose projection, which re-hosts a chart SVG in a <figure class="chart-frame"> outside its section — the SVG's --chart-cat-* colours must still resolve there (2026-07-… read-article-chart-tokens) */
   /* Apple-inspired categorical spectrum — the chart-family's OWN palette,
    * decoupled from the engine-wide cN accents (which still drive roadmap /
    * journey / legal / decision). Each slot is `light-dark(lightCanvasVivid,
@@ -14813,7 +14818,8 @@ section.word-cloud { /* word-cloud is a chart-frame member; the bare selector al
  * at :root to curate the semantics to its character; untuned themes inherit
  * this master set. One rule per state now serves both canvases (the old
  * per-`.dark` overrides collapse into the light-dark() pairs). */
-section.chart-frame {
+section.chart-frame,
+.chart-frame {
   --state-pass-hue: var(--chart-state-pass, light-dark(#1E9E48, #34D058));  /* green  — done/on-track/live   */
   --state-warn-hue: var(--chart-state-warn, light-dark(#C2790A, #FFB02E));  /* amber  — at-risk/warn         */
   --state-fail-hue: var(--chart-state-fail, light-dark(#CE2F2F, #FF5B52));  /* red    — blocked/fail         */
@@ -15239,16 +15245,19 @@ section.chart-frame .chart-status[data-s="deferred"] {
  *   • values stay --font-mono + tabular for column alignment (mono is
  *     deliberately NOT re-pointed under sketch).
  * See engineering/decisions/2026-06-13-svg-native-legend.md §4(b). */
-section.chart-frame .chart-key-label,
-section.chart-frame .chart-key-head {
+/* Legend text lives INSIDE the svg (svg-legend.js), so Read·Article re-hosts it
+ * with the chart; the `figure.chart-frame` arm keeps the label/value ink themed
+ * there (black `--text-body` fallback would vanish on a dark canvas). */
+:is(section.chart-frame, figure.chart-frame) .chart-key-label,
+:is(section.chart-frame, figure.chart-frame) .chart-key-head {
   font-family: var(--font-label);
   fill: var(--text-body);
 }
-section.chart-frame .chart-key-head {
+:is(section.chart-frame, figure.chart-frame) .chart-key-head {
   fill: var(--text-heading);
   font-weight: 600;
 }
-section.chart-frame .chart-key-value {
+:is(section.chart-frame, figure.chart-frame) .chart-key-value {
   font-family: var(--font-mono);
   fill: var(--text-heading);
   font-weight: 600;
