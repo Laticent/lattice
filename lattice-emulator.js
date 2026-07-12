@@ -2691,6 +2691,50 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   if (projected.length && projected.length !== notes.length && !QUIET) {
     console.log(`Captions: slide count and rendered sections differ (${notes.length} vs ${projected.length}) — narrating authored notes only`);
   }
+  // Chart-narration parity (#902 Gap 1). A chart slide (funnel / journey-weighted /
+  // radar / quadrant / state-chart) narrates a COMPUTED fact — funnel conversion %,
+  // the auto-fit scale an unlabeled axis is plotted against, an inferred start/terminal
+  // state — that exists only in the render, never in the figure projection's
+  // heading-only caption. Run the SAME shared narrateChart the live Studio Present uses
+  // (lib/core/chart-narration.js) per chart slide and, when it fires (non-null),
+  // substitute its FULL-slide narration for the figure projection at that index. It
+  // sits at the PROJECTION precedence level (mergeNarration still lets an inline
+  // caption / front-matter caption / speaker note win), exactly as Present's narrationAt
+  // orders note → chart → projection. `splitSourceToSections` recovers each rendered
+  // section's SOURCE Markdown from the engine's OWN `hr`-token boundary (bake headings
+  // boundaries → `---`, then group on markdown-it's hr tokens), so blocks[i] ⇔ section i
+  // by construction — it can't drift from the render the way a parallel line-splitter
+  // did (a chart binding to the wrong slide on a `***` / setext / empty-section deck).
+  // The count guard is a belt-and-suspenders: autosplit / focus-step expansion ADD
+  // sections after this split, so a mismatch stands chart narration down (a logged
+  // note) rather than misalign — the same guard mergeNarration applies to the projection.
+  if (projected.length === notes.length && projected.length > 0) {
+    try {
+      const { narrateChart } = require('./lib/core/chart-narration.js');
+      const { splitSourceToSections } = require('./lib/core/section-source-split.js');
+      const blocks = splitSourceToSections(rawMd);
+      if (blocks.length === projected.length) {
+        for (let i = 0; i < blocks.length; i++) {
+          // Per-slide guard: one pathological chart slide can't disable narration for
+          // the rest of the deck (a deck-wide try/catch would).
+          try {
+            const chart = narrateChart(blocks[i]);
+            if (chart) projected[i] = chart;
+          } catch (e) {
+            if (!QUIET) console.warn(`  note: chart narration skipped on slide ${i + 1} (${e?.message})`);
+          }
+        }
+      } else if (!QUIET) {
+        // Under autosplit / focus-step expansion the rendered section count no longer
+        // matches the authored slides, so chart slides narrate from the heading-only
+        // projection (Present, markdown-indexed, still narrates them richly) — surface
+        // it so the divergence isn't silent.
+        console.log(`Captions: rendered sections and authored slides differ (${projected.length} vs ${blocks.length}) — chart slides narrate from the projection (heading only) in the export`);
+      }
+    } catch (e) {
+      if (!QUIET) console.warn(`  note: chart narration skipped (${e?.message})`);
+    }
+  }
   // The front-matter `captions:` map is keyed by AUTHORED slide number, but `notes` is indexed
   // per RENDERED section. Autosplit ADDS sections, so rendered-index+1 ≠ the author's number and a
   // number-keyed caption would misbind past a split — so drop the front-matter map under autosplit

@@ -2,6 +2,13 @@ import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, makeReader, type Reader } from '@/lib/cadenza';
 import { cachedSampleUrl, KOKORO_MODEL_ID, speedSupported } from './tts-voice-catalog';
 
+// slideToSpeech is the shared base narration flattener — one source of truth in
+// lib/core/slide-speech.js (HARD RULE #1), bundled to the browser via
+// read-along-core (#902 Gap 1). Re-exported here so this module's long-standing
+// `import { slideToSpeech } from './read-aloud'` consumers keep working while the
+// LOGIC lives once, in the same kernel the CLI/export narrates from.
+export { slideToSpeech } from '@/playground/read-along-core.generated.js';
+
 // Studio read-aloud — the REAL synchronized read-along, WORD by word.
 //
 // Same engine as the /cadenza demo (the reference implementation):
@@ -25,53 +32,6 @@ import { cachedSampleUrl, KOKORO_MODEL_ID, speedSupported } from './tts-voice-ca
 
 // The OpenRouter key the architect/voice ladder share (lattice-db-* namespace).
 const OR_KEY_LS = 'lattice-db-or-key';
-
-/**
- * Strip a slide's Markdown down to the readable prose a narrator would speak:
- * drop the `<!-- _class -->` directive, fenced code, background-image lines and
- * the inline syntax (`#`, `-`, `>`, `*`, backticks, links), keeping the words.
- * Pure — safe in SSR and tests.
- */
-// A structural line — heading, list item, blockquote — is its own spoken clause;
-// a plain line is a soft-wrapped continuation of one. Only structural lines get an
-// auto-terminator (below) — inventing a break mid-paragraph would be wrong.
-const STRUCTURAL_LINE = /^(#{1,6}\s|[-*+]\s|\d+\.\s|>\s?)/;
-const TERMINATED = /[.!?;:,…]\s*$/;
-
-export function slideToSpeech(markdown: string): string {
-	const lines = String(markdown || '').split('\n');
-	const out: string[] = [];
-	let inFence = false;
-	for (const raw of lines) {
-		const line = raw.trim();
-		if (/^```/.test(line)) {
-			inFence = !inFence;
-			continue;
-		}
-		if (inFence) continue;
-		if (!line) continue;
-		if (/^<!--/.test(line)) continue; // _class / directive comments
-		if (/^!\[/.test(line)) continue; // ![bg](…) / images — nothing to say
-		if (/^[-=*_]{3,}$/.test(line)) continue; // slide rule / hr
-		// Give a structural line a terminator so Cadenza's punctuation-driven pause
-		// (cadence.ts's PAUSE_MS) actually falls between clauses — otherwise a list
-		// of bullets reads as one run-on sentence with no breath between them.
-		out.push(STRUCTURAL_LINE.test(line) && !TERMINATED.test(line) ? `${line}.` : line);
-	}
-	let text = out.join(' ');
-	// Inline syntax → words only.
-	text = text
-		.replace(/`([^`]*)`/g, '$1') // inline code
-		.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // links / images → label
-		.replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, '$1') // emphasis
-		.replace(/^#+\s*/g, '') // stray heading marks
-		.replace(/(^|\s)[#>]+\s*/g, '$1') // blockquote / heading markers
-		.replace(/(^|\s)[-*+]\s+/g, '$1') // list bullets
-		.replace(/(^|\s)\d+\.\s+/g, '$1') // ordered markers
-		.replace(/\s+/g, ' ')
-		.trim();
-	return text;
-}
 
 export type ReadAloudState = {
 	/** Read-along active (the play button is in its playing state). */
