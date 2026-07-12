@@ -49,6 +49,9 @@ export type ReadAloudDebugEvent = {
 	label?: string;
 	spokenCount?: number;
 	cueCount?: number;
+	/** 'read' events only: the model/voice that synthesized this slide (`model · voice`) — so a
+	 *  multi-model trace self-labels which voice produced each slide's behavior. */
+	voice?: string;
 	/** Measured audio onset (ms, WebAudio clock) — 'timing' events only. */
 	onsetMs?: number;
 	/** Onset relative to sentence-0's onset (the reader's time origin) — 'timing' events only. */
@@ -65,6 +68,8 @@ export type ReadAloudDebugEvent = {
 export type ReadAloudDebugLive = {
 	mode: 'silent' | 'audio';
 	rung: string | null;
+	/** The active model/voice (`model · voice`) this read is synthesizing through. */
+	voice: string;
 	ctxState: string;
 	/** The reader clock (ms) driving the highlight this frame. */
 	elapsedMs: number;
@@ -271,6 +276,9 @@ export function useReadAloud(
 	// highlight got ahead of it this read.
 	const lastTimedCueRef = React.useRef(-1);
 	const peakAheadRef = React.useRef(0);
+	// The model/voice this read synthesizes through — resolved once per play() (below), so
+	// a multi-model device trace self-labels which voice produced each slide's behavior.
+	const voiceLabelRef = React.useRef('');
 
 	// Read the latest onFinish through a ref so it never re-creates the reader effect.
 	const onFinishRef = React.useRef(opts?.onFinish);
@@ -421,6 +429,7 @@ export function useReadAloud(
 			setDebugLive({
 				mode: modeRef.current,
 				rung: rungRef.current,
+				voice: voiceLabelRef.current,
 				ctxState: v?.audioState ? v.audioState() : 'none',
 				elapsedMs: Math.round(elapsedRef.current),
 				audioClockMs: Math.round(v?.audioTimeMs ? v.audioTimeMs() : 0),
@@ -481,6 +490,7 @@ export function useReadAloud(
 		audioBaseRef.current = null;
 		lastTimedCueRef.current = -1;
 		peakAheadRef.current = 0;
+		voiceLabelRef.current = '';
 		modeRef.current = 'silent'; // the default mode; overridden below once the rung is known
 		armedRef.current = false;
 		reader.reset();
@@ -531,6 +541,20 @@ export function useReadAloud(
 				r = 'silent';
 			}
 			setRung(r);
+			if (debugRef.current) {
+				// Resolve the concrete model/voice behind the rung so a multi-model device
+				// trace self-labels which voice produced each slide (best-effort, guarded).
+				try {
+					voiceLabelRef.current =
+						r === 'openrouter-tts'
+							? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
+							: r === 'kokoro'
+								? `kokoro · ${voice.kokoroVoice?.() || '?'}`
+								: r;
+				} catch {
+					voiceLabelRef.current = r;
+				}
+			}
 			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on
 			// the estimate (it speaks in parallel but reports no onsets).
 			const clocked = r === 'openrouter-tts' || r === 'kokoro';
@@ -565,6 +589,7 @@ export function useReadAloud(
 						label: debugLabelRef.current,
 						spokenCount: spoken.length,
 						cueCount: track.cues.length,
+						voice: voiceLabelRef.current,
 						ctxState: voiceRef.current?.audioState ? voiceRef.current.audioState() : 'none',
 						sincePlayMs: 0,
 					});

@@ -667,7 +667,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 // styling regression. Non-interactive except its own scroll.
 // Serialize one event to a single trace line (also the copy-paste format).
 function fmtDebugEvent(e: ReadAloudDebugEvent): string {
-	if (e.kind === 'read') return `── ${e.label ?? 'read'} · spoken/cues ${e.spokenCount}/${e.cueCount}${e.spokenCount !== e.cueCount ? ' ⚠MISMATCH' : ''} · ctx ${e.ctxState}`;
+	if (e.kind === 'read') return `── ${e.label ?? 'read'} · ${e.voice || '—'} · spoken/cues ${e.spokenCount}/${e.cueCount}${e.spokenCount !== e.cueCount ? ' ⚠MISMATCH' : ''} · ctx ${e.ctxState}`;
 	if (e.kind === 'timing') return `t#${e.index} on=${e.relOnsetMs} dur=${e.durationMs} ${e.ctxState} +${e.sincePlayMs}ms`;
 	return `a#${e.index} ${e.ctxState} +${e.sincePlayMs}ms`;
 }
@@ -681,7 +681,7 @@ function ReadAloudDebugPanel({ live, events, source }: { live: ReadAloudDebugLiv
 	// screenshot every slide. Prefixed with the live summary for context.
 	const traceText = React.useMemo(() => {
 		const head = live
-			? `source=${source} rung=${live.rung} mode=${live.mode} ctx=${live.ctxState} peakAhead=${live.peakAhead} spoken/cues=${live.spokenCount}/${live.cueCount}`
+			? `source=${source} voice=${live.voice || '—'} rung=${live.rung} mode=${live.mode} ctx=${live.ctxState} peakAhead=${live.peakAhead} spoken/cues=${live.spokenCount}/${live.cueCount}`
 			: `source=${source} (idle)`;
 		return `${head}\n${events.map(fmtDebugEvent).join('\n')}`;
 	}, [events, live, source]);
@@ -698,6 +698,9 @@ function ReadAloudDebugPanel({ live, events, source }: { live: ReadAloudDebugLiv
 				<>
 					<div>
 						<span className="text-white/60">rung:</span> {live.rung ?? '—'} · <span className="text-white/60">mode:</span> {live.mode}
+					</div>
+					<div className="break-words">
+						<span className="text-white/60">voice:</span> {live.voice || '—'}
 					</div>
 					<div>
 						<span className="text-white/60">ctx:</span>{' '}
