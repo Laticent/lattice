@@ -132,6 +132,22 @@ function scannedFiles() {
   return [...new Set(out)].filter((p) => fs.existsSync(p)).sort();
 }
 
+/** Un-broaden a `:is(section…, figure…)` guard back to its `section` arm.
+ *
+ * Chart component CSS broadens `section.<comp>` → `:is(section.<comp>, figure.<comp>)`
+ * so the layout also paints in the Read·Article `<figure>` re-host (2026-07-… live charts
+ * in Read·Article). But this compat generator is a fallback for the SLIDE render on engines
+ * WITHOUT `color-mix()` / `light-dark()`; the article re-host is a modern-browser-only surface
+ * that always has those functions, so the compat CSS never needs the `figure` arm. Critically,
+ * the selector splitting below (`lastCompound`, the `,`-splits in emit/scoping) is NOT
+ * `:is()`-aware: it would break the inner `section.<comp>, figure.<comp>` on its comma/space and
+ * emit a bogus bare `:is` arm — which, in a comma selector LIST, invalidates the ENTIRE flattened
+ * rule (one bad arm drops the whole list), silently dropping the compat colour. Normalizing to the
+ * `section` arm at scan time keeps the compat output identical to the pre-broadening form. */
+function unbroadenIsFigure(sel) {
+  return sel.replace(/:is\(\s*(section[^,()]*?)\s*,\s*figure[^()]*?\)/gi, '$1');
+}
+
 /** The last compound selector (after the final combinator) of a selector. */
 function lastCompound(sel) {
   const parts = sel.split(/\s+|>|\+|~/).filter(Boolean);
@@ -162,7 +178,7 @@ function parseModel(files) {
     let ast;
     try { ast = postcss.parse(fs.readFileSync(file, 'utf8')); } catch { continue; }
     ast.walkRules((rule) => {
-      const selector = rule.selector.replace(/\s+/g, ' ').trim();
+      const selector = unbroadenIsFigure(rule.selector.replace(/\s+/g, ' ').trim());
       rule.walkDecls((decl) => {
         if (decl.prop.startsWith('--')) {
           const name = decl.prop.slice(2);

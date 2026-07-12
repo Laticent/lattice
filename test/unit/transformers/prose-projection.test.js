@@ -120,6 +120,57 @@ test('a SPATIAL-BOUNDED chart (word-cloud) re-hosts its .chart-body into a bound
 	assert.match(articleHtml, /wc-word">growth/, 'the cloud content is preserved');
 });
 
+test('a FLOW-HEIGHT chart (roadmap) re-hosts its .chart-body into a width-container .lp-chart figure', () => {
+	// roadmap is a pure HTML+CSS table (no SVG). A raw re-host of its <table> drops the
+	// section.roadmap-scoped styling (state markers collapse) and overflows a narrow column.
+	// Re-hosting the whole .chart-body into a `.lp-chart` width container (container-type:
+	// inline-size, height:auto) re-establishes the cqi context; the figure carries the authored
+	// class list (component + modifiers) + chart-frame so variant CSS + `--chart-cat-*` resolve.
+	const secs = sections(
+		`<section data-lattice-slide data-class="roadmap status" class="roadmap status chart-frame"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Rollout</h2></div>
+			<div class="chart-body"><div class="roadmap-figure"><table><tr><td class="cell-state state-shipped">Ship</td></tr></table></div></div>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(
+		articleHtml,
+		/<figure class="lp-figure lp-chart chart-frame roadmap status"><div class="chart-body">/,
+		'roadmap re-hosts its .chart-body in a width-container lp-chart figure carrying the authored classes',
+	);
+	assert.match(articleHtml, /roadmap-figure[\s\S]*state-shipped/, 'the roadmap board content + state markers survive');
+	assert.doesNotMatch(articleHtml, /lp-figure-note/, 'roadmap is NOT a placeholder any more');
+});
+
+test('flow-height figure class tokens are whitelisted (no attribute break-out)', () => {
+	// The authored class list enters the figure `class="…"` attribute; esc() does not escape the
+	// double-quote, so a stray quote in a class token must be stripped ([a-z0-9-] whitelist).
+	const secs = sections(
+		`<section data-lattice-slide data-class='progress "&gt;evil' class="progress"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Readiness</h2></div>
+			<div class="chart-body"><div class="progress-bars">bars</div></div>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /class="lp-figure lp-chart chart-frame [^"]*"[^>]*evil/, 'no quote break-out');
+	assert.match(articleHtml, /lp-figure lp-chart chart-frame progress/, 'the clean component token survives');
+});
+
+test('flow-height re-host drops the authored color-scheme modifier (article owns scheme)', () => {
+	// A slide hard-marked `.dark` must NOT force a dark-tuned chart treatment into a LIGHT article;
+	// Read·Article owns its scheme via data-lp-scheme + light-dark(). The chart VARIANT (`tinted`)
+	// is kept; only `dark`/`light` are dropped.
+	const secs = sections(
+		`<section data-lattice-slide data-class="kanban tinted dark" class="kanban tinted dark"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Board</h2></div>
+			<div class="chart-body"><div class="kanban-board">cards</div></div>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /class="lp-figure lp-chart chart-frame kanban tinted"/, 'kanban + tinted variant kept, dark dropped');
+	assert.doesNotMatch(articleHtml, /chart-frame kanban tinted dark/, 'the dark scheme modifier is not carried');
+});
+
 test('a component whose PRIMARY chart SVG is aria-hidden (funnel) still re-hosts in colour', () => {
 	// funnel / map / quadrant / radar mark their MAIN chart svg aria-hidden (the data
 	// rides the label / mark-detail channel). aria-hidden must NOT gate re-hosting — these

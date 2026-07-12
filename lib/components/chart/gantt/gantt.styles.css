@@ -11,7 +11,7 @@
  * .gantt-bars using percentage math anchored on --gantt-cols, --gantt-col-start,
  * and --gantt-col-span — no subgrid needed. */
 
-section.gantt.chart-frame .chart-body {
+:is(section.gantt, figure.gantt).chart-frame .chart-body {
   /* Inherit the shared .chart-body width AND padding (sp-lg / sp-2xl) so the
    * surface panel is the same size and inset as every other chart — don't
    * re-assert width:100% (it spanned edge-to-edge) or a tighter padding (the
@@ -362,14 +362,14 @@ section.gantt.chart-frame .chart-body {
  * Keyed on the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md §10. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.gantt.chart-frame .gantt-chart { height: 100%; }
+  :is(section.gantt, figure.gantt).chart-frame .gantt-chart { height: 100%; }
 
   /* Ticks span the full width — no left label column in portrait. */
-  section.gantt .gantt-axis-row { flex: 0 0 auto; }
-  section.gantt .gantt-axis-spacer { flex-basis: 0; width: 0; padding: 0; }
+  :is(section.gantt, figure.gantt) .gantt-axis-row { flex: 0 0 auto; }
+  :is(section.gantt, figure.gantt) .gantt-axis-spacer { flex-basis: 0; width: 0; padding: 0; }
 
   /* Lanes distribute down the canvas; each is a label-over-bars block. */
-  section.gantt .gantt-lane {
+  :is(section.gantt, figure.gantt) .gantt-lane {
     flex: 1 1 0;
     flex-direction: column;
     align-items: stretch;
@@ -382,10 +382,10 @@ section.gantt.chart-frame .chart-body {
   }
   /* The portrait lane border (above) out-specifies the base last-child reset, so
    * re-drop it here or the bottom stacked lane keeps a trailing hairline. */
-  section.gantt .gantt-lane:last-child { border-bottom: none; }
+  :is(section.gantt, figure.gantt) .gantt-lane:last-child { border-bottom: none; }
 
   /* Label rides above its bars — full width, left-aligned, no ellipsis. */
-  section.gantt .gantt-lane-label {
+  :is(section.gantt, figure.gantt) .gantt-lane-label {
     flex: 0 0 auto;
     width: auto;
     text-align: left;
@@ -402,18 +402,18 @@ section.gantt.chart-frame .chart-body {
    * by a column (span is inclusive) with the later bar drawn on top — so a
    * left-aligned label sits in the visible left portion, while a centred one
    * would slide under the neighbouring bar and clip. */
-  section.gantt .gantt-bars {
+  :is(section.gantt, figure.gantt) .gantt-bars {
     flex: 0 0 auto;
     height: 9.5cqi;
   }
 
   /* No label column in portrait — the today line spans the full bars width, so
    * drop the 14cqi offset and place it directly at its percent. */
-  section.gantt .gantt-today {
+  :is(section.gantt, figure.gantt) .gantt-today {
     left: calc(var(--gantt-x) * 1%);
   }
   /* A milestone label can wrap in the tall box rather than clip. */
-  section.gantt .gantt-milestone { white-space: normal; }
+  :is(section.gantt, figure.gantt) .gantt-milestone { white-space: normal; }
 }
 
 

@@ -586,11 +586,25 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
-	// Re-blessed for the live word-cloud in Read·Article: the article CSS gained the `.lp-spatial`
-	// bounded-container rules (container-type:size + aspect-ratio) that let a re-hosted word-cloud's
-	// `.chart-body` render in a definite box instead of a placeholder. Always-on player bytes; this
-	// mermaid/word-cloud-free fixture has no spatial figure, so no behaviour change here. Deliberate.
-	assert.equal(sha, '4376bd353a4f961b7dcb99594c859d770ca7ff5428770a817a4e6c3671e9bcef', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the live FLOW-HEIGHT charts in Read·Article: the article CSS gained the
+	// `.lp-chart` width-container rules (container-type:inline-size + generic-table neutralizers)
+	// that let a re-hosted roadmap/progress/kanban/gantt/timeline-list `.chart-body` render in a
+	// width box instead of a raw table / placeholder. Always-on player bytes; this fixture has no
+	// chart figure, so no behaviour change here. Deliberate. (Prior bless: the `.lp-spatial`
+	// bounded-container rules for the live word-cloud, #935.)
+	assert.equal(sha, '16f2f30b81e845d4eee595ba1c75cd09bd11cc51051b6d7ba38cf6bed7953edb', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+});
+
+test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
+	// A flow-height chart re-host (roadmap) OWNS its table look via its figure-broadened component
+	// CSS. The generic `#lp-article td` chrome is ID-specific (1,1,1) and would otherwise BEAT the
+	// component's class-level (0,1,2) cell rules — zeroing roadmap's grid hairlines, cell padding,
+	// and first-column accent stripe. The `:not(.lp-chart *)` guard keeps it off chart tables so the
+	// component styling is the sole source. Locks the fix so the ID-specificity trap can't silently
+	// return (a runtime cascade bug the byte-golden + jsdom tests can't otherwise catch).
+	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.match(html, /#lp-article td:not\(\.lp-chart \*\)\{border:/, 'generic td chrome is scoped out of .lp-chart');
+	assert.doesNotMatch(html, /#lp-article th,#lp-article td\{border:1px/, 'no UNscoped generic td border rule (would override chart cells)');
 });
 
 test.after(() => {
