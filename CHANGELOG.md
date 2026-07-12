@@ -165,23 +165,20 @@ in patch versions.
   nothing fights the engine. Fixes the Studio presenter and, via the shared kernel, the Drawing
   Board's presenter and rehearsal stage. (Studio Present.)
 
-- **"Print deck" now prints the deck, not a screenshot of the app — and lands on
-  the right paper.** Two problems in the Studio Share → "Print deck" path. (1) It
-  mounted the print render in a **hidden** iframe (`opacity:0`, zero-sized) and
-  printed it via `contentWindow.print()`. A hidden iframe is an ambiguous print
-  target: a browser that won't focus an invisible frame (Firefox) printed the
-  **top document** instead, so the export came out as a screen-grab of the Share
-  sheet and toolbar. The print frame is now a real full-viewport, opaque, focused
-  overlay (torn down on `afterprint` + a safety timeout) — the unambiguous target
-  in every browser, like the Drawing Board's visible preview frame. (2) The shared
-  print CSS sized the sheet to the raw slide pixels, so the OS print dialog
-  defaulted a 16:9 slide onto portrait A4/Letter — shrunk, with a URL/date
-  header/footer. It now picks the least-wasteful standard sheet for the deck's
-  aspect and pre-selects orientation (**16:9 → US Legal landscape** ~93% fill, 4:3
-  → Letter landscape, tall decks → Letter portrait), scales each slide to fit with
-  `zoom`, and holds a 9mm safe margin — one slide per page, centered, never
-  cropped. Colour-only for now; a black-and-white-safe print band is the still-open
-  Build B of `engineering/decisions/2026-06-14-deck-print-styling.md`.
+- **"Print deck" now builds a real, print-ready PDF — one slide per page at the chosen
+  paper size — and opens it in a new tab, instead of trying to print an HTML page of the
+  deck.** The earlier fixes still misbehaved on iPhone: an in-app print printed the Studio
+  chrome (mobile browsers hand the whole top document to the system print sheet), and even
+  opening the deck as its own HTML tab **clipped and flowed continuously** — iOS Safari
+  ignores CSS page-size and won't reliably page-break a scaled layout, so a 7-slide deck
+  came out as 4 sliced pages on US Letter. "Print deck" now shows a small options panel
+  (paper size Auto/Letter/Legal/A4 · orientation Auto/Landscape/Portrait · **Color or Black
+  & white** · Fit-to-page or Actual size) and generates a **real PDF** with those choices
+  baked into each page's geometry — the slide fit + centered with a safe margin, B&W through
+  the `section.print` band — then opens it in a new tab (pop-up-blocked → downloads instead).
+  A PDF's page size is honored exactly by iOS and every printer, so it prints one-slide-per-
+  page at the right size on iPhone and desktop alike. Auto sheet-pick stays the default (16:9
+  → US Legal landscape, 4:3 → Letter). See `engineering/decisions/2026-06-14-deck-print-styling.md`.
 - **A `big-number` slide is now spoken as one phrase ("0 boxes to drag…"), not truncated to
   just the figure.** The number + its caption are authored as a bare list (`- 0` / `  - caption`),
   so narration ran them through the generic nested-list join and put a COLON between them —

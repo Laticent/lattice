@@ -26,7 +26,61 @@ summary: Print support that survives the boardroom on paper, in colour and B&W, 
 > `--print` engine flag; and a **contrast gate** asserting the band vs white
 > (`test/unit/palette/contrast.test.js`). Demo: `examples/print-mode.md`.
 
-## Shipped — Build A + a worse-than-ugly bug (2026-07-12)
+## Superseded twice, same week — "Print deck" now builds a REAL PDF (2026-07-12)
+
+The reported wound took THREE tries, each killed by real-device evidence:
+
+1. **Hidden iframe** (shipped #932) → printed the *app* (Firefox ran `print()`
+   on the top document). Fixed with a full-viewport overlay.
+2. **Overlay** → still printed the *app* on **iOS** (IMG_2940): a mobile browser
+   has no "print one element" — it hands the whole top document to the system
+   print sheet. Fixed by opening the deck as its own top-level **new tab** (a
+   vector HTML page, `buildSrcdoc` + `printRules`).
+3. **Vector new tab** → prints the deck on iOS, but **clips + flows continuously,
+   ignoring the paper size** (IMG_2945: US Letter portrait, 4 pages for 7 slides,
+   slides sliced across page breaks). **iOS Safari ignores CSS `@page {size}`
+   entirely** (it always uses the user's paper, defaulting Letter portrait) **and
+   won't reliably page-break a scaled/zoomed layout** — so a vector print page,
+   which works on desktop Chromium, is at the mercy of iOS's print engine.
+
+**The fix that holds on every device: build a REAL PDF and open THAT.** A PDF
+carries its page geometry in the **MediaBox**, which iOS honors exactly — reliable
+one-slide-per-page at the chosen paper size on iPhone AND desktop. `sharePrintDeck`
+(`docs/src/components/studio/share-export.ts`) now:
+
+- renders the deck (B&W → `mergeClassTokens(source,'print')` for the `section.print`
+  band), then calls **`renderPdfBlob`** (the existing per-slide PDF pipeline,
+  `docs/src/playground/drawing-board-export.js`, HARD RULE #15/#1) with a `sheet` =
+  the chosen paper baked into each page, the slide **fit + centered** with a 9mm
+  safe margin (jsPDF `hotfixes:['px_scaling']` so the MediaBox is physically correct
+  — Legal → **1008×612pt**, A4 → 842×595pt, not a giant custom size);
+- opens the finished blob in a new tab; the browser's native PDF viewer's
+  Print/Share does the actual print (on a phone: Share → Print).
+
+The paper decision lives ONCE in **`resolvePrintSheet`** (`deck-preview.js`), shared
+by the PDF path (px→MediaBox) and the Drawing Board's still-vector print CSS
+(`buildPrintCss` `@page`), so the two surfaces can't disagree (HARD RULE #1).
+`fitSlideOnSheet` places the slide on the sheet. `PrintOptionsPanel` (paper /
+orientation / colour / fit) feeds `printOpts` straight into the PDF geometry.
+
+**Render BEFORE opening the tab — a `window.open` foreground trap.** Opening a tab
+marks the opener `document.hidden`, which **pauses `requestAnimationFrame` and
+stalls the html-to-image rasterizer** — freezing the very render a reserved pop-up
+would be waiting on (confirmed: opener `visibilityState` flips to `hidden` on
+`window.open`, and `window.focus()` does not undo it). So the PDF is built while the
+Studio tab is still foreground, THEN the blob is opened; a pop-up-blocked open (a
+slow render can outlast the click's activation) falls back to a download. The shared
+capture also gained a **timer fallback on its double-`rAF` settle wait** (`createCaptureFrame`)
+so any backgrounded export can't hang there.
+
+**Superseded correctness note (vector path, still true for the Drawing Board):** the
+old vector "Print deck" had a latent `@page`-ordering bug — `buildSrcdoc` emitted the
+print CSS *before* the engine `css`, whose own `@page{size:<slide-px>}` then won the
+later-wins-per-descriptor merge, making the paper pick inert. `printCss` now emits
+after `css`. This only affects the Drawing Board's remaining vector print now, but
+it's pinned in `deck-preview.test.ts` and kept.
+
+## Shipped — Build A + a worse-than-ugly bug (2026-07-12, overlay half superseded above)
 
 The half of this note that "fixes the reported wound" landed, plus a bug the
 original complaint understated.
@@ -40,9 +94,9 @@ target*: a browser that won't move focus into an invisible frame (Firefox) runs
 `print()` against the **top document** instead — so the export came out as a
 screenshot of the Studio chrome (Share sheet, toolbar, toast). The Drawing
 Board never hit this because it prints its **visible** on-screen preview frame.
-Fix: mount the Studio print frame as a real full-viewport, opaque, focused
-overlay (torn down on `afterprint` + a safety timeout) — the unambiguous target
-in every browser.
+The first fix mounted the print frame as a real full-viewport, opaque, focused
+overlay — the unambiguous target on desktop, but (see the superseding section
+above) still the *app* on iOS. The holding fix is the **new-tab** redesign.
 
 **Build A: correct paper defaults.** The shared print CSS
 (`docs/src/playground/deck-preview.js` `buildPrintCss`, used by BOTH the Studio
