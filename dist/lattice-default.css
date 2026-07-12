@@ -8867,6 +8867,8 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
  * See lib/components/progress/progress.manifest.json for the component contract.
  */
 
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
+
 /* ── PROGRESS ──
  * Stack of horizontal bars, one per list item. Each row carries a label,
  * a bar (filled to --pct), a numeric readout, and an optional status pill.
@@ -8934,15 +8936,21 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
    * on light, toward black on dark (mirrors --state-*-fill, mud-free). The other
    * members keep the shared --chart-fill-* vertical wash (they have no --pct).
    * A bar with no status is the categorical cat1 slot; status variants re-point
-   * the --fill-* pair. Authors pin a categorical hue with `--fill`. */
-  --fill-hue: var(--fill, var(--chart-cat-1-hue));
+   * the compiled --fill-grad / --fill-plate / --fill-edge / --fill-ink set below.
+   *
+   * The gradient is a FLAT full-range ramp (compiled --progress-*-grad token);
+   * `background-size: calc(100% * 100 / var(--pct))` stretches it so the bar —
+   * clipped to --pct% of the track — reveals tail→(--pct-intensity), re-deriving
+   * the old magnitude double-encoding old-safely (calc division by a number, no
+   * color-mix/light-dark in a paint). See the recipe region up top. */
+  --fill-grad: var(--progress-cat1-grad);
+  --fill-plate: var(--progress-cat1-plate);
+  --fill-edge: var(--progress-cat1-edge);
   --fill-ink: var(--chart-cat-1-ink);
-  background: linear-gradient(90deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) 12%, var(--bg)),
-               color-mix(in oklab, var(--fill-hue) 30%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) calc(20% + var(--pct) * 0.52%), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) calc(38% + var(--pct) * 0.58%), black)) 100%);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
+  background: var(--fill-grad);
+  background-size: calc(100% * 100 / var(--pct)) 100%;
+  background-repeat: no-repeat;
+  border: var(--chart-hairline) solid var(--fill-edge);
   border-left: var(--chart-fill-accent) solid var(--fill-ink);
   border-radius: 0.46875cqi;
   transition: none;
@@ -8955,16 +8963,17 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   padding-right: 0.625cqi;
   overflow: hidden;
 }
-/* Each status re-points the --fill-* pair; the canonical recipe picks it up.
- * Canvas-aware via light-dark(), so one rule each. */
+/* Each status re-points the compiled --fill-* set (grad / plate / edge / ink);
+ * the .progress-fill + .progress-pct rules pick them up. Each token is already a
+ * flat-per-plane literal, so no color-mix()/light-dark() rides a paint. */
 :is(section.progress, figure.progress) .progress-fill[data-s="on-track"],
 :is(section.progress, figure.progress) .progress-fill[data-s="done"],
-:is(section.progress, figure.progress) .progress-fill[data-s="live"] { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="live"] { --fill-grad: var(--progress-pass-grad); --fill-plate: var(--progress-pass-plate); --fill-edge: var(--progress-pass-edge); --fill-ink: var(--state-pass-ink); }
 :is(section.progress, figure.progress) .progress-fill[data-s="at-risk"],
-:is(section.progress, figure.progress) .progress-fill[data-s="warn"]   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="warn"]   { --fill-grad: var(--progress-warn-grad); --fill-plate: var(--progress-warn-plate); --fill-edge: var(--progress-warn-edge); --fill-ink: var(--state-warn-ink); }
 :is(section.progress, figure.progress) .progress-fill[data-s="blocked"],
-:is(section.progress, figure.progress) .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-:is(section.progress, figure.progress) .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="fail"]   { --fill-grad: var(--progress-fail-grad); --fill-plate: var(--progress-fail-plate); --fill-edge: var(--progress-fail-edge); --fill-ink: var(--state-fail-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="deferred"] { --fill-grad: var(--progress-mute-grad); --fill-plate: var(--progress-mute-plate); --fill-edge: var(--progress-mute-edge); --fill-ink: var(--state-mute-ink); }
 :is(section.progress, figure.progress) .progress-pct {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
@@ -8978,9 +8987,10 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
    * the fill, the number sits on a small READOUT PLATE: the bar's own hue mixed
    * hard toward the canvas (pale on light, deep on dark) so --text-heading always
    * clears it, on either canvas, at any --pct. Stays in-family (hue-tinted, not a
-   * jarring white box) and reads as an intentional data badge. */
-  background: light-dark(color-mix(in oklab, var(--fill-hue) 16%, var(--bg)),
-                         color-mix(in oklab, var(--fill-hue) 22%, black));
+   * jarring white box) and reads as an intentional data badge. The plate colour is
+   * the compiled --fill-plate token, inherited from the parent .progress-fill (so it
+   * tracks the status variant), already flat-per-plane — no color-mix in the paint. */
+  background: var(--fill-plate);
   padding: 0.16cqi 0.55cqi;
   border-radius: 0.55cqi;
   font-variant-numeric: tabular-nums;
