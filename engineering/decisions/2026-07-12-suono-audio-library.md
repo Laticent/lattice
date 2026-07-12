@@ -228,6 +228,37 @@ falls out of §3's "not a fetcher":
   hex / preview-sink allowlists (HARD RULE #15 shape). This gate is what makes a fourth surface
   physically unable to open its own context.
 
+## 6a. Batching, concurrency & the instance model (why one context, many sources)
+
+A recurring question for a shared library: does it *batch* playback, and does it *reuse or
+recreate* audio objects? The answers are a deliberate design, not an accident:
+
+- **Sequential batch — playing many clips in order — IS the sequencer.** `stage.sequence({ items,
+  produce })` is exactly "play this batch of N files back to back," with prefetch, breath gaps, and
+  barge-in. `warm(items)` **preloads** a batch (bytes *and* decoded buffers) so a later play skips the
+  full cold start. This is the batching Lattice needs.
+- **Concurrent batch — playing clips AT ONCE (layering/mixing) — is a scheduler POLICY, not a core
+  capability.** The hardened `stage` (owned context, decode+cache, iOS unlock, declick, clock) is
+  concurrency-agnostic; the *sequencer* is what serializes. The stage already permits overlapping
+  `play()` (each call returns its own `PlayHandle`; `stopAll()` and `dispose()` track **every** live
+  source, not just the latest — the multi-play-safety fix in this line of work). So a future consumer
+  wanting layered audio adds a *second scheduler over the same stage* — it never touches the hardened
+  core. **Lattice must never mix voices**, so no concurrent player ships here; a full mixer/effects/bus
+  graph stays out of the core by design (§3) — that's a different, much larger library.
+- **The instance model — reuse the expensive, recreate only the cheap-and-mandatory:**
+
+  | Resource | Suono | Why |
+  |---|---|---|
+  | `AudioContext` | **one, reused forever** | Browsers cap ~6/page and each is costly to create; one-per-clip is the anti-pattern. |
+  | Decoded `AudioBuffer` | **cached & reused** (keyed) | Decoding is the real CPU cost; one buffer feeds many source nodes. |
+  | Source bytes | **cached + in-flight dedup** | Skips re-synth / re-fetch. |
+  | `AudioBufferSourceNode` | **new per play** | Web Audio spec: source nodes are one-shot — you *cannot* restart one. Trivially cheap, GC'd on `onended`. |
+  | `GainNode` (declick) | **new per play** | Bound to its per-play source; pooling saves nothing measurable. |
+
+  There is no more performant model available: the per-play allocations are unavoidable and
+  negligible, and everything expensive is already reused. This holds for both Lattice and broader
+  npm use.
+
 ## 7. What the skeleton in this PR contains
 
 `docs/src/lib/suono/`:

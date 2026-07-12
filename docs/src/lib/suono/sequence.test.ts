@@ -10,10 +10,13 @@ function fakeStage() {
 	const played: number[] = [];
 	const onStarts: Array<{ onsetMs: number; durationMs: number }> = [];
 	let clock = 0;
-	const stage: SequenceStage & { played: number[]; onStarts: typeof onStarts } = {
+	const decodedKeys: string[] = [];
+	const stage: SequenceStage & { played: number[]; onStarts: typeof onStarts; decodedKeys: string[] } = {
 		played,
 		onStarts,
-		async decode(_b: Bytes, _key?: string): Promise<Clip> {
+		decodedKeys,
+		async decode(_b: Bytes, key?: string): Promise<Clip> {
+			decodedKeys.push(key ?? '');
 			return { buffer: {} as AudioBuffer, durationMs: 10 };
 		},
 		play(clip: Clip, opts?: PlayOptions) {
@@ -230,6 +233,8 @@ describe('makeSequence — dedup & warm', () => {
 		await flush();
 		expect(produce).toHaveBeenCalledTimes(2); // both prefetched, no playback
 		expect(stage.played.length).toBe(0);
+		// PRELOAD: warm also decoded both clips into the stage cache (not just fetched bytes).
+		expect(stage.decodedKeys.sort()).toEqual(['k0', 'k1']);
 
 		// Now play: every item is a warm-cache hit, so produce is NOT called again.
 		seq.play();

@@ -93,6 +93,8 @@ export interface Stage {
 	resume(): void;
 	/** Build a sequence scheduler bound to this stage. */
 	sequence<T>(opts: SequenceOptions<T>): Sequence;
+	/** Stop EVERY currently-playing clip (all overlapping plays, not just the latest). */
+	stopAll(): void;
 	/** Release the context (rare — a stage is meant to outlive many plays). */
 	dispose(): void;
 }
@@ -145,6 +147,7 @@ export interface Sequence {
 	stop(): void;
 	/** True while a run is active (not paused, not stopped). */
 	playing(): boolean;
-	/** Prefetch bytes for `items` into the shared cache without playing. Best-effort. */
+	/** Preload `items` without playing: prefetch their bytes AND decode them into the stage cache,
+	 *  so a later play() of a warmed item skips both the produce and the decode. Best-effort. */
 	warm(items: readonly unknown[], opts?: WarmOptions): void;
 }

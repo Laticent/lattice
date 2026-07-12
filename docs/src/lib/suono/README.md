@@ -58,7 +58,11 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 - **Not a synthesizer / decider.** It doesn't know TTS, models, voices, or "sentences." `produce(item)`
   returns bytes; `keyOf(item)` names them.
 - **Not effects / EQ / mixing / capture.** No tone-shaping (hence *suono*, not *timbro*), no mic, no
-  mixer. One sequence at a time.
+  mixer. **Batching** of multiple clips = the sequencer (sequential); **concurrency** (playing clips
+  at once / layering) is a *scheduler policy*, not a core capability — the `stage` permits overlapping
+  `play()` (each returns its own handle; `stopAll()` reaches them all), so a concurrent player would be
+  a second scheduler over the same hardened stage, added when a real consumer needs it — never a mixer
+  baked into the core.
 - **Not a renderer.** No DOM, no highlight, no transport UI.
 - **Not streaming.** Whole clips only in v1.
 
@@ -78,8 +82,8 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 
 | Export | What it does |
 |---|---|
-| `createStage(opts?)` | the owned context + playback. `unlock()`, `decode(bytes, key?)`, `play(clip, {onStart, signal})`, `clockMs()`, `latencyMs()`, `state()`, `suspend()`/`resume()`, `sequence(opts)`, `dispose()`. |
-| `stage.sequence(opts)` / `makeSequence(stage, opts)` | the scheduler: `play`/`pause`/`resume`/`stop`/`warm`. Opts: `items`, `produce`, `keyOf?`, `gapMs?`, `concurrency?`, `onItemStart?`, `onState?`. |
+| `createStage(opts?)` | the owned context + playback. `unlock()`, `decode(bytes, key?)`, `play(clip, {onStart, signal})`, `clockMs()`, `latencyMs()`, `state()`, `suspend()`/`resume()`, `stopAll()`, `sequence(opts)`, `dispose()`. |
+| `stage.sequence(opts)` / `makeSequence(stage, opts)` | the scheduler: `play`/`pause`/`resume`/`stop`/`warm`. Opts: `items`, `produce`, `keyOf?`, `gapMs?`, `concurrency?`, `onItemStart?`, `onState?`. `warm(items)` **preloads** — prefetches bytes AND decodes them, so a later play skips both. |
 | `encodeWav(samples, rate)` | Float32 PCM → WAV `BlobLike` (pure, node-safe). |
 | `wrapPcm(bytes, contentType)` | raw PCM response → WAV `BlobLike` (pure). |
 | `createBoundedCache` / `createInflight` | the FIFO cache + in-flight dedup primitives (pure). |

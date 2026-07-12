@@ -171,7 +171,10 @@ in patch versions.
   plus the `checkSuonoBoundary` import gate. Design: `engineering/decisions/2026-07-12-suono-audio-library.md`.
   Playback declicks by default — a few-ms gain ramp at each clip's head/tail (`fadeMs`) so a
   synth clip that doesn't begin/end on a zero-crossing no longer clicks/pops at the boundary
-  (worst on many-short-fragment narration like "53 / 14 / 4 / 1").
+  (worst on many-short-fragment narration like "53 / 14 / 4 / 1"). `warm()` now **preloads** a
+  batch (bytes AND decoded buffers, so a later play skips both); the stage tracks every live
+  source so `stopAll()`/`dispose()` reach all overlapping clips (concurrency is a scheduler
+  policy over the same hardened stage, not a mixer in the core — see the ADR §6a).
 
 ### Changed
 

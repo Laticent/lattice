@@ -45,7 +45,11 @@ export function createStage(opts: StageOptions = {}): Stage {
 	const decodedCache = createBoundedCache<Clip>(opts.decodedCacheLimit ?? DEFAULT_DECODED_LIMIT);
 
 	let audioCtx: AudioContext | null = null;
-	let currentSource: AudioBufferSourceNode | null = null;
+	// EVERY live source, not just the latest. Overlapping play() calls are legal at this level
+	// (concurrency is the SCHEDULER's policy, not the stage's — the sequencer serializes; a future
+	// concurrent player wouldn't), so `stopAll()` / dispose() must reach them all. Tracking only the
+	// most-recent source (the earlier shape) left older overlapping clips playing on a stop-all.
+	const activeSources = new Set<AudioBufferSourceNode>();
 
 	function getCtx(): AudioContext | null {
 		if (!audioCtx && hasWindow) {
@@ -117,7 +121,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 			} catch {
 				/* best-effort */
 			}
-			if (currentSource === src) currentSource = null;
+			if (src) activeSources.delete(src);
 			resolveDone(r);
 		};
 		const onAbort = () => {
@@ -165,7 +169,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 				src.connect(ctx.destination);
 			}
 			src.onended = () => finish({ ok: true });
-			currentSource = src;
+			activeSources.add(src);
 			src.start(0);
 			// Measured span, captured at the REAL start (not schedule time) — guarded so
 			// instrumentation can never break playback.
@@ -222,13 +226,20 @@ export function createStage(opts: StageOptions = {}): Stage {
 		sequence<T>(sequenceOpts: SequenceOptions<T>) {
 			return makeSequence(stage, sequenceOpts);
 		},
-		dispose() {
-			try {
-				currentSource?.stop();
-			} catch {
-				/* best-effort */
+		stopAll() {
+			// Stop EVERY live clip, not just the latest. Iterate a snapshot: each stop() fires the
+			// source's onended → finish(), which mutates activeSources.
+			for (const s of [...activeSources]) {
+				try {
+					s.stop();
+				} catch {
+					/* already stopped/ended */
+				}
 			}
-			currentSource = null;
+			activeSources.clear();
+		},
+		dispose() {
+			stage.stopAll();
 			try {
 				audioCtx?.close?.();
 			} catch {

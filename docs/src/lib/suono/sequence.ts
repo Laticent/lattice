@@ -197,10 +197,18 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		}
 	}
 
-	// ── warm(): prefetch bytes into the shared cache, no playback ────────────────────────────────
+	// ── warm(): PRELOAD — prefetch bytes AND decode them, no playback ─────────────────────────────
 	// Shares bytesCache + inflight with produceBytes so the two never race into duplicate producers.
 	// One shared queue + shared active count across ALL warm() calls, so N rapid calls can't each
-	// fire their own request past the cap (the "not a burst on your backend" property).
+	// fire their own request past the cap (the "not a burst on your backend" property). Also decodes
+	// each preloaded clip into the stage's decoded-buffer cache (stage.decode is idempotent + keyed),
+	// so a subsequently-played warmed item skips BOTH the produce AND the decode — the full cold-start
+	// cost of a slide transition, not just the network half. Decode ahead is safe on a still-suspended
+	// context (decodeAudioData doesn't need it running) and best-effort (a failure just leaves it to be
+	// decoded for real at play time).
+	const preloadDecode = (bytes: Bytes, key: string): void => {
+		void stage.decode(bytes, key).catch(() => {});
+	};
 	const warmQueue: Array<{ item: T; signal?: AbortSignal }> = [];
 	let warmActive = 0;
 	let warmConcurrency = DEFAULT_WARM_CONCURRENCY;
@@ -211,7 +219,11 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 			if (entry.signal?.aborted) continue;
 			if (!keyOf) continue; // no cache identity → nothing to warm
 			const key = keyOf(entry.item);
-			if (bytesCache.has(key)) continue;
+			const cachedBytes = bytesCache.get(key);
+			if (cachedBytes) {
+				preloadDecode(cachedBytes, key); // bytes already prefetched — just ensure the decode too
+				continue;
+			}
 			if (inflight.join(key)) continue;
 			warmActive++;
 			const sig = new AbortController().signal; // this request's OWN lifetime — never the caller's
@@ -220,7 +232,10 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 				Promise.resolve()
 					.then(() => produce(entry.item, { signal: sig, index: -1 }))
 					.then((bytes) => {
-						if (bytes) bytesCache.set(key, bytes);
+						if (bytes) {
+							bytesCache.set(key, bytes);
+							preloadDecode(bytes, key);
+						}
 						return bytes ?? null;
 					})
 					.catch(() => null)
