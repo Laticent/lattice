@@ -458,6 +458,17 @@ test('stats: the label-first KPI reorder holds on a REAL engine render, not just
 	assert.doesNotMatch(t, /\$2\.4B\. Total revenue/, 'never value-before-label');
 });
 
+test('split-compare: each column\'s <strong> header labels its bullets (not dropped)', () => {
+	// split-compare renders a column as `.option > <strong>header</strong> + <ul>`; a bare
+	// <strong> is not a block the generic walker selects, so the header was silently dropped
+	// and the bullets read unattributed. It must read "header: bullets".
+	const [t] = renderSpeech(
+		'<!-- _class: split-compare -->\n\n## Old vs new.\n\n- Slide editors\n  - You place every box by hand\n- Lattice\n  - You write the content\n',
+	);
+	assert.match(t, /Slide editors: You place every box by hand/);
+	assert.match(t, /Lattice: You write the content/);
+});
+
 test('checklist: completion register — [x]→done, [ ]→to do, [-]→partial', () => {
 	const [t] = renderSpeech('<!-- _class: checklist -->\n\n## Gate\n\n- [x] Encryption at rest\n- [ ] SOC 2 audit\n- [-] DR drills\n');
 	assert.match(t, /Encryption at rest: done\./);

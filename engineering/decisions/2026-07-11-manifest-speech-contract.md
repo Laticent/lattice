@@ -1144,3 +1144,18 @@ to a colon. Guarded by a q-and-a assertion in `prose-projection.test.js`. Accept
 fixed): an abbreviation used AS a label loses its final period ("U.S." → "U.S:", rare for a card
 title/th/dt); and a period-lead combined with a state word + sublist can leave one uncleaned period
 mid-caption ("Write. (done): body") — a narrow checklist/obligation-matrix combination.
+
+### Follow-up (2026-07-12): split-compare column headers were dropped from narration
+
+On-device caption review: the `split-compare` slide read its bullets but SKIPPED each column's
+header ("Slide editors", "Lattice"), so the two sides' points ran together with no owner. Root
+cause: the engine renders a column as `.option > <strong>header</strong> + <ul>bullets`, and the
+generic speech walker (`speakGeneric`) selects only `p, ul, ol, dl, blockquote, table, figcaption,
+h3, h4` — a BARE `<strong>` is not on that list, so the header was never narrated while the `<ul>`
+was. Fix: when the walker reaches a `<ul>/<ol>` whose immediate `previousElementSibling` is a bare
+`<strong>`, that strong is the list's label — read "header: bullets" via `labelValue`, and mark the
+strong consumed. Guarded against false positives: an author's inline bold sits inside a `<p>`, whose
+`previousElementSibling` is the `<p>` (not the `<strong>`), so ordinary prose is untouched. This is a
+DISPLAY/caption change (adds the header text to captions + the exported `.vtt`) — flagged for export
+sign-off; `test:core`/`test:export` pass unchanged. Guarded in `prose-projection.test.js` (a real
+engine render of split-compare asserts both column headers label their bullets).

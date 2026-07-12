@@ -163,6 +163,14 @@ in patch versions.
   overlap, ishikawa printed a stray `fishbone` head and quoted effect, and C4 rendered a redundant
   floating title. All three now render clean — the same fixes already shipped in the playground tour.
 
+- **Read-aloud now speaks a `split-compare` column's header — "Slide editors: …", "Lattice: …",
+  not just the unattributed bullets.** Each column renders as `.option > <strong>header</strong> +
+  <ul>bullets`, but a bare `<strong>` is not a block the generic narration walker selected, so the
+  column header was dropped and its bullets read with no owner. The walker now picks up a bare
+  `<strong>` immediately preceding a list and reads it as the list's label (via the same
+  `labelValue` helper). Only a bare strong sibling triggers it — an author's inline bold inside a
+  paragraph is unaffected. Guarded in `test/unit/transformers/prose-projection.test.js`.
+
 - **Component captions no longer double their punctuation — a card title that ends in a
   period reads "Write: …", not "Write.: …".** The prose projection joins a component's
   `label: value` narration, but a label that already ended in a sentence terminator (an

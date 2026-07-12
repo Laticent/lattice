@@ -504,7 +504,11 @@ function speakGeneric(stage, eyebrow, wordMap = null) {
       continue;
     }
     if (el.tagName === "UL" || el.tagName === "OL") {
-      out.push(renderListItems(el, wordMap).map(terminate).join(" "));
+      const items = renderListItems(el, wordMap).map(terminate).join(" ");
+      const prev = el.previousElementSibling;
+      const label = prev && prev.tagName === "STRONG" && !prev.closest(SKIP_SELECTOR) ? speechText(prev) : "";
+      if (label) consumed.push(prev);
+      out.push(label ? labelValue(label, items) : items);
       continue;
     }
     out.push(terminate(txt));
