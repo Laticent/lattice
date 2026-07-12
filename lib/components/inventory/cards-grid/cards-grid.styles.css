@@ -216,3 +216,26 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
     width: 100%; min-height: 0;     /* single column */
   }
 }
+
+/* ── Struck elevation ── lift each card off the stage. One rule covers all three
+ * emit paths (marp-cli ul/ol>li · lattice.js .card · VS Code :not(:has) fallback).
+ * `var(--elevation-card)` is zero-blur and flips light↔dark via light-dark()
+ * (base.tokens.css) — PDF-safe, card fill unchanged. */
+section.cards-grid > .cell-stage > ul > li,
+section.cards-grid > .cell-stage > ol > li,
+section.cards-grid .card {
+  box-shadow: var(--elevation-card);
+}
+/* Berth: inset the grid from the stage's overflow:clip so the outer / second-row
+ * cards' shadows aren't sheared (base.tokens.css --elevation-berth). Padding, not
+ * margin (#20). The native (VS Code) path's `:not(:has(.cards-grid-inner))` base
+ * rule sets padding:0 at (0,3,2) — this MUST mirror that selector to win, else the
+ * berth silently loses on that path and the shadow clips. */
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol,
+section.cards-grid > .cell-stage > ul,
+section.cards-grid > .cell-stage > ol,
+section.cards-grid .cards-grid-inner,
+section.cards-grid .cards-grid-inner--ordered {
+  padding: var(--elevation-berth);
+}

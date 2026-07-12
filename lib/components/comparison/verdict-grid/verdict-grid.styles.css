@@ -120,3 +120,13 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { just
   }
   section.verdict-grid.verdict-grid > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: center; }
 }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.verdict-grid > .cell-stage > ul > li {
+  box-shadow: var(--elevation-card);
+}
+section.verdict-grid > .cell-stage {
+  padding-block: var(--elevation-berth);
+}

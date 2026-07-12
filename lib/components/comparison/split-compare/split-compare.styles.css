@@ -64,3 +64,13 @@ section.split-compare[data-orientation="square"] { flex-direction: column; }
   section.split-compare .compare-left { width: auto; }
   section.split-compare .options { grid-template-columns: 1fr; }
 }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.split-compare .option {
+  box-shadow: var(--elevation-card);
+}
+section.split-compare > .cell-stage {
+  padding-block: var(--elevation-berth);
+}

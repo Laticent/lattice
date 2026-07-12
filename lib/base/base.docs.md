@@ -701,6 +701,30 @@ register where they apply. `on` is the baseline (omit the key); there is no per-
 "back to rainbow" token over a deck `off`/`solid`. On a dark bookend a dark client accent
 reads faint — pick a theme accent that reads on dark, or use `spectrum: off` there.
 
+#### The `lift:` front-matter register (card elevation)
+
+`lift:` is the **opt-in card-elevation control** for the "Struck" lift — the box-shadow
+that lifts card surfaces (`cards-grid`, `kpi` tiles, `stats`, `pricing`, `verdict-grid`, …)
+off the slide. It's a crisp dark contact shadow on a light deck, a 1px white top-edge
+rim-light on a dark deck (the card *fill* never changes), and zero-blur so it survives the
+vector PDF export. Sibling of the registers above (`lib/core/resolve-lift.js`), propagated
+to every section, overridable per slide.
+
+| `lift:` value | Token | Effect |
+|---|---|---|
+| `off` | *(none)* | Cards are flat. **The default** (omit the key). |
+| `on` | `lifted` | Every card lifts, deck-wide. |
+
+Per slide, `<!-- _class: lifted -->` lifts one slide in a flat deck, and
+`<!-- _class: flat -->` drops one slide out of a lifted deck (include the layout too,
+e.g. `_class: cards-grid flat`). The `lifted` class swaps the `--elevation-card` /
+`--elevation-berth` tokens from their `none` / `0` default to the shadow **and** its berth
+padding, so the two turn on together — a flat card gets neither the shadow nor the extra
+padding. Ruled tables (`glossary`, `list-tabular`) and full-height rails (`split-panel`'s
+left panel) never lift, even when `lift` is on. Toggle it from the **Deck Setting** drawer
+(a **Card lift** switch alongside Auto-glossary / Page numbers) or by hand in the front
+matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
+
 | Token / class | Effect |
 |---|---|
 | `sketch` | Full handwriting (headings **and** body) + drawn boxes. The default. |

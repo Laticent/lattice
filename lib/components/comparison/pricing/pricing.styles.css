@@ -30,7 +30,9 @@ section.pricing > .cell-stage > ul {
   flex-wrap: wrap;
   align-content: stretch;
   gap: var(--sp-md);
-  flex: 1; list-style: none; padding: 0; margin: 0;
+  /* padding = berth so the stage's overflow:clip doesn't shear the tier-card
+   * elevation shadow (base.tokens.css --elevation-berth). Not margin (#20). */
+  flex: 1; list-style: none; padding: var(--elevation-berth); margin: 0;
 }
 section.pricing.two > .cell-stage > ul { --pricing-cols: 2; }
 section.pricing.two > .cell-stage > ul > li { width: calc(100% / 2 - var(--sp-md) / 2); }
@@ -57,6 +59,8 @@ section.pricing > .cell-stage > ul > li {
   font-weight: 700; color: var(--text-heading);
   line-height: var(--lh-tight);
   overflow: hidden;
+  /* Struck elevation — zero-blur, light-dark()-flipping lift (base.tokens.css). */
+  box-shadow: var(--elevation-card);
 }
 /* Back-compat: if an author wraps the name in **…**, render it identically. */
 section.pricing > .cell-stage > ul > li > strong { font-weight: inherit; color: inherit; }
@@ -87,7 +91,8 @@ section.pricing > .cell-stage > ul > li > em {
 section.pricing > .cell-stage > ul > li:has(> em) {
   background: var(--accent-soft);
   border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  /* accent ring composed OVER the Struck lift — this tier both pops and floats. */
+  box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card);
   color: var(--on-accent-soft);
 }
 section.pricing > .cell-stage > ul > li:has(> em) > code { color: var(--on-accent-soft); }

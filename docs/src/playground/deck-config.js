@@ -73,6 +73,11 @@ const FIELD_DEFAULTS = {
   // (default → omitted) / `auto`. Surfaced as a boolean, like `autosplit`; the canonical
   // written value is `auto`. No-op unless the deck's `acronyms:` registry defines a term.
   glossary: 'off',
+  // `lift` opts the deck into card ELEVATION — the "Struck" box-shadow that lifts card
+  // surfaces (cards-grid, kpi tiles, stats, …) off the slide (lib/core/resolve-lift.js).
+  // Off (default → omitted) / `on`; surfaced as a boolean like `autosplit`, the canonical
+  // written value is `on`. Per-slide `_class: lifted` / `flat` override it.
+  lift: 'off',
   size: 'hd', // default landscape (memorable name; 16:9 geometry) (themes also define 4K / standard)
   paginate: 'false',
   header: '',
@@ -120,7 +125,7 @@ const COLOR_MODE_OPTIONS = [
 
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'autosplit', 'glossary', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'autosplit', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
 //   author  — every field (the Drawing Board: full set, theme three-way synced).
@@ -132,12 +137,12 @@ const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'a
 //             with no deck chrome and no theme, which the studio itself owns).
 export const CONFIG_PROFILES = Object.freeze({
   author: null,
-  noTheme: ['mode', 'color-mode', 'finish', 'split', 'autosplit', 'glossary', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
+  noTheme: ['mode', 'color-mode', 'finish', 'split', 'autosplit', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
   // `autosplit` is a deck-AUTHORING concern (does my over-capacity content
   // divide?), not a theme/component PREVIEW register — so it's deliberately out
   // of the preview profile (a fixed specimen never overflows). It rides the full
   // author set + the Playground (noTheme) only.
-  preview: ['mode', 'color-mode', 'finish', 'size', 'paginate', 'form'],
+  preview: ['mode', 'color-mode', 'finish', 'size', 'paginate', 'form', 'lift'],
 });
 
 const TRUEY = /^(true|yes|on|1)$/i;
@@ -217,6 +222,8 @@ export function readFrontMatter(source) {
     autosplit: TRUEY.test(map.autosplit || ''),
     // `glossary` is binary — on when the deck opts in with `glossary: auto`.
     glossary: (map.glossary || '').trim().toLowerCase() === 'auto',
+    // `lift` is binary — on when the deck opts in with `lift: on`.
+    lift: TRUEY.test(map.lift || ''),
     size: map.size || 'hd',
     paginate: TRUEY.test(map.paginate || ''),
     header: map.header || '',
@@ -244,6 +251,8 @@ function isDefault(key, value) {
   if (key === 'autosplit') return !TRUEY.test(value);
   // `glossary` is binary — off is the omitted default; only `glossary: auto` is written.
   if (key === 'glossary') return (value == null ? '' : String(value)).trim().toLowerCase() !== 'auto';
+  // `lift` is binary — off is the omitted default; only `lift: on` is written.
+  if (key === 'lift') return !TRUEY.test((value == null ? '' : String(value)).trim());
   // `validate` is binary, default ON — so on (any non-falsey) is the omitted
   // default; only an explicit `validate: off` is written into the block.
   if (key === 'validate') return !FALSEY.test(String(value).trim());
@@ -273,6 +282,8 @@ function normalize(key, value) {
   // `glossary` writes the canonical `auto` when enabled; off omits the key. The switch
   // passes a boolean; a hand-typed `auto` is honored too.
   if (key === 'glossary') return value === true || (value != null && String(value).trim().toLowerCase() === 'auto') ? 'auto' : null;
+  // `lift` writes the canonical `on` when enabled; off omits the key.
+  if (key === 'lift') return value === true || TRUEY.test(value || '') ? 'on' : null;
   // `validate` is default ON, so on omits the key; only an opt-OUT is written, as
   // the canonical `off`. The switch passes a boolean (checked = validation on).
   if (key === 'validate') return value === false || FALSEY.test(String(value).trim()) ? 'off' : null;
@@ -551,6 +562,15 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     if (show('glossary')) {
       host.append(switchRow('glossary', 'Auto-glossary',
         'Append a glossary slide built from your acronyms: definitions — needs at least one term with a definition', fm.glossary));
+    }
+
+    // Card lift — the opt-in "Struck" elevation. Lifts card surfaces off the slide with a
+    // zero-blur shadow that reads in both light and dark and survives the PDF export
+    // (resolve-lift.js). Shows in the live preview. Per-slide `_class: lifted` / `flat`
+    // override the deck default in the source.
+    if (show('lift')) {
+      host.append(switchRow('lift', 'Card lift',
+        'Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export', fm.lift));
     }
 
     if (show('size')) {

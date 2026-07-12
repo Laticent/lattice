@@ -124,3 +124,14 @@ section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
 @container lattice (aspect-ratio <= 0.5) {
   section.list.list > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
 }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.list > .cell-stage > ul > li,
+section.list > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.list > .cell-stage {
+  padding-block: var(--elevation-berth);
+}

@@ -132,6 +132,34 @@
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
 
+  /* ── Card elevation ("Struck") ─────────────────────────────────────────
+   * OPT-IN. Cards consume `var(--elevation-card)` / `var(--elevation-berth)`
+   * UNCONDITIONALLY, but both default to none/0 — so with no deck setting a card is
+   * flat, with no shadow AND no berth padding. The `lift: on` deck front-matter key
+   * (or a per-slide `_class: lifted`) stamps `.lifted` on the section, which swaps in
+   * the recipe below; `_class: flat` opts one slide back out. (`lift` is the author
+   * switch; `elevation` is the token namespace it turns on.) Wiring: resolve-lift.js
+   * + the section.lifted/.flat rules after this :root block.
+   * engineering/decisions/2026-07-12-struck-elevation.md. */
+  --elevation-card: none;
+  --elevation-berth: 0;
+  /* The recipe `.elevated` swaps in: a single ZERO-BLUR shadow list whose per-layer
+   * COLORS flip via light-dark(), so one definition lifts a card on either canvas:
+   *   • Light canvas — the dark contact layers cast a crisp offset shadow (a lit
+   *     card on paper); the white top rim is a near-invisible paper edge.
+   *   • Dark canvas — a 1px white rim-light catches the top edge (Material's
+   *     "elevation is light from above", as an EDGE highlight so the card FILL never
+   *     changes) while the contact layers recede into the ground.
+   * Every layer has 0 blur, so it exports to PDF as pure vector — no soft-mask
+   * grey-box in Apple PDFKit / Skia (the trap at image.styles.css:43 and the
+   * --state-* note below). Offsets are cqi so the lift scales with the slide (incl.
+   * 4K); hairline rim/underside ~1px at hd. Palette-neutral (white/black only). */
+  --elevation-recipe:
+    inset 0  0.09cqi 0 0     light-dark(rgba(255,255,255,.5),  rgba(255,255,255,.16)),
+    inset 0 -0.08cqi 0 0     light-dark(rgba(0,0,0,.05),        rgba(0,0,0,.34)),
+    0 0.28cqi 0 -0.08cqi     light-dark(rgba(0,0,0,.16),        rgba(0,0,0,.5)),
+    0 0.62cqi 0 -0.3cqi      light-dark(rgba(0,0,0,.10),        rgba(0,0,0,.24));
+
   /* ── Island berth coordinate frame ─────────────────────────────────────
    * The named inset contract for the slide's peripheral chrome berths
    * (header, footer, pagination, logo). Before this, every chrome rule
@@ -719,4 +747,20 @@
   --hljs-params:     #7fdbca;
   --hljs-tag:        #7fdbca;
   --hljs-punctuation:#d6deeb;
+}
+
+/* ── Card lift activation ──────────────────────────────────────────────────
+ * The `lift: on` deck front-matter key (resolve-lift.js) stamps `.lifted` on every
+ * <section>; a per-slide `_class: lifted` opts one slide in. That swaps the consumed
+ * elevation tokens from their none/0 default (above) to the recipe + berth, so the
+ * box-shadow AND its padding turn on together. `_class: flat` forces one slide back
+ * off inside a lifted deck (section > :root specificity, so order-independent).
+ * engineering/decisions/2026-07-12-struck-elevation.md. */
+section.lifted {
+  --elevation-card: var(--elevation-recipe);
+  --elevation-berth: var(--sp-sm);
+}
+section.flat {
+  --elevation-card: none;
+  --elevation-berth: 0;
 }

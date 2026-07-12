@@ -125,3 +125,13 @@ section.decision-points .split-pts { list-style: none; padding: var(--sp-xl) 0 0
 section.decision-points .split-pts > li { border-left: 3px solid var(--accent); padding-left: var(--sp-md); }
 section.decision-points .split-pt-t { display: block; font-weight: 800; color: var(--text-heading); font-size: var(--fs-h3); padding-bottom: var(--sp-3xs); }
 section.decision-points .split-pt-b { color: var(--text-body); font-size: var(--fs-body); line-height: var(--lh-base); max-width: 22em; }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.decision > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.decision > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
