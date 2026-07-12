@@ -34,6 +34,10 @@ describe('presenter-window — buildPresenterDoc', () => {
 		expect(doc).toContain('d.ppInit');
 		expect(doc).toContain('d.ppIndex');
 		expect(doc).toContain('"go"');
+		// Brand-dark chrome adopts a forwarded accent (S5) and guards the destructive reset.
+		expect(doc).toContain('--pp-accent');
+		expect(doc).toContain('d.accent');
+		expect(doc).toContain('Confirm reset');
 	});
 });
 
@@ -104,6 +108,17 @@ describe('presenter-window — createPresenterController', () => {
 		ctl.refresh();
 		expect(win.postMessage).toHaveBeenCalledWith({ ppInit: true, doc: '<stage/>', total: 3 }, '*');
 		expect(win.postMessage).toHaveBeenCalledWith({ ppIndex: 0, note: 'updated' }, '*');
+	});
+
+	it('forwards the opener accent into ppInit only when getState provides it', () => {
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		// A Studio-style getState that resolves the site accent tokens.
+		const ctl = createPresenterController({ buildDoc: () => '<stage/>', getState: () => ({ index: 0, total: 2, note: '', accent: '#006fa8', onAccent: '#ffffff' }), onGo: vi.fn(), onToggle: vi.fn() });
+		ctl.toggle();
+		postFromPresenter({ pp: 'ready' }, win);
+		// The presenter chrome adopts the deck's accent (not the hardcoded cuoio fallback).
+		expect(win.postMessage).toHaveBeenCalledWith({ ppInit: true, doc: '<stage/>', total: 2, accent: '#006fa8', onAccent: '#ffffff' }, '*');
 	});
 
 	it('toggling again closes the held window', () => {

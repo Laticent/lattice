@@ -156,7 +156,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	if (!presenterRef.current) {
 		presenterRef.current = createPresenterController({
 			buildDoc: () => stageDocRef.current,
-			getState: () => ({ index: clampedRef.current, total: countRef.current, note: getNote(curRef.current) || '' }),
+			// Forward the Studio's resolved accent so the brand-dark presenter window speaks the
+			// SAME accent as this overlay (both read the site `--accent`/`--on-accent`), instead
+			// of a hardcoded one. Read live so a mid-present palette change is reflected on refresh.
+			getState: () => {
+				const cs = getComputedStyle(document.documentElement);
+				return {
+					index: clampedRef.current,
+					total: countRef.current,
+					note: getNote(curRef.current) || '',
+					accent: cs.getPropertyValue('--accent').trim() || undefined,
+					onAccent: cs.getPropertyValue('--on-accent').trim() || undefined,
+				};
+			},
 			onGo: (delta: number) => setIdx((i) => Math.max(0, Math.min(i + delta, countRef.current - 1))),
 			onToggle: (on: boolean) => setPresenterOn(on),
 		});

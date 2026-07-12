@@ -271,6 +271,18 @@ in patch versions.
   baked to the slide's pixel measurements at export and can't be re-aligned without a runtime
   re-measure in the article box; journey's affect-contour fill is height-relative and doesn't
   translate to an article box without ballooning — both tracked follow-ups.)*
+- **The dual-screen presenter view is now brand-dark and speaks the deck's accent.** The
+  second-screen speaker view (current + next slide, speaker notes, timer) was off-brand hardcoded
+  grays; it's now a warm near-black frame that **adopts the same accent as the Studio it launched
+  from** — the wordmark, the forward control, and the panel outlines take the live `--accent`
+  (forwarded to the popup), so a blue-themed deck gets a blue-accented presenter and a cuoio deck a
+  gold one (cuoio gold is only the fallback). Notes are larger and wrap long strings; the slides
+  render whole and uncropped in their own theme inside 16/9 frames; and **Reset timer now arms then
+  confirms** so a stray click can't wipe your elapsed time mid-talk. Chrome only — the
+  window/postMessage protocol and slide-stage pipeline are unchanged, so the Drawing Board's
+  presenter inherits the restyle (gold fallback, since it forwards no accent). (Studio Present
+  redesign — S5.)
+
 - **Present mode is redesigned around "Quiet Bloom" — the slide owns the screen; the
   chrome blooms on intent.** At rest only the essentials show (Play, position, the section
   title and a hair-thin rail); the flanking circular arrows fade to faint, and the CC / Voice

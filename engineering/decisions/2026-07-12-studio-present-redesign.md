@@ -181,8 +181,25 @@ isolated (#8); docs + CHANGELOG land with the change (#6, #10).
   animations dropped), focus states. Also closed a broken window from S3: the `Autoplay`/
   `Play read-aloud` control names were deleted but their unit tests weren't updated — rewritten
   to the one-Play model (`studio.present-playback.test.tsx`, `studio.controls.test.tsx`).
-- **S5 — Presenter window.** Brand-dark, on-brand tokens, whole (uncropped) current + next slides,
-  redesigned notes + controls in the same language (`presenter-window.js`).
+- **S5 — Presenter window. ✅** Brand-dark neutral chrome (inlined tokens — a `window.open` popup
+  can't inherit the opener's CSS vars) that **adopts the Studio's accent**: `PresentOverlay`'s
+  `getState` forwards the resolved `--accent`/`--on-accent` through `ppInit`, and the popup applies
+  them (cuoio gold is the fallback, e.g. the Drawing Board which forwards none). Larger, wrapping
+  notes; a two-click "Confirm reset" timer guard; a capped next-preview so nav never clips a short
+  window; current + next in uncropped 16/9 frames. Chrome-only: the postMessage protocol, element
+  IDs, and the slide-stage pipeline (`buildStageDoc`/`buildPresenterStageDoc`) are untouched, so the
+  frozen Drawing Board's presenter inherits the restyle without behavior change.
+  **S5 trio (checker + red-team + inversion) folded:** the inversion caught the headline defect — a
+  *hardcoded* cuoio accent clashes with the palette-adaptive Studio (default indaco blue / light
+  mode), betraying "same language as the Studio"; fixed by forwarding the accent (kept the dark
+  surface — a presenter view is conventionally dark). Also folded: dropped the `'Outfit'` font (never
+  loads in an `about:blank` popup — was silently system-ui), the reset-timer footgun, the short-window
+  nav clip, notes size + overflow-wrap. **Verified:** the brand-dark chrome now renders the *site
+  accent* (indaco blue) + notes + controls, captured from the REAL presenter popup via Playwright.
+  **UNVERIFIED (HARD RULE #23):** the live engine paint of the slides *inside* the popup's stage
+  iframes — the headless popup doesn't complete the engine render (frames show the themed card but
+  not content); this is pre-existing (the diff never touches the render path) and needs a real
+  second screen to confirm. Flagged for the S6 real-surface pass.
 - **S6 — Verify on real surfaces.** Build the docs, drive the real Playground Present on desktop +
   a real device (touch, iOS Safari) — mark anything unreachable UNVERIFIED (#23). Per-feature demo
   deck (#9). Maker-checker on the engine-adjacent diffs; the export-player parity is a separate PR (#17).
