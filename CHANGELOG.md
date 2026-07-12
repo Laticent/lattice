@@ -197,6 +197,14 @@ in patch versions.
   ("What's the ROI? Forty percent."), so the voice's question/exclamation inflection does the
   work. Regression-guarded in `test/unit/transformers/prose-projection.test.js`.
 
+- **Read-aloud reads a decorative separator as a pause, not a swallowed word — an eyebrow like
+  "Lattice · A guided tour" now narrates "Lattice, A guided tour".** A standalone interpunct
+  (`·`), pipe (`|`), bullet (`•`) and kin have no good TTS reading; the old rule dropped `·` to
+  nothing, so the two label halves ran together ("Lattice A guided tour"). They're now spoken as a
+  soft comma pause (whole-token only — a `·` inside a voice id like "Heart·US" is untouched), in the
+  SPOKEN form only, so captions and the `.vtt` keep the glyph. One rule in cadenza `toSpoken` owns
+  the family; the dead `'·': ''` lexicon entry is retired. Guarded in `cadenza/normalize.test.ts`.
+
 - **Read-aloud no longer drops the value after a colon — a "label: value" caption is now
   spoken in full.** The live Present narration projects component captions as `label: value`
   ("components: 53", "Total revenue: $1.2M"), but a colon is a TTS hard-stop: Kokoro (and many

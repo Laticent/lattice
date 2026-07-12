@@ -160,6 +160,15 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // it's the author's own vocabulary, not English we chose to inject.
   if (acronyms?.has(tok)) return acronyms.get(tok) as string;
 
+  // A standalone DECORATIVE SEPARATOR glyph — interpunct "·", pipe "|", bullet "•" and kin —
+  // has no good reading: a TTS either voices it literally ("middle dot") or chokes, so an
+  // eyebrow like "Lattice · A guided tour" or "Board | Q3 2026" narrates badly. Speak it as a
+  // soft PAUSE (a comma, the same treatment a colon gets), so it reads "Lattice, A guided tour".
+  // WHOLE-token only — a "·"/"|" INSIDE a token (a voice id "Heart·US", a URL) is left alone —
+  // and language-independent (the glyph reads badly in any language). The DISPLAY word keeps the
+  // glyph; only what's SPOKEN changes, so captions and the exported `.vtt` are unchanged.
+  if (/^[·•∙‖¦⁃・|]+$/.test(tok)) return ',';
+
   // Whole-token lexicon next, before peeling punctuation — so a period-bearing
   // abbreviation (`v.`, `art.`, `U.S.C.`) matches its key rather than losing the
   // period to the terminator peel. The abbreviation's own period is part of it,

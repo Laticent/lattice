@@ -39,6 +39,25 @@ describe('toSpoken — trailing-colon hard-stop softening (#904 live-narration r
 	});
 });
 
+describe('toSpoken — decorative separator glyphs read as a pause', () => {
+	// A standalone interpunct / pipe / bullet has no good TTS reading; speak it as a comma
+	// pause so an eyebrow like "Lattice · A guided tour" narrates naturally. Display unchanged.
+	it('translates a standalone separator glyph to a comma', () => {
+		for (const g of ['·', '|', '•', '∙', '‖', '・']) expect(toSpoken(g)).toBe(',');
+	});
+	it('reads a "·"/"|"-separated eyebrow with a pause, not a literal glyph', () => {
+		expect(toSpokenText('Lattice · A guided tour')).toBe('Lattice , A guided tour');
+		expect(toSpokenText('Board | Q3 2026')).toBe('Board , third quarter two thousand twenty-six');
+	});
+	it('leaves a separator glyph INSIDE a token alone (voice ids, URLs)', () => {
+		expect(toSpoken('Heart·US')).toBe('Heart·US');
+		expect(toSpoken('a|b')).toBe('a|b');
+	});
+	it('translates separators in every language (they read badly everywhere)', () => {
+		expect(toSpoken('·', { lang: 'fr' })).toBe(',');
+	});
+});
+
 describe('toSpoken — locale guard', () => {
 	it('non-English deck: fiscal / percent / number tokens pass through unexpanded', () => {
 		expect(toSpoken('FY26', { lang: 'fr' })).toBe('FY26');
@@ -129,11 +148,6 @@ describe('toSpoken', () => {
     expect(toSpoken('§1798.100')).toBe('section one thousand seven hundred ninety-eight point one zero zero'); // zeros kept
     expect(toSpoken('§6501')).toBe('section six thousand five hundred one');
     expect(toSpoken('§101(a)(5)')).toBe('section one hundred one, subsection a, subsection five');
-  });
-
-  it('drops decorative middot separators instead of speaking them', () => {
-    expect(toSpoken('·')).toBe('');
-    expect(toSpokenText('Financial · Q3')).toBe('Financial  third quarter'); // the · drops to nothing
   });
 
   it('opts in domain packs only when asked, and threads domains through toSpokenText', () => {
