@@ -13814,6 +13814,24 @@ section.print {
   --code-inline-fg: var(--print-text-body);
   --marp-slide-header-color: var(--print-text-muted);
   --marp-slide-footer-color: var(--print-text-muted);
+  /* Code panel → light framed ink (a dark syntax panel prints as a muddy toner
+   * rectangle). Syntax keeps a hierarchy on LIGHTNESS, not hue: keyword/title
+   * darkest, string/comment/punctuation lighter — legible and B&W-safe. */
+  --code-bg: var(--print-bg-alt);
+  --code-text: var(--print-text-body);
+  --hljs-comment: var(--print-text-muted);
+  --hljs-keyword: var(--print-text-heading);
+  --hljs-built_in: var(--print-text-body);
+  --hljs-number: var(--print-text-body);
+  --hljs-literal: var(--print-text-body);
+  --hljs-string: var(--print-text-secondary);
+  --hljs-title: var(--print-text-heading);
+  --hljs-type: var(--print-text-body);
+  --hljs-variable: var(--print-text-body);
+  --hljs-params: var(--print-text-body);
+  --hljs-tag: var(--print-text-body);
+  --hljs-punctuation: var(--print-text-secondary);
+  --spectrum: var(--print-border);  /* the rainbow ribbon → a flat gray rule (code panel edge, etc.) */
   background: var(--bg);            /* paper white; no spectrum ribbon (saves toner, drops hue) */
   border-top: none;
 }
