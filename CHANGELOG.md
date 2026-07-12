@@ -150,6 +150,19 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **"Print deck" now opens a dedicated Print page** (an on-brand tab at `/studio/print`) with a
+  live, paper-accurate preview and the paper / orientation / colour controls right there — then
+  **Print** or **Download**. It replaces the download-or-nothing flow: the Studio opens the page
+  in-gesture (never pop-up-blocked) and hands off the deck over a `postMessage` handshake, and the
+  page renders the preview and builds the real per-slide PDF **itself**, in that foreground tab —
+  which sidesteps the freeze that forced the old download fallback (opening a tab backgrounds the
+  opener, pausing the rasterizer). On desktop it opens the print dialog automatically when ready;
+  on iPhone it's one tap to the native Print sheet. Every slide is always scaled to fit its page,
+  centred — **never cropped** (the old "Actual size" option, which could crop a smaller sheet, is
+  gone). See `engineering/decisions/2026-06-14-deck-print-styling.md`.
+
 ### Fixed
 
 - **The playground's gallery drawer now labels front-matter-less decks with the right slide
