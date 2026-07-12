@@ -135,6 +135,41 @@ describe('makeSequence — scheduler', () => {
 		seq.stop();
 	});
 
+	it('BARGE-IN: a superseded run does not clobber the new run\'s playing state (checker #1)', async () => {
+		const stage = fakeStage();
+		// A large gap parks run A between items so a barge-in catches it mid-run.
+		const seq = makeSequence(stage, { items: [0, 1], produce: async () => bytes(), keyOf: (i) => `k${i}`, gapMs: () => 5000, produceTimeoutMs: 5000 });
+		seq.play(); // run A
+		await flush();
+		expect(stage.played.length).toBe(1); // A played item 0, now parked in the 5s gap
+		seq.play(); // barge-in → stop() aborts A, run B starts
+		await flush();
+		await flush();
+		// B is now mid-run (played item 0 from cache, parked in its own gap). Pre-fix, A's aborted
+		// tail ran `running = false` unguarded and clobbered B → playing() wrongly false.
+		expect(seq.playing()).toBe(true);
+		expect(stage.played.length).toBe(2);
+		seq.stop();
+	});
+
+	it('pause() while IDLE does not poison the next play() (checker #3)', async () => {
+		const stage = fakeStage();
+		let done: () => void;
+		const finished = new Promise<void>((r) => (done = r));
+		const seq = makeSequence(stage, {
+			items: [0, 1],
+			produce: async () => bytes(),
+			keyOf: (i) => `k${i}`,
+			onState: (e) => {
+				if (!e.playing) done();
+			},
+		});
+		seq.pause(); // idle pause — no run active
+		seq.play(); // must actually start, not silently no-op via a stale gate
+		await finished;
+		expect(stage.played.length).toBe(2);
+	});
+
 	it('BARGE-IN: stop() aborts the signal handed to produce', async () => {
 		const stage = fakeStage();
 		let captured: AbortSignal | null = null;

@@ -58,12 +58,10 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	let running = false;
 	let pausedGate: Promise<void> | null = null;
 	let resumeFn: (() => void) | null = null;
-	let firstError: string | null = null;
-
-	function emitState(playing: boolean, index: number): void {
+	function emitState(playing: boolean, index: number, error: string | null): void {
 		if (!onState) return;
 		try {
-			onState({ playing, index, error: firstError || undefined });
+			onState({ playing, index, error: error || undefined });
 		} catch {
 			/* a consumer's handler must never break the scheduler */
 		}
@@ -81,104 +79,122 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		});
 	}
 
-	// Produce one item's bytes, with cache + in-flight dedup (when keyOf is given) + a watchdog.
-	function produceBytes(item: T, index: number, sig: AbortSignal): Promise<Bytes | null> {
-		const key = keyOf ? keyOf(item) : null;
-		if (key) {
-			const cached = bytesCache.get(key);
-			if (cached) return Promise.resolve(cached);
-			const joined = inflight.join(key);
-			if (joined) return joined;
-		}
-		let timer: ReturnType<typeof setTimeout>;
-		const p: Promise<Bytes | null> = Promise.race<Bytes | null>([
-			Promise.resolve()
-				.then(() => produce(item, { signal: sig, index }))
-				.then((bytes) => {
-					if (bytes && key) bytesCache.set(key, bytes);
-					return bytes ?? null;
-				})
-				.catch((e) => {
-					if (!sig.aborted && !firstError) firstError = errStr(e);
-					return null;
-				})
-				.finally(() => clearTimeout(timer)),
-			new Promise<null>((res) => {
-				timer = setTimeout(() => {
-					if (!sig.aborted && !firstError) firstError = 'timed out waiting for audio (' + produceTimeoutMs + 'ms)';
-					res(null);
-				}, produceTimeoutMs);
-			}),
-		]).finally(() => {
-			if (key) inflight.settle(key, p);
-		});
-		if (key) inflight.set(key, p, sig);
-		return p;
-	}
-
 	async function run(): Promise<void> {
 		const localCtl = new AbortController();
 		ctl = localCtl;
 		const sig = localCtl.signal;
-		firstError = null;
 		running = true;
-		emitState(true, -1);
-
-		// Fire produce() up front, capped — refilled the moment a slot frees, so every item gets the
-		// maximum head start (not just the previous item's often-shorter playback slack). Pause-gated:
-		// a pause stops refilling, so it can't produce the whole rest of the run in the background.
-		const pending: Array<Promise<Bytes | null>> = new Array(items.length);
-		let started = 0;
-		let active = 0;
-		const fillSlots = () => {
-			while (!sig.aborted && !pausedGate && active < concurrency && started < items.length) {
-				const idx = started++;
-				active++;
-				pending[idx] = produceBytes(items[idx], idx, sig).finally(() => {
-					active--;
-					fillSlots();
-				});
-			}
-			// Stopped because we're paused (not done, not aborted): resume() resolves this exact
-			// gate instance, which re-drives the scheduler. Chaining onto the instance (not the
-			// variable, which resume() nulls) is what makes this self-correct across pause cycles.
-			if (!sig.aborted && pausedGate && started < items.length) pausedGate.then(() => fillSlots());
+		// firstError is PER-RUN local (not a makeSequence-closure field): a stale, aborted run must
+		// never write its error into a live run's report. voice-model.js kept lastError function-local
+		// to each speak() for exactly this; hoisting it here regressed that, since stage.decode isn't
+		// passed the signal and can settle (and record an error) after a barge-in started a new run.
+		let firstError: string | null = null;
+		const setError = (e: string) => {
+			if (!sig.aborted && !firstError) firstError = e;
 		};
-		fillSlots();
+		emitState(true, -1, firstError);
 
-		for (let i = 0; i < items.length; i++) {
-			if (sig.aborted) break;
-			const bytes = await pending[i];
-			if (sig.aborted) break;
-			await waitIfPaused(sig);
-			if (sig.aborted) break;
-			emitState(true, i);
-			if (bytes) {
-				let clip: Clip | null = null;
-				try {
-					clip = await stage.decode(bytes, keyOf ? keyOf(items[i]) : undefined);
-				} catch (e) {
-					if (!firstError) firstError = errStr(e);
+		// Produce one item's bytes, with cache + in-flight dedup (when keyOf is given) + a watchdog.
+		// Defined INSIDE run() so it closes over THIS run's `sig` + `firstError`, never a prior run's.
+		const produceBytes = (item: T, index: number): Promise<Bytes | null> => {
+			const key = keyOf ? keyOf(item) : null;
+			if (key) {
+				const cached = bytesCache.get(key);
+				if (cached) return Promise.resolve(cached);
+				const joined = inflight.join(key);
+				if (joined) return joined;
+			}
+			let timer: ReturnType<typeof setTimeout>;
+			const p: Promise<Bytes | null> = Promise.race<Bytes | null>([
+				Promise.resolve()
+					.then(() => produce(item, { signal: sig, index }))
+					.then((bytes) => {
+						if (bytes && key) bytesCache.set(key, bytes);
+						return bytes ?? null;
+					})
+					.catch((e) => {
+						setError(errStr(e));
+						return null;
+					})
+					.finally(() => clearTimeout(timer)),
+				new Promise<null>((res) => {
+					timer = setTimeout(() => {
+						setError('timed out waiting for audio (' + produceTimeoutMs + 'ms)');
+						res(null);
+					}, produceTimeoutMs);
+				}),
+			]).finally(() => {
+				if (key) inflight.settle(key, p);
+			});
+			if (key) inflight.set(key, p, sig);
+			return p;
+		};
+
+		try {
+			// Fire produce() up front, capped — refilled the moment a slot frees, so every item gets the
+			// maximum head start (not just the previous item's often-shorter playback slack). Pause-gated:
+			// a pause stops refilling, so it can't produce the whole rest of the run in the background.
+			const pending: Array<Promise<Bytes | null>> = new Array(items.length);
+			let started = 0;
+			let active = 0;
+			const fillSlots = () => {
+				while (!sig.aborted && !pausedGate && active < concurrency && started < items.length) {
+					const idx = started++;
+					active++;
+					pending[idx] = produceBytes(items[idx], idx).finally(() => {
+						active--;
+						fillSlots();
+					});
 				}
+				// Stopped because we're paused (not done, not aborted): resume() resolves this exact
+				// gate instance, which re-drives the scheduler. Chaining onto the instance (not the
+				// variable, which resume() nulls) is what makes this self-correct across pause cycles.
+				if (!sig.aborted && pausedGate && started < items.length) pausedGate.then(() => fillSlots());
+			};
+			fillSlots();
+
+			for (let i = 0; i < items.length; i++) {
 				if (sig.aborted) break;
-				if (clip) {
-					const onStart = onItemStart
-						? ({ onsetMs, durationMs }: { onsetMs: number; durationMs: number }) => onItemStart({ index: i, onsetMs, durationMs })
-						: undefined;
-					const res = await stage.play(clip, { onStart, signal: sig }).done;
-					if (res && res.ok === false && res.error && !firstError) firstError = res.error;
+				const bytes = await pending[i];
+				if (sig.aborted) break;
+				await waitIfPaused(sig);
+				if (sig.aborted) break;
+				emitState(true, i, firstError);
+				if (bytes) {
+					let clip: Clip | null = null;
+					try {
+						clip = await stage.decode(bytes, keyOf ? keyOf(items[i]) : undefined);
+					} catch (e) {
+						setError(errStr(e));
+					}
+					if (sig.aborted) break;
+					if (clip) {
+						const onStart = onItemStart
+							? ({ onsetMs, durationMs }: { onsetMs: number; durationMs: number }) => onItemStart({ index: i, onsetMs, durationMs })
+							: undefined;
+						const res = await stage.play(clip, { onStart, signal: sig }).done;
+						if (res && res.ok === false && res.error) setError(res.error);
+					}
+				}
+				// Breathe between items — a real pause the clip itself doesn't carry. Not after the last.
+				if (i < items.length - 1 && !sig.aborted) {
+					const g = gapMs ? gapMs(items[i], items[i + 1] ?? null) : 0;
+					await sleep(g, sig);
 				}
 			}
-			// Breathe between items — a real pause the clip itself doesn't carry. Not after the last.
-			if (i < items.length - 1 && !sig.aborted) {
-				const g = gapMs ? gapMs(items[i], items[i + 1] ?? null) : 0;
-				await sleep(g, sig);
+		} finally {
+			// Teardown GUARDED by ctl identity (voice-model.js's `if (activeCtl === ctl)`): a barge-in
+			// — stop() then a fresh run() — has already reassigned `ctl`/`running` to the NEW run, so
+			// this superseded run must not null them or emit a spurious playing:false over it. Suono
+			// previously guarded only `ctl`, leaving `running = false` to clobber the new run (which
+			// re-sets running=true only once, at its start) — the checker's finding #1. The finally
+			// also restores the original's belt-and-suspenders lifecycle reset on any throw (#4).
+			if (ctl === localCtl) {
+				ctl = null;
+				running = false;
+				emitState(false, items.length - 1, firstError);
 			}
 		}
-
-		running = false;
-		if (ctl === localCtl) ctl = null;
-		emitState(false, items.length - 1);
 	}
 
 	// ── warm(): prefetch bytes into the shared cache, no playback ────────────────────────────────
@@ -253,6 +269,11 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 			void run();
 		},
 		pause() {
+			// Only engage a gate for an ACTUALLY-RUNNING run. A pause() while idle would otherwise set
+			// pausedGate, and the next play() would take the resume-branch below and return WITHOUT ever
+			// starting a run — a silent no-op play (checker finding #3). `running` is set synchronously
+			// by run() before its first await, so a pause() after play() always sees it true.
+			if (!running) return;
 			stage.suspend();
 			if (!pausedGate) pausedGate = new Promise((res) => (resumeFn = res));
 		},
