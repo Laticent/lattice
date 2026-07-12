@@ -343,9 +343,10 @@ in patch versions.
 
 - **Print mode — a B&W-safe, ink-on-white render of the whole deck for paper handouts.**
   Every theme's palette encodes meaning in hue, which a grayscale office printer throws away;
-  print mode swaps in a universal `--print-*` band so nothing depends on color. Set
-  `class: print` in the front matter, or export any deck with the new `lattice … --print`
-  flag (no source edit — it stamps the deck-wide `print` canvas class). What it does:
+  print mode swaps in a universal `--print-*` band so nothing depends on color. Turn it on
+  three ways: the first-class **`color-mode: print`** front-matter key (also in the Studio's
+  color-mode picker as "Print (B&W)"), the legacy `class: print`, or the new `lattice … --print`
+  export flag (no source edit — it stamps the deck-wide `print` canvas class). What it does:
   remaps every main token to ink-on-white (surfaces, the 12-token type ramp, accent, status,
   the categorical + diagram ramps) via `section.print`; **every print text token clears WCAG
   AA against white** (gated in `test/unit/palette/contrast.test.js`); dark bookend covers

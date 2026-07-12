@@ -8,13 +8,12 @@ summary: Print support that survives the boardroom on paper, in colour and B&W, 
 > **Build A + Build B shipped 2026-07-12.** The web-print path picks the
 > least-wasteful standard sheet, pre-selects orientation, and scales each slide
 > to fit (Build A). The B&W-safe print band + textures + triggers + contrast gate
-> shipped as Build B (see *Shipped — Build B* below). Two pieces are deliberately
-> deferred to a follow-up: the first-class **`color-mode: print`** front-matter key
-> (it touches the lint vocab + Studio color-mode picker; `class: print` and the
-> `--print` flag cover authoring + export today), and the **auto-paper-fit
-> downloaded PDF** with a baked paper-size MediaBox for the CLI (Build A already
-> gives the web path its paper fit). When this note and a shipped surface
-> disagree, the shipped surface wins.
+> shipped as Build B (see *Shipped — Build B* below), including the first-class
+> **`color-mode: print`** key (front-matter + lint vocab + the Studio "Print (B&W)"
+> picker option) alongside `class: print` and the `--print` export flag. ONE piece
+> is deliberately deferred to a follow-up: the **auto-paper-fit downloaded PDF** with
+> a baked paper-size MediaBox for the CLI (Build A already gives the web path its
+> paper fit). When this note and a shipped surface disagree, the shipped surface wins.
 >
 > **Build B — what shipped (2026-07-12):** a universal `--print-*` band
 > (`base.tokens.css`, one default every theme inherits — no per-theme band needed,
