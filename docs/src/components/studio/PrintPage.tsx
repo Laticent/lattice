@@ -376,7 +376,8 @@ min-height:100vh;display:grid;grid-template-rows:auto 1fr;grid-template-columns:
 .lpr-sheet{background:var(--paper);box-shadow:0 18px 50px -12px rgba(0,0,0,.55);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.05);transition:width .3s ease,height .3s ease;}
 .lpr-frame{position:absolute;border:0;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 6px 18px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
 .lpr-safe{position:absolute;border:1px dashed color-mix(in srgb,#142338 22%,transparent);border-radius:2px;pointer-events:none;}
-.lpr-pager{display:flex;align-items:center;gap:12px;color:var(--muted);font-family:var(--mono);font-size:11px;}
+.lpr-pager{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;padding:0 10px;color:var(--muted);font-family:var(--mono);font-size:11px;}
+.lpr-pager>span{white-space:nowrap;}
 .lpr-pager button{border:1px solid var(--line);background:var(--surf);color:var(--dim);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px;}
 .lpr-pager button:hover{border-color:var(--accent);color:var(--ink);}
 .lpr-dims{color:var(--dim);}
