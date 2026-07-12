@@ -9,13 +9,35 @@
  * unnamed regions take the neutral base fill. Unlayered like every other
  * component file (broad @layer activation is blocked — see cascade.md). */
 
+/* >>> chart-palette-recipe : map paint tokens (build-time input) >>>
+ * `--chart-map-base` is the neutral fill an unnamed region takes AND the anchor the
+ * choropleth ramp mixes the hue into (so every valued region reads as "neutral + N%
+ * hue" — monotonic ABOVE the neutral on both canvases). The choropleth is a RAMP,
+ * quantized to K=16 buckets of `--chart-cat-1-hue` mixed into that base, MIX_FLOOR
+ * 24% → MIX_CEIL 88% (must stay in step with rampMix() in map.transform.js). A region
+ * and its legend swatch carry the SAME `data-ramp` bucket, so they read identically. */
+:is(section.map, figure.chart-frame) {
+  --chart-map-base: color-mix(in oklab, var(--text-muted) 16%, var(--bg));
+  --map-ramp-0:  color-mix(in oklab, var(--chart-cat-1-hue) 24%, var(--chart-map-base));
+  --map-ramp-1:  color-mix(in oklab, var(--chart-cat-1-hue) 28%, var(--chart-map-base));
+  --map-ramp-2:  color-mix(in oklab, var(--chart-cat-1-hue) 33%, var(--chart-map-base));
+  --map-ramp-3:  color-mix(in oklab, var(--chart-cat-1-hue) 37%, var(--chart-map-base));
+  --map-ramp-4:  color-mix(in oklab, var(--chart-cat-1-hue) 41%, var(--chart-map-base));
+  --map-ramp-5:  color-mix(in oklab, var(--chart-cat-1-hue) 45%, var(--chart-map-base));
+  --map-ramp-6:  color-mix(in oklab, var(--chart-cat-1-hue) 50%, var(--chart-map-base));
+  --map-ramp-7:  color-mix(in oklab, var(--chart-cat-1-hue) 54%, var(--chart-map-base));
+  --map-ramp-8:  color-mix(in oklab, var(--chart-cat-1-hue) 58%, var(--chart-map-base));
+  --map-ramp-9:  color-mix(in oklab, var(--chart-cat-1-hue) 62%, var(--chart-map-base));
+  --map-ramp-10: color-mix(in oklab, var(--chart-cat-1-hue) 67%, var(--chart-map-base));
+  --map-ramp-11: color-mix(in oklab, var(--chart-cat-1-hue) 71%, var(--chart-map-base));
+  --map-ramp-12: color-mix(in oklab, var(--chart-cat-1-hue) 75%, var(--chart-map-base));
+  --map-ramp-13: color-mix(in oklab, var(--chart-cat-1-hue) 80%, var(--chart-map-base));
+  --map-ramp-14: color-mix(in oklab, var(--chart-cat-1-hue) 84%, var(--chart-map-base));
+  --map-ramp-15: color-mix(in oklab, var(--chart-cat-1-hue) 88%, var(--chart-map-base));
+}
+/* <<< chart-palette-recipe : end <<< */
+
 :is(section.map, figure.chart-frame) .map-figure {
-  /* The neutral fill an unnamed region takes — and the ANCHOR the choropleth
-   * ramp mixes the hue into, so every valued region reads as "neutral + N%
-   * hue". That keeps the ramp monotonic ABOVE the neutral in both light and
-   * dark: a low value can never sink darker than an empty region the way a
-   * mix-toward-`--bg` ramp does on a dark canvas. */
-  --map-base: color-mix(in oklab, var(--text-muted) 16%, var(--bg));
   width: 100%;
   height: 100%;
   display: flex;
@@ -24,10 +46,6 @@
   gap: 3cqi;
 }
 :is(section.map, figure.chart-frame) .map-svg {
-  /* Also define --map-base on the SVG itself (not just .map-figure): Read·Article
-   * re-hosts the bare .map-svg outside .map-figure, so the choropleth/neutral
-   * regions need the base anchor on an ancestor that survives the re-host. */
-  --map-base: color-mix(in oklab, var(--text-muted) 16%, var(--bg));
   min-width: 0;
   /* Width-driven (a world map is wide-short): FILL the 70% canvas zone so the
    * map scales to the room it's actually given (it was pinned small at 56cqi).
@@ -46,26 +64,40 @@
  * read. A hairline canvas-coloured stroke keeps adjacent states crisp —
  * the same crisp-divider idiom funnel uses between bands. */
 :is(section.map, figure.chart-frame) .map-region {
-  fill: var(--map-base);
+  fill: var(--chart-map-base);
   stroke: var(--bg);
   stroke-width: 0.6;
   stroke-linejoin: round;
 }
 
-/* Choropleth — one sequential ramp off --chart-cat-1-hue, mixed into the neutral
- * base (--map-base) so low values read as a faint tint of the hue OVER the
- * empty fill, never below it. The kernel sets --mix (a color-mix percentage)
- * per region: low → faint hue, high → saturated. Low→high on the ramp. */
-:is(section.map, figure.chart-frame) .map-region--on {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--map-base));
-}
+/* Choropleth — one sequential ramp off --chart-cat-1-hue, quantized to 16 buckets
+ * (the compiled `--map-ramp-j` tokens). The kernel sets `data-ramp="j"` per region
+ * (low value → low bucket → faint hue, high → saturated); the SAME rule paints the
+ * legend swatch, so a swatch and its region are byte-identical. */
+:is(section.map, figure.chart-frame) [data-ramp="0"]  { fill: var(--map-ramp-0); }
+:is(section.map, figure.chart-frame) [data-ramp="1"]  { fill: var(--map-ramp-1); }
+:is(section.map, figure.chart-frame) [data-ramp="2"]  { fill: var(--map-ramp-2); }
+:is(section.map, figure.chart-frame) [data-ramp="3"]  { fill: var(--map-ramp-3); }
+:is(section.map, figure.chart-frame) [data-ramp="4"]  { fill: var(--map-ramp-4); }
+:is(section.map, figure.chart-frame) [data-ramp="5"]  { fill: var(--map-ramp-5); }
+:is(section.map, figure.chart-frame) [data-ramp="6"]  { fill: var(--map-ramp-6); }
+:is(section.map, figure.chart-frame) [data-ramp="7"]  { fill: var(--map-ramp-7); }
+:is(section.map, figure.chart-frame) [data-ramp="8"]  { fill: var(--map-ramp-8); }
+:is(section.map, figure.chart-frame) [data-ramp="9"]  { fill: var(--map-ramp-9); }
+:is(section.map, figure.chart-frame) [data-ramp="10"] { fill: var(--map-ramp-10); }
+:is(section.map, figure.chart-frame) [data-ramp="11"] { fill: var(--map-ramp-11); }
+:is(section.map, figure.chart-frame) [data-ramp="12"] { fill: var(--map-ramp-12); }
+:is(section.map, figure.chart-frame) [data-ramp="13"] { fill: var(--map-ramp-13); }
+:is(section.map, figure.chart-frame) [data-ramp="14"] { fill: var(--map-ramp-14); }
+:is(section.map, figure.chart-frame) [data-ramp="15"] { fill: var(--map-ramp-15); }
+/* Choropleth swatch stroke — the ramp anchor hue's ink. */
+:is(section.map, figure.chart-frame) .chart-key-swatch[data-ramp] { stroke: var(--chart-cat-1-ink); }
 
-/* Highlight — categorical: each named region rides its --catN slot hue at
- * the same 82% richness the piechart wedges + funnel bands use, so the
- * three categorical charts read as one family. The kernel sets --region-hue
- * to the slot's var reference. */
+/* Highlight — categorical: each named region rides its --catN slot's 82% solid (the
+ * same `--chart-cat-N-solid` the piechart wedges + funnel bands use, so the three
+ * categorical charts read as one family). The kernel sets `--region-solid` inline. */
 :is(section.map, figure.chart-frame) .map-region--hl {
-  fill: color-mix(in oklab, var(--region-hue) 82%, var(--bg));
+  fill: var(--region-solid);
 }
 
 /* ── Legend ───────────────────────────────────────────────────────────────

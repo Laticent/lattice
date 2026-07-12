@@ -26,8 +26,6 @@ const {
   BASEMAP,
   WORLD_BASEMAP,
   WORLD_ROBINSON_BASEMAP,
-  MIX_FLOOR,
-  MIX_CEIL,
 } = require('../../../lib/components/chart/map/map.transform');
 const {
   findUnknownMapRegions,
@@ -96,23 +94,22 @@ describe('map kernel', () => {
   });
 
   describe('buildMap — choropleth (default)', () => {
-    test('emits a --mix percentage per named region, monotonic with value', () => {
+    test('emits a data-ramp bucket per named region, monotonic with value', () => {
       const m = parseMap(ul([['California', '100'], ['Texas', '50'], ['Florida', '0']]));
       const html = buildMap(m, 'choropleth');
-      const mixes = [...html.matchAll(/map-region--on" style="--mix:(\d+)%"/g)].map((x) => +x[1]);
-      // Three named regions, drawn in basemap order; values span the full ramp.
-      assert.equal(mixes.length, 3);
-      assert.ok(Math.max(...mixes) <= MIX_CEIL && Math.min(...mixes) >= MIX_FLOOR);
-      // Highest value → ceil, lowest → floor.
-      assert.equal(Math.max(...mixes), MIX_CEIL);
-      assert.equal(Math.min(...mixes), MIX_FLOOR);
+      // The ramp is quantized to 16 buckets (0..15); a region and its swatch share
+      // the bucket, so it compiles to a flat `--map-ramp-j` literal.
+      const buckets = [...html.matchAll(/map-region--on" data-ramp="(\d+)"/g)].map((x) => +x[1]);
+      assert.equal(buckets.length, 3);
+      assert.equal(Math.max(...buckets), 15, 'highest value → top bucket');
+      assert.equal(Math.min(...buckets), 0, 'lowest value → bottom bucket');
     });
 
-    test('a flat series (all equal) pins to the ramp ceiling', () => {
+    test('a flat series (all equal) pins to the ramp top bucket', () => {
       const m = parseMap(ul([['California', '5'], ['Texas', '5']]));
       const html = buildMap(m, 'choropleth');
-      const mixes = [...html.matchAll(/--mix:(\d+)%/g)].map((x) => +x[1]);
-      assert.ok(mixes.every((v) => v === MIX_CEIL));
+      const buckets = [...html.matchAll(/data-ramp="(\d+)"/g)].map((x) => +x[1]);
+      assert.ok(buckets.length > 0 && buckets.every((v) => v === 15));
     });
 
     test('draws every basemap region — named coloured, the rest neutral', () => {
@@ -121,17 +118,31 @@ describe('map kernel', () => {
       assert.equal(total, Object.keys(BASEMAP.regions).length, 'all 51 regions drawn');
       assert.equal((html.match(/map-region--on/g) || []).length, 1, 'one region filled');
     });
+
+    test('a choropleth swatch shares its region\'s ramp bucket (swatch == region)', () => {
+      const m = parseMap(ul([['California', '100'], ['Texas', '50'], ['Florida', '0']]));
+      const html = buildMap(m, 'choropleth');
+      // Region <path>s and legend <rect> swatches both carry `data-ramp="j"`, so the
+      // one `[data-ramp]` CSS rule paints both from the SAME `--map-ramp-j` token —
+      // a swatch is byte-identical to the region it keys. Assert the bucket SETS match.
+      const regionBuckets = [...html.matchAll(/map-region--on" data-ramp="(\d+)"/g)].map((x) => +x[1]);
+      const swatchBuckets = [...html.matchAll(/class="chart-key-swatch" data-ramp="(\d+)"/g)].map((x) => +x[1]);
+      assert.deepEqual(new Set(swatchBuckets), new Set(regionBuckets),
+        'every swatch bucket has a matching region bucket and vice-versa');
+      assert.equal(swatchBuckets.length, 3, 'one swatch per named region');
+    });
   });
 
   describe('buildMap — highlight', () => {
-    test('each named region carries a --catN slot var-reference, rotating the six-hue cap', () => {
+    test('each named region carries its 0-based --catN slot, rotating the six-hue cap', () => {
       const names = ['California', 'Texas', 'New York', 'Florida', 'Illinois', 'Ohio', 'Georgia'];
       const m = parseMap(ul(names.map((n, i) => [n, String(i)])));
       const html = buildMap(m, 'highlight');
-      // Region <path>s emit in basemap order; the SVG-native key swatches
-      // preserve authored order, so assert slot rotation off the swatch fills.
-      const slots = [...html.matchAll(/class="chart-key-swatch"[^>]*?fill="color-mix\(in oklab, var\(--chart-cat-(\d)-hue\)/g)].map((x) => +x[1]);
-      assert.deepEqual(slots, [1, 2, 3, 4, 5, 6, 1], 'seventh region wraps back to slot 1');
+      // Region <path>s emit in basemap order; the SVG-native key swatches preserve
+      // authored order and carry a 0-based `data-cat` (paints via the CSS rule, no
+      // inline color-mix presentation attr — D2).
+      const slots = [...html.matchAll(/class="chart-key-swatch" data-cat="(\d)"/g)].map((x) => +x[1]);
+      assert.deepEqual(slots, [0, 1, 2, 3, 4, 5, 0], 'seventh region wraps back to slot 0');
     });
   });
 

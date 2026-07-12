@@ -705,6 +705,23 @@ section.chart-frame .chart-status[data-s="deferred"] {
   font-variant-numeric: tabular-nums;
 }
 
+/* Legend-swatch paint — keyed off the data attribute svg-legend.js emits, so no
+ * var()/color-mix() rides in an inline `fill=`/`stroke=` presentation attribute
+ * (which renders the swatch black on old WebKit — D2). `data-cat` is 0-based (matching
+ * the a11y print-texture rules in base.print-textures.css); slot j's token is 1-based
+ * `--chart-cat-(j+1)-*`. A categorical swatch matches the mark it keys: fill = the
+ * slot's 82% solid, stroke = its ink. The choropleth RAMP swatches (`[data-ramp]`) are
+ * scoped in map.styles.css, so a swatch reads the SAME `--map-ramp-j` its region does. */
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="0"] { fill: var(--chart-cat-1-solid); stroke: var(--chart-cat-1-ink); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="1"] { fill: var(--chart-cat-2-solid); stroke: var(--chart-cat-2-ink); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="2"] { fill: var(--chart-cat-3-solid); stroke: var(--chart-cat-3-ink); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="3"] { fill: var(--chart-cat-4-solid); stroke: var(--chart-cat-4-ink); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="4"] { fill: var(--chart-cat-5-solid); stroke: var(--chart-cat-5-ink); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="5"] { fill: var(--chart-cat-6-solid); stroke: var(--chart-cat-6-ink); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="6"] { fill: var(--chart-cat-7-solid); stroke: var(--chart-cat-7-ink); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="7"] { fill: var(--chart-cat-8-solid); stroke: var(--chart-cat-8-ink); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-muted] { fill: var(--chart-muted-key); stroke: var(--text-muted); }
+
 /* SVG-NATIVE FIGURE SIZING — radar / map / cohort-quadrant. Each figure now holds
  * ONE self-contained <svg> (diagram + spine + key in one viewBox, emitted by
  * svg-legend.js), so the figure only CENTRES + SIZES that svg; the 70/30 split,
