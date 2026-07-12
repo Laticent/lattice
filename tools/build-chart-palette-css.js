@@ -66,8 +66,10 @@ const MODERN_FN = /\blight-dark\(|\bcolor-mix\(/;
 
 /** The kernel selectors the DEFAULT plane paints on. Bare `.chart-frame` is
  *  included so the Read·Article <figure> re-host (a chart SVG re-hosted outside its
- *  section, #925) resolves the exact same literals as the slide. */
-const DEFAULT_PLANE_SELECTOR = 'section.chart-frame, section.word-cloud, .chart-frame';
+ *  section, #925) resolves the exact same literals as the slide. `section.math` is a
+ *  sibling subtree (not a `.chart-frame`) that also draws chart-palette tokens
+ *  (`--math-error-bg`), so it joins the union too. */
+const DEFAULT_PLANE_SELECTOR = 'section.chart-frame, section.word-cloud, section.math, .chart-frame';
 
 /** The subject-anchored union that selects the OPPOSITE scheme. `subj` is the
  *  consuming element (`.chart-frame` / `.word-cloud`) so custom props land on it
@@ -75,7 +77,7 @@ const DEFAULT_PLANE_SELECTOR = 'section.chart-frame, section.word-cloud, .chart-
  *  override must be ON the subject, never a bare ancestor). Every arm is strictly
  *  higher specificity than the DEFAULT plane's matching arm. */
 function schemeAnchors(scheme) {
-  const subjects = ['chart-frame', 'word-cloud'];
+  const subjects = ['chart-frame', 'word-cloud', 'math'];
   // Per-slide modifier (`section.dark`/`.light` add the class to the chart section,
   // which IS the .chart-frame element) → compound-subject `.chart-frame.<scheme>`.
   const perSlide = subjects.map((s) => `.${s}.${scheme}`);

@@ -69,7 +69,7 @@ describe('chart-palette-css compiler', () => {
 
   test('default plane paints on the bare .chart-frame (figure == section)', () => {
     const css = chartPaletteCssForTheme('indaco', BASE);
-    assert.match(css, /section\.chart-frame,\s*section\.word-cloud,\s*\.chart-frame\s*\{/,
+    assert.match(css, /section\.chart-frame,[^{]*,\s*\.chart-frame\s*\{/,
       'the default plane must include the bare .chart-frame so the Read·Article figure re-host resolves');
   });
 
