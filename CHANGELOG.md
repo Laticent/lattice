@@ -152,6 +152,19 @@ in patch versions.
 
 ### Fixed
 
+- **The dual-screen presenter's current + next slides are no longer cropped — they render
+  whole, scaled to fit their frames.** The presenter stage inlines the shared fit kernel
+  (`fitScale`/`padInset`) into its isolated iframe via `Function.toString()`, but the production
+  bundler renames those imports, so the inlined bodies printed under renamed/anonymous names
+  while the fit's call sites still used the literal names — every fit call threw "padInset is not
+  defined" and silently never scaled the slide, so it painted at full 1280px and the frame
+  cropped it (visible in production too). The kernel is now bound as `var fitScale = …; var
+  padInset = …;` so the names survive bundling. The stage also stopped scaling the engine's own
+  `<section>`s (which the engine runtime re-manages) — the deck is wrapped in a private
+  `#latt-film` element that's scaled + translated as a filmstrip clipped to the current slide, so
+  nothing fights the engine. Fixes the Studio presenter and, via the shared kernel, the Drawing
+  Board's presenter and rehearsal stage. (Studio Present.)
+
 - **"Print deck" now prints the deck, not a screenshot of the app — and lands on
   the right paper.** Two problems in the Studio Share → "Print deck" path. (1) It
   mounted the print render in a **hidden** iframe (`opacity:0`, zero-sized) and

@@ -43,7 +43,13 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 	// stage, and the export player all scale by the identical maths. `pad` selects the
 	// symmetric inset: the dual-screen stage uses ×0.012 (floor 0), rehearsal ×0.04
 	// (floor 14). See P3 of 2026-07-07-html-lattice-player.md.
-	const kernel = `${fitScale.toString()}\n${padInset.toString()}`;
+	// ASSIGN to vars named EXACTLY as the call sites below use them: the production bundler
+	// RENAMES the imported `fitScale`/`padInset`, and their `.toString()` carries the renamed
+	// (or anonymous/arrow) form — so inlining the bare source left `fitScale`/`padInset`
+	// undefined at the call sites and `fit()` threw "padInset is not defined" on every call,
+	// silently never scaling the slide (the long-standing presenter CROP). The `var name =`
+	// binding restores the names regardless of how the function prints.
+	const kernel = `var fitScale=${fitScale.toString()};\nvar padInset=${padInset.toString()};`;
 	const padF = Number(pad.factor);
 	const padFl = Number(pad.floor || 0);
 	// Resolve the runtime URL to ABSOLUTE. The stage doc is set as an iframe
@@ -59,33 +65,42 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 			return runtimeUrl;
 		}
 	})();
-	// ISOLATION (the real bug): stage layout must NOT share the cascade with the
-	// engine out.css. Positioning lives on OUR #latt-stage/#latt-fit — ID selectors
-	// (1,0,0) out.css's element/:where/class rules can't clobber — and #latt-stage
-	// wraps .lattice from OUTSIDE, so the slide's own transform:scale can't trap our
-	// fixed positioning (an ancestor transform re-bases position:fixed). #latt-stage
-	// fills 100dvh (tracks the iOS toolbars → visual center, not behind the bar) and
-	// flex-centers #latt-fit, which fit() sizes to the SCALED slide box; the section
-	// scales from top-left to fill it.
+	// ISOLATION + the CROP FIX. The old fit scaled each <section> and display:none'd the
+	// rest — but the engine runtime OWNS the sections (its body observer re-applies its
+	// own transforms on them), so it wiped our per-section scale and the slide rendered at
+	// full 1280px = cropped in the frame. Fix: never touch the engine's elements. Wrap the
+	// deck in OUR OWN `#latt-film` and drive a FILMSTRIP — all sections stay put at natural
+	// size, and we scale+translate the film so exactly the current slide fills `#latt-fit`
+	// (which clips). #latt-stage/#latt-fit/#latt-film are ID selectors (1,0,0) the engine's
+	// element/:where/class rules can't clobber; #latt-stage wraps from OUTSIDE so the
+	// slide's own transforms can't trap our fixed positioning. #latt-stage fills 100dvh
+	// (tracks the iOS toolbars → visual center) and flex-centers #latt-fit. The translate
+	// uses the section's measured `offsetTop`, so any inter-section gap is handled exactly.
 	const FIT =
 		'(function(){' +
 		kernel + ';' +
-		'var stage=document.getElementById("latt-stage"),fitEl=document.getElementById("latt-fit");' +
+		'var stage=document.getElementById("latt-stage"),fitEl=document.getElementById("latt-fit"),film=document.getElementById("latt-film");' +
 		'function secs(){var m=document.querySelector(".lattice");return m?m.querySelectorAll(":scope>section"):[]}' +
 		'var cur=0;' +
-		'function fit(){var s=secs();if(!s.length||!stage||!fitEl)return;' +
+		'function fit(){var s=secs();if(!s.length||!stage||!fitEl||!film)return;' +
 		'var W=stage.clientWidth||window.innerWidth,H=stage.clientHeight||window.innerHeight;' +
 		'var inset=padInset(W,H,{factor:' + padF + ',floor:' + padFl + '});' +
 		'var sc=fitScale({stageW:W,stageH:H,slideW:' + sw + ',slideH:' + sh + ',insetX:inset,insetY:inset});if(!(sc>0))sc=1;' +
 		'fitEl.style.width=(sc*' + sw + ')+"px";fitEl.style.height=(sc*' + sh + ')+"px";' +
-		'for(var i=0;i<s.length;i++){var on=i===cur;s[i].style.display=on?"":"none";' +
-		'if(on){s[i].style.transformOrigin="top left";s[i].style.transform="scale("+sc+")"}}}' +
+		'var i=cur<0?0:(cur>s.length-1?s.length-1:cur);' +
+		'var top=s[i].offsetTop||i*' + sh + ';' +
+		'film.style.transform="scale("+sc+") translateY("+(-top)+"px)";}' +
 		'function show(n){cur=n|0;fit()}' +
 		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)show(e.data.pv)});' +
 		'window.addEventListener("resize",fit);window.addEventListener("orientationchange",fit);' +
 		'if(window.visualViewport){try{window.visualViewport.addEventListener("resize",fit)}catch(e){}}' +
-		'if(typeof ResizeObserver!=="undefined"){try{new ResizeObserver(fit).observe(stage)}catch(e){}}' +
-		'[60,300,1200].forEach(function(t){setTimeout(fit,t)});show(0);' +
+		// Observe documentElement (its scroll size changes when the engine paints the deck)
+		// AND re-fit when the film's subtree repaints — the engine renders AFTER this inline
+		// script, so a one-shot fit would measure an empty film. childList-only, so our own
+		// transform writes never re-trigger it.
+		'if(typeof ResizeObserver!=="undefined"){try{var ro=new ResizeObserver(fit);ro.observe(stage);ro.observe(document.documentElement)}catch(e){}}' +
+		'if(typeof MutationObserver!=="undefined"){try{new MutationObserver(fit).observe(film,{childList:true,subtree:true})}catch(e){}}' +
+		'[60,300,1200,2500].forEach(function(t){setTimeout(fit,t)});show(0);' +
 		'})();';
 	return (
 		'<!doctype html><html><head><meta charset="utf-8">' +
@@ -94,11 +109,11 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		'<style>html,body{margin:0;padding:0;height:100%;background:' + bg + ';overflow:hidden;touch-action:manipulation;-webkit-text-size-adjust:100%;}' +
 		'#latt-stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;visibility:hidden;}' +
 		'#latt-fit{overflow:hidden;}' +
-		'#latt-fit .lattice{margin:0;padding:0;}' +
-		'#latt-fit .lattice>section{transform-origin:top left;}' +
+		'#latt-film{position:relative;transform-origin:top left;will-change:transform;}' +
+		'#latt-film .lattice{margin:0;padding:0;}' +
 		slideBox(sw, sh) +
 		css + '</style></head><body>' +
-		a11yDefs + '<div id="latt-stage"><div id="latt-fit">' + html + '</div></div>' +
+		a11yDefs + '<div id="latt-stage"><div id="latt-fit"><div id="latt-film">' + html + '</div></div></div>' +
 		(mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +
 		'<scr' + 'ipt>requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"});</scr' + 'ipt>' +

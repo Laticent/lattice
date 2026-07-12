@@ -226,6 +226,41 @@ isolated (#8); docs + CHANGELOG land with the change (#6, #10).
   unreachable from a headless sandbox; marked UNVERIFIED, not claimed. Export-player parity is a
   separate PR (#17).
 
+## Post-review device corrections (what the on-device review caught)
+
+The user reviewed the built preview on a real iPad + phone — the surfaces #23 said we couldn't
+reach — and found three real defects the headless passes missed. All three were root-caused and
+fixed structurally (no band-aids); the fixes are on this branch.
+
+1. **Main-present slide crept into the toolbar/controls on a wide-but-short viewport (landscape
+   iPad, where Safari chrome steals height).** The slide was sized purely by WIDTH (`aspect-video`
+   + `max-w-960`), so its 16:9 height nearly filled the row and left the caption no room. Fix: a
+   `ResizeObserver` measures the slide row and caps the slide width to `rowH × 16/9`, so the slide
+   is a true flex child that shrinks to reserve the caption/controls/rail space. (`5147aa1`.)
+2. **Autoplay ("Play") froze after ~2 slides — a REGRESSION from #904, not iOS.** #904 made the
+   reader's narration async STATE, splitting each slide-transition into two render commits; the
+   auto-advance `play()`, scheduled on a `[clamped]`-keyed rAF, raced the reader rebuild and — on a
+   loaded main thread — ran on a reader the pending rebuild then tore down (playback stopped, no
+   caption, no `onFinish` to advance again). A second path did the same when the whole-deck
+   projection landed mid-hand-off. Root-caused via a full **independent-checker + red-team +
+   Munger-inversion trio** (which *exonerated* the prefetch the user suspected). Fix: bind the
+   auto-advance to the reader's TRACK rebuild (not the slide index), drop the rAF, and gate the
+   projection upgrade out of any autoplay run. Real-surface-only: jsdom `act()` flushes both commits
+   as one, so no unit/e2e harness reproduces it. (`26342b9`; user-confirmed fixed on device.)
+3. **The dual-screen presenter cropped its current/next slides — a long-standing bug in production
+   too.** NOT "the engine fights us" (an earlier wrong theory): the stage inlines `fitScale`/
+   `padInset` via `Function.toString()`, but the bundler RENAMES those imports, so the fit's call
+   sites hit undefined names and threw `padInset is not defined` on every call → the slide never
+   scaled → the frame cropped the full-1280px paint. Fix: bind the inlined kernel as `var
+   fitScale = …; var padInset = …;` (names survive bundling), and switch the stage from
+   per-`<section>` scaling to a private `#latt-film` filmstrip (scale + `translateY` clipped to the
+   current slide) so it never touches the engine's elements. Verified in the REAL presenter popup
+   (current + next render whole, filling their 16:9 frames). Shared kernel → also fixes the Drawing
+   Board presenter + rehearsal stage.
+
+The two `S5`/`S6` "uncropped 16/9 frames" claims referred to the container geometry; the actual
+slide fit inside was the throwing code above — corrected here.
+
 ## Open items
 
 - Default states: **CC on / Voice muted** by default (boardroom-safe). An async shared-deck open
