@@ -13749,6 +13749,12 @@ section.print {
   --accent: var(--print-accent);
   --accent-soft: var(--print-accent-soft);
   --on-accent: var(--print-on-accent);
+  /* The soft-accent container's ink/border + body: declared at :root as
+   * var(--accent)/var(--text-body), so they resolve to the THEME hue at :root
+   * scope — the same trap the journey ramp hits. Remap here so the "recommended"
+   * card, SWOT highlight, glossary pill, pricing, split-compare read ink, not hue. */
+  --on-accent-soft: var(--print-accent);
+  --accent-soft-body: var(--print-text-body);
   /* Bookends (title/divider/closing) flip from dark flood to light framed panel,
    * so their white-based on-dark ink tier must invert to dark ink too. */
   --on-dark-primary: var(--print-text-heading);

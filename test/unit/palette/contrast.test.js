@@ -223,7 +223,7 @@ describe('contrast', () => {
       if (ratio < AA_THRESHOLD) failures.push(`--${textKey} (${text}) on --${fillKey} (${fillVal}) = ${ratio.toFixed(2)}:1`);
     };
     // Ink ramp + status on paper white.
-    for (const t of ['print-text-heading', 'print-text-body', 'print-text-label', 'print-text-secondary', 'print-pass', 'print-warn', 'print-fail']) {
+    for (const t of ['print-text-heading', 'print-text-body', 'print-text-label', 'print-text-secondary', 'print-text-muted', 'print-pass', 'print-warn', 'print-fail']) {
       check(t, 'print-bg', white);
     }
     // On-fill ink on every categorical fill; on-mark ink on every mark (bars carry white).

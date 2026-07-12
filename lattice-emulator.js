@@ -400,9 +400,12 @@ function withPrintClass(src) {
   const fm = src.match(/^(---\r?\n)([\s\S]*?)(\r?\n---\r?\n)/);
   if (!fm) return `---\nclass: print\n---\n\n${src}`; // no front matter → add one
   const [full, open, body, close] = fm;
-  if (/^\s*class:.*\bprint\b/m.test(body)) return src; // already present
-  const merged = /^\s*class:\s*/m.test(body)
-    ? body.replace(/^(\s*class:\s*["']?)([^"'\n]*?)(["']?\s*)$/m, (_m, a, val, c) => `${a}${val.trim()}${val.trim() ? ' ' : ''}print${c}`)
+  if (/^[ \t]*class:.*\bprint\b/m.test(body)) return src; // already present
+  const merged = /^[ \t]*class:/m.test(body)
+    // Anchor the value to the class LINE ([^\n], not \s* which would cross the
+    // newline and append `print` onto the next key). Handles an empty `class:`
+    // (→ `class: print`) and drops any quotes (a class list needs none).
+    ? body.replace(/^[ \t]*class:[ \t]*["']?([^"'\n]*)["']?[ \t]*$/m, (_m, val) => `class: ${[val.trim(), 'print'].filter(Boolean).join(' ')}`)
     : `${body}\nclass: print`;
   return src.replace(full, open + merged + close);
 }
