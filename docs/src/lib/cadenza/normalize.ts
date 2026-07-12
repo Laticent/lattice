@@ -129,6 +129,23 @@ export type AcronymRegistry = ReadonlyMap<string, string>;
 export interface SpokenOpts {
   domains?: readonly LexDomain[];
   acronyms?: AcronymRegistry;
+  /** The deck's language tag (the Marp `lang:` directive). The built-in lexicon, the
+   *  number-to-words, and the fiscal/period parser are all US-English, so for a
+   *  non-English deck they are BYPASSED (the token passes through unchanged) to avoid
+   *  injecting English into a non-English deck's narration — see `isEnglishLang`, #919.
+   *  Absent → English (the default; today's behavior, byte-identical). The author's own
+   *  `acronyms:` registry is HONORED regardless of language (the author owns it). */
+  lang?: string;
+}
+
+/** Is Cadenza's English say-as machinery applicable to this language tag? Absent, `en`, or
+ *  any `en-*` region → yes (English is the default). Anything else → no, so the caller
+ *  bypasses the English lexicon + number/period expansion (#919). A pure language-tag test —
+ *  Cadenza's own policy about which decks it can normalize, owned here so both caption
+ *  producers get it identically by passing the raw `lang` through `buildTrack`. */
+export function isEnglishLang(lang?: string): boolean {
+  const t = String(lang ?? '').trim().toLowerCase();
+  return t === '' || t === 'en' || t.startsWith('en-');
 }
 
 export function toSpoken(display: string, opts: SpokenOpts = {}): string {
@@ -136,31 +153,45 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   if (!tok) return '';
   const domains = opts.domains ?? [];
   const acronyms = opts.acronyms;
+  const english = isEnglishLang(opts.lang);
 
   // Author registry FIRST — the whole token, before anything else (a deck's `CRO` wins
-  // over the built-in dictionary AND over the fiscal parser).
+  // over the built-in dictionary AND over the fiscal parser). Honored in EVERY language:
+  // it's the author's own vocabulary, not English we chose to inject.
   if (acronyms?.has(tok)) return acronyms.get(tok) as string;
 
   // Whole-token lexicon next, before peeling punctuation — so a period-bearing
   // abbreviation (`v.`, `art.`, `U.S.C.`) matches its key rather than losing the
   // period to the terminator peel. The abbreviation's own period is part of it,
-  // not a sentence end, and its spoken form ("versus") carries no terminator.
-  const whole = lookupLexicon(tok, domains);
-  if (whole !== null) return whole;
+  // not a sentence end, and its spoken form ("versus") carries no terminator. The
+  // built-in lexicon is US-English, so a non-English deck skips it (#919) — the
+  // author registry above still applied.
+  if (english) {
+    const whole = lookupLexicon(tok, domains);
+    if (whole !== null) return whole;
+  }
 
   // Preserve trailing sentence punctuation so cadence still sees the terminator.
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? '';
   const core = punct ? tok.slice(0, -punct.length) : tok;
 
-  return spokenCore(core, domains, acronyms) + punct;
+  // Peel punctuation and consult the author registry on the CORE even for a non-English
+  // deck (so `CRO,` still expands), but the English lexicon/fiscal/number expansion below
+  // is bypassed there — `spokenCore` returns the core unchanged when `english` is false.
+  return spokenCore(core, domains, acronyms, english) + punct;
 }
 
-function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: AcronymRegistry): string {
+function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: AcronymRegistry, english = true): string {
   if (!core) return core;
 
   // 0. Author registry (case-sensitive whole token) — beats the built-in dictionary and
-  //    every pattern below, so a deck owns its own vocabulary.
+  //    every pattern below, so a deck owns its own vocabulary. Applies in every language.
   if (acronyms?.has(core)) return acronyms.get(core) as string;
+
+  // Non-English deck: the author registry (above) is the only expansion; the US-English
+  // lexicon, fiscal/period parser, and number-to-words below are all bypassed so nothing
+  // English is injected into a non-English deck's narration (#919).
+  if (!english) return core;
 
   // 1. Lexicon (whole-token abbreviations, symbols, initialisms).
   const lex = lookupLexicon(core, domains);

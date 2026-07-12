@@ -39,6 +39,9 @@ export interface BuildOptions {
   pace?: Pace;
   /** The deck's author-supplied acronym registry (term → spoken expansion). Author wins. */
   acronyms?: AcronymRegistry;
+  /** The deck's language tag (Marp `lang:`). A non-English deck bypasses the English
+   *  lexicon + number/period expansion (the author registry still applies) — #919. */
+  lang?: string;
 }
 
 /**
@@ -71,7 +74,7 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       if (found >= 0) scan = found + display.length;
       if (cueCharOffset < 0) cueCharOffset = charOffset;
 
-      const spoken = toSpoken(display, { acronyms: opts.acronyms });
+      const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang });
       const dur = estimateWordMs(spoken, pace);
       const startMs = clock;
       const endMs = startMs + dur;

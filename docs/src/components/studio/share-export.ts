@@ -531,6 +531,7 @@ type ReadAlongCore = {
 			voice: { model: string; voice: string; speed: number };
 			pace?: string;
 			acronyms?: ReadonlyMap<string, string>;
+			lang?: string;
 		},
 	) => { slides: { index: number }[] };
 	// The SAME merge the CLI export uses (HARD RULE #1): caption → front-matter caption →
@@ -599,6 +600,7 @@ export async function shareCaptions(
 	// autosplit deck's exported `.vtt` differs from the CLI's by design (the CLI splits).
 	const fmCaptions = resolveCaptionsMod.frontMatterCaptions(source);
 	const acronyms = resolveCaptionsMod.acronymSpokenMap(source);
+	const lang = resolveCaptionsMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
 	// by construction). Failure degrades to notes-only, exactly as the CLI's projection does
 	// (lattice-emulator.js projectDeckSpeechFromHtml), so a notes-full deck still exports.
@@ -617,6 +619,7 @@ export async function shareCaptions(
 		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
 		pace: 'moderate',
 		acronyms,
+		lang: lang ?? undefined,
 	});
 	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no notes, captions, or projectable slide content');
 

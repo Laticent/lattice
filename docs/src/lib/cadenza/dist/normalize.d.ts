@@ -21,7 +21,20 @@ export type AcronymRegistry = ReadonlyMap<string, string>;
 export interface SpokenOpts {
     domains?: readonly LexDomain[];
     acronyms?: AcronymRegistry;
+    /** The deck's language tag (the Marp `lang:` directive). The built-in lexicon, the
+     *  number-to-words, and the fiscal/period parser are all US-English, so for a
+     *  non-English deck they are BYPASSED (the token passes through unchanged) to avoid
+     *  injecting English into a non-English deck's narration — see `isEnglishLang`, #919.
+     *  Absent → English (the default; today's behavior, byte-identical). The author's own
+     *  `acronyms:` registry is HONORED regardless of language (the author owns it). */
+    lang?: string;
 }
+/** Is Cadenza's English say-as machinery applicable to this language tag? Absent, `en`, or
+ *  any `en-*` region → yes (English is the default). Anything else → no, so the caller
+ *  bypasses the English lexicon + number/period expansion (#919). A pure language-tag test —
+ *  Cadenza's own policy about which decks it can normalize, owned here so both caption
+ *  producers get it identically by passing the raw `lang` through `buildTrack`. */
+export declare function isEnglishLang(lang?: string): boolean;
 export declare function toSpoken(display: string, opts?: SpokenOpts): string;
 /**
  * Expand every token in a passage to its spoken form — the whole-sentence version of

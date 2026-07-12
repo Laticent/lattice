@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test.
-let parseNarrationFrontMatter, frontMatterCaptions;
+let parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang;
 test.before(async () => {
-  ({ parseNarrationFrontMatter, frontMatterCaptions } = await import('../../../lib/core/resolve-captions.mjs'));
+  ({ parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang } = await import('../../../lib/core/resolve-captions.mjs'));
 });
 
 const fm = (body) => `---\n${body}\n---\n\n# Deck\n`;
@@ -127,4 +127,19 @@ test('frontMatterCaptions is the captions map directly; absent key + bad input �
   assert.equal(frontMatterCaptions(fm('captions:\n  7: line.')).get(7), 'line.');
   assert.equal(frontMatterCaptions(fm('theme: indaco')).size, 0);
   for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterCaptions(v).size, 0);
+});
+
+// The locale-guard signal (#919): the Marp `lang:` directive marks a deck's narration
+// language. Both caption producers read it via this one helper so they can't drift.
+test('frontMatterLang reads the Marp lang: directive, lowercased; absent → null', () => {
+  assert.equal(frontMatterLang(fm('lang: fr')), 'fr');
+  assert.equal(frontMatterLang(fm('lang: en-US')), 'en-us'); // lowercased for the isEnglishLang test
+  assert.equal(frontMatterLang(fm('theme: indaco\nlang: "de"')), 'de'); // quoted, among other keys
+  assert.equal(frontMatterLang(fm('theme: indaco')), null); // absent → null (English default)
+});
+
+test('frontMatterLang: bad input and a language: look-alike key never mis-fire', () => {
+  for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterLang(v), null);
+  // `language:` must NOT match the `lang:` key (the `:` follows `lang` exactly).
+  assert.equal(frontMatterLang(fm('language: klingon')), null);
 });
