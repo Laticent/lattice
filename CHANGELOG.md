@@ -169,6 +169,17 @@ in patch versions.
   `zoom`, and holds a 9mm safe margin — one slide per page, centered, never
   cropped. Colour-only for now; a black-and-white-safe print band is the still-open
   Build B of `engineering/decisions/2026-06-14-deck-print-styling.md`.
+- **A `big-number` slide is now spoken as one phrase ("0 boxes to drag…"), not truncated to
+  just the figure.** The number + its caption are authored as a bare list (`- 0` / `  - caption`),
+  so narration ran them through the generic nested-list join and put a COLON between them —
+  "0: boxes to drag". A text-to-speech voice treats a colon right after a tiny token as a hard
+  stop: it says "zero" and drops the rest, so a hero-number slide read aloud as only its number.
+  The `big-number` component now has its own narration walker that reads `value` straight into
+  its `caption` with no colon (and keeps the eyebrow), on every surface that shares the projection
+  (CLI/PDF export, the Share → Captions download, and live Studio Present read-aloud). Only the
+  spoken string changes — the on-screen slide and caption are untouched. Fixes the
+  live-site report where a big-number slide narrated as "zero" alone. See
+  `engineering/decisions/2026-07-11-manifest-speech-contract.md` §19.
 - **A non-English deck's narration no longer gets English words injected into it.** Cadenza's
   say-as machinery — the abbreviation lexicon, number-to-words, and the fiscal/period parser
   (`FY26` → "fiscal year twenty-six", `40%` → "forty percent") — is US-English, so a deck

@@ -931,3 +931,55 @@ more defined terms than fit one slide currently overflows a single generated glo
 emulator prints its standard overflow warning and exports it clipped — the Fit Spine does NOT split a
 machine-generated slide, and its "trim content" remedy doesn't apply to one); a dedicated alphabetical
 split across slides is the follow-on.
+
+## §19 `big-number` narration — read the figure INTO its caption, no colon hard-stop (2026-07-12, from a live-site report)
+
+**Symptom (live lattice.style, mobile).** On a `big-number` hero slide (a giant "0" with the
+caption "boxes to drag — you write Markdown, the engine designs the slide."), the read-aloud
+spoke ONLY the number — "zero" — and dropped the caption. The on-screen slide and the caption
+line were both correct; only the *spoken* string was wrong.
+
+**Root cause (in the projection text, not the audio layer).** `big-number` authors the figure and
+its caption as a bare nested list — `- 0` / `  - caption` — NOT the `<strong>`-wrapped tile a
+`kpi`/`stats` uses. It carried no dedicated speech walker, so it fell through to the generic
+nested-list join (`renderListItems`), which emits `head: body` — correct for a genuine
+*label: value* item, but here it produced **"0: boxes to drag…"**. A colon immediately after a
+one-glyph token is a known TTS hazard: many voices treat it as a hard stop (as in a list label or
+a clock time) and stop after the token — so the voice said "zero" and skipped the rest. This is a
+*text-projection* defect, confirmed by rendering the real deck through the engine + projection:
+`"…0: boxes…"` before, `"…0 boxes…"` after.
+
+**Fix.** A dedicated `speakBigNumber(stage)` walker: read each `value` straight into its `caption`
+as `"value caption"` (space, no colon), drop a trailing separator glyph on the figure so no stray
+colon/dash lands between number and caption, and preserve any intro/eyebrow prose (mirroring
+`speakStats`' `pre` capture, so switching off the generic walker can't drop the eyebrow). Dispatched
+in `projectDeckToSpeech` exactly like `kpi`/`quote` (`big-number → speakBigNumber || speakGeneric`),
+so it rides the ONE shared projection (HARD RULE #1) — the fix lands on all three surfaces (CLI/PDF
+export, Share → Captions, live Studio Present) at once. Regression-pinned in
+`test/unit/transformers/prose-projection.test.js` (the reported "0 boxes" slide + the canonical "92%"
+example, each asserting no `figure:` colon and the kept eyebrow).
+
+**Scope boundary — what this does NOT fix (and why it stays separate, HARD RULE #17).** The same live
+report also described a *systematic* "reads faster / skips words" behavior across OTHER slides
+(e.g. a `stats` slide). That is a DIFFERENT layer: those slides' projected text is clean — a `stats`
+tile reads "components: 53", a colon after a full word, which is correct label:value grammar and NOT
+the tiny-token hard-stop. Rendering them through the engine confirms clean spoken strings. So the
+"faster/skips" symptom is in the read-aloud *audio/highlight* layer (the silent-estimate word clock vs.
+the actual voice), not the projection — and the plain browser voice reports no measured word onsets,
+so its highlight rides a pure estimate that its real speaking rate won't match. That surface can only
+be driven on a real device (this sandbox has no TTS and blocks browser egress), so per HARD RULE #23 it
+is **UNVERIFIED here** and is tracked as separate work, not folded into this text fix.
+
+*Logged off-path gap (HARD RULE #18, from the maker-checker pass — not fixed here).* A slide authored
+with a lifted **subtitle** (a second code-only `<p>` after the `<h2>`, the documented "Subtitle labels"
+pattern) drops that subtitle from narration/`.vtt`: `eyebrowOf` reads only the *first* `.masthead-lede`
+`<p>`, and the subtitle sits in the sibling masthead band, not `.cell-stage`, so a component walker's
+`pre` scan never sees it either. Pre-existing (unchanged by this fix) and off the big-number path, so
+it's recorded here rather than pulled into this PR.
+
+*Correction (maker-checker).* An earlier draft of this fix also added a `.masthead-lede` guard to the
+`pre`-prose scan, on the theory it prevented a double-spoken eyebrow. The checker showed that guard is a
+**no-op on real output** — the engine lifts the masthead into a SIBLING band, never inside `.cell-stage`,
+so a stage-scoped scan never touches it; the "double" only appeared in a hand-written test fixture whose
+shape the engine never produces. The guard and its claim were **reverted** — this fix is exactly the
+colon change, nothing more.

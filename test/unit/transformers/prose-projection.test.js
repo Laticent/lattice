@@ -275,6 +275,37 @@ test('speech kpi/stats: value-lead tiles REORDER to "label: value" (the motivati
 	assert.doesNotMatch(text, /\$2\.4B\. Total revenue/, 'never value-before-label');
 });
 
+test('speech big-number: figure reads INTO its caption ("0 boxes"), never a colon hard-stop ("0:")', () => {
+	// A big-number is a bare list lead (- value / - caption), NOT a `<strong>` kpi tile,
+	// so it fell through the generic nested-list "head: body" join and fronted the number
+	// with a COLON — "0: boxes to drag". A TTS voice treats a colon after a tiny token as
+	// a hard stop and speaks ONLY the number ("zero"), skipping the caption (the live
+	// lattice.style bug: "only zero is read"). It must read as one phrase, colon-free.
+	// The REAL rendered structure: the eyebrow is a bare `<p><code>` in the stage (NOT a
+	// `.masthead-lede`), so eyebrowOf misses it and the dedicated walker's `pre` capture is
+	// what keeps it — this fragment mirrors `render()`'s output for a big-number slide.
+	const secs = sections(
+		`<section data-lattice-slide data-class="big-number" class="big-number form"><div class="cell-stage"><p><code>The whole idea</code></p>
+			<ul><li>0<ul><li>boxes to drag — you write Markdown, the engine designs the slide.</li></ul></li></ul>
+		</div></section>`,
+	);
+	const [text] = speak(secs);
+	assert.match(text, /0 boxes to drag/, 'number reads straight into its caption, no colon');
+	assert.doesNotMatch(text, /0:\s/, 'never a colon hard-stop after the figure');
+	assert.match(text, /^The whole idea\./, 'the eyebrow is kept, not dropped by the dedicated walker');
+	assert.equal(text.match(/The whole idea/g).length, 1, 'the eyebrow is spoken exactly once, never doubled');
+});
+
+test('speech big-number: the canonical percent example reads "92% of the audience…", not "92%:"', () => {
+	const [text] = speak(sections(
+		`<section data-lattice-slide data-class="big-number" class="big-number"><div class="cell-stage">
+			<ul><li>92%<ul><li>of the audience remembers a single number from a deck.</li></ul></li></ul>
+		</div></section>`,
+	));
+	assert.match(text, /92% of the audience remembers a single number from a deck\./);
+	assert.doesNotMatch(text, /92%:/, 'no colon between the figure and its caption');
+});
+
 test('speech quote: verbatim guard — quote as-is then attribution as a clause', () => {
 	const secs = sections(
 		`<section data-lattice-slide data-class="quote" class="quote form"><div class="cell-stage">
