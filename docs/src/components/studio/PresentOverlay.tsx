@@ -6,7 +6,10 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
 import { createPresenterController } from '@/playground/presenter-window.js';
-import { narrateChart } from './chart-narration';
+// The chart narrators live once in lib/core/chart-narration.js (HARD RULE #1),
+// bundled to the browser via read-along-core — the SAME kernel the CLI/export
+// narrates chart slides from, so Present and the export agree by construction (#902).
+import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationIndices, presentationSet } from './lint';
 import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';

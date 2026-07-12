@@ -209,7 +209,23 @@ in patch versions.
   `section `-scoped and render uncolored once re-hosted; widening them would only enlarge that,
   so the in-article mermaid colour fix and live rendering of the spatial charts — word-cloud,
   journey, state-chart — are tracked follow-ups.)*
-
+- **A chart slide's exported captions now narrate the computed facts, matching live
+  Present exactly.** A `funnel` / `journey weighted` / `radar` / `quadrant` /
+  `state-chart` slide narrates a number that exists only in the rendered chart — a
+  funnel's stage-to-stage conversion %, the auto-fit scale an unlabeled axis is plotted
+  against, a state machine's inferred start/terminal states. Live Studio Present already
+  spoke these (its `narrateChart`); the `.vtt` export projected every chart as a visual
+  and emitted only the heading, so a chart narrated far thinner in the exported captions
+  than live. The 7 chart narrators moved into the shared kernel (`lib/core/chart-narration.js`,
+  on the shared `lib/core/slide-speech.js` base), and both the CLI/export caption sidecar
+  and Present now run the SAME kernel — so a chart slide narrates identically in Present and
+  the exported `.vtt` by construction, not by two copies agreeing (HARD RULE #1). The
+  narrators substitute at the projection precedence level, so an inline `<!-- caption: -->`,
+  a front-matter `captions:` entry, or a speaker note still wins. Closes the last narration
+  divergence for the chart family (prose parity + the empty-`.vtt` note gap shipped earlier).
+  Changes the exported `.vtt` bytes for decks with chart slides; audio is unaffected (captions
+  time off pace, not a voice). See `engineering/decisions/2026-07-11-manifest-speech-contract.md`
+  §13.6.
 - **Editing in the Studio is dramatically snappier — a warm edit's engine cost dropped
   ~15× (≈141 ms → 9 ms on a throttled phone profile).** The engine re-packed the whole
   ~1 MB theme stylesheet into its ~560 KB per-render form on *every* keystroke, even though

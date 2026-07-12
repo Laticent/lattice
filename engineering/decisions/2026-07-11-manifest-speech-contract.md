@@ -480,9 +480,10 @@ it lands; a length mismatch (autosplit) drops the projection wholesale, the same
 *Scope honesty (the chart caveat, confirmed with the user):* this unifies **prose**. Charts stay
 on their richer markdown `narrateChart` on **both** surfaces — and the EXPORT still narrates a
 chart from the visual-skipping projection, so a chart still narrates differently in Present (rich)
-vs. the exported `.vtt` (poorer). Bringing `narrateChart` into the shared kernel so the export
-gains it is the remaining unification, deferred to its own branch (it moves browser-TS chart logic
-into `lib/`, HARD RULE #1) and tracked as a follow-on issue. A second follow-on: the docs-site
+vs. the exported `.vtt` (poorer). **[RESOLVED in §13.6 — Gap 1 shipped, #902.]** Bringing
+`narrateChart` into the shared kernel so the export gains it is the remaining unification, deferred
+to its own branch (it moves browser-TS chart logic into `lib/`, HARD RULE #1) and tracked as a
+follow-on issue. A second follow-on: the docs-site
 client-side caption export (`share-export.ts shareCaptions`) is still **notes-only** — it never got
 the projection the CLI export did in Phase 2 — but changing its `.vtt` bytes is an export-artifact
 change gated on sign-off (QUALITY BAR), so it is out of this live-playback PR.
@@ -491,6 +492,56 @@ change gated on sign-off (QUALITY BAR), so it is out of this live-playback PR.
 `player-core` bundle in a DOM env (`narration-projection.test.ts`) — the exact strings Present feeds
 `buildTrack`. Live browser Present **audio** is UNVERIFIED (no TTS in CI); only the spoken text is
 claimed.
+
+### 13.6 Chart-narration parity — the export gains `narrateChart` (SHIPPED, 2026-07-12, #902 Gap 1)
+
+The chart caveat §13.5 left open is now closed. The 7 markdown chart narrators
+(`narrateFunnel`, `narrateJourneyWeighted`, `narrateRadar`, `narrateQuadrant`,
+`narrateStateChart`, `narrateStateChartInference`, `narrateChart`) moved out of the
+browser-only `docs/src/components/studio/chart-narration.ts` into the shared kernel
+`lib/core/chart-narration.js` (CJS), building on the `slideToSpeech` base that Phase 1
+(§13.5's precursor) had already moved to `lib/core/slide-speech.js`. Both surfaces now
+call the SAME kernel, so a chart slide narrates identically in Present and the exported
+`.vtt` **by construction**, not by two copies agreeing.
+
+- **Approach = Option B (owner-confirmed):** move the proven markdown narrators into the
+  kernel and have the export run them per chart slide, exactly as Present does. Rejected
+  Option A (recover chart data from the rendered DOM): the computed facts (funnel
+  conversion %, the auto-fit scale, an inferred start/terminal state) often aren't in the
+  DOM at all, and recovering them would force every chart transform to emit its data first.
+- **Home = `lib/core`, not cadenza.** The narrators are Lattice-component-specific; cadenza
+  stays a domain-agnostic, spin-off-able engine. `chart-narration.js` depends on cadenza's
+  `numberToWords` / `toSpokenText` (the CLI's existing `require('@slidewright/cadenza')`
+  pattern) plus the shared `slideToSpeech`.
+- **Browser sharing — the bundling decision.** The narration kernel rides ALONG in the
+  existing `read-along-core` bundle (`tools/build-read-along-core.js` → `read-along-core.generated.js`)
+  rather than a dedicated one: `chart-narration` needs cadenza, which the `.vtt` producer in
+  that bundle already inlines, so adding it REUSES that one cadenza copy instead of a second
+  bundle inlining another. Present (`PresentOverlay.tsx`) and `read-aloud.ts`'s `slideToSpeech`
+  re-export now import from the generated bundle (the established `@/playground/*.generated.js`
+  static-import pattern); the docs-side `chart-narration.ts` + its 953-line duplicate are
+  deleted (HARD RULE #1).
+- **Export wiring.** `lattice-emulator.js writeCaptionsSidecar` runs `narrateChart` per chart
+  slide and, when it fires (non-null), substitutes its full-slide narration for the figure
+  projection at that index — at the PROJECTION precedence level, so `mergeNarration` still lets
+  an inline caption / front-matter caption / speaker note win, exactly as Present's `narrationAt`
+  orders `note → chart → projection`. Per-authored-slide markdown is recovered from source with
+  `bakeSplits` (materialize the live `split: headings` boundaries as literal `---` via the same
+  `headingSplitPoints` the renderer splits on) + `splitSlides`, so blocks align 1:1 with the
+  rendered sections; a count mismatch (autosplit / focus-step expansion) stands chart narration
+  down, the same guard `mergeNarration` already applies to the projection.
+- **The narrators REPLACE the base narration for their slide** (not append) — identical contract
+  on both surfaces.
+
+*Verification (HARD RULE #23):* the narrators are pinned by a faithful port of the browser
+oracle to `test/unit/core/chart-narration.test.js` (node:test, 61 cases) against the CJS source;
+the export-side alignment + substitution is pinned by `test/unit/core/chart-narration-export-parity.test.js`;
+the browser bundle Present actually loads is smoke-tested by `docs/src/components/studio/chart-narration.test.ts`.
+The end-to-end `.vtt` was produced via the REAL CLI export (`node lattice-emulator.js … --captions`)
+and the chart narration confirmed present in the deck-level and per-slide `.vtt` (the export
+sign-off artifact). Live browser Present **audio** stays UNVERIFIED (no TTS in CI); only the spoken
+STRING is claimed. Real-browser Studio Present (the sandbox blocks browser egress) is UNVERIFIED for
+this change — the shared kernel guarantees the string is identical to the CLI's, which IS verified.
 
 ---
 

@@ -2656,6 +2656,25 @@ async function projectDeckSpeechFromHtml(docHtml) {
   }
 }
 
+// Per-authored-slide Markdown, aligned to the rendered sections the projection/notes
+// are indexed by (#902 Gap 1). The chart narrators read raw Markdown (list syntax,
+// `_class:` directives, backtick pills), which the rendered HTML no longer carries in
+// parseable form — so recover it from source. `bakeSplits` materializes the LIVE
+// `split: headings` boundaries as literal `---` using the SAME headingSplitPoints the
+// renderer splits on (lib/core/heading-split-core.js), so `splitSlides` then divides
+// the body EXACTLY where the engine divided it into sections — no re-implementation of
+// the split rule. Front matter is stripped first (splitSlides operates on the body).
+// The caller guards `blocks.length === projected.length`, so a deck whose render count
+// diverges (autosplit, focus-step expansion — neither reflected here) simply skips
+// chart substitution rather than misaligning.
+function perSlideMarkdownBlocks(source) {
+  const { bakeSplits } = require('./lib/core/bake-splits.js');
+  const { splitSlides } = require('./lib/core/split-slides.js');
+  const baked = bakeSplits(source); // headings-mode boundaries → literal `---`; now split: rule
+  const body = baked.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, ''); // drop front matter
+  return splitSlides(body);
+}
+
 // Read-along WebVTT sidecars from per-slide narration (--captions). Builds Cadenza
 // estimate tracks via the shared root producer, then derives one deck-level .vtt
 // (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
@@ -2690,6 +2709,36 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // rather than misalign a caption — surface that here so it isn't silent.
   if (projected.length && projected.length !== notes.length && !QUIET) {
     console.log(`Captions: slide count and rendered sections differ (${notes.length} vs ${projected.length}) — narrating authored notes only`);
+  }
+  // Chart-narration parity (#902 Gap 1). A chart slide (funnel / journey-weighted /
+  // radar / quadrant / state-chart) narrates a COMPUTED fact — funnel conversion %,
+  // the auto-fit scale an unlabeled axis is plotted against, an inferred start/terminal
+  // state — that exists only in the render, never in the figure projection's
+  // heading-only caption. Run the SAME shared narrateChart the live Studio Present uses
+  // (lib/core/chart-narration.js) per chart slide and, when it fires (non-null),
+  // substitute its FULL-slide narration for the figure projection at that index — so
+  // Present and the export narrate the chart family identically BY CONSTRUCTION. It
+  // sits at the PROJECTION precedence level (mergeNarration still lets an inline
+  // caption / front-matter caption / speaker note win), exactly as Present's narrationAt
+  // orders note → chart → projection. Aligned to the projection's rendered-section
+  // indices via the engine-faithful split (bake the `split: headings` boundaries to
+  // literal `---`, then split fence-aware); applied only when the per-slide markdown
+  // count matches the projection — autosplit / focus-step expansion shifts the section
+  // count, and mergeNarration already drops the projection there, so chart narration
+  // correctly stands down too rather than misalign.
+  if (projected.length === notes.length && projected.length > 0) {
+    try {
+      const { narrateChart } = require('./lib/core/chart-narration.js');
+      const blocks = perSlideMarkdownBlocks(rawMd);
+      if (blocks.length === projected.length) {
+        for (let i = 0; i < blocks.length; i++) {
+          const chart = narrateChart(blocks[i]);
+          if (chart) projected[i] = chart;
+        }
+      }
+    } catch (e) {
+      if (!QUIET) console.warn(`  note: chart narration skipped (${e?.message})`);
+    }
   }
   // The front-matter `captions:` map is keyed by AUTHORED slide number, but `notes` is indexed
   // per RENDERED section. Autosplit ADDS sections, so rendered-index+1 ≠ the author's number and a
