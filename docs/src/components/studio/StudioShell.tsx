@@ -606,6 +606,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || '16:9';
 	const pageNumbers = getFrontMatter(source, 'paginate') === 'true';
+	// Card lift — the opt-in "Struck" elevation (`lift: on`). Off is the default;
+	// the toggle writes / clears the canonical `on`. Per-slide `_class: lifted`/`flat`
+	// override it in the source. (resolve-lift.js.)
+	const lift = getFrontMatter(source, 'lift') === 'on';
 	// Header & footer are DECLARATIONS, not toggles: the author types the running
 	// text that rides along the top / bottom of every slide. The band is on exactly
 	// when it carries text — an empty field clears the directive (the band is off).
@@ -806,6 +810,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	}, [fm, source, finishClass]);
 	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => setFrontMatter(s, 'size', value));
 	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => setFrontMatter(s, 'paginate', pageNumbers ? null : 'true'));
+	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => setFrontMatter(s, 'lift', lift ? null : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
 	// band turns off — no separate toggle, the presence of text IS the switch.
 	const setHeaderText = (v: string) => settingsWrite('Header', (s) => setFrontMatter(s, 'header', v.trim() || null));
@@ -1598,6 +1603,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								</DropdownMenuContent>
 							</DropdownMenu>
 						</Field>
+						{/* Card lift — the opt-in "Struck" elevation. A deck-wide visual toggle
+						    alongside Finish / Brand bar; per-slide `_class: lifted`/`flat` override. */}
+						<Field label="Card lift" desc="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export."><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
 				</InspGroup>
 			{/* The deck's running marks — the header, footer, page number, and rail that
 			    repeat across slides. Header & footer are text you DECLARE (the whole point:
