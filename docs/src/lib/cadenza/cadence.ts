@@ -69,6 +69,13 @@ export function syllableCount(spoken: string): number {
     }
     const groups = w.match(/[aeiouy]+/g);
     let n = groups ? groups.length : 0;
+    if (n === 0 && w.length > 1) {
+      // A vowelless multi-letter token is an initialism the voice SPELLS OUT
+      // ("PDF" → "P D F" ≈ 3 syllables, "HTML" → 4), not a one-beat word. Real English
+      // words always carry a vowel, so this only fires on consonant clusters / initialisms.
+      total += w.length;
+      continue;
+    }
     // Silent trailing `e` ("make" = 1), but NOT a syllabic `-le` ("table" = 2).
     if (n > 1 && /[^aeiouy]e$/.test(w) && !/[^aeiouy]le$/.test(w)) n -= 1;
     total += Math.max(1, n);

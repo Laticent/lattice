@@ -78,10 +78,12 @@ and the anti-race work — a lagging highlight was never the risk; a racing/ahea
 
 Make `cadence.ts` the single pace model that feeds all three consumers:
 
-- **`estimateWordMs(spoken)`** → `SYLL_MS(rate) × syllableCount(spoken) + PER_WORD_MS`, where
-  `SYLL_MS ≈ 200 ms` at the default rate and scales inversely with the speed pref; `syllableCount`
-  is a lightweight vowel-group heuristic (count vowel runs, −1 for common silent-e, floor 1). Drop
-  the character-length weight.
+- **`estimateWordMs(spoken)`** → `SYLLABLE_MS(pace) × syllableCount(spoken)` (pure per-syllable, no
+  per-word constant — a word's floor of one syllable already covers the shortest words), where
+  `SYLLABLE_MS ≈ 200 ms` at the default pace and steps by the speed pref; `syllableCount` is a
+  lightweight vowel-group heuristic (count vowel runs, −1 for common silent-e, floor 1) with one
+  extra rule: a **vowelless multi-letter token is an initialism the voice spells out** ("PDF" → 3,
+  "HTML" → 4), not a one-beat word. Drop the character-length weight.
 - **`PAUSE_MS` → a graded boundary table** keyed by boundary *type*, not raw glyph: comma 200,
   semicolon/colon 350, sentence 550, ellipsis 650, paragraph 1000 (from §3). Punctuation maps to a
   boundary type; a colon in a `label: value` is a clause boundary (its spoken form is already a

@@ -21,6 +21,12 @@ describe('syllableCount — lightweight English heuristic', () => {
 		// "$4.2M" → "four point two million dollars": four+point+two+mil+lion+dol+lars
 		expect(syllableCount('four point two million dollars')).toBe(7);
 	});
+	it('spells out a vowelless initialism letter-by-letter', () => {
+		// The voice says "P D F" (3 beats), not one — a vowelless token is an initialism.
+		expect(syllableCount('PDF')).toBe(3);
+		expect(syllableCount('HTML')).toBe(4);
+		expect(syllableCount('x')).toBe(1); // a lone consonant is still one beat
+	});
 	it('never returns less than 1', () => {
 		expect(syllableCount('')).toBe(1);
 		expect(syllableCount('!!!')).toBe(1);

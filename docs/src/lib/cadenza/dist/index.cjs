@@ -428,6 +428,10 @@ function syllableCount(spoken) {
     }
     const groups = w.match(/[aeiouy]+/g);
     let n = groups ? groups.length : 0;
+    if (n === 0 && w.length > 1) {
+      total += w.length;
+      continue;
+    }
     if (n > 1 && /[^aeiouy]e$/.test(w) && !/[^aeiouy]le$/.test(w)) n -= 1;
     total += Math.max(1, n);
   }
