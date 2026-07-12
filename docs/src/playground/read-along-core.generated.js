@@ -33,6 +33,7 @@ var require_dist = __commonJS({
       estimateWordMs: () => estimateWordMs,
       formatTimestamp: () => formatTimestamp,
       integerToWords: () => integerToWords,
+      isEnglishLang: () => isEnglishLang,
       lookupLexicon: () => lookupLexicon,
       makeCursor: () => makeCursor,
       makeReader: () => makeReader,
@@ -284,21 +285,29 @@ var require_dist = __commonJS({
       }
       return numberToWords(Number(digits));
     }
+    function isEnglishLang(lang) {
+      const t = String(lang ?? "").trim().toLowerCase();
+      return t === "" || t === "en" || t.startsWith("en-");
+    }
     function toSpoken(display, opts = {}) {
       const tok = String(display ?? "").trim();
       if (!tok) return "";
       const domains = opts.domains ?? [];
       const acronyms = opts.acronyms;
+      const english = isEnglishLang(opts.lang);
       if (acronyms?.has(tok)) return acronyms.get(tok);
-      const whole = lookupLexicon(tok, domains);
-      if (whole !== null) return whole;
+      if (english) {
+        const whole = lookupLexicon(tok, domains);
+        if (whole !== null) return whole;
+      }
       const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
       const core = punct ? tok.slice(0, -punct.length) : tok;
-      return spokenCore(core, domains, acronyms) + punct;
+      return spokenCore(core, domains, acronyms, english) + punct;
     }
-    function spokenCore(core, domains, acronyms) {
+    function spokenCore(core, domains, acronyms, english = true) {
       if (!core) return core;
       if (acronyms?.has(core)) return acronyms.get(core);
+      if (!english) return core;
       const lex = lookupLexicon(core, domains);
       if (lex !== null) return lex;
       const fyear = core.match(/^(FY|CY)['’]?(\d{2}|\d{4})$/);
@@ -546,7 +555,7 @@ var require_dist = __commonJS({
           const charOffset = found >= 0 ? found : scan;
           if (found >= 0) scan = found + display.length;
           if (cueCharOffset < 0) cueCharOffset = charOffset;
-          const spoken = toSpoken(display, { acronyms: opts.acronyms });
+          const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang });
           const dur = estimateWordMs(spoken, pace);
           const startMs = clock;
           const endMs = startMs + dur;
@@ -614,11 +623,12 @@ var require_read_along_build = __commonJS({
     function buildReadAlong2(slideTexts, opts) {
       const pace = opts.pace ?? "moderate";
       const acronyms = opts.acronyms;
+      const lang = opts.lang;
       const slides = [];
       for (let index = 0; index < slideTexts.length; index++) {
         const text = String(slideTexts[index] ?? "").trim();
         if (!text) continue;
-        slides.push({ index, track: buildTrack(text, { pace, acronyms }) });
+        slides.push({ index, track: buildTrack(text, { pace, acronyms, lang }) });
       }
       return {
         version: "1.0",

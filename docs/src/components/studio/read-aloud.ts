@@ -149,11 +149,11 @@ function nowMs(): number {
  * warm (autoplay turned off, the slide advanced again, Present closed)
  * doesn't keep working through the rest of the slide's sentences.
  */
-export function warmNarration(text: string, signal?: AbortSignal, acronyms?: ReadonlyMap<string, string>): void {
+export function warmNarration(text: string, signal?: AbortSignal, acronyms?: ReadonlyMap<string, string>, lang?: string): void {
 	if (!text) return;
-	// MUST pass the same `acronyms` play() will use, or the warmed spoken sentences
-	// won't match the ones synthesized on playback — every prefetch a cache miss.
-	const track = buildTrack(text, { acronyms });
+	// MUST pass the same `acronyms` AND `lang` play() will use, or the warmed spoken
+	// sentences won't match the ones synthesized on playback — every prefetch a cache miss.
+	const track = buildTrack(text, { acronyms, lang });
 	if (!track.cues.length) return;
 	const sentences = track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
 	// getVoice() is the SAME memoized singleton play() uses — this never spins up
@@ -173,14 +173,16 @@ export function warmNarration(text: string, signal?: AbortSignal, acronyms?: Rea
  */
 export function useReadAloud(
 	text: string,
-	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string> },
+	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string>; lang?: string },
 ): ReadAloudState {
 	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
 	// "$4.2M" is said "four point two million dollars"), while the cursor highlights the
 	// DISPLAY words — the measured onset re-anchors the right cue, so they stay aligned.
-	// The deck's acronym registry (author pronunciations) rides into every track.
+	// The deck's acronym registry (author pronunciations) rides into every track; the
+	// deck's `lang` gates the English say-as so a non-English deck isn't anglicized (#919).
 	const acronyms = opts?.acronyms;
-	const track = React.useMemo(() => buildTrack(text, { acronyms }), [text, acronyms]);
+	const lang = opts?.lang;
+	const track = React.useMemo(() => buildTrack(text, { acronyms, lang }), [text, acronyms, lang]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
 	const [progress, setProgress] = React.useState(0);

@@ -696,9 +696,9 @@ not chase the long tail.
 
 **Deferred to the captions/discoverability follow-up (§16 — SHIPPED):** Layer 1
 (per-slide `<!-- caption -->` + a front-matter `captions:` map) and the discovery lint
-shipped in §16 below. Still open: the glossary surface that consumes `definition`, and a
-locale guard. Audio remains UNVERIFIED (no TTS in CI) — only the display→spoken string
-is claimed (HARD RULE #23).
+shipped in §16 below. The locale guard **shipped** in §17 below (#919). Still open: the
+glossary surface that consumes `definition`. Audio remains UNVERIFIED (no TTS in CI) —
+only the display→spoken string is claimed (HARD RULE #23).
 
 ## §16 Captions Layer 1 — per-slide caption + front-matter map + discovery lint (2026-07-11, SHIPPED)
 
@@ -823,3 +823,50 @@ that was *masking* a note lets the **note** narrate — call out in the flag hel
 Studio note field shows an override hint when a caption is set; (2) **`describe:` is deliberately NOT a
 strippable channel** — it is a screen-reader accessibility equivalent (WCAG), not private presenter
 content, so `--strip-notes`/`--strip-captions` leave it intact by design (no `--strip-descriptions`).
+
+## §17 Locale guard — don't anglicize a non-English deck's narration (2026-07-12, SHIPPED, #919)
+
+The §16 deferral is closed. Cadenza's say-as machinery — the built-in lexicon (`lexicon.ts`),
+`numberToWords`, and the fiscal/period parser (`FY26` → "fiscal year twenty-six", `40%` → "forty
+percent", `1,024` → "one thousand twenty-four") — is all **US-English**. Applied to a deck authored
+in another language it silently injects English words into the spoken narration (and shifts caption
+timing, since a longer spoken form takes longer). A defensive fix: no current user hits it (English
+decks are the norm), so priority:low, but the mangling is real once a non-English deck exists.
+
+**Signal (owner-confirmed): reuse the Marp `lang:` front-matter directive.** It already exists in the
+engine's directive allow-list (`lib/engine/directives.js`) and sets the document language for
+accessibility, so the deck's language lives in one authored place — no new key to learn or lint.
+`isEnglishLang(lang)` (Cadenza's own policy): absent / `en` / any `en-*` region → English (the default,
+**byte-identical to today**); anything else → non-English → the guard fires. Rejected a dedicated
+`narration-locale:` key (redundant — it would almost always equal `lang:`) and inferring from the
+voice/model (the export caption path is voice-agnostic — it times off `pace`, not a voice).
+
+**Behavior (owner-confirmed): bypass the English machinery, KEEP the author registry.** In
+`toSpoken`, a non-English deck skips the built-in lexicon + fiscal parser + number-to-words and passes
+the display token through — but the author's own `acronyms:` registry still applies (it fires first,
+on the whole token AND the punctuation-peeled core, so `CRO` and `CRO,` both expand). The distinction
+is deliberate: "don't inject English WE chose," not "strip the author's own expansions" (they'd author
+those in their language). English decks reach none of this — the `english` branch is the unchanged
+code path.
+
+**Threading (HARD RULE #1).** The language lives once: `frontMatterLang(md)` in
+`lib/core/resolve-captions.mjs` (re-exported to the docs via the shared shim), symmetric with
+`acronymSpokenMap`/`frontMatterCaptions`. Cadenza owns the *policy* (`isEnglishLang`) since it decides
+which decks its English say-as applies to; the producers just extract `lang` and pass the raw string
+through `buildTrack` → `toSpoken`. All three caption producers thread it: the CLI/PDF export
+(`writeCaptionsSidecar` → `buildReadAlong`), the docs-site in-browser `.vtt` download
+(`share-export.ts shareCaptions`), and live Studio Present (`read-aloud.ts` `useReadAloud`/
+`warmNarration`, fed by `PresentOverlay`) — so all three agree.
+
+*Verification (HARD RULE #23):* pinned by `isEnglishLang`/`toSpoken` guard cases in cadenza's
+`normalize.test.ts` (non-English tokens pass through; English unchanged; author registry honored in
+both), `frontMatterLang` cases in `resolve-captions.test.js`, and an end-to-end real-CLI export of a
+`lang: fr` deck (its `.vtt` reads the authored French verbatim; the same deck without `lang:` expands
+`FY26`/`40%` to English — a byte difference in the caption timing). Audio stays UNVERIFIED (no TTS in
+CI) — only the spoken STRING is claimed. Real-browser Studio Present is UNVERIFIED (sandbox blocks
+egress); the shared kernel makes its spoken string identical to the CLI's, which IS verified.
+
+*Out of scope (noted, not fixed):* the chart narrators (`lib/core/chart-narration.js`) emit English
+prose ("forty percent of the prior stage") by construction — they are English-only pilots (§13.6), a
+separate layer from this lexicon/normalizer guard. A non-English deck's chart slide would still narrate
+those computed facts in English; locale-aware narrator templates are a deeper, separate follow-up.

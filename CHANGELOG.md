@@ -152,6 +152,18 @@ in patch versions.
 
 ### Fixed
 
+- **A non-English deck's narration no longer gets English words injected into it.** Cadenza's
+  say-as machinery — the abbreviation lexicon, number-to-words, and the fiscal/period parser
+  (`FY26` → "fiscal year twenty-six", `40%` → "forty percent") — is US-English, so a deck
+  authored in another language had English spoken into its captions (and its caption timing
+  skewed). Set the Marp `lang:` front-matter directive to a non-English tag (e.g. `lang: fr`)
+  and the English lexicon + number/period expansion are bypassed — the text is narrated as
+  authored. Your own `acronyms:` registry is still honored (you own those expansions).
+  English decks (`lang:` absent, `en`, or any `en-*`) are byte-identical to before. Threaded
+  through all three caption producers — the CLI/PDF export, the docs-site Share → Captions
+  download, and live Studio Present read-aloud — so they agree. Audio is unaffected in CI
+  (no TTS); only the spoken string is claimed. See
+  `engineering/decisions/2026-07-11-manifest-speech-contract.md` §17.
 - **The docs-site "Share → Captions" download now narrates a note-free deck instead of
   producing an empty `.vtt`.** The in-browser caption download built the track from speaker
   notes ONLY, so a deck with no notes exported an empty caption file — while the CLI

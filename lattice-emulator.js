@@ -2677,10 +2677,12 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // the shared resolver so both producers can't drift (#904).
   let acronyms;
   let fmCaptions;
+  let lang; // deck language (Marp `lang:`); a non-English deck bypasses English say-as (#919)
   try {
-    const { acronymSpokenMap, frontMatterCaptions } = await import('./lib/core/resolve-captions.mjs');
+    const { acronymSpokenMap, frontMatterCaptions, frontMatterLang } = await import('./lib/core/resolve-captions.mjs');
     acronyms = acronymSpokenMap(rawMd);
     fmCaptions = frontMatterCaptions(rawMd);
+    lang = frontMatterLang(rawMd);
   } catch (e) {
     if (!QUIET) console.warn(`  note: narration front-matter parse failed (${e?.message})`);
   }
@@ -2760,6 +2762,7 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
     pace: 'moderate',
     acronyms,
+    lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
   });
   if (!readAlong.slides.length) {
     if (!QUIET) console.log('Captions: nothing to narrate (no notes, no projectable slide prose) — no .vtt written');

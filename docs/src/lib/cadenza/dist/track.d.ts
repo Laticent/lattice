@@ -27,6 +27,9 @@ export interface BuildOptions {
     pace?: Pace;
     /** The deck's author-supplied acronym registry (term → spoken expansion). Author wins. */
     acronyms?: AcronymRegistry;
+    /** The deck's language tag (Marp `lang:`). A non-English deck bypasses the English
+     *  lexicon + number/period expansion (the author registry still applies) — #919. */
+    lang?: string;
 }
 /**
  * Build the estimate-baseline timeline from text. Deterministic and offline: this

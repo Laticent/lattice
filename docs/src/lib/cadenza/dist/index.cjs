@@ -27,6 +27,7 @@ __export(index_exports, {
   estimateWordMs: () => estimateWordMs,
   formatTimestamp: () => formatTimestamp,
   integerToWords: () => integerToWords,
+  isEnglishLang: () => isEnglishLang,
   lookupLexicon: () => lookupLexicon,
   makeCursor: () => makeCursor,
   makeReader: () => makeReader,
@@ -284,21 +285,29 @@ function yearWords(digits) {
   }
   return numberToWords(Number(digits));
 }
+function isEnglishLang(lang) {
+  const t = String(lang ?? "").trim().toLowerCase();
+  return t === "" || t === "en" || t.startsWith("en-");
+}
 function toSpoken(display, opts = {}) {
   const tok = String(display ?? "").trim();
   if (!tok) return "";
   const domains = opts.domains ?? [];
   const acronyms = opts.acronyms;
+  const english = isEnglishLang(opts.lang);
   if (acronyms?.has(tok)) return acronyms.get(tok);
-  const whole = lookupLexicon(tok, domains);
-  if (whole !== null) return whole;
+  if (english) {
+    const whole = lookupLexicon(tok, domains);
+    if (whole !== null) return whole;
+  }
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
   const core = punct ? tok.slice(0, -punct.length) : tok;
-  return spokenCore(core, domains, acronyms) + punct;
+  return spokenCore(core, domains, acronyms, english) + punct;
 }
-function spokenCore(core, domains, acronyms) {
+function spokenCore(core, domains, acronyms, english = true) {
   if (!core) return core;
   if (acronyms?.has(core)) return acronyms.get(core);
+  if (!english) return core;
   const lex = lookupLexicon(core, domains);
   if (lex !== null) return lex;
   const fyear = core.match(/^(FY|CY)['’]?(\d{2}|\d{4})$/);
@@ -554,7 +563,7 @@ function buildTrack(text, opts = {}) {
       const charOffset = found >= 0 ? found : scan;
       if (found >= 0) scan = found + display.length;
       if (cueCharOffset < 0) cueCharOffset = charOffset;
-      const spoken = toSpoken(display, { acronyms: opts.acronyms });
+      const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang });
       const dur = estimateWordMs(spoken, pace);
       const startMs = clock;
       const endMs = startMs + dur;
@@ -622,6 +631,7 @@ ${escapeCueText(cue.display)}
   estimateWordMs,
   formatTimestamp,
   integerToWords,
+  isEnglishLang,
   lookupLexicon,
   makeCursor,
   makeReader,

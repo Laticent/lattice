@@ -1,6 +1,44 @@
 import { describe, expect, it } from 'vitest';
 import { lookupLexicon } from './lexicon';
-import { integerToWords, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms } from './normalize';
+import { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms } from './normalize';
+
+// The locale guard (#919): Cadenza's say-as (lexicon, number-to-words, fiscal/period parser)
+// is US-English, so a non-English deck bypasses it — the display token passes through — while
+// the author's own `acronyms:` registry is honored in every language. English decks (absent or
+// `en`/`en-*`) are byte-identical to today.
+describe('isEnglishLang', () => {
+	it('treats absent / empty / en / en-* as English (the default)', () => {
+		for (const t of [undefined, '', 'en', 'EN', 'en-US', 'en-GB', ' En-us ']) expect(isEnglishLang(t)).toBe(true);
+	});
+	it('treats any other tag as non-English', () => {
+		for (const t of ['fr', 'de', 'es', 'ja', 'fr-FR', 'zh-Hans', 'pt-BR']) expect(isEnglishLang(t)).toBe(false);
+	});
+});
+
+describe('toSpoken — locale guard', () => {
+	it('non-English deck: fiscal / percent / number tokens pass through unexpanded', () => {
+		expect(toSpoken('FY26', { lang: 'fr' })).toBe('FY26');
+		expect(toSpoken('40%', { lang: 'fr' })).toBe('40%');
+		expect(toSpoken('1,024', { lang: 'de' })).toBe('1,024');
+		expect(toSpoken('$4.2M', { lang: 'es' })).toBe('$4.2M');
+	});
+	it('English deck (absent or en) still expands — byte-identical to today', () => {
+		expect(toSpoken('FY26')).toBe('fiscal year twenty-six');
+		expect(toSpoken('FY26', { lang: 'en' })).toBe('fiscal year twenty-six');
+		expect(toSpoken('FY26', { lang: 'en-US' })).toBe('fiscal year twenty-six');
+		expect(toSpoken('40%', { lang: 'en' })).toBe('forty percent');
+	});
+	it('honors the author acronym registry even in a non-English deck (author owns it)', () => {
+		const acronyms = new Map([['CRO', 'directeur des revenus']]);
+		expect(toSpoken('CRO', { lang: 'fr', acronyms })).toBe('directeur des revenus');
+		// …including a punctuation-adjacent token (peel + core lookup still runs).
+		expect(toSpoken('CRO,', { lang: 'fr', acronyms })).toBe('directeur des revenus,');
+	});
+	it('toSpokenText applies the guard across a whole non-English sentence', () => {
+		expect(toSpokenText('CA FY26 +40%', { lang: 'fr' })).toBe('CA FY26 +40%');
+		expect(toSpokenText('CA FY26 +40%')).not.toBe('CA FY26 +40%'); // English expands it
+	});
+});
 
 describe('numberToWords', () => {
   it('reads integers with scale groups', () => {
