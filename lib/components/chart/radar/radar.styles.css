@@ -134,13 +134,13 @@
   --radar-tick-size:        9px;  /* raised from 6.5px (≈4.6pt at desk) */
 }
 :is(section.radar, figure.chart-frame) .radar-axis-label {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-family: var(--font-body);
   font-size: var(--radar-axis-label-size);
   font-weight: 600;
 }
 :is(section.radar, figure.chart-frame) .radar-tick {
-  fill: var(--text-muted);
+  fill: var(--viz-ink-muted);
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--radar-tick-size);
   /* font-weight raised to 600 (matching the cover-variant lift) so faint
@@ -166,7 +166,7 @@
 }
 :is(section.radar, figure.chart-frame) .radar-dot {
   fill: var(--series-color);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 1;
 }
 
@@ -180,7 +180,7 @@
 /* ── target: actual vs a reference polygon, per-axis gap segments ─────── */
 :is(section.radar, figure.chart-frame) .radar-poly--target {
   fill: none;
-  stroke: var(--text-muted);
+  stroke: var(--viz-ink-muted);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
@@ -202,7 +202,7 @@
 /* ── delta: before → after, per-axis change segments ──────────────────── */
 :is(section.radar, figure.chart-frame) .radar-poly--before {
   fill: none;
-  stroke: var(--text-muted);
+  stroke: var(--viz-ink-muted);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }

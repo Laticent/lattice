@@ -65,7 +65,7 @@
  * the same crisp-divider idiom funnel uses between bands. */
 :is(section.map, figure.chart-frame) .map-region {
   fill: var(--chart-map-base);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 0.6;
   stroke-linejoin: round;
 }

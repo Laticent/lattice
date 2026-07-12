@@ -298,6 +298,30 @@ section.word-cloud,
 }
 /* <<< chart-palette-recipe : end <<< */
 
+/* >>> chart-palette-recipe [diagram] : shared visualization ink/surface (build-time input) >>>
+ * Structural viz tokens read by SVG PAINTS across BOTH charts and Mermaid diagrams —
+ * label ink and knockout surfaces. An SVG paint must NEVER read a raw core engine token
+ * directly (`fill: var(--text-heading)`): on old WebKit the core token's `light-dark()`
+ * :root definition is dropped invalid-at-computed-value and the paint falls to black (the
+ * exact D-class bug the static palette exists to end). So every SVG paint reads one of
+ * these bounded `--viz-*` tokens instead, and the compiler flattens them per plane.
+ *
+ * They ALIAS the core tokens 1:1 — a plumbing rename with ZERO visual change: each
+ * resolves to exactly the literal its core token resolves to. Routed to the DIAGRAM plane
+ * group because they land on the FULL viz-root union (.chart-frame, section.diagram,
+ * .lp-figure) — Mermaid on a bare section.diagram reads them too, not only chart-frames.
+ * See engineering/decisions/2026-07-12-unified-viz-frame.md §Phase A. */
+.chart-frame, section.diagram, .lp-figure {
+  --viz-ink: var(--text-heading);          /* primary SVG label ink */
+  --viz-ink-soft: var(--text-body);        /* secondary SVG label */
+  --viz-ink-muted: var(--text-muted);      /* muted label / hairline swatch stroke */
+  --viz-surface: var(--bg);                /* knockout stroke / row surface */
+  --viz-surface-alt: var(--bg-alt);        /* alt row / treemap surface */
+  --viz-hairline: var(--border);           /* plot grid / axis rule */
+  --viz-accent: var(--accent);             /* highlighted axis / plot accent */
+}
+/* <<< chart-palette-recipe : end <<< */
+
 /* ── Non-colour chart constants — SHIPPED as-is. calc/clamp/cqi predate
  *    color-mix by a decade and are safe on every engine, so these stay OUT of the
  *    compiled recipe above and ride the base bundle unchanged. */
@@ -700,15 +724,15 @@ section.chart-frame .chart-status[data-s="deferred"] {
 :is(section.chart-frame, figure.chart-frame) .chart-key-label,
 :is(section.chart-frame, figure.chart-frame) .chart-key-head {
   font-family: var(--font-label);
-  fill: var(--text-body);
+  fill: var(--viz-ink-soft);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-key-head {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-weight: 600;
 }
 :is(section.chart-frame, figure.chart-frame) .chart-key-value {
   font-family: var(--font-mono);
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -728,10 +752,10 @@ section.chart-frame .chart-status[data-s="deferred"] {
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="5"] { fill: var(--chart-cat-6-solid); stroke: var(--chart-cat-6-ink); }
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="6"] { fill: var(--chart-cat-7-solid); stroke: var(--chart-cat-7-ink); }
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="7"] { fill: var(--chart-cat-8-solid); stroke: var(--chart-cat-8-ink); }
-:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-muted] { fill: var(--chart-muted-key); stroke: var(--text-muted); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-muted] { fill: var(--chart-muted-key); stroke: var(--viz-ink-muted); }
 /* The "unmatched" ("?") chip — a transparent swatch with a quiet outline. Via a CSS rule,
  * not an inline `stroke="var()"` presentation attr (flaky on old WebKit → black; D2). */
-:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-unmatched] { fill: transparent; stroke: var(--text-muted); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-unmatched] { fill: transparent; stroke: var(--viz-ink-muted); }
 
 /* SVG-NATIVE FIGURE SIZING — radar / map / cohort-quadrant. Each figure now holds
  * ONE self-contained <svg> (diagram + spine + key in one viewBox, emitted by

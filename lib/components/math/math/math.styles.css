@@ -699,44 +699,44 @@ section .functionplot .function-plot {
   background: transparent;
 }
 section .functionplot .function-plot .domain {
-  stroke: var(--text-muted) !important;
+  stroke: var(--viz-ink-muted) !important;
   opacity: 0.6 !important;
 }
 section .functionplot .function-plot .tick line {
-  stroke: var(--border) !important;
+  stroke: var(--viz-hairline) !important;
 }
 section .functionplot .function-plot .tick text {
-  fill: var(--text-muted) !important;
+  fill: var(--viz-ink-muted) !important;
   font-size: var(--fs-meta);
 }
 section .functionplot .function-plot .axis-label,
 section .functionplot .function-plot .x.axis-label,
 section .functionplot .function-plot .y.axis-label {
-  fill: var(--text-heading) !important;
+  fill: var(--viz-ink) !important;
   font-family: var(--font-body);
   font-size: var(--fs-meta);
   font-weight: 600;
 }
 section .functionplot .function-plot .line-0 {
-  stroke: var(--accent) !important;
+  stroke: var(--viz-accent) !important;
   stroke-width: 2.5 !important;
 }
 section .functionplot .function-plot .line-1 {
-  stroke: var(--cat-4-mark, var(--text-heading)) !important;
+  stroke: var(--cat-4-mark, var(--viz-ink)) !important;
   stroke-width: 2.5 !important;
 }
 section .functionplot .function-plot .line-2 {
-  stroke: var(--cat-7-mark, var(--text-muted)) !important;
+  stroke: var(--cat-7-mark, var(--viz-ink-muted)) !important;
   stroke-width: 2.5 !important;
 }
 section .functionplot .function-plot :is(.line-3, .line-4, .line-5) {
-  stroke: var(--text-muted) !important;
+  stroke: var(--viz-ink-muted) !important;
   stroke-width: 2 !important;
 }
 section .functionplot .function-plot .annotations .annotation,
 section .functionplot .function-plot .annotations text {
-  fill: var(--text-muted) !important;
-  stroke: var(--text-muted) !important;
+  fill: var(--viz-ink-muted) !important;
+  stroke: var(--viz-ink-muted) !important;
 }
 section .functionplot-error {
   color: var(--warn);

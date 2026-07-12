@@ -120,8 +120,16 @@ const DEFAULT_PLANE_SELECTOR = 'section.chart-frame, section.word-cloud, section
  *                            chart-frame; the SVG inherits from the section).
  *    • `.lp-figure`        — the Read·Article re-host figures, incl. the bare
  *                            `figure.lp-figure` a Mermaid diagram re-hosts into.
+ *    • `section.math`      — the function-plot SVG (math.canvas) reads the shared `--viz-*`
+ *                            structural ink/surface tokens; math is NOT a chart-frame.
+ *    • `section.word-cloud`— completes the viz-root union (Phase A convergence toward the
+ *                            unified `.viz-frame`; carries the shared `--viz-*` set too).
+ *  This is now the FULL viz-root union — every element a visualization renders on. The
+ *  shared `--viz-*` structural tokens (chart-family.css `[diagram]` recipe region) are the
+ *  bounded ink/surface an SVG paint reads INSTEAD of a raw core token, so no SVG paint
+ *  reads `--text-*`/`--bg`/`--accent`/`--border` directly (unified-viz-frame.md §Phase A).
  *  Everything OUTSIDE this union keeps the theme's native `:root` core tokens, untouched. */
-const DIAGRAM_PLANE_SELECTOR = '.chart-frame, section.diagram, .lp-figure';
+const DIAGRAM_PLANE_SELECTOR = '.chart-frame, section.diagram, .lp-figure, section.math, section.word-cloud';
 
 /** Build the subject-anchored OPPOSITE-scheme union for a plane group. `subjects` are the
  *  FULL simple selectors the custom props must land ON (tree-depth inheritance beats
@@ -412,7 +420,7 @@ function chartPaletteCssForTheme(themeName, baseCss) {
   const themeCss = resolveThemeCascade(themeName);
   const { chart, diagram, declaredDark } = buildPlanes(themeCss, baseCss);
   return serializeGroup(chart, declaredDark, DEFAULT_PLANE_SELECTOR, ['.chart-frame', '.word-cloud', '.math'])
-    + serializeGroup(diagram, declaredDark, DIAGRAM_PLANE_SELECTOR, ['.chart-frame', 'section.diagram', '.lp-figure']);
+    + serializeGroup(diagram, declaredDark, DIAGRAM_PLANE_SELECTOR, ['.chart-frame', 'section.diagram', '.lp-figure', 'section.math', 'section.word-cloud']);
 }
 
 /** The recipe token names — the compile-time contract (Gate 3: the compiled planes

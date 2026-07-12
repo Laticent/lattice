@@ -211,14 +211,14 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
   --quadrant-tick-size: 10px;  /* raised from 8px (≈5.7pt at desk) */
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-axis-name {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-family: var(--font-body);
   font-size: var(--quadrant-axis-size);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-tick {
-  fill: var(--text-muted);
+  fill: var(--viz-ink-muted);
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--quadrant-tick-size);
   font-weight: 500;
@@ -252,7 +252,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 /* ── Scatter dots + per-dot labels ────────────────────────────────────── */
 :is(section.quadrant, figure.chart-frame) .quadrant-dot {
   fill: var(--cell-ink);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 2;
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-dot-label {
@@ -272,7 +272,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * cN-light bubble fill and above it on the canvas (cN-dark would not clear
  * AA on its own same-hue tint). */
 :is(section.quadrant, figure.chart-frame) .quadrant-bubble-value {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-family: var(--font-body);
   font-size: 8.5px;
   font-weight: 700;
@@ -300,7 +300,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-trail-after {
   fill: var(--cell-ink);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 1.5;
 }
 

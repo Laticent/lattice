@@ -5,7 +5,7 @@ summary: Charts and Mermaid diagrams are the same presentation object, so a sing
 
 # Unified visualization frame — one `.viz-frame`, charts and diagrams as citizens
 
-**Date** 2026-07-12 · **Status** PROPOSED (design; **materially revised after adversarial review**, see §Adversarial review) · **Extends** `2026-07-12-chart-color-static-palette.md`
+**Date** 2026-07-12 · **Status** Phase A LANDED (SVG-paint token hygiene + gate); Phase B PROPOSED (the `.viz-frame` merge, decided later) · **Extends** `2026-07-12-chart-color-static-palette.md`
 
 > One-line: a framed chart and a Mermaid slide are the same presentation object. The durable
 > win is making **every SVG paint read only a designed viz token, never a raw core engine
@@ -143,11 +143,45 @@ author." Still worth doing, but on its own merits and correctly costed:
   re-verification (HARD RULE #20 — local breathing room is `padding`/`gap`, never `margin`),
   and **export sign-off**.
 
+## Phase A — LANDED (2026-07-12)
+
+Implemented as a **zero-visual-change** plumbing migration. Correction to the earlier draft:
+"**0 core tokens in the compiled plane**" was a *misconceived* goal. The shipped theme `:root`
+ships raw `light-dark()`, so the flat core literals on the viz-root plane are what keep
+`journey`/`roadmap` **HTML** text old-browser-safe (their `:root --text-body` is dropped; they
+read the flattened value off the `.chart-frame` plane). Removing core would *break* that. So
+core legitimately **stays** in the plane for HTML chrome — the real, correct deliverable is the
+**SVG-paint invariant**, which is narrower and is what kills the fragile surface (SVG drops
+`light-dark` → black; HTML does not).
+
+What landed:
+- **One shared `--viz-*` structural namespace** (7 tokens), not the draft's split
+  `--diagram-text`/`--chart-text` — because the SVG core reads are the *same* structural needs
+  (label ink + knockout surface) on both sides. Defined in a `[diagram]`-group recipe region in
+  `chart-family.css`, **aliased 1:1 to core** (`--viz-ink: var(--text-heading)`, `-ink-soft`→body,
+  `-ink-muted`→muted, `--viz-surface`→bg, `-surface-alt`→bg-alt, `--viz-hairline`→border,
+  `--viz-accent`→accent). The compiler resolves each to *exactly* its core literal → provably no
+  visual change.
+- **Every SVG paint repointed** to `--viz-*`: `mermaid.css` (7 diagram types), the chart-key
+  labels + swatch strokes (`chart-family.css`), funnel, map, quadrant, radar, `state-chart`'s
+  node-fill token, and math's function-plot (incl. its `var(--cat-N, core)` fallbacks). Zero
+  SVG-paint core reads remain engine-wide.
+- **The viz-root plane selector widened to the full union** — added `section.math` and
+  `section.word-cloud` so the shared `--viz-*` reach math's function-plot SVG (math is not a
+  chart-frame). This is the first concrete step of the Phase B convergence.
+- **Gate (O1) landed** — `checkChartPaintFlatness` part (3) in `check-ownership.js`: an SVG paint
+  property (`fill`/`stroke`/`stop-color`/`flood-color`) reading a raw core token
+  (`CORE_ENGINE_COLOR_TOKENS`) fails `build:check`. HTML chrome (`color`/`background`/`border`) and
+  the recipe-region aliases are exempt. Verified non-vacuous (catches a real violation).
+- **Verified:** compiler 11/11, unit 3538/0, lint + build:check green; **0 differing pixels across
+  45 pages** (charts + Mermaid + math) before vs after.
+
 ## The concrete win (corrected)
 
 | Surface | Today | After Phase A | After Phase B |
 |---|---|---|---|
-| Raw-core tokens in a compiled plane | ~8-10 (SVG reads core) | **0** (SVG reads only viz tokens) | 0 |
+| SVG paints reading raw core | ~30 across 8 files | **0** (gated) | 0 |
+| Core tokens in the plane | present (SVG + HTML driven) | present (HTML-chrome-driven only — *correct*, keeps journey/roadmap HTML old-safe) | unchanged |
 | Compiler plane groups | 2 | 2 | **1** |
 | Layout foundations | 2 (`.chart-frame` + `section.diagram`) | 2 | **1** (`.viz-frame`) |
 | diagram stretch overrides | 3 (one load-bearing) | 3 | reconciled (Form-scoped kept) |

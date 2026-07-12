@@ -1707,6 +1707,13 @@ const CHART_PAINT_DIRS = [
 // transform/filter/clip-path. `in oklab,` (a color-mix SPACE) is not matched — only `oklab(` is.
 const MODERN_COLOR_FN = /\b(?:color-mix|light-dark|oklch|oklab|lab|lch|hwb|color)\(|\b(?:rgba?|hsla?)\(\s*from\b/i;
 
+// The raw CORE engine colour tokens an SVG paint must NEVER read directly (Phase A viz hygiene,
+// gate part 3). These are authored `--t: light-dark(L,D)` at `:root` and DROPPED by old WebKit,
+// so an SVG paint reading one falls to black; the designed `--viz-*` aliases are re-emitted flat
+// on the viz-root plane instead. Kept in sync with base.tokens.css's core colour group — a new
+// core colour token read by an SVG paint must be added here (and given a `--viz-*` alias).
+const CORE_ENGINE_COLOR_TOKENS = /^--(?:bg|bg-alt|text-heading|text-body|text-secondary|text-muted|accent|accent-ink|border|pass|warn|fail|info|link|link-visited)$/;
+
 // Remove each `>>> chart-palette-recipe … <<< chart-palette-recipe` region — the whole enclosing
 // comment span (the sentinels live inside `/* … */`), so the recipe's build-time color-mix SOURCE
 // is not mistaken for a shipped paint.
@@ -1779,6 +1786,38 @@ function checkChartPaintFlatness(errors) {
             `function in a PRESENTATION ATTRIBUTE (flaky on old WebKit → black). Move it to a CSS rule ` +
             `(\`${m[1]}: var(--token)\` keyed on a class) — CSS var() is old-safe.`,
           );
+        }
+      }
+    }
+  }
+  // (3) VIZ PAINT-TOKEN HYGIENE (unified-viz-frame.md §Phase A) — an SVG paint PROPERTY
+  // (fill/stroke/stop-color/flood-color) must read only a bounded, DESIGNED viz token, NEVER a
+  // raw core engine token (`fill: var(--text-heading)`). On old WebKit the core token's `:root`
+  // `light-dark()` definition is dropped invalid-at-computed-value and the paint falls to black;
+  // the designed viz tokens are re-emitted flat on the viz-root plane, the core tokens are not
+  // (they stay live `:root` for HTML chrome). SVG paints read `--viz-ink`/`--viz-surface`/… (the
+  // `[diagram]` recipe region aliases them 1:1 to core, so it is ZERO visual change). HTML chrome
+  // (color/background/border) may still read core freely — HTML is not old-WebKit-fragile — so
+  // this scan is restricted to the four SVG paint properties. The recipe regions (where the viz
+  // aliases legitimately reference core) are stripped, so they are exempt.
+  for (const dir of CHART_PAINT_DIRS) {
+    if (!fs.existsSync(dir)) continue;
+    for (const file of listCssFiles(dir)) {
+      const rel = path.relative(ROOT, file);
+      const css = stripComments(stripRecipeRegions(fs.readFileSync(file, 'utf8')));
+      // Property anchored on a non-`-` boundary so a CUSTOM PROPERTY def (`--state-node-fill:`)
+      // is not mistaken for the SVG `fill:` property; `\s*:` right after excludes `stroke-width:`.
+      for (const m of css.matchAll(/(?:^|[;{}\s])(fill|stroke|stop-color|flood-color)\s*:\s*([^;{}]*)/g)) {
+        for (const v of m[2].matchAll(/var\(\s*(--[a-z0-9-]+)/gi)) {
+          if (CORE_ENGINE_COLOR_TOKENS.test(v[1])) {
+            errors.push(
+              `viz paint hygiene: ${rel} — \`${m[1]}: … ${v[1]} …\` reads a RAW CORE engine token in an ` +
+              `SVG paint (dropped by old WebKit → black). Read the bounded viz alias instead ` +
+              `(--text-heading→--viz-ink, --text-body→--viz-ink-soft, --text-muted→--viz-ink-muted, ` +
+              `--bg→--viz-surface, --bg-alt→--viz-surface-alt, --border→--viz-hairline, ` +
+              `--accent→--viz-accent). See 2026-07-12-unified-viz-frame.md §Phase A.`,
+            );
+          }
         }
       }
     }

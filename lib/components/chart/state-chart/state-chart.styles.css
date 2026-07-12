@@ -34,7 +34,7 @@
  */
 
 section.state-chart {
-  --state-node-fill: var(--bg-alt);
+  --state-node-fill: var(--viz-surface-alt);
   --state-node-ink: var(--text-heading);
   --state-node-stroke: var(--diagram-stroke);
   --state-edge: var(--diagram-line);

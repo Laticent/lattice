@@ -36,7 +36,7 @@
  * as piechart.styles.css; see the gotchas note on nth-of-type vs nth-child.) */
 :is(section.funnel, figure.chart-frame) .funnel-band {
   fill: var(--chart-cat-1-solid);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 0.75;
 }
 :is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: var(--chart-cat-1-solid); }
@@ -48,7 +48,7 @@
 
 /* Stage label — left column, right-aligned to the band. */
 :is(section.funnel, figure.chart-frame) .funnel-label {
-  fill: var(--text-body);
+  fill: var(--viz-ink-soft);
   font-family: var(--font-body);
   font-size: 8.5px;
   text-anchor: end;
@@ -57,7 +57,7 @@
 
 /* Value — right column, left-aligned, the figure that matters. */
 :is(section.funnel, figure.chart-frame) .funnel-value {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 700;
@@ -67,7 +67,7 @@
 
 /* Conversion rate — small, muted, centred in the gap below each band. */
 :is(section.funnel, figure.chart-frame) .funnel-conv {
-  fill: var(--text-muted);
+  fill: var(--viz-ink-muted);
   font-family: var(--font-mono);
   font-size: 6.5px;
   text-anchor: middle;

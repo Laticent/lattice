@@ -3660,7 +3660,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
  * as piechart.styles.css; see the gotchas note on nth-of-type vs nth-child.) */
 :is(section.funnel, figure.chart-frame) .funnel-band {
   fill: var(--chart-cat-1-solid);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 0.75;
 }
 :is(section.funnel, figure.chart-frame) .funnel-band:nth-of-type(6n + 1) { fill: var(--chart-cat-1-solid); }
@@ -3672,7 +3672,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
 
 /* Stage label — left column, right-aligned to the band. */
 :is(section.funnel, figure.chart-frame) .funnel-label {
-  fill: var(--text-body);
+  fill: var(--viz-ink-soft);
   font-family: var(--font-body);
   font-size: 8.5px;
   text-anchor: end;
@@ -3681,7 +3681,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
 
 /* Value — right column, left-aligned, the figure that matters. */
 :is(section.funnel, figure.chart-frame) .funnel-value {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-family: var(--font-display);
   font-size: 9px;
   font-weight: 700;
@@ -3691,7 +3691,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
 
 /* Conversion rate — small, muted, centred in the gap below each band. */
 :is(section.funnel, figure.chart-frame) .funnel-conv {
-  fill: var(--text-muted);
+  fill: var(--viz-ink-muted);
   font-family: var(--font-mono);
   font-size: 6.5px;
   text-anchor: middle;
@@ -7531,7 +7531,7 @@ section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark
  * the same crisp-divider idiom funnel uses between bands. */
 :is(section.map, figure.chart-frame) .map-region {
   fill: var(--chart-map-base);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 0.6;
   stroke-linejoin: round;
 }
@@ -8276,44 +8276,44 @@ section .functionplot .function-plot {
   background: transparent;
 }
 section .functionplot .function-plot .domain {
-  stroke: var(--text-muted) !important;
+  stroke: var(--viz-ink-muted) !important;
   opacity: 0.6 !important;
 }
 section .functionplot .function-plot .tick line {
-  stroke: var(--border) !important;
+  stroke: var(--viz-hairline) !important;
 }
 section .functionplot .function-plot .tick text {
-  fill: var(--text-muted) !important;
+  fill: var(--viz-ink-muted) !important;
   font-size: var(--fs-meta);
 }
 section .functionplot .function-plot .axis-label,
 section .functionplot .function-plot .x.axis-label,
 section .functionplot .function-plot .y.axis-label {
-  fill: var(--text-heading) !important;
+  fill: var(--viz-ink) !important;
   font-family: var(--font-body);
   font-size: var(--fs-meta);
   font-weight: 600;
 }
 section .functionplot .function-plot .line-0 {
-  stroke: var(--accent) !important;
+  stroke: var(--viz-accent) !important;
   stroke-width: 2.5 !important;
 }
 section .functionplot .function-plot .line-1 {
-  stroke: var(--cat-4-mark, var(--text-heading)) !important;
+  stroke: var(--cat-4-mark, var(--viz-ink)) !important;
   stroke-width: 2.5 !important;
 }
 section .functionplot .function-plot .line-2 {
-  stroke: var(--cat-7-mark, var(--text-muted)) !important;
+  stroke: var(--cat-7-mark, var(--viz-ink-muted)) !important;
   stroke-width: 2.5 !important;
 }
 section .functionplot .function-plot :is(.line-3, .line-4, .line-5) {
-  stroke: var(--text-muted) !important;
+  stroke: var(--viz-ink-muted) !important;
   stroke-width: 2 !important;
 }
 section .functionplot .function-plot .annotations .annotation,
 section .functionplot .function-plot .annotations text {
-  fill: var(--text-muted) !important;
-  stroke: var(--text-muted) !important;
+  fill: var(--viz-ink-muted) !important;
+  stroke: var(--viz-ink-muted) !important;
 }
 section .functionplot-error {
   color: var(--warn);
@@ -9619,14 +9619,14 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
   --quadrant-tick-size: 10px;  /* raised from 8px (≈5.7pt at desk) */
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-axis-name {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-family: var(--font-body);
   font-size: var(--quadrant-axis-size);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-tick {
-  fill: var(--text-muted);
+  fill: var(--viz-ink-muted);
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--quadrant-tick-size);
   font-weight: 500;
@@ -9660,7 +9660,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 /* ── Scatter dots + per-dot labels ────────────────────────────────────── */
 :is(section.quadrant, figure.chart-frame) .quadrant-dot {
   fill: var(--cell-ink);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 2;
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-dot-label {
@@ -9680,7 +9680,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * cN-light bubble fill and above it on the canvas (cN-dark would not clear
  * AA on its own same-hue tint). */
 :is(section.quadrant, figure.chart-frame) .quadrant-bubble-value {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-family: var(--font-body);
   font-size: 8.5px;
   font-weight: 700;
@@ -9708,7 +9708,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 }
 :is(section.quadrant, figure.chart-frame) .quadrant-trail-after {
   fill: var(--cell-ink);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 1.5;
 }
 
@@ -9906,13 +9906,13 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
   --radar-tick-size:        9px;  /* raised from 6.5px (≈4.6pt at desk) */
 }
 :is(section.radar, figure.chart-frame) .radar-axis-label {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-family: var(--font-body);
   font-size: var(--radar-axis-label-size);
   font-weight: 600;
 }
 :is(section.radar, figure.chart-frame) .radar-tick {
-  fill: var(--text-muted);
+  fill: var(--viz-ink-muted);
   font-family: var(--font-mono, var(--font-body));
   font-size: var(--radar-tick-size);
   /* font-weight raised to 600 (matching the cover-variant lift) so faint
@@ -9938,7 +9938,7 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
 }
 :is(section.radar, figure.chart-frame) .radar-dot {
   fill: var(--series-color);
-  stroke: var(--bg);
+  stroke: var(--viz-surface);
   stroke-width: 1;
 }
 
@@ -9952,7 +9952,7 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
 /* ── target: actual vs a reference polygon, per-axis gap segments ─────── */
 :is(section.radar, figure.chart-frame) .radar-poly--target {
   fill: none;
-  stroke: var(--text-muted);
+  stroke: var(--viz-ink-muted);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
@@ -9974,7 +9974,7 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
 /* ── delta: before → after, per-axis change segments ──────────────────── */
 :is(section.radar, figure.chart-frame) .radar-poly--before {
   fill: none;
-  stroke: var(--text-muted);
+  stroke: var(--viz-ink-muted);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
@@ -11716,7 +11716,7 @@ section.split-panel > .cell-stage {
  */
 
 section.state-chart {
-  --state-node-fill: var(--bg-alt);
+  --state-node-fill: var(--viz-surface-alt);
   --state-node-ink: var(--text-heading);
   --state-node-stroke: var(--diagram-stroke);
   --state-edge: var(--diagram-line);
@@ -15180,6 +15180,8 @@ section.chart-frame {
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
 /* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
 
+/* chart-palette recipe → compiled per-theme planes (build-chart-palette-css.js) */
+
 /* ── Non-colour chart constants — SHIPPED as-is. calc/clamp/cqi predate
  *    color-mix by a decade and are safe on every engine, so these stay OUT of the
  *    compiled recipe above and ride the base bundle unchanged. */
@@ -15582,15 +15584,15 @@ section.chart-frame .chart-status[data-s="deferred"] {
 :is(section.chart-frame, figure.chart-frame) .chart-key-label,
 :is(section.chart-frame, figure.chart-frame) .chart-key-head {
   font-family: var(--font-label);
-  fill: var(--text-body);
+  fill: var(--viz-ink-soft);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-key-head {
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-weight: 600;
 }
 :is(section.chart-frame, figure.chart-frame) .chart-key-value {
   font-family: var(--font-mono);
-  fill: var(--text-heading);
+  fill: var(--viz-ink);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -15610,10 +15612,10 @@ section.chart-frame .chart-status[data-s="deferred"] {
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="5"] { fill: var(--chart-cat-6-solid); stroke: var(--chart-cat-6-ink); }
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="6"] { fill: var(--chart-cat-7-solid); stroke: var(--chart-cat-7-ink); }
 :is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-cat="7"] { fill: var(--chart-cat-8-solid); stroke: var(--chart-cat-8-ink); }
-:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-muted] { fill: var(--chart-muted-key); stroke: var(--text-muted); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-muted] { fill: var(--chart-muted-key); stroke: var(--viz-ink-muted); }
 /* The "unmatched" ("?") chip — a transparent swatch with a quiet outline. Via a CSS rule,
  * not an inline `stroke="var()"` presentation attr (flaky on old WebKit → black; D2). */
-:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-unmatched] { fill: transparent; stroke: var(--text-muted); }
+:is(section.chart-frame, figure.chart-frame) .chart-key-swatch[data-unmatched] { fill: transparent; stroke: var(--viz-ink-muted); }
 
 /* SVG-NATIVE FIGURE SIZING — radar / map / cohort-quadrant. Each figure now holds
  * ONE self-contained <svg> (diagram + spine + key in one viewBox, emitted by
@@ -19155,11 +19157,11 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
   stroke-opacity: 0.5 !important;
 }
 :is(section, figure) .radarAxisLabel {
-  fill: var(--text-heading) !important;
+  fill: var(--viz-ink) !important;
   font-weight: 600 !important;
   font-size: 14px !important;
 }
-:is(section, figure) .radarLegendText { fill: var(--text-heading) !important; }
+:is(section, figure) .radarLegendText { fill: var(--viz-ink) !important; }
 :is(section, figure) .radarCurve-0, :is(section, figure) .radarCurve-1, :is(section, figure) .radarCurve-2, :is(section, figure) .radarCurve-3,
 :is(section, figure) .radarCurve-4, :is(section, figure) .radarCurve-5, :is(section, figure) .radarCurve-6, :is(section, figure) .radarCurve-7 {
   fill-opacity: 0.28 !important;
@@ -19360,7 +19362,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * selector is more specific than the generic .treemapNode rect rule, so
  * per-cycle hues win.
  */
-:is(section, figure) .treemapSection rect, :is(section, figure) .treemapNode rect { fill: var(--bg-alt) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .treemapSection rect, :is(section, figure) .treemapNode rect { fill: var(--viz-surface-alt) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.leaf0x rect.treemapLeaf { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.leaf1x rect.treemapLeaf { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.leaf2x rect.treemapLeaf { fill: var(--cat-3-fill) !important; stroke: var(--diagram-stroke) !important; }
@@ -19442,7 +19444,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
   stroke-opacity: 1 !important;
 }
 :is(section, figure) .venn-area text, :is(section, figure) text.label, :is(section, figure) text.label tspan, :is(section, figure) .label tspan {
-  fill: var(--text-heading) !important;
+  fill: var(--viz-ink) !important;
   fill-opacity: 1 !important;
   paint-order: normal !important;
   stroke: none !important;
@@ -19464,8 +19466,8 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * Branch heads use an internal palette baked into the renderer. Force
  * dark text via cascade; recolor connectors onto the brand line.
  */
-:is(section, figure) .ishikawa-head-label { fill: var(--text-heading) !important; font-weight: 600 !important; }
-:is(section, figure) .ishikawa-label.cause, :is(section, figure) .ishikawa-label.align { fill: var(--text-heading) !important; }
+:is(section, figure) .ishikawa-head-label { fill: var(--viz-ink) !important; font-weight: 600 !important; }
+:is(section, figure) .ishikawa-label.cause, :is(section, figure) .ishikawa-label.align { fill: var(--viz-ink) !important; }
 :is(section, figure) .ishikawa-spine, :is(section, figure) .ishikawa-arrow, :is(section, figure) .ishikawa-branch, :is(section, figure) .ishikawa-sub-branch {
   stroke: var(--diagram-line) !important;
 }
@@ -19486,7 +19488,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
   stroke: var(--diagram-line) !important;
 }
 :is(section, figure) circle.face {
-  fill: var(--bg-alt) !important;
+  fill: var(--viz-surface-alt) !important;
   stroke: var(--diagram-line) !important;
 }
 :is(section, figure) path.mouth { fill: var(--diagram-line) !important; }
@@ -19501,7 +19503,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) circle.actor-5 { fill: var(--cat-6-fill) !important; stroke: var(--diagram-stroke) !important; }
 /* Legend titles inherit actor color via <title> SVG element; force their
  * text-bearing tspans to read on the brand palette. */
-:is(section, figure) .legend > title, :is(section, figure) title { fill: var(--text-heading) !important; }
+:is(section, figure) .legend > title, :is(section, figure) title { fill: var(--viz-ink) !important; }
 :is(section, figure) rect.section0, :is(section, figure) rect.section1, :is(section, figure) rect.section2,
 :is(section, figure) rect.task0, :is(section, figure) rect.task1, :is(section, figure) rect.task2,
 :is(section, figure) rect[class*="section-type-"], :is(section, figure) rect[class*="task-type-"],
@@ -19621,8 +19623,8 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * lightening the primary, producing an off-palette stray. Pin both
  * bands to palette tokens for deterministic output.
  */
-:is(section, figure) g.row-rect-even > path { fill: var(--bg-alt) !important; }
-:is(section, figure) g.row-rect-odd > path  { fill: var(--bg) !important; }
+:is(section, figure) g.row-rect-even > path { fill: var(--viz-surface-alt) !important; }
+:is(section, figure) g.row-rect-odd > path  { fill: var(--viz-surface) !important; }
 
 /* ── EDGE MARKERS = EDGE COLOUR (style, both modes) ──
  * Arrowheads and crow's-foot relationship markers render UNFILLED by default
@@ -19770,7 +19772,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 
 /* Mermaid gantt — taskTextOutsideLeft/Right ignore taskTextOutsideColor for some
  * bar widths; force dark text in the outside-the-bar margin (was gantt.styles.css). */
-:is(section, figure) .taskTextOutsideLeft, :is(section, figure) .taskTextOutsideRight { fill: var(--text-heading) !important; }
+:is(section, figure) .taskTextOutsideLeft, :is(section, figure) .taskTextOutsideRight { fill: var(--viz-ink) !important; }
 
 /* === lib/base/base.print-textures.css === */
 /* base.print-textures.css — categorical SVG PATTERN fills for print mode.

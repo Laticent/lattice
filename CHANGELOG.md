@@ -150,6 +150,23 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Every chart/diagram/math SVG paint now reads a bounded `--viz-*` token, never a raw core
+  engine token — a render-neutral hygiene pass, gated.** SVG paints that read core tokens
+  directly (`fill: var(--text-heading)`) fall to black on old WebKit / smart-TV Chromium, because
+  the core token's `:root light-dark()` definition is dropped there. A new shared structural
+  namespace — `--viz-ink` / `--viz-ink-soft` / `--viz-ink-muted` / `--viz-surface` /
+  `--viz-surface-alt` / `--viz-hairline` / `--viz-accent`, aliased 1:1 to the core tokens — is
+  compiled to flat literals on the visualization-root plane, and every SVG paint across Mermaid,
+  the chart family (funnel, map, quadrant, radar, legend), state-chart, and math's function-plot
+  now reads it. Provably **zero visual change** (each alias resolves to exactly its core literal;
+  0 differing pixels across a 45-page charts + Mermaid + math sweep). A `build:check` gate
+  (`checkChartPaintFlatness` part 3) fails on any SVG paint that reads a raw core token, so the
+  invariant can't rot. HTML chrome still reads core tokens live — it is not the fragile surface.
+  First step toward the unified `.viz-frame`
+  (`engineering/decisions/2026-07-12-unified-viz-frame.md` §Phase A).
+
 ### Fixed
 
 - **The playground's gallery drawer now labels front-matter-less decks with the right slide

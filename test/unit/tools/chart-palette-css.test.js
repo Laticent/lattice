@@ -90,8 +90,14 @@ describe('chart-palette-css compiler', () => {
     // chart content renders — NOT a bare `section, figure`, which would freeze the whole engine's colour
     // to build-time literals on every slide and take core colour off the theme's live `:root light-dark()`.
     const css = chartPaletteCssForTheme('indaco', BASE);
-    assert.match(css, /\.chart-frame, section\.diagram, \.lp-figure \{/, 'diagram base plane on the scoped root union');
+    assert.match(css, /\.chart-frame, section\.diagram, \.lp-figure, section\.math, section\.word-cloud \{/,
+      'diagram base plane on the FULL viz-root union (chart-frame + diagram + lp-figure + math + word-cloud)');
     assert.doesNotMatch(css, /(^|[,{}])\s*section, ?figure\s*\{/m, 'must NOT emit any plane on the deck-wide `section, figure`');
+    // Phase A: the shared --viz-* structural tokens are emitted (the bounded ink/surface an
+    // SVG paint reads instead of raw core), so no chart/diagram SVG paint reads --text-*/--bg.
+    for (const viz of ['--viz-ink', '--viz-ink-muted', '--viz-surface', '--viz-hairline', '--viz-accent']) {
+      assert.match(css, new RegExp(`${viz}:\\s*#`), `${viz} must be emitted as a flat literal on the viz-root union`);
+    }
     // The core tokens live ONLY inside the scoped diagram plane, never on a bare `section`/`figure`.
     for (const core of ['--bg', '--text-heading', '--accent']) {
       const onBareSection = new RegExp(`(^|[,{}])\\s*(section|figure)\\s*\\{[^}]*${core}\\s*:`, 'm');

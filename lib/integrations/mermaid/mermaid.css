@@ -156,11 +156,11 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
   stroke-opacity: 0.5 !important;
 }
 :is(section, figure) .radarAxisLabel {
-  fill: var(--text-heading) !important;
+  fill: var(--viz-ink) !important;
   font-weight: 600 !important;
   font-size: 14px !important;
 }
-:is(section, figure) .radarLegendText { fill: var(--text-heading) !important; }
+:is(section, figure) .radarLegendText { fill: var(--viz-ink) !important; }
 :is(section, figure) .radarCurve-0, :is(section, figure) .radarCurve-1, :is(section, figure) .radarCurve-2, :is(section, figure) .radarCurve-3,
 :is(section, figure) .radarCurve-4, :is(section, figure) .radarCurve-5, :is(section, figure) .radarCurve-6, :is(section, figure) .radarCurve-7 {
   fill-opacity: 0.28 !important;
@@ -361,7 +361,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * selector is more specific than the generic .treemapNode rect rule, so
  * per-cycle hues win.
  */
-:is(section, figure) .treemapSection rect, :is(section, figure) .treemapNode rect { fill: var(--bg-alt) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .treemapSection rect, :is(section, figure) .treemapNode rect { fill: var(--viz-surface-alt) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.leaf0x rect.treemapLeaf { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.leaf1x rect.treemapLeaf { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.leaf2x rect.treemapLeaf { fill: var(--cat-3-fill) !important; stroke: var(--diagram-stroke) !important; }
@@ -443,7 +443,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
   stroke-opacity: 1 !important;
 }
 :is(section, figure) .venn-area text, :is(section, figure) text.label, :is(section, figure) text.label tspan, :is(section, figure) .label tspan {
-  fill: var(--text-heading) !important;
+  fill: var(--viz-ink) !important;
   fill-opacity: 1 !important;
   paint-order: normal !important;
   stroke: none !important;
@@ -465,8 +465,8 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * Branch heads use an internal palette baked into the renderer. Force
  * dark text via cascade; recolor connectors onto the brand line.
  */
-:is(section, figure) .ishikawa-head-label { fill: var(--text-heading) !important; font-weight: 600 !important; }
-:is(section, figure) .ishikawa-label.cause, :is(section, figure) .ishikawa-label.align { fill: var(--text-heading) !important; }
+:is(section, figure) .ishikawa-head-label { fill: var(--viz-ink) !important; font-weight: 600 !important; }
+:is(section, figure) .ishikawa-label.cause, :is(section, figure) .ishikawa-label.align { fill: var(--viz-ink) !important; }
 :is(section, figure) .ishikawa-spine, :is(section, figure) .ishikawa-arrow, :is(section, figure) .ishikawa-branch, :is(section, figure) .ishikawa-sub-branch {
   stroke: var(--diagram-line) !important;
 }
@@ -487,7 +487,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
   stroke: var(--diagram-line) !important;
 }
 :is(section, figure) circle.face {
-  fill: var(--bg-alt) !important;
+  fill: var(--viz-surface-alt) !important;
   stroke: var(--diagram-line) !important;
 }
 :is(section, figure) path.mouth { fill: var(--diagram-line) !important; }
@@ -502,7 +502,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) circle.actor-5 { fill: var(--cat-6-fill) !important; stroke: var(--diagram-stroke) !important; }
 /* Legend titles inherit actor color via <title> SVG element; force their
  * text-bearing tspans to read on the brand palette. */
-:is(section, figure) .legend > title, :is(section, figure) title { fill: var(--text-heading) !important; }
+:is(section, figure) .legend > title, :is(section, figure) title { fill: var(--viz-ink) !important; }
 :is(section, figure) rect.section0, :is(section, figure) rect.section1, :is(section, figure) rect.section2,
 :is(section, figure) rect.task0, :is(section, figure) rect.task1, :is(section, figure) rect.task2,
 :is(section, figure) rect[class*="section-type-"], :is(section, figure) rect[class*="task-type-"],
@@ -622,8 +622,8 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * lightening the primary, producing an off-palette stray. Pin both
  * bands to palette tokens for deterministic output.
  */
-:is(section, figure) g.row-rect-even > path { fill: var(--bg-alt) !important; }
-:is(section, figure) g.row-rect-odd > path  { fill: var(--bg) !important; }
+:is(section, figure) g.row-rect-even > path { fill: var(--viz-surface-alt) !important; }
+:is(section, figure) g.row-rect-odd > path  { fill: var(--viz-surface) !important; }
 
 /* ── EDGE MARKERS = EDGE COLOUR (style, both modes) ──
  * Arrowheads and crow's-foot relationship markers render UNFILLED by default
@@ -787,4 +787,4 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 
 /* Mermaid gantt — taskTextOutsideLeft/Right ignore taskTextOutsideColor for some
  * bar widths; force dark text in the outside-the-bar margin (was gantt.styles.css). */
-:is(section, figure) .taskTextOutsideLeft, :is(section, figure) .taskTextOutsideRight { fill: var(--text-heading) !important; }
+:is(section, figure) .taskTextOutsideLeft, :is(section, figure) .taskTextOutsideRight { fill: var(--viz-ink) !important; }
