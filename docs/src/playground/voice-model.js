@@ -677,15 +677,18 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   }
 
   // The BREATH inserted between one sentence's clip and the next — sized from the
-  // sentence's trailing punctuation. A clocked voice synthesizes each sentence as its
-  // own clip with almost no trailing silence, and the loop below plays them back to
-  // back, so without this the narration rushes ("no time to breathe"). These values
-  // MIRROR cadenza's PAUSE_MS (docs/src/lib/cadenza/cadence.ts) on purpose: the caption
-  // estimate already bakes this exact gap in AFTER each cue, so an equal audio gap lets
-  // the word-highlight REST in the silence (it re-anchors the next sentence to this
-  // later onset) instead of racing ahead into it — a LARGER value here would reintroduce
-  // that race. Keep the two in lockstep. A sentence with no terminator gets no breath.
-  const SENTENCE_PAUSE_MS = { ',': 160, ';': 220, ':': 220, '.': 360, '!': 360, '?': 360, '…': 420 };
+  // sentence's trailing punctuation. A clocked voice plays each sentence's clip back to
+  // back, so without a gap the narration rushes ("no time to breathe"). But the clip
+  // ALSO already carries its own sentence-final silence, so this is only a LIGHT top-up,
+  // NOT the full caption-estimate pause — a first cut at the pause matched the estimate's
+  // pauseAfter (cadence.ts) exactly and read too long. These values are deliberately
+  // SMALLER than cadence.ts's PAUSE_MS, which is race-SAFE: the estimate re-anchors the
+  // next sentence to `realEnd + gap`, and any `gap ≤ estimate pauseAfter` leaves the
+  // highlight resting in the silence rather than racing into it (only a LARGER gap would
+  // reintroduce the race). INTERIM — these constants are a heuristic pending a proper
+  // prosody/human-pace model (2026-07-12 narration-pace thread). A sentence with no
+  // terminator gets no breath.
+  const SENTENCE_PAUSE_MS = { ',': 70, ';': 100, ':': 100, '.': 160, '!': 160, '?': 160, '…': 200 };
   function sentenceGapMs(sentence) {
     const m = String(sentence ?? '').match(/[.,!?;:…]+$/);
     if (!m) return 0;
