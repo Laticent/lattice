@@ -659,6 +659,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
       if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
       if (vocab.spectrumNames) findings.push(...findUnknownSpectrum(source, vocab.spectrumNames));
+      if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
       findings.push(...findRetiredBackdrop(source));
       findings.push(...findRetiredFormMinimal(source));
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
@@ -1034,6 +1035,24 @@ ${indent}   - ${body.trim()}`;
         line: fmSpectrum[0].trim(),
         message: `'${value}' is not a known spectrum value \u2014 the deck would silently render the rainbow default`,
         fix: `Set front-matter \`spectrum:\` to one of: ${[...spectrumNames].join(", ")}.`
+      }];
+    }
+    function findUnknownLift(source, liftNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmLift = fmBlock[1].match(/^\s*lift:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmLift) return [];
+      const value = fmLift[1].trim();
+      const known = new Set([...liftNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-lift",
+        severity: "warning",
+        classToken: value,
+        line: fmLift[0].trim(),
+        message: `'${value}' is not a known lift value \u2014 the deck would silently render flat`,
+        fix: `Set front-matter \`lift:\` to one of: ${[...liftNames].join(", ")}.`
       }];
     }
     function findRetiredBackdrop(source) {

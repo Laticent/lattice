@@ -251,9 +251,13 @@ section.kpi.ops > .cell-stage > ol {
    * instead of overflowing it (see briefing note above). */
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--sp-md);
+  /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
+  padding: var(--elevation-berth);
 }
 section.kpi.ops > .cell-stage > ol > li {
   background: var(--bg-alt);
+  /* Struck elevation — zero-blur, light-dark()-flipping lift (base.tokens.css). */
+  box-shadow: var(--elevation-card);
   padding: var(--sp-md) var(--sp-lg);
   display: flex; flex-direction: column;
   justify-content: center;
@@ -355,6 +359,8 @@ section.kpi.trajectory > .cell-stage > ol {
    * tile, not a stretched box. */
   grid-auto-rows: minmax(0, 1fr);
   gap: var(--sp-md);
+  /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
+  padding: var(--elevation-berth);
 }
 section.kpi.trajectory > .cell-stage > ol > li {
   background: var(--bg-alt);
@@ -364,6 +370,8 @@ section.kpi.trajectory > .cell-stage > ol > li {
   gap: var(--sp-sm);
   position: relative;
   border-top: 4px solid var(--accent);
+  /* Struck elevation composed under the categorical top stripe (base.tokens.css). */
+  box-shadow: var(--elevation-card);
 }
 section.kpi.trajectory > .cell-stage > ol > li:nth-child(1) { border-top-color: var(--cat-1-mark); }
 section.kpi.trajectory > .cell-stage > ol > li:nth-child(2) { border-top-color: var(--cat-2-mark); }

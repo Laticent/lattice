@@ -281,3 +281,13 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
     justify-self: start;
   }
 }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li {
+  box-shadow: var(--elevation-card);
+}
+section.regulatory-update > .cell-stage {
+  padding-block: var(--elevation-berth);
+}

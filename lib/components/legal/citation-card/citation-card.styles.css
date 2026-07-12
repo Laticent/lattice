@@ -287,3 +287,14 @@ section.citation-card.margin:is([data-orientation="portrait"], [data-orientation
   text-align: left;
   padding-top: 0;
 }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.citation-card > .cell-stage > blockquote,
+section.citation-card.triptych > .cell-stage > :is(ul, ol) > li {
+  box-shadow: var(--elevation-card);
+}
+section.citation-card > .cell-stage {
+  padding-block: var(--elevation-berth);
+}

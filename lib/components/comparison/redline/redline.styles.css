@@ -350,3 +350,13 @@ section.redline > .cell-stage > blockquote.rl-new::before {
   font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700;
   letter-spacing:0.12em; color:var(--pass); padding-bottom:var(--sp-xs);
 }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.redline > .cell-stage > blockquote {
+  box-shadow: var(--elevation-card);
+}
+section.redline > .cell-stage {
+  padding-block: var(--elevation-berth);
+}

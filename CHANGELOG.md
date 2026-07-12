@@ -463,6 +463,33 @@ in patch versions.
   above; the current segment fills as read-aloud plays, and clicking a segment
   jumps to it. Replaces the separate slide-position bar and read-aloud cue count
   that sat side by side. (Studio Present redesign — `engineering/decisions/2026-07-12-studio-present-redesign.md`, S1.)
+- **Decks can opt into a "Struck" card elevation that works in both light and dark
+  decks — and survives the PDF export.** Set `lift: on` in the front matter and card
+  surfaces lift off the slide; per slide, `_class: lifted` lifts one slide in a flat
+  deck and `_class: flat` drops one out of a lifted deck. **Off by default** —
+  no existing deck changes unless it asks. A single shared `--elevation-card` token (a
+  zero-blur box-shadow whose per-layer colours flip via CSS `light-dark()`) casts a
+  crisp offset shadow on a light canvas and a 1px white rim-light on the top edge on a
+  dark canvas — Material's "elevation is light from above", expressed as an edge
+  highlight so the **card fill never changes**. Every
+  layer is zero-blur, so it exports as pure vector (no soft-mask grey-box in Apple
+  PDFKit / Skia). Applied across the whole card family — every component whose
+  surface is a `bg-alt` tile with a hairline: `cards-grid`, `cards-stack`,
+  `pricing` (composed under the featured tier's accent ring), `quote` (replacing a
+  raw `rgba(0,0,0,.07)` literal), `kpi.ops`/`kpi.trajectory`, `stats` (given a real
+  card surface, per its "tiles" manifest), plus `verdict-grid`, `matrix-2x2`,
+  `decision`, `split-compare`, `redline`, `compare-prose`, `actors`, `inventory`
+  (`.cards`), `list`, `statute-stack`, `citation-card`, `regulatory-update`,
+  `authority-chain`, `list-steps`, `split-panel` (right-side cards only — the left
+  rail stays flat), and the `contact` QR card. Ruled tables (`glossary`,
+  `list-tabular`) and full-height rails are deliberately left flat. A companion
+  `--elevation-berth` token insets each card grid from the stage's `overflow:clip`
+  so shadows aren't sheared — applied as vertical-only `padding-block` (the shadow
+  has no horizontal extent, and a horizontal inset would shear dense rows like a
+  5-stat strip), never margin (HARD RULE #20). Demo:
+  `examples/struck-elevation.md`; rationale:
+  `engineering/decisions/2026-07-12-struck-elevation.md`.
+
 - **The RENDER group gains a COALESCE row — how many edits the preview debounce
   folded into this render.** A fast typing burst lands many source changes inside
   the 140ms preview window, and the debounce collapses them into ONE engine

@@ -134,3 +134,13 @@ section.inventory.editorial > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-message);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
 }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.inventory.cards > .cell-stage > ul > li {
+  box-shadow: var(--elevation-card);
+}
+section.inventory.cards > .cell-stage {
+  padding-block: var(--elevation-berth);
+}

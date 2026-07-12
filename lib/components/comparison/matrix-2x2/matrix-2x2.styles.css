@@ -93,3 +93,13 @@ section.matrix-2x2 :is(ul,ol) > li > strong ~ * { font-weight: 400; }
     min-height: 0;
   }
 }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.matrix-2x2 > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.matrix-2x2 > .cell-stage {
+  padding-block: var(--elevation-berth);
+}

@@ -89,6 +89,16 @@ describe('readFrontMatter', () => {
     assert.equal(readFrontMatter('---\nmarp: true\nglossary: auto\n---\n').configured, true);
   });
 
+  test('lift toggle: on/true/yes → true (boolean); off/absent → false; on counts as configured', async () => {
+    const { readFrontMatter } = await import(MOD);
+    assert.equal(readFrontMatter('---\nmarp: true\nlift: on\n---\n').lift, true);
+    assert.equal(readFrontMatter('---\nmarp: true\nlift: true\n---\n').lift, true);
+    assert.equal(readFrontMatter('---\nmarp: true\nlift: ON\n---\n').lift, true); // case-insensitive
+    assert.equal(readFrontMatter('---\nmarp: true\nlift: off\n---\n').lift, false);
+    assert.equal(readFrontMatter(CLEAN).lift, false);
+    assert.equal(readFrontMatter('---\nmarp: true\nlift: on\n---\n').configured, true);
+  });
+
   test('validate: default ON; off/false/no → false and counts as configured', async () => {
     const { readFrontMatter } = await import(MOD);
     assert.equal(readFrontMatter(CLEAN).validate, true); // absent → on (the default)
@@ -176,6 +186,25 @@ describe('writeFrontMatter', () => {
     // round-trips, and switching it off over an existing on clears it.
     assert.equal(readFrontMatter(writeFrontMatter(CLEAN, 'glossary', true)).glossary, true);
     assert.ok(!writeFrontMatter(writeFrontMatter(CLEAN, 'glossary', true), 'glossary', false).includes('glossary'));
+  });
+
+  test('lift: writes the canonical on; a falsy value omits it; sits after glossary, before size', async () => {
+    const { writeFrontMatter, readFrontMatter } = await import(MOD);
+    // Boolean true (the switch) canonicalises to `on`.
+    assert.ok(writeFrontMatter(CLEAN, 'lift', true).includes('lift: on\n'));
+    assert.ok(writeFrontMatter(CLEAN, 'lift', 'yes').includes('lift: on\n'));
+    // off / false is the default → no key.
+    assert.equal(writeFrontMatter(CLEAN, 'lift', false), CLEAN);
+    assert.equal(writeFrontMatter(CLEAN, 'lift', 'off'), CLEAN);
+    // canonical slot: glossary, then lift, then size.
+    let src = writeFrontMatter(CLEAN, 'size', 'portrait');
+    src = writeFrontMatter(src, 'glossary', true);
+    src = writeFrontMatter(src, 'lift', true);
+    const block = src.slice(0, src.indexOf('\n---\n'));
+    assert.equal(block, '---\nmarp: true\nglossary: auto\nlift: on\nsize: portrait');
+    // round-trips, and switching it off over an existing on clears it.
+    assert.equal(readFrontMatter(writeFrontMatter(CLEAN, 'lift', true)).lift, true);
+    assert.ok(!writeFrontMatter(writeFrontMatter(CLEAN, 'lift', true), 'lift', false).includes('lift'));
   });
 
   test('validate: default ON is omitted; only an opt-out writes the canonical off', async () => {

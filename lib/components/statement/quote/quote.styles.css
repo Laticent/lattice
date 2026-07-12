@@ -14,7 +14,7 @@ section.quote blockquote {
   position:relative;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:1.40625cqi;
-  box-shadow:0 4px 16px rgba(0,0,0,0.07);
+  box-shadow:var(--elevation-card); /* Struck: zero-blur, PDF-safe, flips light↔dark (base.tokens.css) */
   padding:var(--sp-lg) var(--sp-xl);
   max-width:64.0625cqi; width:100%;
 }

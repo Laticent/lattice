@@ -172,3 +172,17 @@ section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
     flex: 0 0 auto;
   }
 }
+
+/* ── Struck elevation ── lift each card off the stage (see cards-grid). Zero-blur,
+ * light-dark()-flipping `var(--elevation-card)` (base.tokens.css); PDF-safe. */
+section.cards-stack > .cell-stage > ul > li,
+section.cards-stack > .cell-stage > ol > li,
+section.cards-stack .card {
+  box-shadow: var(--elevation-card);
+}
+/* Berth from the stage clip (see cards-grid). Padding, not margin (#20). */
+section.cards-stack > .cell-stage > ul,
+section.cards-stack > .cell-stage > ol,
+section.cards-stack .cards-stack-inner {
+  padding: var(--elevation-berth);
+}

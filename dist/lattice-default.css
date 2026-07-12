@@ -215,6 +215,34 @@
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
 
+  /* ── Card elevation ("Struck") ─────────────────────────────────────────
+   * OPT-IN. Cards consume `var(--elevation-card)` / `var(--elevation-berth)`
+   * UNCONDITIONALLY, but both default to none/0 — so with no deck setting a card is
+   * flat, with no shadow AND no berth padding. The `lift: on` deck front-matter key
+   * (or a per-slide `_class: lifted`) stamps `.lifted` on the section, which swaps in
+   * the recipe below; `_class: flat` opts one slide back out. (`lift` is the author
+   * switch; `elevation` is the token namespace it turns on.) Wiring: resolve-lift.js
+   * + the section.lifted/.flat rules after this :root block.
+   * engineering/decisions/2026-07-12-struck-elevation.md. */
+  --elevation-card: none;
+  --elevation-berth: 0;
+  /* The recipe `.elevated` swaps in: a single ZERO-BLUR shadow list whose per-layer
+   * COLORS flip via light-dark(), so one definition lifts a card on either canvas:
+   *   • Light canvas — the dark contact layers cast a crisp offset shadow (a lit
+   *     card on paper); the white top rim is a near-invisible paper edge.
+   *   • Dark canvas — a 1px white rim-light catches the top edge (Material's
+   *     "elevation is light from above", as an EDGE highlight so the card FILL never
+   *     changes) while the contact layers recede into the ground.
+   * Every layer has 0 blur, so it exports to PDF as pure vector — no soft-mask
+   * grey-box in Apple PDFKit / Skia (the trap at image.styles.css:43 and the
+   * --state-* note below). Offsets are cqi so the lift scales with the slide (incl.
+   * 4K); hairline rim/underside ~1px at hd. Palette-neutral (white/black only). */
+  --elevation-recipe:
+    inset 0  0.09cqi 0 0     light-dark(rgba(255,255,255,.5),  rgba(255,255,255,.16)),
+    inset 0 -0.08cqi 0 0     light-dark(rgba(0,0,0,.05),        rgba(0,0,0,.34)),
+    0 0.28cqi 0 -0.08cqi     light-dark(rgba(0,0,0,.16),        rgba(0,0,0,.5)),
+    0 0.62cqi 0 -0.3cqi      light-dark(rgba(0,0,0,.10),        rgba(0,0,0,.24));
+
   /* ── Island berth coordinate frame ─────────────────────────────────────
    * The named inset contract for the slide's peripheral chrome berths
    * (header, footer, pagination, logo). Before this, every chrome rule
@@ -804,6 +832,22 @@
   --hljs-punctuation:#d6deeb;
 }
 
+/* ── Card lift activation ──────────────────────────────────────────────────
+ * The `lift: on` deck front-matter key (resolve-lift.js) stamps `.lifted` on every
+ * <section>; a per-slide `_class: lifted` opts one slide in. That swaps the consumed
+ * elevation tokens from their none/0 default (above) to the recipe + berth, so the
+ * box-shadow AND its padding turn on together. `_class: flat` forces one slide back
+ * off inside a lifted deck (section > :root specificity, so order-independent).
+ * engineering/decisions/2026-07-12-struck-elevation.md. */
+section.lifted {
+  --elevation-card: var(--elevation-recipe);
+  --elevation-berth: var(--sp-sm);
+}
+section.flat {
+  --elevation-card: none;
+  --elevation-berth: 0;
+}
+
 /* === GENERATED lib/typography/scale.js (--fs-* tokens) === */
 /* GENERATED from lib/typography/scale.js by lib/typography/emit.js — do not
  * hand-edit. Curated landscape/square/portrait type scales; orientation picks
@@ -1130,6 +1174,16 @@ section.actors > .cell-stage > ol > li > ol > li {
   section.actors.actors > .cell-stage > ol > li > code {
     margin-left: 0;
   }
+}
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.actors > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.actors > .cell-stage {
+  padding-block: var(--elevation-berth);
 }
 
 /* === lib/components/inventory/agenda/agenda.styles.css === */
@@ -1640,6 +1694,16 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
   }
 }
 
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.authority-chain > .cell-stage > :is(ol, ul) > li {
+  box-shadow: var(--elevation-card);
+}
+section.authority-chain > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
+
 /* === lib/components/statement/big-number/big-number.styles.css === */
 /* big-number — statement.canvas.bignumber
  *
@@ -1879,6 +1943,29 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
   }
 }
 
+/* ── Struck elevation ── lift each card off the stage. One rule covers all three
+ * emit paths (marp-cli ul/ol>li · lattice.js .card · VS Code :not(:has) fallback).
+ * `var(--elevation-card)` is zero-blur and flips light↔dark via light-dark()
+ * (base.tokens.css) — PDF-safe, card fill unchanged. */
+section.cards-grid > .cell-stage > ul > li,
+section.cards-grid > .cell-stage > ol > li,
+section.cards-grid .card {
+  box-shadow: var(--elevation-card);
+}
+/* Berth: inset the grid from the stage's overflow:clip so the outer / second-row
+ * cards' shadows aren't sheared (base.tokens.css --elevation-berth). Padding, not
+ * margin (#20). The native (VS Code) path's `:not(:has(.cards-grid-inner))` base
+ * rule sets padding:0 at (0,3,2) — this MUST mirror that selector to win, else the
+ * berth silently loses on that path and the shadow clips. */
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol,
+section.cards-grid > .cell-stage > ul,
+section.cards-grid > .cell-stage > ol,
+section.cards-grid .cards-grid-inner,
+section.cards-grid .cards-grid-inner--ordered {
+  padding: var(--elevation-berth);
+}
+
 /* === lib/components/inventory/cards-stack/cards-stack.styles.css === */
 /* cards-stack — vertical (or horizontal) stack of full-width cards.
  * See lib/components/inventory/cards-stack/cards-stack.manifest.json for the
@@ -2053,6 +2140,20 @@ section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
   section.cards-stack.cards-stack > .cell-stage > :is(ul,ol) > li {
     flex: 0 0 auto;
   }
+}
+
+/* ── Struck elevation ── lift each card off the stage (see cards-grid). Zero-blur,
+ * light-dark()-flipping `var(--elevation-card)` (base.tokens.css); PDF-safe. */
+section.cards-stack > .cell-stage > ul > li,
+section.cards-stack > .cell-stage > ol > li,
+section.cards-stack .card {
+  box-shadow: var(--elevation-card);
+}
+/* Berth from the stage clip (see cards-grid). Padding, not margin (#20). */
+section.cards-stack > .cell-stage > ul,
+section.cards-stack > .cell-stage > ol,
+section.cards-stack .cards-stack-inner {
+  padding: var(--elevation-berth);
 }
 
 /* === lib/components/inventory/checklist/checklist.styles.css === */
@@ -2501,6 +2602,17 @@ section.citation-card.margin:is([data-orientation="portrait"], [data-orientation
 section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage > p:has(> code:only-child) {
   text-align: left;
   padding-top: 0;
+}
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.citation-card > .cell-stage > blockquote,
+section.citation-card.triptych > .cell-stage > :is(ul, ol) > li {
+  box-shadow: var(--elevation-card);
+}
+section.citation-card > .cell-stage {
+  padding-block: var(--elevation-berth);
 }
 
 /* === lib/components/anchor/closing/closing.styles.css === */
@@ -3082,6 +3194,17 @@ section.compare-split-verdict .split-pullq {
   font-size: var(--fs-h2); font-weight: 300; line-height: var(--lh-snug); color: var(--text-heading); max-width: 14em;
 }
 
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.compare-prose .compare-prose-inner .card,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.compare-prose > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
+
 /* === lib/components/comparison/compare-table/compare-table.styles.css === */
 /* compare-table — extracted from lib/_legacy.css (batch 4).
  * See lib/components/compare-table/compare-table.manifest.json for the component contract.
@@ -3200,6 +3323,16 @@ section.contact .qr-cta {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.contact .qr-card {
+  box-shadow: var(--elevation-card);
+}
+section.contact > .cell-stage {
+  padding-block: var(--elevation-berth);
 }
 
 /* === lib/components/statement/content/content.styles.css === */
@@ -3392,6 +3525,16 @@ section.decision-points .split-pts { list-style: none; padding: var(--sp-xl) 0 0
 section.decision-points .split-pts > li { border-left: 3px solid var(--accent); padding-left: var(--sp-md); }
 section.decision-points .split-pt-t { display: block; font-weight: 800; color: var(--text-heading); font-size: var(--fs-h3); padding-bottom: var(--sp-3xs); }
 section.decision-points .split-pt-b { color: var(--text-body); font-size: var(--fs-body); line-height: var(--lh-base); max-width: 22em; }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.decision > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.decision > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
 
 /* === lib/components/diagram/diagram/diagram.styles.css === */
 /* diagram — evidence.canvas.graph
@@ -4573,6 +4716,16 @@ section.inventory.editorial > .cell-stage > ul > li {
 section.inventory.editorial > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-message);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
+}
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.inventory.cards > .cell-stage > ul > li {
+  box-shadow: var(--elevation-card);
+}
+section.inventory.cards > .cell-stage {
+  padding-block: var(--elevation-berth);
 }
 
 /* === lib/components/chart/journey/journey.styles.css === */
@@ -6037,9 +6190,13 @@ section.kpi.ops > .cell-stage > ol {
    * instead of overflowing it (see briefing note above). */
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--sp-md);
+  /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
+  padding: var(--elevation-berth);
 }
 section.kpi.ops > .cell-stage > ol > li {
   background: var(--bg-alt);
+  /* Struck elevation — zero-blur, light-dark()-flipping lift (base.tokens.css). */
+  box-shadow: var(--elevation-card);
   padding: var(--sp-md) var(--sp-lg);
   display: flex; flex-direction: column;
   justify-content: center;
@@ -6141,6 +6298,8 @@ section.kpi.trajectory > .cell-stage > ol {
    * tile, not a stretched box. */
   grid-auto-rows: minmax(0, 1fr);
   gap: var(--sp-md);
+  /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
+  padding: var(--elevation-berth);
 }
 section.kpi.trajectory > .cell-stage > ol > li {
   background: var(--bg-alt);
@@ -6150,6 +6309,8 @@ section.kpi.trajectory > .cell-stage > ol > li {
   gap: var(--sp-sm);
   position: relative;
   border-top: 4px solid var(--accent);
+  /* Struck elevation composed under the categorical top stripe (base.tokens.css). */
+  box-shadow: var(--elevation-card);
 }
 section.kpi.trajectory > .cell-stage > ol > li:nth-child(1) { border-top-color: var(--cat-1-mark); }
 section.kpi.trajectory > .cell-stage > ol > li:nth-child(2) { border-top-color: var(--cat-2-mark); }
@@ -6433,6 +6594,17 @@ section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
    rhythm so the de-ballooned rows breathe down the long frame instead of clustering. */
 @container lattice (aspect-ratio <= 0.5) {
   section.list.list > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
+}
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.list > .cell-stage > ul > li,
+section.list > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.list > .cell-stage {
+  padding-block: var(--elevation-berth);
 }
 
 /* === lib/components/progression/list-criteria/list-criteria.styles.css === */
@@ -6764,6 +6936,16 @@ section.list-steps.ghost ol > li > ul > li {
     border-top: 10px solid var(--border); border-bottom: none;
     border-left: 10px solid transparent; border-right: 10px solid transparent;
   }
+}
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.list-steps ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.list-steps > .cell-stage {
+  padding-block: var(--elevation-berth);
 }
 
 /* === lib/components/inventory/list-tabular/list-tabular.styles.css === */
@@ -8296,6 +8478,16 @@ section.matrix-2x2 :is(ul,ol) > li > strong ~ * { font-weight: 400; }
   }
 }
 
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.matrix-2x2 > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.matrix-2x2 > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
+
 /* === lib/components/legal/obligation-matrix/obligation-matrix.styles.css === */
 /* obligation-matrix — comparison.matrix.structure
  *
@@ -8618,7 +8810,9 @@ section.pricing > .cell-stage > ul {
   flex-wrap: wrap;
   align-content: stretch;
   gap: var(--sp-md);
-  flex: 1; list-style: none; padding: 0; margin: 0;
+  /* padding = berth so the stage's overflow:clip doesn't shear the tier-card
+   * elevation shadow (base.tokens.css --elevation-berth). Not margin (#20). */
+  flex: 1; list-style: none; padding: var(--elevation-berth); margin: 0;
 }
 section.pricing.two > .cell-stage > ul { --pricing-cols: 2; }
 section.pricing.two > .cell-stage > ul > li { width: calc(100% / 2 - var(--sp-md) / 2); }
@@ -8645,6 +8839,8 @@ section.pricing > .cell-stage > ul > li {
   font-weight: 700; color: var(--text-heading);
   line-height: var(--lh-tight);
   overflow: hidden;
+  /* Struck elevation — zero-blur, light-dark()-flipping lift (base.tokens.css). */
+  box-shadow: var(--elevation-card);
 }
 /* Back-compat: if an author wraps the name in **…**, render it identically. */
 section.pricing > .cell-stage > ul > li > strong { font-weight: inherit; color: inherit; }
@@ -8675,7 +8871,8 @@ section.pricing > .cell-stage > ul > li > em {
 section.pricing > .cell-stage > ul > li:has(> em) {
   background: var(--accent-soft);
   border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  /* accent ring composed OVER the Struck lift — this tier both pops and floats. */
+  box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card);
   color: var(--on-accent-soft);
 }
 section.pricing > .cell-stage > ul > li:has(> em) > code { color: var(--on-accent-soft); }
@@ -9645,7 +9842,7 @@ section.quote blockquote {
   position:relative;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:1.40625cqi;
-  box-shadow:0 4px 16px rgba(0,0,0,0.07);
+  box-shadow:var(--elevation-card); /* Struck: zero-blur, PDF-safe, flips light↔dark (base.tokens.css) */
   padding:var(--sp-lg) var(--sp-xl);
   max-width:64.0625cqi; width:100%;
 }
@@ -10321,6 +10518,16 @@ section.redline > .cell-stage > blockquote.rl-new::before {
   letter-spacing:0.12em; color:var(--pass); padding-bottom:var(--sp-xs);
 }
 
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.redline > .cell-stage > blockquote {
+  box-shadow: var(--elevation-card);
+}
+section.redline > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
+
 /* === lib/components/legal/regulatory-update/regulatory-update.styles.css === */
 /* regulatory-update — progression.ledger.structure
  *
@@ -10604,6 +10811,16 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
     grid-row: auto;
     justify-self: start;
   }
+}
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li {
+  box-shadow: var(--elevation-card);
+}
+section.regulatory-update > .cell-stage {
+  padding-block: var(--elevation-berth);
 }
 
 /* === lib/components/chart/roadmap/roadmap.styles.css === */
@@ -11298,6 +11515,16 @@ section.split-compare[data-orientation="square"] { flex-direction: column; }
   section.split-compare .options { grid-template-columns: 1fr; }
 }
 
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.split-compare .option {
+  box-shadow: var(--elevation-card);
+}
+section.split-compare > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
+
 /* === lib/components/statement/split-panel/split-panel.styles.css === */
 /* split-panel — statement.panel.structure
  *
@@ -11472,6 +11699,16 @@ section.split-panel-points .split-pt-t {
   padding-bottom: var(--sp-3xs);
 }
 section.split-panel-points .split-pt-b { color: var(--text-body); font-size: var(--fs-body); line-height: var(--lh-base); }
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.split-panel.watermark .panel-right > :is(ul,ol) > li {
+  box-shadow: var(--elevation-card);
+}
+section.split-panel > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
 
 /* === lib/components/chart/state-chart/state-chart.styles.css === */
 /* state-chart — native state machine diagram, browser-measured layout.
@@ -11978,11 +12215,23 @@ section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:va
 
 /* The stat strip: the top-level list laid out as a centered flex row. */
 section.stats > .cell-stage > ol {
-  display:flex; justify-content:center; gap:var(--sp-2xl);
-  list-style:none; padding:0; margin:0;
+  display:flex; justify-content:center; gap:var(--sp-md);
+  list-style:none; margin:0;
+  /* Berth ONLY on the vertical axis: the tile shadow extends downward (all layers
+   * 0 x-offset, negative spread), so horizontal berth would just steal row width
+   * and shear the outer tiles of a dense 5-stat row against the stage clip. */
+  padding:var(--elevation-berth) 0;
 }
+/* Each stat is now a card TILE (the manifest always called them tiles): a
+ * bg-alt surface with a hairline + Struck elevation, so the numbers sit up off
+ * the stage in both canvases. Fill unchanged across themes (light-dark() token).
+ * Horizontal padding stays tight (--sp-sm) so five tiles + gaps fit the stage
+ * within the pre-tile width budget; vertical padding carries the tile height. */
 section.stats > .cell-stage > ol > li {
   display:flex; flex-direction:column; align-items:center; gap:0.46875cqi; text-align:center;
+  background:var(--bg-alt); border:1px solid var(--border);
+  border-radius:var(--radius-md); padding:var(--sp-lg) var(--sp-sm);
+  box-shadow:var(--elevation-card);
 }
 /* The number — the lifted parent-li lead. */
 section.stats > .cell-stage > ol > li > strong {
@@ -12391,6 +12640,17 @@ section.statute-stack.lane td:last-child {
   }
 }
 
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.statute-stack > .cell-stage > ol > li {
+  box-shadow: var(--elevation-card);
+}
+section.statute-stack > .cell-stage {
+  padding-block: var(--elevation-berth);
+}
+
 /* === lib/components/chart/timeline-list/timeline-list.styles.css === */
 /* timeline-list — extracted from lib/_legacy.css (batch 9).
  * See lib/components/timeline-list/timeline-list.manifest.json for the component contract.
@@ -12762,6 +13022,16 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { just
     flex-direction: column;
   }
   section.verdict-grid.verdict-grid > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: center; }
+}
+
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
+ * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
+ * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+section.verdict-grid > .cell-stage > ul > li {
+  box-shadow: var(--elevation-card);
+}
+section.verdict-grid > .cell-stage {
+  padding-block: var(--elevation-berth);
 }
 
 /* === lib/components/imagery/video/video.styles.css === */
