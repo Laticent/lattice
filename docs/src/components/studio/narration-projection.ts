@@ -9,7 +9,9 @@
 // but stripped in the DOM. This runs the SAME shared kernel (`prose-projection.mjs`,
 // via the player-core bundle) against Present's live slide DOM, so live and export
 // draw narration from one source of truth. Charts keep their richer markdown narrator
-// (`narrateChart`) on BOTH surfaces — folding those into the export is a follow-on.
+// (`narrateChart`) on BOTH surfaces — the export now runs the same shared narrateChart
+// per chart slide too (#902 Gap 1, lib/core/chart-narration.js), so the chart family is
+// unified as well, not just prose.
 //
 // The projection is theme-invariant (it reads textContent, not computed style), so
 // the render palette/mode only need to be VALID, not "correct" — we resolve them the

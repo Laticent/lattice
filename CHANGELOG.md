@@ -218,8 +218,9 @@ in patch versions.
   and emitted only the heading, so a chart narrated far thinner in the exported captions
   than live. The 7 chart narrators moved into the shared kernel (`lib/core/chart-narration.js`,
   on the shared `lib/core/slide-speech.js` base), and both the CLI/export caption sidecar
-  and Present now run the SAME kernel — so a chart slide narrates identically in Present and
-  the exported `.vtt` by construction, not by two copies agreeing (HARD RULE #1). The
+  and Present now run the SAME kernel — one copy of the narrator logic, so a chart slide's
+  Markdown narrates identically wherever it runs (they align that kernel to each rendered
+  section under the house `---`-per-section convention). The
   narrators substitute at the projection precedence level, so an inline `<!-- caption: -->`,
   a front-matter `captions:` entry, or a speaker note still wins. Closes the last narration
   divergence for the chart family (prose parity + the empty-`.vtt` note gap shipped earlier).

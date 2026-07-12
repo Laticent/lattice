@@ -2656,25 +2656,6 @@ async function projectDeckSpeechFromHtml(docHtml) {
   }
 }
 
-// Per-authored-slide Markdown, aligned to the rendered sections the projection/notes
-// are indexed by (#902 Gap 1). The chart narrators read raw Markdown (list syntax,
-// `_class:` directives, backtick pills), which the rendered HTML no longer carries in
-// parseable form — so recover it from source. `bakeSplits` materializes the LIVE
-// `split: headings` boundaries as literal `---` using the SAME headingSplitPoints the
-// renderer splits on (lib/core/heading-split-core.js), so `splitSlides` then divides
-// the body EXACTLY where the engine divided it into sections — no re-implementation of
-// the split rule. Front matter is stripped first (splitSlides operates on the body).
-// The caller guards `blocks.length === projected.length`, so a deck whose render count
-// diverges (autosplit, focus-step expansion — neither reflected here) simply skips
-// chart substitution rather than misaligning.
-function perSlideMarkdownBlocks(source) {
-  const { bakeSplits } = require('./lib/core/bake-splits.js');
-  const { splitSlides } = require('./lib/core/split-slides.js');
-  const baked = bakeSplits(source); // headings-mode boundaries → literal `---`; now split: rule
-  const body = baked.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, ''); // drop front matter
-  return splitSlides(body);
-}
-
 // Read-along WebVTT sidecars from per-slide narration (--captions). Builds Cadenza
 // estimate tracks via the shared root producer, then derives one deck-level .vtt
 // (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
@@ -2716,25 +2697,39 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // state — that exists only in the render, never in the figure projection's
   // heading-only caption. Run the SAME shared narrateChart the live Studio Present uses
   // (lib/core/chart-narration.js) per chart slide and, when it fires (non-null),
-  // substitute its FULL-slide narration for the figure projection at that index — so
-  // Present and the export narrate the chart family identically BY CONSTRUCTION. It
+  // substitute its FULL-slide narration for the figure projection at that index. It
   // sits at the PROJECTION precedence level (mergeNarration still lets an inline
   // caption / front-matter caption / speaker note win), exactly as Present's narrationAt
-  // orders note → chart → projection. Aligned to the projection's rendered-section
-  // indices via the engine-faithful split (bake the `split: headings` boundaries to
-  // literal `---`, then split fence-aware); applied only when the per-slide markdown
-  // count matches the projection — autosplit / focus-step expansion shifts the section
-  // count, and mergeNarration already drops the projection there, so chart narration
-  // correctly stands down too rather than misalign.
+  // orders note → chart → projection. `splitSourceToSections` recovers each rendered
+  // section's SOURCE Markdown from the engine's OWN `hr`-token boundary (bake headings
+  // boundaries → `---`, then group on markdown-it's hr tokens), so blocks[i] ⇔ section i
+  // by construction — it can't drift from the render the way a parallel line-splitter
+  // did (a chart binding to the wrong slide on a `***` / setext / empty-section deck).
+  // The count guard is a belt-and-suspenders: autosplit / focus-step expansion ADD
+  // sections after this split, so a mismatch stands chart narration down (a logged
+  // note) rather than misalign — the same guard mergeNarration applies to the projection.
   if (projected.length === notes.length && projected.length > 0) {
     try {
       const { narrateChart } = require('./lib/core/chart-narration.js');
-      const blocks = perSlideMarkdownBlocks(rawMd);
+      const { splitSourceToSections } = require('./lib/core/section-source-split.js');
+      const blocks = splitSourceToSections(rawMd);
       if (blocks.length === projected.length) {
         for (let i = 0; i < blocks.length; i++) {
-          const chart = narrateChart(blocks[i]);
-          if (chart) projected[i] = chart;
+          // Per-slide guard: one pathological chart slide can't disable narration for
+          // the rest of the deck (a deck-wide try/catch would).
+          try {
+            const chart = narrateChart(blocks[i]);
+            if (chart) projected[i] = chart;
+          } catch (e) {
+            if (!QUIET) console.warn(`  note: chart narration skipped on slide ${i + 1} (${e?.message})`);
+          }
         }
+      } else if (!QUIET) {
+        // Under autosplit / focus-step expansion the rendered section count no longer
+        // matches the authored slides, so chart slides narrate from the heading-only
+        // projection (Present, markdown-indexed, still narrates them richly) — surface
+        // it so the divergence isn't silent.
+        console.log(`Captions: rendered sections and authored slides differ (${projected.length} vs ${blocks.length}) — chart slides narrate from the projection (heading only) in the export`);
       }
     } catch (e) {
       if (!QUIET) console.warn(`  note: chart narration skipped (${e?.message})`);

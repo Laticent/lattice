@@ -501,8 +501,21 @@ The chart caveat §13.5 left open is now closed. The 7 markdown chart narrators
 browser-only `docs/src/components/studio/chart-narration.ts` into the shared kernel
 `lib/core/chart-narration.js` (CJS), building on the `slideToSpeech` base that Phase 1
 (§13.5's precursor) had already moved to `lib/core/slide-speech.js`. Both surfaces now
-call the SAME kernel, so a chart slide narrates identically in Present and the exported
-`.vtt` **by construction**, not by two copies agreeing.
+call the SAME kernel — no second copy of the narrator logic to drift.
+
+**Honest scope of "identical" (an adversarial-review correction).** The kernel makes a
+*given chart slide's Markdown* narrate identically wherever it runs. The two surfaces
+still align that kernel to *different* per-slide splits: Present narrates `narrateChart(set[i])`
+where `set` is the Studio's `---`-based slide model (`docs/.../lint.ts splitSlides`,
+literal `---` only), while the export aligns to the engine's **rendered sections**
+(heading-aware, all thematic-break forms). They agree on WHICH Markdown is a chart slide
+whenever each rendered section is its own `---` block — the Studio's own model and the
+house authoring convention, and every committed chart deck. So parity holds **by
+convention (explicit `---` per section), not literally by construction**; a deck that
+merges a chart with other content under one `---` block on one surface but splits it on
+the other (a `split: headings` deck with no `---`, or a `***`/setext-adjacent break)
+would narrate that slide differently. The EXPORT's own internal alignment, by contrast,
+IS by construction (see below).
 
 - **Approach = Option B (owner-confirmed):** move the proven markdown narrators into the
   kernel and have the export run them per chart slide, exactly as Present does. Rejected
@@ -525,23 +538,46 @@ call the SAME kernel, so a chart slide narrates identically in Present and the e
   slide and, when it fires (non-null), substitutes its full-slide narration for the figure
   projection at that index — at the PROJECTION precedence level, so `mergeNarration` still lets
   an inline caption / front-matter caption / speaker note win, exactly as Present's `narrationAt`
-  orders `note → chart → projection`. Per-authored-slide markdown is recovered from source with
-  `bakeSplits` (materialize the live `split: headings` boundaries as literal `---` via the same
-  `headingSplitPoints` the renderer splits on) + `splitSlides`, so blocks align 1:1 with the
-  rendered sections; a count mismatch (autosplit / focus-step expansion) stands chart narration
-  down, the same guard `mergeNarration` already applies to the projection.
+  orders `note → chart → projection`.
+- **Alignment is engine-faithful, not a parallel splitter (a red-team correction).** The first
+  cut recovered per-slide source with `bakeSplits` + the `---`-only `splitSlides`, guarded only by
+  a section-count match. A red-team review reproduced a real misalignment: the engine splits on the
+  markdown-it `hr` token — *every* thematic-break form (`---`, `***`, `___`), keeps an empty middle
+  section, and treats a setext underline (`text`\n`---`) as an H2, never a break — while the
+  `---`-only splitter disagrees on each; two disagreements of opposite sign restore an equal COUNT
+  while offsetting the index MAPPING, binding a chart's computed numbers onto the wrong slide
+  (worse than a crash for an accessibility artifact). Replaced by `lib/core/section-source-split.js`
+  `splitSourceToSections`, which derives the split from the engine's OWN boundary source of truth:
+  bake headings boundaries → `---`, then group the body on markdown-it's `hr` tokens (the same
+  parser + the same `splitOnHr` grouping, empties preserved, `lib/engine/slides.js`). So `blocks[i]
+  ⇔ rendered section i` **by construction** — it cannot drift from the render. Verified by a test
+  that renders each fixture through the real engine and asserts `blocks.length === section count`,
+  including the two red-team trigger decks. The count guard stays as belt-and-suspenders: autosplit
+  / focus-step expansion ADD sections *after* this split, so a mismatch stands chart narration down
+  (a logged note — the export narrates those charts from the heading-only projection; Present, which
+  is markdown-indexed, still narrates them richly) rather than misalign.
 - **The narrators REPLACE the base narration for their slide** (not append) — identical contract
   on both surfaces.
 
 *Verification (HARD RULE #23):* the narrators are pinned by a faithful port of the browser
 oracle to `test/unit/core/chart-narration.test.js` (node:test, 61 cases) against the CJS source;
-the export-side alignment + substitution is pinned by `test/unit/core/chart-narration-export-parity.test.js`;
-the browser bundle Present actually loads is smoke-tested by `docs/src/components/studio/chart-narration.test.ts`.
-The end-to-end `.vtt` was produced via the REAL CLI export (`node lattice-emulator.js … --captions`)
-and the chart narration confirmed present in the deck-level and per-slide `.vtt` (the export
-sign-off artifact). Live browser Present **audio** stays UNVERIFIED (no TTS in CI); only the spoken
-STRING is claimed. Real-browser Studio Present (the sandbox blocks browser egress) is UNVERIFIED for
-this change — the shared kernel guarantees the string is identical to the CLI's, which IS verified.
+the engine-faithful alignment is pinned by `test/unit/core/section-source-split.test.js` (the
+grouping contract) and `test/unit/core/chart-narration-export-parity.test.js` (which renders each
+fixture through the REAL engine and asserts the recovered blocks equal the rendered section count,
+including the red-team trigger decks); the browser bundle Present actually loads is smoke-tested by
+`docs/src/components/studio/chart-narration.test.ts`. The end-to-end `.vtt` was produced via the REAL
+CLI export (`node lattice-emulator.js … --captions`) and the chart narration confirmed present in the
+deck-level and per-slide `.vtt` (the export sign-off artifact). Live browser Present **audio** stays
+UNVERIFIED (no TTS in CI); only the spoken STRING is claimed. Real-browser Studio Present (the sandbox
+blocks browser egress) is UNVERIFIED for this change — the shared kernel guarantees the string is
+identical to the CLI's, which IS verified.
+
+*Tracked follow-up (not in this change):* `niceCeil` now has a third copy (`radar.transform.js`,
+`quadrant.transform.js`, and the narrator kernel) — deliberate here (importing from `lib/components`
+would invert the `lib/core` layering) and cross-checked only via the narrators' scale-expectation
+tests, not a byte-diff. The clean resolution is to hoist `niceCeil` into `lib/core` and have all three
+import it (the same #1 pattern the rest of this change applies); logged as off-path for its own branch
+rather than pulled into this diff (HARD RULE #18).
 
 ---
 

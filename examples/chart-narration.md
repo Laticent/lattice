@@ -12,7 +12,7 @@ footer: "SlideWright · chart narration parity"
 
 `Feature · chart narration parity`
 
-A chart's real insight is a number the render COMPUTES — a conversion rate, an axis scale, an inferred start state. Those now narrate identically in Studio Present and in the exported `.vtt`.
+A chart's real insight is a number the render computes — a conversion rate, an axis scale, an inferred start state. Those now narrate identically in Studio Present and in the exported `.vtt`.
 
 <!-- Welcome. This deck is about chart narration parity: the computed facts a chart shows now speak the same way live in Present and in the exported captions. -->
 

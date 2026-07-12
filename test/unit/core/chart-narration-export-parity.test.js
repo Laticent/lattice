@@ -1,29 +1,28 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { bakeSplits } = require('../../../lib/core/bake-splits.js');
-const { splitSlides } = require('../../../lib/core/split-slides.js');
+const { splitSourceToSections } = require('../../../lib/core/section-source-split.js');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
+const latticeEngine = require('../../../lib/engine');
 
-// Export ↔ Present chart-narration parity (#902 Gap 1). The export's
-// writeCaptionsSidecar recovers per-authored-slide Markdown with EXACTLY this
-// bake-then-split pipeline, then runs the SAME shared `narrateChart` Present's
-// PresentOverlay runs on its own per-slide Markdown — so the two surfaces narrate a
-// chart slide identically by construction. These pin the two pieces the end-to-end
-// CLI render can't assert in a browser-free unit test:
-//   1. the alignment split yields one block per authored slide (so projected[i] and
-//      blocks[i] line up before substitution), and
-//   2. each chart block narrates via `narrateChart` to the rich, computed-fact text —
-//      the very text that used to live only in Present, never in the exported .vtt.
+// Export ↔ Present chart-narration parity + alignment (#902 Gap 1). The export's
+// writeCaptionsSidecar recovers per-rendered-section Markdown with `splitSourceToSections`,
+// then runs the SAME shared `narrateChart` Present's PresentOverlay runs on its own
+// per-slide Markdown. These pin the two guarantees a browser-free unit test can assert:
+//   1. ALIGNMENT — the recovered blocks line up 1:1 with the engine's rendered
+//      `<section>` split, so a chart's computed narration substitutes onto the RIGHT
+//      slide (not a parallel line-splitter that drifts on ***/setext/empty sections —
+//      a reproduced red-team misalignment this replaces), and
+//   2. ENRICHMENT — each chart block narrates via `narrateChart` to the rich,
+//      computed-fact text that used to live only in Present, never in the exported .vtt.
 
-/** Mirror lattice-emulator.js's perSlideMarkdownBlocks: bake the live `split:
- *  headings` boundaries to literal `---`, drop front matter, split fence-aware. */
-function perSlideMarkdownBlocks(source) {
-  const baked = bakeSplits(source);
-  const body = baked.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
-  return splitSlides(body);
+/** Render the deck the way the export does and count its `<section>` elements — the
+ *  index basis the caption projection (and thus the substitution) uses. */
+function engineSectionCount(source) {
+  const engine = latticeEngine.createEngine({ mathOutput: 'html' });
+  const { html } = engine.render(source, 'indaco');
+  return (html.match(/<section\b/g) || []).length;
 }
 
-// A `---`-separated chart deck (the explicit-separator case): each block is a slide.
 const separatorDeck = [
   '---',
   'marp: true',
@@ -54,27 +53,24 @@ const separatorDeck = [
   '  - Pricing `7`',
 ].join('\n');
 
-test('alignment split yields one block per authored slide (separator deck)', () => {
-  const blocks = perSlideMarkdownBlocks(separatorDeck);
+test('recovered blocks align 1:1 with the engine sections (separator deck)', () => {
+  const blocks = splitSourceToSections(separatorDeck);
+  assert.equal(blocks.length, engineSectionCount(separatorDeck));
   assert.equal(blocks.length, 3);
 });
 
 test('each chart block narrates the computed-fact text via the shared narrateChart', () => {
-  const blocks = perSlideMarkdownBlocks(separatorDeck);
-  // Non-chart title slide: narrateChart defers (returns null) → projection/notes stand.
-  assert.equal(narrateChart(blocks[0]), null);
-  // Funnel: the conversion % that lives only in the render, now in the export.
+  const blocks = splitSourceToSections(separatorDeck);
+  assert.equal(narrateChart(blocks[0]), null); // non-chart title slide → defer
   const funnel = narrateChart(blocks[1]);
   assert.ok(funnel.includes('Signups: four thousand eight hundred, forty percent of the prior stage.'));
-  // Radar: the auto-fit scale an unlabeled axis is plotted against.
   const radar = narrateChart(blocks[2]);
   assert.ok(radar.includes('On a scale of zero to ten.'));
   assert.ok(radar.includes('Lattice: Performance, nine; Pricing, seven.'));
 });
 
-// A default `split: headings` deck with NO explicit `---` between slides — the export
-// must still recover one block per rendered section (bakeSplits injects the boundaries
-// the renderer splits on), else the count guard would stand chart narration down.
+// Default `split: headings` deck with NO explicit `---` — the recovered split must
+// still track the engine's heading-injected sections.
 const headingsDeck = [
   '---',
   'marp: true',
@@ -94,9 +90,80 @@ const headingsDeck = [
   '- Signups `4,800`',
 ].join('\n');
 
-test('headings-mode deck (no explicit ---) splits into one block per slide', () => {
-  const blocks = perSlideMarkdownBlocks(headingsDeck);
+test('headings-mode deck (no explicit ---) aligns and narrates the chart', () => {
+  const blocks = splitSourceToSections(headingsDeck);
+  assert.equal(blocks.length, engineSectionCount(headingsDeck));
   assert.equal(blocks.length, 2);
   assert.equal(narrateChart(blocks[0]), null); // the cover
   assert.ok(narrateChart(blocks[1]).includes('forty percent of the prior stage'));
+});
+
+// The red-team misalignment class: a parallel `---`-only splitter drifts from the
+// engine on non-`---` thematic breaks (`***`), setext underlines (`text`\n`---` = an H2,
+// NOT a break), and empty middle sections — and two drifts of opposite sign restore an
+// equal COUNT while offsetting the MAPPING, so a chart's numbers land on the wrong
+// slide. These assert the engine-faithful split does NOT drift on those constructs.
+
+test('aligns across a setext underline + a `***` thematic break (red-team trigger A)', () => {
+  const deck = [
+    '---',
+    'split: rule',
+    '---',
+    '',
+    'Intro paragraph', // setext heading: the `---` below underlines it, NOT a split
+    '---',
+    '',
+    '<!-- _class: funnel -->',
+    '',
+    '## Funnel slide',
+    '',
+    '- Visitors `100`',
+    '- Signups `50`',
+    '',
+    '***', // a real thematic break the `---`-only splitter would miss
+    '',
+    'Before the star',
+    '',
+    '***',
+    '',
+    'After the star',
+  ].join('\n');
+  const blocks = splitSourceToSections(deck);
+  assert.equal(blocks.length, engineSectionCount(deck));
+  // The funnel shares section 0 with its setext heading (the engine renders it there),
+  // so its narration lands on section 0 — NOT spliced onto "Before the star".
+  assert.ok(narrateChart(blocks[0]).includes('forty percent of the prior stage') || narrateChart(blocks[0]).includes('fifty percent'));
+  assert.equal(narrateChart(blocks[1]), null); // "Before the star" — no chart
+  assert.equal(narrateChart(blocks[2]), null); // "After the star" — no chart
+});
+
+test('aligns across a setext underline + an empty middle section (red-team trigger B)', () => {
+  const deck = [
+    '---',
+    'split: rule',
+    '---',
+    '',
+    'Intro',
+    '---',
+    '',
+    '<!-- _class: funnel -->',
+    '',
+    '## Conversion',
+    '',
+    '- Leads `200`',
+    '- Won `40`',
+    '',
+    '---',
+    '',
+    '---', // an empty section between two breaks — the engine renders it
+    '',
+    'Tail',
+  ].join('\n');
+  const blocks = splitSourceToSections(deck);
+  assert.equal(blocks.length, engineSectionCount(deck));
+  // The funnel narrates on its own section; the empty section narrates to nothing —
+  // the conversion numbers do NOT splice onto the empty slide.
+  assert.ok(narrateChart(blocks[0]).includes('twenty percent of the prior stage'));
+  const empties = blocks.filter((b) => narrateChart(b) === null);
+  assert.ok(empties.length >= 1);
 });

@@ -8,7 +8,9 @@ import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-
 import { createPresenterController } from '@/playground/presenter-window.js';
 // The chart narrators live once in lib/core/chart-narration.js (HARD RULE #1),
 // bundled to the browser via read-along-core — the SAME kernel the CLI/export
-// narrates chart slides from, so Present and the export agree by construction (#902).
+// narrates chart slides from, so a given chart slide narrates identically on both
+// surfaces (they agree on which Markdown is a chart slide under the house `---`-per-
+// section convention; the export aligns to rendered sections, this to the `---` set). #902
 import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationIndices, presentationSet } from './lint';
