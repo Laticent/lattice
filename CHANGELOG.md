@@ -305,6 +305,12 @@ in patch versions.
   Changes the exported `.vtt` bytes for decks with chart slides; audio is unaffected (captions
   time off pace, not a voice). See `engineering/decisions/2026-07-11-manifest-speech-contract.md`
   §13.6.
+
+- **Present-mode captions are now a teleprompter crawl instead of a box that buried
+  the slide.** As read-aloud plays, the sentence being read stays centered, already-read
+  lines lift up and out, upcoming lines rise from the bottom, and words highlight as they
+  are spoken — only a ~3-line focus band is ever visible, so the caption can no longer
+  cover the slide the way the old full-narration box did. (Studio Present redesign — S2.)
 - **Editing in the Studio is dramatically snappier — a warm edit's engine cost dropped
   ~15× (≈141 ms → 9 ms on a throttled phone profile).** The engine re-packed the whole
   ~1 MB theme stylesheet into its ~560 KB per-render form on *every* keystroke, even though

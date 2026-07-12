@@ -14,6 +14,7 @@ import { createPresenterController } from '@/playground/presenter-window.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationIndices, presentationSet } from './lint';
+import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { sectionsFromSlides } from './present-sections';
 import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
@@ -403,23 +404,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						<span className="inline-flex max-w-[680px] items-center gap-2 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg))] px-3.5 py-2 text-center text-[13px] font-semibold text-[var(--text-heading)] shadow-[0_8px_24px_rgba(10,22,40,.14)]"><Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" />{coach}</span>
 					</div>
 				)}
-				{/* Read-aloud teleprompter — the narration, with the word being spoken NOW
-				    highlighted live (the cursor re-anchors to the real voice when clocked). */}
+				{/* Read-aloud caption — a teleprompter CRAWL (the active line stays centered,
+				    read lines lift out, upcoming lines rise), NOT the old full-narration box that
+				    buried the slide. */}
 				{!rehearse && reader.playing && reader.track.cues.length > 0 && (
 					<div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-4">
-						<output className="max-w-[760px] rounded-2xl border border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-4 py-2.5 text-center text-[15px] leading-snug shadow-[0_8px_24px_rgba(10,22,40,.16)] backdrop-blur-sm sm:text-[17px]">
-							{reader.track.cues.map((cue, ci) =>
-								cue.words.map((w, wi) => {
-									const on = reader.active?.cueIndex === ci && reader.active?.wordIndex === wi;
-									return (
-										// biome-ignore lint/suspicious/noArrayIndexKey: a static track never reorders, and word text repeats — (cueIndex, wordIndex) IS the word's stable identity.
-										<span key={`${ci}:${wi}`} className={cn('transition-colors', on ? 'font-semibold text-[var(--text-heading)]' : 'text-muted-foreground/70')}>
-											{w.display}{' '}
-										</span>
-									);
-								}),
-							)}
-						</output>
+						<PresentCaption track={reader.track} active={reader.active} />
 					</div>
 				)}
 			</div>
