@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronRight,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -633,31 +633,35 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// A legacy `class: dark/light` or a `-dark` theme name is read as its equivalent so an
 	// imported deck still shows a value; a deck with none reads 'default' (the theme's own mode).
 	const rawColorMode = (getFrontMatter(source, 'color-mode') || '').trim().toLowerCase();
-	const deckColorMode: 'default' | 'light' | 'dark' | 'system' | 'inherited' =
-		rawColorMode === 'light' || rawColorMode === 'dark' || rawColorMode === 'system' || rawColorMode === 'inherited'
+	const deckColorMode: 'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print' =
+		rawColorMode === 'light' || rawColorMode === 'dark' || rawColorMode === 'system' || rawColorMode === 'inherited' || rawColorMode === 'print'
 			? rawColorMode
-			: deckClassList.includes('dark') || /-dark$/.test(deckThemeRaw)
-				? 'dark'
-				: deckClassList.includes('light')
-					? 'light'
-					: 'default';
-	const setDeckColorMode = (value: 'default' | 'light' | 'dark' | 'system' | 'inherited') =>
+			: deckClassList.includes('print')
+				? 'print'
+				: deckClassList.includes('dark') || /-dark$/.test(deckThemeRaw)
+					? 'dark'
+					: deckClassList.includes('light')
+						? 'light'
+						: 'default';
+	const setDeckColorMode = (value: 'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print') =>
 		settingsWrite(`Color mode → ${value === 'default' ? 'Theme default' : value}`, (s) => {
 			// `color-mode:` is the single home for deck color mode now. Normalize a `-dark`
 			// theme name to its base and clear the legacy `class: dark/light` alias, so the
 			// theme name and the deprecated axis can never disagree with the key.
 			const t = (getFrontMatter(s, 'theme') || '').trim();
 			const normalized = /-dark$/.test(t) ? setFrontMatter(s, 'theme', t.replace(/-dark$/, '')) : s;
-			const cleared = removeClassTokens(normalized, 'dark light');
+			// Also clear a legacy `class: print` so the key is the single source of truth.
+			const cleared = removeClassTokens(normalized, 'dark light print');
 			return setFrontMatter(cleared, 'color-mode', value === 'default' ? null : value);
 		});
 	// Icon + label for the current color-mode value (shared by the trigger + the menu).
-	const COLOR_MODE_META: Record<'default' | 'light' | 'dark' | 'system' | 'inherited', { label: string; icon: React.ReactNode }> = {
+	const COLOR_MODE_META: Record<'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print', { label: string; icon: React.ReactNode }> = {
 		default: { label: 'Theme default', icon: <SunMoon className="size-3.5" /> },
 		light: { label: 'Light', icon: <Sun className="size-3.5" /> },
 		dark: { label: 'Dark', icon: <Moon className="size-3.5" /> },
 		system: { label: 'System', icon: <Monitor className="size-3.5" /> },
 		inherited: { label: 'Match site', icon: <Layers className="size-3.5" /> },
+		print: { label: 'Print (B&W)', icon: <Printer className="size-3.5" /> },
 	};
 	// The DECK's own THEME (front matter), independent of the website palette. The
 	// prominent/topbar picker is the WEBSITE theme; this Inspector control is the
@@ -1528,7 +1532,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<Control aria-label="Choose deck color mode"><span className="flex min-w-0 items-center gap-2">{COLOR_MODE_META[deckColorMode].icon}<span className="truncate">{COLOR_MODE_META[deckColorMode].label}</span></span> <ChevronDown className="size-3.5" /></Control>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-48">
-							{(['default', 'light', 'dark', 'system', 'inherited'] as const).map((v) => (
+							{(['default', 'light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => (
 								<DropdownMenuItem key={v} onSelect={() => setDeckColorMode(v)} className="gap-2">{COLOR_MODE_META[v].icon}{COLOR_MODE_META[v].label}{deckColorMode === v && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
 							))}
 						</DropdownMenuContent>

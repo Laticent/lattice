@@ -56,9 +56,11 @@ export function deckClassTokens(source: string): string[] {
 	return stripQuotes(m[1]).trim().split(/\s+/).filter(Boolean);
 }
 
-/** The four first-class `color-mode:` values. `inherited` adopts the host (site) mode;
- *  `system` follows the OS. Mirrors lib/core/resolve-color-mode.js COLOR_MODE_NAMES. */
-export type ColorMode = 'light' | 'dark' | 'system' | 'inherited';
+/** The five first-class `color-mode:` values. `inherited` adopts the host (site) mode;
+ *  `system` follows the OS; `print` renders the whole deck in the B&W-safe ink-on-white
+ *  print band (section.print) — a medium, not a scheme, so it pins neither light nor dark
+ *  (the band overrides the canvas). Mirrors lib/core/resolve-color-mode.js COLOR_MODE_NAMES. */
+export type ColorMode = 'light' | 'dark' | 'system' | 'inherited' | 'print';
 
 /** The deck's first-class `color-mode:` value (front matter), or null when it declares
  *  none. This SUPERSEDES the legacy `class: dark`/`class: light` color axis. */
@@ -66,7 +68,7 @@ export function deckColorMode(source: string): ColorMode | null {
 	const m = /^\s*color-mode:\s*(.*)$/m.exec(frontMatterBody(source));
 	if (!m) return null;
 	const v = stripQuotes(m[1]).trim().toLowerCase();
-	return v === 'light' || v === 'dark' || v === 'system' || v === 'inherited' ? v : null;
+	return v === 'light' || v === 'dark' || v === 'system' || v === 'inherited' || v === 'print' ? v : null;
 }
 
 export type ResolvedDeckTheme = {

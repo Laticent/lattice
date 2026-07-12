@@ -152,6 +152,23 @@ in patch versions.
 
 ### Fixed
 
+- **"Print deck" now prints the deck, not a screenshot of the app — and lands on
+  the right paper.** Two problems in the Studio Share → "Print deck" path. (1) It
+  mounted the print render in a **hidden** iframe (`opacity:0`, zero-sized) and
+  printed it via `contentWindow.print()`. A hidden iframe is an ambiguous print
+  target: a browser that won't focus an invisible frame (Firefox) printed the
+  **top document** instead, so the export came out as a screen-grab of the Share
+  sheet and toolbar. The print frame is now a real full-viewport, opaque, focused
+  overlay (torn down on `afterprint` + a safety timeout) — the unambiguous target
+  in every browser, like the Drawing Board's visible preview frame. (2) The shared
+  print CSS sized the sheet to the raw slide pixels, so the OS print dialog
+  defaulted a 16:9 slide onto portrait A4/Letter — shrunk, with a URL/date
+  header/footer. It now picks the least-wasteful standard sheet for the deck's
+  aspect and pre-selects orientation (**16:9 → US Legal landscape** ~93% fill, 4:3
+  → Letter landscape, tall decks → Letter portrait), scales each slide to fit with
+  `zoom`, and holds a 9mm safe margin — one slide per page, centered, never
+  cropped. Colour-only for now; a black-and-white-safe print band is the still-open
+  Build B of `engineering/decisions/2026-06-14-deck-print-styling.md`.
 - **A non-English deck's narration no longer gets English words injected into it.** Cadenza's
   say-as machinery — the abbreviation lexicon, number-to-words, and the fiscal/period parser
   (`FY26` → "fiscal year twenty-six", `40%` → "forty percent") — is US-English, so a deck
@@ -324,6 +341,23 @@ in patch versions.
 
 ### Added
 
+- **Print mode — a B&W-safe, ink-on-white render of the whole deck for paper handouts.**
+  Every theme's palette encodes meaning in hue, which a grayscale office printer throws away;
+  print mode swaps in a universal `--print-*` band so nothing depends on color. Turn it on
+  three ways: the first-class **`color-mode: print`** front-matter key (also in the Studio's
+  color-mode picker as "Print (B&W)"), the legacy `class: print`, or the new `lattice … --print`
+  export flag (no source edit — it stamps the deck-wide `print` canvas class). What it does:
+  remaps every main token to ink-on-white (surfaces, the 12-token type ramp, accent, status,
+  the categorical + diagram ramps) via `section.print`; **every print text token clears WCAG
+  AA against white** (gated in `test/unit/palette/contrast.test.js`); dark bookend covers
+  become light framed ink instead of a toner-heavy flood; and category distinction rides on
+  channels that survive gray — stepped lightness, a promoted border, and **hatch/dot/cross
+  SVG pattern fills** for chart & diagram series (pie, funnel, Mermaid, gantt, kanban,
+  journey, word-cloud, choropleth), reusing the a11y-achromatopsia texture set. Mermaid,
+  which bakes its colors to literal hex offline, gets a dedicated print themeVars bake so its
+  node text + edge lines ink correctly. Colour export is untouched — print is an explicit
+  opt-in, never `@media print`. Demo: `examples/print-mode.md`. Design:
+  `engineering/decisions/2026-06-14-deck-print-styling.md`.
 - **`glossary: auto` — a deck writes its own glossary from the acronym registry.** The
   `acronyms:` front-matter carries an optional one-sentence `definition` per term (alongside
   the spoken `expansion`), which was parsed but never shown. Add `glossary: auto` to the front

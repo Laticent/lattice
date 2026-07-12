@@ -43,15 +43,20 @@ describe('resolve-color-mode', () => {
     assert.equal(colorModeClass('INHERITED'), 'color-inherited');
   });
 
-  test('isKnownColorMode recognizes the four register names only', () => {
-    for (const n of ['light', 'dark', 'system', 'inherited']) assert.ok(isKnownColorMode(n));
+  test('isKnownColorMode recognizes the five register names only', () => {
+    for (const n of ['light', 'dark', 'system', 'inherited', 'print']) assert.ok(isKnownColorMode(n));
     assert.ok(!isKnownColorMode('systemm'));
     assert.ok(!isKnownColorMode(''));
     assert.ok(!isKnownColorMode(undefined));
   });
 
-  test('COLOR_MODE_NAMES lists exactly the four registered names', () => {
-    assert.deepEqual([...COLOR_MODE_NAMES].sort(), ['dark', 'inherited', 'light', 'system']);
+  test('COLOR_MODE_NAMES lists exactly the five registered names', () => {
+    assert.deepEqual([...COLOR_MODE_NAMES].sort(), ['dark', 'inherited', 'light', 'print', 'system']);
+  });
+
+  test('color-mode: print maps to the section.print band class', () => {
+    assert.equal(colorModeClass('print'), 'print');
+    assert.equal(colorModeClassFromSource('---\ncolor-mode: print\n---\n'), 'print');
   });
 
   test('every register token is a member of the shared COLOR_MODE_TOKENS axis', () => {

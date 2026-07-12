@@ -117,8 +117,13 @@ describe('buildSrcdoc', () => {
 		const { buildSrcdoc } = await load();
 		const doc = buildSrcdoc({ ...BASE, printRules: true, contentVisibility: true });
 		assert.match(doc, /@media print\{/);
-		assert.match(doc, /\.lattice\{visibility:visible!important;height:auto!important;overflow:visible!important;\}/);
+		// un-hides + un-clamps .lattice (then centers each slide on the sheet — the fit
+		// flex column follows the un-hide props, so match the prefix, not a closing brace).
+		assert.match(doc, /\.lattice\{visibility:visible!important;height:auto!important;overflow:visible!important;/);
 		assert.match(doc, /content-visibility:visible!important/);
+		// paper-fit: a standard sheet is picked and the slide is scaled to it.
+		assert.match(doc, /@page\{size:(legal|letter) (landscape|portrait);margin:9mm;\}/);
+		assert.match(doc, /zoom:[0-9.]+/);
 	});
 
 	test('background + padding follow the mode and the opt', async () => {

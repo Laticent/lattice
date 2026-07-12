@@ -159,6 +159,14 @@ describe('resolveDeckTheme — the first-class color-mode: key', () => {
 		expect(pinnedMode(r)).toBeUndefined();
 	});
 
+	it('`color-mode: print` is recognized and pins NEITHER (the section.print band overrides the canvas)', () => {
+		const r = resolveDeckTheme(fm('color-mode: print'), { sitePalette: 'indaco', siteMode: 'dark', isKnownTheme });
+		expect(r.colorMode).toBe('print');
+		expect(r.pinnedDark).toBe(false);
+		expect(r.pinnedLight).toBe(false);
+		expect(pinnedMode(r)).toBeUndefined();
+	});
+
 	it('`color-mode:` WINS over the legacy `class: dark` alias', () => {
 		const r = resolveDeckTheme(fm('class: dark\ncolor-mode: light'), { sitePalette: 'indaco', siteMode: 'dark', isKnownTheme });
 		expect(r.mode).toBe('light');

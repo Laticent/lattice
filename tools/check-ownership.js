@@ -113,7 +113,11 @@ const VARIANT_DECL_IGNORE = new Map([
 // `lat-split-cards` is the cover-cards body marker the auto-split kernel stamps on a
 // reshaped (transposed-to-cards) split page — engine chrome, not an author variant, exactly
 // parallel to the `lat-split-native` cover-paginate body marker.
-const STRUCTURAL_ROOT_CLASSES = new Set(['chart-frame', 'lat-split-cards', 'lat-split-native']);
+// `print` is the deck-wide PRINT canvas mode (a color-mode sibling of dark/light),
+// stamped on every section when a deck is exported in print; a `section.print.<component>`
+// rule (e.g. journey's print ramp re-resolution) is print-mode chrome, not an author
+// variant of that component — exactly like a `section.dark.<component>` override would be.
+const STRUCTURAL_ROOT_CLASSES = new Set(['chart-frame', 'lat-split-cards', 'lat-split-native', 'print']);
 
 // Search tags that legitimately apply to exactly ONE component — a
 // genuinely-unique idiom or material with no sibling that shares it

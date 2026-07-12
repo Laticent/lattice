@@ -463,6 +463,79 @@
   --code-inline-border: color-mix(in srgb, currentColor 22%, transparent);
 
 
+  /* ── Print band — universal ink-on-white defaults ─────────────────────────
+   * The THIRD canvas axis (paper). light-dark() has only two slots, so print
+   * can't ride a color-scheme flip like .dark/.light; instead section.print
+   * (base.modifiers.css) REMAPS the main tokens to this --print-* band, stamped
+   * deck-wide by `class: print` / `color-mode: print` / the engine `--print`
+   * flag — NOT @media print, so the colour PDF export is untouched.
+   *
+   * These are brand-neutral (ink on white), so — like the universal --pass/
+   * --warn/--fail trio above — they live here as the default EVERY theme
+   * inherits; a theme overrides a specific --print-* token only if it wants a
+   * distinct paper treatment. B&W-safe by construction: every text token clears
+   * WCAG AA against white (gated, test/unit/palette/contrast.test.js), and
+   * category distinction rides on stepped lightness + borders (+ SVG patterns
+   * for chart/diagram series, added by the renderers), never hue.
+   * See engineering/decisions/2026-06-14-deck-print-styling.md. */
+  --print-bg:              #FFFFFF;
+  --print-bg-alt:          #F5F5F5;
+  --print-surface-inverse: #ECECEC;  /* bookend panels → light framed, not a toner-heavy flood */
+  --print-border:          #7A7A7A;  /* promoted to a real ink rule so adjacent fills separate */
+
+  --print-text-display:    #111111;  /* on the (now light) bookend panels */
+  --print-text-heading:    #000000;
+  --print-text-body:       #1A1A1A;
+  --print-text-label:      #2E2E2E;
+  --print-text-secondary:  #3D3D3D;
+  --print-text-muted:      #6E6E6E;
+
+  --print-accent:          #1A1A1A;  /* accent is text-bearing → ink, not hue */
+  --print-accent-soft:     #ECECEC;
+  --print-on-accent:       #FFFFFF;
+
+  /* Status keeps its glyph/label; lightness + border carry it in gray. */
+  --print-pass:            #2E2E2E;
+  --print-warn:            #555555;
+  --print-fail:            #111111;
+
+  /* Categorical fills → stepped grays; the border + (for series) pattern fills
+   * do the work past ~5 categories. */
+  --print-cat-1-fill:  #EDEDED; --print-cat-2-fill:  #DADADA; --print-cat-3-fill:  #C7C7C7;
+  --print-cat-4-fill:  #E3E3E3; --print-cat-5-fill:  #D0D0D0; --print-cat-6-fill:  #BDBDBD;
+  --print-cat-7-fill:  #E8E8E8; --print-cat-8-fill:  #D5D5D5; --print-cat-9-fill:  #C2C2C2;
+  --print-cat-10-fill: #DEDEDE; --print-cat-11-fill: #CBCBCB; --print-cat-12-fill: #B8B8B8;
+  --print-cat-on-fill: #1A1A1A;
+
+  /* Categorical marks (bars/strokes carry white ink) → dark grays, all capped
+   * dark enough that --print-cat-on-mark (#FFF) clears AA on every step. */
+  --print-cat-1-mark:  #333333; --print-cat-2-mark:  #383838; --print-cat-3-mark:  #3D3D3D;
+  --print-cat-4-mark:  #424242; --print-cat-5-mark:  #474747; --print-cat-6-mark:  #4C4C4C;
+  --print-cat-7-mark:  #515151; --print-cat-8-mark:  #565656; --print-cat-9-mark:  #5B5B5B;
+  --print-cat-10-mark: #606060; --print-cat-11-mark: #656565; --print-cat-12-mark: #6A6A6A;
+  --print-cat-on-mark: #FFFFFF;
+
+  /* Diagram */
+  --print-diagram-stroke:        #333333;
+  --print-diagram-line:          #1A1A1A;
+  --print-diagram-active:        #E3E3E3; --print-diagram-active-mark:   #3A3A3A;
+  --print-diagram-done:          #EDEDED; --print-diagram-done-mark:     #5A5A5A;
+  --print-diagram-critical:      #BDBDBD; --print-diagram-critical-mark: #111111;
+  --print-diagram-today:         #6E6E6E;
+  --print-diagram-note:          #F5F5F5;
+
+  /* Chart series (foreground: bars, pie wedges, word-cloud ink, line strokes).
+   * Interleaved dark grays so adjacent series stay distinct; the chart-family
+   * derives its pale --chart-cat-N-fill from these by mixing toward white. All
+   * ≤ #6E so white-on-mark ink clears AA. SVG hatch/dot patterns (added by the
+   * renderers, later slice) do the separating past ~5 series. --print-seq-500
+   * re-anchors the sequential/heat ramp to gray; its 50-900 stops derive. */
+  --print-chart-1: #333333; --print-chart-2: #6E6E6E; --print-chart-3: #4D4D4D;
+  --print-chart-4: #606060; --print-chart-5: #3D3D3D; --print-chart-6: #565656;
+  --print-chart-7: #454545; --print-chart-8: #686868;
+  --print-seq-500: #5A5A5A;
+
+
   /* ── Sequential ramp (--seq-50 … --seq-900) ────────────────────────────
    * Tailwind/Carbon-style 10-stop ramp anchored on --seq-500. Used for
    * sequential / quantitative encoding: heatmap intensity, progress
@@ -4564,6 +4637,35 @@ section.inventory.editorial > .cell-stage > ul > li strong {
    * value = more vertical room for the rest of the board (legend,
    * sections, insight callout). */
   --journey-mood-row: 2.03125cqi;
+}
+
+/* PRINT — re-resolve the derived ramp/surfaces against the print band.
+ * The tokens above are declared at :root, so their var(--cat-N-mark)/var(--bg-alt)
+ * substitute against :ROOT's colored values — a custom property that references
+ * another resolves at its DECLARATION scope, so section.print's remap (on the
+ * section) can't reach a :root-declared derived token. Re-declaring the SAME
+ * derivations here, on the print section, re-resolves them against the print
+ * greyscale cat-marks / ink surfaces. Keep in SYNC with the :root block above.
+ * (Print-only; light/dark output is untouched.) */
+section.print.journey {
+  --journey-mood-5: var(--cat-2-mark);
+  --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
+  --journey-mood-3: var(--cat-4-mark);
+  --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
+  --journey-mood-1: var(--cat-6-mark);
+  --journey-mood-5-deep: var(--cat-2-mark);
+  --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
+  --journey-mood-3-deep: var(--cat-4-mark);
+  --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
+  --journey-mood-1-deep: var(--cat-6-mark);
+  --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
+  --journey-stage-fg:   var(--on-dark-primary);
+  --journey-task-bg:    color-mix(in oklab, var(--bg-alt) 80%, var(--bg));
+  --journey-task-fg:    var(--text-body);
+  --journey-timeline:   color-mix(in srgb, var(--text-body) 55%, transparent);
+  --journey-plumb:      color-mix(in srgb, var(--text-body) 50%, transparent);
+  --journey-face-bg:    var(--bg);
+  --journey-axis:       color-mix(in srgb, var(--text-body) 32%, transparent);
 }
 
 /* Shared base — applies to every journey variant. */
@@ -13623,6 +13725,109 @@ section.dark {
 }
 
 
+/* ── PRINT BAND ──
+ * A third canvas axis for paper: ink-on-white, B&W-safe. Unlike .dark/.light
+ * (pure color-scheme flips that ride the theme's light-dark() pairs), print is
+ * a THIRD mode light-dark() can't reach, so this rule REMAPS every consumed main
+ * token to the --print-* band (universal defaults in base.tokens.css; a theme may
+ * override any). Stamped deck-wide by `class: print` / `color-mode: print` / the
+ * engine `--print` flag — never @media print, so the colour PDF export is left
+ * alone. Layouts are palette-blind, so they inherit the band for free.
+ * See engineering/decisions/2026-06-14-deck-print-styling.md. */
+section.print {
+  color-scheme: light;              /* pin so any light-dark() input resolves predictably */
+  --bg: var(--print-bg);
+  --bg-alt: var(--print-bg-alt);
+  --surface-inverse: var(--print-surface-inverse);
+  --border: var(--print-border);
+  --text-display: var(--print-text-display);
+  --text-heading: var(--print-text-heading);
+  --text-body: var(--print-text-body);
+  --text-label: var(--print-text-label);
+  --text-secondary: var(--print-text-secondary);
+  --text-muted: var(--print-text-muted);
+  --accent: var(--print-accent);
+  --accent-soft: var(--print-accent-soft);
+  --on-accent: var(--print-on-accent);
+  /* The soft-accent container's ink/border + body: declared at :root as
+   * var(--accent)/var(--text-body), so they resolve to the THEME hue at :root
+   * scope — the same trap the journey ramp hits. Remap here so the "recommended"
+   * card, SWOT highlight, glossary pill, pricing, split-compare read ink, not hue. */
+  --on-accent-soft: var(--print-accent);
+  --accent-soft-body: var(--print-text-body);
+  /* Bookends (title/divider/closing) flip from dark flood to light framed panel,
+   * so their white-based on-dark ink tier must invert to dark ink too. */
+  --on-dark-primary: var(--print-text-heading);
+  --on-dark-secondary: var(--print-text-secondary);
+  --on-dark-ghost: var(--print-text-muted);
+  --on-dark-watermark: color-mix(in srgb, black 10%, transparent);
+  --pass: var(--print-pass);
+  --warn: var(--print-warn);
+  --fail: var(--print-fail);
+  --cat-1-fill: var(--print-cat-1-fill);   --cat-2-fill: var(--print-cat-2-fill);
+  --cat-3-fill: var(--print-cat-3-fill);   --cat-4-fill: var(--print-cat-4-fill);
+  --cat-5-fill: var(--print-cat-5-fill);   --cat-6-fill: var(--print-cat-6-fill);
+  --cat-7-fill: var(--print-cat-7-fill);   --cat-8-fill: var(--print-cat-8-fill);
+  --cat-9-fill: var(--print-cat-9-fill);   --cat-10-fill: var(--print-cat-10-fill);
+  --cat-11-fill: var(--print-cat-11-fill); --cat-12-fill: var(--print-cat-12-fill);
+  --cat-on-fill: var(--print-cat-on-fill);
+  --cat-1-mark: var(--print-cat-1-mark);   --cat-2-mark: var(--print-cat-2-mark);
+  --cat-3-mark: var(--print-cat-3-mark);   --cat-4-mark: var(--print-cat-4-mark);
+  --cat-5-mark: var(--print-cat-5-mark);   --cat-6-mark: var(--print-cat-6-mark);
+  --cat-7-mark: var(--print-cat-7-mark);   --cat-8-mark: var(--print-cat-8-mark);
+  --cat-9-mark: var(--print-cat-9-mark);   --cat-10-mark: var(--print-cat-10-mark);
+  --cat-11-mark: var(--print-cat-11-mark); --cat-12-mark: var(--print-cat-12-mark);
+  --cat-on-mark: var(--print-cat-on-mark);
+  --diagram-stroke: var(--print-diagram-stroke);
+  --diagram-line: var(--print-diagram-line);
+  --diagram-active: var(--print-diagram-active);
+  --diagram-active-mark: var(--print-diagram-active-mark);
+  --diagram-done: var(--print-diagram-done);
+  --diagram-done-mark: var(--print-diagram-done-mark);
+  --diagram-critical: var(--print-diagram-critical);
+  --diagram-critical-mark: var(--print-diagram-critical-mark);
+  --diagram-today: var(--print-diagram-today);
+  --diagram-note: var(--print-diagram-note);
+  /* Chart series ride the theme's --chart-catN source (the .chart-frame hues
+   * derive from it via var(--chart-catN)), so remap the source to gray here. */
+  --chart-cat1: var(--print-chart-1); --chart-cat2: var(--print-chart-2);
+  --chart-cat3: var(--print-chart-3); --chart-cat4: var(--print-chart-4);
+  --chart-cat5: var(--print-chart-5); --chart-cat6: var(--print-chart-6);
+  --chart-cat7: var(--print-chart-7); --chart-cat8: var(--print-chart-8);
+  --chart-state-pass: var(--print-pass);
+  --chart-state-warn: var(--print-warn);
+  --chart-state-fail: var(--print-fail);
+  --chart-state-info: var(--print-text-secondary);
+  --chart-state-mute: var(--print-text-muted);
+  --seq-500: var(--print-seq-500);
+  /* Chrome: inline-code chips + the Marp header/footer are theme-accent-tinted;
+   * ink them so nothing but content carries tone. */
+  --code-inline-fg: var(--print-text-body);
+  --marp-slide-header-color: var(--print-text-muted);
+  --marp-slide-footer-color: var(--print-text-muted);
+  /* Code panel → light framed ink (a dark syntax panel prints as a muddy toner
+   * rectangle). Syntax keeps a hierarchy on LIGHTNESS, not hue: keyword/title
+   * darkest, string/comment/punctuation lighter — legible and B&W-safe. */
+  --code-bg: var(--print-bg-alt);
+  --code-text: var(--print-text-body);
+  --hljs-comment: var(--print-text-muted);
+  --hljs-keyword: var(--print-text-heading);
+  --hljs-built_in: var(--print-text-body);
+  --hljs-number: var(--print-text-body);
+  --hljs-literal: var(--print-text-body);
+  --hljs-string: var(--print-text-secondary);
+  --hljs-title: var(--print-text-heading);
+  --hljs-type: var(--print-text-body);
+  --hljs-variable: var(--print-text-body);
+  --hljs-params: var(--print-text-body);
+  --hljs-tag: var(--print-text-body);
+  --hljs-punctuation: var(--print-text-secondary);
+  --spectrum: var(--print-border);  /* the rainbow ribbon → a flat gray rule (code panel edge, etc.) */
+  background: var(--bg);            /* paper white; no spectrum ribbon (saves toner, drops hue) */
+  border-top: none;
+}
+
+
 /* ── LIGHT VARIANT ──
  * The mirror of `.dark`: a per-slide LIGHT canvas. Forces this section's
  * color-scheme to light, so the palette's light-dark() surface tokens resolve to
@@ -19408,6 +19613,97 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 /* Mermaid gantt — taskTextOutsideLeft/Right ignore taskTextOutsideColor for some
  * bar widths; force dark text in the outside-the-bar margin (was gantt.styles.css). */
 :is(section, figure) .taskTextOutsideLeft, :is(section, figure) .taskTextOutsideRight { fill: var(--text-heading) !important; }
+
+/* === lib/base/base.print-textures.css === */
+/* base.print-textures.css — categorical SVG PATTERN fills for print mode.
+ *
+ * Print is B&W-safe: category distinction rides on stepped gray + border for
+ * ≤~5 slots, but past that, gray alone collapses. So — exactly like the
+ * a11y-achromatopsia theme (themes/a11y-base.css) — print overlays each
+ * categorical fill with a hatch/dot/cross TEXTURE. The `<pattern>` <defs> these
+ * `url(#latt-a11y-tex-N)` refs point at are emitted by the engine on EVERY
+ * render (lib/core/accessibility-textures.js, injected at lattice-emulator.js
+ * and lib/runtime), so they resolve here with no extra plumbing — same-document
+ * paint-server refs.
+ *
+ * This is the SAME wiring as themes/a11y-base.css, re-scoped from the a11y theme
+ * to `section.print`; keep the section→texture index mapping in SYNC with that
+ * file (the `printTextureParity` test guards it). The `!important` overrides the
+ * component's own fill — including Mermaid's OFFLINE-BAKED hex node fills, which
+ * a token remap can't reach (that's why Mermaid needs this and not a themeVars
+ * bake). See engineering/decisions/2026-06-14-deck-print-styling.md.
+ */
+
+/* Status GLYPHS — the RAG/lifecycle disc keeps its meaning by shape, not just
+ * the (now-gray) fill: ✓ done · ! at-risk · ✗ blocked · ◆ decision · – deferred. */
+section.print .chart-status[data-s="on-track"]::before,
+section.print .chart-status[data-s="done"]::before,
+section.print .chart-status[data-s="live"]::before { content: "\2713\00a0"; }
+section.print .chart-status[data-s="at-risk"]::before,
+section.print .chart-status[data-s="warn"]::before { content: "\0021\00a0"; }
+section.print .chart-status[data-s="blocked"]::before,
+section.print .chart-status[data-s="fail"]::before { content: "\2717\00a0"; }
+section.print .chart-status[data-s="pilot"]::before,
+section.print .chart-status[data-s="decision"]::before { content: "\25C6\00a0"; }
+section.print .chart-status[data-s="deferred"]::before { content: "\2013\00a0"; }
+section.print .chart-status::before { font-weight: 700; speak: never; }
+
+/* Mermaid categorical nodes/clusters — .section-N carries the cycle; texture it
+ * so the OFFLINE-BAKED node fill is overridden in the PDF. */
+section.print .section--1 path, section.print .section--1 circle { fill: url(#latt-a11y-tex-1) !important; }
+section.print .cluster.section-0 rect, section.print .section-0 rect, section.print .section-0 path, section.print .section-0 circle { fill: url(#latt-a11y-tex-1) !important; }
+section.print .cluster.section-1 rect, section.print .section-1 rect, section.print .section-1 path, section.print .section-1 circle { fill: url(#latt-a11y-tex-2) !important; }
+section.print .cluster.section-2 rect, section.print .section-2 rect, section.print .section-2 path, section.print .section-2 circle { fill: url(#latt-a11y-tex-3) !important; }
+section.print .cluster.section-3 rect, section.print .section-3 rect, section.print .section-3 path, section.print .section-3 circle { fill: url(#latt-a11y-tex-4) !important; }
+section.print .cluster.section-4 rect, section.print .section-4 rect, section.print .section-4 path, section.print .section-4 circle { fill: url(#latt-a11y-tex-5) !important; }
+section.print .cluster.section-5 rect, section.print .section-5 rect, section.print .section-5 path, section.print .section-5 circle { fill: url(#latt-a11y-tex-6) !important; }
+section.print .cluster.section-6 rect, section.print .section-6 rect, section.print .section-6 path, section.print .section-6 circle { fill: url(#latt-a11y-tex-7) !important; }
+section.print .cluster.section-7 rect, section.print .section-7 rect, section.print .section-7 path, section.print .section-7 circle { fill: url(#latt-a11y-tex-8) !important; }
+section.print .cluster.section-8 rect, section.print .section-8 rect, section.print .section-8 path, section.print .section-8 circle { fill: url(#latt-a11y-tex-9) !important; }
+section.print .cluster.section-9 rect, section.print .section-9 rect, section.print .section-9 path, section.print .section-9 circle { fill: url(#latt-a11y-tex-10) !important; }
+section.print .cluster.section-10 rect, section.print .section-10 rect, section.print .section-10 path, section.print .section-10 circle { fill: url(#latt-a11y-tex-11) !important; }
+section.print .cluster.section-11 rect, section.print .section-11 rect, section.print .section-11 path, section.print .section-11 circle { fill: url(#latt-a11y-tex-12) !important; }
+
+/* Mermaid pie — path.pieCircle painted from the --cat ramp, mod-12. */
+section.print .pieCircle:nth-of-type(12n+1) { fill: url(#latt-a11y-tex-1) !important; }
+section.print .pieCircle:nth-of-type(12n+2) { fill: url(#latt-a11y-tex-2) !important; }
+section.print .pieCircle:nth-of-type(12n+3) { fill: url(#latt-a11y-tex-3) !important; }
+section.print .pieCircle:nth-of-type(12n+4) { fill: url(#latt-a11y-tex-4) !important; }
+section.print .pieCircle:nth-of-type(12n+5) { fill: url(#latt-a11y-tex-5) !important; }
+section.print .pieCircle:nth-of-type(12n+6) { fill: url(#latt-a11y-tex-6) !important; }
+section.print .pieCircle:nth-of-type(12n+7) { fill: url(#latt-a11y-tex-7) !important; }
+section.print .pieCircle:nth-of-type(12n+8) { fill: url(#latt-a11y-tex-8) !important; }
+section.print .pieCircle:nth-of-type(12n+9) { fill: url(#latt-a11y-tex-9) !important; }
+section.print .pieCircle:nth-of-type(12n+10) { fill: url(#latt-a11y-tex-10) !important; }
+section.print .pieCircle:nth-of-type(12n+11) { fill: url(#latt-a11y-tex-11) !important; }
+section.print .pieCircle:nth-of-type(12n)    { fill: url(#latt-a11y-tex-12) !important; }
+
+/* Native chart-family (SVG) — texture the categorical fills (chart-cat set). */
+section.print.piechart .wedge:nth-of-type(6n+1) { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.piechart .wedge:nth-of-type(6n+2) { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.piechart .wedge:nth-of-type(6n+3) { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.piechart .wedge:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.piechart .wedge:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.piechart .wedge:nth-of-type(6n)   { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* Legend swatches carry the SAME texture as their wedge (data-cat = 0-based). */
+section.print.piechart .chart-key-swatch[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.piechart .chart-key-swatch[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.piechart .chart-key-swatch[data-cat="2"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.piechart .chart-key-swatch[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.piechart .chart-key-swatch[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.piechart .chart-key-swatch[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+1) { fill: url(#latt-a11y-chart-tex-1) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+2) { fill: url(#latt-a11y-chart-tex-2) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+3) { fill: url(#latt-a11y-chart-tex-3) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
+section.print.funnel .funnel-band:nth-of-type(6n+6) { fill: url(#latt-a11y-chart-tex-6) !important; }
+
+/* Multi-series line charts (radar) — greyscale overlaps, so a distinct
+ * stroke-dasharray per series carries the distinction hue can't. */
+section.print.radar .radar-poly[data-series="0"] { stroke-dasharray: none !important; }
+section.print.radar .radar-poly[data-series="1"] { stroke-dasharray: 7 4 !important; }
+section.print.radar .radar-poly[data-series="2"] { stroke-dasharray: 1.5 3.5 !important; stroke-linecap: round; }
 
 /* === lib/base/base.fluid-view.css === */
 /* Fluid-box viewer mode — opt-in responsive *viewing* of a fixed deck.
