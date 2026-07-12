@@ -169,9 +169,11 @@ in patch versions.
   authored card title "Write.", "Choose a component.") or a stray separator produced a
   doubled "Write.:" in the caption crawl and the exported `.vtt`. All `label: value` joins
   (stats/kpi, tables, nested lists, definition lists, state markers) now route through one
-  `labelValue` helper that drops a trailing terminator/separator from the label before the
-  colon, so the rule can't drift between walkers. Regression-guarded in
-  `test/unit/transformers/prose-projection.test.js`.
+  `labelValue` helper that drops a trailing period/ellipsis/separator from the label before
+  the colon, so the rule can't drift between walkers. A label ending in a **strong terminator
+  (`?` or `!`)** keeps it and takes **no** colon — the value follows as its own sentence
+  ("What's the ROI? Forty percent."), so the voice's question/exclamation inflection does the
+  work. Regression-guarded in `test/unit/transformers/prose-projection.test.js`.
 
 - **Read-aloud no longer drops the value after a colon — a "label: value" caption is now
   spoken in full.** The live Present narration projects component captions as `label: value`
