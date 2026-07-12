@@ -67,6 +67,19 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 	const [busy, setBusy] = React.useState(false);
 	const [noOpener, setNoOpener] = React.useState(false);
 	const autoPrinted = React.useRef(false);
+	// Measure the stage so the sheet fits it in BOTH dimensions (a wide landscape sheet
+	// must not overflow a narrow phone — height alone would blow past the viewport width).
+	const stageRef = React.useRef<HTMLDivElement>(null);
+	const [box, setBox] = React.useState({ w: 0, h: 0 });
+	React.useEffect(() => {
+		const el = stageRef.current;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		const measure = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+		const ro = new ResizeObserver(measure);
+		ro.observe(el);
+		measure();
+		return () => ro.disconnect();
+	}, []);
 
 	// ── 1. Handshake: announce ready, receive the deck (trust only the opener). ──
 	const lastSig = React.useRef('');
@@ -124,6 +137,13 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 	const marginX = ((9 / 25.4) / (sheet.pageW / 96)) * 100; // 9mm as % of sheet width
 	const marginY = ((9 / 25.4) / (sheet.pageH / 96)) * 100;
 	const dims = `${SHEET_LABEL[sheet.paper as Exclude<Paper, 'auto'>]} · ${sheet.orientation} · ${Math.round((sheet.pageW / 96) * 72)} × ${Math.round((sheet.pageH / 96) * 72)} pt`;
+	// Sheet pixel size: the largest sheet-aspect rect that fits the measured stage box,
+	// leaving room for the pager below. Falls back to a sane default before the first measure.
+	const aspect = sheet.pageW / sheet.pageH;
+	const availW = box.w ? Math.max(60, box.w - 24) : 320;
+	const availH = box.h ? Math.max(60, box.h - 24 - 52) : 240;
+	const sheetH = Math.min(availH, availW / aspect);
+	const sheetPx = { width: `${Math.round(sheetH * aspect)}px`, height: `${Math.round(sheetH)}px` };
 
 	// The current slide as a self-contained preview document (screen, not print rules).
 	const previewDoc = React.useMemo(() => {
@@ -136,6 +156,10 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 			html: `<div class="lattice">${sections[i]}</div>`, css: render.css, mode: render.mode, geom: render.geom,
 			runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
 			...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
+			// padding 0 + white ground so the slide fills the frame edge-to-edge (no dark
+			// letterbox band); center so the FIT-scaled slide sits flush. The frame itself
+			// is sized to the slide's 16:9 fit-rect, so there's nothing to scroll.
+			padding: 0, background: (() => '#ffffff') as unknown as null, center: true,
 			contentVisibility: false, cursor: false, sync: false, printRules: false,
 		});
 	}, [render, sections, slide]);
@@ -211,11 +235,11 @@ export default function PrintPage({ options }: { options: SingleSlideOptions }) 
 			</header>
 
 			<div className="lpr-body">
-				<section className="lpr-stage">
+				<section className="lpr-stage" ref={stageRef}>
 					{ready ? (
 						<div className="lpr-wrap">
-							<div className="lpr-sheet" style={{ aspectRatio: String(sheet.pageW / sheet.pageH) }}>
-								<iframe title="Print preview" className="lpr-frame" srcDoc={previewDoc} style={{ left: `${rect.left}%`, top: `${rect.top}%`, width: `${rect.width}%`, height: `${rect.height}%` }} />
+							<div className="lpr-sheet" style={sheetPx}>
+								<iframe title="Print preview" className="lpr-frame" scrolling="no" srcDoc={previewDoc} style={{ left: `${rect.left}%`, top: `${rect.top}%`, width: `${rect.width}%`, height: `${rect.height}%` }} />
 								<span className="lpr-safe" style={{ inset: `${marginY}% ${marginX}%` }} />
 							</div>
 							<div className="lpr-pager">
@@ -290,7 +314,7 @@ const STYLE = `
 .lpr-app{--g:#0b1c33;--surf:#10264494;--rail:#0e2141;--ink:#eaf0f8;--dim:#b7c6dc;--muted:#7f96b6;--accent:#d0a94f;--acink:#1a1205;--line:#24406b;--soft:#1b3358;--paper:#fff;--good:#4bbd8b;--serif:Georgia,'Iowan Old Style',ui-serif,serif;--sans:system-ui,-apple-system,'Segoe UI',sans-serif;--mono:ui-monospace,'SF Mono',Menlo,monospace;
 min-height:100vh;display:grid;grid-template-rows:auto 1fr;grid-template-columns:minmax(0,1fr);background:var(--g);color:var(--ink);font-family:var(--sans);overflow-x:clip;-webkit-font-smoothing:antialiased;}
 :root[data-mode="light"] .lpr-app,:root[data-palette] .lpr-app{}
-.lpr-top{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--soft);}
+.lpr-top{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--soft);position:sticky;top:0;z-index:6;background:var(--g);}
 .lpr-brand{display:flex;align-items:center;gap:10px;}
 .lpr-mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#8a5f1a);display:grid;place-items:center;color:var(--acink);font-family:var(--serif);font-weight:700;font-size:15px;box-shadow:inset 0 1px 0 rgba(255,255,255,.35);}
 .lpr-name{font-family:var(--serif);font-size:17px;}
@@ -302,12 +326,22 @@ min-height:100vh;display:grid;grid-template-rows:auto 1fr;grid-template-columns:
 .lpr-icon{border:1px solid var(--line);background:transparent;color:var(--dim);width:34px;height:34px;border-radius:8px;cursor:pointer;display:grid;place-items:center;}
 .lpr-icon:hover{background:var(--surf);color:var(--ink);border-color:var(--accent);}
 .lpr-body{display:grid;grid-template-columns:minmax(0,1fr) 336px;min-height:0;overflow:hidden;}
-@media(max-width:860px){.lpr-body{grid-template-columns:minmax(0,1fr);grid-template-rows:48vh auto;}}
+/* Mobile: the page SCROLLS (so the actions are always reachable). The app becomes the
+   scroll container, the stage takes a fixed slice, controls flow below, and the action
+   bar is pinned to the bottom of the viewport so Print/Download never scroll out of reach. */
+@media(max-width:860px){
+  .lpr-app{height:100dvh;overflow-y:auto;grid-template-rows:auto auto;}
+  .lpr-body{display:block;overflow:visible;}
+  .lpr-stage{height:44vh;}
+  .lpr-rail{display:block;}
+  .lpr-scroll{overflow:visible;}
+  .lpr-actions{position:sticky;bottom:0;z-index:5;}
+}
 .lpr-stage{position:relative;min-height:0;min-width:0;padding:30px;display:grid;place-items:center;background:radial-gradient(120% 90% at 50% -10%,color-mix(in srgb,var(--accent) 8%,transparent),transparent 60%),var(--g);overflow:hidden;}
 @media(max-width:860px){.lpr-stage{padding:16px;}}
 .lpr-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;max-width:100%;max-height:100%;}
-.lpr-sheet{background:var(--paper);box-shadow:0 18px 50px -12px rgba(0,0,0,.55);border-radius:3px;position:relative;height:min(58vh,460px);max-width:100%;outline:1px solid rgba(0,0,0,.05);transition:aspect-ratio .3s ease;}
-.lpr-frame{position:absolute;border:0;background:#fff;border-radius:2px;box-shadow:0 6px 18px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
+.lpr-sheet{background:var(--paper);box-shadow:0 18px 50px -12px rgba(0,0,0,.55);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.05);transition:width .3s ease,height .3s ease;}
+.lpr-frame{position:absolute;border:0;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 6px 18px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
 .lpr-safe{position:absolute;border:1px dashed color-mix(in srgb,#142338 22%,transparent);border-radius:2px;pointer-events:none;}
 .lpr-pager{display:flex;align-items:center;gap:12px;color:var(--muted);font-family:var(--mono);font-size:11px;}
 .lpr-pager button{border:1px solid var(--line);background:var(--surf);color:var(--dim);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px;}
@@ -334,7 +368,8 @@ min-height:100vh;display:grid;grid-template-rows:auto 1fr;grid-template-columns:
 .lpr-seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
 .lpr-note{font-size:11px;line-height:1.5;color:var(--muted);border-left:2px solid var(--line);padding-left:10px;}
 .lpr-note b{color:var(--dim);font-weight:650;}
-.lpr-actions{border-top:1px solid var(--soft);padding:16px 20px;display:flex;flex-direction:column;gap:10px;}
+.lpr-actions{border-top:1px solid var(--soft);padding:16px 20px;display:flex;flex-direction:column;gap:10px;background:var(--rail);}
+@media(max-width:860px){.lpr-actions{box-shadow:0 -8px 20px -8px rgba(0,0,0,.45);}}
 .lpr-btn{border:1px solid transparent;border-radius:8px;cursor:pointer;font:inherit;font-weight:650;font-size:13.5px;padding:12px 14px;display:inline-flex;align-items:center;justify-content:center;gap:9px;}
 .lpr-btn:disabled{opacity:.55;cursor:default;}
 .lpr-primary{background:var(--accent);color:var(--acink);}
