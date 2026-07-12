@@ -163,16 +163,33 @@ What landed:
   `--viz-accent`→accent). The compiler resolves each to *exactly* its core literal → provably no
   visual change.
 - **Every SVG paint repointed** to `--viz-*`: `mermaid.css` (7 diagram types), the chart-key
-  labels + swatch strokes (`chart-family.css`), funnel, map, quadrant, radar, `state-chart`'s
-  node-fill token, and math's function-plot (incl. its `var(--cat-N, core)` fallbacks). Zero
-  SVG-paint core reads remain engine-wide.
+  labels + swatch strokes (`chart-family.css`), funnel, map, quadrant, radar, and math's
+  function-plot (incl. its `var(--cat-N, core)` fallbacks). Also the **one-hop** cases a
+  maker-checker caught — component-local aliases that pass core straight to an SVG paint:
+  `state-chart`'s `--state-node-ink`/`--state-label-bg` and `journey`'s `--journey-face-bg` now
+  alias `--viz-*`, not raw core. **No direct OR one-hop SVG-paint core read remains engine-wide**
+  (HTML-only aliases like `--state-index-ink`/`--journey-task-fg`/roadmap's `--state-color` keep
+  reading core — HTML is not the fragile surface).
 - **The viz-root plane selector widened to the full union** — added `section.math` and
   `section.word-cloud` so the shared `--viz-*` reach math's function-plot SVG (math is not a
   chart-frame). This is the first concrete step of the Phase B convergence.
 - **Gate (O1) landed** — `checkChartPaintFlatness` part (3) in `check-ownership.js`: an SVG paint
   property (`fill`/`stroke`/`stop-color`/`flood-color`) reading a raw core token
-  (`CORE_ENGINE_COLOR_TOKENS`) fails `build:check`. HTML chrome (`color`/`background`/`border`) and
-  the recipe-region aliases are exempt. Verified non-vacuous (catches a real violation).
+  (`CORE_ENGINE_COLOR_TOKENS`) fails `build:check`. It **resolves in-file alias chains**, so a
+  one-hop read (`fill: var(--x)` where `--x: var(--text-heading)`) is caught, not only a direct
+  read — closing the exact blind spot the maker-checker found. HTML chrome
+  (`color`/`background`/`border`) and the recipe-region `--viz-*` aliases are exempt (only tokens
+  actually consumed by an SVG paint are resolved, so an HTML-only core alias is not flagged). The
+  denylist covers the engine's fragile core colour tokens; the diagram component dir joined the
+  scanned set. Verified non-vacuous (catches both a direct and a one-hop violation).
+- **Known contract (maker-checker finding 2):** a Mermaid-free `functionplot` fence renders its
+  plot SVG from `--viz-*`, which exist only on a viz-root. The supported authoring path always
+  pairs `functionplot` with `_class: math canvas` (docs/spec/gallery), and `section.math` is on
+  the plane — so every supported deck is covered and old-browser-safe (this actually *fixes* a
+  latent gap: `section.math` was not on the diagram plane before, so its plot core reads were
+  already black on old WebKit). A `functionplot` authored on a *non*-viz-root slide (off-contract)
+  now shows an uncoloured plot on modern too; the contract is "`functionplot` lives under
+  `_class: math`."
 - **Verified:** compiler 11/11, unit 3538/0, lint + build:check green; **0 differing pixels across
   45 pages** (charts + Mermaid + math) before vs after.
 

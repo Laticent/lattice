@@ -111,7 +111,7 @@ section.journey {
   --journey-task-fg: var(--text-body);
   --journey-timeline: color-mix(in srgb, var(--text-body) 55%, transparent);
   --journey-plumb: color-mix(in srgb, var(--text-body) 50%, transparent);
-  --journey-face-bg: var(--bg);
+  --journey-face-bg: var(--viz-surface);
   --journey-axis: color-mix(in srgb, var(--text-body) 32%, transparent);
   /* Dashed reach rule (vertical-board mood line) — a faded timeline tone.
    * Derived straight from the OPAQUE --text-body (not --journey-timeline) so it

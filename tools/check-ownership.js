@@ -1696,6 +1696,7 @@ function checkDensityCoverage(manifests, errors) {
 const CHART_PAINT_DIRS = [
   path.join(LIB_DIR, 'components', 'chart'),
   path.join(LIB_DIR, 'components', 'math'),
+  path.join(LIB_DIR, 'components', 'diagram'),
   path.join(LIB_DIR, 'integrations', 'mermaid'),
 ];
 
@@ -1712,7 +1713,7 @@ const MODERN_COLOR_FN = /\b(?:color-mix|light-dark|oklch|oklab|lab|lch|hwb|color
 // so an SVG paint reading one falls to black; the designed `--viz-*` aliases are re-emitted flat
 // on the viz-root plane instead. Kept in sync with base.tokens.css's core colour group — a new
 // core colour token read by an SVG paint must be added here (and given a `--viz-*` alias).
-const CORE_ENGINE_COLOR_TOKENS = /^--(?:bg|bg-alt|text-heading|text-body|text-secondary|text-muted|accent|accent-ink|border|pass|warn|fail|info|link|link-visited)$/;
+const CORE_ENGINE_COLOR_TOKENS = /^--(?:bg|bg-alt|text-heading|text-body|text-secondary|text-muted|text-label|text-display|accent|accent-ink|accent-soft|on-accent|border|pass|warn|fail|info|pass-bg|warn-bg|fail-bg|surface-inverse|link|link-visited)$/;
 
 // Remove each `>>> chart-palette-recipe … <<< chart-palette-recipe` region — the whole enclosing
 // comment span (the sentinels live inside `/* … */`), so the recipe's build-time color-mix SOURCE
@@ -1805,13 +1806,31 @@ function checkChartPaintFlatness(errors) {
     for (const file of listCssFiles(dir)) {
       const rel = path.relative(ROOT, file);
       const css = stripComments(stripRecipeRegions(fs.readFileSync(file, 'utf8')));
+      // Local bare aliases `--x: var(--y)` are the ONE-HOP vector: an SVG paint reading `--x`
+      // reads core THROUGH the alias (`--state-node-ink: var(--text-heading)` fed to a `fill:`).
+      // Build the in-file alias map and resolve each SVG-paint token's chain to its root, so both
+      // a DIRECT (`fill: var(--text-heading)`) and an INDIRECT read are caught. The `--viz-*`
+      // aliases live in a recipe region (stripped above), so they are never in this map — reading
+      // one is clean. (Cross-file aliasing is not resolved; component aliases are file-local.)
+      const aliasMap = new Map();
+      for (const a of css.matchAll(/(--[a-z0-9-]+)\s*:\s*var\(\s*(--[a-z0-9-]+)\s*(?:,[^;{}]*)?\)\s*;/gi)) {
+        if (!aliasMap.has(a[1])) aliasMap.set(a[1], a[2]);
+      }
+      const resolvesToCore = (name, seen = new Set()) => {
+        if (CORE_ENGINE_COLOR_TOKENS.test(name)) return name;
+        if (seen.has(name)) return null;
+        seen.add(name);
+        return aliasMap.has(name) ? resolvesToCore(aliasMap.get(name), seen) : null;
+      };
       // Property anchored on a non-`-` boundary so a CUSTOM PROPERTY def (`--state-node-fill:`)
       // is not mistaken for the SVG `fill:` property; `\s*:` right after excludes `stroke-width:`.
       for (const m of css.matchAll(/(?:^|[;{}\s])(fill|stroke|stop-color|flood-color)\s*:\s*([^;{}]*)/g)) {
         for (const v of m[2].matchAll(/var\(\s*(--[a-z0-9-]+)/gi)) {
-          if (CORE_ENGINE_COLOR_TOKENS.test(v[1])) {
+          const core = resolvesToCore(v[1]);
+          if (core) {
+            const via = v[1] === core ? '' : ` (via ${v[1]})`;
             errors.push(
-              `viz paint hygiene: ${rel} — \`${m[1]}: … ${v[1]} …\` reads a RAW CORE engine token in an ` +
+              `viz paint hygiene: ${rel} — \`${m[1]}: … ${core}${via} …\` reads a RAW CORE engine token in an ` +
               `SVG paint (dropped by old WebKit → black). Read the bounded viz alias instead ` +
               `(--text-heading→--viz-ink, --text-body→--viz-ink-soft, --text-muted→--viz-ink-muted, ` +
               `--bg→--viz-surface, --bg-alt→--viz-surface-alt, --border→--viz-hairline, ` +

@@ -35,12 +35,12 @@
 
 section.state-chart {
   --state-node-fill: var(--viz-surface-alt);
-  --state-node-ink: var(--text-heading);
+  --state-node-ink: var(--viz-ink);       /* feeds an SVG <text> fill (.state-edge-label) — viz, not raw core */
   --state-node-stroke: var(--diagram-stroke);
   --state-edge: var(--diagram-line);
-  --state-index-ink: var(--text-muted);
+  --state-index-ink: var(--text-muted);   /* HTML-only (.state-index color) — core is fine here */
   --state-marker: var(--diagram-line);
-  --state-label-bg: var(--bg);
+  --state-label-bg: var(--viz-surface);   /* feeds an SVG stroke (.state-edge-label knockout) — viz, not raw core */
 }
 
 section.state-chart.chart-frame .chart-body {
