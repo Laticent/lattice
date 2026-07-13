@@ -1060,6 +1060,7 @@ export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?
 			}),
 		]);
 		clearTimeout(playTimer);
+		handle.stop(); // idempotent: no-op on natural end, but STOPS the orphaned source if the watchdog won
 		if (previewHandle === handle) previewHandle = null;
 		if (res.aborted) return { ok: true }; // stopped by the user, not an error
 		return res.ok ? { ok: true } : { ok: false, error: res.error || 'playback failed' };

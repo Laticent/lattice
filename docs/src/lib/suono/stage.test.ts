@@ -208,6 +208,26 @@ describe('createStage — pause/resume (stop + re-arm)', () => {
 		expect(stage.clockMs()).toBeCloseTo(900, 3); // 400 + 500; the 4600ms pause is excluded, no accrual
 	});
 
+	it("a DIFFERENT handle finishing on the shared stage does NOT unfreeze a paused handle's clock", async () => {
+		// The Voice-tab sample audition plays on the SAME module-singleton stage as the Present read-along.
+		// The pause-clock state is stage-global, so a one-off play ENDING must not clear a still-paused
+		// clip's freeze — finish()'s unfreeze is scoped to the handle that actually paused (checker finding).
+		const { ctx, sources } = installTrackingAudio();
+		const stage = createStage();
+		const clipA = await stage.decode(bytesOfSize(8), 'a'); // the "read-along"
+		const clipB = await stage.decode(bytesOfSize(8), 'b'); // the "audition"
+		const a = stage.play(clipA);
+		ctx.currentTime = 0.5;
+		a.pause(); // freezes the shared clock at 500ms
+		expect(stage.clockMs()).toBeCloseTo(500, 3);
+		const b = stage.play(clipB); // a one-off audition on the shared stage
+		ctx.currentTime = 3;
+		sources[sources.length - 1].onended?.(); // B ends naturally
+		await b.done;
+		ctx.currentTime = 5; // more time passes while A is STILL paused
+		expect(stage.clockMs()).toBeCloseTo(500, 3); // A's clock still frozen — B's finish didn't touch it
+	});
+
 	it("a pause-stopped source's late onended does NOT settle the handle (no premature clip-end)", async () => {
 		const { ctx, sources } = installTrackingAudio();
 		const stage = createStage();

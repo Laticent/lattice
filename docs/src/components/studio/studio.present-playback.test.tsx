@@ -17,7 +17,7 @@ vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp
 // be accessed before its own initialization.
 const { warmSpy } = vi.hoisted(() => ({ warmSpy: vi.fn() }));
 vi.mock('@/playground/voice-model.js', () => ({
-	createVoiceModel: () => ({ speak() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent', warm: warmSpy }),
+	createVoiceModel: () => ({ synthOne: async () => ({ rung: 'silent', bytes: null, key: 'k' }), speakThis() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent', warm: warmSpy }),
 }));
 // The presenter stage doc needs the engine — stub it out (it's best-effort anyway).
 vi.mock('./studio-presenter', () => ({ buildPresenterStageDoc: vi.fn(async () => ({ doc: '', total: 0 })) }));

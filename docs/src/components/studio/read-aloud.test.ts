@@ -71,7 +71,6 @@ vi.mock('@/playground/voice-model.js', () => ({
 		pause() {},
 		resume() {},
 		rung: () => voiceState.rung,
-		unlock: () => {},
 		orModel: () => 'test/model',
 		orVoice: () => 'test-voice',
 		// Empty kokoro voice → the resolved calibration key is voiceKeyOf('kokoro · ?') === 'kokoro'
@@ -352,14 +351,12 @@ describe('useReadAloud — pause/resume during the voice-arming window', () => {
 		vi.doMock('@/playground/voice-model.js', () => ({
 			createVoiceModel: () =>
 				gate.then(() => ({
-					speak() {},
+					synthOne: async () => ({ rung: 'kokoro', bytes: null, key: 'k' }),
+					speakThis() {},
 					stop() {},
 					pause() {},
 					resume() {},
 					rung: () => 'kokoro',
-					unlock() {},
-					audioTimeMs: () => 0,
-					outputLatencyMs: () => 0,
 				})),
 		}));
 		const { useReadAloud: useReadAloudFresh } = await import('./read-aloud');
