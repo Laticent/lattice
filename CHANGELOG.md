@@ -175,6 +175,14 @@ in patch versions.
   pace-calibration/rewriter design — fix the estimator's data, don't bolt an LLM onto its errors
   (`engineering/decisions/2026-07-13-pace-calibration-apply-and-rewriter.md`).
 
+- **A read-aloud warning when a `lexicon:` key is a single letter or digit (`e:`, `2:`).** The
+  built-in Speech Symbol Commons matches a lexicon entry per code point, so a one-character
+  alphanumeric key rewrites *every embedded* occurrence — a key `e:` would garble "revenue" into
+  "r … v … n u …" across the whole deck. The deck linter (`lexicon-single-letter-key`) and the Studio
+  Lexicon editor both flag it inline; a single glyph (`→`, `×`, `©`) is the intended use and stays
+  silent. It warns, never blocks (a lone letter may be deliberate). Follow-up from the Speech Symbol
+  Commons red-team (`engineering/decisions/2026-07-13-speech-symbol-commons.md`).
+
 - **A scoped-render black-fill guard (`npm run check:render`) — the diagnostic the #956 chart-black
   bug would have caught.** Renders the chart gallery (the SVG-painting chart components) through the real
   playground/Studio/Player `composeCss()` scoped stylesheet in headless Chromium (indaco/cuoio ×
@@ -301,6 +309,14 @@ in patch versions.
   `engineering/decisions/2026-06-14-deck-print-styling.md`.
 
 ### Fixed
+
+- **A nested narration key is no longer double-parsed.** The shared front-matter block reader
+  (`resolve-captions.mjs` `blockLines`) matched a `key:` header at any indent, so a `acronyms:` nested
+  under `lexicon:` opened a phantom acronyms block and its children were parsed twice. The header now
+  matches only at the front-matter root indent (column 0) — where narration registry keys always live —
+  so a same-named key nested under another block is inert. No behavior change for well-formed decks;
+  `parseAcronyms` / lexicon / `parseCaptions` still round-trip. Red-team follow-up
+  (`engineering/decisions/2026-07-13-speech-symbol-commons.md`).
 
 - **Native browser widgets now track the site's color mode and take the palette — no more OS-default
   scrollbars.** The docs site flipped its palette on `data-mode`, but nothing emitted the CSS

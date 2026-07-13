@@ -57,6 +57,21 @@ describe('LexiconEditor', () => {
 		expect(onChange).toHaveBeenCalledWith([['×', 'times']]);
 	});
 
+	it('warns inline on a single-letter/digit token, and not on a word or a glyph', () => {
+		// A single letter/digit key rewrites every embedded occurrence (read-aloud footgun); a whole
+		// word or a symbol is safe. Mirrors the `lexicon-single-letter-key` deck-lint rule.
+		const { rerender } = render(<LexiconEditor lexicon={new Map([['e', 'EEK']])} onChange={() => {}} />);
+		expect(screen.getByText(/single letter\/digit/i)).toBeTruthy();
+		const risky = screen.getByLabelText('Word or symbol');
+		expect(risky.getAttribute('aria-invalid')).toBe('true');
+
+		rerender(<LexiconEditor lexicon={new Map([['Kubernetes', 'koober net eez']])} onChange={() => {}} />);
+		expect(screen.queryByText(/single letter\/digit/i)).toBeNull();
+
+		rerender(<LexiconEditor lexicon={new Map([['→', 'to']])} onChange={() => {}} />);
+		expect(screen.queryByText(/single letter\/digit/i)).toBeNull();
+	});
+
 	it('keeps an empty spoken value (the silence form) but drops a blank token', () => {
 		const onChange = vi.fn();
 		render(<LexiconEditor lexicon={new Map([['🎯', 'target']])} onChange={onChange} />);

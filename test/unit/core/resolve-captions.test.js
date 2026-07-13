@@ -97,6 +97,28 @@ test('acronyms: a reserved field name (expansion/definition) is never a standalo
   assert.equal(acronyms.has('expansion'), false);
 });
 
+test('blockLines is indent-aware: a nested key under lexicon is NOT double-parsed as its own block', () => {
+  // A `acronyms:` header NESTED under `lexicon:` (indented) must not open an acronyms block —
+  // else its children get parsed twice (once inside lexicon, once as acronyms). Only a ROOT
+  // `acronyms:` (column 0) is a real block. Red-team follow-up, PR #952.
+  const { acronyms, lexicon } = parseNarrationFrontMatter(
+    fm('lexicon:\n  "→": to\n  acronyms:\n    CRO: chief revenue officer'),
+  );
+  assert.equal(acronyms.size, 0, 'the nested acronyms: is not a real block');
+  assert.equal(lexicon.get('→'), 'to');
+});
+
+test('all three parsers still round-trip together at the front-matter root', () => {
+  // acronyms (Layer 2), lexicon (say-as), and captions (Layer 1) coexist and each parse cleanly.
+  const { acronyms, lexicon, captions } = parseNarrationFrontMatter(
+    fm('acronyms:\n  CRO: chief revenue officer\nlexicon:\n  "→": to\n  Kubernetes: koober-net-eez\ncaptions:\n  2: FY26 revenue grew.'),
+  );
+  assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
+  assert.equal(lexicon.get('→'), 'to');
+  assert.equal(lexicon.get('Kubernetes'), 'koober-net-eez');
+  assert.equal(captions.get(2), 'FY26 revenue grew.');
+});
+
 test('acronyms: the block is scoped (a dedented sibling key ends it)', () => {
   const { acronyms } = parseNarrationFrontMatter(
     fm('theme: indaco\nacronyms:\n  CRO: chief revenue officer\ncolor-mode: dark'),
