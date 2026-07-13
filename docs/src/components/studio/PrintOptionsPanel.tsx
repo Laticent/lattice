@@ -31,14 +31,18 @@ import * as React from 'react';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // Engine helpers (shared kernel, HARD RULE #1): the paper decision + slide placement
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
-import { buildSrcdoc, fitSlideOnSheet, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
+import { notesCore } from '@/playground/authoring-core.generated.js';
+import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
 import { mergeClassTokens } from './front-matter';
 import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
 
 type Paper = 'auto' | 'letter' | 'legal' | 'a4';
 type Orient = 'auto' | 'landscape' | 'portrait';
 type Color = 'color' | 'bw';
-type Opts = { paper: Paper; orientation: Orient; color: Color };
+type NUp = 1 | 2 | 4;
+// Sheet layout: 1/2/4 slides per sheet, or the speaker-notes handout (slide + its notes).
+type Layout = '1' | '2' | '4' | 'handout';
+type Opts = { paper: Paper; orientation: Orient; color: Color; layout: Layout };
 
 const SHEET_LABEL: Record<Exclude<Paper, 'auto'>, string> = { letter: 'US Letter', legal: 'US Legal', a4: 'A4' };
 
@@ -105,7 +109,7 @@ export function PrintOptionsPanel({
 	onBack: () => void;
 	notify: (msg: string) => void;
 }) {
-	const [opts, setOpts] = React.useState<Opts>({ paper: 'auto', orientation: 'auto', color: 'color' });
+	const [opts, setOpts] = React.useState<Opts>({ paper: 'auto', orientation: 'auto', color: 'color', layout: '1' });
 	const [render, setRender] = React.useState<DeckRender | null>(null);
 	const [sections, setSections] = React.useState<string[]>([]);
 	const [slide, setSlide] = React.useState(0);
@@ -120,7 +124,7 @@ export function PrintOptionsPanel({
 	// button can flip to "Open PDF" the moment a build for the current settings exists; a
 	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
 	// key check when any setting changes.
-	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; url: string; blob: Blob } | null>(null);
+	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; layout: Layout; url: string; blob: Blob } | null>(null);
 	// The rasterized slide IMAGES, keyed by `render` identity only — NOT paper/orientation,
 	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
 	// jsPDF geometry) with no re-rasterize; a colour/source/theme change makes a new `render`
@@ -175,20 +179,34 @@ export function PrintOptionsPanel({
 		return () => { alive = false; };
 	}, [options, source, palette, mode, extraTheme, extraCss, opts.color]);
 
+	// Layout → the two derived knobs: slides-per-sheet (grid) OR the notes handout.
+	const handout = opts.layout === 'handout';
+	const nup: NUp = handout ? 1 : (Number(opts.layout) as NUp);
 	const gw = render?.geom?.w || 1280;
 	const gh = render?.geom?.h || 720;
 	const sheet = resolvePrintSheet(gw, gh, opts);
-	const place = fitSlideOnSheet(gw, gh, sheet.pageW, sheet.pageH, 'page');
-	// fit-rect as % of the sheet element (resolution-independent — no pixel measuring)
-	const rect = {
-		left: (place.x / sheet.pageW) * 100,
-		top: (place.y / sheet.pageH) * 100,
-		width: (place.w / sheet.pageW) * 100,
-		height: (place.h / sheet.pageH) * 100,
-	};
+	// Placement rects for the current sheet → each as a % of the sheet element (resolution-
+	// independent, no pixel measuring). Handout = the slide's top-band region; else the
+	// N-up cells (nup=1 is a single full-page cell).
+	const handoutBands = handout ? handoutRegions(gw, gh, sheet.pageW, sheet.pageH, 'page') : null;
+	const cells = handoutBands ? [handoutBands.slide] : nUpCells(gw, gh, sheet.pageW, sheet.pageH, nup, 'page');
+	const pct = (r: { x: number; y: number; w: number; h: number }) => ({
+		left: (r.x / sheet.pageW) * 100,
+		top: (r.y / sheet.pageH) * 100,
+		width: (r.w / sheet.pageW) * 100,
+		height: (r.h / sheet.pageH) * 100,
+	});
+	const cellRects = cells.map(pct);
+	const notesRect = handoutBands ? pct(handoutBands.notes) : null;
+	// The preview + pager page by SHEET. Handout is one slide per sheet; N-up packs `nup`.
+	const sheetsTotal = Math.max(1, Math.ceil((sections.length || 1) / nup));
+	const pageIdx = Math.min(slide, sheetsTotal - 1);
+	// Speaker notes per slide (shared notesCore boundary) — for the handout preview + PDF.
+	const slideNotes = React.useMemo<(string | null)[]>(() => (sections.length ? notesCore.extractSlideNotes(sections) : []), [sections]);
 	const marginX = ((9 / 25.4) / (sheet.pageW / 96)) * 100; // 9mm as % of sheet width
 	const marginY = ((9 / 25.4) / (sheet.pageH / 96)) * 100;
-	const dims = `${SHEET_LABEL[sheet.paper as Exclude<Paper, 'auto'>]} · ${sheet.orientation} · ${Math.round((sheet.pageW / 96) * 72)} × ${Math.round((sheet.pageH / 96) * 72)} pt`;
+	const layoutLabel = handout ? ' · notes handout' : nup > 1 ? ` · ${nup}-up` : '';
+	const dims = `${SHEET_LABEL[sheet.paper as Exclude<Paper, 'auto'>]} · ${sheet.orientation} · ${Math.round((sheet.pageW / 96) * 72)} × ${Math.round((sheet.pageH / 96) * 72)} pt${layoutLabel}`;
 	// Sheet pixel size: the largest sheet-aspect rect that fits the measured stage box.
 	const aspect = sheet.pageW / sheet.pageH;
 	const availW = box.w ? Math.max(60, box.w - 20) : 300;
@@ -196,27 +214,31 @@ export function PrintOptionsPanel({
 	const sheetH = Math.min(availH, availW / aspect);
 	const sheetPx = { width: `${Math.round(sheetH * aspect)}px`, height: `${Math.round(sheetH)}px` };
 
-	// The current slide as a self-contained preview document (screen, not print rules).
-	const previewDoc = React.useMemo(() => {
-		if (!render || !sections.length) return '';
-		const i = Math.min(slide, sections.length - 1);
-		return buildSrcdoc({
-			// Re-wrap the single section in `.lattice` — splitSections returns a BARE
-			// <section>, but the theme's `.lattice > section` rules need that parent.
-			html: `<div class="lattice">${sections[i]}</div>`, css: render.css, mode: render.mode, geom: render.geom,
-			runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
-			...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
-			// padding 0 + white ground so the slide fills the frame edge-to-edge (no dark
-			// letterbox); center so the FIT-scaled slide sits flush. The frame is sized to
-			// the slide's fit-rect, so there is nothing to scroll.
-			padding: 0, background: (() => '#ffffff') as unknown as null, center: true,
-			contentVisibility: false, cursor: false, sync: false, printRules: false,
+	// One self-contained preview document per cell on the CURRENT sheet (screen, not print
+	// rules) — for N-up this is up to `nup` slides; a trailing partial sheet leaves empty
+	// cells (''). Each is a bare section re-wrapped in `.lattice` (the theme's `.lattice >
+	// section` rules need that parent).
+	const previewDocs = React.useMemo(() => {
+		if (!render || !sections.length) return [];
+		return Array.from({ length: nup }, (_, k) => {
+			const i = pageIdx * nup + k;
+			if (i >= sections.length) return '';
+			return buildSrcdoc({
+				html: `<div class="lattice">${sections[i]}</div>`, css: render.css, mode: render.mode, geom: render.geom,
+				runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
+				...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
+				// padding 0 + white ground so the slide fills its cell edge-to-edge (no dark
+				// letterbox); center so the FIT-scaled slide sits flush. The frame is sized to
+				// the cell's fit-rect, so there is nothing to scroll.
+				padding: 0, background: (() => '#ffffff') as unknown as null, center: true,
+				contentVisibility: false, cursor: false, sync: false, printRules: false,
+			});
 		});
-	}, [render, sections, slide]);
+	}, [render, sections, pageIdx, nup]);
 
-	const { paper, orientation } = opts;
+	const { paper, orientation, layout } = opts;
 	// Does the built PDF match the CURRENT settings? Drives the iOS button (build vs open).
-	const cachedForCurrent = !!builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation;
+	const cachedForCurrent = !!builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout;
 
 	// Build the per-slide PDF for the current settings, or return the cached one when the
 	// key still matches. The ONLY place rasterization happens — driven by a click, not a
@@ -225,25 +247,29 @@ export function PrintOptionsPanel({
 	// opened from it may still be loading — revoking the string won't unload a loaded blob).
 	const buildPdf = React.useCallback(async (): Promise<string> => {
 		if (!render) throw new Error('deck not ready');
-		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation) return builtPdf.url;
+		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout) return builtPdf.url;
 		const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
 		const ex = await import('@/playground/drawing-board-export.js');
-		// Reuse the rasterized slide images when only paper/orientation moved (render
-		// unchanged) — the assemble below re-places them, no re-rasterize. Otherwise
-		// rasterize once and cache for the next flip.
+		// Reuse the rasterized slide images when only paper/orientation/layout moved (render
+		// unchanged) — the assemble below re-places them, no re-rasterize. N-up and the notes
+		// handout change only placement, so they too ride the cache. Otherwise rasterize once.
 		let imgs = imgCache && imgCache.render === render ? imgCache : null;
 		if (!imgs) {
 			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, {});
 			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
 			if (mountedRef.current) setImgCache(imgs);
 		}
-		const blob = await ex.assembleSheetPdf(imgs.images, imgs.geom, name, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH }, pageFormat: imgs.pageFormat, onStatus: (m: string) => { if (mountedRef.current) setStatus(m); } });
+		const blob = await ex.assembleSheetPdf(imgs.images, imgs.geom, name, { deck: name, engine: 'lattice' }, {
+			sheet: { pageW: s.pageW, pageH: s.pageH }, pageFormat: imgs.pageFormat, nup, handout,
+			notes: handout ? slideNotes.map((n) => n || '') : undefined,
+			onStatus: (m: string) => { if (mountedRef.current) setStatus(m); },
+		});
 		const url = URL.createObjectURL(blob);
 		const prevUrl = builtPdf?.url;
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
-		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, url, blob });
+		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, layout, url, blob });
 		return url;
-	}, [render, name, paper, orientation, builtPdf, imgCache]);
+	}, [render, name, paper, orientation, layout, nup, handout, slideNotes, builtPdf, imgCache]);
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 
@@ -314,12 +340,23 @@ export function PrintOptionsPanel({
 	const doPrint = React.useCallback(() => {
 		if (!render || building) return;
 		if (!ios) {
-			// Desktop: print the vector deck via a hidden HTML iframe → reliable dialog, no PDF.
-			// The iframe still needs ~1-2s to load fonts + run FIT before the dialog opens, so
-			// show the spinner across that prep and clear it when the dialog is handed off.
+			// Desktop, plain 1-up: print the vector deck via a hidden HTML iframe → reliable
+			// dialog, no PDF. The iframe still needs ~1-2s to load fonts + run FIT before the
+			// dialog opens, so show the spinner across that prep and clear it when handed off.
+			if (nup === 1 && !handout) {
+				setBuilding('print');
+				setStatus('Preparing print…');
+				printHtmlDoc(printDoc(), () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
+				return;
+			}
+			// Desktop, N-up / handout: the one-slide-per-page vector path can't grid or add a
+			// notes band, so build the PDF and open it in a tab to print from the viewer (falls
+			// back to a download if blocked).
 			setBuilding('print');
-			setStatus('Preparing print…');
-			printHtmlDoc(printDoc(), () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
+			buildPdf()
+				.then((url) => { if (mountedRef.current) openPdfTab(url); })
+				.catch(() => notify('Could not build the PDF.'))
+				.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 			return;
 		}
 		// iOS, tap 2 — the PDF for these settings is already built: hand it to the OS in-gesture.
@@ -331,14 +368,13 @@ export function PrintOptionsPanel({
 			.then(() => { if (mountedRef.current) notify('PDF ready — tap “Open PDF” to print.'); })
 			.catch(() => notify('Could not build the PDF.'))
 			.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
-	}, [render, building, ios, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfToPrint, notify]);
+	}, [render, building, ios, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint, notify]);
 
 	// A fresh render (no re-render in flight) is all either action needs to START — the PDF
 	// is built on click, not up front. Both drop the instant a colour change begins.
 	const ready = !!render && !!sections.length && !rendering;
 	// iOS Print is a two-step affordance: build (tap 1) → open (tap 2, once armed).
 	const printReadyToOpen = ios && cachedForCurrent;
-	const count = sections.length || 1;
 	const seg = <K extends keyof Opts>(k: K, v: Opts[K]) => () => setOpts((o) => ({ ...o, [k]: v }));
 
 	return (
@@ -354,11 +390,22 @@ export function PrintOptionsPanel({
 				<p className="text-[12px] text-muted-foreground">Every slide is scaled to fit its page, centered — never cropped. The PDF is built when you print or download.</p>
 			</section>
 
-			{/* Preview — the beloved navy stage + white sheet + dashed safe margin, compact. */}
+			{/* Preview — the beloved navy stage + white sheet + dashed safe margin, compact.
+			    N-up frames one slide per grid cell; the handout adds a notes panel below. */}
 			<div className="pod-stage" ref={stageRef}>
 				{render && sections.length ? (
 					<div className="pod-sheet" style={sheetPx}>
-						<iframe title="Print preview" className="pod-frame" scrolling="no" srcDoc={previewDoc} style={{ left: `${rect.left}%`, top: `${rect.top}%`, width: `${rect.width}%`, height: `${rect.height}%` }} />
+						{cellRects.map((cr, k) => {
+							const doc = previewDocs[k];
+							if (!doc) return null;
+							const slideIdx = pageIdx * nup + k;
+							return <iframe key={slideIdx} title={`Print preview slide ${slideIdx + 1}`} className="pod-frame" scrolling="no" srcDoc={doc} style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }} />;
+						})}
+						{notesRect ? (
+							<div className="pod-notes" style={{ left: `${notesRect.left}%`, top: `${notesRect.top}%`, width: `${notesRect.width}%`, height: `${notesRect.height}%` }}>
+								{(slideNotes[pageIdx] || '').trim() || <span className="pod-notes-empty">No notes for this slide.</span>}
+							</div>
+						) : null}
 						<span className="pod-safe" style={{ inset: `${marginY}% ${marginX}%` }} />
 					</div>
 				) : (
@@ -366,9 +413,12 @@ export function PrintOptionsPanel({
 				)}
 			</div>
 			<div className="pod-pager">
-				<button type="button" onClick={() => setSlide((n) => (n + count - 1) % count)} aria-label="Previous slide" disabled={!render}>‹</button>
-				<span>Slide {Math.min(slide, count - 1) + 1} / {count}</span>
-				<button type="button" onClick={() => setSlide((n) => (n + 1) % count)} aria-label="Next slide" disabled={!render}>›</button>
+				{/* Step from the CLAMPED page index, not the raw `slide` — switching to a coarser
+				    layout (fewer sheets) can leave `slide` past the last sheet; basing the wrap on
+				    the stale value would jump to the wrong sheet (or a dead Prev). */}
+				<button type="button" onClick={() => setSlide((pageIdx + sheetsTotal - 1) % sheetsTotal)} aria-label="Previous sheet" disabled={!render}>‹</button>
+				<span>{nup > 1 ? 'Sheet' : 'Slide'} {pageIdx + 1} / {sheetsTotal}</span>
+				<button type="button" onClick={() => setSlide((pageIdx + 1) % sheetsTotal)} aria-label="Next sheet" disabled={!render}>›</button>
 				<span className="pod-dims">{dims}</span>
 			</div>
 
@@ -378,6 +428,9 @@ export function PrintOptionsPanel({
 				</Field>
 				<Field label="Orientation" hint="Auto follows the deck">
 					<Seg opts={[['auto', 'Auto'], ['landscape', 'Landscape'], ['portrait', 'Portrait']]} value={opts.orientation} onPick={(v) => seg('orientation', v as Orient)()} />
+				</Field>
+				<Field label="Layout" hint="N-up or a notes handout">
+					<Seg opts={[['1', '1-up'], ['2', '2-up'], ['4', '4-up'], ['handout', 'Notes']]} value={opts.layout} onPick={(v) => seg('layout', v as Layout)()} />
 				</Field>
 				<Field label="Color" hint="B&W is toner-safe">
 					<Seg opts={[['color', 'Color'], ['bw', 'Black & white']]} value={opts.color} onPick={(v) => seg('color', v as Color)()} />
@@ -432,6 +485,8 @@ const STYLE = `
 .pod-sheet{background:#fff;box-shadow:0 14px 38px -12px rgba(0,0,0,.6);border-radius:3px;position:relative;max-width:100%;max-height:100%;outline:1px solid rgba(0,0,0,.06);transition:width .3s ease,height .3s ease;}
 .pod-frame{position:absolute;border:0;background:#fff;border-radius:2px;overflow:hidden;box-shadow:0 5px 14px -8px rgba(20,35,56,.35);transition:left .3s,top .3s,width .3s,height .3s;}
 .pod-safe{position:absolute;border:1px dashed color-mix(in srgb,#142338 24%,transparent);border-radius:2px;pointer-events:none;}
+.pod-notes{position:absolute;overflow:hidden;border-top:1px solid color-mix(in srgb,#142338 16%,transparent);padding-top:3px;color:#28323c;font-size:6px;line-height:1.4;text-align:left;white-space:pre-wrap;word-break:break-word;transition:left .3s,top .3s,width .3s,height .3s;}
+.pod-notes-empty{color:#9aa4ae;font-style:italic;}
 .pod-prep{width:70%;display:grid;place-items:center;}
 .pod-bar{width:100%;max-width:190px;height:4px;border-radius:4px;background:color-mix(in srgb,#ffffff 12%,transparent);overflow:hidden;}
 .pod-bar i{display:block;height:100%;width:30%;background:var(--accent);border-radius:4px;animation:podslide 1.1s ease-in-out infinite;}

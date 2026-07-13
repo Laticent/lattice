@@ -164,6 +164,30 @@ in patch versions.
 
 ### Added
 
+- **`lattice-emulator --paper` fits the deck onto a standard sheet for the Node PDF export.**
+  `--paper auto|letter|legal|a4` (plus `--orientation auto|landscape|portrait`) bakes a real
+  paper MediaBox into the exported PDF — each slide fit + centered with a 9mm safe margin,
+  never cropped — so it prints correctly on office paper instead of the default slide-sized
+  page. `auto` picks the least-wasteful sheet for the deck's aspect via the same shared kernel
+  the Studio Print drawer uses (`lib/core/print-sheet.mjs`, HARD RULE #1). Like the drawer's
+  paper-fit and `--raster`, it's an image-per-page PDF (selectable text is lost); omit the flag
+  for the default vector export. PDF only.
+- **The Print drawer prints a speaker-notes handout — each slide over its own notes.** A new
+  "Notes" layout option puts the slide in the top band of each page and its speaker notes below,
+  one slide per page — the classic boardroom leave-behind. Notes come from the same `notesCore`
+  boundary the presenter and the CLI use (so they can't drift), and the preview shows the real
+  slide + its notes a page at a time. Portrait gives the notes the most room. Long notes clip with
+  an ellipsis; a note-free slide shows a faint placeholder. (Built-in PDF fonts are WinAnsi, so
+  unusual glyphs in a note may not render.)
+- **The Print drawer prints 2-up and 4-up handouts — multiple slides per sheet.** A new
+  "Slides per sheet" control (One / Two / Four) packs slides into a grid on each page: 2-up
+  stacks two slides (so wide 16:9 slides stay large instead of squeezing side-by-side), 4-up
+  is a 2×2 grid — each slide fit + centered in its cell inside the sheet's safe margin. The
+  preview shows the real grid a sheet at a time, and the pager counts sheets. N-up rides the
+  same cached images as a paper/orientation change (it only moves placement), so switching
+  layouts re-places with no re-rasterize. Desktop prints the N-up PDF (the vector
+  one-slide-per-page path can't grid); iOS/Download get it as usual.
+
 - **Suono — a framework-free, zero-dependency audio playback + sequencing library
   (`docs/src/lib/suono/`), the third spin-off-able sibling beside Cadenza and
   Vetrina.** Give it audio *bytes* and it plays them reliably on one owned

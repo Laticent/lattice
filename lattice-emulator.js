@@ -184,6 +184,16 @@ OPTIONS
                           compatibility; selectable text is lost. Speaker
                           notes, --present, and --embed-source still apply.
                           PDF only.
+      --paper <size>      Fit each slide onto a standard sheet — auto | letter |
+                          legal | a4 — instead of the default slide-sized page,
+                          so the PDF prints correctly on office paper (baked
+                          paper MediaBox, 9mm safe margin, fit + centered, never
+                          cropped). auto picks the least-wasteful sheet for the
+                          deck's aspect (16:9 → US Legal, 4:3 → Letter). This is
+                          a raster paper-fit (like the Studio Print drawer);
+                          selectable text is lost. PDF only.
+      --orientation <o>   auto | landscape | portrait for --paper (auto follows
+                          the deck aspect). Implies --paper auto if given alone.
       --embed-source      Attach the deck's Markdown source to the PDF as an
                           embedded file (visible in any viewer's attachments
                           panel), so the deck can be re-rendered from the PDF
@@ -258,6 +268,7 @@ function parseArgs(argv) {
     '-o': 'output', '--output': 'output',
     '-p': 'palette', '--palette': 'palette',
     '-c': 'css', '--css': 'css',
+    '--paper': 'paper', '--orientation': 'orientation',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -376,6 +387,29 @@ const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx' : (OUT_EXT === '.png' ? 'png' : 
 const RASTER_PDF = !!flags.raster && OUT_FORMAT === 'pdf';
 if (flags.raster && OUT_FORMAT !== 'pdf') {
   console.warn(`  ⚠ --raster applies only to .pdf output (a .${OUT_FORMAT} is already image-per-slide) — ignoring.`);
+}
+
+// --paper / --orientation: fit the deck onto a standard sheet (US Letter / Legal / A4)
+// instead of the default slide-sized MediaBox, keeping the PDF VECTOR (selectable text).
+// `auto` picks the least-wasteful sheet + orientation for the deck's aspect — the same
+// decision the Studio Print drawer makes, via the shared kernel (lib/core/print-sheet.mjs,
+// HARD RULE #1). PDF only (the raster/PPTX/PNG paths are full-bleed image-per-slide).
+const PAPER_CHOICES = ['auto', 'letter', 'legal', 'a4'];
+const ORIENT_CHOICES = ['auto', 'landscape', 'portrait'];
+const PAPER = flags.paper ? String(flags.paper).toLowerCase() : null;
+const ORIENTATION = flags.orientation ? String(flags.orientation).toLowerCase() : null;
+if (PAPER && !PAPER_CHOICES.includes(PAPER)) {
+  console.error(`error: --paper must be one of ${PAPER_CHOICES.join(' / ')} (got "${flags.paper}")`);
+  process.exit(1);
+}
+if (ORIENTATION && !ORIENT_CHOICES.includes(ORIENTATION)) {
+  console.error(`error: --orientation must be one of ${ORIENT_CHOICES.join(' / ')} (got "${flags.orientation}")`);
+  process.exit(1);
+}
+// Orientation without paper still fits the slide to a sheet (auto-picks the paper).
+const PAPER_FIT = !!(PAPER || ORIENTATION);
+if (PAPER_FIT && (OUT_FORMAT !== 'pdf' || RASTER_PDF)) {
+  console.warn(`  ⚠ --paper/--orientation apply only to the vector .pdf export — ignoring for ${RASTER_PDF ? '--raster PDF' : `.${OUT_FORMAT}`}.`);
 }
 
 // Friendly error wrapper for file reads. Bare ENOENT throws produce
@@ -2030,7 +2064,7 @@ async function renderBody(browser, g, closeBrowser) {
       console.log(`  SVG images: ${swapped} reference${swapped > 1 ? 's' : ''} rasterized at 2x for PDF portability (--keep-vector-images keeps vectors)`);
     }
   }
-  if (OUT_FORMAT === 'pdf' && !RASTER_PDF) {
+  if (OUT_FORMAT === 'pdf' && !RASTER_PDF && !PAPER_FIT) {
     // Render to a buffer (no `path`) so we can post-process before writing: the
     // speaker notes are attached as per-page PDF text annotations.
     const pdfBytes = await g(() => page.pdf({
@@ -2053,26 +2087,39 @@ async function renderBody(browser, g, closeBrowser) {
     }
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else if (OUT_FORMAT === 'pdf') {
-    // --raster: one full-bleed slide image per PDF page, from the same per-slide
-    // element screenshots the PPTX path takes (2x viewport for crispness). JPEG
-    // q95 — slides are opaque full-bleed, and the compat mode exists for sharing,
-    // where a lossless-PNG deck would be several times the size. The pdf-lib
-    // post-passes (notes / present / source) run on the assembled document just
-    // as they do on the vector one.
+    // Image-per-page PDF. Two triggers land here:
+    //   · --raster: one FULL-BLEED slide image per slide-sized page (max-compat sharing).
+    //   · --paper/--orientation: each slide fit + centered on a standard SHEET (Letter/Legal/
+    //     A4) via the shared print kernel — the reliable paper-fit path. (The vector page.pdf
+    //     path can't reliably paginate a scaled deck onto a larger sheet: Chromium drops the
+    //     per-slide page break once a slide no longer fills the page, packing 2-up in portrait.
+    //     Rasterize + place, exactly like the Studio Print drawer, so every sheet is correct.)
+    // The pdf-lib post-passes (notes / present / source) run on the assembled document.
+    let paperSheet = null;
+    if (PAPER_FIT) {
+      const { resolvePrintSheet } = require('./lib/core/print-sheet.mjs');
+      paperSheet = resolvePrintSheet(slideW, slideH, { paper: PAPER, orientation: ORIENTATION });
+    }
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
     const jpegBuffers = [];
     for (const h of handles) {
       jpegBuffers.push(await g(() => h.screenshot({ type: 'jpeg', quality: 95 }), 'screenshot slide'));
     }
     await closeBrowser();
-    let finalBytes = await assembleRasterPdf(jpegBuffers);
+    let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
     finalBytes = await embedNotesInPdf(finalBytes, materializedNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, finalBytes);
     const noteCount = slideNotes.filter(Boolean).length;
     if (!QUIET) {
-      const tags = [`raster, ${jpegBuffers.length} page${jpegBuffers.length > 1 ? 's' : ''}`];
+      const tags = [];
+      if (paperSheet) {
+        const label = { letter: 'US Letter', legal: 'US Legal', a4: 'A4' }[paperSheet.paper];
+        tags.push(`${label} ${paperSheet.orientation}, ${jpegBuffers.length} page${jpegBuffers.length > 1 ? 's' : ''}, slide fit to page`);
+      } else {
+        tags.push(`raster, ${jpegBuffers.length} page${jpegBuffers.length > 1 ? 's' : ''}`);
+      }
       if (noteCount) tags.push(`${noteCount} slide${noteCount > 1 ? 's' : ''} with speaker notes`);
       if (PRESENT) tags.push('presentation mode');
       if (EMBED_SOURCE) tags.push('source embedded');
@@ -2602,17 +2649,40 @@ async function embedNotesInPdf(pdfBytes, notes) {
 // page-size expectations, N-up printing, and the note-annotation Rect math all
 // hold. Unlike the post-pass helpers below this must NOT swallow errors — there
 // is no deck without it.
-async function assembleRasterPdf(jpegBuffers) {
+// `sheet` (from resolvePrintSheet, px @96dpi) → each slide fit + centered on that paper
+// size; absent → the historical full-bleed slide-sized page. All geometry is px @96dpi;
+// PDF points are px × 0.75 (72/96). pdf-lib's Y origin is bottom-left, so the fit rect's
+// top-left y is flipped to `pageH - y - h`.
+async function assembleRasterPdf(jpegBuffers, sheet) {
   const { PDFDocument } = require('pdf-lib');
+  const { fitSlideOnSheet } = sheet ? require('./lib/core/print-sheet.mjs') : {};
   const doc = await PDFDocument.create();
-  const wPt = slideW * 0.75;
-  const hPt = slideH * 0.75;
+  const PT = 0.75;
   for (const buf of jpegBuffers) {
     const img = await doc.embedJpg(buf);
-    const pg = doc.addPage([wPt, hPt]);
-    pg.drawImage(img, { x: 0, y: 0, width: wPt, height: hPt });
+    if (sheet) {
+      const place = fitSlideOnSheet(slideW, slideH, sheet.pageW, sheet.pageH, 'page');
+      const pg = doc.addPage([sheet.pageW * PT, sheet.pageH * PT]);
+      // White paper under the fit+centered slide so the letterbox bands print white.
+      pg.drawRectangle({ x: 0, y: 0, width: sheet.pageW * PT, height: sheet.pageH * PT, color: rgbWhite() });
+      pg.drawImage(img, {
+        x: place.x * PT,
+        y: (sheet.pageH - place.y - place.h) * PT,
+        width: place.w * PT,
+        height: place.h * PT,
+      });
+    } else {
+      const pg = doc.addPage([slideW * PT, slideH * PT]);
+      pg.drawImage(img, { x: 0, y: 0, width: slideW * PT, height: slideH * PT });
+    }
   }
   return await doc.save();
+}
+
+// pdf-lib's white (avoids importing `rgb` at module top just for this one call).
+function rgbWhite() {
+  const { rgb } = require('pdf-lib');
+  return rgb(1, 1, 1);
 }
 
 // When --embed-source is set, attach the deck's ORIGINAL Markdown (as read from

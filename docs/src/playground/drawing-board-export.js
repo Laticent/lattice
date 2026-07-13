@@ -29,7 +29,7 @@
 
 import { themeImportNames } from '../lib/theme-fetch.ts';
 import { notesCore } from './authoring-core.generated.js';
-import { buildSrcdoc, fitSlideOnSheet } from './deck-preview.js';
+import { buildSrcdoc, handoutRegions, nUpCells } from './deck-preview.js';
 import { embedComponentsInMarkdown } from './layout-core.generated.js';
 import { addPageStickyNotes } from './pdf-sticky-notes.js';
 
@@ -712,21 +712,30 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 // (b) Assemble a print PDF from PRE-RASTERIZED slide images placed on a chosen paper
 // sheet — the DOM-free half, so a paper/orientation change re-runs only this (no
 // re-rasterize). `opts.sheet` = { pageW, pageH, fit } in px @96dpi; `opts.pageFormat`
-// matches how `images` were encoded. One image per page, fit + centered on white.
-// Annotations (comment sticky notes) are intentionally OUT of scope here — the Print
-// drawer never carries them; the colour-PDF/legacy lanes own that path. N-up and the
-// notes handout will extend THIS assembler (N images / slide+notes per sheet).
+// matches how `images` were encoded; `opts.nup` (1|2|4) packs multiple slides per sheet
+// in a grid (default 1 → one fit+centered slide per page); `opts.handout` (with
+// `opts.notes` — one string per slide) prints the speaker-notes handout instead (slide on
+// top, its notes below, one slide per page). Annotations (comment sticky notes) are
+// intentionally OUT of scope here — the Print drawer never carries them; the colour-PDF/
+// legacy lanes own that path.
 export async function assembleSheetPdf(images, geom, name, meta, opts) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	const sheet = opts?.sheet;
 	if (!sheet) throw new Error('assembleSheetPdf needs opts.sheet ({ pageW, pageH, fit }).');
 	const onStatus = opts?.onStatus;
+	const handout = !!opts?.handout;
+	// Handout is always one slide + its notes per page; N-up (grid) is otherwise 1|2|4.
+	const nup = handout ? 1 : [1, 2, 4].includes(opts?.nup) ? opts.nup : 1;
+	const notes = Array.isArray(opts?.notes) ? opts.notes : [];
 	const { jsPDF } = await import('jspdf');
 	const boxW = geom?.w || 1280;
 	const boxH = geom?.h || 720;
 	const { pageW, pageH } = sheet;
-	// Fit + center each slide within the 9mm safe margin (shared kernel geometry).
-	const place = fitSlideOnSheet(boxW, boxH, pageW, pageH, sheet.fit);
+	// The `nup` cell placements for one sheet (shared kernel geometry — nup=1 collapses to
+	// exactly fitSlideOnSheet). Image i lands in cell i % nup; every `nup` images = one page.
+	// In handout mode the slide sits in the top band, its notes in the band below.
+	const cells = nUpCells(boxW, boxH, pageW, pageH, nup, sheet.fit);
+	const regions = handout ? handoutRegions(boxW, boxH, pageW, pageH, sheet.fit) : null;
 	// Orientation derives from the chosen page so a portrait sheet isn't forced landscape.
 	const orientation = pageW >= pageH ? 'landscape' : 'portrait';
 	// A PHYSICALLY correct MediaBox (so iOS/print shows "US Legal", not a giant custom
@@ -734,14 +743,26 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 	// pageW=1344px → 1008pt = 14in.
 	const pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH], compress: true, hotfixes: ['px_scaling'] });
 	pdf.setProperties(pdfProps(name, meta, images.length));
-	for (let i = 0; i < images.length; i++) {
-		if (onStatus) onStatus('Placing slide ' + (i + 1) + ' of ' + images.length + '…', { current: i, total: images.length });
-		if (i > 0) pdf.addPage([pageW, pageH], orientation);
-		// White page under a fit+centered slide so the letterbox bands print white, not
+	const pages = handout ? images.length : Math.ceil(images.length / nup) || 1;
+	for (let p = 0; p < pages; p++) {
+		if (p > 0) pdf.addPage([pageW, pageH], orientation);
+		// White page under the fit+centered slides so the letterbox bands print white, not
 		// transparent (a transparent PNG over nothing composites to black on some viewers).
 		pdf.setFillColor(255, 255, 255);
 		pdf.rect(0, 0, pageW, pageH, 'F');
-		pdf.addImage(images[i], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', place.x, place.y, place.w, place.h);
+		if (handout) {
+			if (onStatus) onStatus('Placing slide ' + (p + 1) + ' of ' + images.length + '…', { current: p, total: images.length });
+			pdf.addImage(images[p], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', regions.slide.x, regions.slide.y, regions.slide.w, regions.slide.h);
+			drawHandoutNotes(pdf, regions.notes, notes[p]);
+		} else {
+			for (let k = 0; k < nup; k++) {
+				const idx = p * nup + k;
+				if (idx >= images.length) break;
+				if (onStatus) onStatus('Placing slide ' + (idx + 1) + ' of ' + images.length + '…', { current: idx, total: images.length });
+				const cell = cells[k];
+				pdf.addImage(images[idx], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', cell.x, cell.y, cell.w, cell.h);
+			}
+		}
 		// Yield a macrotask between pages — LOAD-BEARING for the re-place path. A
 		// paper/orientation change reuses cached images, so this loop is the ENTIRE build:
 		// run synchronously it blocks the main thread, and React batches a caller's
@@ -752,6 +773,40 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 		await new Promise((r) => setTimeout(r));
 	}
 	return pdf.output('blob');
+}
+
+// Draw a slide's speaker notes into the handout's notes band: a hairline rule at the top,
+// then the note text wrapped to the band width and clipped to its height (a very long note
+// is truncated with an ellipsis rather than spilling onto the slide above or off the page).
+// px doc units (px_scaling): font size is points, so px → pt is ×0.75. Empty note → just
+// a faint "No notes for this slide." placeholder so the page still reads as a handout.
+function drawHandoutNotes(pdf, region, note) {
+	pdf.setDrawColor(210, 210, 210);
+	pdf.setLineWidth(1);
+	pdf.line(region.x, region.y, region.x + region.w, region.y);
+	const text = (note || '').trim();
+	const FONT_PX = 15;
+	const lineH = FONT_PX * 1.4;
+	pdf.setFont('helvetica', 'normal');
+	pdf.setFontSize(FONT_PX * 0.75); // px → pt
+	const padTop = Math.round(lineH * 0.9);
+	if (!text) {
+		pdf.setTextColor(170, 170, 170);
+		pdf.setFont('helvetica', 'italic');
+		pdf.text('No notes for this slide.', region.x, region.y + padTop);
+		return;
+	}
+	pdf.setTextColor(40, 40, 40);
+	const lines = pdf.splitTextToSize(text, region.w);
+	const maxLines = Math.max(1, Math.floor((region.h - padTop) / lineH) + 1);
+	let shown = lines;
+	if (lines.length > maxLines) {
+		// Re-wrap the last visible line WITH the ellipsis appended so it can't overrun the
+		// band width (a bare slice + '…' could push one glyph into the right safe margin).
+		const last = pdf.splitTextToSize(`${String(lines[maxLines - 1] || '')}…`, region.w)[0];
+		shown = [...lines.slice(0, maxLines - 1), last];
+	}
+	pdf.text(shown, region.x, region.y + padTop, { lineHeightFactor: 1.4 });
 }
 
 // The shared core of exportPdf (which downloads) and renderPdfBlob (which hands

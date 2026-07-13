@@ -50,6 +50,29 @@ describe('export-formats', () => {
     assert.equal(fs.readFileSync(out).subarray(0, 5).toString(), '%PDF-', 'not a PDF');
   });
 
+  test('--paper fits each slide onto a standard sheet with a baked paper MediaBox', { timeout: TIMEOUT }, () => {
+    const out = path.join(tmpDir(), 'paper.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--paper', 'a4', '--orientation', 'portrait'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    // pdf-lib writes object streams (compressed), so read the geometry with poppler's
+    // pdfinfo (the same toolchain the sibling raster tests use). A4 portrait = 794×1123px
+    // @96dpi → 595.5×842.25pt (×0.75); one page per slide, on the sheet not the slide box.
+    const info = execFileSync('pdfinfo', [out], { encoding: 'utf8' });
+    assert.match(info, /Page size:\s*595\.5 x 842\.25 pts/, `expected A4 portrait, got:\n${info}`);
+    assert.match(info, /Pages:\s*3\b/, 'one sheet per fixture slide');
+  });
+
+  test('--paper rejects an unknown sheet', () => {
+    const out = path.join(tmpDir(), 'bad.pdf');
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--paper', 'tabloid'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.notEqual(r.status, 0, 'should exit non-zero on an invalid --paper');
+    assert.match(r.stderr, /--paper must be one of/);
+  });
+
   test('renders an OOXML .pptx with one slide + image per slide', { timeout: TIMEOUT }, async () => {
     const out = path.join(tmpDir(), 'deck.pptx');
     const r = run(out);
