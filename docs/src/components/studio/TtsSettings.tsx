@@ -1,7 +1,5 @@
-import { Check, ChevronsUpDown, Download, Loader2, PlayCircle } from 'lucide-react';
+import { Check, ChevronDown, Download, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import {
@@ -110,11 +108,15 @@ function GenderMark({ gender }: { gender?: 'F' | 'M' }) {
 	);
 }
 
-// The voice picker: a searchable shadcn Command combobox grouped as ★ Featured +
-// language groups (where the id encodes language) or a single "All voices" list,
-// with a gender badge per row. Replaces the old flat <Select> — a 30–54-voice roster
-// needs search + curation, not one long scroll. `modelId` drives the grouping/label
-// derivation (groupVoices, tts-voice-catalog.ts).
+// The voice picker: an inline, expand-in-place search panel grouped as ★ Featured +
+// language groups (where the id encodes language) or a single "All voices" list, with
+// a gender badge per row. Replaces the old flat <Select> — a 30–54-voice roster needs
+// search + curation, not one long scroll. It mirrors TtsModelPicker's proven inline
+// pattern (a collapsed summary → search input + scrollable grouped list) RATHER than a
+// Popover+cmdk combobox: a Radix Popover portaled inside the Workspace Sheet's modal
+// dialog left the search field un-typeable on real iOS Safari (2026-07-13 device
+// report — see engineering/decisions/2026-07-13-tts-picker-ia.md § iOS fix; HARD RULE
+// #15, don't fork a widget per surface). `modelId` drives the grouping (groupVoices).
 function VoicePicker({
 	label,
 	ariaLabel,
@@ -133,8 +135,19 @@ function VoicePicker({
 	disabled?: boolean;
 }) {
 	const [open, setOpen] = React.useState(false);
+	const [query, setQuery] = React.useState('');
+	const searchRef = React.useRef<HTMLInputElement>(null);
 	const { featured, groups } = React.useMemo(() => groupVoices(modelId, voices), [modelId, voices]);
 	const selected = React.useMemo(() => voices.find((v) => v.id === value), [voices, value]);
+
+	// Manual substring filter (name + id + the group's language name, so typing
+	// "japanese"/"spanish" narrows to that language) — the cmdk equivalent of the old
+	// combobox, minus the iOS-hostile Popover.
+	const q = query.trim().toLowerCase();
+	const match = (row: { id: string; label: string }, lang = '') => !q || `${row.label} ${row.id} ${lang}`.toLowerCase().includes(q);
+	const fFeatured = featured.filter((r) => match(r));
+	const fGroups = groups.map((g) => ({ ...g, voices: g.voices.filter((r) => match(r, g.label)) })).filter((g) => g.voices.length > 0);
+	const nothing = fFeatured.length === 0 && fGroups.length === 0;
 
 	if (!voices.length) {
 		return (
@@ -156,52 +169,81 @@ function VoicePicker({
 	const choose = (id: string) => {
 		onPick(id);
 		setOpen(false);
+		setQuery('');
 	};
-	// `searchExtra` folds the group's language name into the item's cmdk search value
-	// so typing "spanish"/"japanese" filters that language's rows — the group heading
-	// itself isn't searchable text.
-	const renderItem = (row: { id: string; label: string; gender?: 'F' | 'M' }, searchExtra = '') => (
-		<CommandItem key={row.id} value={`${row.label} ${row.id} ${searchExtra}`.trim()} onSelect={() => choose(row.id)} className="gap-2">
-			<Check className={cn('size-3.5 shrink-0', row.id === value ? 'opacity-100 text-[var(--accent)]' : 'opacity-0')} />
-			<span className="min-w-0 flex-1 truncate">{row.label}</span>
-			<GenderMark gender={row.gender} />
-		</CommandItem>
-	);
+	const Row = (row: { id: string; label: string; gender?: 'F' | 'M' }) => {
+		const sel = row.id === value;
+		return (
+			<button
+				type="button"
+				role="option"
+				aria-selected={sel}
+				key={row.id}
+				onClick={() => choose(row.id)}
+				className={cn('flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[13px]', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}
+			>
+				<Check className={cn('size-3.5 shrink-0', sel ? 'opacity-100 text-[var(--accent)]' : 'opacity-0')} />
+				<span className="min-w-0 flex-1 truncate text-[var(--text-heading)]">{row.label}</span>
+				<GenderMark gender={row.gender} />
+			</button>
+		);
+	};
 
 	return (
 		<div>
 			<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
-			<Popover open={open} onOpenChange={setOpen}>
-				<PopoverTrigger
-					disabled={disabled}
-					aria-label={ariaLabel}
+			<div className={cn('rounded-lg border', open ? 'border-[var(--accent)]' : 'border-border')}>
+				<button
+					type="button"
 					role="combobox"
+					aria-label={ariaLabel}
 					aria-expanded={open}
 					aria-haspopup="listbox"
-					className={cn(
-						'flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-[13px] text-foreground outline-none focus:border-[var(--accent)] disabled:opacity-50',
-					)}
+					disabled={disabled}
+					onClick={() => {
+						const next = !open;
+						setOpen(next);
+						if (next) requestAnimationFrame(() => searchRef.current?.focus());
+					}}
+					className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground disabled:opacity-50"
 				>
 					<span className="min-w-0 flex-1 truncate">{selected?.label ?? 'Choose a voice…'}</span>
-					<ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
-				</PopoverTrigger>
-				<PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-					<Command>
-						<CommandInput placeholder="Search voices…" aria-label={`Search ${ariaLabel}`} />
-						<CommandList>
-							<CommandEmpty>No voice found.</CommandEmpty>
-							{featured.length > 0 && (
-								<CommandGroup heading="★ Featured">{featured.map((row) => renderItem(row))}</CommandGroup>
+					<ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+				</button>
+				{open && !disabled && (
+					<div className="border-t border-border p-2">
+						<input
+							ref={searchRef}
+							type="search"
+							value={query}
+							onChange={(e) => setQuery(e.target.value)}
+							placeholder="Search voices…"
+							aria-label={`Search ${ariaLabel}`}
+							className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-[var(--accent)]"
+						/>
+						<div role="listbox" aria-label={ariaLabel} className="mt-2 max-h-[280px] overflow-y-auto">
+							{nothing ? (
+								<p className="px-2 py-3 text-[12.5px] text-muted-foreground">No voice found.</p>
+							) : (
+								<>
+									{fFeatured.length > 0 && (
+										<div>
+											<div className="px-2 pb-1 pt-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">★ Featured</div>
+											{fFeatured.map(Row)}
+										</div>
+									)}
+									{fGroups.map((g) => (
+										<div key={g.key}>
+											<div className="px-2 pb-1 pt-2 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">{g.label}</div>
+											{g.voices.map(Row)}
+										</div>
+									))}
+								</>
 							)}
-							{groups.map((g) => (
-								<CommandGroup key={g.key} heading={g.label}>
-									{g.voices.map((row) => renderItem(row, g.label))}
-								</CommandGroup>
-							))}
-						</CommandList>
-					</Command>
-				</PopoverContent>
-			</Popover>
+						</div>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

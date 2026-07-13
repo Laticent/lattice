@@ -172,8 +172,8 @@ in patch versions.
   (off = free); fed by the render pipeline after each slide lands in the preview. (`VizDiagnosticsOverlay`,
   `viz-overlay-prefs`, `viz-findings`.)
 - **The Studio voice picker is now searchable and grouped — ★ Featured, then by language, with a ♀/♂ badge.**
-  The flat voice dropdown (fine for 5 voices, unusable for Kokoro's 54 or Gemini's 30) is now a searchable
-  shadcn combobox: a curated ★ Featured highlight on top, then one group per language *where the voice id
+  The flat voice dropdown (fine for 5 voices, unusable for Kokoro's 54 or Gemini's 30) is now a searchable,
+  expand-in-place panel: a curated ★ Featured highlight on top, then one group per language *where the voice id
   encodes it* (Kokoro, Voxtral, MAI), with a gender badge per row. Engines whose voices are bare, multilingual
   names (Gemini, Grok, Orpheus, CSM — no language or gender in the id) collapse to a single "All voices" list —
   a female/male-by-language tree can't be built honestly for them. All grouping is derived from id structure,

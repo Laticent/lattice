@@ -39,8 +39,10 @@ hand curation the live-roster design killed — see the 2026-07-09 config-split 
 
 ## The decision (confirmed with the user, one round)
 
-**Voice picker → shadcn `Command` combobox** (Popover + Command + CommandGroup),
-single-level groups, no nesting:
+**Voice picker → an inline, expand-in-place search panel** (a collapsed summary →
+search input + scrollable grouped list), single-level groups, no nesting. It mirrors
+`TtsModelPicker`'s established pattern rather than a Popover+cmdk combobox — see
+§ iOS fix below for why the first Popover implementation was replaced:
 
 1. **★ Featured** — a small curated highlight, always first. Backed by a new
    `featuredVoices` catalog field, distinct from `cachedVoices` (which now often
@@ -56,6 +58,24 @@ single-level groups, no nesting:
 
 All derivation lives in `voiceMeta()` / `groupVoices()` in `tts-voice-catalog.ts`
 — pure, fs-free, unit-tested, browser-identical — and reads only id STRUCTURE.
+
+### § iOS fix — inline panel, not Popover-in-Dialog
+
+The picker first shipped as a shadcn `Command` combobox inside a Radix `Popover`.
+A device report (2026-07-13, real iOS Safari) found the **search field un-typeable
+on mobile**: the field focused and the keyboard appeared, but characters never
+filtered the list. Root cause — the Workspace settings live in a Radix **Dialog**
+(the Sheet), which in modal mode sets `pointer-events: none` on everything outside
+it; the `Popover` content sits on that path, so it inherited a `pointer-events:none`
+ancestor that iOS Safari enforces against **touch** input even when focus succeeds.
+(It reproduced only on real iOS — a WebKit-on-Linux driver typed fine, the exact
+HARD RULE #23 gap.) The fix drops the Popover entirely and renders the search +
+list **inline in the settings flow**, identical to the model picker (which was never
+reported broken on the same surface) — no portal, no `pointer-events:none` ancestor.
+The DOM check confirms it: the old path had a `pointer-events:none` DIV ancestor on
+the input; the inline path has none. Search is a plain `<input>` with manual
+substring filtering (name + id + language). HARD RULE #15: reuse the proven widget,
+don't fork one per surface.
 
 **Model picker → price-ranked + value tier.** The curated lenses
 (Featured/Value/Free) now render a single flat list sorted by price **LOW→HIGH**
@@ -88,10 +108,10 @@ Kokoro are the price × quality standouts, so both earn a complete cache). The
   and `priceTier`/`ttsModelGroups` (16 tests, `tts-catalog.test.ts`).
 - Component: `WorkspaceSheet.test.tsx` (24) drives the combobox via its
   `role="combobox"` trigger.
-- **Visual (real component, harness-mounted — NOT the connected Playground):** the
-  production `VoicePicker` + `TtsModelPicker` rendered with static rosters and
-  screenshot at 1440 / 820 / 390 — Featured + language groups + ♀/♂ badges for
-  Kokoro, a flat "All voices" list for Gemini, and the price-sorted `$/$$/$$$`
-  model list. The **connected live Playground** dropdown (OpenRouter-gated, not
-  reachable headlessly) is UNVERIFIED here — device/connected-key sign-off owed,
-  same standing caveat as audible audition (HARD RULE #23).
+- **Visual + interaction (real component):** the production `VoicePicker` +
+  `TtsModelPicker` rendered with static rosters and screenshot at 1440 / 820 / 390.
+  The iOS fix was driven on the **real WebKit engine** (Playwright) at iPhone
+  viewport, INSIDE the real Sheet — search types + filters (17→1), and the DOM
+  check shows the `pointer-events:none` ancestor is gone. The **connected live
+  Playground on a physical iOS device** remains the owner's sign-off (WebKit-Linux
+  ≠ real iOS — that's the gap that hid this bug; HARD RULE #23).
