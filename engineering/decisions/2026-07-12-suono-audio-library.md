@@ -404,6 +404,40 @@ and the scheduler mechanics held; the trio's real findings were folded (with reg
 - **The "don't warm an expensive local source" judgment stays with the caller** (documented on
   `warm()`) — Suono can't tell a network producer from a CPU-bound one.
 
+## 8b. Adversarial-trio hardening — the read-aloud migration + device fixes (PR #950)
+
+Re-run of the full trio (HARD RULE #25) against what actually ships in PR #950 (the read-aloud→Suono
+migration plus the pause/resume + unmute-resume device fixes), since that work is high-blast-radius and
+device-unverifiable here. All three lenses confirmed the core clock/pause/resume math, the
+`startClocked` refactor faithfulness, the `gen`/`consumedSec` accounting, `activeHandle` routing, and
+the never-rejects contract are correct. Three CONFIRMED, reachable defects were folded (with tests):
+
+- **Frozen-clock leak across a barge-in (red team, HIGH).** Pausing BETWEEN clips (while a sentence is
+  still synthesizing → no live handle) froze the shared singleton play-clock via `stage.suspend()`, but
+  `sequence.stop()` never unfroze it — so a Stop/Next-slide without an intervening resume left the NEXT
+  read's caption frozen at word 0 until some later clip finished. Fix: `sequence.stop()` calls
+  `stage.resume()` when it was paused (idempotent for the live-clip path, which already unfreezes via the
+  handle's `finish → resumeClock`). Regression test in `sequence.test.ts`.
+- **Audible audio while muted (independent checker, MEDIUM).** The mute effect only suppressed audio
+  when `playing`, so a mute tapped WHILE PAUSED was dropped and the paused-but-live sequence resumed
+  audibly on the next play despite the mute. Fix: the mute effect now acts when the audio is live —
+  `playing OR paused` — in audio mode. Nightly test `pause → mute → play stays silent`.
+- **Voice-blind resume cache key (red team, MEDIUM).** A slide muted-at-play never set `voiceLabelRef`,
+  so a later unmute-resume built the decoded-cache key with an EMPTY voice identity → a stale-voice clip
+  could replay after a voice switch. Fix: the model/voice label + calibration key now resolve for any
+  clocked voice BEFORE the muted branch, so the resume key is content-complete.
+
+**Accepted / noted, not fixed here** (recorded so they aren't lost): the *audible* resume on a
+cold-suspended iOS context is the real merge gate — the #950 device sign-off must exercise a real
+cold-context resume + a fast double-tap, not a warm happy path (no automated test can see it); the rung
+BADGE can go stale on a mid-session ladder change (OpenRouter key revoked mid-read) because the Suono
+`onState` doesn't carry the per-sentence rung (rare regression vs. `voice.speak`'s per-event
+`setRung`); the ~≤8 ms declick overlap on a rapid pause→resume and the pause-exactly-at-a-clip-boundary
+blip are cosmetic device-only residuals; the module-singleton stage means two concurrent readers would
+share one context (latent, not reachable in Present today). The unmute "re-speak the current sentence"
+backward jog is by design (bounded to ≤1 sentence, strictly better than the shipped-before "silent
+until next slide").
+
 ## 9. Alternatives weighed
 
 - **Playback-only kernel (no sequencer).** Smaller surface, but every consumer re-implements the

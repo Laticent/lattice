@@ -214,6 +214,22 @@ test('read-aloud: mute → pause → UNMUTE (deferred) → resume brings the aud
 	expect((await until(page, (s) => s.finished >= 1)).finished).toBe(1);
 });
 
+test('read-aloud: pause → MUTE (while paused) → play stays SILENT (no audible resume while muted)', async ({ page }) => {
+	// Muting while PAUSED must suppress the paused-but-live audio — else play() resumes it audibly while
+	// the UI shows muted (checker finding). After the mute the mode must stay 'silent' through resume.
+	await open(page);
+	await page.click('#play');
+	await until(page, (s) => s.mode === 'audio');
+	await until(page, (s) => s.cue >= 1);
+	await page.click('#pause');
+	expect((await ra(page)).playing).toBe(false);
+	await page.click('#mute'); // mute WHILE PAUSED (the RAF probe is frozen while paused, so assert after resume)
+	await page.click('#play'); // resume — must come back on the silent estimate, NOT re-engage clocked audio
+	await sleep(700); // let the tick run a few frames
+	expect((await ra(page)).mode).toBe('silent'); // an audible resume would have flipped mode back to 'audio'
+	expect((await until(page, (s) => s.finished >= 1)).finished).toBe(1);
+});
+
 test('read-aloud: play while MUTED (Present default), then unmute mid-slide, engages audio here', async ({ page }) => {
 	// Present opens Voice muted by default, so "play muted → unmute" is the common path (checker
 	// Finding B). Starting muted must still let a later unmute engage the clocked audio on THIS slide.

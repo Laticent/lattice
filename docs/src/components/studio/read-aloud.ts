@@ -776,26 +776,6 @@ export function useReadAloud(
 				if (!pausedRef.current) startLoop();
 				return;
 			}
-			// Voice MUTED — run the silent cadence estimate (captions) and attach NO TTS. Same
-			// "always runs" path as a failed voice load, but chosen deliberately by the user. The
-			// captions/teleprompter still animate word-by-word off Cadenza's built-in timings.
-			if (mutedRef.current) {
-				setRung('silent');
-				voiceRef.current = voice;
-				// If a CLOCKED voice is behind the mute, remember the audio is only mute-suppressed — a
-				// later unmute resumes it on THIS slide (Present opens muted-by-default, so play-muted →
-				// unmute is the common path, not only mute-mid-read).
-				let mr: string;
-				try {
-					mr = voice.rung();
-				} catch {
-					mr = 'silent';
-				}
-				if (mr === 'openrouter-tts' || mr === 'kokoro') audioSuppressedRef.current = true;
-				armedRef.current = true;
-				if (!pausedRef.current) startLoop();
-				return;
-			}
 			voiceRef.current = voice;
 			let r: string;
 			try {
@@ -803,34 +783,47 @@ export function useReadAloud(
 			} catch {
 				r = 'silent';
 			}
-			setRung(r);
-			// Resolve the concrete model/voice behind the rung — a multi-model device trace
-			// self-labels which voice produced each slide, AND it keys per-voice pace calibration
-			// (so `k` is fit per model·voice). Resolved unconditionally (not just in debug) so
-			// calibration accrues from normal use; best-effort + guarded.
-			try {
-				voiceLabelRef.current =
-					r === 'openrouter-tts'
-						? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
-						: r === 'kokoro'
-							? `kokoro · ${voice.kokoroVoice?.() || '?'}`
-							: r;
-			} catch {
-				voiceLabelRef.current = r;
-			}
-			calVoiceKeyRef.current = voiceKeyOf(voiceLabelRef.current);
-			// Seed the live readout from what's already stored for this voice (one load).
-			try {
-				const cal = loadCalibration(calVoiceKeyRef.current);
-				calKRef.current = rateScale(cal);
-				calNRef.current = cal.n;
-			} catch {
-				calKRef.current = 1;
-				calNRef.current = 0;
-			}
-			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on
-			// the estimate (it speaks in parallel but reports no onsets).
+			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on the estimate
+			// (it speaks in parallel but reports no onsets).
 			const clocked = r === 'openrouter-tts' || r === 'kokoro';
+			// Resolve the concrete model/voice behind the rung — a multi-model device trace self-labels
+			// which voice produced each slide, AND it keys per-voice pace calibration (so `k` is fit per
+			// model·voice). Resolved for ANY clocked voice REGARDLESS of mute (before the muted branch
+			// below), because a later unmute-resume builds its decoded-cache key from voiceLabelRef — an
+			// EMPTY label there would voice-blind the persistent stage cache and replay a stale-voice clip
+			// after a voice switch (red-team finding). Best-effort + guarded.
+			if (clocked) {
+				try {
+					voiceLabelRef.current =
+						r === 'openrouter-tts'
+							? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
+							: `kokoro · ${voice.kokoroVoice?.() || '?'}`;
+				} catch {
+					voiceLabelRef.current = r;
+				}
+				calVoiceKeyRef.current = voiceKeyOf(voiceLabelRef.current);
+				// Seed the live readout from what's already stored for this voice (one load).
+				try {
+					const cal = loadCalibration(calVoiceKeyRef.current);
+					calKRef.current = rateScale(cal);
+					calNRef.current = cal.n;
+				} catch {
+					calKRef.current = 1;
+					calNRef.current = 0;
+				}
+			}
+			// Voice MUTED — run the silent cadence estimate (captions) and attach NO TTS. Same "always
+			// runs" path as a failed voice load, but chosen deliberately by the user. If a CLOCKED voice
+			// is behind the mute, remember the audio is only mute-suppressed — a later unmute resumes it
+			// on THIS slide (Present opens muted-by-default, so play-muted → unmute is the common path).
+			if (mutedRef.current) {
+				setRung('silent');
+				if (clocked) audioSuppressedRef.current = true;
+				armedRef.current = true;
+				if (!pausedRef.current) startLoop();
+				return;
+			}
+			setRung(r);
 			if (clocked) {
 				try {
 					stage.unlock();
@@ -916,7 +909,12 @@ export function useReadAloud(
 	const mutedProp = !!opts?.muted;
 	React.useEffect(() => {
 		if (mutedProp) {
-			if (playingRef.current && modeRef.current === 'audio') {
+			// Suppress the clocked audio when it's LIVE — playing OR merely paused (mode stays 'audio'
+			// across a pause). Gating on playingRef alone dropped a mute tapped while paused, leaving a
+			// paused-but-live sequence that then RESUMED AUDIBLY on the next play despite the mute
+			// (checker finding). `pausedRef` covers that; a read that has ended (neither playing nor
+			// paused) has nothing to suppress.
+			if ((playingRef.current || pausedRef.current) && modeRef.current === 'audio') {
 				try {
 					seqRef.current?.stop();
 				} catch {

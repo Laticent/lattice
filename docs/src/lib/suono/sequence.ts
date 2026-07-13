@@ -354,6 +354,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		// Without this, an explicit stop()/barge-in produced NO final playing:false (Munger finding #1),
 		// so a consumer could never tell "stopped" from "still running." aborted:true marks it as cut short.
 		const wasActive = running || !!pausedGate;
+		const wasPaused = !!pausedGate;
 		if (ctl) {
 			try {
 				ctl.abort();
@@ -364,6 +365,13 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		}
 		releaseGate();
 		running = false;
+		activeHandle = null;
+		// A pause BETWEEN clips froze the shared play-clock via `stage.suspend()` (there was no live
+		// handle to own the freeze). A stop/barge-in/nav without an intervening resume would otherwise
+		// leave `clockMs()` frozen on the module-singleton stage — hanging the NEXT read's caption at
+		// word 0 until some later clip happens to finish (red-team finding). Unfreeze here. Idempotent
+		// for the live-clip case (the handle's abort→finish already called resumeClock).
+		if (wasPaused) stage.resume();
 		if (wasActive) emitState(false, -1, null, true);
 	}
 
