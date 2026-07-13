@@ -209,3 +209,56 @@ export function setFrontMatterBlock(source: string, key: string, entries: Iterab
 	}
 	return emitFm(pairs, blocks, body);
 }
+
+/** One acronym registry entry: the spoken expansion (required) + an optional glossary definition. */
+export interface AcronymEntry {
+	expansion: string;
+	definition?: string;
+}
+
+/** A term is emitted UNQUOTED (parseAcronyms' header grammar is `[A-Za-z0-9][\w.&/-]*`, which does
+ *  NOT accept a quoted key — unlike the lexicon, whose glyph keys must be quoted). */
+const ACRONYM_TERM_RE = /^[A-Za-z0-9][\w.&/-]*$/;
+
+/**
+ * Set (or, with empty `entries`, remove) the `acronyms:` block — term → { expansion, definition? }.
+ * Distinct from `setFrontMatterBlock` because an acronym value is a STRUCTURED entry, not a flat
+ * scalar: with no definition it emits the string shorthand (`CRO: chief revenue officer`), and with
+ * one it emits the block-object form the parser reads comma-safely:
+ *
+ *   acronyms:
+ *     CRO: chief revenue officer
+ *     EBITDA:
+ *       expansion: ee bit dah
+ *       definition: "Earnings before interest, taxes, depreciation, and amortization."
+ *
+ * The reader is `parseNarrationFrontMatter(...).acronyms` (resolve-captions). Preserves flat
+ * directives, any OTHER nested block (incl. `lexicon:`), and the body. An entry with an invalid term
+ * or an empty expansion is dropped (the parser would skip it too). Later duplicate terms win.
+ */
+export function setFrontMatterAcronyms(source: string, entries: Iterable<[string, AcronymEntry]>): string {
+	const body = stripFrontMatter(source);
+	const { pairs: all, blocks: allBlocks } = parseFm(source);
+	const pairs = all.filter(([k]) => k !== 'acronyms');
+	const blocks = allBlocks.filter(([k]) => k !== 'acronyms');
+	// De-dupe by term (last wins, mirroring the parser), preserving first-seen order.
+	const seen = new Map<string, AcronymEntry>();
+	for (const [rawTerm, entry] of entries) {
+		const term = String(rawTerm ?? '').trim();
+		const expansion = String(entry?.expansion ?? '').trim();
+		if (!ACRONYM_TERM_RE.test(term) || !expansion) continue;
+		seen.set(term, { expansion, definition: String(entry?.definition ?? '').trim() || undefined });
+	}
+	const child: string[] = [];
+	for (const [term, entry] of seen) {
+		if (entry.definition) {
+			child.push(`  ${term}:`);
+			child.push(`    expansion: ${quoteIfNeeded(entry.expansion)}`);
+			child.push(`    definition: ${quoteIfNeeded(entry.definition)}`);
+		} else {
+			child.push(`  ${term}: ${quoteIfNeeded(entry.expansion)}`);
+		}
+	}
+	if (child.length) blocks.push(['acronyms', child]);
+	return emitFm(pairs, blocks, body);
+}

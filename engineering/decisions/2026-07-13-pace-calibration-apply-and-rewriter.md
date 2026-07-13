@@ -181,6 +181,12 @@ before any code. They converge: **do not ship 1 + 2 as designed; split, and reco
   past the design gate. The reuse hook is real (`architect.ts::refineSelection` on the user's key) and
   the export-bytes claim is genuinely true — those parts stand.
 
+**Decision (2026-07-13, maintainer): pivot to A.** Do NOT build apply-`k` or the rewriter now. Fix
+the root cause first — extend the Lexicon panel to edit `acronyms:` (term → expansion + definition),
+so authors supply accurate pronunciations and the estimator counts the right spoken form. Revisit
+apply-`k`/rewriter only if a residual survives the corrected estimator. This doc is parked (blocked),
+not deleted — it's the record of why the rewriter was not built.
+
 **Recommended pivot (mine, folding the trio):** (1) **Do not build the rewriter now** — fix the root
 cause via acronyms-in-Lexicon first; revisit only if a residual survives a *corrected* estimator as a
 clean signal. (2) **Apply-`k` is narrower and costlier than it looked** — done right it needs the

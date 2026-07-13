@@ -164,6 +164,17 @@ in patch versions.
 
 ### Added
 
+- **An "Acronyms" panel in the deck settings — teach a term's spoken expansion (and a glossary
+  definition) without hand-writing YAML.** The deck-scope Inspector gains an Acronyms group beside
+  Lexicon: add `TERM → spoken expansion` and an optional definition, and it writes the `acronyms:`
+  front-matter for you (string shorthand, or the comma-safe block-object form when a definition is
+  present) — carried into the deck, its captions, and every export. Beyond correct pronunciation this
+  tightens read-aloud *timing*: the estimator counts syllables of the spoken form, so `EBITDA → "ee
+  bit dah"` is timed as three beats instead of six spelled-out letters. (`AcronymEditor` +
+  `setFrontMatterAcronyms`; reader `acronymEntries`.) This is the root-cause pivot from the parked
+  pace-calibration/rewriter design — fix the estimator's data, don't bolt an LLM onto its errors
+  (`engineering/decisions/2026-07-13-pace-calibration-apply-and-rewriter.md`).
+
 - **`lattice-emulator --paper` fits the deck onto a standard sheet for the Node PDF export.**
   `--paper auto|letter|legal|a4` (plus `--orientation auto|landscape|portrait`) bakes a real
   paper MediaBox into the exported PDF — each slide fit + centered with a 9mm safe margin,

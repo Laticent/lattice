@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronRight,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronRight,
 	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
@@ -14,11 +14,12 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
-import { lexiconMap } from '@/lib/resolve-captions';
+import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
 import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
+import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
 import { CommandPalette } from './CommandPalette';
@@ -29,7 +30,7 @@ import { Editor, type EditorHandle } from './Editor';
 import { activeFinishLabel, FinishMenuItems, type SavedFinishMenuEntry } from './FinishPicker';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterBlock, stripFrontMatter } from './front-matter';
+import { type AcronymEntry, frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { LatticeMark } from './LatticeMark';
@@ -821,6 +822,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// committing writes the whole block back through the settings funnel (Undo toast + reactivity).
 	const lexicon = React.useMemo(() => lexiconMap(fm), [fm]);
 	const setLexicon = (entries: [string, string][]) => settingsWrite('Lexicon', (s) => setFrontMatterBlock(s, 'lexicon', entries));
+	// The deck's `acronyms:` registry (term → { expansion, definition? }). Same reactive funnel as the
+	// lexicon; the block-object serializer preserves definitions.
+	const acronyms = React.useMemo(() => acronymEntries(fm), [fm]);
+	const setAcronyms = (entries: [string, AcronymEntry][]) => settingsWrite('Acronyms', (s) => setFrontMatterAcronyms(s, entries));
 	// Rail ON → clear `no-progress`; rail OFF → stamp it (deck-wide, non-destructive
 	// to any other author classes).
 	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => (deckRail ? mergeClassTokens(s, 'no-progress') : removeClassTokens(s, 'no-progress')));
@@ -1627,6 +1632,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				</InspGroup>
 			<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="Teach read-aloud how to say a tricky word or symbol, or silence it. Overrides the built-in symbol commons; carried into the deck and its captions.">
 				<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
+			</InspGroup>
+			<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="Teach a term's spoken expansion (and an optional glossary definition). The voice says it right and the caption times it right — e.g. EBITDA → “ee bit dah”.">
+				<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
 			</InspGroup>
 			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring" desc="Aids while you write. Preview-only — none of this appears in the export." last>
 				<Field label="Inline validation" desc="Flags unknown components in the editor as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
