@@ -164,6 +164,13 @@ in patch versions.
 
 ### Added
 
+- **A live "Viz diagnostics" overlay in the Studio — the on-device twin of the `check:render` CI
+  guard.** Toggle it in Workspace → Diagnostics (or `?viz`), and while you edit it reads the slide's
+  rendered SVG chart paint and flags any that dropped to black because a themed color resolved to
+  nothing — a scoping or token break (the #956 class). It answers on your real device (real touch,
+  real iOS) the question CI can only answer headless. Renders nothing and scans nothing until enabled
+  (off = free); fed by the render pipeline after each slide lands in the preview. (`VizDiagnosticsOverlay`,
+  `viz-overlay-prefs`, `viz-findings`.)
 - **An "Acronyms" panel in the deck settings — teach a term's spoken expansion (and a glossary
   definition) without hand-writing YAML.** The deck-scope Inspector gains an Acronyms group beside
   Lexicon: add `TERM → spoken expansion` and an optional definition, and it writes the `acronyms:`

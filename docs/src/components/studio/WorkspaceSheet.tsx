@@ -11,6 +11,7 @@ import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-
 import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
+import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
@@ -147,6 +148,13 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	React.useEffect(() => {
 		setReadAloudOverlay(readAloudOverlayEnabled());
 		return onReadAloudOverlayEnabledChange(setReadAloudOverlay);
+	}, []);
+	// Viz diagnostics overlay — same shared-pref pattern; the `?viz` URL param and
+	// the overlay's own × write the same flag.
+	const [vizOverlay, setVizOverlay] = React.useState(false);
+	React.useEffect(() => {
+		setVizOverlay(vizOverlayEnabled());
+		return onVizOverlayEnabledChange(setVizOverlay);
 	}, []);
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
@@ -480,6 +488,17 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											<span className="min-w-0">
 												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Read-aloud diagnostics</span>
 												<span className="block text-[11px] text-muted-foreground">A live readout in Present while narrating: active voice/model, AudioContext state, sync (spoken vs. cues), cadence drift, and a per-sentence trace. Drag to reposition; also via <code>?readaloud-debug=1</code>.</span>
+											</span>
+										</label>
+									)}
+									{VIZ_OVERLAY_AVAILABLE && (
+										<label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+											<button type="button" role="switch" aria-checked={vizOverlay} aria-label="Viz diagnostics" onClick={() => { const next = !vizOverlay; setVizOverlay(next); setVizOverlayEnabled(next); notify(next ? 'Viz diagnostics on — flags chart colors that dropped to black.' : 'Viz diagnostics off.'); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', vizOverlay ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
+												<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', vizOverlay ? 'translate-x-[18px]' : 'translate-x-0.5')} />
+											</button>
+											<span className="min-w-0">
+												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Viz diagnostics</span>
+												<span className="block text-[11px] text-muted-foreground">A live readout on the slide you're editing: SVG chart paint (map/quadrant/radar/…) that resolved to black because a themed color dropped — a scoping or token break. The on-device twin of the <code>check:render</code> CI guard; also via <code>?viz</code>.</span>
 											</span>
 										</label>
 									)}

@@ -29,6 +29,7 @@ import { hashString, linkGuardAgent } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
+import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
 import { ensureEngine } from './load-engine';
 import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
@@ -125,6 +126,23 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
 	const fresh = holder.querySelector('.lattice');
 	lattice.innerHTML = (fresh || holder).innerHTML;
 	return true;
+}
+
+// Scan the just-rendered slide for dropped-to-black SVG chart paint (the #956
+// signal), feeding the live VizDiagnosticsOverlay — but ONLY while it's subscribed
+// (off = free). Deferred ~650ms like the overflow re-read: an SVG chart is stamped
+// by the runtime shortly after load, and a `mermaid` slide renders its SVG async,
+// so an immediate scan would miss them. Best-effort: a cross-doc read can throw
+// during teardown. getDoc is a thunk so a torn-down/replaced frame resolves late.
+function scheduleVizScan(getDoc: () => Document | null | undefined): void {
+	if (!hasVizScanListeners()) return;
+	setTimeout(() => {
+		try {
+			const doc = getDoc();
+			if (doc?.querySelector('.lattice svg')) recordVizScan(scanBlackFills(doc), performance.now());
+			else if (doc) recordVizScan([], performance.now()); // no SVG on this slide → clear stale findings
+		} catch {}
+	}, 650);
 }
 
 /**
@@ -405,6 +423,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							const shown = patchOverflow(rec, countOverflow());
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
+						scheduleVizScan(() => live.contentDocument);
 						return { ok: true, slides, error: null };
 					}
 					// The live document vanished between the guard and the patch — fall
@@ -503,6 +522,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						const shownSample = patchOverflow(rec, countOverflow());
 						setTimeout(() => patchOverflow(shownSample, countOverflow()), 600);
 					}
+					scheduleVizScan(() => fr?.contentDocument);
 				};
 				// Mark the navigation in flight BEFORE assigning srcdoc: until onload
 				// clears it, the patch guard above must not touch the outgoing document.
