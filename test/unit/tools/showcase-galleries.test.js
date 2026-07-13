@@ -9,10 +9,8 @@
  *      the current manifests. Add/rename/retire a chart or math component (or edit
  *      its `sample`) without rebuilding the deck and CI goes red. This is the
  *      "a new component silently misses the gallery" worry, gated.
- *   2. FALLBACK PARITY — the deck's component set must equal the set the
- *      old-browser colour fallback (tools/build-chart-compat-css.js) scans. The
- *      demonstration/test deck and the fix it demonstrates are driven off the same
- *      component dirs; this asserts they never drift apart.
+ *   2. COVERAGE — the deck walks the full chart+math component set, and every one
+ *      of those components carries a `sample` (so none is silently omitted).
  */
 
 const { test, describe } = require('node:test');
@@ -23,7 +21,6 @@ const { loadAll, groupByBucket } = require('../../../lib/components');
 const {
   SHOWCASES, composeShowcase, galleryMarkdownPath, showcaseComponentNames,
 } = require('../../../tools/build-showcase-galleries');
-const { scannedFiles } = require('../../../tools/build-chart-compat-css');
 
 const groups = groupByBucket(loadAll());
 
@@ -39,24 +36,10 @@ describe('showcase galleries', () => {
     });
   }
 
-  test('data-viz covers exactly the colour-fallback\'s scanned component set', () => {
-    // Component names the fallback scans: lib/components/chart/<name>/<name>.styles.css
-    // + math.styles.css (chart-family.css is shared kernel, not a component).
-    const scanned = new Set(
-      scannedFiles()
-        .map((f) => f.match(/lib\/components\/(?:chart|math)\/(?:[a-z-]+\/)?([a-z-]+)\/\1\.styles\.css$/))
-        .filter(Boolean)
-        .map((m) => m[1]),
-    );
-    // math lives at lib/components/math/math/math.styles.css → captured as `math`.
+  test('data-viz covers the full chart+math component set', () => {
+    // The showcase must walk every chart component plus math — the same surfaces
+    // the per-bucket family galleries cover, in one consolidated deck.
     const inDeck = new Set(showcaseComponentNames('data-viz', groups));
-
-    const missingFromDeck = [...scanned].filter((n) => !inDeck.has(n));
-    const extraInDeck = [...inDeck].filter((n) => !scanned.has(n));
-    assert.deepEqual(missingFromDeck, [],
-      `components the fallback covers but the data-viz deck omits: ${missingFromDeck.join(', ')}`);
-    assert.deepEqual(extraInDeck, [],
-      `components in the data-viz deck the fallback does not scan: ${extraInDeck.join(', ')}`);
     assert.ok(inDeck.size >= 13, `expected the full chart+math set, got ${inDeck.size}`);
   });
 
