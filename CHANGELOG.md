@@ -213,6 +213,12 @@ in patch versions.
 
 ### Fixed
 
+- **The Print drawer's Print button now shows a "Preparing print…" spinner during the ~1-2s
+  before the desktop print dialog opens.** Desktop Print renders the vector deck in a hidden iframe
+  (fonts + the fit agent must settle before the dialog captures a laid-out page), which took a beat
+  with no feedback — the button sat idle as if nothing happened. It now enters a loading state the
+  moment you click and clears it exactly when the dialog is handed off. The Download button likewise
+  shows "Rendering…" while a colour change re-renders the deck, matching Print.
 - **The playground's gallery drawer now labels front-matter-less decks with the right slide
   count, and the diagram-component reference gallery's three experimental diagrams render
   clean.** Two follow-ups from the curated-diagram-gallery work: (1) `galleries.mjs slideCount()`
