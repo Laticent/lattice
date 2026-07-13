@@ -184,3 +184,12 @@ describe('setFrontMatterBlock — nested child-map keys (symbols:/acronyms:)', (
 		expect(symbolOverrideMap(out).get('↔')).toBe('and');
 	});
 });
+
+describe('setFrontMatterBlock — escaping', () => {
+	it('escapes a backslash and a quote in a key (complete, backslash-first)', () => {
+		// Glyph keys never carry these, but the escaping must be complete (CodeQL).
+		const out = setFrontMatterBlock(BODY, 'symbols', [['a\\b', 'x'], ['c"d', 'y']]);
+		expect(out).toContain('"a\\\\b": x'); // backslash doubled
+		expect(out).toContain('"c\\"d": y'); // quote escaped
+	});
+});

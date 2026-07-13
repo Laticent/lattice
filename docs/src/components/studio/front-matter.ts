@@ -200,7 +200,11 @@ export function setFrontMatterBlock(source: string, key: string, entries: Iterab
 	const pairs = all.filter(([k]) => k !== key);
 	const blocks = allBlocks.filter(([k]) => k !== key);
 	if (list.length) {
-		const child = list.map(([k, v]) => `  "${String(k).replace(/"/g, '\\"')}": ${quoteIfNeeded(String(v))}`);
+		// Escape backslash FIRST, then quote — else a `\` before a `"` would break the quoting
+		// (CodeQL: incomplete string escaping). Glyph keys never actually carry either, but the
+		// escaping must be complete.
+		const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+		const child = list.map(([k, v]) => `  "${esc(String(k))}": ${quoteIfNeeded(String(v))}`);
 		blocks.push([key, child]);
 	}
 	return emitFm(pairs, blocks, body);
