@@ -244,6 +244,15 @@ in patch versions.
 
 ### Changed
 
+- **Studio toggles now use one shared `ui/switch` primitive instead of six hand-rolled ones.** A new
+  `docs/src/components/ui/switch.tsx` (Radix Switch, themed through the tailwind.css token bridge so the
+  accent-filled track tracks the palette) replaces the copy-pasted `role="switch"` buttons in
+  `SlideContext`, `StudioShell`, `WorkspaceSheet` (×2), `WebpageOptionsPanel`, and `ExportOptionsPanel` —
+  the first step of the shadcn-adoption plan in
+  `engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md`. Behavior-neutral (same 22×38 pill,
+  same on/off state), but keyboard/focus handling is now Radix's and the focus ring is the palette accent.
+  Verified on the real Studio: toggling "Clean slide" flips `data-state` and the track from `--border` to
+  `--accent`, driving the deck's `silent` modifier end to end.
 - **`voice-model.js` is now a byte source only — all audio playback goes through Suono, and the
   boundary gate's allowlist is empty.** The legacy blob-playback engine (its raw `AudioContext`,
   `getCtx`/`playBlob`/`speak` scheduler, and `previewVoice`/`unlock`/`audioTimeMs`… surface) is

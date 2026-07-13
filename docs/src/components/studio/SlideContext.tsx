@@ -15,6 +15,7 @@
 import { Captions, Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
+import { Switch as UISwitch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideComments } from './SlideComments';
@@ -89,12 +90,10 @@ function TabIntro({ children }: { children: React.ReactNode }) {
 	return <p className="mb-3 border-b border-border/60 pb-2.5 text-[11.5px] leading-snug text-muted-foreground">{children}</p>;
 }
 
+// Thin adapter over the shared ui/switch primitive, preserving this file's
+// {on,onClick,label} call sites. The widget itself is now the shadcn Switch.
 function Switch({ on, onClick, label, disabled }: { on?: boolean; onClick?: () => void; label: string; disabled?: boolean }) {
-	return (
-		<button type="button" role="switch" aria-checked={!!on} aria-label={label} onClick={onClick} disabled={disabled} className={cn('relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors disabled:opacity-40', on ? 'bg-primary' : 'bg-border')}>
-			<span className={cn('absolute top-[2px] size-[18px] rounded-full bg-white shadow transition-all', on ? 'left-[18px]' : 'left-[2px]')} />
-		</button>
-	);
+	return <UISwitch checked={!!on} onCheckedChange={() => onClick?.()} aria-label={label} disabled={disabled} />;
 }
 
 function Seg({ options, value, onChange, ariaLabel }: { options: { label: string; value: string | null }[]; value: string | null; onChange: (v: string | null) => void; ariaLabel: string }) {

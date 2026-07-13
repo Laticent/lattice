@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
@@ -466,20 +467,16 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							{PERF_OVERLAY_AVAILABLE && (
 								<div className="mt-6">
 									<GroupLabel icon={<Cpu className="size-3.5" />}>Diagnostics</GroupLabel>
-									<label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-										<button type="button" role="switch" aria-checked={perfOverlay} aria-label="Performance overlay" onClick={() => { const next = !perfOverlay; setPerfOverlay(next); setPerfOverlayEnabled(next); notify(next ? 'Performance overlay on — live render, vitals & runtime.' : 'Performance overlay off.'); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', perfOverlay ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
-											<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', perfOverlay ? 'translate-x-[18px]' : 'translate-x-0.5')} />
-										</button>
+									<label htmlFor="ws-perf-overlay" className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+										<Switch id="ws-perf-overlay" aria-label="Performance overlay" checked={perfOverlay} onCheckedChange={(next) => { setPerfOverlay(next); setPerfOverlayEnabled(next); notify(next ? 'Performance overlay on — live render, vitals & runtime.' : 'Performance overlay off.'); }} />
 										<span className="min-w-0">
 											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Performance overlay</span>
 											<span className="block text-[11px] text-muted-foreground">A live on-screen readout: render-pipeline timings (engine, sanitize, frame, fit), Core Web Vitals, and runtime FPS/memory. Drag to reposition; measured by your own browser.</span>
 										</span>
 									</label>
 									{READALOUD_OVERLAY_AVAILABLE && (
-										<label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-											<button type="button" role="switch" aria-checked={readAloudOverlay} aria-label="Read-aloud diagnostics" onClick={() => { const next = !readAloudOverlay; setReadAloudOverlay(next); setReadAloudOverlayEnabled(next); notify(next ? 'Read-aloud diagnostics on — voice, sync & cadence in Present.' : 'Read-aloud diagnostics off.'); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', readAloudOverlay ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
-												<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', readAloudOverlay ? 'translate-x-[18px]' : 'translate-x-0.5')} />
-											</button>
+										<label htmlFor="ws-readaloud-overlay" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+											<Switch id="ws-readaloud-overlay" aria-label="Read-aloud diagnostics" checked={readAloudOverlay} onCheckedChange={(next) => { setReadAloudOverlay(next); setReadAloudOverlayEnabled(next); notify(next ? 'Read-aloud diagnostics on — voice, sync & cadence in Present.' : 'Read-aloud diagnostics off.'); }} />
 											<span className="min-w-0">
 												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Read-aloud diagnostics</span>
 												<span className="block text-[11px] text-muted-foreground">A live readout in Present while narrating: active voice/model, AudioContext state, sync (spoken vs. cues), cadence drift, and a per-sentence trace. Drag to reposition; also via <code>?readaloud-debug=1</code>.</span>
@@ -679,10 +676,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 
 							<AiSection>
 								<GroupLabel icon={<Sparkles className="size-3.5" />}>Component generation</GroupLabel>
-									<label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-										<button type="button" role="switch" aria-checked={dedup} aria-label="Suggest similar components" onClick={() => { const next = !dedup; setDedup(next); writeDedupEnabled(next); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', dedup ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
-											<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', dedup ? 'translate-x-[18px]' : 'translate-x-0.5')} />
-										</button>
+									<label htmlFor="ws-dedup" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+										<Switch id="ws-dedup" aria-label="Suggest similar components" checked={dedup} onCheckedChange={(next) => { setDedup(next); writeDedupEnabled(next); }} />
 										<span className="min-w-0">
 											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Suggest similar components</span>
 											<span className="block text-[11px] text-muted-foreground">Before generating, surface near-duplicate components so you can reuse instead of adding another.</span>

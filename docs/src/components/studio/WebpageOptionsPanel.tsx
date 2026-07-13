@@ -9,6 +9,7 @@
 
 import { ArrowLeft, Globe, Layers, Loader2, MicOff, Monitor, Moon, Sun } from 'lucide-react';
 import * as React from 'react';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
@@ -98,17 +99,7 @@ export function WebpageOptionsPanel({
 								</span>
 							</span>
 						</span>
-						<button
-							type="button"
-							role="switch"
-							aria-checked={stripNotes}
-							aria-label="Strip speaker notes"
-							disabled={busy}
-							onClick={() => setStripNotes((v) => !v)}
-							className={cn('relative mt-0.5 h-[22px] w-[38px] shrink-0 rounded-full transition-colors disabled:opacity-40', stripNotes ? 'bg-primary' : 'bg-border')}
-						>
-							<span className={cn('absolute top-[2px] size-[18px] rounded-full bg-white shadow transition-all', stripNotes ? 'left-[18px]' : 'left-[2px]')} />
-						</button>
+						<Switch className="mt-0.5" aria-label="Strip speaker notes" checked={stripNotes} disabled={busy} onCheckedChange={setStripNotes} />
 					</div>
 				</div>
 			</section>

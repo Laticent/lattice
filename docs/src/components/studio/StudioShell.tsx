@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
+import { Switch } from '@/components/ui/switch';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
@@ -2485,12 +2486,10 @@ const Control = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<H
 	<button ref={ref} type="button" {...props} className="inline-flex min-w-[116px] items-center justify-between gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--text-heading)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]">{children}</button>
 ));
 Control.displayName = 'Control';
+// Thin adapter over the shared ui/switch primitive, preserving this file's
+// {on,onClick,label} call sites. The widget itself is now the shadcn Switch.
 function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; label?: string }) {
-	return (
-		<button type="button" role="switch" aria-checked={!!on} aria-label={label} onClick={onClick} className={cn('relative h-[22px] w-[38px] rounded-full transition-colors', on ? 'bg-primary' : 'bg-border')}>
-			<span className={cn('absolute top-[2px] size-[18px] rounded-full bg-white shadow transition-all', on ? 'left-[18px]' : 'left-[2px]')} />
-		</button>
-	);
+	return <Switch checked={!!on} onCheckedChange={() => onClick?.()} aria-label={label} />;
 }
 // A text-DECLARATION row — label + help line, then a full-width input. Unlike a
 // Toggle (a binary state), this is where the author states the actual copy that
