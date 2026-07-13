@@ -1558,6 +1558,62 @@ function checkCadenzaBoundary(errors) {
   }
 }
 
+// ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
+// The same self-containment antibody as Cadenza, plus a HARDER security invariant
+// baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
+// Suono is bytes-only — it holds no network, no key, no remote import — so every
+// import must resolve inside the folder (`./x`) or be a `node:` built-in. A bare
+// specifier or a `../` escape both breaks the spin-off promise AND risks dragging
+// the network/key concern back over the boundary this library exists to keep out.
+const SUONO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'suono');
+// Collect a module specifier from EVERY import form, not just the tidy static `… from 'x'` — a
+// red-team pass showed the single-`from` regex let a real host/remote coupling slip through as a
+// side-effect import (`import 'x'`), a dynamic `import('x')`, or a `require('x')`. Each pattern
+// captures the specifier in group 1.
+// Strip comments before scanning so (a) a `;` hidden in a comment between `import` and `from` can't
+// stop the gap-match and let a real host import slip, and (b) an `import … from '…'` sitting INSIDE a
+// block/line comment can't false-positive. (A `//` inside a string like 'http://x' gets truncated,
+// but the import is still flagged — over-catching a security boundary is safe; under-catching isn't.)
+function stripJsComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, '');
+}
+const SUONO_SPEC_PATTERNS = [
+  // import/export … from 'x'. Gap is `[^;=`]*?`: crosses NEWLINES (catches a multi-line `{ … }` wrap)
+  // but stops at `;` (statement boundary), `=` (an `export const X = …` assignment, not an import), or
+  // a backtick (a template literal that merely CONTAINS import-like text) — the false-positive shapes
+  // the round-3 red team found. A real import/re-export never has `=`/backtick before its `from`.
+  /(?:^|\n)\s*(?:import|export)\b[^;=`]*?\bfrom\s*['"]([^'"]+)['"]/g,
+  /(?:^|[\n;{}(])\s*import\s+['"]([^'"]+)['"]/g,                      // side-effect import 'x'
+  /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,                    // dynamic import('x') / require('x')
+];
+
+function checkSuonoBoundary(errors) {
+  if (!fs.existsSync(SUONO_DIR)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(SUONO_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const base = path.basename(file);
+    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const seen = new Set();
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        const spec = m[1];
+        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+        if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
+        seen.add(spec);
+        errors.push(
+          `${rel} imports '${spec}', which escapes the Suono folder. The audio engine is zero-dependency, ` +
+          `bytes-only, and spin-off-able (2026-07-12-suono-audio-library.md): every import (static, ` +
+          `side-effect, dynamic \`import()\`, or \`require()\`) must resolve inside docs/src/lib/suono/ ` +
+          `(\`./x\`). Move shared code into the folder — Suono has no peer-dep seam and must not couple ` +
+          `to the host (or reach the network/a key).`,
+        );
+      }
+    }
+  }
+}
+
 // The gesture alphabet is a CURATED vocabulary, not a motion library: a gesture
 // earns its place by carrying a distinct MEANING the eye reads (§6.1), so the
 // `Gesture` union in stage.ts is frozen to exactly this registry. Adding one is
@@ -1708,6 +1764,7 @@ function run() {
   checkVoiceSampleAssets(errors);
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
+  checkSuonoBoundary(errors);
   checkSanctionedGestures(errors);
   return {
     errors,
@@ -1795,6 +1852,7 @@ module.exports = {
   SINGLETON_TAGS,
   checkVetrinaBoundary,
   checkCadenzaBoundary,
+  checkSuonoBoundary,
   checkSanctionedGestures,
   SANCTIONED_GESTURES,
   VETRINA_DIR,
