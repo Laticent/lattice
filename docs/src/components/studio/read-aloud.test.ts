@@ -413,8 +413,10 @@ describe('previewTtsVoice — clamps a stale cross-model speed for a model that 
 	});
 
 	it('passes a real speed through unchanged for a model that DOES support it', async () => {
-		// Kokoro is speedSupport:true and requiresAsset:false (never cached), so
-		// this also deterministically reaches the live fallback.
+		// Kokoro is speedSupport:true, so 1.3 passes through unclamped — and at a
+		// non-default speed cachedSampleUrl always misses (only 1x is pre-generated),
+		// so this deterministically reaches the live fallback even though the roster
+		// is now sample-cached.
 		await previewTtsVoice({ rung: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1.3 });
 		expect(synthSampleSpy).toHaveBeenCalledTimes(1);
 		expect(synthSampleSpy.mock.calls[0][0]).toMatchObject({ speed: 1.3 });

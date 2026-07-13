@@ -3,10 +3,10 @@
   "engines": {
     "kokoro": {
       "modelId": "hexgrad/kokoro-82m",
-      "requiresAsset": false,
-      "cachedVoices": [],
+      "requiresAsset": true,
+      "cachedVoices": ["af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica", "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck", "am_santa", "bf_alice", "bf_emma", "bf_isabella", "bf_lily", "bm_daniel", "bm_fable", "bm_george", "bm_lewis", "ef_dora", "em_alex", "em_santa", "ff_siwis", "hf_alpha", "hf_beta", "hm_omega", "hm_psi", "if_sara", "im_nicola", "jf_alpha", "jf_gongitsune", "jf_nezumi", "jf_tebukuro", "jm_kumo", "pf_dora", "pm_alex", "pm_santa", "zf_xiaobei", "zf_xiaoni", "zf_xiaoxiao", "zf_xiaoyi", "zm_yunjian", "zm_yunxi", "zm_yunxia", "zm_yunyang"],
       "speedSupport": true,
-      "_note": "On-device (the on-device engine's fixed model id, KOKORO_MODEL_ID) is free and doesn't need caching. The SAME id also selectable as a hosted CLOUD model (a real, if tiny, per-character OpenRouter charge) would benefit from caching in principle, but the hosted hexgrad/kokoro-82m endpoint was observed consistently timing out during this round of generation (every voice, including one that had worked minutes earlier) — provider-side instability, not a per-voice defect. Left uncached rather than committing samples generated against a flaky endpoint; revisit when it's stable.",
+      "_note": "The one engine that's BOTH on-device and hosted-cloud. On-device (KOKORO_MODEL_ID) is free WASM/WebGPU — no cache needed. But the primary path is HOSTED hexgrad/kokoro-82m via OpenRouter (the connect-time default, and the only Kokoro that works on mobile where the on-device model can't load), which bills per character and — before caching — synthesized live on every Voice-tab audition, a visible per-click delay. Now sample-cached like every other cloud engine: full 54-of-54 live roster (fetched from OpenRouter's own supported_voices for this model id, 2026-07-13). The provider-side timeouts noted in the earlier round of generation have cleared — the endpoint returned a clean 24 kHz mono mp3 for every voice this round. Format is mp3 (no audioFormat override needed).",
       "_speedNote": "Live-tested (2026-07-11): a 0.6x/1.6x request produces audio at ~1/0.6x and ~1/1.6x the baseline duration — matches the requested multiplier almost exactly. Real, accurate, continuous phoneme-duration pacing (kokoro-js's own generate() option on-device, OpenRouter's passthrough param on the hosted endpoint). Errors (422) outside roughly [0.25, 4]; the Studio's UI range (0.75-1.5) sits safely inside that."
     },
     "grok": {

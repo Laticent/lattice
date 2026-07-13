@@ -586,12 +586,16 @@ describe('check-ownership', () => {
       });
     });
 
-    test('fires when a non-requiresAsset engine (kokoro — on-device, free) has a stale directory', () => {
+    test('fires on a missing sample for kokoro — hosted (requiresAsset:true) now caches its full roster', () => {
+      // Kokoro flipped to requiresAsset:true 2026-07-13 (hosted hexgrad/kokoro-82m,
+      // full 54-voice roster committed). It's now the SAME requiresAsset:true branch
+      // as every other cloud engine: an empty directory means every roster voice is
+      // a missing file, not a "requiresAsset is false" stale-directory error.
       withSandboxedSamplesDir(() => {
-        fs.mkdirSync(path.join(SAMPLES_DIR, 'kokoro'), { recursive: true });
+        fs.mkdirSync(path.join(SAMPLES_DIR, 'kokoro'), { recursive: true }); // present but empty
         const errors = [];
         checkVoiceSampleAssets(errors);
-        assert.ok(errors.some((e) => /kokoro\/ exists but requiresAsset is false/.test(e)));
+        assert.ok(errors.some((e) => /kokoro\/af_heart\.mp3 is missing/.test(e)));
       });
     });
 

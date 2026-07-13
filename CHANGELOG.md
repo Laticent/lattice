@@ -188,6 +188,16 @@ in patch versions.
   layouts re-places with no re-rasterize. Desktop prints the N-up PDF (the vector
   one-slide-per-page path can't grid); iOS/Download get it as usual.
 
+- **Kokoro voice auditions are now instant — every one of its 54 voices has a committed sample.**
+  Hosted Kokoro (`hexgrad/kokoro-82m` via OpenRouter, the connect-time default and the only Kokoro
+  that works on mobile) was the one cloud engine with no pre-generated samples, so tapping "play
+  sample" on the Voice tab synthesized live every time — a visible per-click delay (and a per-click
+  charge). It's now sample-cached like every other cloud engine: the full 54-of-54 live roster plays
+  from a committed local file through the `<audio>` fast path, no OpenRouter round-trip. (The earlier
+  provider-side timeouts that blocked this have cleared; the endpoint returned a clean 24 kHz mp3 for
+  every voice.) On-device Kokoro is unchanged — still free, still live. `tts-voice-catalog.json` +
+  `docs/public/voice-samples/kokoro/`.
+
 - **Suono — a framework-free, zero-dependency audio playback + sequencing library
   (`docs/src/lib/suono/`), the third spin-off-able sibling beside Cadenza and
   Vetrina.** Give it audio *bytes* and it plays them reliably on one owned
