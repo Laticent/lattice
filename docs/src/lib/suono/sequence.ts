@@ -28,6 +28,10 @@ const DEFAULT_WARM_CONCURRENCY = 1;
 // A hard ceiling on caller-supplied concurrency — a `concurrency: 1e6` (sequence or warm) must not
 // fire a million simultaneous produce()/decode requests at a paid backend. Bounds the burst.
 const MAX_CONCURRENCY = 16;
+// Warm (background prefetch) gets a MUCH smaller ceiling than the run: it's a nicety, not the
+// foreground, and its cap is what bounds the transient overshoot when a caller warms BEFORE playing
+// (warm in flight + the ungated run's concurrency). 4 keeps that peak modest (≤ run + 4).
+const MAX_WARM_CONCURRENCY = 4;
 
 const errStr = (e: unknown): string => ((e as Error)?.message ? (e as Error).message : String(e || 'unknown'));
 
@@ -80,11 +84,15 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	const bytesCache = createBoundedCache<Bytes>(opts.cacheLimit ?? DEFAULT_CACHE_LIMIT);
 	const inflight = createInflight<Bytes | null>();
 
-	// GLOBAL in-flight produce count across BOTH the run scheduler AND warm — so the aggregate can't
-	// reach 2×concurrency (run's cap + warm's cap counted separately, the red team's finding). The run
-	// (playback) is the PRIORITY path and is never gated by this — gating its fillSlots could leave a
-	// `pending[i]` slot unfilled and silently skip the item; only warm (background prefetch) yields to
-	// the shared ceiling. Counts REAL produces only (a cache hit / joined dedup adds nothing).
+	// GLOBAL in-flight produce count across BOTH the run scheduler AND warm. The run (playback) is the
+	// PRIORITY path and is NEVER gated by this — gating its fillSlots could leave a `pending[i]` slot
+	// unfilled and silently skip the item; only warm (background prefetch) yields to the shared ceiling.
+	// HONEST BOUND (round-3 red team): this is not a hard aggregate cap in every ordering. Steady state
+	// — warm called DURING a run — is bounded ≤ MAX_CONCURRENCY (warm yields via the gate below). But
+	// warming BEFORE play() lets warm's in-flight set (≤ MAX_WARM_CONCURRENCY) coexist with the ungated
+	// run, so the transient peak is run.concurrency + warm-in-flight (≤ 16 + 4). The small warm ceiling
+	// keeps that overshoot modest, and play() drains the warm QUEUE so no NEW warm piles on during a run.
+	// Counts REAL produces only (a cache hit / joined dedup adds nothing).
 	let liveProduce = 0;
 
 	let ctl: AbortController | null = null;
@@ -263,13 +271,20 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	// cost of a slide transition, not just the network half. Decode ahead is safe on a still-suspended
 	// context (decodeAudioData doesn't need it running) and best-effort (a failure just leaves it to be
 	// decoded for real at play time).
-	const preloadDecode = (bytes: Bytes, key: string): void => {
+	const preloadDecode = (bytes: Bytes, key: string): Promise<void> => {
 		// Skip decode-ahead until a context already exists — a background, pre-gesture warm must NOT be
 		// the thing that instantiates the AudioContext (iOS is finicky about pre-gesture context
 		// creation, and it spends the ~6-per-page budget). Once a real play() has created the context,
 		// warm decodes ahead freely. Best-effort; a still-undecoded warmed clip just decodes at play.
-		if (stage.state() === 'none') return;
-		void stage.decode(bytes, key).catch(() => {});
+		if (stage.state() === 'none') return Promise.resolve();
+		// Returns a promise the warm producer AWAITS (before releasing its warmActive/liveProduce slot),
+		// so concurrent decode-ahead is bounded by warmConcurrency — otherwise fire-and-forget decodes
+		// stack up (warmActive tracks produces, not decodes) into an unbounded PCM-allocation pile for a
+		// long warm list with slow decodes (round-3 red-team finding).
+		return stage.decode(bytes, key).then(
+			() => {},
+			() => {},
+		);
 	};
 	const warmQueue: Array<{ item: T; signal?: AbortSignal }> = [];
 	let warmActive = 0;
@@ -293,10 +308,12 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 			const p: Promise<Bytes | null> = Promise.race<Bytes | null>([
 				Promise.resolve()
 					.then(() => produce(entry.item, { signal: sig, index: -1 }))
-					.then((bytes) => {
+					.then(async (bytes) => {
 						if (bytes) {
 							bytesCache.set(key, bytes);
-							preloadDecode(bytes, key);
+							// AWAIT the decode so this warm slot stays held through it — bounds concurrent
+							// decode-ahead to warmConcurrency (not an unbounded fire-and-forget pile).
+							await preloadDecode(bytes, key);
 						}
 						return bytes ?? null;
 					})
@@ -350,6 +367,10 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 			}
 			// Barge-in: a fresh play() cancels any run already in flight first.
 			stop();
+			// Drain any QUEUED (not-yet-started) warm work — the run is the foreground now, so don't let a
+			// pre-play warm keep launching NEW background produces on top of the ungated run (that's the
+			// warm-before-play overshoot). In-flight warm (≤ MAX_WARM_CONCURRENCY) drains on its own.
+			warmQueue.length = 0;
 			void run();
 		},
 		pause() {
@@ -371,7 +392,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		},
 		warm(warmItems: readonly unknown[], warmOpts?: WarmOptions) {
 			if (!keyOf || !Array.isArray(warmItems) || !warmItems.length) return;
-			warmConcurrency = Math.min(MAX_CONCURRENCY, Math.max(1, warmOpts?.concurrency ?? DEFAULT_WARM_CONCURRENCY));
+			warmConcurrency = Math.min(MAX_WARM_CONCURRENCY, Math.max(1, warmOpts?.concurrency ?? DEFAULT_WARM_CONCURRENCY));
 			for (const item of warmItems) warmQueue.push({ item: item as T, signal: warmOpts?.signal });
 			pumpWarm();
 		},

@@ -361,7 +361,7 @@ describe('makeSequence — hardening (adversarial trio)', () => {
 		seq.stop();
 	});
 
-	it('clamps warm concurrency to the ceiling', async () => {
+	it('clamps warm concurrency to the (smaller) warm ceiling', async () => {
 		const stage = fakeStage();
 		let inFlight = 0;
 		let peak = 0;
@@ -378,7 +378,29 @@ describe('makeSequence — hardening (adversarial trio)', () => {
 			{ concurrency: 1000 }, // absurd — must be clamped
 		);
 		await flush();
-		expect(peak).toBe(16); // MAX_CONCURRENCY, not 30
+		expect(peak).toBe(4); // MAX_WARM_CONCURRENCY (warm is the background path), not 30 or 16
+		seq.stop();
+	});
+
+	it('play() drains the QUEUED warm so a warm-before-play does not pile new produces on the run', async () => {
+		const stage = fakeStage();
+		let warmProduces = 0;
+		const produce = (item: number) => {
+			if (item >= 100) {
+				warmProduces++;
+				return new Promise<Bytes | null>(() => {}); // warm items hang so they stay "in flight"
+			}
+			return Promise.resolve(bytes());
+		};
+		const seq = makeSequence(stage, { items: [0, 1], produce, keyOf: (i) => `k${i}`, produceTimeoutMs: 100000 });
+		seq.warm([100, 101, 102, 103, 104, 105, 106, 107], { concurrency: 4 });
+		await flush();
+		expect(warmProduces).toBe(4); // warm started its ceiling (4), rest QUEUED
+		const startedBeforePlay = warmProduces;
+		seq.play(); // foreground — must drain the queued warm (the 4 remaining), not launch them
+		await flush();
+		await flush();
+		expect(warmProduces).toBe(startedBeforePlay); // no NEW warm produces started after play()
 		seq.stop();
 	});
 

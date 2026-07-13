@@ -316,17 +316,24 @@ and the scheduler mechanics held; the trio's real findings were folded (with reg
   default) is a **retention cap** (bounds steady-state cache growth), *not* an allocation guard —
   `decodeAudioData` allocates the PCM before the cache sees it, so it can't stop a single hostile
   clip's transient decode (an honest limit surfaced by the second red-team pass; a single clip over
-  the whole budget is simply never retained). Caller `concurrency`/`warm` is clamped to a ceiling AND
-  a **global `liveProduce` cap** stops warm + run summing to 2× real produces at a paid backend.
-  `warm()` no longer creates the `AudioContext` pre-gesture, and its cached-branch decode storm is
-  removed. **Accepted residuals** (inherent to un-cancelable WebAudio decode): a deck of genuinely-hung
-  producers crawls at ~timeout-per-item, and a barge-in over a hung decode orphans that one read —
-  both adversarial-input only.
+  the whole budget is simply never retained). Concurrency (refined across two more red-team rounds to
+  an *honest* bound): the run (foreground) caps at `concurrency` (≤16); warm (background) caps at a
+  **smaller** ceiling (≤4) and **yields to the run** via a shared `liveProduce` gate, so warm-during-play
+  is bounded ≤16 aggregate. Warm-*before*-play can transiently reach run + warm-in-flight (≤20) — the
+  run is deliberately ungated (gating it could skip an item), so `play()` drains the warm QUEUE and the
+  small warm ceiling caps the in-flight overshoot. Decode-ahead is **awaited inside the warm slot**, so
+  concurrent `decodeAudioData` allocations are bounded by the warm ceiling, not a fire-and-forget pile.
+  `warm()` no longer creates the `AudioContext` pre-gesture. **Accepted residuals** (inherent to
+  un-cancelable WebAudio decode): a deck of genuinely-hung producers crawls at ~timeout-per-item, a
+  barge-in over a hung decode orphans that one read, and the decoded budget can't stop a single hostile
+  clip's transient decode OOM (encoded `maxDecodeBytes` is the front-line) — all adversarial-input only.
 - **Declick degrades, doesn't fail.** The gain ramp is wrapped in its own try/catch → a plain connect
   (no fade, still plays) on a flaky/partial engine — restoring the reliability `voice-model` had.
-- **Boundary gate hardened.** `checkSuonoBoundary` now also catches side-effect (`import 'x'`),
-  dynamic (`import('x')`), `require('x')`, AND multi-line `import { … } from 'x'` (the default
-  formatter wrap the single-line `from` regex missed) — the second red-team pass' HIGH gate finding.
+- **Boundary gate hardened.** `checkSuonoBoundary` catches side-effect (`import 'x'`), dynamic
+  (`import('x')`), `require('x')`, AND multi-line `import { … } from 'x'`. Round 3 tightened it further:
+  it strips comments first (so a `;` hidden in a comment can't stop the gap-match and let a host import
+  slip) and excludes `=`/backtick from the gap (so an `export const X = \`… from 'y'\`` template can't
+  false-positive) — both red-team-found and probe-verified.
 
 **Migration constraints surfaced (must hold for the slice-2 migration to be "thin"):**
 

@@ -1570,12 +1570,19 @@ const SUONO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'suono');
 // red-team pass showed the single-`from` regex let a real host/remote coupling slip through as a
 // side-effect import (`import 'x'`), a dynamic `import('x')`, or a `require('x')`. Each pattern
 // captures the specifier in group 1.
+// Strip comments before scanning so (a) a `;` hidden in a comment between `import` and `from` can't
+// stop the gap-match and let a real host import slip, and (b) an `import … from '…'` sitting INSIDE a
+// block/line comment can't false-positive. (A `//` inside a string like 'http://x' gets truncated,
+// but the import is still flagged — over-catching a security boundary is safe; under-catching isn't.)
+function stripJsComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, '');
+}
 const SUONO_SPEC_PATTERNS = [
-  // import/export … from 'x' — `[^;]*?` (not the old `[^;\n]*?`) allows the gap to cross NEWLINES, so
-  // a MULTI-LINE import (the default formatter wrap of a `{ … }` list) can't slip the gate by putting
-  // `from` on its own line — but stays bounded by `;` so an `export interface`/`export function` with
-  // no `from` can't run forward into a `from "…"` sitting in a later comment/string (false positive).
-  /(?:^|\n)\s*(?:import|export)\b[^;]*?\bfrom\s*['"]([^'"]+)['"]/g,
+  // import/export … from 'x'. Gap is `[^;=`]*?`: crosses NEWLINES (catches a multi-line `{ … }` wrap)
+  // but stops at `;` (statement boundary), `=` (an `export const X = …` assignment, not an import), or
+  // a backtick (a template literal that merely CONTAINS import-like text) — the false-positive shapes
+  // the round-3 red team found. A real import/re-export never has `=`/backtick before its `from`.
+  /(?:^|\n)\s*(?:import|export)\b[^;=`]*?\bfrom\s*['"]([^'"]+)['"]/g,
   /(?:^|[\n;{}(])\s*import\s+['"]([^'"]+)['"]/g,                      // side-effect import 'x'
   /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,                    // dynamic import('x') / require('x')
 ];
@@ -1586,7 +1593,7 @@ function checkSuonoBoundary(errors) {
     const rel = path.relative(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
-    const src = fs.readFileSync(file, 'utf8');
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
     const seen = new Set();
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
