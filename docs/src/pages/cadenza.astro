@@ -170,7 +170,8 @@
 		</div>
 
 		<script>
-			import { buildTrack, makeReader, toVtt } from '@/lib/cadenza';
+			import { buildTrack, makeReader, pauseAfter, toVtt } from '@/lib/cadenza';
+			import { createStage } from '@/lib/suono';
 
 			const SAMPLE = "Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is the fastest growth in the company's history. We beat plan by eight points — and margins held.";
 			const $ = (s) => document.querySelector(s);
@@ -193,6 +194,10 @@
 			let pace = 'moderate', track = null, reader = null;
 			let playing = false, started = false, elapsed = 0, lastT = 0, raf = 0;
 			let voice = null, mode = 'silent', audioBase = null, voicing = false;
+			// Suono (the shared audio library the Studio read-aloud uses): its owned stage + the current
+			// clocked sequence. This demo is Suono's second consumer — the /cadenza reference now runs the
+			// same engine, not voice-model's retired internal scheduler.
+			let stage = null, seq = null;
 
 			// The voice ladder (voice-model.js): connected OpenRouter voice → on-device Kokoro
 			// → browser voice → silent floor, sharing the Playground's OpenRouter key.
@@ -291,12 +296,10 @@
 			function tick(now) {
 				if (!playing) return;
 				if (mode === 'audio') {
-					// Ride the voice's owned clock; hold at 0 until the first sentence's audio
-					// actually starts (audioBase is its measured onset off the same clock).
-					// Subtract audio output latency so the highlight tracks what's HEARD rather
-					// than leading it by the hardware buffer.
-					const lat = voice.outputLatencyMs ? voice.outputLatencyMs() : 0;
-					elapsed = audioBase == null ? 0 : Math.max(0, voice.audioTimeMs() - audioBase - lat);
+					// Ride Suono's owned, ALREADY latency-compensated clock (clockMs = ctx time − output
+					// latency), so the highlight tracks what's HEARD, not the hardware buffer. Hold at 0
+					// until sentence 0's audio actually starts (audioBase is its measured onset, same clock).
+					elapsed = audioBase == null ? 0 : Math.max(0, stage.clockMs() - audioBase);
 				} else {
 					elapsed += now - lastT;
 				}
@@ -319,42 +322,51 @@
 				// re-anchor to. The browser voice (speechSynthesis) reports neither, so it speaks
 				// in parallel while the SILENT estimate carries the highlight — mode stays 'silent'.
 				const clocked = r === 'openrouter-tts' || r === 'kokoro';
-				if (clocked) { try { voice.unlock(); } catch {} mode = 'audio'; reader.reset(); }
-				// Feed the voice Cadenza's OWN sentence split so the spoken sentence at index i
-				// is exactly cue i — the measured onset then re-anchors the right word. (Same
-				// split feeds buildTrack, so this holds even on values like $4.2M.)
-				voice.speak({
-					text: inputEl.value,
-					// Speak Cadenza's SPOKEN expansion, not the raw glyphs — so the voice says
-					// "four point two million dollars", not Kokoro's mis-parse of "$4.2M". One
-					// spoken sentence per cue keeps index i aligned with cue i for re-anchoring.
-					sentences: track.cues.map((cue) => cue.words.map((w) => w.spoken).join(' ')),
-					voice: selVoice,
-					speed: PACE_SPEED[pace] || 1,
-					onSentenceTiming: clocked
-						? ({ index, onsetMs, durationMs }) => {
+				// Speak Cadenza's SPOKEN expansion, not the raw glyphs — so the voice says "four point two
+				// million dollars", not Kokoro's mis-parse of "$4.2M". One spoken sentence per cue keeps
+				// index i aligned with cue i, so the measured onset re-anchors the right word.
+				const sentences = track.cues.map((cue) => cue.words.map((w) => w.spoken).join(' '));
+				const speed = PACE_SPEED[pace] || 1;
+				if (clocked) {
+					// Suono owns the AudioContext + scheduler + WebAudio clock; hand it a per-sentence byte
+					// producer (voice.synthOne) and re-anchor each cue on the clip's MEASURED onset — the same
+					// hybrid timing the old voice.speak(onSentenceTiming) drove, now through the shared library
+					// the Studio uses. keyOf is content-complete (rung · voice · speed · sentence).
+					stage = stage || createStage();
+					try { stage.unlock(); } catch {}
+					mode = 'audio'; reader.reset();
+					const keyPrefix = r + '|' + selVoice + '|' + speed;
+					seq = stage.sequence({
+						items: sentences,
+						produce: async (s, { signal }) => (await voice.synthOne({ text: s, voice: selVoice, speed, signal }))?.bytes ?? null,
+						keyOf: (s) => keyPrefix + '|' + s,
+						// The inter-clip breath: cadenza's graded pauseAfter × 0.3 (the clip-silence discount).
+						gapMs: (s) => Math.round(pauseAfter(s) * 0.3),
+						onItemStart: ({ index, onsetMs, durationMs }) => {
 							if (audioBase == null) audioBase = onsetMs; // sentence 0 onset = track time 0
 							reader.align(index, onsetMs - audioBase, durationMs);
-						}
-						: undefined,
-					onState: (state) => {
-						if (state && state.rung) refreshVoice(state.rung);
-						// Surface the REAL failure reason instead of falling silently to the estimate
-						// (the blind path the audio review flagged): the API's HTTP status / CORS /
-						// decode message, so a keyless-vs-rejected-vs-muted failure is distinguishable.
-						if (state && state.error) setDiag('\u26a0 ' + (VOICE_LABEL[rungNow()] || rungNow()) + ' failed: ' + state.error, true);
-						// A CLOCKED voice that produced no audio (synth failed) — fall back to the
-						// silent estimate so the read-along never hangs waiting for an onset. (The
-						// browser voice is already estimate-driven, so this only applies to 'audio'.)
-						if (mode === 'audio' && state && state.speaking === false && !state.aborted && playing && audioBase == null) {
-							mode = 'silent'; lastT = performance.now(); refreshVoice('silent');
-						}
-					},
-				});
+						},
+						onState: ({ playing: seqPlaying, aborted, error }) => {
+							// Surface the REAL failure reason instead of a silent fall to the estimate: the API's
+							// HTTP status / CORS / decode message, so keyless-vs-rejected is distinguishable.
+							if (error) setDiag('\u26a0 ' + (VOICE_LABEL[rungNow()] || rungNow()) + ' failed: ' + error, true);
+							// A clocked voice that produced no audio (every synth failed) — fall back to the silent
+							// estimate so the read-along never hangs waiting for an onset.
+							if (mode === 'audio' && !seqPlaying && !aborted && playing && audioBase == null) {
+								mode = 'silent'; lastT = performance.now(); refreshVoice('silent');
+							}
+						},
+					});
+					seq.play();
+				} else {
+					// Browser voice (speechSynthesis): no bytes to schedule — speak it in PARALLEL and let the
+					// silent estimate carry the highlight (mode stays 'silent'), as read-aloud.ts does.
+					try { voice.speakThis(sentences.join(' ')); } catch {}
+				}
 				// Diagnostic: a beat after start, show the live rung + AudioContext state, so a
 				// silent-but-'running' context (audio muted by the iOS switch) is distinguishable
 				// from a 'suspended' one (gesture/interruption) at a glance.
-				setTimeout(() => { if (voicing && playing && voice) setDiag((VOICE_LABEL[rungNow()] || rungNow()) + ' · audio: ' + (voice.audioState ? voice.audioState() : '?')); }, 500);
+				setTimeout(() => { if (voicing && playing && voice) setDiag((VOICE_LABEL[rungNow()] || rungNow()) + ' · audio: ' + (stage && stage.state ? stage.state() : '?')); }, 500);
 			}
 
 			function play() {
@@ -367,7 +379,7 @@
 					raf = requestAnimationFrame(tick);
 				} else {
 					playing = true; setIcon(true);
-					if (voicing && voice) { try { voice.resume(); } catch {} }
+					if (seq) { try { seq.resume(); } catch {} } else if (voicing && voice) { try { voice.resume(); } catch {} }
 					lastT = performance.now();
 					raf = requestAnimationFrame(tick);
 				}
@@ -375,12 +387,13 @@
 			}
 			function pause() {
 				playing = false; setIcon(false); cancelAnimationFrame(raf);
-				if (voicing && voice) { try { voice.pause(); } catch {} }
+				if (seq) { try { seq.pause(); } catch {} } else if (voicing && voice) { try { voice.pause(); } catch {} }
 				refreshVoice();
 			}
 			function stop() {
 				playing = false; started = false; setIcon(false); cancelAnimationFrame(raf);
-				if (voice) { try { voice.stop(); } catch {} }
+				if (seq) { try { seq.stop(); } catch {} seq = null; }
+				if (voice) { try { voice.stop(); } catch {} } // also cancels the browser-voice (speechSynthesis) path
 				mode = 'silent'; audioBase = null; voicing = false;
 				setDiag('');
 				refreshVoice(); paint();

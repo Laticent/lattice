@@ -345,10 +345,26 @@ migration wires it into the Playground.
          and a `lastCueRef` anchor robust to an unmute landing in a between-words gap. New nightly test
          drives mute → estimate → unmute → clocked-audio → finish-once (mode `audio → silent → audio`);
          audible return is device-only (HARD RULE #23).
-   - **2b — the other three consumers** (`cadenza.astro`, Drawing-Board practice/present) onto the same
-     seam. Then **2c** — remove `voice-model.js`'s own `getCtx`/`playBlob`/`speak` playback and add the
-     repo-wide "no raw AudioContext outside Suono" gate (§6), which can only land once *no* consumer
-     needs voice-model's context.
+   - **2b — REFRAMED once the Drawing Board was declared dead (`2026-07-03-studio-succession.md`).**
+     The sketch listed "the other three consumers" (`cadenza.astro`, Drawing-Board practice/present),
+     but you don't migrate code that's about to be `git rm`'d: the two Drawing-Board consumers are on a
+     FROZEN, soon-removed surface (`drawing-board-present.js` doesn't even touch voice-model — it goes
+     through `presenter-window.js`; only `drawing-board-practice.js` calls `voice.speak`). So 2b shrank
+     to the one *surviving* non-Studio consumer: **`cadenza.astro` (the /cadenza `noindex` demo) →
+     Suono. ✅ DONE.** Its inline script now builds a `stage.sequence({ produce: voice.synthOne, … })`
+     with the browser-voice (speechSynthesis) rung on the parallel `speakThis` path, exactly as
+     read-aloud does; the clocked path is **verified on the real /cadenza page** (a mocked TTS endpoint
+     → the highlight rides Suono's clock, no console errors; audible output device-only).
+   - **2c — the guardrail landed EARLY (doesn't wait for voice-model's removal).** The repo-wide gate
+     (§6) is now live as `checkAudioPlaybackBoundary` (`tools/check-ownership.js`, via `build:check`):
+     no raw `AudioContext` and no voice-model imperative playback (`.speak({…})` / `.playBlob()`)
+     anywhere in `docs/src` outside Suono, on an allowlist + anti-rot ratchet. With `cadenza.astro`
+     migrated, the allowlist is down to **two grandfathered entries**: `voice-model.js` (the legacy
+     provider — its `getCtx`/`speak`/`playBlob` stay until nothing needs them) and
+     `drawing-board-practice.js` (frozen; dies with the Drawing Board's removal, not a migration). Both
+     entries drop to zero mechanically as those surfaces are retired — a stale entry fails the gate, so
+     the list can't rot. The **final** removal of `voice-model.js`'s playback is what remains, gated on
+     the Drawing Board's data-safe deletion (the succession plan), not on more Suono migration.
 3. **Library-shape packaging** (optional, when a root-CJS or Tauri consumer actually needs it) —
    the `package.json` + workspace + esbuild/`tsc` `dist/` + freshness-gate recipe from
    `2026-07-08-library-shape-cadenza-vetrina.md`, applied to Suono. Non-goal until there's a
