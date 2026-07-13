@@ -1,0 +1,37 @@
+/* native-widgets.css — own the browser's built-in widgets so they read on-brand
+ * and track the palette instead of the OS default. Shared partial: imported by
+ * BOTH style roots (landing.css → standalone pages, lattice.css → Starlight
+ * docs) right after lattice-tokens.generated.css, so it covers every surface
+ * and can't drift between the two skins.
+ *
+ * PAIRS WITH the `color-scheme` declaration emitted per palette/mode in
+ * lattice-tokens.generated.css (tools/build-docs-portal.js). That is the
+ * keystone: it tells the browser to paint native widgets — scrollbars, form
+ * controls, spellcheck squiggles, autofill — in the light or dark native style
+ * matching the site's mode. The rules here layer the on-brand tint on top:
+ * the scrollbar thumb takes the palette, and every form control's accent routes
+ * through --accent.
+ *
+ * Standard properties only. `scrollbar-color` / `scrollbar-width` land in
+ * Firefox and Chromium 121+; Safari ships no standard scrollbar styling but
+ * honors `color-scheme`, so its auto-hiding overlay scrollbars still track the
+ * mode (just without the palette tint). We deliberately SKIP
+ * `::-webkit-scrollbar`: styling it on macOS swaps the auto-hiding overlay
+ * scrollbar for an always-visible legacy one — a downgrade that color-scheme
+ * already avoids. The thumb mix mirrors the code-block scrollbars
+ * (Expressive Code, lattice.css) so the whole site reads as one system. */
+
+:root {
+	scrollbar-color: color-mix(in srgb, var(--text-muted) 38%, transparent) transparent;
+	scrollbar-width: thin;
+	/* Checkboxes, radios, range + progress, and the text caret — one line each,
+	 * universal support, so form controls stop rendering in OS blue. */
+	accent-color: var(--accent);
+	caret-color: var(--accent);
+}
+
+/* Text selection — the native highlight we can tint cross-browser, matched to
+ * the code-block selection so prose and code highlight the same. */
+::selection {
+	background: color-mix(in srgb, var(--accent) 22%, transparent);
+}

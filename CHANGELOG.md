@@ -284,6 +284,23 @@ in patch versions.
 
 ### Fixed
 
+- **Native browser widgets now track the site's color mode and take the palette — no more OS-default
+  scrollbars.** The docs site flipped its palette on `data-mode`, but nothing emitted the CSS
+  `color-scheme` property, so in dark mode the browser still painted scrollbars, form controls,
+  spellcheck squiggles, and autofill in the OS default (usually light) — the source of the
+  cross-browser/OS inconsistency. Each generated palette/mode block now declares `color-scheme`,
+  derived from the block's actual `--bg` luminance rather than the toggle (so always-dark `carbone`
+  reads `dark` in both modes and the always-light `a11y-*` palettes read `light` in both). A shared
+  `native-widgets.css` partial — imported by both style roots (`landing.css`, `lattice.css`) so the
+  two skins can't drift — layers the on-brand tint on top: `scrollbar-color` (thumb = `--text-muted`
+  at 38%, matching the code-block scrollbars) + `scrollbar-width: thin`, `accent-color`/`caret-color`
+  = `--accent`, and an `::selection` tint. Standard properties only (Firefox + Chromium 121+; Safari
+  honors `color-scheme` so its overlay scrollbars still track the mode); `::-webkit-scrollbar` is
+  deliberately skipped to preserve macOS overlay scrollbars. Verified on the live docs site — computed
+  `color-scheme`, `scrollbar-color`, and `accent-color` confirmed per palette/mode across indaco,
+  carbone, and a11y at 1440/820/390 in light and dark. The rendered *native scrollbar pixels* on
+  macOS/Windows/Safari are OS-drawn and **UNVERIFIED** from the Linux sandbox, though the standard
+  properties that drive them are confirmed applied.
 - **Unmuting Voice mid-slide now brings the audio back on the CURRENT slide.** Previously a mute →
   unmute mid-read only restored sound on the *next* slide (the current slide stayed silent on the
   caption estimate). Now unmute resumes the clocked read from the current sentence — re-speaking it

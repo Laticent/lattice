@@ -253,11 +253,36 @@ function resolvePalettes() {
   });
 }
 
-/** Emit the per-palette / per-mode CSS token blocks. */
+/** True when a resolved `--bg` hex reads as a dark surface, so the block should
+ *  declare `color-scheme: dark` and the browser paints native widgets
+ *  (scrollbars, form controls, spellcheck) to match. Derived from the actual
+ *  background — NOT the mode toggle — so it stays correct for the edge palettes:
+ *  carbone (dark in both modes → dark scheme in both) and the a11y-* palettes
+ *  (white in both modes → light scheme in both). A non-hex `--bg` (unexpected)
+ *  falls back to the light scheme. */
+function isDarkSurface(bg) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(bg).trim());
+  if (!m) return false;
+  let h = m[1];
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  // Perceived luminance (Rec. 601); < 128 of 255 is a dark surface.
+  return 0.299 * r + 0.587 * g + 0.114 * b < 128;
+}
+
+/** Emit the per-palette / per-mode CSS token blocks. Each block also declares
+ *  `color-scheme` so the browser renders its native widgets in the matching
+ *  light/dark style — the keystone that makes scrollbars and form controls
+ *  respect the site's mode. See docs/src/styles/landing.css for the on-brand
+ *  scrollbar/accent tint that layers on top. */
 function paletteCss() {
   const blocks = [];
   for (const p of resolvePalettes()) {
-    const decls = (set) => PORTAL_TOKENS.map((t) => `--${t}:${set[t]};`).join('');
+    const decls = (set) =>
+      `color-scheme:${isDarkSurface(set.bg) ? 'dark' : 'light'};` +
+      PORTAL_TOKENS.map((t) => `--${t}:${set[t]};`).join('');
     blocks.push(`html[data-palette="${p.name}"][data-mode="light"]{${decls(p.light)}}`);
     blocks.push(`html[data-palette="${p.name}"][data-mode="dark"]{${decls(p.dark)}}`);
   }

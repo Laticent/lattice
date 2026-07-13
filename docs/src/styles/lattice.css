@@ -17,6 +17,10 @@
 /* Self-hosted webfonts (was a render-blocking Google-Fonts @import — see fonts.css). */
 @import './fonts.css';
 @import './lattice-tokens.generated.css';
+/* Native browser widgets (scrollbars, form controls, selection) tinted to the
+ * palette + tracking color-scheme — shared with landing.css so both skins own
+ * them identically. Loads right after the tokens it reads. See native-widgets.css. */
+@import './native-widgets.css';
 /* Topbar chrome glyphs (menu / moon / sun) — shared with the standalone pages
  * (landing.css) so the docs topbar can't drift from the rest of the site. */
 @import './chrome-icons.css';
