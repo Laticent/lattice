@@ -147,5 +147,6 @@ so they apply directly.
   if more air between cards is wanted.
 - On pre-Chromium-123 engines (frozen smart-TV forks) the `light-dark()` box-shadow
   declaration is dropped and cards render flat. Acceptable for a decorative lift; no
-  `@supports` fallback added (contrast with the chart-colour case, where a dropped
-  colour meant black content).
+  `@supports` fallback added (unlike a dropped *content* colour, which would render a
+  chart shape black — the engine deliberately does not chase old-browser parity, see
+  the 2026-07-13 old-browser consolidation).

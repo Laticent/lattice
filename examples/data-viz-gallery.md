@@ -4,7 +4,7 @@
 
 `14 components`
 
-Every chart and math component in one deck — the surfaces the old-browser colour fallback covers.
+Every chart and math component in one deck — the full data-visualization surface.
 
 
 ---

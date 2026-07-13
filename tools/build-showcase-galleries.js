@@ -5,19 +5,17 @@
  * showcase spans a SET of buckets in one deck — for the moments a single
  * consolidated walk reads better than N family decks. Today there is one:
  *
- *   data-viz — every chart component + math, the surfaces the old-browser
- *              colour fallback covers (engineering/decisions/
- *              2026-07-11-old-browser-chart-fallback.md). Doubles as the manual
- *              LG-C4 / old-engine test artifact and a Playground demonstration.
+ *   data-viz — every chart component + math in one consolidated deck, a
+ *              Playground demonstration of the whole data-visualization surface.
  *
  * Like the bucket galleries it is COMPOSED FROM THE LIVE MANIFEST SET (each
  * component's `manifest.sample`), so it CANNOT go stale: add a chart or math
  * component and it appears in the next rebuild automatically. The BLOCKING guard
  * is the render-free unit gate (test/unit/tools/showcase-galleries.test.js): it
- * fails if the committed deck drifts from the manifests, and asserts the deck's
- * component set matches the colour-fallback's scanned set so the two can never
- * diverge. `--check` here is a developer convenience (content drift), deliberately
- * NOT wired into build:check/CI — the unit gate is the one that runs there.
+ * fails if the committed deck drifts from the manifests, and asserts the deck
+ * walks the full chart+math set with no component silently omitted. `--check`
+ * here is a developer convenience (content drift), deliberately NOT wired into
+ * build:check/CI — the unit gate is the one that runs there.
  *
  * Output per showcase:
  *   examples/<id>-gallery.md              (the deck — Playground-selectable)
@@ -47,7 +45,7 @@ const SHOWCASES = Object.freeze([
   {
     id: 'data-viz',
     title: 'Data visualization',
-    blurb: 'Every chart and math component in one deck — the surfaces the old-browser colour fallback covers.',
+    blurb: 'Every chart and math component in one deck — the full data-visualization surface.',
     buckets: ['chart', 'math'],
   },
 ]);
@@ -68,7 +66,7 @@ function showcaseManifests(showcase, groups) {
 }
 
 /** The component NAMES a showcase covers — the anti-staleness contract the unit
- *  gate checks against the colour-fallback's scanned set. */
+ *  gate checks against the full chart+math manifest set. */
 function showcaseComponentNames(id, groups = groupByBucket(loadAll())) {
   const s = showcaseById(id);
   return s ? showcaseManifests(s, groups).map((m) => m.name) : [];

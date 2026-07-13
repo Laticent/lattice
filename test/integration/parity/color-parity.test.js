@@ -31,7 +31,7 @@ const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 const latticeEngine = require('../../../lib/engine');
-const { resolveTokenExpr, resolveDeclarationValue } = require('../../../lib/core/resolve-token-expr');
+const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const LATTICE_CSS_FILE = path.join(ROOT, 'dist', 'lattice.css');
@@ -175,41 +175,5 @@ describe('color-parity (offline resolver ↔ real engine-rendered DOM getCompute
       }
       await page.close();
       assert.deepEqual(drift, [], `color-mix drift:\n${drift.join('\n')}`);
-    });
-
-  // The old-browser chart-colour fallback (tools/build-chart-compat-css.js) bakes
-  // literals with resolveDeclarationValue, whose color-mix stops take a var()
-  // PERCENTAGE — the canonical chart-fill gradient
-  // `color-mix(in oklab, var(--hue) var(--pct), var(--bg))`. Pin that exact path
-  // to Chromium: the baked literal must match the browser's used value, so the
-  // fallback paints the SAME colour on an old engine that a modern engine computes.
-  test('chart-fill color-mix with a var() percentage matches Chromium (the fallback path)',
-    { timeout: 60000 },
-    async () => {
-      const page = await browser.newPage();
-      await page.goto(`file://${html.indaco}`, { waitUntil: 'load', timeout: 60000 });
-      // The gradient's mid stop, values from the canonical chart fill.
-      const vars = { hue: '#1e9e48', pct: '48%', bg: '#001d33' };
-      const expr = 'color-mix(in oklab, var(--hue) var(--pct), var(--bg))';
-      const baked = resolveDeclarationValue(expr, vars, false); // what the generator emits
-      // Browser: define the vars on the section, read the used value of the mix.
-      const br = await page.evaluate((decls, e) => {
-        const sec = document.querySelector('section');
-        for (const [k, v] of Object.entries(decls)) sec.style.setProperty(`--${k}`, v);
-        sec.style.color = e;
-        const c = getComputedStyle(sec).color;
-        const cv = document.createElement('canvas'); cv.width = cv.height = 1;
-        const ctx = cv.getContext('2d'); ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1);
-        const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]];
-      }, vars, expr);
-      const bk = await page.evaluate((hex) => {
-        const cv = document.createElement('canvas'); cv.width = cv.height = 1;
-        const ctx = cv.getContext('2d'); ctx.fillStyle = hex; ctx.fillRect(0, 0, 1, 1);
-        const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]];
-      }, baked);
-      await page.close();
-      assert.match(baked, /^#[0-9a-f]{6}$/i, `expected a hex, got ${baked}`);
-      const delta = Math.max(...bk.map((c, i) => Math.abs(c - br[i])));
-      assert.ok(delta <= 3, `baked ${baked}→${bk} vs browser ${br} (Δ${delta})`);
     });
 });

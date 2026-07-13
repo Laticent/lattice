@@ -32,7 +32,7 @@ const SHOWCASES = [
   {
     // Consolidated data-viz walk (every chart + math component), GENERATED from
     // the live manifest set by tools/build-showcase-galleries.js — cannot go
-    // stale. Doubles as the old-engine / smart-TV colour-fallback demonstration.
+    // stale.
     id: 'data-viz',
     label: 'Data visualization',
     file: 'examples/data-viz-gallery.md',
