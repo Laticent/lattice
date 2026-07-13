@@ -2816,9 +2816,9 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   let fmCaptions;
   let lang; // deck language (Marp `lang:`); a non-English deck bypasses English say-as (#919)
   try {
-    const { acronymSpokenMap, frontMatterCaptions, frontMatterLang, symbolOverrideMap } = await import('./lib/core/resolve-captions.mjs');
+    const { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } = await import('./lib/core/resolve-captions.mjs');
     acronyms = acronymSpokenMap(rawMd);
-    symbols = symbolOverrideMap(rawMd);
+    symbols = lexiconMap(rawMd);
     fmCaptions = frontMatterCaptions(rawMd);
     lang = frontMatterLang(rawMd);
   } catch (e) {

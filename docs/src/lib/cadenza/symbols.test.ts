@@ -53,9 +53,30 @@ describe('toSpoken — symbol commons integration', () => {
 	it('drops decorative emoji from the spoken form (never reads "rocket")', () => {
 		expect(toSpokenText('Ship it 🚀 today')).toBe('Ship it today');
 	});
-	it('honors a deck symbols: override over the built-in', () => {
+	it('honors a deck lexicon override over the built-in', () => {
 		const symbols = new Map([['→', 'leads to']]);
 		expect(toSpokenText('cause → effect', { symbols })).toBe('cause leads to effect');
+	});
+	it('a lexicon entry can teach a WHOLE WORD, not just a glyph', () => {
+		const symbols = new Map([['Kubernetes', 'koober net eez']]);
+		expect(toSpoken('Kubernetes', { symbols })).toBe('koober net eez');
+		// …and still matches when the word carries a terminator.
+		expect(toSpokenText('We run Kubernetes.', { symbols })).toBe('We run koober net eez.');
+	});
+	it('a lexicon word override with an empty value silences the word', () => {
+		expect(toSpoken('confidential', { symbols: new Map([['confidential', '']]) })).toBe('');
+	});
+	it('a lexicon key that CONTAINS a commons glyph wins whole, even with a terminator', () => {
+		// The whole-key override must beat the per-glyph "&"→"and" pass — bare AND punctuated.
+		const symbols = new Map([['R&D', 'the research group']]);
+		expect(toSpoken('R&D', { symbols })).toBe('the research group');
+		expect(toSpoken('R&D.', { symbols })).toBe('the research group.'); // terminator re-attached, not "R and D."
+		expect(toSpokenText('Fund R&D, always.', { symbols })).toBe('Fund the research group, always.');
+	});
+	it('honors an author lexicon in a NON-English deck (author vocabulary, not injected English)', () => {
+		const symbols = new Map([['Kubernetes', 'koober net eez']]);
+		expect(toSpoken('Kubernetes', { symbols, lang: 'de' })).toBe('koober net eez');
+		expect(toSpoken('Kubernetes.', { symbols, lang: 'de' })).toBe('koober net eez.');
 	});
 	it('leaves ambiguous ASCII to the existing parsers (not spoken as a symbol name)', () => {
 		expect(toSpoken('C++')).toBe('C++'); // "+" untouched by the commons

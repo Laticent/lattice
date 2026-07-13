@@ -156,6 +156,18 @@ export function isEnglishLang(lang?: string): boolean {
   return t === '' || t === 'en' || t.startsWith('en-');
 }
 
+/**
+ * Normalize a LEXICON entry's spoken value (a glyph/number inside it still expands — "$5" →
+ * "five dollars" in an English deck; a non-English deck keeps it verbatim, per #919) but with the
+ * lexicon REMOVED, so a self-referential entry (`lexicon: {"→":"→"}`, reachable from untrusted
+ * front-matter) falls through to the acyclic built-in commons instead of looping. An empty value
+ * stays empty (the silence form).
+ */
+function spokenLexiconValue(value: string, opts: SpokenOpts): string {
+  if (!value) return '';
+  return toSpokenText(value, { ...opts, symbols: undefined });
+}
+
 export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   const tok = String(display ?? '').trim();
   if (!tok) return '';
@@ -167,6 +179,15 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // over the built-in dictionary AND over the fiscal parser). Honored in EVERY language:
   // it's the author's own vocabulary, not English we chose to inject.
   if (acronyms?.has(tok)) return acronyms.get(tok) as string;
+
+  // Author LEXICON — the whole token, a glyph OR a word ("Kubernetes" → "koober-net-eez", "→" →
+  // "leads to"). Beats the built-in Speech Symbol Commons and the rules below; an empty value
+  // SILENCES the token. Author-owned, so honored in EVERY language. An EMBEDDED glyph ("red↔green")
+  // is not a whole-token match — the per-glyph symbol pass below applies the same lexicon to glyphs
+  // inside a token. (Threaded as `opts.symbols` for engine-internal continuity; the author-facing
+  // key is `lexicon:`.)
+  const lexicon = opts.symbols;
+  if (lexicon?.has(tok)) return spokenLexiconValue(lexicon.get(tok) as string, opts);
 
   // A standalone DECORATIVE SEPARATOR glyph — interpunct "·", pipe "|", bullet "•" and kin —
   // has no good reading: a TTS either voices it literally ("middle dot") or chokes, so an
@@ -189,26 +210,10 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
     if (whole !== null) return whole;
   }
 
-  // Speech Symbol Commons — arrows, math operators, typographic marks, emoji. One glyph pass
-  // handles standalone ("→"), embedded ("red↔green"), and mixed ("3×4"): each known glyph becomes
-  // a spoken word (SPEAK), a silence (DROP / decorative emoji), or the author's `symbols:`
-  // override; the pieces are re-normalized so operands ("Q1"/"Q2") still expand. Ambiguous glyphs
-  // ("+ − = / #") aren't listed and pass through untouched. Spoken-form ONLY — display + `.vtt`
-  // keep the glyph. See symbols.ts + the design ADR.
-  const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
-  if (symbolic !== null) {
-    // Re-normalize the pieces WITHOUT the overrides — the built-in SPEAK table is acyclic (its
-    // values are plain words, no glyphs), so this terminates even for a cyclic/self-referential
-    // author override (`symbols: {"→":"→"}`, reachable from untrusted deck front-matter). A glyph
-    // that survives inside an override value still resolves via the built-in table.
-    const rest: SpokenOpts = { ...opts, symbols: undefined };
-    return splitWords(symbolic)
-      .map((w) => toSpoken(w, rest))
-      .filter(Boolean)
-      .join(' ');
-  }
-
-  // Preserve trailing sentence punctuation so cadence still sees the terminator.
+  // Preserve trailing sentence punctuation so cadence still sees the terminator. We peel it HERE,
+  // BEFORE the symbol commons, so an author LEXICON key that itself contains a commons glyph
+  // ("R&D", "Q&A", "→x") still wins whole when the token carries a terminator ("R&D.") — otherwise
+  // the per-glyph pass below would speak the embedded "&"/"→" before the whole-key override matched.
   const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? '';
   const core = punct ? tok.slice(0, -punct.length) : tok;
 
@@ -225,9 +230,37 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // TRAILING colon and are untouched. See engineering/decisions/2026-07-11-manifest-speech-contract.md.
   const spokenPunct = punct.replace(/[:;]/g, ',');
 
-  // Peel punctuation and consult the author registry on the CORE even for a non-English
-  // deck (so `CRO,` still expands), but the English lexicon/fiscal/number expansion below
-  // is bypassed there — `spokenCore` returns the core unchanged when `english` is false.
+  // The author lexicon on the punctuation-peeled CORE, so a word OR a symbol-bearing key carrying a
+  // terminator ("Kubernetes.", "R&D.") still matches its key. Runs BEFORE the symbol commons so the
+  // whole-key override beats a glyph embedded in that key. Re-attach the softened punctuation; a
+  // silenced token drops it too.
+  if (lexicon?.has(core)) {
+    const spoken = spokenLexiconValue(lexicon.get(core) as string, opts);
+    return spoken ? spoken + spokenPunct : '';
+  }
+
+  // Speech Symbol Commons — arrows, math operators, typographic marks, emoji. One glyph pass
+  // handles standalone ("→"), embedded ("red↔green"), and mixed ("3×4"): each known glyph becomes
+  // a spoken word (SPEAK), a silence (DROP / decorative emoji), or the author's lexicon override;
+  // the pieces are re-normalized so operands ("Q1"/"Q2") still expand. Ambiguous glyphs
+  // ("+ − = / #") aren't listed and pass through untouched. Spoken-form ONLY — display + `.vtt`
+  // keep the glyph. See symbols.ts + the design ADR.
+  const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
+  if (symbolic !== null) {
+    // Re-normalize the pieces WITHOUT the overrides — the built-in SPEAK table is acyclic (its
+    // values are plain words, no glyphs), so this terminates even for a cyclic/self-referential
+    // author override (`lexicon: {"→":"→"}`, reachable from untrusted deck front-matter). A glyph
+    // that survives inside an override value still resolves via the built-in table.
+    const rest: SpokenOpts = { ...opts, symbols: undefined };
+    return splitWords(symbolic)
+      .map((w) => toSpoken(w, rest))
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  // Consult the author registry on the CORE even for a non-English deck (so `CRO,` still expands),
+  // but the English lexicon/fiscal/number expansion below is bypassed there — `spokenCore` returns
+  // the core unchanged when `english` is false.
   return spokenCore(core, domains, acronyms, english) + spokenPunct;
 }
 

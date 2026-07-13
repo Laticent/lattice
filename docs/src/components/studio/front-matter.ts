@@ -185,12 +185,12 @@ export function setFrontMatter(source: string, key: string, value: string | null
 
 /**
  * Set (or, with empty `entries`, remove) a NESTED child-map block — a bare `key:` header with
- * indented `"child": value` lines. This is the shape the narration keys use (`symbols:` glyph →
+ * indented `"child": value` lines. This is the shape the narration keys use (`lexicon:` token →
  * spoken, and `acronyms:` term → spoken); `setFrontMatter` handles only flat scalars and can't
  * express it. Preserves the flat directives, any OTHER nested block, and the body. The reader is
- * `symbolOverrideMap` / `parseNarrationFrontMatter` (resolve-captions). Entries emit in order; the
- * child KEY is always quoted (a glyph can be `:` or whitespace-adjacent), the VALUE quoted only
- * when needed — an empty value emits `""`, the explicit "silence this glyph" form. Drops any prior
+ * `lexiconMap` / `parseNarrationFrontMatter` (resolve-captions). Entries emit in order; the
+ * child KEY is always quoted (a token can be `:` or whitespace-adjacent), the VALUE quoted only
+ * when needed — an empty value emits `""`, the explicit "silence this token" form. Drops any prior
  * form of the key (a nested block OR a flat/inline-flow scalar of the same name) before writing.
  */
 export function setFrontMatterBlock(source: string, key: string, entries: Iterable<[string, string]>): string {

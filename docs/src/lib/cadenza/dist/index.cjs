@@ -380,6 +380,10 @@ function isEnglishLang(lang) {
   const t = String(lang ?? "").trim().toLowerCase();
   return t === "" || t === "en" || t.startsWith("en-");
 }
+function spokenLexiconValue(value, opts) {
+  if (!value) return "";
+  return toSpokenText(value, { ...opts, symbols: void 0 });
+}
 function toSpoken(display, opts = {}) {
   const tok = String(display ?? "").trim();
   if (!tok) return "";
@@ -387,19 +391,25 @@ function toSpoken(display, opts = {}) {
   const acronyms = opts.acronyms;
   const english = isEnglishLang(opts.lang);
   if (acronyms?.has(tok)) return acronyms.get(tok);
+  const lexicon = opts.symbols;
+  if (lexicon?.has(tok)) return spokenLexiconValue(lexicon.get(tok), opts);
   if (SEPARATOR_ONLY.test(tok)) return ",";
   if (english) {
     const whole = lookupLexicon(tok, domains);
     if (whole !== null) return whole;
+  }
+  const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
+  const core = punct ? tok.slice(0, -punct.length) : tok;
+  const spokenPunct = punct.replace(/[:;]/g, ",");
+  if (lexicon?.has(core)) {
+    const spoken = spokenLexiconValue(lexicon.get(core), opts);
+    return spoken ? spoken + spokenPunct : "";
   }
   const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
   if (symbolic !== null) {
     const rest = { ...opts, symbols: void 0 };
     return splitWords(symbolic).map((w) => toSpoken(w, rest)).filter(Boolean).join(" ");
   }
-  const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
-  const core = punct ? tok.slice(0, -punct.length) : tok;
-  const spokenPunct = punct.replace(/[:;]/g, ",");
   return spokenCore(core, domains, acronyms, english) + spokenPunct;
 }
 function spokenCore(core, domains, acronyms, english = true) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { symbolOverrideMap } from '@/lib/resolve-captions';
+import { lexiconMap } from '@/lib/resolve-captions';
 import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
@@ -150,45 +150,45 @@ describe('removeClassTokens — the inverse of mergeClassTokens', () => {
 	});
 });
 
-describe('setFrontMatterBlock — nested child-map keys (symbols:/acronyms:)', () => {
-	it('writes a symbols: block that the narration reader parses back', () => {
-		const out = setFrontMatterBlock(BODY, 'symbols', [
+describe('setFrontMatterBlock — nested child-map keys (lexicon:/acronyms:)', () => {
+	it('writes a lexicon: block that the narration reader parses back', () => {
+		const out = setFrontMatterBlock(BODY, 'lexicon', [
 			['→', 'leads to'],
-			['🎯', ''], // empty value → the "silence this glyph" form
-			['≈', 'roughly'],
+			['🎯', ''], // empty value → the "silence this token" form
+			['Kubernetes', 'koober net eez'], // a whole word, not just a glyph
 		]);
-		const map = symbolOverrideMap(out);
+		const map = lexiconMap(out);
 		expect(map.get('→')).toBe('leads to');
 		expect(map.get('🎯')).toBe(''); // round-trips as silence, not dropped
-		expect(map.get('≈')).toBe('roughly');
+		expect(map.get('Kubernetes')).toBe('koober net eez');
 		expect(out).toContain('"🎯": ""'); // empty emitted explicitly
 	});
-	it('replaces an existing symbols: block wholesale (no duplicate key)', () => {
-		const once = setFrontMatterBlock(BODY, 'symbols', [['→', 'to the']]);
-		const twice = setFrontMatterBlock(once, 'symbols', [['×', 'times']]);
-		expect(twice.match(/^symbols:/gm)?.length).toBe(1);
-		expect(symbolOverrideMap(twice).has('→')).toBe(false); // old entry gone
-		expect(symbolOverrideMap(twice).get('×')).toBe('times');
+	it('replaces an existing lexicon: block wholesale (no duplicate key)', () => {
+		const once = setFrontMatterBlock(BODY, 'lexicon', [['→', 'to the']]);
+		const twice = setFrontMatterBlock(once, 'lexicon', [['×', 'times']]);
+		expect(twice.match(/^lexicon:/gm)?.length).toBe(1);
+		expect(lexiconMap(twice).has('→')).toBe(false); // old entry gone
+		expect(lexiconMap(twice).get('×')).toBe('times');
 	});
 	it('empty entries removes the block entirely', () => {
-		const withBlock = setFrontMatterBlock(BODY, 'symbols', [['→', 'to']]);
-		const cleared = setFrontMatterBlock(withBlock, 'symbols', []);
-		expect(cleared).not.toContain('symbols:');
-		expect(symbolOverrideMap(cleared).size).toBe(0);
+		const withBlock = setFrontMatterBlock(BODY, 'lexicon', [['→', 'to']]);
+		const cleared = setFrontMatterBlock(withBlock, 'lexicon', []);
+		expect(cleared).not.toContain('lexicon:');
+		expect(lexiconMap(cleared).size).toBe(0);
 	});
 	it('preserves flat directives and other nested blocks', () => {
 		const src = '---\ntheme: indaco\nfinish-override:\n  backdrop:\n    strength: 0.4\n---\n\n# Deck';
-		const out = setFrontMatterBlock(src, 'symbols', [['↔', 'and']]);
+		const out = setFrontMatterBlock(src, 'lexicon', [['↔', 'and']]);
 		expect(getFrontMatter(out, 'theme')).toBe('indaco');
 		expect(out).toMatch(/finish-override:\n {2}backdrop:\n {4}strength: 0\.4/);
-		expect(symbolOverrideMap(out).get('↔')).toBe('and');
+		expect(lexiconMap(out).get('↔')).toBe('and');
 	});
 });
 
 describe('setFrontMatterBlock — escaping', () => {
 	it('escapes a backslash and a quote in a key (complete, backslash-first)', () => {
 		// Glyph keys never carry these, but the escaping must be complete (CodeQL).
-		const out = setFrontMatterBlock(BODY, 'symbols', [['a\\b', 'x'], ['c"d', 'y']]);
+		const out = setFrontMatterBlock(BODY, 'lexicon', [['a\\b', 'x'], ['c"d', 'y']]);
 		expect(out).toContain('"a\\\\b": x'); // backslash doubled
 		expect(out).toContain('"c\\"d": y'); // quote escaped
 	});
