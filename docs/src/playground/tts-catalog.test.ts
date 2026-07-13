@@ -3,10 +3,12 @@ import {
 	emptyTtsMessage,
 	filterTtsModels,
 	groupByVendor,
+	priceTier,
 	shortName,
 	TTS_FEATURED,
 	TTS_VALUE,
 	TTS_VIEWS,
+	ttsModelGroups,
 	ttsPriceLabel,
 } from './tts-catalog.js';
 
@@ -68,5 +70,53 @@ describe('tts-catalog — TTS-specific pricing + filtering', () => {
 		for (const id of [...TTS_FEATURED, ...TTS_VALUE]) {
 			expect(id).toMatch(/^[a-z0-9-]+\/[a-z0-9.-]+$/);
 		}
+	});
+});
+
+// ── Value tier + price ordering (2026-07-13) ──────────────────────────────────
+describe('priceTier — the $/$$/$$$ value badge', () => {
+	it('buckets by per-million price: cheap standouts $, mid $$, premium $$$', () => {
+		expect(priceTier({ promptPerM: 0.62 })).toBe('$'); // Kokoro
+		expect(priceTier({ promptPerM: 1 })).toBe('$'); // Gemini
+		expect(priceTier({ promptPerM: 7 })).toBe('$$'); // Zonos/Orpheus/CSM cluster
+		expect(priceTier({ promptPerM: 15 })).toBe('$$$'); // Grok
+		expect(priceTier({ promptPerM: 22 })).toBe('$$$'); // MAI
+	});
+
+	it('returns null for free or unknown price — the badge is simply absent', () => {
+		expect(priceTier({ promptPerM: 0 })).toBeNull();
+		expect(priceTier({ promptPerM: null })).toBeNull();
+		expect(priceTier({})).toBeNull();
+	});
+});
+
+describe('ttsModelGroups — flat price-ascending for curated lenses, vendor-grouped for All', () => {
+	it('sorts a curated lens LOW→HIGH by price in one unlabeled group', () => {
+		const groups = ttsModelGroups(CATALOG, 'value', '');
+		expect(groups).toHaveLength(1);
+		expect(groups[0].label).toBeNull(); // no header — a flat price-sorted list
+		const ids = groups[0].models.map((m: (typeof CATALOG)[number]) => m.id);
+		// Kokoro (0.62) is the only CATALOG entry in TTS_VALUE besides… check ascending order holds.
+		for (let i = 1; i < groups[0].models.length; i++) {
+			expect(groups[0].models[i].promptPerM).toBeGreaterThanOrEqual(groups[0].models[i - 1].promptPerM);
+		}
+		expect(ids[0]).toBe('hexgrad/kokoro-82m'); // cheapest floats to the top
+	});
+
+	it('sorts the Featured lens ascending too — cheapest, best value on top', () => {
+		const groups = ttsModelGroups(CATALOG, 'featured', '');
+		const prices = groups[0].models.map((m: (typeof CATALOG)[number]) => m.promptPerM);
+		expect(prices).toEqual([...prices].sort((a, b) => a - b));
+		expect(groups[0].models[0].id).toBe('hexgrad/kokoro-82m');
+	});
+
+	it('keeps vendor grouping (labeled groups) for the browse-everything All lens', () => {
+		const groups = ttsModelGroups(CATALOG, 'all', '');
+		expect(groups.length).toBeGreaterThan(1);
+		expect(groups.every((g) => typeof g.label === 'string')).toBe(true); // vendor headers
+	});
+
+	it('returns [] when a lens filters everything out', () => {
+		expect(ttsModelGroups(CATALOG, 'free', '')).toEqual([]); // no free models in the stand-in catalog
 	});
 });

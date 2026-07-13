@@ -19,6 +19,11 @@ type Engine = {
 	requiresAsset: boolean;
 	audioFormat?: 'mp3' | 'wav';
 	cachedVoices: string[];
+	/** The curated "top voices" for this engine — a small highlighted set shown
+	 *  first in the voice picker's ★ Featured group, distinct from `cachedVoices`
+	 *  (which is "has a committed sample", now often the whole roster). Optional;
+	 *  when absent the picker falls back to `cachedVoices` (see featuredVoiceIds). */
+	featuredVoices?: string[];
 	/** Only set on the one engine (today: mai-voice-2) where OpenRouter's own
 	 *  `supported_voices` is a non-exhaustive sample, not the real roster — see the
 	 *  JSON's `_note` on that entry. Supplements (never replaces) the live list. */
@@ -123,9 +128,10 @@ export function resolveVoice(voices: Voice[], stored: string): string {
 
 /** The on-disk sample path for a (model, voice) pair at the DEFAULT speed — the
  *  only speed that's pre-generated — or null when there's nothing cached: a voice
- *  outside the engine's featured `cachedVoices` subset, a model this catalog has
- *  no cache metadata for, or a non-default speed. `docs/public/` is served at the
- *  site root, so this doubles as the fetchable URL. */
+ *  not in the engine's `cachedVoices` set (the voices with a committed sample — now
+ *  often the whole roster), a model this catalog has no cache metadata for, or a
+ *  non-default speed. `docs/public/` is served at the site root, so this doubles as
+ *  the fetchable URL. */
 export function cachedSampleUrl(modelId: string, voiceId: string, speed: number): string | null {
 	if (speed !== 1) return null;
 	if (!voiceId) return null;
@@ -133,7 +139,7 @@ export function cachedSampleUrl(modelId: string, voiceId: string, speed: number)
 	if (!engine) return null;
 	const def = ENGINES[engine];
 	if (!def?.requiresAsset) return null;
-	if (!def.cachedVoices.includes(voiceId)) return null; // outside the featured subset — live path
+	if (!def.cachedVoices.includes(voiceId)) return null; // no committed sample — live path
 	const ext = def.audioFormat === 'wav' ? 'wav' : 'mp3';
 	// A voice id can contain characters invalid in a Windows filename (MAI-Voice-2's
 	// ids carry a literal ":") — mirrors tools/generate-voice-samples.mjs's own
@@ -159,3 +165,102 @@ export const NO_VOICES_HINT = "This model hasn't published a voice list on OpenR
  *  `speed` param is live-verified to do nothing (see speedSupported above) —
  *  this voice always speaks at its own natural pace. */
 export const NO_SPEED_HINT = "This voice doesn't support adjustable speed — it always plays at its natural pace.";
+
+// ── Voice picker information architecture ──────────────────────────────────────
+// The picker groups a model's roster as: a ★ Featured highlight, then — ONLY where
+// the voice id actually encodes it — one group per language; engines whose ids are
+// bare names (Gemini's "Kore"/"Puck", Grok, Orpheus, CSM) can't be grouped by
+// language OR gender, so they collapse to a single "All voices" list. Gender is a
+// per-row badge where derivable, never a nesting level — it degrades gracefully to
+// nothing when a model doesn't encode it. All derivation is from id STRUCTURE only
+// (never a hand-typed per-voice table, same reason the roster itself is live-fetched
+// — see the file header): Kokoro's `<lang><gender>_name`, Voxtral's `<lang>_name`,
+// Azure/MAI's `xx-XX-Name`. See engineering/decisions/2026-07-13-tts-picker-ia.md.
+
+const KOKORO_LANG_FULL: Record<string, string> = { a: 'US English', b: 'UK English', e: 'Spanish', f: 'French', h: 'Hindi', i: 'Italian', j: 'Japanese', p: 'Portuguese', z: 'Chinese' };
+const VOXTRAL_LANG_FULL: Record<string, string> = { en: 'US English', gb: 'UK English', fr: 'French' };
+const LOCALE_LANG: Record<string, string> = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ja: 'Japanese', zh: 'Chinese' };
+// Display order for language groups: Kokoro's own prefix order, then Voxtral's, then
+// anything else falls to alphabetical (locale-keyed engines like MAI).
+const LANG_ORDER = ['a', 'b', 'e', 'f', 'h', 'i', 'j', 'p', 'z', 'en', 'gb', 'fr'];
+
+export type VoiceMeta = { langKey?: string; langLabel?: string; gender?: 'F' | 'M'; name: string };
+
+/** Structure a voice id carries, derived from its SHAPE for the picker's grouping +
+ *  gender badge. `name` is the display name with any language/locale prefix stripped
+ *  (so a language group can show "Heart" instead of "Heart · US"); `langKey`/
+ *  `langLabel` are set only when the id encodes a language; `gender` only when it
+ *  encodes one (today: Kokoro). A bare-name id returns just `{ name }`. */
+export function voiceMeta(modelId: string, voiceId: string): VoiceMeta {
+	const engine = engineForModel(modelId);
+	const id = voiceId || '';
+	const k = /^([abefhijpz])([fm])_(\w+)$/.exec(id);
+	if (engine === 'kokoro' && k && KOKORO_LANG_FULL[k[1]]) {
+		return { langKey: k[1], langLabel: KOKORO_LANG_FULL[k[1]], gender: k[2] === 'f' ? 'F' : 'M', name: titleCase(k[3]) };
+	}
+	const vx = /^(en|gb|fr)_(\w+?)(?:_(\w+))?$/i.exec(id);
+	if (engine === 'voxtral' && vx && VOXTRAL_LANG_FULL[vx[1].toLowerCase()]) {
+		const key = vx[1].toLowerCase();
+		return { langKey: key, langLabel: VOXTRAL_LANG_FULL[key], name: titleCase(vx[2]) + (vx[3] ? ` (${vx[3]})` : '') };
+	}
+	const loc = /^([a-z]{2})-([A-Z]{2})-([^:]+)/.exec(id);
+	if (loc) {
+		const langName = LOCALE_LANG[loc[1]] || loc[1].toUpperCase();
+		return { langKey: `${loc[1]}-${loc[2]}`, langLabel: `${langName} · ${loc[2]}`, name: titleCase(loc[3]) };
+	}
+	return { name: prettyVoiceLabel(id) };
+}
+
+/** The curated top voices for a model — the catalog's `featuredVoices`, or its
+ *  `cachedVoices` when none is declared (a small-roster engine is its own highlight),
+ *  or `[]` for an uncataloged model. */
+export function featuredVoiceIds(modelId: string): string[] {
+	const engine = engineForModel(modelId);
+	const def = engine ? ENGINES[engine] : undefined;
+	if (!def) return [];
+	return def.featuredVoices?.length ? def.featuredVoices : def.cachedVoices;
+}
+
+export type VoiceRow = { id: string; label: string; gender?: 'F' | 'M' };
+export type VoiceGroup = { key: string; label: string; voices: VoiceRow[] };
+
+/** Turn a flat live roster into the picker's IA: a ★ Featured highlight (in the
+ *  catalog's declared order) plus grouped remainder — one group per language where
+ *  the ids encode it, otherwise a single "All voices" list. Featured voices are NOT
+ *  repeated in the groups below (no duplicate rows). Pure + fs-free, so it unit-tests
+ *  and runs in the browser bundle identically. */
+export function groupVoices(modelId: string, voices: Voice[]): { featured: VoiceRow[]; groups: VoiceGroup[] } {
+	const byId = new Map(voices.map((v) => [v.id, v]));
+	const featuredIds = featuredVoiceIds(modelId).filter((id) => byId.has(id));
+	const featuredSet = new Set(featuredIds);
+	const featured: VoiceRow[] = featuredIds.map((id) => ({ id, label: (byId.get(id) as Voice).label, gender: voiceMeta(modelId, id).gender }));
+
+	const rest = voices.filter((v) => !featuredSet.has(v.id));
+	const hasLang = rest.some((v) => voiceMeta(modelId, v.id).langKey);
+	const groups: VoiceGroup[] = [];
+	if (hasLang) {
+		const byLang = new Map<string, VoiceGroup>();
+		for (const v of rest) {
+			const m = voiceMeta(modelId, v.id);
+			const key = m.langKey ?? '_other';
+			const label = m.langLabel ?? 'Other';
+			if (!byLang.has(key)) byLang.set(key, { key, label, voices: [] });
+			(byLang.get(key) as VoiceGroup).voices.push({ id: v.id, label: m.name || v.label, gender: m.gender });
+		}
+		const ordered = [...byLang.values()].sort((a, b) => {
+			const ia = LANG_ORDER.indexOf(a.key);
+			const ib = LANG_ORDER.indexOf(b.key);
+			if (ia !== -1 && ib !== -1) return ia - ib;
+			if (ia !== -1) return -1;
+			if (ib !== -1) return 1;
+			return a.label.localeCompare(b.label);
+		});
+		for (const g of ordered) {
+			g.voices.sort((a, b) => a.label.localeCompare(b.label));
+			groups.push(g);
+		}
+	} else if (rest.length) {
+		groups.push({ key: 'all', label: 'All voices', voices: rest.map((v) => ({ id: v.id, label: v.label, gender: voiceMeta(modelId, v.id).gender })).sort((a, b) => a.label.localeCompare(b.label)) });
+	}
+	return { featured, groups };
+}

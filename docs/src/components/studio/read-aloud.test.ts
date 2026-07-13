@@ -404,10 +404,12 @@ describe('previewTtsVoice — clamps a stale cross-model speed for a model that 
 	beforeEach(() => synthSampleSpy.mockClear());
 
 	it('clamps to speed 1 before the live fallback when the model does not support speed', async () => {
-		// Gemini is speedSupport:false; 'Callirrhoe' is a real live voice OUTSIDE
-		// its cachedVoices subset, so cachedSampleUrl deterministically misses and
-		// this always reaches the live fallback — no jsdom Audio-element ambiguity.
-		await previewTtsVoice({ rung: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Callirrhoe', speed: 1.3 });
+		// Voxtral is speedSupport:false; 'gb_oliver_neutral' is a real live voice OUTSIDE
+		// its cached subset (only en_paul_* are cached), so cachedSampleUrl deterministically
+		// misses at any speed and this always reaches the live fallback — no jsdom
+		// Audio-element ambiguity. (Gemini can't play this role anymore: its whole roster
+		// is now sample-cached, so every default-speed Gemini voice is a cache HIT.)
+		await previewTtsVoice({ rung: 'openrouter', model: 'mistralai/voxtral-mini-tts-2603', voice: 'gb_oliver_neutral', speed: 1.3 });
 		expect(synthSampleSpy).toHaveBeenCalledTimes(1);
 		expect(synthSampleSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
 	});
@@ -423,7 +425,7 @@ describe('previewTtsVoice — clamps a stale cross-model speed for a model that 
 	});
 
 	it('defaults an omitted speed to 1 regardless of speed support', async () => {
-		await previewTtsVoice({ rung: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Callirrhoe' });
+		await previewTtsVoice({ rung: 'openrouter', model: 'mistralai/voxtral-mini-tts-2603', voice: 'gb_oliver_neutral' });
 		expect(synthSampleSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
 	});
 });

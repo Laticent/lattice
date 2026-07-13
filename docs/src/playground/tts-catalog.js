@@ -70,3 +70,29 @@ export function filterTtsModels(models, view, query) {
 export const emptyTtsMessage = (view) => (view === 'all' ? 'No TTS models match.'
 	: view === 'free' ? 'No free TTS models in the catalog right now.'
 		: `No ${view} TTS models match — try All.`);
+
+// A coarse value tier for a per-million-character price — the "$/$$/$$$" badge that
+// lets the eye rank cost at a glance without reading the exact number. Buckets chosen
+// off the live spread (2026-07-13): the two standouts Kokoro (~$0.62/M) + Gemini
+// (~$1/M) are `$`; the mid cluster Zonos/Orpheus/CSM (~$7/M) is `$$`; Grok/Voxtral/MAI
+// ($15–$22/M) are `$$$`. Free (0) and unknown return null — the Free lens / a missing
+// price line already speak for those.
+export function priceTier(m) {
+	const p = m?.promptPerM;
+	if (p == null || p === 0) return null;
+	if (p <= 2) return '$';
+	if (p <= 10) return '$$';
+	return '$$$';
+}
+
+// The picker's rows for a view, as an ordered list of {label, models} groups. The
+// browse-everything 'all' lens keeps vendor grouping (navigation by maker); the
+// curated Featured/Value/Free lenses drop it for a single flat list sorted by price
+// LOW→HIGH (label:null — the component renders no header), so the cheapest, best-value
+// models — Kokoro then Gemini — sort to the top where the eye lands first.
+export function ttsModelGroups(models, view, query) {
+	const items = filterTtsModels(models, view, query);
+	if (view === 'all') return groupByVendor(items).map((g) => ({ label: g.vendor, models: g.models }));
+	const sorted = items.slice().sort((a, b) => (a.promptPerM ?? Number.POSITIVE_INFINITY) - (b.promptPerM ?? Number.POSITIVE_INFINITY));
+	return sorted.length ? [{ label: null, models: sorted }] : [];
+}

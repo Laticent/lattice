@@ -277,6 +277,45 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		expect(sheet.queryByPlaceholderText('af_heart')).not.toBeInTheDocument(); // the old free-text field is gone
 	});
 
+	// Drives the REAL combobox (shadcn Command + Popover) through the sheet — the
+	// grouping/gender/search/select interaction the pure groupVoices tests can't
+	// see. A Kokoro roster with NON-featured voices across two languages so a
+	// language group (not just ★ Featured) actually renders. The Popover content
+	// portals to document.body, so query it via `screen`, not the dialog scope.
+	it('the cloud voice combobox groups by language, badges gender, filters on search, and selects', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('hexgrad/kokoro-82m');
+		vi.mocked(readAloud.ttsOrVoice).mockResolvedValueOnce('af_heart');
+		vi.mocked(readAloud.listTtsModels).mockResolvedValueOnce([
+			// af_sky / am_onyx (US) and jf_alpha (JP) are NOT in kokoro's featuredVoices → real language groups.
+			{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'af_sky', 'am_onyx', 'jf_alpha'] },
+		]);
+		const user = userEvent.setup();
+		render(<WorkspaceSheet open onOpenChange={noop} notify={noop} />);
+		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
+		await user.click(await sheet.findByRole('combobox', { name: 'Cloud TTS voice' }));
+
+		// ★ Featured (Heart) on top, then real language groups (US English, Japanese).
+		expect(await screen.findByText('★ Featured')).toBeInTheDocument();
+		expect(screen.getByText('US English')).toBeInTheDocument();
+		expect(screen.getByText('Japanese')).toBeInTheDocument();
+		// Gender badges are present and derived (Sky ♀ = female, Onyx ♂ = male).
+		expect(screen.getAllByRole('img', { name: 'Female' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('img', { name: 'Male' }).length).toBeGreaterThan(0);
+
+		// Search filters — and it matches the LANGUAGE name (folded into each row's
+		// search value), not just the voice name: "japanese" keeps only the JP row.
+		await user.type(screen.getByPlaceholderText('Search voices…'), 'japanese');
+		await waitFor(() => expect(screen.queryByRole('option', { name: /Sky/ })).not.toBeInTheDocument());
+		const jpRow = screen.getByRole('option', { name: /Alpha/ });
+		expect(jpRow).toBeInTheDocument();
+
+		// Selecting a row persists the id and closes the popover.
+		await user.click(jpRow);
+		expect(readAloud.setTtsOrVoice).toHaveBeenCalledWith('jf_alpha');
+		await waitFor(() => expect(screen.queryByText('★ Featured')).not.toBeInTheDocument());
+	});
+
 	// Independent-checker finding (2026-07-11): every OTHER slider-presence
 	// assertion in this file exercises only the DEFAULT model (Kokoro,
 	// speedSupport:true) — nothing rendered the Speed section for a model whose

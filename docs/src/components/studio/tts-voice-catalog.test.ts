@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cachedSampleUrl, engineForModel, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { cachedSampleUrl, engineForModel, featuredVoiceIds, groupVoices, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceMeta, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
@@ -181,5 +181,71 @@ describe('speedSupported — which models\' speed control actually does anything
 
 	it('defaults to false for a model this catalog has no entry for — never optimistically enabled', () => {
 		expect(speedSupported('some-vendor/unknown-tts')).toBe(false);
+	});
+});
+
+// ── Voice picker IA: metadata derivation + grouping (2026-07-13) ───────────────
+describe('voiceMeta — id-structure derivation (never a hand table)', () => {
+	it('decodes Kokoro <lang><gender>_name into language + gender + bare name', () => {
+		expect(voiceMeta(KOKORO_MODEL_ID, 'af_heart')).toEqual({ langKey: 'a', langLabel: 'US English', gender: 'F', name: 'Heart' });
+		expect(voiceMeta(KOKORO_MODEL_ID, 'am_adam')).toEqual({ langKey: 'a', langLabel: 'US English', gender: 'M', name: 'Adam' });
+		expect(voiceMeta(KOKORO_MODEL_ID, 'bf_emma')).toMatchObject({ langLabel: 'UK English', gender: 'F' });
+		expect(voiceMeta(KOKORO_MODEL_ID, 'zm_yunyang')).toMatchObject({ langLabel: 'Chinese', gender: 'M', name: 'Yunyang' });
+	});
+
+	it('returns just a name for a bare-name engine (Gemini) — no language, no gender', () => {
+		expect(voiceMeta('google/gemini-3.1-flash-tts-preview', 'Kore')).toEqual({ name: 'Kore' });
+		expect(voiceMeta('google/gemini-3.1-flash-tts-preview', 'Zephyr').gender).toBeUndefined();
+	});
+
+	it('decodes Voxtral <lang>_name(_emotion) into language + descriptive name, no gender', () => {
+		expect(voiceMeta('mistralai/voxtral-mini-tts-2603', 'en_paul_happy')).toMatchObject({ langKey: 'en', langLabel: 'US English', name: 'Paul (happy)' });
+		expect(voiceMeta('mistralai/voxtral-mini-tts-2603', 'gb_oliver_neutral').gender).toBeUndefined();
+	});
+
+	it('decodes an Azure/MAI xx-XX-Name locale into language + region', () => {
+		expect(voiceMeta('microsoft/mai-voice-2', 'en-US-Ethan:MAI-Voice-2')).toMatchObject({ langKey: 'en-US', langLabel: 'English · US', name: 'Ethan' });
+	});
+});
+
+describe('featuredVoiceIds — curated top, with cachedVoices fallback', () => {
+	it('returns the catalog featuredVoices where declared (Kokoro, Gemini)', () => {
+		expect(featuredVoiceIds(KOKORO_MODEL_ID)).toEqual(['af_heart', 'af_bella', 'am_michael', 'am_adam', 'bf_emma', 'bm_george']);
+		expect(featuredVoiceIds('google/gemini-3.1-flash-tts-preview')).toContain('Kore');
+	});
+
+	it('falls back to cachedVoices when no featuredVoices is declared (Grok)', () => {
+		expect(featuredVoiceIds('x-ai/grok-voice-tts-1.0')).toEqual(['eve', 'ara', 'rex', 'sal', 'leo']);
+	});
+
+	it('returns [] for an uncataloged model', () => {
+		expect(featuredVoiceIds('some-vendor/unknown-tts')).toEqual([]);
+	});
+});
+
+describe('groupVoices — Featured highlight + language groups (or one flat list)', () => {
+	it('groups Kokoro by language, annotates gender, and does NOT repeat featured voices below', () => {
+		const roster = voicesForModel(KOKORO_MODEL_ID, ['af_heart', 'af_sky', 'am_adam', 'am_onyx', 'bf_emma', 'bf_alice', 'zf_xiaoxiao']);
+		const { featured, groups } = groupVoices(KOKORO_MODEL_ID, roster);
+		// Featured are the declared ones that are present in this roster, in declared order.
+		expect(featured.map((v) => v.id)).toEqual(['af_heart', 'am_adam', 'bf_emma']);
+		expect(featured.find((v) => v.id === 'af_heart')?.gender).toBe('F');
+		// Language groups, US English first; featured ids excluded from the groups.
+		const allGrouped = groups.flatMap((g) => g.voices.map((v) => v.id));
+		expect(allGrouped).not.toContain('af_heart');
+		expect(allGrouped).toContain('af_sky');
+		expect(groups[0].label).toBe('US English');
+		// A group row shows the bare name + carries gender for the badge.
+		const usRow = groups[0].voices.find((v) => v.id === 'am_onyx');
+		expect(usRow).toMatchObject({ label: 'Onyx', gender: 'M' });
+	});
+
+	it('collapses a bare-name engine (Gemini) to a single All voices list — no language groups', () => {
+		const roster = voicesForModel('google/gemini-3.1-flash-tts-preview', ['Zephyr', 'Puck', 'Kore', 'Callirrhoe', 'Sulafat']);
+		const { featured, groups } = groupVoices('google/gemini-3.1-flash-tts-preview', roster);
+		expect(featured.length).toBeGreaterThan(0);
+		expect(groups).toHaveLength(1);
+		expect(groups[0].label).toBe('All voices');
+		expect(groups[0].voices.every((v) => v.gender === undefined)).toBe(true);
 	});
 });

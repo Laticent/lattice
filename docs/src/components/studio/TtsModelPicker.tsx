@@ -1,19 +1,23 @@
 import { ChevronDown, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
 	emptyTtsMessage,
-	filterTtsModels,
-	groupByVendor,
+	priceTier,
 	shortName,
 	TTS_VIEWS,
+	ttsModelGroups,
 	ttsPriceLabel,
 } from '@/playground/tts-catalog.js';
 import type { OrVoiceModel } from './read-aloud';
 
 // The OpenRouter TTS-model picker — the speech-model twin of ModelPicker.tsx (text
 // generation), same interaction shape: collapsed summary + meta line → expand →
-// search + Featured/Value/Free/All tabs → vendor-grouped, priced rows. The one
+// search + Featured/Value/Free/All tabs → priced rows with a $/$$/$$$ value-tier
+// badge. The curated lenses (Featured/Value/Free) sort by price LOW→HIGH so the
+// cheapest, best-value models land on top; 'All' keeps vendor grouping for browsing
+// (ttsModelGroups, tts-catalog.js). The one
 // addition a chat-model picker doesn't need: an inline ▶ Play button per row, so
 // browsing the list previews it — no separate "pick a model, then pick a voice,
 // then click a different Play button" round trip for the common case (hearing
@@ -44,7 +48,7 @@ export function TtsModelPicker({
 		() => (models && selectedId ? models.find((m) => m.id === selectedId) : null) ?? null,
 		[models, selectedId],
 	);
-	const groups = React.useMemo(() => groupByVendor(filterTtsModels(models ?? [], view, query)), [models, view, query]);
+	const groups = React.useMemo(() => ttsModelGroups(models ?? [], view, query), [models, view, query]);
 
 	const summaryName = current ? shortName(current) : (selectedId || 'hexgrad/kokoro-82m (default, cheapest)');
 	const summaryMeta = current ? `${current.voices.length} voice${current.voices.length === 1 ? '' : 's'} · ${ttsPriceLabel(current)}` : '';
@@ -106,9 +110,9 @@ export function TtsModelPicker({
 							) : groups.length === 0 ? (
 								<p className="px-1 py-3 text-[12.5px] text-muted-foreground">{emptyTtsMessage(view)}</p>
 							) : (
-								groups.map(({ vendor, models: rows }) => (
-									<div key={vendor}>
-										<div className="px-1 pb-1 pt-2 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">{vendor}</div>
+								groups.map(({ label, models: rows }) => (
+									<div key={label ?? '_by-price'}>
+										{label && <div className="px-1 pb-1 pt-2 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>}
 										{rows.map((m: OrVoiceModel) => {
 											const sel = m.id === selectedId;
 											const busy = playingId === m.id;
@@ -130,7 +134,14 @@ export function TtsModelPicker({
 															className="mt-1 size-3.5 shrink-0 accent-[var(--accent)]"
 														/>
 														<span className="min-w-0 flex-1">
-															<span className="block truncate text-[13px] font-semibold text-[var(--text-heading)]">{shortName(m)}</span>
+															<span className="flex items-center gap-1.5">
+																<span className="min-w-0 truncate text-[13px] font-semibold text-[var(--text-heading)]">{shortName(m)}</span>
+																{priceTier(m) && (
+																	<Badge variant="outline" className="shrink-0 px-1.5 py-0 font-mono text-[10px] leading-4 text-muted-foreground" title={ttsPriceLabel(m)}>
+																		{priceTier(m)}
+																	</Badge>
+																)}
+															</span>
 															<span className="block truncate font-mono text-[11px] text-muted-foreground">{m.voices.length} voice{m.voices.length === 1 ? '' : 's'} · {ttsPriceLabel(m)}</span>
 														</span>
 													</label>

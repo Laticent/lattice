@@ -1,6 +1,7 @@
-import { Download, Loader2, PlayCircle } from 'lucide-react';
+import { Check, ChevronsUpDown, Download, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import {
@@ -21,7 +22,7 @@ import {
 	voiceAvailability,
 } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
-import { KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { groupVoices, KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
 // generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
@@ -98,9 +99,26 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
  *  a theoretical case today, since every live TTS model has one), this renders a
  *  DISABLED, explained field instead of an editable one — guessing a voice id
  *  blind is worse than admitting we don't have one. */
+// A ♀/♂ adornment for a voice row where the id encodes gender (today: Kokoro). Absent
+// — not a placeholder — when the model doesn't encode it, so the row stays clean.
+function GenderMark({ gender }: { gender?: 'F' | 'M' }) {
+	if (!gender) return null;
+	return (
+		<span role="img" className="shrink-0 text-[11px] text-muted-foreground" title={gender === 'F' ? 'Female' : 'Male'} aria-label={gender === 'F' ? 'Female' : 'Male'}>
+			{gender === 'F' ? '♀' : '♂'}
+		</span>
+	);
+}
+
+// The voice picker: a searchable shadcn Command combobox grouped as ★ Featured +
+// language groups (where the id encodes language) or a single "All voices" list,
+// with a gender badge per row. Replaces the old flat <Select> — a 30–54-voice roster
+// needs search + curation, not one long scroll. `modelId` drives the grouping/label
+// derivation (groupVoices, tts-voice-catalog.ts).
 function VoicePicker({
 	label,
 	ariaLabel,
+	modelId,
 	voices,
 	value,
 	onPick,
@@ -108,11 +126,16 @@ function VoicePicker({
 }: {
 	label: string;
 	ariaLabel: string;
+	modelId: string;
 	voices: Voice[];
 	value: string;
 	onPick: (voiceId: string) => void;
 	disabled?: boolean;
 }) {
+	const [open, setOpen] = React.useState(false);
+	const { featured, groups } = React.useMemo(() => groupVoices(modelId, voices), [modelId, voices]);
+	const selected = React.useMemo(() => voices.find((v) => v.id === value), [voices, value]);
+
 	if (!voices.length) {
 		return (
 			<div>
@@ -129,21 +152,56 @@ function VoicePicker({
 			</div>
 		);
 	}
+
+	const choose = (id: string) => {
+		onPick(id);
+		setOpen(false);
+	};
+	// `searchExtra` folds the group's language name into the item's cmdk search value
+	// so typing "spanish"/"japanese" filters that language's rows — the group heading
+	// itself isn't searchable text.
+	const renderItem = (row: { id: string; label: string; gender?: 'F' | 'M' }, searchExtra = '') => (
+		<CommandItem key={row.id} value={`${row.label} ${row.id} ${searchExtra}`.trim()} onSelect={() => choose(row.id)} className="gap-2">
+			<Check className={cn('size-3.5 shrink-0', row.id === value ? 'opacity-100 text-[var(--accent)]' : 'opacity-0')} />
+			<span className="min-w-0 flex-1 truncate">{row.label}</span>
+			<GenderMark gender={row.gender} />
+		</CommandItem>
+	);
+
 	return (
 		<div>
 			<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
-			<Select value={value} onValueChange={onPick} disabled={disabled}>
-				<SelectTrigger className="w-full" aria-label={ariaLabel}>
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>
-					{voices.map((v) => (
-						<SelectItem key={v.id} value={v.id}>
-							{v.label}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			<Popover open={open} onOpenChange={setOpen}>
+				<PopoverTrigger
+					disabled={disabled}
+					aria-label={ariaLabel}
+					role="combobox"
+					aria-expanded={open}
+					aria-haspopup="listbox"
+					className={cn(
+						'flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-[13px] text-foreground outline-none focus:border-[var(--accent)] disabled:opacity-50',
+					)}
+				>
+					<span className="min-w-0 flex-1 truncate">{selected?.label ?? 'Choose a voice…'}</span>
+					<ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+				</PopoverTrigger>
+				<PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+					<Command>
+						<CommandInput placeholder="Search voices…" aria-label={`Search ${ariaLabel}`} />
+						<CommandList>
+							<CommandEmpty>No voice found.</CommandEmpty>
+							{featured.length > 0 && (
+								<CommandGroup heading="★ Featured">{featured.map((row) => renderItem(row))}</CommandGroup>
+							)}
+							{groups.map((g) => (
+								<CommandGroup key={g.key} heading={g.label}>
+									{g.voices.map((row) => renderItem(row, g.label))}
+								</CommandGroup>
+							))}
+						</CommandList>
+					</Command>
+				</PopoverContent>
+			</Popover>
 		</div>
 	);
 }
@@ -366,6 +424,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 					<VoicePicker
 						label="Voice"
 						ariaLabel="Cloud TTS voice"
+						modelId={effectiveOrModel}
 						voices={orModelVoices}
 						value={orVoice}
 						onPick={pickOrVoice}
@@ -433,6 +492,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 				<VoicePicker
 					label="Voice"
 					ariaLabel="On-device TTS voice"
+					modelId={KOKORO_MODEL_ID}
 					voices={kokoroVoices}
 					value={kokoroVoice}
 					onPick={pickKokoroVoice}
