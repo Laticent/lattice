@@ -10,8 +10,10 @@ function Harness() {
   const [text, setText] = React.useState(T1);
   const [muted, setMuted] = React.useState(false);
   const [finished, setFinished] = React.useState(0);
-  const ra = useReadAloud(text, { muted, onFinish: () => setFinished((f) => f + 1) });
-  (window as unknown as { __RA: () => unknown }).__RA = () => ({ playing: ra.playing, rung: ra.rung, cue: ra.active ? ra.active.cueIndex : -1, word: ra.active ? ra.active.wordIndex : -1, progress: Math.round(ra.progress * 100), cues: ra.track.cues.length, finished });
+  // debug:true surfaces `debugLive.mode` (audio vs. silent-estimate) so the spec can prove a mid-slide
+  // unmute actually RESUMES the clocked audio path, not merely that the estimate ran to the end.
+  const ra = useReadAloud(text, { muted, debug: true, onFinish: () => setFinished((f) => f + 1) });
+  (window as unknown as { __RA: () => unknown }).__RA = () => ({ playing: ra.playing, rung: ra.rung, cue: ra.active ? ra.active.cueIndex : -1, word: ra.active ? ra.active.wordIndex : -1, progress: Math.round(ra.progress * 100), cues: ra.track.cues.length, finished, mode: ra.debugLive ? ra.debugLive.mode : null });
   const B = (id: string, on: () => void, label: string) => <button type="button" id={id} onClick={on}>{label}</button>;
   return (
     <div>

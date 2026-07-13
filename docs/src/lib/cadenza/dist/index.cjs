@@ -699,6 +699,9 @@ function makeReader(opts) {
     durationMs() {
       return cursor.track().durationMs;
     },
+    trackNow() {
+      return cursor.track();
+    },
     reset() {
       last = null;
       ended = false;

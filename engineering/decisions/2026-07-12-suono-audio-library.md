@@ -332,6 +332,19 @@ migration wires it into the Playground.
        - **Security (CodeQL).** The nightly harness's throwaway file server was flagged
          `js/path-injection` (a request URL joined into a filesystem path). Replaced with a fixed
          two-file allowlist — no request data reaches the filesystem.
+       - **2a-fix — unmute mid-slide resumes audio on the current slide (device report IMG_2982).**
+         Muting mid-read stops the paid TTS and falls to the caption estimate; the old code only let a
+         later *unmute* take effect on the NEXT slide (a deliberate dodge of "restart snaps the
+         highlight to word 0"). The user's expectation is plain: *unmute → the sound returns and is
+         heard here*. Now unmute resumes the CLOCKED read from the current sentence — re-speaking it
+         from its start, holding the highlight there until the onset — so the correction is at most one
+         sentence, never a word-0 snap. Implemented by factoring the clocked-read setup into one
+         `startClocked(voice, fromCue, holdMs)` (fresh play = `(voice, 0, 0)`; resume = `(voice,
+         currentCue, alignedStartOfCue)`), a generalized "hold the highlight at `holdMs` until the
+         first onset" (was hard-coded to 0), a `Reader.trackNow()` to read the live aligned cue start,
+         and a `lastCueRef` anchor robust to an unmute landing in a between-words gap. New nightly test
+         drives mute → estimate → unmute → clocked-audio → finish-once (mode `audio → silent → audio`);
+         audible return is device-only (HARD RULE #23).
    - **2b — the other three consumers** (`cadenza.astro`, Drawing-Board practice/present) onto the same
      seam. Then **2c** — remove `voice-model.js`'s own `getCtx`/`playBlob`/`speak` playback and add the
      repo-wide "no raw AudioContext outside Suono" gate (§6), which can only land once *no* consumer

@@ -28,6 +28,9 @@ export interface Reader {
   current(): Active | null;
   /** Total timeline duration (ms), reflecting any re-anchoring so far. */
   durationMs(): number;
+  /** The current (possibly re-anchored) timeline — so a host resuming mid-read can read a cue's live
+   *  start (e.g. to hold the highlight at the current sentence while audio spins back up). */
+  trackNow(): CaptionTrack;
   /** Re-arm: forget the last active word and the end latch (e.g. on replay). */
   reset(): void;
 }
@@ -68,6 +71,10 @@ export function makeReader(opts: ReaderOptions): Reader {
 
     durationMs() {
       return cursor.track().durationMs;
+    },
+
+    trackNow() {
+      return cursor.track();
     },
 
     reset() {

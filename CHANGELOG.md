@@ -243,6 +243,14 @@ in patch versions.
 
 ### Fixed
 
+- **Unmuting Voice mid-slide now brings the audio back on the CURRENT slide.** Previously a mute →
+  unmute mid-read only restored sound on the *next* slide (the current slide stayed silent on the
+  caption estimate). Now unmute resumes the clocked read from the current sentence — re-speaking it
+  from its start (holding the highlight there until the audio spins up), so the correction is at most
+  one sentence, never a snap back to the top of the slide. The shared clocked-read setup is factored
+  into one `startClocked(voice, fromCue, holdMs)` path used by both fresh play and resume. Covered by
+  a new `read-aloud` nightly (mute → estimate → unmute → clocked audio → finishes once); audible
+  return is device-only.
 - **Read-aloud pause/resume no longer pops, and resume reliably plays the audio again.** Suono now
   pauses a live clip by fading it out and **stopping** it (remembering the offset), and resumes by
   playing a **fresh** source from that offset — instead of relying on `AudioContext.suspend()/resume()`

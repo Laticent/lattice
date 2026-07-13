@@ -689,6 +689,9 @@ var require_dist = __commonJS({
         durationMs() {
           return cursor.track().durationMs;
         },
+        trackNow() {
+          return cursor.track();
+        },
         reset() {
           last = null;
           ended = false;

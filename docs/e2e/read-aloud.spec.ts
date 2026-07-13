@@ -102,7 +102,7 @@ test.afterAll(async () => {
 	if (outDir) fs.rmSync(outDir, { recursive: true, force: true });
 });
 
-type RA = { playing: boolean; rung: string | null; cue: number; word: number; progress: number; cues: number; finished: number };
+type RA = { playing: boolean; rung: string | null; cue: number; word: number; progress: number; cues: number; finished: number; mode: 'audio' | 'silent' | null };
 const ra = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __RA: () => RA }).__RA());
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -178,6 +178,23 @@ test('read-aloud: mute mid-slide falls to the silent estimate and still complete
 	await page.click('#mute'); // mid-read → stop audio, continue captions on the wall-clock estimate
 	// Estimate mode is slower than the clips, so allow a longer window; it must reach the end.
 	expect((await until(page, (s) => s.finished >= 1, 12000)).finished).toBe(1);
+});
+
+test('read-aloud: UNMUTE mid-slide resumes the clocked audio on THIS slide (not the next)', async ({ page }) => {
+	// The device expectation (IMG_2982): "i unmute, i press play, the slide is read, i mute then
+	// unmute — i expect the sound to return and be heard." So an unmute mid-read must flip the loop
+	// back to the CLOCKED audio path on the current slide, not stay on the silent estimate until the
+	// next slide. (Audible output is device-only; here we prove the path via mode: audio → silent → audio.)
+	await open(page);
+	await page.click('#play');
+	expect((await until(page, (s) => s.mode === 'audio')).mode).toBe('audio'); // clocked read engaged
+	await until(page, (s) => s.cue >= 1); // into the read
+	await page.click('#mute'); // → silent estimate (paid TTS stopped)
+	expect((await until(page, (s) => s.mode === 'silent')).mode).toBe('silent');
+	await page.click('#unmute'); // → must RESUME clocked audio on this slide
+	expect((await until(page, (s) => s.mode === 'audio', 4000)).mode).toBe('audio');
+	// …and it still reaches the end exactly once (the resumed run completes; no double-fire).
+	expect((await until(page, (s) => s.finished >= 1)).finished).toBe(1);
 });
 
 test('read-aloud: slide-nav mid-read tears down cleanly (new track, no ghost highlight)', async ({ page }) => {
