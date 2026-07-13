@@ -21,6 +21,9 @@ import { applyVizOverlayUrlParam, onVizOverlayEnabledChange, setVizOverlayEnable
 // that includes the overlay twice still shows one.
 let claimed = false;
 
+const POS_KEY = 'lattice-viz-overlay-pos';
+type Pos = { left: number; top: number } | null;
+
 export default function VizDiagnosticsOverlay() {
 	const [enabled, setEnabled] = React.useState(false);
 	const [owner, setOwner] = React.useState(false);
@@ -55,25 +58,30 @@ function Overlay() {
 	const findings = scan?.findings ?? [];
 	const clean = !!scan && findings.length === 0;
 
-	const panel = (
-		<div
-			data-testid="viz-diagnostics-overlay"
-			role="status"
-			aria-live="polite"
-			className="lx-ui fixed bottom-3 left-3 z-[2147483646] max-w-[280px] select-none rounded-xl border border-border bg-popover/95 px-2.5 pt-2 pb-2.5 font-mono text-[12px] leading-[1.4] text-popover-foreground shadow-lg backdrop-blur-sm"
-		>
-			<div className="mb-1.5 flex items-center gap-2">
-				<span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">viz diagnostics · live</span>
-				<button
-					type="button"
-					aria-label="Hide viz diagnostics"
-					onClick={() => setVizOverlayEnabled(false)}
-					className="-my-1 -mr-1 cursor-pointer rounded border-0 bg-transparent px-1 py-0.5 text-muted-foreground transition-colors hover:text-foreground"
-				>
-					<X className="size-3.5" aria-hidden />
-				</button>
-			</div>
+	// Header pattern mirrors PerfOverlay: a drag-grip + label + close, portaled to
+	// <body> and draggable, so it shares the on-brand surface AND the "grab the
+	// header to reposition" affordance the other diagnostics overlays have.
+	const header = (
+		<>
+			<span aria-hidden className="grid grid-cols-2 gap-[2px] p-px opacity-60">
+				{['a', 'b', 'c', 'd', 'e', 'f'].map((k) => (
+					<i key={k} className="block size-[3px] rounded-full bg-muted-foreground" />
+				))}
+			</span>
+			<span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">viz diagnostics · live</span>
+			<button
+				type="button"
+				aria-label="Hide viz diagnostics"
+				onClick={() => setVizOverlayEnabled(false)}
+				className="vz-close -my-1 -mr-1 cursor-pointer rounded border-0 bg-transparent px-1 py-0.5 text-muted-foreground transition-colors hover:text-foreground"
+			>
+				<X className="size-3.5" aria-hidden />
+			</button>
+		</>
+	);
 
+	return (
+		<PanelPortal header={header}>
 			{scan == null ? (
 				<div className="flex items-center gap-1.5 text-muted-foreground">
 					<span className="text-[11px]">Edit a chart slide to scan…</span>
@@ -105,6 +113,89 @@ function Overlay() {
 					<p className="mt-1.5 mb-0 text-[9.5px] leading-[1.3] text-muted-foreground">A themed color resolved to black — a scoping / token break (cf. #956).</p>
 				</div>
 			)}
+		</PanelPortal>
+	);
+}
+
+// The draggable panel, portaled to <body> so `position:fixed` is relative to the
+// viewport regardless of a transformed ancestor at the include site. Drag the
+// header to reposition (persisted); clamped on-screen on mount + resize. The same
+// pattern PerfOverlay uses — kept in parallel deliberately (a shared helper would
+// couple two independently-evolving overlays for ~30 lines).
+function PanelPortal({ header, children }: { header: React.ReactNode; children: React.ReactNode }) {
+	const ref = React.useRef<HTMLDivElement>(null);
+	const [pos, setPos] = React.useState<Pos>(() => {
+		try {
+			const p = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
+			return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { left: p.x, top: p.y } : null;
+		} catch {
+			return null;
+		}
+	});
+
+	// Keep a restored / dragged position on-screen across a resize to a narrower
+	// viewport (else a panel saved near a wide edge renders offscreen, ungrabbable).
+	React.useEffect(() => {
+		const clamp = () => {
+			const el = ref.current;
+			if (!el) return;
+			setPos((p) => {
+				if (!p) return p;
+				const left = Math.max(4, Math.min(p.left, window.innerWidth - el.offsetWidth - 4));
+				const top = Math.max(4, Math.min(p.top, window.innerHeight - el.offsetHeight - 4));
+				return left === p.left && top === p.top ? p : { left, top };
+			});
+		};
+		clamp();
+		window.addEventListener('resize', clamp);
+		return () => window.removeEventListener('resize', clamp);
+	}, []);
+
+	// Drag the header. Move/up listen on document for the drag's duration so it
+	// keeps tracking when the pointer leaves the small header.
+	const onHeaderPointerDown = (e: React.PointerEvent) => {
+		if ((e.target as HTMLElement).closest('.vz-close')) return;
+		const el = ref.current;
+		if (!el) return;
+		const r = el.getBoundingClientRect();
+		const ox = r.left;
+		const oy = r.top;
+		const sx = e.clientX;
+		const sy = e.clientY;
+		const onMove = (ev: PointerEvent) => {
+			const nx = Math.max(4, Math.min(ox + ev.clientX - sx, window.innerWidth - el.offsetWidth - 4));
+			const ny = Math.max(4, Math.min(oy + ev.clientY - sy, window.innerHeight - el.offsetHeight - 4));
+			setPos({ left: nx, top: ny });
+		};
+		const onUp = () => {
+			document.removeEventListener('pointermove', onMove);
+			const r2 = el.getBoundingClientRect();
+			try {
+				localStorage.setItem(POS_KEY, JSON.stringify({ x: r2.left, y: r2.top }));
+			} catch {}
+		};
+		document.addEventListener('pointermove', onMove);
+		document.addEventListener('pointerup', onUp, { once: true });
+		e.preventDefault();
+	};
+
+	const style: React.CSSProperties = pos
+		? { left: pos.left, top: pos.top, right: 'auto', bottom: 'auto' }
+		: { left: 'max(8px, env(safe-area-inset-left))', bottom: 'max(8px, env(safe-area-inset-bottom))' };
+
+	const panel = (
+		<div
+			ref={ref}
+			data-testid="viz-diagnostics-overlay"
+			role="status"
+			aria-live="polite"
+			className="lx-ui fixed z-[2147483646] max-w-[280px] select-none rounded-xl border border-border bg-popover/95 px-2.5 pt-2 pb-2.5 font-mono text-[12px] leading-[1.4] text-popover-foreground shadow-lg backdrop-blur-sm"
+			style={style}
+		>
+			<div className="mb-1.5 flex cursor-grab touch-none items-center gap-2 active:cursor-grabbing" onPointerDown={onHeaderPointerDown}>
+				{header}
+			</div>
+			{children}
 		</div>
 	);
 
