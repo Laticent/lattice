@@ -330,19 +330,38 @@ unflattened). Full rationale:
   the prefixer treats the function as a *descendant* of the slide
   root (`section :is(...)`), producing a selector that matches a
   section nested inside another section (which never exists).
-- **Mitigation:** Expand to a comma-separated union with the leading
-  `section.X` repeated for each branch:
-  `section.A > p, section.B > p { … }`. Note `section:where(:not(.A)…)`
-  is OK — the leading combinator is `section`, not `:where()`. The owned
-  engine's PDF render doesn't go through Marpit's prefixer, so this is
-  VS Code Marp preview-only; PDF export looks correct, the preview
-  silently breaks.
+- **FIXED in the owned engine (2026-07-13).** Our browser render path
+  (playground / Studio / Player) does NOT use Marp's `<foreignObject>`, so it
+  re-scopes every selector under `div.lattice > section` via `packTheme` in
+  [lib/engine/css.js](../lib/engine/css.js) — a *mirrored port* of Marpit's
+  prefixer, which inherited the **same** leading-`:is()` bug. `packSelector` now
+  **distributes** a leading `:is(a, b, …)` before scoping, so each arm scopes by
+  its own leftmost combinator (`section.X` → `div.lattice > section.X …`;
+  `figure.Y` → `div.lattice > section figure.Y …`). A leading `:is()` is
+  therefore SAFE on our engine now; the chart family relies on it (every
+  component leads with `:is(section.<comp>, figure.chart-frame)`, the Read·Article
+  re-host broadening). Guard: [test/unit/engine/css-scope.test.js](../test/unit/engine/css-scope.test.js).
+- **⚠️ The earlier claim here that this was "VS Code Marp preview-only / PDF
+  export looks correct" was WRONG, and that false sense of immunity is exactly
+  what let it ship.** It ALSO broke our own deployed playground/Studio/Player:
+  the mis-scoped rule never applied, a component-local token it defined
+  (`--map-base`, quadrant's `--cell-*`, radar's base) stayed undefined, and every
+  SVG fill reading it fell to SVG's **black** initial value — the map/quadrant/
+  radar "black tiles." (PDF/emulator was genuinely fine: there each `section` IS
+  the page, so no `div.lattice > section` re-scoping happens.)
+- **Mitigation (only for decks EXPORTED to real marp-cli / VS Code Marp**, which
+  still use Marpit's own unpatched prefixer): expand to a comma-separated union
+  with the leading `section.X` repeated for each branch —
+  `section.A > p, section.B > p { … }`. Note `section:where(:not(.A)…)` is OK —
+  the leading combinator is `section`, not `:where()`.
 - **Triggered by:** Any theme CSS rule whose first selector is
-  `:is(...)` or `:where(...)`.
+  `:is(...)` or `:where(...)`, rendered through Marpit's own prefixer
+  (our engine now handles it).
 - **Removable when:** Marpit's prefixer changes its leading-selector
-  detection.
+  detection (the export-to-marp caveat); the owned-engine fix is permanent.
 - **Commits:** `434c2f5c` (annotation/below-note expansion), `225cea0`
-  (commit body §"Marpit theme-scoper").
+  (commit body §"Marpit theme-scoper"), `43df18b` (owned-engine `packTheme`
+  distribution + regression test).
 
 ### Front-matter `style:` directive specificity vs. theme :root
 
