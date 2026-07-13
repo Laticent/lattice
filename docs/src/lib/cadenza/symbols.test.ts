@@ -54,44 +54,44 @@ describe('toSpoken — symbol commons integration', () => {
 		expect(toSpokenText('Ship it 🚀 today')).toBe('Ship it today');
 	});
 	it('honors a deck lexicon override over the built-in', () => {
-		const symbols = new Map([['→', 'leads to']]);
-		expect(toSpokenText('cause → effect', { symbols })).toBe('cause leads to effect');
+		const lexicon = new Map([['→', 'leads to']]);
+		expect(toSpokenText('cause → effect', { lexicon })).toBe('cause leads to effect');
 	});
 	it('a lexicon entry can teach a WHOLE WORD, not just a glyph', () => {
-		const symbols = new Map([['Kubernetes', 'koober net eez']]);
-		expect(toSpoken('Kubernetes', { symbols })).toBe('koober net eez');
+		const lexicon = new Map([['Kubernetes', 'koober net eez']]);
+		expect(toSpoken('Kubernetes', { lexicon })).toBe('koober net eez');
 		// …and still matches when the word carries a terminator.
-		expect(toSpokenText('We run Kubernetes.', { symbols })).toBe('We run koober net eez.');
+		expect(toSpokenText('We run Kubernetes.', { lexicon })).toBe('We run koober net eez.');
 	});
 	it('a lexicon word override with an empty value silences the word', () => {
-		expect(toSpoken('confidential', { symbols: new Map([['confidential', '']]) })).toBe('');
+		expect(toSpoken('confidential', { lexicon: new Map([['confidential', '']]) })).toBe('');
 	});
 	it('a lexicon key that CONTAINS a commons glyph wins whole, even with a terminator', () => {
 		// The whole-key override must beat the per-glyph "&"→"and" pass — bare AND punctuated.
-		const symbols = new Map([['R&D', 'the research group']]);
-		expect(toSpoken('R&D', { symbols })).toBe('the research group');
-		expect(toSpoken('R&D.', { symbols })).toBe('the research group.'); // terminator re-attached, not "R and D."
-		expect(toSpokenText('Fund R&D, always.', { symbols })).toBe('Fund the research group, always.');
+		const lexicon = new Map([['R&D', 'the research group']]);
+		expect(toSpoken('R&D', { lexicon })).toBe('the research group');
+		expect(toSpoken('R&D.', { lexicon })).toBe('the research group.'); // terminator re-attached, not "R and D."
+		expect(toSpokenText('Fund R&D, always.', { lexicon })).toBe('Fund the research group, always.');
 	});
 	it('honors an author lexicon in a NON-English deck (author vocabulary, not injected English)', () => {
-		const symbols = new Map([['Kubernetes', 'koober net eez']]);
-		expect(toSpoken('Kubernetes', { symbols, lang: 'de' })).toBe('koober net eez');
-		expect(toSpoken('Kubernetes.', { symbols, lang: 'de' })).toBe('koober net eez.');
+		const lexicon = new Map([['Kubernetes', 'koober net eez']]);
+		expect(toSpoken('Kubernetes', { lexicon, lang: 'de' })).toBe('koober net eez');
+		expect(toSpoken('Kubernetes.', { lexicon, lang: 'de' })).toBe('koober net eez.');
 	});
 	it('leaves ambiguous ASCII to the existing parsers (not spoken as a symbol name)', () => {
 		expect(toSpoken('C++')).toBe('C++'); // "+" untouched by the commons
 	});
 	it('a cyclic / self-referential override cannot infinite-recurse (untrusted front-matter is hostile)', () => {
-		// symbols: {"→":"→"} once crashed with RangeError — reachable from a shared/AI deck's YAML.
-		// The re-normalize drops overrides, so a surviving glyph resolves via the acyclic built-in.
-		expect(() => toSpokenText('Q1 → Q2', { symbols: new Map([['→', '→']]) })).not.toThrow();
-		expect(toSpokenText('Q1 → Q2', { symbols: new Map([['→', '→']]) })).toBe('first quarter to second quarter');
-		expect(toSpokenText('a → b', { symbols: new Map([['→', 'x → y']]) })).toBe('a x to y b'); // one level of override, then built-in
+		// lexicon: {"→":"→"} once crashed with RangeError — reachable from a shared/AI deck's YAML.
+		// The re-normalize drops the lexicon, so a surviving glyph resolves via the acyclic built-in.
+		expect(() => toSpokenText('Q1 → Q2', { lexicon: new Map([['→', '→']]) })).not.toThrow();
+		expect(toSpokenText('Q1 → Q2', { lexicon: new Map([['→', '→']]) })).toBe('first quarter to second quarter');
+		expect(toSpokenText('a → b', { lexicon: new Map([['→', 'x → y']]) })).toBe('a x to y b'); // one level of override, then built-in
 		const twoCycle = new Map([
 			['→', '↔'],
 			['↔', '→'],
 		]);
-		expect(() => toSpokenText('a → b ↔ c', { symbols: twoCycle })).not.toThrow();
+		expect(() => toSpokenText('a → b ↔ c', { lexicon: twoCycle })).not.toThrow();
 	});
 	it('an absurdly long single token from an untrusted deck cannot DoS the normalizer', () => {
 		// Red-team (PR #952): a token of ~50k leading signs once overflowed spokenCore's sign

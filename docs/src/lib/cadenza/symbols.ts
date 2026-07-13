@@ -14,8 +14,9 @@
 // (front-matter → the diagnostics drawer) beats the built-in table. See the design ADR
 // engineering/decisions/2026-07-13-speech-symbol-commons.md.
 
-/** Author (or UI) per-glyph override: display glyph → spoken form ("" forces silence). */
-export type SymbolOverrides = ReadonlyMap<string, string>;
+/** The deck lexicon: a token (glyph or whole word) → its spoken form ("" forces silence). Applied
+ *  by `resolveSymbols` as a per-glyph override, and whole-token in `normalize.ts`. */
+export type LexiconMap = ReadonlyMap<string, string>;
 
 /** Built-in SPEAK table — an UNAMBIGUOUS glyph → its spoken word(s). English (gated behind the
  *  deck language like the lexicon, so a non-English deck isn't anglicized — #919). Single code
@@ -54,8 +55,8 @@ const PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
 const VARIATION_SELECTOR = /[\uFE00-\uFE0F]/g;
 
 export interface ResolveSymbolsOptions {
-  /** Author/UI per-glyph overrides — checked before the built-in table, in every language. */
-  overrides?: SymbolOverrides;
+  /** The deck lexicon — checked per glyph before the built-in table, in every language. */
+  overrides?: LexiconMap;
   /** Whether the deck is English (default true). Gates the built-in SPEAK table (#919); DROP and
    *  overrides stay active (silence and the author's own vocabulary are language-neutral). */
   english?: boolean;

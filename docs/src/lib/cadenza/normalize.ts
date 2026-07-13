@@ -13,7 +13,7 @@
 
 import { type LexDomain, lookupLexicon } from './lexicon';
 import { splitWords } from './segment';
-import { resolveSymbols, SEPARATOR_GLYPHS, type SymbolOverrides } from './symbols';
+import { type LexiconMap, resolveSymbols, SEPARATOR_GLYPHS } from './symbols';
 
 // Whole-token decorative-separator test, built from the commons' separator set (data lives once
 // in symbols.ts). Applied WHOLE-token only — an embedded "·" is a voice id / URL, left alone.
@@ -143,9 +143,10 @@ export type AcronymRegistry = ReadonlyMap<string, string>;
 export interface SpokenOpts {
   domains?: readonly LexDomain[];
   acronyms?: AcronymRegistry;
-  /** A deck's per-glyph symbol overrides (`symbols:` front-matter → the drawer UI): display glyph
-   *  → spoken form ("" silences it), beating the built-in Speech Symbol Commons. See symbols.ts. */
-  symbols?: SymbolOverrides;
+  /** The deck's read-aloud lexicon (`lexicon:` front-matter → the Lexicon drawer): a token (glyph or
+   *  whole word) → spoken form ("" silences it), beating the built-in Speech Symbol Commons. See
+   *  symbols.ts. */
+  lexicon?: LexiconMap;
   /** The deck's language tag (the Marp `lang:` directive). The built-in lexicon, the
    *  number-to-words, and the fiscal/period parser are all US-English, so for a
    *  non-English deck they are BYPASSED (the token passes through unchanged) to avoid
@@ -174,7 +175,7 @@ export function isEnglishLang(lang?: string): boolean {
  */
 function spokenLexiconValue(value: string, opts: SpokenOpts): string {
   if (!value) return '';
-  return toSpokenText(value, { ...opts, symbols: undefined });
+  return toSpokenText(value, { ...opts, lexicon: undefined });
 }
 
 export function toSpoken(display: string, opts: SpokenOpts = {}): string {
@@ -196,9 +197,8 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // "leads to"). Beats the built-in Speech Symbol Commons and the rules below; an empty value
   // SILENCES the token. Author-owned, so honored in EVERY language. An EMBEDDED glyph ("red↔green")
   // is not a whole-token match — the per-glyph symbol pass below applies the same lexicon to glyphs
-  // inside a token. (Threaded as `opts.symbols` for engine-internal continuity; the author-facing
-  // key is `lexicon:`.)
-  const lexicon = opts.symbols;
+  // inside a token.
+  const lexicon = opts.lexicon;
   if (lexicon?.has(tok)) return spokenLexiconValue(lexicon.get(tok) as string, opts);
 
   // A standalone DECORATIVE SEPARATOR glyph — interpunct "·", pipe "|", bullet "•" and kin —
@@ -257,13 +257,13 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // the pieces are re-normalized so operands ("Q1"/"Q2") still expand. Ambiguous glyphs
   // ("+ − = / #") aren't listed and pass through untouched. Spoken-form ONLY — display + `.vtt`
   // keep the glyph. See symbols.ts + the design ADR.
-  const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
+  const symbolic = resolveSymbols(tok, { overrides: opts.lexicon, english });
   if (symbolic !== null) {
-    // Re-normalize the pieces WITHOUT the overrides — the built-in SPEAK table is acyclic (its
+    // Re-normalize the pieces WITHOUT the lexicon — the built-in SPEAK table is acyclic (its
     // values are plain words, no glyphs), so this terminates even for a cyclic/self-referential
     // author override (`lexicon: {"→":"→"}`, reachable from untrusted deck front-matter). A glyph
     // that survives inside an override value still resolves via the built-in table.
-    const rest: SpokenOpts = { ...opts, symbols: undefined };
+    const rest: SpokenOpts = { ...opts, lexicon: undefined };
     return splitWords(symbolic)
       .map((w) => toSpoken(w, rest))
       .filter(Boolean)

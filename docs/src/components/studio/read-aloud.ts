@@ -252,12 +252,12 @@ export function warmNarration(
 	signal?: AbortSignal,
 	acronyms?: ReadonlyMap<string, string>,
 	lang?: string,
-	symbols?: ReadonlyMap<string, string>,
+	lexicon?: ReadonlyMap<string, string>,
 ): void {
 	if (!text) return;
-	// MUST pass the same `acronyms`, `lang` AND `symbols` play() will use, or the warmed spoken
+	// MUST pass the same `acronyms`, `lang` AND `lexicon` play() will use, or the warmed spoken
 	// sentences won't match the ones synthesized on playback — every prefetch a cache miss.
-	const track = buildTrack(text, { acronyms, lang, symbols });
+	const track = buildTrack(text, { acronyms, lang, lexicon });
 	if (!track.cues.length) return;
 	const sentences = track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
 	// getVoice() is the SAME memoized singleton play() uses — this never spins up
@@ -280,7 +280,7 @@ export function useReadAloud(
 	opts?: {
 		onFinish?: () => void;
 		acronyms?: ReadonlyMap<string, string>;
-		symbols?: ReadonlyMap<string, string>;
+		lexicon?: ReadonlyMap<string, string>;
 		lang?: string;
 		muted?: boolean;
 		debug?: boolean;
@@ -293,7 +293,7 @@ export function useReadAloud(
 	// The deck's acronym registry (author pronunciations) rides into every track; the
 	// deck's `lang` gates the English say-as so a non-English deck isn't anglicized (#919).
 	const acronyms = opts?.acronyms;
-	const symbols = opts?.symbols;
+	const lexicon = opts?.lexicon;
 	const lang = opts?.lang;
 	// Voice muted — captions still run (the silent cadence estimate), no TTS is attached. Read via
 	// a ref so play() sees the current value without re-creating the reader (present redesign S3).
@@ -303,7 +303,7 @@ export function useReadAloud(
 	const debugLabel = opts?.debugLabel;
 	const debugLabelRef = React.useRef(debugLabel);
 	debugLabelRef.current = debugLabel;
-	const track = React.useMemo(() => buildTrack(text, { acronyms, lang, symbols }), [text, acronyms, lang, symbols]);
+	const track = React.useMemo(() => buildTrack(text, { acronyms, lang, lexicon }), [text, acronyms, lang, lexicon]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
 	const [progress, setProgress] = React.useState(0);

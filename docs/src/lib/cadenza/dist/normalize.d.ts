@@ -1,5 +1,5 @@
 import { type LexDomain } from './lexicon';
-import { type SymbolOverrides } from './symbols';
+import { type LexiconMap } from './symbols';
 /** Read a non-negative integer as words (up to trillions). */
 export declare function integerToWords(n: number): string;
 /** Read a number (possibly decimal) as words: 4.2 → "four point two". */
@@ -22,9 +22,10 @@ export type AcronymRegistry = ReadonlyMap<string, string>;
 export interface SpokenOpts {
     domains?: readonly LexDomain[];
     acronyms?: AcronymRegistry;
-    /** A deck's per-glyph symbol overrides (`symbols:` front-matter → the drawer UI): display glyph
-     *  → spoken form ("" silences it), beating the built-in Speech Symbol Commons. See symbols.ts. */
-    symbols?: SymbolOverrides;
+    /** The deck's read-aloud lexicon (`lexicon:` front-matter → the Lexicon drawer): a token (glyph or
+     *  whole word) → spoken form ("" silences it), beating the built-in Speech Symbol Commons. See
+     *  symbols.ts. */
+    lexicon?: LexiconMap;
     /** The deck's language tag (the Marp `lang:` directive). The built-in lexicon, the
      *  number-to-words, and the fiscal/period parser are all US-English, so for a
      *  non-English deck they are BYPASSED (the token passes through unchanged) to avoid

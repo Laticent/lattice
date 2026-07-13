@@ -1,5 +1,6 @@
-/** Author (or UI) per-glyph override: display glyph → spoken form ("" forces silence). */
-export type SymbolOverrides = ReadonlyMap<string, string>;
+/** The deck lexicon: a token (glyph or whole word) → its spoken form ("" forces silence). Applied
+ *  by `resolveSymbols` as a per-glyph override, and whole-token in `normalize.ts`. */
+export type LexiconMap = ReadonlyMap<string, string>;
 /** Built-in SPEAK table — an UNAMBIGUOUS glyph → its spoken word(s). English (gated behind the
  *  deck language like the lexicon, so a non-English deck isn't anglicized — #919). Single code
  *  points; variation selectors are stripped before lookup. Additive — a new glyph is one line. */
@@ -8,8 +9,8 @@ export declare const SYMBOL_SPEAK: Record<string, string>;
  *  "·" is a voice id / URL). Exported for normalize.ts's whole-token rule so the data lives once. */
 export declare const SEPARATOR_GLYPHS = "\u00B7\u2022\u2219\u2016\u00A6\u2043\u30FB|";
 export interface ResolveSymbolsOptions {
-    /** Author/UI per-glyph overrides — checked before the built-in table, in every language. */
-    overrides?: SymbolOverrides;
+    /** The deck lexicon — checked per glyph before the built-in table, in every language. */
+    overrides?: LexiconMap;
     /** Whether the deck is English (default true). Gates the built-in SPEAK table (#919); DROP and
      *  overrides stay active (silence and the author's own vocabulary are language-neutral). */
     english?: boolean;

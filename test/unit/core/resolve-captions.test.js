@@ -27,13 +27,11 @@ test('lexicon: a bare (unquoted) key works too, last-wins on a duplicate', () =>
   assert.equal(lexicon.get('→'), 'second');
 });
 
-test('lexicon: the older `symbols:` key is still honored as a deprecated alias', () => {
-  assert.equal(lexiconMap(fm('symbols:\n  "→": to the')).get('→'), 'to the');
-});
-
-test('lexicon: a `lexicon:` entry wins over a same-key `symbols:` alias entry', () => {
-  const { lexicon } = parseNarrationFrontMatter(fm('symbols:\n  "→": old\nlexicon:\n  "→": new'));
-  assert.equal(lexicon.get('→'), 'new');
+test('lexicon: the old `symbols:` key is NOT an alias — only `lexicon:` is read (renamed pre-release)', () => {
+  // #949 shipped the key as `symbols:`; #952 renamed it to `lexicon:` before any release and carries
+  // no alias. A `symbols:` block must be inert so the sole author-facing key is `lexicon:`.
+  assert.equal(lexiconMap(fm('symbols:\n  "→": to the')).size, 0);
+  assert.equal(parseNarrationFrontMatter(fm('symbols:\n  "→": old\nlexicon:\n  "→": new')).lexicon.get('→'), 'new');
 });
 
 test('lexicon: absent key → empty map; lexiconMap is the thin accessor', () => {

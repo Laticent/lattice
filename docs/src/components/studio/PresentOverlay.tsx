@@ -244,8 +244,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const acronyms = React.useMemo(() => acronymSpokenMap(frontMatter), [frontMatter]);
 	// The deck's read-aloud lexicon (`lexicon:` front-matter) — author say-as for a word or glyph
 	// beats the built-in Speech Symbol Commons, on the live reader AND the warm-ahead prefetch.
-	// (Threaded into the reader as the `symbols` option for engine-internal continuity.)
-	const symbols = React.useMemo(() => lexiconMap(frontMatter), [frontMatter]);
+	const lexicon = React.useMemo(() => lexiconMap(frontMatter), [frontMatter]);
 	// The deck's language (Marp `lang:`). A non-English deck bypasses Cadenza's English
 	// lexicon + number/period say-as so read-aloud doesn't inject English into it (#919) —
 	// threaded into the reader AND the warm-ahead prefetch so both agree with the export.
@@ -255,7 +254,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		narrationText,
 		{
 			acronyms,
-			symbols,
+			lexicon,
 			lang,
 			muted,
 			debug: readAloudDebug,
@@ -336,9 +335,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		// checker finding). A request already in flight when this fires just
 		// finishes on its own; see warm()'s own comment in voice-model.js.
 		const ctl = new AbortController();
-		warmNarration(narrationAt(clamped + 1), ctl.signal, acronyms, lang, symbols);
+		warmNarration(narrationAt(clamped + 1), ctl.signal, acronyms, lang, lexicon);
 		return () => ctl.abort();
-	}, [autoplay, muted, clamped, set, narrationAt, acronyms, lang, symbols]);
+	}, [autoplay, muted, clamped, set, narrationAt, acronyms, lang, lexicon]);
 	// The ONE Play (present redesign S3): Play narrates the current slide AND advances (like a
 	// video) — it enables autoplay-chaining and plays; Pause pauses (autoplay stays on, so resume
 	// keeps chaining; the deck's natural end turns autoplay off via onFinish). No separate "Auto".

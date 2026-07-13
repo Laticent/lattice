@@ -45,7 +45,7 @@ HARD RULE #1), in three layers:
    silence), author ALWAYS wins over the built-in. Exact parity with `acronyms:` (parsed in
    `resolve-captions.mjs`, threaded through `buildTrack` → `toSpoken`). A key is a glyph **or a whole
    word**: a deck can say `→` = "leads to", silence a brand emoji, or fix a word the TTS mangles
-   (`Kubernetes` = "koober net eez"). The older `symbols:` key stays a silent deprecated alias.
+   (`Kubernetes` = "koober net eez"). `lexicon:` is the sole key (see the naming note below).
 
 3. **Deck-drawer UI** — a Studio "Lexicon" entry that reads/writes the `lexicon:` map (and sits
    beside the `acronyms:` editor), so a non-technical author fixes a word or glyph without touching YAML.
@@ -65,8 +65,8 @@ uniformly. Precedence per glyph: **author `lexicon:` → built-in commons**; aut
    behavior-preserving move).
 2. **Emoji default DROP** (silent) with per-glyph override — never read "grinning face."
 3. **Distinct `lexicon:` front-matter key** (words + glyphs) alongside `acronyms:`; both edited in
-   one drawer UI. (Shipped first as `symbols:`; renamed to `lexicon:` on 2026-07-13 — see below —
-   with `symbols:` kept as a silent alias.)
+   one drawer UI. (Shipped first as `symbols:` in #949; renamed to `lexicon:` on 2026-07-13 — see
+   below — before any release, so no alias is carried.)
 4. **Ambiguous glyphs stay out** of the built-in table — context parsers + user override own them.
 
 ### Naming: `symbols:` → `lexicon:` (revised 2026-07-13)
@@ -74,10 +74,12 @@ uniformly. Precedence per glyph: **author `lexicon:` → built-in commons**; aut
 "Symbols" undersold the feature: the override map isn't glyph-only — a **whole word** entry
 (`Kubernetes: koober net eez`) is the more common real-world need, and the built-in table already
 owns the unambiguous glyphs. The author-facing surface is a per-deck **pronunciation lexicon**, so
-the key and the drawer are named **`lexicon:`** / **"Lexicon"**. `symbols:` is retained as a silent
-back-compat alias (`lexicon:` wins on a key collision). The built-in engine table keeps the name
-**Speech Symbol Commons** — it genuinely resolves symbols. The internal cadenza option stays
-`opts.symbols` for continuity (commented at the call site); only author-facing names changed.
+the key and the drawer are named **`lexicon:`** / **"Lexicon"**. The key shipped in #949 as
+`symbols:` and was renamed in #952 **before any release**, so no back-compat alias is carried —
+`lexicon:` is the sole key (a leftover alias would be permanent tech debt for a same-day rename).
+The internal cadenza option and its map type were renamed to match (`opts.lexicon`, `LexiconMap`).
+The built-in engine table keeps the name **Speech Symbol Commons** and the `symbols.ts` /
+`resolveSymbols` names — those genuinely resolve glyphs and are accurate, not debt.
 
 ## Files this touches
 
@@ -85,17 +87,16 @@ back-compat alias (`lexicon:` wins on a key collision). The built-in engine tabl
 - `docs/src/lib/cadenza/normalize.ts` — `toSpoken` calls the resolver; the bespoke arrow +
   separator rules are removed (behavior preserved by the commons).
 - `docs/src/lib/cadenza/lexicon.ts` — drop the symbol glyphs (`§ §§ ¶ &`) now owned by the commons.
-- `docs/src/lib/cadenza/track.ts` — thread a `symbols` override map through `BuildOptions`.
-- `lib/core/resolve-captions.mjs` — parse a `lexicon:` front-matter block (`symbols:` alias),
-  mirrors `parseAcronyms`.
-- `lib/core/read-along-build.js` + the live read-aloud path — thread `symbols` into `buildTrack`.
+- `docs/src/lib/cadenza/track.ts` — thread a `lexicon` map through `BuildOptions`.
+- `lib/core/resolve-captions.mjs` — parse a `lexicon:` front-matter block, mirrors `parseAcronyms`.
+- `lib/core/read-along-build.js` + the live read-aloud path — thread `lexicon` into `buildTrack`.
 - Regenerate the cadenza + read-along-core bundles. Spoken-form only — caption glyphs and the
   exported `.vtt` are unchanged (same class as the #947 arrow fix).
 
 ## Slices
 
 1. **Engine commons + override (this PR — built).** `symbols.ts` + resolver, the
-   `normalize.ts`/`lexicon.ts` consolidation, the override option, the `lexicon:` (+ `symbols:` alias)
+   `normalize.ts`/`lexicon.ts` consolidation, the `lexicon` option, the `lexicon:`
    front-matter parse (`resolve-captions.mjs`) threaded through every producer — the live Present
    reader + warm-ahead (`PresentOverlay`/`read-aloud.ts`), the Studio export (`share-export.ts`),
    and the CLI (`lattice-emulator.js`), all via `buildReadAlong`. Tests at every layer.
@@ -128,7 +129,7 @@ A focused adversary reviewed the `lexicon:` parser (`parseTokenMap`/`parseLexico
 `normalize.ts` lexicon path under the #22 threat model (a shared / AI-generated deck is hostile).
 **No XSS and no recursion loop** — the spoken value reaches only word-timing + the TTS audio engine
 (captions and the `.vtt` render the escaped `display` glyphs, never the spoken string), and the
-`{ ...opts, symbols: undefined }` removal on both lexicon branches is airtight against a cyclic
+`{ ...opts, lexicon: undefined }` removal on both lexicon branches is airtight against a cyclic
 override. Two real findings folded in / logged:
 
 - **FIXED — token-length DoS.** Two *pre-existing* super-linear sinks in `toSpoken` — `spokenCore`'s

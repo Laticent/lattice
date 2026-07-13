@@ -383,7 +383,7 @@ function isEnglishLang(lang) {
 }
 function spokenLexiconValue(value, opts) {
   if (!value) return "";
-  return toSpokenText(value, { ...opts, symbols: void 0 });
+  return toSpokenText(value, { ...opts, lexicon: void 0 });
 }
 function toSpoken(display, opts = {}) {
   const tok = String(display ?? "").trim();
@@ -393,7 +393,7 @@ function toSpoken(display, opts = {}) {
   const acronyms = opts.acronyms;
   const english = isEnglishLang(opts.lang);
   if (acronyms?.has(tok)) return acronyms.get(tok);
-  const lexicon = opts.symbols;
+  const lexicon = opts.lexicon;
   if (lexicon?.has(tok)) return spokenLexiconValue(lexicon.get(tok), opts);
   if (SEPARATOR_ONLY.test(tok)) return ",";
   if (english) {
@@ -407,9 +407,9 @@ function toSpoken(display, opts = {}) {
     const spoken = spokenLexiconValue(lexicon.get(core), opts);
     return spoken ? spoken + spokenPunct : "";
   }
-  const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
+  const symbolic = resolveSymbols(tok, { overrides: opts.lexicon, english });
   if (symbolic !== null) {
-    const rest = { ...opts, symbols: void 0 };
+    const rest = { ...opts, lexicon: void 0 };
     return splitWords(symbolic).map((w) => toSpoken(w, rest)).filter(Boolean).join(" ");
   }
   return spokenCore(core, domains, acronyms, english) + spokenPunct;
@@ -743,7 +743,7 @@ function buildTrack(text, opts = {}) {
       const charOffset = found >= 0 ? found : scan;
       if (found >= 0) scan = found + display.length;
       if (cueCharOffset < 0) cueCharOffset = charOffset;
-      const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, symbols: opts.symbols });
+      const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon });
       const pause = pauseAfter(display);
       const dur = estimateWordMs(spoken, pace, rateScale2) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
       const startMs = clock;
