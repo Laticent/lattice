@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { lexiconMap } from '@/lib/resolve-captions';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterBlock, stripFrontMatter } from './front-matter';
+import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
+import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
 
@@ -182,6 +182,90 @@ describe('setFrontMatterBlock — nested child-map keys (lexicon:/acronyms:)', (
 		expect(getFrontMatter(out, 'theme')).toBe('indaco');
 		expect(out).toMatch(/finish-override:\n {2}backdrop:\n {4}strength: 0\.4/);
 		expect(lexiconMap(out).get('↔')).toBe('and');
+	});
+});
+
+describe('setFrontMatterAcronyms — structured term → { expansion, definition? }', () => {
+	it('emits string shorthand with no definition, block-object WITH one, and round-trips both', () => {
+		const out = setFrontMatterAcronyms(BODY, [
+			['CRO', { expansion: 'chief revenue officer' }],
+			['EBITDA', { expansion: 'ee bit dah', definition: 'Earnings before interest, taxes, and amortization.' }],
+		]);
+		// shorthand for the definition-less entry; block-object for the one with a definition
+		expect(out).toMatch(/\n {2}CRO: /);
+		expect(out).toMatch(/\n {2}EBITDA:\n {4}expansion: /);
+		expect(out).toMatch(/\n {4}definition: "Earnings before interest, taxes, and amortization\."/); // comma-safe via quotes
+		const map = acronymEntries(out);
+		expect(map.get('CRO')).toEqual({ expansion: 'chief revenue officer' });
+		expect(map.get('EBITDA')).toEqual({ expansion: 'ee bit dah', definition: 'Earnings before interest, taxes, and amortization.' });
+	});
+	it('replaces the block wholesale and removes it on empty', () => {
+		const once = setFrontMatterAcronyms(BODY, [['ARR', { expansion: 'annual recurring revenue' }]]);
+		expect(once.match(/^acronyms:/gm)?.length).toBe(1);
+		const cleared = setFrontMatterAcronyms(once, []);
+		expect(cleared).not.toContain('acronyms:');
+		expect(acronymEntries(cleared).size).toBe(0);
+	});
+	it('drops an invalid term or an empty expansion (parser would skip them too)', () => {
+		const out = setFrontMatterAcronyms(BODY, [
+			['has space', { expansion: 'nope' }], // invalid term (space)
+			['OK', { expansion: '' }], // empty expansion
+			['GTM', { expansion: 'go to market' }],
+		]);
+		const map = acronymEntries(out);
+		expect(map.has('has space')).toBe(false);
+		expect(map.has('OK')).toBe(false);
+		expect(map.get('GTM')).toEqual({ expansion: 'go to market' });
+	});
+	it('coexists with a lexicon: block — neither clobbers the other', () => {
+		const withLex = setFrontMatterBlock(BODY, 'lexicon', [['→', 'leads to']]);
+		const both = setFrontMatterAcronyms(withLex, [['CRO', { expansion: 'chief revenue officer' }]]);
+		expect(lexiconMap(both).get('→')).toBe('leads to');
+		expect(acronymEntries(both).get('CRO')?.expansion).toBe('chief revenue officer');
+		// …and editing the lexicon again leaves acronyms intact
+		const relex = setFrontMatterBlock(both, 'lexicon', [['×', 'times']]);
+		expect(acronymEntries(relex).get('CRO')?.expansion).toBe('chief revenue officer');
+	});
+	it('last duplicate term wins, first-seen position kept', () => {
+		const out = setFrontMatterAcronyms(BODY, [
+			['X', { expansion: 'first' }],
+			['X', { expansion: 'second' }],
+		]);
+		expect(out.match(/\n {2}X:/g)?.length).toBe(1);
+		expect(acronymEntries(out).get('X')?.expansion).toBe('second');
+	});
+	it('a quote or backslash in an expansion / definition round-trips losslessly (no leaked escapes)', () => {
+		const out = setFrontMatterAcronyms(BODY, [
+			['RR', { expansion: 'the "run rate"', definition: 'A back\\slash and a "quote".' }],
+		]);
+		const entry = acronymEntries(out).get('RR');
+		expect(entry?.expansion).toBe('the "run rate"'); // not the\"run rate\"
+		expect(entry?.definition).toBe('A back\\slash and a "quote".');
+		// …and it stays stable across a re-serialize (escapes must not compound)
+		const twice = setFrontMatterAcronyms(out, [...acronymEntries(out)]);
+		expect(acronymEntries(twice).get('RR')).toEqual(entry);
+	});
+	it('rejects the reserved field names `expansion` / `definition` as terms (parser would drop them)', () => {
+		const out = setFrontMatterAcronyms(BODY, [
+			['definition', { expansion: 'nope' }],
+			['expansion', { expansion: 'nope' }],
+			['OK', { expansion: 'fine' }],
+		]);
+		const map = acronymEntries(out);
+		expect(map.has('definition')).toBe(false);
+		expect(map.has('expansion')).toBe(false);
+		expect(map.get('OK')?.expansion).toBe('fine');
+	});
+	it('a block-object acronym survives an unrelated front-matter edit verbatim', () => {
+		const withAcr = setFrontMatterAcronyms(BODY, [
+			['EBITDA', { expansion: 'ee bit dah', definition: 'Earnings before interest, taxes.' }],
+		]);
+		// edit a DIFFERENT key — the two-level acronyms block must not be flattened or dropped
+		const edited = setFrontMatterBlock(setFrontMatter(withAcr, 'paginate', 'true'), 'lexicon', [['→', 'to']]);
+		expect(edited).toMatch(/\n {2}EBITDA:\n {4}expansion: /);
+		const e = acronymEntries(edited).get('EBITDA');
+		expect(e).toEqual({ expansion: 'ee bit dah', definition: 'Earnings before interest, taxes.' });
+		expect(lexiconMap(edited).get('→')).toBe('to');
 	});
 });
 

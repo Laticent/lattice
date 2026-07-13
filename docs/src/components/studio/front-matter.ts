@@ -75,11 +75,17 @@ function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: s
 
 function unquote(v: string): string {
 	const t = v.trim();
-	if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) return t.slice(1, -1);
+	// A double-quoted value DECODES the escapes `quoteIfNeeded` writes (`\"`→`"`, `\\`→`\`), so the
+	// writer↔reader round-trip is lossless for a value containing a quote or backslash (else the
+	// backslashes leak and COMPOUND on each edit cycle). Single quotes don't escape in this scheme.
+	if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) return t.slice(1, -1).replace(/\\(["\\])/g, '$1');
+	if (t.length >= 2 && t.startsWith("'") && t.endsWith("'")) return t.slice(1, -1);
 	return t;
 }
 function quoteIfNeeded(v: string): string {
-	return /^[\w:.\-/]+$/.test(v) ? v : `"${v.replace(/"/g, '\\"')}"`;
+	// Escape backslash FIRST, then quote — else a `\` before a `"` would corrupt the quoting
+	// (mirrors `setFrontMatterBlock`'s key `esc`; the matching decode lives in `unquote`).
+	return /^[\w:.\-/]+$/.test(v) ? v : `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
 /** Read a single flat directive's value, or undefined if absent. */
@@ -207,5 +213,60 @@ export function setFrontMatterBlock(source: string, key: string, entries: Iterab
 		const child = list.map(([k, v]) => `  "${esc(String(k))}": ${quoteIfNeeded(String(v))}`);
 		blocks.push([key, child]);
 	}
+	return emitFm(pairs, blocks, body);
+}
+
+/** One acronym registry entry: the spoken expansion (required) + an optional glossary definition. */
+export interface AcronymEntry {
+	expansion: string;
+	definition?: string;
+}
+
+/** A term is emitted UNQUOTED (parseAcronyms' header grammar is `[A-Za-z0-9][\w.&/-]*`, which does
+ *  NOT accept a quoted key — unlike the lexicon, whose glyph keys must be quoted). */
+const ACRONYM_TERM_RE = /^[A-Za-z0-9][\w.&/-]*$/;
+
+/**
+ * Set (or, with empty `entries`, remove) the `acronyms:` block — term → { expansion, definition? }.
+ * Distinct from `setFrontMatterBlock` because an acronym value is a STRUCTURED entry, not a flat
+ * scalar: with no definition it emits the string shorthand (`CRO: chief revenue officer`), and with
+ * one it emits the block-object form the parser reads comma-safely:
+ *
+ *   acronyms:
+ *     CRO: chief revenue officer
+ *     EBITDA:
+ *       expansion: ee bit dah
+ *       definition: "Earnings before interest, taxes, depreciation, and amortization."
+ *
+ * The reader is `parseNarrationFrontMatter(...).acronyms` (resolve-captions). Preserves flat
+ * directives, any OTHER nested block (incl. `lexicon:`), and the body. An entry with an invalid term
+ * or an empty expansion is dropped (the parser would skip it too). Later duplicate terms win.
+ */
+export function setFrontMatterAcronyms(source: string, entries: Iterable<[string, AcronymEntry]>): string {
+	const body = stripFrontMatter(source);
+	const { pairs: all, blocks: allBlocks } = parseFm(source);
+	const pairs = all.filter(([k]) => k !== 'acronyms');
+	const blocks = allBlocks.filter(([k]) => k !== 'acronyms');
+	// De-dupe by term (last wins, mirroring the parser), preserving first-seen order.
+	const seen = new Map<string, AcronymEntry>();
+	for (const [rawTerm, entry] of entries) {
+		const term = String(rawTerm ?? '').trim();
+		const expansion = String(entry?.expansion ?? '').trim();
+		// `expansion`/`definition` are reserved block-object field names — `parseAcronyms` skips them
+		// as standalone terms, so emitting one would silently vanish on read. Reject to match the reader.
+		if (!ACRONYM_TERM_RE.test(term) || !expansion || term === 'expansion' || term === 'definition') continue;
+		seen.set(term, { expansion, definition: String(entry?.definition ?? '').trim() || undefined });
+	}
+	const child: string[] = [];
+	for (const [term, entry] of seen) {
+		if (entry.definition) {
+			child.push(`  ${term}:`);
+			child.push(`    expansion: ${quoteIfNeeded(entry.expansion)}`);
+			child.push(`    definition: ${quoteIfNeeded(entry.definition)}`);
+		} else {
+			child.push(`  ${term}: ${quoteIfNeeded(entry.expansion)}`);
+		}
+	}
+	if (child.length) blocks.push(['acronyms', child]);
 	return emitFm(pairs, blocks, body);
 }
