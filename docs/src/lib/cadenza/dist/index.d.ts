@@ -1,5 +1,7 @@
 export type { Pace } from './cadence';
 export { estimateWordMs, FINAL_LENGTHEN_MS, PACE_WPM, pauseAfter, readMs, SYLLABLE_MS, syllableCount } from './cadence';
+export type { CalibrationState } from './calibrate';
+export { CALIBRATION_MAX_K, CALIBRATION_MIN_K, CALIBRATION_MIN_N, CALIBRATION_WINDOW, deserializeCalibration, emptyCalibration, observe, rateScale, serializeCalibration, } from './calibrate';
 export type { Active, Cursor } from './cursor';
 export { makeCursor } from './cursor';
 export type { LexDomain } from './lexicon';

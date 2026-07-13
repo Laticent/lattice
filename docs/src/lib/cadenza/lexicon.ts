@@ -91,6 +91,10 @@ const BASE_CASED: Record<string, string> = {
   COGS: 'cost of goods sold', // lower-case "cogs" is the machine part
   TAM: 'total addressable market', MAU: 'monthly active users', // MAU cased so the name "Mau" in prose never fires
   MoM: 'month over month', WoW: 'week over week', // canonical mixed case; "mom"/"wow" the words stay safe
+  // Duration abbreviation: "11 mo" / "18 mos" → "months" (metrics shorthand read as the word
+  // "mo" otherwise). Exact-LOWERCASE so the name "Mo", the state "MO", and all-caps titles never
+  // fire. Plural default (metrics cite spans > 1); a rare "1 mo" reads "one months" — accepted.
+  mo: 'months', mos: 'months',
   // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
   // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
   // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom

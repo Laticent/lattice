@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { type Active, buildTrack, type CaptionTrack, makeReader, type Reader } from '@/lib/cadenza';
+import { type Active, buildTrack, type CaptionTrack, makeReader, type Reader, rateScale } from '@/lib/cadenza';
+import { loadCalibration, recordObservation, voiceKeyOf } from '@/playground/readaloud-calibration';
 import { cachedSampleUrl, KOKORO_MODEL_ID, speedSupported } from './tts-voice-catalog';
 
 // slideToSpeech is the shared base narration flattener — one source of truth in
@@ -91,6 +92,12 @@ export type ReadAloudDebugLive = {
 	aheadCues: number;
 	/** Peak `aheadCues` seen this read — the worst the highlight raced past the voice. */
 	peakAhead: number;
+	/** The active voice's calibration key (per-voice pace fit), '' before a clocked voice resolves. */
+	calVoiceKey: string;
+	/** Fitted per-voice rate scalar `k` (1.0 until enough clean samples) — see calibrate.ts. */
+	calK: number;
+	/** Clean calibration samples observed for this voice so far. */
+	calN: number;
 };
 
 export type ReadAloudState = {
@@ -283,6 +290,12 @@ export function useReadAloud(
 	// The model/voice this read synthesizes through — resolved once per play() (below), so
 	// a multi-model device trace self-labels which voice produced each slide's behavior.
 	const voiceLabelRef = React.useRef('');
+	// Per-voice pace calibration (2026-07-12-per-voice-pace-calibration.md): the storage key for
+	// the resolved voice, and its live fitted scalar `k` + sample count for the diagnostics readout.
+	// Collection runs whenever a clocked voice reports onsets — independent of the debug overlay.
+	const calVoiceKeyRef = React.useRef('');
+	const calKRef = React.useRef(1);
+	const calNRef = React.useRef(0);
 
 	// Read the latest onFinish through a ref so it never re-creates the reader effect.
 	const onFinishRef = React.useRef(opts?.onFinish);
@@ -449,6 +462,9 @@ export function useReadAloud(
 				lastTimedCue: lastTimedCueRef.current,
 				aheadCues: ahead,
 				peakAhead: peakAheadRef.current,
+				calVoiceKey: calVoiceKeyRef.current,
+				calK: calKRef.current,
+				calN: calNRef.current,
 			});
 		}
 		if (playingRef.current) rafRef.current = requestAnimationFrame(tick);
@@ -550,19 +566,29 @@ export function useReadAloud(
 				r = 'silent';
 			}
 			setRung(r);
-			if (debugRef.current) {
-				// Resolve the concrete model/voice behind the rung so a multi-model device
-				// trace self-labels which voice produced each slide (best-effort, guarded).
-				try {
-					voiceLabelRef.current =
-						r === 'openrouter-tts'
-							? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
-							: r === 'kokoro'
-								? `kokoro · ${voice.kokoroVoice?.() || '?'}`
-								: r;
-				} catch {
-					voiceLabelRef.current = r;
-				}
+			// Resolve the concrete model/voice behind the rung — a multi-model device trace
+			// self-labels which voice produced each slide, AND it keys per-voice pace calibration
+			// (so `k` is fit per model·voice). Resolved unconditionally (not just in debug) so
+			// calibration accrues from normal use; best-effort + guarded.
+			try {
+				voiceLabelRef.current =
+					r === 'openrouter-tts'
+						? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
+						: r === 'kokoro'
+							? `kokoro · ${voice.kokoroVoice?.() || '?'}`
+							: r;
+			} catch {
+				voiceLabelRef.current = r;
+			}
+			calVoiceKeyRef.current = voiceKeyOf(voiceLabelRef.current);
+			// Seed the live readout from what's already stored for this voice (one load).
+			try {
+				const cal = loadCalibration(calVoiceKeyRef.current);
+				calKRef.current = rateScale(cal);
+				calNRef.current = cal.n;
+			} catch {
+				calKRef.current = 1;
+				calNRef.current = 0;
 			}
 			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on
 			// the estimate (it speaks in parallel but reports no onsets).
@@ -629,7 +655,25 @@ export function useReadAloud(
 					onSentenceTiming: clocked
 						? ({ index, onsetMs, durationMs }) => {
 								if (audioBaseRef.current == null) audioBaseRef.current = onsetMs; // cue-0 onset = time 0
+								// Per-voice pace calibration: fold this sentence's measured clip duration vs the
+								// model's PREDICTED cue duration into the voice's fit. Read the estimate BEFORE
+								// Per-voice calibration: the raw PREDICTED cue duration comes from the component
+								// `track` — the ORIGINAL buildTrack output. It is the never-mutated source (align
+								// clones the timeline, cursor.ts), so this is safe regardless of ordering vs the
+								// align() call below. Built at rateScale 1 today (calibration is measure-only until
+								// a later apply slice), so it is the raw prediction — no k back-out needed.
+								const estCue = track.cues[index];
+								const estDurMs = estCue ? estCue.endMs - estCue.startMs : 0;
 								reader.align(index, onsetMs - audioBaseRef.current, durationMs);
+								if (estDurMs > 0 && durationMs > 0 && calVoiceKeyRef.current) {
+									try {
+										const next = recordObservation(calVoiceKeyRef.current, estDurMs, durationMs);
+										calNRef.current = next.n;
+										calKRef.current = rateScale(next); // from the returned state — no second load
+									} catch {
+										/* calibration is best-effort — never break playback */
+									}
+								}
 								if (index > lastTimedCueRef.current) lastTimedCueRef.current = index;
 								if (dbg) {
 									const v = voiceRef.current;

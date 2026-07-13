@@ -42,6 +42,9 @@ export interface BuildOptions {
   /** The deck's language tag (Marp `lang:`). A non-English deck bypasses the English
    *  lexicon + number/period expansion (the author registry still applies) — #919. */
   lang?: string;
+  /** Per-voice pace calibration multiplier (default 1); scales the syllable estimate to a
+   *  measured voice rate. See `calibrate.ts` and the per-voice-calibration decision doc. */
+  rateScale?: number;
 }
 
 /**
@@ -52,6 +55,7 @@ export interface BuildOptions {
  */
 export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack {
   const pace = opts.pace ?? 'moderate';
+  const rateScale = opts.rateScale ?? 1;
   const source = String(text ?? '');
   const sentences = splitSentences(source);
 
@@ -78,7 +82,7 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       const pause = pauseAfter(display);
       // Phrase-final lengthening: a word before a boundary (it carries trailing punctuation)
       // stretches, so its highlight holds a beat longer instead of the cursor running ahead.
-      const dur = estimateWordMs(spoken, pace) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
+      const dur = estimateWordMs(spoken, pace, rateScale) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
       const startMs = clock;
       const endMs = startMs + dur;
       words.push({ display, spoken, startMs, endMs, charOffset });

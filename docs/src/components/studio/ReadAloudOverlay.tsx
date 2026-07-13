@@ -13,6 +13,7 @@
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
+import { onCalibrationChange, resetCalibration } from '@/playground/readaloud-calibration';
 import { setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import type { ReadAloudDebugEvent, ReadAloudDebugLive } from './read-aloud';
 
@@ -57,6 +58,10 @@ function fmtEvent(e: ReadAloudDebugEvent): string {
 export default function ReadAloudOverlay({ live, events, source }: { live: ReadAloudDebugLive | null; events: ReadAloudDebugEvent[]; source: string }) {
 	const ref = React.useRef<HTMLDivElement>(null);
 	const [copied, setCopied] = React.useState(false);
+	// Re-render when a voice's calibration is reset/updated elsewhere, so the readout + the
+	// reset affordance reflect the store live.
+	const [, bumpCal] = React.useReducer((n: number) => n + 1, 0);
+	React.useEffect(() => onCalibrationChange(() => bumpCal()), []);
 	const [pos, setPos] = React.useState<Pos>(() => {
 		try {
 			const p = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
@@ -178,6 +183,22 @@ export default function ReadAloudOverlay({ live, events, source }: { live: ReadA
 				<Sep label="clock" />
 				<Row label="reader ms" value={live?.elapsedMs ?? '—'} />
 				<Row label="audio ms" value={live?.audioClockMs ?? '—'} />
+
+				<Sep label="pace calibration" />
+				<Row
+					label="voice k / n"
+					value={live?.calVoiceKey ? `${live.calK.toFixed(2)}× / ${live.calN}` : '—'}
+					tone={live && live.calN >= 5 ? 'good' : live?.calVoiceKey ? 'warn' : 'none'}
+				/>
+				{live?.calVoiceKey ? (
+					<button
+						type="button"
+						onClick={() => resetCalibration(live.calVoiceKey)}
+						className="mt-1 shrink-0 cursor-pointer self-start rounded-md border border-border bg-transparent px-2 py-[3px] font-mono text-[10.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+					>
+						reset this voice
+					</button>
+				) : null}
 
 				<Sep label={`source · trace (${events.length})`} />
 				<div className="break-words font-mono text-[10.5px] text-muted-foreground">{source}</div>

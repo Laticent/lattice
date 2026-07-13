@@ -27,7 +27,12 @@ export declare function syllableCount(spoken: string): number;
  * Estimate the spoken duration of one caption word, from its SPOKEN form: SYLLABLE_MS ×
  * syllables. A multi-word expansion ("four point two million dollars") counts all its
  * syllables — which is exactly why "$4.2M" dwells far longer than its four glyphs suggest.
+ *
+ * `rateScale` is the per-voice calibration multiplier (default 1 = the deterministic norm; see
+ * `calibrate.ts`). A calibrated voice that runs slower than the default passes `rateScale > 1`
+ * to stretch the estimate to its measured pace; only the syllable articulation scales, not the
+ * boundary pauses (those calibrate separately, later).
  */
-export declare function estimateWordMs(spoken: string, pace?: Pace): number;
+export declare function estimateWordMs(spoken: string, pace?: Pace, rateScale?: number): number;
 /** Reading dwell for a whole line, scaled to its spoken length — for a teaching pause. */
 export declare function readMs(spoken: string, pace?: Pace): number;

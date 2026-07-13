@@ -21,11 +21,17 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // docs/src/lib/cadenza/index.ts
 var index_exports = {};
 __export(index_exports, {
+  CALIBRATION_MAX_K: () => CALIBRATION_MAX_K,
+  CALIBRATION_MIN_K: () => CALIBRATION_MIN_K,
+  CALIBRATION_MIN_N: () => CALIBRATION_MIN_N,
+  CALIBRATION_WINDOW: () => CALIBRATION_WINDOW,
   FINAL_LENGTHEN_MS: () => FINAL_LENGTHEN_MS,
   LEX_DOMAINS: () => LEX_DOMAINS,
   PACE_WPM: () => PACE_WPM,
   SYLLABLE_MS: () => SYLLABLE_MS,
   buildTrack: () => buildTrack,
+  deserializeCalibration: () => deserializeCalibration,
+  emptyCalibration: () => emptyCalibration,
   estimateWordMs: () => estimateWordMs,
   formatTimestamp: () => formatTimestamp,
   integerToWords: () => integerToWords,
@@ -34,8 +40,11 @@ __export(index_exports, {
   makeCursor: () => makeCursor,
   makeReader: () => makeReader,
   numberToWords: () => numberToWords,
+  observe: () => observe,
   pauseAfter: () => pauseAfter,
+  rateScale: () => rateScale,
   readMs: () => readMs,
+  serializeCalibration: () => serializeCalibration,
   splitSentences: () => splitSentences,
   splitWords: () => splitWords,
   spokenWordCount: () => spokenWordCount,
@@ -140,8 +149,13 @@ var BASE_CASED = {
   MAU: "monthly active users",
   // MAU cased so the name "Mau" in prose never fires
   MoM: "month over month",
-  WoW: "week over week"
+  WoW: "week over week",
   // canonical mixed case; "mom"/"wow" the words stay safe
+  // Duration abbreviation: "11 mo" / "18 mos" → "months" (metrics shorthand read as the word
+  // "mo" otherwise). Exact-LOWERCASE so the name "Mo", the state "MO", and all-caps titles never
+  // fire. Plural default (metrics cite spans > 1); a rare "1 mo" reads "one months" — accepted.
+  mo: "months",
+  mos: "months"
   // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
   // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
   // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
@@ -302,6 +316,10 @@ function toSpoken(display, opts = {}) {
   const english = isEnglishLang(opts.lang);
   if (acronyms?.has(tok)) return acronyms.get(tok);
   if (/^[·•∙‖¦⁃・|]+$/.test(tok)) return ",";
+  if (/[→⇒⟶➜⟹⟼↦↔⇔⟷←⟵⇐↩]/.test(tok)) {
+    const connected = tok.replace(/[→⇒⟶➜⟹⟼↦]/g, " to ").replace(/[↔⇔⟷]/g, " and ").replace(/[←⟵⇐↩]/g, " ");
+    return splitWords(connected).map((w) => toSpoken(w, opts)).filter(Boolean).join(" ");
+  }
   if (english) {
     const whole = lookupLexicon(tok, domains);
     if (whole !== null) return whole;
@@ -439,15 +457,64 @@ function syllableCount(spoken) {
   }
   return Math.max(1, total);
 }
-function estimateWordMs(spoken, pace = "moderate") {
+function estimateWordMs(spoken, pace = "moderate", rateScale2 = 1) {
   const s = String(spoken ?? "").trim();
   if (!s) return 0;
-  return Math.round(SYLLABLE_MS[pace] * syllableCount(s));
+  const k = Number.isFinite(rateScale2) && rateScale2 > 0 ? rateScale2 : 1;
+  return Math.round(SYLLABLE_MS[pace] * syllableCount(s) * k);
 }
 function readMs(spoken, pace = "moderate") {
   const words = spokenWordCount(spoken);
   const raw = 300 + 6e4 / PACE_WPM[pace] * words;
   return Math.round(Math.min(6e3, Math.max(1e3, raw)));
+}
+
+// docs/src/lib/cadenza/calibrate.ts
+var CALIBRATION_WINDOW = 15;
+var CALIBRATION_MIN_N = 5;
+var CALIBRATION_MIN_K = 0.6;
+var CALIBRATION_MAX_K = 1.6;
+var SAMPLE_MIN_RATIO = 0.2;
+var SAMPLE_MAX_RATIO = 5;
+function emptyCalibration() {
+  return { samples: [], n: 0, updatedAt: 0 };
+}
+function observe(state, estDurMs, measuredDurMs, atMs) {
+  if (!Number.isFinite(estDurMs) || !Number.isFinite(measuredDurMs) || estDurMs <= 0 || measuredDurMs <= 0) {
+    return state;
+  }
+  const ratio = measuredDurMs / estDurMs;
+  if (ratio < SAMPLE_MIN_RATIO || ratio > SAMPLE_MAX_RATIO) return state;
+  const samples = state.samples.concat(ratio);
+  if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
+  return {
+    samples,
+    n: state.n + 1,
+    updatedAt: atMs ?? state.updatedAt
+  };
+}
+function median(xs) {
+  if (!xs.length) return 1;
+  const s = xs.slice().sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+function rateScale(state) {
+  if (!state || state.n < CALIBRATION_MIN_N || !state.samples.length) return 1;
+  const k = median(state.samples);
+  return Math.min(CALIBRATION_MAX_K, Math.max(CALIBRATION_MIN_K, k));
+}
+function serializeCalibration(state) {
+  return { samples: state.samples.slice(), n: state.n, updatedAt: state.updatedAt };
+}
+function deserializeCalibration(raw) {
+  if (!raw || typeof raw !== "object") return emptyCalibration();
+  const r = raw;
+  const samples = Array.isArray(r.samples) ? r.samples.filter((x) => typeof x === "number" && Number.isFinite(x)) : [];
+  if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
+  const n = typeof r.n === "number" && Number.isFinite(r.n) ? Math.max(0, Math.floor(r.n)) : samples.length;
+  const updatedAt = typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt) ? r.updatedAt : 0;
+  return { samples, n, updatedAt };
 }
 
 // docs/src/lib/cadenza/cursor.ts
@@ -570,6 +637,7 @@ function makeReader(opts) {
 // docs/src/lib/cadenza/track.ts
 function buildTrack(text, opts = {}) {
   const pace = opts.pace ?? "moderate";
+  const rateScale2 = opts.rateScale ?? 1;
   const source = String(text ?? "");
   const sentences = splitSentences(source);
   const cues = [];
@@ -589,7 +657,7 @@ function buildTrack(text, opts = {}) {
       if (cueCharOffset < 0) cueCharOffset = charOffset;
       const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang });
       const pause = pauseAfter(display);
-      const dur = estimateWordMs(spoken, pace) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
+      const dur = estimateWordMs(spoken, pace, rateScale2) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
       const startMs = clock;
       const endMs = startMs + dur;
       words.push({ display, spoken, startMs, endMs, charOffset });
@@ -650,11 +718,17 @@ ${escapeCueText(cue.display)}
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  CALIBRATION_MAX_K,
+  CALIBRATION_MIN_K,
+  CALIBRATION_MIN_N,
+  CALIBRATION_WINDOW,
   FINAL_LENGTHEN_MS,
   LEX_DOMAINS,
   PACE_WPM,
   SYLLABLE_MS,
   buildTrack,
+  deserializeCalibration,
+  emptyCalibration,
   estimateWordMs,
   formatTimestamp,
   integerToWords,
@@ -663,8 +737,11 @@ ${escapeCueText(cue.display)}
   makeCursor,
   makeReader,
   numberToWords,
+  observe,
   pauseAfter,
+  rateScale,
   readMs,
+  serializeCalibration,
   splitSentences,
   splitWords,
   spokenWordCount,
