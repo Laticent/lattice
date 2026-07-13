@@ -403,45 +403,53 @@ function serialize(rules, declaredDark) {
   const block = (map, indent) => [...map.entries()]
     .map(([sel, decls]) => `${indent}${sel} { ${decls.join('; ')} }`).join('\n');
 
-  // The per-slide modifier that selects the opposite scheme (base.modifiers.css:
-  // section.dark / section.light flip a slide's color-scheme).
-  const overrideMod = declaredDark ? 'section.light' : 'section.dark';
-  const overrideClass = overrideMod.slice('section'.length); // `.light` / `.dark`
-
-  // Scope one selector to the modifier. A chart slide IS the `<section>`, and the
-  // chart-frame classes sit on that SAME section (chart-family.js appends
-  // `chart-frame`, and `_class: dark` adds `dark` — one element). So:
-  //   • `:root`        → the tokens are redefined ON the modifier section
-  //     (`section.dark { --journey-mood-5: … }`), descendants inherit.
-  //   • `section…`     → SAME element: merge the modifier class onto the section's
-  //     first compound (`section.chart-frame` → `section.chart-frame.dark`), never
-  //     a phantom `section.darksection.…` concatenation or a never-matching
-  //     `section.dark section.…` descendant.
-  //   • anything else  → a descendant of the section (`.gantt-bar` →
-  //     `section.dark .gantt-bar`).
-  const scopeOne = (s) => {
+  // Scope one selector to a per-slide modifier class (`.dark`/`.light`). A chart slide IS the
+  // `<section>`, and the chart-frame classes sit on that SAME section (chart-family.js appends
+  // `chart-frame`, and `_class: dark` adds `dark` — one element). So, for a modifier `cls` (e.g. `.dark`):
+  //   • `:root`        → tokens redefined ON the modifier section (`section.dark { … }`), descendants inherit.
+  //   • `section…`     → SAME element: merge `cls` onto the section's first compound
+  //     (`section.chart-frame` → `section.chart-frame.dark`), never a phantom concat or a
+  //     never-matching descendant.
+  //   • anything else  → a descendant of the modifier section (`.gantt-bar` → `section.dark .gantt-bar`).
+  const scopeMod = (s, cls) => {
     const t = s.trim();
-    if (t === ':root') return overrideMod;
+    if (t === ':root') return `section${cls}`;
     if (/^section(?![\w-])/.test(t)) {
       const comb = t.match(/[ >+~]/);
       const cut = comb ? comb.index : t.length;
-      return t.slice(0, cut) + overrideClass + t.slice(cut);
+      return t.slice(0, cut) + cls + t.slice(cut);
     }
-    return `${overrideMod} ${t}`;
+    return `section${cls} ${t}`;
   };
 
-  let out = `@supports ${SUPPORTS_GUARD} {\n`;
-  out += block(base, '  ');
+  // ── PRIMARY flat planes (de-forked from the @supports fork, 2026-07-13-old-browser-color-shim.md).
+  // Emitted as the PRIMARY paint (no @supports), so a modern engine eats the SAME flat chart CSS an
+  // old one does — "modern == old", the property that makes the old path testable on modern. Because
+  // these override native light-dark() on modern too, they must reproduce EVERY scheme-switch path the
+  // native cascade gave for free — hence the pin + restore-base arms below (the shim sidesteps these by
+  // anchoring on <html>; the chart palette sits on the consuming element, so it can't). Appended after
+  // the theme CSS, so at equal specificity source-order wins.
+  const declScheme = declaredDark ? 'dark' : 'light';
+  const oppScheme = declaredDark ? 'light' : 'dark';
+  const oppClass = `.${oppScheme}`; // per-slide modifier selecting the opposite scheme
+  const declClass = `.${declScheme}`; // per-slide modifier re-selecting the DECLARED scheme
+  const mapSel = (map, fn) => new Map([...map.entries()].map(([sel, decls]) => [sel.split(',').map(fn).join(', '), decls]));
+  const pin = (scheme) => (s) => `[data-lp-scheme=${scheme}] ${s.trim()}`;
+
+  let out = block(base, ''); // (0) base — the declared scheme, primary on the consuming selectors
   if (override.size) {
-    const scoped = new Map(
-      [...override.entries()].map(([sel, decls]) => [
-        sel.split(',').map(scopeOne).join(', '),
-        decls,
-      ]),
-    );
-    out += '\n' + block(scoped, '  ');
+    // (1) per-slide opposite modifier — a `_class: <opp>` slide (section.<opp> on the same element).
+    out += `\n${block(mapSel(override, (s) => scopeMod(s, oppClass)), '')}`;
+    // (2) player / Read·Article pin to the opposite scheme — `[data-lp-scheme=<opp>]` on an ancestor.
+    out += `\n${block(mapSel(override, pin(oppScheme)), '')}`;
+    // (3) RESTORE-BASE — a `_class: <declared>` slide on an OPP-pinned deck must go BACK to declared.
+    //     The pin arm (2) would otherwise win; re-emit the DECLARED values at higher specificity
+    //     (pin + the declared per-slide class on the consuming element). Only the selectors that flip.
+    const flip = new Map([...override.keys()].map((sel) => [sel, base.get(sel)]));
+    out += `\n${block(mapSel(flip, (s) => `[data-lp-scheme=${oppScheme}] ${scopeMod(s, declClass)}`), '')}`;
+    // (4) OS-follow (strict) — only a deck set to follow the system (`data-lp-scheme=system`).
+    out += `\n@media (prefers-color-scheme:${oppScheme}) {\n${block(mapSel(override, (s) => `[data-lp-scheme=system] ${s.trim()}`), '  ')}\n}`;
   }
-  out += '\n}';
   return out;
 }
 

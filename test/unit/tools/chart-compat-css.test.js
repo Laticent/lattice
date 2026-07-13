@@ -57,22 +57,27 @@ describe('chart-compat-css generator', () => {
     assert.equal(failures.length, 0, `unflattened colour in fallback:\n${failures.join('\n')}`);
   });
 
-  test('the @supports guard + color-scheme dark override are present and balanced', () => {
-    // Light theme: default = light, override scoped to section.dark (the per-slide
-    // dark modifier — Lattice is color-scheme-driven, NOT prefers-color-scheme).
+  test('PRIMARY planes (de-forked) — base + all four scheme-anchor arms, brace-balanced', () => {
+    // De-forked (2026-07-13): emitted as the PRIMARY paint, no @supports — modern eats the same
+    // flat chart CSS an old engine does. Because that overrides native light-dark() on modern too,
+    // it must reproduce every scheme-switch path on the consuming element:
+    //   base (declared) + (1) per-slide section.<opp> + (2) [data-lp-scheme=<opp>] pin +
+    //   (3) restore-base (pin + declared per-slide) + (4) strict OS arm.
     const light = chartCompatCssForTheme('indaco', BASE);
-    assert.match(light, /@supports not \(color: light-dark\(#000, #fff\)\)/);
-    assert.match(light, /section\.dark /);
-    assert.doesNotMatch(light, /prefers-color-scheme/,
-      'must not key off OS preference — modern render is color-scheme-driven');
-    // Dark theme: default = DARK, override scoped to section.light (per-slide light).
+    assert.doesNotMatch(light, /@supports/, 'primary paint — never behind @supports');
+    assert.match(light, /section\.chart-frame\.dark\b/, '(1) per-slide opposite modifier');
+    assert.match(light, /\[data-lp-scheme=dark\]\s+section\.chart-frame\b/, '(2) player pin to opposite');
+    assert.match(light, /\[data-lp-scheme=dark\]\s+section\.chart-frame\.light\b/, '(3) restore-base arm');
+    assert.match(light, /@media \(prefers-color-scheme:dark\)/, '(4) strict OS-follow arm');
+    // Dark theme: base = DARK, opposite arms key on .light / [data-lp-scheme=light].
     const dark = chartCompatCssForTheme('indaco-dark', BASE);
-    assert.match(dark, /section\.light /);
-    assert.notEqual(light, dark, 'a *-dark theme must not emit the light theme\'s fallback');
+    assert.match(dark, /section\.chart-frame\.light\b/);
+    assert.match(dark, /\[data-lp-scheme=light\]\s+section\.chart-frame\b/);
+    assert.notEqual(light, dark, 'a *-dark theme must not emit the light theme\'s planes');
     for (const css of [light, dark]) {
       let depth = 0;
       for (const ch of css) { if (ch === '{') depth++; else if (ch === '}') depth--; }
-      assert.equal(depth, 0, 'unbalanced braces in generated block');
+      assert.equal(depth, 0, 'unbalanced braces in generated planes');
     }
   });
 
@@ -149,18 +154,16 @@ describe('chart-compat-css generator', () => {
     }
   });
 
-  test('modern-browser safety: every generated rule is inside the @supports guard', () => {
-    // Nothing may leak OUTSIDE the guard — a stray rule would change modern render.
-    const css = chartCompatCssForTheme('indaco', BASE).trim();
-    assert.ok(css.startsWith('@supports'), 'fallback must open with @supports');
-    // After removing the one top-level @supports block, nothing remains.
-    let depth = 0;
-    let end = -1;
-    for (let i = css.indexOf('{'); i < css.length; i++) {
-      if (css[i] === '{') depth++;
-      else if (css[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+  test('NO @supports fork — planes are the PRIMARY paint (modern == old), fully flat', () => {
+    // De-forked: the flat planes ARE the paint modern and old both read, so nothing hides behind
+    // @supports (the invisible arm that let #925/#936 regress unseen), and every value must be a
+    // flat literal — a surviving light-dark()/color-mix() would break old WebKit while riding
+    // through modern-only CI. Scheme is selected by plain selector cascade, never light-dark().
+    for (const theme of ['indaco', 'indaco-dark', 'a11y-deuteranopia']) {
+      const css = chartCompatCssForTheme(theme, BASE);
+      assert.doesNotMatch(css, /@supports/, `${theme}: never behind @supports`);
+      assert.doesNotMatch(css, /light-dark\(|color-mix\(/, `${theme}: planes must be flat literals`);
     }
-    assert.equal(css.slice(end + 1).trim(), '', 'content found outside the @supports block');
   });
 
   test('coverageSites enumerates a non-trivial set (the audit surface)', () => {
