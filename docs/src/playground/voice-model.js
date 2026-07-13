@@ -1,10 +1,12 @@
 // The Drawing Board — the VoiceModel adapter (the read-aloud voice ladder).
 //
 // Twin of architect-model.js: one interface, rungs behind capability/connection
-// detection. App code calls speak() and NEVER branches on the rung — speak()
-// always resolves (falling through to a silent floor), so a missing voice
-// degrades to "no audio" rather than breaking the surface. The voice never owns
-// correctness; it only narrates text the caller already has.
+// detection. This adapter is a BYTE SOURCE — it synthesizes audio BYTES and never
+// branches on the rung for the caller; every public call always resolves (falling
+// through to a silent/null floor), so a missing voice degrades to "no audio"
+// rather than breaking the surface. Playback belongs to the caller (the Suono
+// library) — this module no longer owns a WebAudio context or plays anything. The
+// voice never owns correctness; it only produces bytes for text the caller has.
 //
 //   openrouter-tts (hosted, BYO key)  →  kokoro (in-browser WASM/WebGPU, shipped)
 //     →  speechSynthesis (DEV/TEST ONLY)  →  silent (the floor)
@@ -20,9 +22,7 @@
 //
 // Node-loadable by DESIGN: test/unit/playground/voice-model.test.js imports this
 // module under plain `node --test` (no Vite alias, no TS resolution), so this file
-// must not use the `@/…` alias or import a TypeScript module. A caller that needs
-// the voice to speak EXACTLY a caption engine's sentences passes them via
-// speak({ sentences }) rather than making this module import that engine.
+// must not use the `@/…` alias or import a TypeScript module.
 
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
@@ -201,26 +201,11 @@ function cacheKeyFor(rungName, modelId, voice, speed, text) {
 // combo at a time) sits well under this.
 const AUDIO_CACHE_LIMIT = 200;
 
-// How many sentences' synth requests speak() keeps in flight at once (see the
-// scheduler in speak(), below). Bounded, not unbounded fire-all: a long deck
-// shouldn't spike into dozens of simultaneous OpenRouter requests (rate limit
-// / cost / wasted work if the listener navigates away seconds in) just to
-// smooth out playback gaps a small overlap already fixes. 3 is a deliberate
-// middle ground between "enough head start that a slow response is masked by
-// the time its turn to play arrives" and "not so many that one slide's read-
-// aloud looks like a burst attack on the API."
-const SYNTH_CONCURRENCY = 3;
-
-// warm()'s OWN cap, separate from SYNTH_CONCURRENCY — warm() runs WHILE the
-// current slide's own speak() scheduler may still have up to SYNTH_CONCURRENCY
-// requests of its own in flight (that overlap is the whole point: prefetch the
-// next slide during the current one's playback), so sharing one number would
-// let a single autoplay transition burst to SYNTH_CONCURRENCY + SYNTH_CONCURRENCY
-// requests at once — quietly doubling the "not a burst attack on the API"
-// ceiling the comment above actually promises. Kept small and separate instead:
-// warm-ahead only needs to win the race for the NEXT slide's first sentence or
-// two before the transition arrives; it doesn't need the same head-start budget
-// speak() gives a slide already on screen.
+// warm()'s prefetch cap. Bounded, not unbounded fire-all: a long deck shouldn't
+// spike into dozens of simultaneous OpenRouter requests (rate limit / cost /
+// wasted work if the listener navigates away seconds in). Kept small — warm-ahead
+// only needs to win the race for the NEXT slide's first sentence or two before the
+// transition arrives, so it doesn't look like a burst attack on the API.
 const WARM_CONCURRENCY = 1;
 
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
@@ -262,15 +247,14 @@ export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
 // "audio/pcm;rate=24000;channels=1") rather than assuming one — a per-model
 // quirk, not a universal constant. Browser twin of generate-voice-samples.mjs's
 // pcmToWav()/parsePcmContentType() (that one writes a Node Buffer to disk; this
-// one hands back a blob-LIKE object — {size, type, arrayBuffer()} — playBlob can
-// decode directly, same header layout). Deliberately NOT a real `Blob`: this
-// codebase's own rung mocks (voice-model.test.ts) always use this exact duck-
-// typed shape rather than a real Blob, because jsdom's Blob has no
-// `.arrayBuffer()` method — matching that shape here means production and tests
-// exercise the identical code path through playBlob, and it avoids an extra
-// Blob-wrap/unwrap round trip that buys nothing (the bytes are already an
-// ArrayBuffer). A real Blob works fine in every real browser target too, if a
-// future caller needs one — this just isn't that caller.
+// one hands back a blob-LIKE object — {size, type, arrayBuffer()} — the consumer
+// (Suono) can decode directly, same header layout). Deliberately NOT a real `Blob`:
+// this codebase's own rung mocks (voice-model.test.ts) always use this exact duck-
+// typed shape rather than a real Blob, because jsdom's Blob has no `.arrayBuffer()`
+// method — matching that shape here keeps production and tests on one shape, and it
+// avoids an extra Blob-wrap/unwrap round trip that buys nothing (the bytes are
+// already an ArrayBuffer). A real Blob works fine in every real browser target too,
+// if a future caller needs one — this just isn't that caller.
 function pcmBlobFromResponse(pcmBytes, contentType) {
   const rate = Number(/rate=(\d+)/.exec(contentType || '')?.[1]) || 24000;
   const channels = Number(/channels=(\d+)/.exec(contentType || '')?.[1]) || 1;
@@ -287,23 +271,23 @@ function pcmBlobFromResponse(pcmBytes, contentType) {
   wstr(36, 'data'); dv.setUint32(40, n, true);
   new Uint8Array(buf, 44).set(pcmBytes);
   // `arrayBuffer()` returns a FRESH COPY (`.slice(0)`) on every call, not the
-  // closed-over `buf` itself — playBlob's `decodeAudioData` DETACHES whatever
-  // ArrayBuffer it's given (a real, spec'd side effect, not a bug in this
+  // closed-over `buf` itself — the consumer's `decodeAudioData` (Suono) DETACHES
+  // whatever ArrayBuffer it's given (a real, spec'd side effect, not a bug in this
   // codebase), and this blob-like object is cached (audioCache) and REPLAYED —
   // "Play sample" clicked twice, or the same narration sentence spoken again.
-  // Handing back the same `buf` reference every time meant the first play
-  // decoded fine and every replay threw "Cannot decode detached ArrayBuffer" —
-  // caught live in a real browser (jsdom's mocked decodeAudioData in the test
-  // suite doesn't detach, so no test exercised this). A real Blob's own
-  // `.arrayBuffer()` already re-reads fresh bytes per call for exactly this
-  // reason; `.slice(0)` gives this duck-typed stand-in the same replay safety.
+  // Handing back the same `buf` reference every time meant the first play decoded
+  // fine and every replay threw "Cannot decode detached ArrayBuffer" — caught live
+  // in a real browser. A real Blob's own `.arrayBuffer()` already re-reads fresh
+  // bytes per call for exactly this reason; `.slice(0)` gives this duck-typed
+  // stand-in the same replay safety.
   return { size: buf.byteLength, type: 'audio/wav', arrayBuffer: async () => buf.slice(0) };
 }
 
 // ── Rungs ─────────────────────────────────────────────────────────────────────
 //
 // A blob rung is { name, ready(), synth({text, voice, signal}) → Promise<Blob> }.
-// The adapter owns sequencing + playback; rungs only produce audio. speechSynthesis
+// The adapter owns rung SELECTION + byte caching; rungs produce audio bytes and the
+// CALLER (Suono) plays them — this module no longer owns playback. speechSynthesis
 // is special-cased (it plays itself); silent is the floor (produces nothing).
 
 // OpenRouter TTS — a fetch on the architect's existing OAuth key. Deck text leaves
@@ -326,7 +310,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
       const wantsPcm = PCM_ONLY_MODELS.has(model);
       // OpenAI-compatible speech route: POST the text, get a raw audio byte stream
       // back (mp3 for almost every model; PCM for the rare exception above, wrapped
-      // into a WAV Blob below so playBlob's decodeAudioData can still play it).
+      // into a WAV Blob below so the consumer's decodeAudioData (Suono) can play it).
       // `speed` is an optional multiplier (default 1.0); a model that doesn't
       // support it silently ignores it rather than erroring (live-verified per
       // model — see tts-voice-catalog.json's speedSupport/_speedNote — so passing
@@ -362,7 +346,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
       }
       const blob = await res.blob();
       if (!blob?.size) throw new Error('OpenRouter returned empty audio');
-      return blob; // mp3; playBlob's decodeAudioData handles it
+      return blob; // mp3; the consumer's decodeAudioData (Suono) handles it
     },
   };
 }
@@ -590,8 +574,8 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   //   • bytes — a Blob/blob-like for a blob rung; null for silent / speechSynthesis / empty text.
   //   • key   — the exact cache key, handed back so the caller's own decoded-buffer cache can share
   //             this identity (Suono's `keyOf`), and so a warm/replay lines up bit-for-bit.
-  // Mirrors speak()'s internal synth() cache/dedup/timeout discipline; speak() stays for the surfaces
-  // not yet migrated (cadenza.astro, the Drawing Board), so the two coexist until those move too.
+  // Uses this instance's shared byte cache + in-flight dedup with the same timeout discipline warm()
+  // applies; playback is the caller's (Suono's) job.
   async function synthOne({ text, voice, speed, signal } = {}) {
     const rung = pickRung();
     const effSpeed = speed ?? speedPref();
@@ -620,122 +604,6 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return { rung: rung.name, bytes: await p, key };
   }
 
-  // ── Playback (one owned WebAudio context; all rungs feed it Blobs) ───────────
-  // WebAudio, not an <audio> element: iOS/Safari reliably plays a DECODED buffer
-  // triggered after an async gap (download + synth / cloud fetch) and routes through
-  // the channel that ignores the hardware ringer switch — whereas a programmatic
-  // <audio>.play() after the tap's gesture is gone stays silent ("downloaded but not
-  // audible"). decodeAudioData also handles BOTH formats (Kokoro WAV + OpenRouter
-  // MP3) and would surface genuinely empty audio rather than fail quietly.
-  let audioCtx = null;
-  let currentSource = null; // the AudioBufferSourceNode currently playing
-  let activeCtl = null; // internal AbortController for the current speak()
-  let pausedGate = null; // a promise held while paused; resolves when resumed
-  let resumeFn = null; // resolver for pausedGate
-
-  function getCtx() {
-    if (!audioCtx && hasWindow) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) audioCtx = new AC();
-    }
-    return audioCtx;
-  }
-
-  // iOS / Safari audio unlock. A WebAudio context starts 'suspended' until a real
-  // user gesture resumes it; playback triggered later (after the async download +
-  // synth) is then allowed. Call this SYNCHRONOUSLY from the tap (read-aloud button /
-  // play-sample) — resuming + ticking a 1-sample buffer blesses the context. No-op
-  // where WebAudio is absent. Idempotent.
-  //
-  // CRITICAL for iOS: a bare AudioContext renders through the "ambient" audio session,
-  // which the hardware silent/ring switch MUTES — so playback succeeds (currentTime
-  // advances, onended fires) yet nothing is heard. (An earlier comment here claimed
-  // WebAudio "ignores the ringer switch"; that was backwards.) Promote the session to
-  // 'playback' (Safari 16.4+, guarded) so audio goes through the media channel that
-  // ignores the mute switch, like an <audio> element. See WebKit bug 237322.
-  function unlock() {
-    const ctx = getCtx();
-    if (!ctx) return;
-    try {
-      const s = typeof navigator !== 'undefined' && navigator.audioSession;
-      if (s) navigator.audioSession.type = 'playback';
-    } catch {}
-    try { if (ctx.state === 'suspended') ctx.resume(); } catch {}
-    try {
-      const s = ctx.createBufferSource();
-      s.buffer = ctx.createBuffer(1, 1, 22050);
-      s.connect(ctx.destination);
-      s.start(0);
-    } catch {}
-  }
-
-  // `onStart` (optional, additive) fires at the TRUE audio start with the measured
-  // { onsetMs, durationMs } — the anchors a caption cursor re-anchors to (Cadenza's
-  // hybrid timing). Read at src.start(0), NOT at onSentence fire-time, so the
-  // highlight can't lead the voice by the decode gap. No caller that omits it is affected.
-  function playBlob(blob, signal, onStart) {
-    return new Promise((resolve) => {
-      const ctx = getCtx();
-      if (!ctx) { resolve({ ok: false, error: 'no AudioContext' }); return; }
-      if (!blob) { resolve({ ok: false, error: 'no audio' }); return; }
-      let src = null;
-      let settled = false;
-      const finish = (res) => {
-        if (settled) return; settled = true;
-        signal?.removeEventListener?.('abort', onAbort);
-        if (currentSource === src) currentSource = null;
-        resolve(res || { ok: true });
-      };
-      const onAbort = () => { try { src?.stop(); } catch {} finish({ ok: true, aborted: true }); };
-      if (signal) {
-        if (signal.aborted) { resolve({ ok: true, aborted: true }); return; }
-        signal.addEventListener('abort', onAbort, { once: true });
-      }
-      blob.arrayBuffer().then((ab) => {
-        if (settled) return;
-        // Callback form of decodeAudioData for older Safari (promise form is newer).
-        ctx.decodeAudioData(ab, (audioBuf) => {
-          if (settled) return;
-          try {
-            if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-            src = ctx.createBufferSource();
-            src.buffer = audioBuf;
-            src.onended = () => finish({ ok: true });
-            currentSource = src;
-            // A short head/tail gain ramp so each clip eases in and out of silence. A TTS
-            // clip rarely begins or ends exactly on a zero-crossing, so a hard start(0)/stop
-            // steps from silence to a non-zero sample — an audible click at every sentence
-            // boundary (worst on slides that narrate many short fragments, e.g. a stat row).
-            // ~8 ms is below the threshold for losing speech content but removes the
-            // discontinuity. Guarded + best-effort: any mock/older engine without full gain
-            // automation falls back to a direct connect (no fade, but still plays).
-            let ramped = false;
-            const dur = audioBuf?.duration || 0;
-            try {
-              if (dur > 0 && typeof ctx.createGain === 'function') {
-                const g = ctx.createGain();
-                const t0 = ctx.currentTime;
-                const ramp = Math.min(0.008, dur / 2);
-                g.gain.setValueAtTime(0, t0);
-                g.gain.linearRampToValueAtTime(1, t0 + ramp);
-                g.gain.setValueAtTime(1, t0 + Math.max(ramp, dur - ramp));
-                g.gain.linearRampToValueAtTime(0, t0 + dur);
-                src.connect(g);
-                g.connect(ctx.destination);
-                ramped = true;
-              }
-            } catch { ramped = false; }
-            if (!ramped) src.connect(ctx.destination);
-            src.start(0);
-            // The measured span, captured at the real start. Best-effort + guarded so
-            // instrumentation can never break playback.
-            if (onStart) { try { onStart({ onsetMs: ctx.currentTime * 1000, durationMs: (audioBuf?.duration || 0) * 1000 }); } catch {} }
-          } catch (e) { finish({ ok: false, error: 'play failed: ' + (e?.message || e) }); }
-        }, (e) => finish({ ok: false, error: 'decode failed (' + (e?.message || e || 'unsupported audio') + ')' }));
-      }).catch((e) => finish({ ok: false, error: 'read failed: ' + (e?.message || e) }));
-    });
-  }
-
   function speakViaSpeech(text, signal) {
     return new Promise((resolve) => {
       if (typeof speechSynthesis === 'undefined') { resolve(); return; }
@@ -744,205 +612,6 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       if (signal) signal.addEventListener('abort', () => { try { speechSynthesis.cancel(); } catch {} resolve(); }, { once: true });
       try { speechSynthesis.speak(u); } catch { resolve(); }
     });
-  }
-
-  // A cancelable delay — resolves after `ms`, or immediately if `signal` aborts.
-  function sleep(ms, signal) {
-    return new Promise((res) => {
-      if (ms <= 0 || signal?.aborted) { res(); return; }
-      const t = setTimeout(res, ms);
-      signal?.addEventListener?.('abort', () => { clearTimeout(t); res(); }, { once: true });
-    });
-  }
-
-  // The inter-sentence breath, from the module-scope SENTENCE_PAUSE_MS table above.
-  function sentenceGapMs(sentence) {
-    const m = String(sentence ?? '').match(/[.,!?;:…]+$/);
-    if (!m) return 0;
-    let max = 0;
-    for (const ch of m[0]) max = Math.max(max, SENTENCE_PAUSE_MS[ch] ?? 0);
-    return max;
-  }
-
-  // speak() narrates `text`, sentence by sentence, and resolves when finished (or
-  // aborted). It NEVER rejects — a rung failure falls through to silence. A new
-  // speak() (or stop()) cancels any in-flight narration first (barge-in).
-  async function speak({ text, sentences: providedSentences, voice, speed, signal, onSentence, onSentenceTiming, onState } = {}) {
-    stop();
-    // An explicit per-call speed wins; otherwise fall to the persisted pref (1 = default).
-    const effSpeed = speed ?? speedPref();
-    const ctl = new AbortController();
-    activeCtl = ctl;
-    const sig = ctl.signal;
-    if (signal) {
-      if (signal.aborted) ctl.abort();
-      else signal.addEventListener('abort', () => ctl.abort(), { once: true });
-    }
-    const rung = pickRung();
-    onState?.({ rung: rung.name, speaking: true });
-    // A caller may pass its OWN sentence boundaries (e.g. a caption engine's cue
-    // split) so the spoken sentence at index i is exactly its cue i — the onset
-    // forwarded by onSentenceTiming then re-anchors the right word. Otherwise we
-    // fall to our own splitter.
-    const sentences =
-      Array.isArray(providedSentences) && providedSentences.length
-        ? providedSentences.map((s) => String(s).trim()).filter(Boolean)
-        : splitSentences(text);
-    // Capture the FIRST real failure reason so the caller can show it. Previously the
-    // synth error (a good HTTP-status message) and playBlob's decode/play error were
-    // both discarded, making every failure look like identical silence — the blind
-    // path the audio trio flagged. A synth error (the network/API reason) wins over
-    // playBlob's generic 'no audio', since it's the more diagnostic message.
-    let lastError = null;
-    const errStr = (e) => (e?.message) ? e.message : String(e || 'unknown');
-    // `.catch()` alone only covers a REJECTION — a hung fetch/worker that never
-    // settles at all would stall this sentence (and every one after it, via the
-    // one-ahead prefetch) forever, reading as narration that silently freezes
-    // mid-deck. Race against a timeout that resolves to null (skip this sentence,
-    // keep going) rather than aborting `sig` — one slow sentence shouldn't kill
-    // playback for the rest of the deck the way it's appropriate to for a single
-    // self-contained Play-sample preview (see previewVoice's own fix, above).
-
-    // The voice a rung will ACTUALLY use — mirrors each rung's own internal
-    // `voice || getVoice()` fallback EXACTLY, including the `||` (not `??`):
-    // an independent-checker pass confirmed a `??` mirror here would diverge
-    // from the real rungs for a falsy-but-non-nullish `voice` (e.g. `''`) —
-    // the real rung resolves the live persisted voice pref for that input,
-    // but a `??` mirror would freeze the cache key on `''` forever, so a
-    // later voice-pref CHANGE would silently hit a stale-voice cache entry.
-    // No current caller passes `voice: ''` (verified — read-aloud.ts omits
-    // it, cadenza.astro/drawing-board-settings.js always pass a real id), so
-    // this was a dormant landmine, not yet reachable, but a direct
-    // contradiction of this cache's whole reason for keying on voice at all.
-    const effVoiceFor = (rungName) =>
-      voice || (rungName === 'openrouter-tts' ? orVoice() : rungName === 'kokoro' ? kokoroVoice() : '');
-
-    // Two IDENTICAL sentences scheduled in the same fillSlots() batch below
-    // (a slide repeating a phrase across two bullets) join the SAME in-flight
-    // request instead of each firing an independent one — fixed via
-    // `inFlightSynths`, below, rather than just relying on `audioCache` (which
-    // only gets populated once a request RESOLVES, too late to help a
-    // concurrent duplicate).
-    const synth = (t) => {
-      const cacheKey = cacheKeyFor(rung.name, modelIdFor(rung.name), effVoiceFor(rung.name), effSpeed, t);
-      const cached = audioCache.get(cacheKey);
-      if (cached) return Promise.resolve(cached);
-      // Join an in-flight request for this exact key — UNLESS it belongs to
-      // an already-aborted call (see inFlightSynths's own comment for why
-      // that check matters for a barge-in replaying the same text).
-      const inflight = inFlightSynths.get(cacheKey);
-      if (inflight && !inflight.sig.aborted) return inflight.promise;
-      // Cleared the moment EITHER side settles — Promise.race doesn't cancel the
-      // loser, so an uncleared timer would linger 20s per sentence, every sentence,
-      // even on the healthy path (a real timer-leak risk across a long deck).
-      let timer;
-      const p = Promise.race([
-        rung.synth({ text: t, voice, speed: effSpeed, signal: sig }).then((blob) => {
-          if (blob) cacheSet(cacheKey, blob);
-          return blob;
-        }).catch((e) => {
-          if (!sig.aborted && !lastError) lastError = errStr(e);
-          return null;
-        }).finally(() => clearTimeout(timer)),
-        new Promise((res) => {
-          timer = setTimeout(() => {
-            if (!sig.aborted && !lastError) lastError = 'timed out waiting for audio (20s)';
-            res(null);
-          }, 20000);
-        }),
-      ]).finally(() => {
-        // Only remove OUR OWN entry — a newer call may have already
-        // overwritten this key (the barge-in case above) by the time we settle.
-        if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
-      });
-      inFlightSynths.set(cacheKey, { promise: p, sig });
-      return p;
-    };
-    try {
-      if (rung.name === 'speechSynthesis') {
-        for (const s of sentences) {
-          if (sig.aborted) break;
-          await waitIfPaused(sig);
-          onSentence?.(s);
-          await speakViaSpeech(s, sig);
-        }
-      } else if (rung.name === 'silent' || !sentences.length) {
-        // Floor: nothing to play.
-      } else {
-        // Blob rungs: fire every sentence's synth up front, capped concurrency —
-        // NOT tied to playback progress the way a one-ahead pipeline is. A
-        // one-ahead pipeline only hides synth latency up to the PREVIOUS
-        // sentence's playback duration; a short sentence (a bullet fragment, a
-        // number) plays back in under a second while a network round trip
-        // costs whatever it costs regardless of text length, so the pipe
-        // starves and every transition becomes its own latency bet. Keeping
-        // SYNTH_CONCURRENCY requests in flight at all times — refilled the
-        // moment a slot frees, independent of how far playback has gotten —
-        // gives every sentence's audio the maximum possible head start instead
-        // of just the prior sentence's (often much shorter) slack. The
-        // audioCache above means a cache hit barely occupies a slot at all, so
-        // a replay-heavy narration isn't bottlenecked by this cap either.
-        const pending = new Array(sentences.length);
-        let started = 0;
-        let active = 0;
-        const fillSlots = () => {
-          // Gated on `!pausedGate` too — an adversarial review found that
-          // without this, pausing narration didn't stop the scheduler at
-          // all: every already-in-flight request completing just refilled
-          // the next queued sentence regardless of pause state, so a single
-          // pause-to-think could silently synthesize the ENTIRE REST of the
-          // deck in the background (unbounded — not merely "3× the old
-          // one-ahead pipeline's worst case," since that pipeline's own loop
-          // iteration was itself gated on `waitIfPaused` before advancing,
-          // capping its wasted-ahead synthesis at exactly one sentence).
-          // Real cost on a BYO OpenRouter key, not just a latency nit.
-          while (!sig.aborted && !pausedGate && active < SYNTH_CONCURRENCY && started < sentences.length) {
-            const idx = started++;
-            active++;
-            pending[idx] = synth(sentences[idx]).finally(() => {
-              active--;
-              fillSlots(); // a slot just freed — start the next queued sentence, if any
-            });
-          }
-          // Stopped early because we're PAUSED (not done, not aborted) — resume()
-          // resolves this exact pausedGate promise instance when the user
-          // unpauses, even though the outer `pausedGate` variable will have
-          // already been reassigned to null by then; chaining onto the
-          // instance (not the variable) is what makes this self-correcting
-          // across repeated pause/resume cycles without any new shared state.
-          if (!sig.aborted && pausedGate && started < sentences.length) {
-            pausedGate.then(() => fillSlots());
-          }
-        };
-        fillSlots();
-        for (let i = 0; i < sentences.length; i++) {
-          if (sig.aborted) break;
-          const blob = await pending[i];
-          if (sig.aborted) break;
-          await waitIfPaused(sig);
-          onSentence?.(sentences[i]);
-          // Additive: forward the MEASURED onset/duration + the sentence INDEX (so a
-          // consumer never has to infer it from text, which duplicate sentences make
-          // ambiguous) to a caption cursor. Omitted → playBlob's onStart is undefined.
-          const onStart = onSentenceTiming
-            ? ({ onsetMs, durationMs }) => onSentenceTiming({ index: i, text: sentences[i], onsetMs, durationMs })
-            : undefined;
-          const played = await playBlob(blob, sig, onStart);
-          // A decode/play failure (not a mere missing blob, which the synth error above
-          // already explains) is worth surfacing too.
-          if (played && played.ok === false && played.error && played.error !== 'no audio' && !lastError) {
-            lastError = played.error;
-          }
-          // Breathe between sentences — a real pause the clip itself doesn't carry, sized
-          // to match the caption estimate's gap so the highlight rests in it (see
-          // sentenceGapMs). Not after the last sentence, and short-circuited on abort.
-          if (i < sentences.length - 1 && !sig.aborted) await sleep(sentenceGapMs(sentences[i]), sig);
-        }
-      }
-    } finally {
-      if (activeCtl === ctl) activeCtl = null;
-      onState?.({ rung: rung.name, speaking: false, aborted: sig.aborted, error: lastError || undefined });
-    }
   }
 
   // Background prefetch: populate `audioCache` for `sentences` WITHOUT playing
@@ -1063,66 +732,64 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     pumpWarmQueue();
   }
 
-  function waitIfPaused(signal) {
-    if (!pausedGate) return Promise.resolve();
-    return new Promise((resolve) => {
-      const check = () => { if (!pausedGate || signal.aborted) resolve(); };
-      pausedGate.then(check);
-      signal?.addEventListener?.('abort', () => resolve(), { once: true });
-    });
-  }
-
+  // stop/pause/resume now control ONLY the browser speechSynthesis rung (the one
+  // rung that plays itself). Every other rung is a pure byte source — the CALLER
+  // (Suono) owns that playback, so it starts/pauses/stops those clips itself; there
+  // is no owned WebAudio context here to touch anymore. Read-aloud and /cadenza
+  // still call these for the speechSynthesis rung. Never throw.
   function stop() {
-    if (activeCtl) { try { activeCtl.abort(); } catch {} activeCtl = null; }
-    // Release any paused waiter so a stop-while-paused unwinds cleanly.
-    const r = resumeFn; pausedGate = null; resumeFn = null; r?.();
-    try { currentSource?.stop(); } catch {}
-    currentSource = null;
     try { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); } catch {}
   }
-
   function pause() {
-    // Suspending the context pauses the in-flight clip mid-stream (no offset
-    // bookkeeping); the pausedGate also holds the NEXT sentence.
-    try { audioCtx?.suspend?.(); } catch {}
     try { if (typeof speechSynthesis !== 'undefined') speechSynthesis.pause(); } catch {}
-    if (!pausedGate) pausedGate = new Promise((res) => { resumeFn = res; });
   }
   function resume() {
-    try { audioCtx?.resume?.().catch(() => {}); } catch {}
     try { if (typeof speechSynthesis !== 'undefined') speechSynthesis.resume(); } catch {}
-    const r = resumeFn; pausedGate = null; resumeFn = null; r?.();
+  }
+
+  // Synthesize the fixed PREVIEW_TEXT sample for an EXPLICIT rung/voice/model (bypassing the auto
+  // ladder) and return its BYTES — the caller plays them (Suono). Never rejects; never plays audio.
+  // Returns { ok, bytes, key, error }. `rung` is the tier NAME 'openrouter' | 'kokoro' (as previewVoice took).
+  // Preserves previewVoice's exact cache-key derivation (rung's real `.name`, effModel, effVoice,
+  // effSpeed, PREVIEW_TEXT) so a preview and a real sentence can still share a cache entry.
+  async function synthSample({ rung, voice: v, speed, model, signal } = {}) {
+    const r = rung === 'openrouter' ? openrouter : rung === 'kokoro' ? kokoro : null;
+    if (!r) return { ok: false, bytes: null, key: '', error: 'unknown voice' };
+    if (!r.ready()) return { ok: false, bytes: null, key: '', error: rung === 'openrouter' ? 'cloud voice not connected' : 'voice not ready' };
+    const effSpeed = speed ?? speedPref();
+    const effVoice = v || (rung === 'openrouter' ? orVoice() : kokoroVoice());
+    const effModel = (rung === 'openrouter' && model) || modelIdFor(r.name);
+    const key = cacheKeyFor(r.name, effModel, effVoice, effSpeed, PREVIEW_TEXT);
+    const cached = audioCache.get(key);
+    if (cached) return { ok: true, bytes: cached, key };
+    let timer;
+    const ctl = new AbortController();
+    const sig = signal ?? ctl.signal;
+    try {
+      const blob = await Promise.race([
+        r.synth({ text: PREVIEW_TEXT, voice: v, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: sig }).then((b) => { if (b) cacheSet(key, b); return b; }).finally(() => clearTimeout(timer)),
+        new Promise((res) => { timer = setTimeout(() => { ctl.abort(); res(null); }, 20000); }),
+      ]);
+      if (!blob?.size) return { ok: false, bytes: null, key, error: blob === null ? 'timed out waiting for audio (20s) — check your connection' : 'no audio returned (empty response)' };
+      return { ok: true, bytes: blob, key };
+    } catch (e) { return { ok: false, bytes: null, key, error: (e?.message) || String(e || 'synth failed') }; }
   }
 
   return {
-    speak,
     // synthOne — the byte SOURCE for an external player (Studio's Suono sequence). See its definition.
     synthOne,
+    // synthSample — the byte SOURCE for the Voice-tab "play sample" audition (explicit rung/voice/model,
+    // bypassing the ladder); the caller (Suono) plays the returned bytes. See its definition.
+    synthSample,
     // Speak ONE sentence via the browser speechSynthesis rung (which plays itself, no bytes) — the
     // parallel path a bytes-only external player uses when pickRung() lands on 'speechSynthesis'.
     speakThis: speakViaSpeech,
+    // stop/pause/resume control ONLY the speechSynthesis rung now — every other rung's playback is
+    // the caller's (Suono's). See their definitions.
     stop,
     pause,
     resume,
-    unlock,
     warm,
-    speaking() { return !!activeCtl; },
-    paused() { return !!pausedGate; },
-    // The owned WebAudio clock, in ms — the monotonic time source a caption cursor
-    // ticks against (onsets from onSentenceTiming are read off the SAME clock). 0
-    // before any audio has played. Read-only; never creates the context.
-    audioTimeMs() { return audioCtx ? audioCtx.currentTime * 1000 : 0; },
-    // The AudioContext lifecycle state for diagnostics: 'none' (never created),
-    // 'suspended' (needs a gesture / interrupted), or 'running'. Read-only.
-    audioState() { return audioCtx ? audioCtx.state : 'none'; },
-    // Audio hardware output latency in ms — the gap between the clock (currentTime)
-    // and what's actually HEARD. A caption cursor subtracts this so the highlight
-    // matches the ear rather than leading it. 0 where the browser doesn't report it.
-    outputLatencyMs() {
-      if (!audioCtx) return 0;
-      const l = audioCtx.outputLatency || audioCtx.baseLatency || 0;
-      return l * 1000;
-    },
     rung() { return pickRung().name },
     kokoroSupported,
     availability() {
@@ -1142,82 +809,6 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     async loadKokoro(onProgress, signal) { await kokoro.load(onProgress, signal); kokoroCachedFlag = true; emitChange(); return true; },
     // Re-probe the on-disk cache (after Settings "Remove models", say).
     probeKokoroCache,
-    // Play a short sample with an EXPLICIT rung + voice (the Voice tab's "play
-    // sample"). Bypasses the auto ladder so each voice can be auditioned directly.
-    // Resolves false if that rung isn't ready (cloud not connected / Kokoro not
-    // loaded). Never rejects.
-    // Returns { ok, error } so the UI can SHOW why a sample failed (the synth HTTP
-    // error, an unsupported-MP3 decode, or audio still blocked) instead of silently
-    // doing nothing — the only way to diagnose iOS without a Mac/console.
-    async previewVoice({ rung, voice: v, speed, model } = {}) {
-      const r = rung === 'openrouter' ? openrouter : rung === 'kokoro' ? kokoro : null;
-      if (!r) return { ok: false, error: 'unknown voice' };
-      if (!r.ready()) return { ok: false, error: rung === 'openrouter' ? 'cloud voice not connected' : 'voice not ready' };
-      stop();
-      const ctl = new AbortController();
-      activeCtl = ctl;
-      const effSpeed = speed ?? speedPref();
-      // Same resolved-voice mirroring as speak()'s effVoiceFor — `||`, not
-      // `??`, matching the real rungs' own `voice || getVoice()` exactly
-      // (see effVoiceFor's comment for why the distinction matters). `rung`
-      // here is the caller's tier NAME ('openrouter'/'kokoro'), matching
-      // r.ready()'s own ternary above.
-      const effVoice = v || (rung === 'openrouter' ? orVoice() : kokoroVoice());
-      // `model` is an explicit per-call override — the Workspace model
-      // PICKER's own ▶ row-preview button passes the id of the row being
-      // auditioned, which may not be the currently ACTIVE model at all
-      // (previewTtsVoice already resolved it for the CACHE lookup one layer
-      // up; this is the live-fallback half of that same fix). Without this,
-      // `modelIdFor` falls back to the persisted active model regardless of
-      // which row was clicked — a live preview of an unselected, uncached
-      // model silently played through whatever model WAS active instead (bug,
-      // 2026-07-09-studio-cloud-ondevice-config-split.md's "model-row-preview"
-      // follow-up). Kokoro has no alternate-model concept, so this only
-      // applies to the openrouter rung. Used for BOTH the cache key and the
-      // synth call below — a mismatch between the two would mean a row
-      // preview could read or write another model's cache entry.
-      const effModel = (rung === 'openrouter' && model) || modelIdFor(r.name);
-      // Repeat "Play sample" clicks for the SAME voice/model/speed are pure
-      // duplicate synths of a fixed string — the same cache speak() uses, keyed
-      // by the rung's real name (r.name — 'openrouter-tts'/'kokoro', not the
-      // caller's shorthand) so a preview and a later spoken sentence that happen
-      // to share text could even share a cache entry.
-      const cacheKey = cacheKeyFor(r.name, effModel, effVoice, effSpeed, PREVIEW_TEXT);
-      // The PLAYBACK phase below already has an 8s watchdog; the SYNTH phase (the
-      // network fetch to OpenRouter, or the Kokoro worker round-trip) previously had
-      // NONE — a hung request left this awaiting forever, stuck on "Playing…" with no
-      // way out short of closing the panel. Race it against a timeout that also aborts
-      // `ctl`, so an abort-aware rung (fetch, worker) genuinely cancels — and even
-      // where it can't (Kokoro's main-thread fallback), the race still resolves,
-      // unsticking the UI regardless. `synthTimer` is cleared the moment EITHER side
-      // settles (not just on the happy path) — Promise.race doesn't cancel the loser,
-      // so an uncleared timer would linger for the full 20s on every call, healthy or
-      // not, a real (if small) timer leak across a long presentation.
-      let synthTimer;
-      try {
-        const cached = audioCache.get(cacheKey);
-        const blob = cached ?? await Promise.race([
-          r.synth({ text: PREVIEW_TEXT, voice: v, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: ctl.signal }).then((b) => {
-            if (b) cacheSet(cacheKey, b);
-            return b;
-          }).finally(() => clearTimeout(synthTimer)),
-          new Promise((res) => { synthTimer = setTimeout(() => { ctl.abort(); res(null); }, 20000); }),
-        ]);
-        if (!blob?.size) return { ok: false, error: blob === null ? 'timed out waiting for audio (20s) — check your connection' : 'no audio returned (empty response)' };
-        // Race playback against a watchdog: a decoded clip that never reaches
-        // 'ended' means the audio context is stuck suspended (iOS, no gesture) —
-        // report it rather than hang the button. Same leak/clear concern as above.
-        const ctx = getCtx();
-        let playTimer;
-        const played = await Promise.race([
-          playBlob(blob, ctl.signal).finally(() => clearTimeout(playTimer)),
-          new Promise((res) => { playTimer = setTimeout(() => res({ ok: false, error: 'no sound — audio ' + (ctx ? ctx.state : 'unavailable') }), 8000); }),
-        ]);
-        clearTimeout(playTimer);
-        return played.ok ? { ok: true } : { ok: false, error: played.error };
-      } catch (e) { return { ok: false, error: String(e?.message || e) }; }
-      finally { clearTimeout(synthTimer); if (activeCtl === ctl) activeCtl = null; }
-    },
     // Prefs.
     // Every pref setter emits `db-voice-changed` so EVERY subscribed surface re-reads —
     // the TTS settings panel, the Present voice indicator, a second open Workspace. Only

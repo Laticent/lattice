@@ -132,8 +132,12 @@ describe('cachedSampleUrl — the pre-generated sample path, or null when nothin
 		expect(cachedSampleUrl('microsoft/mai-voice-2', 'en-US-Harper:MAI-Voice-2', 1)).toBe('/voice-samples/mai-voice-2/en-US-Harper_MAI-Voice-2.mp3');
 	});
 
-	it('returns null for Kokoro — currently uncached (see the catalog\'s own note on provider instability)', () => {
-		expect(cachedSampleUrl(KOKORO_MODEL_ID, 'af_heart', 1)).toBeNull();
+	it('resolves a cached Kokoro voice to its on-disk path (hosted hexgrad/kokoro-82m, full roster cached)', () => {
+		expect(cachedSampleUrl(KOKORO_MODEL_ID, 'af_heart', 1)).toBe('/voice-samples/kokoro/af_heart.mp3');
+	});
+
+	it('returns null for a Kokoro voice id outside the cached roster', () => {
+		expect(cachedSampleUrl(KOKORO_MODEL_ID, 'af_notarealvoice', 1)).toBeNull();
 	});
 
 	it('returns null for a live voice outside the cached/featured subset (e.g. zonos\' "random")', () => {

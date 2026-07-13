@@ -184,6 +184,11 @@ export function createStage(opts: StageOptions = {}): Stage {
 		let gainNode: GainNode | null = null;
 		let settled = false;
 		let paused = false;
+		// Did THIS handle freeze the shared play-clock (via its own pause())? The clock-pause state is
+		// stage-GLOBAL, so a handle that never paused must NOT unfreeze on finish — else a one-off play
+		// on the shared stage (e.g. a Voice-tab sample audition) ending would clear a DIFFERENT, still-
+		// paused clip's freeze and drift its caption. Scopes finish()'s unfreeze to the owner.
+		let clockFrozenHere = false;
 		let onsetReported = false;
 		let basisSec = 0; // ctx.currentTime when the CURRENT segment started
 		let consumedSec = 0; // clip time already played BEFORE this segment (accrues across pause/resume)
@@ -203,7 +208,10 @@ export function createStage(opts: StageOptions = {}): Stage {
 			if (settled) return;
 			settled = true;
 			clearSuspendTimer();
-			resumeClock(); // never leave the clock frozen — a stop()/barge-in WHILE paused must un-freeze it for the next run
+			if (clockFrozenHere) {
+				resumeClock(); // never leave OUR freeze in place — a stop()/barge-in WHILE paused must un-freeze for the next run
+				clockFrozenHere = false;
+			}
 			signal?.removeEventListener?.('abort', onAbort);
 			try {
 				gainNode?.disconnect();
@@ -322,6 +330,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 			if (settled || paused) return;
 			paused = true;
 			pauseClock(); // freeze the caption clock at the TAP (not at the deferred suspend below)
+			clockFrozenHere = true; // this handle now owns the freeze — only it may unfreeze on finish
 			const cur = src;
 			const curGain = gainNode;
 			if (!cur) {
@@ -398,6 +407,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 				/* best-effort */
 			}
 			resumeClock(); // fold the paused span into the offset AFTER the context is running again
+			clockFrozenHere = false; // we've unfrozen our own freeze
 			// Paused at (or past) the clip's end — nothing left to play; settle instead of arming a
 			// zero-length source (which would build a degenerate same-time gain envelope).
 			if (consumedSec >= durSec) {

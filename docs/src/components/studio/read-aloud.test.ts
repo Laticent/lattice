@@ -11,14 +11,16 @@ import { previewTtsVoice, slideToSpeech, useReadAloud } from './read-aloud';
 //   • the Suono stage — spies its unlock (the iOS gesture handshake), exposes a controllable
 //     clockMs(), and has sequence() CAPTURE the onItemStart/onState callbacks so a test can drive a
 //     measured onset (the re-anchor + calibration fold) and returns inert transport spies.
-const { unlockSpy, previewVoiceSpy, voiceState, stageCtl } = vi.hoisted(() => ({
+const { unlockSpy, synthSampleSpy, voiceState, stageCtl } = vi.hoisted(() => ({
 	unlockSpy: vi.fn(),
 	// Typed with its real parameter (not `async () => ...`, a zero-arg
-	// signature) so `previewVoiceSpy.mock.calls[0][0]` below has a real
+	// signature) so `synthSampleSpy.mock.calls[0][0]` below has a real
 	// element type — a bare `vi.fn(async () => ...)` infers `mock.calls` as
 	// `[][]`, and indexing a length-0 tuple is a `tsc --noEmit` error the
 	// esbuild-transformed `vitest run` never catches (caught live in CI).
-	previewVoiceSpy: vi.fn(async (_o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }) => ({ ok: true })),
+	// voice-model is byte-source-only now: the Voice-tab preview SYNTHESIZES bytes here; read-aloud
+	// plays them on the (mocked) Suono stage. So the speed-clamp assertions read synthSample's args.
+	synthSampleSpy: vi.fn(async (_o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }) => ({ ok: true, bytes: {} as unknown as Blob, key: 'sample-key' })),
 	voiceState: { rung: 'silent' as string },
 	stageCtl: {
 		clockMs: 0,
@@ -69,14 +71,13 @@ vi.mock('@/playground/voice-model.js', () => ({
 		pause() {},
 		resume() {},
 		rung: () => voiceState.rung,
-		unlock: () => {},
 		orModel: () => 'test/model',
 		orVoice: () => 'test-voice',
 		// Empty kokoro voice → the resolved calibration key is voiceKeyOf('kokoro · ?') === 'kokoro'
 		// (the label's non-alphanumerics collapse away), which the calibration tests below assert on.
 		kokoroVoice: () => '',
 		speedPref: () => 1,
-		previewVoice: previewVoiceSpy,
+		synthSample: synthSampleSpy,
 	}),
 }));
 
@@ -350,14 +351,12 @@ describe('useReadAloud — pause/resume during the voice-arming window', () => {
 		vi.doMock('@/playground/voice-model.js', () => ({
 			createVoiceModel: () =>
 				gate.then(() => ({
-					speak() {},
+					synthOne: async () => ({ rung: 'kokoro', bytes: null, key: 'k' }),
+					speakThis() {},
 					stop() {},
 					pause() {},
 					resume() {},
 					rung: () => 'kokoro',
-					unlock() {},
-					audioTimeMs: () => 0,
-					outputLatencyMs: () => 0,
 				})),
 		}));
 		const { useReadAloud: useReadAloudFresh } = await import('./read-aloud');
@@ -402,27 +401,29 @@ describe('useReadAloud — pause/resume during the voice-arming window', () => {
 // sample at speed === 1. previewTtsVoice now clamps to 1 for a non-speed-
 // supporting model before either the cache lookup or the live fallback.
 describe('previewTtsVoice — clamps a stale cross-model speed for a model that cannot use it', () => {
-	beforeEach(() => previewVoiceSpy.mockClear());
+	beforeEach(() => synthSampleSpy.mockClear());
 
 	it('clamps to speed 1 before the live fallback when the model does not support speed', async () => {
 		// Gemini is speedSupport:false; 'Callirrhoe' is a real live voice OUTSIDE
 		// its cachedVoices subset, so cachedSampleUrl deterministically misses and
 		// this always reaches the live fallback — no jsdom Audio-element ambiguity.
 		await previewTtsVoice({ rung: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Callirrhoe', speed: 1.3 });
-		expect(previewVoiceSpy).toHaveBeenCalledTimes(1);
-		expect(previewVoiceSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
+		expect(synthSampleSpy).toHaveBeenCalledTimes(1);
+		expect(synthSampleSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
 	});
 
 	it('passes a real speed through unchanged for a model that DOES support it', async () => {
-		// Kokoro is speedSupport:true and requiresAsset:false (never cached), so
-		// this also deterministically reaches the live fallback.
+		// Kokoro is speedSupport:true, so 1.3 passes through unclamped — and at a
+		// non-default speed cachedSampleUrl always misses (only 1x is pre-generated),
+		// so this deterministically reaches the live fallback even though the roster
+		// is now sample-cached.
 		await previewTtsVoice({ rung: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1.3 });
-		expect(previewVoiceSpy).toHaveBeenCalledTimes(1);
-		expect(previewVoiceSpy.mock.calls[0][0]).toMatchObject({ speed: 1.3 });
+		expect(synthSampleSpy).toHaveBeenCalledTimes(1);
+		expect(synthSampleSpy.mock.calls[0][0]).toMatchObject({ speed: 1.3 });
 	});
 
 	it('defaults an omitted speed to 1 regardless of speed support', async () => {
 		await previewTtsVoice({ rung: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Callirrhoe' });
-		expect(previewVoiceSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
+		expect(synthSampleSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
 	});
 });

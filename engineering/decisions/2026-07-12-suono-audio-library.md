@@ -355,6 +355,34 @@ migration wires it into the Playground.
      with the browser-voice (speechSynthesis) rung on the parallel `speakThis` path, exactly as
      read-aloud does; the clocked path is **verified on the real /cadenza page** (a mocked TTS endpoint
      → the highlight rides Suono's clock, no console errors; audible output device-only).
+   - **2c-final — voice-model's own playback REMOVED; the gate allowlist is ZERO. ✅ DONE.** With the
+     Drawing Board declared dead, `voice-model.js` was reduced to a **byte source**: its blob-playback
+     engine (`getCtx`/`playBlob`/`speak` + the sentence scheduler + the raw `AudioContext`, plus
+     `unlock`/`audioTimeMs`/`audioState`/`outputLatencyMs`/`speaking`/`paused`/`previewVoice`) is deleted;
+     `pause`/`resume`/`stop` slim to speechSynthesis-only; `synthOne`/`speakThis`/`warm`/the rung ladder
+     stay. The Voice-tab "play sample" audition moved onto Suono — voice-model exposes `synthSample()`
+     (bytes only) and the read-aloud bridge plays them on the shared stage (the `<audio>` cached-sample
+     fast path is untouched). The two frozen Drawing-Board consumers were stripped: `drawing-board-
+     practice.js` loses its read-aloud narration, `drawing-board-settings.js` its sample audition (a
+     sanctioned retirement refactor, `2026-07-03-studio-succession.md`). Net: **no module outside Suono
+     creates a raw `AudioContext` or plays audio**, so `SANCTIONED_LEGACY_AUDIO` is now empty — the
+     `checkAudioPlaybackBoundary` gate guards a zero allowlist (a new raw-audio consumer fails outright).
+     Verified: voice-model tests 64/64 (node 16 + vitest 48), docs suite green, typecheck/lint/build:check
+     clean; the **audible** Voice-tab audition is device-only (its Suono path is unit-verified + mirrors
+     the verified /cadenza clocked path).
+     - **Independent checker (maker-checker).** Confirmed the byte-source refactor, cache/dedup
+       preservation, gate emptying, and frozen-surface strips are correct and complete. Folded findings:
+       (a) routing the audition through the **shared** module-singleton stage coupled the clocks — a
+       one-off play's `finish()→resumeClock()` could clear a *paused* read-along's stage-global freeze;
+       fixed by scoping `finish()`'s unfreeze to the handle that actually paused (`clockFrozenHere`), with
+       a shared-stage isolation unit test (not reachable today — Present-fullscreen and the Workspace
+       Voice tab can't co-exist — but a real latent footgun); (b) the audition watchdog now `stop()`s its
+       orphaned source; (c) dropped the dead `voice`/`openVoiceSettings` args the frozen `drawing-board.astro`
+       still passed to `createPractice`, plus stale test-mock props. **Noted, not fixed (device-only):** on
+       a *first-ever* audition of an uncached voice, `stage.unlock()` runs after an `await getVoice()`
+       dynamic import, so iOS may lose the gesture and the sample stays silent (the watchdog reports it) —
+       not a regression (the old path didn't unlock synchronously either); the common cached-sample
+       `<audio>` path is unaffected.
    - **2c — the guardrail landed EARLY (doesn't wait for voice-model's removal).** The repo-wide gate
      (§6) is now live as `checkAudioPlaybackBoundary` (`tools/check-ownership.js`, via `build:check`):
      no raw `AudioContext` and no voice-model imperative playback (`.speak({…})` / `.playBlob()`)

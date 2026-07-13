@@ -1180,18 +1180,8 @@ const dbData = JSON.stringify({
 				// Share the page's model ladder so a connected cloud/local tier tailors
 				// the rehearsal plan; absent one, the deterministic floor still runs.
 				model: window.__dbModel,
-				// Share the one voice model (also configured in Settings → Voice).
-				voice: window.__dbVoice,
-				// Mobile read-aloud (on-device is desktop-only) sends the user here to
-				// connect the cloud voice. Open the Settings drawer on its Voice tab.
-				openVoiceSettings: function () {
-					var drawer = document.getElementById('db-settings-drawer');
-					var isOpen = drawer && drawer.classList.contains('is-open');
-					if (!isOpen) { var chip = document.getElementById('db-model-chip'); if (chip) chip.click(); }
-					var toVoice = function () { if (window.__dbSettings && window.__dbSettings.openTab) window.__dbSettings.openTab('voice'); };
-					toVoice();
-					setTimeout(toVoice, 0); // land on Voice even after the drawer's onOpen selects Cloud
-				},
+				// (read-aloud removed — Practice no longer takes `voice`/`openVoiceSettings`; voice-model
+				// is byte-source-only now and the frozen Drawing Board's narration was retired.)
 			});
 			const openBtn = document.getElementById('db-practice-open');
 			if (openBtn) openBtn.addEventListener('click', () => practice.open());

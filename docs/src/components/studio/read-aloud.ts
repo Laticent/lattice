@@ -127,15 +127,6 @@ export type ReadAloudState = {
 // build it once, only when the user first plays). Dynamic-imported so the engine
 // bundle stays out of the initial island and SSR never touches window.
 type VoiceModel = {
-	speak: (o: {
-		text: string;
-		sentences?: string[];
-		signal?: AbortSignal;
-		/** Fired as the voice reaches each sentence (in playback order), before its audio plays. */
-		onSentence?: (sentence: string) => void;
-		onSentenceTiming?: (t: { index: number; onsetMs: number; durationMs: number }) => void;
-		onState?: (s: { rung?: string; speaking?: boolean; aborted?: boolean; error?: string }) => void;
-	}) => void;
 	/** Synthesize ONE sentence to audio BYTES (no playback) — the byte SOURCE the Studio read-aloud's
 	 *  Suono sequence produces from. `rung` tells the caller how to play (a blob rung → decode+play the
 	 *  bytes on Suono's own clock); `key` is the exact cache identity, so a warm/replay lines up. */
@@ -150,14 +141,6 @@ type VoiceModel = {
 	/** Background-prefetch these spoken sentences into the shared audio cache — no playback, best-effort. `signal` stops any FURTHER requests once aborted (already-started ones finish; see voice-model.js). */
 	warm: (sentences: string[], opts?: { signal?: AbortSignal }) => void;
 	rung: () => string;
-	/** iOS audio unlock — MUST run synchronously inside a user gesture (the play tap). */
-	unlock: () => void;
-	/** The owned WebAudio clock (ms) — the time source the word cursor rides during TTS. */
-	audioTimeMs: () => number;
-	/** The AudioContext lifecycle state ('none' | 'suspended' | 'running') — diagnostics only. */
-	audioState: () => string;
-	/** Output latency (ms) — subtracted so the highlight tracks what's HEARD, not the buffer. */
-	outputLatencyMs: () => number;
 	// The config surface the Workspace TTS settings panel drives (below) — same
 	// instance as playback, so a pick there takes effect immediately.
 	availability: () => VoiceAvailability;
@@ -172,7 +155,10 @@ type VoiceModel = {
 	kokoroSupported: () => boolean;
 	probeKokoroCache: () => Promise<boolean>;
 	loadKokoro: (onProgress?: (p: VoiceLoadProgress) => void, signal?: AbortSignal) => Promise<boolean>;
-	previewVoice: (o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }) => Promise<{ ok: boolean; error?: string }>;
+	/** Synthesize the fixed sample sentence for an EXPLICIT rung/voice/model (bypassing the auto ladder)
+	 *  and return its BYTES — the caller plays them on the Suono stage (voice-model owns no playback).
+	 *  Never rejects; `{ ok:false, error }` on an unready rung / synth failure. */
+	synthSample: (o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number; signal?: AbortSignal }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
 };
 
 export type VoiceAvailability = {
@@ -223,6 +209,8 @@ function getStage(): Stage {
 	if (!stageSingleton) stageSingleton = createStage();
 	return stageSingleton;
 }
+// The in-flight Voice-tab sample audition (played on the shared stage), so stopTtsPreview can cut it.
+let previewHandle: { stop(): void } | null = null;
 
 function nowMs(): number {
 	return typeof performance !== 'undefined' ? performance.now() : 0;
@@ -1046,16 +1034,54 @@ export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?
 	}
 	const v = await getVoice();
 	if (!v) return { ok: false, error: 'voice unavailable' };
-	return v.previewVoice({ ...o, speed });
+	// Live fallback (uncurated voice / non-default speed): voice-model now only SYNTHESIZES the sample
+	// bytes; we play them on the shared Suono stage (the same engine the read-along uses) — voice-model
+	// no longer owns any WebAudio playback. unlock() runs synchronously-ish on the gesture path.
+	const stage = getStage();
+	try {
+		stage.unlock();
+	} catch {
+		/* best-effort */
+	}
+	const s = await v.synthSample({ ...o, speed });
+	if (!s.ok || !s.bytes) return { ok: false, error: s.error || 'no audio returned' };
+	try {
+		previewHandle?.stop(); // barge-in on a prior sample
+		const clip = await stage.decode(s.bytes, s.key);
+		const handle = stage.play(clip);
+		previewHandle = handle;
+		let playTimer: ReturnType<typeof setTimeout> | undefined;
+		// Watchdog: a decoded clip that never reaches 'ended' means the context is stuck suspended
+		// (iOS, no gesture) — report it rather than hang the "Playing…" button.
+		const res = await Promise.race<{ ok: boolean; aborted?: boolean; error?: string }>([
+			handle.done,
+			new Promise((r) => {
+				playTimer = setTimeout(() => r({ ok: false, error: 'no sound — audio ' + (stage.state ? stage.state() : 'unavailable') }), 8000);
+			}),
+		]);
+		clearTimeout(playTimer);
+		handle.stop(); // idempotent: no-op on natural end, but STOPS the orphaned source if the watchdog won
+		if (previewHandle === handle) previewHandle = null;
+		if (res.aborted) return { ok: true }; // stopped by the user, not an error
+		return res.ok ? { ok: true } : { ok: false, error: res.error || 'playback failed' };
+	} catch (e) {
+		return { ok: false, error: String((e as Error)?.message || e) };
+	}
 }
 
 /** Stop any in-flight preview — called on TTS settings unmount so a sample started
  *  just before the Workspace sheet closes doesn't keep playing (mirrors
  *  useReadAloud's own unmount cleanup, above). Never throws. */
 export async function stopTtsPreview(): Promise<void> {
+	try {
+		previewHandle?.stop(); // the Suono-played sample audition
+		previewHandle = null;
+	} catch {
+		/* best-effort */
+	}
 	const v = await getVoice();
 	try {
-		v?.stop();
+		v?.stop(); // also cancel any speechSynthesis-rung preview
 	} catch {
 		/* best-effort */
 	}

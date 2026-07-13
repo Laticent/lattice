@@ -1,8 +1,10 @@
 // Unit coverage for the VoiceModel adapter (the read-aloud voice ladder). Like
-// architect-model.test.js, this exercises the ladder + sequencing with a scripted
+// architect-model.test.js, this exercises the ladder + byte source with a scripted
 // rung and no real audio device or model — the parts that must be correct without
-// hardware: sentence segmentation, WAV framing, rung selection, and that speak()
-// always resolves (the silent floor) and drives synth() per sentence.
+// hardware: sentence segmentation, WAV framing, rung selection, and that the byte
+// source (synthOne / synthSample) always resolves (the silent floor) and drives
+// synth() with the right request. voice-model no longer plays audio (the Suono
+// consumer owns playback), so there is nothing to drive an AudioContext here.
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -59,13 +61,14 @@ test('wavBlob: writes a valid 16-bit PCM WAV header', async () => {
   assert.equal(dv.getUint16(34, true), 16); // bits per sample
 });
 
-test('ladder: floors to silent when nothing is connected, and speak() still resolves', async () => {
+test('ladder: floors to silent when nothing is connected, and synthOne still resolves (null bytes, never throws)', async () => {
   const { createVoiceModel } = await load();
   const v = createVoiceModel({ getOpenRouterKey: () => null });
   assert.equal(v.availability().rung, 'silent');
-  // No rung, no audio device — must resolve, never throw.
-  await v.speak({ text: 'This should be silent. It must not throw.' });
-  assert.equal(v.speaking(), false);
+  // No rung, no audio device — must resolve to a null byte source, never throw.
+  const r = await v.synthOne({ text: 'This should be silent. It must not throw.' });
+  assert.equal(r.rung, 'silent');
+  assert.equal(r.bytes, null);
 });
 
 test('ladder: a connected OpenRouter key selects the openrouter-tts rung', async () => {
@@ -75,7 +78,7 @@ test('ladder: a connected OpenRouter key selects the openrouter-tts rung', async
   assert.equal(v.availability().openRouterReady, true);
 });
 
-test('openrouter synth: POSTs the OpenAI-compatible /audio/speech route and returns the raw blob', async () => {
+test('openrouter synth: POSTs the OpenAI-compatible /audio/speech route and returns the raw blob (via synthOne)', async () => {
   const { createVoiceModel } = await load();
   let captured = null;
   const fetchImpl = async (url, opts) => {
@@ -84,8 +87,8 @@ test('openrouter synth: POSTs the OpenAI-compatible /audio/speech route and retu
     return { ok: true, status: 200, blob: async () => ({ size: 256, type: 'audio/mpeg' }) };
   };
   const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
-  // speak() drives the rung's synth (no audio device in node → playback is a no-op).
-  await v.speak({ text: 'Revenue grew to $4.2M.', speed: 1.25 });
+  // synthOne drives the active rung's synth (no audio device in node → no playback).
+  await v.synthOne({ text: 'Revenue grew to $4.2M.', speed: 1.25 });
   assert.ok(captured, 'the rung called fetch');
   assert.equal(captured.method, 'POST');
   assert.equal(captured.url, 'https://openrouter.ai/api/v1/audio/speech');
@@ -106,76 +109,8 @@ test('openrouter synth: omits speed when it is 1 (default), keeping the request 
     return { ok: true, status: 200, blob: async () => ({ size: 256, type: 'audio/mpeg' }) };
   };
   const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
-  await v.speak({ text: 'Plain.', speed: 1 });
+  await v.synthOne({ text: 'Plain.', speed: 1 });
   assert.equal(body.speed, undefined, 'speed:1 is the default and is not sent');
-});
-
-test('speak(): drives the active rung once per sentence, in order', async () => {
-  const { createVoiceModel, MockRung } = await load();
-  const rung = MockRung();
-  const v = createVoiceModel({});
-  v.__setRung(rung);
-  const seen = [];
-  await v.speak({ text: 'First sentence. Second one! Third?', onSentence: (s) => seen.push(s) });
-  assert.deepEqual(rung.calls, ['First sentence.', 'Second one!', 'Third?']);
-  assert.deepEqual(seen, ['First sentence.', 'Second one!', 'Third?']);
-});
-
-test('warm(): prefetches into the cache so a later speak() call for the same sentence does not re-synth', async () => {
-  const { createVoiceModel, MockRung } = await load();
-  const rung = MockRung({ name: 'openrouter-tts' }); // warm() only fires for openrouter-tts (Munger-inversion finding)
-  const v = createVoiceModel({});
-  v.__setRung(rung);
-  v.warm(['Next slide sentence.']);
-  await new Promise((r) => setTimeout(r, 20)); // let the background prefetch settle
-  // The synth call must already have happened from warm() alone, BEFORE speak()
-  // ever runs — asserting only the count after speak() wouldn't distinguish a
-  // real prefetch from warm() doing nothing and speak() synthesizing it fresh.
-  assert.deepEqual(rung.calls, ['Next slide sentence.']);
-  await v.speak({ text: 'Next slide sentence.' });
-  assert.deepEqual(rung.calls, ['Next slide sentence.'], 'speak() replayed the warmed cache entry, no second call');
-});
-
-test('warm(): no-ops when the resolved rung is silent (nothing connected) — never throws', async () => {
-  // No localStorage in plain Node, so setRungPref('off') can't force silent here
-  // the way the jsdom twin does — mirror the existing "floors to silent" test's
-  // approach instead: nothing connected, no rung injected, ladder floors on its own.
-  const { createVoiceModel } = await load();
-  const v = createVoiceModel({ getOpenRouterKey: () => null });
-  assert.equal(v.availability().rung, 'silent');
-  v.warm(['Would-be next slide sentence.']); // best-effort — must not throw
-  await new Promise((r) => setTimeout(r, 20));
-});
-
-test("warm(): no-ops for the kokoro rung — this prefetch only hides NETWORK latency (openrouter-tts); Kokoro shares ONE compute resource with the CURRENT slide's own speak() scheduler, so prefetching there competes instead of hiding anything (Munger-inversion finding)", async () => {
-  const { createVoiceModel, MockRung } = await load();
-  const rung = MockRung({ name: 'kokoro' });
-  const v = createVoiceModel({});
-  v.__setRung(rung);
-  v.warm(['Would-be next slide sentence.']);
-  await new Promise((r) => setTimeout(r, 20));
-  assert.deepEqual(rung.calls, []);
-});
-
-test('pause()/resume(): suspends narration between sentences, then continues', async () => {
-  const { createVoiceModel, MockRung } = await load();
-  const rung = MockRung();
-  const v = createVoiceModel({});
-  v.__setRung(rung);
-  const seen = [];
-  let pausedOnce = false;
-  const p = v.speak({
-    text: 'One. Two. Three.',
-    onSentence: (s) => { seen.push(s); if (!pausedOnce) { pausedOnce = true; v.pause(); } },
-  });
-  // The loop parks at the paused gate before the second sentence is announced.
-  await new Promise((r) => setTimeout(r, 20));
-  assert.equal(seen.length, 1, 'narration is held after the first sentence');
-  assert.equal(v.paused(), true);
-  v.resume();
-  await p;
-  assert.equal(v.paused(), false);
-  assert.deepEqual(seen, ['One.', 'Two.', 'Three.']);
 });
 
 test('synthOne(): returns bytes + rung + key for a blob rung, and caches (no second synth)', async () => {
@@ -213,22 +148,91 @@ test('synthOne(): empty text returns null bytes without calling the rung', async
   assert.deepEqual(rung.calls, []);
 });
 
-test('stop(): aborting before synth resolves leaves nothing speaking', async () => {
+test('synthSample(): synthesizes the fixed sample for an explicit rung and returns bytes + a key containing PREVIEW_TEXT', async () => {
   const { createVoiceModel } = await load();
-  let aborted = false;
-  const slowRung = {
-    name: 'slow', ready() { return true; },
-    synth({ signal }) {
-      return new Promise((resolve) => {
-        signal?.addEventListener('abort', () => { aborted = true; resolve(null); }, { once: true });
-      });
-    },
+  let fetchCalls = 0;
+  const fetchImpl = async () => {
+    fetchCalls++;
+    return { ok: true, status: 200, blob: async () => ({ size: 8, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(8) }) };
   };
+  const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
+  const res = await v.synthSample({ rung: 'openrouter' });
+  assert.equal(res.ok, true);
+  assert.ok(res.bytes && res.bytes.size > 0, 'returns sample bytes');
+  assert.ok(res.key.includes('This is how your slides will sound.'), 'keys on the fixed PREVIEW_TEXT');
+  // A second sample for the same rung/voice/speed is a cache hit — no re-fetch.
+  const again = await v.synthSample({ rung: 'openrouter' });
+  assert.equal(again.ok, true);
+  assert.equal(fetchCalls, 1, 'the second sample replayed the cached bytes');
+});
+
+test('synthSample(): returns { ok:false } for an unknown rung and when the rung is not ready — never throws', async () => {
+  const { createVoiceModel } = await load();
+  const disconnected = createVoiceModel({ getOpenRouterKey: () => null });
+  const unknown = await disconnected.synthSample({ rung: 'nope' });
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.bytes, null);
+  assert.equal(unknown.error, 'unknown voice');
+
+  const notReady = await disconnected.synthSample({ rung: 'openrouter' }); // no key → cloud not connected
+  assert.equal(notReady.ok, false);
+  assert.equal(notReady.bytes, null);
+  assert.match(notReady.error, /not connected/);
+});
+
+test('warm(): prefetches into the cache so a later synthOne for the same sentence does not re-synth', async () => {
+  const { createVoiceModel, MockRung } = await load();
+  const rung = MockRung({ name: 'openrouter-tts' }); // warm() only fires for openrouter-tts (Munger-inversion finding)
   const v = createVoiceModel({});
-  v.__setRung(slowRung);
-  const p = v.speak({ text: 'A long note that never finishes synthesizing.' });
-  v.stop();
-  await p;
-  assert.equal(aborted, true);
-  assert.equal(v.speaking(), false);
+  v.__setRung(rung);
+  v.warm(['Next slide sentence.']);
+  await new Promise((r) => setTimeout(r, 20)); // let the background prefetch settle
+  // The synth call must already have happened from warm() alone, BEFORE synthOne
+  // ever runs — asserting only the count afterward wouldn't distinguish a real
+  // prefetch from warm() doing nothing and synthOne synthesizing it fresh.
+  assert.deepEqual(rung.calls, ['Next slide sentence.']);
+  await v.synthOne({ text: 'Next slide sentence.' });
+  assert.deepEqual(rung.calls, ['Next slide sentence.'], 'synthOne replayed the warmed cache entry, no second call');
+});
+
+test('warm(): no-ops when the resolved rung is silent (nothing connected) — never throws', async () => {
+  // No localStorage in plain Node, so setRungPref('off') can't force silent here
+  // the way the jsdom twin does — mirror the existing "floors to silent" test's
+  // approach instead: nothing connected, no rung injected, ladder floors on its own.
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({ getOpenRouterKey: () => null });
+  assert.equal(v.availability().rung, 'silent');
+  v.warm(['Would-be next slide sentence.']); // best-effort — must not throw
+  await new Promise((r) => setTimeout(r, 20));
+});
+
+test("warm(): no-ops for the kokoro rung — this prefetch only hides NETWORK latency (openrouter-tts); Kokoro shares ONE compute resource, so prefetching there competes instead of hiding anything (Munger-inversion finding)", async () => {
+  const { createVoiceModel, MockRung } = await load();
+  const rung = MockRung({ name: 'kokoro' });
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  v.warm(['Would-be next slide sentence.']);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(rung.calls, []);
+});
+
+test('stop()/pause()/resume(): drive ONLY the speechSynthesis rung, and are safe no-ops when it is absent', async () => {
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({});
+  // Absent speechSynthesis (plain node): every call is a guarded no-op, never throws.
+  assert.doesNotThrow(() => { v.pause(); v.resume(); v.stop(); });
+
+  // With a speechSynthesis present, each call delegates to the matching API only.
+  const seen = [];
+  globalThis.speechSynthesis = {
+    speak() {}, cancel() { seen.push('cancel'); }, pause() { seen.push('pause'); }, resume() { seen.push('resume'); },
+  };
+  try {
+    v.pause();
+    v.resume();
+    v.stop();
+    assert.deepEqual(seen, ['pause', 'resume', 'cancel']);
+  } finally {
+    delete globalThis.speechSynthesis;
+  }
 });

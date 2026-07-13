@@ -843,9 +843,9 @@ export function createModelSettings({ host, trigger, model, voice, onChange, isO
   }
 
   // ── the Voice tab — read-aloud configuration ─────────────────────────────────
-  // Where the voice comes from (Auto · Cloud · On-device · Off), which voice (with
-  // "play sample"), and the on-device download/remove. One shared `voice` model
-  // backs this and Practice, so a pref set here takes effect there immediately.
+  // Where the voice comes from (Auto · Cloud · On-device · Off), which voice, and
+  // the on-device download/remove. One shared `voice` model backs this and
+  // Practice, so a pref set here takes effect there immediately.
   const VOICE_RUNG_PREFS = [['auto', 'Auto'], ['openrouter', 'Cloud'], ['kokoro', 'On‑device'], ['off', 'Off']];
   function voiceRungLabel(va) {
     if (va.rung === 'openrouter-tts') return 'Cloud (OpenRouter)';
@@ -862,15 +862,10 @@ export function createModelSettings({ host, trigger, model, voice, onChange, isO
     return 'Use the cloud voice when an account is connected, otherwise the on‑device voice once downloaded.';
   }
 
-  // A pickable voice list with a "play sample" on each row. Sampling needs the rung
-  // ready (cloud connected / Kokoro loaded); otherwise the play buttons are disabled.
-  function voicePicker({ rung, voices, current, set, canSample }) {
+  // A pickable voice list. Selecting a row sets the active voice for its rung.
+  function voicePicker({ voices, current, set }) {
     const wrap = el('div', 'db-voice-picker');
     const list = el('div', 'db-voice-list');
-    // Surfaces WHY a sample failed (HTTP error, unsupported audio, blocked playback)
-    // right under the picker — the only on-device diagnostic on iOS.
-    const sampleErr = el('p', 'db-settings-error db-voice-sample-err');
-    sampleErr.hidden = true;
     voices.forEach(([id, name, desc, flag]) => {
       const row = el('div', 'db-voice-row' + (current === id ? ' is-on' : ''));
       const pick = el('button', 'db-voice-pick');
@@ -882,29 +877,10 @@ export function createModelSettings({ host, trigger, model, voice, onChange, isO
       meta.append(nm, el('span', 'db-voice-desc', desc));
       pick.append(meta);
       pick.addEventListener('click', () => { set(id); refresh(); });
-      const play = el('button', 'db-voice-sample');
-      play.type = 'button';
-      play.disabled = !canSample;
-      play.title = canSample ? 'Play a sample of ' + name : 'Connect or download this voice to hear a sample';
-      play.setAttribute('aria-label', play.title);
-      play.innerHTML = '<span class="ico ico-play" aria-hidden="true"></span>';
-      play.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!canSample) return;
-        voice.unlock?.(); // resume the WebAudio context on the tap (iOS audio policy)
-        play.disabled = true;
-        play.innerHTML = '<span class="ico ico-loader spin" aria-hidden="true"></span>';
-        sampleErr.hidden = true;
-        let res;
-        try { res = await voice.previewVoice({ rung, voice: id }); } catch (err) { res = { ok: false, error: String((err?.message) || err) }; }
-        if (res && res.ok === false) { sampleErr.textContent = 'Sample failed: ' + (res.error || 'unknown error'); sampleErr.hidden = false; }
-        play.innerHTML = '<span class="ico ico-play" aria-hidden="true"></span>';
-        play.disabled = !canSample;
-      });
-      row.append(pick, play);
+      row.append(pick);
       list.append(row);
     });
-    wrap.append(list, sampleErr);
+    wrap.append(list);
     return wrap;
   }
 
@@ -941,7 +917,7 @@ export function createModelSettings({ host, trigger, model, voice, onChange, isO
       // Cloud voice (OpenRouter).
       panel.append(el('h3', 'db-settings-head db-settings-subhead', 'Cloud voice (OpenRouter)'));
       if (va.openRouterReady) {
-        panel.append(voicePicker({ rung: 'openrouter', voices: OR_VOICES, current: voice.orVoice(), set: (v) => voice.setOrVoice(v), canSample: true }));
+        panel.append(voicePicker({ voices: OR_VOICES, current: voice.orVoice(), set: (v) => voice.setOrVoice(v) }));
       } else {
         panel.append(el('p', 'db-settings-note', 'Cheap, instant, no download — but it sends your notes to the cloud. Connect an account in Cloud AI to use it.'));
         const link = el('button', 'db-voice-link', 'Open Cloud AI →');
@@ -992,10 +968,7 @@ export function createModelSettings({ host, trigger, model, voice, onChange, isO
             'A one‑time download so the voice runs entirely in your browser — no account, nothing leaves your device. It loads in a background worker.'));
         }
 
-        panel.append(voicePicker({ rung: 'kokoro', voices: KOKORO_VOICES, current: voice.kokoroVoice(), set: (v) => voice.setKokoroVoice(v), canSample: va.kokoroReady }));
-        if (!va.kokoroReady && va.kokoroCached) {
-          panel.append(el('p', 'db-settings-note', 'Press play on a slide in Practice to load the voice into this tab, then return here to audition the voices.'));
-        }
+        panel.append(voicePicker({ voices: KOKORO_VOICES, current: voice.kokoroVoice(), set: (v) => voice.setKokoroVoice(v) }));
 
         if (va.kokoroCached || va.kokoroReady) {
           const cache = el('div', 'db-settings-cache');

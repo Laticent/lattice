@@ -473,6 +473,21 @@ per-voice defect. Rather than commit samples generated against a flaky
 endpoint, Kokoro stays `requiresAsset: false` (its original on-device-only
 resting state); this is logged as a revisit-when-stable item, not abandoned.
 
+> **Follow-up (2026-07-13): the revisit-when-stable item is now closed —
+> Kokoro is fully cached.** A device report of a "severe delay" auditioning
+> Kokoro traced straight back to this deferral: hosted `hexgrad/kokoro-82m`
+> is the connect-time default (and the only Kokoro that loads on mobile,
+> where the on-device WASM model can't), so every Voice-tab audition of it
+> synthesized live — the exact per-click delay caching was meant to remove.
+> Re-probed the endpoint (2026-07-13): it now returns a clean 24 kHz mono
+> mp3 for every voice, the earlier provider-side timeouts having cleared.
+> Flipped Kokoro to `requiresAsset: true` and committed its **full 54-of-54
+> live roster** (fetched from OpenRouter's own `supported_voices` for the
+> model id, the same authoritative source every dropdown derives from) —
+> raising the committed set to **105 samples across 9 engines**. On-device
+> Kokoro is untouched (still free, still live). The audition now serves a
+> static file through the `<audio>` fast path with no OpenRouter round-trip.
+
 **Final counts.** 51 samples committed across 8 cached engines: grok (5, now
 lowercase — matching OpenRouter's own casing, `Eve`→`eve` etc.), gemini (10,
 unchanged), orpheus (7, unchanged — OpenRouter's own list still excludes
