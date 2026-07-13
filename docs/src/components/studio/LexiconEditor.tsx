@@ -79,10 +79,12 @@ export function LexiconEditor({
           {rows.map((r) => {
             // A single letter/digit key is a read-aloud footgun: the built-in commons matches
             // per code point, so `e` rewrites EVERY embedded "e" ("revenue" → garbled), not just
-            // the standalone token. A single GLYPH (`→`, `×`) is the intended use and safe. Mirror
-            // the `lexicon-single-letter-key` deck-lint rule (lib/authoring/lint-core.js). Warn, don't block.
+            // the standalone token. A single GLYPH (`→`, `×`, `🎯`) is the intended use and safe.
+            // Any-script letter/digit (é, a Greek/Cyrillic letter, a full-width digit) is the same
+            // hazard — [...token].length counts code points. Mirrors the `lexicon-single-letter-key`
+            // deck-lint rule (lib/authoring/lint-core.js). Warn, don't block.
             const token = r.token.trim();
-            const risky = /^[A-Za-z0-9]$/.test(token);
+            const risky = [...token].length === 1 && /[\p{L}\p{Nd}]/u.test(token);
             return (
               <li key={r.id} className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-1.5">

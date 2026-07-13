@@ -478,8 +478,19 @@ describe('lint-core: lexicon-single-letter-key (read-aloud footgun, PR #952 foll
     assert.ok(has('---\nlexicon:\n  "s": ess\n---\n\n# Deck\n'));
   });
 
-  test('a single GLYPH key is silent — that is the intended use', () => {
-    assert.equal(has('---\nlexicon:\n  "→": to\n  ×: times\n---\n\n# Deck\n'), false);
+  test('a single NON-ASCII letter key warns too (per-code-point substitution is language-blind)', () => {
+    // `é` rewrites every embedded "é" ("café" → "caf ay"), exactly the ASCII footgun in another script.
+    assert.ok(has('---\nlexicon:\n  é: ay\n---\n\n# Deck\n'));
+  });
+
+  test('a single GLYPH or emoji key is silent — that is the intended use', () => {
+    assert.equal(has('---\nlexicon:\n  "→": to\n  ×: times\n  "🎯": ""\n---\n\n# Deck\n'), false);
+  });
+
+  test('catches the key on a `--- ` trailing-space fence (parity with the parser)', () => {
+    // frontMatterBody tolerates a trailing space after the opening fence; the warning must too,
+    // else a deck the engine actually narrates dodges it.
+    assert.ok(has('--- \nlexicon:\n  e: EEK\n--- \n\n# Deck\n'));
   });
 
   test('a whole-word key is silent', () => {

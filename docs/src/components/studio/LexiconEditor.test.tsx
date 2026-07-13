@@ -65,10 +65,17 @@ describe('LexiconEditor', () => {
 		const risky = screen.getByLabelText('Word or symbol');
 		expect(risky.getAttribute('aria-invalid')).toBe('true');
 
+		// A non-ASCII single letter is the same footgun in another script.
+		rerender(<LexiconEditor lexicon={new Map([['é', 'ay']])} onChange={() => {}} />);
+		expect(screen.getByText(/single letter\/digit/i)).toBeTruthy();
+
 		rerender(<LexiconEditor lexicon={new Map([['Kubernetes', 'koober net eez']])} onChange={() => {}} />);
 		expect(screen.queryByText(/single letter\/digit/i)).toBeNull();
 
+		// A single glyph / emoji is the intended use — no warning.
 		rerender(<LexiconEditor lexicon={new Map([['→', 'to']])} onChange={() => {}} />);
+		expect(screen.queryByText(/single letter\/digit/i)).toBeNull();
+		rerender(<LexiconEditor lexicon={new Map([['🎯', '']])} onChange={() => {}} />);
 		expect(screen.queryByText(/single letter\/digit/i)).toBeNull();
 	});
 
