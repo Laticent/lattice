@@ -630,7 +630,9 @@ in patch versions.
   front-matter for you — carried into the deck, its captions, and every export. A lexicon entry can
   fix a whole word's pronunciation (`Kubernetes: koober net eez`), not just a glyph. Overrides the
   built-in Speech Symbol Commons, mirroring how `acronyms:` already work. (`LexiconEditor` +
-  a nested-block front-matter serializer, `setFrontMatterBlock`.)
+  a nested-block front-matter serializer, `setFrontMatterBlock`.) A red-team pass over the
+  untrusted-front-matter surface confirmed no XSS and no cyclic-override recursion, and hardened two
+  pre-existing token-length DoS sinks in the spoken-form normalizer (`MAX_SPOKEN_TOKEN` bound).
 
 - **Read-aloud now speaks symbols correctly — a Speech Symbol Commons, with per-deck overrides.**
   One canonical resolver turns a glyph into the right spoken form: arrows read as transitions

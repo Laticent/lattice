@@ -93,6 +93,18 @@ describe('toSpoken — symbol commons integration', () => {
 		]);
 		expect(() => toSpokenText('a → b ↔ c', { symbols: twoCycle })).not.toThrow();
 	});
+	it('an absurdly long single token from an untrusted deck cannot DoS the normalizer', () => {
+		// Red-team (PR #952): a token of ~50k leading signs once overflowed spokenCore's sign
+		// recursion, and a long punctuation run followed by a non-punct char made the trailing
+		// peel quadratic — both a reader/export freeze from hostile front-matter. The
+		// MAX_SPOKEN_TOKEN guard bounds them; each assertion must return fast, not hang or throw.
+		const signRun = `${'-'.repeat(50000)}A`; // sign-recursion vector
+		const peelRun = `x${','.repeat(50000)}z`; // punct run then non-punct → O(n²) peel vector
+		expect(() => toSpoken(signRun)).not.toThrow();
+		expect(() => toSpoken(peelRun)).not.toThrow();
+		expect(() => toSpokenText(`Fine ${signRun} and ${peelRun} words.`)).not.toThrow();
+		expect(toSpoken(signRun)).toBe(signRun); // over the bound → spoken verbatim, no crash
+	});
 	it('every SPEAK entry round-trips through toSpoken to its word', () => {
 		for (const [glyph, word] of Object.entries(SYMBOL_SPEAK)) {
 			expect(toSpoken(glyph)).toBe(word);

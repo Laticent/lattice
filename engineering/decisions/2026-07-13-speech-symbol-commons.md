@@ -121,3 +121,25 @@ back-compat alias (`lexicon:` wins on a key collision). The built-in engine tabl
   (after the `acronyms:` lookup), so a multi-character key (`Kubernetes`, `->`) fixes a whole word's
   pronunciation. The value is re-normalized with the lexicon removed, so a self-referential entry
   (`"→": "→"`) resolves via the acyclic built-in instead of infinite-recursing.
+
+## Red-team pass (2026-07-13, untrusted-front-matter surface)
+
+A focused adversary reviewed the `lexicon:` parser (`parseTokenMap`/`parseLexicon`) and the
+`normalize.ts` lexicon path under the #22 threat model (a shared / AI-generated deck is hostile).
+**No XSS and no recursion loop** — the spoken value reaches only word-timing + the TTS audio engine
+(captions and the `.vtt` render the escaped `display` glyphs, never the spoken string), and the
+`{ ...opts, symbols: undefined }` removal on both lexicon branches is airtight against a cyclic
+override. Two real findings folded in / logged:
+
+- **FIXED — token-length DoS.** Two *pre-existing* super-linear sinks in `toSpoken` — `spokenCore`'s
+  one-sign-per-frame recursion (a ~20k `+`/`-` run overflows the stack) and the quadratic
+  `/[.,!?;:…]+$/` trailing-peel (a long punctuation run before a non-punct char) — were newly
+  reachable from a lexicon value. Bounded at the choke point with `MAX_SPOKEN_TOKEN` (512): a
+  single token longer than any real word is spoken verbatim, keeping both paths linear. Covered by a
+  test. (The sinks predate this change and are reachable from any deck prose token, but this PR
+  touches those lines, so #18 = fix in place.)
+- **Logged (follow-up, not this PR):** (a) a single-LETTER lexicon key (`"e": …`) falls to the
+  per-glyph pass and rewrites every embedded `e` — a self-inflicted mis-narration the word-key
+  feature newly makes easy to author; wants an authoring-time validation warning. (b) `blockLines`
+  matches a `key:` header at any indent, so a nested `acronyms:` under `lexicon:` is double-parsed —
+  a robustness wart, no privilege gain (the author could write a top-level key anyway).

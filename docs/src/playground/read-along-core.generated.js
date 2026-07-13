@@ -288,6 +288,7 @@ var require_dist = __commonJS({
       return changed ? out : null;
     }
     var SEPARATOR_ONLY = new RegExp(`^[${SEPARATOR_GLYPHS.replace(/[\\\]]/g, "\\$&")}]+$`);
+    var MAX_SPOKEN_TOKEN = 512;
     var ONES = [
       "zero",
       "one",
@@ -385,6 +386,7 @@ var require_dist = __commonJS({
     function toSpoken(display, opts = {}) {
       const tok = String(display ?? "").trim();
       if (!tok) return "";
+      if (tok.length > MAX_SPOKEN_TOKEN) return tok;
       const domains = opts.domains ?? [];
       const acronyms = opts.acronyms;
       const english = isEnglishLang(opts.lang);

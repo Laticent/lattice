@@ -290,6 +290,7 @@ function resolveSymbols(token, opts = {}) {
 
 // docs/src/lib/cadenza/normalize.ts
 var SEPARATOR_ONLY = new RegExp(`^[${SEPARATOR_GLYPHS.replace(/[\\\]]/g, "\\$&")}]+$`);
+var MAX_SPOKEN_TOKEN = 512;
 var ONES = [
   "zero",
   "one",
@@ -387,6 +388,7 @@ function spokenLexiconValue(value, opts) {
 function toSpoken(display, opts = {}) {
   const tok = String(display ?? "").trim();
   if (!tok) return "";
+  if (tok.length > MAX_SPOKEN_TOKEN) return tok;
   const domains = opts.domains ?? [];
   const acronyms = opts.acronyms;
   const english = isEnglishLang(opts.lang);

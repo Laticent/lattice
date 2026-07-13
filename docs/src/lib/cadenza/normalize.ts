@@ -19,6 +19,15 @@ import { resolveSymbols, SEPARATOR_GLYPHS, type SymbolOverrides } from './symbol
 // in symbols.ts). Applied WHOLE-token only — an embedded "·" is a voice id / URL, left alone.
 const SEPARATOR_ONLY = new RegExp(`^[${SEPARATOR_GLYPHS.replace(/[\\\]]/g, '\\$&')}]+$`);
 
+// Hostile-input ceiling for a SINGLE spoken token. A real narration token (post-`splitWords`) is a
+// word / number / abbreviation — never hundreds of characters. Deck front-matter and prose are
+// untrusted (a shared / AI-generated deck, HARD RULE #22), so an absurdly long single token is
+// abuse: it would otherwise drive quadratic backtracking in the trailing-punctuation peel and deep
+// recursion in `spokenCore`'s sign-strip — a reader / caption-export DoS. Bounding the token keeps
+// both linear; over the bound the token is spoken verbatim (no real word is this long). Generous so
+// it never clips legitimate content (a long URL, a hyphenated compound).
+const MAX_SPOKEN_TOKEN = 512;
+
 const ONES = [
   'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
   'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
@@ -171,6 +180,9 @@ function spokenLexiconValue(value: string, opts: SpokenOpts): string {
 export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   const tok = String(display ?? '').trim();
   if (!tok) return '';
+  // Hostile-input guard (see MAX_SPOKEN_TOKEN): an absurdly long single token is untrusted-deck
+  // abuse — speak it verbatim rather than let the peel/sign paths below go super-linear.
+  if (tok.length > MAX_SPOKEN_TOKEN) return tok;
   const domains = opts.domains ?? [];
   const acronyms = opts.acronyms;
   const english = isEnglishLang(opts.lang);
