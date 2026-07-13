@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: blocked
 summary: Two coupled slices of the read-aloud calibration/rewriter thread, in one PR. (1) APPLY the per-voice scalar `k` that already accumulates measure-only — feed the voice's `rateScale` into `buildTrack` so the SILENT read-along and the pre-first-onset COLD START pace to the voice's measured rate (the clocked mid-stream path is already onset-anchored and untouched). k applies at track-BUILD time per slide (never mid-playback, which would jump the timeline), auto-applied once n≥5 with the existing [0.6,1.6] clamp + reset. (2) The hard-to-say REWRITER — once the model is voice-calibrated, a caption whose MEASURED duration still diverges from the CALIBRATED prediction is "hard to say"; flag it in Studio and offer an LLM rewrite on the USER's own OpenRouter key (opt-in, never our key, never auto-applied, never in the export path). A live authoring aid, sanitized output, human-approved. Slice 1 is the substrate; slice 2 is the payoff it de-risks.
 companion:
   - ./2026-07-12-per-voice-pace-calibration.md
@@ -149,6 +149,45 @@ commit. The trio should pressure-test the one-PR call explicitly.
   `read-aloud.ts` (reuse the `onSentenceTiming` tap that already feeds calibration), the user-key LLM
   call (reuse the Playground client), tests. NO new preview-frame builder; NO export path.
 - Bundles regenerated (cadenza/read-along-core) only if a cadenza file changes. CHANGELOG + this doc.
+
+## Adversarial trio verdict (2026-07-13) — RESHAPE
+
+Three independent agents (red team, Munger inversion, independent checker) attacked this design
+before any code. They converge: **do not ship 1 + 2 as designed; split, and reconsider both.**
+
+- **CRITICAL (red team) — apply-`k` regresses the SHIPPED calibration.** There is one track per
+  slide, and it is BOTH the highlight track AND the calibration reference (`read-aloud.ts` reads
+  `estDur` off it in `onItemStart`). If slice 1 k-scales that track, the accumulator folds
+  `measured/(baseEst×k)`, whose fixed point is `k=√(k_true)` — calibration never converges, and the
+  slice-2 residual `measured/(estDur×k)` collapses to ≈1 by construction (the flag never fires). So
+  "just pass `rateScale` into `buildTrack`" silently breaks the measure-only subsystem already on
+  `main`. Correct apply-`k` needs a **separate k=1 reference track** — real surgery, not a wire-up.
+- **HIGH (red team) — slice 1 is a no-op on the path it's sold for.** The pre-first-onset cold start
+  is a HOLD (highlight frozen at word 0, estimate drives nothing); the pure-silent path never clocks
+  a voice, so its `voiceKey` is `''`→`k=1`; and slide 1 builds before any voice resolves. `k` only
+  moves the mid-stream tail between onsets on slides ≥2 for UNMUTED users — not the silent/cold-start
+  windows the doc advertises. It must also key on **voice·speed**, not voice (the speed pref poisons
+  `k` today).
+- **Munger + red team — the rewriter signal is confounded and BACKWARDS.** After subtracting the
+  estimator's own known defects (number/currency/acronym/proper-noun mis-syllabification, trailing-
+  silence bias so the flag tracks punctuation depth), a large residual correlates with a boardroom
+  deck's **most valuable** sentences (financials, names, "EBITDA"), not with "hard to say." The
+  feature would pressure authors to smooth away precision. And the root cause is better cured by the
+  on-deck **acronyms-in-Lexicon** work, which fixes the estimator's data instead of bolting an LLM on
+  its errors.
+- **Independent checker — slice 2 is design-incomplete.** Mapping a flagged *narration* sentence back
+  to editable *deck source* (M1) is an unsolved architecture problem (charOffsets index the flattened
+  projection, not the markdown), plus flag-lifecycle-on-edit (M2) and the prompt/UX (O4) are deferred
+  past the design gate. The reuse hook is real (`architect.ts::refineSelection` on the user's key) and
+  the export-bytes claim is genuinely true — those parts stand.
+
+**Recommended pivot (mine, folding the trio):** (1) **Do not build the rewriter now** — fix the root
+cause via acronyms-in-Lexicon first; revisit only if a residual survives a *corrected* estimator as a
+clean signal. (2) **Apply-`k` is narrower and costlier than it looked** — done right it needs the
+reference-track split + speed-keying + ref-based build, helps only the mid-stream tail for unmuted
+users, and stays UNVERIFIED on-device; a cheaper honest option is to keep calibration measure-only or
+gate it behind a visible toggle rather than auto-apply. Awaiting the maintainer's direction before any
+implementation.
 
 ## Verification plan
 - Slice 1: unit tests for the applied-`k` math + the build-time-only application; assert the export
