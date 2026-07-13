@@ -1,0 +1,16 @@
+---
+// Live viz diagnostics overlay — mounts the React island (VizDiagnosticsOverlay.tsx)
+// that reads dropped-to-black SVG chart paint on the slide being edited and shows a
+// small readout. The live twin of the CI guard (#961) — CI checks the gallery
+// headless; this checks the author's real deck on their real device.
+//
+// client:only — browser-only (reads localStorage, subscribes to the render
+// pipeline's findings store). Renders NOTHING until the shared pref is on
+// (viz-overlay-prefs.ts: the Studio "Viz diagnostics" switch + the `?viz` param),
+// so a normal view pays nothing. Included on the surfaces that render a live chart
+// preview (Studio + Playground); a module-level singleton claim makes a double
+// include a no-op.
+import VizDiagnosticsOverlay from './VizDiagnosticsOverlay.tsx';
+---
+
+<VizDiagnosticsOverlay client:only="react" />

@@ -8,6 +8,7 @@
 // Board / Playground; the engine is loaded on demand exactly as those do.
 import '../styles/landing.css';
 import StudioShell from '../components/studio/StudioShell.tsx';
+import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
@@ -252,6 +253,10 @@ const REPLAY_JS = shell
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
 		<StudioShell client:only="react" options={options} components={components} lintVocab={lintVocab} />
+		{/* Live viz diagnostics — renders nothing until the Workspace → Diagnostics
+		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
+		    the render pipeline. */}
+		<VizDiagnosticsOverlay />
 		{/* Intent-gated engine warm (was allowEager): the eager 505KB fetch competed
 		    with first paint/hydration. StudioShell loads the engine on mount, so
 		    warming only needs to fire on pointer/focus intent — off the paint path. */}
