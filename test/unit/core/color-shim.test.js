@@ -15,10 +15,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  chainHasModernFn, resolveFlatPalette, flatPaletteCss, installColorShim,
+  chainHasModernFn, resolveFlatPalette, flatPaletteCss, buildShimCss, installColorShim,
 } = require('../../../lib/core/color-shim');
 const { resolveDeclarationValue } = require('../../../lib/core/resolve-token-expr');
-const { parseRootVars } = require('../../../lib/core/parse-root-vars');
+const { parseRootVars, isDarkScheme } = require('../../../lib/core/parse-root-vars');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const readTheme = (t) => fs.readFileSync(path.join(ROOT, 'dist', 'themes', `${t}.min.css`), 'utf8');
@@ -75,41 +75,115 @@ describe('color-shim core', () => {
   });
 });
 
+describe('color-shim scheme-switching (buildShimCss)', () => {
+  const THEME = ':root { --bg: light-dark(#FFFFFF, #001D33); --ink: light-dark(#0A1628, #FFFFFF); --n: 4px; }';
+
+  test('light-declared deck: :root is LIGHT, per-slide + pin overrides carry the opposite', () => {
+    const css = buildShimCss(THEME, false);
+    assert.match(css, /:root \{[^}]*--bg: #FFFFFF/, ':root base is the declared (light) scheme');
+    assert.match(css, /section\.dark \{[^}]*--bg: #001D33/, 'a dark slide overrides to dark');
+    assert.match(css, /section\.light \{[^}]*--bg: #FFFFFF/, 'a light slide pins light');
+    assert.match(css, /\[data-lp-scheme=dark\] \{[^}]*--bg: #001D33/, 'player dark pin');
+    assert.match(css, /\[data-lp-scheme=light\] \{[^}]*--bg: #FFFFFF/, 'player light pin');
+  });
+
+  test('dark-declared deck: :root is DARK', () => {
+    const css = buildShimCss(THEME, true);
+    assert.match(css, /:root \{[^}]*--bg: #001D33/, ':root base flips to dark when declaredDark');
+  });
+
+  test('OS-follow arm is STRICT — keyed on data-lp-scheme=system, never a loose form', () => {
+    const css = buildShimCss(THEME, false);
+    assert.match(css, /@media \(prefers-color-scheme: dark\) \{ :root\[data-lp-scheme=system\] \{[^}]*--bg: #001D33/,
+      'OS-dark arm reaches only a system-following deck');
+    assert.match(css, /@media \(prefers-color-scheme: light\) \{ :root\[data-lp-scheme=system\]/);
+    assert.doesNotMatch(css, /:not\(\[data-lp-scheme/, 'never the loose :not() form (would flip a pinned export)');
+  });
+
+  test('never emits a modern function or a residual var()', () => {
+    const css = buildShimCss(readTheme('indaco'), false);
+    assert.doesNotMatch(css, /light-dark\(|color-mix\(|okl?ch\(|oklab\(|var\(/i);
+  });
+
+  test('a *-dark theme (@import "<light>" + color-scheme:dark) resolves to DARK :root', () => {
+    // The browser sees the @import resolved — imported base first, theme (scheme flip) last.
+    const cascade = `${readTheme('indaco')}\n${readTheme('indaco-dark')}`;
+    const css = buildShimCss(cascade, isDarkScheme(cascade));
+    assert.match(css, /:root \{[^}]*--bg: #001D33/, 'dark theme → :root base is the dark literal');
+    assert.match(css, /:root \{[^}]*--text-heading: #FFFFFF/);
+    assert.match(css, /section\.light \{[^}]*--bg: #FFFFFF/, 'a light slide on a dark deck still flips');
+    assert.doesNotMatch(css, /light-dark\(|color-mix\(|var\(/i);
+  });
+});
+
 describe('color-shim wiring (seamed, no DOM)', () => {
-  const THEME = '  :root { --bg: light-dark(#FFFFFF, #001D33); --n: 4px; }';
+  const THEME = ':root { --bg: light-dark(#FFFFFF, #001D33); --n: 4px; }';
 
   test('MODERN engine → no-op (nothing injected)', () => {
     let injected = null;
     const ran = installColorShim({
       supportsModernColor: () => true,
       readRootCss: () => THEME,
-      isDark: () => false,
       inject: (css) => { injected = css; },
     });
     assert.equal(ran, false);
     assert.equal(injected, null, 'a modern engine must never inject');
   });
 
-  test('OLD engine → injects the flat palette for the active scheme', () => {
+  test('OLD engine → injects the full scoped shim stylesheet', () => {
     let injected = null;
     const ran = installColorShim({
       supportsModernColor: () => false,
       readRootCss: () => THEME,
-      isDark: () => true,
       inject: (css) => { injected = css; },
     });
     assert.equal(ran, true);
-    assert.match(injected, /--bg: #001D33/, 'dark scheme → dark literal injected');
-    assert.doesNotMatch(injected, /light-dark|var\(/, 'injected palette must be fully flat');
+    assert.match(injected, /:root \{[^}]*--bg: #FFFFFF/, 'declared (light) scheme on :root');
+    assert.match(injected, /section\.dark \{[^}]*--bg: #001D33/, 'dark slides covered');
+    assert.doesNotMatch(injected, /light-dark|var\(/, 'injected stylesheet must be fully flat');
+  });
+
+  test('respects an explicit declaredDark override', () => {
+    let injected = null;
+    installColorShim({
+      supportsModernColor: () => false,
+      readRootCss: () => THEME,
+      declaredDark: true,
+      inject: (css) => { injected = css; },
+    });
+    assert.match(injected, /:root \{[^}]*--bg: #001D33/, 'declaredDark → :root base is dark');
   });
 
   test('OLD engine but empty/unreadable :root → no-op, no throw', () => {
     const ran = installColorShim({
       supportsModernColor: () => false,
       readRootCss: () => '',
-      isDark: () => false,
       inject: () => { throw new Error('must not inject on empty input'); },
     });
     assert.equal(ran, false);
+  });
+
+  test('the default reader RECURSES @import (the *-dark theme case) via a mock CSSOM', () => {
+    // A *-dark theme sheet: an @import rule (imported light base) + its own scheme flip.
+    const importedSheet = {
+      cssRules: [{ selectorText: ':root', cssText: ':root { --bg: light-dark(#FFFFFF, #001D33); }' }],
+    };
+    const themeSheet = {
+      cssRules: [
+        { styleSheet: importedSheet },                                   // CSSImportRule
+        { selectorText: ':root', cssText: ':root { color-scheme: dark; }' },
+      ],
+    };
+    const saved = global.document;
+    global.document = { styleSheets: [themeSheet] };
+    try {
+      let injected = null;
+      const ran = installColorShim({ supportsModernColor: () => false, inject: (c) => { injected = c; } });
+      assert.equal(ran, true);
+      // Palette came from the IMPORTED sheet; scheme (dark) from the theme sheet → dark :root base.
+      assert.match(injected, /:root \{[^}]*--bg: #001D33/, 'imported palette + dark scheme resolved through the @import recursion');
+    } finally {
+      global.document = saved;
+    }
   });
 });
