@@ -34,7 +34,9 @@ var require_dist = __commonJS({
       FINAL_LENGTHEN_MS: () => FINAL_LENGTHEN_MS,
       LEX_DOMAINS: () => LEX_DOMAINS,
       PACE_WPM: () => PACE_WPM,
+      SEPARATOR_GLYPHS: () => SEPARATOR_GLYPHS,
       SYLLABLE_MS: () => SYLLABLE_MS,
+      SYMBOL_SPEAK: () => SYMBOL_SPEAK,
       buildTrack: () => buildTrack,
       deserializeCalibration: () => deserializeCalibration,
       emptyCalibration: () => emptyCalibration,
@@ -50,6 +52,7 @@ var require_dist = __commonJS({
       pauseAfter: () => pauseAfter,
       rateScale: () => rateScale,
       readMs: () => readMs,
+      resolveSymbols: () => resolveSymbols,
       serializeCalibration: () => serializeCalibration,
       splitSentences: () => splitSentences,
       splitWords: () => splitWords,
@@ -131,16 +134,13 @@ var require_dist = __commonJS({
       // No natural expansion or word — spelled.
       ui: "U I",
       ux: "U X",
-      // Symbols with a single unambiguous reading.
-      "\xA7": "section",
-      "\xA7\xA7": "sections",
-      "\xB6": "paragraph",
-      "&": "and"
-      // NOTE: decorative separators (interpunct "·", pipe "|", bullet "•" …) are handled in
-      // normalize.ts's `toSpoken` — spoken as a soft PAUSE (a comma), not dropped, so an eyebrow
-      // like "Financial · Q4 2026" reads "Financial, Q4 2026" instead of running together. One
-      // rule there covers the whole family; keeping a `'·': ''` entry here would just be a dead,
+      // Only the PLURAL section mark stays here — "§§" is two glyphs the per-glyph commons would read
+      // "section section", so it needs a whole-token entry. The single-glyph symbols (`§ ¶ © ® ™ & @`
+      // and the arrows) now live in the Speech Symbol Commons (symbols.ts), which also handles them
+      // EMBEDDED ("§5" → "section five") — one source of truth. Decorative separators (·|•) are the
+      // whole-token PAUSE rule in normalize.ts. Keeping single-glyph copies here would be a dead,
       // contradicting duplicate.
+      "\xA7\xA7": "sections"
     };
     var BASE_CASED = {
       CY: "calendar year",
@@ -218,6 +218,75 @@ var require_dist = __commonJS({
     function splitWords(sentence) {
       return String(sentence ?? "").trim().split(/\s+/).filter(Boolean);
     }
+    var SYMBOL_SPEAK = {
+      // Arrows — a transition, not the noun "arrow". Rightward/implication → "to"; bidirectional →
+      // "and"; vertical → up/down (metrics register). Leftward is DROP (below) — no clean reading.
+      "\u2192": "to",
+      "\u21D2": "to",
+      "\u27F6": "to",
+      "\u279C": "to",
+      "\u27A1": "to",
+      "\u21A6": "to",
+      "\u27F9": "to",
+      "\u2194": "and",
+      "\u21D4": "and",
+      "\u27F7": "and",
+      "\u2191": "up",
+      "\u2B06": "up",
+      "\u2193": "down",
+      "\u2B07": "down",
+      // Math operators with a single unambiguous reading.
+      "\xD7": "times",
+      "\xF7": "divided by",
+      "\xB1": "plus or minus",
+      "\u2248": "approximately",
+      "\u2260": "not equal to",
+      "\u2264": "less than or equal to",
+      "\u2265": "greater than or equal to",
+      "\u221A": "square root of",
+      "\xB0": "degrees",
+      "\u221E": "infinity",
+      "\u2211": "sum of",
+      "\xB5": "micro",
+      // Typographic marks. NOTE: "§" is deliberately NOT here — it begins a structured legal citation
+      // ("§1798.140(o)" → "section … subsection o") that normalize.ts's spokenCore parses specially and
+      // must own; that parser already reads a bare/leading "§" as "section". The commons is a fallback
+      // for glyphs no structured parser claims.
+      "\xB6": "paragraph",
+      "\xA9": "copyright",
+      "\xAE": "registered trademark",
+      "\u2122": "trademark",
+      "&": "and",
+      "@": "at"
+    };
+    var SYMBOL_DROP = /* @__PURE__ */ new Set(["\u2190", "\u27F5", "\u21D0", "\u2B05", "\u21A9", "\u21A4"]);
+    var SEPARATOR_GLYPHS = "\xB7\u2022\u2219\u2016\xA6\u2043\u30FB|";
+    var PICTOGRAPHIC = new RegExp("\\p{Extended_Pictographic}", "u");
+    var VARIATION_SELECTOR = /[\uFE00-\uFE0F]/g;
+    function resolveSymbols(token, opts = {}) {
+      const overrides = opts.overrides;
+      const english = opts.english !== false;
+      const src = String(token ?? "").replace(VARIATION_SELECTOR, "");
+      if (!src) return null;
+      let changed = false;
+      let out = "";
+      for (const ch of src) {
+        if (overrides?.has(ch)) {
+          out += ` ${overrides.get(ch)} `;
+          changed = true;
+        } else if (english && Object.hasOwn(SYMBOL_SPEAK, ch)) {
+          out += ` ${SYMBOL_SPEAK[ch]} `;
+          changed = true;
+        } else if (SYMBOL_DROP.has(ch) || PICTOGRAPHIC.test(ch)) {
+          out += " ";
+          changed = true;
+        } else {
+          out += ch;
+        }
+      }
+      return changed ? out : null;
+    }
+    var SEPARATOR_ONLY = new RegExp(`^[${SEPARATOR_GLYPHS.replace(/[\\\]]/g, "\\$&")}]+$`);
     var ONES = [
       "zero",
       "one",
@@ -315,14 +384,14 @@ var require_dist = __commonJS({
       const acronyms = opts.acronyms;
       const english = isEnglishLang(opts.lang);
       if (acronyms?.has(tok)) return acronyms.get(tok);
-      if (/^[·•∙‖¦⁃・|]+$/.test(tok)) return ",";
-      if (/[→⇒⟶➜⟹⟼↦↔⇔⟷←⟵⇐↩]/.test(tok)) {
-        const connected = tok.replace(/[→⇒⟶➜⟹⟼↦]/g, " to ").replace(/[↔⇔⟷]/g, " and ").replace(/[←⟵⇐↩]/g, " ");
-        return splitWords(connected).map((w) => toSpoken(w, opts)).filter(Boolean).join(" ");
-      }
+      if (SEPARATOR_ONLY.test(tok)) return ",";
       if (english) {
         const whole = lookupLexicon(tok, domains);
         if (whole !== null) return whole;
+      }
+      const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
+      if (symbolic !== null) {
+        return splitWords(symbolic).map((w) => toSpoken(w, opts)).filter(Boolean).join(" ");
       }
       const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
       const core = punct ? tok.slice(0, -punct.length) : tok;
@@ -391,7 +460,7 @@ var require_dist = __commonJS({
       return core;
     }
     function toSpokenText(text, opts = {}) {
-      return splitWords(text).map((w) => toSpoken(w, opts)).join(" ");
+      return splitWords(text).map((w) => toSpoken(w, opts)).filter(Boolean).join(" ");
     }
     function spokenWordCount(spoken) {
       return String(spoken ?? "").trim().split(/[\s-]+/).filter(Boolean).length;
@@ -645,7 +714,7 @@ var require_dist = __commonJS({
           const charOffset = found >= 0 ? found : scan;
           if (found >= 0) scan = found + display.length;
           if (cueCharOffset < 0) cueCharOffset = charOffset;
-          const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang });
+          const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, symbols: opts.symbols });
           const pause = pauseAfter(display);
           const dur = estimateWordMs(spoken, pace, rateScale2) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
           const startMs = clock;

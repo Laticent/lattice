@@ -10,6 +10,8 @@ export { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken
 export type { Reader, ReaderOptions } from './reader';
 export { makeReader } from './reader';
 export { splitSentences, splitWords } from './segment';
+export type { ResolveSymbolsOptions, SymbolOverrides } from './symbols';
+export { resolveSymbols, SEPARATOR_GLYPHS, SYMBOL_SPEAK } from './symbols';
 export type { BuildOptions, CaptionTrack, Cue, Word } from './track';
 export { buildTrack } from './track';
 export { formatTimestamp, toSrt, toVtt } from './vtt';

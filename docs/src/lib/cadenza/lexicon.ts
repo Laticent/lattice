@@ -66,13 +66,13 @@ const BASE: Record<string, string> = {
   saas: 'sass',
   // No natural expansion or word — spelled.
   ui: 'U I', ux: 'U X',
-  // Symbols with a single unambiguous reading.
-  '§': 'section', '§§': 'sections', '¶': 'paragraph', '&': 'and',
-  // NOTE: decorative separators (interpunct "·", pipe "|", bullet "•" …) are handled in
-  // normalize.ts's `toSpoken` — spoken as a soft PAUSE (a comma), not dropped, so an eyebrow
-  // like "Financial · Q4 2026" reads "Financial, Q4 2026" instead of running together. One
-  // rule there covers the whole family; keeping a `'·': ''` entry here would just be a dead,
+  // Only the PLURAL section mark stays here — "§§" is two glyphs the per-glyph commons would read
+  // "section section", so it needs a whole-token entry. The single-glyph symbols (`§ ¶ © ® ™ & @`
+  // and the arrows) now live in the Speech Symbol Commons (symbols.ts), which also handles them
+  // EMBEDDED ("§5" → "section five") — one source of truth. Decorative separators (·|•) are the
+  // whole-token PAUSE rule in normalize.ts. Keeping single-glyph copies here would be a dead,
   // contradicting duplicate.
+  '§§': 'sections',
 };
 
 // ── BASE_CASED — EXACT-CASE keys, always on (letters that also spell a word) ──

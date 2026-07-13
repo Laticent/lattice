@@ -1,0 +1,92 @@
+---
+status: proposed
+summary: Read-aloud mispronounces symbols one at a time — "→" was read as the word "arrow" (#947 fixed it ad hoc), and the same class of bug awaits every math operator, currency mark, and emoji arrow an author types. This replaces the scattered, per-glyph handling (the arrow rule, the decorative-separator rule, the §/¶/& lexicon entries) with ONE canonical Speech Symbol Commons in the cadenza kernel: a curated built-in table that sorts each glyph into an ACTION — SPEAK a word ("×"→"times"), PAUSE (a comma, decorative separators), or DROP (silence, decorative emoji) — plus a front-matter `symbols:` override that wins over the built-in (exact parity with the `acronyms:` registry), editable from a deck-drawer pronunciations UI. Only UNAMBIGUOUS glyphs ship built-in; ambiguous ones (`+ − = / # -`) stay with the number/range parsers or the author's own override. One glyph-substitution pass handles standalone, embedded, and mixed tokens alike.
+companion:
+  - ./2026-07-12-per-voice-pace-calibration.md
+  - ./2026-07-11-manifest-speech-contract.md
+---
+
+# Speech Symbol Commons
+
+**Status:** proposed (design → build)
+**Thread:** read-aloud narration quality (follows `2026-07-12-per-voice-pace-calibration.md`)
+
+## Problem
+
+Symbol narration is whack-a-mole. `→` read as the literal word "arrow" (an on-device report,
+fixed in #947); the same bug is latent in every `×` `÷` `±` `≈` `≥` `°` `©` `™`, every emoji arrow
+`➡️⬆️`, and every decorative emoji `🚀🎯` a TTS will happily voice as "rocket." The handling we have
+is scattered and per-glyph: a bespoke arrow rule and a decorative-separator rule in `normalize.ts`,
+plus `§`/`¶`/`&` as one-off lexicon entries. Each new symbol is a new special case and a new
+regression surface.
+
+The reporter's ask: *get ahead of it* — a robust, comprehensive commons for symbol → spoken form,
+with an author override (like `acronyms:`), founded on the unambiguous glyphs and extensible per deck.
+
+## The model
+
+One canonical resolver in the cadenza kernel (so CLI, export, and live narration share it —
+HARD RULE #1), in three layers:
+
+1. **Built-in commons** — a curated, always-on table. Every glyph maps to an **action**:
+   - **SPEAK** — an unambiguous word: `→⇒⟶➜`→"to", `↔⇔`→"and", `×`→"times", `÷`→"divided by",
+     `±`→"plus or minus", `≈`→"approximately", `≠`→"not equal to", `≤`/`≥`→"less/greater than or
+     equal to", `√`→"square root of", `°`→"degrees", `§`→"section", `¶`→"paragraph", `©`→"copyright",
+     `®`→"registered trademark", `™`→"trademark", `&`→"and", `@`→"at", `∞`→"infinity", `π`→"pi",
+     `µ`→"micro", `∑`→"sum of".
+   - **PAUSE** — a decorative separator read as a comma beat: `· • ∙ ‖ ¦ ⁃ ・ |` (today's rule).
+   - **DROP** — decorative, silent: general emoji (`🚀🎯⭐✨…`) and dingbats, so the voice never
+     says "rocket." Directional emoji (`➡️⬆️⬅️`) map like their text arrows, NOT dropped.
+   - **CONTEXT / leave alone** — NOT in the commons: `+ − = / # ~ * ^ - – —` and quotes. These are
+     genuinely ambiguous (minus vs hyphen vs range; per vs or vs date) and stay with the existing
+     number/range parsers or the author's own override. A wrong reading is worse than none.
+
+2. **Author override** — a front-matter `symbols:` map (glyph → spoken, or `""` to force silence),
+   author ALWAYS wins over the built-in. Exact parity with `acronyms:` (parsed in
+   `resolve-captions.mjs`, threaded through `buildTrack` → `toSpoken`). Lets a deck say `→` = "leads
+   to", silence a brand emoji, or teach a glyph the commons deliberately left ambiguous.
+
+3. **Deck-drawer UI** — a Studio "pronunciations" entry that reads/writes the `symbols:` map (and
+   sits beside the `acronyms:` editor), so a non-technical author fixes a glyph without touching YAML.
+
+## Resolution — one glyph-substitution pass
+
+Generalize the arrow handler #947 shipped: for a token containing any commons/override glyph, swap
+each glyph for ` <spoken> ` (SPEAK), ` , ` (PAUSE), or `` (DROP), then re-normalize the operands so
+`Q1`/`Q2` still expand. This handles standalone (`→`), embedded (`red↔green`), and mixed (`3×4`)
+uniformly. Precedence per glyph: **author `symbols:` → built-in commons**; author whole-token
+`acronyms:` still runs first for word-tokens.
+
+## Scope decisions (confirmed 2026-07-13)
+
+1. **Consolidate**, don't layer: migrate the arrow rule, the decorative-separator rule, and the
+   `§`/`¶`/`&` symbol entries into `symbols.ts` — one source of truth (maker-checked for the
+   behavior-preserving move).
+2. **Emoji default DROP** (silent) with per-glyph override — never read "grinning face."
+3. **Distinct `symbols:` front-matter key** (glyphs) alongside `acronyms:` (words); both edited in
+   one drawer UI.
+4. **Ambiguous glyphs stay out** of the built-in table — context parsers + user override own them.
+
+## Files this touches
+
+- `docs/src/lib/cadenza/symbols.ts` — NEW: the built-in tables (SPEAK/PAUSE/DROP) + `resolveSymbols`.
+- `docs/src/lib/cadenza/normalize.ts` — `toSpoken` calls the resolver; the bespoke arrow +
+  separator rules are removed (behavior preserved by the commons).
+- `docs/src/lib/cadenza/lexicon.ts` — drop the symbol glyphs (`§ §§ ¶ &`) now owned by the commons.
+- `docs/src/lib/cadenza/track.ts` — thread a `symbols` override map through `BuildOptions`.
+- `lib/core/resolve-captions.mjs` — parse a `symbols:` front-matter block (mirrors `parseAcronyms`).
+- `lib/core/read-along-build.js` + the live read-aloud path — thread `symbols` into `buildTrack`.
+- Regenerate the cadenza + read-along-core bundles. Spoken-form only — caption glyphs and the
+  exported `.vtt` are unchanged (same class as the #947 arrow fix).
+
+## Slices
+
+1. **Engine commons + override (this PR).** `symbols.ts` + resolver, the `normalize.ts`/`lexicon.ts`
+   consolidation, the `symbols` override option, the `symbols:` front-matter parse + threading. Tests.
+2. **Deck-drawer pronunciations UI (follow-up PR).** Edit `symbols:` (and `acronyms:`) from the Studio.
+
+## Open questions (non-blocking, logged)
+
+- The full SPEAK table is curated conservatively; new glyphs are additive (a one-line table entry).
+- Directional emoji carry Unicode variation selectors (`➡️` = `➡` + U+FE0F) — the resolver strips
+  the selector before lookup.
