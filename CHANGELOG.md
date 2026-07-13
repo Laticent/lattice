@@ -214,6 +214,17 @@ in patch versions.
 
 ### Changed
 
+- **`voice-model.js` is now a byte source only — all audio playback goes through Suono, and the
+  boundary gate's allowlist is empty.** The legacy blob-playback engine (its raw `AudioContext`,
+  `getCtx`/`playBlob`/`speak` scheduler, and `previewVoice`/`unlock`/`audioTimeMs`… surface) is
+  removed; `pause`/`resume`/`stop` now steer only the browser speechSynthesis rung, and `synthOne`/
+  `speakThis`/`warm`/the voice ladder stay. The Studio Voice-tab "play sample" audition moved onto
+  Suono (voice-model synthesizes bytes via a new `synthSample()`; read-aloud plays them on the shared
+  stage; the pre-baked-sample `<audio>` fast path is unchanged). **Breaking (frozen surface only):** the
+  development-frozen Drawing Board loses its read-aloud narration and custom-voice audition — a
+  retirement refactor toward its removal (`engineering/decisions/2026-07-03-studio-succession.md`). The
+  `checkAudioPlaybackBoundary` gate now guards a **zero** allowlist. See
+  `engineering/decisions/2026-07-12-suono-audio-library.md` §8 slice 2c-final.
 - **The `/cadenza` demo now plays through the Suono library too, and a gate keeps all audio playback
   inside it.** The reference read-along page (a behavior-neutral swap) builds a Suono
   `stage.sequence({ produce: voice.synthOne, … })` like the Studio, with the browser-voice rung on the

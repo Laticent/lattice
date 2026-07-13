@@ -1636,10 +1636,12 @@ const RAW_AUDIO_PATTERNS = [
   /\.playBlob\s*\(/, // voice-model's blob playback
   /\.speak\s*\(\s*\{/, // voice-model's OBJECT-arg speak({text,…}) — NOT speechSynthesis.speak(utterance)
 ];
-const SANCTIONED_LEGACY_AUDIO = [
-  { file: 'docs/src/playground/voice-model.js', why: 'the legacy voice engine — owns the raw AudioContext + defines speak()/playBlob(); retired in Suono slice 2c-final once no consumer needs its playback.' },
-  { file: 'docs/src/playground/drawing-board-practice.js', why: 'frozen Drawing Board (2026-07-03-studio-succession.md) — its voice.speak({…}) dies with the surface removal, not via migration. Drop this entry when the Drawing Board is deleted.' },
-];
+// Slice 2c-final (voice-model → byte-source only) emptied this: voice-model.js no longer creates a
+// raw AudioContext or plays audio (it produces bytes; Suono plays), and the frozen Drawing Board's
+// read-aloud/audition were stripped. The allowlist is now ZERO — all audio playback goes through
+// Suono, and this gate keeps it that way (a NEW raw-audio consumer fails outright; nothing is
+// grandfathered anymore). Keep the gate; a re-added entry needs a real, dated retirement reason.
+const SANCTIONED_LEGACY_AUDIO = [];
 function collectAudioSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

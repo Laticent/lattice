@@ -18,11 +18,6 @@
 // `@import` closure so a multi-level theme (a11y-* → a11y-base → onyx → lattice)
 // registers fully — the one tested path, not a re-inlined copy.
 import { createThemeFetcher } from '../lib/theme-fetch.ts';
-// notes-core is THE single source for the note/non-note boundary (HARD RULE #1) —
-// read it through the canonical extractor, never re-derive. It rides the
-// authoring-core bundle (esbuild → browser ESM) because Vite-dev can't serve the
-// raw CJS module; see tools/build-authoring-core.js.
-import { notesCore } from './authoring-core.generated.js';
 import { A11Y_DEFS, KATEX_URL, MERMAID_URL, splitSections } from './deck-preview.js';
 import { createChartInteract } from './drawing-board-chart-interact.js';
 import { isCapableTier } from './drawing-board-chat.js';
@@ -32,9 +27,6 @@ import { budgetStatus, readBudgetCap, readBudgetMode, readSpend, recordSpend } f
 import { toursAllowedHere } from './guided-tour.js';
 import { buildStageDoc } from './presenter-window.js';
 import { toursEnabled } from './tour-prefs.js';
-import { createVoiceModel } from './voice-model.js';
-
-const { notesFromHtml } = notesCore;
 
 const BEAT_LABEL = { pause: 'Pause', eye: 'Look up', breathe: 'Breathe', transition: 'Transition', emphasis: 'Emphasize', over: 'Over time' };
 
@@ -43,7 +35,7 @@ function fmt(s) {
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
 
-export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketOf, model, voice: sharedVoice, openVoiceSettings }) {
+export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketOf, model }) {
   if (!host) return { open() {} };
   const PG = () => window.LatticePlayground;
   const root = document.documentElement;
@@ -63,13 +55,6 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
       }
     : null;
   const planner = createRehearsalPlanner({ model, gate });
-  // Read-aloud: the voice ladder. It reuses the architect's OpenRouter key for the
-  // hosted rung; falls back to in-browser Kokoro (summoned on demand) for no-key
-  // users; never speechSynthesis in production. See voice-model.js.
-  // One shared voice model across the page (Practice + the Settings Voice tab) so
-  // prefs, the loaded Kokoro worker, and the download all stay in sync. Falls back
-  // to its own instance when none is injected (older callers / tests).
-  const voice = sharedVoice || createVoiceModel({ getOpenRouterKey: () => (model?.openRouterKey ? model.openRouterKey() : null) });
   const themeFetcher = createThemeFetcher(themeBase);
 
   let plan = null; // the live rehearsal plan (deterministic, possibly AI-refined)
@@ -82,15 +67,8 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
   let ready = false; // the pre-roll "ready" gate: chrome is built, clock frozen at 0:00 until Start
   let hideTimer = null; // auto-hides the overlay arrows while autoplaying
   let practiceTour = null; // the driver.js walkthrough (lazy-init on first run; see drawing-board-practice-tour.js)
-  let prepared = null; // { out, sections, metas, notes, bg } — one engine render, shared by the start screen + the run
-  let cachedMetas = null; // the slide metas the read/plan run off (engine-derived, source as fallback)
-  let cachedNotes = null; // per-slide speaker notes (index-aligned with the plan), for read-aloud
-  let reading = false; // read-aloud is armed → it follows navigation, narrating each slide
-  let speakCtl = null; // AbortController for the in-flight utterance (barge-in on nav)
-  let voiceLoading = false; // a Kokoro summon (the ~80 MB local-voice download) is in flight
-  let voiceProg = 0; // that download's 0–100 progress, shown on the button
-  let voiceErr = false; // the last summon failed → button offers a retry
-  let elRead = null; // the read-aloud button in the bottom HUD
+  let prepared = null; // { out, sections, metas, bg } — one engine render, shared by the start screen + the run
+  let cachedMetas = null; // the slide metas the plan runs off (engine-derived, source as fallback)
 
   const el = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -118,12 +96,8 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
     const out = pg.render(source, theme);
     const sections = splitSections(out.html);
     const metas = sections.length ? metasFromSections(sections, { bucketOf }) : metasFromSource(source, { bucketOf });
-    // Lift each slide's speaker note (the real talk track) for read-aloud, through
-    // the canonical extractor. Index-aligned with the sections → the plan slides.
-    const notes = sections.map((h) => { try { return notesFromHtml(h); } catch { return null; } });
-    prepared = { out, sections, metas, notes, bg: mode === 'dark' ? '#0c0c0c' : '#15110d' };
+    prepared = { out, sections, metas, bg: mode === 'dark' ? '#0c0c0c' : '#15110d' };
     cachedMetas = metas;
-    cachedNotes = notes;
     return prepared;
   }
 
@@ -180,9 +154,6 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
     playing = false;
     ready = false;
-    voice.stop();
-    reading = false;
-    if (speakCtl) { try { speakCtl.abort(); } catch {} speakCtl = null; }
     // Drop the run's state so a re-opened START screen is inert to nav keys: the
     // `!plan` guard in onKey only holds if `plan` is cleared here (close() runs
     // before open() rebuilds the chooser), and the handles below now point at
@@ -190,7 +161,6 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
     plan = null;
     if (chartInteract) { chartInteract.destroy(); chartInteract = null; }
     layer = elAuto = elFs = elReady = frame = runEl = null;
-    elRead = null;
     exitFs();
     host.hidden = true;
     host.innerHTML = '';
@@ -224,7 +194,6 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
     if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(idx + 1); }
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(idx - 1); }
     else if (e.key === 'p' || e.key === 'P' || e.key === 'k') { e.preventDefault(); togglePlay(); }
-    else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); toggleRead(); }
     else return;
     showControls();
   }
@@ -370,80 +339,6 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
   }
   // The section after the one you're in — drives the top-right "next ·" preview.
   function nextSection(i) { return sections[sectionOf[i] + 1] || null; }
-  // ── Read-aloud ────────────────────────────────────────────────────────────
-  // The text to speak for a slide: its speaker note (the real talk track), falling
-  // back to the rehearsal snippet so a note-less slide still reads something sane.
-  function noteFor(i) {
-    const n = cachedNotes?.[i];
-    const snip = plan?.slides[i]?.snippet;
-    return n?.trim() || snip?.trim() || '';
-  }
-  // Narrate the current slide. Aborts any in-flight utterance first (barge-in).
-  function speakSlide() {
-    if (speakCtl) { try { speakCtl.abort(); } catch {} }
-    const text = noteFor(idx);
-    if (!text) { updateRead(); return; }
-    speakCtl = new AbortController();
-    voice.speak({ text, signal: speakCtl.signal, onState: () => updateRead() });
-    updateRead();
-  }
-  // No cloud key and no local model yet → summon Kokoro (the deliberate ~80 MB
-  // download), then start reading. Progress rides on the button; a failed
-  // download surfaces a retry state rather than silently resetting.
-  function summonVoice() {
-    if (voiceLoading) return;
-    voiceLoading = true; voiceErr = false; voiceProg = 0; updateRead();
-    voice
-      .loadKokoro((p) => { voiceProg = Math.round((p?.progress || 0) * 100); updateRead(); })
-      .then(() => { voiceLoading = false; reading = true; updateRead(); speakSlide(); })
-      .catch(() => { voiceLoading = false; voiceErr = true; updateRead(); });
-  }
-  function toggleRead() {
-    voice.unlock?.(); // resume the WebAudio context on the tap so iOS permits later playback
-    if (voiceLoading) return;
-    const avail = voice.availability();
-    if (avail.rung === 'silent') {
-      // Mobile: on-device voice is desktop-only, so there's nothing to download —
-      // send the user to connect the cloud voice instead of summoning Kokoro.
-      if (!avail.kokoroSupported) { openVoiceSettings?.(); return; }
-      summonVoice(); return; // desktop: download the local model (also the retry path)
-    }
-    // While speaking, the button is a true pause/resume (keeps position); when
-    // idle it (re)starts the current slide and arms read-along navigation.
-    if (voice.speaking()) {
-      if (voice.paused()) voice.resume(); else voice.pause();
-      updateRead();
-      return;
-    }
-    reading = true; speakSlide();
-  }
-  function updateRead() {
-    if (!elRead) return;
-    const speaking = voice.speaking();
-    const paused = speaking && voice.paused();
-    const avail = voice.availability();
-    const silent = avail.rung === 'silent';
-    // Mobile (on-device is desktop-only): no local download is possible, so a silent
-    // rung means "connect the cloud voice". Desktop: a never-downloaded local model
-    // with no cloud voice gets the download glyph (a cached-but-unloaded model isn't
-    // a download — pressing just loads it from cache).
-    const needsCloud = silent && !avail.kokoroSupported;
-    const needsDownload = silent && avail.kokoroSupported && !avail.kokoroCached;
-    elRead.classList.toggle('is-on', (reading || speaking) && !paused);
-    elRead.classList.toggle('is-loading', voiceLoading);
-    let ico; let title;
-    if (voiceLoading) { ico = 'ico-loader'; title = 'Loading voice… ' + voiceProg + '%'; }
-    else if (voiceErr) { ico = 'ico-alert'; title = 'Voice couldn’t load — tap to retry'; }
-    else if (paused) { ico = 'ico-play'; title = 'Resume reading (V)'; }
-    else if (speaking) { ico = 'ico-pause'; title = 'Pause reading (V)'; }
-    else if (needsCloud) { ico = 'ico-volume2'; title = 'Connect a cloud voice to read aloud (Settings → Voice)'; }
-    else if (needsDownload) { ico = 'ico-download'; title = 'Enable a voice (downloads a local model, ~80 MB)'; }
-    else { ico = 'ico-volume2'; title = 'Read this slide aloud (V)'; }
-    elRead.innerHTML = '<span class="ico ' + ico + (voiceLoading ? ' spin' : '') + '" aria-hidden="true"></span>';
-    elRead.title = title;
-    elRead.setAttribute('aria-label', title);
-    elRead.setAttribute('aria-pressed', String((reading || speaking) && !paused));
-  }
 
   function go(n) {
     if (ready) return; // pre-roll: nothing advances until Start
@@ -455,10 +350,6 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
     refreshTick();
     showControls(); // surface where you are on every move (re-arms the auto-hide while playing)
     if (chartInteract) chartInteract.onSlide(idx);
-    // Read-aloud rides navigation: when armed, narrate the new slide (aborting the
-    // old one); otherwise make sure no audio bleeds across the transition.
-    if (reading) speakSlide();
-    else { voice.stop(); updateRead(); }
   }
   function refreshChrome() {
     elSlide.textContent = (idx + 1) + ' / ' + slideCount();
@@ -717,22 +608,14 @@ export function createPractice({ host, getSource, runtimeUrl, themeBase, bucketO
     const nav = el('div', 'db-pv-nav');
     const readout = el('div', 'db-pv-readout');
     const gElapsed = el('div', 'db-pv-time');
-    // Read-aloud toggle — leads the readout (left of the clock). Speaker when idle,
-    // pause while reading, a cloud prompt when no voice is connected (mobile).
-    elRead = el('button', 'db-pv-speak'); elRead.type = 'button';
-    elRead.addEventListener('click', toggleRead);
     elClock = el('span', 'db-pv-clock', '0:00');
     gElapsed.append(elClock, el('span', 'db-pv-time-k', 'elapsed'));
     const gSlide = el('div', 'db-pv-time');
     elSlideTimeV = el('span', 'db-pv-slidetime-v', '0:00');
     gSlide.append(elSlideTimeV, el('span', 'db-pv-time-k', 'this slide'));
     elPace = el('span', 'db-pv-pace ok', 'on track');
-    readout.append(elRead, gElapsed, el('span', 'db-pv-vr'), gSlide, el('span', 'db-pv-vr'), elPace);
+    readout.append(gElapsed, el('span', 'db-pv-vr'), gSlide, el('span', 'db-pv-vr'), elPace);
     nav.append(readout);
-    updateRead();
-    // Re-probe the on-disk cache (it may have been downloaded via Settings since the
-    // voice model was created) so the button reflects "ready", not "download".
-    voice.probeKokoroCache?.().then(() => updateRead());
 
     run.append(bar, stage, nav);
     run.classList.add('is-ready'); // pre-roll: hide the edge arrows, show the ready card

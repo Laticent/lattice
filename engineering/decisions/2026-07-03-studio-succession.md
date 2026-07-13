@@ -296,6 +296,13 @@ exceptions are exactly three, and nothing else:
    IndexedDB decks gets fixed; that store must survive intact for the importer.
 3. **Mechanical retirement refactors** — the §3 import-path sweep and the §6
    deprecation banner are edits to frozen files *in service of* retirement.
+   > **Landed ahead of P5 (2026-07-13):** the Suono audio migration reached its
+   > endgame, so the Drawing Board's **read-aloud narration** (`drawing-board-practice.js`)
+   > and **voice-sample audition** (`drawing-board-settings.js`) were stripped as
+   > retirement refactors — `voice-model.js` is now a byte source with no playback of
+   > its own (all audio goes through Suono; `checkAudioPlaybackBoundary` guards a zero
+   > allowlist). This is the one user-facing capability the frozen surfaces lose before
+   > their route deletion; see `2026-07-12-suono-audio-library.md` §8 slice 2c-final.
 
 ⚠ **Ordinary functional bugs on the frozen surfaces are deliberately NOT
 fixed** (red-team asked; answering explicitly): a broken-but-safe behavior gets
