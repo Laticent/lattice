@@ -34,6 +34,18 @@ test('lexicon: the old `symbols:` key is NOT an alias — only `lexicon:` is rea
   assert.equal(parseNarrationFrontMatter(fm('symbols:\n  "→": old\nlexicon:\n  "→": new')).lexicon.get('→'), 'new');
 });
 
+test('lexicon: a double-quoted value decodes escaped quotes/backslashes (writer↔reader symmetry)', () => {
+  // The Studio writer escapes `"`→`\"` and `\`→`\\`; the reader must decode them or they leak.
+  const { lexicon } = parseNarrationFrontMatter(fm('lexicon:\n  "x": "say \\"hi\\""\n  "y": "a\\\\b"'));
+  assert.equal(lexicon.get('x'), 'say "hi"');
+  assert.equal(lexicon.get('y'), 'a\\b');
+});
+
+test('captions: a double-quoted value decodes escaped quotes too', () => {
+  const { captions } = parseNarrationFrontMatter(fm('captions:\n  2: "she said \\"go\\"."'));
+  assert.equal(captions.get(2), 'she said "go".');
+});
+
 test('lexicon: absent key → empty map; lexiconMap is the thin accessor', () => {
   assert.equal(parseNarrationFrontMatter(fm('theme: indaco')).lexicon.size, 0);
   assert.equal(lexiconMap(fm('lexicon:\n  "→": to the')).get('→'), 'to the');

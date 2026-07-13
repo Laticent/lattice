@@ -75,11 +75,17 @@ function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: s
 
 function unquote(v: string): string {
 	const t = v.trim();
-	if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) return t.slice(1, -1);
+	// A double-quoted value DECODES the escapes `quoteIfNeeded` writes (`\"`→`"`, `\\`→`\`), so the
+	// writer↔reader round-trip is lossless for a value containing a quote or backslash (else the
+	// backslashes leak and COMPOUND on each edit cycle). Single quotes don't escape in this scheme.
+	if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) return t.slice(1, -1).replace(/\\(["\\])/g, '$1');
+	if (t.length >= 2 && t.startsWith("'") && t.endsWith("'")) return t.slice(1, -1);
 	return t;
 }
 function quoteIfNeeded(v: string): string {
-	return /^[\w:.\-/]+$/.test(v) ? v : `"${v.replace(/"/g, '\\"')}"`;
+	// Escape backslash FIRST, then quote — else a `\` before a `"` would corrupt the quoting
+	// (mirrors `setFrontMatterBlock`'s key `esc`; the matching decode lives in `unquote`).
+	return /^[\w:.\-/]+$/.test(v) ? v : `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
 /** Read a single flat directive's value, or undefined if absent. */
@@ -246,7 +252,9 @@ export function setFrontMatterAcronyms(source: string, entries: Iterable<[string
 	for (const [rawTerm, entry] of entries) {
 		const term = String(rawTerm ?? '').trim();
 		const expansion = String(entry?.expansion ?? '').trim();
-		if (!ACRONYM_TERM_RE.test(term) || !expansion) continue;
+		// `expansion`/`definition` are reserved block-object field names — `parseAcronyms` skips them
+		// as standalone terms, so emitting one would silently vanish on read. Reject to match the reader.
+		if (!ACRONYM_TERM_RE.test(term) || !expansion || term === 'expansion' || term === 'definition') continue;
 		seen.set(term, { expansion, definition: String(entry?.definition ?? '').trim() || undefined });
 	}
 	const child: string[] = [];

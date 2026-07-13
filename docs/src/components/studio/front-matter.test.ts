@@ -234,6 +234,39 @@ describe('setFrontMatterAcronyms — structured term → { expansion, definition
 		expect(out.match(/\n {2}X:/g)?.length).toBe(1);
 		expect(acronymEntries(out).get('X')?.expansion).toBe('second');
 	});
+	it('a quote or backslash in an expansion / definition round-trips losslessly (no leaked escapes)', () => {
+		const out = setFrontMatterAcronyms(BODY, [
+			['RR', { expansion: 'the "run rate"', definition: 'A back\\slash and a "quote".' }],
+		]);
+		const entry = acronymEntries(out).get('RR');
+		expect(entry?.expansion).toBe('the "run rate"'); // not the\"run rate\"
+		expect(entry?.definition).toBe('A back\\slash and a "quote".');
+		// …and it stays stable across a re-serialize (escapes must not compound)
+		const twice = setFrontMatterAcronyms(out, [...acronymEntries(out)]);
+		expect(acronymEntries(twice).get('RR')).toEqual(entry);
+	});
+	it('rejects the reserved field names `expansion` / `definition` as terms (parser would drop them)', () => {
+		const out = setFrontMatterAcronyms(BODY, [
+			['definition', { expansion: 'nope' }],
+			['expansion', { expansion: 'nope' }],
+			['OK', { expansion: 'fine' }],
+		]);
+		const map = acronymEntries(out);
+		expect(map.has('definition')).toBe(false);
+		expect(map.has('expansion')).toBe(false);
+		expect(map.get('OK')?.expansion).toBe('fine');
+	});
+	it('a block-object acronym survives an unrelated front-matter edit verbatim', () => {
+		const withAcr = setFrontMatterAcronyms(BODY, [
+			['EBITDA', { expansion: 'ee bit dah', definition: 'Earnings before interest, taxes.' }],
+		]);
+		// edit a DIFFERENT key — the two-level acronyms block must not be flattened or dropped
+		const edited = setFrontMatterBlock(setFrontMatter(withAcr, 'paginate', 'true'), 'lexicon', [['→', 'to']]);
+		expect(edited).toMatch(/\n {2}EBITDA:\n {4}expansion: /);
+		const e = acronymEntries(edited).get('EBITDA');
+		expect(e).toEqual({ expansion: 'ee bit dah', definition: 'Earnings before interest, taxes.' });
+		expect(lexiconMap(edited).get('→')).toBe('to');
+	});
 });
 
 describe('setFrontMatterBlock — escaping', () => {
