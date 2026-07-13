@@ -84,16 +84,25 @@ Diagram is the one where the effort/value/novelty balance lands right for the ne
   SVG at build time"*). The engine's `preprocessMermaid` (`lattice-emulator.js:1109-1151`)
   replaces every ```` ```mermaid ```` fence with an inline `<svg>` **before** `rawMd` is built:
   `rawMd = appendAutoGlossary(preprocessMermaid(md))` (`:1161-1162`).
-- **The two narration producers, and the source each sees.** Both call the shared
-  `narrateChart` kernel (HARD RULE #1). BUT they feed it different per-slide source:
-  - **Live Present:** `narrationAt(i) = getNote(md) || narrateChart(md) || projection[i]`
+- **The narration producers, and the source each sees.** *(CORRECTED by the trio — §8/F1: there
+  are **THREE** producers, not two; the third is projection-only and does not call `narrateChart`
+  at all.)*
+  - **Live Present:** `narrationAt(i) = … getNote(md) || narrateChart(md) || projection[i] …`
     (`PresentOverlay.tsx:127-141`), where `md` is the Studio's `---`-split editor slide — the raw
     Markdown the user typed, **fence intact.**
   - **CLI/export:** `writeCaptionsSidecar` runs `narrateChart(blocks[i])` where
     `blocks = splitSourceToSections(rawMd)` (`lattice-emulator.js:2851-2862`) — and `rawMd` has
     already had the fence **baked to SVG** by `preprocessMermaid`.
+  - **Docs-site caption download (MISSED in the first draft):** `shareCaptions`
+    (`share-export.ts:533`) builds its `.vtt` from `mergeNarration(notes, projectSectionsToSpeech(
+    sections), …)` (`:581-585`) — the **DOM projection ONLY, no `narrateChart` call.** So it already
+    narrates every CHART (funnel/radar/…) heading-only today, and a markdown-narrator diagram fix
+    would not reach it either — it has no per-section SOURCE to feed a fence-intact split (it projects
+    already-rendered, mermaid-baked section HTML). This is a pre-existing parity gap the §13.6 work
+    also excluded, but the "both surfaces / HARD RULE #1" framing below understates it.
 
-**This asymmetry is the design crux.** A markdown narrator that reads the ```` ```mermaid ````
+**This asymmetry is the design crux for a MARKDOWN-source narrator** (and, per the correction above,
+does not even close the third producer). A markdown narrator that reads the ```` ```mermaid ````
 fence fires on Present (fence present) but sees only `<svg>…</svg>` on the export (fence gone) —
 so the same deck would narrate its diagram richly live and silently in the `.vtt`. That breaks
 HARD RULE #1 (both surfaces narrate identically) and would re-open exactly the parity gap §13.6
@@ -264,3 +273,118 @@ Topology phrasing (targets, not verified audio — §5):
 
 **No code ships until you answer.** This doc is the round's deliverable; on a go-ahead I implement
 the slice, then run the adversarial trio again on the shipping diff (HARD RULE #25).
+
+---
+
+## 8. Adversarial trio on this design — findings, resolutions, and a FLIPPED recommendation (2026-07-13)
+
+Per HARD RULE #25, three independent agents (red team + Munger inversion + independent checker),
+blind to each other, verified §1–§7 against source. The checker found the factual claims sound
+(**0 FALSE, 1 PARTLY** — an abbreviated `narrationAt` formula, not load-bearing). The red team and
+inversion converged on findings that **do not merely harden the diagram slice — they change which
+slice ships first.** The corrected synthesis:
+
+### 8.1 Findings (convergent; each verified against source before folding)
+
+- **F1 (HIGH, red team + checker) — a THIRD narration producer exists and is projection-only.**
+  `share-export.ts` `shareCaptions` (the docs-site "Download captions") narrates
+  `mergeNarration(notes, projectSectionsToSpeech(sections), …)` (`:581-585`) — **no `narrateChart`
+  call**, and no per-section source to feed a fence-intact split. §2's "two producers" was wrong.
+  A markdown-source diagram narrator (Axis A1/B1) reaches Present + the CLI export but **not**
+  `shareCaptions`, which keeps narrating diagrams (and, already today, every chart) heading-only.
+  So the design's own HARD RULE #1 parity goal is not met by the diagram plan without additional
+  `shareCaptions` wiring it never scoped.
+- **F2 (HIGH, inversion + red team) — the null-fallback bar is far too weak; the hazard is
+  *mis-read* edges, not *absent* edges.** Standard flowchart grammar the Axis-D phrasing never
+  models — `&` fan-out (`A & B --> C`), chained edges (`A --> B --> C` on one line), undirected
+  `A --- B`, reversed/bidirectional `A <-- B` / `A <--> B`, terminator variants `--x`/`--o`, `%%`
+  comments, quoted labels containing arrow text, and id-only (no-label) nodes — all yield *readable
+  edges*, so "no edges → null" does not fire, and the narrator speaks **confidently-wrong topology
+  (inverted direction, dropped/merged nodes)** — worse than the silence the slice exists to fix,
+  and the exact hazard the doc invokes to reject math (§1) and the SVG-walker (Axis A2).
+- **F3 (HIGH, red team + inversion) — skipping `withoutFences` risks reading raw Mermaid aloud, and
+  the "guarded like the other narrators" claim is self-contradictory.** `speakLeftover` speaks every
+  unconsumed line; the five narrators avoid leaking fence bodies *only because* they call
+  `withoutFences` first — the very mechanism §4.1 forbids. And that mechanism is *also* the
+  doc-example guard §4.1 claims to inherit (`narrateStateChart` was patched for exactly a
+  fenced-example-above-the-real-chart slide; `diagram.docs.md` authors that shape). So the design
+  removed its own guard and its own fence-leak protection in one sentence.
+- **F4 (MEDIUM, inversion + red team) — label internals reach the voice raw.** Node labels carry
+  arbitrary text — `<br/>`, entity-encoded `&amp;`, raw `→`/`%`, `Ratio 16:9` (a mid-token colon the
+  cadenza softener does NOT catch without a following space). Axis D says only "reads the LABEL"; it
+  never specifies the emphasis/link/quote scrub the funnel/radar parsers apply, nor a rule to emit
+  whitespace after every generated `:`/`;`.
+- **F5 (MEDIUM, red team; inversion concurs) — Axis B1's "identical boundaries" is asserted,
+  untested, and mis-blames the safe path.** The parity test carries **zero** mermaid decks. The
+  reviewers actually reversed the risk: a `​```mermaid` fence is an *opaque* markdown-it token, while
+  the BAKED replacement is a multi-line `<div><svg>…</svg></div>` html_block that terminates at the
+  first blank line — so the fence-intact split is *safer*, and the count guard (fails closed to
+  heading-only, never to misalignment) is the real protection. The claim to fix: say "the count
+  guard protects it; ship a mermaid-covering parity test," not "identical by construction."
+- **F6 (MEDIUM) — the test plan is happy-path only.** It lists edges/labels/branches/title/subgraph
+  + per-type null-fallback, but **none** of F2's adversarial inputs — so a fixture written by the
+  parser's author would pass green against exactly the cases that bite (verification theater).
+- **F1-blast-radius (LOW — reviewers converged AGAINST the inversion's worry):** switching the
+  export narration split to `appendAutoGlossary(md)` is byte-identical to `rawMd` on every
+  non-mermaid deck (`preprocessMermaid` is a no-op there), so the five shipped narrators and the
+  existing parity decks are unaffected; `md` is module-scoped and reachable in `writeCaptionsSidecar`
+  (`:447`), and `appendAutoGlossary` appends the same slide count regardless of baking (front-matter-
+  driven). So Axis B1 itself is *feasible and low-risk* — its problem is F1 (it still misses the
+  third producer) and F5 (untested), not blast radius.
+
+### 8.2 The flip — VIDEO is the disciplined first slice; diagram is the designed second
+
+F1 is decisive when read against invariant #5 (*prove one component end-to-end, verified, cheaply,
+first*) and HARD RULE #1 (*all surfaces narrate identically*):
+
+- A **video** narrator is a `speakVideo(stage)` walker **inside `projectDeckToSpeech`** — the DOM
+  projection that **all three** producers already call (Present via `narration-projection.ts`, the
+  CLI via `projectDeckSpeechFromHtml`, and `shareCaptions` via `projectSectionsToSpeech`). So it is
+  **symmetric across every surface by construction, with ONE walker**: no fence problem, no
+  export-split change, no `narrateChart` wiring, and — because provider is a deterministic URL parse
+  — **no confidently-wrong-topology and no fence-leak risk** (F2/F3/F4 simply do not arise). It
+  directly delivers census F-D.3 (video provider synthesis) + F-C (skip the poster/QR, inject the
+  provider) + F-E (URL/routing-pill suppression), and it is the *cheapest verifiable win* the tail
+  offers.
+- **Diagram** remains the higher-*value* gap (a graph is wholly silent today) and is genuinely
+  novel — but the trio shows it needs: a conservative recognized-subset parser that **bails to null
+  on any unrecognized arrow/edge/fan-out/multi-node/comment form** (F2), a `withoutFences`-blanked
+  leftover pass + render-faithful fence extraction (F3), label-internal scrubbing (F4), a
+  mermaid-covering parity test (F5/F6), AND a decision on the third producer (F1: either wire
+  `narrateChart` into `shareCaptions` — which needs giving it a fence-intact per-section source it
+  lacks — or scope it out with the parity consequence stated). That is a meatier, riskier slice that
+  should follow, once the tail's mechanics are proven on the symmetric video slice.
+
+**Corrected recommendation: ship the VIDEO narrator first** (symmetric-by-construction, no new
+hazards, proves the tail cheaply), and take **diagram second** with the F2–F6 hardening designed in
+and the F1 third-producer question answered. This is the same shape as the parent contract's own
+§11, where the trio flipped the recommendation after the fact — the adversarial pass is doing
+exactly its job. The slice order is the maintainer's call (open question #1), now made with the
+trio's evidence in hand.
+
+### 8.3 If diagram is chosen first anyway — the mandatory hardening
+
+Should the maintainer prefer diagram first (its value is real), these are non-negotiable, folded
+from the trio: (i) parse only a **conservative recognized subset**, bail to **null** on ANY
+unrecognized grammar (never guess an edge); (ii) extract the rendered `​```mermaid` fence with the
+**same regex `preprocessMermaid` uses** (render-faithful) and run the leftover pass on
+`withoutFences(md)` so no fence line can leak; (iii) strip quotes + scrub label internals + emit
+whitespace after every generated `:`/`;`; (iv) ship a **mermaid-covering export-parity test** and
+**adversarial fixtures** (reversed/undirected/chained/`&`/`%%`/quoted-arrow) asserting each either
+parses correctly OR null-falls-back — never confidently wrong; (v) decide the **third producer**
+(wire or scope-out, consequence stated). Video does not carry (i)–(v) at all.
+
+### 8.4 Open questions for the maintainer — REVISED (the go-ahead gate)
+
+1. **Slice order.** Trio-recommended: **video first** (symmetric across all three producers, no
+   fence/topology/leak hazards, cheapest verifiable win), **diagram second** (higher value, needs
+   §8.3 hardening + the third-producer decision). Or: diagram first anyway (value-led), with §8.3
+   mandatory? Or: math (highest value, highest risk) — not recommended first.
+2. **The third producer (`shareCaptions`).** For whichever slice: is bringing the docs-site caption
+   download into parity in-scope, or explicitly out-of-scope-with-consequence-stated for this PR?
+   (Video reaches it for free; diagram does not.)
+3. **Diagram scope, when it comes.** Flowchart/`graph` only with null-fallback for the other ~25
+   Mermaid types — confirm, or want a second type (sequence) in that PR?
+
+**No code ships until you answer.** On a go-ahead I implement the chosen slice, then run the
+adversarial trio again on the shipping diff (HARD RULE #25).
