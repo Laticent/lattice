@@ -5,7 +5,7 @@
 // estimated start/end ms and a char offset back into the source text. This is the
 // timeline the cursor scans and vtt serializes; it owns no audio and no DOM.
 
-import { estimateWordMs, FINAL_LENGTHEN_MS, type Pace, pauseAfter } from './cadence';
+import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, type Pace, pauseAfter } from './cadence';
 import { type AcronymRegistry, toSpoken } from './normalize';
 import { splitSentences, splitWords } from './segment';
 import type { LexiconMap } from './symbols';
@@ -92,12 +92,21 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
       words.push({ display, spoken, startMs, endMs, charOffset });
 
       // Advance the clock past this word, plus the pause its punctuation implies
-      // (the silence BEFORE the next word / cue). The trailing pause after the last
-      // word becomes the gap before the next cue, so cues read with a beat between.
+      // (the silence BEFORE the next word / cue). For the LAST word, this pause splits:
+      // its clip-internal portion (clipTrailingMs, below) lands INSIDE the cue's span,
+      // and the remainder is the inter-cue BREATH the next cue starts after.
       clock = endMs + pause;
     }
 
-    const cueEnd = words[words.length - 1].endMs;
+    // The cue spans the whole TTS clip, not just up to the last phoneme: a synthesized
+    // sentence clip carries its own trailing silence, so the last word's boundary pause
+    // contributes its clip-internal share (CLIP_TRAILING_FRACTION) to the cue's end. The
+    // complementary breath stays the inter-cue gap (clock advanced by the FULL pause above,
+    // so the next cue still starts at endMs + pause and the gap is exactly the breath).
+    // Without this the whole pause fell into the gap and the calibration residual — measured
+    // clip ÷ (cue.endMs − cue.startMs) — tracked punctuation depth, not the voice's difficulty.
+    const lastWord = words[words.length - 1];
+    const cueEnd = lastWord.endMs + clipTrailingMs(lastWord.display);
     cues.push({
       display: displays.join(' '),
       words,

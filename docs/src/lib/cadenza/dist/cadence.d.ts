@@ -14,6 +14,20 @@ export declare const SYLLABLE_MS: Record<Pace, number>;
 export declare const FINAL_LENGTHEN_MS = 30;
 /** The longest trailing pause implied by a token's punctuation (0 if none). */
 export declare function pauseAfter(display: string): number;
+/** The share of a boundary pause that lies INSIDE the TTS clip as its own sentence-final silence —
+ *  a synthesized clip does NOT end the instant the last phoneme does; it carries trailing silence
+ *  (Klatt's phrase-final lengthening + the voice's own tail). The complementary 0.3 is the inter-clip
+ *  BREATH the player inserts BETWEEN clips (voice-model.js `SENTENCE_PAUSE_MS` + read-aloud's `gapMs`,
+ *  both `pauseAfter × 0.3`). Splitting the pause this way — clip-internal silence here, breath there —
+ *  is what lets a cue's SPAN cover what the clip actually spans; before it, the whole pause fell into
+ *  the inter-cue gap and none into the cue, so the calibration residual (measured clip ÷ estimated cue
+ *  span) tracked PUNCTUATION DEPTH instead of the voice's real difficulty. `cadence.ts` can't import
+ *  the node-loadable `voice-model.js`, so the two live apart; `cadence.test.ts` pins them complementary. */
+export declare const CLIP_TRAILING_FRACTION = 0.7;
+/** The clip-internal trailing silence a token's trailing punctuation implies, ms (0 if none). Added
+ *  to a cue's end so the cue's duration spans the whole TTS clip, not just up to the last phoneme —
+ *  see `CLIP_TRAILING_FRACTION`. Rounded so it stays an integer ms alongside `pauseAfter`. */
+export declare function clipTrailingMs(display: string): number;
 /**
  * Estimate the number of spoken SYLLABLES in an already-spoken passage — a lightweight,
  * dependency-free English heuristic (count vowel-letter groups per word; drop a common

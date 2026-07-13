@@ -37,7 +37,10 @@ export const FINAL_LENGTHEN_MS = 30;
  *  depth (read/presentation register): comma/minor ~200, clause (`;`/`:`) ~350, sentence
  *  (`.`/`?`/`!`) ~550, trailing-off (`…`) ~650. Sourced from read-speech pause norms + the
  *  TTS doubling ladder (see the decision doc). Paragraph-level pauses aren't token-scoped and
- *  are a logged follow-up. */
+ *  are a logged follow-up. Keep every value a MULTIPLE OF 10: `CLIP_TRAILING_FRACTION` splits each
+ *  pause into `round(0.7p)` (clip silence) + `round(0.3p)` (breath), which sums back to `p` exactly
+ *  only when `p` isn't ≡5 mod 10 (else both halves land on `.5` and round up, e.g. p=5 → 4+2=6). The
+ *  partition test in `cadence.test.ts` fails loud if a future value breaks this. */
 const PAUSE_MS: Record<string, number> = {
   ',': 200, ';': 350, ':': 350,
   '.': 550, '!': 550, '?': 550, '…': 650,
@@ -51,6 +54,44 @@ export function pauseAfter(display: string): number {
   for (const ch of m[0]) max = Math.max(max, PAUSE_MS[ch] ?? 0);
   return max;
 }
+
+/** The share of a boundary pause that lies INSIDE the TTS clip as its own sentence-final silence —
+ *  a synthesized clip does NOT end the instant the last phoneme does; it carries trailing silence
+ *  (Klatt's phrase-final lengthening + the voice's own tail). The complementary 0.3 is the inter-clip
+ *  BREATH the player inserts BETWEEN clips (voice-model.js `SENTENCE_PAUSE_MS` + read-aloud's `gapMs`,
+ *  both `pauseAfter × 0.3`). Splitting the pause this way — clip-internal silence here, breath there —
+ *  is what lets a cue's SPAN cover what the clip actually spans; before it, the whole pause fell into
+ *  the inter-cue gap and none into the cue, so the calibration residual (measured clip ÷ estimated cue
+ *  span) tracked PUNCTUATION DEPTH instead of the voice's real difficulty. `cadence.ts` can't import
+ *  the node-loadable `voice-model.js`, so the two live apart; `cadence.test.ts` pins them complementary. */
+export const CLIP_TRAILING_FRACTION = 0.7;
+
+/** The clip-internal trailing silence a token's trailing punctuation implies, ms (0 if none). Added
+ *  to a cue's end so the cue's duration spans the whole TTS clip, not just up to the last phoneme —
+ *  see `CLIP_TRAILING_FRACTION`. Rounded so it stays an integer ms alongside `pauseAfter`. */
+export function clipTrailingMs(display: string): number {
+  return Math.round(pauseAfter(display) * CLIP_TRAILING_FRACTION);
+}
+
+/** Exact syllable counts for the small, CLOSED set of spoken-expansion words the vowel-group
+ *  heuristic below MIScounts, all for the same reason — a silent `e` the trailing-`e` rule can't see:
+ *   • "nineteen" / "ninety" (`numberToWords`): the MEDIAL magic-`e` in "nine" sits mid-word, so the
+ *     heuristic reads 3 beats when the voice says 2 ("nine-teen", "nine-ty"). Every figure built from
+ *     those atoms inherits it (19, 90–99, 1990, $1.9M, …).
+ *   • "times" (the `×`/`x` multiplier, `unitWords(_, 'time')` for any value ≠ 1 — "4.2×" → "four point
+ *     two times"): the plural `s` blocks the trailing-silent-`e` drop that correctly gives the
+ *     singular "time" = 1, so the heuristic reads 2 where the voice says 1 (/taɪmz/).
+ *  A general medial-silent-`e` rule can't be added safely — it regresses ordinary words ("generate"
+ *  → 2, "severance" → 2) — but the number/unit vocabulary is closed and owned upstream, so we give
+ *  exactly its miscounted words their true counts. These are the ONLY divergences across the whole
+ *  emitted vocabulary (ONES/TENS/SCALES, "hundred/point/dollars/percent/percentage/basis/…", ordinals).
+ *  Keyed lowercase; consulted before the heuristic. The count is correct for the WORD regardless of
+ *  source, so an author who literally types "ninety" or "times" benefits too. */
+const SYLLABLE_OVERRIDES: Record<string, number> = {
+  nineteen: 2,
+  ninety: 2,
+  times: 1,
+};
 
 /**
  * Estimate the number of spoken SYLLABLES in an already-spoken passage — a lightweight,
@@ -73,6 +114,13 @@ export function syllableCount(spoken: string): number {
       continue;
     }
     const w = tok.toLowerCase();
+    const override = SYLLABLE_OVERRIDES[w];
+    if (override !== undefined) {
+      // A closed-vocabulary word the vowel-group heuristic gets wrong (a number-expansion word with
+      // a medial silent `e`) — use its true count rather than the miscount. See SYLLABLE_OVERRIDES.
+      total += override;
+      continue;
+    }
     const groups = w.match(/[aeiouy]+/g);
     let n = groups ? groups.length : 0;
     if (n === 0) {

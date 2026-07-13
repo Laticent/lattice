@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { SENTENCE_PAUSE_MS } from '../../playground/voice-model.js';
-import { estimateWordMs, FINAL_LENGTHEN_MS, pauseAfter, SYLLABLE_MS, syllableCount } from './cadence';
+import {
+  clipTrailingMs,
+  estimateWordMs,
+  FINAL_LENGTHEN_MS,
+  pauseAfter,
+  SYLLABLE_MS,
+  syllableCount,
+} from './cadence';
+import { toSpoken } from './normalize';
 import { buildTrack } from './track';
 
 // The prosody-grounded pace model (2026-07-12-narration-pace-model.md): word duration rides a
@@ -47,6 +55,33 @@ describe('syllableCount — lightweight English heuristic', () => {
 	it('never returns less than 1', () => {
 		expect(syllableCount('')).toBe(1);
 		expect(syllableCount('!!!')).toBe(1);
+	});
+	it('counts number-expansion words with a MEDIAL silent e correctly (nineteen/ninety → 2, not 3)', () => {
+		// The magic-e in "nine" is silent but MEDIAL, so the trailing-e rule can't see it and the
+		// vowel-group heuristic reads 3 beats; the voice says 2 ("nine-teen", "nine-ty"). A closed
+		// number vocabulary is expanded upstream, so we give exactly its miscounted words true counts.
+		expect(syllableCount('nineteen')).toBe(2);
+		expect(syllableCount('ninety')).toBe(2);
+		// Every figure built from those atoms inherits the fix (via the toSpoken expansion).
+		expect(syllableCount(toSpoken('19'))).toBe(2); // "nineteen"
+		expect(syllableCount(toSpoken('90'))).toBe(2); // "ninety"
+		expect(syllableCount(toSpoken('99'))).toBe(3); // "ninety-nine" = ninety(2) + nine(1)
+		expect(syllableCount(toSpoken('1990'))).toBe(8); // "one thousand nine hundred ninety"
+	});
+	it('counts the multiplier plural "times" as 1 (the plural s blocks the silent-e drop)', () => {
+		// "time" = 1 already (trailing silent e), but "times" hid the e behind the s → the heuristic
+		// read 2. The ×/x multiplier emits "times" for any value ≠ 1, so every multiplier over-dwelt.
+		expect(syllableCount('times')).toBe(1);
+		expect(syllableCount('time')).toBe(1); // singular was always right — guard it stays
+		expect(syllableCount(toSpoken('3x'))).toBe(2); // "three times" = three(1) + times(1)
+		expect(syllableCount(toSpoken('4.2×'))).toBe(4); // "four point two times" = four+point+two+times
+	});
+	it('leaves the number words the heuristic already gets right unchanged', () => {
+		// Guard against over-broad overrides: the un-magic-e teens/tens stay correct.
+		expect(syllableCount('eighteen')).toBe(2);
+		expect(syllableCount('seventeen')).toBe(3);
+		expect(syllableCount('seventy')).toBe(3);
+		expect(syllableCount('nine')).toBe(1); // the atom itself (terminal silent e) was always right
 	});
 });
 
@@ -102,6 +137,17 @@ describe('race-safety: the audio breath never exceeds the estimate pause (two ha
 			const estimate = pauseAfter(`a${ch}`);
 			expect(estimate, `pauseAfter for "${ch}"`).toBeGreaterThan(0);
 			expect(breath, `breath ≤ estimate for "${ch}"`).toBeLessThanOrEqual(estimate);
+		}
+	});
+	it('the clip-internal silence + the breath PARTITION the boundary pause (no gap, no double-count)', () => {
+		// A boundary pause is split in two: the clip-internal trailing silence (clipTrailingMs, folded
+		// into the cue's span) and the inter-clip breath (SENTENCE_PAUSE_MS, the gap between cues). For
+		// the silent estimate and the clocked player to agree, the two must sum to EXACTLY the pause —
+		// so the cue-span fix takes precisely what the breath leaves, and vice-versa.
+		for (const ch of Object.keys(SENTENCE_PAUSE_MS)) {
+			const breath = SENTENCE_PAUSE_MS[ch as keyof typeof SENTENCE_PAUSE_MS];
+			const token = `a${ch}`;
+			expect(clipTrailingMs(token) + breath, `partition for "${ch}"`).toBe(pauseAfter(token));
 		}
 	});
 });
