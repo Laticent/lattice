@@ -368,9 +368,10 @@ export function useReadAloud(
 	// word 0), or the current sentence's start for a mid-slide unmute-resume (hold there, don't snap to
 	// word 0). Generalizes the old hard-coded "hold at 0 until sentence-0's onset."
 	const audioHoldMsRef = React.useRef(0);
-	// True while THIS slide sits in the muted → silent-estimate fallback, so an unmute knows to resume
-	// the clocked audio (vs a synth-FAILED estimate, which unmuting must not "resume").
-	const mutedMidSlideRef = React.useRef(false);
+	// True while THIS slide's clocked audio is suppressed by MUTE (muted at play OR muted mid-read) and
+	// a clocked voice is available — the signal that an UNMUTE should resume the audio on this slide.
+	// Distinguishes a mute-suppressed estimate from a synth-FAILED one (which unmuting must not retry).
+	const audioSuppressedRef = React.useRef(false);
 	// The last cue the highlight actually sat on — the anchor a mid-slide unmute resumes from (robust to
 	// an unmute landing in a between-words gap, where reader.current() is momentarily null).
 	const lastCueRef = React.useRef(0);
@@ -566,6 +567,13 @@ export function useReadAloud(
 			const stage = stageRef.current ?? getStage();
 			stageRef.current = stage;
 			if (!reader) return;
+			// Defensive: never orphan a still-playing sequence. Every caller nulls/stops seqRef first
+			// today, but the resume paths rely on that invariant implicitly — make it explicit here.
+			try {
+				seqRef.current?.stop();
+			} catch {
+				/* best-effort */
+			}
 			const from = Math.max(0, fromCue);
 			// One spoken sentence per cue keeps item index i == cue i (offset by `from`) for re-anchoring.
 			const spoken = track.cues.slice(from).map((c) => c.words.map((w) => w.spoken).join(' '));
@@ -642,6 +650,33 @@ export function useReadAloud(
 	const startClockedRef = React.useRef(startClocked);
 	startClockedRef.current = startClocked;
 
+	// Resume the CLOCKED read on the CURRENT slide from the current sentence — the shared UNMUTE path,
+	// used whether the mute happened mid-read or the slide started muted, and whether the unmute lands
+	// while playing (the effect below) or is deferred to the next resume (play()'s resume branch). A
+	// no-op unless audio is mute-suppressed, we're on the silent estimate, and a clocked voice is live.
+	// Returns whether it actually resumed. Reads only refs → stable (`[]`).
+	const resumeClockedFromCurrent = React.useCallback((): boolean => {
+		const voice = voiceRef.current;
+		const reader = readerRef.current;
+		if (!audioSuppressedRef.current || !voice || !reader || modeRef.current !== 'silent') return false;
+		let r: string;
+		try {
+			r = voice.rung();
+		} catch {
+			r = 'silent';
+		}
+		if (r !== 'openrouter-tts' && r !== 'kokoro') return false; // not a clocked voice — stay on the estimate
+		audioSuppressedRef.current = false;
+		// Resume from the CURRENT sentence, holding the highlight at that cue's live (aligned) start.
+		// current() is null in a between-words gap — fall back to the last highlighted cue, never cue 0.
+		const fromCue = Math.max(0, reader.current()?.cueIndex ?? lastCueRef.current);
+		const holdMs = reader.trackNow().cues[fromCue]?.startMs ?? elapsedRef.current;
+		startClockedRef.current(voice, fromCue, holdMs);
+		return true;
+	}, []);
+	const resumeClockedFromCurrentRef = React.useRef(resumeClockedFromCurrent);
+	resumeClockedFromCurrentRef.current = resumeClockedFromCurrent;
+
 	const play = React.useCallback(() => {
 		const reader = readerRef.current;
 		if (!reader || !track.cues.length) return;
@@ -661,15 +696,20 @@ export function useReadAloud(
 			pausedRef.current = false;
 			playingRef.current = true;
 			setPlaying(true);
-			try {
-				seqRef.current?.resume();
-			} catch {
-				/* best-effort */
-			}
-			try {
-				voiceRef.current?.resume();
-			} catch {
-				/* best-effort */
+			// Voice unmuted while paused (or the slide started muted) → resume the CLOCKED audio from the
+			// current sentence rather than the (null) paused sequence. Otherwise resume the paused seq.
+			const resumedAudio = !mutedRef.current && resumeClockedFromCurrent();
+			if (!resumedAudio) {
+				try {
+					seqRef.current?.resume();
+				} catch {
+					/* best-effort */
+				}
+				try {
+					voiceRef.current?.resume();
+				} catch {
+					/* best-effort */
+				}
 			}
 			// Only start the loop here if it was already armed (mode decided) before
 			// the pause. A pause tapped WHILE the original play() was still arming
@@ -698,7 +738,7 @@ export function useReadAloud(
 		elapsedRef.current = 0;
 		audioBaseRef.current = null;
 		audioHoldMsRef.current = 0; // a fresh play holds at word 0 (a mid-slide unmute overrides this)
-		mutedMidSlideRef.current = false; // not (yet) in the muted→estimate fallback for this play
+		audioSuppressedRef.current = false; // no mute-suppressed audio (yet) for this play
 		lastCueRef.current = 0; // resume anchor starts at the top for a fresh play
 		lastTimedCueRef.current = -1;
 		peakAheadRef.current = 0;
@@ -741,6 +781,17 @@ export function useReadAloud(
 			// captions/teleprompter still animate word-by-word off Cadenza's built-in timings.
 			if (mutedRef.current) {
 				setRung('silent');
+				voiceRef.current = voice;
+				// If a CLOCKED voice is behind the mute, remember the audio is only mute-suppressed — a
+				// later unmute resumes it on THIS slide (Present opens muted-by-default, so play-muted →
+				// unmute is the common path, not only mute-mid-read).
+				let mr: string;
+				try {
+					mr = voice.rung();
+				} catch {
+					mr = 'silent';
+				}
+				if (mr === 'openrouter-tts' || mr === 'kokoro') audioSuppressedRef.current = true;
 				armedRef.current = true;
 				if (!pausedRef.current) startLoop();
 				return;
@@ -831,7 +882,7 @@ export function useReadAloud(
 				}
 			}
 		});
-	}, [track, startLoop, startClocked]);
+	}, [track, startLoop, startClocked, resumeClockedFromCurrent]);
 
 	const pause = React.useCallback(() => {
 		cancelRaf();
@@ -878,30 +929,15 @@ export function useReadAloud(
 					/* best-effort */
 				}
 				modeRef.current = 'silent';
-				mutedMidSlideRef.current = true;
+				audioSuppressedRef.current = true;
 				lastTRef.current = nowMs();
 			}
 			return;
 		}
-		// UNMUTE: only resume when we're in the muted→estimate fallback (not a synth-FAILED estimate,
-		// which unmuting must not "resume") and a CLOCKED voice is available.
-		if (!mutedMidSlideRef.current || !playingRef.current || modeRef.current !== 'silent') return;
-		const voice = voiceRef.current;
-		const reader = readerRef.current;
-		if (!voice || !reader) return;
-		let r: string;
-		try {
-			r = voice.rung();
-		} catch {
-			r = 'silent';
-		}
-		if (r !== 'openrouter-tts' && r !== 'kokoro') return; // not a clocked voice — leave it on the estimate
-		mutedMidSlideRef.current = false;
-		// Resume from the CURRENT sentence, holding the highlight at that cue's live (aligned) start.
-		// current() is null in a between-words gap — fall back to the last highlighted cue, never cue 0.
-		const fromCue = Math.max(0, reader.current()?.cueIndex ?? lastCueRef.current);
-		const holdMs = reader.trackNow().cues[fromCue]?.startMs ?? elapsedRef.current;
-		startClockedRef.current(voice, fromCue, holdMs);
+		// UNMUTE while PLAYING → resume the clocked audio now. While PAUSED, `audioSuppressedRef` stays
+		// set and the resume is DEFERRED to the next play() (see the resume branch) — so a
+		// mute → pause → unmute → play still brings the audio back on this slide.
+		if (playingRef.current) resumeClockedFromCurrentRef.current();
 	}, [mutedProp]);
 
 	return { playing, track, active, progress, rung, debugEvents, debugLive, play, pause, toggle, stop };

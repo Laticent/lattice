@@ -197,6 +197,36 @@ test('read-aloud: UNMUTE mid-slide resumes the clocked audio on THIS slide (not 
 	expect((await until(page, (s) => s.finished >= 1)).finished).toBe(1);
 });
 
+test('read-aloud: mute → pause → UNMUTE (deferred) → resume brings the audio back on this slide', async ({ page }) => {
+	// The unmute lands while PAUSED, so it can't resume immediately — it must DEFER to the next play(),
+	// which re-engages the clocked audio (else the slide stays silent on the estimate — checker Finding A).
+	await open(page);
+	await page.click('#play');
+	await until(page, (s) => s.mode === 'audio');
+	await until(page, (s) => s.cue >= 1);
+	await page.click('#mute'); // → silent estimate
+	await until(page, (s) => s.mode === 'silent');
+	await page.click('#pause'); // pause the estimate
+	expect((await ra(page)).playing).toBe(false);
+	await page.click('#unmute'); // unmute WHILE PAUSED — deferred, not immediate
+	await page.click('#play'); // resume → must re-engage clocked audio
+	expect((await until(page, (s) => s.mode === 'audio', 4000)).mode).toBe('audio');
+	expect((await until(page, (s) => s.finished >= 1)).finished).toBe(1);
+});
+
+test('read-aloud: play while MUTED (Present default), then unmute mid-slide, engages audio here', async ({ page }) => {
+	// Present opens Voice muted by default, so "play muted → unmute" is the common path (checker
+	// Finding B). Starting muted must still let a later unmute engage the clocked audio on THIS slide.
+	await open(page);
+	await page.click('#mute'); // mute BEFORE play → the slide starts on the silent estimate
+	await page.click('#play');
+	await until(page, (s) => s.cue >= 1); // estimate running (arming resolved)
+	expect((await ra(page)).mode).toBe('silent'); // not audio yet — muted
+	await page.click('#unmute'); // → engage clocked audio on this slide
+	expect((await until(page, (s) => s.mode === 'audio', 4000)).mode).toBe('audio');
+	expect((await until(page, (s) => s.finished >= 1)).finished).toBe(1);
+});
+
 test('read-aloud: slide-nav mid-read tears down cleanly (new track, no ghost highlight)', async ({ page }) => {
 	await open(page);
 	await page.click('#play');
