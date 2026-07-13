@@ -1,0 +1,25 @@
+{
+  "note": "Sanctioned opaque-black SVG paint on the SCOPED render path. Each entry is a legitimately-black ink/hairline, NOT a dropped-colour bug. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.",
+  "themes": [
+    "indaco",
+    "cuoio"
+  ],
+  "schemes": [
+    "light",
+    "dark"
+  ],
+  "sanctioned": [
+    {
+      "family": "chart",
+      "component": "quadrant",
+      "selector": "quadrant-dot-label",
+      "property": "fill"
+    },
+    {
+      "family": "chart",
+      "component": "quadrant",
+      "selector": "quadrant-label",
+      "property": "fill"
+    }
+  ]
+}
