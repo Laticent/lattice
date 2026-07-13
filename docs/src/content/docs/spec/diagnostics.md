@@ -98,6 +98,7 @@ below are the canonical v1 identifiers the reference implementation emits, and
 | `number-slot-bodyless-item` | warning | — | A `kpi`/`stats` number item with no nested label — the number won't render in display type. |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
 | `unknown-finish` | warning | — | A front-matter `finish:` value that isn't a known register — the deck would silently render the boardroom baseline. |
+| `lexicon-single-letter-key` | warning | — | A single-letter/digit `lexicon:` key (`e:`, `2:`) — read-aloud rewrites every embedded occurrence, not just the standalone token, garbling the deck's narration. A single glyph (`→`, `×`) is safe. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
 > deterministic autofix; whether a given finding carries one depends on its

@@ -661,6 +661,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.spectrumNames) findings.push(...findUnknownSpectrum(source, vocab.spectrumNames));
       if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
       findings.push(...findRetiredBackdrop(source));
+      findings.push(...findSingleLetterLexiconKeys(source));
       findings.push(...findRetiredFormMinimal(source));
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
@@ -1129,6 +1130,45 @@ ${indent}   - ${body.trim()}`;
       }
       return out;
     }
+    function isSingleLetterOrDigitKey(tok) {
+      return !!tok && [...tok].length === 1 && /[\p{L}\p{Nd}]/u.test(tok);
+    }
+    function findSingleLetterLexiconKeys(source) {
+      const fmBlock = String(source || "").match(/^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+      if (!fmBlock) return [];
+      const lines = fmBlock[1].split(/\r?\n/);
+      let i = lines.findIndex((l) => /^lexicon:[ \t]*$/.test(l));
+      if (i < 0) return [];
+      const block = [];
+      for (i += 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === "") continue;
+        const indent = line.match(/^(\s*)/)[1].length;
+        if (indent === 0) break;
+        block.push({ indent, text: line.trim() });
+      }
+      if (!block.length) return [];
+      const entryIndent = Math.min(...block.map((l) => l.indent));
+      const out = [];
+      for (const { indent, text } of block) {
+        if (indent !== entryIndent) continue;
+        const m = text.match(/^(?:"([^"]+)"|'([^']+)'|([^\s:]+))\s*:/u);
+        if (!m) continue;
+        const tok = m[1] ?? m[2] ?? m[3];
+        if (isSingleLetterOrDigitKey(tok)) {
+          out.push({
+            slide: 0,
+            rule: "lexicon-single-letter-key",
+            severity: "warning",
+            classToken: tok,
+            line: text,
+            message: `lexicon key '${tok}' is a single letter/digit \u2014 read-aloud rewrites EVERY embedded '${tok}' in the deck (e.g. 'revenue' \u2192 garbled), not just the standalone token`,
+            fix: `Use a whole-word key (e.g. \`revenue: \u2026\`) or a symbol; single letters/digits also match inside other words. Keep it only if you truly mean every '${tok}'.`
+          });
+        }
+      }
+      return out;
+    }
     module.exports = {
       CLASS_DIRECTIVE,
       MODIFIER_PREFIXES,
@@ -1156,6 +1196,7 @@ ${indent}   - ${body.trim()}`;
       findUnknownStamp,
       findUnknownToneStyle,
       findUnknownSpectrum,
+      findSingleLetterLexiconKeys,
       nearestRegion,
       editDistance,
       isKnownModifier,

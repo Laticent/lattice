@@ -76,39 +76,57 @@ export function LexiconEditor({
         </p>
       ) : (
         <ul className="flex flex-col gap-1.5">
-          {rows.map((r) => (
-            <li key={r.id} className="flex items-center gap-1.5">
-              <Input
-                aria-label="Word or symbol"
-                value={r.token}
-                placeholder="Kubernetes"
-                onChange={(e) => update(r.id, { token: e.target.value })}
-                onBlur={() => commit(rows)}
-                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                className="h-8 w-28 shrink-0 text-[13px]"
-              />
-              <span aria-hidden className="shrink-0 text-[12px] text-muted-foreground">→</span>
-              <Input
-                aria-label="Spoken form"
-                value={r.spoken}
-                placeholder="spoken form — blank is silent"
-                onChange={(e) => update(r.id, { spoken: e.target.value })}
-                onBlur={() => commit(rows)}
-                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                className="h-8 flex-1 text-[12.5px]"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={`Remove ${r.token || 'entry'}`}
-                onClick={() => remove(r.id)}
-                className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-4" />
-              </Button>
-            </li>
-          ))}
+          {rows.map((r) => {
+            // A single letter/digit key is a read-aloud footgun: the built-in commons matches
+            // per code point, so `e` rewrites EVERY embedded "e" ("revenue" → garbled), not just
+            // the standalone token. A single GLYPH (`→`, `×`, `🎯`) is the intended use and safe.
+            // Any-script letter/digit (é, a Greek/Cyrillic letter, a full-width digit) is the same
+            // hazard — [...token].length counts code points. Mirrors the `lexicon-single-letter-key`
+            // deck-lint rule (lib/authoring/lint-core.js). Warn, don't block.
+            const token = r.token.trim();
+            const risky = [...token].length === 1 && /[\p{L}\p{Nd}]/u.test(token);
+            return (
+              <li key={r.id} className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    aria-label="Word or symbol"
+                    value={r.token}
+                    placeholder="Kubernetes"
+                    aria-invalid={risky || undefined}
+                    onChange={(e) => update(r.id, { token: e.target.value })}
+                    onBlur={() => commit(rows)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                    className="h-8 w-28 shrink-0 text-[13px]"
+                  />
+                  <span aria-hidden className="shrink-0 text-[12px] text-muted-foreground">→</span>
+                  <Input
+                    aria-label="Spoken form"
+                    value={r.spoken}
+                    placeholder="spoken form — blank is silent"
+                    onChange={(e) => update(r.id, { spoken: e.target.value })}
+                    onBlur={() => commit(rows)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                    className="h-8 flex-1 text-[12.5px]"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove ${r.token || 'entry'}`}
+                    onClick={() => remove(r.id)}
+                    className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+                {risky && (
+                  <p role="status" className="pl-1 text-[10.5px] leading-snug" style={{ color: 'var(--warn, #9a6a00)' }}>
+                    “{token}” is a single letter/digit — it’s read inside every word (“revenue” would garble). Use a whole word or a symbol.
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       <Button type="button" variant="outline" size="sm" onClick={add} className="mt-2 h-8 gap-1.5 text-[12px]">

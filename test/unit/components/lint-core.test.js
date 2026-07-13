@@ -457,3 +457,52 @@ describe('lint-core: claim safety (2026-07-03 claim decision §8)', () => {
     assert.equal(has('---\nmarp: true\nclaim: hero\n---\n\n<!-- _class: big-number -->\n\n- 42\n  - x\n', 'unknown-claim'), false);
   });
 });
+
+describe('lint-core: lexicon-single-letter-key (read-aloud footgun, PR #952 follow-up)', () => {
+  const has = (src) => core.lintTextWith(src, vocab).some((f) => f.rule === 'lexicon-single-letter-key');
+  const findingFor = (src) => core.findSingleLetterLexiconKeys(src);
+
+  test('a single-letter key warns (it rewrites every embedded letter)', () => {
+    const f = findingFor('---\nlexicon:\n  e: EEK\n---\n\n# Deck\n');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].severity, 'warning');
+    assert.equal(f[0].classToken, 'e');
+    assert.equal(f[0].slide, 0);
+  });
+
+  test('a single DIGIT key warns too (it matches inside "2025")', () => {
+    assert.ok(has('---\nlexicon:\n  "2": two\n---\n\n# Deck\n'));
+  });
+
+  test('a quoted single-letter key warns identically', () => {
+    assert.ok(has('---\nlexicon:\n  "s": ess\n---\n\n# Deck\n'));
+  });
+
+  test('a single NON-ASCII letter key warns too (per-code-point substitution is language-blind)', () => {
+    // `é` rewrites every embedded "é" ("café" → "caf ay"), exactly the ASCII footgun in another script.
+    assert.ok(has('---\nlexicon:\n  é: ay\n---\n\n# Deck\n'));
+  });
+
+  test('a single GLYPH or emoji key is silent — that is the intended use', () => {
+    assert.equal(has('---\nlexicon:\n  "→": to\n  ×: times\n  "🎯": ""\n---\n\n# Deck\n'), false);
+  });
+
+  test('catches the key on a `--- ` trailing-space fence (parity with the parser)', () => {
+    // frontMatterBody tolerates a trailing space after the opening fence; the warning must too,
+    // else a deck the engine actually narrates dodges it.
+    assert.ok(has('--- \nlexicon:\n  e: EEK\n--- \n\n# Deck\n'));
+  });
+
+  test('a whole-word key is silent', () => {
+    assert.equal(has('---\nlexicon:\n  Kubernetes: koober-net-eez\n---\n\n# Deck\n'), false);
+  });
+
+  test('warns per offending key while leaving safe siblings alone', () => {
+    const f = findingFor('---\nlexicon:\n  e: EEK\n  Kubernetes: koober-net-eez\n  "→": to\n  x: ex\n---\n\n# Deck\n');
+    assert.deepEqual(f.map((x) => x.classToken).sort(), ['e', 'x']);
+  });
+
+  test('no lexicon block → no findings', () => {
+    assert.equal(findingFor('---\ntheme: indaco\n---\n\n# Deck\n').length, 0);
+  });
+});

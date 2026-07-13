@@ -139,8 +139,12 @@ override. Two real findings folded in / logged:
   single token longer than any real word is spoken verbatim, keeping both paths linear. Covered by a
   test. (The sinks predate this change and are reachable from any deck prose token, but this PR
   touches those lines, so #18 = fix in place.)
-- **Logged (follow-up, not this PR):** (a) a single-LETTER lexicon key (`"e": …`) falls to the
-  per-glyph pass and rewrites every embedded `e` — a self-inflicted mis-narration the word-key
-  feature newly makes easy to author; wants an authoring-time validation warning. (b) `blockLines`
-  matches a `key:` header at any indent, so a nested `acronyms:` under `lexicon:` is double-parsed —
-  a robustness wart, no privilege gain (the author could write a top-level key anyway).
+- **Logged (follow-up) — both RESOLVED (2026-07-13, this thread's follow-up PR):** (a) a single-LETTER
+  lexicon key (`"e": …`) falls to the per-glyph pass and rewrites every embedded `e` — a self-inflicted
+  mis-narration the word-key feature newly makes easy to author. **Fixed:** a `lexicon-single-letter-key`
+  deck-lint warning (`lib/authoring/lint-core.js`) plus an inline hint in the Studio Lexicon editor —
+  warn, don't block (a single glyph like `→` is the intended use and stays silent). (b) `blockLines`
+  matched a `key:` header at any indent, so a nested `acronyms:` under `lexicon:` was double-parsed —
+  a robustness wart, no privilege gain. **Fixed:** the header now matches only at the front-matter root
+  indent (column 0), where narration registry keys always live; maker-checked (it touches the shared
+  narration parser, #1).
