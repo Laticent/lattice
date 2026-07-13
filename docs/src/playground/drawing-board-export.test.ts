@@ -80,4 +80,40 @@ describe('assembleSheetPdf — place cached images on a paper sheet', () => {
 		expect(seen.map((p) => p.current)).toEqual([0, 1, 2]);
 		expect(seen.every((p) => p.total === 3)).toBe(true);
 	});
+
+	it('N-up packs multiple slides per sheet → ceil(slides / nup) pages', async () => {
+		const imgs = [PNG, PNG, PNG, PNG, PNG]; // 5 slides
+		const geom = { w: 1280, h: 720 };
+		const sheet = { pageW: 1344, pageH: 816 };
+		const oneUp = await decode(await assembleSheetPdf(imgs, geom, 'p', meta, { sheet, pageFormat: 'png', nup: 1 }));
+		const twoUp = await decode(await assembleSheetPdf(imgs, geom, 'p', meta, { sheet, pageFormat: 'png', nup: 2 }));
+		const fourUp = await decode(await assembleSheetPdf(imgs, geom, 'p', meta, { sheet, pageFormat: 'png', nup: 4 }));
+		expect(pageCount(oneUp)).toBe(5); // 1 per page
+		expect(pageCount(twoUp)).toBe(3); // ceil(5/2)
+		expect(pageCount(fourUp)).toBe(2); // ceil(5/4)
+		// The MediaBox is the same sheet regardless of nup (only placement changes).
+		expect(mediaBoxes(twoUp)[0]).toMatch(/1008/);
+		expect(mediaBoxes(fourUp)[0]).toMatch(/1008/);
+	});
+
+	it('an invalid nup falls back to 1-up (one slide per page)', async () => {
+		const text = await decode(await assembleSheetPdf([PNG, PNG], { w: 1280, h: 720 }, 'p', meta, { sheet: { pageW: 1344, pageH: 816 }, pageFormat: 'png', nup: 3 as unknown as number }));
+		expect(pageCount(text)).toBe(2);
+	});
+
+	it('handout mode → one slide + its notes per page (nup ignored)', async () => {
+		// Content streams are compressed, so the note TEXT isn't greppable here — its
+		// rendering is verified by decoding the real PDF on the live surface (HARD RULE #23).
+		// This pins the page structure: always one slide per page, even with nup:4, and a
+		// short-notes deck doesn't throw (the empty-note placeholder path runs for slide 2).
+		const imgs = [PNG, PNG, PNG];
+		const notes = ['First slide note.', '', 'Third slide note here.'];
+		const text = await decode(await assembleSheetPdf(imgs, { w: 1280, h: 720 }, 'p', meta, {
+			sheet: { pageW: 816, pageH: 1056 }, pageFormat: 'png', handout: true, nup: 4, notes,
+		}));
+		expect(pageCount(text)).toBe(3);
+		// A4/Letter PORTRAIT MediaBox (816×0.75=612 wide, 1056×0.75=792 tall).
+		expect(mediaBoxes(text)[0]).toMatch(/612/);
+		expect(mediaBoxes(text)[0]).toMatch(/792/);
+	});
 });

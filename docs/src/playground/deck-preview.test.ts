@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSrcdoc, fitSlideOnSheet, resolvePrintSheet } from './deck-preview.js';
+import { buildSrcdoc, fitSlideOnSheet, nUpCells, nUpGrid, resolvePrintSheet } from './deck-preview.js';
 
 // The filmstrip srcdoc must inject the heavy third-party assets ONLY when the deck
 // actually uses them — KaTeX styles `.katex`, Mermaid renders `code.language-mermaid`
@@ -151,5 +151,70 @@ describe('resolvePrintSheet / fitSlideOnSheet — print-PDF page geometry', () =
 		expect(r.w).toBe(1280);
 		expect(r.h).toBe(720);
 		expect(r.x).toBeLessThan(0);
+	});
+});
+
+describe('nUpGrid / nUpCells — N-up handout geometry', () => {
+	it('nup=1 returns exactly one cell equal to fitSlideOnSheet (the 1-up placement)', () => {
+		const cells = nUpCells(1280, 720, 1344, 816, 1, 'page');
+		expect(cells).toHaveLength(1);
+		const fit = fitSlideOnSheet(1280, 720, 1344, 816, 'page');
+		expect(cells[0].x).toBeCloseTo(fit.x, 5);
+		expect(cells[0].y).toBeCloseTo(fit.y, 5);
+		expect(cells[0].w).toBeCloseTo(fit.w, 5);
+		expect(cells[0].h).toBeCloseTo(fit.h, 5);
+	});
+
+	it('2-up stacks wide 16:9 slides into two rows on a landscape sheet (not squeezed side-by-side)', () => {
+		// 16:9 slides fit bigger stacked 1×2 than side-by-side 2×1 on a wide sheet.
+		expect(nUpGrid(2, 1344, 816, 1280, 720)).toEqual({ cols: 1, rows: 2 });
+		const cells = nUpCells(1280, 720, 1344, 816, 2, 'page');
+		expect(cells).toHaveLength(2);
+		// Two rows: same x, the second sits below the first, non-overlapping.
+		expect(cells[0].x).toBeCloseTo(cells[1].x, 5);
+		expect(cells[1].y).toBeGreaterThan(cells[0].y + cells[0].h);
+	});
+
+	it('4-up is a 2×2 grid, every cell inside the sheet and non-overlapping', () => {
+		expect(nUpGrid(4, 1344, 816, 1280, 720)).toEqual({ cols: 2, rows: 2 });
+		const cells = nUpCells(1280, 720, 1344, 816, 4, 'page');
+		expect(cells).toHaveLength(4);
+		for (const c of cells) {
+			expect(c.x).toBeGreaterThanOrEqual(0);
+			expect(c.y).toBeGreaterThanOrEqual(0);
+			expect(c.x + c.w).toBeLessThanOrEqual(1344 + 0.001);
+			expect(c.y + c.h).toBeLessThanOrEqual(816 + 0.001);
+		}
+		// Column 0 vs column 1 don't overlap horizontally; row 0 vs row 1 don't overlap vertically.
+		expect(cells[1].x).toBeGreaterThan(cells[0].x + cells[0].w - 0.001);
+		expect(cells[2].y).toBeGreaterThan(cells[0].y + cells[0].h - 0.001);
+	});
+
+	it('an invalid nup collapses to 1-up', () => {
+		expect(nUpCells(1280, 720, 1344, 816, 3, 'page')).toHaveLength(1);
+	});
+});
+
+describe('handoutRegions — slide-over-notes handout geometry', () => {
+	it('puts the slide in the top band and its notes below, both inside the sheet, non-overlapping', async () => {
+		const { handoutRegions } = await import('./deck-preview.js');
+		const { slide, notes } = handoutRegions(1280, 720, 816, 1056, 'page'); // Letter portrait
+		// Notes sit entirely below the slide.
+		expect(notes.y).toBeGreaterThanOrEqual(slide.y + slide.h - 0.001);
+		// Both inside the printable area (9mm safe margin).
+		const SAFE = Math.round(9 * (96 / 25.4));
+		expect(slide.y).toBeGreaterThanOrEqual(SAFE - 0.001);
+		expect(notes.y + notes.h).toBeLessThanOrEqual(1056 - SAFE + 0.001);
+		expect(notes.w).toBeCloseTo(816 - 2 * SAFE, 5);
+		// The slide keeps its aspect and is centered horizontally.
+		expect(slide.w / slide.h).toBeCloseTo(1280 / 720, 5);
+		expect(slide.x).toBeCloseTo((816 - slide.w) / 2, 5);
+	});
+
+	it('portrait gives the notes more room than landscape (the taller residual band)', async () => {
+		const { handoutRegions } = await import('./deck-preview.js');
+		const portrait = handoutRegions(1280, 720, 816, 1056, 'page');
+		const landscape = handoutRegions(1280, 720, 1056, 816, 'page');
+		expect(portrait.notes.h).toBeGreaterThan(landscape.notes.h);
 	});
 });

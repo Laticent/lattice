@@ -288,6 +288,64 @@ export function fitSlideOnSheet(gw, gh, pageW, pageH, fit) {
 	return { x: (pageW - w) / 2, y: (pageH - h) / 2, w, h };
 }
 
+// N-up grid arrangement — the cols×rows (cols·rows ≥ nup) that fits the biggest slide
+// for this sheet + slide aspect. 1→1×1; 2→ the better of 2×1 / 1×2 (so wide 16:9 slides
+// stack instead of squeezing side-by-side); 4→2×2. Pure — shared by the Print drawer
+// preview and the PDF assembler (HARD RULE #1).
+export function nUpGrid(nup, pageW, pageH, gw, gh) {
+	if (!(nup > 1)) return { cols: 1, rows: 1 };
+	if (nup === 2) {
+		const scaleFor = (cols, rows) => Math.min(pageW / cols / gw, pageH / rows / gh);
+		return scaleFor(2, 1) >= scaleFor(1, 2) ? { cols: 2, rows: 1 } : { cols: 1, rows: 2 };
+	}
+	return { cols: 2, rows: 2 };
+}
+
+// Speaker-notes handout regions for ONE sheet (all px @96dpi): the slide fit + centered in
+// the TOP band (~55% of the printable height), its speaker notes in the band below, both
+// inside the 9mm safe margin. Shared by the Print drawer preview (slide iframe + a notes
+// box) and the PDF assembler (slide image + jsPDF-drawn note text) — HARD RULE #1.
+export function handoutRegions(gw, gh, pageW, pageH, fit) {
+	const SAFE = PRINT_SAFE_PX;
+	const availW = pageW - 2 * SAFE;
+	const availH = pageH - 2 * SAFE;
+	const gap = Math.round(SAFE / 2);
+	const slideBandH = Math.round(availH * 0.55);
+	const scale = fit === 'actual' ? 1 : Math.min(Math.min(availW / gw, slideBandH / gh), 1);
+	const w = gw * scale;
+	const h = gh * scale;
+	const slide = { x: SAFE + (availW - w) / 2, y: SAFE + (slideBandH - h) / 2, w, h };
+	const notesY = SAFE + slideBandH + gap;
+	const notes = { x: SAFE, y: notesY, w: availW, h: availH - slideBandH - gap };
+	return { slide, notes };
+}
+
+// Placement rects for the `nup` slides on ONE sheet (all px @96dpi): an outer 9mm safe
+// margin around the whole sheet, a smaller gutter between cells, each slide fit + centered
+// in its cell. `nup=1` collapses to exactly `fitSlideOnSheet` (one full-page cell). The
+// assembler places image i at cells[i % nup]; the drawer preview positions an iframe per
+// cell. `fit:'actual'` prints each cell 1:1 (may clip).
+export function nUpCells(gw, gh, pageW, pageH, nup, fit) {
+	const n = [1, 2, 4].includes(nup) ? nup : 1;
+	const { cols, rows } = nUpGrid(n, pageW, pageH, gw, gh);
+	const SAFE = PRINT_SAFE_PX;
+	const gutter = n > 1 ? Math.round(SAFE / 2) : 0;
+	const cellW = (pageW - 2 * SAFE - (cols - 1) * gutter) / cols;
+	const cellH = (pageH - 2 * SAFE - (rows - 1) * gutter) / rows;
+	const cells = [];
+	for (let i = 0; i < n; i++) {
+		const c = i % cols;
+		const r = Math.floor(i / cols);
+		const cx = SAFE + c * (cellW + gutter);
+		const cy = SAFE + r * (cellH + gutter);
+		const scale = fit === 'actual' ? 1 : Math.min(Math.min(cellW / gw, cellH / gh), 1);
+		const w = gw * scale;
+		const h = gh * scale;
+		cells.push({ x: cx + (cellW - w) / 2, y: cy + (cellH - h) / 2, w, h });
+	}
+	return cells;
+}
+
 // Vector print CSS for the browser ⌘P path (the Drawing Board print; the Studio's
 // "Print deck" now prints a real PDF instead — share-export.ts). `opts`:
 // { paper, orientation, fit:'page'|'actual' }; auto by default.
