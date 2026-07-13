@@ -517,6 +517,15 @@ var require_dist = __commonJS({
       for (const ch of m[0]) max = Math.max(max, PAUSE_MS[ch] ?? 0);
       return max;
     }
+    var CLIP_TRAILING_FRACTION = 0.7;
+    function clipTrailingMs(display) {
+      return Math.round(pauseAfter(display) * CLIP_TRAILING_FRACTION);
+    }
+    var SYLLABLE_OVERRIDES = {
+      nineteen: 2,
+      ninety: 2,
+      times: 1
+    };
     function syllableCount(spoken) {
       const raw = String(spoken ?? "").replace(/['’]/g, "");
       const tokens = raw.split(/[^A-Za-z0-9]+/).filter(Boolean);
@@ -527,6 +536,11 @@ var require_dist = __commonJS({
           continue;
         }
         const w = tok.toLowerCase();
+        const override = SYLLABLE_OVERRIDES[w];
+        if (override !== void 0) {
+          total += override;
+          continue;
+        }
         const groups = w.match(/[aeiouy]+/g);
         let n = groups ? groups.length : 0;
         if (n === 0) {
@@ -739,7 +753,8 @@ var require_dist = __commonJS({
           words.push({ display, spoken, startMs, endMs, charOffset });
           clock = endMs + pause;
         }
-        const cueEnd = words[words.length - 1].endMs;
+        const lastWord = words[words.length - 1];
+        const cueEnd = lastWord.endMs + clipTrailingMs(lastWord.display);
         cues.push({
           display: displays.join(" "),
           words,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { clipTrailingMs } from './cadence';
 import { makeCursor } from './cursor';
 import { buildTrack } from './track';
 
@@ -34,10 +35,19 @@ describe('cursor.align (hybrid re-anchor)', () => {
 
     const aligned = cursor.track().cues[0];
     expect(aligned.startMs).toBe(10_000);
+    // The cue SPAN still covers the whole measured clip (start → measured end).
     expect(aligned.endMs).toBe(14_000);
     expect(aligned.words[0].startMs).toBe(10_000);
-    // The last word ends at the measured end.
-    expect(aligned.words[aligned.words.length - 1].endMs).toBeCloseTo(14_000, 5);
+    // The last WORD now releases into the clip's own trailing silence rather than being dragged to
+    // the final sample: its highlight ends before the measured end by the (scaled) clip-internal
+    // silence, so it rests during the sentence-final pause (the forgivable "highlight ahead", not a
+    // lag). Expected end = onset + (last word's estimate end − cue start) × measured/estimate scale.
+    const lastEst = cue.words[cue.words.length - 1];
+    const scale = 4_000 / estDur;
+    const expectedLastEnd = 10_000 + (lastEst.endMs - cue.startMs) * scale;
+    expect(aligned.words[aligned.words.length - 1].endMs).toBeCloseTo(expectedLastEnd, 5);
+    expect(expectedLastEnd).toBeLessThan(14_000); // released before the clip's silent tail
+    expect(14_000 - expectedLastEnd).toBeCloseTo(clipTrailingMs(lastEst.display) * scale, 5);
     // Internal rhythm preserved: first word still holds ~the same share of the span.
     const newShare = (aligned.words[0].endMs - aligned.words[0].startMs) / 4_000;
     expect(newShare).toBeCloseTo(firstShare, 5);

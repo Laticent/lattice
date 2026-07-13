@@ -324,7 +324,30 @@ in patch versions.
   so a same-named key nested under another block is inert. No behavior change for well-formed decks;
   `parseAcronyms` / lexicon / `parseCaptions` still round-trip. Red-team follow-up
   (`engineering/decisions/2026-07-13-speech-symbol-commons.md`).
-
+- **Read-aloud timing: a caption's estimated span now covers the whole spoken clip, and "nineteen"/
+  "ninety"/"times" stop over-counting.** Two systematic errors an adversarial trio flagged in the narration
+  estimator, both fixed at the source (the estimator's data, not a compensating fudge). (1) **Trailing
+  silence.** A sentence's boundary pause was assigned entirely to the gap BETWEEN cues and excluded
+  from the cue's own end, so a cue's estimated duration stopped at its last phoneme while the real TTS
+  clip runs on through its sentence-final silence. Per-voice calibration compares the measured clip to
+  that estimate, so the residual tracked **punctuation depth** (how strong the terminator was) instead
+  of the voice's real difficulty. The boundary pause now splits: its clip-internal share
+  (`CLIP_TRAILING_FRACTION = 0.7`) folds into the cue's end (so the span covers the clip), and the
+  complementary `0.3` stays the inter-cue breath — the two partition the pause exactly, pinned by a
+  cross-file test against `voice-model.js`. Under a clocked voice the last word's highlight now
+  releases into that trailing silence rather than being stretched to the clip's final sample (a
+  highlight resting slightly ahead, the forgivable direction). (2) **Number syllables.** The syllable
+  heuristic miscounted three number/unit-expansion words whose silent `e` the trailing-`e` rule can't
+  see: "nineteen"/"ninety" (the medial magic-`e` in "nine" → read as 3 beats, so 19, 90–99, 1990,
+  `$1.9M`, … dwelt a beat too long) and "times" (the `×`/`x` multiplier plural, e.g. `4.2×` → "four
+  point two times" — the plural `s` hides the silent `e` of "time" → read as 2). Those three
+  closed-vocabulary words now get their true counts (2, 2, 1); a general medial-silent-`e` rule was
+  rejected because it regresses ordinary words ("generate", "severance"). **Export note:** exported `.vtt`/`readAlong` **cue-END timestamps** shift
+  later by each cue's clip-trailing silence (word-level inline timestamps and cue STARTS are
+  byte-identical); caption TEXT is unchanged. **UNVERIFIED:** whether these estimates match real TTS
+  timing can't be checked in the sandbox (no audio clock/device) — the modeling math is unit-tested;
+  the on-device narration improvement awaits a device pass. (`cadence.ts`, `track.ts`;
+  `engineering/decisions/2026-07-13-estimator-trailing-silence-and-number-syllables.md`.)
 - **Native browser widgets now track the site's color mode and take the palette — no more OS-default
   scrollbars.** The docs site flipped its palette on `data-mode`, but nothing emitted the CSS
   `color-scheme` property, so in dark mode the browser still painted scrollbars, form controls,

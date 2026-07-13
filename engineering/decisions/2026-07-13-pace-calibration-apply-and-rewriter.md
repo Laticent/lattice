@@ -187,6 +187,13 @@ so authors supply accurate pronunciations and the estimator counts the right spo
 apply-`k`/rewriter only if a residual survives the corrected estimator. This doc is parked (blocked),
 not deleted — it's the record of why the rewriter was not built.
 
+**Estimator-data fixes landed (see `2026-07-13-estimator-trailing-silence-and-number-syllables.md`):**
+the Acronyms-in-Lexicon panel (#959) covered acronyms/proper nouns; the trailing-silence/cue-span
+bias and the number-syllable ("nineteen"/"ninety") miscount are now fixed at the source. The
+trailing-silence fix directly de-confounds THIS thread's residual — a cue span that covers the clip
+means the calibration residual tracks difficulty, not punctuation depth. Apply-`k`/rewriter stay
+parked pending the maintainer's direction.
+
 **Recommended pivot (mine, folding the trio):** (1) **Do not build the rewriter now** — fix the root
 cause via acronyms-in-Lexicon first; revisit only if a residual survives a *corrected* estimator as a
 clean signal. (2) **Apply-`k` is narrower and costlier than it looked** — done right it needs the
