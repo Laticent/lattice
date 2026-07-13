@@ -68,6 +68,17 @@ describe('color-shim core', () => {
     assert.equal(flat.dyn, '#000');
   });
 
+  test('flattens a modern fn EMBEDDED in a gradient/shadow, not just a whole-value call (trio finding 3)', () => {
+    // A :root token whose value embeds color-mix in a larger expression must resolve, not drop.
+    const flat = resolveFlatPalette(
+      ':root { --grad: linear-gradient(0deg, color-mix(in oklab, #ff0000, #0000ff) 0%, #000000 100%); }',
+      false,
+    );
+    assert.ok('grad' in flat, 'a composite token embedding a modern fn must be flattened, not dropped');
+    assert.doesNotMatch(flat.grad, /color-mix\(|var\(/, 'the embedded color-mix must be resolved flat');
+    assert.match(flat.grad, /linear-gradient\(/, 'the gradient structure is preserved');
+  });
+
   test('flatPaletteCss serializes an injectable :root rule', () => {
     const css = flatPaletteCss({ bg: '#fff', 'text-heading': '#000' });
     assert.match(css, /^:root \{ --bg: #fff; --text-heading: #000 \}$/);

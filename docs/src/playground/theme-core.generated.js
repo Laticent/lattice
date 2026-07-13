@@ -48,7 +48,7 @@ var require_color = __commonJS({
     function rgbToHex2(rgb) {
       const hex = rgb.map((v) => {
         const n = Math.max(0, Math.min(255, Math.round(v)));
-        return n.toString(16).padStart(2, "0");
+        return `0${n.toString(16)}`.slice(-2);
       }).join("");
       return `#${hex}`;
     }

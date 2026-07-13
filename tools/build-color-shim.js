@@ -33,10 +33,13 @@ const argv = process.argv.slice(2);
 const check = argv.includes('--check');
 const silent = argv.includes('--silent') || check;
 
-// Auto-install entry: importing the bundle installs the shim (no-op on a modern engine).
+// Auto-install entry: importing the bundle installs the shim (no-op on a modern engine). Wrapped in
+// try/catch so that if the shim ever hits a runtime method an OLD engine lacks, it degrades to
+// "no worse than not running" (raw light-dark ships, same as no shim) instead of throwing an
+// uncaught error out of the pre-paint <head> script — which would leave the whole deck black.
 const ENTRY_CONTENTS = `
 import { installColorShim } from './color-shim.js';
-installColorShim();
+try { installColorShim(); } catch (e) { /* old-engine method gap — leave native CSS, never black out */ }
 `;
 
 const BUILD_OPTIONS = {
