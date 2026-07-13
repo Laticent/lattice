@@ -73,6 +73,13 @@ export interface PlayHandle {
 	stop(): void;
 	/** Resolves when the clip ends naturally, is stopped, or fails. NEVER rejects. */
 	done: Promise<PlayResult>;
+	/** Pause this clip: fade it out (declick), stop it, and remember the offset. `done` stays pending.
+	 *  Idempotent; a no-op once the clip has ended. */
+	pause(): void;
+	/** Resume a paused clip from where it left off — plays a FRESH source from the remembered offset
+	 *  (fading back in), rather than relying on the context to un-freeze a suspended source (which is
+	 *  unreliable on iOS/Safari). Idempotent; a no-op if not paused. */
+	resume(): void;
 }
 
 /** A decoded, ready-to-play clip. Opaque handle over the platform AudioBuffer. */
@@ -101,9 +108,11 @@ export interface Stage {
 	latencyMs(): number;
 	/** Lifecycle state for diagnostics. */
 	state(): StageState;
-	/** Context-level pause: suspends the in-flight clip mid-stream. */
+	/** Context-level suspend — freezes `clockMs()` (and the hardware context) between clips. NOTE: this
+	 *  does NOT reliably keep a live clip audible across resume on iOS/Safari; to pause an in-flight
+	 *  clip, use the `PlayHandle`'s `pause()`/`resume()` (stop + re-arm), which the sequencer does. */
 	suspend(): void;
-	/** Resume a suspended context. */
+	/** Resume a context suspended by `suspend()`. */
 	resume(): void;
 	/** Build a sequence scheduler bound to this stage. */
 	sequence<T>(opts: SequenceOptions<T>): Sequence;

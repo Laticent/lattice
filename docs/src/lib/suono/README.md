@@ -77,12 +77,17 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 - Latency-compensated clock so a caption tracks the ear, not the buffer.
 - **Declick:** a few-ms gain ramp at each clip's head + tail so playback never steps from/to a
   non-zero sample — the click/pop at a clip boundary, worst on many-short-fragment slides (`fadeMs`).
+- **Reliable pause/resume:** pausing a live clip fades it out, **stops** it, and remembers the
+  offset; resuming plays a **fresh** source from that offset (fading back in). We do NOT lean on
+  `AudioContext.suspend()/resume()` to freeze a mid-flight source — that drops audio on resume on
+  iOS/Safari ("captions resume but the sound doesn't") and hard-stops with a pop. `PlayHandle`
+  exposes `pause()`/`resume()`; the sequencer routes through them.
 
 ## API
 
 | Export | What it does |
 |---|---|
-| `createStage(opts?)` | the owned context + playback. `unlock()`, `decode(bytes, key?)`, `play(clip, {onStart, signal})`, `clockMs()`, `latencyMs()`, `state()`, `suspend()`/`resume()`, `stopAll()`, `sequence(opts)`, `dispose()`. |
+| `createStage(opts?)` | the owned context + playback. `unlock()`, `decode(bytes, key?)`, `play(clip, {onStart, signal})` → a `PlayHandle` (`stop()`, `pause()`, `resume()`, `done`), `clockMs()`, `latencyMs()`, `state()`, `suspend()`/`resume()`, `stopAll()`, `sequence(opts)`, `dispose()`. |
 | `stage.sequence(opts)` / `makeSequence(stage, opts)` | the scheduler: `play`/`pause`/`resume`/`stop`/`warm`. Opts: `items`, `produce`, `keyOf?`, `gapMs?`, `concurrency?`, `onItemStart?`, `onState?`. `warm(items)` **preloads** — prefetches bytes AND decodes them, so a later play skips both. |
 | `encodeWav(samples, rate)` | Float32 PCM → WAV `BlobLike` (pure, node-safe). |
 | `wrapPcm(bytes, contentType)` | raw PCM response → WAV `BlobLike` (pure). |

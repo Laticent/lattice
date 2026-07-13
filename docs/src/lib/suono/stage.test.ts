@@ -112,3 +112,102 @@ describe('createStage — declick fallback (reliability downgrade guard)', () =>
 		await expect(handle.done).resolves.toMatchObject({ ok: true });
 	});
 });
+
+// A richer mock that tracks every created source and lets a test advance the clock — so we can prove
+// pause STOPS the live source and resume plays a FRESH one from the paused OFFSET (the reliable
+// cross-device resume, not a context un-freeze), and that onStart fires exactly once.
+function installTrackingAudio() {
+	const sources: Array<{ started: Array<number | undefined>; stopped: boolean; onended: null | (() => void) }> = [];
+	class Src {
+		buffer: unknown = null;
+		started: Array<number | undefined> = [];
+		stopped = false;
+		onended: null | (() => void) = null;
+		connect() {}
+		disconnect() {}
+		start(_when?: number, offset?: number) {
+			this.started.push(offset);
+		}
+		stop() {
+			this.stopped = true;
+		}
+	}
+	function makeGain() {
+		return {
+			gain: { value: 1, setValueAtTime: () => {}, linearRampToValueAtTime: () => {}, cancelScheduledValues: () => {} },
+			connect: () => {},
+			disconnect: () => {},
+		};
+	}
+	const ctx = {
+		state: 'running',
+		currentTime: 0,
+		baseLatency: 0,
+		destination: {},
+		decodeAudioData: (_ab: ArrayBuffer, ok: (b: unknown) => void) => ok({ length: 24000, numberOfChannels: 1, duration: 1 }),
+		createBufferSource() {
+			const s = new Src();
+			sources.push(s);
+			return s;
+		},
+		createGain: makeGain,
+		createBuffer: () => ({}),
+		resume: () => Promise.resolve(),
+		suspend: () => {},
+		close: () => {},
+	};
+	// biome-ignore lint/complexity/useArrowFunction: must be `new`-able — createStage calls `new AC()`; an arrow throws.
+	(window as unknown as { AudioContext: unknown }).AudioContext = function () {
+		return ctx;
+	};
+	return { ctx, sources };
+}
+
+describe('createStage — pause/resume (stop + re-arm)', () => {
+	it('pause stops the live clip; resume plays a FRESH source from the paused offset; onStart fires once', async () => {
+		const { ctx, sources } = installTrackingAudio();
+		const stage = createStage();
+		const clip = await stage.decode(bytesOfSize(8), 'k'); // duration 1000ms
+		const onStart = vi.fn();
+		const handle = stage.play(clip, { onStart });
+		expect(sources.length).toBe(1); // armed once
+		expect(sources[0].started[0]).toBe(0); // started at offset 0
+		expect(onStart).toHaveBeenCalledTimes(1);
+
+		ctx.currentTime = 0.4; // 400ms into the clip
+		handle.pause();
+		expect(sources[0].stopped).toBe(true); // the live source was stopped, not left to the context
+
+		ctx.currentTime = 5; // (a long pause — real wall time)
+		handle.resume();
+		expect(sources.length).toBe(2); // a NEW source was armed
+		expect(sources[1].started[0]).toBeCloseTo(0.4, 5); // …from the paused offset (~400ms in)
+		expect(onStart).toHaveBeenCalledTimes(1); // NOT re-fired on resume (would re-anchor the caption)
+
+		// The fresh source ending naturally settles the handle.
+		sources[1].onended?.();
+		const res = await handle.done;
+		expect(res.ok).toBe(true);
+		expect(res.aborted).toBeFalsy(); // a natural end, not a stop()/barge-in
+	});
+
+	it("a pause-stopped source's late onended does NOT settle the handle (no premature clip-end)", async () => {
+		const { ctx, sources } = installTrackingAudio();
+		const stage = createStage();
+		const clip = await stage.decode(bytesOfSize(8), 'k');
+		let settled = false;
+		const handle = stage.play(clip);
+		handle.done.then(() => {
+			settled = true;
+		});
+		ctx.currentTime = 0.3;
+		handle.pause();
+		handle.resume();
+		// The old (pause-stopped) source fires onended AFTER resume re-armed — it's stale, must be ignored.
+		sources[0].onended?.();
+		await Promise.resolve();
+		expect(settled).toBe(false); // still playing the re-armed source
+		sources[1].onended?.(); // the current source ends → NOW it settles
+		await expect(handle.done).resolves.toMatchObject({ ok: true });
+	});
+});

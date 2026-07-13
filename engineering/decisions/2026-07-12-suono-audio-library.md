@@ -303,6 +303,22 @@ migration wires it into the Playground.
      Chromium** (real `AudioContext`: the word-highlight rode the real audio clock across a 4-sentence
      read to `onFinish`) — closing the UNVERIFIED-stage caveat for the core paths. (Audible hardware
      output + iOS-Safari ringer/`audioSession` remain device-only.)
+     - **2a-fix — reliable, pop-free pause/resume (device bug, IMG_2978).** On-device testing surfaced
+       two faults the headless harness can't hear: a **pop** on pause/resume, and — worse — **resume
+       played the captions but not the audio** on iPhone/Safari. Root cause: pausing leaned on
+       `AudioContext.suspend()/resume()` to freeze the in-flight `AudioBufferSourceNode`, which iOS
+       silently fails to re-start on resume, and the hard suspend/resume steps the waveform at a
+       non-zero sample (the pop). Fix: pause a live clip by **fading it out + stopping it** (recording
+       the offset), and resume by **arming a fresh source from that offset** (fading back in) — playback
+       is now deterministic, not dependent on the engine un-freezing a source. `PlayHandle` gained
+       `pause()`/`resume()`; `makeSequence` tracks the on-stage handle and routes through it (a
+       between-clips pause still just freezes `clockMs()` via the context). `onStart` fires **once**
+       (never on a resume re-arm — a second onset would re-anchor the caption cursor and corrupt the
+       #947 pace calibration), and a stale (pause-stopped) source's late `onended` is ignored via a
+       generation token, so a run never settles early. New stage/sequence unit tests + a strengthened
+       `read-aloud` nightly (freeze → resume → progress-past-paused-cue → second cycle → finish-once)
+       lock it in; the **audible** pop-gone / sound-resumes claim is device-only (HARD RULE #23) and
+       signed off on the #950 preview.
    - **2b — the other three consumers** (`cadenza.astro`, Drawing-Board practice/present) onto the same
      seam. Then **2c** — remove `voice-model.js`'s own `getCtx`/`playBlob`/`speak` playback and add the
      repo-wide "no raw AudioContext outside Suono" gate (§6), which can only land once *no* consumer

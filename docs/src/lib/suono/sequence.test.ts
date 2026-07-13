@@ -159,6 +159,39 @@ describe('makeSequence — scheduler', () => {
 		seq.stop();
 	});
 
+	it('pause()/resume() drive the LIVE clip handle (declick + re-arm), not just the context', async () => {
+		// A stage whose play() returns a handle with a controllable `done` and pause/resume spies, so we
+		// can observe that a pause while a clip is on the stage routes to the HANDLE (reliable resume),
+		// not to the blunt context suspend.
+		const pauseSpy = vi.fn();
+		const resumeSpy = vi.fn();
+		let resolveDone: (r: { ok: boolean }) => void = () => {};
+		const stage: SequenceStage = {
+			async decode(_b: Bytes, _k?: string): Promise<Clip> {
+				return { buffer: {} as AudioBuffer, durationMs: 10 };
+			},
+			play() {
+				return { done: new Promise<{ ok: boolean }>((r) => { resolveDone = r; }), stop() {}, pause: pauseSpy, resume: resumeSpy };
+			},
+			suspend: vi.fn(),
+			resume: vi.fn(),
+			state: (): StageState => 'running',
+		};
+		const seq = makeSequence(stage, { items: [0], produce: async () => bytes(), keyOf: (i) => `k${i}`, produceTimeoutMs: 5000 });
+		seq.play();
+		await flush();
+		// The clip is on the stage (done still pending) — pause must hit the handle, not stage.suspend.
+		seq.pause();
+		expect(pauseSpy).toHaveBeenCalledTimes(1);
+		expect(stage.suspend).not.toHaveBeenCalled();
+		seq.resume();
+		expect(resumeSpy).toHaveBeenCalledTimes(1);
+		expect(stage.resume).not.toHaveBeenCalled();
+		resolveDone({ ok: true });
+		await flush();
+		seq.stop();
+	});
+
 	it('pause() while IDLE does not poison the next play() (checker #3)', async () => {
 		const stage = fakeStage();
 		let done: () => void;
