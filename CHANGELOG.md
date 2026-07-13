@@ -214,6 +214,15 @@ in patch versions.
 
 ### Changed
 
+- **The `/cadenza` demo now plays through the Suono library too, and a gate keeps all audio playback
+  inside it.** The reference read-along page (a behavior-neutral swap) builds a Suono
+  `stage.sequence({ produce: voice.synthOne, … })` like the Studio, with the browser-voice rung on the
+  parallel `speakThis` path; verified on the real page (mocked TTS → the highlight rides Suono's clock).
+  A new `checkAudioPlaybackBoundary` gate (`build:check`) then forbids a raw `AudioContext` or
+  voice-model imperative playback (`.speak({…})` / `.playBlob()`) anywhere in `docs/src` outside Suono —
+  an allowlist + anti-rot ratchet now down to two grandfathered, retiring files (`voice-model.js`, the
+  frozen `drawing-board-practice.js`). See `engineering/decisions/2026-07-12-suono-audio-library.md` §8
+  slices 2b/2c.
 - **The Studio read-aloud now plays through the Suono library** (its first production consumer) —
   a behavior-neutral backend swap. `read-aloud.ts` drives a shared Suono `stage` + `sequence` instead
   of a hand-rolled RAF/mode scheduler; `voice-model.js` gained a node-tested `synthOne(text)→bytes`

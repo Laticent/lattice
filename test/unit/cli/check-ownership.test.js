@@ -58,6 +58,9 @@ const {
   checkDensityCoverage,
   SANCTIONED_DENSITY_EXEMPT,
   checkVetrinaBoundary,
+  checkAudioPlaybackBoundary,
+  SANCTIONED_LEGACY_AUDIO,
+  RAW_AUDIO_PATTERNS,
   checkSanctionedGestures,
   SANCTIONED_GESTURES,
   VETRINA_DIR,
@@ -373,6 +376,37 @@ describe('check-ownership', () => {
       const stripped = src.replace(new RegExp(SANITIZE_CALL.source, 'g'), 'noop(');
       assert.ok(PREVIEW_BUILDER_MARKER.test(stripped), 'still a builder');
       assert.ok(!SANITIZE_CALL.test(stripped), 'sanitize call gone → gate would flag it');
+    });
+  });
+
+  describe('audio-playback boundary gate (Suono is the only WebAudio player)', () => {
+    const ROOT = path.join(__dirname, '..', '..', '..');
+
+    test('the live tree raises no audio-boundary violations', () => {
+      const errors = [];
+      checkAudioPlaybackBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('the allowlist is truthful: every sanctioned file exists and still trips a pattern (not stale)', () => {
+      for (const s of SANCTIONED_LEGACY_AUDIO) {
+        const src = fs.readFileSync(path.join(ROOT, s.file), 'utf8');
+        assert.ok(RAW_AUDIO_PATTERNS.some((re) => re.test(src)), `${s.file} should still create a raw context or call voice-model playback`);
+      }
+    });
+
+    test('the gate bites raw audio / voice-model playback, but not speechSynthesis or a Suono sequence', () => {
+      const hit = (s) => RAW_AUDIO_PATTERNS.some((re) => re.test(s));
+      // Flagged — non-Suono playback:
+      assert.ok(hit('const ctx = new AudioContext();'), 'raw AudioContext');
+      assert.ok(hit('const AC = window.AudioContext || window.webkitAudioContext;'), 'webkit fallback');
+      assert.ok(hit('voice.speak({ text: t });'), "voice-model's object-arg speak");
+      assert.ok(hit('await voice.playBlob(blob);'), 'playBlob');
+      // NOT flagged — the browser-voice rung (utterance-arg) and the Suono path:
+      assert.ok(!hit('speechSynthesis.speak(u);'), 'speechSynthesis.speak(utterance) is allowed');
+      assert.ok(!hit('synth.speak(new SpeechSynthesisUtterance(t));'), 'browser synth utterance speak is allowed');
+      assert.ok(!hit('seq = stage.sequence({ produce });'), 'a Suono sequence is not raw audio');
+      assert.ok(!hit('voice.synthOne({ text: s });'), 'the Suono byte producer is allowed');
     });
   });
 

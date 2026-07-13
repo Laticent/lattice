@@ -1614,6 +1614,76 @@ function checkSuonoBoundary(errors) {
   }
 }
 
+// ── Audio playback boundary — Suono is the ONLY WebAudio player ──────────────
+// Suono (docs/src/lib/suono) owns ALL real audio playback. No other module may
+// create a raw AudioContext or drive voice-model's imperative playback
+// (`.speak({…})` / `.playBlob()`) — those are the hand-rolled scheduler Suono
+// replaced (2026-07-12-suono-audio-library.md §slice 2). Consumers build a
+// `stage.sequence({ produce: voice.synthOne, … })` instead (read-aloud.ts,
+// cadenza.astro). Two entries are grandfathered while their surfaces retire:
+//   • voice-model.js — the legacy provider (owns the raw context + DEFINES
+//     speak/playBlob); removed in slice 2c-final once no consumer needs it.
+//   • drawing-board-practice.js — the frozen Drawing Board (2026-07-03-studio-
+//     succession.md); its `voice.speak({…})` dies with the surface's removal,
+//     not a migration. When the Drawing Board is `git rm`'d, drop this entry.
+// Allowlist + anti-rot (same shape as #22): a NEW violator fails (migrate it to
+// Suono), and a stale entry — a listed file that no longer plays audio — fails,
+// so the list shrinks to zero as the frozen surfaces go and can't silently rot.
+const RAW_AUDIO_PATTERNS = [
+  /\bnew\s+(?:window\.)?AudioContext\s*\(/, // raw WebAudio context
+  /\bnew\s+(?:window\.)?webkitAudioContext\s*\(/,
+  /\bwindow\.webkitAudioContext\b/, // the `AC = window.AudioContext || window.webkitAudioContext` fallback
+  /\.playBlob\s*\(/, // voice-model's blob playback
+  /\.speak\s*\(\s*\{/, // voice-model's OBJECT-arg speak({text,…}) — NOT speechSynthesis.speak(utterance)
+];
+const SANCTIONED_LEGACY_AUDIO = [
+  { file: 'docs/src/playground/voice-model.js', why: 'the legacy voice engine — owns the raw AudioContext + defines speak()/playBlob(); retired in Suono slice 2c-final once no consumer needs its playback.' },
+  { file: 'docs/src/playground/drawing-board-practice.js', why: 'frozen Drawing Board (2026-07-03-studio-succession.md) — its voice.speak({…}) dies with the surface removal, not via migration. Drop this entry when the Drawing Board is deleted.' },
+];
+function collectAudioSourceFiles(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) collectAudioSourceFiles(p, out);
+    else if (/\.(?:js|ts|tsx|mjs|cjs|astro)$/.test(e.name)) out.push(p); // include .astro (cadenza's inline script)
+  }
+  return out;
+}
+function checkAudioPlaybackBoundary(errors) {
+  const DOCS_SRC = path.join(ROOT, 'docs', 'src');
+  const SUONO_REL = path.join('docs', 'src', 'lib', 'suono');
+  const sanctioned = new Map(SANCTIONED_LEGACY_AUDIO.map((s) => [s.file, s]));
+  const seen = new Set();
+  for (const file of collectAudioSourceFiles(DOCS_SRC)) {
+    const rel = path.relative(ROOT, file);
+    if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue; // tests mock the engine, not a real player
+    if (rel === SUONO_REL || rel.startsWith(SUONO_REL + path.sep)) continue; // Suono IS the player
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    if (!RAW_AUDIO_PATTERNS.some((re) => re.test(src))) continue;
+    seen.add(rel);
+    if (!sanctioned.has(rel)) {
+      errors.push(
+        `${rel} creates a raw AudioContext or drives voice-model playback (\`.speak({…})\` / ` +
+        `\`.playBlob()\`) outside Suono. All audio playback goes through the Suono library ` +
+        `(docs/src/lib/suono, 2026-07-12-suono-audio-library.md): build a ` +
+        `\`stage.sequence({ produce: voice.synthOne, … })\` as read-aloud.ts and cadenza.astro do. If ` +
+        `this is a frozen surface being retired (not migrated), add it to SANCTIONED_LEGACY_AUDIO in ` +
+        `tools/check-ownership.js with the retirement reason.`,
+      );
+    }
+  }
+  for (const s of SANCTIONED_LEGACY_AUDIO) {
+    if (!seen.has(s.file)) {
+      errors.push(
+        `stale legacy-audio sanction in tools/check-ownership.js — ${s.file} no longer creates a raw ` +
+        `AudioContext or calls voice-model playback. Remove its SANCTIONED_LEGACY_AUDIO entry so the ` +
+        `allowlist stays honest (the surface was retired or migrated to Suono).`,
+      );
+    }
+  }
+}
+
 // The gesture alphabet is a CURATED vocabulary, not a motion library: a gesture
 // earns its place by carrying a distinct MEANING the eye reads (§6.1), so the
 // `Gesture` union in stage.ts is frozen to exactly this registry. Adding one is
@@ -1765,6 +1835,7 @@ function run() {
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
   checkSuonoBoundary(errors);
+  checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
   return {
     errors,
@@ -1853,6 +1924,9 @@ module.exports = {
   checkVetrinaBoundary,
   checkCadenzaBoundary,
   checkSuonoBoundary,
+  checkAudioPlaybackBoundary,
+  SANCTIONED_LEGACY_AUDIO,
+  RAW_AUDIO_PATTERNS,
   checkSanctionedGestures,
   SANCTIONED_GESTURES,
   VETRINA_DIR,
