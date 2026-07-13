@@ -240,7 +240,9 @@ describe('Studio — Fabricate + Present dock respond', () => {
 		// Valid JSON changing an axis → clean again, and the Fields view reflects it (two-way).
 		fireEvent.change(json, { target: { value: JSON.stringify({ name: 'callout', function: 'comparison', form: 'canvas', substance: 'prose', bucket: 'comparison', tags: ['a', 'b', 'c'], description: 'd', adapt: { mode: 'native' }, capacity: { sweet: 1, soft: 2, hard: 3 } }) } });
 		await user.click(screen.getByRole('button', { name: 'Fields' }));
-		expect((screen.getByLabelText('Bucket') as HTMLSelectElement).value).toBe('comparison');
+		// Bucket is a shadcn (Radix) Select now — open it and assert the checked option.
+		await user.click(screen.getByRole('combobox', { name: 'Bucket' }));
+		expect(await screen.findByRole('option', { name: 'comparison', selected: true })).toBeInTheDocument();
 	});
 
 	it('Fabricate derives a REAL token contract + WCAG audit from the engine', async () => {

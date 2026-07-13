@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideContextBody } from './SlideContext';
@@ -59,6 +60,23 @@ function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 // Chrome / Notes. Switch to the tab that owns a control before interacting with it.
 const goTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 
+// The finish/brand-bar/stamp/tone pickers are shadcn (Radix) Selects now — a
+// combobox trigger + a portal listbox — so drive them the way a user does:
+// open the trigger, then click the option by its visible label. (jsdom polyfills
+// for pointer capture / scrollIntoView live in vitest.setup.ts.)
+async function pickOption(comboName: RegExp, optionName: RegExp | string) {
+	const user = userEvent.setup();
+	await user.click(screen.getByRole('combobox', { name: comboName }));
+	await user.click(await screen.findByRole('option', { name: optionName }));
+}
+// Read which option a Select currently shows as selected (replaces reading a
+// native <select>.value): open it and return the checked option's text.
+async function selectedOptionText(comboName: RegExp): Promise<string> {
+	const user = userEvent.setup();
+	await user.click(screen.getByRole('combobox', { name: comboName }));
+	return (await screen.findByRole('option', { selected: true })).textContent ?? '';
+}
+
 describe('SlideContextBody controls', () => {
 	beforeEach(() => localStorage.clear());
 
@@ -111,48 +129,46 @@ describe('SlideContextBody controls', () => {
 		expect(toks).not.toContain('tone-warn');
 	});
 
-	it('sets a per-slide brand bar (spectrum) from the Look picker', () => {
+	it('sets a per-slide brand bar (spectrum) from the Look picker', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		fireEvent.change(screen.getByRole('combobox', { name: /brand bar/i }), { target: { value: 'off' } });
+		await pickOption(/brand bar/i, 'None');
 		expect(applied()).toContain('spectrum-off');
 	});
 
-	it('reads the brand bar as inherited from the deck `spectrum:` register', () => {
+	it('reads the brand bar as inherited from the deck `spectrum:` register', async () => {
 		const src = '---\nspectrum: solid\n---\n\n<!-- _class: kpi -->\n\n# Hi';
 		setup('<!-- _class: kpi -->\n\n# Hi', src);
-		const picker = screen.getByRole('combobox', { name: /brand bar/i }) as HTMLSelectElement;
-		expect(picker.value).toBe('__inherit__');
+		expect(await selectedOptionText(/brand bar/i)).toMatch(/inherit/i);
 	});
 
-	it('overrides the stamp SHAPE from the Stamp style picker', () => {
+	it('overrides the stamp SHAPE from the Stamp style picker', async () => {
 		const { applied } = setup('<!-- _class: kpi confidential -->\n\n# Hi');
 		goTab('Status');
-		fireEvent.change(screen.getByRole('combobox', { name: /stamp style/i }), { target: { value: 'seal' } });
+		await pickOption(/stamp style/i, 'Seal');
 		expect(applied()).toContain('stamp-seal');
 	});
 
-	it('picking the inherited/default stamp head clears the per-slide shape', () => {
+	it('picking the inherited/default stamp head clears the per-slide shape', async () => {
 		const { applied } = setup('<!-- _class: kpi confidential stamp-notch -->\n\n# Hi');
 		goTab('Status');
-		fireEvent.change(screen.getByRole('combobox', { name: /stamp style/i }), { target: { value: '__default__' } });
+		await pickOption(/stamp style/i, /Default/);
 		expect(applied().some((t) => t.startsWith('stamp-'))).toBe(false);
 	});
 
-	it('sets the tone SHAPE without disturbing the semantic tone', () => {
+	it('sets the tone SHAPE without disturbing the semantic tone', async () => {
 		const { applied } = setup('<!-- _class: kpi tone-pass -->\n\n# Hi');
 		goTab('Status');
-		fireEvent.change(screen.getByRole('combobox', { name: /tone style/i }), { target: { value: 'edge' } });
+		await pickOption(/tone style/i, 'Edge');
 		const toks = applied();
 		expect(toks).toContain('tone-pass'); // semantic tone untouched
 		expect(toks).toContain('tone-edge');
 	});
 
-	it('reads the stamp shape as inherited from the deck `stamp:` register', () => {
+	it('reads the stamp shape as inherited from the deck `stamp:` register', async () => {
 		const src = '---\nstamp: seal\n---\n\n<!-- _class: kpi confidential -->\n\n# Hi';
 		setup('<!-- _class: kpi confidential -->\n\n# Hi', src);
 		goTab('Status');
-		const picker = screen.getByRole('combobox', { name: /stamp style/i }) as HTMLSelectElement;
-		expect(picker.value).toBe('__inherit__');
+		expect(await selectedOptionText(/stamp style/i)).toMatch(/inherit/i);
 	});
 
 	it('toggles the silent chrome switch', () => {
@@ -169,15 +185,15 @@ describe('SlideContextBody controls', () => {
 		expect(applied()).toContain('no-progress');
 	});
 
-	it('sets a per-slide finish from the picker', () => {
+	it('sets a per-slide finish from the picker', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		fireEvent.change(screen.getByRole('combobox', { name: /finish/i }), { target: { value: 'meridian' } });
+		await pickOption(/finish/i, 'Meridian');
 		expect(applied()).toContain('finish-meridian');
 	});
 
-	it('writes a SAVED finish as bare finish-<name>, not a double prefix', () => {
+	it('writes a SAVED finish as bare finish-<name>, not a double prefix', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi', '<!-- _class: kpi -->\n\n# Hi', ['velvet']);
-		fireEvent.change(screen.getByRole('combobox', { name: /finish/i }), { target: { value: 'velvet' } });
+		await pickOption(/finish/i, 'Velvet');
 		const toks = applied();
 		expect(toks).toContain('finish-velvet');
 		expect(toks).not.toContain('finish-finish-velvet');
