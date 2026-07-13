@@ -86,7 +86,12 @@ uniformly. Precedence per glyph: **author `symbols:` → built-in commons**; aut
    front-matter parse (`resolve-captions.mjs`) threaded through every producer — the live Present
    reader + warm-ahead (`PresentOverlay`/`read-aloud.ts`), the Studio export (`share-export.ts`),
    and the CLI (`lattice-emulator.js`), all via `buildReadAlong`. Tests at every layer.
-2. **Deck-drawer pronunciations UI (follow-up PR).** Edit `symbols:` (and `acronyms:`) from the Studio.
+2. **Deck-drawer pronunciations UI (built).** A "Pronunciations" group in the deck-scope Inspector
+   (`PronunciationsEditor`) edits `symbols:` — add/edit/remove a glyph → spoken row — and writes it
+   back via a new nested-block front-matter serializer (`setFrontMatterBlock`, since `setFrontMatter`
+   handles only flat scalars). The reader (`symbolOverrideMap`) picks it up reactively; verified at
+   desktop/tablet/mobile. Editing `acronyms:` from the same panel is a tidy follow-on (its values can
+   be `{ expansion, definition }` block objects, so the writer needs to preserve definitions).
 
 ## Open questions (non-blocking, logged)
 

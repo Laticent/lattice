@@ -624,6 +624,13 @@ in patch versions.
 
 ### Added
 
+- **A "Pronunciations" panel in the deck settings — edit read-aloud symbol overrides without YAML.**
+  The deck-scope Inspector (Studio → Deck settings) gains a Pronunciations group: add a row, type a
+  glyph and how it should be read aloud (blank = silence it), and it writes the `symbols:`
+  front-matter for you — carried into the deck, its captions, and every export. Overrides the
+  built-in Speech Symbol Commons, mirroring how `acronyms:` already work. (`PronunciationsEditor` +
+  a nested-block front-matter serializer, `setFrontMatterBlock`.)
+
 - **Read-aloud now speaks symbols correctly — a Speech Symbol Commons, with per-deck overrides.**
   One canonical resolver turns a glyph into the right spoken form: arrows read as transitions
   (`→`→"to", `↔`→"and"), math operators as words (`×`→"times", `≈`→"approximately", `±`→"plus or
