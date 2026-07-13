@@ -190,6 +190,15 @@ in patch versions.
 
 ### Changed
 
+- **The Print drawer flips paper and orientation instantly — it rasterizes each slide once and
+  re-places the cached images.** Building the print PDF is now a two-step split: the expensive half
+  (clone + embed fonts + rasterize each slide) runs **once** and its images are cached; changing
+  paper size or orientation re-runs only the cheap half (place the same images on the new sheet —
+  pure geometry, fit and centred), so a Letter → Legal → A4 or landscape ↔ portrait flip re-builds
+  the PDF with **no re-rasterize**. A colour change (black & white) is new ink, so it re-renders and
+  the cache drops. The rasterize/assemble halves (`rasterizeDeckImages` + `assembleSheetPdf`) live in
+  the shared print kernel, so the drawer and any Node export assemble the same way (HARD RULE #1).
+  Demo: `examples/print-fast-flip.md`. See `engineering/decisions/2026-06-14-deck-print-styling.md`.
 - **"Print deck" now opens a Print drawer inside Share** — a sub-step of the Share sheet (like the
   PDF-export options), with a live, paper-accurate preview and the paper / orientation / colour
   controls right there, then **Print** or **Download**. The PDF is built **on demand** — only when

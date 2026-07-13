@@ -110,6 +110,11 @@ export function PrintOptionsPanel({
 	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
 	// key check when any setting changes.
 	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; url: string; blob: Blob } | null>(null);
+	// The rasterized slide IMAGES, keyed by `render` identity only — NOT paper/orientation,
+	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
+	// jsPDF geometry) with no re-rasterize; a colour/source/theme change makes a new `render`
+	// object → the key misses → we rasterize once more. Cleared when the deck re-renders below.
+	const [imgCache, setImgCache] = React.useState<{ render: DeckRender; images: string[]; geom: { w: number; h: number }; pageFormat: string } | null>(null);
 	// Platform is stable per device; decide the print path once.
 	const ios = React.useMemo(() => isIOSLike(), []);
 
@@ -144,6 +149,9 @@ export function PrintOptionsPanel({
 		let alive = true;
 		setRendering(true);
 		setStatus('Rendering the deck…');
+		// A re-render invalidates any cached slide images (new pixels): drop them so the
+		// next build rasterizes the fresh render rather than re-placing stale images.
+		setImgCache(null);
 		const src = opts.color === 'bw' ? mergeClassTokens(source, 'print') : source;
 		buildDeckRender(options, src, palette, mode, extraTheme, extraCss)
 			.then((r) => {
@@ -209,13 +217,22 @@ export function PrintOptionsPanel({
 		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation) return builtPdf.url;
 		const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
 		const ex = await import('@/playground/drawing-board-export.js');
-		const blob = await ex.renderPdfBlob(render, name, (m: string) => { if (mountedRef.current) setStatus(m); }, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH } });
+		// Reuse the rasterized slide images when only paper/orientation moved (render
+		// unchanged) — the assemble below re-places them, no re-rasterize. Otherwise
+		// rasterize once and cache for the next flip.
+		let imgs = imgCache && imgCache.render === render ? imgCache : null;
+		if (!imgs) {
+			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, {});
+			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
+			if (mountedRef.current) setImgCache(imgs);
+		}
+		const blob = await ex.assembleSheetPdf(imgs.images, imgs.geom, name, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH }, pageFormat: imgs.pageFormat });
 		const url = URL.createObjectURL(blob);
 		const prevUrl = builtPdf?.url;
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
 		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, url, blob });
 		return url;
-	}, [render, name, paper, orientation, builtPdf]);
+	}, [render, name, paper, orientation, builtPdf, imgCache]);
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 
