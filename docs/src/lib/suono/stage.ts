@@ -84,6 +84,33 @@ export function createStage(opts: StageOptions = {}): Stage {
 	}
 
 	let audioCtx: AudioContext | null = null;
+	// Play-clock pause accounting. `clockMs()` must FREEZE the instant a pause is tapped — else the
+	// caption drifts ahead of the (re-armed-from-the-tap) audio, and it accumulates across cycles. We
+	// can't rely on `ctx.suspend()` for that: a mid-clip pause defers the suspend past the declick
+	// fade, so currentTime keeps advancing for ~fade+8ms. Instead we subtract paused wall-time from
+	// the clock: record the raw currentTime at the pause tap, and on resume fold the elapsed frozen
+	// span into `clockOffsetMs`. Correct whether or not the deferred `ctx.suspend()` has fired.
+	let clockOffsetMs = 0;
+	let clockPauseRawMs: number | null = null; // raw ctx-ms at the pause tap; null when the clock runs
+	function pauseClock(): void {
+		if (clockPauseRawMs == null && audioCtx) clockPauseRawMs = audioCtx.currentTime * 1000;
+	}
+	function resumeClock(): void {
+		if (clockPauseRawMs != null && audioCtx) {
+			clockOffsetMs += audioCtx.currentTime * 1000 - clockPauseRawMs;
+			clockPauseRawMs = null;
+		}
+	}
+	/** The play-clock in ms: raw context time MINUS paused wall-time (frozen while paused). NOT
+	 *  latency-compensated — that's `clockMs()`. `Onset.onsetMs` is reported in THIS frame so onset and
+	 *  clock share a basis: their difference is playing-time regardless of pauses, and the accumulated
+	 *  offset cancels out across runs (a later run's onset carries the same offset the clock does). */
+	function playClockMs(): number {
+		if (!audioCtx) return 0;
+		const raw = audioCtx.currentTime * 1000;
+		const offset = clockPauseRawMs == null ? clockOffsetMs : clockOffsetMs + (raw - clockPauseRawMs);
+		return raw - offset;
+	}
 	// EVERY live source, not just the latest. Overlapping play() calls are legal at this level
 	// (concurrency is the SCHEDULER's policy, not the stage's — the sequencer serializes; a future
 	// concurrent player wouldn't), so `stopAll()` / dispose() must reach them all. Tracking only the
@@ -176,6 +203,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 			if (settled) return;
 			settled = true;
 			clearSuspendTimer();
+			resumeClock(); // never leave the clock frozen — a stop()/barge-in WHILE paused must un-freeze it for the next run
 			signal?.removeEventListener?.('abort', onAbort);
 			try {
 				gainNode?.disconnect();
@@ -274,7 +302,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 				if (onStart && !onsetReported) {
 					onsetReported = true;
 					try {
-						onStart({ onsetMs: ctx.currentTime * 1000, durationMs: clip.durationMs });
+						onStart({ onsetMs: playClockMs(), durationMs: clip.durationMs });
 					} catch {
 						/* best-effort */
 					}
@@ -293,6 +321,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 		function pause(): void {
 			if (settled || paused) return;
 			paused = true;
+			pauseClock(); // freeze the caption clock at the TAP (not at the deferred suspend below)
 			const cur = src;
 			const curGain = gainNode;
 			if (!cur) {
@@ -304,8 +333,13 @@ export function createStage(opts: StageOptions = {}): Stage {
 				}
 				return;
 			}
-			consumedSec += Math.max(0, ctx.currentTime - basisSec);
-			const tp = ctx.currentTime;
+			let tp = basisSec;
+			try {
+				tp = ctx.currentTime; // guarded: a partial-mock engine could throw here (never-throws contract)
+			} catch {
+				/* keep tp = basisSec — no elapsed added, better than throwing out of pause() */
+			}
+			consumedSec += Math.max(0, tp - basisSec);
 			let stopAt = tp;
 			try {
 				if (curGain && fadeSec > 0) {
@@ -363,6 +397,13 @@ export function createStage(opts: StageOptions = {}): Stage {
 			} catch {
 				/* best-effort */
 			}
+			resumeClock(); // fold the paused span into the offset AFTER the context is running again
+			// Paused at (or past) the clip's end — nothing left to play; settle instead of arming a
+			// zero-length source (which would build a degenerate same-time gain envelope).
+			if (consumedSec >= durSec) {
+				finish({ ok: true });
+				return;
+			}
 			armSource(consumedSec);
 		}
 
@@ -372,7 +413,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 
 	function clockMs(): number {
 		if (!audioCtx) return 0;
-		const t = audioCtx.currentTime * 1000;
+		const t = playClockMs(); // raw minus paused wall-time (frozen while paused)
 		return compensateLatency ? Math.max(0, t - latencyMs()) : t;
 	}
 
@@ -394,6 +435,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 		latencyMs,
 		state,
 		suspend() {
+			pauseClock();
 			try {
 				audioCtx?.suspend?.();
 			} catch {
@@ -406,6 +448,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 			} catch {
 				/* best-effort */
 			}
+			resumeClock();
 		},
 		sequence<T>(sequenceOpts: SequenceOptions<T>) {
 			return makeSequence(stage, sequenceOpts);

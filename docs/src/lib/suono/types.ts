@@ -44,10 +44,12 @@ export interface StageOptions {
 
 /** The measured span of a clip, read at its TRUE audio start (not schedule time). */
 export interface Onset {
-	/** RAW WebAudio clock time (ms, `ctx.currentTime`) at which this clip actually started — NOT
-	 *  latency-compensated. Pairs with the latency-compensated `clockMs()`: `clockMs() - onsetMs`
-	 *  already yields the HEARD elapsed time (the latency is subtracted exactly once, by `clockMs`),
-	 *  so a caption cursor must NOT subtract `latencyMs()` again. (See `Stage.clockMs`.) */
+	/** The stage PLAY-CLOCK time (ms) at which this clip actually started: `ctx.currentTime` MINUS any
+	 *  paused wall-time, but NOT latency-compensated. Shares its basis with `clockMs()` (which is this
+	 *  same play-clock minus latency), so `clockMs() - onsetMs` yields the HEARD elapsed time with the
+	 *  latency subtracted exactly once — a caption cursor must NOT subtract `latencyMs()` again, and the
+	 *  paused offset cancels in the subtraction (so a pause never drifts the caption). (See
+	 *  `Stage.clockMs`.) For a run that never pauses this equals the raw `ctx.currentTime` at start. */
 	onsetMs: number;
 	/** Decoded clip duration (ms). */
 	durationMs: number;

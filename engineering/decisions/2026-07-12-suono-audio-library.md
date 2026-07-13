@@ -319,6 +319,19 @@ migration wires it into the Playground.
        `read-aloud` nightly (freeze → resume → progress-past-paused-cue → second cycle → finish-once)
        lock it in; the **audible** pop-gone / sound-resumes claim is device-only (HARD RULE #23) and
        signed off on the #950 preview.
+       - **Independent checker (maker-checker, HARD RULE #25).** A checker bug-hunt of the rewrite
+         confirmed the premature-settle / double-fire / offset-accounting / abort-while-paused paths are
+         airtight, and surfaced one real (minor) issue: the caption clock froze at the *deferred*
+         `ctx.suspend()` (~fade+8ms after the tap), so it drifted ahead of the tap-resumed audio and
+         **accumulated** across cycles. Fixed by a **play-clock offset** recorded at the pause tap
+         (`clockMs()` subtracts paused wall-time; `Onset.onsetMs` moved to the same play-clock frame so
+         the offset cancels in `clockMs − onsetMs` and never leaks into a later run), plus a
+         `resumeClock()` in `finish()` so a stop/barge-in *while paused* never leaves the clock frozen,
+         a resume-at-clip-end short-circuit, and a guarded `currentTime` read (never-throws). New unit
+         test asserts the clock freezes at the tap and resumes drift-free.
+       - **Security (CodeQL).** The nightly harness's throwaway file server was flagged
+         `js/path-injection` (a request URL joined into a filesystem path). Replaced with a fixed
+         two-file allowlist — no request data reaches the filesystem.
    - **2b — the other three consumers** (`cadenza.astro`, Drawing-Board practice/present) onto the same
      seam. Then **2c** — remove `voice-model.js`'s own `getCtx`/`playBlob`/`speak` playback and add the
      repo-wide "no raw AudioContext outside Suono" gate (§6), which can only land once *no* consumer

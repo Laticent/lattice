@@ -191,6 +191,23 @@ describe('createStage — pause/resume (stop + re-arm)', () => {
 		expect(res.aborted).toBeFalsy(); // a natural end, not a stop()/barge-in
 	});
 
+	it('freezes clockMs() at the pause TAP (not the deferred suspend) and resumes without drift', async () => {
+		const { ctx } = installTrackingAudio();
+		const stage = createStage(); // baseLatency 0 → clockMs is the raw play-clock
+		const clip = await stage.decode(bytesOfSize(8), 'k');
+		const handle = stage.play(clip);
+		ctx.currentTime = 0.4;
+		expect(stage.clockMs()).toBeCloseTo(400, 3); // 400ms in
+		handle.pause();
+		// The context keeps ticking before the deferred suspend fires (and during the whole pause). The
+		// clock must stay FROZEN at the tap regardless — else the caption drifts ahead of the audio.
+		ctx.currentTime = 5;
+		expect(stage.clockMs()).toBeCloseTo(400, 3); // still 400 — frozen at the tap, not 5000
+		handle.resume();
+		ctx.currentTime = 5.5; // 500ms of real playback after resume
+		expect(stage.clockMs()).toBeCloseTo(900, 3); // 400 + 500; the 4600ms pause is excluded, no accrual
+	});
+
 	it("a pause-stopped source's late onended does NOT settle the handle (no premature clip-end)", async () => {
 		const { ctx, sources } = installTrackingAudio();
 		const stage = createStage();

@@ -66,11 +66,32 @@ test.beforeAll(async () => {
 		}],
 	});
 	fs.copyFileSync(path.join(HARNESS, 'index.html'), path.join(outDir, 'index.html'));
-	const types: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript' };
+	// The harness is exactly two static files (the single esbuild bundle + its host page). Map the
+	// request URL through a fixed ALLOWLIST rather than joining it into a path — a request URL is
+	// attacker-controlled in the general case, so letting it reach the filesystem is a path-traversal
+	// sink (CodeQL js/path-injection). An allowlist means no user data ever becomes a path.
+	const FILES: Record<string, { name: string; type: string }> = {
+		'/': { name: 'index.html', type: 'text/html' },
+		'/index.html': { name: 'index.html', type: 'text/html' },
+		'/bundle.js': { name: 'bundle.js', type: 'text/javascript' },
+	};
 	server = createServer((req, res) => {
-		if (req.url?.startsWith('/favicon')) { res.writeHead(200); res.end(''); return; }
-		const p = path.join(outDir, decodeURIComponent((req.url || '/').split('?')[0]));
-		fs.readFile(p, (e, buf) => { if (e) { res.writeHead(404); res.end('nf'); } else { res.writeHead(200, { 'content-type': types[path.extname(p)] || 'application/octet-stream' }); res.end(buf); } });
+		const urlPath = (req.url || '/').split('?')[0];
+		const entry = FILES[urlPath];
+		if (!entry) {
+			res.writeHead(404);
+			res.end('nf');
+			return;
+		}
+		fs.readFile(path.join(outDir, entry.name), (e, buf) => {
+			if (e) {
+				res.writeHead(404);
+				res.end('nf');
+			} else {
+				res.writeHead(200, { 'content-type': entry.type });
+				res.end(buf);
+			}
+		});
 	});
 	await new Promise<void>((r) => server.listen(0, r));
 	baseURL = `http://127.0.0.1:${(server.address() as { port: number }).port}/index.html`;
