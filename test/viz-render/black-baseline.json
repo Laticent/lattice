@@ -12,14 +12,16 @@
     {
       "family": "chart",
       "component": "quadrant",
-      "selector": "quadrant-dot-label",
-      "property": "fill"
+      "selector": "text.quadrant-dot-label",
+      "property": "fill",
+      "scheme": "light"
     },
     {
       "family": "chart",
       "component": "quadrant",
-      "selector": "quadrant-label",
-      "property": "fill"
+      "selector": "text.quadrant-label",
+      "property": "fill",
+      "scheme": "light"
     }
   ]
 }

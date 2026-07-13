@@ -176,12 +176,14 @@ in patch versions.
   (`engineering/decisions/2026-07-13-pace-calibration-apply-and-rewriter.md`).
 
 - **A scoped-render black-fill guard (`npm run check:render`) — the diagnostic the #956 chart-black
-  bug would have caught.** Renders the chart + diagram galleries through the real playground/Studio/Player
-  `composeCss()` scoped stylesheet in headless Chromium (indaco/cuoio × light/dark) and fails on any NEW
-  opaque-black SVG paint — a themed colour that dropped to SVG's black default via a selector-scoping or
-  token-name break. Every prior colour check renders the *unscoped* emulator path and is blind to this
-  class. Ratchets against `test/viz-render/black-baseline.json` (bless with `npm run check:render:bless`);
-  runs in the integration tier (PR + nightly) via `test/integration/parity/viz-black-render.test.js`.
+  bug would have caught.** Renders the chart gallery (the SVG-painting chart components) through the real
+  playground/Studio/Player `composeCss()` scoped stylesheet in headless Chromium (indaco/cuoio ×
+  light/dark) and fails on any NEW opaque-black SVG fill/stroke/stop-color — a themed colour that dropped
+  to SVG's black default via a selector-scoping or token-name break. Every prior colour check renders the
+  *unscoped* emulator path and is blind to this class. Ratchets against `test/viz-render/black-baseline.json`
+  (scheme-aware; bless with `npm run check:render:bless`); runs in the integration tier (PR + nightly) via
+  `test/integration/parity/viz-black-render.test.js`. (Mermaid diagrams bake inline fills and are immune to
+  this mechanism — covered separately by `test/integration/mermaid/`.)
 - **`lattice-emulator --paper` fits the deck onto a standard sheet for the Node PDF export.**
   `--paper auto|letter|legal|a4` (plus `--orientation auto|landscape|portrait`) bakes a real
   paper MediaBox into the exported PDF — each slide fit + centered with a 9mm safe margin,

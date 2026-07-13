@@ -160,7 +160,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `check:ownership` | Collision/ownership guard: hard-fails on accidental duplicate selectors/transformers/names. |
-| `check:render` | Scoped-render black-fill guard: renders the chart/diagram galleries through the real playground/Studio composeCss() in headless Chromium (indaco/cuoio × light/dark) and fails on any NEW opaque-black SVG paint — a themed colour that dropped to SVG black (the #956 class). Ratchets against test/viz-render/black-baseline.json. |
+| `check:render` | Scoped-render black-fill guard: renders the chart gallery (the SVG-painting chart components) through the real playground/Studio composeCss() in headless Chromium (indaco/cuoio × light/dark) and fails on any NEW opaque-black SVG paint — a themed colour that dropped to SVG black (the #956 class). Ratchets against test/viz-render/black-baseline.json. |
 | `check:render:bless` | Rewrite the scoped-render black-fill baseline (test/viz-render/black-baseline.json) after an intentional change; justify the delta in the PR. |
 | `check:responsive` | Static lint: no fixed-px layout in chart CSS (responsive contract). |
 | `fonts:check` | Font parity gate: the canonical face manifest (lib/fonts/text-faces.js), assets/fonts/, and the web-export supply must agree, with no Google-Fonts CDN URL — the library self-hosts its type (zero network). |

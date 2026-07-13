@@ -15,13 +15,21 @@
  * black initial value. color-parity.test.js could not see it — it never renders
  * the scoped path. This tool does.
  *
- * WHAT IT DOES. Renders the chart + diagram gallery decks (which exercise every
- * viz component) through the REAL scoped `composeCss()` output a browser loads,
- * in headless Chromium, across a representative theme × {light, dark} matrix, and
- * reads `getComputedStyle().fill/stroke` on every SVG paintable element. Any
- * paint that computes to opaque black `rgb(0, 0, 0)` is a candidate: black is the
- * SVG initial value a dropped/undefined `var()` colour falls to, so a NEW black
- * where a themed colour belongs is the signature of a scoping/token regression.
+ * WHAT IT DOES. Renders the chart gallery deck through the REAL scoped
+ * `composeCss()` output a browser loads, in headless Chromium, across a
+ * representative theme × {light, dark} matrix, and reads
+ * `getComputedStyle().fill/stroke` (plus gradient `<stop>` stop-color) on every
+ * SVG paintable element. Any paint that computes to opaque black `rgb(0, 0, 0)`
+ * is a candidate: black is the SVG initial value a dropped/undefined `var()`
+ * colour falls to, so a NEW black where a themed colour belongs is the signature
+ * of a scoping/token regression.
+ *
+ * SCOPE. This targets exactly the surface where #956 can occur: the SVG-painting
+ * chart components (funnel/journey/map/piechart/quadrant/radar/word-cloud). The
+ * HTML/CSS-layout charts emit no SVG (a dropped `var()` there goes transparent,
+ * not black), and Mermaid diagrams bake INLINE fills at mmdc time (immune to the
+ * scoped-`var()` mechanism; covered by test/integration/mermaid/). See the DECKS
+ * note below.
  *
  * THE BASELINE RATCHET (mirrors bench:bless + the check-ownership allowlists).
  * Some SVG paint is legitimately black — a max-contrast text ink
@@ -54,11 +62,15 @@ const BASELINE_FILE = path.join(ROOT, 'test', 'viz-render', 'black-baseline.json
 const THEMES = ['indaco', 'cuoio'];
 const SCHEMES = ['light', 'dark'];
 
-// The decks that exercise every viz component, one SVG kernel per slide.
-const DECKS = [
-  { file: path.join(ROOT, 'lib', 'components', 'chart', 'chart.gallery.md'), family: 'chart' },
-  { file: path.join(ROOT, 'lib', 'components', 'diagram', 'diagram.gallery.md'), family: 'diagram' },
-];
+// The deck whose slides carry SVG kernels that paint themed colour through the
+// scoped path. SCOPE NOTE (checker H1/M1): only the SVG-painting chart components
+// (funnel/journey/map/piechart/quadrant/radar/word-cloud) are inspectable here —
+// the HTML/CSS-layout charts (gantt/kanban/progress/roadmap/timeline-list) emit no
+// SVG, and diagram/Mermaid is NOT rendered to SVG in the preview path (mmdc bakes
+// it at build time, with INLINE `fill:#…`, so it is immune to the scoped-`var()`
+// #956 mechanism and is covered separately by test/integration/mermaid/). This
+// guard therefore targets exactly the surface where the #956 bug can occur.
+const DECKS = [{ file: path.join(ROOT, 'lib', 'components', 'chart', 'chart.gallery.md'), family: 'chart' }];
 
 // SVG paint that is legitimately absent — never a "dropped colour" signal.
 const TRANSPARENT = new Set(['none', 'transparent', 'rgba(0, 0, 0, 0)']);
@@ -82,14 +94,17 @@ function resolveChrome() {
 }
 
 /**
- * A stable key for a black finding: family + component + element tag/class +
- * property, but NOT the theme/scheme (a legit black ink is black on every theme)
- * and NOT the slide index (position shifts as galleries grow). Coarse enough to
- * be durable, specific enough that a real regression can't alias onto a
- * sanctioned entry.
+ * A stable key for a black finding: family + component + element tag.class +
+ * property + SCHEME. NOT the theme (a legit black ink is black on both indaco and
+ * cuoio) and NOT the slide index (position shifts as galleries grow) — but the
+ * scheme IS part of the key: a `light-dark(black, white)` ink is black on light
+ * and white on dark, so a light-only sanction must NOT excuse a black on the dark
+ * canvas (where that same element must be white — a real dropped-token symptom).
+ * Coarse enough to be durable, specific enough that a real regression can't alias
+ * onto a sanctioned entry (checker H2 + M3).
  */
 function findingKey(f) {
-  return `${f.family}/${f.component}/${f.selector}/${f.property}`;
+  return `${f.family}/${f.component}/${f.selector}/${f.property}/${f.scheme}`;
 }
 
 async function collectBlacks() {
@@ -121,37 +136,59 @@ async function collectBlacks() {
             `${css}\n.lattice>section{width:1280px;height:720px}</style></head>` +
             `<body><div class="lattice" data-scheme="${scheme}">${out.html}</div></body></html>`;
           await page.setContent(doc, { waitUntil: 'networkidle0' });
-          const found = await page.evaluate((TRANSPARENT_ARR, PAINTABLE_ARR) => {
+          const found = await page.evaluate((TRANSPARENT_ARR, PAINTABLE_ARR, scheme) => {
             const transparent = new Set(TRANSPARENT_ARR);
             const paintable = new Set(PAINTABLE_ARR);
             const black = (v) => v === 'rgb(0, 0, 0)' || v === '#000000' || v === 'black';
             const out = [];
             for (const el of document.querySelectorAll('.lattice svg *')) {
-              if (!paintable.has(el.tagName.toLowerCase())) continue;
-              // A zero-area element paints nothing — skip so an off-screen/empty
-              // shape can't seed a phantom black.
-              const box = el.getBBox ? el.getBBox() : null;
-              if (box && box.width === 0 && box.height === 0) continue;
+              const tag = el.tagName.toLowerCase();
               const section = el.closest('section');
               const component = section
                 ? [...section.classList].find((c) => c !== 'lattice') || section.className || '?'
                 : '?';
-              // The element's own most-specific class (or tag) — the sanction key.
+              // The element's own most-specific class (or tag), PREFIXED with the
+              // tag — so two different elements sharing a first class can't alias
+              // onto one sanction key (checker M3).
               const own = el.getAttribute('class');
-              const selector = own ? own.split(/\s+/)[0] : el.tagName.toLowerCase();
+              const selector = `${tag}.${own ? own.split(/\s+/)[0] : ''}`;
+
+              // A gradient <stop> paints no shape but feeds a shape's fill; a
+              // themed stop-color that dropped to black is a real #956-family
+              // regression (checker M2). Stops have no bbox — check stop-color
+              // directly and skip the paintable/bbox path.
+              if (tag === 'stop') {
+                const sc = getComputedStyle(el).stopColor;
+                if (!transparent.has(sc) && black(sc)) out.push({ component, selector, property: 'stop-color', scheme });
+                continue;
+              }
+
+              if (!paintable.has(tag)) continue;
+              // A zero-area element paints nothing — skip so an off-screen/empty
+              // shape can't seed a phantom black. getBBox can throw on a
+              // not-yet-laid-out/detached node in some engine states — treat a
+              // throw as "unknown geometry, keep checking" rather than crashing
+              // the whole run (checker L1).
+              let box = null;
+              try {
+                box = el.getBBox ? el.getBBox() : null;
+              } catch {
+                box = null;
+              }
+              if (box && box.width === 0 && box.height === 0) continue;
+
               // A <line>/<polyline> has no fillable area — it paints via stroke
               // only, so its (always-black-by-default) fill is never visible.
-              const tag = el.tagName.toLowerCase();
               const props = tag === 'line' || tag === 'polyline' ? ['stroke'] : ['fill', 'stroke'];
               const cs = getComputedStyle(el);
               for (const property of props) {
                 const v = cs[property];
                 if (transparent.has(v)) continue;
-                if (black(v)) out.push({ component, selector, property });
+                if (black(v)) out.push({ component, selector, property, scheme });
               }
             }
             return out;
-          }, [...TRANSPARENT], [...PAINTABLE_TAGS]);
+          }, [...TRANSPARENT], [...PAINTABLE_TAGS], scheme);
           for (const f of found) blacks.push({ family: deck.family, ...f });
           await page.close();
         }
@@ -207,7 +244,7 @@ async function main() {
       note: 'Sanctioned opaque-black SVG paint on the SCOPED render path. Each entry is a legitimately-black ink/hairline, NOT a dropped-colour bug. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.',
       themes: THEMES,
       schemes: SCHEMES,
-      sanctioned: found.map((f) => ({ family: f.family, component: f.component, selector: f.selector, property: f.property })),
+      sanctioned: found.map((f) => ({ family: f.family, component: f.component, selector: f.selector, property: f.property, scheme: f.scheme })),
     };
     fs.mkdirSync(path.dirname(BASELINE_FILE), { recursive: true });
     fs.writeFileSync(BASELINE_FILE, `${JSON.stringify(payload, null, 2)}\n`);

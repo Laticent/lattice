@@ -1,13 +1,15 @@
 /**
  * Integration: the SCOPED-render black-fill guard (see tools/check-viz-render.js).
  *
- * Renders the chart + diagram gallery decks through the REAL scoped `composeCss()`
- * a browser host loads (playground / Studio / Player) — the surface #956's
- * map/quadrant/radar iOS-black bug lived on, which every UNSCOPED colour check
- * (color-parity, the resolver twin) is blind to. Asserts no SVG paintable element
- * computes to opaque black except the sanctioned max-contrast inks in
- * test/viz-render/black-baseline.json. A dropped-colour regression (a scoping or
- * token-name break) shows up here as a NEW black.
+ * Renders the chart gallery deck (the SVG-painting chart components) through the
+ * REAL scoped `composeCss()` a browser host loads (playground / Studio / Player) —
+ * the surface #956's map/quadrant/radar iOS-black bug lived on, which every
+ * UNSCOPED colour check (color-parity, the resolver twin) is blind to. Asserts no
+ * SVG paintable element computes to opaque black except the sanctioned
+ * max-contrast inks in test/viz-render/black-baseline.json. A dropped-colour
+ * regression (a scoping or token-name break) shows up here as a NEW black.
+ * (Mermaid diagrams bake inline fills at mmdc time — immune to this mechanism,
+ * covered by test/integration/mermaid/.)
  *
  * Needs a Chromium (CHROME_PATH or the puppeteer cache); SKIPS with a notice when
  * none is reachable, never a false green (HARD RULE #23). Runs in the integration
