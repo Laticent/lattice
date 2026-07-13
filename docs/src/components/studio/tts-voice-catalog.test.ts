@@ -193,9 +193,28 @@ describe('voiceMeta — id-structure derivation (never a hand table)', () => {
 		expect(voiceMeta(KOKORO_MODEL_ID, 'zm_yunyang')).toMatchObject({ langLabel: 'Chinese', gender: 'M', name: 'Yunyang' });
 	});
 
-	it('returns just a name for a bare-name engine (Gemini) — no language, no gender', () => {
-		expect(voiceMeta('google/gemini-3.1-flash-tts-preview', 'Kore')).toEqual({ name: 'Kore' });
-		expect(voiceMeta('google/gemini-3.1-flash-tts-preview', 'Zephyr').gender).toBeUndefined();
+	it('gives a bare-name engine (Gemini) no language, but gender from the curated map', () => {
+		// Gemini ids carry no language; gender comes from Google's official Gender column.
+		expect(voiceMeta('google/gemini-3.1-flash-tts-preview', 'Kore')).toEqual({ name: 'Kore', gender: 'F' });
+		expect(voiceMeta('google/gemini-3.1-flash-tts-preview', 'Puck')).toEqual({ name: 'Puck', gender: 'M' });
+		expect(voiceMeta('google/gemini-3.1-flash-tts-preview', 'Kore').langKey).toBeUndefined();
+	});
+
+	it('resolves gender from the curated map for other bare-name engines (Grok, Orpheus)', () => {
+		expect(voiceMeta('x-ai/grok-voice-tts-1.0', 'eve').gender).toBe('F');
+		expect(voiceMeta('x-ai/grok-voice-tts-1.0', 'rex').gender).toBe('M');
+		expect(voiceMeta('canopylabs/orpheus-3b-0.1-ft', 'tara').gender).toBe('F');
+		expect(voiceMeta('canopylabs/orpheus-3b-0.1-ft', 'dan').gender).toBe('M');
+	});
+
+	it('reads gender straight from the id for Zonos (american_female / british_male)', () => {
+		expect(voiceMeta('zyphra/zonos-v0.1-transformer', 'american_female')).toMatchObject({ gender: 'F' });
+		expect(voiceMeta('zyphra/zonos-v0.1-hybrid', 'british_male')).toMatchObject({ gender: 'M' });
+	});
+
+	it('shows NO gender for a persona-less voice (CSM) — never a guess', () => {
+		expect(voiceMeta('sesame/csm-1b', 'read_speech_a').gender).toBeUndefined();
+		expect(voiceMeta('sesame/csm-1b', 'conversational_a').gender).toBeUndefined();
 	});
 
 	it('decodes Voxtral <lang>_name(_emotion) into language + descriptive name, no gender', () => {
@@ -240,12 +259,14 @@ describe('groupVoices — Featured highlight + language groups (or one flat list
 		expect(usRow).toMatchObject({ label: 'Onyx', gender: 'M' });
 	});
 
-	it('collapses a bare-name engine (Gemini) to a single All voices list — no language groups', () => {
+	it('collapses a bare-name engine (Gemini) to a single All voices list — no language groups, but with gender badges', () => {
 		const roster = voicesForModel('google/gemini-3.1-flash-tts-preview', ['Zephyr', 'Puck', 'Kore', 'Callirrhoe', 'Sulafat']);
 		const { featured, groups } = groupVoices('google/gemini-3.1-flash-tts-preview', roster);
 		expect(featured.length).toBeGreaterThan(0);
 		expect(groups).toHaveLength(1);
 		expect(groups[0].label).toBe('All voices');
-		expect(groups[0].voices.every((v) => v.gender === undefined)).toBe(true);
+		// No language grouping (bare names), but gender now comes from the curated map.
+		expect(groups[0].voices.find((v) => v.id === 'Callirrhoe')?.gender).toBe('F');
+		expect(groups[0].voices.find((v) => v.id === 'Sulafat')?.gender).toBe('F');
 	});
 });

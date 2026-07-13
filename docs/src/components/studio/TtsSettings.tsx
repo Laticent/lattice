@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Download, Loader2, PlayCircle } from 'lucide-react';
+import { Check, ChevronDown, Download, Loader2, Mars, PlayCircle, Venus } from 'lucide-react';
 import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
@@ -97,15 +97,15 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
  *  a theoretical case today, since every live TTS model has one), this renders a
  *  DISABLED, explained field instead of an editable one — guessing a voice id
  *  blind is worse than admitting we don't have one. */
-// A ♀/♂ adornment for a voice row where the id encodes gender (today: Kokoro). Absent
-// — not a placeholder — when the model doesn't encode it, so the row stays clean.
+// A ♀/♂ adornment for a voice row whose gender we know (Kokoro from its id; the other
+// engines from the catalog's curated voiceGenders map). Absent — not a placeholder —
+// where the gender is unknown, so the row stays clean. Lucide Venus/Mars icons (not a
+// text glyph), to match the rest of the Studio's icon set.
 function GenderMark({ gender }: { gender?: 'F' | 'M' }) {
 	if (!gender) return null;
-	return (
-		<span role="img" className="shrink-0 text-[11px] text-muted-foreground" title={gender === 'F' ? 'Female' : 'Male'} aria-label={gender === 'F' ? 'Female' : 'Male'}>
-			{gender === 'F' ? '♀' : '♂'}
-		</span>
-	);
+	const Icon = gender === 'F' ? Venus : Mars;
+	const label = gender === 'F' ? 'Female' : 'Male';
+	return <Icon role="img" aria-label={label} className="size-3.5 shrink-0 text-muted-foreground" />;
 }
 
 // The voice picker: an inline, expand-in-place search panel grouped as ★ Featured +
@@ -180,7 +180,7 @@ function VoicePicker({
 				aria-selected={sel}
 				key={row.id}
 				onClick={() => choose(row.id)}
-				className={cn('flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[13px]', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}
+				className={cn('flex w-full items-center gap-2 rounded-md bg-transparent px-2 py-2 text-left text-[13px]', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}
 			>
 				<Check className={cn('size-3.5 shrink-0', sel ? 'opacity-100 text-[var(--accent)]' : 'opacity-0')} />
 				<span className="min-w-0 flex-1 truncate text-[var(--text-heading)]">{row.label}</span>
@@ -205,7 +205,7 @@ function VoicePicker({
 						setOpen(next);
 						if (next) requestAnimationFrame(() => searchRef.current?.focus());
 					}}
-					className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground disabled:opacity-50"
+					className="flex w-full items-center gap-2 bg-transparent px-3 py-2 text-left text-[13px] text-foreground disabled:opacity-50"
 				>
 					<span className="min-w-0 flex-1 truncate">{selected?.label ?? 'Choose a voice…'}</span>
 					<ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />

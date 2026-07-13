@@ -51,9 +51,15 @@ search input + scrollable grouped list), single-level groups, no nesting. It mir
 2. **Language groups** — one per language, **only where the id encodes it**
    (Kokoro, Voxtral, MAI). Bare-name engines collapse to a single **"All voices"**
    alphabetical list.
-3. **Gender** — a per-row **♀/♂ badge** where derivable (Kokoro's 2nd char), never
-   a nesting level. Absent — not a placeholder — where a model doesn't encode it,
-   so the row degrades gracefully.
+3. **Gender** — a per-row **♀/♂ badge** (lucide `Venus`/`Mars` icons, matching the
+   Studio's icon set — not a text glyph), never a nesting level. Resolved from the id
+   where it's structural (Kokoro's 2nd char, Zonos' `_female`/`_male`) and otherwise
+   from a curated, **provider-sourced** `voiceGenders` map — Gemini's is Google's own
+   official Gender column (14 F / 16 M), plus Grok / Orpheus / Voxtral / MAI from their
+   docs. A voice with no known gender (e.g. CSM's persona-less `read_speech_a`) shows
+   **no badge** — never a guess. A per-voice gender map doesn't carry the roster's
+   drift risk: a named voice's gender is stable, and an added/removed voice just gains
+   or loses a badge gracefully.
 4. Search over the whole roster (cmdk), so 30–54 voices stay tractable.
 
 All derivation lives in `voiceMeta()` / `groupVoices()` in `tts-voice-catalog.ts`
@@ -94,9 +100,11 @@ Kokoro are the price × quality standouts, so both earn a complete cache). The
   (no gender or language). A picker that's rich for one engine and broken for the
   next is worse than a uniform, graceful one. Gender-as-badge conveys the same
   information without a nesting level and without a hand table.
-- **Per-voice metadata table** — reintroduces exactly the hand-curated drift the
-  live-roster design removed. Derivation from id shape is always well-formed or
-  honestly absent.
+- **A hand-curated voice ROSTER** — still refused: which voices exist is fetched
+  live (the "zoe" lesson). But a hand-curated **gender** map is a different animal
+  and is used (`voiceGenders`): gender is *stable* metadata sourced from the
+  provider's own docs, and if the live roster drops or adds a voice the map entry
+  simply goes unused or the new voice shows no badge — no wrong-roster failure mode.
 - **Per-row voice ▶ preview** — deferred. The instant sample cache makes it a
   natural follow-up, but it's additive to this IA change; the existing "Play
   sample" button already auditions the selected voice, and the model picker keeps

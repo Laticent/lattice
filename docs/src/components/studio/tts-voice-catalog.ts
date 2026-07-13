@@ -24,6 +24,13 @@ type Engine = {
 	 *  (which is "has a committed sample", now often the whole roster). Optional;
 	 *  when absent the picker falls back to `cachedVoices` (see featuredVoiceIds). */
 	featuredVoices?: string[];
+	/** Curated voice→gender for engines whose ids DON'T encode it (Gemini, Grok,
+	 *  Orpheus, MAI, Voxtral) — sourced from each provider's own published voice
+	 *  docs, not guessed by ear (Gemini's is Google's official Gender column). The
+	 *  id-structural engines (Kokoro's `<lang><gender>_`, Zonos' `_female`/`_male`)
+	 *  derive it directly and need no entry. A voice absent from this map (e.g. CSM's
+	 *  persona-less "read_speech_a") simply shows no badge — never a guess. */
+	voiceGenders?: Record<string, 'F' | 'M'>;
 	/** Only set on the one engine (today: mai-voice-2) where OpenRouter's own
 	 *  `supported_voices` is a non-exhaustive sample, not the real roster — see the
 	 *  JSON's `_note` on that entry. Supplements (never replaces) the live list. */
@@ -170,12 +177,15 @@ export const NO_SPEED_HINT = "This voice doesn't support adjustable speed — it
 // The picker groups a model's roster as: a ★ Featured highlight, then — ONLY where
 // the voice id actually encodes it — one group per language; engines whose ids are
 // bare names (Gemini's "Kore"/"Puck", Grok, Orpheus, CSM) can't be grouped by
-// language OR gender, so they collapse to a single "All voices" list. Gender is a
-// per-row badge where derivable, never a nesting level — it degrades gracefully to
-// nothing when a model doesn't encode it. All derivation is from id STRUCTURE only
-// (never a hand-typed per-voice table, same reason the roster itself is live-fetched
-// — see the file header): Kokoro's `<lang><gender>_name`, Voxtral's `<lang>_name`,
-// Azure/MAI's `xx-XX-Name`. See engineering/decisions/2026-07-13-tts-picker-ia.md.
+// language, so they collapse to a single "All voices" list. Gender is a per-row badge
+// where KNOWN, never a nesting level — it degrades gracefully to nothing when unknown.
+// LANGUAGE is derived from id STRUCTURE only (never a hand-typed roster, same reason
+// the roster itself is live-fetched — see the file header): Kokoro's `<lang><gender>`,
+// Voxtral's `<lang>_name`, Azure/MAI's `xx-XX-Name`. GENDER comes from the id where it
+// encodes it (Kokoro, Zonos) and otherwise from the catalog's curated, provider-sourced
+// `voiceGenders` map — gender of a named voice is stable metadata (unlike which voices
+// exist), so a small sourced map doesn't carry the roster's drift risk. See
+// engineering/decisions/2026-07-13-tts-picker-ia.md.
 
 const KOKORO_LANG_FULL: Record<string, string> = { a: 'US English', b: 'UK English', e: 'Spanish', f: 'French', h: 'Hindi', i: 'Italian', j: 'Japanese', p: 'Portuguese', z: 'Chinese' };
 const VOXTRAL_LANG_FULL: Record<string, string> = { en: 'US English', gb: 'UK English', fr: 'French' };
@@ -189,26 +199,37 @@ export type VoiceMeta = { langKey?: string; langLabel?: string; gender?: 'F' | '
 /** Structure a voice id carries, derived from its SHAPE for the picker's grouping +
  *  gender badge. `name` is the display name with any language/locale prefix stripped
  *  (so a language group can show "Heart" instead of "Heart · US"); `langKey`/
- *  `langLabel` are set only when the id encodes a language; `gender` only when it
- *  encodes one (today: Kokoro). A bare-name id returns just `{ name }`. */
+ *  `langLabel` are set only when the id encodes a language; `gender` is resolved from
+ *  the id (Kokoro/Zonos) or the engine's curated `voiceGenders` map, and is absent
+ *  when unknown. A bare-name id with no mapped gender returns just `{ name }`. */
 export function voiceMeta(modelId: string, voiceId: string): VoiceMeta {
 	const engine = engineForModel(modelId);
 	const id = voiceId || '';
+	// Gender: structural from the id where the engine encodes it (Kokoro, Zonos —
+	// handled inline below); otherwise the catalog's curated, provider-sourced
+	// voiceGenders map (Gemini/Grok/Orpheus/Voxtral/MAI); otherwise unknown.
+	const mapped = (engine ? ENGINES[engine]?.voiceGenders?.[id] : undefined) || undefined;
+
 	const k = /^([abefhijpz])([fm])_(\w+)$/.exec(id);
 	if (engine === 'kokoro' && k && KOKORO_LANG_FULL[k[1]]) {
 		return { langKey: k[1], langLabel: KOKORO_LANG_FULL[k[1]], gender: k[2] === 'f' ? 'F' : 'M', name: titleCase(k[3]) };
 	}
+	// Zonos spells gender out in the id ("american_female" / "british_male").
+	const z = /_(female|male)$/i.exec(id);
+	if (z && (engine === 'zonos-transformer' || engine === 'zonos-hybrid')) {
+		return { gender: z[1].toLowerCase() === 'female' ? 'F' : 'M', name: prettyVoiceLabel(id) };
+	}
 	const vx = /^(en|gb|fr)_(\w+?)(?:_(\w+))?$/i.exec(id);
 	if (engine === 'voxtral' && vx && VOXTRAL_LANG_FULL[vx[1].toLowerCase()]) {
 		const key = vx[1].toLowerCase();
-		return { langKey: key, langLabel: VOXTRAL_LANG_FULL[key], name: titleCase(vx[2]) + (vx[3] ? ` (${vx[3]})` : '') };
+		return { langKey: key, langLabel: VOXTRAL_LANG_FULL[key], gender: mapped, name: titleCase(vx[2]) + (vx[3] ? ` (${vx[3]})` : '') };
 	}
 	const loc = /^([a-z]{2})-([A-Z]{2})-([^:]+)/.exec(id);
 	if (loc) {
 		const langName = LOCALE_LANG[loc[1]] || loc[1].toUpperCase();
-		return { langKey: `${loc[1]}-${loc[2]}`, langLabel: `${langName} · ${loc[2]}`, name: titleCase(loc[3]) };
+		return { langKey: `${loc[1]}-${loc[2]}`, langLabel: `${langName} · ${loc[2]}`, gender: mapped, name: titleCase(loc[3]) };
 	}
-	return { name: prettyVoiceLabel(id) };
+	return { gender: mapped, name: prettyVoiceLabel(id) };
 }
 
 /** The curated top voices for a model — the catalog's `featuredVoices`, or its
