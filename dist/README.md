@@ -15,6 +15,7 @@ files. See the repo `README.md` for the full entry-point table.
 
 | File | Purpose | Consume via |
 |---|---|---|
+| `color-shim.min.js` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `docs/components.json` | Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component. | load as JSON / `@slidewright/lattice/dist/docs/components.json` |
 | `docs/components.md` | Canonical single-file component reference (plain Markdown): every component's slots, variants, when/why, anti-patterns. The browsable edition — live previews + an in-browser editor — is the docs-site component pages. | read directly / link from docs |
 | `docs/concepts.json` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |

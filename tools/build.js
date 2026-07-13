@@ -69,6 +69,8 @@ const PREFLIGHT = [
 const STEPS = [
   { label: 'lattice.css', script: 'build-css.js' },
   { label: 'lattice-default.css', script: 'build-default-bundle.js' },
+  // Old-browser colour shim — dist/color-shim.min.js, inlined by every render surface.
+  { label: 'color-shim bundle', script: 'build-color-shim.js' },
   // Must run BEFORE lattice-runtime.js — the runtime bundle `require()`s
   // this generated catalog directly (esbuild inlines it at bundle time).
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },

@@ -79,6 +79,20 @@ const PKG_ROOT = (() => {
   return __dirname;
 })();
 
+// ── Old-browser colour shim ───────────────────────────────────────────────────
+// Inlined as a pre-paint <script> in every rendered deck's <head> (after the palette
+// <style>). On a modern engine it is a no-op; on an old one (no light-dark/color-mix) it
+// resolves the whole :root palette to flat literals so text + drawings don't fall to black.
+// The PDF renders under modern Chromium, so this changes nothing there — it earns its keep on
+// the exported HTML viewed on old smart-TV Chromium / old iOS. See 2026-07-13-old-browser-color-shim.md.
+const COLOR_SHIM_JS = (() => {
+  try {
+    return fs.readFileSync(path.join(PKG_ROOT, 'dist', 'color-shim.min.js'), 'utf8');
+  } catch {
+    return ''; // artifact not built (dev) — emit no script rather than crash
+  }
+})();
+
 // ── KaTeX CSS ────────────────────────────────────────────────────────────────
 // The engine (lib/engine, created with `mathOutput:'html'`) renders `$…$` /
 // `$$…$$` to KaTeX markup itself; the emulator only links KaTeX's stylesheet so
@@ -1658,7 +1672,7 @@ section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px
 ${orientationStyle}
 ${marpSystemCss}
 ${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}
-</style></head><body>
+</style>${COLOR_SHIM_JS ? `\n<script>${COLOR_SHIM_JS}</script>` : ''}</head><body>
 ${a11yTextureDefs}
 ${slidesWithMeta2}
 ${functionPlotScript}
