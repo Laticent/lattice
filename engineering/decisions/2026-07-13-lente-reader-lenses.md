@@ -245,11 +245,21 @@ its own approval. This holds off-Studio, which is where a boolean-in-Studio gate
 `approved: true` is forgeable plaintext — any hand edit, paste, or the Studio's own AI chat
 (`setSource`) can type it, and in a codebase that threat-models AI-generated and shared untrusted
 decks (HARD RULE #22) that makes the guarantee hollow. Instead, Approve writes
-`approved: "sha256:<hash of the resolved membership + the body text of every member slide + the
-catalog version>"`. At read time `lensPairs` recomputes the hash; **any post-approval edit,
-reorder, or hand-forgery makes it mismatch, and the lens de-approves itself** — automatically,
-for every consumer, with no Studio involvement. This is the only version of "approved" that
-survives a domain-aware stakeholder asking "did a human actually vet *this* deck?"
+`approved: "sha256:<hash of the resolved membership + the body text of every member slide>"`. At
+read time the eligibility check recomputes the hash; **any post-approval edit, reorder, or
+hand-forgery makes it mismatch, and the lens de-approves itself** — automatically, for every
+consumer, with no Studio involvement. This is the only version of "approved" that survives a
+domain-aware stakeholder asking "did a human actually vet *this* deck?"
+
+> **Implementation note (slice 1, maker-checker).** The shipped `approvalHash(slides, reg, lensId)`
+> deliberately does **not** fold the catalog version into the digest (the earlier draft above said
+> "+ catalog version"). The read path is a pure function of the approved tags + base and never touches
+> the catalog, so a reader's view is catalog-independent; binding the catalog version would spuriously
+> de-approve a lens on every reclassification even when the reader's slides are byte-identical.
+> Catalog-staleness ("classification changed since you approved") is surfaced by the *suggester* on
+> re-run, not by revoking an unchanged reader view. The maker-checker pass confirmed this closes no
+> hole. Reader-view membership scanning also skips fenced code blocks, so a deck that *documents*
+> `_lens`/`_class` syntax inside a ` ``` ` fence is never falsely tagged.
 
 **(3) Fail CLOSED, visibly — never silently to `full`** (hardened per red-team M4). A scoping lens
 is often a *redaction* (the brief deliberately omits appendix/backup slides). Silently substituting

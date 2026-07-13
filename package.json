@@ -44,6 +44,7 @@
   },
   "workspaces": [
     "docs/src/lib/cadenza",
+    "docs/src/lib/lente",
     "docs/src/lib/vetrina"
   ],
   "files": [

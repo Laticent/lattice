@@ -1,0 +1,28 @@
+{
+  "name": "@slidewright/lente",
+  "version": "0.1.0",
+  "description": "Deterministic, human-approved reader lenses — project one deck at several honest altitudes (full / brief / ask / story / evidence) without editing the source. Framework-free, zero-dependency, no DOM.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "types": "./index.ts",
+  "module": "./index.ts",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts",
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md"
+  ]
+}
