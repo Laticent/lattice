@@ -164,6 +164,14 @@ in patch versions.
 
 ### Added
 
+- **`lattice-emulator --paper` fits the deck onto a standard sheet for the Node PDF export.**
+  `--paper auto|letter|legal|a4` (plus `--orientation auto|landscape|portrait`) bakes a real
+  paper MediaBox into the exported PDF — each slide fit + centered with a 9mm safe margin,
+  never cropped — so it prints correctly on office paper instead of the default slide-sized
+  page. `auto` picks the least-wasteful sheet for the deck's aspect via the same shared kernel
+  the Studio Print drawer uses (`lib/core/print-sheet.mjs`, HARD RULE #1). Like the drawer's
+  paper-fit and `--raster`, it's an image-per-page PDF (selectable text is lost); omit the flag
+  for the default vector export. PDF only.
 - **The Print drawer prints a speaker-notes handout — each slide over its own notes.** A new
   "Notes" layout option puts the slide in the top band of each page and its speaker notes below,
   one slide per page — the classic boardroom leave-behind. Notes come from the same `notesCore`

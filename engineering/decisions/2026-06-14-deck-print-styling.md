@@ -74,7 +74,27 @@ the seam N-up and the notes handout build on (place N images / slide+notes per s
 recorded via the bench's print re-place tier (`test/benchmark/engine-bench.mjs`,
 `printDatasets` baseline; HARD RULE #19). Demo: `examples/print-fast-flip.md`.
 
-**Deferred still:** CLI `--paper` PDF; N-up (2/4 per sheet); speaker-notes handout.
+**Shipped (2026-07-13) — the three remaining follow-ups.**
+- **N-up (2/4 per sheet).** `nUpCells` (shared kernel) returns the per-cell fit+centered
+  rects; `assembleSheetPdf` gains `opts.nup` (grid, ceil(images/nup) pages). A "Layout"
+  control in the Print drawer (1-up / 2-up / 4-up) with a live grid preview; nup=1 is exactly
+  `fitSlideOnSheet`. Rides the cached images (placement-only), so switching re-places with no
+  re-rasterize.
+- **Speaker-notes handout.** `handoutRegions` bands the slide (top) over its notes; the
+  assembler's handout path draws the note text (jsPDF) from the shared `notesCore` boundary.
+  Added as the "Notes" layout. Desktop routes N-up/handout through the PDF (the vector
+  one-slide-per-page path can't grid or add a notes band).
+- **CLI `--paper`.** `lattice --paper auto|letter|legal|a4` (+ `--orientation`) bakes a paper
+  MediaBox into the Node PDF export, reusing `resolvePrintSheet`/`fitSlideOnSheet` from the
+  kernel. Vector `@page`-zoom was rejected: Chromium drops the per-slide page break once a
+  scaled slide no longer fills the sheet (portrait packs 2-up), so the CLI paper-fit rasterizes
+  + places like the drawer — reliable at every sheet, at the cost of selectable text (opt-in).
+
+To share the geometry with the Node CLI (HARD RULE #1), the print-sheet kernel moved to the
+pure ESM `lib/core/print-sheet.mjs`; `deck-preview.js` re-exports it (browser importers
+unchanged) and `lattice-emulator.js` `require`s it. Demo: `examples/print-handouts.md`.
+
+**Deferred still:** nothing from this note — the swimlane is complete.
 
 ---
 
