@@ -201,7 +201,9 @@ describe('toSpoken', () => {
   });
 
   it('lookupLexicon: BASE always on, domain packs opt-in', () => {
-    expect(lookupLexicon('§')).toBe('section');
+    expect(lookupLexicon('§')).toBeNull(); // "§" moved to the citation parser / symbol commons
+    expect(toSpoken('§')).toBe('section'); // still spoken — via spokenCore's section-ref parser
+    expect(lookupLexicon('§§')).toBe('sections'); // the plural whole-token stays in BASE
     expect(lookupLexicon('v.')).toBeNull();
     expect(lookupLexicon('v.', ['legal'])).toBe('versus');
     expect(lookupLexicon('__proto__')).toBeNull(); // prototype-safe

@@ -13,6 +13,11 @@
 
 import { type LexDomain, lookupLexicon } from './lexicon';
 import { splitWords } from './segment';
+import { resolveSymbols, SEPARATOR_GLYPHS, type SymbolOverrides } from './symbols';
+
+// Whole-token decorative-separator test, built from the commons' separator set (data lives once
+// in symbols.ts). Applied WHOLE-token only — an embedded "·" is a voice id / URL, left alone.
+const SEPARATOR_ONLY = new RegExp(`^[${SEPARATOR_GLYPHS.replace(/[\\\]]/g, '\\$&')}]+$`);
 
 const ONES = [
   'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
@@ -129,6 +134,9 @@ export type AcronymRegistry = ReadonlyMap<string, string>;
 export interface SpokenOpts {
   domains?: readonly LexDomain[];
   acronyms?: AcronymRegistry;
+  /** A deck's per-glyph symbol overrides (`symbols:` front-matter → the drawer UI): display glyph
+   *  → spoken form ("" silences it), beating the built-in Speech Symbol Commons. See symbols.ts. */
+  symbols?: SymbolOverrides;
   /** The deck's language tag (the Marp `lang:` directive). The built-in lexicon, the
    *  number-to-words, and the fiscal/period parser are all US-English, so for a
    *  non-English deck they are BYPASSED (the token passes through unchanged) to avoid
@@ -167,36 +175,37 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // WHOLE-token only — a "·"/"|" INSIDE a token (a voice id "Heart·US", a URL) is left alone —
   // and language-independent (the glyph reads badly in any language). The DISPLAY word keeps the
   // glyph; only what's SPOKEN changes, so captions and the exported `.vtt` are unchanged.
-  if (/^[·•∙‖¦⁃・|]+$/.test(tok)) return ',';
-
-  // An ARROW reads as the noun "arrow" on most TTS voices ("Q1 → Q2" → "Q1 ARROW Q2"), which
-  // is jarring. In presentation prose an arrow is a transition, not a noun: a rightward /
-  // implication arrow means "to" ("auto → clean", "reflows 4-across → stacked", "Q1 → Q2"); a
-  // bidirectional one means "and" (the a11y "red↔green"); a leftward one has no clean spoken
-  // direction, so it becomes a plain word gap. Handle BOTH a standalone arrow token AND one
-  // embedded in a token — swap each glyph for its connective, then re-normalize the pieces so
-  // "Q1"/"Q2" still expand. Spoken-form ONLY: the display glyph and the exported `.vtt` keep the
-  // arrow (like the decorative-separator rule above).
-  if (/[→⇒⟶➜⟹⟼↦↔⇔⟷←⟵⇐↩]/.test(tok)) {
-    const connected = tok
-      .replace(/[→⇒⟶➜⟹⟼↦]/g, ' to ')
-      .replace(/[↔⇔⟷]/g, ' and ')
-      .replace(/[←⟵⇐↩]/g, ' ');
-    return splitWords(connected)
-      .map((w) => toSpoken(w, opts))
-      .filter(Boolean)
-      .join(' ');
-  }
+  if (SEPARATOR_ONLY.test(tok)) return ',';
 
   // Whole-token lexicon next, before peeling punctuation — so a period-bearing
   // abbreviation (`v.`, `art.`, `U.S.C.`) matches its key rather than losing the
   // period to the terminator peel. The abbreviation's own period is part of it,
   // not a sentence end, and its spoken form ("versus") carries no terminator. The
   // built-in lexicon is US-English, so a non-English deck skips it (#919) — the
-  // author registry above still applied.
+  // author registry above still applied. This runs BEFORE the symbol commons so a
+  // multi-char lexicon key that contains a symbol ("r&d", "p&l") wins as a whole.
   if (english) {
     const whole = lookupLexicon(tok, domains);
     if (whole !== null) return whole;
+  }
+
+  // Speech Symbol Commons — arrows, math operators, typographic marks, emoji. One glyph pass
+  // handles standalone ("→"), embedded ("red↔green"), and mixed ("3×4"): each known glyph becomes
+  // a spoken word (SPEAK), a silence (DROP / decorative emoji), or the author's `symbols:`
+  // override; the pieces are re-normalized so operands ("Q1"/"Q2") still expand. Ambiguous glyphs
+  // ("+ − = / #") aren't listed and pass through untouched. Spoken-form ONLY — display + `.vtt`
+  // keep the glyph. See symbols.ts + the design ADR.
+  const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
+  if (symbolic !== null) {
+    // Re-normalize the pieces WITHOUT the overrides — the built-in SPEAK table is acyclic (its
+    // values are plain words, no glyphs), so this terminates even for a cyclic/self-referential
+    // author override (`symbols: {"→":"→"}`, reachable from untrusted deck front-matter). A glyph
+    // that survives inside an override value still resolves via the built-in table.
+    const rest: SpokenOpts = { ...opts, symbols: undefined };
+    return splitWords(symbolic)
+      .map((w) => toSpoken(w, rest))
+      .filter(Boolean)
+      .join(' ');
   }
 
   // Preserve trailing sentence punctuation so cadence still sees the terminator.
@@ -347,6 +356,7 @@ function spokenCore(core: string, domains: readonly LexDomain[], acronyms?: Acro
 export function toSpokenText(text: string, opts: SpokenOpts = {}): string {
   return splitWords(text)
     .map((w) => toSpoken(w, opts))
+    .filter(Boolean) // a DROPPED symbol (decorative emoji) contributes nothing — no double space
     .join(' ');
 }
 

@@ -2,12 +2,35 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test.
-let parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang;
+let parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang, symbolOverrideMap;
 test.before(async () => {
-  ({ parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang } = await import('../../../lib/core/resolve-captions.mjs'));
+  ({ parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang, symbolOverrideMap } = await import('../../../lib/core/resolve-captions.mjs'));
 });
 
 const fm = (body) => `---\n${body}\n---\n\n# Deck\n`;
+
+test('symbols: parses a quoted glyph → spoken override map', () => {
+  const { symbols } = parseNarrationFrontMatter(fm('symbols:\n  "→": leads to\n  "≈": roughly'));
+  assert.equal(symbols.get('→'), 'leads to');
+  assert.equal(symbols.get('≈'), 'roughly');
+});
+
+test('symbols: an empty value is kept as the deliberate "silence this glyph" signal', () => {
+  const { symbols } = parseNarrationFrontMatter(fm('symbols:\n  "🎯": ""\n  "★": '));
+  assert.equal(symbols.get('🎯'), '');
+  assert.equal(symbols.get('★'), '');
+});
+
+test('symbols: a bare (unquoted) glyph key works too, last-wins on a duplicate', () => {
+  const { symbols } = parseNarrationFrontMatter(fm('symbols:\n  ÷: over\n  →: first\n  →: second'));
+  assert.equal(symbols.get('÷'), 'over');
+  assert.equal(symbols.get('→'), 'second');
+});
+
+test('symbols: absent key → empty map; symbolOverrideMap is the thin accessor', () => {
+  assert.equal(parseNarrationFrontMatter(fm('theme: indaco')).symbols.size, 0);
+  assert.equal(symbolOverrideMap(fm('symbols:\n  "→": to the')).get('→'), 'to the');
+});
 
 test('acronyms: string shorthand → { expansion }', () => {
   const { acronyms } = parseNarrationFrontMatter(fm('acronyms:\n  CRO: chief revenue officer\n  GTM: go to market'));

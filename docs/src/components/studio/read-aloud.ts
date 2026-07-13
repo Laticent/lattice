@@ -224,11 +224,17 @@ function nowMs(): number {
  * warm (autoplay turned off, the slide advanced again, Present closed)
  * doesn't keep working through the rest of the slide's sentences.
  */
-export function warmNarration(text: string, signal?: AbortSignal, acronyms?: ReadonlyMap<string, string>, lang?: string): void {
+export function warmNarration(
+	text: string,
+	signal?: AbortSignal,
+	acronyms?: ReadonlyMap<string, string>,
+	lang?: string,
+	symbols?: ReadonlyMap<string, string>,
+): void {
 	if (!text) return;
-	// MUST pass the same `acronyms` AND `lang` play() will use, or the warmed spoken
+	// MUST pass the same `acronyms`, `lang` AND `symbols` play() will use, or the warmed spoken
 	// sentences won't match the ones synthesized on playback — every prefetch a cache miss.
-	const track = buildTrack(text, { acronyms, lang });
+	const track = buildTrack(text, { acronyms, lang, symbols });
 	if (!track.cues.length) return;
 	const sentences = track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
 	// getVoice() is the SAME memoized singleton play() uses — this never spins up
@@ -248,7 +254,15 @@ export function warmNarration(text: string, signal?: AbortSignal, acronyms?: Rea
  */
 export function useReadAloud(
 	text: string,
-	opts?: { onFinish?: () => void; acronyms?: ReadonlyMap<string, string>; lang?: string; muted?: boolean; debug?: boolean; debugLabel?: string },
+	opts?: {
+		onFinish?: () => void;
+		acronyms?: ReadonlyMap<string, string>;
+		symbols?: ReadonlyMap<string, string>;
+		lang?: string;
+		muted?: boolean;
+		debug?: boolean;
+		debugLabel?: string;
+	},
 ): ReadAloudState {
 	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
 	// "$4.2M" is said "four point two million dollars"), while the cursor highlights the
@@ -256,6 +270,7 @@ export function useReadAloud(
 	// The deck's acronym registry (author pronunciations) rides into every track; the
 	// deck's `lang` gates the English say-as so a non-English deck isn't anglicized (#919).
 	const acronyms = opts?.acronyms;
+	const symbols = opts?.symbols;
 	const lang = opts?.lang;
 	// Voice muted — captions still run (the silent cadence estimate), no TTS is attached. Read via
 	// a ref so play() sees the current value without re-creating the reader (present redesign S3).
@@ -265,7 +280,7 @@ export function useReadAloud(
 	const debugLabel = opts?.debugLabel;
 	const debugLabelRef = React.useRef(debugLabel);
 	debugLabelRef.current = debugLabel;
-	const track = React.useMemo(() => buildTrack(text, { acronyms, lang }), [text, acronyms, lang]);
+	const track = React.useMemo(() => buildTrack(text, { acronyms, lang, symbols }), [text, acronyms, lang, symbols]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
 	const [progress, setProgress] = React.useState(0);

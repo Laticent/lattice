@@ -578,6 +578,18 @@ in patch versions.
 
 ### Added
 
+- **Read-aloud now speaks symbols correctly — a Speech Symbol Commons, with per-deck overrides.**
+  One canonical resolver turns a glyph into the right spoken form: arrows read as transitions
+  (`→`→"to", `↔`→"and"), math operators as words (`×`→"times", `≈`→"approximately", `±`→"plus or
+  minus", `≥`→"greater than or equal to", `°`→"degrees"), typographic marks (`©`→"copyright",
+  `™`→"trademark", `¶`→"paragraph"), and decorative **emoji are dropped** (the voice never reads
+  "rocket"). It handles standalone (`→`), embedded (`red↔green`), and mixed (`3×4`) alike. Ambiguous
+  glyphs (`+ − = / #`) are deliberately left to the existing parsers. Authors override any glyph via
+  a front-matter `symbols:` map (`"→": leads to`, `"🎯": ""` to silence) — author beats the built-in,
+  exactly like `acronyms:`. Spoken-form only: caption glyphs and the exported `.vtt` *text* are
+  unchanged (word *timestamps* shift with the new spoken forms). Design:
+  `engineering/decisions/2026-07-13-speech-symbol-commons.md`.
+
 - **Read-aloud now learns each voice's true pace (groundwork).** Every clocked narration
   (Kokoro / OpenRouter) folds the measured clip duration vs the model's prediction into a robust
   per-voice rate scalar `k`, stored per device. This slice is **measure-only** — it collects and

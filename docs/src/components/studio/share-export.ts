@@ -501,6 +501,7 @@ type ReadAlongCore = {
 			voice: { model: string; voice: string; speed: number };
 			pace?: string;
 			acronyms?: ReadonlyMap<string, string>;
+			symbols?: ReadonlyMap<string, string>;
 			lang?: string;
 		},
 	) => { slides: { index: number }[] };
@@ -570,6 +571,7 @@ export async function shareCaptions(
 	// autosplit deck's exported `.vtt` differs from the CLI's by design (the CLI splits).
 	const fmCaptions = resolveCaptionsMod.frontMatterCaptions(source);
 	const acronyms = resolveCaptionsMod.acronymSpokenMap(source);
+	const symbols = resolveCaptionsMod.symbolOverrideMap(source); // glyph overrides beat the built-in commons
 	const lang = resolveCaptionsMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
 	// by construction). Failure degrades to notes-only, exactly as the CLI's projection does
@@ -589,6 +591,7 @@ export async function shareCaptions(
 		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
 		pace: 'moderate',
 		acronyms,
+		symbols,
 		lang: lang ?? undefined,
 	});
 	if (!readAlong.slides.length) throw new Error('nothing to narrate — the deck has no notes, captions, or projectable slide content');
