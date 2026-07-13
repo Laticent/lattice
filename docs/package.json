@@ -14,6 +14,7 @@
     "astro": "astro",
     "typecheck": "astro sync && tsc --noEmit",
     "check:vetrina": "tsc -p tsconfig.vetrina.json",
+    "check:lente": "tsc -p tsconfig.lente.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "perf": "node scripts/perf-collect.mjs --out .perf/local && node scripts/perf-regression.mjs --report .perf/local",

@@ -1,0 +1,17 @@
+{
+  "//": "Isolated STANDALONE typecheck for the Lente reader-lens library (design doc §8). It compiles ONLY the framework-free, no-DOM core with `types: []` — no repo tsconfig, no @types/node, no DOM. If the core ever grows a dependency on the host or on an ambient type, this fails: the mechanical proof that Lente is publishable as-is. Run: `npm run check:lente`. The import-boundary gate (tools/check-ownership.js) guards runtime imports; this guards the type surface.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "types": [],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/lib/lente/**/*.ts"],
+  "exclude": ["src/lib/lente/**/*.test.ts"]
+}

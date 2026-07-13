@@ -1614,6 +1614,41 @@ function checkSuonoBoundary(errors) {
   }
 }
 
+// ── Lente (docs/src/lib/lente) — the reader-lens engine ─────────────────────
+// Same self-containment antibody as Cadenza/Suono: Lente is the pure reader-lens core
+// (engineering/decisions/2026-07-13-lente-reader-lenses.md), designed to spin off as a
+// zero-dependency, no-DOM library. It has NO peer-dep seam, so EVERY import must resolve
+// inside the folder (`./x`); a bare specifier or a `../` escape breaks the spin-off-able
+// promise. Reuses the robust multi-form Suono specifier patterns.
+const LENTE_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lente');
+
+function checkLenteBoundary(errors) {
+  if (!fs.existsSync(LENTE_DIR)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(LENTE_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const base = path.basename(file);
+    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const seen = new Set();
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        const spec = m[1];
+        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+        if (seen.has(spec)) continue;
+        seen.add(spec);
+        errors.push(
+          `${rel} imports '${spec}', which escapes the Lente folder. The reader-lens engine is ` +
+          `zero-dependency, no-DOM, and spin-off-able (2026-07-13-lente-reader-lenses.md): every import ` +
+          `(static, side-effect, dynamic \`import()\`, or \`require()\`) must resolve inside ` +
+          `docs/src/lib/lente/ (\`./x\`). In particular the read path (project.ts) must never reach the ` +
+          `suggester (suggest.ts) except through the folder's own exports. Move shared code into the folder.`,
+        );
+      }
+    }
+  }
+}
+
 // ── Audio playback boundary — Suono is the ONLY WebAudio player ──────────────
 // Suono (docs/src/lib/suono) owns ALL real audio playback. No other module may
 // create a raw AudioContext or drive voice-model's imperative playback
@@ -1837,6 +1872,7 @@ function run() {
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
   checkSuonoBoundary(errors);
+  checkLenteBoundary(errors);
   checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
   return {
@@ -1926,6 +1962,7 @@ module.exports = {
   checkVetrinaBoundary,
   checkCadenzaBoundary,
   checkSuonoBoundary,
+  checkLenteBoundary,
   checkAudioPlaybackBoundary,
   SANCTIONED_LEGACY_AUDIO,
   RAW_AUDIO_PATTERNS,
