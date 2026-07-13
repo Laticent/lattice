@@ -29,6 +29,20 @@ test('buildReadAlong: estimate tracks, skipping blank slides (sparse by index)',
 	assert.equal(money?.spoken, 'four point two million dollars');
 });
 
+test('buildReadAlong: the Speech Symbol Commons + author `symbols:` override reach the track', () => {
+	// Built-in commons: "→" spoken "to" (display keeps the glyph). Author override wins over it.
+	const builtin = buildReadAlong(['Q1 → Q2 growth.'], { voice: VOICE });
+	const arrow = builtin.slides[0].track.cues.flatMap((c) => c.words).find((w) => w.display === '→');
+	assert.equal(arrow?.spoken, 'to');
+
+	const overridden = buildReadAlong(['Q1 → Q2 growth.'], {
+		voice: VOICE,
+		symbols: new Map([['→', 'leads to']]),
+	});
+	const arrow2 = overridden.slides[0].track.cues.flatMap((c) => c.words).find((w) => w.display === '→');
+	assert.equal(arrow2?.spoken, 'leads to'); // author override beat the built-in "to"
+});
+
 test('buildReadAlong: defaults pace to moderate and audioMode to regenerate', () => {
 	const ra = buildReadAlong(['One.'], { voice: VOICE });
 	assert.equal(ra.pace, 'moderate');

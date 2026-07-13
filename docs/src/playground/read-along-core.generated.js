@@ -783,12 +783,13 @@ var require_read_along_build = __commonJS({
     function buildReadAlong2(slideTexts, opts) {
       const pace = opts.pace ?? "moderate";
       const acronyms = opts.acronyms;
+      const symbols = opts.symbols;
       const lang = opts.lang;
       const slides = [];
       for (let index = 0; index < slideTexts.length; index++) {
         const text = String(slideTexts[index] ?? "").trim();
         if (!text) continue;
-        slides.push({ index, track: buildTrack(text, { pace, acronyms, lang }) });
+        slides.push({ index, track: buildTrack(text, { pace, acronyms, lang, symbols }) });
       }
       return {
         version: "1.0",

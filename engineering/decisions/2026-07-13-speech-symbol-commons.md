@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: Read-aloud mispronounces symbols one at a time — "→" was read as the word "arrow" (#947 fixed it ad hoc), and the same class of bug awaits every math operator, currency mark, and emoji arrow an author types. This replaces the scattered, per-glyph handling (the arrow rule, the decorative-separator rule, the §/¶/& lexicon entries) with ONE canonical Speech Symbol Commons in the cadenza kernel: a curated built-in table that sorts each glyph into an ACTION — SPEAK a word ("×"→"times"), PAUSE (a comma, decorative separators), or DROP (silence, decorative emoji) — plus a front-matter `symbols:` override that wins over the built-in (exact parity with the `acronyms:` registry), editable from a deck-drawer pronunciations UI. Only UNAMBIGUOUS glyphs ship built-in; ambiguous ones (`+ − = / # -`) stay with the number/range parsers or the author's own override. One glyph-substitution pass handles standalone, embedded, and mixed tokens alike.
 companion:
   - ./2026-07-12-per-voice-pace-calibration.md
@@ -81,8 +81,11 @@ uniformly. Precedence per glyph: **author `symbols:` → built-in commons**; aut
 
 ## Slices
 
-1. **Engine commons + override (this PR).** `symbols.ts` + resolver, the `normalize.ts`/`lexicon.ts`
-   consolidation, the `symbols` override option, the `symbols:` front-matter parse + threading. Tests.
+1. **Engine commons + override (this PR — built).** `symbols.ts` + resolver, the
+   `normalize.ts`/`lexicon.ts` consolidation, the `symbols` override option, the `symbols:`
+   front-matter parse (`resolve-captions.mjs`) threaded through every producer — the live Present
+   reader + warm-ahead (`PresentOverlay`/`read-aloud.ts`), the Studio export (`share-export.ts`),
+   and the CLI (`lattice-emulator.js`), all via `buildReadAlong`. Tests at every layer.
 2. **Deck-drawer pronunciations UI (follow-up PR).** Edit `symbols:` (and `acronyms:`) from the Studio.
 
 ## Open questions (non-blocking, logged)
