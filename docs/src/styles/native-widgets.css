@@ -19,7 +19,14 @@
  * `::-webkit-scrollbar`: styling it on macOS swaps the auto-hiding overlay
  * scrollbar for an always-visible legacy one — a downgrade that color-scheme
  * already avoids. The thumb mix mirrors the code-block scrollbars
- * (Expressive Code, lattice.css) so the whole site reads as one system. */
+ * (Expressive Code, lattice.css) so the whole site reads as one system.
+ *
+ * This file owns ONLY the global/UA layer — surfaces no component can mount on:
+ * the document scrollbar, `color-scheme`, text selection, the caret, the focus
+ * ring on un-wrapped focusables, native placeholders, the mobile tap flash,
+ * text-fragment highlights. Composite controls (select, dialog, slider, …) are
+ * shadcn's job (docs/src/components/ui/) and are themed through the token bridge
+ * in tailwind.css — not here. */
 
 :root {
 	scrollbar-color: color-mix(in srgb, var(--text-muted) 38%, transparent) transparent;
@@ -28,10 +35,42 @@
 	 * universal support, so form controls stop rendering in OS blue. */
 	accent-color: var(--accent);
 	caret-color: var(--accent);
+	/* Mobile: the tap flash on any tappable element. Inherited, so setting it
+	 * once at the root tints every touch highlight to a faint accent instead of
+	 * the OS gray/blue box. Touch-only — no effect on pointer devices. */
+	-webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 /* Text selection — the native highlight we can tint cross-browser, matched to
  * the code-block selection so prose and code highlight the same. */
 ::selection {
 	background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Placeholder text in native inputs/textareas — the palette's muted ink, not
+ * the browser's gray. `opacity: 1` because Firefox dims placeholders by default.
+ * A shadcn Input overrides this with its own placeholder color; this is the
+ * floor for any native field the site hasn't wrapped in a component. */
+::placeholder {
+	color: var(--text-muted);
+	opacity: 1;
+}
+
+/* Keyboard focus ring — the palette accent, for EVERY focusable the site hasn't
+ * given its own :focus-visible ring (prose links, native inputs, markdown
+ * content, summary/details). `:where(...)` keeps this at zero-ish specificity so
+ * a component's own focus style always wins; it only fills the gap where the
+ * browser would otherwise paint its default blue/black ring. Outline (not
+ * box-shadow) so it never enters the height math a measuring layout depends on. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+/* Text-fragment highlight (deep links, `#:~:text=`) — tinted to the accent
+ * instead of the UA yellow, matched to ::selection so an arrived-at passage
+ * reads in-brand. */
+::target-text {
+	background: color-mix(in srgb, var(--accent) 22%, transparent);
+	color: var(--text-heading);
 }

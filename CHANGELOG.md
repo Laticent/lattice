@@ -299,7 +299,10 @@ in patch versions.
   `native-widgets.css` partial — imported by both style roots (`landing.css`, `lattice.css`) so the
   two skins can't drift — layers the on-brand tint on top: `scrollbar-color` (thumb = `--text-muted`
   at 38%, matching the code-block scrollbars) + `scrollbar-width: thin`, `accent-color`/`caret-color`
-  = `--accent`, and an `::selection` tint. Standard properties only (Firefox + Chromium 121+; Safari
+  = `--accent`, an `::selection` tint, a palette `:focus-visible` ring on any un-wrapped focusable
+  (`:where(...)` so a component's own ring always wins), native `::placeholder` = `--text-muted`,
+  the mobile `-webkit-tap-highlight-color`, and the `::target-text` deep-link highlight. Standard
+  properties only (Firefox + Chromium 121+; Safari
   honors `color-scheme` so its overlay scrollbars still track the mode); `::-webkit-scrollbar` is
   deliberately skipped to preserve macOS overlay scrollbars. Verified on the live docs site — computed
   `color-scheme`, `scrollbar-color`, and `accent-color` confirmed per palette/mode across indaco,
