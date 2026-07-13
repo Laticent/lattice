@@ -268,6 +268,16 @@ in patch versions.
   sequencer routes through them (a between-clips pause still just freezes the clock). Covered by new
   stage/sequence unit tests and a strengthened `read-aloud` nightly (multi-cycle pause → resume →
   progress → finish-once); the audible pop/again is device-only and signed off on the preview.
+- **Map, quadrant, and radar charts no longer render black in the playground / Studio / Player.**
+  The client-side engine wraps every selector under `div.lattice > section` (`packTheme` in
+  `lib/engine/css.js`), but its "targets the slide" step only recognized a *literal* leading
+  `section`. A chart rule led by `:is(section.map, figure.chart-frame)` — the Read·Article
+  re-host broadening — was mis-scoped as a slide *descendant* (`div.lattice > section :is(section.map, …)`),
+  which can never match the slide (`section.map` **is** the slide), so `--map-base`/`--quadrant-*`/
+  `--radar-*` were never defined and those fills fell to SVG's black default. `packTheme` now
+  distributes a leading `:is(…)` so each arm scopes by its own leftmost combinator. Locked by a
+  new `test/unit/engine/css-scope.test.js` regression. (Pie/gantt/kanban were unaffected — they
+  don't use the `:is(section…, figure…)` shape.)
 - **The Print drawer now shows a loading state on every build path — including a paper/orientation
   re-place.** Three gaps: (1) after changing paper or orientation, clicking Print (iOS) rebuilt the
   PDF by re-placing cached images, but that path ran the whole jsPDF assembly **synchronously**, so
