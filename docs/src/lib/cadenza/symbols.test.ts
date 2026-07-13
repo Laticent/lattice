@@ -60,6 +60,18 @@ describe('toSpoken — symbol commons integration', () => {
 	it('leaves ambiguous ASCII to the existing parsers (not spoken as a symbol name)', () => {
 		expect(toSpoken('C++')).toBe('C++'); // "+" untouched by the commons
 	});
+	it('a cyclic / self-referential override cannot infinite-recurse (untrusted front-matter is hostile)', () => {
+		// symbols: {"→":"→"} once crashed with RangeError — reachable from a shared/AI deck's YAML.
+		// The re-normalize drops overrides, so a surviving glyph resolves via the acyclic built-in.
+		expect(() => toSpokenText('Q1 → Q2', { symbols: new Map([['→', '→']]) })).not.toThrow();
+		expect(toSpokenText('Q1 → Q2', { symbols: new Map([['→', '→']]) })).toBe('first quarter to second quarter');
+		expect(toSpokenText('a → b', { symbols: new Map([['→', 'x → y']]) })).toBe('a x to y b'); // one level of override, then built-in
+		const twoCycle = new Map([
+			['→', '↔'],
+			['↔', '→'],
+		]);
+		expect(() => toSpokenText('a → b ↔ c', { symbols: twoCycle })).not.toThrow();
+	});
 	it('every SPEAK entry round-trips through toSpoken to its word', () => {
 		for (const [glyph, word] of Object.entries(SYMBOL_SPEAK)) {
 			expect(toSpoken(glyph)).toBe(word);

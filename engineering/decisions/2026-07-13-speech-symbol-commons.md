@@ -93,3 +93,11 @@ uniformly. Precedence per glyph: **author `symbols:` → built-in commons**; aut
 - The full SPEAK table is curated conservatively; new glyphs are additive (a one-line table entry).
 - Directional emoji carry Unicode variation selectors (`➡️` = `➡` + U+FE0F) — the resolver strips
   the selector before lookup.
+- **Non-English decks: SPEAK is gated (#919), DROP is not — asymmetric by design.** In a `lang: de`
+  deck a `→` passes through un-voiced (no English "to" injected) while `←`/emoji still drop to
+  silence and `©`/`™` now drop too (they used to pass through). This follows the #919 rule (never
+  anglicize) but means the arrow fix doesn't reach non-English decks; those authors use the
+  language-neutral `symbols:` override. Revisit if a non-English narration bug is reported.
+- **`symbols:` keys are single glyphs.** `resolveSymbols` matches per code point, so a multi-char
+  key (`"->"`, `"AI"`) is silently inert — multi-character spoken swaps are the `acronyms:` channel.
+  A validation warning is a possible follow-up.

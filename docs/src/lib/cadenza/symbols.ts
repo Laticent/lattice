@@ -23,7 +23,7 @@ export type SymbolOverrides = ReadonlyMap<string, string>;
 export const SYMBOL_SPEAK: Record<string, string> = {
   // Arrows — a transition, not the noun "arrow". Rightward/implication → "to"; bidirectional →
   // "and"; vertical → up/down (metrics register). Leftward is DROP (below) — no clean reading.
-  '→': 'to', '⇒': 'to', '⟶': 'to', '➜': 'to', '➡': 'to', '↦': 'to', '⟹': 'to',
+  '→': 'to', '⇒': 'to', '⟶': 'to', '➜': 'to', '➡': 'to', '↦': 'to', '⟹': 'to', '⟼': 'to',
   '↔': 'and', '⇔': 'and', '⟷': 'and',
   '↑': 'up', '⬆': 'up', '↓': 'down', '⬇': 'down',
   // Math operators with a single unambiguous reading.

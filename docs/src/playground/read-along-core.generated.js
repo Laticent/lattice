@@ -228,6 +228,7 @@ var require_dist = __commonJS({
       "\u27A1": "to",
       "\u21A6": "to",
       "\u27F9": "to",
+      "\u27FC": "to",
       "\u2194": "and",
       "\u21D4": "and",
       "\u27F7": "and",
@@ -391,7 +392,8 @@ var require_dist = __commonJS({
       }
       const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
       if (symbolic !== null) {
-        return splitWords(symbolic).map((w) => toSpoken(w, opts)).filter(Boolean).join(" ");
+        const rest = { ...opts, symbols: void 0 };
+        return splitWords(symbolic).map((w) => toSpoken(w, rest)).filter(Boolean).join(" ");
       }
       const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
       const core = punct ? tok.slice(0, -punct.length) : tok;

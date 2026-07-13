@@ -197,8 +197,13 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // keep the glyph. See symbols.ts + the design ADR.
   const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
   if (symbolic !== null) {
+    // Re-normalize the pieces WITHOUT the overrides — the built-in SPEAK table is acyclic (its
+    // values are plain words, no glyphs), so this terminates even for a cyclic/self-referential
+    // author override (`symbols: {"→":"→"}`, reachable from untrusted deck front-matter). A glyph
+    // that survives inside an override value still resolves via the built-in table.
+    const rest: SpokenOpts = { ...opts, symbols: undefined };
     return splitWords(symbolic)
-      .map((w) => toSpoken(w, opts))
+      .map((w) => toSpoken(w, rest))
       .filter(Boolean)
       .join(' ');
   }
