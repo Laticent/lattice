@@ -213,12 +213,16 @@ in patch versions.
 
 ### Fixed
 
-- **The Print drawer's Print button now shows a "Preparing print…" spinner during the ~1-2s
-  before the desktop print dialog opens.** Desktop Print renders the vector deck in a hidden iframe
-  (fonts + the fit agent must settle before the dialog captures a laid-out page), which took a beat
-  with no feedback — the button sat idle as if nothing happened. It now enters a loading state the
-  moment you click and clears it exactly when the dialog is handed off. The Download button likewise
-  shows "Rendering…" while a colour change re-renders the deck, matching Print.
+- **The Print drawer now shows a loading state on every build path — including a paper/orientation
+  re-place.** Three gaps: (1) after changing paper or orientation, clicking Print (iOS) rebuilt the
+  PDF by re-placing cached images, but that path ran the whole jsPDF assembly **synchronously**, so
+  React batched the button's `building` state into one commit and the spinner never painted — it
+  snapped straight to "Open PDF to print" (and on a large deck the UI froze for the whole assemble).
+  The assembler now yields between pages and reports per-page progress ("Placing slide N of N…"), so
+  the loading → share transition shows and the UI stays responsive. (2) Desktop Print prepares a
+  hidden print iframe (~1-2s of font + fit-agent settle) before the dialog opens; the button now
+  shows "Preparing print…" across that window and clears it when the dialog is handed off. (3) The
+  Download button reflects a colour re-render ("Rendering…"), matching Print.
 - **The playground's gallery drawer now labels front-matter-less decks with the right slide
   count, and the diagram-component reference gallery's three experimental diagrams render
   clean.** Two follow-ups from the curated-diagram-gallery work: (1) `galleries.mjs slideCount()`

@@ -237,7 +237,7 @@ export function PrintOptionsPanel({
 			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
 			if (mountedRef.current) setImgCache(imgs);
 		}
-		const blob = await ex.assembleSheetPdf(imgs.images, imgs.geom, name, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH }, pageFormat: imgs.pageFormat });
+		const blob = await ex.assembleSheetPdf(imgs.images, imgs.geom, name, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH }, pageFormat: imgs.pageFormat, onStatus: (m: string) => { if (mountedRef.current) setStatus(m); } });
 		const url = URL.createObjectURL(blob);
 		const prevUrl = builtPdf?.url;
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }

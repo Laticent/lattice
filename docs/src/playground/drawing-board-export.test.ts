@@ -66,4 +66,18 @@ describe('assembleSheetPdf — place cached images on a paper sheet', () => {
 	it('throws without a sheet (the assemble half needs page geometry)', async () => {
 		await expect(assembleSheetPdf([PNG], { w: 1280, h: 720 }, 'p', meta, { pageFormat: 'png' })).rejects.toThrow(/sheet/);
 	});
+
+	it('reports progress once per page via onStatus (drives the re-place loading state)', async () => {
+		// The re-place path is assemble-only, so this callback + the per-page macrotask yield
+		// are what let the Print drawer paint its loading state (else React batches the
+		// synchronous loop into one commit and the spinner never shows). Regression guard.
+		const seen: Array<{ current: number; total: number }> = [];
+		await assembleSheetPdf([PNG, PNG, PNG], { w: 1280, h: 720 }, 'p', meta, {
+			sheet: { pageW: 1344, pageH: 816 },
+			pageFormat: 'png',
+			onStatus: (_m: string, p?: { current: number; total: number }) => { if (p) seen.push(p); },
+		});
+		expect(seen.map((p) => p.current)).toEqual([0, 1, 2]);
+		expect(seen.every((p) => p.total === 3)).toBe(true);
+	});
 });

@@ -720,6 +720,7 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	const sheet = opts?.sheet;
 	if (!sheet) throw new Error('assembleSheetPdf needs opts.sheet ({ pageW, pageH, fit }).');
+	const onStatus = opts?.onStatus;
 	const { jsPDF } = await import('jspdf');
 	const boxW = geom?.w || 1280;
 	const boxH = geom?.h || 720;
@@ -734,12 +735,21 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 	const pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH], compress: true, hotfixes: ['px_scaling'] });
 	pdf.setProperties(pdfProps(name, meta, images.length));
 	for (let i = 0; i < images.length; i++) {
+		if (onStatus) onStatus('Placing slide ' + (i + 1) + ' of ' + images.length + '…', { current: i, total: images.length });
 		if (i > 0) pdf.addPage([pageW, pageH], orientation);
 		// White page under a fit+centered slide so the letterbox bands print white, not
 		// transparent (a transparent PNG over nothing composites to black on some viewers).
 		pdf.setFillColor(255, 255, 255);
 		pdf.rect(0, 0, pageW, pageH, 'F');
 		pdf.addImage(images[i], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', place.x, place.y, place.w, place.h);
+		// Yield a macrotask between pages — LOAD-BEARING for the re-place path. A
+		// paper/orientation change reuses cached images, so this loop is the ENTIRE build:
+		// run synchronously it blocks the main thread, and React batches a caller's
+		// `building=true` → done into one commit, so the button's loading state never
+		// paints (it snaps straight to the finished state). The yield lets React paint the
+		// loading state first and keeps the UI responsive on a large deck. (The legacy
+		// sheet lane yielded here too; the rasterize half yields per slide separately.)
+		await new Promise((r) => setTimeout(r));
 	}
 	return pdf.output('blob');
 }
