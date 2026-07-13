@@ -595,10 +595,15 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										<label htmlFor="ws-cap" className="text-[12.5px] font-semibold text-[var(--text-heading)]">Your cap</label>
 										<span className="text-[12.5px] text-muted-foreground">$</span>
 										<input id="ws-cap" type="number" min={0} step={0.5} defaultValue={spend.cap || ''} placeholder="none" onBlur={(e) => { setBudget(Number(e.target.value) || null, spend.mode as 'alert' | 'stop'); setSpend(architectSpend()); }} className="w-[64px] rounded-md border border-border bg-background px-2 py-1 text-[12.5px] text-foreground outline-none focus:border-[var(--accent)]" />
-										<select aria-label="Budget enforcement mode" value={spend.mode} onChange={(e) => { setBudget(spend.cap || null, e.target.value as 'alert' | 'stop'); setSpend(architectSpend()); }} className="ml-auto rounded-md border border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)] outline-none focus:border-[var(--accent)]">
-											<option value="alert">Warn 80%</option>
-											<option value="stop">Hard stop</option>
-										</select>
+										<Select value={spend.mode} onValueChange={(v) => { setBudget(spend.cap || null, v as 'alert' | 'stop'); setSpend(architectSpend()); }}>
+											<SelectTrigger aria-label="Budget enforcement mode" className="ml-auto h-auto gap-2 border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)]">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="alert">Warn 80%</SelectItem>
+												<SelectItem value="stop">Hard stop</SelectItem>
+											</SelectContent>
+										</Select>
 									</div>
 									{spend.cap > 0 && (
 										<div className="mt-2.5 h-[6px] overflow-hidden rounded-full bg-border"><span className={cn('block h-full rounded-full', spend.status.level === 'over' ? 'bg-[var(--fail,#b3261e)]' : spend.status.level === 'warn' ? 'bg-[var(--warn,#9a6a00)]' : 'bg-primary')} style={{ width: `${Math.min(100, pct(spend.session, spend.cap))}%` }} /></div>

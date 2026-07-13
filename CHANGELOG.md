@@ -259,6 +259,16 @@ in patch versions.
 
 ### Changed
 
+- **Studio dropdowns now use the shared `ui/select` primitive instead of native `<select>`.** The three
+  surviving native selects on live surfaces — `SlideContext`'s `Picker` (finish / brand-bar / stamp /
+  tone, with its grouped options), `Fabricate`'s manifest-field `sel`, and `WorkspaceSheet`'s budget
+  enforcement mode — now render the shadcn Select (themed through the tailwind.css bridge, so the popover
+  and the accent-checked item track the palette). Behavior-neutral; the sentinel option values
+  (`__inherit__`/`__none__`/`__default__`) are non-empty, so Radix's no-empty-value rule holds. Verified
+  on the real Studio: opening Slide settings → Finish and picking "Meridian" updates the trigger and
+  writes `finish-meridian` into the deck source end to end. Second step of the shadcn-adoption plan
+  (`engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md`); `cadenza.astro`'s vanilla-JS
+  select is deferred (it needs a React island).
 - **Studio toggles now use one shared `ui/switch` primitive instead of six hand-rolled ones.** A new
   `docs/src/components/ui/switch.tsx` (Radix Switch, themed through the tailwind.css token bridge so the
   accent-filled track tracks the palette) replaces the copy-pasted `role="switch"` buttons in

@@ -15,6 +15,7 @@
 import { Captions, Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch as UISwitch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
@@ -147,24 +148,27 @@ function ChipRow({ options, value, onChange, ariaLabel }: { options: { label: st
 	);
 }
 
-// A minimal native select styled to match Control. Accepts flat `options` and/or
-// grouped `groups` (rendered as <optgroup>s after the flat heads), so a picker can lead
-// with an Inherit/Default head and then group the rest (e.g. Boardroom vs the wider range).
+// Styled to match Control, on the shared ui/select primitive. Accepts flat
+// `options` and/or grouped `groups` (rendered as SelectGroups after the flat
+// heads), so a picker can lead with an Inherit/Default head and then group the
+// rest (e.g. Boardroom vs the wider range). Sentinel values (`__inherit__`,
+// `__none__`, `__default__`) are non-empty, so Radix's no-empty-value rule holds.
 function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { value: string; onChange: (v: string) => void; options?: { label: string; value: string }[]; groups?: { label: string; options: { label: string; value: string }[] }[]; ariaLabel: string }) {
 	return (
-		<select
-			aria-label={ariaLabel}
-			value={value}
-			onChange={(e) => onChange(e.target.value)}
-			className="min-w-[120px] rounded-md border border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)] outline-none hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] focus:border-[var(--accent)]"
-		>
-			{options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-			{groups.map((g) => (
-				<optgroup key={g.label} label={g.label}>
-					{g.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-				</optgroup>
-			))}
-		</select>
+		<Select value={value} onValueChange={onChange}>
+			<SelectTrigger aria-label={ariaLabel} className="h-auto min-w-[120px] gap-2 border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)]">
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent>
+				{options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+				{groups.map((g) => (
+					<SelectGroup key={g.label}>
+						<SelectLabel>{g.label}</SelectLabel>
+						{g.options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+					</SelectGroup>
+				))}
+			</SelectContent>
+		</Select>
 	);
 }
 
