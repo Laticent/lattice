@@ -290,7 +290,12 @@ in patch versions.
   spellcheck squiggles, and autofill in the OS default (usually light) — the source of the
   cross-browser/OS inconsistency. Each generated palette/mode block now declares `color-scheme`,
   derived from the block's actual `--bg` luminance rather than the toggle (so always-dark `carbone`
-  reads `dark` in both modes and the always-light `a11y-*` palettes read `light` in both). A shared
+  reads `dark` in both modes and the always-light `a11y-*` palettes read `light` in both) — locked by
+  a unit test over every palette/mode block, and the derivation fails the build loud if a future
+  theme's `--bg` isn't a hex literal (rather than silently repainting a dark canvas's widgets light).
+  Scope: this covers the site chrome; decks rendered into the Studio/Playground preview `srcdoc`
+  iframes are isolated documents that set their own `color-scheme`, so their scrollbars are unaffected.
+  A shared
   `native-widgets.css` partial — imported by both style roots (`landing.css`, `lattice.css`) so the
   two skins can't drift — layers the on-brand tint on top: `scrollbar-color` (thumb = `--text-muted`
   at 38%, matching the code-block scrollbars) + `scrollbar-width: thin`, `accent-color`/`caret-color`

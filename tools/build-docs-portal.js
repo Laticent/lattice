@@ -258,11 +258,24 @@ function resolvePalettes() {
  *  (scrollbars, form controls, spellcheck) to match. Derived from the actual
  *  background — NOT the mode toggle — so it stays correct for the edge palettes:
  *  carbone (dark in both modes → dark scheme in both) and the a11y-* palettes
- *  (white in both modes → light scheme in both). A non-hex `--bg` (unexpected)
- *  falls back to the light scheme. */
+ *  (white in both modes → light scheme in both).
+ *
+ *  FAILS LOUD on a non-hex `--bg`. `resolvePalettes` expands every palette's
+ *  `--bg` to a literal today, so a non-hex value means a future theme expressed
+ *  its background as `color-mix()` / `oklch()` / `light-dark()` that we can't
+ *  read here. Guessing `light` would silently repaint a dark canvas's native
+ *  widgets light — the exact bug this derivation exists to prevent — so we throw
+ *  and force the author to extend the parser instead of shipping a wrong scheme. */
 function isDarkSurface(bg) {
-  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(bg).trim());
-  if (!m) return false;
+  const raw = String(bg).trim();
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(raw);
+  if (!m) {
+    throw new Error(
+      `isDarkSurface: --bg "${raw}" is not a hex literal, so its color-scheme ` +
+        `can't be derived. Extend the parser (or resolve --bg to hex) rather ` +
+        `than let a dark surface silently emit color-scheme: light.`,
+    );
+  }
   let h = m[1];
   if (h.length === 3) h = h.split('').map((c) => c + c).join('');
   const r = parseInt(h.slice(0, 2), 16);
@@ -602,6 +615,7 @@ module.exports = {
   resolvePalettes,
   listBasePalettes,
   paletteCss,
+  isDarkSurface,
   PORTAL_TOKENS,
   build,
   MD_FILE,
