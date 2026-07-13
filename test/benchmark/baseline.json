@@ -5,21 +5,43 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "ms": 32.57,
-      "slidesPerSec": 1781,
-      "rmePct": 2.82
+      "ms": 41.89,
+      "slidesPerSec": 1385,
+      "rmePct": 4.85
     },
     "charts": {
       "slides": 14,
-      "ms": 27.22,
-      "slidesPerSec": 514,
-      "rmePct": 3.49
+      "ms": 34.1,
+      "slidesPerSec": 411,
+      "rmePct": 2.12
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "ms": 103.6,
-      "slidesPerSec": 3359,
-      "rmePct": 3.79
+      "ms": 115.43,
+      "slidesPerSec": 3015,
+      "rmePct": 5.71
+    }
+  },
+  "printDatasets": {
+    "print full · normal (jargon)": {
+      "slides": 58,
+      "ms": 115829.68,
+      "rmePct": 0.89
+    },
+    "print re-place · normal (jargon)": {
+      "slides": 58,
+      "ms": 79467.96,
+      "rmePct": 2.4
+    },
+    "print full · charts": {
+      "slides": 14,
+      "ms": 5989.54,
+      "rmePct": 2.74
+    },
+    "print re-place · charts": {
+      "slides": 14,
+      "ms": 2518.15,
+      "rmePct": 11.49
     }
   }
 }

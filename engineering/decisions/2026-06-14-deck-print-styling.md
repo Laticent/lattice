@@ -62,9 +62,19 @@ user-activation is spent). On-demand building can't satisfy both in one tap on i
 - Shared kernel unchanged (HARD RULE #1): `resolvePrintSheet` / `fitSlideOnSheet` /
   `buildSrcdoc` / `renderPdfBlob` `sheet` mode all still live in the playground engine.
 
-**Deferred still:** CLI `--paper` PDF; N-up (2/4 per sheet); speaker-notes handout; and a
-possible optimization — cache the rasterized slide *images* so a paper/orientation change
-re-places rather than re-rasterizes when a PDF is (re)built on click.
+**Shipped (2026-07-12) — cached-image re-place.** The `sheet`-mode PDF build is now a
+rasterize → assemble split in the shared kernel (`drawing-board-export.js`): **(a)
+`rasterizeDeckImages`** captures each slide to a self-contained image at its native box —
+the expensive half (html-to-image), cacheable because its output depends only on the render,
+never on paper; **(b) `assembleSheetPdf`** places those images on the chosen sheet (jsPDF
+geometry, `fitSlideOnSheet` + `px_scaling` MediaBox) — the cheap, DOM-free half. The Print
+drawer caches the images by `render` identity, so a paper/orientation flip re-runs only (b)
+with **no re-rasterize**; a colour change makes a new render → the cache drops. This split is
+the seam N-up and the notes handout build on (place N images / slide+notes per sheet). Perf
+recorded via the bench's print re-place tier (`test/benchmark/engine-bench.mjs`,
+`printDatasets` baseline; HARD RULE #19). Demo: `examples/print-fast-flip.md`.
+
+**Deferred still:** CLI `--paper` PDF; N-up (2/4 per sheet); speaker-notes handout.
 
 ---
 

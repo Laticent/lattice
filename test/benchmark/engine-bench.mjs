@@ -160,6 +160,106 @@ async function exportTier() {
   return bench.table();
 }
 
+// ── print re-place tier (item 1 of 2026-06-14-deck-print-styling.md) ──────────
+// The Print drawer's PDF is a rasterize → assemble split: a paper/orientation change
+// re-ASSEMBLES cached slide images (cheap jsPDF geometry) instead of re-RASTERIZING
+// them (expensive html-to-image / screenshot). This tier proves the win by timing
+// both halves against the same deck:
+//   · "print full (raster+assemble)"  — screenshot every slide, then assemble → what a
+//     paper change USED to cost (rasterize + assemble on every flip).
+//   · "print re-place (assemble)"      — assemble the SAME cached PNGs onto a fresh sheet
+//     → what a paper change costs NOW (assemble only, no re-rasterize).
+// jsPDF is a docs dependency (browser bundle), so it is resolved from docs/node_modules.
+// The assemble mirrors assembleSheetPdf (docs/src/playground/drawing-board-export.js) —
+// duplicated here (not imported) because that module's transitive imports are browser-only.
+const PRINT_SAFE_PX = Math.round(9 * (96 / 25.4)); // 9mm @96dpi — matches the kernel
+function assembleFromImages(jsPDF, images, geom, sheet) {
+  const { pageW, pageH } = sheet;
+  const availW = pageW - 2 * PRINT_SAFE_PX;
+  const availH = pageH - 2 * PRINT_SAFE_PX;
+  const scale = Math.min(Math.min(availW / geom.w, availH / geom.h), 1);
+  const w = geom.w * scale;
+  const h = geom.h * scale;
+  const place = { x: (pageW - w) / 2, y: (pageH - h) / 2, w, h };
+  const orientation = pageW >= pageH ? 'landscape' : 'portrait';
+  const pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH], compress: true, hotfixes: ['px_scaling'] });
+  for (let i = 0; i < images.length; i++) {
+    if (i > 0) pdf.addPage([pageW, pageH], orientation);
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, pageW, pageH, 'F');
+    pdf.addImage(images[i], 'PNG', place.x, place.y, place.w, place.h);
+  }
+  return pdf.output('arraybuffer');
+}
+
+async function printTier() {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(join(ROOT, 'docs/package.json'));
+  const { jsPDF } = req('jspdf');
+  const { default: puppeteer } = await import('puppeteer');
+  const { execSync } = await import('node:child_process');
+  let chrome = process.env.CHROME_PATH;
+  if (!chrome || !existsSync(chrome)) {
+    try {
+      chrome = execSync('ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1', { encoding: 'utf8' }).trim();
+    } catch { /* default */ }
+  }
+  const RUNTIME = readFileSync(join(ROOT, 'dist/lattice-runtime.js'), 'utf8');
+  const SLIDE_BOX = '.lattice>section{width:1280px;height:720px}';
+  const srcdoc = (html, css) =>
+    `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0}${SLIDE_BOX}.lattice>section{display:block;transform:none;margin:0}${css}</style></head><body>${html}<script>${RUNTIME}</script></body></html>`;
+  const GEOM = { w: 1280, h: 720 };
+  // 16:9 → US Legal landscape (the auto pick); a re-place flip retargets US Letter landscape.
+  const LEGAL = { pageW: 1344, pageH: 816 };
+  const LETTER = { pageW: 1056, pageH: 816 };
+
+  const browser = await puppeteer.launch({ executablePath: chrome || undefined, args: ['--no-sandbox'] });
+  // Rasterize every slide of a deck to a PNG buffer (the expensive, cacheable half).
+  async function rasterize(d) {
+    const out = api.render(d.src, d.theme);
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(srcdoc(out.html, out.css), { waitUntil: 'networkidle0', timeout: 60000 }).catch(() => {});
+    const images = [];
+    for (const sec of await page.$$('.lattice > section')) images.push(await sec.screenshot({ type: 'png' }));
+    await page.close();
+    return images;
+  }
+
+  const decks = datasets.filter((x) => !x.name.startsWith('stress'));
+  // Pre-rasterize each deck ONCE — the cached images a re-place reuses. (Setup, not timed.)
+  const cached = new Map();
+  for (const d of decks) cached.set(d.name, await rasterize(d));
+
+  const bench = new Bench({ name: 'print', warmup: false, time: 1, iterations: 3 });
+  for (const d of decks) {
+    // Full: rasterize + assemble (the old per-flip cost).
+    bench.add(`print full (raster+assemble) · ${d.name}`, async () => {
+      const images = await rasterize(d);
+      assembleFromImages(jsPDF, images, GEOM, LEGAL);
+    });
+    // Re-place: assemble cached images onto a DIFFERENT sheet — no re-rasterize (the new cost).
+    bench.add(`print re-place (assemble) · ${d.name}`, () => {
+      assembleFromImages(jsPDF, cached.get(d.name), GEOM, LETTER);
+    });
+  }
+  await bench.run();
+  console.log('\n=== PRINT · paper-change: full rebuild vs cached-image re-place ===');
+  console.table(bench.table());
+  await browser.close();
+
+  const summary = [];
+  console.log('\n=== PRINT SUMMARY (re-place should be a fraction of full) ===');
+  for (const d of decks) {
+    const full = mean(bench.getTask(`print full (raster+assemble) · ${d.name}`));
+    const replace = mean(bench.getTask(`print re-place (assemble) · ${d.name}`));
+    console.log(`${d.name.padEnd(20)} full ${full.toFixed(1)}ms  re-place ${replace.toFixed(1)}ms  (${Math.round((replace / full) * 100)}% of full)`);
+    summary.push({ dataset: `print full · ${d.name}`, slides: cached.get(d.name).length, ms: full, rmePct: bench.getTask(`print full (raster+assemble) · ${d.name}`).result.latency.rme });
+    summary.push({ dataset: `print re-place · ${d.name}`, slides: cached.get(d.name).length, ms: replace, rmePct: bench.getTask(`print re-place (assemble) · ${d.name}`).result.latency.rme });
+  }
+  return { summary };
+}
+
 // ── baseline (commit) + variance-aware check ──────────────────────────────────
 // Wall-clock numbers are machine-relative, so the baseline is a ratchet, not an
 // absolute: --bless writes it, --check compares against it but never trips inside
@@ -167,7 +267,7 @@ async function exportTier() {
 // out-of-noise slowdown fails. See engineering/workflow.md §Performance.
 const round2 = (n) => Math.round(n * 100) / 100;
 
-function blessBaseline(summary) {
+function blessBaseline(summary, printSummary) {
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -177,14 +277,27 @@ function blessBaseline(summary) {
   for (const s of summary) {
     out[s.dataset] = { slides: s.slides, ms: round2(s.ms), slidesPerSec: s.slidesPerSec, rmePct: round2(s.rmePct) };
   }
+  // The print re-place tier (puppeteer) only runs under --export, so a plain
+  // `bench:bless` PRESERVES any existing printDatasets rather than dropping them.
+  let printOut;
+  if (printSummary?.length) {
+    printOut = {};
+    for (const s of printSummary) printOut[s.dataset] = { slides: s.slides, ms: round2(s.ms), rmePct: round2(s.rmePct) };
+  } else if (existsSync(BASELINE)) {
+    try { printOut = JSON.parse(readFileSync(BASELINE, 'utf8')).printDatasets; } catch { /* none */ }
+  }
   const payload = {
     version: 1,
     note: 'Committed perf baseline for the owned render engine. Refresh with `npm run bench:bless`; compare with `npm run bench:check`. Numbers are machine-relative — see engineering/workflow.md §Performance.',
     tolerancePct: TOLERANCE_PCT,
     datasets: out,
+    // Print drawer rasterize→assemble split: full-rebuild vs cached-image re-place, per
+    // deck. The re-place row being a fraction of full IS the durable record of the paper-
+    // change optimization (HARD RULE #19). Blessed via `bench:bless -- --export`.
+    ...(printOut ? { printDatasets: printOut } : {}),
   };
   writeFileSync(BASELINE, JSON.stringify(payload, null, 2) + '\n');
-  console.log(`\nBlessed baseline → test/benchmark/baseline.json (${summary.length} datasets).`);
+  console.log(`\nBlessed baseline → test/benchmark/baseline.json (${summary.length} render${printSummary?.length ? ` + ${printSummary.length} print` : ''} datasets).`);
 }
 
 function checkBaseline(summary) {
@@ -254,15 +367,17 @@ function checkBaseline(summary) {
 
 async function main() {
   const render = await renderTier();
-  if (wantBless) blessBaseline(render.summary);
+  // The print re-place tier shares the export tier's puppeteer setup, so it rides --export.
+  const exp = wantExport ? await exportTier() : null;
+  const print = wantExport ? await printTier() : null;
+  if (wantBless) blessBaseline(render.summary, print?.summary);
   if (wantCheck && wantBless) {
     console.warn('\n--check skipped: ran with --bless, which would compare the just-written baseline against itself.');
   } else if (wantCheck) {
     checkBaseline(render.summary);
   }
-  const exp = wantExport ? await exportTier() : null;
-  if (asJson) console.log('\n' + JSON.stringify({ render, export: exp }, null, 2));
-  console.log('\nDone.' + (wantExport ? '' : ' (pass --export to also time the rasterize tier.)'));
+  if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print }, null, 2));
+  console.log('\nDone.' + (wantExport ? '' : ' (pass --export to also time the rasterize + print re-place tiers.)'));
 }
 
 main();

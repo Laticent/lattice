@@ -53,24 +53,35 @@ function isIOSLike(): boolean {
 // HTML-in-iframe printing RELIABLY opens the browser's print dialog — unlike a PDF blob
 // in an iframe, which Chrome routinely refuses to print programmatically. Desktop honors
 // CSS `@page`, so the vector deck prints one-slide-per-page at the chosen paper, crisp.
-function printHtmlDoc(doc: string): void {
+//
+// The iframe must LOAD the full deck (web fonts + the in-frame FIT agent) before the
+// dialog captures a laid-out page — a ~1-2s beat with nothing visible on the button. So
+// `onDialog` fires the instant we hand off to `print()`, letting the caller show a
+// "Preparing print…" spinner across that window and clear it when the dialog opens. It
+// fires exactly once (a safety timer covers a load that never fires, so the caller's
+// loading state can never stick).
+function printHtmlDoc(doc: string, onDialog?: () => void): void {
 	const frame = document.createElement('iframe');
 	frame.setAttribute('aria-hidden', 'true');
 	// Off-screen at a real size (not 0×0/hidden) so fonts + layout actually render before
 	// print; the @media print rules (not the on-screen size) drive the printed output.
 	frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1024px;height:720px;border:0;';
 	frame.srcdoc = doc;
+	let signaled = false;
+	const signal = () => { if (!signaled) { signaled = true; try { onDialog?.(); } catch { /* noop */ } } };
 	const reclaim = () => setTimeout(() => { try { frame.remove(); } catch { /* noop */ } }, 1000);
 	frame.onload = () => {
 		try {
 			frame.contentWindow?.focus();
 			frame.contentWindow?.addEventListener('afterprint', reclaim);
 			// A beat for the FIT agent + web fonts to settle before the dialog captures the page.
-			setTimeout(() => { try { frame.contentWindow?.print(); } catch { /* noop */ } }, 450);
-		} catch { /* noop */ }
+			// Clear the caller's loading state right as we open the dialog (print() then blocks).
+			setTimeout(() => { signal(); try { frame.contentWindow?.print(); } catch { /* noop */ } }, 450);
+		} catch { signal(); }
 	};
 	document.body.appendChild(frame);
-	setTimeout(reclaim, 60_000); // safety reclaim if afterprint never fires
+	// Safety: if load never fires, release both the caller's loading state and the frame.
+	setTimeout(() => { signal(); reclaim(); }, 60_000);
 }
 
 export function PrintOptionsPanel({
@@ -110,6 +121,11 @@ export function PrintOptionsPanel({
 	// click reuses it when the key still matches, else rebuilds. Cleared implicitly by the
 	// key check when any setting changes.
 	const [builtPdf, setBuiltPdf] = React.useState<{ render: DeckRender; paper: Paper; orientation: Orient; url: string; blob: Blob } | null>(null);
+	// The rasterized slide IMAGES, keyed by `render` identity only — NOT paper/orientation,
+	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
+	// jsPDF geometry) with no re-rasterize; a colour/source/theme change makes a new `render`
+	// object → the key misses → we rasterize once more. Cleared when the deck re-renders below.
+	const [imgCache, setImgCache] = React.useState<{ render: DeckRender; images: string[]; geom: { w: number; h: number }; pageFormat: string } | null>(null);
 	// Platform is stable per device; decide the print path once.
 	const ios = React.useMemo(() => isIOSLike(), []);
 
@@ -144,6 +160,9 @@ export function PrintOptionsPanel({
 		let alive = true;
 		setRendering(true);
 		setStatus('Rendering the deck…');
+		// A re-render invalidates any cached slide images (new pixels): drop them so the
+		// next build rasterizes the fresh render rather than re-placing stale images.
+		setImgCache(null);
 		const src = opts.color === 'bw' ? mergeClassTokens(source, 'print') : source;
 		buildDeckRender(options, src, palette, mode, extraTheme, extraCss)
 			.then((r) => {
@@ -209,13 +228,22 @@ export function PrintOptionsPanel({
 		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation) return builtPdf.url;
 		const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
 		const ex = await import('@/playground/drawing-board-export.js');
-		const blob = await ex.renderPdfBlob(render, name, (m: string) => { if (mountedRef.current) setStatus(m); }, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH } });
+		// Reuse the rasterized slide images when only paper/orientation moved (render
+		// unchanged) — the assemble below re-places them, no re-rasterize. Otherwise
+		// rasterize once and cache for the next flip.
+		let imgs = imgCache && imgCache.render === render ? imgCache : null;
+		if (!imgs) {
+			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, {});
+			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
+			if (mountedRef.current) setImgCache(imgs);
+		}
+		const blob = await ex.assembleSheetPdf(imgs.images, imgs.geom, name, { deck: name, engine: 'lattice' }, { sheet: { pageW: s.pageW, pageH: s.pageH }, pageFormat: imgs.pageFormat, onStatus: (m: string) => { if (mountedRef.current) setStatus(m); } });
 		const url = URL.createObjectURL(blob);
 		const prevUrl = builtPdf?.url;
 		if (prevUrl && prevUrl !== url) { setTimeout(() => { try { URL.revokeObjectURL(prevUrl); } catch { /* noop */ } }, 60_000); }
 		if (mountedRef.current) setBuiltPdf({ render, paper, orientation, url, blob });
 		return url;
-	}, [render, name, paper, orientation, builtPdf]);
+	}, [render, name, paper, orientation, builtPdf, imgCache]);
 
 	const pdfFilename = React.useCallback(() => `${(name || 'deck').trim().replace(/[^\w.-]+/g, '-') || 'deck'}.pdf`, [name]);
 
@@ -287,7 +315,11 @@ export function PrintOptionsPanel({
 		if (!render || building) return;
 		if (!ios) {
 			// Desktop: print the vector deck via a hidden HTML iframe → reliable dialog, no PDF.
-			printHtmlDoc(printDoc());
+			// The iframe still needs ~1-2s to load fonts + run FIT before the dialog opens, so
+			// show the spinner across that prep and clear it when the dialog is handed off.
+			setBuilding('print');
+			setStatus('Preparing print…');
+			printHtmlDoc(printDoc(), () => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 			return;
 		}
 		// iOS, tap 2 — the PDF for these settings is already built: hand it to the OS in-gesture.
@@ -358,8 +390,8 @@ export function PrintOptionsPanel({
 					{building === 'print' ? status || 'Preparing print…' : rendering ? 'Rendering…' : printReadyToOpen ? 'Open PDF to print' : 'Print'}
 				</button>
 				<button type="button" className="pod-btn pod-ghost" disabled={!ready || !!building} onClick={doDownload}>
-					{building === 'download' ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-					{building === 'download' ? status || 'Building PDF…' : 'Download PDF'}
+					{rendering || building === 'download' ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+					{building === 'download' ? status || 'Building PDF…' : rendering ? 'Rendering…' : 'Download PDF'}
 				</button>
 				<p className="pod-plat"><span className="pod-dot">●</span> {ios ? 'On iPhone: tap Print to prepare, then Open — the share sheet opens; tap Print.' : 'Opens the print dialog on desktop.'}</p>
 			</div>

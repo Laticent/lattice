@@ -190,6 +190,15 @@ in patch versions.
 
 ### Changed
 
+- **The Print drawer flips paper and orientation instantly — it rasterizes each slide once and
+  re-places the cached images.** Building the print PDF is now a two-step split: the expensive half
+  (clone + embed fonts + rasterize each slide) runs **once** and its images are cached; changing
+  paper size or orientation re-runs only the cheap half (place the same images on the new sheet —
+  pure geometry, fit and centred), so a Letter → Legal → A4 or landscape ↔ portrait flip re-builds
+  the PDF with **no re-rasterize**. A colour change (black & white) is new ink, so it re-renders and
+  the cache drops. The rasterize/assemble halves (`rasterizeDeckImages` + `assembleSheetPdf`) live in
+  the shared print kernel, so the drawer and any Node export assemble the same way (HARD RULE #1).
+  Demo: `examples/print-fast-flip.md`. See `engineering/decisions/2026-06-14-deck-print-styling.md`.
 - **"Print deck" now opens a Print drawer inside Share** — a sub-step of the Share sheet (like the
   PDF-export options), with a live, paper-accurate preview and the paper / orientation / colour
   controls right there, then **Print** or **Download**. The PDF is built **on demand** — only when
@@ -204,6 +213,16 @@ in patch versions.
 
 ### Fixed
 
+- **The Print drawer now shows a loading state on every build path — including a paper/orientation
+  re-place.** Three gaps: (1) after changing paper or orientation, clicking Print (iOS) rebuilt the
+  PDF by re-placing cached images, but that path ran the whole jsPDF assembly **synchronously**, so
+  React batched the button's `building` state into one commit and the spinner never painted — it
+  snapped straight to "Open PDF to print" (and on a large deck the UI froze for the whole assemble).
+  The assembler now yields between pages and reports per-page progress ("Placing slide N of N…"), so
+  the loading → share transition shows and the UI stays responsive. (2) Desktop Print prepares a
+  hidden print iframe (~1-2s of font + fit-agent settle) before the dialog opens; the button now
+  shows "Preparing print…" across that window and clears it when the dialog is handed off. (3) The
+  Download button reflects a colour re-render ("Rendering…"), matching Print.
 - **The playground's gallery drawer now labels front-matter-less decks with the right slide
   count, and the diagram-component reference gallery's three experimental diagrams render
   clean.** Two follow-ups from the curated-diagram-gallery work: (1) `galleries.mjs slideCount()`

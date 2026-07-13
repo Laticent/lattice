@@ -641,37 +641,23 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat) {
 	});
 }
 
-// Legacy lane: the original all-main-thread jsPDF build. Also the ONLY lane for the
-// print `sheet` mode (Studio "Print deck"): a chosen paper-size MediaBox with the
-// slide fit + centered on a white page, so the PDF's own page geometry — which iOS
-// honors exactly, unlike CSS @page — gives reliable one-slide-per-page at the right
-// size. `sheet` = { pageW, pageH, fit } in px @96dpi; absent → the slide-sized page
-// (full-bleed) the colour PDF/PPTX use.
-async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, sheet) {
+// Legacy lane: the original all-main-thread jsPDF build — the full-bleed colour PDF
+// (slide-sized MediaBox, one slide per page), used when the worker lane is unavailable
+// or fails. The print `sheet` mode does NOT come through here anymore: it is the
+// rasterize → assemble split below (rasterizeDeckImages + assembleSheetPdf), so a
+// paper/orientation change re-places cached images instead of re-rasterizing.
+async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations) {
 	const { jsPDF } = await import('jspdf');
 	const { w: boxW, h: boxH } = slideGeom(sections[0]);
-	const { pageW, pageH } = sheet ? { pageW: sheet.pageW, pageH: sheet.pageH } : pdfPageGeom(boxW, boxH);
-	// Slide placement: full-page (slide-sized MediaBox) or fit+centered on the sheet.
-	const place = sheet ? fitSlideOnSheet(boxW, boxH, pageW, pageH, sheet.fit) : { x: 0, y: 0, w: pageW, h: pageH };
-	// Full-page keeps its historical hardcoded 'landscape' (unchanged); sheet mode derives
-	// orientation from the chosen page so a portrait sheet isn't forced landscape.
-	const orientation = sheet ? (pageW >= pageH ? 'landscape' : 'portrait') : 'landscape';
-	// Sheet mode wants a PHYSICALLY correct MediaBox (so iOS/print shows "US Legal", not
-	// a giant custom size): the `px_scaling` hotfix makes jsPDF treat px as 96dpi (1px =
-	// 0.75pt), so pageW=1344px → 1008pt = 14in. The full-page colour PDF keeps its legacy
-	// px scaling (unchanged) — its absolute size never mattered, printers fit-to-page it.
-	const pdf = new jsPDF(sheet
-		? { orientation, unit: 'px', format: [pageW, pageH], compress: true, hotfixes: ['px_scaling'] }
-		: { orientation, unit: 'px', format: [pageW, pageH], compress: true });
+	const { pageW, pageH } = pdfPageGeom(boxW, boxH);
+	const orientation = 'landscape';
+	const pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH], compress: true });
 	pdf.setProperties(pdfProps(name, meta, sections.length));
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 		const img = await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat);
 		if (i > 0) pdf.addPage([pageW, pageH], orientation);
-		// White page under a fit+centered slide so the letterbox bands print white, not
-		// transparent (a transparent PNG over nothing composites to black on some viewers).
-		if (sheet) { pdf.setFillColor(255, 255, 255); pdf.rect(0, 0, pageW, pageH, 'F'); }
-		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', place.x, place.y, place.w, place.h);
+		pdf.addImage(img, pageFormat === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, pageW, pageH);
 		// Review comments for this slide → sticky notes on the page just drawn (same
 		// helper + placement the worker lane uses, so the two lanes stay identical).
 		if (annotations) addPageStickyNotes(pdf, annotations[i], pageW);
@@ -684,19 +670,108 @@ async function buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, 
 	return pdf.output('blob');
 }
 
+// ── Print `sheet` mode — the rasterize → assemble split ───────────────────────
+// The Studio "Print deck" builds a chosen paper-size MediaBox with each slide fit +
+// centered on a white page, so the PDF's own page geometry — which iOS honors exactly,
+// unlike CSS @page — gives reliable one-slide-per-page at the right size. That split
+// into two halves (HARD RULE #1 — the shared kernel both the drawer and the CLI use):
+//   (a) rasterizeDeckImages — the EXPENSIVE half (html-to-image, one clone/draw per
+//       slide). Its output depends ONLY on the render (html/css/mode/fonts) + the image
+//       format, NEVER on paper/orientation — a slide is captured at its native box and
+//       jsPDF scales it into the fit-rect. So the images are cacheable across sheet flips.
+//   (b) assembleSheetPdf — the CHEAP, DOM-free half (pure jsPDF geometry). A paper or
+//       orientation change re-runs ONLY this, re-placing the SAME cached images with no
+//       re-rasterize. This is also the seam N-up (N images per sheet) and the speaker-
+//       notes handout (slide + its notes per page) build on.
+
+// (a) Rasterize every slide of a deck to a data-URL image at its native box, keyed
+// conceptually by (render, pageFormat). The images are self-contained (fonts embedded)
+// and paper-blind, so a caller can cache them and re-assemble onto any sheet. Returns
+// `{ images, geom, pageFormat }`; the caller disposes nothing (the capture host is
+// created + torn down here).
+export async function rasterizeDeckImages(render, onStatus, opts) {
+	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
+	const { frame, dispose } = await createCaptureFrame(render);
+	try {
+		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { w, h } = slideGeom(sections[0]);
+		const images = [];
+		for (let i = 0; i < sections.length; i++) {
+			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
+			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat));
+			// Yield a macrotask between slides so the progress line paints (see the note
+			// in buildPdfBlobOnMainThread) — the per-slide clone + PNG-deflate is synchronous.
+			await new Promise((r) => setTimeout(r));
+		}
+		return { images, geom: { w, h }, pageFormat };
+	} finally {
+		dispose();
+	}
+}
+
+// (b) Assemble a print PDF from PRE-RASTERIZED slide images placed on a chosen paper
+// sheet — the DOM-free half, so a paper/orientation change re-runs only this (no
+// re-rasterize). `opts.sheet` = { pageW, pageH, fit } in px @96dpi; `opts.pageFormat`
+// matches how `images` were encoded. One image per page, fit + centered on white.
+// Annotations (comment sticky notes) are intentionally OUT of scope here — the Print
+// drawer never carries them; the colour-PDF/legacy lanes own that path. N-up and the
+// notes handout will extend THIS assembler (N images / slide+notes per sheet).
+export async function assembleSheetPdf(images, geom, name, meta, opts) {
+	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
+	const sheet = opts?.sheet;
+	if (!sheet) throw new Error('assembleSheetPdf needs opts.sheet ({ pageW, pageH, fit }).');
+	const onStatus = opts?.onStatus;
+	const { jsPDF } = await import('jspdf');
+	const boxW = geom?.w || 1280;
+	const boxH = geom?.h || 720;
+	const { pageW, pageH } = sheet;
+	// Fit + center each slide within the 9mm safe margin (shared kernel geometry).
+	const place = fitSlideOnSheet(boxW, boxH, pageW, pageH, sheet.fit);
+	// Orientation derives from the chosen page so a portrait sheet isn't forced landscape.
+	const orientation = pageW >= pageH ? 'landscape' : 'portrait';
+	// A PHYSICALLY correct MediaBox (so iOS/print shows "US Legal", not a giant custom
+	// size): the `px_scaling` hotfix makes jsPDF treat px as 96dpi (1px = 0.75pt), so
+	// pageW=1344px → 1008pt = 14in.
+	const pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH], compress: true, hotfixes: ['px_scaling'] });
+	pdf.setProperties(pdfProps(name, meta, images.length));
+	for (let i = 0; i < images.length; i++) {
+		if (onStatus) onStatus('Placing slide ' + (i + 1) + ' of ' + images.length + '…', { current: i, total: images.length });
+		if (i > 0) pdf.addPage([pageW, pageH], orientation);
+		// White page under a fit+centered slide so the letterbox bands print white, not
+		// transparent (a transparent PNG over nothing composites to black on some viewers).
+		pdf.setFillColor(255, 255, 255);
+		pdf.rect(0, 0, pageW, pageH, 'F');
+		pdf.addImage(images[i], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', place.x, place.y, place.w, place.h);
+		// Yield a macrotask between pages — LOAD-BEARING for the re-place path. A
+		// paper/orientation change reuses cached images, so this loop is the ENTIRE build:
+		// run synchronously it blocks the main thread, and React batches a caller's
+		// `building=true` → done into one commit, so the button's loading state never
+		// paints (it snaps straight to the finished state). The yield lets React paint the
+		// loading state first and keeps the UI responsive on a large deck. (The legacy
+		// sheet lane yielded here too; the rasterize half yields per slide separately.)
+		await new Promise((r) => setTimeout(r));
+	}
+	return pdf.output('blob');
+}
+
 // The shared core of exportPdf (which downloads) and renderPdfBlob (which hands
 // the bytes to a caller — e.g. the Library's theme-zip showcase).
 async function buildPdfBlob(render, name, onStatus, meta, opts) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	// Per-page comment sticky notes (opt-in via the export panel); absent → none.
 	const annotations = opts?.annotations || null;
-	// Print `sheet` mode (paper-size MediaBox + fit+center) is main-thread only — the
-	// worker lane hardcodes a full-page slide-sized image, so route sheet past it.
+	// Print `sheet` mode → the rasterize → assemble split. A one-shot renderPdfBlob
+	// rasterizes then assembles in one go; the Print drawer instead calls the two halves
+	// directly so it can CACHE the images across a paper/orientation change.
 	const sheet = opts?.sheet || null;
+	if (sheet) {
+		const { images, geom, pageFormat: fmt } = await rasterizeDeckImages(render, onStatus, opts);
+		return assembleSheetPdf(images, geom, name, meta, { sheet, pageFormat: fmt });
+	}
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
-		if (!sheet && canUsePdfWorker()) {
+		if (canUsePdfWorker()) {
 			try {
 				return await buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
 			} catch (e) {
@@ -704,7 +779,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts) {
 				console.warn('[lattice-export] PDF worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 			}
 		}
-		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, sheet);
+		return await buildPdfBlobOnMainThread(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations);
 	} finally {
 		dispose();
 	}
