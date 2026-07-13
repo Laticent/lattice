@@ -58,6 +58,43 @@ describe('toSpoken — decorative separator glyphs read as a pause', () => {
 	});
 });
 
+describe('toSpoken — arrows read as a transition, not the word "arrow"', () => {
+	// Most TTS voices say "arrow" for "→"; in presentation prose it's a transition. Rightward → "to",
+	// bidirectional → "and", leftward → a plain gap. Standalone AND embedded. Display unchanged.
+	it('reads a standalone rightward arrow as "to"', () => {
+		for (const g of ['→', '⇒', '➜', '⟶', '⟹']) expect(toSpoken(g)).toBe('to');
+	});
+	it('reads a bidirectional arrow as "and", a leftward arrow as a gap', () => {
+		expect(toSpoken('↔')).toBe('and');
+		expect(toSpoken('←')).toBe(''); // no clean spoken direction — dropped to a word gap
+	});
+	it('narrates a spaced arrow transition naturally, expanding the operands', () => {
+		expect(toSpokenText('Q1 → Q2')).toBe('first quarter to second quarter');
+		expect(toSpokenText('auto → clean')).toBe('auto to clean');
+	});
+	it('handles an arrow embedded in a token (no surrounding spaces)', () => {
+		expect(toSpoken('red↔green')).toBe('red and green');
+		expect(toSpoken('auto→clean')).toBe('auto to clean');
+	});
+	it('leaves the DISPLAY glyph for the caption — only the spoken form changes', () => {
+		// buildTrack keeps display "→"; toSpoken is the spoken side (asserted above).
+		expect(toSpoken('→')).not.toContain('→');
+	});
+});
+
+describe('toSpoken — "mo" duration abbreviation expands to "months"', () => {
+	it('reads a lowercase "mo"/"mos" as "months"', () => {
+		expect(toSpoken('mo')).toBe('months');
+		expect(toSpoken('mos')).toBe('months');
+		expect(toSpokenText('11 mo')).toBe('eleven months');
+		expect(toSpokenText('trailing 18 mos')).toBe('trailing eighteen months');
+	});
+	it('does NOT fire on the name "Mo" or the state "MO" (exact-lowercase only)', () => {
+		expect(toSpoken('Mo')).toBe('Mo');
+		expect(toSpoken('MO')).toBe('MO');
+	});
+});
+
 describe('toSpoken — locale guard', () => {
 	it('non-English deck: fiscal / percent / number tokens pass through unexpanded', () => {
 		expect(toSpoken('FY26', { lang: 'fr' })).toBe('FY26');

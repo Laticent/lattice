@@ -17,6 +17,13 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **Read-aloud no longer says "arrow", and expands "mo" to "months".** A `→` in prose was voiced
+  as the literal word "arrow" ("Q1 arrow Q2"); it now reads as the transition it means — rightward
+  `→`/`⇒` → "to" ("Q1 to Q2", "auto to clean"), bidirectional `↔` → "and" ("red and green"),
+  leftward `←` → a plain word gap — for both standalone and embedded arrows. And the duration
+  shorthand `mo`/`mos` ("11 mo") now narrates as "months" instead of "mo". Spoken-form only: the
+  caption glyphs and the exported `.vtt` are unchanged. Exact-lowercase `mo` so the name "Mo" and
+  the state "MO" never fire. (`normalize.ts` arrow rule + `lexicon.ts` `BASE_CASED`.)
 - **Read-aloud no longer clicks/pops between sentences.** Each TTS clip now eases in and out of
   silence through a short (~8 ms) head/tail gain ramp, instead of a hard `start(0)`/stop that steps
   from silence to a mid-waveform sample — the step was an audible click at every sentence boundary,

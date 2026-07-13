@@ -169,6 +169,25 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // glyph; only what's SPOKEN changes, so captions and the exported `.vtt` are unchanged.
   if (/^[·•∙‖¦⁃・|]+$/.test(tok)) return ',';
 
+  // An ARROW reads as the noun "arrow" on most TTS voices ("Q1 → Q2" → "Q1 ARROW Q2"), which
+  // is jarring. In presentation prose an arrow is a transition, not a noun: a rightward /
+  // implication arrow means "to" ("auto → clean", "reflows 4-across → stacked", "Q1 → Q2"); a
+  // bidirectional one means "and" (the a11y "red↔green"); a leftward one has no clean spoken
+  // direction, so it becomes a plain word gap. Handle BOTH a standalone arrow token AND one
+  // embedded in a token — swap each glyph for its connective, then re-normalize the pieces so
+  // "Q1"/"Q2" still expand. Spoken-form ONLY: the display glyph and the exported `.vtt` keep the
+  // arrow (like the decorative-separator rule above).
+  if (/[→⇒⟶➜⟹⟼↦↔⇔⟷←⟵⇐↩]/.test(tok)) {
+    const connected = tok
+      .replace(/[→⇒⟶➜⟹⟼↦]/g, ' to ')
+      .replace(/[↔⇔⟷]/g, ' and ')
+      .replace(/[←⟵⇐↩]/g, ' ');
+    return splitWords(connected)
+      .map((w) => toSpoken(w, opts))
+      .filter(Boolean)
+      .join(' ');
+  }
+
   // Whole-token lexicon next, before peeling punctuation — so a period-bearing
   // abbreviation (`v.`, `art.`, `U.S.C.`) matches its key rather than losing the
   // period to the terminator peel. The abbreviation's own period is part of it,
