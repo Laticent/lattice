@@ -178,6 +178,41 @@ test('pause()/resume(): suspends narration between sentences, then continues', a
   assert.deepEqual(seen, ['One.', 'Two.', 'Three.']);
 });
 
+test('synthOne(): returns bytes + rung + key for a blob rung, and caches (no second synth)', async () => {
+  const { createVoiceModel, MockRung } = await load();
+  const rung = MockRung({ name: 'openrouter-tts' });
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const a = await v.synthOne({ text: 'Revenue grew to $4.2M.' });
+  assert.equal(a.rung, 'openrouter-tts');
+  assert.ok(a.bytes && a.bytes.size > 0, 'returns audio bytes for a blob rung');
+  assert.equal(typeof a.key, 'string');
+  assert.deepEqual(rung.calls, ['Revenue grew to $4.2M.']);
+  // Second call for the SAME text is a cache hit — no new synth, same key.
+  const b = await v.synthOne({ text: 'Revenue grew to $4.2M.' });
+  assert.deepEqual(rung.calls, ['Revenue grew to $4.2M.'], 'cache hit — no second synth');
+  assert.equal(b.key, a.key);
+  assert.equal(b.bytes, a.bytes);
+});
+
+test('synthOne(): silent floor returns null bytes (no player work), never throws', async () => {
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({ getOpenRouterKey: () => null }); // nothing connected → ladder floors to silent
+  const r = await v.synthOne({ text: 'This has no voice attached.' });
+  assert.equal(r.rung, 'silent');
+  assert.equal(r.bytes, null);
+});
+
+test('synthOne(): empty text returns null bytes without calling the rung', async () => {
+  const { createVoiceModel, MockRung } = await load();
+  const rung = MockRung({ name: 'openrouter-tts' });
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const r = await v.synthOne({ text: '' });
+  assert.equal(r.bytes, null);
+  assert.deepEqual(rung.calls, []);
+});
+
 test('stop(): aborting before synth resolves leaves nothing speaking', async () => {
   const { createVoiceModel } = await load();
   let aborted = false;

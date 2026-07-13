@@ -159,6 +159,55 @@ describe('makeSequence — scheduler', () => {
 		seq.stop();
 	});
 
+	it('pause()/resume() drive the LIVE clip handle (declick + re-arm), not just the context', async () => {
+		// A stage whose play() returns a handle with a controllable `done` and pause/resume spies, so we
+		// can observe that a pause while a clip is on the stage routes to the HANDLE (reliable resume),
+		// not to the blunt context suspend.
+		const pauseSpy = vi.fn();
+		const resumeSpy = vi.fn();
+		let resolveDone: (r: { ok: boolean }) => void = () => {};
+		const stage: SequenceStage = {
+			async decode(_b: Bytes, _k?: string): Promise<Clip> {
+				return { buffer: {} as AudioBuffer, durationMs: 10 };
+			},
+			play() {
+				return { done: new Promise<{ ok: boolean }>((r) => { resolveDone = r; }), stop() {}, pause: pauseSpy, resume: resumeSpy };
+			},
+			suspend: vi.fn(),
+			resume: vi.fn(),
+			state: (): StageState => 'running',
+		};
+		const seq = makeSequence(stage, { items: [0], produce: async () => bytes(), keyOf: (i) => `k${i}`, produceTimeoutMs: 5000 });
+		seq.play();
+		await flush();
+		// The clip is on the stage (done still pending) — pause must hit the handle, not stage.suspend.
+		seq.pause();
+		expect(pauseSpy).toHaveBeenCalledTimes(1);
+		expect(stage.suspend).not.toHaveBeenCalled();
+		seq.resume();
+		expect(resumeSpy).toHaveBeenCalledTimes(1);
+		expect(stage.resume).not.toHaveBeenCalled();
+		resolveDone({ ok: true });
+		await flush();
+		seq.stop();
+	});
+
+	it('stop() after a pause BETWEEN clips unfreezes the shared clock (stage.resume) — no next-read freeze', async () => {
+		// Pausing while a clip is still being produced (no live handle) freezes the shared play-clock via
+		// stage.suspend(). A stop/barge-in/nav without an intervening resume must unfreeze it, or the
+		// NEXT read's caption clock stays frozen on the module-singleton stage (red-team finding).
+		const stage = fakeStage();
+		const d = deferredProduce(2);
+		const seq = makeSequence(stage, { items: [0, 1], produce: d.produce, keyOf: (i) => `k${i}`, concurrency: 1, produceTimeoutMs: 5000 });
+		seq.play();
+		await flush(); // parked at produce[0] — nothing on the stage yet → the between-clips pause path
+		seq.pause();
+		expect(stage.suspend).toHaveBeenCalledTimes(1);
+		expect(stage.resume).not.toHaveBeenCalled();
+		seq.stop(); // stop without resuming — must still unfreeze
+		expect(stage.resume).toHaveBeenCalledTimes(1);
+	});
+
 	it('pause() while IDLE does not poison the next play() (checker #3)', async () => {
 		const stage = fakeStage();
 		let done: () => void;

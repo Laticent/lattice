@@ -4,12 +4,14 @@ import { buildTrack } from '@/lib/cadenza';
 import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
 import { previewTtsVoice, slideToSpeech, useReadAloud } from './read-aloud';
 
-// The spoken-audio rung is irrelevant to the teleprompter timer that drives
-// onFinish — stub the voice model so play() doesn't import the real Kokoro worker.
-// A configurable stub of the production voice ladder. Default rung 'silent' → the
-// estimate clock carries the highlight (no audio path). Tests can flip `voiceState`
-// to drive the AUDIO clock + capture `onSentenceTiming` to exercise re-anchoring.
-const { unlockSpy, previewVoiceSpy, voiceState } = vi.hoisted(() => ({
+// The audio backend is now a Suono stage + sequence (not voice.speak). Two stubs:
+//   • the voice model — SYNTHESIZES bytes (synthOne, fed to the sequence's produce, never invoked
+//     here) and exposes the label/pref getters play() reads. Default rung 'silent' → the wall-clock
+//     estimate carries the highlight, no clocked audio path.
+//   • the Suono stage — spies its unlock (the iOS gesture handshake), exposes a controllable
+//     clockMs(), and has sequence() CAPTURE the onItemStart/onState callbacks so a test can drive a
+//     measured onset (the re-anchor + calibration fold) and returns inert transport spies.
+const { unlockSpy, previewVoiceSpy, voiceState, stageCtl } = vi.hoisted(() => ({
 	unlockSpy: vi.fn(),
 	// Typed with its real parameter (not `async () => ...`, a zero-arg
 	// signature) so `previewVoiceSpy.mock.calls[0][0]` below has a real
@@ -17,20 +19,63 @@ const { unlockSpy, previewVoiceSpy, voiceState } = vi.hoisted(() => ({
 	// `[][]`, and indexing a length-0 tuple is a `tsc --noEmit` error the
 	// esbuild-transformed `vitest run` never catches (caught live in CI).
 	previewVoiceSpy: vi.fn(async (_o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }) => ({ ok: true })),
-	voiceState: { rung: 'silent', audioMs: 0, onTiming: null as null | ((t: { index: number; onsetMs: number; durationMs: number }) => void) },
+	voiceState: { rung: 'silent' as string },
+	stageCtl: {
+		clockMs: 0,
+		state: 'running' as 'none' | 'suspended' | 'running',
+		onItemStart: null as null | ((e: { index: number; onsetMs: number; durationMs: number }) => void),
+		onState: null as null | ((e: { playing: boolean; index: number; error?: string; aborted?: boolean }) => void),
+		play: vi.fn(),
+		pause: vi.fn(),
+		resume: vi.fn(),
+		stop: vi.fn(),
+	},
+}));
+vi.mock('@/lib/suono', () => ({
+	createStage: () => ({
+		unlock: unlockSpy,
+		clockMs: () => stageCtl.clockMs,
+		state: () => stageCtl.state,
+		latencyMs: () => 0,
+		suspend() {},
+		resume() {},
+		stopAll() {},
+		dispose() {},
+		decode: async () => ({ durationMs: 0, buffer: {} }),
+		play: () => ({ stop() {}, done: Promise.resolve({ ok: true }) }),
+		sequence: (o: {
+			onItemStart?: (e: { index: number; onsetMs: number; durationMs: number }) => void;
+			onState?: (e: { playing: boolean; index: number; error?: string; aborted?: boolean }) => void;
+		}) => {
+			stageCtl.onItemStart = o.onItemStart ?? null;
+			stageCtl.onState = o.onState ?? null;
+			return {
+				play: stageCtl.play,
+				pause: stageCtl.pause,
+				resume: stageCtl.resume,
+				stop: stageCtl.stop,
+				playing: () => true,
+				warm() {},
+			};
+		},
+	}),
 }));
 vi.mock('@/playground/voice-model.js', () => ({
 	createVoiceModel: () => ({
-		speak(o: { onSentenceTiming?: (t: { index: number; onsetMs: number; durationMs: number }) => void }) {
-			voiceState.onTiming = o.onSentenceTiming ?? null;
-		},
+		synthOne: async () => ({ rung: voiceState.rung, bytes: null, key: 'test-key' }),
+		speakThis: () => {},
+		warm: () => {},
 		stop() {},
 		pause() {},
 		resume() {},
 		rung: () => voiceState.rung,
-		unlock: unlockSpy,
-		audioTimeMs: () => voiceState.audioMs,
-		outputLatencyMs: () => 0,
+		unlock: () => {},
+		orModel: () => 'test/model',
+		orVoice: () => 'test-voice',
+		// Empty kokoro voice → the resolved calibration key is voiceKeyOf('kokoro · ?') === 'kokoro'
+		// (the label's non-alphanumerics collapse away), which the calibration tests below assert on.
+		kokoroVoice: () => '',
+		speedPref: () => 1,
 		previewVoice: previewVoiceSpy,
 	}),
 }));
@@ -142,13 +187,13 @@ describe('useReadAloud — onFinish (autoplay chain signal)', () => {
 	});
 });
 
-// The iOS fix: play() must unlock the audio context SYNCHRONOUSLY in the tap, using
-// the voice warmed on mount — otherwise iPhone Present mode stays silent (the async
-// speak() resumes too late). This guards the call; real audio is a device-only check.
+// The iOS fix: play() must unlock the Suono stage's audio context SYNCHRONOUSLY in the
+// tap — otherwise iPhone Present mode stays silent (the async sequence resumes too late).
+// This guards the call (unlockSpy is the stage's unlock); real audio is a device-only check.
 describe('useReadAloud — iOS audio unlock in the play gesture', () => {
 	beforeEach(() => unlockSpy.mockClear());
 
-	it('play() unlocks the warmed voice synchronously', async () => {
+	it('play() unlocks the stage synchronously', async () => {
 		const { result } = renderHook(() => useReadAloud('One. Two.'));
 		// Flush the mount warm-effect so voiceRef is populated before the tap.
 		await act(async () => {
@@ -167,13 +212,15 @@ describe('useReadAloud — audio-clock sync', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		voiceState.rung = 'kokoro';
-		voiceState.audioMs = 0;
-		voiceState.onTiming = null;
+		stageCtl.clockMs = 0;
+		stageCtl.onItemStart = null;
+		stageCtl.onState = null;
 	});
 	afterEach(() => {
 		vi.useRealTimers();
 		voiceState.rung = 'silent';
-		voiceState.onTiming = null;
+		stageCtl.onItemStart = null;
+		stageCtl.onState = null;
 	});
 
 	it('holds at word 0 before the first onset (no estimate race), then tracks the onset', async () => {
@@ -184,19 +231,19 @@ describe('useReadAloud — audio-clock sync', () => {
 		});
 		act(() => result.current.play());
 		await act(async () => {
-			await Promise.resolve(); // getVoice().then → mode 'audio', speak() captures onTiming
+			await Promise.resolve(); // getVoice().then → mode 'audio', stage.sequence() captures onItemStart
 			await Promise.resolve();
 		});
 		// The audio clock has jumped far, but NO onset yet → elapsed must hold at 0, so the
 		// cursor stays on word 0 instead of racing off the end on wall-clock time.
-		voiceState.audioMs = 9000;
+		stageCtl.clockMs = 9000;
 		await act(async () => {
 			await vi.advanceTimersByTimeAsync(3000);
 		});
 		expect(result.current.active).toEqual({ cueIndex: 0, wordIndex: 0 });
 		// Sentence 0's measured onset lands at audio-time 9000 → that becomes t=0.
-		act(() => voiceState.onTiming?.({ index: 0, onsetMs: 9000, durationMs: 1600 }));
-		voiceState.audioMs = 9000 + 800; // mid sentence 0 (of its re-anchored 1600ms span)
+		act(() => stageCtl.onItemStart?.({ index: 0, onsetMs: 9000, durationMs: 1600 }));
+		stageCtl.clockMs = 9000 + 800; // mid sentence 0 (of its re-anchored 1600ms span)
 		await act(async () => {
 			await vi.advanceTimersByTimeAsync(100);
 		});
@@ -215,12 +262,12 @@ describe('useReadAloud — audio-clock sync', () => {
 		});
 		act(() => result.current.play());
 		await act(async () => {
-			await Promise.resolve(); // getVoice().then → resolves the 'kokoro' voice key, captures onTiming
+			await Promise.resolve(); // getVoice().then → resolves the 'kokoro' voice key, captures onItemStart
 			await Promise.resolve();
 		});
 		expect(loadCalibration('kokoro').n).toBe(0); // nothing recorded before the first onset
-		act(() => voiceState.onTiming?.({ index: 0, onsetMs: 1000, durationMs: 1600 }));
-		act(() => voiceState.onTiming?.({ index: 1, onsetMs: 3000, durationMs: 1600 }));
+		act(() => stageCtl.onItemStart?.({ index: 0, onsetMs: 1000, durationMs: 1600 }));
+		act(() => stageCtl.onItemStart?.({ index: 1, onsetMs: 3000, durationMs: 1600 }));
 		expect(loadCalibration('kokoro').n).toBe(2); // one clean sample per measured onset
 	});
 

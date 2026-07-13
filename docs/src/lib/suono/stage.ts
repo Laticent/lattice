@@ -84,6 +84,33 @@ export function createStage(opts: StageOptions = {}): Stage {
 	}
 
 	let audioCtx: AudioContext | null = null;
+	// Play-clock pause accounting. `clockMs()` must FREEZE the instant a pause is tapped — else the
+	// caption drifts ahead of the (re-armed-from-the-tap) audio, and it accumulates across cycles. We
+	// can't rely on `ctx.suspend()` for that: a mid-clip pause defers the suspend past the declick
+	// fade, so currentTime keeps advancing for ~fade+8ms. Instead we subtract paused wall-time from
+	// the clock: record the raw currentTime at the pause tap, and on resume fold the elapsed frozen
+	// span into `clockOffsetMs`. Correct whether or not the deferred `ctx.suspend()` has fired.
+	let clockOffsetMs = 0;
+	let clockPauseRawMs: number | null = null; // raw ctx-ms at the pause tap; null when the clock runs
+	function pauseClock(): void {
+		if (clockPauseRawMs == null && audioCtx) clockPauseRawMs = audioCtx.currentTime * 1000;
+	}
+	function resumeClock(): void {
+		if (clockPauseRawMs != null && audioCtx) {
+			clockOffsetMs += audioCtx.currentTime * 1000 - clockPauseRawMs;
+			clockPauseRawMs = null;
+		}
+	}
+	/** The play-clock in ms: raw context time MINUS paused wall-time (frozen while paused). NOT
+	 *  latency-compensated — that's `clockMs()`. `Onset.onsetMs` is reported in THIS frame so onset and
+	 *  clock share a basis: their difference is playing-time regardless of pauses, and the accumulated
+	 *  offset cancels out across runs (a later run's onset carries the same offset the clock does). */
+	function playClockMs(): number {
+		if (!audioCtx) return 0;
+		const raw = audioCtx.currentTime * 1000;
+		const offset = clockPauseRawMs == null ? clockOffsetMs : clockOffsetMs + (raw - clockPauseRawMs);
+		return raw - offset;
+	}
 	// EVERY live source, not just the latest. Overlapping play() calls are legal at this level
 	// (concurrency is the SCHEDULER's policy, not the stage's — the sequencer serializes; a future
 	// concurrent player wouldn't), so `stopAll()` / dispose() must reach them all. Tracking only the
@@ -150,26 +177,47 @@ export function createStage(opts: StageOptions = {}): Stage {
 
 	function play(clip: Clip, playOpts: PlayOptions = {}): PlayHandle {
 		const { onStart, signal } = playOpts;
+		const noop = () => {};
+		const durSec = (clip.durationMs || 0) / 1000;
+		const fadeSec = clampFadeMs(clip.durationMs, fadeMs) / 1000;
 		let src: AudioBufferSourceNode | null = null;
-		let gain: GainNode | null = null;
+		let gainNode: GainNode | null = null;
 		let settled = false;
+		let paused = false;
+		let onsetReported = false;
+		let basisSec = 0; // ctx.currentTime when the CURRENT segment started
+		let consumedSec = 0; // clip time already played BEFORE this segment (accrues across pause/resume)
+		let gen = 0; // bumped on every (re)arm — a stale source's onended must never finish the handle
+		let suspendTimer: ReturnType<typeof setTimeout> | null = null;
 		let resolveDone!: (r: PlayResult) => void;
 		const done = new Promise<PlayResult>((res) => {
 			resolveDone = res;
 		});
+		const clearSuspendTimer = () => {
+			if (suspendTimer) {
+				clearTimeout(suspendTimer);
+				suspendTimer = null;
+			}
+		};
 		const finish = (r: PlayResult) => {
 			if (settled) return;
 			settled = true;
+			clearSuspendTimer();
+			resumeClock(); // never leave the clock frozen — a stop()/barge-in WHILE paused must un-freeze it for the next run
 			signal?.removeEventListener?.('abort', onAbort);
 			try {
-				gain?.disconnect();
+				gainNode?.disconnect();
 			} catch {
 				/* best-effort */
 			}
 			if (src) activeSources.delete(src);
+			src = null;
+			gainNode = null;
 			resolveDone(r);
 		};
 		const onAbort = () => {
+			paused = false; // a barge-in over a PAUSED clip must still terminate the handle
+			clearSuspendTimer();
 			try {
 				src?.stop();
 			} catch {
@@ -177,78 +225,195 @@ export function createStage(opts: StageOptions = {}): Stage {
 			}
 			finish({ ok: true, aborted: true });
 		};
-		const ctx = getCtx();
-		if (!ctx) {
+		const maybeCtx = getCtx();
+		if (!maybeCtx) {
 			finish({ ok: false, error: 'no AudioContext' });
-			return { stop: onAbort, done };
+			return { stop: onAbort, done, pause: noop, resume: noop };
 		}
+		const ctx: AudioContext = maybeCtx; // non-null for the closures below (a nested fn wouldn't keep the guard's narrowing)
 		if (signal) {
 			if (signal.aborted) {
 				finish({ ok: true, aborted: true });
-				return { stop: onAbort, done };
+				return { stop: onAbort, done, pause: noop, resume: noop };
 			}
 			signal.addEventListener('abort', onAbort, { once: true });
 		}
-		try {
-			if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-			src = ctx.createBufferSource();
-			src.buffer = clip.buffer;
-			// Declick: route through a GainNode that ramps 0→1 at the head and 1→0 at the tail, so
-			// playback never steps from/to a non-zero sample (the click/pop at a non-zero-crossing clip
-			// boundary — audible as "abrupt when switching," worst on many-short-fragment slides). A
-			// few ms is inaudible as a fade but removes the discontinuity. fadeMs:0 disables it.
-			let connected = false;
-			const fade = clampFadeMs(clip.durationMs, fadeMs);
-			if (fade > 0 && typeof ctx.createGain === 'function') {
+
+		// (Re)create the source and schedule the declick envelope for the clip's REMAINING portion,
+		// starting `offsetSec` into it. Head ramp 0→1 (the clip-head declick — and, on a resume, the
+		// fade-IN that kills the resume pop), tail ramp 1→0 ending at the clip's true end. Reports
+		// onStart ONCE, at the real clip start — NEVER on a resume re-arm (a second onset would
+		// re-anchor the caption cursor and corrupt the per-voice pace calibration).
+		function armSource(offsetSec: number): void {
+			if (settled) return;
+			try {
+				if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+				const remainingSec = Math.max(0, durSec - offsetSec);
+				const s = ctx.createBufferSource();
+				s.buffer = clip.buffer;
 				// Own try/catch: if the gain automation throws (a flaky/partial-mock engine where
-				// createGain exists but linearRampToValueAtTime doesn't), fall back to a plain connect —
-				// no fade, but the clip STILL PLAYS. Dropping this fallback (as an earlier revision did)
-				// turned "click-y but audible" into "silent" on exactly the flaky Safari/iOS engines this
-				// library exists to serve — the whole point is reliability, so degrade, don't fail.
-				try {
-					gain = ctx.createGain();
-					const t0 = ctx.currentTime;
-					const f = fade / 1000;
-					const dur = clip.durationMs / 1000;
-					const g = gain.gain;
-					g.setValueAtTime(0, t0);
-					g.linearRampToValueAtTime(1, t0 + f);
-					g.setValueAtTime(1, t0 + (dur - f)); // hold at full until the tail (dur - f >= f, since fade ≤ dur/2)
-					g.linearRampToValueAtTime(0, t0 + dur);
-					src.connect(gain);
-					gain.connect(ctx.destination);
-					connected = true;
-				} catch {
+				// createGain exists but its ramp methods don't), fall back to a plain connect — no fade,
+				// but the clip STILL PLAYS. Dropping this fallback turned "click-y but audible" into
+				// "silent" on exactly the flaky Safari/iOS engines this library exists to serve.
+				let g: GainNode | null = null;
+				let node: AudioNode = s;
+				if (fadeSec > 0 && typeof ctx.createGain === 'function') {
 					try {
-						gain?.disconnect();
+						g = ctx.createGain();
+						const t0 = ctx.currentTime;
+						const f = Math.min(fadeSec, remainingSec / 2);
+						const gain = g.gain;
+						gain.setValueAtTime(0, t0);
+						gain.linearRampToValueAtTime(1, t0 + f);
+						gain.setValueAtTime(1, t0 + Math.max(f, remainingSec - f)); // hold at full until the tail
+						gain.linearRampToValueAtTime(0, t0 + remainingSec);
+						s.connect(g);
+						node = g;
+					} catch {
+						try {
+							g?.disconnect();
+						} catch {
+							/* best-effort */
+						}
+						g = null;
+						node = s;
+					}
+				}
+				node.connect(ctx.destination);
+				const myGen = ++gen;
+				const myGain = g;
+				s.onended = () => {
+					try {
+						myGain?.disconnect();
 					} catch {
 						/* best-effort */
 					}
-					gain = null;
+					// A pause-stopped or barge-in-superseded source: not the natural clip end — don't settle.
+					if (myGen !== gen || paused) return;
+					finish({ ok: true });
+				};
+				src = s;
+				gainNode = g;
+				activeSources.add(s);
+				basisSec = ctx.currentTime;
+				s.start(0, offsetSec);
+				// Measured span, captured at the REAL start (not schedule time) — guarded so
+				// instrumentation can never break playback.
+				if (onStart && !onsetReported) {
+					onsetReported = true;
+					try {
+						onStart({ onsetMs: playClockMs(), durationMs: clip.durationMs });
+					} catch {
+						/* best-effort */
+					}
 				}
+			} catch (e) {
+				finish({ ok: false, error: 'play failed: ' + ((e as Error)?.message || e) });
 			}
-			if (!connected) src.connect(ctx.destination);
-			src.onended = () => finish({ ok: true });
-			activeSources.add(src);
-			src.start(0);
-			// Measured span, captured at the REAL start (not schedule time) — guarded so
-			// instrumentation can never break playback.
-			if (onStart) {
+		}
+
+		// Pause/resume by STOP + RE-ARM, not by leaning on the context to freeze a live source:
+		// suspending an AudioContext mid-clip is unreliable on iOS/Safari (the frozen source can go
+		// silent on resume — the "captions resume but audio doesn't" bug), and a hard stop at a
+		// non-zero sample is the pause "pop". So pause fades the clip out, stops it, and remembers the
+		// offset; resume plays a FRESH source from that offset (fading back in). The context is still
+		// suspended while paused (to freeze clockMs), but only AFTER the fade-out has run.
+		function pause(): void {
+			if (settled || paused) return;
+			paused = true;
+			pauseClock(); // freeze the caption clock at the TAP (not at the deferred suspend below)
+			const cur = src;
+			const curGain = gainNode;
+			if (!cur) {
+				// Between segments (no live source) — just freeze the clock.
 				try {
-					onStart({ onsetMs: ctx.currentTime * 1000, durationMs: clip.durationMs });
+					audioCtx?.suspend?.();
+				} catch {
+					/* best-effort */
+				}
+				return;
+			}
+			let tp = basisSec;
+			try {
+				tp = ctx.currentTime; // guarded: a partial-mock engine could throw here (never-throws contract)
+			} catch {
+				/* keep tp = basisSec — no elapsed added, better than throwing out of pause() */
+			}
+			consumedSec += Math.max(0, tp - basisSec);
+			let stopAt = tp;
+			try {
+				if (curGain && fadeSec > 0) {
+					const gain = curGain.gain;
+					try {
+						gain.cancelScheduledValues?.(tp);
+					} catch {
+						/* best-effort */
+					}
+					try {
+						gain.setValueAtTime(typeof gain.value === 'number' ? gain.value : 1, tp);
+					} catch {
+						/* best-effort */
+					}
+					gain.linearRampToValueAtTime(0, tp + fadeSec);
+					stopAt = tp + fadeSec;
+				}
+			} catch {
+				/* declick is best-effort — the hard stop below still pauses */
+			}
+			try {
+				cur.stop(stopAt);
+			} catch {
+				try {
+					cur.stop();
 				} catch {
 					/* best-effort */
 				}
 			}
-		} catch (e) {
-			finish({ ok: false, error: 'play failed: ' + ((e as Error)?.message || e) });
+			activeSources.delete(cur);
+			src = null;
+			gainNode = null;
+			// Freeze the clock, but only AFTER the declick ramp has run on a still-live context —
+			// suspending mid-ramp would freeze the ramp and reinstate the very pop we just removed.
+			clearSuspendTimer();
+			suspendTimer = setTimeout(
+				() => {
+					suspendTimer = null;
+					try {
+						audioCtx?.suspend?.();
+					} catch {
+						/* best-effort */
+					}
+				},
+				Math.ceil(fadeSec * 1000) + 8,
+			);
 		}
-		return { stop: onAbort, done };
+
+		function resume(): void {
+			if (settled || !paused) return;
+			paused = false;
+			clearSuspendTimer();
+			try {
+				if (audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {});
+			} catch {
+				/* best-effort */
+			}
+			resumeClock(); // fold the paused span into the offset AFTER the context is running again
+			// Paused at (or past) the clip's end — nothing left to play; settle instead of arming a
+			// zero-length source (which would build a degenerate same-time gain envelope).
+			if (consumedSec >= durSec) {
+				finish({ ok: true });
+				return;
+			}
+			armSource(consumedSec);
+		}
+
+		armSource(0);
+		return { stop: onAbort, done, pause, resume };
 	}
 
 	function clockMs(): number {
 		if (!audioCtx) return 0;
-		const t = audioCtx.currentTime * 1000;
+		const t = playClockMs(); // raw minus paused wall-time (frozen while paused)
 		return compensateLatency ? Math.max(0, t - latencyMs()) : t;
 	}
 
@@ -270,6 +435,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 		latencyMs,
 		state,
 		suspend() {
+			pauseClock();
 			try {
 				audioCtx?.suspend?.();
 			} catch {
@@ -282,6 +448,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 			} catch {
 				/* best-effort */
 			}
+			resumeClock();
 		},
 		sequence<T>(sequenceOpts: SequenceOptions<T>) {
 			return makeSequence(stage, sequenceOpts);

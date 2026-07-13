@@ -214,6 +214,12 @@ in patch versions.
 
 ### Changed
 
+- **The Studio read-aloud now plays through the Suono library** (its first production consumer) —
+  a behavior-neutral backend swap. `read-aloud.ts` drives a shared Suono `stage` + `sequence` instead
+  of a hand-rolled RAF/mode scheduler; `voice-model.js` gained a node-tested `synthOne(text)→bytes`
+  byte source (it keeps `speak()` for the other three voice surfaces). The integration is verified on
+  real headless Chromium (the word-highlight rides the real audio clock end to end). Design + status:
+  `engineering/decisions/2026-07-12-suono-audio-library.md` §8 slice 2a.
 - **The Print drawer flips paper and orientation instantly — it rasterizes each slide once and
   re-places the cached images.** Building the print PDF is now a two-step split: the expensive half
   (clone + embed fonts + rasterize each slide) runs **once** and its images are cached; changing
@@ -237,6 +243,22 @@ in patch versions.
 
 ### Fixed
 
+- **Unmuting Voice mid-slide now brings the audio back on the CURRENT slide.** Previously a mute →
+  unmute mid-read only restored sound on the *next* slide (the current slide stayed silent on the
+  caption estimate). Now unmute resumes the clocked read from the current sentence — re-speaking it
+  from its start (holding the highlight there until the audio spins up), so the correction is at most
+  one sentence, never a snap back to the top of the slide. The shared clocked-read setup is factored
+  into one `startClocked(voice, fromCue, holdMs)` path used by both fresh play and resume. Covered by
+  a new `read-aloud` nightly (mute → estimate → unmute → clocked audio → finishes once); audible
+  return is device-only.
+- **Read-aloud pause/resume no longer pops, and resume reliably plays the audio again.** Suono now
+  pauses a live clip by fading it out and **stopping** it (remembering the offset), and resumes by
+  playing a **fresh** source from that offset — instead of relying on `AudioContext.suspend()/resume()`
+  to freeze a mid-flight source, which on iPhone/Safari left the captions resuming while the sound
+  stayed silent, and hard-stopped with an audible click. `PlayHandle` gained `pause()`/`resume()`; the
+  sequencer routes through them (a between-clips pause still just freezes the clock). Covered by new
+  stage/sequence unit tests and a strengthened `read-aloud` nightly (multi-cycle pause → resume →
+  progress → finish-once); the audible pop/again is device-only and signed off on the preview.
 - **The Print drawer now shows a loading state on every build path — including a paper/orientation
   re-place.** Three gaps: (1) after changing paper or orientation, clicking Print (iOS) rebuilt the
   PDF by re-placing cached images, but that path ran the whole jsPDF assembly **synchronously**, so

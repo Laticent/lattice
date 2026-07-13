@@ -287,12 +287,68 @@ migration wires it into the Playground.
    `@/lib/suono` alias (no `package.json` yet — a bare co-located manifest with a `dist` `exports`
    map would split the docs toolchain, per `2026-07-08-library-shape` finding #1; packaging waits
    for slice 3). Pure kernels tested; scheduler tested with a fake stage; `checkSuonoBoundary` green.
-2. **Migrate `voice-model.js` onto Suono.** Replace its `getCtx`/`unlock`/`playBlob`/`speak`
-   scheduler internals with a Suono `stage` + `sequence`; the rung ladder, OpenRouter fetch, Kokoro
-   worker, and prefs stay. Net deletion in `voice-model.js`. Verified on the **real Playground**
-   (drive read-aloud on the actual docs build — the surface HARD RULE #23 demands), dark + light,
-   desktop + a coarse-pointer check. Then add the repo-wide "no raw AudioContext outside Suono" gate
-   (§6), with voice-model now clean.
+2. **Migrate consumers onto Suono — sub-sliced, because the seam moved.** The slice-1 sketch assumed
+   Suono adoption happens *inside* `voice-model.js`. It can't: `voice-model.js` is required by a
+   plain-`node --test` suite, so it must stay node-loadable and **cannot `import` the TS Suono**. So
+   the seam is the *consumer* (the app layer), and `voice-model.js` becomes a pure byte SOURCE. And
+   there are FOUR consumers (`read-aloud.ts`, `cadenza.astro`, the two Drawing-Board modules), so this
+   migrates in sub-slices, non-breakingly:
+   - **2a — Studio read-aloud → Suono. ✅ DONE.** `voice-model.js` gained `synthOne(text) → {rung,
+     bytes, key}` (the byte source; picks the rung, shares the byte cache, plays nothing — node-tested)
+     + `speakThis` (the speechSynthesis parallel path). `read-aloud.ts` now owns a shared Suono
+     `stage` + `sequence` (`produce = voice.synthOne`, `onItemStart → reader.align`, highlight rides
+     `stage.clockMs()`), replacing the hand-rolled RAF/mode scheduler; #947's per-voice pace
+     calibration folds into the new `onItemStart`. `voice.speak()`/`playBlob` STAY (the other three
+     surfaces still use them), so it's additive + behavior-neutral. **Verified on real headless
+     Chromium** (real `AudioContext`: the word-highlight rode the real audio clock across a 4-sentence
+     read to `onFinish`) — closing the UNVERIFIED-stage caveat for the core paths. (Audible hardware
+     output + iOS-Safari ringer/`audioSession` remain device-only.)
+     - **2a-fix — reliable, pop-free pause/resume (device bug, IMG_2978).** On-device testing surfaced
+       two faults the headless harness can't hear: a **pop** on pause/resume, and — worse — **resume
+       played the captions but not the audio** on iPhone/Safari. Root cause: pausing leaned on
+       `AudioContext.suspend()/resume()` to freeze the in-flight `AudioBufferSourceNode`, which iOS
+       silently fails to re-start on resume, and the hard suspend/resume steps the waveform at a
+       non-zero sample (the pop). Fix: pause a live clip by **fading it out + stopping it** (recording
+       the offset), and resume by **arming a fresh source from that offset** (fading back in) — playback
+       is now deterministic, not dependent on the engine un-freezing a source. `PlayHandle` gained
+       `pause()`/`resume()`; `makeSequence` tracks the on-stage handle and routes through it (a
+       between-clips pause still just freezes `clockMs()` via the context). `onStart` fires **once**
+       (never on a resume re-arm — a second onset would re-anchor the caption cursor and corrupt the
+       #947 pace calibration), and a stale (pause-stopped) source's late `onended` is ignored via a
+       generation token, so a run never settles early. New stage/sequence unit tests + a strengthened
+       `read-aloud` nightly (freeze → resume → progress-past-paused-cue → second cycle → finish-once)
+       lock it in; the **audible** pop-gone / sound-resumes claim is device-only (HARD RULE #23) and
+       signed off on the #950 preview.
+       - **Independent checker (maker-checker, HARD RULE #25).** A checker bug-hunt of the rewrite
+         confirmed the premature-settle / double-fire / offset-accounting / abort-while-paused paths are
+         airtight, and surfaced one real (minor) issue: the caption clock froze at the *deferred*
+         `ctx.suspend()` (~fade+8ms after the tap), so it drifted ahead of the tap-resumed audio and
+         **accumulated** across cycles. Fixed by a **play-clock offset** recorded at the pause tap
+         (`clockMs()` subtracts paused wall-time; `Onset.onsetMs` moved to the same play-clock frame so
+         the offset cancels in `clockMs − onsetMs` and never leaks into a later run), plus a
+         `resumeClock()` in `finish()` so a stop/barge-in *while paused* never leaves the clock frozen,
+         a resume-at-clip-end short-circuit, and a guarded `currentTime` read (never-throws). New unit
+         test asserts the clock freezes at the tap and resumes drift-free.
+       - **Security (CodeQL).** The nightly harness's throwaway file server was flagged
+         `js/path-injection` (a request URL joined into a filesystem path). Replaced with a fixed
+         two-file allowlist — no request data reaches the filesystem.
+       - **2a-fix — unmute mid-slide resumes audio on the current slide (device report IMG_2982).**
+         Muting mid-read stops the paid TTS and falls to the caption estimate; the old code only let a
+         later *unmute* take effect on the NEXT slide (a deliberate dodge of "restart snaps the
+         highlight to word 0"). The user's expectation is plain: *unmute → the sound returns and is
+         heard here*. Now unmute resumes the CLOCKED read from the current sentence — re-speaking it
+         from its start, holding the highlight there until the onset — so the correction is at most one
+         sentence, never a word-0 snap. Implemented by factoring the clocked-read setup into one
+         `startClocked(voice, fromCue, holdMs)` (fresh play = `(voice, 0, 0)`; resume = `(voice,
+         currentCue, alignedStartOfCue)`), a generalized "hold the highlight at `holdMs` until the
+         first onset" (was hard-coded to 0), a `Reader.trackNow()` to read the live aligned cue start,
+         and a `lastCueRef` anchor robust to an unmute landing in a between-words gap. New nightly test
+         drives mute → estimate → unmute → clocked-audio → finish-once (mode `audio → silent → audio`);
+         audible return is device-only (HARD RULE #23).
+   - **2b — the other three consumers** (`cadenza.astro`, Drawing-Board practice/present) onto the same
+     seam. Then **2c** — remove `voice-model.js`'s own `getCtx`/`playBlob`/`speak` playback and add the
+     repo-wide "no raw AudioContext outside Suono" gate (§6), which can only land once *no* consumer
+     needs voice-model's context.
 3. **Library-shape packaging** (optional, when a root-CJS or Tauri consumer actually needs it) —
    the `package.json` + workspace + esbuild/`tsc` `dist/` + freshness-gate recipe from
    `2026-07-08-library-shape-cadenza-vetrina.md`, applied to Suono. Non-goal until there's a
@@ -347,6 +403,40 @@ and the scheduler mechanics held; the trio's real findings were folded (with reg
   §2 stack diagram is the blob-rung path; "thin consumer" means *thinner*, not literally one path.
 - **The "don't warm an expensive local source" judgment stays with the caller** (documented on
   `warm()`) — Suono can't tell a network producer from a CPU-bound one.
+
+## 8b. Adversarial-trio hardening — the read-aloud migration + device fixes (PR #950)
+
+Re-run of the full trio (HARD RULE #25) against what actually ships in PR #950 (the read-aloud→Suono
+migration plus the pause/resume + unmute-resume device fixes), since that work is high-blast-radius and
+device-unverifiable here. All three lenses confirmed the core clock/pause/resume math, the
+`startClocked` refactor faithfulness, the `gen`/`consumedSec` accounting, `activeHandle` routing, and
+the never-rejects contract are correct. Three CONFIRMED, reachable defects were folded (with tests):
+
+- **Frozen-clock leak across a barge-in (red team, HIGH).** Pausing BETWEEN clips (while a sentence is
+  still synthesizing → no live handle) froze the shared singleton play-clock via `stage.suspend()`, but
+  `sequence.stop()` never unfroze it — so a Stop/Next-slide without an intervening resume left the NEXT
+  read's caption frozen at word 0 until some later clip finished. Fix: `sequence.stop()` calls
+  `stage.resume()` when it was paused (idempotent for the live-clip path, which already unfreezes via the
+  handle's `finish → resumeClock`). Regression test in `sequence.test.ts`.
+- **Audible audio while muted (independent checker, MEDIUM).** The mute effect only suppressed audio
+  when `playing`, so a mute tapped WHILE PAUSED was dropped and the paused-but-live sequence resumed
+  audibly on the next play despite the mute. Fix: the mute effect now acts when the audio is live —
+  `playing OR paused` — in audio mode. Nightly test `pause → mute → play stays silent`.
+- **Voice-blind resume cache key (red team, MEDIUM).** A slide muted-at-play never set `voiceLabelRef`,
+  so a later unmute-resume built the decoded-cache key with an EMPTY voice identity → a stale-voice clip
+  could replay after a voice switch. Fix: the model/voice label + calibration key now resolve for any
+  clocked voice BEFORE the muted branch, so the resume key is content-complete.
+
+**Accepted / noted, not fixed here** (recorded so they aren't lost): the *audible* resume on a
+cold-suspended iOS context is the real merge gate — the #950 device sign-off must exercise a real
+cold-context resume + a fast double-tap, not a warm happy path (no automated test can see it); the rung
+BADGE can go stale on a mid-session ladder change (OpenRouter key revoked mid-read) because the Suono
+`onState` doesn't carry the per-sentence rung (rare regression vs. `voice.speak`'s per-event
+`setRung`); the ~≤8 ms declick overlap on a rapid pause→resume and the pause-exactly-at-a-clip-boundary
+blip are cosmetic device-only residuals; the module-singleton stage means two concurrent readers would
+share one context (latent, not reachable in Present today). The unmute "re-speak the current sentence"
+backward jog is by design (bounded to ≤1 sentence, strictly better than the shipped-before "silent
+until next slide").
 
 ## 9. Alternatives weighed
 

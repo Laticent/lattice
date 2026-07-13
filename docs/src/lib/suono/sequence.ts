@@ -14,7 +14,7 @@ import type { Bytes, Clip, PlayOptions, PlayResult, Sequence, SequenceOptions, S
 /** The slice of a Stage the scheduler needs — narrow, so a test injects a fake. */
 export interface SequenceStage {
 	decode(bytes: Bytes, key?: string): Promise<Clip>;
-	play(clip: Clip, opts?: PlayOptions): { done: Promise<PlayResult>; stop(): void };
+	play(clip: Clip, opts?: PlayOptions): { done: Promise<PlayResult>; stop(): void; pause?(): void; resume?(): void };
 	suspend(): void;
 	resume(): void;
 	/** Context lifecycle — used to avoid creating an AudioContext during a pre-gesture warm. */
@@ -99,6 +99,10 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	let running = false;
 	let pausedGate: Promise<void> | null = null;
 	let resumeFn: (() => void) | null = null;
+	// The clip currently on the stage — so pause()/resume() can declick + re-arm THAT source (reliable
+	// cross-device pause), not merely suspend the context (which drops audio on iOS/Safari resume).
+	// Null between clips; then pause()/resume() fall back to the context-level freeze.
+	let activeHandle: { pause?(): void; resume?(): void } | null = null;
 	function emitState(playing: boolean, index: number, error: string | null, aborted = false): void {
 		if (!onState) return;
 		try {
@@ -238,7 +242,13 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 						const onStart = onItemStart
 							? ({ onsetMs, durationMs }: { onsetMs: number; durationMs: number }) => onItemStart({ index: i, onsetMs, durationMs })
 							: undefined;
-						const res = await stage.play(clip, { onStart, signal: sig }).done;
+						const handle = stage.play(clip, { onStart, signal: sig });
+						activeHandle = handle;
+						// If a pause() already landed for THIS clip before play() was called (the tap raced
+						// the scheduler), honor it now so we don't play through the pause.
+						if (pausedGate) handle.pause?.();
+						const res = await handle.done;
+						if (activeHandle === handle) activeHandle = null;
 						if (res && res.ok === false && res.error) setError(res.error);
 					}
 				}
@@ -344,6 +354,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		// Without this, an explicit stop()/barge-in produced NO final playing:false (Munger finding #1),
 		// so a consumer could never tell "stopped" from "still running." aborted:true marks it as cut short.
 		const wasActive = running || !!pausedGate;
+		const wasPaused = !!pausedGate;
 		if (ctl) {
 			try {
 				ctl.abort();
@@ -354,6 +365,13 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		}
 		releaseGate();
 		running = false;
+		activeHandle = null;
+		// A pause BETWEEN clips froze the shared play-clock via `stage.suspend()` (there was no live
+		// handle to own the freeze). A stop/barge-in/nav without an intervening resume would otherwise
+		// leave `clockMs()` frozen on the module-singleton stage — hanging the NEXT read's caption at
+		// word 0 until some later clip happens to finish (red-team finding). Unfreeze here. Idempotent
+		// for the live-clip case (the handle's abort→finish already called resumeClock).
+		if (wasPaused) stage.resume();
 		if (wasActive) emitState(false, -1, null, true);
 	}
 
@@ -361,7 +379,8 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		play() {
 			// Resume a paused run rather than restarting it.
 			if (pausedGate) {
-				stage.resume();
+				if (activeHandle) activeHandle.resume?.();
+				else stage.resume();
 				releaseGate();
 				return;
 			}
@@ -379,11 +398,15 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 			// starting a run — a silent no-op play (checker finding #3). `running` is set synchronously
 			// by run() before its first await, so a pause() after play() always sees it true.
 			if (!running) return;
-			stage.suspend();
+			// Declick + park the LIVE clip via the handle (reliable cross-device resume); only fall back
+			// to the context-level freeze when we're between clips (no source on the stage).
+			if (activeHandle) activeHandle.pause?.();
+			else stage.suspend();
 			if (!pausedGate) pausedGate = new Promise((res) => (resumeFn = res));
 		},
 		resume() {
-			stage.resume();
+			if (activeHandle) activeHandle.resume?.();
+			else stage.resume();
 			releaseGate();
 		},
 		stop,

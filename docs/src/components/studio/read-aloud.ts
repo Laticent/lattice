@@ -1,5 +1,7 @@
 import * as React from 'react';
-import { type Active, buildTrack, type CaptionTrack, makeReader, type Reader, rateScale } from '@/lib/cadenza';
+import { type Active, buildTrack, type CaptionTrack, makeReader, pauseAfter, type Reader, rateScale } from '@/lib/cadenza';
+import type { Bytes, Sequence, Stage } from '@/lib/suono';
+import { createStage } from '@/lib/suono';
 import { loadCalibration, recordObservation, voiceKeyOf } from '@/playground/readaloud-calibration';
 import { cachedSampleUrl, KOKORO_MODEL_ID, speedSupported } from './tts-voice-catalog';
 
@@ -134,6 +136,14 @@ type VoiceModel = {
 		onSentenceTiming?: (t: { index: number; onsetMs: number; durationMs: number }) => void;
 		onState?: (s: { rung?: string; speaking?: boolean; aborted?: boolean; error?: string }) => void;
 	}) => void;
+	/** Synthesize ONE sentence to audio BYTES (no playback) — the byte SOURCE the Studio read-aloud's
+	 *  Suono sequence produces from. `rung` tells the caller how to play (a blob rung → decode+play the
+	 *  bytes on Suono's own clock); `key` is the exact cache identity, so a warm/replay lines up. */
+	synthOne: (o: { text: string; voice?: string; speed?: number; signal?: AbortSignal }) => Promise<{ rung: string; bytes: Bytes | null; key: string } | null>;
+	/** Speak one string via the browser speechSynthesis rung (it plays ITSELF — no bytes to cross a
+	 *  bytes-only player). The parallel path used when the active rung is 'speechSynthesis' (dev-only
+	 *  here — Studio never passes allowBrowserVoice). */
+	speakThis: (text: string, signal?: AbortSignal) => void;
 	stop: () => void;
 	pause: () => void;
 	resume: () => void;
@@ -199,6 +209,19 @@ function getVoice(): Promise<VoiceModel | null> {
 			.catch(() => null);
 	}
 	return voicePromise;
+}
+
+// Lazily-created shared Suono stage — one owned AudioContext + WebAudio clock + sequence scheduler:
+// the audio backend the CLOCKED read-aloud plays through (it REPLACED voice.speak()'s internal
+// context; voice-model now only SYNTHESIZES bytes, via synthOne). A module singleton, mirroring
+// getVoice — so the stage's decoded-clip cache and its context persist across plays, which is exactly
+// why the per-sentence keyOf below MUST be content-complete (a decoded-cache key HIT skips re-decode
+// without comparing bytes). Suono is SSR-safe: createStage touches no window until unlock/decode/play,
+// so this import is inert on the server and the singleton is only ever built client-side.
+let stageSingleton: Stage | null = null;
+function getStage(): Stage {
+	if (!stageSingleton) stageSingleton = createStage();
+	return stageSingleton;
 }
 
 function nowMs(): number {
@@ -333,10 +356,25 @@ export function useReadAloud(
 	const armedRef = React.useRef(false);
 	const ctlRef = React.useRef<AbortController | null>(null);
 	const voiceRef = React.useRef<VoiceModel | null>(null);
+	// The Suono stage (owned audio context + clock) and the in-flight sequence handle for the current
+	// clocked read. seqRef replaces the old voiceRef.stop()/pause()/resume() playback control.
+	const stageRef = React.useRef<Stage | null>(null);
+	const seqRef = React.useRef<Sequence | null>(null);
 	const modeRef = React.useRef<'silent' | 'audio'>('silent');
 	const audioBaseRef = React.useRef<number | null>(null); // sentence-0 measured onset (audio clock origin)
 	const elapsedRef = React.useRef(0);
 	const lastTRef = React.useRef(0);
+	// Where the highlight HOLDS while audio mode waits for its first onset: 0 for a fresh play (hold at
+	// word 0), or the current sentence's start for a mid-slide unmute-resume (hold there, don't snap to
+	// word 0). Generalizes the old hard-coded "hold at 0 until sentence-0's onset."
+	const audioHoldMsRef = React.useRef(0);
+	// True while THIS slide's clocked audio is suppressed by MUTE (muted at play OR muted mid-read) and
+	// a clocked voice is available — the signal that an UNMUTE should resume the audio on this slide.
+	// Distinguishes a mute-suppressed estimate from a synth-FAILED one (which unmuting must not retry).
+	const audioSuppressedRef = React.useRef(false);
+	// The last cue the highlight actually sat on — the anchor a mid-slide unmute resumes from (robust to
+	// an unmute landing in a between-words gap, where reader.current() is momentarily null).
+	const lastCueRef = React.useRef(0);
 
 	const cancelRaf = React.useCallback(() => {
 		if (rafRef.current) {
@@ -352,6 +390,12 @@ export function useReadAloud(
 		armedRef.current = false;
 		ctlRef.current?.abort();
 		ctlRef.current = null;
+		try {
+			seqRef.current?.stop();
+		} catch {
+			/* best-effort */
+		}
+		seqRef.current = null;
 		try {
 			voiceRef.current?.stop();
 		} catch {
@@ -373,6 +417,9 @@ export function useReadAloud(
 	// resumes too late and stays muted.
 	React.useEffect(() => {
 		let live = true;
+		// The Suono stage is a synchronous module singleton — grab it on mount so the debug clock reads
+		// and the play tap's unlock() have it without waiting on the async voice load.
+		stageRef.current = getStage();
 		getVoice().then((v) => {
 			if (live && v) voiceRef.current = v;
 		});
@@ -386,7 +433,10 @@ export function useReadAloud(
 	React.useEffect(() => {
 		readerRef.current = makeReader({
 			track,
-			onWord: (a) => setActive(a),
+			onWord: (a) => {
+				if (a) lastCueRef.current = a.cueIndex; // remember the last HIGHLIGHTED cue (survives a between-words gap where current() is null) — the resume anchor for a mid-slide unmute
+				setActive(a);
+			},
 			onEnd: () => {
 				// Natural end — stop the voice too (don't let trailing audio play past the
 				// highlight), then signal a chaining caller.
@@ -395,6 +445,12 @@ export function useReadAloud(
 				armedRef.current = false;
 				ctlRef.current?.abort();
 				ctlRef.current = null;
+				try {
+					seqRef.current?.stop();
+				} catch {
+					/* best-effort */
+				}
+				seqRef.current = null;
 				try {
 					voiceRef.current?.stop();
 				} catch {
@@ -416,6 +472,12 @@ export function useReadAloud(
 			ctlRef.current?.abort();
 			ctlRef.current = null;
 			try {
+				seqRef.current?.stop();
+			} catch {
+				/* best-effort */
+			}
+			seqRef.current = null;
+			try {
 				voiceRef.current?.stop();
 			} catch {
 				/* best-effort */
@@ -432,19 +494,20 @@ export function useReadAloud(
 	const tick = React.useCallback((now: number) => {
 		const reader = readerRef.current;
 		if (!reader || !playingRef.current) return;
-		if (modeRef.current === 'audio' && voiceRef.current) {
-			// Ride the voice's OWN clock (minus output latency), but HOLD at 0 until
-			// sentence-0's measured onset arrives (audioBase) — otherwise the highlight
-			// races ahead on the estimate and snaps back to word 0 when the onset lands.
-			// Mirrors the /cadenza demo exactly.
-			const v = voiceRef.current;
-			const lat = v.outputLatencyMs ? v.outputLatencyMs() : 0;
-			// SYNC_LEAD_MS biases the highlight slightly AHEAD of the heard word. Broadcast
-			// lip-sync tolerance is asymmetric (ITU-R BT.1359 / EBU R37): a visual leading its
-			// audio is far more forgivable (~125 ms) than lagging it (~45 ms), so a small lead
-			// keeps the reader's eye on-or-ahead of the voice rather than trailing it — the more
-			// noticeable error. See 2026-07-12-narration-pace-model.md §5.
-			elapsedRef.current = audioBaseRef.current == null ? 0 : Math.max(0, v.audioTimeMs() - audioBaseRef.current - lat + SYNC_LEAD_MS);
+		if (modeRef.current === 'audio' && stageRef.current) {
+			// Ride the Suono stage's owned WebAudio clock, but HOLD at 0 until sentence-0's measured
+			// onset arrives (audioBase) — otherwise the highlight races ahead on the estimate and snaps
+			// back to word 0 when the onset lands. Mirrors the /cadenza demo exactly.
+			const stage = stageRef.current;
+			// SYNC_LEAD_MS biases the highlight slightly AHEAD of the heard word. Broadcast lip-sync
+			// tolerance is asymmetric (ITU-R BT.1359 / EBU R37): a visual leading its audio is far more
+			// forgivable (~125 ms) than lagging it (~45 ms), so a small lead keeps the reader's eye
+			// on-or-ahead of the voice. See 2026-07-12-narration-pace-model.md §5.
+			// stage.clockMs() is ALREADY latency-compensated (clockMs = audioTimeMs − outputLatency) and
+			// audioBase is the RAW Onset.onsetMs, so `clockMs() − base + LEAD` equals the old
+			// `audioTimeMs() − base − lat + LEAD` EXACTLY — the latency is subtracted once, by clockMs.
+			// Do NOT subtract latencyMs() again.
+			elapsedRef.current = audioBaseRef.current == null ? audioHoldMsRef.current : Math.max(0, stage.clockMs() - audioBaseRef.current + SYNC_LEAD_MS);
 		} else {
 			elapsedRef.current += now - lastTRef.current;
 		}
@@ -453,7 +516,7 @@ export function useReadAloud(
 		const dur = reader.durationMs();
 		setProgress(dur ? Math.min(1, elapsedRef.current / dur) : 0);
 		if (debugRef.current) {
-			const v = voiceRef.current;
+			const stage = stageRef.current;
 			const activeCue = activeNow?.cueIndex ?? -1;
 			// How far the highlight has raced past the last sentence the voice truly
 			// started. In 'audio' mode a positive value means the clock free-ran through
@@ -467,9 +530,10 @@ export function useReadAloud(
 				mode: modeRef.current,
 				rung: rungRef.current,
 				voice: voiceLabelRef.current,
-				ctxState: v?.audioState ? v.audioState() : 'none',
+				ctxState: stage?.state ? stage.state() : 'none',
 				elapsedMs: Math.round(elapsedRef.current),
-				audioClockMs: Math.round(v?.audioTimeMs ? v.audioTimeMs() : 0),
+				// The stage clock (latency-compensated). Diagnostics only.
+				audioClockMs: Math.round(stage?.clockMs ? stage.clockMs() : 0),
 				activeCue,
 				activeWord: activeNow?.wordIndex ?? -1,
 				spokenCount: spokenCountRef.current,
@@ -491,14 +555,138 @@ export function useReadAloud(
 		rafRef.current = requestAnimationFrame(tick);
 	}, [tick, cancelRaf]);
 
+	// Start (or resume) the CLOCKED Suono read from cue `fromCue`, holding the highlight at `holdMs`
+	// until the first onset lands. fromCue=0 / holdMs=0 is a fresh slide (hold at word 0); a mid-slide
+	// unmute resumes from the CURRENT sentence (fromCue = current cue, holdMs = its aligned start) so
+	// audio returns on THIS slide instead of waiting for the next. Suono owns the AudioContext +
+	// scheduler + WebAudio clock; we hand it a per-sentence byte producer (voice.synthOne) and fold
+	// each clip's MEASURED onset back through onItemStart → reader.align() + the per-voice calibration.
+	const startClocked = React.useCallback(
+		(voice: VoiceModel, fromCue: number, holdMs: number) => {
+			const reader = readerRef.current;
+			const stage = stageRef.current ?? getStage();
+			stageRef.current = stage;
+			if (!reader) return;
+			// Defensive: never orphan a still-playing sequence. Every caller nulls/stops seqRef first
+			// today, but the resume paths rely on that invariant implicitly — make it explicit here.
+			try {
+				seqRef.current?.stop();
+			} catch {
+				/* best-effort */
+			}
+			const from = Math.max(0, fromCue);
+			// One spoken sentence per cue keeps item index i == cue i (offset by `from`) for re-anchoring.
+			const spoken = track.cues.slice(from).map((c) => c.words.map((w) => w.spoken).join(' '));
+			if (!spoken.length) return;
+			let r: string;
+			try {
+				r = voice.rung();
+			} catch {
+				r = 'silent';
+			}
+			// keyOf is CONTENT-COMPLETE (rung · model·voice · speed · sentence): the module-singleton
+			// stage's decoded-clip cache persists across plays and a key HIT skips the byte compare, so a
+			// bare-sentence key would replay a stale-voice clip after a voice/speed/model change.
+			const keyPrefix = `${r}|${voiceLabelRef.current}|${voice.speedPref?.() ?? 1}`;
+			const dbg = debugRef.current;
+			const pushEvent = (e: ReadAloudDebugEvent) => setDebugEvents((prev) => (prev.length >= 500 ? prev : [...prev, e]));
+			audioHoldMsRef.current = holdMs;
+			audioBaseRef.current = null; // hold the highlight at holdMs until fromCue's onset arrives
+			modeRef.current = 'audio';
+			const seq = stage.sequence<string>({
+				items: spoken,
+				produce: async (s, { signal }) => (await voice.synthOne({ text: s, signal }))?.bytes ?? null,
+				keyOf: (s) => `${keyPrefix}|${s}`,
+				// The inter-clip breath: cadenza's graded pauseAfter × 0.3 — the CLIP-SILENCE DISCOUNT (each
+				// clip already carries its own sentence-final silence). Reproduces voice-model's retired
+				// sentenceGapMs EXACTLY; a larger gap reintroduces the highlight-races-into-silence bug.
+				gapMs: (s) => Math.round(pauseAfter(s) * 0.3),
+				onItemStart: ({ index, onsetMs, durationMs }) => {
+					const cue = from + index; // sliced item i ↦ cue (from + i) — re-anchoring stays cue-accurate
+					if (audioBaseRef.current == null) audioBaseRef.current = onsetMs - holdMs; // fromCue's onset ↦ holdMs
+					// Per-voice pace calibration: fold this sentence's measured clip duration vs the model's
+					// PREDICTED cue duration, from the ORIGINAL never-mutated `track` (align clones the timeline).
+					const estCue = track.cues[cue];
+					const estDurMs = estCue ? estCue.endMs - estCue.startMs : 0;
+					reader.align(cue, onsetMs - audioBaseRef.current, durationMs);
+					if (estDurMs > 0 && durationMs > 0 && calVoiceKeyRef.current) {
+						try {
+							const next = recordObservation(calVoiceKeyRef.current, estDurMs, durationMs);
+							calNRef.current = next.n;
+							calKRef.current = rateScale(next); // from the returned state — no second load
+						} catch {
+							/* calibration is best-effort — never break playback */
+						}
+					}
+					if (cue > lastTimedCueRef.current) lastTimedCueRef.current = cue;
+					if (dbg) {
+						pushEvent({
+							kind: 'timing',
+							index: cue,
+							onsetMs: Math.round(onsetMs),
+							relOnsetMs: Math.round(onsetMs - (audioBaseRef.current ?? 0)),
+							durationMs: Math.round(durationMs),
+							ctxState: stage.state ? stage.state() : 'none',
+							sincePlayMs: Math.round(nowMs() - playStartRef.current),
+						});
+					}
+				},
+				onState: ({ playing: seqPlaying, aborted }) => {
+					// Every sentence's synth failed (no onset ever landed) — fall back to the silent estimate
+					// so the highlight never hangs. TERMINAL (playing:false), NOT a barge-in (aborted).
+					if (!seqPlaying && !aborted && modeRef.current === 'audio' && playingRef.current && audioBaseRef.current == null) {
+						modeRef.current = 'silent';
+						lastTRef.current = nowMs();
+					}
+				},
+			});
+			seqRef.current = seq;
+			seq.play();
+		},
+		[track],
+	);
+	// Read startClocked through a ref so the mute/unmute effect (deps `[mutedProp]`) can resume audio
+	// without re-subscribing on every track change.
+	const startClockedRef = React.useRef(startClocked);
+	startClockedRef.current = startClocked;
+
+	// Resume the CLOCKED read on the CURRENT slide from the current sentence — the shared UNMUTE path,
+	// used whether the mute happened mid-read or the slide started muted, and whether the unmute lands
+	// while playing (the effect below) or is deferred to the next resume (play()'s resume branch). A
+	// no-op unless audio is mute-suppressed, we're on the silent estimate, and a clocked voice is live.
+	// Returns whether it actually resumed. Reads only refs → stable (`[]`).
+	const resumeClockedFromCurrent = React.useCallback((): boolean => {
+		const voice = voiceRef.current;
+		const reader = readerRef.current;
+		if (!audioSuppressedRef.current || !voice || !reader || modeRef.current !== 'silent') return false;
+		let r: string;
+		try {
+			r = voice.rung();
+		} catch {
+			r = 'silent';
+		}
+		if (r !== 'openrouter-tts' && r !== 'kokoro') return false; // not a clocked voice — stay on the estimate
+		audioSuppressedRef.current = false;
+		// Resume from the CURRENT sentence, holding the highlight at that cue's live (aligned) start.
+		// current() is null in a between-words gap — fall back to the last highlighted cue, never cue 0.
+		const fromCue = Math.max(0, reader.current()?.cueIndex ?? lastCueRef.current);
+		const holdMs = reader.trackNow().cues[fromCue]?.startMs ?? elapsedRef.current;
+		startClockedRef.current(voice, fromCue, holdMs);
+		return true;
+	}, []);
+	const resumeClockedFromCurrentRef = React.useRef(resumeClockedFromCurrent);
+	resumeClockedFromCurrentRef.current = resumeClockedFromCurrent;
+
 	const play = React.useCallback(() => {
 		const reader = readerRef.current;
 		if (!reader || !track.cues.length) return;
-		// iOS audio handshake: resume the context NOW, synchronously in the tap (the
-		// warmed voice is ready here), before the async speak() below — which would be
-		// muted on iPhone otherwise. Mirrors the /cadenza demo's click handler.
+		// iOS audio handshake: resume the Suono stage's context NOW, synchronously in the tap,
+		// before the async voice load + sequence below — which would be muted on iPhone otherwise.
+		// The stage (not voice-model) owns the AudioContext now. Mirrors the /cadenza demo's handler.
+		const stage = getStage();
+		stageRef.current = stage;
 		try {
-			voiceRef.current?.unlock();
+			stage.unlock();
 		} catch {
 			/* best-effort */
 		}
@@ -508,10 +696,20 @@ export function useReadAloud(
 			pausedRef.current = false;
 			playingRef.current = true;
 			setPlaying(true);
-			try {
-				voiceRef.current?.resume();
-			} catch {
-				/* best-effort */
+			// Voice unmuted while paused (or the slide started muted) → resume the CLOCKED audio from the
+			// current sentence rather than the (null) paused sequence. Otherwise resume the paused seq.
+			const resumedAudio = !mutedRef.current && resumeClockedFromCurrent();
+			if (!resumedAudio) {
+				try {
+					seqRef.current?.resume();
+				} catch {
+					/* best-effort */
+				}
+				try {
+					voiceRef.current?.resume();
+				} catch {
+					/* best-effort */
+				}
 			}
 			// Only start the loop here if it was already armed (mode decided) before
 			// the pause. A pause tapped WHILE the original play() was still arming
@@ -524,10 +722,24 @@ export function useReadAloud(
 			return;
 		}
 
+		// Barge-in: a fresh (non-resume) play() cancels any run still in flight. Abort the prior
+		// AbortController — so a stale getVoice().then bails on its `ctl.signal.aborted` guard instead
+		// of starting a SECOND sequence — and stop the prior Suono sequence. voice.speak() used to
+		// self-barge-in internally; the sequence doesn't, so we do it here.
+		ctlRef.current?.abort();
+		try {
+			seqRef.current?.stop();
+		} catch {
+			/* best-effort */
+		}
+		seqRef.current = null;
 		const ctl = new AbortController();
 		ctlRef.current = ctl;
 		elapsedRef.current = 0;
 		audioBaseRef.current = null;
+		audioHoldMsRef.current = 0; // a fresh play holds at word 0 (a mid-slide unmute overrides this)
+		audioSuppressedRef.current = false; // no mute-suppressed audio (yet) for this play
+		lastCueRef.current = 0; // resume anchor starts at the top for a fresh play
 		lastTimedCueRef.current = -1;
 		peakAheadRef.current = 0;
 		voiceLabelRef.current = '';
@@ -564,15 +776,6 @@ export function useReadAloud(
 				if (!pausedRef.current) startLoop();
 				return;
 			}
-			// Voice MUTED — run the silent cadence estimate (captions) and attach NO TTS. Same
-			// "always runs" path as a failed voice load, but chosen deliberately by the user. The
-			// captions/teleprompter still animate word-by-word off Cadenza's built-in timings.
-			if (mutedRef.current) {
-				setRung('silent');
-				armedRef.current = true;
-				if (!pausedRef.current) startLoop();
-				return;
-			}
 			voiceRef.current = voice;
 			let r: string;
 			try {
@@ -580,37 +783,50 @@ export function useReadAloud(
 			} catch {
 				r = 'silent';
 			}
-			setRung(r);
-			// Resolve the concrete model/voice behind the rung — a multi-model device trace
-			// self-labels which voice produced each slide, AND it keys per-voice pace calibration
-			// (so `k` is fit per model·voice). Resolved unconditionally (not just in debug) so
-			// calibration accrues from normal use; best-effort + guarded.
-			try {
-				voiceLabelRef.current =
-					r === 'openrouter-tts'
-						? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
-						: r === 'kokoro'
-							? `kokoro · ${voice.kokoroVoice?.() || '?'}`
-							: r;
-			} catch {
-				voiceLabelRef.current = r;
-			}
-			calVoiceKeyRef.current = voiceKeyOf(voiceLabelRef.current);
-			// Seed the live readout from what's already stored for this voice (one load).
-			try {
-				const cal = loadCalibration(calVoiceKeyRef.current);
-				calKRef.current = rateScale(cal);
-				calNRef.current = cal.n;
-			} catch {
-				calKRef.current = 1;
-				calNRef.current = 0;
-			}
-			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on
-			// the estimate (it speaks in parallel but reports no onsets).
+			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on the estimate
+			// (it speaks in parallel but reports no onsets).
 			const clocked = r === 'openrouter-tts' || r === 'kokoro';
+			// Resolve the concrete model/voice behind the rung — a multi-model device trace self-labels
+			// which voice produced each slide, AND it keys per-voice pace calibration (so `k` is fit per
+			// model·voice). Resolved for ANY clocked voice REGARDLESS of mute (before the muted branch
+			// below), because a later unmute-resume builds its decoded-cache key from voiceLabelRef — an
+			// EMPTY label there would voice-blind the persistent stage cache and replay a stale-voice clip
+			// after a voice switch (red-team finding). Best-effort + guarded.
 			if (clocked) {
 				try {
-					voice.unlock();
+					voiceLabelRef.current =
+						r === 'openrouter-tts'
+							? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
+							: `kokoro · ${voice.kokoroVoice?.() || '?'}`;
+				} catch {
+					voiceLabelRef.current = r;
+				}
+				calVoiceKeyRef.current = voiceKeyOf(voiceLabelRef.current);
+				// Seed the live readout from what's already stored for this voice (one load).
+				try {
+					const cal = loadCalibration(calVoiceKeyRef.current);
+					calKRef.current = rateScale(cal);
+					calNRef.current = cal.n;
+				} catch {
+					calKRef.current = 1;
+					calNRef.current = 0;
+				}
+			}
+			// Voice MUTED — run the silent cadence estimate (captions) and attach NO TTS. Same "always
+			// runs" path as a failed voice load, but chosen deliberately by the user. If a CLOCKED voice
+			// is behind the mute, remember the audio is only mute-suppressed — a later unmute resumes it
+			// on THIS slide (Present opens muted-by-default, so play-muted → unmute is the common path).
+			if (mutedRef.current) {
+				setRung('silent');
+				if (clocked) audioSuppressedRef.current = true;
+				armedRef.current = true;
+				if (!pausedRef.current) startLoop();
+				return;
+			}
+			setRung(r);
+			if (clocked) {
+				try {
+					stage.unlock();
 				} catch {
 					/* best-effort */
 				}
@@ -640,96 +856,37 @@ export function useReadAloud(
 						spokenCount: spoken.length,
 						cueCount: track.cues.length,
 						voice: voiceLabelRef.current,
-						ctxState: voiceRef.current?.audioState ? voiceRef.current.audioState() : 'none',
+						ctxState: stage.state ? stage.state() : 'none',
 						sincePlayMs: 0,
 					});
 				}
-				// The voice loop calls onSentence strictly in playback order, so a local
-				// counter recovers the attempt index (the callback itself carries only text).
-				let attemptSeq = 0;
-				voice.speak({
-					// One spoken sentence per cue keeps index i == cue i for re-anchoring.
-					text: spoken.join(' '),
-					sentences: spoken,
-					signal: ctl.signal,
-					// Debug only: the voice reached this sentence (before its audio plays).
-					// A gap between an 'attempt' and its matching 'timing' event = a synth/
-					// decode stall the free-running audio clock races through (the "skips
-					// / moves fast" tell). Omitted entirely off debug — no runtime cost.
-					onSentence: dbg
-						? () => {
-								const v = voiceRef.current;
-								pushEvent({
-									kind: 'attempt',
-									index: attemptSeq++,
-									ctxState: v?.audioState ? v.audioState() : 'none',
-									sincePlayMs: Math.round(nowMs() - playStartRef.current),
-								});
-							}
-						: undefined,
-					onSentenceTiming: clocked
-						? ({ index, onsetMs, durationMs }) => {
-								if (audioBaseRef.current == null) audioBaseRef.current = onsetMs; // cue-0 onset = time 0
-								// Per-voice pace calibration: fold this sentence's measured clip duration vs the
-								// model's PREDICTED cue duration into the voice's fit. Read the estimate BEFORE
-								// Per-voice calibration: the raw PREDICTED cue duration comes from the component
-								// `track` — the ORIGINAL buildTrack output. It is the never-mutated source (align
-								// clones the timeline, cursor.ts), so this is safe regardless of ordering vs the
-								// align() call below. Built at rateScale 1 today (calibration is measure-only until
-								// a later apply slice), so it is the raw prediction — no k back-out needed.
-								const estCue = track.cues[index];
-								const estDurMs = estCue ? estCue.endMs - estCue.startMs : 0;
-								reader.align(index, onsetMs - audioBaseRef.current, durationMs);
-								if (estDurMs > 0 && durationMs > 0 && calVoiceKeyRef.current) {
-									try {
-										const next = recordObservation(calVoiceKeyRef.current, estDurMs, durationMs);
-										calNRef.current = next.n;
-										calKRef.current = rateScale(next); // from the returned state — no second load
-									} catch {
-										/* calibration is best-effort — never break playback */
-									}
-								}
-								if (index > lastTimedCueRef.current) lastTimedCueRef.current = index;
-								if (dbg) {
-									const v = voiceRef.current;
-									pushEvent({
-										kind: 'timing',
-										index,
-										onsetMs: Math.round(onsetMs),
-										relOnsetMs: Math.round(onsetMs - (audioBaseRef.current ?? 0)),
-										durationMs: Math.round(durationMs),
-										ctxState: v?.audioState ? v.audioState() : 'none',
-										sincePlayMs: Math.round(nowMs() - playStartRef.current),
-									});
-								}
-							}
-						: undefined,
-					onState: (s) => {
-						if (s?.rung) setRung(s.rung);
-						// A clocked voice that produced no audio (synth failed) — fall back to the
-						// silent estimate so the highlight never hangs waiting for an onset.
-						if (
-							modeRef.current === 'audio' &&
-							s &&
-							s.speaking === false &&
-							!s.aborted &&
-							playingRef.current &&
-							audioBaseRef.current == null
-						) {
-							modeRef.current = 'silent';
-							lastTRef.current = nowMs();
-						}
-					},
-				});
+				if (clocked) {
+					startClocked(voice, 0, 0); // fresh slide: read from cue 0, hold the highlight at word 0
+				} else {
+					// Non-clocked, non-silent = the browser speechSynthesis rung (dev-only — Studio never
+					// passes allowBrowserVoice). It plays ITSELF (no bytes to cross a bytes player), in
+					// PARALLEL with the wall-clock estimate and reporting no onsets — exactly as voice.speak
+					// did for this rung. No Suono sequence (there are no clip bytes to schedule).
+					try {
+						voice.speakThis(spoken.join(' '), ctl.signal);
+					} catch {
+						/* best-effort — the estimate still runs the read-along */
+					}
+				}
 			}
 		});
-	}, [track, startLoop]);
+	}, [track, startLoop, startClocked, resumeClockedFromCurrent]);
 
 	const pause = React.useCallback(() => {
 		cancelRaf();
 		pausedRef.current = true;
 		playingRef.current = false;
 		setPlaying(false);
+		try {
+			seqRef.current?.pause();
+		} catch {
+			/* best-effort */
+		}
 		try {
 			voiceRef.current?.pause();
 		} catch {
@@ -742,22 +899,43 @@ export function useReadAloud(
 		else play();
 	}, [pause, play]);
 
-	// React to a mid-playback Voice MUTE (present redesign S3): `muted` is otherwise only sampled at
-	// play() start, so muting mid-speech would leave the deck talking to the end of the slide. Stop the
-	// in-flight TTS and fall the loop back to the silent cadence (mirrors the synth-failed fallback);
-	// the captions keep animating. Unmuting mid-slide takes effect on the NEXT slide (deliberate — a
-	// mid-slide voice restart would snap the highlight back to word 0).
+	// React to a mid-playback Voice MUTE/UNMUTE (present redesign S3): `muted` is otherwise only sampled
+	// at play() start. MUTE mid-speech stops the (paid) TTS and falls the loop back to the silent cadence
+	// (captions keep animating) — else the deck talks to the end of the slide. UNMUTE mid-slide RESUMES
+	// the clocked audio on THIS slide from the current sentence — "i unmute, i expect the sound to
+	// return and be heard" — rather than waiting for the next slide. It re-speaks the current sentence
+	// from its start (holding the highlight there until the onset), so the correction is at most one
+	// sentence, never a snap back to word 0.
 	const mutedProp = !!opts?.muted;
 	React.useEffect(() => {
-		if (mutedProp && playingRef.current && modeRef.current === 'audio') {
-			try {
-				voiceRef.current?.stop();
-			} catch {
-				/* best-effort */
+		if (mutedProp) {
+			// Suppress the clocked audio when it's LIVE — playing OR merely paused (mode stays 'audio'
+			// across a pause). Gating on playingRef alone dropped a mute tapped while paused, leaving a
+			// paused-but-live sequence that then RESUMED AUDIBLY on the next play despite the mute
+			// (checker finding). `pausedRef` covers that; a read that has ended (neither playing nor
+			// paused) has nothing to suppress.
+			if ((playingRef.current || pausedRef.current) && modeRef.current === 'audio') {
+				try {
+					seqRef.current?.stop();
+				} catch {
+					/* best-effort */
+				}
+				seqRef.current = null;
+				try {
+					voiceRef.current?.stop();
+				} catch {
+					/* best-effort */
+				}
+				modeRef.current = 'silent';
+				audioSuppressedRef.current = true;
+				lastTRef.current = nowMs();
 			}
-			modeRef.current = 'silent';
-			lastTRef.current = nowMs();
+			return;
 		}
+		// UNMUTE while PLAYING → resume the clocked audio now. While PAUSED, `audioSuppressedRef` stays
+		// set and the resume is DEFERRED to the next play() (see the resume branch) — so a
+		// mute → pause → unmute → play still brings the audio back on this slide.
+		if (playingRef.current) resumeClockedFromCurrentRef.current();
 	}, [mutedProp]);
 
 	return { playing, track, active, progress, rung, debugEvents, debugLive, play, pause, toggle, stop };

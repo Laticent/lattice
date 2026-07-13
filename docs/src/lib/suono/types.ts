@@ -44,10 +44,12 @@ export interface StageOptions {
 
 /** The measured span of a clip, read at its TRUE audio start (not schedule time). */
 export interface Onset {
-	/** RAW WebAudio clock time (ms, `ctx.currentTime`) at which this clip actually started — NOT
-	 *  latency-compensated. Pairs with the latency-compensated `clockMs()`: `clockMs() - onsetMs`
-	 *  already yields the HEARD elapsed time (the latency is subtracted exactly once, by `clockMs`),
-	 *  so a caption cursor must NOT subtract `latencyMs()` again. (See `Stage.clockMs`.) */
+	/** The stage PLAY-CLOCK time (ms) at which this clip actually started: `ctx.currentTime` MINUS any
+	 *  paused wall-time, but NOT latency-compensated. Shares its basis with `clockMs()` (which is this
+	 *  same play-clock minus latency), so `clockMs() - onsetMs` yields the HEARD elapsed time with the
+	 *  latency subtracted exactly once — a caption cursor must NOT subtract `latencyMs()` again, and the
+	 *  paused offset cancels in the subtraction (so a pause never drifts the caption). (See
+	 *  `Stage.clockMs`.) For a run that never pauses this equals the raw `ctx.currentTime` at start. */
 	onsetMs: number;
 	/** Decoded clip duration (ms). */
 	durationMs: number;
@@ -73,6 +75,13 @@ export interface PlayHandle {
 	stop(): void;
 	/** Resolves when the clip ends naturally, is stopped, or fails. NEVER rejects. */
 	done: Promise<PlayResult>;
+	/** Pause this clip: fade it out (declick), stop it, and remember the offset. `done` stays pending.
+	 *  Idempotent; a no-op once the clip has ended. */
+	pause(): void;
+	/** Resume a paused clip from where it left off — plays a FRESH source from the remembered offset
+	 *  (fading back in), rather than relying on the context to un-freeze a suspended source (which is
+	 *  unreliable on iOS/Safari). Idempotent; a no-op if not paused. */
+	resume(): void;
 }
 
 /** A decoded, ready-to-play clip. Opaque handle over the platform AudioBuffer. */
@@ -101,9 +110,11 @@ export interface Stage {
 	latencyMs(): number;
 	/** Lifecycle state for diagnostics. */
 	state(): StageState;
-	/** Context-level pause: suspends the in-flight clip mid-stream. */
+	/** Context-level suspend — freezes `clockMs()` (and the hardware context) between clips. NOTE: this
+	 *  does NOT reliably keep a live clip audible across resume on iOS/Safari; to pause an in-flight
+	 *  clip, use the `PlayHandle`'s `pause()`/`resume()` (stop + re-arm), which the sequencer does. */
 	suspend(): void;
-	/** Resume a suspended context. */
+	/** Resume a context suspended by `suspend()`. */
 	resume(): void;
 	/** Build a sequence scheduler bound to this stage. */
 	sequence<T>(opts: SequenceOptions<T>): Sequence;
