@@ -46,8 +46,9 @@ const catalog = [{ name: 'kpi', effectiveVariants: ['compact', 'accent'] }];
 
 function setup(chunk: string, source = chunk, savedFinishNames: string[] = []) {
 	const onMutate = vi.fn();
+	const savedFinish = savedFinishNames.map((n) => ({ id: n, name: n, label: n.charAt(0).toUpperCase() + n.slice(1) }));
 	render(
-		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinishNames={savedFinishNames} onMutate={onMutate} />,
+		<SlideContextBody open chunk={chunk} source={source} slideNumber={1} lintVocab={lintVocab} catalog={catalog} savedFinish={savedFinish} onMutate={onMutate} />,
 	);
 	// Apply the captured transform to the chunk to see the resulting tokens.
 	const applied = () => getClassTokens(onMutate.mock.calls.at(-1)?.[0](chunk));

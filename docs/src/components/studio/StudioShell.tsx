@@ -23,12 +23,14 @@ import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
+import { CatalogSelect } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { Editor, type EditorHandle } from './Editor';
-import { activeFinishLabel, FinishMenuItems, type SavedFinishMenuEntry } from './FinishPicker';
+import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
+import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
@@ -976,7 +978,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const savedMenu = React.useMemo(() => savedThemes.map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
 	// Label + dot for the deck-theme trigger — null when the deck names no theme (Automatic).
 	const deckThemeMenuLabel = React.useMemo(() => (deckThemeBase ? activePaletteLabel(deckThemeBase, savedMenu) : null), [deckThemeBase, savedMenu]);
-	const activeFin = React.useMemo(() => activeFinishLabel(finish, savedFinishMenu), [finish, savedFinishMenu]);
 	const activeMan = React.useMemo(() => activeModeLabel(renderMode), [renderMode]);
 	const activeSpec = React.useMemo(() => activeSpectrumLabel(spectrum), [spectrum]);
 	// Light/dark toggle — flips the shared `data-mode` (engine `light-dark()` resolves
@@ -1581,14 +1582,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</DropdownMenu>
 					</Field>
 				<Field label="Finish" desc="A backdrop texture applied to every slide — a soft gradient, wash, or grain behind the content.">
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Control aria-label="Choose finish"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activeFin.swatch, backgroundSize: activeFin.backgroundSize }} /><span className="truncate">{activeFin.label}</span></span> <ChevronDown className="size-3.5" /></Control>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="max-h-[60vh] w-56 overflow-y-auto">
-								<FinishMenuItems finish={finish} onPick={setFinish} saved={savedFinishMenu} />
-							</DropdownMenuContent>
-						</DropdownMenu>
+						<CatalogSelect
+							ariaLabel="Choose finish"
+							value={activeSavedFinish ? `finish-${activeSavedFinish.name}` : activeFinish(finish).name}
+							onValueChange={setFinish}
+							className="min-w-[116px]"
+							groups={finishSelectGroups({
+								heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }],
+								saved: savedFinishMenu,
+								savedValue: (n) => `finish-${n}`,
+							})}
+						/>
 					</Field>
 					{savedFinishes.length > 0 && (
 						<div className="mt-2 space-y-0.5">
@@ -1707,7 +1711,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
 			) : (
-				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateSlideFromPanel} />
+				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} />
 			)}
 		</>
 	);

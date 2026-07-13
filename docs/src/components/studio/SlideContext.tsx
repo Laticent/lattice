@@ -15,16 +15,18 @@
 import { Captions, Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch as UISwitch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
+import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
+import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { SlideComments } from './SlideComments';
 import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
 import { type Canvas, canvasProvenance, deckDefaults, finishProvenance, setCanvas, setFinish, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { activeSpectrum } from './spectrum-catalog';
 
 type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
 type LintVocab = {
@@ -53,8 +55,9 @@ export type SlideContextBodyProps = {
 	catalog: CatalogEntry[];
 	/** The active deck's id — keys the per-deck comments store. Comments tab hidden without it. */
 	deckId?: string;
-	/** The user's saved finish names, folded into the finish picker. */
-	savedFinishNames?: string[];
+	/** The user's saved (Fabricated) finishes — folded into the finish picker with
+	 *  their swatch previews, same as the deck Inspector. */
+	savedFinish?: SavedFinishMenuEntry[];
 	/** Commit a pure transform against the FRESHEST slide chunk (avoids stale drafts). */
 	onMutate: (fn: (chunk: string) => string) => void;
 };
@@ -148,28 +151,17 @@ function ChipRow({ options, value, onChange, ariaLabel }: { options: { label: st
 	);
 }
 
-// Styled to match Control, on the shared ui/select primitive. Accepts flat
-// `options` and/or grouped `groups` (rendered as SelectGroups after the flat
-// heads), so a picker can lead with an Inherit/Default head and then group the
-// rest (e.g. Boardroom vs the wider range). Sentinel values (`__inherit__`,
-// `__none__`, `__default__`) are non-empty, so Radix's no-empty-value rule holds.
-function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { value: string; onChange: (v: string) => void; options?: { label: string; value: string }[]; groups?: { label: string; options: { label: string; value: string }[] }[]; ariaLabel: string }) {
-	return (
-		<Select value={value} onValueChange={onChange}>
-			<SelectTrigger aria-label={ariaLabel} className="h-auto min-w-[120px] gap-2 border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)]">
-				<SelectValue />
-			</SelectTrigger>
-			<SelectContent>
-				{options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-				{groups.map((g) => (
-					<SelectGroup key={g.label}>
-						<SelectLabel>{g.label}</SelectLabel>
-						{g.options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-					</SelectGroup>
-				))}
-			</SelectContent>
-		</Select>
-	);
+// A thin adapter over the shared CatalogSelect (HARD RULE #15 — the SAME selector
+// the deck Inspector uses). Accepts flat `options` (leading, ungrouped heads) and/or
+// grouped `groups`, each option optionally carrying a `swatch` preview. Sentinel
+// values (`__inherit__`, `__none__`, `__default__`) are non-empty, so Radix's
+// no-empty-value rule holds.
+function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { value: string; onChange: (v: string) => void; options?: CatalogOption[]; groups?: { label: string; options: CatalogOption[] }[]; ariaLabel: string }) {
+	const catGroups: CatalogGroup[] = [
+		...(options.length ? [{ options }] : []),
+		...groups.map((g) => ({ label: g.label, options: g.options })),
+	];
+	return <CatalogSelect value={value} onValueChange={onChange} groups={catGroups} ariaLabel={ariaLabel} />;
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -178,7 +170,7 @@ const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)'
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
-	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinishNames = [], onMutate } = props;
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -277,14 +269,15 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const finish = React.useMemo(() => finishProvenance(chunk, source), [chunk, source]);
 	const deck = React.useMemo(() => deckDefaults(source), [source]);
 
-	// Finish options: Inherit (only when the deck sets one), None, then presets + saved.
-	const finishNames = [...new Set([...(vocab.finishNames ?? []), ...savedFinishNames])];
+	// Finish: the SAME shared selector the deck Inspector uses (CatalogSelect), fed
+	// the shared finish groups — Inherit (only when the deck sets one) + None heads,
+	// then the catalog presets and your saved finishes, each with its swatch preview.
 	const finishValue = finish.state === 'inherited' ? '__inherit__' : finish.state === 'off' ? '__none__' : (finish.value ?? '__none__');
-	const finishOptions = [
-		...(finish.inheritable ? [{ label: `Inherit — ${deck.finish}`, value: '__inherit__' }] : []),
-		{ label: 'None', value: '__none__' },
-		...finishNames.map((n) => ({ label: cap(n), value: n })),
+	const finishHeads: CatalogOption[] = [
+		...(finish.inheritable ? [{ value: '__inherit__', label: `Inherit — ${cap(deck.finish ?? '')}`, swatch: finishSwatchFor(deck.finish) }] : []),
+		{ value: '__none__', label: 'None', swatch: finishSwatchFor('none') },
 	];
+	const finishGroups = finishSelectGroups({ heads: finishHeads, saved: savedFinish, savedValue: (n) => n });
 	const onFinish = (v: string) => onMutate((c) => setFinish(c, v === '__inherit__' ? null : v === '__none__' ? 'none' : v));
 
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
@@ -292,12 +285,12 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// deck sets off/solid the head reads "Inherit — <deck>"; otherwise it's the rainbow.
 	const spectrum = React.useMemo(() => spectrumProvenance(chunk, source), [chunk, source]);
 	const spectrumValue = spectrum.state === 'on' ? (spectrum.value ?? '__inherit__') : '__inherit__';
-	const spectrumOptions = [
+	const spectrumOptions: CatalogOption[] = [
 		spectrum.inheritable
-			? { label: `Inherit — ${cap(spectrum.deckValue ?? '')}`, value: '__inherit__' }
-			: { label: 'Rainbow', value: '__inherit__' },
-		{ label: 'None', value: 'off' },
-		{ label: 'Solid accent', value: 'solid' },
+			? { label: `Inherit — ${cap(spectrum.deckValue ?? '')}`, value: '__inherit__', swatch: activeSpectrum(spectrum.deckValue ?? 'on').swatch }
+			: { label: 'Rainbow', value: '__inherit__', swatch: activeSpectrum('on').swatch },
+		{ label: 'None', value: 'off', swatch: activeSpectrum('off').swatch },
+		{ label: 'Solid accent', value: 'solid', swatch: activeSpectrum('solid').swatch },
 	];
 	const onSpectrum = (v: string) => onMutate((c) => setSpectrum(c, v === '__inherit__' ? null : v));
 
@@ -522,7 +515,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								/>
 							</Row>
 							<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined} desc="A backdrop texture behind the content — a soft gradient or grain. Inherited from the deck unless you override it here.">
-								<Picker ariaLabel="Slide finish" value={finishValue} onChange={onFinish} options={finishOptions} />
+								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} />
 							</Row>
 							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The colored strip on the slide's top edge (a divider shows it as a left rail). None removes it; Solid repaints it in the theme's accent.">
 								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />

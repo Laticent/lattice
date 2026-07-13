@@ -259,6 +259,19 @@ in patch versions.
 
 ### Changed
 
+- **The Finish selector is now ONE shared component across both Inspectors, with its swatch previews
+  everywhere.** The deck Inspector and the slide Inspector used to run *different* finish pickers — the
+  deck a DropdownMenu with finish swatches, the slide a plain text `<select>` with none. They now render
+  the same new `CatalogSelect` (a shadcn-Select-based picker that shows each option's preview swatch on
+  the trigger and every row), fed by a shared `finishSelectGroups` helper (HARD RULE #15 — no duplicate
+  picker). So the slide Inspector's Finish gains the Atrium/Meridian/Strata/… texture previews it was
+  missing, and saved (Fabricated) finishes now carry their swatches into the slide Inspector too (the
+  Studio now passes the full saved-finish menu, not bare names). The slide **Brand bar** picker gains its
+  spectrum swatches the same way. The retired duplicate (`FinishMenuItems`, `activeFinishLabel`) is
+  deleted. Verified on the real Studio: both Inspectors' Finish show swatches and apply end to end
+  (deck → `finish:` front-matter, slide → per-slide `finish-<name>`). First step of unifying every
+  catalog-backed picker (finish, brand bar, mode, theme) onto `CatalogSelect`;
+  `engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md`.
 - **Studio dropdowns now use the shared `ui/select` primitive instead of native `<select>`.** The three
   surviving native selects on live surfaces — `SlideContext`'s `Picker` (finish / brand-bar / stamp /
   tone, with its grouped options), `Fabricate`'s manifest-field `sel`, and `WorkspaceSheet`'s budget
