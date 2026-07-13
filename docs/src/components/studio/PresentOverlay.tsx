@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
-import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, symbolOverrideMap } from '@/lib/resolve-captions';
+import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
@@ -242,9 +242,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// front-matter. Author pronunciations beat the built-in dictionary and the patterns,
 	// on BOTH the live reader and the warm-ahead prefetch (same map → cache keys match).
 	const acronyms = React.useMemo(() => acronymSpokenMap(frontMatter), [frontMatter]);
-	// The deck's per-glyph symbol overrides (`symbols:` front-matter) — author glyph pronunciations
-	// beat the built-in Speech Symbol Commons, on the live reader AND the warm-ahead prefetch.
-	const symbols = React.useMemo(() => symbolOverrideMap(frontMatter), [frontMatter]);
+	// The deck's read-aloud lexicon (`lexicon:` front-matter) — author say-as for a word or glyph
+	// beats the built-in Speech Symbol Commons, on the live reader AND the warm-ahead prefetch.
+	const lexicon = React.useMemo(() => lexiconMap(frontMatter), [frontMatter]);
 	// The deck's language (Marp `lang:`). A non-English deck bypasses Cadenza's English
 	// lexicon + number/period say-as so read-aloud doesn't inject English into it (#919) —
 	// threaded into the reader AND the warm-ahead prefetch so both agree with the export.
@@ -254,7 +254,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		narrationText,
 		{
 			acronyms,
-			symbols,
+			lexicon,
 			lang,
 			muted,
 			debug: readAloudDebug,
@@ -335,9 +335,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		// checker finding). A request already in flight when this fires just
 		// finishes on its own; see warm()'s own comment in voice-model.js.
 		const ctl = new AbortController();
-		warmNarration(narrationAt(clamped + 1), ctl.signal, acronyms, lang, symbols);
+		warmNarration(narrationAt(clamped + 1), ctl.signal, acronyms, lang, lexicon);
 		return () => ctl.abort();
-	}, [autoplay, muted, clamped, set, narrationAt, acronyms, lang, symbols]);
+	}, [autoplay, muted, clamped, set, narrationAt, acronyms, lang, lexicon]);
 	// The ONE Play (present redesign S3): Play narrates the current slide AND advances (like a
 	// video) — it enables autoplay-chaining and plays; Pause pauses (autoplay stays on, so resume
 	// keeps chaining; the deck's natural end turns autoplay off via onFinish). No separate "Auto".

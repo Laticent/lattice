@@ -624,15 +624,26 @@ in patch versions.
 
 ### Added
 
+- **A "Lexicon" panel in the deck settings — edit read-aloud pronunciations without YAML.**
+  The deck-scope Inspector (Studio → Deck settings) gains a Lexicon group: add a row, type a word
+  or symbol and how it should be read aloud (blank = silence it), and it writes the `lexicon:`
+  front-matter for you — carried into the deck, its captions, and every export. A lexicon entry can
+  fix a whole word's pronunciation (`Kubernetes: koober net eez`), not just a glyph. Overrides the
+  built-in Speech Symbol Commons, mirroring how `acronyms:` already work. (`LexiconEditor` +
+  a nested-block front-matter serializer, `setFrontMatterBlock`.) A red-team pass over the
+  untrusted-front-matter surface confirmed no XSS and no cyclic-override recursion, and hardened two
+  pre-existing token-length DoS sinks in the spoken-form normalizer (`MAX_SPOKEN_TOKEN` bound).
+
 - **Read-aloud now speaks symbols correctly — a Speech Symbol Commons, with per-deck overrides.**
   One canonical resolver turns a glyph into the right spoken form: arrows read as transitions
   (`→`→"to", `↔`→"and"), math operators as words (`×`→"times", `≈`→"approximately", `±`→"plus or
   minus", `≥`→"greater than or equal to", `°`→"degrees"), typographic marks (`©`→"copyright",
   `™`→"trademark", `¶`→"paragraph"), and decorative **emoji are dropped** (the voice never reads
   "rocket"). It handles standalone (`→`), embedded (`red↔green`), and mixed (`3×4`) alike. Ambiguous
-  glyphs (`+ − = / #`) are deliberately left to the existing parsers. Authors override any glyph via
-  a front-matter `symbols:` map (`"→": leads to`, `"🎯": ""` to silence) — author beats the built-in,
-  exactly like `acronyms:`. Spoken-form only: caption glyphs and the exported `.vtt` *text* are
+  glyphs (`+ − = / #`) are deliberately left to the existing parsers. Authors override any glyph or
+  word via a front-matter `lexicon:` map (`"→": leads to`, `"🎯": ""` to silence,
+  `Kubernetes: koober net eez` to fix a word) — author beats the built-in, exactly like `acronyms:`.
+  Spoken-form only: caption glyphs and the exported `.vtt` *text* are
   unchanged (word *timestamps* shift with the new spoken forms). Design:
   `engineering/decisions/2026-07-13-speech-symbol-commons.md`.
 

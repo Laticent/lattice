@@ -2,34 +2,41 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test.
-let parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang, symbolOverrideMap;
+let parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang, lexiconMap;
 test.before(async () => {
-  ({ parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang, symbolOverrideMap } = await import('../../../lib/core/resolve-captions.mjs'));
+  ({ parseNarrationFrontMatter, frontMatterCaptions, frontMatterLang, lexiconMap } = await import('../../../lib/core/resolve-captions.mjs'));
 });
 
 const fm = (body) => `---\n${body}\n---\n\n# Deck\n`;
 
-test('symbols: parses a quoted glyph → spoken override map', () => {
-  const { symbols } = parseNarrationFrontMatter(fm('symbols:\n  "→": leads to\n  "≈": roughly'));
-  assert.equal(symbols.get('→'), 'leads to');
-  assert.equal(symbols.get('≈'), 'roughly');
+test('lexicon: parses a quoted glyph or a WORD → spoken override map', () => {
+  const { lexicon } = parseNarrationFrontMatter(fm('lexicon:\n  "→": leads to\n  Kubernetes: koober-net-eez'));
+  assert.equal(lexicon.get('→'), 'leads to');
+  assert.equal(lexicon.get('Kubernetes'), 'koober-net-eez'); // a word key, not just a glyph
 });
 
-test('symbols: an empty value is kept as the deliberate "silence this glyph" signal', () => {
-  const { symbols } = parseNarrationFrontMatter(fm('symbols:\n  "🎯": ""\n  "★": '));
-  assert.equal(symbols.get('🎯'), '');
-  assert.equal(symbols.get('★'), '');
+test('lexicon: an empty value is kept as the deliberate "silence this token" signal', () => {
+  const { lexicon } = parseNarrationFrontMatter(fm('lexicon:\n  "🎯": ""\n  "★": '));
+  assert.equal(lexicon.get('🎯'), '');
+  assert.equal(lexicon.get('★'), '');
 });
 
-test('symbols: a bare (unquoted) glyph key works too, last-wins on a duplicate', () => {
-  const { symbols } = parseNarrationFrontMatter(fm('symbols:\n  ÷: over\n  →: first\n  →: second'));
-  assert.equal(symbols.get('÷'), 'over');
-  assert.equal(symbols.get('→'), 'second');
+test('lexicon: a bare (unquoted) key works too, last-wins on a duplicate', () => {
+  const { lexicon } = parseNarrationFrontMatter(fm('lexicon:\n  ÷: over\n  →: first\n  →: second'));
+  assert.equal(lexicon.get('÷'), 'over');
+  assert.equal(lexicon.get('→'), 'second');
 });
 
-test('symbols: absent key → empty map; symbolOverrideMap is the thin accessor', () => {
-  assert.equal(parseNarrationFrontMatter(fm('theme: indaco')).symbols.size, 0);
-  assert.equal(symbolOverrideMap(fm('symbols:\n  "→": to the')).get('→'), 'to the');
+test('lexicon: the old `symbols:` key is NOT an alias — only `lexicon:` is read (renamed pre-release)', () => {
+  // #949 shipped the key as `symbols:`; #952 renamed it to `lexicon:` before any release and carries
+  // no alias. A `symbols:` block must be inert so the sole author-facing key is `lexicon:`.
+  assert.equal(lexiconMap(fm('symbols:\n  "→": to the')).size, 0);
+  assert.equal(parseNarrationFrontMatter(fm('symbols:\n  "→": old\nlexicon:\n  "→": new')).lexicon.get('→'), 'new');
+});
+
+test('lexicon: absent key → empty map; lexiconMap is the thin accessor', () => {
+  assert.equal(parseNarrationFrontMatter(fm('theme: indaco')).lexicon.size, 0);
+  assert.equal(lexiconMap(fm('lexicon:\n  "→": to the')).get('→'), 'to the');
 });
 
 test('acronyms: string shorthand → { expansion }', () => {

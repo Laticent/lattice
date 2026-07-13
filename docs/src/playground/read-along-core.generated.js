@@ -288,6 +288,7 @@ var require_dist = __commonJS({
       return changed ? out : null;
     }
     var SEPARATOR_ONLY = new RegExp(`^[${SEPARATOR_GLYPHS.replace(/[\\\]]/g, "\\$&")}]+$`);
+    var MAX_SPOKEN_TOKEN = 512;
     var ONES = [
       "zero",
       "one",
@@ -378,26 +379,37 @@ var require_dist = __commonJS({
       const t = String(lang ?? "").trim().toLowerCase();
       return t === "" || t === "en" || t.startsWith("en-");
     }
+    function spokenLexiconValue(value, opts) {
+      if (!value) return "";
+      return toSpokenText(value, { ...opts, lexicon: void 0 });
+    }
     function toSpoken(display, opts = {}) {
       const tok = String(display ?? "").trim();
       if (!tok) return "";
+      if (tok.length > MAX_SPOKEN_TOKEN) return tok;
       const domains = opts.domains ?? [];
       const acronyms = opts.acronyms;
       const english = isEnglishLang(opts.lang);
       if (acronyms?.has(tok)) return acronyms.get(tok);
+      const lexicon = opts.lexicon;
+      if (lexicon?.has(tok)) return spokenLexiconValue(lexicon.get(tok), opts);
       if (SEPARATOR_ONLY.test(tok)) return ",";
       if (english) {
         const whole = lookupLexicon(tok, domains);
         if (whole !== null) return whole;
       }
-      const symbolic = resolveSymbols(tok, { overrides: opts.symbols, english });
-      if (symbolic !== null) {
-        const rest = { ...opts, symbols: void 0 };
-        return splitWords(symbolic).map((w) => toSpoken(w, rest)).filter(Boolean).join(" ");
-      }
       const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
       const core = punct ? tok.slice(0, -punct.length) : tok;
       const spokenPunct = punct.replace(/[:;]/g, ",");
+      if (lexicon?.has(core)) {
+        const spoken = spokenLexiconValue(lexicon.get(core), opts);
+        return spoken ? spoken + spokenPunct : "";
+      }
+      const symbolic = resolveSymbols(tok, { overrides: opts.lexicon, english });
+      if (symbolic !== null) {
+        const rest = { ...opts, lexicon: void 0 };
+        return splitWords(symbolic).map((w) => toSpoken(w, rest)).filter(Boolean).join(" ");
+      }
       return spokenCore(core, domains, acronyms, english) + spokenPunct;
     }
     function spokenCore(core, domains, acronyms, english = true) {
@@ -719,7 +731,7 @@ var require_dist = __commonJS({
           const charOffset = found >= 0 ? found : scan;
           if (found >= 0) scan = found + display.length;
           if (cueCharOffset < 0) cueCharOffset = charOffset;
-          const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, symbols: opts.symbols });
+          const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon });
           const pause = pauseAfter(display);
           const dur = estimateWordMs(spoken, pace, rateScale2) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
           const startMs = clock;
@@ -788,13 +800,13 @@ var require_read_along_build = __commonJS({
     function buildReadAlong2(slideTexts, opts) {
       const pace = opts.pace ?? "moderate";
       const acronyms = opts.acronyms;
-      const symbols = opts.symbols;
+      const lexicon = opts.lexicon;
       const lang = opts.lang;
       const slides = [];
       for (let index = 0; index < slideTexts.length; index++) {
         const text = String(slideTexts[index] ?? "").trim();
         if (!text) continue;
-        slides.push({ index, track: buildTrack(text, { pace, acronyms, lang, symbols }) });
+        slides.push({ index, track: buildTrack(text, { pace, acronyms, lang, lexicon }) });
       }
       return {
         version: "1.0",

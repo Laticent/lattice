@@ -2812,13 +2812,13 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // front-matter `captions:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
   // the shared resolver so both producers can't drift (#904).
   let acronyms;
-  let symbols; // author `symbols:` glyph overrides → beat the built-in Speech Symbol Commons
+  let lexicon; // author `lexicon:` — a token (glyph or word) → spoken; beats the built-in commons
   let fmCaptions;
   let lang; // deck language (Marp `lang:`); a non-English deck bypasses English say-as (#919)
   try {
-    const { acronymSpokenMap, frontMatterCaptions, frontMatterLang, symbolOverrideMap } = await import('./lib/core/resolve-captions.mjs');
+    const { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } = await import('./lib/core/resolve-captions.mjs');
     acronyms = acronymSpokenMap(rawMd);
-    symbols = symbolOverrideMap(rawMd);
+    lexicon = lexiconMap(rawMd);
     fmCaptions = frontMatterCaptions(rawMd);
     lang = frontMatterLang(rawMd);
   } catch (e) {
@@ -2900,7 +2900,7 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
     pace: 'moderate',
     acronyms,
-    symbols,
+    lexicon,
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
   });
   if (!readAlong.slides.length) {

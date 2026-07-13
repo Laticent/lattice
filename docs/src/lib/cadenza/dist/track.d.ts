@@ -1,6 +1,6 @@
 import { type Pace } from './cadence';
 import { type AcronymRegistry } from './normalize';
-import type { SymbolOverrides } from './symbols';
+import type { LexiconMap } from './symbols';
 export interface Word {
     /** The glyph group shown in the caption (e.g. "$4.2M"). The highlight unit. */
     display: string;
@@ -34,9 +34,9 @@ export interface BuildOptions {
     /** Per-voice pace calibration multiplier (default 1); scales the syllable estimate to a
      *  measured voice rate. See `calibrate.ts` and the per-voice-calibration decision doc. */
     rateScale?: number;
-    /** The deck's per-glyph symbol overrides (`symbols:` front-matter): display glyph → spoken form,
-     *  beating the built-in Speech Symbol Commons. Author wins — see symbols.ts. */
-    symbols?: SymbolOverrides;
+    /** The deck's read-aloud lexicon (`lexicon:` front-matter): token (glyph or whole word) → spoken
+     *  form, beating the built-in Speech Symbol Commons. Author wins — see symbols.ts. */
+    lexicon?: LexiconMap;
 }
 /**
  * Build the estimate-baseline timeline from text. Deterministic and offline: this

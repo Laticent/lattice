@@ -182,3 +182,30 @@ export function setFrontMatter(source: string, key: string, value: string | null
 	// Nested blocks (e.g. `finish-override:`) round-trip untouched when a flat key changes.
 	return emitFm(pairs, blocks, body);
 }
+
+/**
+ * Set (or, with empty `entries`, remove) a NESTED child-map block — a bare `key:` header with
+ * indented `"child": value` lines. This is the shape the narration keys use (`lexicon:` token →
+ * spoken, and `acronyms:` term → spoken); `setFrontMatter` handles only flat scalars and can't
+ * express it. Preserves the flat directives, any OTHER nested block, and the body. The reader is
+ * `lexiconMap` / `parseNarrationFrontMatter` (resolve-captions). Entries emit in order; the
+ * child KEY is always quoted (a token can be `:` or whitespace-adjacent), the VALUE quoted only
+ * when needed — an empty value emits `""`, the explicit "silence this token" form. Drops any prior
+ * form of the key (a nested block OR a flat/inline-flow scalar of the same name) before writing.
+ */
+export function setFrontMatterBlock(source: string, key: string, entries: Iterable<[string, string]>): string {
+	const list = [...entries];
+	const body = stripFrontMatter(source);
+	const { pairs: all, blocks: allBlocks } = parseFm(source);
+	const pairs = all.filter(([k]) => k !== key);
+	const blocks = allBlocks.filter(([k]) => k !== key);
+	if (list.length) {
+		// Escape backslash FIRST, then quote — else a `\` before a `"` would break the quoting
+		// (CodeQL: incomplete string escaping). Glyph keys never actually carry either, but the
+		// escaping must be complete.
+		const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+		const child = list.map(([k, v]) => `  "${esc(String(k))}": ${quoteIfNeeded(String(v))}`);
+		blocks.push([key, child]);
+	}
+	return emitFm(pairs, blocks, body);
+}

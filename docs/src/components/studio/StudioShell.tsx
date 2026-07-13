@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, Check, ChevronDown, ChevronRight,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
+import { lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
@@ -28,10 +29,11 @@ import { Editor, type EditorHandle } from './Editor';
 import { activeFinishLabel, FinishMenuItems, type SavedFinishMenuEntry } from './FinishPicker';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { LatticeMark } from './LatticeMark';
+import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
@@ -815,6 +817,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// band turns off — no separate toggle, the presence of text IS the switch.
 	const setHeaderText = (v: string) => settingsWrite('Header', (s) => setFrontMatter(s, 'header', v.trim() || null));
 	const setFooterText = (v: string) => settingsWrite('Footer', (s) => setFrontMatter(s, 'footer', v.trim() || null));
+	// The deck's `lexicon:` (word-or-symbol → spoken). Read from the front-matter block;
+	// committing writes the whole block back through the settings funnel (Undo toast + reactivity).
+	const lexicon = React.useMemo(() => lexiconMap(fm), [fm]);
+	const setLexicon = (entries: [string, string][]) => settingsWrite('Lexicon', (s) => setFrontMatterBlock(s, 'lexicon', entries));
 	// Rail ON → clear `no-progress`; rail OFF → stamp it (deck-wide, non-destructive
 	// to any other author classes).
 	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => (deckRail ? mergeClassTokens(s, 'no-progress') : removeClassTokens(s, 'no-progress')));
@@ -1619,6 +1625,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 					<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				</InspGroup>
+			<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="Teach read-aloud how to say a tricky word or symbol, or silence it. Overrides the built-in symbol commons; carried into the deck and its captions.">
+				<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
+			</InspGroup>
 			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring" desc="Aids while you write. Preview-only — none of this appears in the export." last>
 				<Field label="Inline validation" desc="Flags unknown components in the editor as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
 				{/* Debug overlay — outlines every box by layout mode and labels the
