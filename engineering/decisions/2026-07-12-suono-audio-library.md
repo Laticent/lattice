@@ -287,12 +287,26 @@ migration wires it into the Playground.
    `@/lib/suono` alias (no `package.json` yet — a bare co-located manifest with a `dist` `exports`
    map would split the docs toolchain, per `2026-07-08-library-shape` finding #1; packaging waits
    for slice 3). Pure kernels tested; scheduler tested with a fake stage; `checkSuonoBoundary` green.
-2. **Migrate `voice-model.js` onto Suono.** Replace its `getCtx`/`unlock`/`playBlob`/`speak`
-   scheduler internals with a Suono `stage` + `sequence`; the rung ladder, OpenRouter fetch, Kokoro
-   worker, and prefs stay. Net deletion in `voice-model.js`. Verified on the **real Playground**
-   (drive read-aloud on the actual docs build — the surface HARD RULE #23 demands), dark + light,
-   desktop + a coarse-pointer check. Then add the repo-wide "no raw AudioContext outside Suono" gate
-   (§6), with voice-model now clean.
+2. **Migrate consumers onto Suono — sub-sliced, because the seam moved.** The slice-1 sketch assumed
+   Suono adoption happens *inside* `voice-model.js`. It can't: `voice-model.js` is required by a
+   plain-`node --test` suite, so it must stay node-loadable and **cannot `import` the TS Suono**. So
+   the seam is the *consumer* (the app layer), and `voice-model.js` becomes a pure byte SOURCE. And
+   there are FOUR consumers (`read-aloud.ts`, `cadenza.astro`, the two Drawing-Board modules), so this
+   migrates in sub-slices, non-breakingly:
+   - **2a — Studio read-aloud → Suono. ✅ DONE.** `voice-model.js` gained `synthOne(text) → {rung,
+     bytes, key}` (the byte source; picks the rung, shares the byte cache, plays nothing — node-tested)
+     + `speakThis` (the speechSynthesis parallel path). `read-aloud.ts` now owns a shared Suono
+     `stage` + `sequence` (`produce = voice.synthOne`, `onItemStart → reader.align`, highlight rides
+     `stage.clockMs()`), replacing the hand-rolled RAF/mode scheduler; #947's per-voice pace
+     calibration folds into the new `onItemStart`. `voice.speak()`/`playBlob` STAY (the other three
+     surfaces still use them), so it's additive + behavior-neutral. **Verified on real headless
+     Chromium** (real `AudioContext`: the word-highlight rode the real audio clock across a 4-sentence
+     read to `onFinish`) — closing the UNVERIFIED-stage caveat for the core paths. (Audible hardware
+     output + iOS-Safari ringer/`audioSession` remain device-only.)
+   - **2b — the other three consumers** (`cadenza.astro`, Drawing-Board practice/present) onto the same
+     seam. Then **2c** — remove `voice-model.js`'s own `getCtx`/`playBlob`/`speak` playback and add the
+     repo-wide "no raw AudioContext outside Suono" gate (§6), which can only land once *no* consumer
+     needs voice-model's context.
 3. **Library-shape packaging** (optional, when a root-CJS or Tauri consumer actually needs it) —
    the `package.json` + workspace + esbuild/`tsc` `dist/` + freshness-gate recipe from
    `2026-07-08-library-shape-cadenza-vetrina.md`, applied to Suono. Non-goal until there's a

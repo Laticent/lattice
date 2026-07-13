@@ -214,6 +214,12 @@ in patch versions.
 
 ### Changed
 
+- **The Studio read-aloud now plays through the Suono library** (its first production consumer) —
+  a behavior-neutral backend swap. `read-aloud.ts` drives a shared Suono `stage` + `sequence` instead
+  of a hand-rolled RAF/mode scheduler; `voice-model.js` gained a node-tested `synthOne(text)→bytes`
+  byte source (it keeps `speak()` for the other three voice surfaces). The integration is verified on
+  real headless Chromium (the word-highlight rides the real audio clock end to end). Design + status:
+  `engineering/decisions/2026-07-12-suono-audio-library.md` §8 slice 2a.
 - **The Print drawer flips paper and orientation instantly — it rasterizes each slide once and
   re-places the cached images.** Building the print PDF is now a two-step split: the expensive half
   (clone + embed fonts + rasterize each slide) runs **once** and its images are cached; changing

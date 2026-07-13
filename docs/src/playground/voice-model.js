@@ -580,6 +580,46 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return silentRung;
   }
 
+  // synthOne — synthesize ONE sentence to audio BYTES, the byte SOURCE for an EXTERNAL player (the
+  // Studio read-aloud's Suono sequence, which owns the AudioContext + scheduler + clock). It picks the
+  // active rung, uses this instance's shared byte cache + in-flight dedup, and PLAYS NOTHING (no
+  // AudioContext here). Returns `{ rung, bytes, key }`:
+  //   • rung  — the active rung name, so the caller decides how to play: a blob rung → decode+play the
+  //             bytes on its own clock; 'speechSynthesis' → the caller drives speakThis() (that rung
+  //             plays itself, no bytes — it can't cross a bytes-only player); 'silent' → nothing.
+  //   • bytes — a Blob/blob-like for a blob rung; null for silent / speechSynthesis / empty text.
+  //   • key   — the exact cache key, handed back so the caller's own decoded-buffer cache can share
+  //             this identity (Suono's `keyOf`), and so a warm/replay lines up bit-for-bit.
+  // Mirrors speak()'s internal synth() cache/dedup/timeout discipline; speak() stays for the surfaces
+  // not yet migrated (cadenza.astro, the Drawing Board), so the two coexist until those move too.
+  async function synthOne({ text, voice, speed, signal } = {}) {
+    const rung = pickRung();
+    const effSpeed = speed ?? speedPref();
+    // Mirror each rung's own `voice || getVoice()` fallback EXACTLY (|| not ??) — see speak()'s
+    // effVoiceFor note for why a `??` mirror would freeze a stale-voice cache key.
+    const effVoice = voice || (rung.name === 'openrouter-tts' ? orVoice() : rung.name === 'kokoro' ? kokoroVoice() : '');
+    const key = cacheKeyFor(rung.name, modelIdFor(rung.name), effVoice, effSpeed, text);
+    if (!text || rung.name === 'silent' || rung.name === 'speechSynthesis') {
+      return { rung: rung.name, bytes: null, key };
+    }
+    const cached = audioCache.get(key);
+    if (cached) return { rung: rung.name, bytes: cached, key };
+    // Join an in-flight request for this key — unless it belongs to an already-aborted call (the same
+    // barge-in safety speak()'s synth() documents).
+    const joined = inFlightSynths.get(key);
+    if (joined && !joined.sig.aborted) return { rung: rung.name, bytes: await joined.promise, key };
+    let timer;
+    const p = Promise.race([
+      rung.synth({ text, voice, speed: effSpeed, signal })
+        .then((blob) => { if (blob) cacheSet(key, blob); return blob; })
+        .catch(() => null)
+        .finally(() => clearTimeout(timer)),
+      new Promise((res) => { timer = setTimeout(() => res(null), 20000); }),
+    ]).finally(() => { if (inFlightSynths.get(key)?.promise === p) inFlightSynths.delete(key); });
+    inFlightSynths.set(key, { promise: p, sig: signal ?? new AbortController().signal });
+    return { rung: rung.name, bytes: await p, key };
+  }
+
   // ── Playback (one owned WebAudio context; all rungs feed it Blobs) ───────────
   // WebAudio, not an <audio> element: iOS/Safari reliably plays a DECODED buffer
   // triggered after an async gap (download + synth / cloud fetch) and routes through
@@ -1056,6 +1096,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
 
   return {
     speak,
+    // synthOne — the byte SOURCE for an external player (Studio's Suono sequence). See its definition.
+    synthOne,
+    // Speak ONE sentence via the browser speechSynthesis rung (which plays itself, no bytes) — the
+    // parallel path a bytes-only external player uses when pickRung() lands on 'speechSynthesis'.
+    speakThis: speakViaSpeech,
     stop,
     pause,
     resume,
