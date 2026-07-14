@@ -164,6 +164,12 @@ in patch versions.
 
 ### Added
 
+- **Each voice in the Studio picker has a ▶ to hear it before you pick it.** The voice dropdown rows now
+  carry a play button that auditions that voice *without* selecting it — so you can browse a 30–54-voice
+  roster and listen down the list, instead of committing to each one to hear it (clicking the row still
+  selects + closes + previews, as before). It uses the same cached-first path (instant for a cached voice),
+  and the cached-audio path now barges in on a prior sample so rapid clicks don't overlap — a fix the model
+  picker's inline play shares. (`TtsSettings.tsx` `VoicePicker`, `read-aloud.ts` `playLocalSample`.)
 - **A live "Viz diagnostics" overlay in the Studio — the on-device twin of the `check:render` CI
   guard.** Toggle it in Workspace → Diagnostics (or `?viz`), and while you edit it reads the slide's
   rendered SVG chart paint and flags any that dropped to black because a themed color resolved to
