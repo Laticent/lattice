@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { type LensRegistry, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,7 @@ import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOve
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
-import { LensPicker } from './lens-picker';
+import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationIndices, presentationSet } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
@@ -47,7 +48,7 @@ type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
 
-export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
+export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
 	const [lens, setLens] = React.useState<PresentLens>('full');
 	const [idx, setIdx] = React.useState(0);
 	// Read-aloud diagnostics overlay — a first-class, draggable on-brand readout
@@ -78,14 +79,21 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const slideRowRef = React.useRef<HTMLDivElement>(null);
 	const [slideMaxW, setSlideMaxW] = React.useState(960);
 
-	const set = React.useMemo(() => presentationSet(slides, lens), [slides, lens]);
+	const set = React.useMemo(() => presentationSet(slides, lens, registry), [slides, lens, registry]);
+	// Reader-side picker catalog: a registry deck offers ONLY reader-eligible lenses (approved,
+	// non-empty, visible) — the human-in-the-loop gate at the UI. A deck with no registry shows the
+	// legacy full/exec/onepager set.
+	const lensEntries = React.useMemo(
+		() => (registry && registry.lenses.length > 1 ? lensEntriesFrom(readerLenses(slides, registry)) : LENSES),
+		[registry, slides],
+	);
 	// Deck sections (from `divider` slides) — the grouping the single progress rail uses.
 	const sections = React.useMemo(() => sectionsFromSlides(set), [set]);
 	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
 	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered lens
 	// (exec/onepager reorders/drops slides) we resolve it through the original index, not the
 	// position in the filtered set — else a caption would bind to the wrong slide.
-	const setIndices = React.useMemo(() => presentationIndices(slides, lens), [slides, lens]);
+	const setIndices = React.useMemo(() => presentationIndices(slides, lens, registry), [slides, lens, registry]);
 	// Front-matter `captions:` (Layer 1, §16) — slide NUMBER (1-based) → read-as text. Memoized on
 	// the front matter, symmetric with the acronym registry memo below.
 	const fmCaptions = React.useMemo(() => frontMatterCaptions(frontMatter), [frontMatter]);
@@ -557,7 +565,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				{/* Lens switch — the shared LensPicker (same widget as the editor's preview
 				    header), centered. Was a horizontally-scrolling chip row that clipped. */}
 				<div className="flex min-w-0 flex-1 justify-center">
-					<LensPicker value={lens} onChange={pickLens} count={count} total={slides.length} align="center" />
+					<LensPicker value={lens} onChange={pickLens} count={count} total={slides.length} align="center" lenses={lensEntries} />
 				</div>
 				<button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} title="All slides (G) — jump anywhere" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden sm:inline">Slides</span></button>
 				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" />Rehearse</button>

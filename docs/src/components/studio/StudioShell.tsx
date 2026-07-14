@@ -18,6 +18,7 @@ import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
+import { parseLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
@@ -42,7 +43,7 @@ import { IntentTag } from './IntentTag';
 import { LatticeMark } from './LatticeMark';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
-import { LensPicker } from './lens-picker';
+import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
@@ -525,9 +526,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
 	const body = React.useMemo(() => stripFrontMatter(source), [source]);
 	const slides = React.useMemo(() => splitSlides(body), [body]);
+	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
+	// `full`) for a deck with no block → the picker shows the legacy full/exec/onepager set.
+	const lensReg = React.useMemo(() => parseLensRegistry(fm), [fm]);
+	// The picker's catalog: a registry deck shows its own defined (non-hidden) lenses; otherwise the
+	// legacy heuristics. Author-side, so it lists lenses regardless of approval — the author previews.
+	const composeLensEntries = React.useMemo(() => {
+		const defs = lensReg.lenses.filter((l) => !l.hidden);
+		return defs.length > 1 ? lensEntriesFrom(defs) : LENSES;
+	}, [lensReg]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
-	const viewSlides = React.useMemo(() => (composeLens === 'full' ? slides : presentationSet(slides, composeLens)), [slides, composeLens]);
+	const viewSlides = React.useMemo(() => (composeLens === 'full' ? slides : presentationSet(slides, composeLens, lensReg)), [slides, composeLens, lensReg]);
 	const slide = viewSlides[Math.min(activeSlide, viewSlides.length - 1)] ?? viewSlides[0] ?? '';
 	// When inline validation is off, nothing is "unknown" — the editor, the issue
 	// count, and the Architect's component check all stand down together.
@@ -1776,7 +1786,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
@@ -2300,7 +2310,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
 				notify={notify}
 			/>
-			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
+			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 			<CommandPalette
 				open={cmdOpen}
 				onOpenChange={setCmdOpen}
