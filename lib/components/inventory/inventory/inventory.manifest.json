@@ -25,6 +25,7 @@
   "function": "inventory",
   "form": "ledger",
   "substance": "structure",
+  "stage": "flow",
   "adapt": {
     "mode": "reflow",
     "families": [

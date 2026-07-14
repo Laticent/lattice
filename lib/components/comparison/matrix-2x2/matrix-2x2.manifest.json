@@ -4,6 +4,7 @@
   "function": "comparison",
   "form": "matrix",
   "substance": "structure",
+  "stage": "flow",
   "density": {
     "axis": "item",
     "soft": 10,

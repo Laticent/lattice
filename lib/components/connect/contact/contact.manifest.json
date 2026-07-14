@@ -5,6 +5,7 @@
   "bucket": "connect",
   "form": "panel",
   "substance": "structure",
+  "stage": "canvas",
   "adapt": {
     "mode": "native",
     "priority": [

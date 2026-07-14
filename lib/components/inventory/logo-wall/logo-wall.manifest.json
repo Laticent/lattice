@@ -4,6 +4,7 @@
   "function": "inventory",
   "form": "grid",
   "substance": "prose",
+  "stage": "flow",
   "adapt": {
     "mode": "reflow",
     "families": [

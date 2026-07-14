@@ -22,6 +22,7 @@
   "bucket": "legal",
   "form": "ledger",
   "substance": "structure",
+  "stage": "flow",
   "capacity": {
     "axis": "item",
     "min": 2,

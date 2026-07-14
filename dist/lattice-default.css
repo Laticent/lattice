@@ -2984,13 +2984,13 @@ section.compare-prose :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * lattice-emulator.js) — authors write plain `- Label` and the structural
  * lift happens in the Marpit token layer. Wrapping `**Label**` in source
  * still works (idempotent) for authors who prefer to be explicit. */
-section.decision > :is(ul, ol) > li:has(> strong:first-child),
+section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
 section.compare-prose .compare-prose-inner .card:has(> strong:first-child) {
   position: relative;
   padding-top: calc(var(--sp-sm) + 2.34375cqi);
 }
-section.decision > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
 section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > strong:first-child {
   position: absolute;
@@ -3010,7 +3010,7 @@ section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > str
 /* Decision corner tag uses the per-card deep variant + on-cat ink —
  * the universal text-on-categorical recipe defined in :root. The full
  * saturation hue still anchors the card via the bottom border. */
-section.decision > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
+section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
   background: var(--decision-accent-deep, var(--accent));
   /* --decision-accent-deep resolves to --cN-dark (categorical fill); text on
    * a --cN-dark fill uses --cat-on-mark (white on light, near-black on dark). */
@@ -3026,11 +3026,11 @@ section.decision > :is(ul, ol) > li:has(> strong:first-child) > strong:first-chi
    frame. Keyed on `<= 1.05` (square + tall + strip); landscape keeps the raw value,
    so its export stays byte-identical. */
 @container lattice (aspect-ratio <= 1.05) {
-  section.decision > :is(ul, ol) > li:has(> strong:first-child),
+  section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
   section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
     padding-top: calc(var(--sp-md) + var(--fs-meta));
   }
-  section.decision > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+  section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
   section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
     padding: var(--sp-2xs) var(--sp-sm);
   }
@@ -3050,8 +3050,8 @@ section.decision > :is(ul, ol) > li:has(> strong:first-child) > strong:first-chi
  *
  * Composes with the same lift infrastructure — author writes plain
  * `- Label`, lift produces the `<strong>`, this block restyles the card. */
-section.banner-tag.decision > :is(ul, ol) > li:has(> strong:first-child),
-section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > :is(ul, ol) > li:has(> strong:first-child),
+section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
 section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) {
   position: static;
   display: flex;
@@ -3061,8 +3061,8 @@ section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-c
   overflow: hidden;
   gap: 0;
 }
-section.banner-tag.decision > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
 section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) > strong:first-child {
   position: static;
   flex: 0 0 auto;
@@ -3081,8 +3081,8 @@ section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-c
   line-height: 1.2;
   box-sizing: border-box;
 }
-section.banner-tag.decision > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
-section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
+section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
+section.banner-tag.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > :is(ul, ol),
 section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-child) > :is(ul, ol) {
   flex: 1 1 0;
   min-height: 0;
@@ -3094,7 +3094,7 @@ section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-c
   justify-content: center;
   box-sizing: border-box;
 }
-section.banner-tag.decision > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
+section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
   background: var(--decision-accent-deep, var(--accent));
   /* --decision-accent-deep resolves to --cN-dark; see flush-corner rule above. */
   color: var(--cat-on-mark);
@@ -13855,7 +13855,12 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
 section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote p,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote p {
   font-family:var(--font-body);
-  font-size:var(--fs-message);
+  /* Body tier, NOT --fs-message (the 21pt slide-statement tier). A Key Insight
+   * SUMMARIZES the body above it, so it must not out-shout the very content it
+   * distills — it reads as a peer of the body prose, never louder. Matches the
+   * below-note wrapper (compare-prose.styles.css `.below-note p`), the sibling
+   * "supporting note" concept, which already sizes at --fs-body. */
+  font-size:var(--fs-body);
   color:var(--text-heading);
   line-height:var(--lh-snug);
   margin:0;
@@ -13869,7 +13874,9 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
 section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote li {
   font-family:var(--font-body);
-  font-size:var(--fs-message);
+  /* Body tier — see the blockquote-p rule above. A bulleted Key Insight is still
+   * a summary of the body; its items match body prose, not the statement tier. */
+  font-size:var(--fs-body);
   color:var(--text-heading);
   line-height:var(--lh-snug);
   padding-left:var(--sp-md);
@@ -14235,7 +14242,11 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p {
    * HARD RULE #20. The `::before` rule is parked at `top: --sp-sm` inside that pad,
    * so --sp-sm sits above the rule and --sp-xs below it, exactly as before. */
   padding-top:calc(var(--sp-sm) + var(--sp-xs)); flex-shrink:0;
-  position:relative; font-size:var(--fs-message); color:var(--text-body);
+  /* Body tier — a below-note ANNOTATES the block above it, so it reads as a peer
+   * of the content, never the 21pt slide-statement tier (--fs-message). Aligns
+   * this raw-form fallback with the JS-wrapped `.below-note p` rule
+   * (compare-prose.styles.css), which already sizes at --fs-body under Form. */
+  position:relative; font-size:var(--fs-body); color:var(--text-body);
   line-height:var(--lh-relaxed); margin:0;
 }
 section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
@@ -14715,9 +14726,12 @@ section.split-panel.mirror {
  * Composes with chosen/rejected/decision: those rules use li:first/last-child
  * which in source order remain left-then-right; row-reverse only flips the
  * visual rendering. The chosen card stays the second one in the markdown.
- * Targets the live `> :is(ul,ol)` flex row (the `.compare-prose-inner / .card`
- * structure is retired and emitted by no render path). */
-section.compare-prose.mirror > :is(ul, ol) {
+ * Targets the live `> .cell-stage > :is(ul,ol)` flex row — compare-prose is
+ * STAGE_MIGRATED, so its card row nests inside the `.cell-stage` wrap
+ * (compare-prose.styles.css addresses `> .cell-stage > ul`); the pre-migration
+ * bare `> :is(ul,ol)` never matched the wrapped row. The `.compare-prose-inner
+ * / .card` structure is retired and emitted by no render path. */
+section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
   flex-direction: row-reverse;
 }
 

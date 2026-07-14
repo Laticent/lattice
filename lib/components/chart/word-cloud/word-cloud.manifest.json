@@ -12,6 +12,7 @@
   "bucket": "chart",
   "form": "canvas",
   "substance": "series",
+  "stage": "canvas",
   "tags": [
     "tag-cloud",
     "themes",

@@ -13,6 +13,7 @@
   "function": "evidence",
   "form": "spatial",
   "substance": "series",
+  "stage": "canvas",
   "bucket": "chart",
   "tags": [
     "metric",

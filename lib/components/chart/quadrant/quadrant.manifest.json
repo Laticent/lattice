@@ -14,6 +14,7 @@
   "bucket": "chart",
   "form": "scatter",
   "substance": "series",
+  "stage": "canvas",
   "tags": [
     "two-by-two",
     "positioning",

@@ -69,8 +69,11 @@ const PREFLIGHT = [
 const STEPS = [
   { label: 'lattice.css', script: 'build-css.js' },
   { label: 'lattice-default.css', script: 'build-default-bundle.js' },
-  // Must run BEFORE lattice-runtime.js — the runtime bundle `require()`s
-  // this generated catalog directly (esbuild inlines it at bundle time).
+  // Must run BEFORE lattice-runtime.js / lattice-emulator.js — those bundles
+  // `require()` these generated catalogs directly (esbuild inlines them at
+  // bundle time). The stage catalog is the single source of the stage-cell
+  // classification the masthead kernel reads (frame-species step A).
+  { label: 'stage catalog (lib/forms/cell/masthead)', script: 'build-stage-catalog.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
   { label: 'lattice-runtime.js', script: 'build-runtime.js' },
   { label: 'lattice-emulator.js', script: 'build-emulator.js' },

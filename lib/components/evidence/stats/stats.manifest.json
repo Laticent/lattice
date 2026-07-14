@@ -4,6 +4,7 @@
   "function": "evidence",
   "form": "stack",
   "substance": "structure",
+  "stage": "flow",
   "capacity": {
     "axis": "item",
     "min": 3,

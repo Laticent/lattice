@@ -15,6 +15,7 @@
   "bucket": "chart",
   "form": "matrix",
   "substance": "structure",
+  "stage": "canvas",
   "orientation": [
     "landscape",
     "portrait"

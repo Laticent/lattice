@@ -4,6 +4,7 @@
   "function": "statement",
   "form": "canvas",
   "substance": "prose",
+  "stage": "flow",
   "adapt": {
     "mode": "reflow",
     "families": [

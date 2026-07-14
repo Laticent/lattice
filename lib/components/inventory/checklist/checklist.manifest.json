@@ -37,6 +37,7 @@
   "function": "inventory",
   "form": "stack",
   "substance": "structure",
+  "stage": "flow",
   "tags": [
     "status",
     "stoplight",

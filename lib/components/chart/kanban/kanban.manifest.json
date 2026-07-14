@@ -12,6 +12,7 @@
   "bucket": "chart",
   "form": "timeline",
   "substance": "series",
+  "stage": "canvas",
   "capacity": {
     "axis": "item",
     "min": 2,

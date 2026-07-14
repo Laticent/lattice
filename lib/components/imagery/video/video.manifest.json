@@ -12,6 +12,7 @@
   "function": "imagery",
   "form": "canvas",
   "substance": "prose",
+  "stage": "canvas",
   "orientation": [
     "landscape",
     "portrait"
