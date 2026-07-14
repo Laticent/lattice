@@ -328,6 +328,50 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(await screen.findByText('Slide 1 / 6')).toBeInTheDocument();
 	});
 
+	// The whole point, end to end at the reader surface: a reader can open a view ONLY after the author
+	// approved it — and the author can only approve after previewing. The suggester proposes, the author
+	// accepts + previews + approves, and only THEN does Present offer the view to a reader.
+	it('the human-in-the-loop gate: Present offers a reader view ONLY after the author approves it', async () => {
+		const user = userEvent.setup();
+		// Classify the Q3 deck's components so the (no-AI) suggester can propose a Bottom-line set.
+		const catalog = [
+			{ name: 'title', bucket: 'anchor', description: '', skeleton: '', function: 'anchor', form: 'bookend' },
+			{ name: 'agenda', bucket: 'progression', description: '', skeleton: '', function: 'progression', form: 'list' },
+			{ name: 'kpi', bucket: 'evidence', description: '', skeleton: '', function: 'evidence', form: 'metric' },
+			{ name: 'quote', bucket: 'connect', description: '', skeleton: '', function: 'statement', form: 'pull' },
+			{ name: 'stats', bucket: 'evidence', description: '', skeleton: '', function: 'evidence', form: 'metric' },
+			{ name: 'closing', bucket: 'anchor', description: '', skeleton: '', function: 'anchor', form: 'bookend' },
+		];
+		render(<StudioShell options={options} components={catalog} />);
+
+		// Add a Bottom-line reader view and accept the suggester's proposal (it becomes a DRAFT).
+		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
+		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
+		await user.click(await screen.findByRole('button', { name: 'Accept all' }));
+
+		// A DRAFT view is NOT offered to a reader: Present's reader picker lists Full deck but not it, and
+		// — because the deck now defines a registry — the legacy Exec/One-pager heuristics are gone too.
+		await user.click(screen.getByRole('button', { name: 'Present' }));
+		let dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
+		await user.click(dialog.getByRole('button', { name: 'Reader view' }));
+		expect(await screen.findByRole('menuitem', { name: /Full deck/ })).toBeInTheDocument();
+		expect(screen.queryByRole('menuitem', { name: /Bottom line/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole('menuitem', { name: /Exec summary/ })).not.toBeInTheDocument();
+		await user.keyboard('{Escape}'); // close the menu
+		await user.keyboard('{Escape}'); // close Present
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Present' })).not.toBeInTheDocument());
+
+		// Back in the panel: preview (the approval gate) then approve.
+		await user.click(screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLElement);
+		await user.click(await screen.findByRole('button', { name: /Approve for readers/ }));
+
+		// NOW a reader is offered the view — the gate opened only on the human's approval.
+		await user.click(screen.getByRole('button', { name: 'Present' }));
+		dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
+		await user.click(dialog.getByRole('button', { name: 'Reader view' }));
+		expect(await screen.findByRole('menuitem', { name: /Bottom line/ })).toBeInTheDocument();
+	});
+
 	it('jumps to any slide from the navigator rail', async () => {
 		const user = setup();
 		// The Q3 deck opens on slide 1 (the title).
