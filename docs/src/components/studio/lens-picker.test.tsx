@@ -26,14 +26,16 @@ describe('lensEntriesFrom — registry defs → picker entries', () => {
 });
 
 describe('LensPicker — catalog override', () => {
-	it('defaults to the legacy full/exec/onepager catalog', async () => {
-		const user = userEvent.setup();
+	it('with no registry it is just "Full deck" — a static label, no dead 1-item dropdown', () => {
+		// The legacy exec/onepager heuristics are retired: an untagged deck has nothing to switch TO, so
+		// the picker renders a plain status label (no "Reader view" trigger button).
 		render(<LensPicker value="full" onChange={() => {}} />);
-		await user.click(screen.getByRole('button', { name: 'Reader view' }));
-		expect(await screen.findByRole('menuitem', { name: /Exec summary/ })).toBeInTheDocument();
-		expect(screen.getByRole('menuitem', { name: /One-pager/ })).toBeInTheDocument();
+		expect(screen.getByText('Full deck')).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		expect(LENSES).toHaveLength(1);
+		expect(LENSES[0].key).toBe('full');
 	});
-	it('renders a registry catalog and switches on select', async () => {
+	it('renders a registry catalog (≥2 entries) as a dropdown and switches on select', async () => {
 		const user = userEvent.setup();
 		const onChange = vi.fn();
 		const entries = lensEntriesFrom([
@@ -42,14 +44,13 @@ describe('LensPicker — catalog override', () => {
 		]);
 		render(<LensPicker value="full" onChange={onChange} lenses={entries} />);
 		await user.click(screen.getByRole('button', { name: 'Reader view' }));
-		// registry labels present; legacy ones gone
 		await user.click(await screen.findByRole('menuitem', { name: /Bottom line/ }));
 		expect(onChange).toHaveBeenCalledWith('brief');
 		expect(screen.queryByRole('menuitem', { name: /Exec summary/ })).not.toBeInTheDocument();
 	});
-	it('falls back to the legacy catalog when given an empty list', () => {
+	it('an empty list falls back to the base catalog (Full deck only → static label)', () => {
 		render(<LensPicker value="full" onChange={() => {}} lenses={[]} />);
-		expect(screen.getByRole('button', { name: 'Reader view' })).toHaveTextContent('Full deck');
-		expect(LENSES.length).toBe(3);
+		expect(screen.getByText('Full deck')).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
 	});
 });

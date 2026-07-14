@@ -94,7 +94,7 @@ const commands = [
 	fc.constant(cmd('toggle Inspector', (u) => clickLabel(u, 'Deck scope'))),
 	fc.constant(cmd('rail → first', (u) => railNth(u, 'first'))),
 	fc.constant(cmd('rail → last', (u) => railNth(u, 'last'))),
-	fc.constant(cmd('reshape → exec', (u) => reshape(u))),
+	fc.constant(cmd('reshape → reader view', (u) => reshape(u))),
 	fc.constant(cmd('clear lens', (u) => clearLens(u))),
 	fc.constant(cmd('Share open/close', (u) => openClose(u, () => clickLabel(u, 'Share')))),
 	fc.constant(cmd('Workspace open/close', (u) => openClose(u, () => clickLabel(u, 'Workspace settings')))),

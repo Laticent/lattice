@@ -17,15 +17,14 @@ test('a reader view is offered to a reader ONLY after the author previews + appr
 	await page.getByRole('button', { name: /Bottom line/ }).click();
 	await page.getByRole('button', { name: 'Accept all' }).click();
 
-	// It's a DRAFT — Present must NOT offer it to a reader yet (and a registry deck drops the legacy
-	// Exec/One-pager heuristics from the reader picker).
+	// It's a DRAFT — not reader-eligible → Present has NO reader-view switcher at all (just a static
+	// "Full deck"), so a reader is never even offered it. (The legacy exec/onepager heuristics that used
+	// to fill this picker for an untagged deck are retired.)
 	await page.getByRole('button', { name: 'Present' }).click();
 	const present = page.getByRole('dialog', { name: 'Present' });
-	await present.getByRole('button', { name: 'Reader view' }).click();
-	await expect(page.getByRole('menuitem', { name: /Full deck/ })).toBeVisible();
+	await expect(present.getByText('Full deck')).toBeVisible();
+	await expect(present.getByRole('button', { name: 'Reader view' })).toHaveCount(0);
 	await expect(page.getByRole('menuitem', { name: /Bottom line/ })).toHaveCount(0);
-	await expect(page.getByRole('menuitem', { name: /Exec summary/ })).toHaveCount(0);
-	await page.keyboard.press('Escape'); // close the menu
 	await page.keyboard.press('Escape'); // exit Present
 	await expect(present).toBeHidden();
 
@@ -33,15 +32,24 @@ test('a reader view is offered to a reader ONLY after the author previews + appr
 	await page.getByRole('button', { name: /^Preview$/ }).click();
 	await page.getByRole('button', { name: /Approve for readers/ }).click();
 
-	// NOW a reader is offered the view — and the picker actually WORKS inside Present (the menu portals
-	// to <body>, so it must float ABOVE the z-[100] overlay; a real click hit-tests, catching occlusion
-	// that a mere toBeVisible would miss). Selecting it reshapes the presented set to the approved slides.
+	// NOW a reader is offered the view — and the picker actually WORKS inside Present. The menu portals
+	// to <body>, so inside the z-[100] Present takeover it must STACK ABOVE the overlay; at the default
+	// z-50 it paints BEHIND it — present in the DOM and even hit-testable (so toBeVisible AND a real click
+	// both pass) yet visually occluded and unusable. That paint occlusion is invisible to every DOM API,
+	// so we assert the stacking invariant directly: the menu's z-index must exceed the overlay's.
 	await page.getByRole('button', { name: 'Present' }).click();
 	const fullCount = await present.getByText(/^\d+ \/ \d+$/).textContent();
 	await present.getByRole('button', { name: 'Reader view' }).click();
-	await page.getByRole('menuitem', { name: /Bottom line/ }).click(); // real click — fails if occluded
-	// The reshaped deck is strictly smaller than the full deck (Bottom line is a subset).
-	await expect(present.getByText(/^\d+ \/ \d+$/)).not.toHaveText(fullCount ?? '');
+	const bottomLine = page.getByRole('menuitem', { name: /Bottom line/ });
+	await expect(bottomLine).toBeVisible();
+	const zs = await bottomLine.evaluate((el) => {
+		const menu = el.closest('[role="menu"]') as HTMLElement;
+		const overlay = document.querySelector('[role="dialog"][aria-label="Present"]') as HTMLElement;
+		return { menu: Number(getComputedStyle(menu).zIndex) || 0, overlay: Number(getComputedStyle(overlay).zIndex) || 0 };
+	});
+	expect(zs.menu).toBeGreaterThan(zs.overlay); // regression guard for the "picker invisible in Present" bug
+	// Selecting it reshapes the presented set to the approved slides (a strict subset of the full deck).
+	await bottomLine.click();
 	const total = (n: string | null) => Number((n ?? '0 / 0').split('/')[1]);
 	await expect.poll(async () => total(await present.getByText(/^\d+ \/ \d+$/).textContent())).toBeLessThan(total(fullCount));
 });

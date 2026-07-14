@@ -173,11 +173,13 @@ in patch versions.
   flips light↔dark on the token bridge. No export or engine change — docs-site UI only; other live
   surfaces still on native `title=` are a documented fast-follow. Verified on the real Studio in both
   colour modes.
-- **The Studio's reader-view switch now honors a deck's `lenses:` registry — and Present fails CLOSED
-  on a scoped lens.** When a deck defines a front-matter `lenses:` block, both the Compose preview and
-  Present offer *its* lenses (projected deterministically by `@slidewright/lente` from approved `_lens`
-  tags) instead of the legacy `exec`/`onepager` heuristics; a deck with no block is unchanged. Present's
-  reader picker lists **only reader-eligible lenses** (approved, non-empty, non-hidden, content-current),
+- **The reader-view switch is now author-approved views only — the old `exec`/`onepager` heuristics are
+  retired.** *(Breaking for the reader-view picker: the built-in "Exec summary" / "One-pager" reshapes are
+  gone.)* A reader view is now something the author builds and APPROVES in the Lenses panel — never a
+  machine's un-vetted guess. Both the Compose preview and Present offer a deck's own `lenses:` registry
+  views (projected deterministically by `@slidewright/lente` from approved `_lens` tags); a deck with no
+  reader views yet shows a plain **"Full deck"** label (no dead one-item dropdown). Present's reader picker
+  lists **only reader-eligible lenses** (approved, non-empty, non-hidden, content-current),
   and its projection routes through the library's fail-closed `lensEligibility`: a lens that is
   unapproved, drifted, empty, or hidden renders an explicit **"this view is unavailable"** state rather
   than silently falling open to the whole deck — a scoping lens can be a redaction, so a full-deck

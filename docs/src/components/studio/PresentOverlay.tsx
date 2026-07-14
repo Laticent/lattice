@@ -94,8 +94,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// library's `lensEligibility`, which refuses to project a lens that is unapproved / drifted / hidden
 	// / EMPTY (returns `{status:'unavailable', reason}`) rather than silently falling open to the whole
 	// deck. A scoping lens can be a REDACTION, so a fail-open would leak to a reader exactly the slides
-	// the author kept out — the human-in-the-loop breach this whole feature exists to prevent. The `full`
-	// lens and the legacy exec/onepager heuristics gate nothing (author-side), so they project directly.
+	// the author kept out — the human-in-the-loop breach this whole feature exists to prevent. `full` is
+	// the identity (the whole deck) and gates nothing, so it projects directly.
 	const projection = React.useMemo<LensProjection>(() => {
 		const isRegistryLens = !!registry && lens !== 'full' && registry.lenses.some((l) => l.id === lens && l.id !== 'full');
 		return isRegistryLens ? lensEligibility(slides, registry, lens) : { status: 'ok', pairs: presentationPairs(slides, lens, registry) };

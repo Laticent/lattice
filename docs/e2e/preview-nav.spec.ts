@@ -39,20 +39,7 @@ test('clicking a rail slide jumps to it and repaints', async ({ page }) => {
 	await expect(currentSlide(page)).not.toContainText(head1);
 });
 
-test('Exec-summary lens trims the deck to headline slides, and clearing restores it', async ({ page }) => {
-	const n = await slideCount(page);
-	// The reader-view picker lives in the preview header. A deck with no `lenses:` registry still offers
-	// the legacy exec heuristic there (the Architect's old "Exec summary" chip was replaced by the Lenses
-	// panel, whose views are author-defined + approval-gated).
-	await page.getByRole('button', { name: 'Reader view' }).click();
-	await page.getByRole('menuitem', { name: 'Exec summary' }).click();
-
-	// The lens keeps only headline slides → strictly fewer than the full deck.
-	await expect.poll(() => slideCount(page)).toBeLessThan(n);
-	const clear = page.getByRole('button', { name: 'Clear reader lens' });
-	await expect(clear).toBeVisible();
-
-	await clear.click();
-	await expect(railButtons(page)).toHaveCount(n);
-	await expect(clear).toBeHidden();
-});
+// The Compose-preview reader-view reshape (build a view → preview it → the preview trims → clear
+// restores) is covered on the real shell by the jsdom StudioShell suite, and end-to-end in the browser
+// by lenses.spec. The old author-blind exec/onepager heuristics that used to fill this picker for an
+// untagged deck are retired, so there's nothing to reshape here without first authoring a reader view.

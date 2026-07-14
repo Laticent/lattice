@@ -1,4 +1,4 @@
-import { ChevronDown, Eye, FileText, LayoutGrid, Sparkles } from 'lucide-react';
+import { ChevronDown, Eye, FileText } from 'lucide-react';
 import type * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { LensDef } from '@/lib/lente';
@@ -7,14 +7,11 @@ import type { PresentLens } from './lint';
 
 export type LensEntry = { key: PresentLens; label: string; desc: string; icon: React.ReactNode };
 
-// The LEGACY reader-lens catalog — the built-in full/exec/onepager heuristics, shown when a deck
-// defines no `lenses:` registry. ONE source of truth (key + label + desc + icon), consumed by every
-// surface that switches lens. A registry deck supplies its own entries via `lensEntriesFrom` below.
-export const LENSES: LensEntry[] = [
-	{ key: 'full', label: 'Full deck', desc: 'The whole source', icon: <FileText className="size-3.5" /> },
-	{ key: 'exec', label: 'Exec summary', desc: 'Headline slides only', icon: <Sparkles className="size-3.5" /> },
-	{ key: 'onepager', label: 'One-pager', desc: 'The single key slide', icon: <LayoutGrid className="size-3.5" /> },
-];
+// The base reader-lens catalog when a deck defines no `lenses:` registry: just the whole deck. The
+// old author-blind `exec`/`onepager` heuristics are RETIRED — a reader view is now something the author
+// builds and APPROVES in the Lenses panel, never a machine's un-vetted guess. A registry deck supplies
+// its own entries via `lensEntriesFrom` below. ONE source of truth (key + label + desc + icon).
+export const LENSES: LensEntry[] = [{ key: 'full', label: 'Full deck', desc: 'The whole source', icon: <FileText className="size-3.5" /> }];
 
 /** Build picker entries from registry lens defs (already filtered by the caller — author preview
  *  passes all visible lenses, Present passes only reader-eligible ones). `full` keeps its icon; a
@@ -50,6 +47,16 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 }) {
 	const catalog = lenses.length ? lenses : LENSES;
 	const active = catalog.find((l) => l.key === value) ?? catalog[0];
+	// Only "Full deck" (a deck with no reader views yet) → there's nothing to switch TO. Render a plain
+	// status label, not a dead 1-item dropdown. A reader view is added + approved in the Lenses panel.
+	if (catalog.length <= 1) {
+		return (
+			<span className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-muted-foreground', className)}>
+				<span className="shrink-0">{active.icon}</span>
+				<span className="truncate">{active.label}</span>
+			</span>
+		);
+	}
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
