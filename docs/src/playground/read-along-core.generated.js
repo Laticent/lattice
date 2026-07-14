@@ -1428,20 +1428,20 @@ var require_chart_narration = __commonJS({
       return { id, rest };
     }
     var CONNECTORS = [
-      { re: /^(?:-{2,}>|=+>|-\.-*>)\|([^|]*)\|/, label: 1 },
-      // -->|x|  ==>|x|  -.->|x|
+      { re: /^(?:-{2,}>|=+>|-\.+->)\|([^|]*)\|/, label: 1 },
+      // -->|x|  ==>|x|  -.->|x| / -..->|x|
       { re: /^--\s*([^|>]+?)\s*-{2,}>/, label: 1 },
       // -- x -->
-      { re: /^-\.\s*([^|]+?)\s*\.-*>/, label: 1 },
-      // -.x.->
       { re: /^==\s*([^|>=]+?)\s*=+>/, label: 1 },
       // == x ==>
+      { re: /^-\.\s*([^.\s|][^|]*?)\s*\.+->/, label: 1 },
+      // -. x .-> (label starts non-dot)
       { re: /^-{2,}>/, label: 0 },
-      // -->
-      { re: /^-\.-*>/, label: 0 },
-      // -.->
-      { re: /^=+>/, label: 0 }
-      // ==>
+      // -->  (length via dashes)
+      { re: /^=+>/, label: 0 },
+      // ==>  (length via =)
+      { re: /^-\.+->/, label: 0 }
+      // -.->  -..->  -...-> (length via dots)
     ];
     function parseConnector(s) {
       for (const { re, label } of CONNECTORS) {
@@ -1519,9 +1519,9 @@ var require_chart_narration = __commonJS({
       }
       const h = heading(blanked);
       if (h) parts.push(h);
-      parts.push(parsed.title ? `A flowchart, ${parsed.title}.` : "A flowchart.");
+      parts.push(terminate(parsed.title ? `A flowchart, ${parsed.title}` : "A flowchart"));
       for (const e of parsed.edges) {
-        parts.push(e.label ? `${e.from}, ${e.label}, leads to ${e.to}.` : `${e.from} leads to ${e.to}.`);
+        parts.push(terminate(e.label ? `${e.from}, ${e.label}, leads to ${e.to}` : `${e.from} leads to ${e.to}`));
       }
       const extra = speakLeftover(blanked, consumed);
       if (extra) parts.push(extra);

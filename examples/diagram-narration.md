@@ -93,7 +93,7 @@ flowchart LR
   B --> C
 ```
 
-> Group boxes carry no spoken topology in this first version, but every edge inside and across them is read — "Collect leads to Normalize … Normalize leads to Score … Score leads to Log."
+> Group boxes carry no spoken topology in this first version, but every edge — inside each group and the one crossing between them — is read aloud, in the diagram's source order.
 
 ---
 

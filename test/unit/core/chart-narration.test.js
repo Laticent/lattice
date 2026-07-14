@@ -747,3 +747,26 @@ test('narrateDiagram: a fenced doc-example heading never masquerades as the slid
 test('narrateChart: routes a diagram slide through narrateDiagram', () => {
   assert.ok(narrateChart(diagramSkeleton).includes('Signal Intake leads to Scoring Model.'));
 });
+
+test('narrateDiagram: does not double-punctuate a node label that already ends in ? or .', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Gate.', '', '```mermaid', 'flowchart TD', '  A[New request] --> C{"Within policy?"}', '  C -->|yes| D[Approve]', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('New request leads to Within policy?'));
+  assert.ok(!out.includes('Within policy?.')); // no doubled ?.
+});
+
+test('narrateDiagram: reads a DOT-lengthened dotted arrow with no fabricated label (never leaks the arrow dots)', () => {
+  for (const arrow of ['-.->', '-..->', '-...->', '-....->']) {
+    const md = ['<!-- _class: diagram -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
+    const out = narrateDiagram(md);
+    assert.ok(out.includes('X leads to Y.'), `${arrow} -> ${out}`);
+    assert.ok(!/,\s*\.+,\s*leads/.test(out), `${arrow} fabricated a dot label: ${out}`);
+  }
+});
+
+test('narrateDiagram: keeps the REAL label on a dotted arrow (base and dot-lengthened), not the dots', () => {
+  for (const arrow of ['-. yes .->', '-. yes ..->']) {
+    const md = ['<!-- _class: diagram -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
+    assert.ok(narrateDiagram(md).includes('X, yes, leads to Y.'), arrow);
+  }
+});
