@@ -984,20 +984,47 @@ export async function loadTtsKokoro(onProgress?: (p: VoiceLoadProgress) => void,
 // few-second clip) so a genuinely broken/missing file still resolves rather than
 // hanging the "Playing…" button — the same never-leave-the-UI-stuck principle as
 // the live path's synth-phase timeout.
+// The <audio> element playing the current cached sample + a resolver for its pending
+// promise, tracked so a NEW preview (or stopTtsPreview) can barge in on it — otherwise
+// rapidly clicking ▶ down a voice list would overlap several samples at once (the
+// Suono/live path already barges in via previewHandle; this is the cached fast path's
+// equivalent). Barge-in RESOLVES the interrupted promise as a (successful) stop, not an
+// error — else its unfired 10s watchdog would later surface a spurious "timed out" toast.
+let currentSampleAudio: HTMLAudioElement | null = null;
+let resolveCurrentSample: ((res: { ok: boolean; error?: string }) => void) | null = null;
+function stopLocalSample() {
+	try {
+		currentSampleAudio?.pause();
+	} catch {
+		/* best-effort */
+	}
+	currentSampleAudio = null;
+	const resolve = resolveCurrentSample;
+	resolveCurrentSample = null;
+	resolve?.({ ok: true }); // settle the interrupted preview cleanly — barged, not failed
+}
 function playLocalSample(url: string): Promise<{ ok: boolean; error?: string }> {
 	return new Promise((resolve) => {
 		let settled = false;
 		const finish = (res: { ok: boolean; error?: string }) => {
 			if (settled) return;
 			settled = true;
+			if (resolveCurrentSample === finish) resolveCurrentSample = null;
 			resolve(res);
 		};
 		try {
+			stopLocalSample(); // barge-in on a prior cached sample
 			const audio = new Audio(url);
-			audio.onended = () => finish({ ok: true });
-			audio.onerror = () => finish({ ok: false, error: 'cached sample failed to load' });
-			audio.play().catch((e) => finish({ ok: false, error: String((e as Error)?.message || e) }));
-			setTimeout(() => finish({ ok: false, error: 'cached sample timed out (10s)' }), 10_000);
+			currentSampleAudio = audio;
+			resolveCurrentSample = finish;
+			const done = (res: { ok: boolean; error?: string }) => {
+				if (currentSampleAudio === audio) currentSampleAudio = null;
+				finish(res);
+			};
+			audio.onended = () => done({ ok: true });
+			audio.onerror = () => done({ ok: false, error: 'cached sample failed to load' });
+			audio.play().catch((e) => done({ ok: false, error: String((e as Error)?.message || e) }));
+			setTimeout(() => done({ ok: false, error: 'cached sample timed out (10s)' }), 10_000);
 		} catch (e) {
 			finish({ ok: false, error: String((e as Error)?.message || e) });
 		}
@@ -1079,6 +1106,7 @@ export async function stopTtsPreview(): Promise<void> {
 	} catch {
 		/* best-effort */
 	}
+	stopLocalSample(); // the cached <audio> fast path
 	const v = await getVoice();
 	try {
 		v?.stop(); // also cancel any speechSynthesis-rung preview

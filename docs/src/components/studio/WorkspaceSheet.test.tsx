@@ -316,6 +316,28 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		await waitFor(() => expect(screen.queryByText('★ Featured')).not.toBeInTheDocument());
 	});
 
+	it('the ▶ on a voice row auditions it WITHOUT selecting it or closing the list', async () => {
+		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
+		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('hexgrad/kokoro-82m');
+		vi.mocked(readAloud.ttsOrVoice).mockResolvedValueOnce('af_heart');
+		vi.mocked(readAloud.listTtsModels).mockResolvedValueOnce([
+			{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'am_onyx'] },
+		]);
+		const user = userEvent.setup();
+		render(<WorkspaceSheet open onOpenChange={noop} notify={noop} />);
+		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
+		await user.click(await sheet.findByRole('combobox', { name: 'Cloud TTS voice' }));
+		await screen.findByText('★ Featured');
+
+		// Click the ▶ on a NON-selected voice's row.
+		await user.click(screen.getByRole('button', { name: /Preview Onyx/ }));
+		// It auditions that exact voice…
+		await waitFor(() => expect(readAloud.previewTtsVoice).toHaveBeenCalledWith(expect.objectContaining({ voice: 'am_onyx' })));
+		// …but does NOT persist it as the selection, and the list stays open (unlike clicking the row).
+		expect(readAloud.setTtsOrVoice).not.toHaveBeenCalledWith('am_onyx');
+		expect(screen.getByText('★ Featured')).toBeInTheDocument();
+	});
+
 	// Independent-checker finding (2026-07-11): every OTHER slider-presence
 	// assertion in this file exercises only the DEFAULT model (Kokoro,
 	// speedSupport:true) — nothing rendered the Speed section for a model whose

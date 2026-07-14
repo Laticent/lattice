@@ -110,10 +110,14 @@ Kokoro are the price × quality standouts, so both earn a complete cache). The
   and is used (`voiceGenders`): gender is *stable* metadata sourced from the
   provider's own docs, and if the live roster drops or adds a voice the map entry
   simply goes unused or the new voice shows no badge — no wrong-roster failure mode.
-- **Per-row voice ▶ preview** — deferred. The instant sample cache makes it a
-  natural follow-up, but it's additive to this IA change; the existing "Play
-  sample" button already auditions the selected voice, and the model picker keeps
-  its inline play.
+- **Per-row voice ▶ preview** — initially deferred, then **shipped as a follow-up**
+  (2026-07-14). Each row has a ▶ that auditions that voice WITHOUT selecting it (so
+  you can browse and hear before committing) — distinct from clicking the row, which
+  selects + closes + auto-previews. The ▶ is a SIBLING button in the row wrapper, not
+  nested inside the option `<button>` (nested buttons are invalid HTML). It reuses the
+  cached-first `previewTtsVoice`, and the cached `<audio>` fast path gained barge-in
+  (a module-tracked current element) so rapid ▶ clicks down the list don't overlap —
+  the model picker's inline play benefits from the same fix.
 
 ## Verified
 

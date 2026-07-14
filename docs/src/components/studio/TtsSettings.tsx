@@ -139,6 +139,8 @@ function VoicePicker({
 	voices,
 	value,
 	onPick,
+	onPreview,
+	previewingId,
 	disabled,
 }: {
 	label: string;
@@ -147,6 +149,10 @@ function VoicePicker({
 	voices: Voice[];
 	value: string;
 	onPick: (voiceId: string) => void;
+	/** Audition a row's voice without selecting it (the ▶ button). Omit to hide it. */
+	onPreview?: (voiceId: string) => void;
+	/** The voice id currently auditioning (spinner on its ▶), or null. */
+	previewingId?: string | null;
 	disabled?: boolean;
 }) {
 	const [open, setOpen] = React.useState(false);
@@ -186,23 +192,40 @@ function VoicePicker({
 		setOpen(false);
 		setQuery('');
 	};
+	// A row is a wrapper div holding the selectable option-button (flex-1) and, when
+	// onPreview is given, a SIBLING ▶ button — siblings, not nested (a <button> inside a
+	// <button> is invalid HTML). The hover/selected tint lives on the wrapper.
 	const Row = (row: { id: string; label: string; country?: string; gender?: 'F' | 'M' }) => {
 		const sel = row.id === value;
+		const busy = previewingId === row.id;
 		return (
-			<button
-				type="button"
-				role="option"
-				aria-selected={sel}
-				key={row.id}
-				onClick={() => choose(row.id)}
-				// text-heading on the button, so the name AND the gender icon (currentColor) share one color.
-				className={cn('flex w-full items-center gap-2 rounded-md bg-transparent px-2 py-2 text-left text-[13px] text-[var(--text-heading)]', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}
-			>
-				<Check className={cn('size-3.5 shrink-0', sel ? 'opacity-100 text-[var(--accent)]' : 'opacity-0')} />
-				<span className="min-w-0 flex-1 truncate">{row.label}</span>
-				<FlagMark country={row.country} />
-				<GenderMark gender={row.gender} />
-			</button>
+			<div key={row.id} className={cn('flex items-center gap-1 rounded-md pr-1', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}>
+				<button
+					type="button"
+					role="option"
+					aria-selected={sel}
+					onClick={() => choose(row.id)}
+					// text-heading on the button, so the name AND the gender icon (currentColor) share one color.
+					className="flex min-w-0 flex-1 items-center gap-2 bg-transparent px-2 py-2 text-left text-[13px] text-[var(--text-heading)]"
+				>
+					<Check className={cn('size-3.5 shrink-0', sel ? 'opacity-100 text-[var(--accent)]' : 'opacity-0')} />
+					<span className="min-w-0 flex-1 truncate">{row.label}</span>
+					<FlagMark country={row.country} />
+					<GenderMark gender={row.gender} />
+				</button>
+				{onPreview && (
+					<button
+						type="button"
+						onClick={() => onPreview(row.id)}
+						disabled={busy}
+						aria-label={`Preview ${row.label}`}
+						title="Hear this voice"
+						className="shrink-0 rounded-md bg-transparent p-1.5 text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-60"
+					>
+						{busy ? <Loader2 className="size-4 animate-spin" /> : <PlayCircle className="size-4" />}
+					</button>
+				)}
+			</div>
 		);
 	};
 
@@ -275,6 +298,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 	const [kokoroLoad, setKokoroLoad] = React.useState<KokoroLoad>({ phase: 'idle', pct: 0 });
 	const [preview, setPreview] = React.useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
 	const [modelPreview, setModelPreview] = React.useState<string | null>(null);
+	const [voicePreview, setVoicePreview] = React.useState<string | null>(null);
 	// Distinguishes "the stored voice hasn't loaded yet" (orVoice === '' only
 	// because the mount fetch below hasn't resolved) from "loaded and genuinely
 	// unset" — the reconciliation effect further down must never run before this
@@ -422,6 +446,19 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 		setModelPreview(null);
 		if (!res.ok) notify(res.error || 'Could not play a sample.');
 	};
+	// The per-row ▶ in the voice dropdown: audition a voice WITHOUT selecting it (so you
+	// can browse the list and hear each one before committing) — distinct from clicking
+	// the row, which selects + closes + auto-previews. Uses the same cached-first path.
+	const previewVoiceRow = React.useCallback(
+		async (rung: 'openrouter' | 'kokoro', voice: string) => {
+			const model = rung === 'openrouter' ? orModel : KOKORO_MODEL_ID;
+			setVoicePreview(voice);
+			const res = await previewTtsVoice({ rung, voice, model, speed });
+			setVoicePreview((cur) => (cur === voice ? null : cur));
+			if (!res.ok) notify(res.error || 'Could not play a sample.');
+		},
+		[orModel, speed, notify],
+	);
 	const pickOrVoice = async (v: string) => {
 		setOrVoiceState(v);
 		await setTtsOrVoice(v);
@@ -487,6 +524,8 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 						voices={orModelVoices}
 						value={orVoice}
 						onPick={pickOrVoice}
+						onPreview={(v) => previewVoiceRow('openrouter', v)}
+						previewingId={voicePreview}
 						disabled={!avail.openRouterReady}
 					/>
 				</div>
@@ -555,6 +594,8 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 					voices={kokoroVoices}
 					value={kokoroVoice}
 					onPick={pickKokoroVoice}
+					onPreview={(v) => previewVoiceRow('kokoro', v)}
+					previewingId={voicePreview}
 					disabled={!ready}
 				/>
 				{!ready && <p className="mt-1 text-[11px] text-muted-foreground">Download the voice above to configure it.</p>}
