@@ -18,7 +18,7 @@ export const DIRECTIVE_KEYS: ReadonlySet<string> = new Set([
 	'theme', 'paginate', 'header', 'footer', 'class', 'backgroundColor',
 	'backgroundImage', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize',
 	'color', 'size', 'style', 'lang', 'marp', 'logo',
-	'focus', 'focusStyle', 'focusSteps', 'build', 'debug',
+	'focus', 'focusStyle', 'focusSteps', 'build', 'debug', 'lens',
 ]);
 
 /** The bare `key` of a comment body's FIRST directive line (leading `_` stripped),
@@ -31,7 +31,7 @@ export function directiveKey(body: string): string {
 	// (`<!-- _build -->`). Otherwise `<!-- remember … -->` would misread as 'remember'.
 	const key = m[1];
 	const hasColon = /^_?[A-Za-z][\w-]*\s*:/.test(String(body).trim());
-	if (!hasColon && key !== 'build' && key !== 'debug') return '';
+	if (!hasColon && key !== 'build' && key !== 'debug' && key !== 'lens') return '';
 	return DIRECTIVE_KEYS.has(key) ? key : '';
 }
 
