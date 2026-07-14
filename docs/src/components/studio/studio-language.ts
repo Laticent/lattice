@@ -54,8 +54,8 @@ type NavLike = { language?: string; languages?: readonly string[] };
 /**
  * Resolve a browser locale to a supported language code. An exact tag match wins;
  * else the first supported entry sharing the base language (list order encodes the
- * house default per language, so 'en' → en-US, 'pt' → pt-BR); else
- * DEFAULT_LANGUAGE. Safe with no navigator (tests / SSR).
+ * house default per language, so 'en' → en-US); else DEFAULT_LANGUAGE. Safe with no
+ * navigator (tests / SSR).
  */
 export function detectLanguage(nav: NavLike | undefined = typeof navigator === 'undefined' ? undefined : (navigator as NavLike)): string {
 	const tags = [...(nav?.languages ?? []), nav?.language].filter((t): t is string => !!t);
