@@ -9,23 +9,27 @@ summary: >
   so speaking it as a verb is faithful — unlike a flowchart's banned invented verbs), the shared
   never-invent invariants, a type-token dispatch over the existing `chart-narration.js`
   scaffolding, the summarize-vs-enumerate rule for firehose charts, a reuse map, the honest
-  whole-type BAILS (zenuml / block / packet, + architecture edges), and a sequenced rollout of
-  one-narrator-per-PR slices. Ships NO code — the design deliverable, HELD for a maintainer
-  go-ahead after the adversarial trio (HARD RULE #25).
+  whole-type BAILS (zenuml / block / packet, + architecture edges), and a one-narrator-per-PR
+  rollout. The adversarial trio (§12) then CUT the scope: apply the manifest bar ("narrate only
+  when the render computes a fact the text doesn't say") and most types are transcription → the
+  reshaped scope is a ~6-narrator FIRST WAVE (sequence, state, class, ER, C4, pie; radar as a
+  fast-follow), with the rest bailed or deferred. Ships NO code — the design deliverable, HELD for
+  a maintainer go-ahead after the trio (HARD RULE #25). §12 supersedes the §1/§8/§9 scope.
 companion:
   - ./2026-07-13-mermaid-diagram-narration.md
   - ./2026-07-11-manifest-speech-contract.md
 ---
 
-# Narrating the whole Mermaid family — a faithful, tiered, bail-safe design (2026-07-14)
+# Narrating the Mermaid family — a faithful, tiered, bail-safe design (2026-07-14)
 
 > **Where this sits.** Read-aloud narrates a `diagram` slide's Mermaid FLOWCHART today: the
-> topology WALK (#971) + a lean shape GIST (#991). Every OTHER Mermaid type — ~22 of them —
-> still `null`-falls-back to a heading-only caption (`parseFlowchart` bails unless the first
-> keyword is `flowchart`/`graph`). This doc designs faithful narration for the rest, one type at
-> a time, keeping the flowchart narrator's discipline: **bail rather than guess, never invent a
-> relationship's meaning.** It ships no code; it is the design deliverable, held for a go-ahead
-> after the adversarial trio (design-first, HARD RULE #25).
+> topology WALK (#971) + a lean shape GIST (#991). Every OTHER Mermaid type — the current family
+> is ~30 types — still `null`-falls-back to a heading-only caption (`parseFlowchart` bails unless
+> the first keyword is `flowchart`/`graph`). This doc designs faithful narration for the ones that
+> earn it, keeping the flowchart narrator's discipline: **bail rather than guess, never invent a
+> relationship's meaning.** §§1–11 survey all the types; **§12 records the adversarial trio and
+> the reshaped scope** — a ~6-narrator first wave, the rest bailed/deferred. It ships no code; it
+> is the design deliverable, held for a go-ahead (design-first, HARD RULE #25).
 
 Grammar for every type was researched directly from the official Mermaid docs
 (`mermaid.js.org/syntax/*`), cross-checked against the repo. The per-type grammar detail lives in
@@ -344,3 +348,87 @@ string identical live and exported (verified since #971).
    infrastructure PR before the first narrator, or bundled with sequenceDiagram?
 
 This design is HELD for the maintainer go-ahead after the adversarial trio folds its findings.
+
+## 12. Adversarial trio findings + the RESHAPED design (2026-07-14)
+
+The design got the full trio (red team + Munger inversion + independent checker). The dispatch is
+confirmed **bail-safe** (native narrators gate on the slide's `_class:` directive, not the fence
+body, so they can't cross-fire on Mermaid content; an unknown token falls to null). Grammar and
+reuse claims were verified against the live docs + repo. But the trio converged on **one
+structural verdict that reshapes the scope**, plus concrete correctness fixes. This section
+supersedes the scope of §1/§8/§9.
+
+### 12.1 The load-bearing inversion (Munger) — the design over-reached against its own bar
+The manifest-speech contract's bar is: **narrate only when the render computes a fact the source
+text doesn't state.** For roughly 10 of the 15 proposed narrators the render computes **nothing** —
+the narrator reads back a list/log/schedule/board the author typed verbatim. That is transcription,
+and the flowchart-gist precedent (§12 of the companion doc) already proved that transcription heard
+once is worse than a heading + one authored caption. "Narrate all ~22 types" is the wrong goal.
+**Cut to the types that clear the bar; bail the rest with a good authored-caption path.**
+
+### 12.2 Correctness fixes the trio verified (must fold before any build)
+- **Radar `niceCeil` reuse is a faithfulness violation (red-team, WORST).** Mermaid radar defaults
+  `max` to the **data max**, not a nice-rounded ceiling; reusing `narrateRadar`'s `niceCeil` tail
+  would speak "on a scale of zero to one hundred" for data topping 85 — an axis bound the listener
+  never sees (breaks invariant #5). Radar, if shipped, needs its **own** scale = explicit
+  `max`/`min` or the data max; the "free reuse win" evaporates.
+- **classDiagram symbol table is one-sided (red-team).** `A --|> B` / `A --* B` (right-anchored
+  single arrows) invert if the §2 left-anchored table is applied by substring. Fix: resolve the
+  verb by **which end carries the head** (`<|`,`|>`,`*`,`o`,`<`,`>`), per symbol; bail reversed/
+  combined forms the parser can't confidently orient.
+- **C4 must NOT reuse `renderFlowNarrative`'s framing (red-team).** That renderer imposes "fans out
+  to / the flow ends at / loops back" — a *process* frame that misdescribes a static architecture
+  ("…fans out to the Database. The flow ends at the Database."). Reuse the `{nodes,edges}` parse
+  SHAPE only; C4 gets its own static "‹A› — ‹label› — ‹B›" reading.
+- **stateDiagram overloaded `:` (red-team).** Disambiguate by presence of `-->`: a `:` on an arrow
+  line is the event; a `:` on a bare line is a state description — the parser must not fabricate a
+  transition from a description. Bail the description-ambiguous case.
+- **Beta-alias bug (checker + red-team).** Current Mermaid makes the **bare** token primary for
+  `xychart`/`sankey` (and `radar`/`treemap` circulate both). The design listed only `-beta` for
+  these → a current-syntax deck would **silently never narrate**. Fix: accept both bare and
+  `-beta` for every graduating type (strip an optional `-beta`), as already done for block/packet.
+- **Completeness (checker + red-team).** The master table missed ~7 current types — `swimlanes`,
+  `eventmodeling`, `venn`, `wardley`, `cynefin`, `ishikawa`, `treeView`. They **bail safely**
+  (unknown → null), but the "whole family / ~22" framing is false and is corrected: these join the
+  §7 bail inventory. `swimlanes` is a *separate type*, not a flowchart mode — it will not mis-route.
+- **Detection hygiene (red-team).** Run the skip-list (comments/frontmatter/`%%{init}`) BEFORE
+  reading the type token; and state the shipped split for every narrator: parse the RAW fence,
+  use `withoutFences` only for heading/leftover (a narrator that parses `withoutFences(md)` sees a
+  blanked body and never fires). `classDiagram-v2` is not a real Mermaid keyword (harmless
+  over-provisioning; drop it).
+- **Verified faithful, no change needed:** ER both-cardinality reading; quadrant's 0.5 threshold
+  (Mermaid's crosshair is fixed at 0.5 — high/low IS its own divider, though near-0.5 points are
+  fragile); pie % (Mermaid-derived); journey 1–5 + bail-non-1–5; gantt `after`→task-name (never a
+  date); C4 `Rel_Back` reversal / `_U/D/L/R` layout-only.
+
+### 12.3 The reshaped scope (supersedes §1/§8/§9)
+Organized by the "computes a fact / carries genuinely-inaccessible content" bar:
+
+- **FIRST WAVE — ship (clears the bar with a clean, verified-faithful reading):**
+  `sequenceDiagram` (genuinely inaccessible content; **hard message cap → summarize past ~N so it
+  never becomes a wall**), `stateDiagram` (flat; structure computed; `:` disambiguation),
+  `classDiagram` (relationships only; per-symbol head resolution), `erDiagram` (relationships only,
+  **no attribute schema dump**; both-cardinality), `C4` (own static reading), `pie` (the model —
+  Mermaid derives the %). The dispatcher + skip-list + type-detection + beta-alias normalization
+  land in the first slice.
+- **RADAR — fast-follow, only with its OWN scale** (data-max/explicit, not `niceCeil`); the reuse
+  isn't free, so it's decoupled from the first wave.
+- **BAIL (correct, cheap — token recognized, returns null → heading + authored caption):** the four
+  original whole-type bails (block, packet, zenuml, architecture-edges) **plus** the transcription/
+  firehose cuts — `kanban`, `gitGraph`, `gantt`, `xychart`, `quadrantChart`, `sankey`, `treemap`
+  (for sankey/treemap, **bail is more honest than "top-N"** — one flow misrepresents a
+  distribution) **plus** the 7 newer types (venn/wardley/cynefin/ishikawa/treeView/swimlanes/
+  eventmodeling). Each gets a test asserting token-recognition + null.
+- **DEFER (low value, low harm; build only on real user demand):** `journey`, `timeline`,
+  `requirement`, `mindmap` — the author typed everything; a heading + authored caption already
+  orients. Revisit if usage data or a user asks.
+
+Net: **~6 narrators in the first wave (+ radar as a scoped fast-follow), not ~15.** The bail tier
+absorbs the rest safely. The register for the shipped structural types (class/ER/state) is the
+developer register the defined-verb table gives — correct for their actual (developer) audience.
+
+### 12.4 Open decision for the maintainer (the go-ahead gate)
+The reshaped first wave (sequence/state/class/ER/C4/pie, + radar fast-follow) is the trio's
+recommended scope and mine. The genuine call to confirm: **ship the tight first wave, or a
+different cut?** — e.g. include/exclude radar, or defer C4 (its own reading is more work than the
+"free reuse" implied). No code proceeds until this is confirmed.
