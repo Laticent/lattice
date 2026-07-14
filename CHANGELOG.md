@@ -272,8 +272,11 @@ in patch versions.
   (deck → `finish:` front-matter, slide → per-slide `finish-<name>`). The deck Inspector's **Mode** and
   **Brand bar** pickers move onto the same `CatalogSelect` in the same pass (their swatches intact), and
   the now-duplicate `SpectrumPicker`/`ModePicker` modules are deleted — so finish, brand bar, and mode
-  are one shared, swatched selector across the Studio (theme is the remaining follow-up).
-  `engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md`.
+  are one shared, swatched selector across the Studio. The deck Inspector's **Theme** picker joins them
+  on `CatalogSelect` too (round accent dots via a new `swatchShape` option, grouped Curated / your themes
+  / AA color-blind-safe / More, with the "Automatic — match site" head), sharing a `themeSelectGroups`
+  builder with the topbar theme menu — so every catalog-backed picker in the deck Inspector (finish,
+  brand bar, mode, theme) is now one component. `engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md`.
 - **Studio dropdowns now use the shared `ui/select` primitive instead of native `<select>`.** The three
   surviving native selects on live surfaces — `SlideContext`'s `Picker` (finish / brand-bar / stamp /
   tone, with its grouped options), `Fabricate`'s manifest-field `sel`, and `WorkspaceSheet`'s budget

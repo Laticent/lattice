@@ -309,8 +309,8 @@ describe('Studio — Inspector controls respond', () => {
 		// The Look group's grouped theme dropdown (Automatic / Curated / AA / More)
 		// now writes the DECK's own `theme:` front matter — the website palette (the
 		// chrome's `data-palette`) is untouched.
-		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
-		await user.click(await screen.findByRole('menuitem', { name: /^Cuoio/ }));
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('option', { name: /^Cuoio/ }));
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/theme:\s*cuoio/);
 		expect(document.documentElement.getAttribute('data-palette')).toBe(sitePaletteBefore);
 	});
@@ -318,20 +318,20 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Inspector deck-theme dropdown surfaces the AA color-blind-safe palettes', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
 		// An a11y/CVD palette is selectable and pins to the deck.
-		await user.click(await screen.findByRole('menuitem', { name: /Deuteranopia/ }));
+		await user.click(await screen.findByRole('option', { name: /Deuteranopia/ }));
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/theme:\s*a11y-deuteranopia/);
 	});
 
 	it('the Inspector deck-theme "Automatic" clears the deck theme (follows the site)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
-		await user.click(await screen.findByRole('menuitem', { name: /^Cuoio/ }));
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('option', { name: /^Cuoio/ }));
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/theme:\s*cuoio/);
-		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
-		await user.click(await screen.findByRole('menuitem', { name: /Automatic/ }));
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('option', { name: /Automatic/ }));
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/theme:\s*cuoio/);
 	});
 

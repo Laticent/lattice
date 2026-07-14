@@ -49,7 +49,7 @@ import { importComments } from './slide-comments';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
-import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
+import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
 import { useBreakpoint } from './use-breakpoint';
@@ -977,7 +977,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Saved (Fabricated) themes shaped for the grouped picker.
 	const savedMenu = React.useMemo(() => savedThemes.map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
 	// Label + dot for the deck-theme trigger — null when the deck names no theme (Automatic).
-	const deckThemeMenuLabel = React.useMemo(() => (deckThemeBase ? activePaletteLabel(deckThemeBase, savedMenu) : null), [deckThemeBase, savedMenu]);
 	// Light/dark toggle — flips the shared `data-mode` (engine `light-dark()` resolves
 	// off it); the data-mode observer below pulls the new value into `mode` and the
 	// preview re-renders. Persisted via site-chrome so it survives a reload.
@@ -1519,16 +1518,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		<>
 			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light or dark, size, and surface.">
 				<Field label="Theme" desc="This deck's color palette. “Automatic” follows the website theme; pick one to pin it to the deck (saved with the deck, kept when the site theme changes).">
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Control aria-label="Choose deck theme"><span className="flex min-w-0 items-center gap-2">{deckThemeMenuLabel ? <span className="size-3.5 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: deckThemeMenuLabel.color }} /> : <SunMoon className="size-3.5 text-muted-foreground" />}<span className="truncate">{deckThemeMenuLabel ? deckThemeMenuLabel.label : 'Automatic'}</span></span> <ChevronDown className="size-3.5" /></Control>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="max-h-[60vh] w-52 overflow-y-auto">
-							<DropdownMenuItem onSelect={() => setDeckTheme(null)} className="gap-2"><SunMoon className="size-3.5" />Automatic — match site{!deckThemeBase && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
-							<DropdownMenuSeparator />
-							<ThemeMenuItems palette={deckThemeBase} onPick={setDeckTheme} saved={savedMenu} />
-						</DropdownMenuContent>
-					</DropdownMenu>
+					<CatalogSelect
+						ariaLabel="Choose deck theme"
+						swatchShape="round"
+						className="min-w-[116px]"
+						value={deckThemeBase || '__auto__'}
+						onValueChange={(v) => setDeckTheme(v === '__auto__' ? null : v)}
+						groups={[{ options: [{ value: '__auto__', label: 'Automatic — match site' }] }, ...themeSelectGroups(savedMenu)]}
+					/>
 					{savedThemes.length > 0 && (
 						<div className="mt-2 space-y-0.5">
 							<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved</div>

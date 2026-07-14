@@ -177,9 +177,9 @@ describe('Studio — Fabricate Theme Studio depth', () => {
 		// grouped theme dropdown under "Your themes"…
 		await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
 		// …and selecting it threads the saved theme into the live deck preview.
-		await user.click(await screen.findByRole('menuitem', { name: 'Ocean' }));
+		await user.click(await screen.findByRole('option', { name: 'Ocean' }));
 		const preview = document.querySelector('[data-label="Live deck preview"]') as HTMLElement;
 		await waitFor(() => expect(preview.getAttribute('data-extra-theme')).toBe('ocean'));
 		expect(preview.getAttribute('data-palette-override')).toBe('ocean');
@@ -198,8 +198,8 @@ describe('Studio — Fabricate Theme Studio depth', () => {
 		await user.click(screen.getByRole('button', { name: 'Back to Compose' }));
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		// Select it via the grouped dropdown, then delete it from the "Manage saved" list.
-		await user.click(await screen.findByRole('button', { name: 'Choose deck theme' }));
-		await user.click(await screen.findByRole('menuitem', { name: 'Ocean' }));
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('option', { name: 'Ocean' }));
 		await user.click(await screen.findByRole('button', { name: 'Delete Ocean' }));
 		// The entry is dropped and the deck falls back to a built-in palette.
 		await waitFor(() => expect(screen.queryByRole('button', { name: 'Delete Ocean' })).toBeNull());

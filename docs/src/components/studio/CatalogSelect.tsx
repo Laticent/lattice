@@ -28,13 +28,19 @@ export function catalogOptions(entries: { name: string; label: string; swatch: C
 	return entries.map((e) => ({ value: e.name, label: e.label, swatch: e.swatch }));
 }
 
-// The preview chip — a small rounded swatch rendering the option's CSS background
-// (a finish texture, a spectrum gradient, a palette accent). Matches the deck
-// Inspector's existing swatch so the two surfaces read as one.
-export function SwatchChip({ background, backgroundSize, className }: CatalogSwatch & { className?: string }) {
+// The preview chip — a small swatch rendering the option's CSS background (a finish
+// texture, a spectrum gradient, a palette accent). `shape` matches each dimension's
+// existing grammar: a rounded square for textures/gradients, a round dot for a
+// theme's accent color — so every surface reads as one.
+export type SwatchShape = 'square' | 'round';
+export function SwatchChip({ background, backgroundSize, shape = 'square', className }: CatalogSwatch & { shape?: SwatchShape; className?: string }) {
 	return (
 		<span
-			className={cn('size-4 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]', className)}
+			className={cn(
+				'shrink-0 border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]',
+				shape === 'round' ? 'size-3.5 rounded-full' : 'size-4 rounded-[3px]',
+				className,
+			)}
 			style={{ background, backgroundSize }}
 		/>
 	);
@@ -47,6 +53,7 @@ export function CatalogSelect({
 	ariaLabel,
 	className,
 	placeholder,
+	swatchShape = 'square',
 }: {
 	value: string;
 	onValueChange: (v: string) => void;
@@ -54,6 +61,7 @@ export function CatalogSelect({
 	ariaLabel: string;
 	className?: string;
 	placeholder?: string;
+	swatchShape?: SwatchShape;
 }) {
 	// The selected option drives the trigger's swatch (SelectValue carries only the
 	// label text, via each item's `textValue`, so the trigger swatch is explicit).
@@ -63,7 +71,7 @@ export function CatalogSelect({
 	);
 	const renderItem = (o: CatalogOption) => (
 		<SelectItem key={o.value} value={o.value} textValue={o.label}>
-			{o.swatch && <SwatchChip {...o.swatch} />}
+			{o.swatch && <SwatchChip {...o.swatch} shape={swatchShape} />}
 			<span className="truncate">{o.label}</span>
 		</SelectItem>
 	);
@@ -73,7 +81,7 @@ export function CatalogSelect({
 				aria-label={ariaLabel}
 				className={cn('h-auto min-w-[120px] gap-2 border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)]', className)}
 			>
-				{selected?.swatch && <SwatchChip {...selected.swatch} />}
+				{selected?.swatch && <SwatchChip {...selected.swatch} shape={swatchShape} />}
 				<SelectValue placeholder={placeholder} />
 			</SelectTrigger>
 			<SelectContent className="max-h-[60vh]">

@@ -2,6 +2,7 @@ import { Check } from 'lucide-react';
 import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import type { CatalogGroup } from './CatalogSelect';
 
 // The Studio theme picker — every shipped theme, grouped, shared by the topbar
 // menu and the Inspector. The groups mirror how the deck author thinks about
@@ -76,4 +77,20 @@ export function activePaletteLabel(palette: string, saved: SavedTheme[]): { labe
 	const s = saved.find((t) => t.name === palette);
 	if (s) return { label: s.label, color: s.accent ?? 'var(--accent)' };
 	return { label: paletteLabel(palette), color: PALETTE_DOTS[palette] ?? 'var(--accent)' };
+}
+
+/** The grouped theme options (round accent dots) for a CatalogSelect — the same
+ *  Curated → your themes → AA color-blind-safe → More grouping as the topbar
+ *  ThemeMenuItems, so the Inspector's theme field and the topbar menu read from
+ *  ONE source. The caller prepends any head (e.g. the deck's "Automatic"). */
+export function themeSelectGroups(saved: SavedTheme[] = []): CatalogGroup[] {
+	const groups: CatalogGroup[] = [
+		{ label: 'Curated', options: CURATED.map((p) => ({ value: p, label: paletteLabel(p), swatch: { background: PALETTE_DOTS[p] } })) },
+	];
+	if (saved.length > 0) {
+		groups.push({ label: 'Your themes', options: saved.map((t) => ({ value: t.name, label: t.label, swatch: { background: t.accent ?? 'var(--accent)' } })) });
+	}
+	groups.push({ label: A11Y_LABEL, options: A11Y_THEMES.map((p) => ({ value: p, label: paletteLabel(p), swatch: { background: PALETTE_DOTS[p] } })) });
+	groups.push({ label: 'More themes', options: MORE_THEMES.map((p) => ({ value: p, label: paletteLabel(p), swatch: { background: PALETTE_DOTS[p] } })) });
+	return groups;
 }
