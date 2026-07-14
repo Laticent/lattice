@@ -17,6 +17,7 @@
   "function": "progression",
   "form": "ledger",
   "substance": "structure",
+  "stage": "flow",
   "density": {
     "axis": "item",
     "soft": 14,

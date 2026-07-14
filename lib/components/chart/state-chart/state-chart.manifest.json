@@ -15,6 +15,7 @@
   "bucket": "chart",
   "form": "timeline",
   "substance": "graph",
+  "stage": "canvas",
   "orientation": [
     "landscape",
     "portrait"

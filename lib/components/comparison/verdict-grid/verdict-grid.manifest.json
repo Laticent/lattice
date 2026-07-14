@@ -7,6 +7,7 @@
   "function": "comparison",
   "form": "grid",
   "substance": "structure",
+  "stage": "flow",
   "capacity": {
     "axis": "item",
     "min": 2,

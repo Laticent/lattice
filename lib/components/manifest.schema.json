@@ -82,6 +82,13 @@
         "mixed"
       ]
     },
+    "stage": {
+      "enum": [
+        "flow",
+        "canvas"
+      ],
+      "description": "How this component's stage Cell is sized under the Form default (design/forms.md; engineering/decisions/2026-07-14-frame-species-one-model.md). `flow` = a flowing prose/structure body that the masthead kernel wraps in a bounded `.cell-stage` clip cell (the overflow probe walls it). `canvas` = a self-sizing body (a chart's `.chart-body`, a Mermaid SVG, a QR/poster card) that measures against its own box and keeps a direct-child body — the stage Cell is that box, not a generic wrapper. OMITTED for sovereign frames (title/divider/closing/image/split-panel/split-compare/math/compare-code), whose stage is their own grid and which are chrome-exempt (frame.kind:sovereign, derived from lib/forms/frame/*). The three-way {flow, canvas, sovereign} classification is the single source the stage-catalog generator composes; masthead.transform.js derives its wrap decision from it."
+    },
     "orientation": {
       "description": "The canvas orientations this component is DESIGNED for — a bidirectional support contract. `[\"landscape\",\"portrait\"]` = both (most layouts: native scaling or explicit reflow); `[\"landscape\"]` = landscape-only (e.g. redline's side-by-side diff); `[\"portrait\"]` = portrait/social-only (built for the vertical feed). lint:deck warns when a deck's @size orientation is NOT in this list — in either direction. Default (omitted) = both. How a 'both' layout adapts to portrait (native vs reflow) is recorded in the audit notes, not here. See engineering/decisions/2026-06-16-orientation-in-the-form-model.md.",
       "type": "array",

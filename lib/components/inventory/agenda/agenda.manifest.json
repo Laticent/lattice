@@ -34,6 +34,7 @@
   "function": "inventory",
   "form": "stack",
   "substance": "structure",
+  "stage": "flow",
   "tags": [
     "agenda-setting",
     "overview",

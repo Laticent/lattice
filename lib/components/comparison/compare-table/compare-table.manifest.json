@@ -43,6 +43,7 @@
   "function": "comparison",
   "form": "ledger",
   "substance": "prose",
+  "stage": "flow",
   "excludes": [
     "claim-bleed"
   ],

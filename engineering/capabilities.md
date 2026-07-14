@@ -94,6 +94,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `runtime:watch` | Rebuild the runtime bundle on change. |
 | `snippets:build` | Generate .vscode/lattice.code-snippets from component manifests. |
 | `snippets:check` | Freshness gate for the VS Code snippets. |
+| `stage-catalog:build` | Generate lib/forms/cell/masthead/stage-catalog.generated.js — the single stage-cell classification (component name → flow | canvas | sovereign), composed from each manifest's `stage` field + the sovereign frames' exemptFromChrome, bundled into lattice-runtime.js so the masthead kernel derives its .cell-stage wrap decision without shipping the manifest catalog to the browser (frame-species step A). |
+| `stage-catalog:check` | Freshness gate for the generated stage-cell catalog. |
 | `standalone-core:build` | Bundle the standalone chart-SVG export core for the browser (docs site). |
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
@@ -317,6 +319,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
 | `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
+| `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |

@@ -12,6 +12,7 @@
   "function": "evidence",
   "form": "canvas",
   "substance": "series",
+  "stage": "canvas",
   "bucket": "chart",
   "tags": [
     "percentage",

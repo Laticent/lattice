@@ -7,6 +7,7 @@
   "function": "inventory",
   "form": "stack",
   "substance": "prose",
+  "stage": "flow",
   "density": {
     "axis": "item",
     "soft": 14,

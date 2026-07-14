@@ -109,6 +109,8 @@ const SCRIPT_META = {
   'a11y-textures:check':      ['Build & bundle', 'Freshness gate for the bundled a11y-textures Playground module.'],
   'axis-dom-catalog:build':   ['Build & bundle', 'Generate lib/runtime/axis-dom-catalog.generated.js — component name to density.axis/domSelector, scanned from every manifest, bundled into lattice-runtime.js so the Fix-Me overlay drill-down can find a component\'s rendered collection without shipping the whole manifest catalog to the browser.'],
   'axis-dom-catalog:check':   ['Build & bundle', 'Freshness gate for the generated axis-DOM catalog.'],
+  'stage-catalog:build':      ['Build & bundle', 'Generate lib/forms/cell/masthead/stage-catalog.generated.js — the single stage-cell classification (component name → flow | canvas | sovereign), composed from each manifest\'s `stage` field + the sovereign frames\' exemptFromChrome, bundled into lattice-runtime.js so the masthead kernel derives its .cell-stage wrap decision without shipping the manifest catalog to the browser (frame-species step A).'],
+  'stage-catalog:check':      ['Build & bundle', 'Freshness gate for the generated stage-cell catalog.'],
   'player-core:build':        ['Build & bundle', 'Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export.'],
   'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
   'player-prune:build':       ['Build & bundle', 'Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces.'],
