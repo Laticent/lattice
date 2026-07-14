@@ -140,3 +140,53 @@ migration work on either — their native selects/drawers/tab-strips stay.
 Each step is its own branch/PR (HARD RULE #17), verified on the real surface it
 touches (HARD RULE #23) — build the docs, drive the actual Studio/Playground
 control, not a harness.
+
+## Batch outcome — 2026-07-14 (steps 4–5 revisited against the real code)
+
+A follow-up batch took on steps 4–5. Step 4 landed in full; steps 2/5's
+remaining items, on inspection, turned out to be traps — migrating them would
+*regress* behaviour, so they are deliberately NOT done. Recorded here so the
+catalog doesn't rot and nobody re-attempts a bad migration.
+
+### Done (verified on the real Studio, adversarial-trio hardened)
+- **`ui/checkbox`** — Radix Checkbox → FinishStudio's two native checkboxes
+  (row-label click preserved via `htmlFor`/`id`; closed by `FinishStudio.test.tsx`).
+- **`ui/radio-group`** — Radix RadioGroup, a REAL `role="radiogroup"`
+  (pick-exactly-one). Consumers: SlideContext `Seg` (segmented; the trio caught
+  that `ToggleGroup`'s root is `role="group"` — a silent a11y downgrade for a
+  segmented control, so exactly-one controls use RadioGroup), **PrintOptionsPanel**
+  (paper/orientation/layout/color), **ExportOptionsPanel** (comment scope). The
+  last two were a gap in this doc's original catalog — now closed.
+- **`ui/toggle-group`** — Radix ToggleGroup (zero-or-one) → SlideContext `ChipRow`
+  (state / tone / tint / mark chips; clear-on-tap).
+
+### Deferred, with reason (NOT to be force-migrated)
+- **Model pickers → `popover`+`command`** — the model list is OpenRouter-gated
+  (`status.openRouterReady`); with no key in CI/sandbox it never loads, so a
+  rewrite of this complex picker can't be verified end-to-end (HARD RULE #23).
+  Shipping an unverified rewrite of a working picker is settling. The catalog
+  logic (`filterModels`/`groupByVendor`) is already unit-tested separately.
+- **Tab strips → `pill-tabs`** — most flagged `role="tablist"` strips are the
+  WRONG primitive for pill-tabs: `RestyleShowcase` is a row of color-swatch dots;
+  `WorkspaceSheet`'s tier switch is a full-width segmented switch (pills would
+  regress it); `Specimen.astro` is vanilla (island). Forcing them makes it worse.
+- **Range → `ui/slider`** (`ConceptWalkthrough`/`ConceptGraph`) — the range is one
+  input inside a bespoke vanilla 3D animation loop; a React `ui/slider` means
+  rewriting the whole interaction (or an awkward partial island) at real risk of
+  breaking it, for only cosmetic consistency (native range is already
+  `accent-color`-styled).
+- **`SiteHeader` `<details>`-menu → `dropdown-menu`** — the `<details>` is a
+  DELIBERATE no-JS/crawlable disclosure (real `<a href>` links, SSR). A Radix
+  dropdown needs an island and breaks the no-JS fallback — a regression. Correct
+  as-is; the earlier "(no-JS preserved)" caveat is unachievable with Radix.
+- **`cadenza.astro` `<select>`** — vanilla SSR page; island rewrite, marginal
+  value, deferred.
+- **`PaletteControls`/`NavActions`** — verified NOT a gap: `PaletteControls`
+  already uses `ui/select`; `NavActions` only embeds it.
+
+### The sharpened rule
+A migration only ships when it (a) reaches for the RIGHT primitive (a segmented
+pick-one is `radio-group`, a zero-or-one chip set is `toggle-group`, a swatch row
+is neither), (b) does NOT regress an intentional SSR/no-JS/crawlable surface, and
+(c) can be verified on the real surface. "Migrate everything native" is not the
+goal; "share the right component where it's a genuine, verifiable improvement" is.
