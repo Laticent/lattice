@@ -1,30 +1,6 @@
 ---
 status: in-progress
-summary: >
-  The vision is right and matches forms.md: every component's slide root is a Frame,
-  every Frame has a stage Cell, and components differ only in WHICH cells they carry
-  and how the stage Cell is sized — never in whether they are a Frame at all. Today's
-  implementation violates that with three hand-maintained buckets in
-  masthead.transform.js (STAGE_MIGRATED / STAGE_DEFERRED / FORM_TOGGLE_SKIP). An
-  adversarial trio (red team + Munger inversion + independent checker), each grounded
-  in the rendered DOM and the shipped catalog, falsified the first draft's central
-  MECHANISM and most of its VALUE, so the CSS migration it proposed is NOT done.
-  Three corrections: (1) a deferred component's stage region is 2–4 FLOWED SIBLINGS
-  (subtitle · canvas · caption), not one box, so "rename the self-sizing box as the
-  stage cell, no wrapper" is impossible for ~14 of 17 deferred components without a
-  wrapper. (2) The advertised author-capability gain is mostly ALREADY SHIPPED
-  (claim-* is already universal on charts/diagram/media, stage.css:319/337) or vacuous
-  (align-* on a canvas that fills its own box is a no-op). (3) "species" is a §2.5
-  third-synonym violation: the sovereign case is already frame.kind:sovereign, and the
-  only genuinely-new distinction (flow vs canvas stage) is a Cell SIZING property →
-  one cell.sizing:"flow"|"canvas" field, not a stage-* class triad. DECISION: do the
-  cheap model-coherence step (step A) — make the taxonomy honest and data-shaped
-  (declare each component's stage sizing; collapse the three Sets into one classifier
-  that reproduces today's partition EXACTLY, drift-tested) — and route any real
-  "single stage cell for the viz family" through the already-blessed .viz-frame merge
-  (2026-07-13-viz-color-and-frame-unification.md §2), not a competing reorg. The heavy
-  CSS restructure, the sovereign relabel, and "delete the JS Sets as a simplification"
-  claim are cut. Step A is behavior-preserving (zero export/visual change), gate-proven.
+summary: Every component's slide root is already a Frame with a stage Cell (forms.md); the implementation drifted into three hand-maintained buckets. An adversarial trio falsified the first draft's CSS migration (mechanism + value), so it is cut to step A — declare each component's stage sizing (flow|canvas), collapse the three Sets into one drift-tested catalog-derived classifier (behavior-preserving), and route a real single-stage-cell-for-viz through the blessed .viz-frame merge.
 ---
 
 # Frame species — one composition model, no exceptions
