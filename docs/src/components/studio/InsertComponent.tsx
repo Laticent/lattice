@@ -7,7 +7,7 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 // the same skeleton the docs portal documents — so authors don't hand-write a
 // `<!-- _class: … -->` block from memory.
 
-export type ComponentEntry = { name: string; bucket: string; description: string; skeleton: string };
+export type ComponentEntry = { name: string; bucket: string; description: string; skeleton: string; function?: string; form?: string };
 
 // 'local' (your saved Layout-Studio components) leads, then the 12 built-in
 // buckets in a deliberate reading order (anchor first, legal last).

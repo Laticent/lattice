@@ -1,8 +1,49 @@
 import { describe, expect, it } from 'vitest';
+import { parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
-import { frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
+
+// The exact reconstruction the shell uses to persist a registry edit: extract the inner front matter,
+// let Lente (the sole registry serializer) rewrite the `lenses:` block, re-wrap in `---` delimiters.
+function withRegistry(source: string, reg: ReturnType<typeof parseLensRegistry>): string {
+	const nextInner = upsertLensRegistry(innerFrontMatter(source), reg);
+	const rest = stripFrontMatter(source).replace(/^(?:[ \t]*\r?\n)+/, '');
+	return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
+}
+
+describe('innerFrontMatter + registry write-back (the shell↔Lente seam)', () => {
+	it('returns the body BETWEEN the delimiters, or "" for a source with no block', () => {
+		expect(innerFrontMatter('---\ntheme: indaco\nsize: 16:9\n---\n\n# Deck')).toBe('theme: indaco\nsize: 16:9');
+		expect(innerFrontMatter('# No front matter here')).toBe('');
+	});
+
+	it('adds a lenses: block to a deck that had front matter, preserving the other keys AND the body', () => {
+		const src = `---\ntheme: indaco\n---\n\n${BODY}`;
+		const reg = parseLensRegistry('lenses:\n  brief: { label: "Bottom line", base: none }');
+		const out = withRegistry(src, reg);
+		expect(getFrontMatter(out, 'theme')).toBe('indaco'); // unrelated key survives
+		expect(stripFrontMatter(out)).toBe(BODY); // body untouched
+		// The written block re-parses to the same registry (round-trip through Lente).
+		expect(parseLensRegistry(frontMatterBlock(out)).lenses.map((l) => l.id)).toEqual(['full', 'brief']);
+	});
+
+	it('creates a fresh front-matter block for a deck that had none', () => {
+		const reg = parseLensRegistry('lenses:\n  story: { label: "The story", base: none }');
+		const out = withRegistry(BODY, reg);
+		expect(out.startsWith('---\n')).toBe(true);
+		expect(stripFrontMatter(out)).toBe(BODY);
+		expect(parseLensRegistry(frontMatterBlock(out)).lenses.some((l) => l.id === 'story')).toBe(true);
+	});
+
+	it('an approval hash written into the block re-parses intact', () => {
+		const reg = parseLensRegistry('lenses:\n  brief: { label: "B", base: none, approved: "sha256:abc123" }');
+		const out = withRegistry(`---\nsize: 16:9\n---\n\n${BODY}`, reg);
+		const brief = parseLensRegistry(frontMatterBlock(out)).lenses.find((l) => l.id === 'brief');
+		expect(brief?.approved).toBe('sha256:abc123');
+	});
+});
 
 describe('front-matter', () => {
 	it('round-trips a nested finish-override: block — a flat edit does NOT flatten it', () => {

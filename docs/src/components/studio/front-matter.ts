@@ -17,6 +17,15 @@ export function frontMatterBlock(source: string): string {
 	return m ? m[0] : '';
 }
 
+/** The INNER front-matter body — the lines BETWEEN the `---` delimiters, without them (or '' when the
+ *  source has no block). The complement of `stripFrontMatter`: `frontMatterBlock` ≈ `---\n` + inner +
+ *  `\n---\n…`. Lente's `upsertLensRegistry` operates on this inner body (it round-trips arbitrary keys),
+ *  so the registry writer feeds it the inner text and re-wraps — never the fenced block. */
+export function innerFrontMatter(source: string): string {
+	const m = FM_RE.exec(String(source ?? ''));
+	return m ? m[1] : '';
+}
+
 /** The source with its leading front-matter block removed. */
 export function stripFrontMatter(source: string): string {
 	const src = String(source ?? '');

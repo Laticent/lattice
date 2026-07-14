@@ -18,6 +18,7 @@ import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
+import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
@@ -36,13 +37,14 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { type AcronymEntry, frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
+import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { LatticeMark } from './LatticeMark';
+import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
-import { LensPicker } from './lens-picker';
+import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
@@ -525,9 +527,75 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
 	const body = React.useMemo(() => stripFrontMatter(source), [source]);
 	const slides = React.useMemo(() => splitSlides(body), [body]);
+	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
+	// `full`) for a deck with no block → the picker shows just "Full deck" (a static label + an
+	// "＋ Reader view" entry to the Lenses panel).
+	const lensReg = React.useMemo(() => parseLensRegistry(fm), [fm]);
+	// The picker's catalog. A deck that AUTHORED a `lenses:` block is in registry mode — show ITS lenses
+	// (the reader's real menu). Author-side, so it lists lenses regardless of approval (the author previews
+	// an unapproved lens to decide whether to approve). Presence of an authored registry — not a count of
+	// non-hidden survivors — is what flips the mode, so a mostly-hidden registry never regresses to "Full deck".
+	const composeLensEntries = React.useMemo(() => {
+		const authored = lensReg.lenses.length > 1; // more than the implicit `full`
+		return authored ? lensEntriesFrom(lensReg.lenses.filter((l) => !l.hidden)) : LENSES;
+	}, [lensReg]);
+	// Reconcile the selected compose lens when the registry changes underneath it: if the author renames,
+	// removes, or hides the lens being previewed, the selection would dangle — projecting to an empty or
+	// full-deck fallback while the picker still shows the stale label. Snap back to `full` so the preview
+	// never lies about which lens it's showing.
+	React.useEffect(() => {
+		if (composeLens !== 'full' && !composeLensEntries.some((e) => e.key === composeLens)) setComposeLens('full');
+	}, [composeLens, composeLensEntries]);
+	// The component classification catalog the deterministic (no-AI) lens suggester reads — built once
+	// from the real manifest passed to the shell. `function`/`form` ride on each entry (M2 prep).
+	const lensCatalog = React.useMemo(() => catalogFromComponents(components.map((c) => ({ name: c.name, bucket: c.bucket, function: c.function ?? '', form: c.form ?? '' }))), [components]);
+	// Registry writes — Lente is the SOLE registry serializer (HARD RULE #1): extract the inner front
+	// matter, let `upsertLensRegistry` rewrite the `lenses:` block, re-wrap. Undo-funneled via settingsWrite.
+	const writeRegistry = React.useCallback((label: string, next: LensRegistry) => {
+		settingsWrite(label, (s) => {
+			const nextInner = upsertLensRegistry(innerFrontMatter(s), next);
+			const rest = stripFrontMatter(s).replace(/^(?:[ \t]*\r?\n)+/, '');
+			return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
+		});
+	}, [settingsWrite]);
+	// Tag writes — put slides in/out of a lens by rewriting each affected slide with the library's
+	// applyTag (the only per-slide membership carrier). Applied sequentially so several accepts land as
+	// ONE undo step; applyTag never changes slide COUNT, so author indices stay stable across the batch.
+	const writeTags = React.useCallback((label: string, changes: TagChange[]) => {
+		if (!changes.length) return;
+		settingsWrite(label, (s) => {
+			let src = s;
+			for (const c of changes) {
+				const chunk = splitSlides(stripFrontMatter(src))[c.index];
+				if (chunk == null) continue;
+				src = replaceSlide(src, c.index, applyTag(chunk, c.lensId, c.member, c.base)).source;
+			}
+			return src;
+		});
+	}, [settingsWrite]);
+	// Remove a reader view CLEANLY, in ONE undo step: strip the lens's `_lens` tag from every slide
+	// (so a later same-id re-add can't silently resurrect the old membership), then drop it from the
+	// registry. Reparses the registry from the live source so the write is never stale. `member = base
+	// === 'all'` clears the tag either way (delete the `-id` exclude, or the `+id` include).
+	const removeLensWrite = React.useCallback((lens: LensDef) => {
+		settingsWrite(`Remove reader view → ${lens.label}`, (s) => {
+			let src = s;
+			const count = splitSlides(stripFrontMatter(src)).length;
+			for (let i = 0; i < count; i++) {
+				const chunk = splitSlides(stripFrontMatter(src))[i];
+				if (chunk == null) continue;
+				src = replaceSlide(src, i, applyTag(chunk, lens.id, lens.base === 'all', lens.base)).source;
+			}
+			const cur = parseLensRegistry(frontMatterBlock(src));
+			const next: LensRegistry = { lenses: cur.lenses.filter((l) => l.id !== lens.id), default: cur.default === lens.id ? 'full' : cur.default };
+			const nextInner = upsertLensRegistry(innerFrontMatter(src), next);
+			const rest = stripFrontMatter(src).replace(/^(?:[ \t]*\r?\n)+/, '');
+			return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
+		});
+	}, [settingsWrite]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
-	const viewSlides = React.useMemo(() => (composeLens === 'full' ? slides : presentationSet(slides, composeLens)), [slides, composeLens]);
+	const viewSlides = React.useMemo(() => (composeLens === 'full' ? slides : presentationSet(slides, composeLens, lensReg)), [slides, composeLens, lensReg]);
 	const slide = viewSlides[Math.min(activeSlide, viewSlides.length - 1)] ?? viewSlides[0] ?? '';
 	// When inline validation is off, nothing is "unknown" — the editor, the issue
 	// count, and the Architect's component check all stand down together.
@@ -1497,9 +1565,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<p className="text-xs leading-relaxed text-muted-foreground">Lead every slide with its takeaway, not its detail — the number, then the supporting rows.{!ai.ready && <span className="text-[var(--text-muted)]"> Connect a model in Workspace for one-click rewrites.</span>}</p>
 				<Chip busy={aiBusy === 'lead'} onClick={() => runArchitectAction('lead', 'Rewrite lead', `Rewrite slide ${activeFullIndex + 1} so it opens with its single headline takeaway or number, then the supporting rows. Return the whole slide, same component.`)}>Rewrite lead</Chip>
 			</ArchCard>
-			<ArchCard tag={<IntentTag intent="info" label="RESHAPE" />} title="Reshape for a reader">
-				<p className="text-xs leading-relaxed text-muted-foreground">Reorient the deck without losing the source.</p>
-				<div className="mt-2 flex flex-wrap gap-1.5"><Chip onClick={() => { setLens('exec'); notify('Preview reshaped to the Exec summary — headline slides only.'); }}>Exec summary</Chip><Chip busy={aiBusy === 'technical'} onClick={() => runArchitectAction('technical', 'Reshape: Technical', 'Rewrite the deck in a more technical, detail-forward voice — concrete metrics, methods, and specifics over narrative. Edit each slide that needs it; keep the component types.')}>Technical</Chip><Chip busy={aiBusy === 'narrative'} onClick={() => runArchitectAction('narrative', 'Reshape: Narrative', 'Rewrite the deck in a more narrative, story-forward voice — a throughline from problem to payoff, plain language. Edit each slide that needs it; keep the component types.')}>Narrative</Chip></div>
+			<ArchCard tag={<IntentTag intent="info" label="LENSES" />} title="Reader views">
+				<LensesPanel
+					slides={slides}
+					registry={lensReg}
+					catalog={lensCatalog}
+					activeLens={composeLens}
+					onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
+					onWriteRegistry={writeRegistry}
+					onTag={writeTags}
+					onRemoveLens={removeLensWrite}
+				/>
 			</ArchCard>
 		</>
 	);
@@ -1776,7 +1852,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { graduate(); setArchitectOpen(true); notify('Reader views live in the Architect’s Lenses panel — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
@@ -2300,7 +2376,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
 				notify={notify}
 			/>
-			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
+			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 			<CommandPalette
 				open={cmdOpen}
 				onOpenChange={setCmdOpen}

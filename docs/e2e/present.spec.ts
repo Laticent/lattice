@@ -25,15 +25,15 @@ test('present navigates through slides and exits on Escape', async ({ page }) =>
 	await expect(dialog).toBeHidden();
 });
 
-test('the present reader lens trims the presented set', async ({ page }) => {
+test('an untagged deck has no reader-view switcher in Present (heuristics retired)', async ({ page }) => {
+	// The old author-blind exec/onepager heuristics are retired: a deck with no `lenses:` registry has
+	// nothing to switch to, so Present shows a static "Full deck" label — not a dropdown. (Building +
+	// approving a reader view, then switching to it in Present, is covered by lenses.spec — which also
+	// carries the z-order regression guard for the picker-behind-the-overlay bug.)
 	const dialog = page.getByRole('dialog', { name: 'Present' });
-	// The reader lens is a dropdown now (was a scrolling chip row): open it, pick Exec.
-	await dialog.getByRole('button', { name: 'Reader view' }).click();
-	await page.getByRole('menuitem', { name: 'Exec summary' }).click();
-	// Exec keeps only headline slides → a strictly smaller denominator.
-	const counter = await dialog.getByText(/^\d+ \/ \d+$/).first().textContent();
-	const denom = Number((counter ?? '').split('/')[1]);
-	expect(denom).toBeLessThan(total);
+	await expect(dialog.getByText('Full deck')).toBeVisible();
+	await expect(dialog.getByRole('button', { name: 'Reader view' })).toHaveCount(0);
+	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible(); // full deck, not trimmed
 });
 
 test('the slide overview opens with the G key and lists every slide', async ({ page }) => {

@@ -173,6 +173,32 @@ in patch versions.
   flips light↔dark on the token bridge. No export or engine change — docs-site UI only; other live
   surfaces still on native `title=` are a documented fast-follow. Verified on the real Studio in both
   colour modes.
+- **The reader-view switch is now author-approved views only — the old `exec`/`onepager` heuristics are
+  retired.** *(Breaking for the reader-view picker: the built-in "Exec summary" / "One-pager" reshapes are
+  gone.)* A reader view is now something the author builds and APPROVES in the Lenses panel — never a
+  machine's un-vetted guess. Both the Compose preview and Present offer a deck's own `lenses:` registry
+  views (projected deterministically by `@slidewright/lente` from approved `_lens` tags); a deck with no
+  reader views yet shows a plain **"Full deck"** label in Present, and in the editor a **"＋ Reader view"**
+  entry that opens the Lenses panel (so the feature stays discoverable from the deck surface, not a dead
+  end). Present's reader picker lists **only reader-eligible lenses** (approved, non-empty, non-hidden,
+  content-current), and its projection routes through the library's fail-closed `lensEligibility`: any
+  non-`full` lens that is unapproved, drifted, empty, hidden, or unknown renders an explicit **"this view
+  is unavailable"** state rather than silently falling open to the whole deck — a scoping lens can be a
+  redaction, so a full-deck fallback would leak exactly the slides the author withheld (design §6.3). The
+  Compose catalog reconciles its selection when the registry changes underneath it (a renamed/removed lens
+  snaps back to Full).
+- **A Lenses panel in the Architect puts the author in control of every reader view.** Replacing the old
+  "Reshape" chips, the panel is the human-in-the-loop loop end to end: **add** a reader view from the
+  reader-science archetypes (Bottom line, The story, The evidence, The ask); a **deterministic, no-AI
+  suggester proposes** which slides belong — each proposal shown by slide title with its one-line
+  rationale — and you **accept** them (all, or one at a time) or tag/untag any slide by hand; **preview**
+  the reader's actual deck; and only then can you **Approve** — the button stays locked until you've
+  previewed that view's current slides (you approve what you've seen), and approving binds a content hash
+  of exactly what a reader would see. A view stays **Draft** (hidden) until approved, flips to **Edited**
+  the moment its content drifts (readers can't see it again until you re-approve), reads **Staged** when
+  hidden, and an **empty** view can't be approved at all. Removing a view also clears its slide tags, so a
+  later same-name view never silently inherits old membership. Every write funnels through the deck source
+  (undo-able) with `@slidewright/lente` as the sole registry serializer.
 - **`_lens` is now a recognized per-slide directive.** A `<!-- _lens: brief ask -->` comment carries a
   slide's reader-lens membership for the forthcoming lens system (`@slidewright/lente`). Like other
   directives it is **stripped from exported HTML/PDF** and is never a `<section>` attribute — so internal
@@ -447,6 +473,12 @@ in patch versions.
 
 ### Fixed
 
+- **The reader-view picker now works in Present.** Its dropdown menu portals to `<body>`, so inside
+  Present (a full-screen `z-[100]` takeover) it was painting *behind* the overlay at the default `z-50` —
+  visible in the DOM and even hit-testable (so it "clicked" in tests) but visually occluded, reading as a
+  dead control. The Present picker now floats its menu above the overlay (`z-[130]`) on a distinct card
+  surface. A stacking-invariant e2e guard (menu z-index must exceed the overlay's) covers the regression,
+  since the paint occlusion is invisible to every DOM API.
 - **A nested narration key is no longer double-parsed.** The shared front-matter block reader
   (`resolve-captions.mjs` `blockLines`) matched a `key:` header at any indent, so a `acronyms:` nested
   under `lexicon:` opened a phantom acronyms block and its children were parsed twice. The header now

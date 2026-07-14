@@ -155,7 +155,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(screen.queryByText('Presenter screen')).not.toBeInTheDocument();
 	});
 
-	it('Present navigates the deck and reshapes by reader lens', async () => {
+	it('Present navigates the deck; an untagged deck shows a static "Full deck" (no reader-view switcher)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Present' }));
 		const dialog = await screen.findByRole('dialog', { name: 'Present' });
@@ -164,15 +164,10 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(d.getByText('1 / 6')).toBeInTheDocument();
 		await user.click(d.getAllByRole('button', { name: 'Next slide' })[0]);
 		expect(d.getByText('2 / 6')).toBeInTheDocument();
-		// The lens switch is a dropdown now (was a scrolling chip row). Open it, pick
-		// Exec summary — reshapes to the headline slides (title/kpi/stats/closing).
-		await user.click(d.getByRole('button', { name: 'Reader view' }));
-		await user.click(await screen.findByRole('menuitem', { name: /Exec summary/ }));
-		expect(d.getByText('1 / 4')).toBeInTheDocument();
-		// One-pager collapses to a single slide.
-		await user.click(d.getByRole('button', { name: 'Reader view' }));
-		await user.click(await screen.findByRole('menuitem', { name: /One-pager/ }));
-		expect(d.getByText('1 / 1')).toBeInTheDocument();
+		// The old author-blind exec/onepager heuristics are retired. A deck with no `lenses:` registry has
+		// nothing to switch to, so Present shows a static "Full deck" label, not a reader-view dropdown.
+		expect(d.getByText('Full deck')).toBeInTheDocument();
+		expect(d.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
 	});
 
 	it('Present opens the slide sorter and jumps from a thumbnail', async () => {
@@ -314,16 +309,67 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(screen.queryByText('FIX')).not.toBeInTheDocument();
 	});
 
-	it('a reader lens reshapes the Compose preview, and clears back to full', async () => {
-		const user = setup();
+	// The Q3 deck's components, classified so the (no-AI) suggester can propose a Bottom-line set.
+	const q3Catalog = [
+		{ name: 'title', bucket: 'anchor', description: '', skeleton: '', function: 'anchor', form: 'bookend' },
+		{ name: 'agenda', bucket: 'progression', description: '', skeleton: '', function: 'progression', form: 'list' },
+		{ name: 'kpi', bucket: 'evidence', description: '', skeleton: '', function: 'evidence', form: 'metric' },
+		{ name: 'quote', bucket: 'connect', description: '', skeleton: '', function: 'statement', form: 'pull' },
+		{ name: 'stats', bucket: 'evidence', description: '', skeleton: '', function: 'evidence', form: 'metric' },
+		{ name: 'closing', bucket: 'anchor', description: '', skeleton: '', function: 'anchor', form: 'bookend' },
+	];
+
+	it('previewing a reader view reshapes the Compose preview, and clears back to full', async () => {
+		const user = userEvent.setup();
+		render(<StudioShell options={options} components={q3Catalog} />);
 		expect(screen.getByText('Slide 1 / 6')).toBeInTheDocument();
-		// The Architect's "Exec summary" reshapes the preview to the headline slides.
-		await user.click(screen.getByText('Exec summary'));
-		expect(await screen.findByText('Slide 1 / 4')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Clear reader lens' })).toBeInTheDocument();
+		// Build a Bottom-line view (suggester-proposed members) and preview it — the Compose preview
+		// reshapes to that view's slides (a strict subset). Author-side preview needs no approval.
+		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
+		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
+		await user.click(await screen.findByRole('button', { name: 'Accept all' }));
+		await user.click(screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLElement);
+		// A Clear affordance appears and the deck is reshaped to fewer than the full 6 slides.
+		const clear = await screen.findByRole('button', { name: 'Clear reader lens' });
+		expect(screen.queryByText('Slide 1 / 6')).not.toBeInTheDocument();
 		// Clearing returns to the full deck.
-		await user.click(screen.getByRole('button', { name: 'Clear reader lens' }));
+		await user.click(clear);
 		expect(await screen.findByText('Slide 1 / 6')).toBeInTheDocument();
+	});
+
+	// The whole point, end to end at the reader surface: a reader can open a view ONLY after the author
+	// approved it — and the author can only approve after previewing. The suggester proposes, the author
+	// accepts + previews + approves, and only THEN does Present offer the view to a reader.
+	it('the human-in-the-loop gate: Present offers a reader view ONLY after the author approves it', async () => {
+		const user = userEvent.setup();
+		render(<StudioShell options={options} components={q3Catalog} />);
+
+		// Add a Bottom-line reader view and accept the suggester's proposal (it becomes a DRAFT).
+		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
+		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
+		await user.click(await screen.findByRole('button', { name: 'Accept all' }));
+
+		// A DRAFT view is NOT reader-eligible → Present has NO reader-view switcher (just a static
+		// "Full deck"), so a reader is never even offered it. (The legacy exec/onepager heuristics that
+		// used to fill this picker are retired.)
+		await user.click(screen.getByRole('button', { name: 'Present' }));
+		let dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
+		expect(dialog.getByText('Full deck')).toBeInTheDocument();
+		expect(dialog.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('menuitem', { name: /Bottom line/ })).not.toBeInTheDocument();
+		await user.keyboard('{Escape}'); // close Present
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Present' })).not.toBeInTheDocument());
+
+		// Back in the panel: preview (the approval gate) then approve.
+		await user.click(screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLElement);
+		await user.click(await screen.findByRole('button', { name: /Approve for readers/ }));
+
+		// NOW the view is reader-eligible → Present shows a real switcher offering it. The gate opened
+		// only on the human's approval.
+		await user.click(screen.getByRole('button', { name: 'Present' }));
+		dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
+		await user.click(dialog.getByRole('button', { name: 'Reader view' }));
+		expect(await screen.findByRole('menuitem', { name: /Bottom line/ })).toBeInTheDocument();
 	});
 
 	it('jumps to any slide from the navigator rail', async () => {

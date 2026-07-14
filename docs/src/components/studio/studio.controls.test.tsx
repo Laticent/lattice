@@ -165,10 +165,19 @@ describe('Studio — Architect + editor controls respond', () => {
 		expect(screen.queryByText(/\d+ issue/)).not.toBeInTheDocument();
 	});
 
-	it('the Reshape "Exec summary" chip reshapes the preview (deterministic, real)', async () => {
+	it('the Lenses panel adds a reader view and gates it behind approval (deterministic, real)', async () => {
 		const user = setup();
-		await user.click(screen.getByText('Exec summary'));
-		expect(await screen.findByText(/headline slides only/i)).toBeInTheDocument();
+		// The Architect's "Reader views" card: add a Bottom-line reader view…
+		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
+		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
+		// …it lands as a real `lenses:` block and the row shows it starts EMPTY — hidden from readers
+		// until the author tags slides in and approves (the human-in-the-loop gate). The new row
+		// auto-expands, so its guidance + gated Approve are visible immediately.
+		const row = await screen.findByRole('button', { name: /Bottom line/ });
+		expect(row).toHaveTextContent(/Empty/);
+		expect(await screen.findByText(/No slides yet/i)).toBeInTheDocument();
+		// An empty view can't be approved — the Approve action is withheld.
+		expect(screen.queryByRole('button', { name: /Approve for readers/ })).not.toBeInTheDocument();
 	});
 
 	it('the Architect Chat thread sends a message and degrades honestly offline', async () => {

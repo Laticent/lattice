@@ -1,4 +1,4 @@
-import { currentSlide, expect, gotoStudio, railButtons, slideCount, test, toastText } from './studio-fixture';
+import { currentSlide, expect, gotoStudio, railButtons, slideCount, test } from './studio-fixture';
 
 // Preview navigation + reader lenses. The outer "Slide N / M" label and the rail
 // count are the reliable outer-DOM oracles; the painted slide *changing* is
@@ -39,19 +39,7 @@ test('clicking a rail slide jumps to it and repaints', async ({ page }) => {
 	await expect(currentSlide(page)).not.toContainText(head1);
 });
 
-test('Exec-summary lens trims the deck to headline slides, and clearing restores it', async ({ page }) => {
-	const n = await slideCount(page);
-	// The Reshape card lives in the Architect panel, which is collapsed by default.
-	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await page.getByRole('button', { name: 'Exec summary' }).first().click();
-	await expect(toastText(page)).toContainText('Exec summary');
-
-	// The lens keeps only headline slides → strictly fewer than the full deck.
-	await expect.poll(() => slideCount(page)).toBeLessThan(n);
-	const clear = page.getByRole('button', { name: 'Clear reader lens' });
-	await expect(clear).toBeVisible();
-
-	await clear.click();
-	await expect(railButtons(page)).toHaveCount(n);
-	await expect(clear).toBeHidden();
-});
+// The Compose-preview reader-view reshape (build a view → preview it → the preview trims → Clear
+// restores) now lives in lenses.spec ("previewing a reader view reshapes the Compose preview…"), which
+// authors a real reader view first. The old author-blind exec/onepager heuristics that used to fill this
+// picker for an untagged deck are retired, so there's nothing to reshape here without a reader view.

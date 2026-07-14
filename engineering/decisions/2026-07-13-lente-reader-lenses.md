@@ -235,11 +235,17 @@ This is the core requirement and the axis the winning design led on. It has thre
 hardened by the trio.
 
 **(1) Eligibility lives in the library, not the Studio.** A non-`full` lens is reader-eligible
-**only** when its `approved` hash is present *and matches the current content*. `lensPairs` — the
-one function every consumer calls (Studio preview, `PresentOverlay`, export, share link, headless)
-— refuses to project an ineligible lens. The read path and the suggester are **different modules in
-different files, and the core never imports the catalog**, so the heuristic physically cannot write
-its own approval. This holds off-Studio, which is where a boolean-in-Studio gate would have failed.
+**only** when its `approved` hash is present *and matches the current content*. The read path splits
+into two functions with different jobs, and the distinction is load-bearing: `lensPairs` is the raw,
+author-side projection — a predicate filter that returns a lens's membership *without* an approval
+check (it fails OPEN, so the author can preview an unapproved lens to decide whether to approve it).
+`lensEligibility` is the READER gate — it wraps `lensPairs` and returns `{status:'unavailable', reason}`
+for any lens that is unapproved, content-drifted, hidden, or empty, projecting slides ONLY when the
+lens is genuinely eligible (it fails CLOSED). Every reader consumer (`PresentOverlay`, export, share
+link, headless) MUST route through `lensEligibility` — calling `lensPairs` directly on the reader path
+would leak an unapproved lens. The read path and the suggester are **different modules in different
+files, and the core never imports the catalog**, so the heuristic physically cannot write its own
+approval. This holds off-Studio, which is where a boolean-in-Studio gate would have failed.
 
 **(2) `approved` is a content hash, not a boolean** (hardened per inversion R2). A bare
 `approved: true` is forgeable plaintext — any hand edit, paste, or the Studio's own AI chat

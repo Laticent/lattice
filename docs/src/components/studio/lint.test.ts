@@ -159,49 +159,30 @@ describe('scoreDeck (Architect readiness, fuzz)', () => {
 	});
 });
 
-describe('presentationSet (reader lenses, fuzz)', () => {
-	const slideArb = fc.array(fc.constantFrom('title', 'kpi', 'quote', 'agenda', 'stats', 'closing', 'cards-grid'), { minLength: 1, maxLength: 10 }).map((cs) => cs.map((c) => `<!-- _class: ${c} -->\n# ${c}`));
+describe('presentationSet (reader lenses)', () => {
+	// A registry with a `brief` lens (base:none — additive, tag-driven). The old author-blind
+	// `exec`/`onepager` heuristics are RETIRED: `full` is the identity, every other id is a registry lens.
+	const registry = {
+		default: 'full',
+		lenses: [
+			{ id: 'full', label: 'Full deck', base: 'all' as const },
+			{ id: 'brief', label: 'Bottom line', base: 'none' as const },
+		],
+	};
 
-	it('every lens returns a non-empty SUBSET of the deck (order preserved) — never throws', () => {
-		fc.assert(
-			fc.property(slideArb, fc.constantFrom('full', 'exec', 'onepager'), (slides, lens) => {
-				const out = presentationSet(slides, lens as 'full' | 'exec' | 'onepager');
-				expect(out.length).toBeGreaterThan(0);
-				expect(out.length).toBeLessThanOrEqual(slides.length);
-				for (const s of out) expect(slides).toContain(s);
-			}),
-		);
-	});
-
-	it('`full` is the whole deck; `onepager` is exactly one slide', () => {
+	it('`full` is the whole deck; an unknown lens with no registry falls back to the whole deck', () => {
+		const slideArb = fc.array(fc.constantFrom('title', 'kpi', 'quote', 'stats', 'closing'), { minLength: 1, maxLength: 8 }).map((cs) => cs.map((c) => `<!-- _class: ${c} -->\n# ${c}`));
 		fc.assert(
 			fc.property(slideArb, (slides) => {
 				expect(presentationSet(slides, 'full')).toEqual(slides);
-				expect(presentationSet(slides, 'onepager')).toHaveLength(1);
+				expect(presentationSet(slides, 'brief')).toEqual(slides); // no registry → safe full-deck fallback
 			}),
 		);
 	});
 
-	it('handles an empty deck without throwing', () => {
-		expect(presentationSet([], 'exec')).toEqual([]);
+	it('handles an empty / undefined deck without throwing', () => {
+		expect(presentationSet([], 'brief', registry)).toEqual([]);
 		expect(presentationSet(undefined as unknown as string[], 'full')).toEqual([]);
-	});
-
-	// presentationIndices is what lets a front-matter `captions:` map (keyed by author slide
-	// NUMBER) resolve under a FILTERED lens — each shown slide maps back to its original index.
-	it('presentationIndices is positionally aligned with presentationSet and holds ORIGINAL indices', () => {
-		fc.assert(
-			fc.property(slideArb, fc.constantFrom('full', 'exec', 'onepager'), (slides, lens) => {
-				const set = presentationSet(slides, lens as 'full' | 'exec' | 'onepager');
-				const idx = presentationIndices(slides, lens as 'full' | 'exec' | 'onepager');
-				expect(idx.length).toBe(set.length); // same length, positionally aligned
-				for (let i = 0; i < set.length; i++) {
-					expect(slides[idx[i]]).toBe(set[i]); // idx[i] is the slide's original deck position
-					expect(idx[i]).toBeGreaterThanOrEqual(0);
-					expect(idx[i]).toBeLessThan(slides.length);
-				}
-			}),
-		);
 	});
 
 	it('under `full`, presentationIndices is the identity 0..n-1', () => {
@@ -209,40 +190,22 @@ describe('presentationSet (reader lenses, fuzz)', () => {
 		expect(presentationIndices(slides, 'full')).toEqual([0, 1, 2]);
 	});
 
-	it('under a FILTERING lens, a dropped slide shifts the ORIGINAL index, not the set position', () => {
-		// exec keeps title/kpi/stats/big-number/closing; the middle `quote` is dropped.
-		const slides = [
-			'<!-- _class: title -->\n# t', // 0 — kept
-			'<!-- _class: quote -->\n# q', // 1 — dropped by exec
-			'<!-- _class: kpi -->\n# k', // 2 — kept
-		];
-		expect(presentationSet(slides, 'exec')).toEqual([slides[0], slides[2]]);
-		// The second SHOWN slide is authored slide 3 (index 2), NOT set-position 2 → its
-		// front-matter caption is keyed on 3, resolved via presentationIndices[1] + 1.
-		expect(presentationIndices(slides, 'exec')).toEqual([0, 2]);
-	});
-
-	// The adapter seam: when the deck defines a `lenses:` registry, projection flows through the
-	// tag-driven @slidewright/lente read path instead of the legacy heuristic — and the author-index
-	// contract (captions) is preserved identically.
+	// The tag-driven read path: when the deck defines a `lenses:` registry, projection flows through the
+	// @slidewright/lente library, and the author-index contract (what keeps number-keyed front-matter
+	// `captions:` resolving under a FILTERED lens) is preserved — a dropped slide shifts the ORIGINAL
+	// index, not the set position.
 	it('projects a registry (tag-driven) lens via the library, preserving author indices', () => {
-		const registry = {
-			default: 'full',
-			lenses: [
-				{ id: 'full', label: 'Full deck', base: 'all' as const },
-				{ id: 'brief', label: 'Bottom line', base: 'none' as const },
-			],
-		};
 		const slides = [
 			'<!-- _class: title -->\n<!-- _lens: brief -->\n# t', // 0 — tagged into brief
-			'<!-- _class: quote -->\n# q', // 1 — not in brief
+			'<!-- _class: quote -->\n# q', // 1 — not in brief (dropped)
 			'<!-- _class: kpi -->\n<!-- _lens: brief -->\n# k', // 2 — tagged into brief
 		];
 		expect(presentationSet(slides, 'brief', registry)).toEqual([slides[0], slides[2]]);
+		// The second SHOWN slide is authored slide 3 (index 2) → its number-keyed caption resolves via
+		// presentationIndices[1] + 1, not the set position.
 		expect(presentationIndices(slides, 'brief', registry)).toEqual([0, 2]);
-		// Without the registry, 'brief' is an unknown lens → safe fallback to the whole deck.
-		expect(presentationSet(slides, 'brief')).toEqual(slides);
-		// A registry lens with no members never projects a blank set — falls back to full.
-		expect(presentationSet(['<!-- _class: title -->\n# t'], 'brief', registry)).toHaveLength(1);
+		// A registry lens with no members projects an EMPTY set (honest, not fail-open to the whole deck)
+		// — the reader path renders "unavailable"; a fail-open here would leak a redaction lens.
+		expect(presentationSet(['<!-- _class: title -->\n# t'], 'brief', registry)).toEqual([]);
 	});
 });

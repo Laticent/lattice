@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
@@ -16,8 +17,8 @@ import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOve
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
-import { LensPicker } from './lens-picker';
-import { type PresentLens, presentationIndices, presentationSet } from './lint';
+import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
+import { type PresentLens, presentationPairs } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { sectionsFromSlides } from './present-sections';
@@ -43,11 +44,22 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).p
 // stripped URLs). Resolved per-index (below, `narrationAt`) so the current slide's
 // reader AND the autoplay warm-ahead prefetch derive the same text for a slide.
 
+// A reader-facing explanation for a withheld lens. Fail-closed projection (design §6.3) never shows the
+// full deck as a fallback for a scoped lens — it says, plainly, why the view isn't available, so the
+// author can see (in Present) that an unapproved / stale / empty lens is gated exactly as a reader will.
+const UNAVAILABLE_COPY: Record<string, { title: string; body: string }> = {
+	unapproved: { title: 'This view is awaiting approval', body: 'A human hasn’t approved this reader view yet, so it isn’t shown. Approve it in the Lenses panel to make it readable.' },
+	drifted: { title: 'This view is out of date', body: 'The deck changed since this view was approved, so it’s withheld until re-approved. Re-approve it in the Lenses panel.' },
+	empty: { title: 'This view has no slides', body: 'No slide is tagged into this view, so there’s nothing to present. Tag slides into it, then approve.' },
+	hidden: { title: 'This view isn’t available', body: 'This reader view is hidden.' },
+	unknown: { title: 'This view doesn’t exist', body: 'No reader view by that name is defined for this deck.' },
+};
+
 type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
 
-export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
+export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
 	const [lens, setLens] = React.useState<PresentLens>('full');
 	const [idx, setIdx] = React.useState(0);
 	// Read-aloud diagnostics overlay — a first-class, draggable on-brand readout
@@ -78,14 +90,41 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const slideRowRef = React.useRef<HTMLDivElement>(null);
 	const [slideMaxW, setSlideMaxW] = React.useState(960);
 
-	const set = React.useMemo(() => presentationSet(slides, lens), [slides, lens]);
+	// Reader projection — FAIL CLOSED (design §6.3). A registry (tag-driven) lens routes through the
+	// library's `lensEligibility`, which refuses to project a lens that is unapproved / drifted / hidden
+	// / EMPTY (returns `{status:'unavailable', reason}`) rather than silently falling open to the whole
+	// deck. A scoping lens can be a REDACTION, so a fail-open would leak to a reader exactly the slides
+	// the author kept out — the human-in-the-loop breach this whole feature exists to prevent. `full` is
+	// the identity (the whole deck) and gates nothing, so it projects directly.
+	const projection = React.useMemo<LensProjection>(() => {
+		// `full` is the identity — the whole deck, always safe. EVERY other id is reader-scoped and must
+		// fail CLOSED: it projects only if it's an APPROVED registry lens, else the reader sees
+		// "unavailable" — never deck content. Keying on `lens === 'full'` (not "is it a registry id?") is
+		// deliberate: a non-full id that ISN'T a registry entry — a stale `lens-default: exec`, a typo, a
+		// future pinned-link default — must also fail closed, not fall through to the whole deck.
+		if (lens === 'full') return { status: 'ok', pairs: presentationPairs(slides, 'full', registry) };
+		if (registry) return lensEligibility(slides, registry, lens); // unknown/unapproved/drifted/hidden/empty → unavailable
+		return { status: 'unavailable', reason: 'unknown' };
+	}, [slides, lens, registry]);
+	// The presented slides — empty when the lens is unavailable, so the render shows the explicit
+	// "unavailable" state (below) instead of a stale or full-deck fallback.
+	const set = React.useMemo(() => (projection.status === 'ok' ? projection.pairs.map((p) => p.slide) : []), [projection]);
+	// The reason a lens is withheld (null when it projects) — drives the reader-facing banner.
+	const unavailable = projection.status === 'ok' ? null : projection.reason;
+	// Reader-side picker catalog: a registry deck offers ONLY reader-eligible lenses (approved,
+	// non-empty, visible) — the human-in-the-loop gate at the UI. A deck with no reader views shows just
+	// "Full deck" (the picker then renders a static label — nothing to switch to).
+	const lensEntries = React.useMemo(
+		() => (registry && registry.lenses.length > 1 ? lensEntriesFrom(readerLenses(slides, registry)) : LENSES),
+		[registry, slides],
+	);
 	// Deck sections (from `divider` slides) — the grouping the single progress rail uses.
 	const sections = React.useMemo(() => sectionsFromSlides(set), [set]);
 	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
-	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered lens
-	// (exec/onepager reorders/drops slides) we resolve it through the original index, not the
+	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered reader lens
+	// (which drops slides) we resolve it through the original index, not the
 	// position in the filtered set — else a caption would bind to the wrong slide.
-	const setIndices = React.useMemo(() => presentationIndices(slides, lens), [slides, lens]);
+	const setIndices = React.useMemo(() => (projection.status === 'ok' ? projection.pairs.map((p) => p.index) : []), [projection]);
 	// Front-matter `captions:` (Layer 1, §16) — slide NUMBER (1-based) → read-as text. Memoized on
 	// the front matter, symmetric with the acronym registry memo below.
 	const fmCaptions = React.useMemo(() => frontMatterCaptions(frontMatter), [frontMatter]);
@@ -557,7 +596,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				{/* Lens switch — the shared LensPicker (same widget as the editor's preview
 				    header), centered. Was a horizontally-scrolling chip row that clipped. */}
 				<div className="flex min-w-0 flex-1 justify-center">
-					<LensPicker value={lens} onChange={pickLens} count={count} total={slides.length} align="center" />
+					<LensPicker value={lens} onChange={pickLens} count={count} total={slides.length} align="center" lenses={lensEntries} menuClassName="z-[130] bg-card shadow-xl" />
 				</div>
 				<button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} title="All slides (G) — jump anywhere" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden sm:inline">Slides</span></button>
 				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" />Rehearse</button>
@@ -575,7 +614,16 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				    DeckPreview fits the slide to its box WIDTH, so the box must stay 16:9 — hence a
 				    measured width cap on this sizer, not `max-height` (which would clip). */}
 				<div className="flex w-full min-w-0 justify-center" style={{ maxWidth: slideMaxW }}>
-					<DeckPreview options={options} sample={frontMatter ? frontMatter + cur : cur} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]" aria-label="Presented slide" />
+					{unavailable ? (
+						// Fail-closed: a withheld lens NEVER renders deck content — it renders why it's withheld.
+						<div role="status" className="relative flex aspect-video w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-border bg-card px-8 text-center shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+							<EyeOff className="size-8 text-muted-foreground" />
+							<div className="text-[15px] font-semibold text-[var(--text-heading)]">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).title}</div>
+							<p className="max-w-[420px] text-[13px] leading-relaxed text-muted-foreground">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).body}</p>
+						</div>
+					) : (
+						<DeckPreview options={options} sample={frontMatter ? frontMatter + cur : cur} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]" aria-label="Presented slide" />
+					)}
 				</div>
 				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={arrowCls(clamped >= count - 1)} aria-label="Next slide"><ChevronRight className="size-5" /></button>
 				{/* Real delivery coaching — the plan's role-specific guidance, with the

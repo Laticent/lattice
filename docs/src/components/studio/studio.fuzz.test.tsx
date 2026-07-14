@@ -74,11 +74,16 @@ async function railNth(u: Ctx['user'], which: 'first' | 'last') {
 	const target = which === 'first' ? chips[0] : chips[chips.length - 1];
 	if (target) await u.click(target as HTMLElement);
 }
-// Reshape the preview to a reader lens / clear it — no-op if the control is
-// hidden (e.g. the Architect is collapsed), so the command is always safe.
+// Reshape the preview to a reader lens / clear it — safe no-op when there's no reader-view switcher.
+// The seed fuzz decks are untagged (no `lenses:` registry), so the picker is a static "Full deck" with
+// no "Reader view" dropdown and this command is a no-op on them; real reshape/clear coverage lives in
+// lenses.spec + lint.test. Kept in the command set so a future tagged seed deck exercises it for free.
 async function reshape(u: Ctx['user']) {
-	const chip = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Exec summary');
-	if (chip) await u.click(chip as HTMLElement);
+	const btn = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Reader view');
+	if (!btn) return;
+	await u.click(btn as HTMLElement);
+	const item = [...document.querySelectorAll('[role="menuitem"]')].find((m) => !/Full deck/i.test(m.textContent ?? ''));
+	if (item) await u.click(item as HTMLElement);
 }
 async function clearLens(u: Ctx['user']) {
 	const btn = document.querySelector('[aria-label="Clear reader lens"]');
@@ -90,7 +95,7 @@ const commands = [
 	fc.constant(cmd('toggle Inspector', (u) => clickLabel(u, 'Deck scope'))),
 	fc.constant(cmd('rail → first', (u) => railNth(u, 'first'))),
 	fc.constant(cmd('rail → last', (u) => railNth(u, 'last'))),
-	fc.constant(cmd('reshape → exec', (u) => reshape(u))),
+	fc.constant(cmd('reshape → reader view', (u) => reshape(u))),
 	fc.constant(cmd('clear lens', (u) => clearLens(u))),
 	fc.constant(cmd('Share open/close', (u) => openClose(u, () => clickLabel(u, 'Share')))),
 	fc.constant(cmd('Workspace open/close', (u) => openClose(u, () => clickLabel(u, 'Workspace settings')))),
