@@ -1,17 +1,22 @@
-// The Studio language — the ONE locale a workspace (and, per-deck, a `lang:` front-
-// matter override) inherits everywhere: the AI writes DECK CONTENT in it (slides,
-// prose refine, chat, findings-fix), and it is the document `lang` carried into the
-// preview + every export (`<html lang>`, read-aloud voice). It governs natural-
-// language prose ONLY: theme and component generation stay canonical English,
-// because their output is a structural contract — slugs, CSS, manifest keys,
-// `_class` invokes — that must stay ASCII/English to pass the gates and resolve at
-// render time. See engineering/decisions/2026-07-14-language-settings.md.
+// The Studio language. TWO fields that DEFAULT to the same value but are no longer
+// one knob (2026-07-14-language-settings.md, "split the data model"):
+//   · DOCUMENT language — a deck's `lang:` (else the workspace default). What the deck
+//     IS: carried into the preview + every export as `<html lang>`, and read-aloud.
+//   · AI-OUTPUT language — what the AI WRITES a deck's prose in. Defaults to the
+//     document language, but a deck's `ai-lang:` overrides it independently (deckOutputLang).
+// They coincide today (English-only, so both resolve to English), but keeping them
+// separate means a future TRANSLATION LENS gets its source (document) vs target
+// (AI-output) distinction for free — no un-fusing of callers. Either way this governs
+// natural-language prose ONLY: theme and component generation stay canonical English
+// (a structural contract — slugs, CSS, manifest keys, `_class` invokes — that must
+// stay ASCII/English to pass the gates and resolve at render time).
 //
-// We support English only for now. The end goal is any language plus a translation
-// lens; the list is data-driven so widening it later is rows of data, not a
-// refactor (the real gate is fonts + layout — RTL, CJK line breaking — not the
-// catalog). Adding a language means: a row here + its flag SVG under
-// docs/public/flags/, nothing more.
+// We support English only for now. The end goal is any language plus that lens; the
+// list is data-driven so widening it later is rows of data, not a refactor (the real
+// gate is fonts + layout — RTL, CJK line breaking — not the catalog). Adding a
+// language means: a row here + its flag SVG under docs/public/flags/, nothing more.
+
+import { getFrontMatter } from './front-matter';
 
 export type StudioLanguage = {
 	/** BCP-47 tag — also the value persisted in Studio settings / a deck's `lang:`. */
@@ -67,6 +72,22 @@ export function resolveSupported(code: string | null | undefined): string | null
 	const base = raw.split('-')[0];
 	const hit = STUDIO_LANGUAGES.find((l) => l.code.toLowerCase().split('-')[0] === base);
 	return hit ? hit.code : null;
+}
+
+/**
+ * The language the AI writes a DECK's prose in — the deck's explicit AI-output
+ * override (`ai-lang:`), else its DOCUMENT language (`lang:`), else '' so the caller
+ * applies the workspace default (`withStudioVoice`'s `deckLang || loadSettings()`).
+ *
+ * This is the SPLIT: the document language (`lang:` alone → `<html lang>`, exports,
+ * read-aloud) and the AI-output language are two fields that default to the same
+ * value but resolve independently, so a future translation lens (or a wider catalog)
+ * can have the AI write a language OTHER than the deck's own — WITHOUT the document
+ * paths, which read `lang:` only, ever seeing `ai-lang:`. The AI paths call this; the
+ * document paths must NOT (they'd leak the AI target into `<html lang>`).
+ */
+export function deckOutputLang(source: string): string {
+	return getFrontMatter(source, 'ai-lang') || getFrontMatter(source, 'lang') || '';
 }
 
 type NavLike = { language?: string; languages?: readonly string[] };

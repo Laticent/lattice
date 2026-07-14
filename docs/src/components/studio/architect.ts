@@ -11,9 +11,8 @@ import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/dr
 import { budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
 import { askComponentMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
-import { getFrontMatter } from './front-matter';
 import { type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
-import { languageDirective } from './studio-language';
+import { deckOutputLang, languageDirective } from './studio-language';
 import { loadInstructions, loadOnDeviceInstructions, loadSettings } from './studio-store';
 
 // Re-export so UI surfaces (Fabricate, the deck chat) import the doc type + reader
@@ -48,11 +47,13 @@ const SYSTEM =
 // chatComplete / requestFindingFix). DELIBERATELY NOT applied to theme/component
 // generation: that output is a structural contract (slugs, CSS, manifest keys,
 // `_class` invokes) that must stay canonical English to pass the gates and resolve
-// at render time. Read live, so a change takes effect on the next turn. Language is
-// the EFFECTIVE deck language: a deck's own `lang:` front matter overrides the
-// workspace default (General tab); the source-bearing paths (runArchitect,
-// chatComplete, requestFindingFix) thread that override in, while the fragment paths
-// (refineSelection, generateDescription) fall back to the workspace default.
+// at render time. Read live, so a change takes effect on the next turn. The language
+// is the deck's AI-OUTPUT language (`deckOutputLang`): its `ai-lang:` override, else
+// its document `lang:`, else the workspace default — DISTINCT from the document
+// language the exports stamp, so a translation lens can diverge them. Every deck-
+// content path threads it: the source-bearing paths (runArchitect, chatComplete,
+// requestFindingFix) resolve it from their own `source`; the fragment paths
+// (refineSelection, generateDescription) receive it from their caller.
 // See engineering/decisions/2026-07-14-language-settings.md.
 //
 // Standing instructions are CLOUD/ON-DEVICE separated (2026-07-09-studio-cloud-
@@ -62,9 +63,9 @@ const SYSTEM =
 type Msg = GroundMsg; // { role; content: string | ContentPart[] } — array content carries an inlined PDF
 
 function studioVoice(generation: string, deckLang?: string): string {
-	// A deck's own `lang:` front matter OVERRIDES the workspace default; absent, the
-	// deck inherits the workspace language (studio-store). One effective language, so
-	// the AI writes THIS deck's language — not a separate AI-only setting.
+	// `deckLang` is the deck's AI-OUTPUT language (deckOutputLang: ai-lang ?? lang),
+	// resolved by the caller; empty → the deck inherits the workspace default
+	// (studio-store). The document language the exports stamp is resolved separately.
 	const parts = [languageDirective(deckLang || loadSettings().language)];
 	const instr = (generation === 'openrouter' ? loadInstructions() : loadOnDeviceInstructions()).trim();
 	if (instr) parts.push(`The author has given you STANDING INSTRUCTIONS — always honor these:\n${instr}`);
@@ -212,7 +213,7 @@ export async function runArchitect(source: string, instruction: string, docs?: R
 	const ground = groundMessages(withStudioVoice([
 		{ role: 'system', content: SYSTEM },
 		{ role: 'user', content: `${instruction}\n\nThe deck — address slides by their [slide N] markers, and never include a marker in an edit body:\n\n${numberSlides(source)}` },
-	], generation, getFrontMatter(source, 'lang')), docs, generation === 'openrouter');
+	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
 	let reply = '';
 	try {
 		reply = await model.complete({
@@ -686,7 +687,7 @@ export async function requestFindingFix(source: string, finding: Finding, catalo
 	}
 	try {
 		const res = await requestSlideFix({
-			model: voicedModel(model, generation, getFrontMatter(source, 'lang')),
+			model: voicedModel(model, generation, deckOutputLang(source)),
 			gate: { cache: () => generation === 'openrouter', onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
 			source,
 			finding,
@@ -732,7 +733,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		{ role: 'system', content: `${SYSTEM}\n\nConverse with the author. Answer questions directly. Only emit edit blocks when they actually want a change to the deck.` },
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
-	], generation, getFrontMatter(source, 'lang')), docs, generation === 'openrouter');
+	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
 	let reply = '';
 	try {
 		reply = await model.complete({

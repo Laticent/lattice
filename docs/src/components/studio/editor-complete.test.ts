@@ -125,6 +125,13 @@ describe('makeStudioCompletion', () => {
 		expect(labels(complete('Body lang: en', 13))).toEqual([]);
 	});
 
+	it('completes ai-lang: VALUES too — the AI-output override shares the language list', () => {
+		expect(labels(complete('---\nai-lang: '))).toContain('en-US');
+		expect(labels(complete('---\nai-lang: en-G'))).toContain('en-GB');
+		// And ai-lang is offered as a front-matter KEY.
+		expect(labels(complete('---\nai-l', 8))).toContain('ai-lang');
+	});
+
 	it('does not fire in plain prose', () => {
 		expect(complete('Just some body text here')).toBeNull();
 	});

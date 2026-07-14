@@ -24,7 +24,8 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'autosplit', info: 'Auto-split overflowing slides — true / false.' },
 	{ key: 'lift', info: 'Card lift — the "Struck" shadow on card surfaces. on / off.' },
 	{ key: 'class', info: 'Default _class applied to every slide.' },
-	{ key: 'lang', info: 'Document language — overrides the workspace default (e.g. en-US).' },
+	{ key: 'lang', info: 'Document language — overrides the workspace default (e.g. en-US). Drives <html lang> + read-aloud.' },
+	{ key: 'ai-lang', info: 'AI-output language — what the AI writes in, if it should differ from the document language. Defaults to lang.' },
 	{ key: 'present', info: 'Open the exported PDF in presentation mode — true / false.' },
 ];
 
@@ -112,9 +113,10 @@ export function makeStudioCompletion(
 			return { from: word ? word.from : context.pos, options: paletteOptions, validFor: /^[\w-]*$/ };
 		}
 
-		// 1d. The `lang:` front-matter VALUE — the supported document-language codes
-		// (mirrors the deck Inspector's Language picker; both read studio-language).
-		if (/^[ \t]*lang:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
+		// 1d. The `lang:` / `ai-lang:` front-matter VALUE — the supported language codes
+		// (mirrors the deck Inspector's Language picker; both read studio-language). Same
+		// vocabulary for the document language and the AI-output override.
+		if (/^[ \t]*(?:ai-)?lang:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
 			const word = context.matchBefore(/[\w-]*/);
 			return { from: word ? word.from : context.pos, options: LANG_OPTIONS, validFor: /^[\w-]*$/ };
 		}

@@ -164,17 +164,18 @@ in patch versions.
 
 ### Added
 
-- **One language setting a deck inherits — a workspace default plus a per-deck override.** The
-  Studio now has a single **Language** in Workspace → **General** that acts as the default every
+- **A language every deck inherits — a workspace default, a per-deck override, and a document/AI
+  split under the hood.** The Studio has a single **Language** in Workspace → **General** that every
   deck inherits: it is the deck's document language (carried into every export's `<html lang>` and
-  read-aloud) AND the language the AI writes deck content in — both AI tiers (cloud + on-device)
-  share it, rather than each carrying its own. A deck overrides it from the **Inspector** (a flagged
-  dropdown that writes `lang:` front matter); its "Automatic — <workspace default>" row clears the
-  override so the deck inherits again. The editor autocompletes `lang:` values, and the AI writes the
-  deck's *effective* language (deck `lang` ?? workspace default) — an `en-GB` deck gets British-English
-  edits. English (US + UK) only for now; the picker is data-driven so more languages — and a future
-  translation lens — are rows of data, not a rebuild. See
-  `engineering/decisions/2026-07-14-language-settings.md`.
+  read-aloud) *and*, by default, the language the AI writes deck content in — both AI tiers (cloud +
+  on-device) share it. A deck overrides it from the **Inspector** (a flagged dropdown that writes
+  `lang:` front matter); its "Automatic — <workspace default>" row clears the override so the deck
+  inherits again. Under the hood these are two fields that default to the same value but resolve
+  independently: `lang:` is the document language; an optional `ai-lang:` (editor-autocompleted)
+  points the AI elsewhere without changing what the exports declare — so a future translation lens
+  gets its source-vs-target distinction for free. An `en-GB` deck gets British-English edits on every
+  AI path. English (US + UK) only for now; the picker is data-driven so more languages — and that
+  lens — are rows of data, not a rebuild. See `engineering/decisions/2026-07-14-language-settings.md`.
 - **Studio widgets: three more shared shadcn primitives — `ui/tooltip`, `ui/separator`, `ui/kbd`.**
   The docs-site Studio gains styled, colour-mode-aware tooltips (a `Tip` one-line wrapper over Radix
   Tooltip) in place of native `title=` on its toolbar icon controls, a `Separator` for the toolbar

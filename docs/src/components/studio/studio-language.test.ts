@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LANGUAGE, detectLanguage, languageDirective, languageFor, languageLabel, resolveSupported, STUDIO_LANGUAGES } from './studio-language';
+import { DEFAULT_LANGUAGE, deckOutputLang, detectLanguage, languageDirective, languageFor, languageLabel, resolveSupported, STUDIO_LANGUAGES } from './studio-language';
 
 describe('studio-language — catalog', () => {
 	it('is English-only for now and lists en-US first (the house default)', () => {
@@ -74,5 +74,18 @@ describe('studio-language — resolveSupported', () => {
 		expect(resolveSupported(undefined)).toBeNull();
 		// languageFor never returns null — it substitutes the default; resolveSupported is the honest test.
 		expect(languageFor('fr-FR').code).toBe('en-US');
+	});
+});
+
+describe('studio-language — deckOutputLang (document vs AI-output split)', () => {
+	it('prefers the deck ai-lang override over the document lang', () => {
+		expect(deckOutputLang('---\nlang: en-US\nai-lang: en-GB\n---\n\n# Hi')).toBe('en-GB');
+	});
+	it('falls back to the document lang when no ai-lang is set', () => {
+		expect(deckOutputLang('---\nlang: en-GB\n---\n\n# Hi')).toBe('en-GB');
+	});
+	it('returns empty when neither is set (caller applies the workspace default)', () => {
+		expect(deckOutputLang('# Hi, no front matter')).toBe('');
+		expect(deckOutputLang('---\ntheme: indaco\n---\n\n# Hi')).toBe('');
 	});
 });

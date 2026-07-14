@@ -53,7 +53,7 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { importComments } from './slide-comments';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
-import { languageLabel, resolveSupported } from './studio-language';
+import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
@@ -1276,7 +1276,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			setRefineBusy(true);
 			notify(`${label}…`);
 			try {
-				const out = await refineSelection(action, sel.text, getFrontMatter(source, 'lang'));
+				const out = await refineSelection(action, sel.text, deckOutputLang(source));
 				if (out.status === 'offline') {
 					notify('Connect a model in Workspace → AI to refine a selection.');
 					setWorkspaceOpen(true);
