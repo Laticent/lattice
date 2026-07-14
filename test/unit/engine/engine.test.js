@@ -134,6 +134,29 @@ describe('lattice-engine: contract', () => {
     assert.equal(withDebug, without); // section tags byte-identical
   });
 
+  // Reader-lens tags (engineering/decisions/2026-07-13-lente-reader-lenses.md §7). `_lens` is a
+  // KNOWN, non-APPLIED directive: STRIPPED from the body, never a section attribute, never in the
+  // export — so internal lens membership can't leak into shared HTML.
+  test('lens: `_lens` tag is stripped from the export and is not a section attribute', () => {
+    const eng = makeEngine();
+    const html = eng.render('<!-- _class: kpi -->\n<!-- _lens: brief ask -->\n\n# Revenue\n', 'lattice').html;
+    assert.doesNotMatch(html, /_lens/); // the tag never reaches the output
+    assert.doesNotMatch(html, /data-lens/); // NOT applied — no section attribute
+    assert.match(html, /Revenue/); // the slide itself renders normally
+  });
+
+  test('lens: a deck WITH `_lens` tags exports byte-identical to the same deck without them', () => {
+    const eng = makeEngine();
+    const tagged = eng.render('<!-- _class: kpi -->\n<!-- _lens: brief -->\n\n# A\n\n---\n\n<!-- _lens: -evidence -->\n\n# B\n', 'lattice').html;
+    const plain = eng.render('<!-- _class: kpi -->\n\n# A\n\n---\n\n# B\n', 'lattice').html;
+    assert.equal(tagged, plain); // zero-delta: the only difference in source is the stripped tag
+  });
+
+  test('lens: the degenerate BARE `<!-- _lens -->` strips too (flag directive), never leaks', () => {
+    const html = makeEngine().render('<!-- _lens -->\n\n# A\n', 'lattice').html;
+    assert.doesNotMatch(html, /_lens/);
+  });
+
   test('composes the real plugins: verdict-grid state marker → badge span', () => {
     const md = '<!-- _class: verdict-grid -->\n\n# V\n\n- Tier\n  - [x] included\n';
     const { html } = makeEngine().render(md, 'lattice');

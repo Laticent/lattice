@@ -164,6 +164,14 @@ in patch versions.
 
 ### Added
 
+- **`_lens` is now a recognized per-slide directive.** A `<!-- _lens: brief ask -->` comment carries a
+  slide's reader-lens membership for the forthcoming lens system (`@slidewright/lente`). Like other
+  directives it is **stripped from exported HTML/PDF** and is never a `<section>` attribute — so internal
+  lens membership can't leak into a shared export. Lowercase-only, and a bare `<!-- _lens -->` strips as
+  empty. Decks without `_lens` tags export byte-identically to before. *(Minor authoring behavior change:
+  a prose comment that is exactly `<!-- lens -->` / `<!-- lens: … -->` is now consumed as a directive
+  rather than surviving in the output — the same rule that already applies to every other directive word.)*
+
 - **Each voice in the Studio picker has a ▶ to hear it before you pick it.** The voice dropdown rows now
   carry a play button that auditions that voice *without* selecting it — so you can browse a 30–54-voice
   roster and listen down the list, instead of committing to each one to hear it (clicking the row still
