@@ -554,7 +554,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// to zero slides (an inherited `Bottom line` starter before any slide is tagged into it) is left OUT,
 	// because selecting it would preview a blank rail — a dead end, and the exact astonishment inheritance
 	// is meant to avoid. It still appears in the Lenses panel (where it's built up); it rejoins this picker
-	// the moment it has a slide. `full` is always kept; a base:all view (e.g. `The evidence`) is never empty.
+	// the moment it has a slide. `full` is always kept; a base:all view (e.g. `The evidence`) is non-empty
+	// until every slide is excluded from it, in which case it drops out here too (and the reconcile snaps back).
 	const composeLensEntries = React.useMemo(() => {
 		const visible = lensReg.lenses.filter((l) => l.id === 'full' || (!l.hidden && lensIndices(slides, lensReg, l.id).length > 0));
 		return visible.length > 1 ? lensEntriesFrom(visible) : LENSES;
@@ -1605,6 +1606,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					registry={lensReg}
 					catalog={lensCatalog}
 					activeLens={composeLens}
+					workspace={wsLenses}
 					onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
 					onWriteRegistry={writeRegistry}
 					onTag={writeTags}

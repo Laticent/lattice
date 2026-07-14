@@ -375,16 +375,15 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								<div className="flex items-start gap-3 rounded-xl border border-border bg-background p-3">
 									<Switch
 										checked={lensDefaults}
-										onCheckedChange={(v) => { setLensDefaults(v); saveSettings({ lensDefaults: v }); notify(v ? 'Default reader views on — new decks start with two starter views.' : 'Default reader views off — decks show only the views you add.'); }}
+										onCheckedChange={(v) => { setLensDefaults(v); saveSettings({ lensDefaults: v }); notify(v ? 'Default reader views on — every deck starts with two starter views.' : 'Default reader views off — starters you haven’t approved are hidden; approved views stay.'); }}
 										aria-label="Default reader views"
 										className="mt-0.5"
 									/>
 									<span className="flex flex-col gap-0.5">
 										<span className="text-[13px] font-semibold text-[var(--text-heading)]">Start every deck with two reader views</span>
-										<span className="text-[11px] leading-snug text-muted-foreground"><strong className="font-semibold text-foreground">Bottom line</strong> (the answer) and <strong className="font-semibold text-foreground">The evidence</strong> (the proof) appear in the Lenses panel as starters you fill in and approve — nothing is written to a deck until you act on a view. Turn this off and the starters vanish from decks you never touched.</span>
+										<span className="text-[11px] leading-snug text-muted-foreground"><strong className="font-semibold text-foreground">Bottom line</strong> (the answer) and <strong className="font-semibold text-foreground">The evidence</strong> (the proof) appear in the Lenses panel as <em>Starter</em> views you fill in and approve — nothing is written to a deck until you approve one. Turn this off and any starter you haven’t approved is hidden across your decks; views you’ve approved stay put.</span>
 									</span>
 								</div>
-							</div>
 
 							<div className="mt-6">
 							<GroupLabel icon={<MousePointer2 className="size-3.5" />}>Placement handles</GroupLabel>

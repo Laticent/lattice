@@ -202,6 +202,21 @@ describe('workspace-inherited registry — upsert emits only the deck DELTA', ()
 		expect(back).toEqual(promoted);
 	});
 
+	it('a source tombstone survives an OFF-mode rewrite — a dropped starter never silently re-inherits', () => {
+		// Red-team finding: drop evidence (ON) → toggle OFF → any lens write (OFF) → toggle ON must NOT
+		// resurrect evidence. The `{drop:true}` marker in source has to survive the OFF-mode rewrite even
+		// though emitRegistry has no workspace to reconstruct it from.
+		const dropped: LensRegistry = { ...pristine(), lenses: pristine().lenses.filter((l) => l.id !== 'evidence') };
+		const onFm = upsertLensRegistry('', dropped, WORKSPACE);
+		expect(onFm).toContain('evidence: { drop: true }');
+		// The setting is now OFF: parse without a workspace, make another (unrelated) write, re-upsert OFF.
+		const off = parseLensRegistry(onFm); // no workspace → evidence simply absent
+		const offFm = upsertLensRegistry(onFm, off); // OFF-mode rewrite must PRESERVE the tombstone
+		expect(offFm).toContain('evidence: { drop: true }');
+		// Back ON: evidence stays dropped — it does not re-inherit.
+		expect(parseLensRegistry(offFm, WORKSPACE).lenses.find((l) => l.id === 'evidence')).toBeUndefined();
+	});
+
 	it('does not double-count an implicit full lens mistakenly declared in the workspace', () => {
 		// Checker Finding 3: a misconfigured workspace with an `id: full` lens must not yield two fulls.
 		const wsBad: WorkspaceLensConfig = { default: 'full', lenses: [{ id: 'full', label: 'Whole thing', base: 'all' }, { id: 'brief', label: 'Bottom line', base: 'none' }] };

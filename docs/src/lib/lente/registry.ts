@@ -161,8 +161,10 @@ export function emitRegistry(reg: LensRegistry): string {
 
 /** True when a lens is a PRISTINE copy of a workspace default — same shape (base / label / single /
  *  hidden / order), NOT approved. A pristine inherited lens is left OUT of the deck source (it's
- *  re-inherited at read), so a deck the author never touched stays clean — no `lenses:` block. */
-function isPristineInherited(lens: LensDef, def: LensDef | undefined): boolean {
+ *  re-inherited at read), so a deck the author never touched stays clean — no `lenses:` block. Exported
+ *  so the UI can tell an untouched INHERITED starter apart from one the author has made their own (the
+ *  Lenses panel badges the former "Starter"). */
+export function isPristineInherited(lens: LensDef, def: LensDef | undefined): boolean {
 	return (
 		!!def &&
 		!lens.approved &&
@@ -243,7 +245,8 @@ function stripRegistryLines(lines: string[]): string[] {
  *  workspace default. Without `workspace`, the whole registry is materialized (the pre-inheritance
  *  behavior). Either way `parseLensRegistry(result, workspace)` round-trips back to `reg`. */
 export function upsertLensRegistry(frontMatter: string, reg: LensRegistry, workspace?: WorkspaceLensConfig): string {
-	const kept = stripRegistryLines(String(frontMatter ?? '').split(/\r?\n/));
+	const srcLines = String(frontMatter ?? '').split(/\r?\n/);
+	const kept = stripRegistryLines(srcLines);
 	// drop a trailing run of blank lines so we append cleanly
 	while (kept.length && kept[kept.length - 1].trim() === '') kept.pop();
 	const tail: string[] = [];
@@ -254,7 +257,29 @@ export function upsertLensRegistry(frontMatter: string, reg: LensRegistry, works
 	// deviation and must be written, or the reader would open in the scoped workspace view instead of the
 	// whole deck (parse falls back to the workspace default when no scalar is present).
 	if (reg.default && reg.default !== (wsDefault ?? FULL_LENS_ID)) tail.push(`lens-default: ${reg.default}`);
-	const block = workspace ? emitRegistryDelta(reg, workspace) : emitRegistry(reg);
+	let block = workspace ? emitRegistryDelta(reg, workspace) : emitRegistry(reg);
+	// A tombstone (`id: { drop: true }`) already in the source must survive EVERY rewrite — including one
+	// made while the workspace setting is OFF (`emitRegistry` has no workspace to reconstruct drops from)
+	// or after the workspace defaults stopped including that id. Otherwise a dropped starter silently
+	// re-inherits on the next `drop → toggle off → any lens write → toggle on` (a fail-closed defect the
+	// red team caught, but it still breaks the "a dropped starter persists" promise). Re-attach any source
+	// tombstone the emitter didn't already write (dedup: the ON-mode delta may have written it already).
+	const present = new Set(reg.lenses.map((l) => l.id));
+	for (const id of sourceDropIds(srcLines)) {
+		if (present.has(id)) continue; // the deck materialized/re-added it — no longer dropped
+		const line = `  ${id}: { drop: true }`;
+		if (block.includes(line)) continue; // already reconstructed by emitRegistryDelta
+		block = block ? `${block}\n${line}` : `lenses:\n${line}`;
+	}
 	if (block) tail.push(block);
 	return [...kept, ...tail].join('\n');
+}
+
+/** The tombstoned lens ids (`id: { drop: true }`) present in a front-matter body, in document order,
+ *  excluding the implicit `full`. Used to carry drops across a rewrite even when the workspace can't
+ *  reconstruct them (see `upsertLensRegistry`). */
+function sourceDropIds(lines: string[]): string[] {
+	const ids: string[] = [];
+	for (const { def, drop } of parseEntries(lines)) if (drop && def.id !== FULL_LENS_ID && !ids.includes(def.id)) ids.push(def.id);
+	return ids;
 }

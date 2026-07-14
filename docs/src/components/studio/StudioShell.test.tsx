@@ -617,12 +617,23 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		// Both inherited starters appear in the Lenses panel without the author adding anything.
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
+		// Each carries a "Starter" provenance badge — they're workspace suggestions, not views the author built.
+		expect(screen.getAllByText('Starter')).toHaveLength(2);
 		// The Add menu offers only the archetypes NOT already inherited (The story / The ask).
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
 		expect(screen.getByRole('button', { name: /The story/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /The ask/ })).toBeInTheDocument();
 		// "Bottom line" resolves to the inherited ROW (a heading button), never a second Add-menu entry.
 		expect(screen.getAllByRole('button', { name: /Bottom line/ })).toHaveLength(1);
+	});
+
+	it('the empty inherited "Bottom line" cannot be previewed (no blank-rail flash / lying toast)', async () => {
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// Expand Bottom line (base:none, 0 members) — its Preview button is disabled until a slide is tagged.
+		await user.click(screen.getByText('Bottom line'));
+		const preview = screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLButtonElement;
+		expect(preview).toBeDisabled();
 	});
 
 	it('an inherited view is reader-invisible until approved — the same human gate (fail closed)', async () => {

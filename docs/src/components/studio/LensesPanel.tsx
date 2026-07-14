@@ -3,12 +3,14 @@ import * as React from 'react';
 import {
 	approvalHash,
 	type ComponentCatalog,
+	isPristineInherited,
 	type LensBase,
 	type LensDef,
 	type LensRegistry,
 	lensIndices,
 	parseSlideTags,
 	suggestMembership,
+	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
 // The reader archetypes (the "Add a reader view" menu) — the SHARED source of truth, also used by the
@@ -86,6 +88,7 @@ export function LensesPanel({
 	registry,
 	catalog,
 	activeLens,
+	workspace,
 	onPreview,
 	onWriteRegistry,
 	onTag,
@@ -95,11 +98,16 @@ export function LensesPanel({
 	registry: LensRegistry;
 	catalog: ComponentCatalog;
 	activeLens: string;
+	/** The workspace default reader views in force (undefined when the setting is off) — lets the panel
+	 *  badge an untouched INHERITED starter as "Starter" so the author knows it's a workspace suggestion,
+	 *  not a view they built. The badge clears the moment they approve or edit it (no longer pristine). */
+	workspace?: WorkspaceLensConfig;
 	onPreview: (lensId: string) => void;
 	onWriteRegistry: (label: string, reg: LensRegistry) => void;
 	onTag: (label: string, changes: TagChange[]) => void;
 	onRemoveLens: (lens: LensDef) => void;
 }) {
+	const wsDefs = React.useMemo(() => new Map((workspace?.lenses ?? []).map((l) => [l.id, l])), [workspace]);
 	const lenses = registry.lenses.filter((l) => l.id !== 'full');
 	const [expanded, setExpanded] = React.useState<string | null>(null);
 	const [adding, setAdding] = React.useState(false);
@@ -156,6 +164,7 @@ export function LensesPanel({
 								registry={registry}
 								suggestions={suggestions.filter((s) => s.lensId === lens.id)}
 								catalogReady={catalogReady}
+								isStarter={isPristineInherited(lens, wsDefs.get(lens.id))}
 								isActive={activeLens === lens.id}
 								previewedOk={previewedHash[lens.id] === currentHash}
 								open={expanded === lens.id}
@@ -202,6 +211,7 @@ function LensRow({
 	registry,
 	suggestions,
 	catalogReady,
+	isStarter,
 	isActive,
 	previewedOk,
 	open,
@@ -217,6 +227,7 @@ function LensRow({
 	registry: LensRegistry;
 	suggestions: Array<{ index: number; lensId: string; member: boolean; reason: string }>;
 	catalogReady: boolean;
+	isStarter: boolean;
 	isActive: boolean;
 	previewedOk: boolean;
 	open: boolean;
@@ -252,9 +263,10 @@ function LensRow({
 				<Eye className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
 				<span className="min-w-0 flex-1">
 					<span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{lens.label}</span>
-					<span className="mt-1 flex items-center gap-1.5">
+					<span className="mt-1 flex flex-wrap items-center gap-1.5">
 						<span className="font-mono text-[10px] text-muted-foreground">{members} slide{members === 1 ? '' : 's'}</span>
 						<span title={copy.full} className={cn('rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide', copy.tone)}>{copy.label}</span>
+						{isStarter && <span title="Suggested by your workspace — tag slides and approve to make it yours." className="rounded-full border border-dashed border-border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-muted-foreground">Starter</span>}
 					</span>
 				</span>
 				<ChevronDown className={cn('mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
@@ -264,7 +276,9 @@ function LensRow({
 				<div className="border-t border-border px-2.5 pb-2.5 pt-2">
 					{/* Actions: preview, approve/re-approve/un-approve, remove. Approve is GATED on preview. */}
 					<div className="flex flex-wrap items-center gap-1.5">
-						<button type="button" onClick={onPreview} className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold', isActive ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Eye className="size-3" />{isActive ? 'Previewing' : 'Preview'}</button>
+						{/* Preview is disabled with 0 members: there's nothing to show, and previewing an empty view
+						    would flash a blank rail then snap back to the full deck (the compose picker also hides it). */}
+						<button type="button" onClick={onPreview} disabled={members === 0} title={members === 0 ? 'Tag at least one slide into this view to preview it.' : undefined} className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45', isActive ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Eye className="size-3" />{isActive ? 'Previewing' : 'Preview'}</button>
 						{(status === 'draft' || status === 'drifted') &&
 							(previewedOk ? (
 								<button type="button" onClick={onApprove} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] bg-[color-mix(in_srgb,var(--chart-3,#2e6f00)_10%,transparent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--chart-3,#2e6f00)]"><ShieldCheck className="size-3" />{status === 'drifted' ? 'Re-approve' : 'Approve for readers'}</button>
