@@ -499,6 +499,27 @@ in patch versions.
 
 ### Fixed
 
+- **The Key Insight panel no longer out-shouts the content it summarizes.** The
+  universal Key Insight blockquote (`> …` trailing a content-bearing layout) sized
+  its paragraph and bullets at `--fs-message` — the **21pt slide-statement tier**,
+  the size reserved for a slide's *primary* lead line. Sitting under a list of rows
+  or a grid of cards, it read *louder* than the very content it distills, an
+  inverted hierarchy. It now sizes at `--fs-body`, matching the sibling **below-note**
+  concept (`.below-note p`, already `--fs-body`) — the summary reads as a peer of the
+  body, never the headline. The legacy raw-form below-note *fallback* (which shared
+  the same `--fs-message` slip) is aligned to `--fs-body` too. `base.modifiers.css`.
+- **Decision cards get their corner-tag badges back (cell-stage selector alignment).**
+  Three CSS rule groups still addressed a component's body as a *direct* child of the
+  section (`section.decision > ol …`) after the Form default began wrapping migrated
+  bodies one level deeper in `.cell-stage`, so they silently stopped matching: (1) the
+  **decision** / flush-corner **compare-prose** corner-tag `<strong>` badge (the label
+  degraded from a filled accent badge to plain inline text); (2) the **`.banner-tag`**
+  full-width banner strip on both; (3) the **`compare-prose .mirror`** row-reverse (the
+  variant silently failed to swap the two panes). All three now address `> .cell-stage >`,
+  matching the already-migrated sibling arms in the same rule groups. A computed-style
+  regression guard (decision corner tag must resolve `position: absolute`) locks it so a
+  future migration can't reintroduce the direct-child slip. `compare-prose.styles.css`,
+  `base.modifiers.css`, layer-3 invariants.
 - **The reader-view picker now works in Present.** Its dropdown menu portals to `<body>`, so inside
   Present (a full-screen `z-[100]` takeover) it was painting *behind* the overlay at the default `z-50` —
   visible in the DOM and even hit-testable (so it "clicked" in tests) but visually occluded, reading as a

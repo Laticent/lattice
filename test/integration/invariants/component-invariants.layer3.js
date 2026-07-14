@@ -134,6 +134,10 @@ const LAYER3 = {
   decision: {
     'renders two labelled options, each with its reasoning':
       eachWith('ul > li', ['strong', ':scope > ul'], 2, 'decision did not render two reasoned options'),
+    // NOTE: the flush-corner badge's ABSOLUTE positioning is a Form-ON property
+    // (the treatment reaches the label through `> .cell-stage >`), but this
+    // harness pins `form: off` for component isolation — so that guard lives in
+    // the dedicated Form-on test test/integration/parity/decision-corner-tag-cell-stage.test.js.
   },
   'matrix-2x2': {
     'renders four quadrant cells (li carrying a nested ul)': async (page, assert, SLIDE) => {
