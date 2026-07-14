@@ -28,6 +28,7 @@
 
 import { ArrowLeft, Download, ExternalLink, Loader2, Printer } from 'lucide-react';
 import * as React from 'react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // Engine helpers (shared kernel, HARD RULE #1): the paper decision + slide placement
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
@@ -464,14 +465,17 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 	);
 }
 
+// The brass segmented controls (paper / orientation / layout / color) on the
+// shared ui/radio-group primitive — a real radiogroup, styled by the scoped
+// `.pod-seg` CSS below (which keys the active segment off `[aria-checked]`, which
+// Radix preserves).
 function Seg({ opts, value, onPick }: { opts: [string, string][]; value: string; onPick: (v: string) => void }) {
 	return (
-		<div className="pod-seg" role="radiogroup">
+		<RadioGroup className="pod-seg" value={value} onValueChange={onPick}>
 			{opts.map(([v, l]) => (
-				// biome-ignore lint/a11y/useSemanticElements: segmented control — buttons in a radiogroup.
-				<button type="button" key={v} role="radio" aria-checked={value === v} onClick={() => onPick(v)}>{l}</button>
+				<RadioGroupItem key={v} value={v}>{l}</RadioGroupItem>
 			))}
-		</div>
+		</RadioGroup>
 	);
 }
 

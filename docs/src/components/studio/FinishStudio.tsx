@@ -2,6 +2,7 @@ import { ArrowUp, Check, Cloud, Download, FileDown, Loader2, Moon, Sparkles, Sun
 import * as React from 'react';
 import { DeckPreview } from '@/components/DeckPreview';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
 	Select,
@@ -419,22 +420,22 @@ export function FinishStudio({
 								)}
 							</div>
 						</Tuned>
-						<label className="flex items-center justify-between gap-3 py-0.5">
+						<label htmlFor="fin-clearance" className="flex items-center justify-between gap-3 py-0.5">
 							<span className="flex flex-col">
 								<span className="text-[12.5px] font-semibold text-[var(--text-heading)]">Clear behind content</span>
 								<span className="text-[11px] text-muted-foreground">Recede the finish behind the text; it reads at the margins</span>
 							</span>
-							<input type="checkbox" aria-label="Clear behind content" checked={clearance} onChange={(e) => setClearance(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
+							<Checkbox id="fin-clearance" aria-label="Clear behind content" checked={clearance} onCheckedChange={(c) => setClearance(c === true)} />
 						</label>
 						{/* Spotlight — the inverse mask: reveal the finish in ONE window, hide the rest.
 						    Shares the mask with clearance (mutually exclusive). Joystick / drag / numeric
 						    place the window; the slider sizes it. */}
-						<label className="flex items-center justify-between gap-3 py-0.5">
+						<label htmlFor="fin-spotlight" className="flex items-center justify-between gap-3 py-0.5">
 							<span className="flex flex-col">
 								<span className="text-[12.5px] font-semibold text-[var(--text-heading)]">Spotlight one area</span>
 								<span className="text-[11px] text-muted-foreground">Show the finish in a single window; hide it everywhere else</span>
 							</span>
-							<input type="checkbox" aria-label="Spotlight one area" checked={!!spot} onChange={(e) => setSpotlight(e.target.checked)} className="size-4 shrink-0 accent-[var(--accent)]" />
+							<Checkbox id="fin-spotlight" aria-label="Spotlight one area" checked={!!spot} onCheckedChange={(c) => setSpotlight(c === true)} />
 						</label>
 						{spot && (
 							<PlaceControl

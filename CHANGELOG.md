@@ -284,6 +284,18 @@ in patch versions.
 
 ### Changed
 
+- **Three more shared shadcn primitives retire hand-rolled Studio controls: `ui/checkbox`,
+  `ui/radio-group`, `ui/toggle-group`.** FinishStudio's two native `<input type="checkbox">` →
+  `ui/checkbox` (row-label click preserved). SlideContext's segmented `Seg` (canvas / type-scale) and
+  the PrintOptions (paper / orientation / layout / color) and ExportOptions (comment scope) segmented
+  controls → `ui/radio-group` — a *real* `role="radiogroup"` (an adversarial review caught that
+  `ToggleGroup`'s root is `role="group"`, a silent a11y downgrade for a pick-exactly-one control).
+  SlideContext's chip rows (state / tone / tint / mark, clear-on-tap) → `ui/toggle-group`. Behavior-
+  neutral; verified on the real Studio and closed with a `FinishStudio` test. The remaining widget
+  candidates (model pickers, most tab strips, range inputs, the SiteHeader Tools menu) are documented
+  as deliberately deferred — each would regress an SSR/no-JS/animation surface, use the wrong primitive,
+  or can't be verified without an OpenRouter key. See
+  `engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md` § "Batch outcome".
 - **The Finish selector is now ONE shared component across both Inspectors, with its swatch previews
   everywhere.** The deck Inspector and the slide Inspector used to run *different* finish pickers — the
   deck a DropdownMenu with finish swatches, the slide a plain text `<select>` with none. They now render

@@ -7,6 +7,7 @@
 
 import { ArrowLeft, Download, Loader2, MessageSquare } from 'lucide-react';
 import * as React from 'react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { type CommentScope, commentCount, type ExportOptions } from './export-options';
@@ -66,24 +67,20 @@ export function ExportOptionsPanel({
 
 					{commentsInPdf && total > 0 && (
 						<div className="mt-3 flex items-center justify-between gap-2 border-t border-border/60 pt-3">
-							<div role="radiogroup" aria-label="Which comments to include" className="inline-flex overflow-hidden rounded-md border border-border">
+							<RadioGroup aria-label="Which comments to include" className="overflow-hidden rounded-md border border-border" value={commentScope} onValueChange={(v) => setCommentScope(v as 'all' | 'open')}>
 								{([
 									{ label: 'All', value: 'all' as const },
 									{ label: 'Open only', value: 'open' as const },
 								]).map((o, i) => (
-									// biome-ignore lint/a11y/useSemanticElements: segmented control — buttons in a radiogroup.
-									<button
+									<RadioGroupItem
 										key={o.value}
-										type="button"
-										role="radio"
-										aria-checked={commentScope === o.value}
-										onClick={() => setCommentScope(o.value)}
-										className={cn('px-2.5 py-1 text-[12px] font-semibold transition-colors', i > 0 && 'border-l border-border', commentScope === o.value ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-[var(--accent-soft)]')}
+										value={o.value}
+										className={cn('px-2.5 py-1 text-[12px] text-foreground hover:bg-[var(--accent-soft)] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground', i > 0 && 'border-l border-border')}
 									>
 										{o.label}
-									</button>
+									</RadioGroupItem>
 								))}
-							</div>
+							</RadioGroup>
 							<span className="text-[11.5px] text-muted-foreground">{inScope} {inScope === 1 ? 'note' : 'notes'}</span>
 						</div>
 					)}
