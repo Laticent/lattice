@@ -53,6 +53,10 @@ try {
 		.map((c) => ({
 			name: c.name,
 			bucket: c.bucket,
+			// The semantic role axes the reader-lens suggester keys off (function/form). Present
+			// in components.json; carried through so the Lenses panel can build a ComponentCatalog.
+			function: c.function || '',
+			form: c.form || '',
 			description: c.description || '',
 			skeleton: String(c.skeleton || ''),
 			// Per-component validity data for the per-slide drawer: which variants /
