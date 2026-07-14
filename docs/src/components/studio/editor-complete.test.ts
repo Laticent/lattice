@@ -114,6 +114,17 @@ describe('makeStudioCompletion', () => {
 		expect(done('Just prose theme: in', 20)).toEqual([]);
 	});
 
+	it('completes lang: VALUES from the supported document languages', () => {
+		// No extra vocabulary needed — the language list is static (studio-language).
+		expect(labels(complete('---\nlang: '))).toContain('en-US');
+		expect(labels(complete('---\nlang: en-G'))).toContain('en-GB');
+		// `from` replaces the partial code, not the whole line.
+		const r = complete('---\nlang: en-G', 14);
+		expect(r?.from).toBe('---\nlang: '.length);
+		// Only on a lang: line inside the block, never out in prose.
+		expect(labels(complete('Body lang: en', 13))).toEqual([]);
+	});
+
 	it('does not fire in plain prose', () => {
 		expect(complete('Just some body text here')).toBeNull();
 	});

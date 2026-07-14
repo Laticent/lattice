@@ -29,11 +29,22 @@ describe('withStudioVoice — language + instructions injection', () => {
 	});
 
 	it('creates a system turn when none exists', () => {
-		saveSettings({ language: 'fr-FR' });
+		saveSettings({ language: 'en-US' });
 		const out = withStudioVoice([{ role: 'user', content: 'hi' }]);
 		expect(out[0].role).toBe('system');
-		expect(out[0].content).toContain('French');
+		expect(out[0].content).toContain('English (United States)');
 		expect(out).toHaveLength(2);
+	});
+
+	it('a deck lang OVERRIDES the workspace default; absent, it inherits', () => {
+		saveSettings({ language: 'en-US' }); // workspace default
+		// An explicit deck lang wins over the workspace default…
+		const overridden = withStudioVoice([{ role: 'system', content: 'X' }], 'openrouter', 'en-GB');
+		expect(overridden[0].content).toContain('English (United Kingdom)');
+		expect(overridden[0].content).not.toContain('English (United States)');
+		// …and with no deck lang the workspace default applies.
+		const inherited = withStudioVoice([{ role: 'system', content: 'X' }], 'openrouter');
+		expect(inherited[0].content).toContain('English (United States)');
 	});
 
 	it('appends standing instructions when set, omits them when blank', () => {

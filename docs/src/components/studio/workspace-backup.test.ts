@@ -12,7 +12,7 @@ function seedWorkspace() {
 	saveSource('deck-aaa', '# Quarterly plan\n\nHello.');
 	saveCheckpoint('deck-aaa', '# Quarterly plan (v1)', 'first pass', T0 - 1000);
 	saveChat('deck-aaa', [{ role: 'user', content: 'tighten the title' }]);
-	saveSettings({ headerFooter: true, language: 'de-DE' });
+	saveSettings({ headerFooter: true, language: 'en-GB' });
 	saveInstructions('Board voice.');
 	// Registering the deck in the index requires touching the index — the store
 	// seeds from built-ins, so create-by-import is the realistic path:
@@ -97,7 +97,7 @@ describe('workspace-backup — restore semantics', () => {
 		expect(loadCheckpoints('deck-aaa')).toHaveLength(1);
 		expect(loadChat('deck-aaa')[0]?.content).toBe('tighten the title');
 		expect(loadSettings().headerFooter).toBe(true);
-		expect(loadSettings().language).toBe('de-DE');
+		expect(loadSettings().language).toBe('en-GB');
 		expect(loadInstructions()).toBe('Board voice.');
 		expect(loadDeckList().some((d) => d.title === 'Quarterly plan')).toBe(true);
 	});

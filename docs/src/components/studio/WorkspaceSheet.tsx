@@ -15,10 +15,11 @@ import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE,
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
+import { LanguageSelect } from './LanguageSelect';
 import { DeleteBtn } from './Library';
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
-import { languageFor, STUDIO_LANGUAGES } from './studio-language';
+import { languageFor } from './studio-language';
 import {
 	clearAllDecks,
 	type HandleStyle,
@@ -40,16 +41,21 @@ import { downloadBlob, isEvictionProneBrowser, packWorkspace, restoreWorkspace, 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
 // Workspace Settings — "your setup", distinct from the deck Inspector's "deck-wide".
-// Two tabs: General holds the non-AI workspace prefs (placement-handle style + where
-// decks live); AI holds everything about the model, in three stacked sections:
+// Two tabs: General holds the non-AI workspace prefs — the workspace LANGUAGE (the
+// default every deck inherits and both AI tiers write in; a deck overrides it from
+// its Inspector), placement-handle style, PDF page format, and where decks live; AI
+// holds everything about the model, in stacked sections:
 //   · Model — the GENERATION switch (Cloud / On-device) that picks the ACTIVE tier.
 //     Connection ≠ active (Studio Policy B): the cloud stays connected but dormant while
 //     you run on-device, and one tap resumes it.
 //   · Spend — the authoritative OpenRouter account balance beside the live session tally
 //     and your client-side cap.
-//   · Instructions — the AI output language, standing voice, and generation prefs.
-// Spend + Instructions used to be their own tabs; they're facets of the AI model, so they
-// live as sections under AI rather than as sibling tabs.
+//   · Instructions — the standing voice + generation prefs.
+// Language is a GENERAL workspace default, not an AI knob: it describes the deck's own
+// language (its `lang`, carried into every export + read-aloud), which the AI merely
+// inherits — so it lives under General, and cloud/on-device share it rather than each
+// carrying their own. Spend + Instructions used to be their own tabs; they're facets of
+// the AI model, so they live as sections under AI rather than as sibling tabs.
 const TABS = ['General', 'AI', 'Privacy & Data'] as const;
 type Tab = (typeof TABS)[number];
 type GenView = 'cloud' | 'ondevice';
@@ -349,6 +355,19 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 
 					{tab === 'General' && (
 						<div>
+							{/* ── LANGUAGE — the workspace-wide default every deck inherits and both AI
+							    tiers write in. A deck overrides it from its Inspector (`lang:` front
+							    matter). English only for now; the picker widens as data later. ── */}
+							<GroupLabel icon={<Languages className="size-3.5" />}>Language</GroupLabel>
+							<p className="mb-3 text-xs text-muted-foreground">The default language for this workspace. Every deck inherits it — its document language and the language the AI writes content in (slides, refine, chat) — unless a deck sets its own in the Inspector. English only for now.</p>
+							<LanguageSelect
+								value={language}
+								ariaLabel="Workspace language"
+								onValueChange={(v) => { setLanguage(v); saveSettings({ language: v }); notify(`Workspace language: ${languageFor(v).label}. Every deck inherits it unless it sets its own.`); }}
+							/>
+							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Both AI tiers — cloud and on-device — write in this language; component and theme names stay in English.</p>
+
+							<div className="mt-6">
 							<GroupLabel icon={<MousePointer2 className="size-3.5" />}>Placement handles</GroupLabel>
 							<p className="mb-3 text-xs text-muted-foreground">How the finish designer draws the drag handles you place a wash, mark, or spotlight with — on the canvas over your specimen.</p>
 							<div className="grid grid-cols-2 gap-2.5">
@@ -377,6 +396,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								})}
 							</div>
 							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to every finish handle; changes take effect live in the designer.</p>
+							</div>
 
 							<div className="mt-6">
 								<GroupLabel icon={<Download className="size-3.5" />}>PDF export pages</GroupLabel>
@@ -627,30 +647,9 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							</AiSection>
 							)}
 
-							{/* ── OUTPUT LANGUAGE — shared across cloud + on-device: it describes the OUTPUT, not the model that produced it ── */}
-							<AiSection>
-								<GroupLabel icon={<Languages className="size-3.5" />}>Output language</GroupLabel>
-								<p className="mb-2 text-xs text-muted-foreground">The language the AI writes deck content in — slides, refine, and chat. Component and theme names stay in English.</p>
-								<Select
-									value={language}
-									onValueChange={(v) => {
-										setLanguage(v);
-										saveSettings({ language: v });
-										notify(`The AI now writes deck content in ${languageFor(v).label}.`);
-									}}
-								>
-									<SelectTrigger className="w-full" aria-label="Output language">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										{STUDIO_LANGUAGES.map((l) => (
-											<SelectItem key={l.code} value={l.code}>
-												{l.label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</AiSection>
+							{/* Output language used to live here as its own AI knob. It's now a GENERAL
+							    workspace default (General tab) that both tiers inherit — it describes the
+							    deck's language, not the model — with a per-deck override in the Inspector. */}
 
 							{/* ── STANDING INSTRUCTIONS — separate cloud/on-device fields, not one shared+truncated field ── */}
 							<AiSection>

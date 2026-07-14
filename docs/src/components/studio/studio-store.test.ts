@@ -127,11 +127,11 @@ describe('studio-store — settings', () => {
 		expect(typeof seeded).toBe('string');
 		expect(seeded.length).toBeGreaterThan(0);
 		// An explicit pick persists and overrides detection on later reads.
-		saveSettings({ language: 'fr-FR' });
-		expect(loadSettings().language).toBe('fr-FR');
+		saveSettings({ language: 'en-GB' });
+		expect(loadSettings().language).toBe('en-GB');
 		// And it survives an unrelated settings write (no re-detect clobber).
 		saveSettings({ validation: false });
-		expect(loadSettings().language).toBe('fr-FR');
+		expect(loadSettings().language).toBe('en-GB');
 	});
 });
 

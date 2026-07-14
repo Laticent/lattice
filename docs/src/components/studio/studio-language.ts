@@ -1,44 +1,37 @@
-// Output language for Studio AI — the locale the Architect writes DECK CONTENT in
-// (slides, prose refine, chat, findings-fix). It governs natural-language prose
-// ONLY: theme and component generation stay canonical English, because their
-// output is a structural contract — slugs, CSS, manifest keys, `_class` invokes —
-// that must stay ASCII/English to pass the gates and resolve at render time. See
-// engineering/decisions/2026-06-30-studio-output-language.md.
+// The Studio language — the ONE locale a workspace (and, per-deck, a `lang:` front-
+// matter override) inherits everywhere: the AI writes DECK CONTENT in it (slides,
+// prose refine, chat, findings-fix), and it is the document `lang` carried into the
+// preview + every export (`<html lang>`, read-aloud voice). It governs natural-
+// language prose ONLY: theme and component generation stay canonical English,
+// because their output is a structural contract — slugs, CSS, manifest keys,
+// `_class` invokes — that must stay ASCII/English to pass the gates and resolve at
+// render time. See engineering/decisions/2026-07-14-language-settings.md.
 //
-// Latin-script languages only for now (the engine's fonts + layout are tuned for
-// them); the list is data-driven so widening it later is one row, not a refactor.
+// We support English only for now. The end goal is any language plus a translation
+// lens; the list is data-driven so widening it later is rows of data, not a
+// refactor (the real gate is fonts + layout — RTL, CJK line breaking — not the
+// catalog). Adding a language means: a row here + its flag SVG under
+// docs/public/flags/, nothing more.
 
 export type StudioLanguage = {
-	/** BCP-47 tag — also the value persisted in Studio settings. */
+	/** BCP-47 tag — also the value persisted in Studio settings / a deck's `lang:`. */
 	code: string;
 	/** Menu label, written in English so the picker stays legible in any locale. */
 	label: string;
 	/** The language's own name, shown as a secondary hint in the picker. */
 	endonym: string;
+	/** ISO 3166 alpha-2 country whose vendored flag SVG marks this row (flagSrc). */
+	flag: string;
 	/** Optional extra clause folded into the directive (e.g. a spelling note). */
 	note?: string;
 };
 
 // The region-canonical entry comes FIRST per base language, so a region-less
-// browser tag ('en', 'pt') resolves to the house default for that language
-// (en → en-US, pt → pt-BR). Order is load-bearing — see detectLanguage.
+// browser tag ('en') resolves to the house default for that language
+// (en → en-US). Order is load-bearing — see detectLanguage.
 export const STUDIO_LANGUAGES: StudioLanguage[] = [
-	{ code: 'en-US', label: 'English (United States)', endonym: 'English', note: 'Use American spelling, idiom, and punctuation (color, organize, -ize endings).' },
-	{ code: 'en-GB', label: 'English (United Kingdom)', endonym: 'English', note: 'Use British spelling, idiom, and punctuation (-our and -ise endings, single quotes).' },
-	{ code: 'es-ES', label: 'Spanish (Spain)', endonym: 'Español' },
-	{ code: 'es-419', label: 'Spanish (Latin America)', endonym: 'Español' },
-	{ code: 'fr-FR', label: 'French', endonym: 'Français' },
-	{ code: 'de-DE', label: 'German', endonym: 'Deutsch' },
-	{ code: 'it-IT', label: 'Italian', endonym: 'Italiano' },
-	{ code: 'pt-BR', label: 'Portuguese (Brazil)', endonym: 'Português' },
-	{ code: 'pt-PT', label: 'Portuguese (Portugal)', endonym: 'Português' },
-	{ code: 'nl-NL', label: 'Dutch', endonym: 'Nederlands' },
-	{ code: 'sv-SE', label: 'Swedish', endonym: 'Svenska' },
-	{ code: 'da-DK', label: 'Danish', endonym: 'Dansk' },
-	{ code: 'nb-NO', label: 'Norwegian (Bokmål)', endonym: 'Norsk' },
-	{ code: 'fi-FI', label: 'Finnish', endonym: 'Suomi' },
-	{ code: 'pl-PL', label: 'Polish', endonym: 'Polski' },
-	{ code: 'ca-ES', label: 'Catalan', endonym: 'Català' },
+	{ code: 'en-US', label: 'English (United States)', endonym: 'English', flag: 'us', note: 'Use American spelling, idiom, and punctuation (color, organize, -ize endings).' },
+	{ code: 'en-GB', label: 'English (United Kingdom)', endonym: 'English', flag: 'gb', note: 'Use British spelling, idiom, and punctuation (-our and -ise endings, single quotes).' },
 ];
 
 /** The house default when nothing is saved and the browser can't be matched. */
