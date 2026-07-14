@@ -201,12 +201,14 @@ const LANG_ORDER = ['a', 'b', 'e', 'f', 'h', 'i', 'j', 'p', 'z', 'en', 'gb', 'fr
 
 const COUNTRY_NAME: Record<string, string> = { US: 'United States', GB: 'United Kingdom', ES: 'Spain', FR: 'France', IN: 'India', IT: 'Italy', JP: 'Japan', BR: 'Brazil', CN: 'China', DE: 'Germany', AU: 'Australia', MX: 'Mexico' };
 
-/** The flag emoji for an ISO 3166 alpha-2 country code (regional-indicator pair), or
- *  '' for a missing/short code. Renders as a flag on iOS/macOS; some desktop browsers
- *  fall back to the letters — graceful, and the code is still meaningful. */
-export function flagEmoji(country?: string): string {
-	if (!country || country.length !== 2) return '';
-	return country.toUpperCase().replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
+/** The static path to an ISO 3166 alpha-2 country's flag SVG (vendored flag-icons,
+ *  served from docs/public/flags/), or null for a missing/short code. Rendered by a
+ *  plain <img> so it looks identical on every platform (unlike an emoji flag, which
+ *  some desktop browsers can't draw) — and, being a static asset, a flag is only
+ *  fetched when a row that uses it renders; the rest are inert. */
+export function flagSrc(country?: string): string | null {
+	if (!country || country.length !== 2) return null;
+	return `/flags/${country.toLowerCase()}.svg`;
 }
 
 /** A human country name for the flag's aria-label (falls back to the raw code). */

@@ -171,7 +171,12 @@ in patch versions.
   empty. Decks without `_lens` tags export byte-identically to before. *(Minor authoring behavior change:
   a prose comment that is exactly `<!-- lens -->` / `<!-- lens: … -->` is now consumed as a directive
   rather than surviving in the output — the same rule that already applies to every other directive word.)*
-
+- **The voice-picker country flags are now real SVGs — crisp and identical on every platform.** The flag
+  next to each voice was a Unicode flag emoji, which Windows browsers can't draw (they showed the 2-letter
+  code instead). It's now a vendored [flag-icons](https://github.com/lipis/flag-icons) SVG (MIT) served from
+  `docs/public/flags/`, rendered by a plain `<img>` — so it looks the same on Windows, macOS, iOS, and Linux.
+  The flags are static assets (never in the JS bundle), and a browser only fetches the handful a rendered row
+  actually uses; the rest are inert. (`FlagMark` in `TtsSettings.tsx`, `flagSrc` in `tts-voice-catalog.ts`.)
 - **Each voice in the Studio picker has a ▶ to hear it before you pick it.** The voice dropdown rows now
   carry a play button that auditions that voice *without* selecting it — so you can browse a 30–54-voice
   roster and listen down the list, instead of committing to each one to hear it (clicking the row still
