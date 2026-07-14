@@ -32,7 +32,8 @@ function ToggleGroupItem({
       data-slot="toggle-group-item"
       className={cn(
         "inline-flex items-center justify-center font-medium transition-colors",
-        "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        // Inset ring so a joined/segmented container's `overflow-hidden` can't clip it.
+        "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         "disabled:pointer-events-none disabled:opacity-50",
         className
       )}

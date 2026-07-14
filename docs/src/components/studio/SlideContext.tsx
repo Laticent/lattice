@@ -15,6 +15,7 @@
 import { Captions, Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch as UISwitch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
@@ -101,30 +102,28 @@ function Switch({ on, onClick, label, disabled }: { on?: boolean; onClick?: () =
 	return <UISwitch checked={!!on} onCheckedChange={() => onClick?.()} aria-label={label} disabled={disabled} />;
 }
 
-// A segmented control (pick EXACTLY one) on the shared ui/toggle-group primitive.
-// A null option value → the `__seg_default__` sentinel (Radix items need a
-// non-empty value); a deselect (Radix single-toggle fires '') is ignored so one
-// segment always stays active.
+// A segmented control (pick EXACTLY one) on the shared ui/radio-group primitive —
+// a real ARIA radiogroup that never deselects. A null option value → the
+// `__seg_default__` sentinel (Radix items need a non-empty value).
 const SEG_DEFAULT = '__seg_default__';
 function Seg({ options, value, onChange, ariaLabel }: { options: { label: string; value: string | null }[]; value: string | null; onChange: (v: string | null) => void; ariaLabel: string }) {
 	return (
-		<ToggleGroup
-			type="single"
+		<RadioGroup
 			aria-label={ariaLabel}
 			value={value ?? SEG_DEFAULT}
-			onValueChange={(v) => { if (v) onChange(v === SEG_DEFAULT ? null : v); }}
+			onValueChange={(v) => onChange(v === SEG_DEFAULT ? null : v)}
 			className="overflow-hidden rounded-md border border-border"
 		>
 			{options.map((o, i) => (
-				<ToggleGroupItem
+				<RadioGroupItem
 					key={o.value ?? SEG_DEFAULT}
 					value={o.value ?? SEG_DEFAULT}
-					className={cn('px-2.5 py-1 text-[12px] font-semibold text-foreground hover:bg-[var(--accent-soft)] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground', i > 0 && 'border-l border-border')}
+					className={cn('px-2.5 py-1 text-[12px] text-foreground hover:bg-[var(--accent-soft)] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground', i > 0 && 'border-l border-border')}
 				>
 					{o.label}
-				</ToggleGroupItem>
+				</RadioGroupItem>
 			))}
-		</ToggleGroup>
+		</RadioGroup>
 	);
 }
 
