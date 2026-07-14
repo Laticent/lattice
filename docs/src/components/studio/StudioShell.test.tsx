@@ -13,7 +13,9 @@ function seedReturningUser() {
 		{ id: 'q3-board', title: 'Q3 Board Review', builtin: true },
 		{ id: 'product-strategy', title: 'FY26 Product Strategy', builtin: true },
 	]));
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true }));
+	// lensDefaults:false so these manual-add / approval flows (written before workspace inheritance) start
+	// from an EMPTY reader-view slate — the inherited-starters behavior gets its own block below.
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, lensDefaults: false }));
 }
 
 // The live preview loads the real engine by polling `window.LatticePlayground`
@@ -594,5 +596,56 @@ describe('StudioShell — topbar information architecture', () => {
 		await flip(true);
 		expect(await screen.findByRole('button', { name: 'More controls' })).toBeInTheDocument();
 		expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument();
+	});
+});
+
+// The Option B behavior at the shell: with the "Default reader views" setting ON, every deck INHERITS
+// the two starter views from the workspace — they show up in the Lenses panel without being written into
+// the deck, and stay reader-invisible until the human approves one (the same fail-closed gate as a
+// hand-added view). These assert the inheritance is live AND still human-gated end to end.
+describe('StudioShell — workspace-inherited reader views (B)', () => {
+	beforeEach(() => {
+		localStorage.clear();
+		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'q3-board', title: 'Q3 Board Review', builtin: true }]));
+		// lensDefaults:true (also the app default) → the deck inherits Bottom line + The evidence.
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, lensDefaults: true }));
+	});
+
+	it('a fresh deck inherits both starter views as rows, and the Add menu no longer offers them', async () => {
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// Both inherited starters appear in the Lenses panel without the author adding anything.
+		expect(screen.getByText('Bottom line')).toBeInTheDocument();
+		expect(screen.getByText('The evidence')).toBeInTheDocument();
+		// The Add menu offers only the archetypes NOT already inherited (The story / The ask).
+		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
+		expect(screen.getByRole('button', { name: /The story/ })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /The ask/ })).toBeInTheDocument();
+		// "Bottom line" resolves to the inherited ROW (a heading button), never a second Add-menu entry.
+		expect(screen.getAllByRole('button', { name: /Bottom line/ })).toHaveLength(1);
+	});
+
+	it('an inherited view is reader-invisible until approved — the same human gate (fail closed)', async () => {
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// The inherited "The evidence" (base:all) already has every slide as a member, but it is UNAPPROVED,
+		// so Present must not offer it to a reader.
+		await user.click(screen.getByRole('button', { name: 'Present' }));
+		let dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
+		expect(dialog.getByText('Full deck')).toBeInTheDocument();
+		expect(dialog.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Present' })).not.toBeInTheDocument());
+
+		// Expand the inherited "The evidence" row, preview (the approval gate), then approve.
+		await user.click(screen.getByText('The evidence'));
+		await user.click(screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLElement);
+		await user.click(await screen.findByRole('button', { name: /Approve for readers/ }));
+
+		// NOW Present offers it — the gate opened only on the human's approval.
+		await user.click(screen.getByRole('button', { name: 'Present' }));
+		dialog = within(await screen.findByRole('dialog', { name: 'Present' }));
+		await user.click(dialog.getByRole('button', { name: 'Reader view' }));
+		expect(await screen.findByRole('menuitem', { name: /The evidence/ })).toBeInTheDocument();
 	});
 });
