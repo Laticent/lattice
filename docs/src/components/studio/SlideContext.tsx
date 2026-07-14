@@ -29,6 +29,7 @@ import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGr
 import { getNote, setNote } from './slide-notes';
 import { type Canvas, canvasProvenance, deckDefaults, finishProvenance, setCanvas, setFinish, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { activeSpectrum } from './spectrum-catalog';
+import { deckOutputLang } from './studio-language';
 
 type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
 type LintVocab = {
@@ -217,7 +218,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const generateDesc = async () => {
 		setDescBusy(true); setDescMsg('');
 		try {
-			const r = await generateDescription(chunk);
+			const r = await generateDescription(chunk, deckOutputLang(source));
 			if (r.status === 'ok') { setDescDraft(r.text); setDescAiDraft(true); }
 			else if (r.status === 'offline') setDescMsg('Connect a cloud model in the Architect to generate — the on-device tier isn’t trusted for accessibility text.');
 			else if (r.status === 'blocked') setDescMsg(r.note);

@@ -1,44 +1,42 @@
-// Output language for Studio AI — the locale the Architect writes DECK CONTENT in
-// (slides, prose refine, chat, findings-fix). It governs natural-language prose
-// ONLY: theme and component generation stay canonical English, because their
-// output is a structural contract — slugs, CSS, manifest keys, `_class` invokes —
-// that must stay ASCII/English to pass the gates and resolve at render time. See
-// engineering/decisions/2026-06-30-studio-output-language.md.
+// The Studio language. TWO fields that DEFAULT to the same value but are no longer
+// one knob (2026-07-14-language-settings.md, "split the data model"):
+//   · DOCUMENT language — a deck's `lang:` (else the workspace default). What the deck
+//     IS: carried into the preview + every export as `<html lang>`, and read-aloud.
+//   · AI-OUTPUT language — what the AI WRITES a deck's prose in. Defaults to the
+//     document language, but a deck's `ai-lang:` overrides it independently (deckOutputLang).
+// They coincide today (English-only, so both resolve to English), but keeping them
+// separate means a future TRANSLATION LENS gets its source (document) vs target
+// (AI-output) distinction for free — no un-fusing of callers. Either way this governs
+// natural-language prose ONLY: theme and component generation stay canonical English
+// (a structural contract — slugs, CSS, manifest keys, `_class` invokes — that must
+// stay ASCII/English to pass the gates and resolve at render time).
 //
-// Latin-script languages only for now (the engine's fonts + layout are tuned for
-// them); the list is data-driven so widening it later is one row, not a refactor.
+// We support English only for now. The end goal is any language plus that lens; the
+// list is data-driven so widening it later is rows of data, not a refactor (the real
+// gate is fonts + layout — RTL, CJK line breaking — not the catalog). Adding a
+// language means: a row here + its flag SVG under docs/public/flags/, nothing more.
+
+import { getFrontMatter } from './front-matter';
 
 export type StudioLanguage = {
-	/** BCP-47 tag — also the value persisted in Studio settings. */
+	/** BCP-47 tag — also the value persisted in Studio settings / a deck's `lang:`. */
 	code: string;
 	/** Menu label, written in English so the picker stays legible in any locale. */
 	label: string;
 	/** The language's own name, shown as a secondary hint in the picker. */
 	endonym: string;
+	/** ISO 3166 alpha-2 country whose vendored flag SVG marks this row (flagSrc). */
+	flag: string;
 	/** Optional extra clause folded into the directive (e.g. a spelling note). */
 	note?: string;
 };
 
 // The region-canonical entry comes FIRST per base language, so a region-less
-// browser tag ('en', 'pt') resolves to the house default for that language
-// (en → en-US, pt → pt-BR). Order is load-bearing — see detectLanguage.
+// browser tag ('en') resolves to the house default for that language
+// (en → en-US). Order is load-bearing — see detectLanguage.
 export const STUDIO_LANGUAGES: StudioLanguage[] = [
-	{ code: 'en-US', label: 'English (United States)', endonym: 'English', note: 'Use American spelling, idiom, and punctuation (color, organize, -ize endings).' },
-	{ code: 'en-GB', label: 'English (United Kingdom)', endonym: 'English', note: 'Use British spelling, idiom, and punctuation (-our and -ise endings, single quotes).' },
-	{ code: 'es-ES', label: 'Spanish (Spain)', endonym: 'Español' },
-	{ code: 'es-419', label: 'Spanish (Latin America)', endonym: 'Español' },
-	{ code: 'fr-FR', label: 'French', endonym: 'Français' },
-	{ code: 'de-DE', label: 'German', endonym: 'Deutsch' },
-	{ code: 'it-IT', label: 'Italian', endonym: 'Italiano' },
-	{ code: 'pt-BR', label: 'Portuguese (Brazil)', endonym: 'Português' },
-	{ code: 'pt-PT', label: 'Portuguese (Portugal)', endonym: 'Português' },
-	{ code: 'nl-NL', label: 'Dutch', endonym: 'Nederlands' },
-	{ code: 'sv-SE', label: 'Swedish', endonym: 'Svenska' },
-	{ code: 'da-DK', label: 'Danish', endonym: 'Dansk' },
-	{ code: 'nb-NO', label: 'Norwegian (Bokmål)', endonym: 'Norsk' },
-	{ code: 'fi-FI', label: 'Finnish', endonym: 'Suomi' },
-	{ code: 'pl-PL', label: 'Polish', endonym: 'Polski' },
-	{ code: 'ca-ES', label: 'Catalan', endonym: 'Català' },
+	{ code: 'en-US', label: 'English (United States)', endonym: 'English', flag: 'us', note: 'Use American spelling, idiom, and punctuation (color, organize, -ize endings).' },
+	{ code: 'en-GB', label: 'English (United Kingdom)', endonym: 'English', flag: 'gb', note: 'Use British spelling, idiom, and punctuation (-our and -ise endings, single quotes).' },
 ];
 
 /** The house default when nothing is saved and the browser can't be matched. */
@@ -56,13 +54,49 @@ export function languageLabel(code: string | null | undefined): string {
 	return languageFor(code).label;
 }
 
+/**
+ * The supported catalog code a raw tag maps to — exact (case-insensitive), or the
+ * base-language house default (`en` / `en-us` / `EN-GB` → `en-US` / `en-GB`) — or
+ * null when it maps to nothing supported (e.g. `fr-FR`, `es`). Distinct from
+ * `languageFor`, which never returns null (it substitutes the default descriptor):
+ * this answers "IS this value one we support?", which `languageFor` conflates. The
+ * picker uses it so a valid English tag isn't branded "unsupported" over a spurious
+ * exact-string miss, while a genuinely-dropped locale still is. Mirrors
+ * `detectLanguage`'s exact-then-base resolution for a single tag.
+ */
+export function resolveSupported(code: string | null | undefined): string | null {
+	const raw = String(code ?? '').toLowerCase();
+	if (!raw) return null;
+	const exact = byCode.get(raw);
+	if (exact) return exact.code;
+	const base = raw.split('-')[0];
+	const hit = STUDIO_LANGUAGES.find((l) => l.code.toLowerCase().split('-')[0] === base);
+	return hit ? hit.code : null;
+}
+
+/**
+ * The language the AI writes a DECK's prose in — the deck's explicit AI-output
+ * override (`ai-lang:`), else its DOCUMENT language (`lang:`), else '' so the caller
+ * applies the workspace default (`withStudioVoice`'s `deckLang || loadSettings()`).
+ *
+ * This is the SPLIT: the document language (`lang:` alone → `<html lang>`, exports,
+ * read-aloud) and the AI-output language are two fields that default to the same
+ * value but resolve independently, so a future translation lens (or a wider catalog)
+ * can have the AI write a language OTHER than the deck's own — WITHOUT the document
+ * paths, which read `lang:` only, ever seeing `ai-lang:`. The AI paths call this; the
+ * document paths must NOT (they'd leak the AI target into `<html lang>`).
+ */
+export function deckOutputLang(source: string): string {
+	return getFrontMatter(source, 'ai-lang') || getFrontMatter(source, 'lang') || '';
+}
+
 type NavLike = { language?: string; languages?: readonly string[] };
 
 /**
  * Resolve a browser locale to a supported language code. An exact tag match wins;
  * else the first supported entry sharing the base language (list order encodes the
- * house default per language, so 'en' → en-US, 'pt' → pt-BR); else
- * DEFAULT_LANGUAGE. Safe with no navigator (tests / SSR).
+ * house default per language, so 'en' → en-US); else DEFAULT_LANGUAGE. Safe with no
+ * navigator (tests / SSR).
  */
 export function detectLanguage(nav: NavLike | undefined = typeof navigator === 'undefined' ? undefined : (navigator as NavLike)): string {
 	const tags = [...(nav?.languages ?? []), nav?.language].filter((t): t is string => !!t);

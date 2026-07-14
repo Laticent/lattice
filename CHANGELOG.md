@@ -164,6 +164,18 @@ in patch versions.
 
 ### Added
 
+- **A language every deck inherits — a workspace default, a per-deck override, and a document/AI
+  split under the hood.** The Studio has a single **Language** in Workspace → **General** that every
+  deck inherits: it is the deck's document language (carried into every export's `<html lang>` and
+  read-aloud) *and*, by default, the language the AI writes deck content in — both AI tiers (cloud +
+  on-device) share it. A deck overrides it from the **Inspector** (a flagged dropdown that writes
+  `lang:` front matter); its "Automatic — <workspace default>" row clears the override so the deck
+  inherits again. Under the hood these are two fields that default to the same value but resolve
+  independently: `lang:` is the document language; an optional `ai-lang:` (editor-autocompleted)
+  points the AI elsewhere without changing what the exports declare — so a future translation lens
+  gets its source-vs-target distinction for free. An `en-GB` deck gets British-English edits on every
+  AI path. English (US + UK) only for now; the picker is data-driven so more languages — and that
+  lens — are rows of data, not a rebuild. See `engineering/decisions/2026-07-14-language-settings.md`.
 - **Studio widgets: three more shared shadcn primitives — `ui/tooltip`, `ui/separator`, `ui/kbd`.**
   The docs-site Studio gains styled, colour-mode-aware tooltips (a `Tip` one-line wrapper over Radix
   Tooltip) in place of native `title=` on its toolbar icon controls, a `Separator` for the toolbar
@@ -375,6 +387,18 @@ in patch versions.
 
 ### Changed
 
+- **The deck Inspector's inherit-the-default pickers read a compact “⊸ Auto” instead of a long label.**
+  The Language and Theme controls used a verbose selected-value label ("Automatic — English (United
+  States)" / "Automatic — match site") that overflowed the narrow Inspector — a shared `AutoIcon` +
+  "Auto" now signals the automatic/inherit state, with the full meaning in the control's hover tooltip
+  and field description. One `auto-mark` source so the affordance can't drift (HARD RULE #15).
+- **Studio "Output language" is now a general workspace setting, English-only.** The AI-output
+  language moved from the Workspace **AI** tab to **General** — it describes the deck's language,
+  which the AI inherits, not a model knob — and the offered set is pulled back to English (US + UK)
+  from the prior 16 Latin-script languages (the list promised more than the pipeline supports
+  end-to-end). Existing decks are unaffected — `lang:` still renders as before, and a saved
+  non-English preference falls back to English for AI prose. Supersedes
+  `engineering/decisions/2026-06-30-studio-output-language.md`.
 - **Three more shared shadcn primitives retire hand-rolled Studio controls: `ui/checkbox`,
   `ui/radio-group`, `ui/toggle-group`.** FinishStudio's two native `<input type="checkbox">` →
   `ui/checkbox` (row-label click preserved). SlideContext's segmented `Seg` (canvas / type-scale) and

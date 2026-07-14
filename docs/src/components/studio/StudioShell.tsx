@@ -27,6 +27,7 @@ import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
+import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -40,6 +41,7 @@ import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './fin
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
+import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
@@ -52,6 +54,7 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { importComments } from './slide-comments';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
+import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
@@ -680,6 +683,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		saveSettings({ validation });
 	}, [validation]);
 
+	// The deck's language — its own `lang:` front matter OVERRIDES the workspace
+	// default (General tab). Empty here = no override → the deck inherits. Drives the
+	// document `<html lang>` in every export + read-aloud, and the language the AI
+	// writes this deck's content in. `LANG_AUTO` is the picker's "inherit" sentinel.
+	const deckLang = getFrontMatter(source, 'lang') || '';
+	const workspaceLang = loadSettings().language;
+	// Honest display name — the catalog label for a supported code, else the raw code
+	// (never `languageLabel`'s silent fall-through to the default's label, which would
+	// mislabel a legacy `fr-FR` as "English (United States)" in the toast + auto row).
+	const langDisplay = (code: string) => (resolveSupported(code) ? languageLabel(code) : code);
+
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || '16:9';
 	const pageNumbers = getFrontMatter(source, 'paginate') === 'true';
@@ -885,6 +899,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		// inert to the engine and we just merge the class that does the work.
 		return frontMatterBlock(mergeClassTokens(source, finishClass));
 	}, [fm, source, finishClass]);
+	// LANG_AUTO clears the deck's `lang:` so it inherits the workspace default; any
+	// concrete code writes the override. languageLabel resolves the human name for the toast.
+	const setDeckLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'Language → workspace default' : `Language → ${langDisplay(value)}`, (s) => setFrontMatter(s, 'lang', value === LANG_AUTO ? null : value));
 	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => setFrontMatter(s, 'size', value));
 	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => setFrontMatter(s, 'paginate', pageNumbers ? null : 'true'));
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => setFrontMatter(s, 'lift', lift ? null : 'on'));
@@ -1260,7 +1277,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			setRefineBusy(true);
 			notify(`${label}…`);
 			try {
-				const out = await refineSelection(action, sel.text);
+				const out = await refineSelection(action, sel.text, deckOutputLang(source));
 				if (out.status === 'offline') {
 					notify('Connect a model in Workspace → AI to refine a selection.');
 					setWorkspaceOpen(true);
@@ -1595,15 +1612,24 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
 		<>
-			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light or dark, size, and surface.">
-				<Field label="Theme" desc="This deck's color palette. “Automatic” follows the website theme; pick one to pin it to the deck (saved with the deck, kept when the site theme changes).">
+			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's identity — language, palette, light or dark, size, and surface.">
+				<Field label="Language" desc="This deck's language — its document language (carried into every export and read-aloud) and the language the AI writes its content in. “Auto” (the link icon) inherits the workspace default; pick one to pin it to the deck. English only for now.">
+					<LanguageSelect
+						value={deckLang || LANG_AUTO}
+						ariaLabel="Choose deck language"
+						includeAuto
+						autoLabel={`Automatic — ${langDisplay(workspaceLang)}`}
+						onValueChange={setDeckLang}
+					/>
+				</Field>
+				<Field label="Theme" desc="This deck's color palette. “Auto” (the link icon) follows the website theme; pick one to pin it to the deck (saved with the deck, kept when the site theme changes).">
 					<CatalogSelect
 						ariaLabel="Choose deck theme"
 						swatchShape="round"
 						className="min-w-[116px]"
 						value={deckThemeBase || '__auto__'}
 						onValueChange={(v) => setDeckTheme(v === '__auto__' ? null : v)}
-						groups={[{ options: [{ value: '__auto__', label: 'Automatic — match site', title: 'Follow the website theme; no theme: pinned to the deck.', swatch: { background: 'linear-gradient(135deg, var(--bg) 0 50%, var(--text-heading) 50% 100%)' } }] }, ...themeSelectGroups(savedMenu)]}
+						groups={[{ options: [{ value: '__auto__', label: AUTO_LABEL, icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 					/>
 					{savedThemes.length > 0 && (
 						<div className="mt-2 space-y-0.5">

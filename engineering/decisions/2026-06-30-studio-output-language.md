@@ -1,7 +1,17 @@
 ---
-status: in-progress
+status: superseded
+superseded-by: 2026-07-14-language-settings.md
 summary: Studio AI produced British-leaning prose with no way for a user to choose otherwise — there was no language/locale setting anywhere, and the prompts said nothing about dialect, so the model defaulted to its own "boardroom" lean. The fix adds an OUTPUT LANGUAGE setting (a BCP-47 locale) to the Workspace drawer's Instructions tab, seeded from the browser on first run (navigator.language → supported code, else en-US) and explicitly overridable. It is threaded into a single helper, `withStudioVoice`, applied ONLY to the four deck-CONTENT prose paths (runArchitect, refineSelection, chatComplete, requestFindingFix). Theme/component generation is DELIBERATELY excluded — its output is a structural contract (slugs, CSS, manifest keys, `_class` invokes) that must stay canonical English to pass the gates and resolve at render time. The same helper also revives the previously-dead "Standing instructions" field (written to localStorage but never read into any Studio prompt). Latin-script languages only for now; the list is data-driven so widening it is one row.
 ---
+
+> **Superseded by [2026-07-14-language-settings.md](2026-07-14-language-settings.md).**
+> The mechanism below (the `withStudioVoice` directive, the `studio-language`
+> catalog, the "leave the engine's contract English" scope) still stands. What
+> changed: language is no longer an *AI* setting on its own tab — it is the ONE
+> workspace-wide default (General tab) that both AI tiers **and** the deck's own
+> `lang` inherit, overridable per-deck via `lang:` front matter; and the catalog
+> is pulled back to **English only** for now (the 16-language list was more than
+> we actually support). Read the successor for the current model.
 
 # Studio AI output language — let the user choose the locale; keep the engine's contract English
 

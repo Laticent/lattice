@@ -1,4 +1,5 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
+import { STUDIO_LANGUAGES } from './studio-language';
 
 // Studio editor autocomplete — context-aware completion for the three things an
 // author types most: the component on a `_class:` line, a front-matter directive
@@ -23,9 +24,15 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'autosplit', info: 'Auto-split overflowing slides — true / false.' },
 	{ key: 'lift', info: 'Card lift — the "Struck" shadow on card surfaces. on / off.' },
 	{ key: 'class', info: 'Default _class applied to every slide.' },
-	{ key: 'lang', info: 'Document language — e.g. en.' },
+	{ key: 'lang', info: 'Document language — overrides the workspace default (e.g. en-US). Drives <html lang> + read-aloud.' },
+	{ key: 'ai-lang', info: 'AI-output language — what the AI writes in, if it should differ from the document language. Defaults to lang.' },
 	{ key: 'present', info: 'Open the exported PDF in presentation mode — true / false.' },
 ];
+
+// The `lang:` front-matter VALUE vocabulary — the supported document languages
+// (studio-language, English-only for now). Static, so built once at module load;
+// the `info` shows the human label beside each BCP-47 code.
+const LANG_OPTIONS: Completion[] = STUDIO_LANGUAGES.map((l) => ({ label: l.code, type: 'constant', detail: 'language', info: l.label }));
 
 // Fenced-block languages the engine renders specially, plus common code langs.
 const FENCE_LANGS: { lang: string; info: string }[] = [
@@ -104,6 +111,14 @@ export function makeStudioCompletion(
 		if (paletteOptions.length && /^[ \t]*theme:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
 			const word = context.matchBefore(/[\w-]*/);
 			return { from: word ? word.from : context.pos, options: paletteOptions, validFor: /^[\w-]*$/ };
+		}
+
+		// 1d. The `lang:` / `ai-lang:` front-matter VALUE — the supported language codes
+		// (mirrors the deck Inspector's Language picker; both read studio-language). Same
+		// vocabulary for the document language and the AI-output override.
+		if (/^[ \t]*(?:ai-)?lang:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
+			const word = context.matchBefore(/[\w-]*/);
+			return { from: word ? word.from : context.pos, options: LANG_OPTIONS, validFor: /^[\w-]*$/ };
 		}
 
 		// 2. Fenced-block language right after the opening ``` .

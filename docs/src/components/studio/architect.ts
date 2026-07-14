@@ -12,7 +12,7 @@ import { budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedup
 import { askComponentMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
-import { languageDirective } from './studio-language';
+import { deckOutputLang, languageDirective } from './studio-language';
 import { loadInstructions, loadOnDeviceInstructions, loadSettings } from './studio-store';
 
 // Re-export so UI surfaces (Fabricate, the deck chat) import the doc type + reader
@@ -47,8 +47,14 @@ const SYSTEM =
 // chatComplete / requestFindingFix). DELIBERATELY NOT applied to theme/component
 // generation: that output is a structural contract (slugs, CSS, manifest keys,
 // `_class` invokes) that must stay canonical English to pass the gates and resolve
-// at render time. Read live, so a change in the Workspace drawer takes effect on
-// the next turn. See engineering/decisions/2026-06-30-studio-output-language.md.
+// at render time. Read live, so a change takes effect on the next turn. The language
+// is the deck's AI-OUTPUT language (`deckOutputLang`): its `ai-lang:` override, else
+// its document `lang:`, else the workspace default — DISTINCT from the document
+// language the exports stamp, so a translation lens can diverge them. Every deck-
+// content path threads it: the source-bearing paths (runArchitect, chatComplete,
+// requestFindingFix) resolve it from their own `source`; the fragment paths
+// (refineSelection, generateDescription) receive it from their caller.
+// See engineering/decisions/2026-07-14-language-settings.md.
 //
 // Standing instructions are CLOUD/ON-DEVICE separated (2026-07-09-studio-cloud-
 // ondevice-config-split.md): a small on-device model gets its own, shorter field
@@ -56,8 +62,11 @@ const SYSTEM =
 // agnostic — it describes the OUTPUT, not the model that produced it.
 type Msg = GroundMsg; // { role; content: string | ContentPart[] } — array content carries an inlined PDF
 
-function studioVoice(generation: string): string {
-	const parts = [languageDirective(loadSettings().language)];
+function studioVoice(generation: string, deckLang?: string): string {
+	// `deckLang` is the deck's AI-OUTPUT language (deckOutputLang: ai-lang ?? lang),
+	// resolved by the caller; empty → the deck inherits the workspace default
+	// (studio-store). The document language the exports stamp is resolved separately.
+	const parts = [languageDirective(deckLang || loadSettings().language)];
 	const instr = (generation === 'openrouter' ? loadInstructions() : loadOnDeviceInstructions()).trim();
 	if (instr) parts.push(`The author has given you STANDING INSTRUCTIONS — always honor these:\n${instr}`);
 	return parts.filter(Boolean).join('\n\n');
@@ -67,9 +76,10 @@ function studioVoice(generation: string): string {
  *  absent). Pure — returns a new array; the inputs are untouched. `generation`
  *  selects the cloud vs on-device standing-instructions store; defaults to
  *  'openrouter' so a caller that hasn't been threaded yet (or a test) keeps the
- *  prior cloud-field behavior unchanged. */
-export function withStudioVoice(messages: Msg[], generation: string = 'openrouter'): Msg[] {
-	const extra = studioVoice(generation);
+ *  prior cloud-field behavior unchanged. `deckLang` is the editing deck's `lang:`
+ *  override (from its front matter); omitted → the workspace default applies. */
+export function withStudioVoice(messages: Msg[], generation: string = 'openrouter', deckLang?: string): Msg[] {
+	const extra = studioVoice(generation, deckLang);
 	if (!extra) return messages;
 	const out = messages.map((m) => ({ ...m }));
 	const sys = out.find((m) => m.role === 'system');
@@ -81,9 +91,10 @@ export function withStudioVoice(messages: Msg[], generation: string = 'openroute
 }
 
 /** A model whose `complete` injects the Studio voice — for bridges that build
- *  their messages internally (e.g. requestSlideFix). */
-function voicedModel(model: ArchitectModel, generation: string): ArchitectModel {
-	return { ...model, complete: (o) => model.complete({ ...o, messages: withStudioVoice(o.messages, generation) }) };
+ *  their messages internally (e.g. requestSlideFix). `deckLang` threads the deck's
+ *  `lang:` override through to the language directive. */
+function voicedModel(model: ArchitectModel, generation: string, deckLang?: string): ArchitectModel {
+	return { ...model, complete: (o) => model.complete({ ...o, messages: withStudioVoice(o.messages, generation, deckLang) }) };
 }
 
 type Usage = { cost?: number; total_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
@@ -202,7 +213,7 @@ export async function runArchitect(source: string, instruction: string, docs?: R
 	const ground = groundMessages(withStudioVoice([
 		{ role: 'system', content: SYSTEM },
 		{ role: 'user', content: `${instruction}\n\nThe deck — address slides by their [slide N] markers, and never include a marker in an edit body:\n\n${numberSlides(source)}` },
-	], generation), docs, generation === 'openrouter');
+	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
 	let reply = '';
 	try {
 		reply = await model.complete({
@@ -237,7 +248,7 @@ export type RefineOutcome =
  * Honest like the rest: `offline` with no model, `blocked` at the budget cap,
  * `nochange` when the rewrite is empty or identical — never a fabricated edit.
  */
-export async function refineSelection(action: RefineActionId, text: string): Promise<RefineOutcome> {
+export async function refineSelection(action: RefineActionId, text: string, deckLang?: string): Promise<RefineOutcome> {
 	if (!text.trim()) return { status: 'nochange' };
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
@@ -250,7 +261,10 @@ export async function refineSelection(action: RefineActionId, text: string): Pro
 	let out = '';
 	try {
 		out = await model.complete({
-			messages: withStudioVoice(buildRefinePrompt(action, text), generation),
+			// Pass the deck's `lang:` so a refine on a fragment keeps the deck's dialect
+			// (a British-pinned deck stays British on shorten/rephrase) — not the caller's
+			// selection but the DECK it belongs to; the caller threads it from `source`.
+			messages: withStudioVoice(buildRefinePrompt(action, text), generation, deckLang),
 			fallback: text,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
@@ -295,7 +309,7 @@ export function buildDescriptionPrompt(slideSource: string): Msg[] {
  * The caller (the drawer) treats the result as an UNCONFIRMED draft: it is not
  * written to the slide until the author confirms or edits it.
  */
-export async function generateDescription(slideSource: string): Promise<RefineOutcome> {
+export async function generateDescription(slideSource: string, deckLang?: string): Promise<RefineOutcome> {
 	if (!String(slideSource).trim()) return { status: 'nochange' };
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
@@ -308,7 +322,9 @@ export async function generateDescription(slideSource: string): Promise<RefineOu
 	let out = '';
 	try {
 		out = await model.complete({
-			messages: withStudioVoice(buildDescriptionPrompt(slideSource), generation),
+			// The alt-text is read in the deck's language, so describe in the deck's
+			// `lang:` (threaded from the full deck source by the caller), not the default.
+			messages: withStudioVoice(buildDescriptionPrompt(slideSource), generation, deckLang),
 			fallback: '',
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
@@ -671,7 +687,7 @@ export async function requestFindingFix(source: string, finding: Finding, catalo
 	}
 	try {
 		const res = await requestSlideFix({
-			model: voicedModel(model, generation),
+			model: voicedModel(model, generation, deckOutputLang(source)),
 			gate: { cache: () => generation === 'openrouter', onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
 			source,
 			finding,
@@ -717,7 +733,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		{ role: 'system', content: `${SYSTEM}\n\nConverse with the author. Answer questions directly. Only emit edit blocks when they actually want a change to the deck.` },
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
-	], generation), docs, generation === 'openrouter');
+	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
 	let reply = '';
 	try {
 		reply = await model.complete({

@@ -18,7 +18,9 @@ import { cn } from '@/lib/utils';
 // each row show the swatch preview so the visual grammar is identical everywhere.
 
 export type CatalogSwatch = { background: string; backgroundSize?: string };
-export type CatalogOption = { value: string; label: string; swatch?: CatalogSwatch; title?: string };
+// `icon` renders in place of the swatch (an option whose preview is a glyph, not a
+// color chip — e.g. the compact "Auto" row). Provide one OR the other, not both.
+export type CatalogOption = { value: string; label: string; swatch?: CatalogSwatch; icon?: React.ReactNode; title?: string };
 export type CatalogGroup = { label?: string; options: CatalogOption[] };
 
 /** Map a catalog of `{name,label,swatch,blurb?}` entries (finish/spectrum/mode/…)
@@ -68,7 +70,7 @@ export function CatalogSelect({
 	// here, or the trigger doubles it (swatch swatch label).
 	const renderItem = (o: CatalogOption) => (
 		<SelectItem key={o.value} value={o.value} textValue={o.label} title={o.title}>
-			{o.swatch && <SwatchChip {...o.swatch} shape={swatchShape} />}
+			{o.icon ?? (o.swatch && <SwatchChip {...o.swatch} shape={swatchShape} />)}
 			<span className="truncate">{o.label}</span>
 		</SelectItem>
 	);
