@@ -186,13 +186,15 @@ in patch versions.
 - **A Lenses panel in the Architect puts the author in control of every reader view.** Replacing the old
   "Reshape" chips, the panel is the human-in-the-loop loop end to end: **add** a reader view from the
   reader-science archetypes (Bottom line, The story, The evidence, The ask); a **deterministic, no-AI
-  suggester proposes** which slides belong — each proposal shown with its one-line rationale — and you
-  **accept** them (all, or one at a time) or tag/untag any slide by hand; **preview** the reader's actual
-  deck; and only an explicit **Approve** (which binds a content hash of what a reader would see) makes the
-  view readable. A view stays **Draft (hidden from readers)** until approved, flips to **Edited since
-  approval** the moment its content drifts (readers can't see it again until you re-approve), and an
-  **empty** view can't be approved at all. Every write funnels through the deck source (undo-able) with
-  `@slidewright/lente` as the sole registry serializer.
+  suggester proposes** which slides belong — each proposal shown by slide title with its one-line
+  rationale — and you **accept** them (all, or one at a time) or tag/untag any slide by hand; **preview**
+  the reader's actual deck; and only then can you **Approve** — the button stays locked until you've
+  previewed that view's current slides (you approve what you've seen), and approving binds a content hash
+  of exactly what a reader would see. A view stays **Draft** (hidden) until approved, flips to **Edited**
+  the moment its content drifts (readers can't see it again until you re-approve), reads **Staged** when
+  hidden, and an **empty** view can't be approved at all. Removing a view also clears its slide tags, so a
+  later same-name view never silently inherits old membership. Every write funnels through the deck source
+  (undo-able) with `@slidewright/lente` as the sole registry serializer.
 - **`_lens` is now a recognized per-slide directive.** A `<!-- _lens: brief ask -->` comment carries a
   slide's reader-lens membership for the forthcoming lens system (`@slidewright/lente`). Like other
   directives it is **stripped from exported HTML/PDF** and is never a `<section>` attribute — so internal

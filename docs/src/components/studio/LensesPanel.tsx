@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Eye, Plus, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Check, ChevronDown, Eye, EyeOff, Plus, ShieldCheck, Sparkles, X } from 'lucide-react';
 import * as React from 'react';
 import {
 	approvalHash,
@@ -7,19 +7,21 @@ import {
 	type LensDef,
 	type LensRegistry,
 	lensIndices,
+	parseSlideTags,
 	suggestMembership,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
-import { slideClass, splitSlides } from './lint';
+import { slideClass } from './lint';
 
 // The Lenses panel — the human-in-the-loop control center for reader views (design
 // engineering/decisions/2026-07-13-lente-reader-lenses.md). The through-line is: a
 // deterministic, NO-AI suggester PROPOSES which slides belong in a reader view; the
-// author REVIEWS every proposal, edits membership by hand, previews the reader's
-// ACTUAL deck, and only then APPROVES it — at which point the view becomes readable.
-// Nothing a machine proposes reaches a reader unvetted. Every write funnels back to
-// the shell (undo-funneled); the library (@slidewright/lente) owns all projection,
-// suggestion, hashing, and serialization — this component is pure presentation over it.
+// author REVIEWS every proposal, edits membership by hand, PREVIEWS the reader's
+// ACTUAL deck, and only THEN can APPROVE it — at which point the view becomes readable.
+// Nothing a machine proposes reaches a reader unvetted, and nothing is approved unseen
+// (§9.4: Approve unlocks only after the author has previewed that view's current slides).
+// Every write funnels back to the shell (undo-funneled); the library (@slidewright/lente)
+// owns all projection, suggestion, hashing, and serialization — this is presentation over it.
 
 // One tag write: put slide `index` in/out of `lensId` (the shell applies it via the library's applyTag).
 export type TagChange = { index: number; lensId: string; member: boolean; base: LensBase };
@@ -34,25 +36,57 @@ const ARCHETYPES: Array<{ id: string; label: string; base: LensBase; single?: bo
 	{ id: 'ask', label: 'The ask', base: 'none', single: true, blurb: 'Exactly one slide: the decision you need.' },
 ];
 
-type LensStatus = 'empty' | 'draft' | 'approved' | 'drifted';
+type LensStatus = 'empty' | 'draft' | 'approved' | 'drifted' | 'hidden';
 
 // The one place that decides, from the library, what a lens's state IS — so the badge, the Approve
-// button's label, and reader-eligibility never disagree.
+// button, and reader-eligibility never disagree. `hidden` is checked FIRST (it's how the reader gate
+// short-circuits, project.ts lensEligibility) so an approved-but-hidden lens never reads "readable."
 function lensStatus(slides: string[], reg: LensRegistry, lens: LensDef): { status: LensStatus; members: number } {
 	const members = lensIndices(slides, reg, lens.id).length;
+	if (lens.hidden) return { status: 'hidden', members };
 	if (members === 0) return { status: 'empty', members };
 	if (!lens.approved) return { status: 'draft', members };
 	return { status: lens.approved === approvalHash(slides, reg, lens.id) ? 'approved' : 'drifted', members };
 }
 
-const STATUS_COPY: Record<LensStatus, { label: string; tone: string }> = {
-	empty: { label: 'Empty', tone: 'text-muted-foreground border-border' },
-	draft: { label: 'Draft — hidden from readers', tone: 'text-[var(--chart-4,#9a6a00)] border-[color-mix(in_srgb,var(--chart-4,#9a6a00)_40%,transparent)]' },
-	approved: { label: 'Approved — readable', tone: 'text-[var(--chart-3,#2e6f00)] border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_40%,transparent)]' },
-	drifted: { label: 'Edited since approval', tone: 'text-[var(--chart-2,#9c3f00)] border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_40%,transparent)]' },
+// Badge = a SHORT word (fits the narrow Architect column, ~200px) + a `title` tooltip carrying the full
+// meaning; the expanded body repeats it in plain words. Keeping the pill to one word is what stops the
+// lens name from wrapping in the collapsed row.
+const STATUS_COPY: Record<LensStatus, { label: string; full: string; tone: string }> = {
+	empty: { label: 'Empty', full: 'No slides yet — nothing to show a reader.', tone: 'text-muted-foreground border-border' },
+	draft: { label: 'Draft', full: 'Draft — hidden from readers until you approve it.', tone: 'text-[var(--chart-4,#9a6a00)] border-[color-mix(in_srgb,var(--chart-4,#9a6a00)_40%,transparent)]' },
+	approved: { label: 'Approved', full: 'Approved — readers can open this view.', tone: 'text-[var(--chart-3,#2e6f00)] border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_40%,transparent)]' },
+	drifted: { label: 'Edited', full: 'Edited since approval — hidden from readers until you re-approve.', tone: 'text-[var(--chart-2,#9c3f00)] border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_40%,transparent)]' },
+	hidden: { label: 'Staged', full: 'Staged (hidden) — not offered to readers even once approved.', tone: 'text-muted-foreground border-border' },
 };
 
 const baseWord = (base: LensBase) => (base === 'all' ? 'every slide, minus exclusions' : 'only tagged slides');
+
+// RAW membership from a slide's own tags — INDEPENDENT of the projection's `single` cap. The manual
+// checkbox list uses this so every tag the author ever wrote is visible AND removable; the projected
+// `lensIndices` (which slices a `single` lens to one) drives only the reader-facing count.
+function isTagged(slideSrc: string, lens: LensDef): boolean {
+	const tags = parseSlideTags(slideSrc);
+	return lens.base === 'all' ? !tags.exclude.has(lens.id) : tags.include.has(lens.id);
+}
+
+// A slide's human-readable name for the membership list: its first heading, else its first line of
+// prose, else the component token. A non-engineer scans titles, not `_class` names.
+function slideTitle(slideSrc: string): string {
+	const lines = String(slideSrc ?? '').split('\n');
+	for (const raw of lines) {
+		const line = raw.trim();
+		if (!line || line.startsWith('<!--')) continue;
+		const h = /^#{1,6}\s+(.*)$/.exec(line);
+		if (h) return h[1].replace(/[*_`]/g, '').trim();
+		// A backtick eyebrow (`Lattice · a guided tour`) or ordinary prose — strip markdown noise and use it.
+		if (/^[A-Za-z0-9"'(`]/.test(line)) {
+			const text = line.replace(/[*_`>#-]/g, '').trim();
+			if (text) return text.slice(0, 48);
+		}
+	}
+	return slideClass(slideSrc);
+}
 
 export function LensesPanel({
 	slides,
@@ -62,6 +96,7 @@ export function LensesPanel({
 	onPreview,
 	onWriteRegistry,
 	onTag,
+	onRemoveLens,
 }: {
 	slides: string[];
 	registry: LensRegistry;
@@ -70,13 +105,24 @@ export function LensesPanel({
 	onPreview: (lensId: string) => void;
 	onWriteRegistry: (label: string, reg: LensRegistry) => void;
 	onTag: (label: string, changes: TagChange[]) => void;
+	onRemoveLens: (lens: LensDef) => void;
 }) {
 	const lenses = registry.lenses.filter((l) => l.id !== 'full');
 	const [expanded, setExpanded] = React.useState<string | null>(null);
 	const [adding, setAdding] = React.useState(false);
+	// Which lenses the author has PREVIEWED, keyed to the content hash they saw. Approve stays locked
+	// until the previewed hash matches the CURRENT membership — so an edit after previewing re-arms the
+	// gate automatically (the hash moves), and nothing is ever approved unseen (§9.4).
+	const [previewedHash, setPreviewedHash] = React.useState<Record<string, string>>({});
+	function preview(lens: LensDef) {
+		setPreviewedHash((p) => ({ ...p, [lens.id]: approvalHash(slides, registry, lens.id) }));
+		onPreview(lens.id);
+	}
 
 	// The suggester runs over the WHOLE registry; slice per-lens as each row asks for it. Pure + no AI.
+	// It reads the component catalog — with none injected it can't classify anything (honest empty state).
 	const suggestions = React.useMemo(() => suggestMembership(slides, registry, catalog), [slides, registry, catalog]);
+	const catalogReady = catalog.size > 0;
 
 	// Add a reader view: append the archetype's definition to the registry (Lente re-serializes it). It
 	// arrives EMPTY + unapproved — the author suggests, edits, and approves before any reader sees it.
@@ -86,10 +132,6 @@ export function LensesPanel({
 		onWriteRegistry(`Add reader view → ${a.label}`, { ...registry, lenses: [...registry.lenses, def] });
 		setAdding(false);
 		setExpanded(a.id);
-	}
-
-	function removeLens(lens: LensDef) {
-		onWriteRegistry(`Remove reader view → ${lens.label}`, { ...registry, lenses: registry.lenses.filter((l) => l.id !== lens.id), default: registry.default === lens.id ? 'full' : registry.default });
 	}
 
 	// Approve = bind the content hash of the CURRENT membership (the design's §6.2 gate). Re-approve after
@@ -111,23 +153,28 @@ export function LensesPanel({
 
 			{lenses.length > 0 && (
 				<ul className="mt-2.5 space-y-2">
-					{lenses.map((lens) => (
-						<LensRow
-							key={lens.id}
-							lens={lens}
-							slides={slides}
-							registry={registry}
-							suggestions={suggestions.filter((s) => s.lensId === lens.id)}
-							isActive={activeLens === lens.id}
-							open={expanded === lens.id}
-							onToggle={() => setExpanded((e) => (e === lens.id ? null : lens.id))}
-							onPreview={() => onPreview(lens.id)}
-							onTag={onTag}
-							onApprove={() => setApproval(lens, true)}
-							onUnapprove={() => setApproval(lens, false)}
-							onRemove={() => removeLens(lens)}
-						/>
-					))}
+					{lenses.map((lens) => {
+						const currentHash = approvalHash(slides, registry, lens.id);
+						return (
+							<LensRow
+								key={lens.id}
+								lens={lens}
+								slides={slides}
+								registry={registry}
+								suggestions={suggestions.filter((s) => s.lensId === lens.id)}
+								catalogReady={catalogReady}
+								isActive={activeLens === lens.id}
+								previewedOk={previewedHash[lens.id] === currentHash}
+								open={expanded === lens.id}
+								onToggle={() => setExpanded((e) => (e === lens.id ? null : lens.id))}
+								onPreview={() => preview(lens)}
+								onTag={onTag}
+								onApprove={() => setApproval(lens, true)}
+								onUnapprove={() => setApproval(lens, false)}
+								onRemove={() => onRemoveLens(lens)}
+							/>
+						);
+					})}
 				</ul>
 			)}
 
@@ -161,7 +208,9 @@ function LensRow({
 	slides,
 	registry,
 	suggestions,
+	catalogReady,
 	isActive,
+	previewedOk,
 	open,
 	onToggle,
 	onPreview,
@@ -174,7 +223,9 @@ function LensRow({
 	slides: string[];
 	registry: LensRegistry;
 	suggestions: Array<{ index: number; lensId: string; member: boolean; reason: string }>;
+	catalogReady: boolean;
 	isActive: boolean;
+	previewedOk: boolean;
 	open: boolean;
 	onToggle: () => void;
 	onPreview: () => void;
@@ -185,48 +236,58 @@ function LensRow({
 }) {
 	const { status, members } = lensStatus(slides, registry, lens);
 	const copy = STATUS_COPY[status];
+	// RAW tagged set — every slide the author tagged, so a `single` lens's extra tags stay removable.
+	const tagged = React.useMemo(() => new Set(slides.map((s, i) => (isTagged(s, lens) ? i : -1)).filter((i) => i >= 0)), [slides, lens]);
+	// Projected membership (what a reader actually gets) — drives which suggestions are still "pending."
 	const memberSet = React.useMemo(() => new Set(lensIndices(slides, registry, lens.id)), [slides, registry, lens.id]);
-	// Suggestions whose proposal isn't already reflected in the current membership — the only ones worth
-	// showing (an "add slide 3" the author already accepted is noise). `member` is the proposed state.
 	const pending = suggestions.filter((s) => memberSet.has(s.index) !== s.member);
+	const singleOverflow = !!lens.single && tagged.size > 1;
 
 	function applySuggestions(list: typeof pending) {
 		if (!list.length) return;
 		onTag(`Suggest → ${lens.label}`, list.map((s) => ({ index: s.index, lensId: lens.id, member: s.member, base: lens.base })));
 	}
 	function toggleSlide(index: number) {
-		onTag(`Edit ${lens.label} membership`, [{ index, lensId: lens.id, member: !memberSet.has(index), base: lens.base }]);
+		onTag(`Edit ${lens.label} membership`, [{ index, lensId: lens.id, member: !tagged.has(index), base: lens.base }]);
 	}
 
 	return (
 		<li className={cn('rounded-lg border bg-background', isActive ? 'border-[var(--accent)]' : 'border-border')}>
-			{/* Header row: label + base + status + expand. The whole header toggles the editor. */}
-			<button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-2 px-2.5 py-2 text-left">
-				<Eye className="size-3.5 shrink-0 text-muted-foreground" />
+			{/* Header: two lines so it never clips in the narrow Architect column — the lens NAME on top,
+			    then its reader count + a short status pill. The whole header toggles the editor. */}
+			<button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 px-2.5 py-2 text-left">
+				<Eye className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
 				<span className="min-w-0 flex-1">
-					<span className="text-[12px] font-semibold text-[var(--text-heading)]">{lens.label}</span>
-					<span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{members} slide{members === 1 ? '' : 's'}</span>
+					<span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{lens.label}</span>
+					<span className="mt-1 flex items-center gap-1.5">
+						<span className="font-mono text-[10px] text-muted-foreground">{members} slide{members === 1 ? '' : 's'}</span>
+						<span title={copy.full} className={cn('rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide', copy.tone)}>{copy.label}</span>
+					</span>
 				</span>
-				<span className={cn('shrink-0 rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide', copy.tone)}>{copy.label}</span>
-				<ChevronDown className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+				<ChevronDown className={cn('mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
 			</button>
 
 			{open && (
 				<div className="border-t border-border px-2.5 pb-2.5 pt-2">
-					{/* Actions: preview, approve/re-approve/un-approve, remove. */}
+					{/* Actions: preview, approve/re-approve/un-approve, remove. Approve is GATED on preview. */}
 					<div className="flex flex-wrap items-center gap-1.5">
 						<button type="button" onClick={onPreview} className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold', isActive ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Eye className="size-3" />{isActive ? 'Previewing' : 'Preview'}</button>
-						{(status === 'draft' || status === 'drifted') && (
-							<button type="button" onClick={onApprove} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] bg-[color-mix(in_srgb,var(--chart-3,#2e6f00)_10%,transparent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--chart-3,#2e6f00)]"><ShieldCheck className="size-3" />{status === 'drifted' ? 'Re-approve' : 'Approve for readers'}</button>
-						)}
+						{(status === 'draft' || status === 'drifted') &&
+							(previewedOk ? (
+								<button type="button" onClick={onApprove} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] bg-[color-mix(in_srgb,var(--chart-3,#2e6f00)_10%,transparent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--chart-3,#2e6f00)]"><ShieldCheck className="size-3" />{status === 'drifted' ? 'Re-approve' : 'Approve for readers'}</button>
+							) : (
+								<span title="Preview this view first — you approve what you've seen." className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"><ShieldCheck className="size-3" />Preview to approve</span>
+							))}
 						{status === 'approved' && (
 							<button type="button" onClick={onUnapprove} className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground">Unapprove</button>
 						)}
 						<button type="button" onClick={onRemove} className="ml-auto inline-flex items-center rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:border-[var(--fail,#b3261e)] hover:text-[var(--fail,#b3261e)]">Remove</button>
 					</div>
 
-					{status === 'empty' && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">No slides yet. Suggest a starting set, or tag slides by hand below — then approve.</p>}
+					{status === 'empty' && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">No slides yet. {catalogReady ? 'Suggest a starting set, or tag slides by hand below' : 'Tag slides by hand below'} — then preview and approve.</p>}
+					{status === 'hidden' && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">This view is staged (hidden) — readers aren’t offered it even once approved. It’s here for you to build and preview.</p>}
 					{status === 'drifted' && <p className="mt-2 text-[11px] leading-snug text-[var(--chart-2,#9c3f00)]">The deck changed since you approved this view, so readers can’t see it until you re-approve.</p>}
+					{singleOverflow && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">Readers see the first tagged slide in deck order; the others below stay tagged but unshown.</p>}
 
 					{/* Suggestions the author hasn't reflected yet — each with its rationale. Accept all, or tap one. */}
 					{pending.length > 0 && (
@@ -240,7 +301,7 @@ function LensRow({
 								{pending.map((s) => (
 									<li key={`${s.index}:${s.member}`} className="flex items-center gap-1.5">
 										<button type="button" onClick={() => applySuggestions([s])} aria-label={`Accept: ${s.reason}`} className="grid size-5 shrink-0 place-items-center rounded border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--on-accent,#fff)]"><Check className="size-3" /></button>
-										<span className="min-w-0 flex-1 truncate text-[11px] text-foreground" title={s.reason}>{s.member ? 'Add' : 'Drop'} slide {s.index + 1} · <span className="text-muted-foreground">{s.reason}</span></span>
+										<span className="min-w-0 flex-1 truncate text-[11px] text-foreground" title={s.reason}>{s.member ? 'Add' : 'Drop'} “{slideTitle(slides[s.index] ?? '')}”</span>
 									</li>
 								))}
 							</ul>
@@ -248,20 +309,22 @@ function LensRow({
 					)}
 
 					{/* Manual per-slide membership — the author's direct control (the core requirement). Every
-					    slide, a checkbox for "in this view." For base:all, that's minus-exclusions; for
-					    base:none, opt-in. The library resolves which; here we just flip a tag. */}
+					    slide, a checkbox for "in this view," reflecting the slide's OWN tag (so a single-lens's
+					    extra tags stay removable). Toggling flips the tag; the library resolves the projection. */}
 					<div className="mt-2.5">
 						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Slides in this view <span className="font-sans font-normal normal-case">· {baseWord(lens.base)}</span></div>
 						<ul className="max-h-[220px] space-y-0.5 overflow-y-auto">
 							{slides.map((s, i) => {
-								const inView = memberSet.has(i);
+								const inView = tagged.has(i);
+								const shownToReaders = memberSet.has(i);
 								return (
 									// biome-ignore lint/suspicious/noArrayIndexKey: the row IS the author slide POSITION — index is its identity (membership is keyed on it), not incidental order.
 									<li key={`${lens.id}-slide-${i}`}>
 										<button type="button" onClick={() => toggleSlide(i)} aria-pressed={inView} className={cn('flex w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-[var(--accent-soft)]', !inView && 'opacity-55')}>
 											<span className={cn('grid size-4 shrink-0 place-items-center rounded-sm border', inView ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent,#fff)]' : 'border-border')}>{inView && <Check className="size-3" />}</span>
 											<span className="w-8 shrink-0 font-mono text-[10px] text-muted-foreground">{i + 1}</span>
-											<span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-foreground">{slideClass(s)}</span>
+											<span className="min-w-0 flex-1 truncate text-[11px] text-foreground">{slideTitle(s)}</span>
+											{inView && !shownToReaders && <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="tagged but not shown to readers" />}
 										</button>
 									</li>
 								);
@@ -273,7 +336,3 @@ function LensRow({
 		</li>
 	);
 }
-
-// Re-exported so the shell can build slide chunks the same way (kept next to the panel that owns the
-// membership UI). splitSlides already lives in lint.ts; this alias documents the pairing.
-export { splitSlides as splitDeckSlides };

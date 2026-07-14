@@ -18,7 +18,7 @@ import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
-import { applyTag, catalogFromComponents, type LensRegistry, parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
+import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
@@ -571,6 +571,26 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				src = replaceSlide(src, c.index, applyTag(chunk, c.lensId, c.member, c.base)).source;
 			}
 			return src;
+		});
+	}, [settingsWrite]);
+	// Remove a reader view CLEANLY, in ONE undo step: strip the lens's `_lens` tag from every slide
+	// (so a later same-id re-add can't silently resurrect the old membership), then drop it from the
+	// registry. Reparses the registry from the live source so the write is never stale. `member = base
+	// === 'all'` clears the tag either way (delete the `-id` exclude, or the `+id` include).
+	const removeLensWrite = React.useCallback((lens: LensDef) => {
+		settingsWrite(`Remove reader view → ${lens.label}`, (s) => {
+			let src = s;
+			const count = splitSlides(stripFrontMatter(src)).length;
+			for (let i = 0; i < count; i++) {
+				const chunk = splitSlides(stripFrontMatter(src))[i];
+				if (chunk == null) continue;
+				src = replaceSlide(src, i, applyTag(chunk, lens.id, lens.base === 'all', lens.base)).source;
+			}
+			const cur = parseLensRegistry(frontMatterBlock(src));
+			const next: LensRegistry = { lenses: cur.lenses.filter((l) => l.id !== lens.id), default: cur.default === lens.id ? 'full' : cur.default };
+			const nextInner = upsertLensRegistry(innerFrontMatter(src), next);
+			const rest = stripFrontMatter(src).replace(/^(?:[ \t]*\r?\n)+/, '');
+			return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
 		});
 	}, [settingsWrite]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
@@ -1554,6 +1574,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
 					onWriteRegistry={writeRegistry}
 					onTag={writeTags}
+					onRemoveLens={removeLensWrite}
 				/>
 			</ArchCard>
 		</>
