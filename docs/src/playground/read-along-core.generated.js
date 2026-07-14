@@ -1675,7 +1675,7 @@ var require_chart_narration = __commonJS({
           core = "a diamond";
         } else {
           const parts = [];
-          if (deep) parts.push(`${num(hops)} hop${hops === 1 ? "" : "s"} deep`);
+          if (deep) parts.push(`${num(hops)} hops deep`);
           if (reconverges) parts.push("branching and reconverging");
           core = parts.join(", ");
         }
