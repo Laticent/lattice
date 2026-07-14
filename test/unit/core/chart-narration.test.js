@@ -930,6 +930,31 @@ test('narrateDiagram: a feedback loop reads its loop-back and ends cleanly (no d
   assert.ok(!out.includes('?.'), out); // terminate() keeps a "?"-ending node label from doubling
 });
 
+test('narrateDiagram: a NOUN + preposition label is NOT a verb — it reads as the appositive', () => {
+  // Regression (trio re-verify): "request to"/"response to"/"part of" are noun+prep, not verbs;
+  // reading them as verbs ("Gateway response to Client") is the broken non-sentence the
+  // appositive prevents. Only a phrase whose FIRST word is a curated verb reads as a verb.
+  for (const label of ['request to', 'response to', 'path to', 'part of', 'access to']) {
+    const out = narrateDiagram(diagram(`  A["Source"] -->|"${label}"| B["Target"]`));
+    assert.ok(out.includes(`Source, ${label}, leads to Target.`), `${label} → ${out}`);
+  }
+  // a canonical request/response loop reads grammatically on both the forward and loop-back paths
+  const loop = narrateDiagram(diagram('  Client["Client"] -->|"request to"| GW["Gateway"]\n  GW -->|"response to"| Client'));
+  assert.ok(loop.includes('Client, request to, leads to Gateway.'), loop);
+  assert.ok(loop.includes('Gateway, response to, loops back to Client.'), loop);
+  // a genuine verb + preposition still reads as a verb (the gate costs nothing)
+  assert.ok(narrateDiagram(diagram('  A["API"] -->|"reads from"| B["DB"]')).includes('API reads from DB.'));
+});
+
+test('narrateDiagram: a terminal or loop target whose label ends in "?" never doubles its punctuation', () => {
+  const term = narrateDiagram(diagram('  A["Start"] --> B["Resolved?"]'));
+  assert.ok(term.includes('The flow ends at Resolved?'), term);
+  assert.ok(!term.includes('Resolved?.'), term);
+  const loop = narrateDiagram(diagram('  A["Work"] --> B["Ready?"]\n  B --> A'));
+  assert.ok(loop.includes('Ready? loops back to Work.'), loop);
+  assert.ok(!loop.includes('Ready?.'), loop);
+});
+
 test('narrateDiagram: the overview names a loop when the graph also branches and cycles', () => {
   // branch (In stock?) + a real cycle (Pay ⇄ Backorder) → the shape earns an overview, and the
   // loop is announced with ", with a loop back".

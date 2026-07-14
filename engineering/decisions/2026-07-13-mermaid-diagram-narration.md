@@ -565,3 +565,19 @@ rebuilt to SHOWCASE the range (labeled architecture → verbs; dependency graph 
 → appositive; decision; feedback loop; overview; honest sequence fallback) with `.pdf`/`.vtt` regenerated.
 Both surfaces stay identical (the export split is fence-intact); audio remains UNVERIFIED (HARD RULE #23) —
 only the spoken STRING is asserted.
+
+**Second trio pass on the shipping diff — two fold-introduced regressions caught + fixed.** The three
+verifiers re-ran (warm) against the folded code and confirmed all prior findings resolved with no drops /
+double-narration, bail-safe, deterministic. Two NEW defects the fold itself introduced, both found by
+running the actual code, were fixed before push:
+- **`isVerbLabel`'s verb+preposition branch didn't gate the FIRST word on `EDGE_VERBS`** (red team +
+  Munger, convergent) — so a NOUN + preposition ("request to", "response to", "part of", "access to")
+  read as a verb ("Gateway response to Client", and "both response to Client" on the fan-in), re-opening
+  the exact broken non-sentence the appositive was added to prevent, on the very common request/response
+  deck. **Fix:** the multi-word branch now requires `EDGE_VERBS.has(words[0])`, symmetric with the
+  single-word branch — every real verb+particle phrase's verb (`reads`, `writes`, `depends`, `connects`,
+  `ingests`, `loads`, `publishes`) is already in the set, so the gate costs nothing.
+- **Four push sites bypassed `say()`/`terminate()`** (the three back-edge branches + the "The flow ends
+  at …" terminal line) — so a terminal or loop-target label ending in `?`/`.` doubled its punctuation
+  ("The flow ends at Resolved?.", "loops back to Ready?."). **Fix:** all four route through `say()` now,
+  so the doubled-terminal guard is universal. Tests cover both regressions.

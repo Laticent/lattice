@@ -1578,8 +1578,8 @@ var require_chart_narration = __commonJS({
       const t = String(label || "").trim();
       if (!t || isCondition(t)) return false;
       const words = t.split(/\s+/);
-      if (words.length === 1) return /^[a-z]+$/i.test(t) && EDGE_VERBS.has(t.toLowerCase());
-      return /^[a-z]+$/i.test(words[0]) && EDGE_PREPS.has(words[1].toLowerCase());
+      if (words.length === 1) return EDGE_VERBS.has(t.toLowerCase());
+      return EDGE_VERBS.has(words[0].toLowerCase()) && EDGE_PREPS.has(words[1].toLowerCase());
     }
     function condClause(label, toLabel) {
       const l = String(label).trim();
@@ -1719,14 +1719,14 @@ var require_chart_narration = __commonJS({
           const head = /^(on|if|when|once|unless)\b/i.test(l.trim()) ? l.trim() : `on ${l.trim()}`;
           say(`${lbl(u)}, ${head}, loops back to ${target}`);
         } else if (l && isVerbLabel(l)) {
-          sentences.push(`${lbl(u)} ${l}, looping back to ${target}.`);
+          say(`${lbl(u)} ${l}, looping back to ${target}`);
         } else if (l) {
-          sentences.push(`${lbl(u)}, ${l}, loops back to ${target}.`);
+          say(`${lbl(u)}, ${l}, loops back to ${target}`);
         } else {
-          sentences.push(`${lbl(u)} loops back to ${target}.`);
+          say(`${lbl(u)} loops back to ${target}`);
         }
       }
-      if (terminals.length && !complex) sentences.push(`The flow ends at ${joinWithAnd(terminals.map(lbl))}.`);
+      if (terminals.length && !complex) say(`The flow ends at ${joinWithAnd(terminals.map(lbl))}`);
       return sentences.length ? sentences.join(" ") : null;
     }
     function renderGroupedNarrative(parsed) {
