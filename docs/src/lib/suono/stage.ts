@@ -17,6 +17,14 @@ const DEFAULT_DECODED_LIMIT = 64;
 const DEFAULT_MAX_DECODE_BYTES = 32 * 1024 * 1024; // 32 MiB — decode-bomb guard on the ENCODED input
 const DEFAULT_MAX_DECODED_BYTES = 256 * 1024 * 1024; // 256 MiB — aggregate budget for DECODED PCM
 const DEFAULT_FADE_MS = 8; // declick ramp at each clip head/tail — inaudible as a fade, kills the click
+// Keep-alive: a continuous, near-silent noise source that holds the OUTPUT ROUTE awake between clips.
+// On Bluetooth / Apple CarPlay, iOS powers the A2DP link down when the rendered stream is digital
+// silence for a beat; each new per-sentence clip then has to wake the link, clipping/popping its first
+// few ms and stuttering as the far-end buffer refills — the "choppy + pop between sentences" report.
+// A steady sub-audible signal keeps the link from ever idling, so the next clip starts warm and clean.
+// The gain is DEVICE-TUNABLE (silence-suppression thresholds vary and are UNVERIFIED from this sandbox):
+// too low may not defeat suppression, too high becomes audible hiss. ~-56 dBFS is a conservative start.
+const DEFAULT_KEEPALIVE_GAIN = 0.0015;
 
 const hasWindow = typeof window !== 'undefined';
 
@@ -58,6 +66,8 @@ export function createStage(opts: StageOptions = {}): Stage {
 	const maxDecodedBytes = opts.maxDecodedBytes ?? DEFAULT_MAX_DECODED_BYTES;
 	const decodedLimit = opts.decodedCacheLimit ?? DEFAULT_DECODED_LIMIT;
 	const fadeMs = opts.fadeMs ?? DEFAULT_FADE_MS;
+	const keepAlive = opts.keepAlive !== false; // default ON — harmless on wired/speaker output
+	const keepAliveGain = opts.keepAliveGain ?? DEFAULT_KEEPALIVE_GAIN;
 
 	// Decoded-clip cache, bounded by BOTH entry count AND aggregate decoded bytes. IMPORTANT — this is
 	// a RETENTION cap (bounds steady-state cache growth across a long session), NOT an allocation
@@ -84,6 +94,12 @@ export function createStage(opts: StageOptions = {}): Stage {
 	}
 
 	let audioCtx: AudioContext | null = null;
+	// The keep-alive noise source (see DEFAULT_KEEPALIVE_GAIN). It lives ENTIRELY outside the clip
+	// graph and the play-clock: it is never added to `activeSources` (so `stopAll()` / a barge-in can't
+	// stop it — keeping the route warm ACROSS a barge-in is exactly the point), and it never touches
+	// `currentTime`, the pause/offset bookkeeping, or onset reporting. So caption sync — which rides
+	// `clockMs()` (raw `currentTime`) and the measured `onStart` onset — is provably independent of it.
+	let keepAliveSource: AudioBufferSourceNode | null = null;
 	// Play-clock pause accounting. `clockMs()` must FREEZE the instant a pause is tapped — else the
 	// caption drifts ahead of the (re-armed-from-the-tap) audio, and it accumulates across cycles. We
 	// can't rely on `ctx.suspend()` for that: a mid-clip pause defers the suspend past the declick
@@ -125,6 +141,34 @@ export function createStage(opts: StageOptions = {}): Stage {
 		return audioCtx;
 	}
 
+	// Start the near-silent keep-alive route-warmer (idempotent). Best-effort: if anything throws (a
+	// partial/mock engine with no real `createBuffer`/`getChannelData`, or `keepAlive` disabled) it is a
+	// silent no-op that NEVER breaks playback. Requires a running context, so it's driven from unlock()
+	// (inside the gesture, ahead of the first clip → even the first sentence starts warm) and, as a
+	// fallback, from the first armSource().
+	function ensureKeepAlive(): void {
+		if (!keepAlive || keepAliveSource) return;
+		const ctx = getCtx();
+		if (!ctx) return;
+		try {
+			const rate = Math.max(1, Math.floor(ctx.sampleRate || 48000));
+			const buffer = ctx.createBuffer(1, rate, rate); // ~1s mono, looped
+			const data = buffer.getChannelData(0); // throws on a minimal mock engine → keep-alive no-ops there
+			for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1; // full-scale noise; the gain node attenuates it
+			const src = ctx.createBufferSource();
+			src.buffer = buffer;
+			src.loop = true;
+			const g = ctx.createGain();
+			g.gain.value = keepAliveGain; // attenuate to sub-audible (see DEFAULT_KEEPALIVE_GAIN)
+			src.connect(g);
+			g.connect(ctx.destination);
+			src.start(0);
+			keepAliveSource = src;
+		} catch {
+			keepAliveSource = null; // never let a keep-alive failure break real playback
+		}
+	}
+
 	// iOS / Safari unlock. A WebAudio context starts 'suspended' until a real user gesture resumes
 	// it. CRITICAL: a bare context renders through the "ambient" session the hardware silent switch
 	// MUTES — so playback succeeds yet nothing is heard. Promote to 'playback' (Safari 16.4+,
@@ -152,6 +196,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 		} catch {
 			/* best-effort */
 		}
+		ensureKeepAlive(); // warm the output route now, ahead of the first clip
 	}
 
 	async function decode(bytes: Bytes, key?: string): Promise<Clip> {
@@ -417,6 +462,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 			armSource(consumedSec);
 		}
 
+		ensureKeepAlive(); // fallback if the caller played without a separate unlock() gesture
 		armSource(0);
 		return { stop: onAbort, done, pause, resume };
 	}
@@ -477,6 +523,12 @@ export function createStage(opts: StageOptions = {}): Stage {
 		},
 		dispose() {
 			stage.stopAll();
+			try {
+				keepAliveSource?.stop(); // the keep-alive lives outside activeSources → stop it explicitly
+			} catch {
+				/* best-effort */
+			}
+			keepAliveSource = null;
 			try {
 				audioCtx?.close?.();
 			} catch {

@@ -248,3 +248,108 @@ describe('createStage — pause/resume (stop + re-arm)', () => {
 		await expect(handle.done).resolves.toMatchObject({ ok: true });
 	});
 });
+
+// A mock with a REAL createBuffer/getChannelData so the keep-alive route-warmer actually builds its
+// source (the minimal mocks above return a bare {} → the keep-alive best-effort no-ops there, which is
+// why those tests' source counts are untouched by this feature). Keep-alive sources are `loop === true`.
+function installKeepAliveAudio() {
+	const sources: Array<{ loop: boolean; started: boolean; stopped: boolean; onended: null | (() => void) }> = [];
+	const gains: Array<{ gain: { value: number } }> = [];
+	class Src {
+		buffer: unknown = null;
+		loop = false;
+		started = false;
+		stopped = false;
+		onended: null | (() => void) = null;
+		connect() {}
+		disconnect() {}
+		start() {
+			this.started = true;
+		}
+		stop() {
+			this.stopped = true;
+		}
+	}
+	function makeGain() {
+		const g = { gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {}, cancelScheduledValues() {} }, connect() {}, disconnect() {} };
+		gains.push(g);
+		return g;
+	}
+	const ctx = {
+		state: 'running',
+		currentTime: 0,
+		baseLatency: 0,
+		sampleRate: 48000,
+		destination: {},
+		decodeAudioData: (_ab: ArrayBuffer, ok: (b: unknown) => void) => ok({ length: 48000, numberOfChannels: 1, duration: 1 }),
+		createBuffer: (_ch: number, len: number) => ({ getChannelData: () => new Float32Array(len) }),
+		createBufferSource() {
+			const s = new Src();
+			sources.push(s);
+			return s;
+		},
+		createGain: makeGain,
+		resume: () => Promise.resolve(),
+		suspend: () => {},
+		close: () => {},
+	};
+	// biome-ignore lint/complexity/useArrowFunction: must be `new`-able — createStage calls `new AC()`.
+	(window as unknown as { AudioContext: unknown }).AudioContext = function () {
+		return ctx;
+	};
+	return { ctx, sources, gains };
+}
+
+describe('createStage — keep-alive route-warmer (Bluetooth / CarPlay anti-choppiness)', () => {
+	it('starts ONE looping keep-alive source on unlock, at the configured gain, WITHOUT moving the clock', () => {
+		const { ctx, sources, gains } = installKeepAliveAudio();
+		const stage = createStage({ keepAliveGain: 0.002 });
+		stage.unlock();
+		const ka = sources.filter((s) => s.loop);
+		expect(ka.length).toBe(1); // exactly one continuous route-warmer
+		expect(ka[0].started).toBe(true);
+		expect(gains.some((g) => g.gain.value === 0.002)).toBe(true); // attenuated to the configured sub-audible level
+		// The keep-alive is invisible to the play-clock: caption sync rides clockMs(), which must read the
+		// raw context time regardless of the extra always-on source.
+		expect(stage.clockMs()).toBe(0);
+		ctx.currentTime = 1;
+		expect(stage.clockMs()).toBeCloseTo(1000, 3);
+	});
+
+	it('is idempotent — a second unlock and a later play add NO further keep-alive sources', async () => {
+		const { sources } = installKeepAliveAudio();
+		const stage = createStage();
+		stage.unlock();
+		stage.unlock();
+		const clip = await stage.decode(bytesOfSize(8), 'k');
+		stage.play(clip);
+		expect(sources.filter((s) => s.loop).length).toBe(1);
+	});
+
+	it('keepAlive:false suppresses it entirely', () => {
+		const { sources } = installKeepAliveAudio();
+		const stage = createStage({ keepAlive: false });
+		stage.unlock();
+		expect(sources.filter((s) => s.loop).length).toBe(0);
+	});
+
+	it('a barge-in (stopAll) does NOT stop the keep-alive — the route stays warm across it', async () => {
+		const { sources } = installKeepAliveAudio();
+		const stage = createStage();
+		const clip = await stage.decode(bytesOfSize(8), 'k');
+		stage.play(clip);
+		stage.stopAll();
+		const ka = sources.find((s) => s.loop);
+		expect(ka?.stopped).toBe(false); // survives the barge-in (that's the whole point)
+	});
+
+	it('dispose() DOES stop the keep-alive (it lives outside activeSources)', async () => {
+		const { sources } = installKeepAliveAudio();
+		const stage = createStage();
+		const clip = await stage.decode(bytesOfSize(8), 'k');
+		stage.play(clip);
+		stage.dispose();
+		const ka = sources.find((s) => s.loop);
+		expect(ka?.stopped).toBe(true);
+	});
+});
