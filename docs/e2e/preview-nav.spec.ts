@@ -39,7 +39,7 @@ test('clicking a rail slide jumps to it and repaints', async ({ page }) => {
 	await expect(currentSlide(page)).not.toContainText(head1);
 });
 
-// The Compose-preview reader-view reshape (build a view → preview it → the preview trims → clear
-// restores) is covered on the real shell by the jsdom StudioShell suite, and end-to-end in the browser
-// by lenses.spec. The old author-blind exec/onepager heuristics that used to fill this picker for an
-// untagged deck are retired, so there's nothing to reshape here without first authoring a reader view.
+// The Compose-preview reader-view reshape (build a view → preview it → the preview trims → Clear
+// restores) now lives in lenses.spec ("previewing a reader view reshapes the Compose preview…"), which
+// authors a real reader view first. The old author-blind exec/onepager heuristics that used to fill this
+// picker for an untagged deck are retired, so there's nothing to reshape here without a reader view.

@@ -53,4 +53,15 @@ describe('LensPicker — catalog override', () => {
 		expect(screen.getByText('Full deck')).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Reader view' })).not.toBeInTheDocument();
 	});
+	it('with onAddView (editor), the "Full deck" state becomes a discoverable entry to the Lenses panel', async () => {
+		// Discoverability: a deck with no reader views must not be a dead end. In the editor the picker
+		// offers a "New reader view" affordance that opens the Lenses panel; Present omits onAddView.
+		const user = userEvent.setup();
+		const onAddView = vi.fn();
+		render(<LensPicker value="full" onChange={() => {}} onAddView={onAddView} />);
+		const btn = screen.getByRole('button', { name: 'New reader view' });
+		expect(btn).toHaveTextContent(/Full deck/);
+		await user.click(btn);
+		expect(onAddView).toHaveBeenCalledTimes(1);
+	});
 });

@@ -1,4 +1,4 @@
-import { ChevronDown, Eye, FileText } from 'lucide-react';
+import { ChevronDown, Eye, FileText, Plus } from 'lucide-react';
 import type * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { LensDef } from '@/lib/lente';
@@ -30,9 +30,11 @@ export function lensEntriesFrom(defs: LensDef[]): LensEntry[] {
  * tight container but is never hidden behind a breakpoint, because a bare glyph is
  * undiscoverable (worst on touch, where there is no hover tooltip to recover it).
  * `count`/`total` show the reshaped slide count when a filtering lens is active.
- * `lenses` overrides the catalog (a deck's registry lenses); defaults to the legacy set.
+ * `lenses` overrides the catalog (a deck's registry lenses); defaults to just "Full deck".
+ * `onAddView`, when a deck has no reader views yet, turns the otherwise-inert "Full deck" label into a
+ * discoverable entry point to the Lenses panel (the editor passes it; Present, a reader takeover, omits it).
  */
-export function LensPicker({ value, onChange, count, total, align = 'start', className, menuClassName, lenses = LENSES }: {
+export function LensPicker({ value, onChange, count, total, align = 'start', className, menuClassName, onAddView, lenses = LENSES }: {
 	value: PresentLens;
 	onChange: (l: PresentLens) => void;
 	count?: number;
@@ -43,13 +45,27 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 	 *  portals to `<body>`, so inside Present (a `z-[100]` takeover) the default `z-50` would render it
 	 *  BEHIND the overlay (invisible + unclickable); Present passes a higher z here. */
 	menuClassName?: string;
+	/** Editor-only: when the deck has no reader views yet, make the "Full deck" pill open the Lenses panel
+	 *  so the feature is discoverable from the deck surface (not buried in the Architect). */
+	onAddView?: () => void;
 	lenses?: LensEntry[];
 }) {
 	const catalog = lenses.length ? lenses : LENSES;
 	const active = catalog.find((l) => l.key === value) ?? catalog[0];
-	// Only "Full deck" (a deck with no reader views yet) → there's nothing to switch TO. Render a plain
+	// Only "Full deck" (a deck with no reader views yet) → there's nothing to switch TO. In the editor,
+	// make it a discoverable entry to the Lenses panel ("+ Reader view"); elsewhere (Present) it's a plain
 	// status label, not a dead 1-item dropdown. A reader view is added + approved in the Lenses panel.
 	if (catalog.length <= 1) {
+		if (onAddView) {
+			return (
+				<button type="button" onClick={onAddView} aria-label="New reader view" title="No reader views yet — add one in the Lenses panel" className={cn('group inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', className)}>
+					<span className="shrink-0">{active.icon}</span>
+					<span className="truncate">{active.label}</span>
+					<span className="shrink-0 text-muted-foreground group-hover:text-[var(--accent)]">·</span>
+					<span className="inline-flex shrink-0 items-center gap-0.5 text-[var(--accent)]"><Plus className="size-3.5" />Reader view</span>
+				</button>
+			);
+		}
 		return (
 			<span className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-muted-foreground', className)}>
 				<span className="shrink-0">{active.icon}</span>

@@ -178,13 +178,15 @@ in patch versions.
   gone.)* A reader view is now something the author builds and APPROVES in the Lenses panel — never a
   machine's un-vetted guess. Both the Compose preview and Present offer a deck's own `lenses:` registry
   views (projected deterministically by `@slidewright/lente` from approved `_lens` tags); a deck with no
-  reader views yet shows a plain **"Full deck"** label (no dead one-item dropdown). Present's reader picker
-  lists **only reader-eligible lenses** (approved, non-empty, non-hidden, content-current),
-  and its projection routes through the library's fail-closed `lensEligibility`: a lens that is
-  unapproved, drifted, empty, or hidden renders an explicit **"this view is unavailable"** state rather
-  than silently falling open to the whole deck — a scoping lens can be a redaction, so a full-deck
-  fallback would leak exactly the slides the author withheld (design §6.3). The Compose catalog reconciles
-  its selection when the registry changes underneath it (a renamed/removed lens snaps back to Full).
+  reader views yet shows a plain **"Full deck"** label in Present, and in the editor a **"＋ Reader view"**
+  entry that opens the Lenses panel (so the feature stays discoverable from the deck surface, not a dead
+  end). Present's reader picker lists **only reader-eligible lenses** (approved, non-empty, non-hidden,
+  content-current), and its projection routes through the library's fail-closed `lensEligibility`: any
+  non-`full` lens that is unapproved, drifted, empty, hidden, or unknown renders an explicit **"this view
+  is unavailable"** state rather than silently falling open to the whole deck — a scoping lens can be a
+  redaction, so a full-deck fallback would leak exactly the slides the author withheld (design §6.3). The
+  Compose catalog reconciles its selection when the registry changes underneath it (a renamed/removed lens
+  snaps back to Full).
 - **A Lenses panel in the Architect puts the author in control of every reader view.** Replacing the old
   "Reshape" chips, the panel is the human-in-the-loop loop end to end: **add** a reader view from the
   reader-science archetypes (Bottom line, The story, The evidence, The ask); a **deterministic, no-AI

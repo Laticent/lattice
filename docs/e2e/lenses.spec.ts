@@ -64,3 +64,30 @@ test('Approve is withheld until the view is previewed', async ({ page }) => {
 	await page.getByRole('button', { name: /^Preview$/ }).click();
 	await expect(page.getByRole('button', { name: /Approve for readers/ })).toBeVisible();
 });
+
+test('an untagged deck is not a dead end — the preview header opens the Lenses panel', async ({ page }) => {
+	// Discoverability: with the exec/onepager heuristics retired, an untagged deck's picker is a static
+	// "Full deck". It must still point the way to reader views. Close the Architect to start from the bare
+	// deck surface, then the header's "New reader view" affordance opens the Lenses panel.
+	await page.getByRole('button', { name: 'Toggle Architect' }).click();
+	await expect(page.getByRole('button', { name: 'Coach' })).toBeHidden();
+	await page.getByRole('button', { name: 'New reader view' }).click();
+	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeVisible(); // the Lenses panel is up
+});
+
+test('previewing a reader view reshapes the Compose preview, and Clear restores the full deck', async ({ page }) => {
+	// Real-browser coverage of the Compose-header reshape + "Clear reader lens" (the shared LensPicker on
+	// the editor side), replacing the removed exec-heuristic preview-nav test.
+	await page.getByRole('button', { name: /Add a reader view/ }).click();
+	await page.getByRole('button', { name: /Bottom line/ }).click();
+	await page.getByRole('button', { name: 'Accept all' }).click();
+	const counter = page.getByText(/^Slide \d+ \/ \d+$/).first();
+	const before = await counter.textContent();
+	await page.getByRole('button', { name: /^Preview$/ }).click();
+	// The Compose header now carries a Clear affordance and a reshaped (smaller) count.
+	const clear = page.getByRole('button', { name: 'Clear reader lens' });
+	await expect(clear).toBeVisible();
+	await expect(counter).not.toHaveText(before ?? '');
+	await clear.click();
+	await expect(clear).toHaveCount(0); // back to the full deck
+});

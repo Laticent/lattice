@@ -528,13 +528,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const body = React.useMemo(() => stripFrontMatter(source), [source]);
 	const slides = React.useMemo(() => splitSlides(body), [body]);
 	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
-	// `full`) for a deck with no block → the picker shows the legacy full/exec/onepager set.
+	// `full`) for a deck with no block → the picker shows just "Full deck" (a static label + an
+	// "＋ Reader view" entry to the Lenses panel).
 	const lensReg = React.useMemo(() => parseLensRegistry(fm), [fm]);
 	// The picker's catalog. A deck that AUTHORED a `lenses:` block is in registry mode — show ITS lenses
-	// (the reader's real menu), never the legacy exec/onepager heuristics, even if a hidden lens leaves
-	// only `full` visible. Author-side, so it lists lenses regardless of approval (the author previews an
-	// unapproved lens to decide whether to approve). Presence of an authored registry — not a count of
-	// non-hidden survivors — is what flips the mode, so a mostly-hidden registry never regresses to legacy.
+	// (the reader's real menu). Author-side, so it lists lenses regardless of approval (the author previews
+	// an unapproved lens to decide whether to approve). Presence of an authored registry — not a count of
+	// non-hidden survivors — is what flips the mode, so a mostly-hidden registry never regresses to "Full deck".
 	const composeLensEntries = React.useMemo(() => {
 		const authored = lensReg.lenses.length > 1; // more than the implicit `full`
 		return authored ? lensEntriesFrom(lensReg.lenses.filter((l) => !l.hidden)) : LENSES;
@@ -1852,7 +1852,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { graduate(); setArchitectOpen(true); notify('Reader views live in the Architect’s Lenses panel — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}

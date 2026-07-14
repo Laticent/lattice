@@ -97,8 +97,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// the author kept out — the human-in-the-loop breach this whole feature exists to prevent. `full` is
 	// the identity (the whole deck) and gates nothing, so it projects directly.
 	const projection = React.useMemo<LensProjection>(() => {
-		const isRegistryLens = !!registry && lens !== 'full' && registry.lenses.some((l) => l.id === lens && l.id !== 'full');
-		return isRegistryLens ? lensEligibility(slides, registry, lens) : { status: 'ok', pairs: presentationPairs(slides, lens, registry) };
+		// `full` is the identity — the whole deck, always safe. EVERY other id is reader-scoped and must
+		// fail CLOSED: it projects only if it's an APPROVED registry lens, else the reader sees
+		// "unavailable" — never deck content. Keying on `lens === 'full'` (not "is it a registry id?") is
+		// deliberate: a non-full id that ISN'T a registry entry — a stale `lens-default: exec`, a typo, a
+		// future pinned-link default — must also fail closed, not fall through to the whole deck.
+		if (lens === 'full') return { status: 'ok', pairs: presentationPairs(slides, 'full', registry) };
+		if (registry) return lensEligibility(slides, registry, lens); // unknown/unapproved/drifted/hidden/empty → unavailable
+		return { status: 'unavailable', reason: 'unknown' };
 	}, [slides, lens, registry]);
 	// The presented slides — empty when the lens is unavailable, so the render shows the explicit
 	// "unavailable" state (below) instead of a stale or full-deck fallback.
@@ -106,8 +112,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// The reason a lens is withheld (null when it projects) — drives the reader-facing banner.
 	const unavailable = projection.status === 'ok' ? null : projection.reason;
 	// Reader-side picker catalog: a registry deck offers ONLY reader-eligible lenses (approved,
-	// non-empty, visible) — the human-in-the-loop gate at the UI. A deck with no registry shows the
-	// legacy full/exec/onepager set.
+	// non-empty, visible) — the human-in-the-loop gate at the UI. A deck with no reader views shows just
+	// "Full deck" (the picker then renders a static label — nothing to switch to).
 	const lensEntries = React.useMemo(
 		() => (registry && registry.lenses.length > 1 ? lensEntriesFrom(readerLenses(slides, registry)) : LENSES),
 		[registry, slides],
@@ -115,8 +121,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// Deck sections (from `divider` slides) — the grouping the single progress rail uses.
 	const sections = React.useMemo(() => sectionsFromSlides(set), [set]);
 	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
-	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered lens
-	// (exec/onepager reorders/drops slides) we resolve it through the original index, not the
+	// A front-matter `captions:` map is keyed by author slide NUMBER, so under a filtered reader lens
+	// (which drops slides) we resolve it through the original index, not the
 	// position in the filtered set — else a caption would bind to the wrong slide.
 	const setIndices = React.useMemo(() => (projection.status === 'ok' ? projection.pairs.map((p) => p.index) : []), [projection]);
 	// Front-matter `captions:` (Layer 1, §16) — slide NUMBER (1-based) → read-as text. Memoized on

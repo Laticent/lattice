@@ -74,9 +74,10 @@ async function railNth(u: Ctx['user'], which: 'first' | 'last') {
 	const target = which === 'first' ? chips[0] : chips[chips.length - 1];
 	if (target) await u.click(target as HTMLElement);
 }
-// Reshape the preview to a reader lens / clear it — no-op if the control is
-// hidden (e.g. the Architect is collapsed), so the command is always safe. Drives the
-// live reader-view picker (the reshape control) and picks the first non-full lens it offers.
+// Reshape the preview to a reader lens / clear it — safe no-op when there's no reader-view switcher.
+// The seed fuzz decks are untagged (no `lenses:` registry), so the picker is a static "Full deck" with
+// no "Reader view" dropdown and this command is a no-op on them; real reshape/clear coverage lives in
+// lenses.spec + lint.test. Kept in the command set so a future tagged seed deck exercises it for free.
 async function reshape(u: Ctx['user']) {
 	const btn = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Reader view');
 	if (!btn) return;
