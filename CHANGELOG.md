@@ -226,21 +226,25 @@ in patch versions.
   auditions play from a committed local file through the `<audio>` fast path, no live OpenRouter round-trip.
   Raises the committed set to 125 samples across 9 engines. `tts-voice-catalog.json` + `docs/public/voice-samples/gemini/`.
 
-- **Read-aloud now narrates a `diagram` slide's Mermaid FLOWCHART — the nodes and the arrows
-  between them, not just the heading.** A `diagram` slide's graph used to narrate its title and go
-  silent (the speech projection skips the rendered SVG). A new flowchart narrator reads the topology
-  from the Mermaid source: `"A flowchart, Signal pipeline. Signal Intake leads to Scoring Model.
-  Scoring Model, scored signal, leads to Decision Log,"` — each forward edge a spoken step, edge
-  labels as clauses, chained edges (`A --> B --> C`) split one step each. It's scoped to
-  `flowchart`/`graph` and a conservative grammar: it **bails to the heading-only caption on anything
-  it can't fully recognize** — every other Mermaid type (sequence, class, state, ER, gantt, …), and
-  any undirected/reversed/terminator/`&`-fan-out edge — so it never speaks a confidently-wrong
-  relationship on a graph whose whole message is direction. Shared kernel (HARD RULE #1): the live
-  Studio Present read-aloud and the exported `.vtt`/read-along captions narrate it identically. The
-  demo deck is `examples/diagram-narration.md`. *Scope: the docs-site "Download captions" download
-  (`shareCaptions`) is projection-only and still narrates diagrams (and, already, every chart)
-  heading-only — a pre-existing parity gap tracked as a follow-up, not addressed here. Audio
-  naturalness is UNVERIFIED (no TTS in CI); only the spoken string is claimed.* See
+- **Read-aloud now narrates a `diagram` slide's Mermaid FLOWCHART — described as a FLOW, the way a
+  person walks a diagram, not a per-edge dump.** A `diagram` slide's graph used to narrate its title
+  and go silent (the speech projection skips the rendered SVG). A new flowchart narrator reads the
+  topology from the Mermaid source and describes it as a flow: it follows the path from the entry
+  points, **coalesces a linear chain** ("Browser leads to Edge CDN, then Load Balancer, then API
+  Gateway"), **groups a fan-out** ("the API Gateway fans out to Auth, Orders, and Search"), folds
+  edge **labels** in as clauses, and **closes at the terminal nodes** ("the flow ends at the User
+  DB"). The naturalness comes from structure + the authored labels — it never invents edge semantics
+  (no "writes to"/"reads from" on an unlabeled arrow). A graph that isn't a clean flow — a **cycle**,
+  or no entry node — falls back to a neutral grouped-adjacency reading rather than impute a direction
+  it can't defend. It's scoped to `flowchart`/`graph` and a conservative grammar: it **bails to the
+  heading-only caption on anything it can't fully recognize** — every other Mermaid type (sequence,
+  class, state, ER, gantt, …), and any undirected/reversed/terminator/`&`-fan-out edge — so it never
+  speaks a confidently-wrong relationship on a graph whose whole message is direction. Shared kernel
+  (HARD RULE #1): the live Studio Present read-aloud and the exported `.vtt`/read-along captions
+  narrate it identically. The demo deck is `examples/diagram-narration.md`. *Scope: the docs-site
+  "Download captions" download (`shareCaptions`) is projection-only and still narrates diagrams (and,
+  already, every chart) heading-only — a pre-existing parity gap tracked as a follow-up, not addressed
+  here. Audio naturalness is UNVERIFIED (no TTS in CI); only the spoken string is claimed.* See
   `engineering/decisions/2026-07-13-mermaid-diagram-narration.md`.
 - **An "Acronyms" panel in the deck settings — teach a term's spoken expansion (and a glossary
   definition) without hand-writing YAML.** The deck-scope Inspector gains an Acronyms group beside

@@ -437,3 +437,40 @@ CLI's, which is verified.
 *Logged off-path follow-ups (HARD RULE #18):* the other ~25 Mermaid types (sequence/class/state/ER/
 gantt/pie/…); node-shape semantics and nested-subgraph phrasing; and the `shareCaptions` third-producer
 parity gap. Each is a separate slice, not pulled into this PR.
+
+---
+
+## 10. Reworked reading — describe the graph as a FLOW, not an edge dump (2026-07-14)
+
+Maintainer feedback on the shipped §9 reading: *"this is not how architecture diagrams are read."*
+Correct — §9 emitted one sentence PER EDGE in source order ("A leads to B. A leads to C. A leads to
+D."), which repeats the verb, ignores structure, and explodes a fan-out into identical stubs. A person
+walks a diagram as a **flow**: from the entry, following the path, grouping branches, closing at the
+stores. Presented three reading models (grouped-adjacency, +structural-lead, full flow-path) with
+concrete before/after on a moderate architecture; the maintainer picked **full flow-path**.
+
+**Shipped model (`renderFlowNarrative` + `renderGroupedNarrative` in `lib/core/chart-narration.js`).**
+The parser (`parseFlowchart`) now returns the graph by ID (`{nodes, edges}`); the renderers analyze it:
+- **Flow reading (DAG with ≥1 entry).** Topological walk from the entry nodes (`topoSort`, stable by
+  first-appearance): **coalesce a linear chain** (single-out → single-in) into "A leads to B, then C";
+  **group a fan-out** (out-degree ≥2) into "D fans out to X, Y, and Z"; fold each edge **label** in as
+  a faithful adverbial clause; **close** with "The flow ends at ‹terminals›" (out-degree-0 nodes).
+- **Grouped fallback (cycle, or no entry).** `topoSort` returns null on a cycle → a neutral,
+  order-faithful per-source reading ("Draft leads to Review. Review leads to Publish. Publish leads to
+  Draft."). This is the "bail rather than guess" discipline applied to READING ORDER: a cyclic graph
+  has no honest entry→exit order, so the narrator does not impute one.
+
+**The honesty line (why not the literal Option-C preview).** The presented flow-path preview took the
+liberty of inventing edge verbs — "Auth *writes to* the User DB", "Search *reads from* the cache" — for
+UNLABELED arrows. Those verbs are nowhere in the diagram; shipping them would be exactly the
+confidently-wrong this narrator exists to avoid. So the shipped reading drives naturalness from
+**structure** (enters/chain/fans-out/ends) + the **authored labels** only; an unlabeled edge stays a
+neutral "leads to". Structural cues that ARE faithful — "fans out to" (out-degree ≥2), "the flow ends
+at" (out-degree 0) — are used; imputed data-flow verbs are not.
+
+*Verification:* `chart-narration.test.js` gains flow cases (chain coalescing, fan-out grouping, decision
+labels, terminal framing, and a cyclic graph → grouped fallback with no "fans out"/"flow ends"); the
+existing bail/ReDoS/leak cases are unchanged. The `examples/diagram-narration.md` demo + its `.vtt` are
+regenerated (one slide now showcases the cycle → grouped fallback). *Deferred (logged):* fan-IN
+coalescing ("Auth and Orders both lead to the User DB"), de-duping parallel edges to the same target,
+and a size cap/summary for very large graphs. Audio remains UNVERIFIED (HARD RULE #23).

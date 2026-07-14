@@ -652,16 +652,18 @@ test('narrateDiagram: returns null for a diagram slide with no mermaid fence', (
   assert.equal(narrateDiagram('<!-- _class: diagram -->\n\n## Just a heading.\n\nSome prose.'), null);
 });
 
-test('narrateDiagram: speaks eyebrow, heading, the flowchart frame with its title, and every forward edge', () => {
+test('narrateDiagram: speaks eyebrow, heading, the flowchart frame, and the FLOW (chain + fan-out + terminal)', () => {
   const out = narrateDiagram(diagramSkeleton);
   assert.ok(out.includes('01 · Flowchart.'));
   assert.ok(out.includes('How a signal becomes a decision.'));
   assert.ok(out.includes('A flowchart, Signal pipeline.'));
-  assert.ok(out.includes('Signal Intake leads to Scoring Model.'));
-  // Edge labels read as a mid-clause; node ids resolve to their (quote-stripped) labels.
-  assert.ok(out.includes('Scoring Model, scored signal, leads to Decision Log.'));
+  // The linear entry chain coalesces; the Scoring Model's two labeled edges to the
+  // Decision Log read as a grouped fan-out (faithful — two authored edges), and the
+  // flow closes at the terminal node. No per-edge "X leads to Y." enumeration.
+  assert.ok(out.includes('Signal Intake leads to Scoring Model'));
+  assert.ok(out.includes('fans out to Decision Log, scored signal and Decision Log, recalibration'));
   assert.ok(out.includes('Decision Log, decide / close, leads to Outcome Store.'));
-  assert.ok(out.includes('Scoring Model, recalibration, leads to Decision Log.'));
+  assert.ok(out.includes('The flow ends at Outcome Store.'));
 });
 
 test('narrateDiagram: speaks authored prose outside the fence (never say less), and NEVER leaks the mermaid source', () => {
@@ -684,11 +686,41 @@ test('narrateDiagram: frame has no title when the mermaid front matter omits one
   assert.ok(!out.includes('A flowchart,'));
 });
 
-test('narrateDiagram: splits a chained edge into one spoken step each', () => {
+test('narrateDiagram: coalesces a linear chain into one flowing sentence', () => {
   const md = ['<!-- _class: diagram -->', '', '## Chain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two] --> C[Three]', '```'].join('\n');
   const out = narrateDiagram(md);
-  assert.ok(out.includes('One leads to Two.'));
-  assert.ok(out.includes('Two leads to Three.'));
+  assert.ok(out.includes('One leads to Two, then Three.'));
+  assert.ok(out.includes('The flow ends at Three.'));
+});
+
+test('narrateDiagram: groups a fan-out and closes at the terminals', () => {
+  const md = [
+    '<!-- _class: diagram -->', '', '## Fan.', '',
+    '```mermaid', 'flowchart TD',
+    '  Gateway["API Gateway"] --> A["Auth"]', '  Gateway --> B["Orders"]', '  Gateway --> C["Search"]', '```',
+  ].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('API Gateway fans out to Auth, Orders, and Search.'), out);
+  assert.ok(out.includes('The flow ends at Auth, Orders, and Search.'), out);
+});
+
+test('narrateDiagram: a decision node fans out with its edge labels', () => {
+  const md = [
+    '<!-- _class: diagram -->', '', '## Gate.', '',
+    '```mermaid', 'flowchart TD',
+    '  S["New request"] --> C{"Within policy?"}', '  C -->|"yes"| Y["Approve"]', '  C -->|"no"| N["Review"]', '```',
+  ].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('New request leads to Within policy?, which fans out to Approve, yes and Review, no.'), out);
+});
+
+test('narrateDiagram: a CYCLIC graph falls back to the neutral grouped reading (no imputed flow)', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Draft] --> B[Review]', '  B --> C[Publish]', '  C --> A', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('Draft leads to Review.'), out);
+  assert.ok(out.includes('Publish leads to Draft.'), out);
+  assert.ok(!out.includes('fans out'), out); // no flow framing on a cycle
+  assert.ok(!out.includes('The flow ends'), out);
 });
 
 test('narrateDiagram: reads a dotted inline-text edge label', () => {
@@ -704,8 +736,7 @@ test('narrateDiagram: narrates edges inside and across subgraphs (subgraph lines
     '  B --> C["Score"]', '```',
   ].join('\n');
   const out = narrateDiagram(md);
-  assert.ok(out.includes('Collect leads to Normalize.'));
-  assert.ok(out.includes('Normalize leads to Score.'));
+  assert.ok(out.includes('Collect leads to Normalize, then Score.'), out); // chained across the subgraph boundary
   assert.ok(!out.includes('Ingest leads')); // the subgraph title is not spoken as a node
 });
 
@@ -749,7 +780,7 @@ test('narrateDiagram: a fenced doc-example heading never masquerades as the slid
 });
 
 test('narrateChart: routes a diagram slide through narrateDiagram', () => {
-  assert.ok(narrateChart(diagramSkeleton).includes('Signal Intake leads to Scoring Model.'));
+  assert.ok(narrateChart(diagramSkeleton).includes('Signal Intake leads to Scoring Model'));
 });
 
 test('narrateDiagram: does not double-punctuate a node label that already ends in ? or .', () => {

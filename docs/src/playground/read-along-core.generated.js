@@ -1495,8 +1495,108 @@ var require_chart_narration = __commonJS({
         for (const e of res) edges.push(e);
       }
       if (!edges.length) return null;
-      const labelFor = (id) => nodes.get(id) || id;
-      return { title, edges: edges.map((e) => ({ from: labelFor(e.from), to: labelFor(e.to), label: e.label })) };
+      return { title, nodes, edges };
+    }
+    function analyzeGraph({ nodes, edges }) {
+      const out = /* @__PURE__ */ new Map();
+      const inDeg = /* @__PURE__ */ new Map();
+      const outDeg = /* @__PURE__ */ new Map();
+      const order = [];
+      const seen = /* @__PURE__ */ new Set();
+      const note = (id) => {
+        if (!seen.has(id)) {
+          seen.add(id);
+          order.push(id);
+        }
+      };
+      for (const id of nodes.keys()) note(id);
+      for (const e of edges) {
+        note(e.from);
+        note(e.to);
+        if (!out.has(e.from)) out.set(e.from, []);
+        out.get(e.from).push({ to: e.to, label: e.label });
+        outDeg.set(e.from, (outDeg.get(e.from) || 0) + 1);
+        inDeg.set(e.to, (inDeg.get(e.to) || 0) + 1);
+      }
+      return { out, inDeg, outDeg, order };
+    }
+    function topoSort(g) {
+      const pos = new Map(g.order.map((id, i) => [id, i]));
+      const indeg = new Map(g.order.map((id) => [id, g.inDeg.get(id) || 0]));
+      const ready = g.order.filter((id) => (indeg.get(id) || 0) === 0);
+      const result = [];
+      while (ready.length) {
+        ready.sort((a, b) => pos.get(a) - pos.get(b));
+        const u = ready.shift();
+        result.push(u);
+        for (const { to } of g.out.get(u) || []) {
+          indeg.set(to, indeg.get(to) - 1);
+          if (indeg.get(to) === 0) ready.push(to);
+        }
+      }
+      return result.length === g.order.length ? result : null;
+    }
+    function renderFlowNarrative(parsed) {
+      const { nodes } = parsed;
+      const g = analyzeGraph(parsed);
+      const topo = topoSort(g);
+      if (!topo) return null;
+      const entries = g.order.filter((id) => (g.inDeg.get(id) || 0) === 0);
+      if (!entries.length) return null;
+      const lbl = (id) => nodes.get(id) || id;
+      const terminals = g.order.filter((id) => (g.outDeg.get(id) || 0) === 0);
+      const consumed = /* @__PURE__ */ new Set();
+      const sentences = [];
+      for (const start of topo) {
+        if (consumed.has(start)) continue;
+        if (!(g.outDeg.get(start) > 0)) {
+          consumed.add(start);
+          continue;
+        }
+        const chain = [start];
+        const labels = [];
+        let cur = start;
+        while ((g.outDeg.get(cur) || 0) === 1) {
+          const nxt = g.out.get(cur)[0];
+          if ((g.inDeg.get(nxt.to) || 0) !== 1) break;
+          if (consumed.has(nxt.to) || chain.includes(nxt.to)) break;
+          chain.push(nxt.to);
+          labels.push(nxt.label);
+          cur = nxt.to;
+        }
+        for (const c of chain) consumed.add(c);
+        let s = lbl(chain[0]);
+        for (let i = 1; i < chain.length; i++) {
+          const l = labels[i - 1];
+          s += i === 1 ? `${l ? `, ${l},` : ""} leads to ${lbl(chain[i])}` : `,${l ? ` ${l},` : ""} then ${lbl(chain[i])}`;
+        }
+        const last = chain[chain.length - 1];
+        const outs = g.out.get(last) || [];
+        const multi = chain.length > 1;
+        if (outs.length >= 2) {
+          const items = outs.map((o) => o.label ? `${lbl(o.to)}, ${o.label}` : lbl(o.to));
+          s += `${multi ? ", which fans out to" : " fans out to"} ${joinWithAnd(items)}`;
+        } else if (outs.length === 1) {
+          const o = outs[0];
+          s += `${o.label ? `, ${o.label},` : ""}${multi ? ", which leads to" : " leads to"} ${lbl(o.to)}`;
+        }
+        sentences.push(`${s}.`);
+      }
+      if (terminals.length) sentences.push(`The flow ends at ${joinWithAnd(terminals.map(lbl))}.`);
+      return sentences.join(" ");
+    }
+    function renderGroupedNarrative(parsed) {
+      const { nodes } = parsed;
+      const g = analyzeGraph(parsed);
+      const lbl = (id) => nodes.get(id) || id;
+      const sentences = [];
+      for (const u of g.order) {
+        const outs = g.out.get(u) || [];
+        if (!outs.length) continue;
+        const items = outs.map((o) => o.label ? `${lbl(o.to)}, ${o.label}` : lbl(o.to));
+        sentences.push(`${lbl(u)} leads to ${joinWithAnd(items)}.`);
+      }
+      return sentences.length ? sentences.join(" ") : null;
     }
     function narrateDiagram2(markdown) {
       const src = String(markdown || "");
@@ -1516,9 +1616,8 @@ var require_chart_narration = __commonJS({
       const h = heading(blanked);
       if (h) parts.push(h);
       parts.push(terminate(parsed.title ? `A flowchart, ${parsed.title}` : "A flowchart"));
-      for (const e of parsed.edges) {
-        parts.push(terminate(e.label ? `${e.from}, ${e.label}, leads to ${e.to}` : `${e.from} leads to ${e.to}`));
-      }
+      const body = renderFlowNarrative(parsed) || renderGroupedNarrative(parsed);
+      if (body) parts.push(body);
       const extra = speakLeftover(blanked, consumed);
       if (extra) parts.push(extra);
       return parts.join(" ");

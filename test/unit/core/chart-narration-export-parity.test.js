@@ -230,8 +230,10 @@ test('the diagram flowchart narrates its topology on the export split; a sequenc
   assert.equal(narrateChart(blocks[0]), null); // title
   const flow = narrateChart(blocks[1]);
   assert.ok(flow.includes('A flowchart, Signal pipeline.'));
-  assert.ok(flow.includes('Signal Intake leads to Scoring Model.'));
-  assert.ok(flow.includes('Scoring Model, scored signal, leads to Decision Log.'));
+  // The flow reading coalesces the entry chain (Signal Intake → Scoring Model → Decision
+  // Log), folding the labeled hop in as a clause.
+  assert.ok(flow.includes('Signal Intake leads to Scoring Model'));
+  assert.ok(flow.includes('scored signal, then Decision Log'));
   assert.equal(narrateChart(blocks[2]), null); // sequenceDiagram → heading-only projection
   assert.ok(narrateChart(blocks[3]).includes('forty percent of the prior stage')); // funnel unaffected
 });

@@ -16,7 +16,7 @@ footer: "read-aloud narrates the flowchart topology"
 
 `Mermaid flowchart narration`
 
-*A `diagram` slide's flowchart used to narrate its heading and go silent. Now read-aloud (and the exported captions) speak the nodes and the arrows between them.*
+*A `diagram` slide's flowchart used to narrate its heading and go silent. Now read-aloud (and the exported captions) describe it as a flow — following the path from the entry points, grouping each fan-out, and closing at the terminal nodes.*
 
 ---
 
@@ -37,7 +37,7 @@ flowchart LR
   B -.->|"recalibration"| C
 ```
 
-> Each arrow is spoken: "Signal Intake leads to Scoring Model. Scoring Model, scored signal, leads to Decision Log," and so on — the edge labels read as clauses.
+> Read as a flow, not an edge dump: "Signal Intake leads to Scoring Model, which fans out to the Decision Log … Decision Log, decide / close, leads to Outcome Store. The flow ends at Outcome Store." Edge labels fold in as clauses.
 
 ---
 
@@ -55,7 +55,7 @@ flowchart TD
   Review --> Approve
 ```
 
-> A diamond's branches are carried by its labeled out-edges — "Within policy? yes leads to Auto-approve; no leads to Send to review" — so the fork is narrated without reading shape names.
+> The decision node fans out with its branch labels: "New request leads to Within policy?, which fans out to Auto-approve, yes and Send to review, no" — the conditions ride along, no shape names.
 
 ---
 
@@ -63,7 +63,7 @@ flowchart TD
 
 `03 · Chained + feedback`
 
-## A straight line with one loop back.
+## When the graph loops, it stops guessing.
 
 ```mermaid
 flowchart LR
@@ -72,7 +72,7 @@ flowchart LR
   E -.adjust weights.-> C
 ```
 
-> Chained edges (`A --> B --> C`) split into one spoken step each, and the dotted feedback edge reads "Calibration, adjust weights, leads to Score and weight."
+> Calibration feeds back into Score and weight, so the graph has a cycle — there is no honest entry-to-exit order. Rather than impute a flow it can't defend, the narrator drops to a neutral per-node reading: "Score and weight leads to Decision log. Decision log leads to Calibration…"
 
 ---
 
@@ -93,7 +93,7 @@ flowchart LR
   B --> C
 ```
 
-> Group boxes carry no spoken topology in this first version, but every edge — inside each group and the one crossing between them — is read aloud, in the diagram's source order.
+> A linear path that crosses two subgraph boundaries coalesces into one sentence — "Collect leads to Normalize, then Score, then Log. The flow ends at Log." — and the group boxes are never spoken as nodes.
 
 ---
 
