@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   narrateChart,
+  narrateDiagram,
   narrateFunnel,
   narrateJourneyWeighted,
   narrateQuadrant,
@@ -614,4 +615,135 @@ test('narrateChart: recognizes a state-chart slide with an inference to add', ()
 
 test('narrateChart: returns null for a slide no narrator recognizes', () => {
   assert.equal(narrateChart('<!-- _class: kpi -->\n\n## Revenue\n\nWe grew.'), null);
+});
+
+// ── narrateDiagram (Mermaid flowchart) ────────────────────────────────────────
+// Reads a `diagram` slide's flowchart topology from the Mermaid SOURCE fence. Scoped
+// to flowchart/graph; a CONSERVATIVE grammar that BAILS to null on anything it can't
+// fully recognize, so it never speaks a confidently-wrong relationship
+// (2026-07-13-mermaid-diagram-narration.md §8.3).
+
+const diagramSkeleton = [
+  '<!-- _class: diagram -->',
+  '',
+  '`01 · Flowchart`',
+  '',
+  '## How a signal becomes a decision.',
+  '',
+  '```mermaid',
+  '---',
+  'title: Signal pipeline',
+  '---',
+  'flowchart LR',
+  '  A{{"Signal Intake"}} --> B(["Scoring Model"])',
+  '  B -->|"scored signal"| C["Decision Log"]',
+  '  C -->|"decide / close"| D[("Outcome Store")]',
+  '  B -.->|"recalibration"| C',
+  '```',
+  '',
+  '> A trailing authored note.',
+].join('\n');
+
+test('narrateDiagram: returns null for a non-diagram slide', () => {
+  assert.equal(narrateDiagram('<!-- _class: kpi -->\n\n## Revenue\n\n1. `$2.4B`\n- Total'), null);
+});
+
+test('narrateDiagram: returns null for a diagram slide with no mermaid fence', () => {
+  assert.equal(narrateDiagram('<!-- _class: diagram -->\n\n## Just a heading.\n\nSome prose.'), null);
+});
+
+test('narrateDiagram: speaks eyebrow, heading, the flowchart frame with its title, and every forward edge', () => {
+  const out = narrateDiagram(diagramSkeleton);
+  assert.ok(out.includes('01 · Flowchart.'));
+  assert.ok(out.includes('How a signal becomes a decision.'));
+  assert.ok(out.includes('A flowchart, Signal pipeline.'));
+  assert.ok(out.includes('Signal Intake leads to Scoring Model.'));
+  // Edge labels read as a mid-clause; node ids resolve to their (quote-stripped) labels.
+  assert.ok(out.includes('Scoring Model, scored signal, leads to Decision Log.'));
+  assert.ok(out.includes('Decision Log, decide / close, leads to Outcome Store.'));
+  assert.ok(out.includes('Scoring Model, recalibration, leads to Decision Log.'));
+});
+
+test('narrateDiagram: speaks authored prose outside the fence (never say less), and NEVER leaks the mermaid source', () => {
+  const out = narrateDiagram(diagramSkeleton);
+  assert.ok(out.includes('A trailing authored note.'));
+  // The fence body must not reach the voice as gibberish prose. (The spoken frame "A
+  // flowchart, …" legitimately contains the word "flowchart"; a LEAK is the mermaid
+  // SOURCE syntax — arrows, node-shape delimiters, the fence, the in-fence `title:`.)
+  assert.ok(!/-->|-\.->|\{\{|```|title:|Signal Intake\}\}/.test(out), out);
+});
+
+test('narrateDiagram: frame has no title when the mermaid front matter omits one', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Plain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two]', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('A flowchart. One leads to Two.'));
+  assert.ok(!out.includes('A flowchart,'));
+});
+
+test('narrateDiagram: splits a chained edge into one spoken step each', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Chain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two] --> C[Three]', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('One leads to Two.'));
+  assert.ok(out.includes('Two leads to Three.'));
+});
+
+test('narrateDiagram: reads a dotted inline-text edge label', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Calibration] -.adjust weights.-> B[Score]', '```'].join('\n');
+  assert.ok(narrateDiagram(md).includes('Calibration, adjust weights, leads to Score.'));
+});
+
+test('narrateDiagram: narrates edges inside and across subgraphs (subgraph lines skipped)', () => {
+  const md = [
+    '<!-- _class: diagram -->', '', '## Groups.', '',
+    '```mermaid', 'flowchart LR',
+    '  subgraph Ingest', '    A["Collect"] --> B["Normalize"]', '  end',
+    '  B --> C["Score"]', '```',
+  ].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('Collect leads to Normalize.'));
+  assert.ok(out.includes('Normalize leads to Score.'));
+  assert.ok(!out.includes('Ingest leads')); // the subgraph title is not spoken as a node
+});
+
+test('narrateDiagram: BAILS to null on a non-flowchart Mermaid type', () => {
+  for (const type of ['sequenceDiagram', 'classDiagram', 'stateDiagram-v2', 'erDiagram', 'gantt', 'pie', 'mindmap']) {
+    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\n${type}\n  A->>B: x\n\`\`\``;
+    assert.equal(narrateDiagram(md), null, type);
+  }
+});
+
+test('narrateDiagram: BAILS to null on unrecognized edge grammar — never confidently-wrong topology', () => {
+  const cases = {
+    'reversed arrow': '  A[X] <-- B[Y]',
+    'bidirectional': '  A[X] <--> B[Y]',
+    'undirected link': '  A[X] --- B[Y]',
+    'cross terminator': '  A[X] --x B[Y]',
+    'circle terminator': '  A[X] --o B[Y]',
+    'ampersand fan-out': '  A & B --> C',
+    'class shorthand': '  A[X]:::hot --> B[Y]',
+  };
+  for (const [name, edge] of Object.entries(cases)) {
+    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n${edge}\n\`\`\``;
+    assert.equal(narrateDiagram(md), null, name);
+  }
+});
+
+test('narrateDiagram: BAILS to null on a flowchart with no readable edges (node-only)', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Nodes.', '', '```mermaid', 'flowchart LR', '  A["Alone"]', '  B["Also"]', '```'].join('\n');
+  assert.equal(narrateDiagram(md), null);
+});
+
+test('narrateDiagram: a fenced doc-example heading never masquerades as the slide heading', () => {
+  // The real heading is outside the fence; a `#`/`flowchart` inside a nested example must not win.
+  const md = [
+    '<!-- _class: diagram -->', '', '## The real heading.', '',
+    '```mermaid', 'flowchart LR', '  A[Start] --> B[End]', '```',
+  ].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('The real heading.'));
+  assert.ok(out.includes('Start leads to End.'));
+});
+
+test('narrateChart: routes a diagram slide through narrateDiagram', () => {
+  assert.ok(narrateChart(diagramSkeleton).includes('Signal Intake leads to Scoring Model.'));
 });

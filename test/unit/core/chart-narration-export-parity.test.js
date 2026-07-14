@@ -167,3 +167,71 @@ test('aligns across a setext underline + an empty middle section (red-team trigg
   const empties = blocks.filter((b) => narrateChart(b) === null);
   assert.ok(empties.length >= 1);
 });
+
+// Mermaid diagram parity (2026-07-13-mermaid-diagram-narration.md §8). The EXPORT now
+// recovers narration blocks from a FENCE-INTACT source (`appendAutoGlossary(md)`), not the
+// mermaid-baked `rawMd`, so `narrateDiagram` sees the ```mermaid fence on the export exactly
+// as Present does. These pin that (1) a ```mermaid fence does NOT shift the section alignment
+// (an opaque fence token emits no stray `hr`/heading — the boundary concern a red-team pass
+// raised), and (2) a flowchart narrates its topology while a non-flowchart type null-falls-back
+// to the heading-only projection.
+const mermaidDeck = [
+  '---',
+  'marp: true',
+  'split: rule',
+  '---',
+  '',
+  '# Title',
+  '',
+  '---',
+  '',
+  '<!-- _class: diagram -->',
+  '',
+  '## How a signal becomes a decision.',
+  '',
+  '```mermaid',
+  '---',
+  'title: Signal pipeline',
+  '---',
+  'flowchart LR',
+  '  A{{"Signal Intake"}} --> B(["Scoring Model"])',
+  '  B -->|"scored signal"| C["Decision Log"]',
+  '```',
+  '',
+  '---',
+  '',
+  '<!-- _class: diagram -->',
+  '',
+  '## A sequence, not a flowchart.',
+  '',
+  '```mermaid',
+  'sequenceDiagram',
+  '  App->>SDK: score(signal)',
+  '```',
+  '',
+  '---',
+  '',
+  '<!-- _class: funnel -->',
+  '',
+  '## Where the flow drops off.',
+  '',
+  '- Visitors `12,000`',
+  '- Signups `4,800`',
+].join('\n');
+
+test('a ```mermaid fence does not shift the fence-intact section alignment', () => {
+  const blocks = splitSourceToSections(mermaidDeck);
+  assert.equal(blocks.length, engineSectionCount(mermaidDeck));
+  assert.equal(blocks.length, 4);
+});
+
+test('the diagram flowchart narrates its topology on the export split; a sequence type defers', () => {
+  const blocks = splitSourceToSections(mermaidDeck);
+  assert.equal(narrateChart(blocks[0]), null); // title
+  const flow = narrateChart(blocks[1]);
+  assert.ok(flow.includes('A flowchart, Signal pipeline.'));
+  assert.ok(flow.includes('Signal Intake leads to Scoring Model.'));
+  assert.ok(flow.includes('Scoring Model, scored signal, leads to Decision Log.'));
+  assert.equal(narrateChart(blocks[2]), null); // sequenceDiagram → heading-only projection
+  assert.ok(narrateChart(blocks[3]).includes('forty percent of the prior stage')); // funnel unaffected
+});

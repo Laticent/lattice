@@ -1385,12 +1385,155 @@ var require_chart_narration = __commonJS({
       const rest = slideToSpeech2(withoutHeading);
       return [h, inferred, rest].filter(Boolean).join(" ");
     }
+    var BAIL = /* @__PURE__ */ Symbol("bail");
+    function stripQuotes(s) {
+      const t = String(s).trim();
+      const m = t.match(/^"([\s\S]*)"$/);
+      return m ? m[1] : t;
+    }
+    function scrubLabel(s) {
+      return String(s).replace(/<br\s*\/?>/gi, ", ").replace(/`([^`]*)`/g, "$1").replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_~]/g, "").replace(/\s+/g, " ").trim();
+    }
+    var NODE_SHAPES = [
+      ['(["', '"])'],
+      ["([", "])"],
+      ['[("', '")]'],
+      ["[(", ")]"],
+      ["{{", "}}"],
+      ["((", "))"],
+      ['["', '"]'],
+      ["[", "]"],
+      ['("', '")'],
+      ["(", ")"],
+      ['{"', '"}'],
+      ["{", "}"],
+      [">", "]"]
+    ];
+    function parseNode(s, nodes) {
+      const idm = s.match(/^([A-Za-z0-9_]\w*)/);
+      if (!idm) return null;
+      const id = idm[1];
+      const rest = s.slice(id.length);
+      for (const [open, close] of NODE_SHAPES) {
+        if (rest.startsWith(open)) {
+          const end = rest.indexOf(close, open.length);
+          if (end === -1) continue;
+          const label = scrubLabel(stripQuotes(rest.slice(open.length, end)));
+          if (label && (!nodes.has(id) || !nodes.get(id))) nodes.set(id, label);
+          else if (!nodes.has(id)) nodes.set(id, "");
+          return { id, rest: rest.slice(end + close.length) };
+        }
+      }
+      if (!nodes.has(id)) nodes.set(id, "");
+      return { id, rest };
+    }
+    var CONNECTORS = [
+      { re: /^(?:-{2,}>|=+>|-\.-*>)\|([^|]*)\|/, label: 1 },
+      // -->|x|  ==>|x|  -.->|x|
+      { re: /^--\s*([^|>]+?)\s*-{2,}>/, label: 1 },
+      // -- x -->
+      { re: /^-\.\s*([^|]+?)\s*\.-*>/, label: 1 },
+      // -.x.->
+      { re: /^==\s*([^|>=]+?)\s*=+>/, label: 1 },
+      // == x ==>
+      { re: /^-{2,}>/, label: 0 },
+      // -->
+      { re: /^-\.-*>/, label: 0 },
+      // -.->
+      { re: /^=+>/, label: 0 }
+      // ==>
+    ];
+    function parseConnector(s) {
+      for (const { re, label } of CONNECTORS) {
+        const m = s.match(re);
+        if (m) return { label: label ? scrubLabel(stripQuotes(m[label] || "")) : "", rest: s.slice(m[0].length) };
+      }
+      return null;
+    }
+    function parseFlowchartLine(line, nodes) {
+      let s = line.replace(/;\s*$/, "").trim();
+      const first = parseNode(s, nodes);
+      if (!first) return s ? BAIL : [];
+      let fromId = first.id;
+      s = first.rest;
+      const edges = [];
+      for (; ; ) {
+        s = s.replace(/^\s+/, "");
+        if (s === "") break;
+        const conn = parseConnector(s);
+        if (!conn) return BAIL;
+        s = conn.rest.replace(/^\s+/, "");
+        const next = parseNode(s, nodes);
+        if (!next) return BAIL;
+        edges.push({ from: fromId, to: next.id, label: conn.label });
+        fromId = next.id;
+        s = next.rest;
+      }
+      return edges;
+    }
+    function parseFlowchart(body) {
+      const lines = String(body).split("\n");
+      let i = 0;
+      while (i < lines.length && lines[i].trim() === "") i++;
+      let title = null;
+      if (lines[i] !== void 0 && lines[i].trim() === "---") {
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim() !== "---") {
+          const tm = lines[j].match(/^\s*title:\s*(.+?)\s*$/);
+          if (tm) title = scrubLabel(stripQuotes(tm[1]));
+          j++;
+        }
+        if (j < lines.length) i = j + 1;
+      }
+      while (i < lines.length && lines[i].trim() === "") i++;
+      if (!/^(flowchart|graph)\b/.test((lines[i] || "").trim())) return null;
+      i++;
+      const nodes = /* @__PURE__ */ new Map();
+      const edges = [];
+      for (; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (!t || t.startsWith("%%")) continue;
+        if (/^(subgraph|end|direction|classDef|class|style|click|linkStyle|accTitle|accDescr)\b/.test(t)) continue;
+        const res = parseFlowchartLine(t, nodes);
+        if (res === BAIL) return null;
+        for (const e of res) edges.push(e);
+      }
+      if (!edges.length) return null;
+      const labelFor = (id) => nodes.get(id) || id;
+      return { title, edges: edges.map((e) => ({ from: labelFor(e.from), to: labelFor(e.to), label: e.label })) };
+    }
+    function narrateDiagram2(markdown) {
+      const src = String(markdown || "");
+      if (!hasClassToken(src, "diagram")) return null;
+      const fence = src.match(/```mermaid\n([\s\S]*?)```/);
+      if (!fence) return null;
+      const parsed = parseFlowchart(fence[1]);
+      if (!parsed) return null;
+      const blanked = withoutFences(src);
+      const consumed = /* @__PURE__ */ new Set();
+      const parts = [];
+      const eyebrow = eyebrowBeforeHeading(blanked);
+      if (eyebrow) {
+        parts.push(terminate(eyebrow.text));
+        consumed.add(eyebrow.index);
+      }
+      const h = heading(blanked);
+      if (h) parts.push(h);
+      parts.push(parsed.title ? `A flowchart, ${parsed.title}.` : "A flowchart.");
+      for (const e of parsed.edges) {
+        parts.push(e.label ? `${e.from}, ${e.label}, leads to ${e.to}.` : `${e.from} leads to ${e.to}.`);
+      }
+      const extra = speakLeftover(blanked, consumed);
+      if (extra) parts.push(extra);
+      return parts.join(" ");
+    }
     var NARRATORS = [
       narrateFunnel2,
       narrateJourneyWeighted2,
       narrateRadar2,
       narrateQuadrant2,
-      narrateStateChart2
+      narrateStateChart2,
+      narrateDiagram2
     ];
     function narrateChart2(markdown) {
       for (const narrate of NARRATORS) {
@@ -1406,6 +1549,7 @@ var require_chart_narration = __commonJS({
       narrateQuadrant: narrateQuadrant2,
       narrateStateChartInference: narrateStateChartInference2,
       narrateStateChart: narrateStateChart2,
+      narrateDiagram: narrateDiagram2,
       narrateChart: narrateChart2
     };
   }
@@ -1422,12 +1566,14 @@ var {
   narrateRadar,
   narrateQuadrant,
   narrateStateChart,
-  narrateStateChartInference
+  narrateStateChartInference,
+  narrateDiagram
 } = require_chart_narration();
 export {
   buildReadAlong,
   mergeNarration,
   narrateChart,
+  narrateDiagram,
   narrateFunnel,
   narrateJourneyWeighted,
   narrateQuadrant,

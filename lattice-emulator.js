@@ -2852,7 +2852,18 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
     try {
       const { narrateChart } = require('./lib/core/chart-narration.js');
       const { splitSourceToSections } = require('./lib/core/section-source-split.js');
-      const blocks = splitSourceToSections(rawMd);
+      // Narrate from a FENCE-INTACT source, not `rawMd`. `rawMd` bakes every ```mermaid
+      // fence to `<svg>` BEFORE this split, so a `diagram` slide's Mermaid source is gone —
+      // narrateChart's flowchart narrator (narrateDiagram) would then fire live (Present has
+      // the fence) but be silent on export, breaking HARD RULE #1 parity. `appendAutoGlossary(md)`
+      // is the ORIGINAL source (fences intact) with the SAME glossary slide appended, so it has
+      // identical section boundaries/counts to `rawMd` (preprocessMermaid only swaps a fenced
+      // block for an inline `<svg>` — it injects no heading/`---`/hr, and the glossary append is
+      // front-matter-driven, mermaid-independent). The 5 chart narrators parse LIST Markdown the
+      // bake never touches (and withoutFences-blank any fence anyway), so they're byte-identical
+      // on this input; only narrateDiagram needs the fence. See
+      // 2026-07-13-mermaid-diagram-narration.md §8 (Axis B1, trio-verified).
+      const blocks = splitSourceToSections(appendAutoGlossary(md));
       if (blocks.length === projected.length) {
         for (let i = 0; i < blocks.length; i++) {
           // Per-slide guard: one pathological chart slide can't disable narration for

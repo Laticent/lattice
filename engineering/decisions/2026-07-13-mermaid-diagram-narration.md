@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Design record for the next item in the JS-narration TAIL of the manifest-speech contract
   (2026-07-11-manifest-speech-contract.md §13.2 F-D): a narrator that reads a `diagram`
@@ -388,3 +388,52 @@ parses correctly OR null-falls-back — never confidently wrong; (v) decide the 
 
 **No code ships until you answer.** On a go-ahead I implement the chosen slice, then run the
 adversarial trio again on the shipping diff (HARD RULE #25).
+
+---
+
+## 9. SHIPPED (2026-07-14) — diagram first (owner pick), with the §8.3 hardening
+
+The maintainer chose **diagram first** (open question #1, option B) over the trio's video-first
+recommendation, and left the third producer to the tight-PR default. Built accordingly:
+
+- **`narrateDiagram` (`lib/core/chart-narration.js`)** — reads a `diagram` slide's Mermaid flowchart
+  from the SOURCE fence: eyebrow + heading + `"A flowchart[, title]."` + one spoken step per forward
+  edge (edge labels as clauses, chained edges split), then any authored prose via `speakLeftover`.
+  Added to `NARRATORS`, so both producers route it through `narrateChart`. All §8.3 hardening landed:
+  - **(i) Bail-not-guess.** A conservative recognized grammar (`id[Label]`-shape nodes; FORWARD
+    `-->`/`-.->`/`==>` with pipe/inline-text/chained forms). ANY unrecognized construct — a
+    non-flowchart type, undirected `---`, reversed `<--`, terminator `--x`/`--o`, `&` fan-out, class
+    shorthand, a node-only graph — returns null → the heading-only projection (today's behavior). No
+    confidently-wrong topology.
+  - **(ii) No source leak / no fenced-heading confusion.** Topology is read from the RAW fence (the
+    same `/```mermaid\n…```/` match `preprocessMermaid` renders), but heading/eyebrow/leftover run on
+    `withoutFences(markdown)` — the fence BLANKED — so no Mermaid line reaches the voice and a fenced
+    doc-example `##` can't masquerade as the slide heading.
+  - **(iii) Label scrub** — quote-strip + `<br>`→pause + emphasis/link/backtick drop, mirroring the
+    funnel/radar scrub; units/glyphs left to the shared cadenza say-as layer.
+- **Export parity (Axis B1).** `writeCaptionsSidecar` now splits `appendAutoGlossary(md)` (fence
+  intact) instead of `rawMd` (mermaid baked to SVG), so the fence survives to `narrateChart` on the
+  export exactly as it does live. Verified byte-neutral for the 5 existing narrators (they parse list
+  Markdown the bake never touches) and boundary-neutral for the split (a `​```mermaid` fence is an
+  opaque token — it emits no stray `hr`/heading).
+- **Bundle.** `read-along-core` rebuilt so Present's `narrateChart` import carries `narrateDiagram`.
+- **Demo deck** `examples/diagram-narration.md` (+ committed `.pdf`): labeled flow, decision branch,
+  chained + dotted feedback, subgraph, and a sequence diagram showing the honest fallback.
+
+**Third producer (`shareCaptions`) — scoped out, consequence stated** (the tight-PR default, HARD
+RULE #17). It stays projection-only, so it narrates diagrams (and, already, every chart) heading-only;
+tracked as a follow-up, recorded in the CHANGELOG and §13.4 of the parent contract.
+
+**Verification (HARD RULE #23).** Spoken STRING is claimed and pinned: `chart-narration.test.js` (real
+flowcharts + the full adversarial null-fallback set — reversed/undirected/terminator/`&`/class-
+shorthand/non-flowchart types/node-only) and `chart-narration-export-parity.test.js` (a mermaid deck:
+the fence does not shift the 1:1 section alignment, the flowchart narrates on the export split, a
+sequence type defers). End-to-end on the REAL CLI: `node lattice-emulator.js examples/diagram-narration.md
+--captions` produced `.vtt`s carrying the topology on the flowchart slides and a clean heading+caption
+(no source leak) on the sequence slide. **UNVERIFIED:** audio naturalness (no TTS in CI); real-browser
+Studio Present (sandbox blocks egress) — the shared kernel makes its spoken string identical to the
+CLI's, which is verified.
+
+*Logged off-path follow-ups (HARD RULE #18):* the other ~25 Mermaid types (sequence/class/state/ER/
+gantt/pie/…); node-shape semantics and nested-subgraph phrasing; and the `shareCaptions` third-producer
+parity gap. Each is a separate slice, not pulled into this PR.
