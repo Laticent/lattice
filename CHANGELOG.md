@@ -268,7 +268,9 @@ in patch versions.
   points, **coalesces a linear chain** ("Browser leads to Edge CDN, then Load Balancer, then API
   Gateway"), **groups a fan-out** ("API Gateway fans out to Auth, Orders, and Search"), **merges a
   fan-in** ("Auth and Orders both lead to User DB"), reads a loop as a loop, and opens a genuinely
-  tangled graph with a one-line **overview** ("It begins at Browser and ends at User DB"). Each edge
+  tangled graph with a lean one-line **gist** that says only what the walk doesn't — the depth and
+  coarse shape ("Five hops deep, branching and reconverging"; "A diamond"; "with a loop"), never
+  re-naming a node the walk already speaks, and silent on a plain chain or lone fan-out. Each edge
   **label** is spoken faithfully as the author wrote it, by grammar — a recognized verb reads *as* the
   connective ("Web App calls API Service", "app depends on core-lib"); a branch condition keeps its
   guard ("on yes, leads to Approve"); anything else — a noun, code, cadence, version ("data", "HTTP

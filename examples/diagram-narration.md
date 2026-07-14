@@ -55,7 +55,7 @@ flowchart TD
   UI -->|"depends on"| Rt
 ```
 
-> Fan-in coalesces so a wide graph doesn't repeat itself: "app depends on core-lib and ui-kit. core-lib and ui-kit both depend on runtime." — the verb is depluralized for the joined subject, and the runtime is named once.
+> The reading opens with the shape — "A diamond." — then fan-in coalesces so a wide graph doesn't repeat itself: "app depends on core-lib and ui-kit. core-lib and ui-kit both depend on runtime." — the verb is depluralized for the joined subject, and the runtime is named once.
 
 ---
 
@@ -90,7 +90,7 @@ flowchart TD
   Review --> Approve
 ```
 
-> Each branch binds to its condition unambiguously: "From Within policy?: on yes, leads to Auto-approve; on no, leads to Send to review" — a guarded clause per branch, not a flat comma list a listener can't parse.
+> It opens with the shape — "A diamond." — then each branch binds to its condition unambiguously: "From Within policy?: on yes, leads to Auto-approve; on no, leads to Send to review" — a guarded clause per branch, not a flat comma list a listener can't parse.
 
 ---
 
@@ -113,20 +113,25 @@ flowchart LR
 
 <!-- _class: diagram -->
 
-`06 · Overview first`
+`06 · The gist, first`
 
-## A tangled shape opens with its gist.
+## A tangled shape opens with its shape.
 
 ```mermaid
-flowchart TD
-  Req["Request"] --> V["Validate"]
-  Req --> A["Authenticate"]
-  V --> P["Process"]
-  A --> P
-  P --> Res["Respond"]
+---
+title: Request path
+---
+flowchart LR
+  U["Browser"] --> CDN["Edge CDN"] --> LB(["Load Balancer"]) --> GW{{"API Gateway"}}
+  GW --> Auth["Auth Service"]
+  GW --> Orders["Orders Service"]
+  GW --> Search["Search Service"]
+  Auth --> DB[("User DB")]
+  Orders --> DB
+  Search --> Cache[("Redis Cache")]
 ```
 
-> When a graph both branches and reconverges, it opens with a one-line orientation: "It begins at Request and ends at Respond. Request fans out to Validate and Authenticate. Validate and Authenticate both lead to Process. Process leads to Respond."
+> A non-trivial graph opens with a lean gist that says only what the detail walk doesn't — the depth and coarse shape: "Five hops deep, branching and reconverging." The walk then names the nodes. The gist never re-states the fan-out or the shared node the walk already speaks, and stays silent on a plain chain.
 
 ---
 
