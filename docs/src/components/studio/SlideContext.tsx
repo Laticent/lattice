@@ -16,6 +16,7 @@ import { Captions, Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-r
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Switch as UISwitch } from '@/components/ui/switch';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
@@ -100,54 +101,56 @@ function Switch({ on, onClick, label, disabled }: { on?: boolean; onClick?: () =
 	return <UISwitch checked={!!on} onCheckedChange={() => onClick?.()} aria-label={label} disabled={disabled} />;
 }
 
+// A segmented control (pick EXACTLY one) on the shared ui/toggle-group primitive.
+// A null option value → the `__seg_default__` sentinel (Radix items need a
+// non-empty value); a deselect (Radix single-toggle fires '') is ignored so one
+// segment always stays active.
+const SEG_DEFAULT = '__seg_default__';
 function Seg({ options, value, onChange, ariaLabel }: { options: { label: string; value: string | null }[]; value: string | null; onChange: (v: string | null) => void; ariaLabel: string }) {
 	return (
-		<div role="radiogroup" aria-label={ariaLabel} className="inline-flex overflow-hidden rounded-md border border-border">
+		<ToggleGroup
+			type="single"
+			aria-label={ariaLabel}
+			value={value ?? SEG_DEFAULT}
+			onValueChange={(v) => { if (v) onChange(v === SEG_DEFAULT ? null : v); }}
+			className="overflow-hidden rounded-md border border-border"
+		>
 			{options.map((o, i) => (
-				// biome-ignore lint/a11y/useSemanticElements: a custom segmented control — buttons in a radiogroup, not native inputs.
-				<button
-					key={o.value ?? '__default__'}
-					type="button"
-					role="radio"
-					aria-checked={value === o.value}
-					onClick={() => onChange(o.value)}
-					className={cn(
-						'px-2.5 py-1 text-[12px] font-semibold transition-colors',
-						i > 0 && 'border-l border-border',
-						value === o.value ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-[var(--accent-soft)]',
-					)}
+				<ToggleGroupItem
+					key={o.value ?? SEG_DEFAULT}
+					value={o.value ?? SEG_DEFAULT}
+					className={cn('px-2.5 py-1 text-[12px] font-semibold text-foreground hover:bg-[var(--accent-soft)] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground', i > 0 && 'border-l border-border')}
 				>
 					{o.label}
-				</button>
+				</ToggleGroupItem>
 			))}
-		</div>
+		</ToggleGroup>
 	);
 }
 
+// A chip row (pick ZERO or one; tap the active chip to clear) on the shared
+// ui/toggle-group primitive — Radix single-toggle deselects natively, which maps
+// to onChange(null).
 function ChipRow({ options, value, onChange, ariaLabel }: { options: { label: string; value: string; tone?: string }[]; value: string | null; onChange: (v: string | null) => void; ariaLabel: string }) {
 	return (
-		<div role="radiogroup" aria-label={ariaLabel} className="flex flex-wrap gap-1.5">
-			{options.map((o) => {
-				const on = value === o.value;
-				return (
-					// biome-ignore lint/a11y/useSemanticElements: a custom chip control — buttons in a radiogroup, not native inputs.
-					<button
-						key={o.value}
-						type="button"
-						role="radio"
-						aria-checked={on}
-						onClick={() => onChange(on ? null : o.value)} // tap the active chip to clear
-						className={cn(
-							'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
-							on ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]',
-						)}
-					>
-						{o.tone && <span className="size-2 rounded-full" style={{ background: o.tone }} />}
-						{o.label}
-					</button>
-				);
-			})}
-		</div>
+		<ToggleGroup
+			type="single"
+			aria-label={ariaLabel}
+			value={value ?? ''}
+			onValueChange={(v) => onChange(v || null)}
+			className="flex-wrap gap-1.5"
+		>
+			{options.map((o) => (
+				<ToggleGroupItem
+					key={o.value}
+					value={o.value}
+					className="gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] data-[state=on]:border-[var(--accent)] data-[state=on]:bg-[var(--accent-soft)] data-[state=on]:text-[var(--accent)]"
+				>
+					{o.tone && <span className="size-2 rounded-full" style={{ background: o.tone }} />}
+					{o.label}
+				</ToggleGroupItem>
+			))}
+		</ToggleGroup>
 	);
 }
 
