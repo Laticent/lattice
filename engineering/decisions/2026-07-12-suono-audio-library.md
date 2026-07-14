@@ -194,6 +194,25 @@ Each of these is a real bug voice-model.js paid for once. In Suono they are the 
   0→1 at the head and 1→0 at the tail (default 8 ms, clamped to half the clip) — inaudible as a fade,
   but it removes the step so no surface ever ships clicky audio (`fadeMs` opt-out). The clamp math is
   a pure, unit-tested helper (`envelope.ts`); the ramp scheduling is browser-only.
+- **Audio quality — route keep-alive (Bluetooth / CarPlay).** Declick fixes the *waveform* edge at a
+  clip boundary; it does nothing about the *transport* going idle. On a Bluetooth / Apple CarPlay
+  route iOS drops the A2DP link to a low-power state when the rendered stream is digital silence for a
+  beat between per-sentence clips, and the wake-up transient on the next clip is heard as choppiness +
+  a pop on its first word (an on-device report; worst on many-short-fragment slides, the same shape
+  declick's worst case has). The `stage` now holds a continuous, sub-audible looping noise source on
+  the destination (`keepAlive`, default on; `keepAliveGain`, device-tunable ≈ -56 dBFS) so the route
+  never idles. It is deliberately OUTSIDE `activeSources` (a `stopAll()`/barge-in must NOT stop it —
+  keeping the route warm across a barge-in is the point) and outside the play-clock, so caption sync
+  is provably unaffected — unit-covered. **Lifecycle (checker finding):** it must not run for the whole
+  tab — the read-aloud stage is a singleton that's never `dispose()`d, so an only-stops-on-dispose
+  warmer would pin the link + iOS media session awake forever after one read (battery / audio-ducking).
+  Stopping on `stop()` is wrong too (a barge-in re-plays immediately → the pop returns). So it's armed on
+  play()/unlock(), held across barge-ins and inter-clip gaps, and RELEASED by an idle timer
+  (`keepAliveIdleMs`, default 30 s — above the produce watchdog so it never fires mid-read) once no clip
+  is active, then re-armed on the next play. Note this is web-only leverage: the app cannot see or set the
+  Bluetooth codec/bitrate (the OS owns that), and cannot reliably detect the route from JS on iOS
+  Safari, so route-detection + source-bitrate reduction were rejected as unbuildable on this platform;
+  an always-on, detection-free keep-alive is the tractable fix. Audible sign-off is device-only (#23).
 
 ## 6. Security posture — the boundary IS the safety
 
