@@ -6,6 +6,7 @@
 
 import { Check, MessageSquarePlus, RotateCcw, Trash2 } from 'lucide-react';
 import * as React from 'react';
+import { Tip } from '@/components/ui/tooltip';
 import { addComment, COMMENTS_EVENT, commentsForSlide, deleteComment, setResolved } from './slide-comments';
 
 function timeAgo(ts: number, now: number): string {
@@ -102,24 +103,22 @@ function CommentRow({
 				<span>·</span>
 				<span>{timeAgo(c.createdAt, now)}</span>
 				<span className="flex-1" />
-				<button
+				<Tip label={resolved ? 'Reopen' : 'Resolve'}><button
 					type="button"
 					onClick={onResolve}
-					title={resolved ? 'Reopen' : 'Resolve'}
 					aria-label={resolved ? 'Reopen comment' : 'Resolve comment'}
 					className="rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--accent)] group-hover:opacity-100"
 				>
 					{resolved ? <RotateCcw className="size-3.5" /> : <Check className="size-3.5" />}
-				</button>
-				<button
+				</button></Tip>
+				<Tip label="Delete"><button
 					type="button"
 					onClick={onDelete}
-					title="Delete"
 					aria-label="Delete comment"
 					className="rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"
 				>
 					<Trash2 className="size-3.5" />
-				</button>
+				</button></Tip>
 			</div>
 			<p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-foreground">{c.body}</p>
 		</div>

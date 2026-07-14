@@ -2,6 +2,7 @@ import { Check, Download, FileBox, FileText, Package, Plus, Search, Share2, Tras
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
@@ -253,9 +254,9 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 					{/* Contextual add: the Docs tab attaches .txt/.md/.pdf reference docs; every
 					    other tab imports a lattice-asset .zip — one button, meaning by tab. */}
 					{filter === 'refdoc' ? (
-						<Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => docFileRef.current?.click()} aria-label="Add a reference doc" title="Add a .txt/.md/.pdf reference doc"><Plus className="size-3.5" /><span className="hidden sm:inline">Add file</span></Button>
+						<Tip label="Add a .txt/.md/.pdf reference doc"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => docFileRef.current?.click()} aria-label="Add a reference doc"><Plus className="size-3.5" /><span className="hidden sm:inline">Add file</span></Button></Tip>
 					) : (
-						<Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => fileRef.current?.click()} aria-label="Import .zip" title="Import a .zip"><Upload className="size-3.5" /><span className="hidden sm:inline">Import</span></Button>
+						<Tip label="Import a .zip"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => fileRef.current?.click()} aria-label="Import .zip"><Upload className="size-3.5" /><span className="hidden sm:inline">Import</span></Button></Tip>
 					)}
 					<input ref={fileRef} type="file" accept=".zip" multiple hidden onChange={(e) => importFiles(e.target.files)} />
 					<input ref={docFileRef} type="file" accept={REF_DOC_ACCEPT} multiple hidden onChange={(e) => addDocFiles(e.target.files)} />

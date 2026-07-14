@@ -246,8 +246,37 @@ themed surface (independent-checker call).
 
 ### Scope / fast-follow
 Migrated only the surfaces driven in verification (StudioShell + NavActions).
-Other live surfaces still on native `title=` — ShareSheet, Fabricate,
-WorkspaceSheet, PresentOverlay, SlideContext, reference-doc-ui, InsertComponent —
-are a documented fast-follow (native `title` stays accessible meanwhile). The
-OpenRouter-gated model pickers are excluded for the same reason as above (can't
-verify). Frozen surfaces untouched.
+Other live surfaces still on native `title=` — Fabricate, PresentOverlay,
+SlideContext, and a few more — are a documented fast-follow (native `title` stays
+accessible meanwhile). The OpenRouter-gated model pickers are excluded (see the
+2026-07-14 (c) correction — they must stay inline). Frozen surfaces untouched.
+**Landed 2026-07-14 (d) — see below.**
+
+## Batch outcome — 2026-07-14 (d): tooltip fast-follow sweep
+
+Swept the remaining genuine native-`title=` **interactive** controls onto `Tip`
+across **Fabricate, PresentOverlay, SlideContext, Library, SlideComments,
+TtsSettings** (~13 controls). Key lesson from scoping: the raw `title=` grep count
+badly over-reports — most hits are **component props**, not native hover hints:
+`ShareSheet` (`<Row title=…>`), `WorkspaceSheet` (`<GovRow title=…>`),
+`CommandPalette`/`InsertComponent` (`<CommandDialog title=…>`), plus a11y
+attributes (`<iframe title>`, `<img title>`) and decorative/non-focusable `<span
+title>` labels — all correctly skipped. So those three "fast-follow" surfaces named
+above had **zero** genuine tooltips.
+
+- Plain `<button>`/`<Button>` controls with an `onClick` → `<Tip label=…>` (drop
+  `title`, keep `aria-label`). The `PresentOverlay` "Slides" button gained
+  `aria-label="Slides"` (its visible text is width-hidden; matches the e2e name).
+  A `.map()`-keyed control (Fabricate's theme-start button) moves its `key` to the
+  `Tip`.
+- **Verified:** PresentOverlay driven on the real Studio — the Slides tooltip fires
+  AND the button still opens the slide sorter. The rest are the identical proven
+  wrapper (#985) on plain buttons; `Tip` adds no DOM, so no structural change.
+
+**Deferred — reference-doc-ui's attach button.** It's a `PopoverTrigger asChild`
+child, so it needs the nested `<Tooltip><TooltipTrigger asChild><PopoverTrigger
+asChild>` composition (not `Tip`). That composition is the proven #985 Refine/Show-me
+pattern, BUT the button sits deep in the architect-chat composer and couldn't be
+driven from this sandbox to confirm the Popover still opens — so per HARD RULE #23
+it stays on native `title` (it already has an `aria-label`) rather than ship an
+unverified structural change to a working popover.
