@@ -404,8 +404,23 @@ test('speech media: the figcaption (the one prose slot) IS read, the SVG is not'
 	const [t] = speak(sections(
 		`<section data-lattice-slide data-class="funnel" class="funnel"><div class="cell-stage"><div class="masthead-lede"><h2>Q4 Chart</h2></div><figure><svg><text>90</text></svg><figcaption>Revenue rose thirty percent.</figcaption></figure></div></section>`,
 	));
-	assert.match(t, /Q4 Chart\. Revenue rose thirty percent\./);
+	// Heading (lead) → figcaption (body) now cross a PARAGRAPH beat (blank line), not a space.
+	assert.match(t, /Q4 Chart\.\n\nRevenue rose thirty percent\./);
 	assert.doesNotMatch(t, /90|<text>|svg/, 'the SVG is never read');
+});
+
+test('speech: ONE paragraph beat between the lead (title) and the body; body blocks flow', () => {
+	// The single paragraph beat on a slide is the lead→body topic shift (buildTrack reads the blank
+	// line as a PARAGRAPH_PAUSE_MS beat). Body blocks — a paragraph, a list — stay space-joined (a beat
+	// between EVERY block was too much on-device). See the paragraph-pauses ADR.
+	const [t] = speak(sections(
+		`<section data-lattice-slide data-class="list" class="list"><div class="cell-stage"><h2>Roadmap</h2><p>We ship in three phases.</p><ul><li>Design.</li><li>Build.</li></ul></div></section>`,
+	));
+	// One beat after the title…
+	assert.match(t, /Roadmap\.\n\nWe ship in three phases\. Design\. Build\./);
+	// …and NO beat between the body blocks (they read as one flowing run).
+	assert.doesNotMatch(t, /phases\.\n\nDesign/, 'body blocks flow — no beat between paragraph and list');
+	assert.doesNotMatch(t, /Design\.\n\nBuild\./, 'list items flow within their block');
 });
 
 test('speech generic: three-level nesting never mashes words together', () => {

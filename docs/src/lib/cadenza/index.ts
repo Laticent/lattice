@@ -6,7 +6,19 @@
 // (playback, highlighting, deciding WHAT to say) is the consumer's job.
 
 export type { Pace } from './cadence';
-export { estimateWordMs, FINAL_LENGTHEN_MS, PACE_WPM, pauseAfter, readMs, SYLLABLE_MS, syllableCount } from './cadence';
+export {
+  CLIP_TRAILING_FRACTION,
+  clipTrailingMs,
+  estimateWordMs,
+  FINAL_LENGTHEN_MS,
+  interCueGapMs,
+  PACE_WPM,
+  PARAGRAPH_PAUSE_MS,
+  pauseAfter,
+  readMs,
+  SYLLABLE_MS,
+  syllableCount,
+} from './cadence';
 export type { CalibrationState } from './calibrate';
 export {
   CALIBRATION_MAX_K,
@@ -27,7 +39,7 @@ export { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken
 export type { Reader, ReaderOptions } from './reader';
 export { makeReader } from './reader';
 
-export { splitSentences, splitWords } from './segment';
+export { splitParagraphs, splitSentences, splitWords } from './segment';
 export type { LexiconMap, ResolveSymbolsOptions } from './symbols';
 export { resolveSymbols, SEPARATOR_GLYPHS, SYMBOL_SPEAK } from './symbols';
 export type { BuildOptions, CaptionTrack, Cue, Word } from './track';

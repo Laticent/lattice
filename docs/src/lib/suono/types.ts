@@ -147,8 +147,10 @@ export interface SequenceOptions<T> {
 	produce: (item: T, ctx: { signal: AbortSignal; index: number }) => Promise<Bytes | null>;
 	/** Cache/dedup identity for an item. Omit → no byte cache for this sequence. */
 	keyOf?: (item: T) => string;
-	/** "Breath" inserted AFTER an item, in ms (0 = none). `next` is the following item, or null. */
-	gapMs?: (item: T, next: T | null) => number;
+	/** "Breath" inserted AFTER an item, in ms (0 = none). `next` is the following item, or null;
+	 *  `index` is this item's position in `items` (so a caller can size the gap per-cue, e.g. a deeper
+	 *  paragraph beat at a topic boundary). */
+	gapMs?: (item: T, next: T | null, index: number) => number;
 	/** How many `produce()` calls to keep in flight (bounded synth-ahead). Default 3. */
 	concurrency?: number;
 	/** Max byte-cache entries (FIFO). Default 200. */

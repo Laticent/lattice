@@ -70,8 +70,13 @@ export function makeCursor(input: CaptionTrack): Cursor {
       }
       if (idx < 0) return null;
       const w = flat[idx];
-      // Active only while inside the word; a gap between words has no active word.
-      if (timeMs >= w.endMs) return null;
+      // HOLD the current word through any trailing silence — a comma/sentence/paragraph gap — until
+      // the NEXT word begins, instead of going dark. The binary search already guarantees
+      // `timeMs < flat[idx+1].startMs`, so returning `w` simply keeps the last-spoken word lit through
+      // the pause rather than resting the highlight on nothing (which reads as the highlight lagging,
+      // worst at the deep paragraph beat). Only the FINAL word clears at its own end, so the highlight
+      // doesn't stick past the end of the timeline (letting `onEnd` fire).
+      if (idx === flat.length - 1 && timeMs >= w.endMs) return null;
       return { cueIndex: w.cueIndex, wordIndex: w.wordIndex };
     },
 

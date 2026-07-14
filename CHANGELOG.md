@@ -177,6 +177,23 @@ in patch versions.
   `docs/public/flags/`, rendered by a plain `<img>` — so it looks the same on Windows, macOS, iOS, and Linux.
   The flags are static assets (never in the JS bundle), and a browser only fetches the handful a rendered row
   actually uses; the rest are inert. (`FlagMark` in `TtsSettings.tsx`, `flagSrc` in `tts-voice-catalog.ts`.)
+- **Read-aloud now takes a beat between a slide's title and its body.** The narration estimator gained
+  the deepest prosodic tier — a **paragraph / topic-shift pause** (750 ms), above comma/clause/sentence.
+  A paragraph boundary isn't a punctuation glyph, so it couldn't ride the existing per-token pause; the
+  fix has three coordinated parts: (1) the shared speech projection emits a **blank line between a
+  slide's lead (title) and its body** instead of a single space — body blocks still flow with sentence
+  pauses; (2) a paragraph-aware segmenter tags the cue before the blank line, keeping the sentence list
+  byte-identical to before so every caption cue still maps 1:1 to its audio clip; (3) both the silent
+  read-along and the clocked voice widen the gap at that cue via one shared formula (the clip's own
+  trailing silence is unchanged — a paragraph adds no words, only inter-clip silence). The highlight now
+  **holds the last word lit through any inter-cue silence** instead of going dark, so a pause never reads
+  as the highlight lagging (this also smooths the existing sentence gaps). The raw-markdown fallback
+  narration is unchanged. **Export note:** exported `.vtt`/`readAlong` cue *timings* shift later after a
+  paragraph boundary (cue TEXT unchanged). Verified aligning **on-device**; an adversarial trio confirmed
+  the clock accounting is sound (a first pass over-paced with a 1000 ms beat between every block — hence
+  the shorter beat, one per slide, and the held highlight). (`cadence.ts`, `segment.ts`, `track.ts`,
+  `cursor.ts`, `prose-projection.mjs`, `read-aloud.ts`, Suono `sequence.ts`;
+  `engineering/decisions/2026-07-14-paragraph-level-pauses.md`.)
 - **Each voice in the Studio picker has a ▶ to hear it before you pick it.** The voice dropdown rows now
   carry a play button that auditions that voice *without* selecting it — so you can browse a 30–54-voice
   roster and listen down the list, instead of committing to each one to hear it (clicking the row still

@@ -36,8 +36,9 @@ export const FINAL_LENGTHEN_MS = 30;
 /** Pause added AFTER a word carrying this trailing punctuation, in ms — GRADED by boundary
  *  depth (read/presentation register): comma/minor ~200, clause (`;`/`:`) ~350, sentence
  *  (`.`/`?`/`!`) ~550, trailing-off (`…`) ~650. Sourced from read-speech pause norms + the
- *  TTS doubling ladder (see the decision doc). Paragraph-level pauses aren't token-scoped and
- *  are a logged follow-up. Keep every value a MULTIPLE OF 10: `CLIP_TRAILING_FRACTION` splits each
+ *  TTS doubling ladder (see the decision doc). Paragraph/topic-shift pauses are a DEEPER tier that
+ *  isn't token-scoped (a paragraph boundary is a blank line, not a glyph) — see `PARAGRAPH_PAUSE_MS`.
+ *  Keep every value a MULTIPLE OF 10: `CLIP_TRAILING_FRACTION` splits each
  *  pause into `round(0.7p)` (clip silence) + `round(0.3p)` (breath), which sums back to `p` exactly
  *  only when `p` isn't ≡5 mod 10 (else both halves land on `.5` and round up, e.g. p=5 → 4+2=6). The
  *  partition test in `cadence.test.ts` fails loud if a future value breaks this. */
@@ -46,12 +47,30 @@ const PAUSE_MS: Record<string, number> = {
   '.': 550, '!': 550, '?': 550, '…': 650,
 };
 
-/** The longest trailing pause implied by a token's punctuation (0 if none). */
+/** The boundary pause at a PARAGRAPH / topic shift — the deepest prosodic break, above the sentence
+ *  tier (§3 of the pace-model doc: ~900–1200 ms in read/presentation register). It is NOT token-scoped:
+ *  a paragraph boundary is a blank line between structural blocks (the speech projection emits one
+ *  between a slide's heading and body, and between distinct body blocks), not a trailing glyph — so it
+ *  rides a per-cue `endsParagraph` flag rather than `pauseAfter`. A paragraph-final cue's LAST word
+ *  still carries its own sentence terminator, so the clip's own trailing silence (`clipTrailingMs`) is
+ *  unchanged; the paragraph tier only widens the inter-cue BREATH to `PARAGRAPH_PAUSE_MS − clipTrailingMs`.
+ *  A multiple of 10, per the partition note above. Tuned to the FLOOR of the research range (~700–800,
+ *  not the ~1000 mid) after on-device review: a deep dark pause at every block seam read as the
+ *  highlight lagging, so the beat is kept short (and the highlight now HOLDS through it — see cursor.ts). */
+export const PARAGRAPH_PAUSE_MS = 750;
+
+/** The longest trailing pause implied by a token's punctuation (0 if none). Scans the trailing run
+ *  of boundary glyphs from the END — a linear reverse scan, NOT a `/[…]+$/` regex, whose `+` retries
+ *  at every start position (polynomial on a long punctuation run — a ReDoS on untrusted deck text,
+ *  the same class `edgeTrim` in normalize.ts avoids). Stops at the first non-boundary char. */
 export function pauseAfter(display: string): number {
-  const m = String(display ?? '').match(/[.,!?;:…]+$/);
-  if (!m) return 0;
+  const s = String(display ?? '');
   let max = 0;
-  for (const ch of m[0]) max = Math.max(max, PAUSE_MS[ch] ?? 0);
+  for (let i = s.length - 1; i >= 0; i--) {
+    const p = PAUSE_MS[s[i]];
+    if (p === undefined) break; // left the trailing punctuation run
+    if (p > max) max = p;
+  }
   return max;
 }
 
@@ -71,6 +90,19 @@ export const CLIP_TRAILING_FRACTION = 0.7;
  *  see `CLIP_TRAILING_FRACTION`. Rounded so it stays an integer ms alongside `pauseAfter`. */
 export function clipTrailingMs(display: string): number {
   return Math.round(pauseAfter(display) * CLIP_TRAILING_FRACTION);
+}
+
+/** The inter-cue BREATH after a cue whose last word is `display`: the boundary pause — the PARAGRAPH
+ *  tier when `endsParagraph`, else the sentence/glyph pause — minus the clip's own trailing silence
+ *  (which already lives INSIDE the cue's end, `clipTrailingMs`). This is THE ONE gap formula both the
+ *  silent estimate (`track.ts` advances the next cue to `cueEnd + interCueGapMs`) and the clocked
+ *  player (`read-aloud.ts` `gapMs`) use, so they can't drift — they MUST space cues identically or the
+ *  highlight races into (or lags behind) the audio at a boundary. Deriving the paragraph breath
+ *  per-cue from the actual terminator (not a constant that assumes a 550 ms sentence pause) is what
+ *  keeps an ellipsis-ended paragraph (`…`, pause 650) consistent across the two paths. */
+export function interCueGapMs(display: string, endsParagraph = false): number {
+  const boundary = endsParagraph ? PARAGRAPH_PAUSE_MS : pauseAfter(display);
+  return boundary - clipTrailingMs(display);
 }
 
 /** Exact syllable counts for the small, CLOSED set of spoken-expansion words the vowel-group

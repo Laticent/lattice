@@ -68,10 +68,10 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 			return null;
 		}
 	};
-	const safeGap = (item: T, next: T | null): number => {
+	const safeGap = (item: T, next: T | null, index: number): number => {
 		if (!gapMs) return 0;
 		try {
-			const g = gapMs(item, next);
+			const g = gapMs(item, next, index);
 			return Number.isFinite(g) && g > 0 ? g : 0;
 		} catch {
 			return 0;
@@ -254,7 +254,7 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 				}
 				// Breathe between items — a real pause the clip itself doesn't carry. Not after the last.
 				if (i < items.length - 1 && !sig.aborted) {
-					await sleep(safeGap(items[i], items[i + 1] ?? null), sig);
+					await sleep(safeGap(items[i], items[i + 1] ?? null, i), sig);
 				}
 			}
 		} finally {
