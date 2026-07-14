@@ -670,7 +670,11 @@ test('narrateDiagram: speaks authored prose outside the fence (never say less), 
   // The fence body must not reach the voice as gibberish prose. (The spoken frame "A
   // flowchart, …" legitimately contains the word "flowchart"; a LEAK is the mermaid
   // SOURCE syntax — arrows, node-shape delimiters, the fence, the in-fence `title:`.)
-  assert.ok(!/-->|-\.->|\{\{|```|title:|Signal Intake\}\}/.test(out), out);
+  // Plain substring checks, NOT a regex: a regex alternative matching `-->` trips
+  // CodeQL's js/bad-tag-filter (it reads `-->` as an HTML-comment-end filter).
+  for (const leak of ['-->', '-.->', '{{', '```', 'title:', 'Signal Intake}}']) {
+    assert.ok(!out.includes(leak), `${leak} leaked: ${out}`);
+  }
 });
 
 test('narrateDiagram: frame has no title when the mermaid front matter omits one', () => {
