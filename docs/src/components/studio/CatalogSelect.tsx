@@ -63,12 +63,9 @@ export function CatalogSelect({
 	placeholder?: string;
 	swatchShape?: SwatchShape;
 }) {
-	// The selected option drives the trigger's swatch (SelectValue carries only the
-	// label text, via each item's `textValue`, so the trigger swatch is explicit).
-	const selected = React.useMemo(
-		() => groups.flatMap((g) => g.options).find((o) => o.value === value),
-		[groups, value],
-	);
+	// Radix `SelectValue` renders the SELECTED item's content in the trigger — so
+	// the swatch + label come from the item itself. Do NOT also render a swatch
+	// here, or the trigger doubles it (swatch swatch label).
 	const renderItem = (o: CatalogOption) => (
 		<SelectItem key={o.value} value={o.value} textValue={o.label} title={o.title}>
 			{o.swatch && <SwatchChip {...o.swatch} shape={swatchShape} />}
@@ -81,7 +78,6 @@ export function CatalogSelect({
 				aria-label={ariaLabel}
 				className={cn('h-auto min-w-[120px] gap-2 border-border bg-background px-2 py-1 text-[12.5px] font-semibold text-[var(--text-heading)]', className)}
 			>
-				{selected?.swatch && <SwatchChip {...selected.swatch} shape={swatchShape} />}
 				<SelectValue placeholder={placeholder} />
 			</SelectTrigger>
 			<SelectContent className="max-h-[60vh]">
