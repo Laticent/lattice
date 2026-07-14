@@ -5,6 +5,7 @@
       "modelId": "hexgrad/kokoro-82m",
       "requiresAsset": true,
       "cachedVoices": ["af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica", "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck", "am_santa", "bf_alice", "bf_emma", "bf_isabella", "bf_lily", "bm_daniel", "bm_fable", "bm_george", "bm_lewis", "ef_dora", "em_alex", "em_santa", "ff_siwis", "hf_alpha", "hf_beta", "hm_omega", "hm_psi", "if_sara", "im_nicola", "jf_alpha", "jf_gongitsune", "jf_nezumi", "jf_tebukuro", "jm_kumo", "pf_dora", "pm_alex", "pm_santa", "zf_xiaobei", "zf_xiaoni", "zf_xiaoxiao", "zf_xiaoyi", "zm_yunjian", "zm_yunxi", "zm_yunxia", "zm_yunyang"],
+      "featuredVoices": ["af_heart", "af_bella", "am_michael", "am_adam", "bf_emma", "bm_george"],
       "speedSupport": true,
       "_note": "The one engine that's BOTH on-device and hosted-cloud. On-device (KOKORO_MODEL_ID) is free WASM/WebGPU — no cache needed. But the primary path is HOSTED hexgrad/kokoro-82m via OpenRouter (the connect-time default, and the only Kokoro that works on mobile where the on-device model can't load), which bills per character and — before caching — synthesized live on every Voice-tab audition, a visible per-click delay. Now sample-cached like every other cloud engine: full 54-of-54 live roster (fetched from OpenRouter's own supported_voices for this model id, 2026-07-13). The provider-side timeouts noted in the earlier round of generation have cleared — the endpoint returned a clean 24 kHz mono mp3 for every voice this round. Format is mp3 (no audioFormat override needed).",
       "_speedNote": "Live-tested (2026-07-11): a 0.6x/1.6x request produces audio at ~1/0.6x and ~1/1.6x the baseline duration — matches the requested multiplier almost exactly. Real, accurate, continuous phoneme-duration pacing (kokoro-js's own generate() option on-device, OpenRouter's passthrough param on the hosted endpoint). Errors (422) outside roughly [0.25, 4]; the Studio's UI range (0.75-1.5) sits safely inside that."
@@ -13,6 +14,7 @@
       "modelId": "x-ai/grok-voice-tts-1.0",
       "requiresAsset": true,
       "cachedVoices": ["eve", "ara", "rex", "sal", "leo"],
+      "voiceGenders": { "eve": "F", "ara": "F", "rex": "M", "sal": "M", "leo": "M" },
       "speedSupport": false,
       "_note": "Full roster (5 of 5) — small enough to cache entirely.",
       "_speedNote": "Live-tested (2026-07-11): a 0.6x/1.6x request's duration lands within this model's own take-to-take variance (measured ~7% across two identical, speed-less calls) — the `speed` param has no detectable effect. Also absent from this model's `supported_parameters` in OpenRouter's own catalog. Silently ignored, not an error."
@@ -21,15 +23,19 @@
       "modelId": "google/gemini-3.1-flash-tts-preview",
       "requiresAsset": true,
       "audioFormat": "wav",
-      "cachedVoices": ["Puck", "Charon", "Kore", "Aoede", "Fenrir", "Leda", "Orus", "Zephyr", "Umbriel", "Autonoe"],
+      "cachedVoices": ["Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede", "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba", "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar", "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi", "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat"],
+      "featuredVoices": ["Zephyr", "Puck", "Kore", "Aoede", "Charon", "Leda"],
+      "voiceGenders": { "Achernar": "F", "Aoede": "F", "Autonoe": "F", "Callirrhoe": "F", "Despina": "F", "Erinome": "F", "Gacrux": "F", "Kore": "F", "Laomedeia": "F", "Leda": "F", "Pulcherrima": "F", "Sulafat": "F", "Vindemiatrix": "F", "Zephyr": "F", "Achird": "M", "Algenib": "M", "Algieba": "M", "Alnilam": "M", "Charon": "M", "Enceladus": "M", "Fenrir": "M", "Iapetus": "M", "Orus": "M", "Puck": "M", "Rasalgethi": "M", "Sadachbia": "M", "Sadaltager": "M", "Schedar": "M", "Umbriel": "M", "Zubenelgenubi": "M" },
+      "_genderNote": "Gender is Google's OWN official 'Gender' column for Gemini-TTS (docs.cloud.google.com/text-to-speech/docs/gemini-tts) — 14 female, 16 male across the 30-voice roster — not an ear guess.",
       "speedSupport": false,
-      "_note": "10-of-30 featured subset (this model's speech endpoint 400s on response_format:\"mp3\" and only returns raw PCM — the generator requests pcm and wraps it in a WAV container, reading the real sample rate off the response's Content-Type header rather than hardcoding it). The LIVE runtime path (voice-model.js's openRouterRung) had the same mp3-only bug until 2026-07-11 — every real playback/narration through this model 400'd, not just a preview; fixed to mirror the generator's pcm+WAV-wrap for this one model.",
+      "_note": "Full 30-of-30 live roster cached (2026-07-13) — Gemini is one of the two cheapest, highest-quality engines (with Kokoro), so it earns a complete sample cache. Its voices are bare, language-agnostic names (Puck, Kore, …) with no language or gender encoded in the id, so the voice picker groups them under a single 'All voices' list, not by language. This model's speech endpoint 400s on response_format:\"mp3\" and only returns raw PCM — the generator requests pcm and wraps it in a WAV container, reading the real sample rate off the response's Content-Type header rather than hardcoding it. The LIVE runtime path (voice-model.js's openRouterRung) had the same mp3-only bug until 2026-07-11 — every real playback/narration through this model 400'd, not just a preview; fixed to mirror the generator's pcm+WAV-wrap for this one model.",
       "_speedNote": "Live-tested (2026-07-11): a 0.6x/1.6x request's PCM byte length barely moves (-1% / -7%, versus the 60%+/-40% a real multiplier would produce) — the `speed` param has no meaningful effect. Consistent with Gemini's public API, which controls pace via natural-language style prompts, not a numeric multiplier; OpenRouter's passthrough silently drops it for this model."
     },
     "orpheus": {
       "modelId": "canopylabs/orpheus-3b-0.1-ft",
       "requiresAsset": true,
       "cachedVoices": ["tara", "leah", "jess", "leo", "dan", "mia", "zac"],
+      "voiceGenders": { "tara": "F", "leah": "F", "jess": "F", "mia": "F", "leo": "M", "dan": "M", "zac": "M" },
       "speedSupport": false,
       "_note": "Full live roster (7 of 7) — OpenRouter's own supported_voices field does NOT include \"zoe\", which an earlier hand-typed roster (sourced from the model's GitHub README, not verified live) wrongly included; that voice consistently 500s on OpenRouter's hosted endpoint. The live field would have caught this from day one.",
       "_speedNote": "Live-tested (2026-07-11): a 0.6x/1.6x request's duration moved BACKWARDS from what a real multiplier would produce (0.6x came out shorter than baseline, 1.6x longer) and stayed within this model's own ~17% take-to-take variance. No detectable effect."
@@ -39,6 +45,7 @@
       "requiresAsset": true,
       "cachedVoices": ["en-US-Ethan:MAI-Voice-2", "en-US-Grant:MAI-Voice-2", "en-US-Harper:MAI-Voice-2", "en-US-Iris:MAI-Voice-2", "en-US-Jasper:MAI-Voice-2", "en-US-Olivia:MAI-Voice-2"],
       "voiceOverride": ["en-US-Ethan:MAI-Voice-2", "en-US-Grant:MAI-Voice-2", "en-US-Harper:MAI-Voice-2", "en-US-Iris:MAI-Voice-2", "en-US-Jasper:MAI-Voice-2", "en-US-Olivia:MAI-Voice-2", "en-AU-Lisa:MAI-Voice-2", "es-MX-Valeria:MAI-Voice-2", "fr-FR-Soleil:MAI-Voice-2", "de-DE-Klaus:MAI-Voice-2"],
+      "voiceGenders": { "en-US-Ethan:MAI-Voice-2": "M", "en-US-Grant:MAI-Voice-2": "M", "en-US-Harper:MAI-Voice-2": "F", "en-US-Iris:MAI-Voice-2": "F", "en-US-Jasper:MAI-Voice-2": "M", "en-US-Olivia:MAI-Voice-2": "F", "en-AU-Lisa:MAI-Voice-2": "F", "es-MX-Valeria:MAI-Voice-2": "F", "fr-FR-Soleil:MAI-Voice-2": "F", "de-DE-Klaus:MAI-Voice-2": "M" },
       "speedSupport": true,
       "_note": "The ONE engine where OpenRouter's own supported_voices field is a non-exhaustive SAMPLE (4 examples), not the full roster — Microsoft's official docs (learn.microsoft.com/azure/ai-services/speech-service/mai-voices) publish the real 44-voice multilingual roster. voiceOverride supplements the live field with the English-locale voices from that official list, live-verified against OpenRouter's hosted endpoint one by one (format confirmed: \"en-US-Harper:MAI-Voice-2\", case-insensitive on the locale segment). en-AU-Lisa consistently 502'd on 3 separate live calls (not transient) and is excluded from cachedVoices but kept in voiceOverride so it still appears in the dropdown — OpenRouter's own outage, not ours to hide.",
       "_speedNote": "Live-tested (2026-07-11): a 0.6x/1.6x request produces audio roughly ~2x longer / ~0.7x shorter than baseline — well beyond this model's own ~10% take-to-take variance and in the right direction (Azure's SSML prosody-rate backing this endpoint). Real support, though not a perfectly linear multiplier at the extremes — never errored even at speed=10, but plateaus around a ~1.5s floor by roughly speed=3."
@@ -71,6 +78,7 @@
       "modelId": "mistralai/voxtral-mini-tts-2603",
       "requiresAsset": true,
       "cachedVoices": ["en_paul_sad", "en_paul_neutral", "en_paul_happy", "en_paul_frustrated", "en_paul_excited", "en_paul_confident", "en_paul_cheerful", "en_paul_angry"],
+      "voiceGenders": { "en_paul_sad": "M", "en_paul_neutral": "M", "en_paul_happy": "M", "en_paul_frustrated": "M", "en_paul_excited": "M", "en_paul_confident": "M", "en_paul_cheerful": "M", "en_paul_angry": "M" },
       "speedSupport": false,
       "_note": "8-of-30 English-only featured subset (also gb_oliver_*, gb_jane_*, fr_marie_* live and work, just uncached). Mistral's OWN API docs describe voice_id as user-created via voice cloning only — these named presets are real and OpenRouter-published regardless; verified live one by one before caching, not trusted on documentation alone.",
       "_speedNote": "Live-tested (2026-07-11): duration moved BACKWARDS from what a real multiplier would produce and stayed within this model's own ~18% take-to-take variance. No detectable effect."

@@ -1,6 +1,5 @@
-import { Download, Loader2, PlayCircle } from 'lucide-react';
+import { Check, ChevronDown, Download, Loader2, Mars, PlayCircle, Venus } from 'lucide-react';
 import * as React from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import {
@@ -21,7 +20,7 @@ import {
 	voiceAvailability,
 } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
-import { KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { countryName, flagEmoji, groupVoices, KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
 // generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
@@ -98,9 +97,45 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
  *  a theoretical case today, since every live TTS model has one), this renders a
  *  DISABLED, explained field instead of an editable one — guessing a voice id
  *  blind is worse than admitting we don't have one. */
+// A ♀/♂ adornment for a voice row whose gender we know (Kokoro from its id; the other
+// engines from the catalog's curated voiceGenders map). Absent — not a placeholder —
+// where the gender is unknown, so the row stays clean. Lucide Venus/Mars icons (not a
+// text glyph), tinted to match the voice name (inherits `currentColor`), to match the
+// rest of the Studio's icon set.
+function GenderMark({ gender }: { gender?: 'F' | 'M' }) {
+	if (!gender) return null;
+	const Icon = gender === 'F' ? Venus : Mars;
+	const label = gender === 'F' ? 'Female' : 'Male';
+	return <Icon role="img" aria-label={label} className="size-3.5 shrink-0" />;
+}
+
+// A country flag for a voice row whose language maps to a country (Kokoro/Voxtral/MAI/
+// Zonos). Replaces the old "· US" text suffix — the flag sits next to the gender icon.
+// Emoji flags render on iOS/macOS; a desktop browser without flag glyphs falls back to
+// the 2-letter code, still meaningful. Absent for a language-agnostic engine (Gemini).
+function FlagMark({ country }: { country?: string }) {
+	const flag = flagEmoji(country);
+	if (!flag) return null;
+	return (
+		<span role="img" aria-label={countryName(country)} title={countryName(country)} className="shrink-0 text-[13px] leading-none">
+			{flag}
+		</span>
+	);
+}
+
+// The voice picker: an inline, expand-in-place search panel grouped as ★ Featured +
+// language groups (where the id encodes language) or a single "All voices" list, with
+// a gender badge per row. Replaces the old flat <Select> — a 30–54-voice roster needs
+// search + curation, not one long scroll. It mirrors TtsModelPicker's proven inline
+// pattern (a collapsed summary → search input + scrollable grouped list) RATHER than a
+// Popover+cmdk combobox: a Radix Popover portaled inside the Workspace Sheet's modal
+// dialog left the search field un-typeable on real iOS Safari (2026-07-13 device
+// report — see engineering/decisions/2026-07-13-tts-picker-ia.md § iOS fix; HARD RULE
+// #15, don't fork a widget per surface). `modelId` drives the grouping (groupVoices).
 function VoicePicker({
 	label,
 	ariaLabel,
+	modelId,
 	voices,
 	value,
 	onPick,
@@ -108,11 +143,27 @@ function VoicePicker({
 }: {
 	label: string;
 	ariaLabel: string;
+	modelId: string;
 	voices: Voice[];
 	value: string;
 	onPick: (voiceId: string) => void;
 	disabled?: boolean;
 }) {
+	const [open, setOpen] = React.useState(false);
+	const [query, setQuery] = React.useState('');
+	const searchRef = React.useRef<HTMLInputElement>(null);
+	const { featured, groups } = React.useMemo(() => groupVoices(modelId, voices), [modelId, voices]);
+	const selected = React.useMemo(() => voices.find((v) => v.id === value), [voices, value]);
+
+	// Manual substring filter (name + id + the group's language name, so typing
+	// "japanese"/"spanish" narrows to that language) — the cmdk equivalent of the old
+	// combobox, minus the iOS-hostile Popover.
+	const q = query.trim().toLowerCase();
+	const match = (row: { id: string; label: string }, lang = '') => !q || `${row.label} ${row.id} ${lang}`.toLowerCase().includes(q);
+	const fFeatured = featured.filter((r) => match(r));
+	const fGroups = groups.map((g) => ({ ...g, voices: g.voices.filter((r) => match(r, g.label)) })).filter((g) => g.voices.length > 0);
+	const nothing = fFeatured.length === 0 && fGroups.length === 0;
+
 	if (!voices.length) {
 		return (
 			<div>
@@ -129,21 +180,87 @@ function VoicePicker({
 			</div>
 		);
 	}
+
+	const choose = (id: string) => {
+		onPick(id);
+		setOpen(false);
+		setQuery('');
+	};
+	const Row = (row: { id: string; label: string; country?: string; gender?: 'F' | 'M' }) => {
+		const sel = row.id === value;
+		return (
+			<button
+				type="button"
+				role="option"
+				aria-selected={sel}
+				key={row.id}
+				onClick={() => choose(row.id)}
+				// text-heading on the button, so the name AND the gender icon (currentColor) share one color.
+				className={cn('flex w-full items-center gap-2 rounded-md bg-transparent px-2 py-2 text-left text-[13px] text-[var(--text-heading)]', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}
+			>
+				<Check className={cn('size-3.5 shrink-0', sel ? 'opacity-100 text-[var(--accent)]' : 'opacity-0')} />
+				<span className="min-w-0 flex-1 truncate">{row.label}</span>
+				<FlagMark country={row.country} />
+				<GenderMark gender={row.gender} />
+			</button>
+		);
+	};
+
 	return (
 		<div>
 			<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
-			<Select value={value} onValueChange={onPick} disabled={disabled}>
-				<SelectTrigger className="w-full" aria-label={ariaLabel}>
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>
-					{voices.map((v) => (
-						<SelectItem key={v.id} value={v.id}>
-							{v.label}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			<div className={cn('rounded-lg border', open ? 'border-[var(--accent)]' : 'border-border')}>
+				<button
+					type="button"
+					role="combobox"
+					aria-label={ariaLabel}
+					aria-expanded={open}
+					aria-haspopup="listbox"
+					disabled={disabled}
+					onClick={() => {
+						const next = !open;
+						setOpen(next);
+						if (next) requestAnimationFrame(() => searchRef.current?.focus());
+					}}
+					className="flex w-full items-center gap-2 bg-transparent px-3 py-2 text-left text-[13px] text-foreground disabled:opacity-50"
+				>
+					<span className="min-w-0 flex-1 truncate">{selected?.label ?? 'Choose a voice…'}</span>
+					<ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+				</button>
+				{open && !disabled && (
+					<div className="border-t border-border p-2">
+						<input
+							ref={searchRef}
+							type="search"
+							value={query}
+							onChange={(e) => setQuery(e.target.value)}
+							placeholder="Search voices…"
+							aria-label={`Search ${ariaLabel}`}
+							className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] text-foreground outline-none focus:border-[var(--accent)]"
+						/>
+						<div role="listbox" aria-label={ariaLabel} className="mt-2 max-h-[280px] overflow-y-auto">
+							{nothing ? (
+								<p className="px-2 py-3 text-[12.5px] text-muted-foreground">No voice found.</p>
+							) : (
+								<>
+									{fFeatured.length > 0 && (
+										<div>
+											<div className="px-2 pb-1 pt-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">★ Featured</div>
+											{fFeatured.map(Row)}
+										</div>
+									)}
+									{fGroups.map((g) => (
+										<div key={g.key}>
+											<div className="px-2 pb-1 pt-2 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">{g.label}</div>
+											{g.voices.map(Row)}
+										</div>
+									))}
+								</>
+							)}
+						</div>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }
@@ -366,6 +483,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 					<VoicePicker
 						label="Voice"
 						ariaLabel="Cloud TTS voice"
+						modelId={effectiveOrModel}
 						voices={orModelVoices}
 						value={orVoice}
 						onPick={pickOrVoice}
@@ -433,6 +551,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 				<VoicePicker
 					label="Voice"
 					ariaLabel="On-device TTS voice"
+					modelId={KOKORO_MODEL_ID}
 					voices={kokoroVoices}
 					value={kokoroVoice}
 					onPick={pickKokoroVoice}

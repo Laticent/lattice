@@ -171,6 +171,25 @@ in patch versions.
   real iOS) the question CI can only answer headless. Renders nothing and scans nothing until enabled
   (off = free); fed by the render pipeline after each slide lands in the preview. (`VizDiagnosticsOverlay`,
   `viz-overlay-prefs`, `viz-findings`.)
+- **The Studio voice picker is now searchable and grouped — ★ Featured, then by language, with a ♀/♂ badge.**
+  The flat voice dropdown (fine for 5 voices, unusable for Kokoro's 54 or Gemini's 30) is now a searchable,
+  expand-in-place panel: a curated ★ Featured highlight on top, then one group per language *where the voice id
+  encodes it* (Kokoro, Voxtral, MAI), with a gender badge (lucide Venus/Mars icons) per row. Engines whose voices
+  are bare, multilingual names (Gemini, Grok, Orpheus, CSM — no language in the id) collapse to a single "All
+  voices" list — a female/male-by-language tree can't be built honestly for them. Language is derived from id
+  structure and shown as a **country flag** on each row (replacing the old "· US" text); **gender is shown for
+  every engine where it's reliably known** — from the id (Kokoro, Zonos) or a curated, provider-sourced map
+  (Gemini uses Google's official Gender column; Grok/Orpheus/Voxtral/MAI from their docs), and simply absent for
+  genuinely persona-less voices (CSM) or language-agnostic engines (Gemini has no flag) — never guessed. New `featuredVoices` catalog
+  field (curated top) is now distinct from `cachedVoices` (has-a-sample). See `engineering/decisions/2026-07-13-tts-picker-ia.md`.
+- **The Studio TTS model picker ranks by price and shows a $/$$/$$$ value tier.** The Featured/Value/Free lenses
+  now sort low→high by price (floating the cheapest, highest-quality engines — Kokoro then Gemini — to the top)
+  and tag each row with a `$`/`$$`/`$$$` value-tier badge; the browse-everything All lens keeps vendor grouping.
+- **Every Gemini voice now has an instant sample — its full 30-of-30 roster is cached.** Gemini is, with Kokoro,
+  one of the two cheapest and highest-quality engines, so it earns a complete sample cache like the others:
+  auditions play from a committed local file through the `<audio>` fast path, no live OpenRouter round-trip.
+  Raises the committed set to 125 samples across 9 engines. `tts-voice-catalog.json` + `docs/public/voice-samples/gemini/`.
+
 - **An "Acronyms" panel in the deck settings — teach a term's spoken expansion (and a glossary
   definition) without hand-writing YAML.** The deck-scope Inspector gains an Acronyms group beside
   Lexicon: add `TERM → spoken expansion` and an optional definition, and it writes the `acronyms:`
