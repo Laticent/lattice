@@ -1640,9 +1640,46 @@ var require_chart_narration = __commonJS({
       const hasBranch = g.order.some((id) => dagOutDeg(id) >= 2);
       const hasMerge = g.order.some((id) => (dagIn.get(id) || 0) >= 2);
       const complex = entries.length > 1 || hasBranch && (hasMerge || back.size > 0);
-      if (complex && entries.length && terminals.length) {
-        say(`It begins at ${joinWithAnd(entries.map(lbl))} and ends at ${joinWithAnd(terminals.map(lbl))}${back.size ? ", with a loop back" : ""}`);
+      const nNodes = g.order.filter((id) => (g.outDeg.get(id) || 0) + (g.inDeg.get(id) || 0) > 0).length;
+      const convergences = g.order.filter((id) => (dagIn.get(id) || 0) >= 2);
+      const loopTargets = [...new Set([...back].map((k) => k.split(BACK_SEP)[1]))];
+      let maxOut = 0;
+      let hub = null;
+      for (const id of g.order) if (dagOutDeg(id) > maxOut) {
+        maxOut = dagOutDeg(id);
+        hub = id;
       }
+      const memoLP = /* @__PURE__ */ new Map();
+      const longest = (u) => {
+        if (memoLP.has(u)) return memoLP.get(u);
+        let best = 0;
+        for (const o of dagOut(u)) best = Math.max(best, 1 + longest(o.to));
+        memoLP.set(u, best);
+        return best;
+      };
+      const hops = g.order.length ? Math.max(...g.order.map(longest)) : 0;
+      const num = (n) => numberToWords(n);
+      const renderGist = () => {
+        const gated = (hasBranch || back.size > 0 || entries.length > 1) && nNodes >= 4;
+        if (!gated || !entries.length || !terminals.length) return null;
+        const clauses = [];
+        if (entries.length === 1 && terminals.length === 1 && convergences.length === 1 && maxOut >= 2 && hops <= 3) {
+          clauses.push(`a diamond \u2014 the path splits ${maxOut === 2 ? "in two" : `${num(maxOut)} ways`} and rejoins at ${lbl(convergences[0])}`);
+        } else if (maxOut >= 2 && convergences.length) {
+          clauses.push(`${num(hops)} hops deep \u2014 it fans out to ${num(maxOut)} parallel paths, then narrows to ${num(terminals.length)} ${terminals.length > 1 ? "endpoints" : "endpoint"}`);
+          const conv = convergences.filter((c) => !(terminals.length === 1 && c === terminals[0]));
+          if (conv.length) clauses.push(`${joinWithAnd(conv.map(lbl))} ${conv.length > 1 ? "are" : "is"} shared`);
+        } else if (maxOut >= 2) {
+          clauses.push(`a ${num(maxOut)}-way fan-out from ${lbl(hub)}, with no reconvergence`);
+        } else {
+          clauses.push(`${num(nNodes)} steps from ${joinWithAnd(entries.map(lbl))} to ${joinWithAnd(terminals.map(lbl))}`);
+        }
+        if (back.size) clauses.push(`with a loop back to ${joinWithAnd(loopTargets.map(lbl))}`);
+        const s = clauses.join(", ");
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      };
+      const gistText = renderGist();
+      if (gistText) say(gistText);
       const frag = (o) => {
         const to = lbl(o.to);
         if (!o.label) return `leads to ${to}`;

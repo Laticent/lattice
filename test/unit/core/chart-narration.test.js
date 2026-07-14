@@ -914,16 +914,22 @@ test('narrateDiagram: a condition-labeled fan-IN is NOT coalesced — each guard
   assert.ok(out.includes('on yes, leads to Go'), out);
 });
 
-test('narrateDiagram: the topological OVERVIEW is gated — fires on a diamond, silent on a linear chain / lone fan-out', () => {
-  // Diamond (branch + reconvergence) → the shape isn't obvious from one walk sentence.
+test('narrateDiagram: the GIST layer is gated — a shape line on a non-trivial graph, silent on a pure linear chain', () => {
+  // Diamond (branch + reconvergence) → a one-line shape characterization opens the reading.
   const diamond = narrateDiagram(diagram('  S["Req"] --> A["Validate"]\n  S --> B["Auth"]\n  A --> M["Process"]\n  B --> M\n  M --> E["Respond"]', 'flowchart TD'));
-  assert.ok(diamond.includes('It begins at Req and ends at Respond.'), diamond);
-  // A 7-node linear chain: the walk already says start→end, so an overview would be boilerplate.
+  assert.ok(diamond.includes('A diamond — the path splits in two and rejoins at Process.'), diamond);
+  // A 7-node linear chain: the walk already says start→end, so the gist stays silent.
   const chain = narrateDiagram(diagram('  A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7'));
-  assert.ok(!chain.includes('It begins at'), chain);
-  // A lone fan-out: same — the fan-out sentence says it.
+  assert.ok(!/diamond|hops deep|fan-out|steps from/.test(chain), chain);
+  // A lone fan-out gets a shape line naming the hub and the lack of reconvergence.
   const fan = narrateDiagram(diagram('  R["Root"] --> A\n  R --> B\n  R --> C', 'flowchart TD'));
-  assert.ok(!fan.includes('It begins at'), fan);
+  assert.ok(fan.includes('A three-way fan-out from Root, with no reconvergence.'), fan);
+});
+
+test('narrateDiagram: the GIST characterizes a wide graph by shape + the shared node, with numbers spoken', () => {
+  const wide = narrateDiagram(diagram('  U["Browser"] --> LB["Load Balancer"] --> GW["API Gateway"]\n  GW --> Auth["Auth"]\n  GW --> Ord["Orders"]\n  GW --> Srch["Search"]\n  Auth --> DB[("User DB")]\n  Ord --> DB\n  Srch --> Cache[("Cache")]', 'flowchart LR'));
+  assert.ok(wide.includes('fans out to three parallel paths'), wide); // numbers spelled for TTS
+  assert.ok(wide.includes('User DB is shared'), wide); // the one convergence node is flagged
 });
 
 test('narrateDiagram: a feedback loop reads its loop-back and ends cleanly (no doubled "?.")', () => {
