@@ -50,6 +50,11 @@ export interface StageOptions {
 	 *  audible hiss; the effective value depends on the route and is best confirmed on a real device.
 	 *  Default ~0.0015 (≈ -56 dBFS). */
 	keepAliveGain?: number;
+	/** How long the route stays warm after the last clip before the keep-alive releases (so an idle tab
+	 *  isn't pinned holding the Bluetooth/CarPlay link + media session open). Re-armed on the next
+	 *  play()/unlock(). Must exceed the inter-clip gap + next-sentence synth time so it never fires
+	 *  mid-read. Default 30000 (30 s). */
+	keepAliveIdleMs?: number;
 }
 
 /** The measured span of a clip, read at its TRUE audio start (not schedule time). */

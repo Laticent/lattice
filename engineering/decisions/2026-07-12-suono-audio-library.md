@@ -203,7 +203,13 @@ Each of these is a real bug voice-model.js paid for once. In Suono they are the 
   the destination (`keepAlive`, default on; `keepAliveGain`, device-tunable ≈ -56 dBFS) so the route
   never idles. It is deliberately OUTSIDE `activeSources` (a `stopAll()`/barge-in must NOT stop it —
   keeping the route warm across a barge-in is the point) and outside the play-clock, so caption sync
-  is provably unaffected — unit-covered. Note this is web-only leverage: the app cannot see or set the
+  is provably unaffected — unit-covered. **Lifecycle (checker finding):** it must not run for the whole
+  tab — the read-aloud stage is a singleton that's never `dispose()`d, so an only-stops-on-dispose
+  warmer would pin the link + iOS media session awake forever after one read (battery / audio-ducking).
+  Stopping on `stop()` is wrong too (a barge-in re-plays immediately → the pop returns). So it's armed on
+  play()/unlock(), held across barge-ins and inter-clip gaps, and RELEASED by an idle timer
+  (`keepAliveIdleMs`, default 30 s — above the produce watchdog so it never fires mid-read) once no clip
+  is active, then re-armed on the next play. Note this is web-only leverage: the app cannot see or set the
   Bluetooth codec/bitrate (the OS owns that), and cannot reliably detect the route from JS on iOS
   Safari, so route-detection + source-bitrate reduction were rejected as unbuildable on this platform;
   an always-on, detection-free keep-alive is the tractable fix. Audible sign-off is device-only (#23).

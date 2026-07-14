@@ -519,11 +519,13 @@ in patch versions.
 - **Read-aloud no longer turns choppy or pops between sentences over Bluetooth / Apple CarPlay.**
   On those routes iOS powers the audio link down when the rendered stream goes to digital silence
   between per-sentence clips; each new clip then had to wake the link, clipping/popping its first
-  few ms and stuttering as the far-end buffer refilled. Suono's `stage` now holds a continuous,
-  sub-audible noise source on the output so the route never idles, and the next clip starts warm.
-  It lives entirely outside the clip graph and the play-clock, so caption sync (which rides
-  `clockMs()` + the measured `onStart` onset) is unaffected; it's harmless on wired/speaker output.
-  On by default (`keepAlive` / `keepAliveGain` `StageOptions`; the gain is device-tunable). The
+  few ms and stuttering as the far-end buffer refilled. Suono's `stage` now holds a sub-audible
+  noise source on the output *while reading* so the route never idles, and the next clip starts warm.
+  It's kept alive across barge-ins and inter-clip gaps, then released by an idle timer once a read
+  ends (so an idle tab never pins the link / iOS media session), and re-armed on the next play. It
+  lives entirely outside the clip graph and the play-clock, so caption sync (which rides `clockMs()`
+  + the measured `onStart` onset) is unaffected; it's harmless on wired/speaker output. On by
+  default (`keepAlive` / `keepAliveGain` / `keepAliveIdleMs` `StageOptions`; the gain is device-tunable). The
   audible fix is device-only — the graph wiring and clock-independence are unit-covered; the "pop is
   gone over real CarPlay" claim is **UNVERIFIED** from CI and needs a device sign-off (HARD RULE #23).
 - **The Key Insight panel no longer out-shouts the content it summarizes.** The

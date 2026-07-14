@@ -77,11 +77,13 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 - Latency-compensated clock so a caption tracks the ear, not the buffer.
 - **Declick:** a few-ms gain ramp at each clip's head + tail so playback never steps from/to a
   non-zero sample — the click/pop at a clip boundary, worst on many-short-fragment slides (`fadeMs`).
-- **Route keep-alive:** a continuous, sub-audible noise source holds the OUTPUT route awake between
-  clips, so a Bluetooth / Apple CarPlay link never idles and wakes with a pop/stutter on the next
-  sentence (the "choppy over CarPlay" report). Lives outside the clip graph and the play-clock, so it
-  never touches caption sync; harmless on wired/speaker output. On by default (`keepAlive`,
-  `keepAliveGain` — the gain is device-tunable).
+- **Route keep-alive:** a sub-audible noise source holds the OUTPUT route awake WHILE READING, so a
+  Bluetooth / Apple CarPlay link never idles between per-sentence clips and wakes with a pop/stutter on
+  the next one (the "choppy over CarPlay" report). It's kept alive across barge-ins and the gaps
+  between clips, then RELEASED by an idle timer once a read is genuinely done (so it never pins the
+  link / iOS media session for an idle tab), and re-armed on the next play. Lives outside the clip
+  graph and the play-clock, so it never touches caption sync; harmless on wired/speaker output. On by
+  default (`keepAlive`, `keepAliveGain` device-tunable, `keepAliveIdleMs`).
 - **Reliable pause/resume:** pausing a live clip fades it out, **stops** it, and remembers the
   offset; resuming plays a **fresh** source from that offset (fading back in). We do NOT lean on
   `AudioContext.suspend()/resume()` to freeze a mid-flight source — that drops audio on resume on

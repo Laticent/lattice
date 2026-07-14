@@ -42,6 +42,7 @@ function installMockAudio(cfg?: { decoded?: { length: number; channels: number; 
 afterEach(() => {
 	(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
 	vi.restoreAllMocks();
+	vi.useRealTimers(); // safe even when a test never enabled fake timers
 });
 
 const bytesOfSize = (size: number) => ({ size, type: 'audio/wav', arrayBuffer: vi.fn(async () => new ArrayBuffer(Math.min(size, 8))) });
@@ -351,5 +352,43 @@ describe('createStage — keep-alive route-warmer (Bluetooth / CarPlay anti-chop
 		stage.dispose();
 		const ka = sources.find((s) => s.loop);
 		expect(ka?.stopped).toBe(true);
+	});
+
+	it('SURVIVES a natural clip finish, then releases on the idle timeout; a later play re-arms a fresh one', async () => {
+		vi.useFakeTimers();
+		const { sources } = installKeepAliveAudio();
+		const stage = createStage({ keepAliveIdleMs: 30000 });
+		const clip = await stage.decode(bytesOfSize(8), 'k');
+		const handle = stage.play(clip);
+		const ka1 = sources.find((s) => s.loop);
+		// The clip ends naturally (its onended → finish()).
+		sources.find((s) => !s.loop)?.onended?.();
+		await handle.done;
+		expect(ka1?.stopped).toBe(false); // the per-clip finish itself must NOT stop the warmer (route stays warm)
+		vi.advanceTimersByTime(30000); // ...only the idle timer does
+		expect(ka1?.stopped).toBe(true);
+		// A fresh read re-arms a NEW keep-alive (the released one isn't reused).
+		const clip2 = await stage.decode(bytesOfSize(8), 'k2');
+		stage.play(clip2);
+		const loops = sources.filter((s) => s.loop);
+		expect(loops.length).toBe(2);
+		expect(loops[1].stopped).toBe(false);
+	});
+
+	it('a next clip before the idle timeout CANCELS the release — the route never goes cold mid-read', async () => {
+		vi.useFakeTimers();
+		const { sources } = installKeepAliveAudio();
+		const stage = createStage({ keepAliveIdleMs: 30000 });
+		const clipA = await stage.decode(bytesOfSize(8), 'a');
+		const hA = stage.play(clipA);
+		sources.filter((s) => !s.loop).at(-1)?.onended?.(); // clip A ends → arms the 30s release
+		await hA.done;
+		vi.advanceTimersByTime(10000); // partway through the idle window
+		const clipB = await stage.decode(bytesOfSize(8), 'b'); // the next sentence arrives in time
+		stage.play(clipB);
+		vi.advanceTimersByTime(30000); // well past the ORIGINAL deadline — the cancelled timer must not fire
+		const loops = sources.filter((s) => s.loop);
+		expect(loops.length).toBe(1); // same warmer throughout — never released, never re-created
+		expect(loops[0].stopped).toBe(false);
 	});
 });

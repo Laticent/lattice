@@ -25,6 +25,11 @@ const DEFAULT_FADE_MS = 8; // declick ramp at each clip head/tail — inaudible 
 // The gain is DEVICE-TUNABLE (silence-suppression thresholds vary and are UNVERIFIED from this sandbox):
 // too low may not defeat suppression, too high becomes audible hiss. ~-56 dBFS is a conservative start.
 const DEFAULT_KEEPALIVE_GAIN = 0.0015;
+// How long the route stays warm after the last clip ends before the keep-alive releases. Must sit
+// comfortably above the inter-clip gap (≤ a breath, plus the next sentence's synth time — the produce
+// watchdog caps that at ~20 s) so it NEVER fires mid-read, yet short enough that an idle tab isn't
+// pinned. 30 s clears the watchdog with margin. Re-armed on the next play()/unlock().
+const DEFAULT_KEEPALIVE_IDLE_MS = 30000;
 
 const hasWindow = typeof window !== 'undefined';
 
@@ -68,6 +73,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 	const fadeMs = opts.fadeMs ?? DEFAULT_FADE_MS;
 	const keepAlive = opts.keepAlive !== false; // default ON — harmless on wired/speaker output
 	const keepAliveGain = opts.keepAliveGain ?? DEFAULT_KEEPALIVE_GAIN;
+	const keepAliveIdleMs = opts.keepAliveIdleMs ?? DEFAULT_KEEPALIVE_IDLE_MS;
 
 	// Decoded-clip cache, bounded by BOTH entry count AND aggregate decoded bytes. IMPORTANT — this is
 	// a RETENTION cap (bounds steady-state cache growth across a long session), NOT an allocation
@@ -94,12 +100,25 @@ export function createStage(opts: StageOptions = {}): Stage {
 	}
 
 	let audioCtx: AudioContext | null = null;
-	// The keep-alive noise source (see DEFAULT_KEEPALIVE_GAIN). It lives ENTIRELY outside the clip
-	// graph and the play-clock: it is never added to `activeSources` (so `stopAll()` / a barge-in can't
-	// stop it — keeping the route warm ACROSS a barge-in is exactly the point), and it never touches
-	// `currentTime`, the pause/offset bookkeeping, or onset reporting. So caption sync — which rides
-	// `clockMs()` (raw `currentTime`) and the measured `onStart` onset — is provably independent of it.
+	// The keep-alive noise source (see DEFAULT_KEEPALIVE_GAIN) + its attenuating gain node. It lives
+	// ENTIRELY outside the clip graph and the play-clock: never added to `activeSources` (so a per-clip
+	// finish, `stopAll()`, or a barge-in can't stop it — keeping the route warm ACROSS a barge-in is the
+	// point), and it never touches `currentTime`, the pause/offset bookkeeping, or onset reporting. So
+	// caption sync — which rides `clockMs()` (raw `currentTime`) and the measured `onStart` onset — is
+	// provably independent of it.
+	//
+	// LIFECYCLE — warm while reading, released on genuine idle. The keep-alive must NOT run for the whole
+	// tab: a shared read-aloud stage is created once and never disposed, so if the warmer only stopped on
+	// dispose() it would pin the Bluetooth/CarPlay link + iOS media session awake forever after a single
+	// read (battery drain, audio-ducking of other apps). But stopping it on `stop()`/barge-in is wrong too
+	// — a barge-in is immediately followed by a new clip, and a cold route there reintroduces the very pop.
+	// So: it's (re)armed on play()/unlock(), kept alive across barge-ins and the sub-second gaps between
+	// clips, and RELEASED by an idle timer that arms when no clip is active and is cancelled the moment the
+	// next clip does. A genuine end-of-read (no follow-up clip) lets the timer fire → the route idles ~a few
+	// seconds later; the next play re-arms it (unlock() in the tap warms it ahead of the first clip again).
 	let keepAliveSource: AudioBufferSourceNode | null = null;
+	let keepAliveGainNode: GainNode | null = null;
+	let keepAliveReleaseTimer: ReturnType<typeof setTimeout> | null = null;
 	// Play-clock pause accounting. `clockMs()` must FREEZE the instant a pause is tapped — else the
 	// caption drifts ahead of the (re-armed-from-the-tap) audio, and it accumulates across cycles. We
 	// can't rely on `ctx.suspend()` for that: a mid-clip pause defers the suspend past the declick
@@ -141,15 +160,58 @@ export function createStage(opts: StageOptions = {}): Stage {
 		return audioCtx;
 	}
 
-	// Start the near-silent keep-alive route-warmer (idempotent). Best-effort: if anything throws (a
-	// partial/mock engine with no real `createBuffer`/`getChannelData`, or `keepAlive` disabled) it is a
-	// silent no-op that NEVER breaks playback. Requires a running context, so it's driven from unlock()
-	// (inside the gesture, ahead of the first clip → even the first sentence starts warm) and, as a
-	// fallback, from the first armSource().
+	function cancelKeepAliveRelease(): void {
+		if (keepAliveReleaseTimer) {
+			clearTimeout(keepAliveReleaseTimer);
+			keepAliveReleaseTimer = null;
+		}
+	}
+	// Tear the keep-alive graph fully down (source AND its gain node — symmetric with the build, so a
+	// failed/replaced warmer can't orphan a node on the destination). Idempotent.
+	function stopKeepAlive(): void {
+		cancelKeepAliveRelease();
+		if (keepAliveSource) {
+			try {
+				keepAliveSource.stop();
+			} catch {
+				/* best-effort */
+			}
+		}
+		try {
+			keepAliveSource?.disconnect?.();
+		} catch {
+			/* best-effort */
+		}
+		try {
+			keepAliveGainNode?.disconnect?.();
+		} catch {
+			/* best-effort */
+		}
+		keepAliveSource = null;
+		keepAliveGainNode = null;
+	}
+	// Arm the idle release: once no clip is active, let the route go cold after keepAliveIdleMs. Cancelled
+	// by the next play()/unlock() (via ensureKeepAlive). No-op if already scheduled or nothing's running.
+	function scheduleKeepAliveRelease(): void {
+		if (!keepAlive || !keepAliveSource || keepAliveReleaseTimer) return;
+		keepAliveReleaseTimer = setTimeout(() => {
+			keepAliveReleaseTimer = null;
+			stopKeepAlive();
+		}, keepAliveIdleMs);
+	}
+
+	// Start the near-silent keep-alive route-warmer (idempotent) and cancel any pending idle release —
+	// we're (re)active. Best-effort: if anything throws (a partial/mock engine with no real
+	// `createBuffer`/`getChannelData`, or `keepAlive` disabled) it's a silent no-op that NEVER breaks
+	// playback. Requires a running context, so it's driven from unlock() (inside the gesture, ahead of the
+	// first clip → even the first sentence starts warm) and, as a fallback, from every play().
 	function ensureKeepAlive(): void {
-		if (!keepAlive || keepAliveSource) return;
+		if (!keepAlive) return;
+		cancelKeepAliveRelease(); // a play/unlock while a release is pending → stay warm
+		if (keepAliveSource) return;
 		const ctx = getCtx();
 		if (!ctx) return;
+		let g: GainNode | null = null;
 		try {
 			const rate = Math.max(1, Math.floor(ctx.sampleRate || 48000));
 			const buffer = ctx.createBuffer(1, rate, rate); // ~1s mono, looped
@@ -158,14 +220,21 @@ export function createStage(opts: StageOptions = {}): Stage {
 			const src = ctx.createBufferSource();
 			src.buffer = buffer;
 			src.loop = true;
-			const g = ctx.createGain();
+			g = ctx.createGain();
 			g.gain.value = keepAliveGain; // attenuate to sub-audible (see DEFAULT_KEEPALIVE_GAIN)
 			src.connect(g);
 			g.connect(ctx.destination);
 			src.start(0);
 			keepAliveSource = src;
+			keepAliveGainNode = g;
 		} catch {
-			keepAliveSource = null; // never let a keep-alive failure break real playback
+			try {
+				g?.disconnect(); // symmetric cleanup — don't orphan a half-wired gain node on failure
+			} catch {
+				/* best-effort */
+			}
+			keepAliveSource = null;
+			keepAliveGainNode = null; // never let a keep-alive failure break real playback
 		}
 	}
 
@@ -266,6 +335,9 @@ export function createStage(opts: StageOptions = {}): Stage {
 			if (src) activeSources.delete(src);
 			src = null;
 			gainNode = null;
+			// Nothing left playing → start the keep-alive idle countdown (cancelled if a next clip arms
+			// before it fires). Covers BOTH a natural end-of-read and a stop()/barge-in.
+			if (activeSources.size === 0) scheduleKeepAliveRelease();
 			resolveDone(r);
 		};
 		const onAbort = () => {
@@ -520,15 +592,14 @@ export function createStage(opts: StageOptions = {}): Stage {
 				}
 			}
 			activeSources.clear();
+			// A barge-in that isn't followed by a new play (an explicit Stop) should let the route idle;
+			// a next play() re-arms before the timer fires. (Each source's onended → finish() would also
+			// schedule this, but a synchronous stop()/clear may pre-empt those callbacks — arm it here too.)
+			scheduleKeepAliveRelease();
 		},
 		dispose() {
 			stage.stopAll();
-			try {
-				keepAliveSource?.stop(); // the keep-alive lives outside activeSources → stop it explicitly
-			} catch {
-				/* best-effort */
-			}
-			keepAliveSource = null;
+			stopKeepAlive(); // lives outside activeSources → tear it (and its idle timer) down explicitly
 			try {
 				audioCtx?.close?.();
 			} catch {
