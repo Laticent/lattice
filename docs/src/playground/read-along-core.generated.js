@@ -1429,13 +1429,9 @@ var require_chart_narration = __commonJS({
     }
     var CONNECTORS = [
       { re: /^(?:-{2,}>|=+>|-\.+->)\|([^|]*)\|/, label: 1 },
-      // -->|x|  ==>|x|  -.->|x| / -..->|x|
-      { re: /^--\s*([^|>]+?)\s*-{2,}>/, label: 1 },
-      // -- x -->
-      { re: /^==\s*([^|>=]+?)\s*=+>/, label: 1 },
-      // == x ==>
-      { re: /^-\.\s*([^.\s|][^|]*?)\s*\.+->/, label: 1 },
-      // -. x .-> (label starts non-dot)
+      // pipe: -->|x|  ==>|x|  -.->|x| / -..->|x|
+      { re: /^-\.([^.|]+)\.+->/, label: 1 },
+      // -. x .-> dotted inline (label excludes '.', disjoint from the terminator)
       { re: /^-{2,}>/, label: 0 },
       // -->  (length via dashes)
       { re: /^=+>/, label: 0 },
@@ -1479,7 +1475,7 @@ var require_chart_narration = __commonJS({
       if (lines[i] !== void 0 && lines[i].trim() === "---") {
         let j = i + 1;
         while (j < lines.length && lines[j].trim() !== "---") {
-          const tm = lines[j].match(/^\s*title:\s*(.+?)\s*$/);
+          const tm = lines[j].match(/^\s*title:\s*(.*)$/);
           if (tm) title = scrubLabel(stripQuotes(tm[1]));
           j++;
         }

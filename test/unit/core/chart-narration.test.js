@@ -770,3 +770,21 @@ test('narrateDiagram: keeps the REAL label on a dotted arrow (base and dot-lengt
     assert.ok(narrateDiagram(md).includes('X, yes, leads to Y.'), arrow);
   }
 });
+
+test('narrateDiagram: inline-text solid/thick edges bail (ReDoS-safe scope) — a labeled `-- x -->` is not narrated', () => {
+  // These forms are intentionally unrecognized (their ReDoS-safe regex would bar
+  // hyphens/`=` from the label); an edge using them bails to the heading-only projection.
+  for (const edge of ['  A[X] -- go --> B[Y]', '  A[X] == go ==> B[Y]']) {
+    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n${edge}\n\`\`\``;
+    assert.equal(narrateDiagram(md), null, edge);
+  }
+});
+
+test('narrateDiagram: returns quickly on a pathological connector line (no super-linear backtracking)', () => {
+  // A ReDoS in the connector regexes would hang for seconds+ on this; linear-time returns instantly.
+  const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n  A[X] --${' '.repeat(40000)}\n\`\`\``;
+  const t = process.hrtime.bigint();
+  narrateDiagram(md);
+  const ms = Number(process.hrtime.bigint() - t) / 1e6;
+  assert.ok(ms < 1000, `took ${ms}ms — possible ReDoS`);
+});
