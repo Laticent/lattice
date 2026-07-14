@@ -317,8 +317,10 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('a reader lens reshapes the Compose preview, and clears back to full', async () => {
 		const user = setup();
 		expect(screen.getByText('Slide 1 / 6')).toBeInTheDocument();
-		// The Architect's "Exec summary" reshapes the preview to the headline slides.
-		await user.click(screen.getByText('Exec summary'));
+		// The preview header's reader-view picker reshapes to the headline slides (legacy exec heuristic,
+		// still offered for a deck with no `lenses:` registry).
+		await user.click(screen.getByRole('button', { name: 'Reader view' }));
+		await user.click(await screen.findByRole('menuitem', { name: /Exec summary/ }));
 		expect(await screen.findByText('Slide 1 / 4')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Clear reader lens' })).toBeInTheDocument();
 		// Clearing returns to the full deck.

@@ -18,7 +18,7 @@ import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
-import { parseLensRegistry } from '@/lib/lente';
+import { applyTag, catalogFromComponents, type LensRegistry, parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
@@ -37,10 +37,11 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { type AcronymEntry, frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
+import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { LatticeMark } from './LatticeMark';
+import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
@@ -545,6 +546,33 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	React.useEffect(() => {
 		if (composeLens !== 'full' && !composeLensEntries.some((e) => e.key === composeLens)) setComposeLens('full');
 	}, [composeLens, composeLensEntries]);
+	// The component classification catalog the deterministic (no-AI) lens suggester reads — built once
+	// from the real manifest passed to the shell. `function`/`form` ride on each entry (M2 prep).
+	const lensCatalog = React.useMemo(() => catalogFromComponents(components.map((c) => ({ name: c.name, bucket: c.bucket, function: c.function ?? '', form: c.form ?? '' }))), [components]);
+	// Registry writes — Lente is the SOLE registry serializer (HARD RULE #1): extract the inner front
+	// matter, let `upsertLensRegistry` rewrite the `lenses:` block, re-wrap. Undo-funneled via settingsWrite.
+	const writeRegistry = React.useCallback((label: string, next: LensRegistry) => {
+		settingsWrite(label, (s) => {
+			const nextInner = upsertLensRegistry(innerFrontMatter(s), next);
+			const rest = stripFrontMatter(s).replace(/^(?:[ \t]*\r?\n)+/, '');
+			return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
+		});
+	}, [settingsWrite]);
+	// Tag writes — put slides in/out of a lens by rewriting each affected slide with the library's
+	// applyTag (the only per-slide membership carrier). Applied sequentially so several accepts land as
+	// ONE undo step; applyTag never changes slide COUNT, so author indices stay stable across the batch.
+	const writeTags = React.useCallback((label: string, changes: TagChange[]) => {
+		if (!changes.length) return;
+		settingsWrite(label, (s) => {
+			let src = s;
+			for (const c of changes) {
+				const chunk = splitSlides(stripFrontMatter(src))[c.index];
+				if (chunk == null) continue;
+				src = replaceSlide(src, c.index, applyTag(chunk, c.lensId, c.member, c.base)).source;
+			}
+			return src;
+		});
+	}, [settingsWrite]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
 	const viewSlides = React.useMemo(() => (composeLens === 'full' ? slides : presentationSet(slides, composeLens, lensReg)), [slides, composeLens, lensReg]);
@@ -1517,9 +1545,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<p className="text-xs leading-relaxed text-muted-foreground">Lead every slide with its takeaway, not its detail — the number, then the supporting rows.{!ai.ready && <span className="text-[var(--text-muted)]"> Connect a model in Workspace for one-click rewrites.</span>}</p>
 				<Chip busy={aiBusy === 'lead'} onClick={() => runArchitectAction('lead', 'Rewrite lead', `Rewrite slide ${activeFullIndex + 1} so it opens with its single headline takeaway or number, then the supporting rows. Return the whole slide, same component.`)}>Rewrite lead</Chip>
 			</ArchCard>
-			<ArchCard tag={<IntentTag intent="info" label="RESHAPE" />} title="Reshape for a reader">
-				<p className="text-xs leading-relaxed text-muted-foreground">Reorient the deck without losing the source.</p>
-				<div className="mt-2 flex flex-wrap gap-1.5"><Chip onClick={() => { setLens('exec'); notify('Preview reshaped to the Exec summary — headline slides only.'); }}>Exec summary</Chip><Chip busy={aiBusy === 'technical'} onClick={() => runArchitectAction('technical', 'Reshape: Technical', 'Rewrite the deck in a more technical, detail-forward voice — concrete metrics, methods, and specifics over narrative. Edit each slide that needs it; keep the component types.')}>Technical</Chip><Chip busy={aiBusy === 'narrative'} onClick={() => runArchitectAction('narrative', 'Reshape: Narrative', 'Rewrite the deck in a more narrative, story-forward voice — a throughline from problem to payoff, plain language. Edit each slide that needs it; keep the component types.')}>Narrative</Chip></div>
+			<ArchCard tag={<IntentTag intent="info" label="LENSES" />} title="Reader views">
+				<LensesPanel
+					slides={slides}
+					registry={lensReg}
+					catalog={lensCatalog}
+					activeLens={composeLens}
+					onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
+					onWriteRegistry={writeRegistry}
+					onTag={writeTags}
+				/>
 			</ArchCard>
 		</>
 	);

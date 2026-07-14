@@ -75,10 +75,14 @@ async function railNth(u: Ctx['user'], which: 'first' | 'last') {
 	if (target) await u.click(target as HTMLElement);
 }
 // Reshape the preview to a reader lens / clear it — no-op if the control is
-// hidden (e.g. the Architect is collapsed), so the command is always safe.
+// hidden (e.g. the Architect is collapsed), so the command is always safe. Drives the
+// live reader-view picker (the reshape control) and picks the first non-full lens it offers.
 async function reshape(u: Ctx['user']) {
-	const chip = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Exec summary');
-	if (chip) await u.click(chip as HTMLElement);
+	const btn = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Reader view');
+	if (!btn) return;
+	await u.click(btn as HTMLElement);
+	const item = [...document.querySelectorAll('[role="menuitem"]')].find((m) => !/Full deck/i.test(m.textContent ?? ''));
+	if (item) await u.click(item as HTMLElement);
 }
 async function clearLens(u: Ctx['user']) {
 	const btn = document.querySelector('[aria-label="Clear reader lens"]');

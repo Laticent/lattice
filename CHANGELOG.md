@@ -182,8 +182,17 @@ in patch versions.
   unapproved, drifted, empty, or hidden renders an explicit **"this view is unavailable"** state rather
   than silently falling open to the whole deck — a scoping lens can be a redaction, so a full-deck
   fallback would leak exactly the slides the author withheld (design §6.3). The Compose catalog reconciles
-  its selection when the registry changes underneath it (a renamed/removed lens snaps back to Full). The
-  Lenses editing panel (suggest → preview → approve) lands next.
+  its selection when the registry changes underneath it (a renamed/removed lens snaps back to Full).
+- **A Lenses panel in the Architect puts the author in control of every reader view.** Replacing the old
+  "Reshape" chips, the panel is the human-in-the-loop loop end to end: **add** a reader view from the
+  reader-science archetypes (Bottom line, The story, The evidence, The ask); a **deterministic, no-AI
+  suggester proposes** which slides belong — each proposal shown with its one-line rationale — and you
+  **accept** them (all, or one at a time) or tag/untag any slide by hand; **preview** the reader's actual
+  deck; and only an explicit **Approve** (which binds a content hash of what a reader would see) makes the
+  view readable. A view stays **Draft (hidden from readers)** until approved, flips to **Edited since
+  approval** the moment its content drifts (readers can't see it again until you re-approve), and an
+  **empty** view can't be approved at all. Every write funnels through the deck source (undo-able) with
+  `@slidewright/lente` as the sole registry serializer.
 - **`_lens` is now a recognized per-slide directive.** A `<!-- _lens: brief ask -->` comment carries a
   slide's reader-lens membership for the forthcoming lens system (`@slidewright/lente`). Like other
   directives it is **stripped from exported HTML/PDF** and is never a `<section>` attribute — so internal
