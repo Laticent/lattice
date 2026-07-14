@@ -31,18 +31,22 @@ var require_dist = __commonJS({
       CALIBRATION_MIN_K: () => CALIBRATION_MIN_K,
       CALIBRATION_MIN_N: () => CALIBRATION_MIN_N,
       CALIBRATION_WINDOW: () => CALIBRATION_WINDOW,
+      CLIP_TRAILING_FRACTION: () => CLIP_TRAILING_FRACTION,
       FINAL_LENGTHEN_MS: () => FINAL_LENGTHEN_MS,
       LEX_DOMAINS: () => LEX_DOMAINS,
       PACE_WPM: () => PACE_WPM,
+      PARAGRAPH_PAUSE_MS: () => PARAGRAPH_PAUSE_MS,
       SEPARATOR_GLYPHS: () => SEPARATOR_GLYPHS,
       SYLLABLE_MS: () => SYLLABLE_MS,
       SYMBOL_SPEAK: () => SYMBOL_SPEAK,
       buildTrack: () => buildTrack,
+      clipTrailingMs: () => clipTrailingMs,
       deserializeCalibration: () => deserializeCalibration,
       emptyCalibration: () => emptyCalibration,
       estimateWordMs: () => estimateWordMs,
       formatTimestamp: () => formatTimestamp,
       integerToWords: () => integerToWords,
+      interCueGapMs: () => interCueGapMs,
       isEnglishLang: () => isEnglishLang,
       lookupLexicon: () => lookupLexicon,
       makeCursor: () => makeCursor,
@@ -54,6 +58,7 @@ var require_dist = __commonJS({
       readMs: () => readMs,
       resolveSymbols: () => resolveSymbols,
       serializeCalibration: () => serializeCalibration,
+      splitParagraphs: () => splitParagraphs,
       splitSentences: () => splitSentences,
       splitWords: () => splitWords,
       spokenWordCount: () => spokenWordCount,
@@ -214,6 +219,30 @@ var require_dist = __commonJS({
       const s = String(text ?? "").replace(/\s+/g, " ").trim();
       if (!s) return [];
       return s.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
+    }
+    function splitParagraphs(text) {
+      const chunks = String(text ?? "").split(/\r?\n[ \t]*(?:\r?\n[ \t]*)+/);
+      const sentences = [];
+      const paragraphEnd = /* @__PURE__ */ new Set();
+      let carry = "";
+      for (let i = 0; i < chunks.length; i++) {
+        const merged = carry ? `${carry} ${chunks[i]}` : chunks[i];
+        carry = "";
+        const sents = splitSentences(merged);
+        if (!sents.length) continue;
+        const isLast = i === chunks.length - 1;
+        const endsClean = /[.!?…]$/.test(merged.trimEnd());
+        if (!isLast && !endsClean) {
+          for (let k = 0; k < sents.length - 1; k++) sentences.push(sents[k]);
+          carry = sents[sents.length - 1];
+        } else {
+          for (const s of sents) sentences.push(s);
+          if (!isLast) paragraphEnd.add(sentences.length - 1);
+        }
+      }
+      if (carry) sentences.push(carry);
+      paragraphEnd.delete(sentences.length - 1);
+      return { sentences, paragraphEnd };
     }
     function splitWords(sentence) {
       return String(sentence ?? "").trim().split(/\s+/).filter(Boolean);
@@ -510,16 +539,24 @@ var require_dist = __commonJS({
       "?": 550,
       "\u2026": 650
     };
+    var PARAGRAPH_PAUSE_MS = 750;
     function pauseAfter(display) {
-      const m = String(display ?? "").match(/[.,!?;:…]+$/);
-      if (!m) return 0;
+      const s = String(display ?? "");
       let max = 0;
-      for (const ch of m[0]) max = Math.max(max, PAUSE_MS[ch] ?? 0);
+      for (let i = s.length - 1; i >= 0; i--) {
+        const p = PAUSE_MS[s[i]];
+        if (p === void 0) break;
+        if (p > max) max = p;
+      }
       return max;
     }
     var CLIP_TRAILING_FRACTION = 0.7;
     function clipTrailingMs(display) {
       return Math.round(pauseAfter(display) * CLIP_TRAILING_FRACTION);
+    }
+    function interCueGapMs(display, endsParagraph = false) {
+      const boundary = endsParagraph ? PARAGRAPH_PAUSE_MS : pauseAfter(display);
+      return boundary - clipTrailingMs(display);
     }
     var SYLLABLE_OVERRIDES = {
       nineteen: 2,
@@ -644,7 +681,7 @@ var require_dist = __commonJS({
           }
           if (idx < 0) return null;
           const w = flat[idx];
-          if (timeMs >= w.endMs) return null;
+          if (idx === flat.length - 1 && timeMs >= w.endMs) return null;
           return { cueIndex: w.cueIndex, wordIndex: w.wordIndex };
         },
         align(cueIndex, onsetMs, durationMs) {
@@ -729,13 +766,15 @@ var require_dist = __commonJS({
       const pace = opts.pace ?? "moderate";
       const rateScale2 = opts.rateScale ?? 1;
       const source = String(text ?? "");
-      const sentences = splitSentences(source);
+      const { sentences, paragraphEnd } = splitParagraphs(source);
       const cues = [];
       let clock = 0;
       let scan = 0;
-      for (const sentence of sentences) {
+      for (let si = 0; si < sentences.length; si++) {
+        const sentence = sentences[si];
         const displays = splitWords(sentence);
         if (!displays.length) continue;
+        const endsParagraph = paragraphEnd.has(si);
         const words = [];
         const cueStart = clock;
         let cueCharOffset = -1;
@@ -755,12 +794,14 @@ var require_dist = __commonJS({
         }
         const lastWord = words[words.length - 1];
         const cueEnd = lastWord.endMs + clipTrailingMs(lastWord.display);
+        clock = cueEnd + interCueGapMs(lastWord.display, endsParagraph);
         cues.push({
           display: displays.join(" "),
           words,
           startMs: cueStart,
           endMs: cueEnd,
-          charOffset: cueCharOffset < 0 ? 0 : cueCharOffset
+          charOffset: cueCharOffset < 0 ? 0 : cueCharOffset,
+          ...endsParagraph ? { endsParagraph: true } : {}
         });
       }
       return { cues, durationMs: cues.length ? cues[cues.length - 1].endMs : 0 };

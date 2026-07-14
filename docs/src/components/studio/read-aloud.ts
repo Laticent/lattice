@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { type Active, buildTrack, type CaptionTrack, makeReader, pauseAfter, type Reader, rateScale } from '@/lib/cadenza';
+import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
 import { loadCalibration, recordObservation, voiceKeyOf } from '@/playground/readaloud-calibration';
@@ -585,10 +585,18 @@ export function useReadAloud(
 				items: spoken,
 				produce: async (s, { signal }) => (await voice.synthOne({ text: s, signal }))?.bytes ?? null,
 				keyOf: (s) => `${keyPrefix}|${s}`,
-				// The inter-clip breath: cadenza's graded pauseAfter × 0.3 — the CLIP-SILENCE DISCOUNT (each
-				// clip already carries its own sentence-final silence). Reproduces voice-model's retired
-				// sentenceGapMs EXACTLY; a larger gap reintroduces the highlight-races-into-silence bug.
-				gapMs: (s) => Math.round(pauseAfter(s) * 0.3),
+				// The inter-clip breath: the boundary pause minus the clip's own sentence-final silence —
+				// `interCueGapMs`, the SAME formula (and the SAME `lastWord.display` argument) buildTrack
+				// uses, so the clocked audio and the silent estimate space cues identically. Passing the
+				// cue's last DISPLAY word — not the whole spoken join — matters: toSpoken softens a trailing
+				// `:`/`;` to `,`, so the spoken form's terminator can differ from the display's; both paths
+				// must key off the same token or they drift ~40–105 ms. `index` maps to cue `from + index`
+				// on the original (never-mutated) track, where `endsParagraph` and the words live.
+				gapMs: (s, _next, index) => {
+					const cue = track.cues[from + index];
+					const lastDisplay = cue?.words[cue.words.length - 1]?.display ?? s;
+					return interCueGapMs(lastDisplay, !!cue?.endsParagraph);
+				},
 				onItemStart: ({ index, onsetMs, durationMs }) => {
 					const cue = from + index; // sliced item i ↦ cue (from + i) — re-anchoring stays cue-accurate
 					if (audioBaseRef.current == null) audioBaseRef.current = onsetMs - holdMs; // fromCue's onset ↦ holdMs

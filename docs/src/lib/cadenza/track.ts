@@ -5,9 +5,9 @@
 // estimated start/end ms and a char offset back into the source text. This is the
 // timeline the cursor scans and vtt serializes; it owns no audio and no DOM.
 
-import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, type Pace, pauseAfter } from './cadence';
+import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, type Pace, pauseAfter } from './cadence';
 import { type AcronymRegistry, toSpoken } from './normalize';
-import { splitSentences, splitWords } from './segment';
+import { splitParagraphs, splitWords } from './segment';
 import type { LexiconMap } from './symbols';
 
 export interface Word {
@@ -28,6 +28,10 @@ export interface Cue {
   startMs: number;
   endMs: number;
   charOffset: number;
+  /** True when a PARAGRAPH / topic boundary (a blank line) follows this cue — so the gap before the
+   *  next cue is the deeper `PARAGRAPH_PAUSE_MS` beat, not the sentence pause. The clocked player reads
+   *  this to widen the inter-clip breath (read-aloud.ts). Absent/false for an ordinary sentence break. */
+  endsParagraph?: boolean;
 }
 
 export interface CaptionTrack {
@@ -61,15 +65,21 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
   const pace = opts.pace ?? 'moderate';
   const rateScale = opts.rateScale ?? 1;
   const source = String(text ?? '');
-  const sentences = splitSentences(source);
+  // Paragraph-aware split: the same sentence list `splitSentences` gives (so cues still map 1:1 to
+  // the audio clips), plus which sentences END a paragraph (a blank line follows). A paragraph beat
+  // is the deeper `PARAGRAPH_PAUSE_MS` gap; the speech projection emits blank lines between a slide's
+  // structural blocks, and an author's multi-paragraph note carries them natively.
+  const { sentences, paragraphEnd } = splitParagraphs(source);
 
   const cues: Cue[] = [];
   let clock = 0;
   let scan = 0; // running index into `source` for charOffset resolution
 
-  for (const sentence of sentences) {
+  for (let si = 0; si < sentences.length; si++) {
+    const sentence = sentences[si];
     const displays = splitWords(sentence);
     if (!displays.length) continue;
+    const endsParagraph = paragraphEnd.has(si);
 
     const words: Word[] = [];
     const cueStart = clock;
@@ -107,12 +117,21 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
     // clip ÷ (cue.endMs − cue.startMs) — tracked punctuation depth, not the voice's difficulty.
     const lastWord = words[words.length - 1];
     const cueEnd = lastWord.endMs + clipTrailingMs(lastWord.display);
+
+    // The next cue starts after the inter-cue breath — the boundary pause (the deeper PARAGRAPH tier
+    // when a blank line follows this cue, else the sentence pause) minus the clip's own trailing
+    // silence, which already lives inside cueEnd. `interCueGapMs` is the ONE formula the clocked
+    // player (read-aloud.ts) shares, so the silent estimate and the audio space cues identically.
+    // This overrides the word loop's provisional last-word advance.
+    clock = cueEnd + interCueGapMs(lastWord.display, endsParagraph);
+
     cues.push({
       display: displays.join(' '),
       words,
       startMs: cueStart,
       endMs: cueEnd,
       charOffset: cueCharOffset < 0 ? 0 : cueCharOffset,
+      ...(endsParagraph ? { endsParagraph: true } : {}),
     });
   }
 

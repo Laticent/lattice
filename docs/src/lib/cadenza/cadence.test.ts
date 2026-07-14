@@ -4,6 +4,8 @@ import {
   clipTrailingMs,
   estimateWordMs,
   FINAL_LENGTHEN_MS,
+  interCueGapMs,
+  PARAGRAPH_PAUSE_MS,
   pauseAfter,
   SYLLABLE_MS,
   syllableCount,
@@ -124,6 +126,13 @@ describe('pauseAfter — graded by boundary depth', () => {
 	it('no trailing punctuation → no pause', () => {
 		expect(pauseAfter('word')).toBe(0);
 	});
+	it('takes the MAX over a trailing run of terminators (linear reverse scan)', () => {
+		expect(pauseAfter('done?!')).toBe(550); // max('?','!')
+		expect(pauseAfter('wait…')).toBe(650);
+		expect(pauseAfter('huh?!…')).toBe(650); // ellipsis in the run wins
+		expect(pauseAfter('mid.dle')).toBe(0); // punctuation not at the END → no pause
+		expect(pauseAfter('!!!!!!!!x')).toBe(0); // a long run NOT at the end stops immediately (ReDoS-safe)
+	});
 });
 
 describe('race-safety: the audio breath never exceeds the estimate pause (two hand-kept tables)', () => {
@@ -149,6 +158,34 @@ describe('race-safety: the audio breath never exceeds the estimate pause (two ha
 			const token = `a${ch}`;
 			expect(clipTrailingMs(token) + breath, `partition for "${ch}"`).toBe(pauseAfter(token));
 		}
+	});
+});
+
+describe('paragraph tier — the deepest boundary', () => {
+	it('is deeper than the sentence pause and a multiple of 10 (partition-safe)', () => {
+		expect(PARAGRAPH_PAUSE_MS).toBeGreaterThan(pauseAfter('a.'));
+		expect(PARAGRAPH_PAUSE_MS % 10).toBe(0);
+	});
+});
+
+describe('interCueGapMs — the ONE inter-cue breath both paths share', () => {
+	it('a plain sentence break = boundary pause − clip silence (= the retired pauseAfter × 0.3 breath)', () => {
+		for (const ch of ['.', '!', '?', '…', ',', ';', ':']) {
+			const tok = `a${ch}`;
+			expect(interCueGapMs(tok, false)).toBe(pauseAfter(tok) - clipTrailingMs(tok));
+			expect(interCueGapMs(tok, false)).toBe(Math.round(pauseAfter(tok) * 0.3)); // the old breath
+		}
+	});
+	it('a paragraph break = PARAGRAPH_PAUSE_MS − clip silence, per-terminator (NOT a fixed constant)', () => {
+		// The bug this guards: a hardcoded "extra = PARAGRAPH − 550" diverges for a non-550 terminator.
+		// The gap must be derived from the ACTUAL terminator so an ellipsis-ended paragraph is consistent.
+		expect(interCueGapMs('done.', true)).toBe(PARAGRAPH_PAUSE_MS - clipTrailingMs('done.'));
+		expect(interCueGapMs('wait…', true)).toBe(PARAGRAPH_PAUSE_MS - clipTrailingMs('wait…'));
+		// The '.' and '…' paragraph gaps genuinely DIFFER (deeper clip silence for '…') — proving the
+		// per-cue derivation matters; a fixed extra would have made them equal and desynced the audio.
+		expect(interCueGapMs('wait…', true)).not.toBe(interCueGapMs('done.', true));
+		// Always deeper than the same terminator's plain sentence gap.
+		expect(interCueGapMs('done.', true)).toBeGreaterThan(interCueGapMs('done.', false));
 	});
 });
 

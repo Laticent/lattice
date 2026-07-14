@@ -515,6 +515,9 @@ function speakGeneric(stage, eyebrow, wordMap = null) {
   }
   return out.join(" ");
 }
+function normalizeProjected(s) {
+  return String(s || "").split(/(?:\r?\n[ \t]*){2,}/).map((b) => b.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n\n");
+}
 function projectDeckToSpeech(sections) {
   return sections.map((section) => {
     const component = componentOf(section);
@@ -531,7 +534,8 @@ function projectDeckToSpeech(sections) {
     else if (component === "quote") body = speakQuote(stage) || speakGeneric(stage, eyebrow, wordMap);
     else if (MEDIA_COMPONENTS.has(component)) body = speakGeneric(stage, eyebrow, wordMap);
     else body = speakGeneric(stage, eyebrow, wordMap);
-    return [...lead, body].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    const leadStr = lead.join(" ");
+    return normalizeProjected([leadStr, body].filter(Boolean).join("\n\n"));
   });
 }
 var SKIP_SELECTOR, MEDIA_COMPONENTS, FLOW_CHART_COMPONENTS, CHART_TOKEN_COMPONENTS, SPATIAL_BOUNDED_COMPONENTS, SPATIAL_PLACEHOLDER_COMPONENTS, SCHEME_MODIFIERS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;

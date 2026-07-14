@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SENTENCE_PAUSE_MS } from '../../playground/voice-model.js';
-import { clipTrailingMs, pauseAfter } from './cadence';
+import { clipTrailingMs, interCueGapMs, PARAGRAPH_PAUSE_MS, pauseAfter } from './cadence';
 import { buildTrack } from './track';
 
 const NOTE = 'Revenue grew to $4.2M. We beat plan by eight points.';
@@ -81,5 +81,44 @@ describe('buildTrack', () => {
     const lastDisplay = t.cues[0].words[t.cues[0].words.length - 1].display; // "$4.2M." → '.'
     expect(gap).toBe(pauseAfter(lastDisplay) - clipTrailingMs(lastDisplay));
     expect(gap).toBe(SENTENCE_PAUSE_MS['.']);
+  });
+
+  it('inserts a PARAGRAPH beat (deeper gap) at a blank-line boundary, and flags the cue', () => {
+    // A blank line between two sentences is a paragraph/topic boundary — the gap before the next cue
+    // is the deeper PARAGRAPH_PAUSE_MS, not the sentence pause; the clip silence (cue END) is unchanged.
+    const para = buildTrack('Revenue grew to plan.\n\nGuidance stands.');
+    const flat = buildTrack('Revenue grew to plan. Guidance stands.');
+    expect(para.cues.length).toBe(2); // same cues as the flat version — only the GAP differs
+    expect(flat.cues.length).toBe(2);
+    expect(para.cues[0].endsParagraph).toBe(true);
+    expect(flat.cues[0].endsParagraph).toBeUndefined();
+
+    const lastDisplay = para.cues[0].words[para.cues[0].words.length - 1].display; // "plan."
+    // Cue END (clip's own trailing silence) is identical — the paragraph adds no phonemes.
+    expect(para.cues[0].endMs).toBe(flat.cues[0].endMs);
+    // The GAP before the next cue is the full paragraph pause minus the clip silence.
+    const paraGap = para.cues[1].startMs - para.cues[0].endMs;
+    expect(paraGap).toBe(PARAGRAPH_PAUSE_MS - clipTrailingMs(lastDisplay));
+    // Deeper than the ordinary sentence gap, and it pushes the second cue later.
+    expect(paraGap).toBeGreaterThan(flat.cues[1].startMs - flat.cues[0].endMs);
+    expect(para.cues[1].startMs).toBeGreaterThan(flat.cues[1].startMs);
+  });
+
+  it('derives the paragraph gap from the ACTUAL terminator (ellipsis boundary differs from period)', () => {
+    // Regression for the maker-checker finding: the gap must be PARAGRAPH_PAUSE_MS − clip silence of
+    // the real terminator, not a constant that assumes a 550 ms sentence. An "…" paragraph boundary
+    // (pause 650) therefore gets a different — and self-consistent — gap than a "." one.
+    const dots = buildTrack('Chapter one.\n\nChapter two.');
+    const ellip = buildTrack('To be continued…\n\nChapter two.');
+    const gap = (t: ReturnType<typeof buildTrack>) => t.cues[1].startMs - t.cues[0].endMs;
+    expect(gap(dots)).toBe(interCueGapMs('one.', true));
+    expect(gap(ellip)).toBe(interCueGapMs('continued…', true));
+    expect(gap(ellip)).not.toBe(gap(dots)); // the two terminators yield genuinely different gaps
+  });
+
+  it('a single-paragraph note is byte-identical to before (no paragraph beats)', () => {
+    // Regression guard: text without a blank line must build exactly as it did pre-paragraph-pauses.
+    const t = buildTrack(NOTE);
+    for (const cue of t.cues) expect(cue.endsParagraph).toBeUndefined();
   });
 });

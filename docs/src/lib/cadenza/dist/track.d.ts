@@ -18,6 +18,10 @@ export interface Cue {
     startMs: number;
     endMs: number;
     charOffset: number;
+    /** True when a PARAGRAPH / topic boundary (a blank line) follows this cue — so the gap before the
+     *  next cue is the deeper `PARAGRAPH_PAUSE_MS` beat, not the sentence pause. The clocked player reads
+     *  this to widen the inter-clip breath (read-aloud.ts). Absent/false for an ordinary sentence break. */
+    endsParagraph?: boolean;
 }
 export interface CaptionTrack {
     cues: Cue[];

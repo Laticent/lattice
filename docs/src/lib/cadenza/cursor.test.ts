@@ -20,6 +20,21 @@ describe('cursor.at', () => {
     expect(cursor.at(-1)).toBeNull();
     expect(cursor.at(track.durationMs + 1000)).toBeNull();
   });
+
+  it('HOLDS the last-spoken word through an inter-cue gap instead of going dark', () => {
+    // The dark-void fix: during the silence between two cues the highlight stays on the last word of
+    // the finished cue (no "resting on nothing" that reads as lag), releasing when the next cue starts.
+    const track = buildTrack('Alpha beta. Gamma delta.');
+    const cursor = makeCursor(track);
+    const lastOf0 = track.cues[0].words[track.cues[0].words.length - 1]; // "beta."
+    const firstOf1 = track.cues[1].words[0]; // "Gamma"
+    const gapMid = (lastOf0.endMs + firstOf1.startMs) / 2;
+    expect(gapMid).toBeGreaterThan(lastOf0.endMs); // there IS a gap
+    // Mid-gap: held on the last word of cue 0, NOT null.
+    expect(cursor.at(gapMid)).toEqual({ cueIndex: 0, wordIndex: track.cues[0].words.length - 1 });
+    // Releases exactly when the next cue's first word starts.
+    expect(cursor.at(firstOf1.startMs)).toEqual({ cueIndex: 1, wordIndex: 0 });
+  });
 });
 
 describe('cursor.align (hybrid re-anchor)', () => {
