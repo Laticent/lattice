@@ -242,7 +242,8 @@ describe('presentationSet (reader lenses, fuzz)', () => {
 		expect(presentationIndices(slides, 'brief', registry)).toEqual([0, 2]);
 		// Without the registry, 'brief' is an unknown lens → safe fallback to the whole deck.
 		expect(presentationSet(slides, 'brief')).toEqual(slides);
-		// A registry lens with no members never projects a blank set — falls back to full.
-		expect(presentationSet(['<!-- _class: title -->\n# t'], 'brief', registry)).toHaveLength(1);
+		// A registry lens with no members projects an EMPTY set (honest, not fail-open to the whole
+		// deck) — the reader path renders "unavailable"; a fail-open here would leak a redaction lens.
+		expect(presentationSet(['<!-- _class: title -->\n# t'], 'brief', registry)).toEqual([]);
 	});
 });

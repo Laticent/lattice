@@ -529,12 +529,22 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
 	// `full`) for a deck with no block → the picker shows the legacy full/exec/onepager set.
 	const lensReg = React.useMemo(() => parseLensRegistry(fm), [fm]);
-	// The picker's catalog: a registry deck shows its own defined (non-hidden) lenses; otherwise the
-	// legacy heuristics. Author-side, so it lists lenses regardless of approval — the author previews.
+	// The picker's catalog. A deck that AUTHORED a `lenses:` block is in registry mode — show ITS lenses
+	// (the reader's real menu), never the legacy exec/onepager heuristics, even if a hidden lens leaves
+	// only `full` visible. Author-side, so it lists lenses regardless of approval (the author previews an
+	// unapproved lens to decide whether to approve). Presence of an authored registry — not a count of
+	// non-hidden survivors — is what flips the mode, so a mostly-hidden registry never regresses to legacy.
 	const composeLensEntries = React.useMemo(() => {
-		const defs = lensReg.lenses.filter((l) => !l.hidden);
-		return defs.length > 1 ? lensEntriesFrom(defs) : LENSES;
+		const authored = lensReg.lenses.length > 1; // more than the implicit `full`
+		return authored ? lensEntriesFrom(lensReg.lenses.filter((l) => !l.hidden)) : LENSES;
 	}, [lensReg]);
+	// Reconcile the selected compose lens when the registry changes underneath it: if the author renames,
+	// removes, or hides the lens being previewed, the selection would dangle — projecting to an empty or
+	// full-deck fallback while the picker still shows the stale label. Snap back to `full` so the preview
+	// never lies about which lens it's showing.
+	React.useEffect(() => {
+		if (composeLens !== 'full' && !composeLensEntries.some((e) => e.key === composeLens)) setComposeLens('full');
+	}, [composeLens, composeLensEntries]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
 	const viewSlides = React.useMemo(() => (composeLens === 'full' ? slides : presentationSet(slides, composeLens, lensReg)), [slides, composeLens, lensReg]);

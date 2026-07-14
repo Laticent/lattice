@@ -173,6 +173,17 @@ in patch versions.
   flips light↔dark on the token bridge. No export or engine change — docs-site UI only; other live
   surfaces still on native `title=` are a documented fast-follow. Verified on the real Studio in both
   colour modes.
+- **The Studio's reader-view switch now honors a deck's `lenses:` registry — and Present fails CLOSED
+  on a scoped lens.** When a deck defines a front-matter `lenses:` block, both the Compose preview and
+  Present offer *its* lenses (projected deterministically by `@slidewright/lente` from approved `_lens`
+  tags) instead of the legacy `exec`/`onepager` heuristics; a deck with no block is unchanged. Present's
+  reader picker lists **only reader-eligible lenses** (approved, non-empty, non-hidden, content-current),
+  and its projection routes through the library's fail-closed `lensEligibility`: a lens that is
+  unapproved, drifted, empty, or hidden renders an explicit **"this view is unavailable"** state rather
+  than silently falling open to the whole deck — a scoping lens can be a redaction, so a full-deck
+  fallback would leak exactly the slides the author withheld (design §6.3). The Compose catalog reconciles
+  its selection when the registry changes underneath it (a renamed/removed lens snaps back to Full). The
+  Lenses editing panel (suggest → preview → approve) lands next.
 - **`_lens` is now a recognized per-slide directive.** A `<!-- _lens: brief ask -->` comment carries a
   slide's reader-lens membership for the forthcoming lens system (`@slidewright/lente`). Like other
   directives it is **stripped from exported HTML/PDF** and is never a `<section>` attribute — so internal
