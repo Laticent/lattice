@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Fix two systematic errors an adversarial trio flagged in the read-aloud narration estimator, both at the source (the estimator's DATA, not a compensating fudge). (1) TRAILING-SILENCE — a sentence's boundary pause was assigned wholly to the inter-cue gap and excluded from the cue's own end, so a cue's estimated duration stopped at the last phoneme while the real TTS clip runs on through its sentence-final silence; per-voice calibration then compared measured-clip to that estimate, so the residual tracked PUNCTUATION DEPTH instead of the voice's difficulty. The boundary pause now splits — a clip-internal share (CLIP_TRAILING_FRACTION 0.7) folds into the cue's end so the span covers the clip, the complementary 0.3 stays the inter-cue breath, and the two partition the pause exactly (pinned cross-file against voice-model.js). (2) NUMBER SYLLABLES — the vowel-group heuristic miscounted three closed-vocabulary expansion words whose silent e it can't see: "nineteen"/"ninety" (medial magic-e in "nine" → read as 3, so 19/90-99/1990/$1.9M dwelt a beat too long) and "times" (the x-multiplier plural, whose s hides the silent e of "time" → read as 2); a small SYLLABLE_OVERRIDES map gives all three their true counts. Exported .vtt/readAlong cue-END timestamps shift later by each cue's clip-trailing silence (word-level and cue STARTS byte-identical). Real-TTS accuracy is UNVERIFIED in the sandbox (no audio clock/device); the modeling math is unit-tested. Partly de-risks the parked apply-k thread (a cleaner estimate is its substrate).
+summary: Fix two systematic errors an adversarial trio flagged in the read-aloud narration estimator, both at the source (the estimator's DATA, not a compensating fudge). (1) TRAILING-SILENCE — a sentence's boundary pause was assigned wholly to the inter-cue gap and excluded from the cue's own end, so a cue's estimated duration stopped at the last phoneme while the real TTS clip runs on through its sentence-final silence; per-voice calibration then compared measured-clip to that estimate, so the residual tracked PUNCTUATION DEPTH instead of the voice's difficulty. The boundary pause now splits — a clip-internal share (CLIP_TRAILING_FRACTION 0.7) folds into the cue's end so the span covers the clip, the complementary 0.3 stays the inter-cue breath, and the two partition the pause exactly (pinned cross-file against voice-model.js). (2) NUMBER SYLLABLES — the vowel-group heuristic miscounted three closed-vocabulary expansion words whose silent e it can't see: "nineteen"/"ninety" (medial magic-e in "nine" → read as 3, so 19/90-99/1990/$1.9M dwelt a beat too long) and "times" (the x-multiplier plural, whose s hides the silent e of "time" → read as 2); a small SYLLABLE_OVERRIDES map gives all three their true counts. Exported .vtt/readAlong cue-END timestamps shift later by each cue's clip-trailing silence (word-level and cue STARTS byte-identical). Shipped as #967 (squashed 3f0a22c); the modeling math is unit-tested and the real-TTS result — UNVERIFIED at merge (no audio clock/device in the sandbox) — was CONFIRMED on-device post-merge (2026-07-13, maintainer): words and audio on point, no noticeable gaps. Partly de-risks the parked apply-k thread (a cleaner estimate is its substrate).
 companion:
   - ./2026-07-12-narration-pace-model.md
   - ./2026-07-13-pace-calibration-apply-and-rewriter.md
@@ -99,12 +99,19 @@ maintainer's inspection; held for merge authorization.
 
 ## Verification honesty (HARD RULE #23)
 
-Whether these estimates match **real TTS timing** cannot be validated here — the sandbox has no audio
-clock and no device. What IS verified: the **modeling math** is deterministic and unit-tested
+Whether these estimates match **real TTS timing** cannot be validated in the sandbox — it has no audio
+clock and no device. What was verified there: the **modeling math** is deterministic and unit-tested
 (`cadence.test.ts`, `track.test.ts`, `cursor.test.ts`) — the pause partition, the cue-span extension,
 the inter-cue-gap = breath identity, the align release-into-silence, and the number counts (both in
-isolation and through real `toSpoken` expansions). The claim "captions read better" is **UNVERIFIED**
-and marked so; the true test is an on-device narration pass with a clocked voice (cloud Kokoro).
+isolation and through real `toSpoken` expansions).
+
+**On-device confirmation (2026-07-13, maintainer):** the "captions read better" claim — held
+**UNVERIFIED** at merge, since the sandbox can't reach a clocked voice — has since been checked on a
+real device: **words and audio track on point, no noticeable gaps at the sentence seams.** That
+retires the UNVERIFIED caveat for this change: the clip-trailing split (highlight resting in the
+sentence-final silence rather than dropping early or dragging) and the syllable counts on
+number-bearing lines hold up on the real surface, not just in the model. (Recorded post-merge; the
+shipped diff is `#967`, squashed `3f0a22c`.)
 
 ## Relation to the parked apply-`k` thread
 
