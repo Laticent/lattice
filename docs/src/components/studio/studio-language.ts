@@ -49,6 +49,26 @@ export function languageLabel(code: string | null | undefined): string {
 	return languageFor(code).label;
 }
 
+/**
+ * The supported catalog code a raw tag maps to — exact (case-insensitive), or the
+ * base-language house default (`en` / `en-us` / `EN-GB` → `en-US` / `en-GB`) — or
+ * null when it maps to nothing supported (e.g. `fr-FR`, `es`). Distinct from
+ * `languageFor`, which never returns null (it substitutes the default descriptor):
+ * this answers "IS this value one we support?", which `languageFor` conflates. The
+ * picker uses it so a valid English tag isn't branded "unsupported" over a spurious
+ * exact-string miss, while a genuinely-dropped locale still is. Mirrors
+ * `detectLanguage`'s exact-then-base resolution for a single tag.
+ */
+export function resolveSupported(code: string | null | undefined): string | null {
+	const raw = String(code ?? '').toLowerCase();
+	if (!raw) return null;
+	const exact = byCode.get(raw);
+	if (exact) return exact.code;
+	const base = raw.split('-')[0];
+	const hit = STUDIO_LANGUAGES.find((l) => l.code.toLowerCase().split('-')[0] === base);
+	return hit ? hit.code : null;
+}
+
 type NavLike = { language?: string; languages?: readonly string[] };
 
 /**

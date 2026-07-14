@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LANGUAGE, detectLanguage, languageDirective, languageFor, languageLabel, STUDIO_LANGUAGES } from './studio-language';
+import { DEFAULT_LANGUAGE, detectLanguage, languageDirective, languageFor, languageLabel, resolveSupported, STUDIO_LANGUAGES } from './studio-language';
 
 describe('studio-language — catalog', () => {
 	it('is English-only for now and lists en-US first (the house default)', () => {
@@ -55,5 +55,24 @@ describe('studio-language — directive + labels', () => {
 	});
 	it('always returns a non-empty directive, even for an unknown code', () => {
 		expect(languageDirective(null).length).toBeGreaterThan(0);
+	});
+});
+
+describe('studio-language — resolveSupported', () => {
+	it('resolves canonical, case-variant, and base-language English tags to a catalog code', () => {
+		expect(resolveSupported('en-US')).toBe('en-US');
+		expect(resolveSupported('en-GB')).toBe('en-GB');
+		expect(resolveSupported('EN-us')).toBe('en-US'); // case-insensitive
+		expect(resolveSupported('en')).toBe('en-US'); // base → house default
+	});
+	it('returns null for a genuinely-unsupported or empty tag (unlike languageFor)', () => {
+		expect(resolveSupported('fr-FR')).toBeNull();
+		expect(resolveSupported('fr')).toBeNull();
+		expect(resolveSupported('es')).toBeNull();
+		expect(resolveSupported('')).toBeNull();
+		expect(resolveSupported(null)).toBeNull();
+		expect(resolveSupported(undefined)).toBeNull();
+		// languageFor never returns null — it substitutes the default; resolveSupported is the honest test.
+		expect(languageFor('fr-FR').code).toBe('en-US');
 	});
 });

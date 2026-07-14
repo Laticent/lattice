@@ -58,7 +58,7 @@ vi.mock('./Editor', async () => {
 
 // The architect layer — the model is the unit under integration here; mock it so we
 // control the outcome (ready model, a real rewrite) without a backend.
-const refineSpy = vi.hoisted(() => vi.fn(async () => ({ status: 'ok', text: 'REFINED COPY' })));
+const refineSpy = vi.hoisted(() => vi.fn(async (_action: string, _text: string, _deckLang?: string) => ({ status: 'ok', text: 'REFINED COPY' })));
 const statusSpy = vi.hoisted(() => vi.fn((): { ready: boolean; generation: string; modelName: string | null; remaining: number | null } => ({ ready: true, generation: 'openrouter', modelName: 'test', remaining: null })));
 vi.mock('./architect', () => ({
 	refineSelection: refineSpy,
@@ -114,8 +114,11 @@ describe('Studio — Architect selection Refine', () => {
 		await user.click(refineBtn);
 		const menu = await screen.findByRole('menu');
 		await user.click(within(menu).getByText('Polish'));
-		// The model was asked to refine the selected text…
-		expect(refineSpy).toHaveBeenCalledWith('polish', expect.any(String));
+		// The model was asked to refine the selected text (a 3rd arg threads the deck's
+		// `lang:` so a refine keeps the deck's dialect — absent here, so it's undefined).
+		const [act, txt] = refineSpy.mock.calls[0];
+		expect(act).toBe('polish');
+		expect(typeof txt).toBe('string');
 		// …and the rewrite landed in the editor (replaceSelection → onChange → source).
 		expect(await screen.findByDisplayValue(/REFINED COPY/)).toBeInTheDocument();
 		// A pre-edit checkpoint makes it reversible from History.

@@ -49,11 +49,13 @@ workspace default (General tab)  ──inherited by──▶  deck `lang:` (Insp
 - **Autocomplete.** The editor now completes `lang:` VALUES (the supported codes)
   the same way it already completes `theme:` / `finish:` / `class:`.
 - **The AI writes the deck's effective language.** `withStudioVoice` takes an
-  optional `deckLang`; the source-bearing paths (`runArchitect`, `chatComplete`,
-  `requestFindingFix`) thread the deck's `lang:` in, so an `en-GB` deck gets
-  British-English edits. The fragment paths (`refineSelection`,
-  `generateDescription`) have no deck front matter and fall back to the workspace
-  default — an acceptable, documented degradation.
+  optional `deckLang`; every deck-content path threads the deck's `lang:` in, so an
+  `en-GB` deck gets British-English edits on ALL of them. The source-bearing paths
+  (`runArchitect`, `chatComplete`, `requestFindingFix`) read it from their own
+  `source`; the fragment paths (`refineSelection`, `generateDescription`, which carry
+  only a selection or a single slide) receive it from their caller (`StudioShell` /
+  `SlideContext`, which have the full deck) — so a British-pinned deck stays British
+  even on a mid-selection "shorten".
 
 **English only for now.** The 16-language `STUDIO_LANGUAGES` list was more than we
 actually support end-to-end. We pull it back to **English (United States)** and
@@ -92,7 +94,12 @@ set fits a flag-bearing dropdown better than a single entry would.
 - **`LanguageSelect.tsx`** (new) — the ONE flagged dropdown (HARD RULE #15),
   shared by the Workspace General tab (no Automatic row) and the deck Inspector
   (`includeAuto`). Renders a vendored flag `<img>` (never an emoji — Windows) +
-  the English label; reuses `flagSrc` from the TTS catalog.
+  the English label; reuses `flagSrc` from the TTS catalog. It NORMALIZES its value
+  through `resolveSupported` (studio-language) so a valid non-canonical English tag
+  (`en`, `en-us`, `EN-GB` — the ubiquitous document-lang forms) resolves to its item
+  instead of being branded "unsupported"; a genuinely-dropped locale (`fr-FR`) keeps
+  its raw form in a labelled "(unsupported)" row so the control never blanks and
+  never lies.
 - **`WorkspaceSheet.tsx`** — a "Language" section atop the **General** tab; the
   old "Output language" section removed from the AI tab.
 - **`StudioShell.tsx`** — a "Language" field in the Inspector "Look" group, wired

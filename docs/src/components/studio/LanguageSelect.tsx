@@ -2,7 +2,7 @@ import { Globe } from 'lucide-react';
 import * as React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { STUDIO_LANGUAGES } from './studio-language';
+import { resolveSupported, STUDIO_LANGUAGES } from './studio-language';
 import { flagSrc } from './tts-voice-catalog';
 
 // The ONE flagged language dropdown, shared by two surfaces (HARD RULE #15 — one
@@ -46,13 +46,18 @@ export function LanguageSelect({
 	ariaLabel?: string;
 	className?: string;
 }) {
-	// A current value with no matching item — a legacy/imported code no longer in the
-	// English-only list (e.g. a pre-existing `fr-FR` preference or deck `lang:`) — would
-	// leave a Radix Select trigger BLANK. Surface it as its own row (raw code, no flag)
-	// so the control stays honest and the user can switch away from it.
-	const known = value === LANG_AUTO || STUDIO_LANGUAGES.some((l) => l.code === value);
+	// NORMALIZE the incoming value to a catalog code before matching, so a valid but
+	// non-canonical English tag — `en`, `en-us`, `EN-GB`, the ubiquitous document-lang
+	// forms the engine/exports/AI all accept — resolves to its item instead of being
+	// branded "unsupported" over a spurious exact-string miss. A genuinely-dropped locale
+	// (`fr-FR`, `es`) resolves to null and keeps its raw form. `LANG_AUTO` is left as-is.
+	const shown = value === LANG_AUTO ? LANG_AUTO : (resolveSupported(value) ?? value);
+	// A value with no matching item — a legacy/imported locale no longer in the English-
+	// only list — would otherwise leave a Radix Select trigger BLANK. Surface it as its
+	// own row (raw code, no flag) so the control stays honest and the user can switch off it.
+	const known = shown === LANG_AUTO || STUDIO_LANGUAGES.some((l) => l.code === shown);
 	return (
-		<Select value={value} onValueChange={onValueChange}>
+		<Select value={shown} onValueChange={onValueChange}>
 			<SelectTrigger className={cn('w-full', className)} aria-label={ariaLabel}>
 				<SelectValue />
 			</SelectTrigger>
@@ -69,10 +74,10 @@ export function LanguageSelect({
 						<span>{l.label}</span>
 					</SelectItem>
 				))}
-				{!known && value && (
-					<SelectItem value={value}>
+				{!known && shown && (
+					<SelectItem value={shown}>
 						<Globe className="size-3.5 text-muted-foreground" />
-						<span>{value} (unsupported)</span>
+						<span>{shown} (unsupported)</span>
 					</SelectItem>
 				)}
 			</SelectContent>

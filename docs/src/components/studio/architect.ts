@@ -247,7 +247,7 @@ export type RefineOutcome =
  * Honest like the rest: `offline` with no model, `blocked` at the budget cap,
  * `nochange` when the rewrite is empty or identical — never a fabricated edit.
  */
-export async function refineSelection(action: RefineActionId, text: string): Promise<RefineOutcome> {
+export async function refineSelection(action: RefineActionId, text: string, deckLang?: string): Promise<RefineOutcome> {
 	if (!text.trim()) return { status: 'nochange' };
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
@@ -260,7 +260,10 @@ export async function refineSelection(action: RefineActionId, text: string): Pro
 	let out = '';
 	try {
 		out = await model.complete({
-			messages: withStudioVoice(buildRefinePrompt(action, text), generation),
+			// Pass the deck's `lang:` so a refine on a fragment keeps the deck's dialect
+			// (a British-pinned deck stays British on shorten/rephrase) — not the caller's
+			// selection but the DECK it belongs to; the caller threads it from `source`.
+			messages: withStudioVoice(buildRefinePrompt(action, text), generation, deckLang),
 			fallback: text,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
@@ -305,7 +308,7 @@ export function buildDescriptionPrompt(slideSource: string): Msg[] {
  * The caller (the drawer) treats the result as an UNCONFIRMED draft: it is not
  * written to the slide until the author confirms or edits it.
  */
-export async function generateDescription(slideSource: string): Promise<RefineOutcome> {
+export async function generateDescription(slideSource: string, deckLang?: string): Promise<RefineOutcome> {
 	if (!String(slideSource).trim()) return { status: 'nochange' };
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
@@ -318,7 +321,9 @@ export async function generateDescription(slideSource: string): Promise<RefineOu
 	let out = '';
 	try {
 		out = await model.complete({
-			messages: withStudioVoice(buildDescriptionPrompt(slideSource), generation),
+			// The alt-text is read in the deck's language, so describe in the deck's
+			// `lang:` (threaded from the full deck source by the caller), not the default.
+			messages: withStudioVoice(buildDescriptionPrompt(slideSource), generation, deckLang),
 			fallback: '',
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});

@@ -53,7 +53,7 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { importComments } from './slide-comments';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
-import { languageLabel } from './studio-language';
+import { languageLabel, resolveSupported } from './studio-language';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
@@ -688,6 +688,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// writes this deck's content in. `LANG_AUTO` is the picker's "inherit" sentinel.
 	const deckLang = getFrontMatter(source, 'lang') || '';
 	const workspaceLang = loadSettings().language;
+	// Honest display name — the catalog label for a supported code, else the raw code
+	// (never `languageLabel`'s silent fall-through to the default's label, which would
+	// mislabel a legacy `fr-FR` as "English (United States)" in the toast + auto row).
+	const langDisplay = (code: string) => (resolveSupported(code) ? languageLabel(code) : code);
 
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || '16:9';
@@ -896,7 +900,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	}, [fm, source, finishClass]);
 	// LANG_AUTO clears the deck's `lang:` so it inherits the workspace default; any
 	// concrete code writes the override. languageLabel resolves the human name for the toast.
-	const setDeckLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'Language → workspace default' : `Language → ${languageLabel(value)}`, (s) => setFrontMatter(s, 'lang', value === LANG_AUTO ? null : value));
+	const setDeckLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'Language → workspace default' : `Language → ${langDisplay(value)}`, (s) => setFrontMatter(s, 'lang', value === LANG_AUTO ? null : value));
 	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => setFrontMatter(s, 'size', value));
 	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => setFrontMatter(s, 'paginate', pageNumbers ? null : 'true'));
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => setFrontMatter(s, 'lift', lift ? null : 'on'));
@@ -1272,7 +1276,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			setRefineBusy(true);
 			notify(`${label}…`);
 			try {
-				const out = await refineSelection(action, sel.text);
+				const out = await refineSelection(action, sel.text, getFrontMatter(source, 'lang'));
 				if (out.status === 'offline') {
 					notify('Connect a model in Workspace → AI to refine a selection.');
 					setWorkspaceOpen(true);
@@ -1613,7 +1617,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						value={deckLang || LANG_AUTO}
 						ariaLabel="Choose deck language"
 						includeAuto
-						autoLabel={`Automatic — ${languageLabel(workspaceLang)}`}
+						autoLabel={`Automatic — ${langDisplay(workspaceLang)}`}
 						onValueChange={setDeckLang}
 					/>
 				</Field>

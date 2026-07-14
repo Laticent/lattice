@@ -172,7 +172,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	// the thread past a short brief, so it's its own field, not a truncation of the
 	// cloud one above (2026-07-09-studio-cloud-ondevice-config-split.md).
 	const [odInstructions, setOdInstructions] = React.useState(loadOnDeviceInstructions);
-	// The AI output language (seeded from the browser the first time; see studio-store).
+	// The workspace default language every deck inherits — its document language + the
+	// language the AI writes in (seeded from the browser the first time; see studio-store).
 	const [language, setLanguage] = React.useState(() => loadSettings().language);
 	// How the Fabricate finish designer draws its on-canvas placement handles.
 	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
