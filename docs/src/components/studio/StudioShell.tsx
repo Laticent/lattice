@@ -11,9 +11,12 @@ import {
 	DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Kbd } from '@/components/ui/kbd';
+import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
 import { Switch } from '@/components/ui/switch';
+import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
@@ -1673,7 +1676,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<SlidersHorizontal className="size-4 text-[var(--accent)]" />
 							<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
 							<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
-							<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><ChevronRight className="size-4" /></button>
+							<Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><ChevronRight className="size-4" /></button></Tip>
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
 					</>
@@ -1683,7 +1686,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
 							<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
 							<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
-							<button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" title="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><ChevronRight className="size-4" /></button>
+							<Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><ChevronRight className="size-4" /></button></Tip>
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
 					</>
@@ -1716,9 +1719,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues} issue{issues > 1 ? 's' : ''}</span>}
 				{hasSelection && (
 					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<button type="button" disabled={refineBusy} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-40" aria-label="Refine selection" title="Refine selection"><Wand2 className="size-3" /><span className="hidden @[36rem]:inline">Refine</span></button>
-						</DropdownMenuTrigger>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<DropdownMenuTrigger asChild>
+									<button type="button" disabled={refineBusy} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-40" aria-label="Refine selection"><Wand2 className="size-3" /><span className="hidden @[36rem]:inline">Refine</span></button>
+								</DropdownMenuTrigger>
+							</TooltipTrigger>
+							<TooltipContent>Refine selection</TooltipContent>
+						</Tooltip>
 						<DropdownMenuContent align="end" className="w-60">
 							{ai.ready ? (
 								<>
@@ -1736,20 +1744,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{insertComponents.length > 0 && <button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component" title="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button>}
-				<button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues" title="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
+				{insertComponents.length > 0 && <Tip label="Insert component"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button></Tip>}
+				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
-				<Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>
+				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>
 				{/* Slide-settings launcher — on DESKTOP the activity bar's Slide icon owns this
 				    (a duplicate here would break the e2e strict 'Slide settings' locator); on
 				    tablet/mobile the editor header is the opener. */}
-				{compact && <Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
+				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
 				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
 				{splitUsable && (
-					<Button variant="ghost" size="icon-sm" aria-label="Collapse editor" title="Collapse editor — or drag the divider past its minimum" onClick={() => collapseFromHeader('a')}>
-						<PanelLeftClose className="size-4" />
-					</Button>
+					<Tip label="Collapse editor — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse editor" onClick={() => collapseFromHeader('a')}><PanelLeftClose className="size-4" /></Button></Tip>
 				)}
 			</div>
 			<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onUserEdit={onFirstUserEdit} className="flex-1" />
@@ -1772,16 +1778,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
 				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" />
 				{composeLens !== 'full' && (
-					<button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens" title="Clear reader lens"><X className="size-3.5" /></button>
+					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
 				<span className="flex-1" />
 				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
 				<span className="rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>
 				<button type="button" onClick={() => goToSlide(slideNo)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
 				{splitUsable && (
-					<Button variant="ghost" size="icon-sm" aria-label="Collapse preview" title="Collapse preview — or drag the divider past its minimum" onClick={() => collapseFromHeader('b')}>
-						<PanelRightClose className="size-4" />
-					</Button>
+					<Tip label="Collapse preview — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse preview" onClick={() => collapseFromHeader('b')}><PanelRightClose className="size-4" /></Button></Tip>
 				)}
 			</div>
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
@@ -1867,12 +1871,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		<nav aria-label="Studio panels" className="flex w-[52px] shrink-0 flex-col items-center gap-0.5 border-r border-border bg-card py-2">
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">AI</span>
 			<BarIcon label="Toggle Architect" hint="Architect — AI coach &amp; chat" caption="Coach" active={architectOpen} onClick={() => { graduate(); setActiveAssistant((p) => (p ? null : 'architect')); }}><Sparkles className="size-[18px]" /></BarIcon>
-			<span className="my-1 h-px w-6 bg-border" />
+			<Separator className="my-1 w-6" />
 			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
 			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={activeSettings === 'slide'} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p === 'slide' ? null : 'slide')); }}><FileSliders className="size-[18px]" /></BarIcon>
 			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={activeSettings === 'deck'} pulse={inspectorPulse} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p === 'deck' ? null : 'deck')); }}><SlidersHorizontal className="size-[18px]" /></BarIcon>
 			<span className="flex-1" />
-			<span className="my-1 h-px w-6 bg-border" />
+			<Separator className="my-1 w-6" />
 			{onboarded && <BarIcon label="Open Library" hint="Library — saved themes &amp; components" caption="Library" onClick={() => setLibraryOpen(true)}><FileBox className="size-[18px]" /></BarIcon>}
 			{onboarded && <BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={() => setWorkspaceOpen(true)}><Settings2 className="size-[18px]" /></BarIcon>}
 			<span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-[var(--surface-inverse)] text-[12px] font-bold text-white">SA</span>
@@ -1892,9 +1896,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<div className="flex-1" />
 				<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex" aria-label="Search or run a command">
 					<Search className="size-4" />Search or run…
-					<span className="ml-2 rounded border border-border bg-background px-1.5 font-mono text-[11px]">⌘K</span>
+					<Kbd className="ml-2">⌘K</Kbd>
 				</button>
-				<Button variant="outline" size="sm" onClick={() => setFocus(false)} className="gap-1.5" title="Exit focus (Esc)" aria-label="Exit focus mode"><Minimize2 className="size-4" /><span className="hidden sm:inline">Exit focus</span></Button>
+				<Tip label="Exit focus (Esc)"><Button variant="outline" size="sm" onClick={() => setFocus(false)} className="gap-1.5" aria-label="Exit focus mode"><Minimize2 className="size-4" /><span className="hidden sm:inline">Exit focus</span></Button></Tip>
 			</header>
 			) : (
 			<header className="flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 sm:gap-3 sm:px-3.5">
@@ -1922,7 +1926,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</DropdownMenuContent>
 				</DropdownMenu>
 
-				<span className="hidden h-5 w-px bg-border sm:block" />
+				<Separator orientation="vertical" className="hidden h-5 sm:block" />
 
 				<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
 					<DropdownMenuTrigger asChild>
@@ -1964,7 +1968,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{!compact && (
 					<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex" aria-label="Search or run a command">
 						<Search className="size-4" />Search or run…
-						<span className="ml-2 rounded border border-border bg-background px-1.5 font-mono text-[11px]">⌘K</span>
+						<Kbd className="ml-2">⌘K</Kbd>
 					</button>
 				)}
 
@@ -1982,14 +1986,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</DropdownMenuContent>
 						</DropdownMenu>
-						<Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button>
+						<Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>
 					</div>
 				)}
 
 				{/* Desktop dividers band the right cluster by altitude — utilities |
 				    deliverable verbs | session panels | app surfaces — so global and
 				    deck controls don't read as one interleaved run (2026-07-03). */}
-				{!compact && <span className="h-5 w-px bg-border" />}
+				{!compact && <Separator orientation="vertical" className="h-5" />}
 
 				{/* Present + Share — the deliverable verbs, primary at every width. On
 				    phones they live one row down in the pane bar (with the panel toggles),
@@ -1999,9 +2003,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
 				{!mobile && (
 					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" title="Show me — a guided tour that drives itself" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
-						</DropdownMenuTrigger>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<DropdownMenuTrigger asChild>
+									<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('text-[var(--accent)] hover:text-[var(--on-accent)] hover:bg-[var(--accent)]', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
+								</DropdownMenuTrigger>
+							</TooltipTrigger>
+							<TooltipContent>Show me — a guided tour that drives itself</TooltipContent>
+						</Tooltip>
 						<DropdownMenuContent align="end" className="w-64">
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
 							{TOURS.map((t) => (
@@ -2013,29 +2022,29 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{!mobile && <Button variant="outline" size="sm" data-demo="present" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>}
-				{!mobile && <Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" title="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>}
+				{!mobile && <Tip label="Present"><Button variant="outline" size="sm" data-demo="present" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
+				{!mobile && <Tip label="Share"><Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 
-				<span className="hidden h-5 w-px bg-border sm:block" />
+				<Separator orientation="vertical" className="hidden h-5 sm:block" />
 				{/* Focus — drop to Editor + Preview, hide the panels, quiet the noise (desktop only; tablet/mobile already collapse panels). Advanced — revealed once a newcomer engages. */}
-				{!compact && onboarded && <Button variant="ghost" size="icon-sm" onClick={() => setFocus(true)} aria-label="Enter focus mode" title="Focus — hide panels, just write (⌘.)"><Focus className="size-[18px]" /></Button>}
+				{!compact && onboarded && <Tip label="Focus — hide panels, just write (⌘.)"><Button variant="ghost" size="icon-sm" onClick={() => setFocus(true)} aria-label="Enter focus mode"><Focus className="size-[18px]" /></Button></Tip>}
 				{/* Feedback — a persistent, one-tap entry point (not gated on onboarded — first
 				    impressions matter too). Opens a pre-filled GitHub issue; no token, no backend. */}
-				{!compact && <Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback" title="Send feedback"><MessageSquareHeart className="size-[18px]" /></Button>}
+				{!compact && <Tip label="Send feedback"><Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback"><MessageSquareHeart className="size-[18px]" /></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
 				    they ride the pane bar below with Present + Share. */}
 				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
 				    left activity bar; mobile from the pane bar below. */}
-				{bp === 'tablet' && <Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setActiveAssistant((p) => (p ? null : 'architect')); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>}
-				{bp === 'tablet' && <Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p ? null : 'deck')); }} aria-label="Settings" title="Settings — deck &amp; slide, in the side panel" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>}
-				{!compact && <span className="h-5 w-px bg-border" />}
+				{bp === 'tablet' && <Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setActiveAssistant((p) => (p ? null : 'architect')); }} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p ? null : 'deck')); }} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
+				{!compact && <Separator orientation="vertical" className="h-5" />}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
 				    holds the genuinely-secondary controls — theme picker, Library, Workspace,
 				    and a Search/commands row (the touch path to the ⌘K palette). */}
-				{compact && <Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button>}
+				{compact && <Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>}
 				{compact && (
 					<DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
 						<DropdownMenuTrigger asChild>
@@ -2067,7 +2076,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								)}
 								{onboarded && <DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>}
 								{onboarded && <DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>}
-								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<span className="ml-auto rounded border border-border bg-background px-1.5 font-mono text-[10px]">⌘K</span></DropdownMenuItem>
+								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<Kbd className="ml-auto text-[10px]">⌘K</Kbd></DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setFeedbackOpen(true)}><MessageSquareHeart className="size-4" />Send feedback</DropdownMenuItem>
 								<DropdownMenuSeparator />
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
@@ -2120,12 +2129,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
 						{/* Version history + Slide settings ride the pane bar only on the PREVIEW
 						    pane — the EDIT pane's own editor header already carries both. */}
-						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" title="Version history — save & restore snapshots"><History className="size-[18px]" /></Button>}
-						{mobilePane === 'preview' && <Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" title="Slide settings — look, status, chrome, notes"><FileSliders className="size-[18px]" /></Button>}
-						<Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" title="Present" aria-label="Present"><Play className="size-4" /></Button>
-						<Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" title="Share" aria-label="Share"><Share2 className="size-4" /></Button>
-						<Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" title="Architect — AI coach &amp; chat" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button>
-						<Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p ? null : 'deck')); }} aria-label="Settings" title="Settings — deck &amp; slide" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button>
+						{mobilePane === 'preview' && <Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>}
+						{mobilePane === 'preview' && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
+						<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
+						<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button></Tip>
+						<Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>
+						<Tip label="Settings — deck & slide"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p ? null : 'deck')); }} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>
 					</div>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
 					    its full size, so the preview keeps rendering the live deck and a swap to it is
@@ -2372,7 +2381,7 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 // compact — that reclaimed width keeps the deck actions inline instead of behind a ⋯.
 function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; demo?: string }) {
 	return (
-		<button type="button" onClick={onClick} data-demo={demo} aria-label={label} title={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button>
+		<Tip label={label}><button type="button" onClick={onClick} data-demo={demo} aria-label={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button></Tip>
 	);
 }
 // One icon on the desktop left activity bar. `caption` is a PERSISTENT label
@@ -2382,11 +2391,10 @@ function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onCl
 // the globals (Library/Workspace) open dialogs, so they get no pressed state.
 function BarIcon({ label, hint, caption, active, pulse, onClick, children }: { label: string; hint: string; caption: string; active?: boolean; pulse?: boolean; onClick: () => void; children: React.ReactNode }) {
 	return (
-		<button
+		<Tip label={hint}><button
 			type="button"
 			aria-label={label}
 			aria-pressed={active}
-			title={hint}
 			onClick={onClick}
 			className={cn(
 				'group/bar relative flex w-11 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[8.5px] font-semibold leading-none transition-colors',
@@ -2398,7 +2406,7 @@ function BarIcon({ label, hint, caption, active, pulse, onClick, children }: { l
 			{active && <span aria-hidden="true" className="absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]" />}
 			{children}
 			<span className="tracking-tight">{caption}</span>
-		</button>
+		</button></Tip>
 	);
 }
 // The drag handle on a docked panel's inner (editor-facing) edge — spread the
@@ -2441,7 +2449,7 @@ function ScoreRow({ ok, label, v }: { ok?: boolean; label: string; v: string }) 
 }
 function RailOp({ label, onClick, disabled, danger, armed, children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; armed?: boolean; children: React.ReactNode }) {
 	return (
-		<button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail,#b3261e)] text-white hover:bg-[var(--fail,#b3261e)] hover:text-white')}>{children}</button>
+		<Tip label={label}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail,#b3261e)] text-white hover:bg-[var(--fail,#b3261e)] hover:text-white')}>{children}</button></Tip>
 	);
 }
 function Chip({ children, onClick, busy }: { children: React.ReactNode; onClick?: () => void; busy?: boolean }) {

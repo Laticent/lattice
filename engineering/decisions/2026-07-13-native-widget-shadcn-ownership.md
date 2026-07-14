@@ -83,9 +83,10 @@ card/popover foreground maps to *body* text, so titles must opt into
 
 ## The catalog — what we roll our own → shadcn
 
-Existing `ui/` primitives: badge, breadcrumb, button, card, collapsible, command,
-dialog, dropdown-menu, input, pill-tabs, popover, scroll-area, select, sheet,
-slider, split, table, tabs, textarea.
+Existing `ui/` primitives: badge, breadcrumb, button, card, checkbox, collapsible,
+command, dialog, dropdown-menu, input, kbd, pill-tabs, popover, radio-group,
+scroll-area, select, separator, sheet, slider, split, switch, table, tabs,
+textarea, toggle-group, tooltip.
 
 **Excluded — FROZEN** (`2026-07-03-studio-succession.md`): the **Drawing Board**
 (`pages/drawing-board.astro`, `docs/src/playground/*`, `drawing-board.css`) and
@@ -112,7 +113,9 @@ migration work on either — their native selects/drawers/tab-strips stay.
 | `ui/checkbox.tsx` | native checkboxes | `studio/FinishStudio.tsx:427,437` |
 | `ui/radio-group.tsx` | native radios / picker rows | `studio/ModelPicker.tsx:134`, `studio/TtsModelPicker.tsx:124` |
 | `ui/toggle-group.tsx` | segmented / chip radiogroups | `studio/SlideContext.tsx:100,124` |
-| `ui/tooltip.tsx` *(optional, low pri)* | native `title=` hints (~17 files) | native `title` is acceptable; only if we want styled tips |
+| `ui/tooltip.tsx` ✅ *(built 2026-07-14)* | native `title=` hints on icon controls | StudioShell + NavActions migrated; other live surfaces are fast-follow |
+| `ui/separator.tsx` ✅ *(built 2026-07-14)* | hand-rolled `bg-border` rule `<span>`s | StudioShell's 6 toolbar dividers migrated |
+| `ui/kbd.tsx` ✅ *(built 2026-07-14)* | copy-pasted `⌘K` chip spans | StudioShell (3) + NavActions (1) migrated |
 
 ## The standing rule
 
@@ -190,3 +193,54 @@ pick-one is `radio-group`, a zero-or-one chip set is `toggle-group`, a swatch ro
 is neither), (b) does NOT regress an intentional SSR/no-JS/crawlable surface, and
 (c) can be verified on the real surface. "Migrate everything native" is not the
 goal; "share the right component where it's a genuine, verifiable improvement" is.
+
+## Batch outcome — 2026-07-14 (b): tooltip + separator + kbd
+
+The three §B gaps that were NOT composite controls — a hint, a rule, a keycap —
+built and adopted. All verified on the real Studio (puppeteer-driven, both colour
+modes): tooltips fire with a themed `bg-popover` surface that flips light↔dark,
+Kbd renders the `⌘K` chip, and the six Separators render at the right thickness
+with `--border` colour.
+
+### Shipped
+- **`ui/tooltip`** (Radix Tooltip) + a project `Tip` convenience wrapper (one-line
+  `<Tip label="…">{control}</Tip>` in place of a four-node Tooltip tree). Neutral
+  popover-language surface (no loud accent fill); self-provides its `Provider` so a
+  caller needs no root wiring. Migrated **StudioShell** — every native `title=` in
+  the file: the ~24 toolbar icon/text controls, the two dark/light mode toggles,
+  and the shared `PaneBtn`/`BarIcon`/`RailOp` helper buttons (so no native tip
+  survives *inside* a migrated cluster) — plus **NavActions** (feedback). Only the
+  `ArchCard title=` *prop* (not a hover hint) remains. Redundant `title=` dropped;
+  `aria-label` kept as the
+  accessible NAME (the tooltip is only the `aria-describedby` DESCRIPTION — two
+  buttons that had NO `aria-label` gained one so they aren't nameless when their
+  visible text is width-hidden).
+- **`ui/separator`** (Radix Separator) — deliberately sets only THICKNESS + colour,
+  leaving LENGTH to the caller/flex parent (shadcn's `w-full`/`h-full` default
+  Tailwind-clashes with our explicitly-sized rules). Migrated StudioShell's 6
+  toolbar dividers.
+- **`ui/kbd`** — a styled semantic `<kbd>` (+ `KbdGroup`), not a Radix primitive.
+  Migrated the 3 StudioShell `⌘K` spans + NavActions.
+
+### Footgun found & fixed (blast-radius note)
+Wrapping a control that is ALSO a Radix `*Trigger asChild` child (the **Refine**
+and **Show me** dropdown openers) in `Tip` breaks the `asChild` ref chain — `Tip`
+renders a Provider/Root, not a DOM node, so the outer trigger loses its anchor.
+The `studio.refine.test.tsx` suite caught Refine. Fix is the canonical nested
+composition: `<Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild>
+<Button/>…`. **Rule: `Tip` is for plain (`onClick`) controls only; a control that
+is itself a Radix trigger needs the explicit nested triggers.**
+
+*Accepted tradeoff:* a Radix `TooltipTrigger` on a `disabled` control receives no
+pointer events, so a disabled button (e.g. `Fix all` at rest, `Refine` mid-run)
+no longer shows its hint on hover — native `title` did. Minor discoverability
+loss at exactly the "why is this greyed out?" moment; accepted as the cost of the
+themed surface (independent-checker call).
+
+### Scope / fast-follow
+Migrated only the surfaces driven in verification (StudioShell + NavActions).
+Other live surfaces still on native `title=` — ShareSheet, Fabricate,
+WorkspaceSheet, PresentOverlay, SlideContext, reference-doc-ui, InsertComponent —
+are a documented fast-follow (native `title` stays accessible meanwhile). The
+OpenRouter-gated model pickers are excluded for the same reason as above (can't
+verify). Frozen surfaces untouched.
