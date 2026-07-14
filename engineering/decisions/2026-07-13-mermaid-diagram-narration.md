@@ -586,3 +586,50 @@ running the actual code, were fixed before push:
   `authorizes`→"authoriz", `normalizes`→"normaliz" (their 3rd-person adds only `s`). **Fix:** an
   `-ize`/`-ise`/`-yze`→`e` rule and a `caches`→`cache` case precede the sibilant strip; a scan of the full
   set now conjugates every curated verb cleanly. Tests cover all three regressions.
+
+## 12. Read AND explain — a lean "gist" layer over the detail walk (2026-07-14)
+
+Maintainer question after the label-grammar work shipped: *"reading it is one thing — can it be
+EXPLAINED, accurately and comprehensibly?"* The honest answer splits "explain" three ways:
+- **Explain the SHAPE** (depth, branch/merge, loop) — pure topology, faithful, and the walk does NOT
+  state it; this is legitimately the narrator's to add.
+- **Explain the MEANING, authored** — the deck author's `> note`/eyebrow already narrates verbatim; the
+  best "so what" is authored, and we speak it.
+- **Explain the MEANING, inferred** ("this shared DB is a bottleneck") — an INFERENCE the diagram never
+  states; it can be confidently wrong (and an eyes-free listener can't see the picture to catch it), so it
+  stays BANNED, exactly like an invented edge verb. This is the "org-chart caveat" (§10.1) drawn as a line.
+
+The maintainer chose the faithful lane and confirmed the model: reading and explaining are **complementary
+layers**, heard together — a one-line **GIST** first (orientation), then the **detail walk**. This is the
+accessibility "gist then detail" convention. The gist REPLACES the old thin "It begins at X and ends at Y"
+overview.
+
+**The adversarial trio (red team + Munger + independent checker) hardened the shape-classifier and forced
+a redesign.** The math was validated (longest-path matched brute force on ~4,000 graphs, faithful,
+deterministic), but the FIRST gist draft failed the central inversion: **it pre-echoed the walk.** It
+re-named the fan hub and the merge node ("A three-way fan-out from API Service" / "rejoins at Process")
+that the walk restates seconds later, and — via a terminals-computed-on-the-raw-graph bug — went SILENT on
+loop shapes (~54% of looped graphs), i.e. redundant where it spoke, mute where it'd help.
+
+**Shipped (lean) design — the gist says ONLY what the walk never does, then stops:**
+- **DEPTH** ("Five hops deep") — the longest path; the walk never states it (you'd count the "then"s).
+- a coarse **SHAPE gestalt** — "a diamond" / "branching and reconverging" — with **no node names and no
+  counts** (the walk gives those).
+- a **LOOP flag** — a bare "with a loop" (the walk names the target; the gist just orients that one exists).
+- It fires ONLY when it can add one of those; a pure linear chain, a lone fan-out, and a shallow one-off
+  loop stay SILENT (the walk is already the gist). The gist reads ZERO edge/node labels — pure topology,
+  trivially faithful.
+
+**Three trio-confirmed bugs fixed in the same pass:** the "one hops deep" number/noun disagreement (depth
+only ever speaks at ≥4 hops now, so the singular branch was dead — removed); `terminals` computed on the
+DAG so a loop-tail sink still counts (the gist fires on looped graphs); and `backEdges` converted from
+recursion to an explicit-stack DFS (verified against the recursive reference on 5,000 graphs, 0 mismatches)
+so a very deep chain can't overflow — the same stack-safety the iterative longest-path metric already had.
+
+*Verification:* `chart-narration.test.js` gains lean-gist cases (shape-only diamond with no node re-naming,
+depth+shape on a wide graph with no fan/endpoint re-statement, silent on pure-linear / lone-fan-out,
+loop-flag + loop-tail firing, grammatical depth). Self-verified: 2,000-graph fuzz (0 throws, 0
+nondeterminism), 8,000-node chain no overflow, `backEdges` iterative ≡ recursive. Both surfaces stay
+identical (rebuilt bundles); audio remains UNVERIFIED (HARD RULE #23) — only the spoken string is asserted.
+The lean gist is a strict REDUCTION of the trio-reviewed classifier (same validated metrics, less output,
+plus the three fixes), so it did not warrant a second full trio.

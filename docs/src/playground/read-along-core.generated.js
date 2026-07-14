@@ -1537,16 +1537,26 @@ var require_chart_narration = __commonJS({
       const back = /* @__PURE__ */ new Set();
       const entries = g.order.filter((id) => (g.inDeg.get(id) || 0) === 0);
       const starts = [.../* @__PURE__ */ new Set([...entries, ...g.order])];
-      function dfs(u) {
-        state.set(u, 1);
-        for (const { to } of outEdges(g, u)) {
-          const st = state.get(to) || 0;
-          if (st === 1) back.add(`${u}${BACK_SEP}${to}`);
-          else if (st === 0) dfs(to);
+      for (const s of starts) {
+        if (state.get(s)) continue;
+        state.set(s, 1);
+        const stack = [{ u: s, succ: outEdges(g, s), i: 0 }];
+        while (stack.length) {
+          const frame = stack[stack.length - 1];
+          if (frame.i < frame.succ.length) {
+            const to = frame.succ[frame.i++].to;
+            const st = state.get(to) || 0;
+            if (st === 1) back.add(`${frame.u}${BACK_SEP}${to}`);
+            else if (st === 0) {
+              state.set(to, 1);
+              stack.push({ u: to, succ: outEdges(g, to), i: 0 });
+            }
+          } else {
+            state.set(frame.u, 2);
+            stack.pop();
+          }
         }
-        state.set(u, 2);
       }
-      for (const s of starts) if ((state.get(s) || 0) === 0) dfs(s);
       return back;
     }
     function topoSortDag(order, dagOut, dagIn, pos) {
@@ -1640,9 +1650,40 @@ var require_chart_narration = __commonJS({
       const hasBranch = g.order.some((id) => dagOutDeg(id) >= 2);
       const hasMerge = g.order.some((id) => (dagIn.get(id) || 0) >= 2);
       const complex = entries.length > 1 || hasBranch && (hasMerge || back.size > 0);
-      if (complex && entries.length && terminals.length) {
-        say(`It begins at ${joinWithAnd(entries.map(lbl))} and ends at ${joinWithAnd(terminals.map(lbl))}${back.size ? ", with a loop back" : ""}`);
+      const nNodes = g.order.filter((id) => (g.outDeg.get(id) || 0) + (g.inDeg.get(id) || 0) > 0).length;
+      const convergences = g.order.filter((id) => (dagIn.get(id) || 0) >= 2);
+      const dagTerminals = g.order.filter((id) => dagOutDeg(id) === 0 && (dagIn.get(id) || 0) > 0);
+      const maxOut = g.order.reduce((m, id) => Math.max(m, dagOutDeg(id)), 0);
+      const lp = new Map(g.order.map((id) => [id, 0]));
+      for (let i = topo.length - 1; i >= 0; i--) {
+        const u = topo[i];
+        let best = 0;
+        for (const o of dagOut(u)) best = Math.max(best, 1 + lp.get(o.to));
+        lp.set(u, best);
       }
+      const hops = g.order.length ? Math.max(...lp.values()) : 0;
+      const num = (n) => numberToWords(n);
+      const renderGist = () => {
+        if (!entries.length || nNodes < 4) return null;
+        const pureLinear = g.order.every((id) => dagOutDeg(id) <= 1 && (dagIn.get(id) || 0) <= 1);
+        const reconverges = hasBranch && convergences.length > 0;
+        const deep = hops >= 4;
+        if (pureLinear || !deep && !reconverges) return null;
+        const isDiamond = entries.length === 1 && dagTerminals.length === 1 && convergences.length === 1 && maxOut >= 2 && hops <= 3;
+        let core;
+        if (isDiamond) {
+          core = "a diamond";
+        } else {
+          const parts = [];
+          if (deep) parts.push(`${num(hops)} hops deep`);
+          if (reconverges) parts.push("branching and reconverging");
+          core = parts.join(", ");
+        }
+        if (back.size) core = core ? `${core}, with a loop` : "with a loop";
+        return core ? core.charAt(0).toUpperCase() + core.slice(1) : null;
+      };
+      const gistText = renderGist();
+      if (gistText) say(gistText);
       const frag = (o) => {
         const to = lbl(o.to);
         if (!o.label) return `leads to ${to}`;
