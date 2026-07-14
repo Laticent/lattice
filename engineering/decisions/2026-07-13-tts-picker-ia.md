@@ -61,10 +61,19 @@ search input + scrollable grouped list), single-level groups, no nesting. It mir
    (CSM's persona-less `read_speech_a`) shows **no badge**, never a guess. The flag's
    country comes from the same id/locale structure (`KOKORO_COUNTRY`, the MAI locale,
    Zonos' `american`/`british`) and is **absent for a language-agnostic engine**
-   (Gemini's voices speak any language — no flag). Emoji flags render on iOS/macOS/most
-   desktops; a browser without flag glyphs (Windows) falls back to the 2-letter code —
-   graceful. Neither map carries the roster's drift risk: gender/country of a *named*
-   voice is stable, and an added/removed voice just gains or loses a badge.
+   (Gemini's voices speak any language — no flag). Neither map carries the roster's
+   drift risk: gender/country of a *named* voice is stable, and an added/removed voice
+   just gains or loses a badge.
+
+   **Flags are vendored SVGs, not emoji (2026-07-14 follow-up).** The flag first shipped
+   as a Unicode flag emoji, which Windows browsers can't draw (they fall back to the
+   2-letter code). Replaced with the [flag-icons](https://github.com/lipis/flag-icons)
+   MIT set (271 4×3 SVGs) vendored at `docs/public/flags/<cc>.svg` and rendered by a
+   plain `<img>` (`flagSrc` → the path) — identical on every platform. They're STATIC
+   assets, never in the JS bundle, and a browser fetches only the flags a rendered row
+   actually uses (verified: a 6-country roster fetched exactly 6 of the 271). The full
+   set is vendored so a new engine/locale country needs no new asset; a missing/broken
+   flag `onError`-hides rather than showing a broken image.
 4. Search over the whole roster (cmdk), so 30–54 voices stay tractable.
 
 All derivation lives in `voiceMeta()` / `groupVoices()` in `tts-voice-catalog.ts`

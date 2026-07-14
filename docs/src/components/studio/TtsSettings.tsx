@@ -20,7 +20,7 @@ import {
 	voiceAvailability,
 } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
-import { countryName, flagEmoji, groupVoices, KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { countryName, flagSrc, groupVoices, KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
 // generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
@@ -111,16 +111,16 @@ function GenderMark({ gender }: { gender?: 'F' | 'M' }) {
 
 // A country flag for a voice row whose language maps to a country (Kokoro/Voxtral/MAI/
 // Zonos). Replaces the old "· US" text suffix — the flag sits next to the gender icon.
-// Emoji flags render on iOS/macOS; a desktop browser without flag glyphs falls back to
-// the 2-letter code, still meaningful. Absent for a language-agnostic engine (Gemini).
+// A vendored SVG (flagSrc → /flags/<cc>.svg) rather than an emoji, so it renders
+// identically on every platform (including Windows, which can't draw flag emoji). Only
+// the flags actually shown are fetched; the rest are inert static assets. Absent for a
+// language-agnostic engine (Gemini). Hidden on a load error rather than a broken image.
 function FlagMark({ country }: { country?: string }) {
-	const flag = flagEmoji(country);
-	if (!flag) return null;
-	return (
-		<span role="img" aria-label={countryName(country)} title={countryName(country)} className="shrink-0 text-[13px] leading-none">
-			{flag}
-		</span>
-	);
+	const [failed, setFailed] = React.useState(false);
+	const src = flagSrc(country);
+	if (!src || failed) return null;
+	const name = countryName(country);
+	return <img src={src} alt={name} title={name} loading="lazy" onError={() => setFailed(true)} className="h-3 w-4 shrink-0 rounded-[1px] object-cover" />;
 }
 
 // The voice picker: an inline, expand-in-place search panel grouped as ★ Featured +

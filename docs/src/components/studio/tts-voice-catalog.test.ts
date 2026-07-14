@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cachedSampleUrl, countryName, engineForModel, featuredVoiceIds, flagEmoji, groupVoices, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceMeta, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { cachedSampleUrl, countryName, engineForModel, featuredVoiceIds, flagSrc, groupVoices, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceMeta, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
@@ -279,16 +279,16 @@ describe('groupVoices — Featured highlight + language groups (or one flat list
 	});
 });
 
-describe('flagEmoji / countryName — the row flag', () => {
-	it('turns an ISO alpha-2 code into a regional-indicator flag emoji', () => {
-		expect(flagEmoji('US')).toBe('🇺🇸');
-		expect(flagEmoji('GB')).toBe('🇬🇧');
-		expect(flagEmoji('jp')).toBe('🇯🇵'); // case-insensitive
+describe('flagSrc / countryName — the row flag', () => {
+	it('maps an ISO alpha-2 code to its vendored SVG path (lowercased)', () => {
+		expect(flagSrc('US')).toBe('/flags/us.svg');
+		expect(flagSrc('GB')).toBe('/flags/gb.svg');
+		expect(flagSrc('jp')).toBe('/flags/jp.svg'); // already lowercase
 	});
-	it('returns empty string for a missing or malformed code (no badge)', () => {
-		expect(flagEmoji(undefined)).toBe('');
-		expect(flagEmoji('USA')).toBe('');
-		expect(flagEmoji('')).toBe('');
+	it('returns null for a missing or malformed code (no flag)', () => {
+		expect(flagSrc(undefined)).toBeNull();
+		expect(flagSrc('USA')).toBeNull();
+		expect(flagSrc('')).toBeNull();
 	});
 	it('names a country for the flag aria-label, falling back to the raw code', () => {
 		expect(countryName('BR')).toBe('Brazil');
