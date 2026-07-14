@@ -1,6 +1,7 @@
 import { Check, ChevronDown, Download, Loader2, Mars, PlayCircle, Venus } from 'lucide-react';
 import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
+import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
 	listTtsModels,
@@ -214,16 +215,15 @@ function VoicePicker({
 					<GenderMark gender={row.gender} />
 				</button>
 				{onPreview && (
-					<button
+					<Tip label="Hear this voice"><button
 						type="button"
 						onClick={() => onPreview(row.id)}
 						disabled={busy}
 						aria-label={`Preview ${row.label}`}
-						title="Hear this voice"
 						className="shrink-0 rounded-md bg-transparent p-1.5 text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-60"
 					>
 						{busy ? <Loader2 className="size-4 animate-spin" /> : <PlayCircle className="size-4" />}
-					</button>
+					</button></Tip>
 				)}
 			</div>
 		);

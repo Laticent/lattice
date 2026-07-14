@@ -18,6 +18,7 @@ import { PillTabs } from '@/components/ui/pill-tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch as UISwitch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
@@ -381,15 +382,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					{/* Reset — revert every edit made this session back to the original slide. */}
 					<div className="flex items-center justify-between border-b border-border py-2">
 						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>
-						<button
+						<Tip label="Revert this slide to how it was when you opened settings"><button
 							type="button"
 							onClick={resetSlide}
 							disabled={!dirty}
-							title="Revert this slide to how it was when you opened settings"
 							className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent"
 						>
 							<RotateCcw className="size-3" />Reset slide
-						</button>
+						</button></Tip>
 					</div>
 
 					{/* Dynamic pill-tabs — only tabs with content for this slide render. */}
@@ -439,27 +439,25 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<div className="flex items-center justify-between gap-2">
 									<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Eye className="size-3.5 text-[var(--accent)]" />Description <span className="font-normal text-muted-foreground">for screen readers</span></span>
 									{cloudReady ? (
-										<button
+										<Tip label="Draft a text alternative from this slide (you review & confirm before it's used)"><button
 											type="button"
 											onClick={generateDesc}
 											disabled={descBusy}
-											title="Draft a text alternative from this slide (you review & confirm before it's used)"
 											className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-50"
 										>
 											<Sparkles className="size-3" />{descBusy ? 'Generating…' : 'Generate'}
-										</button>
+										</button></Tip>
 									) : (
 										// No cloud model yet — descriptions need the trusted cloud tier, so offer a
 										// one-tap Connect here (Fabricate's affordance) instead of a dead-end message.
-										<button
+										<Tip label="Connect a cloud model (OpenRouter) to draft descriptions with AI"><button
 											type="button"
 											onClick={connectCloud}
 											aria-label="Connect a cloud model for AI descriptions"
-											title="Connect a cloud model (OpenRouter) to draft descriptions with AI"
 											className="inline-flex items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90"
 										>
 											<Cloud className="size-3" />Connect AI
-										</button>
+										</button></Tip>
 									)}
 								</div>
 								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">An objective equivalent of what's on the slide — the accessibility text alternative (WCAG A). Exported as the slide image's alt text; never spoken or shown on the slide.</p>

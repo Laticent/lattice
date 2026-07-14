@@ -4,6 +4,7 @@ import DeckPreview from '@/components/DeckPreview';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 // The REAL layout gate — the deterministic core the engine uses for components
@@ -464,9 +465,9 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 					{tab === 'layout' && <span className="shrink-0 font-mono text-[13px] text-muted-foreground">.</span>}
 					<input value={name} onChange={(e) => setName(e.target.value)} aria-label={tab === 'theme' ? 'Theme name' : 'Component name'} placeholder={namePlaceholder} spellCheck={false} className={cn('min-w-0 flex-1 bg-transparent text-sm font-semibold text-[var(--text-heading)] outline-none placeholder:font-normal placeholder:text-muted-foreground', tab === 'layout' && 'font-mono text-[13px]')} />
 				</div>
-				<button type="button" onClick={() => setDescOpen((v) => !v)} aria-expanded={descOpen} aria-label="Description" title="Description — used in the export header / README" className={cn('inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-1 hover:text-foreground', desc.trim() ? 'text-[var(--accent)]' : 'text-muted-foreground')}>
+				<Tip label="Description — used in the export header / README"><button type="button" onClick={() => setDescOpen((v) => !v)} aria-expanded={descOpen} aria-label="Description" className={cn('inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-1 hover:text-foreground', desc.trim() ? 'text-[var(--accent)]' : 'text-muted-foreground')}>
 					<Text className="size-3.5" /><ChevronDown className={cn('size-3 transition-transform', descOpen && 'rotate-180')} />
-				</button>
+				</button></Tip>
 				<div className="ml-1 inline-flex shrink-0 rounded-[10px] border border-border bg-background p-[3px] sm:ml-2">
 					<button type="button" onClick={() => setTab('theme')} aria-pressed={tab === 'theme'} aria-label="Theme" className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold sm:px-3', tab === 'theme' ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}><Palette className="size-3.5" /><span className="hidden sm:inline">Theme</span></button>
 					<button type="button" onClick={() => setTab('layout')} aria-pressed={tab === 'layout'} aria-label="Component" className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold sm:px-3', tab === 'layout' ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}><LayoutGrid className="size-3.5" /><span className="hidden sm:inline">Component</span></button>
@@ -590,14 +591,14 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 										const e = s.essentials as Record<string, string>;
 										const active = core.bg === e.bg && core.accent === e.accent;
 										return (
-											<button type="button" key={s.name} onClick={() => startTheme(e)} title={s.description} aria-label={`Start from ${s.label}`} className={cn('flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left', active ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}>
+											<Tip key={s.name} label={s.description}><button type="button" onClick={() => startTheme(e)} aria-label={`Start from ${s.label}`} className={cn('flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left', active ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}>
 												<span className="flex overflow-hidden rounded border border-border">
 													<span className="size-3.5" style={{ background: e.accent }} />
 													<span className="size-3.5" style={{ background: e.textHeading }} />
 													<span className="size-3.5" style={{ background: e.bg }} />
 												</span>
 												<span className="text-[12px] font-semibold text-[var(--text-heading)]">{s.label}</span>
-											</button>
+											</button></Tip>
 										);
 									})}
 								</div>
@@ -734,7 +735,7 @@ function HintLabel({ field, children }: { field: string; children: React.ReactNo
 		<span className="flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
 			{children}
 			{MANIFEST_HINTS[field] && (
-				<span title={MANIFEST_HINTS[field]} className="inline-flex cursor-help"><Info className="size-3 text-muted-foreground/60" /></span>
+				<Tip label={MANIFEST_HINTS[field]}><span className="inline-flex cursor-help"><Info className="size-3 text-muted-foreground/60" /></span></Tip>
 			)}
 		</span>
 	);

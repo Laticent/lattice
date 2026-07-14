@@ -211,6 +211,13 @@ in patch versions.
   hidden, and an **empty** view can't be approved at all. Removing a view also clears its slide tags, so a
   later same-name view never silently inherits old membership. Every write funnels through the deck source
   (undo-able) with `@slidewright/lente` as the sole registry serializer.
+- **Themed tooltips reach more Studio controls (fast-follow).** The `Tip` migration extends from the
+  toolbar to the remaining icon/hint controls that still used native `title=` — the Present overlay
+  (Slides / Captions / Voice / Presenter), the slide inspector (Reset / Generate description / Connect
+  AI), the Library import buttons, the per-comment Resolve/Delete, the Fabricate description + field
+  hints, and the voice-preview button — so a hover hint reads the same, colour-mode-aware, everywhere.
+  Only genuine hover hints migrated; component-prop `title`s and value-showing labels are unchanged.
+  Docs-site Studio UI only. Verified on the real Present overlay.
 - **`_lens` is now a recognized per-slide directive.** A `<!-- _lens: brief ask -->` comment carries a
   slide's reader-lens membership for the forthcoming lens system (`@slidewright/lente`). Like other
   directives it is **stripped from exported HTML/PDF** and is never a `<section>` attribute — so internal
