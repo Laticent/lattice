@@ -474,3 +474,35 @@ existing bail/ReDoS/leak cases are unchanged. The `examples/diagram-narration.md
 regenerated (one slide now showcases the cycle → grouped fallback). *Deferred (logged):* fan-IN
 coalescing ("Auth and Orders both lead to the User DB"), de-duping parallel edges to the same target,
 and a size cap/summary for very large graphs. Audio remains UNVERIFIED (HARD RULE #23).
+
+### 10.1 Adversarial trio on the flow reading — findings folded (2026-07-14)
+
+The flow rework (§10) got the full trio (red team + Munger inversion + independent checker). Checker:
+8/8 sound — correct, deterministic, both-surfaces-identical, faithful (no invented verbs). Red team +
+inversion found four real quality defects, all folded before merge:
+
+- **Labeled fan-out was an un-disambiguable comma list (Munger, CRITICAL).** "Triage fans out to Page
+  on-call, p0, Create ticket, p1, …" — the comma between a target and its label was indistinguishable
+  from the comma between branches; on a decision diamond (the shape a flowchart exists for) this was a
+  regression vs the per-edge form. **Fix:** any labeled branch now renders as "From X: on ‹label›, leads
+  to ‹target›; …" — each branch a verb-bound clause, semicolon-separated. Pure-unlabeled fan-outs keep
+  the clean "fans out to A, B, and C".
+- **One feedback edge collapsed the whole flow to grouped (Munger, HIGH).** `topoSort` returned null on
+  ANY cycle, so a clean pipeline with a single retry edge lost all flow framing. **Fix:** DFS `backEdges`
+  removes the feedback arcs to get a DAG, the flow walks that, and the arcs narrate as "V, retry, loops
+  back to I" — which also restores the cycle signal a grouped dump erased. A pure cycle now reads as a
+  flow + a loop-back instead of a neutral dump.
+- **An orphan node was a false flow terminal (red team, WORST).** A floating `Z[Legend only]` (in = out =
+  0) was swept into "The flow ends at B and Legend only" — confidently-wrong topology about a node the
+  narration never introduced. **Fix:** a terminal is a REACHED sink (out-degree 0 AND in-degree > 0); an
+  orphan is excluded and never mentioned (its label lives only in the blanked fence).
+- **Parallel edges read as "B and B" (red team, MEDIUM).** Two edges A→B narrated as two destinations.
+  **Fix:** `analyzeGraph` dedupes parallel edges to one target, merging their labels.
+
+*The org-chart caveat (Munger, logged not fixed):* the frame — "fans out to", "the flow ends at" — is
+imposed on any `flowchart`/`graph`, so a hierarchy or dependency graph drawn as a flowchart is read with
+process verbs. Each structural fact stays TRUE (a node with ≥2 out-edges does fan out; an out-degree-0
+node is a leaf); only the *framing* assumes a process. Detecting "is this a process flow?" is fragile, so
+this is an accepted limitation, not a fabrication. Tests cover the four fixes (decision disambiguation,
+feedback loop-back, pure-cycle flow, orphan-not-terminal + parallel-dedupe); `renderGroupedNarrative` is
+now a defensive belt-and-suspenders fallback (back-edge removal makes the flow reader always succeed).

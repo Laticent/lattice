@@ -37,7 +37,7 @@ flowchart LR
   B -.->|"recalibration"| C
 ```
 
-> Read as a flow, not an edge dump: "Signal Intake leads to Scoring Model, which fans out to the Decision Log … Decision Log, decide / close, leads to Outcome Store. The flow ends at Outcome Store." Edge labels fold in as clauses.
+> Read as a flow, not an edge dump: the pipeline coalesces into one chain — "Signal Intake leads to Scoring Model … then Decision Log … then Outcome Store. The flow ends at Outcome Store." — with edge labels folded in as clauses and the two arrows into the Decision Log merged.
 
 ---
 
@@ -55,7 +55,7 @@ flowchart TD
   Review --> Approve
 ```
 
-> The decision node fans out with its branch labels: "New request leads to Within policy?, which fans out to Auto-approve, yes and Send to review, no" — the conditions ride along, no shape names.
+> Each branch binds to its condition unambiguously: "From Within policy?: on yes, leads to Auto-approve; on no, leads to Send to review" — a verb-bound clause per branch, not a flat comma list a listener can't parse.
 
 ---
 
@@ -63,7 +63,7 @@ flowchart TD
 
 `03 · Chained + feedback`
 
-## When the graph loops, it stops guessing.
+## A pipeline with a loop back.
 
 ```mermaid
 flowchart LR
@@ -72,7 +72,7 @@ flowchart LR
   E -.adjust weights.-> C
 ```
 
-> Calibration feeds back into Score and weight, so the graph has a cycle — there is no honest entry-to-exit order. Rather than impute a flow it can't defend, the narrator drops to a neutral per-node reading: "Score and weight leads to Decision log. Decision log leads to Calibration…"
+> The feedback edge is detected and read as a loop, not misordered into the flow: "Raw signals leads to Classify, then Score and weight, then Decision log, then Calibration. Calibration, adjust weights, loops back to Score and weight."
 
 ---
 

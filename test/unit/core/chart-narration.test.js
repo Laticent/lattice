@@ -657,13 +657,13 @@ test('narrateDiagram: speaks eyebrow, heading, the flowchart frame, and the FLOW
   assert.ok(out.includes('01 · Flowchart.'));
   assert.ok(out.includes('How a signal becomes a decision.'));
   assert.ok(out.includes('A flowchart, Signal pipeline.'));
-  // The linear entry chain coalesces; the Scoring Model's two labeled edges to the
-  // Decision Log read as a grouped fan-out (faithful — two authored edges), and the
-  // flow closes at the terminal node. No per-edge "X leads to Y." enumeration.
-  assert.ok(out.includes('Signal Intake leads to Scoring Model'));
-  assert.ok(out.includes('fans out to Decision Log, scored signal and Decision Log, recalibration'));
-  assert.ok(out.includes('Decision Log, decide / close, leads to Outcome Store.'));
-  assert.ok(out.includes('The flow ends at Outcome Store.'));
+  // The Scoring Model's two edges to the Decision Log (scored signal + recalibration)
+  // dedupe into one hop with merged labels, so the whole pipeline coalesces into a single
+  // chain that closes at the terminal. No per-edge "X leads to Y." enumeration.
+  assert.ok(out.includes('Signal Intake leads to Scoring Model'), out);
+  assert.ok(out.includes('then Decision Log'), out);
+  assert.ok(out.includes('then Outcome Store'), out);
+  assert.ok(out.includes('The flow ends at Outcome Store.'), out);
 });
 
 test('narrateDiagram: speaks authored prose outside the fence (never say less), and NEVER leaks the mermaid source', () => {
@@ -704,23 +704,40 @@ test('narrateDiagram: groups a fan-out and closes at the terminals', () => {
   assert.ok(out.includes('The flow ends at Auth, Orders, and Search.'), out);
 });
 
-test('narrateDiagram: a decision node fans out with its edge labels', () => {
+test('narrateDiagram: a decision node binds each branch label to its target unambiguously', () => {
   const md = [
     '<!-- _class: diagram -->', '', '## Gate.', '',
     '```mermaid', 'flowchart TD',
     '  S["New request"] --> C{"Within policy?"}', '  C -->|"yes"| Y["Approve"]', '  C -->|"no"| N["Review"]', '```',
   ].join('\n');
   const out = narrateDiagram(md);
-  assert.ok(out.includes('New request leads to Within policy?, which fans out to Approve, yes and Review, no.'), out);
+  // Each branch is a verb-bound clause ("on yes, leads to Approve"), NOT a flat comma
+  // list ("Approve, yes and Review, no") a listener can't parse.
+  assert.ok(out.includes('From Within policy?: on yes, leads to Approve; on no, leads to Review.'), out);
 });
 
-test('narrateDiagram: a CYCLIC graph falls back to the neutral grouped reading (no imputed flow)', () => {
+test('narrateDiagram: a feedback edge narrates as a loop, not a whole-graph grouped collapse', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  I[Ingest] --> V[Validate] --> T[Transform] --> L[Load]', '  V -->|retry| I', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('Ingest leads to Validate, then Transform, then Load.'), out); // forward flow survives
+  assert.ok(out.includes('Validate, retry, loops back to Ingest.'), out); // the back-edge is a loop
+  assert.ok(out.includes('The flow ends at Load.'), out);
+});
+
+test('narrateDiagram: a pure cycle narrates a flow plus a loop-back (cycle signal preserved)', () => {
   const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Draft] --> B[Review]', '  B --> C[Publish]', '  C --> A', '```'].join('\n');
   const out = narrateDiagram(md);
-  assert.ok(out.includes('Draft leads to Review.'), out);
-  assert.ok(out.includes('Publish leads to Draft.'), out);
-  assert.ok(!out.includes('fans out'), out); // no flow framing on a cycle
-  assert.ok(!out.includes('The flow ends'), out);
+  assert.ok(out.includes('Draft leads to Review, then Publish.'), out);
+  assert.ok(out.includes('Publish loops back to Draft.'), out);
+});
+
+test('narrateDiagram: an orphan node is not a false flow terminal, and parallel edges de-dup', () => {
+  const orphan = ['<!-- _class: diagram -->', '', '## O.', '', '```mermaid', 'flowchart TD', '  A[A] --> B[B]', '  Z[Legend only]', '```'].join('\n');
+  const oo = narrateDiagram(orphan);
+  assert.ok(oo.includes('The flow ends at B.'), oo);
+  assert.ok(!oo.includes('Legend only'), oo); // an in=out=0 orphan is never a terminal
+  const par = ['<!-- _class: diagram -->', '', '## P.', '', '```mermaid', 'flowchart TD', '  A[A] --> B[B]', '  A --> B', '```'].join('\n');
+  assert.ok(!narrateDiagram(par).includes('B and B'), narrateDiagram(par)); // deduped, not "fans out to B and B"
 });
 
 test('narrateDiagram: reads a dotted inline-text edge label', () => {
