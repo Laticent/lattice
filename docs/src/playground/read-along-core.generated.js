@@ -1649,15 +1649,14 @@ var require_chart_narration = __commonJS({
         maxOut = dagOutDeg(id);
         hub = id;
       }
-      const memoLP = /* @__PURE__ */ new Map();
-      const longest = (u) => {
-        if (memoLP.has(u)) return memoLP.get(u);
+      const lp = new Map(g.order.map((id) => [id, 0]));
+      for (let i = topo.length - 1; i >= 0; i--) {
+        const u = topo[i];
         let best = 0;
-        for (const o of dagOut(u)) best = Math.max(best, 1 + longest(o.to));
-        memoLP.set(u, best);
-        return best;
-      };
-      const hops = g.order.length ? Math.max(...g.order.map(longest)) : 0;
+        for (const o of dagOut(u)) best = Math.max(best, 1 + lp.get(o.to));
+        lp.set(u, best);
+      }
+      const hops = g.order.length ? Math.max(...lp.values()) : 0;
       const num = (n) => numberToWords(n);
       const renderGist = () => {
         const gated = (hasBranch || back.size > 0 || entries.length > 1) && nNodes >= 4;
