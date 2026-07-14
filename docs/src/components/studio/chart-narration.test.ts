@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 // shipping thin captions. Keep it small — new narrator behavior is pinned in the oracle.
 import {
 	narrateChart,
+	narrateDiagram,
 	narrateFunnel,
 	narrateJourneyWeighted,
 	narrateQuadrant,
@@ -44,6 +45,13 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 	it('narrateStateChart infers start/terminal states', () => {
 		const md = ['<!-- _class: state-chart -->', '', '## Flow.', '', '1. Draft', '   - `submit => 2`', '2. Done'].join('\n');
 		expect(narrateStateChart(md)).toContain('This flow starts at Draft.');
+	});
+
+	it('narrateDiagram speaks a flowchart topology and bails on a non-flowchart type', () => {
+		const flow = ['<!-- _class: diagram -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A[Start] --> B[End]', '```'].join('\n');
+		expect(narrateDiagram(flow)).toContain('Start leads to End.');
+		const seq = ['<!-- _class: diagram -->', '', '## Seq.', '', '```mermaid', 'sequenceDiagram', '  A->>B: x', '```'].join('\n');
+		expect(narrateDiagram(seq)).toBeNull();
 	});
 
 	it('narrateChart dispatches to the first matching narrator', () => {

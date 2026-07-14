@@ -461,6 +461,19 @@ it, so it is correctly not covered (×4: checklist, verdict-grid, pricing, oblig
 deeper table-walkers (gantt/roadmap geometry), math-equation / mermaid-graph narration, video provider
 synthesis, and the redundant "…complete: done" case where a label already lexicalizes its state.
 
+**Tail update (2026-07-14): the Mermaid FLOWCHART narrator SHIPPED** — the F-D.3 "diagram (mermaid)"
+item, designed and trio-hardened in `2026-07-13-mermaid-diagram-narration.md`. `narrateDiagram`
+(`lib/core/chart-narration.js`) reads a `diagram` slide's flowchart topology (nodes + forward edges +
+edge labels) from the Mermaid SOURCE, shared by both the live Present and the CLI/export producers
+(the export narration split moved to a fence-intact source so the fence survives to the narrator —
+`lattice-emulator.js` `writeCaptionsSidecar`). Scoped to `flowchart`/`graph` on a conservative grammar
+that BAILS to the heading-only projection on any other Mermaid type or any unrecognized edge form
+(undirected/reversed/terminator/`&`-fan-out) — never a confidently-wrong direction. Still deferred: the
+other ~25 Mermaid types (sequence/class/state/ER/gantt/…), node-shape semantics, nested-subgraph
+phrasing, the deeper table-walkers, math-equation and video-provider narration, and the third producer
+`shareCaptions` (docs-site "Download captions"), which stays projection-only — a pre-existing parity gap
+narrating diagrams/charts heading-only, tracked not fixed.
+
 ### 13.5 Producer unification — the live Present path (SHIPPED, 2026-07-11)
 
 The "real unification work" §13.3 flagged is done for **prose**: Studio Present's read-aloud

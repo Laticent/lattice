@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   narrateChart,
+  narrateDiagram,
   narrateFunnel,
   narrateJourneyWeighted,
   narrateQuadrant,
@@ -614,4 +615,354 @@ test('narrateChart: recognizes a state-chart slide with an inference to add', ()
 
 test('narrateChart: returns null for a slide no narrator recognizes', () => {
   assert.equal(narrateChart('<!-- _class: kpi -->\n\n## Revenue\n\nWe grew.'), null);
+});
+
+// ── narrateDiagram (Mermaid flowchart) ────────────────────────────────────────
+// Reads a `diagram` slide's flowchart topology from the Mermaid SOURCE fence. Scoped
+// to flowchart/graph; a CONSERVATIVE grammar that BAILS to null on anything it can't
+// fully recognize, so it never speaks a confidently-wrong relationship
+// (2026-07-13-mermaid-diagram-narration.md §8.3).
+
+const diagramSkeleton = [
+  '<!-- _class: diagram -->',
+  '',
+  '`01 · Flowchart`',
+  '',
+  '## How a signal becomes a decision.',
+  '',
+  '```mermaid',
+  '---',
+  'title: Signal pipeline',
+  '---',
+  'flowchart LR',
+  '  A{{"Signal Intake"}} --> B(["Scoring Model"])',
+  '  B -->|"scored signal"| C["Decision Log"]',
+  '  C -->|"decide / close"| D[("Outcome Store")]',
+  '  B -.->|"recalibration"| C',
+  '```',
+  '',
+  '> A trailing authored note.',
+].join('\n');
+
+test('narrateDiagram: returns null for a non-diagram slide', () => {
+  assert.equal(narrateDiagram('<!-- _class: kpi -->\n\n## Revenue\n\n1. `$2.4B`\n- Total'), null);
+});
+
+test('narrateDiagram: returns null for a diagram slide with no mermaid fence', () => {
+  assert.equal(narrateDiagram('<!-- _class: diagram -->\n\n## Just a heading.\n\nSome prose.'), null);
+});
+
+test('narrateDiagram: speaks eyebrow, heading, the flowchart frame, and the FLOW (chain + labeled hops + terminal)', () => {
+  const out = narrateDiagram(diagramSkeleton);
+  assert.ok(out.includes('01 · Flowchart.'));
+  assert.ok(out.includes('How a signal becomes a decision.'));
+  assert.ok(out.includes('A flowchart, Signal pipeline.'));
+  // The unlabeled A→B hop reads "leads to"; the labeled hops read faithfully. The Scoring
+  // Model's two parallel edges to the Decision Log (scored signal + recalibration) dedupe
+  // into one merged label, which — being neither a recognized verb nor a condition — reads
+  // as the grammatical APPOSITIVE, never the broken "Scoring Model scored signal Decision Log".
+  assert.ok(out.includes('Signal Intake leads to Scoring Model'), out);
+  assert.ok(out.includes('Scoring Model, scored signal, recalibration, leads to Decision Log'), out);
+  assert.ok(out.includes('Decision Log, decide / close, leads to Outcome Store'), out);
+  assert.ok(out.includes('The flow ends at Outcome Store.'), out);
+});
+
+test('narrateDiagram: speaks authored prose outside the fence (never say less), and NEVER leaks the mermaid source', () => {
+  const out = narrateDiagram(diagramSkeleton);
+  assert.ok(out.includes('A trailing authored note.'));
+  // The fence body must not reach the voice as gibberish prose. (The spoken frame "A
+  // flowchart, …" legitimately contains the word "flowchart"; a LEAK is the mermaid
+  // SOURCE syntax — arrows, node-shape delimiters, the fence, the in-fence `title:`.)
+  // Plain substring checks, NOT a regex: a regex alternative matching `-->` trips
+  // CodeQL's js/bad-tag-filter (it reads `-->` as an HTML-comment-end filter).
+  for (const leak of ['-->', '-.->', '{{', '```', 'title:', 'Signal Intake}}']) {
+    assert.ok(!out.includes(leak), `${leak} leaked: ${out}`);
+  }
+});
+
+test('narrateDiagram: frame has no title when the mermaid front matter omits one', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Plain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two]', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('A flowchart. One leads to Two.'));
+  assert.ok(!out.includes('A flowchart,'));
+});
+
+test('narrateDiagram: coalesces a linear chain into one flowing sentence', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Chain.', '', '```mermaid', 'flowchart LR', '  A[One] --> B[Two] --> C[Three]', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('One leads to Two, then Three.'));
+  assert.ok(out.includes('The flow ends at Three.'));
+});
+
+test('narrateDiagram: groups a fan-out and closes at the terminals', () => {
+  const md = [
+    '<!-- _class: diagram -->', '', '## Fan.', '',
+    '```mermaid', 'flowchart TD',
+    '  Gateway["API Gateway"] --> A["Auth"]', '  Gateway --> B["Orders"]', '  Gateway --> C["Search"]', '```',
+  ].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('API Gateway fans out to Auth, Orders, and Search.'), out);
+  assert.ok(out.includes('The flow ends at Auth, Orders, and Search.'), out);
+});
+
+test('narrateDiagram: a decision node binds each branch label to its target unambiguously', () => {
+  const md = [
+    '<!-- _class: diagram -->', '', '## Gate.', '',
+    '```mermaid', 'flowchart TD',
+    '  S["New request"] --> C{"Within policy?"}', '  C -->|"yes"| Y["Approve"]', '  C -->|"no"| N["Review"]', '```',
+  ].join('\n');
+  const out = narrateDiagram(md);
+  // Each branch is a verb-bound clause ("on yes, leads to Approve"), NOT a flat comma
+  // list ("Approve, yes and Review, no") a listener can't parse.
+  assert.ok(out.includes('From Within policy?: on yes, leads to Approve; on no, leads to Review.'), out);
+});
+
+test('narrateDiagram: a feedback edge narrates as a loop, not a whole-graph grouped collapse', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  I[Ingest] --> V[Validate] --> T[Transform] --> L[Load]', '  V -->|retry| I', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('Ingest leads to Validate, then Transform, then Load.'), out); // forward flow survives
+  assert.ok(out.includes('Validate, retry, loops back to Ingest.'), out); // the back-edge is a loop (appositive label)
+  assert.ok(out.includes('The flow ends at Load.'), out);
+});
+
+test('narrateDiagram: a pure cycle narrates a flow plus a loop-back (cycle signal preserved)', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Draft] --> B[Review]', '  B --> C[Publish]', '  C --> A', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('Draft leads to Review, then Publish.'), out);
+  assert.ok(out.includes('Publish loops back to Draft.'), out);
+});
+
+test('narrateDiagram: an orphan node is not a false flow terminal, and parallel edges de-dup', () => {
+  const orphan = ['<!-- _class: diagram -->', '', '## O.', '', '```mermaid', 'flowchart TD', '  A[A] --> B[B]', '  Z[Legend only]', '```'].join('\n');
+  const oo = narrateDiagram(orphan);
+  assert.ok(oo.includes('The flow ends at B.'), oo);
+  assert.ok(!oo.includes('Legend only'), oo); // an in=out=0 orphan is never a terminal
+  const par = ['<!-- _class: diagram -->', '', '## P.', '', '```mermaid', 'flowchart TD', '  A[A] --> B[B]', '  A --> B', '```'].join('\n');
+  assert.ok(!narrateDiagram(par).includes('B and B'), narrateDiagram(par)); // deduped, not "fans out to B and B"
+});
+
+test('narrateDiagram: reads a dotted inline-text edge label', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  A[Calibration] -.adjust weights.-> B[Score]', '```'].join('\n');
+  assert.ok(narrateDiagram(md).includes('Calibration, adjust weights, leads to Score.'));
+});
+
+test('narrateDiagram: narrates edges inside and across subgraphs (subgraph lines skipped)', () => {
+  const md = [
+    '<!-- _class: diagram -->', '', '## Groups.', '',
+    '```mermaid', 'flowchart LR',
+    '  subgraph Ingest', '    A["Collect"] --> B["Normalize"]', '  end',
+    '  B --> C["Score"]', '```',
+  ].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('Collect leads to Normalize, then Score.'), out); // chained across the subgraph boundary
+  assert.ok(!out.includes('Ingest leads')); // the subgraph title is not spoken as a node
+});
+
+test('narrateDiagram: BAILS to null on a non-flowchart Mermaid type', () => {
+  for (const type of ['sequenceDiagram', 'classDiagram', 'stateDiagram-v2', 'erDiagram', 'gantt', 'pie', 'mindmap']) {
+    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\n${type}\n  A->>B: x\n\`\`\``;
+    assert.equal(narrateDiagram(md), null, type);
+  }
+});
+
+test('narrateDiagram: BAILS to null on unrecognized edge grammar — never confidently-wrong topology', () => {
+  const cases = {
+    'reversed arrow': '  A[X] <-- B[Y]',
+    'bidirectional': '  A[X] <--> B[Y]',
+    'undirected link': '  A[X] --- B[Y]',
+    'cross terminator': '  A[X] --x B[Y]',
+    'circle terminator': '  A[X] --o B[Y]',
+    'ampersand fan-out': '  A & B --> C',
+    'class shorthand': '  A[X]:::hot --> B[Y]',
+  };
+  for (const [name, edge] of Object.entries(cases)) {
+    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n${edge}\n\`\`\``;
+    assert.equal(narrateDiagram(md), null, name);
+  }
+});
+
+test('narrateDiagram: BAILS to null on a flowchart with no readable edges (node-only)', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Nodes.', '', '```mermaid', 'flowchart LR', '  A["Alone"]', '  B["Also"]', '```'].join('\n');
+  assert.equal(narrateDiagram(md), null);
+});
+
+test('narrateDiagram: a fenced doc-example heading never masquerades as the slide heading', () => {
+  // The real heading is outside the fence; a `#`/`flowchart` inside a nested example must not win.
+  const md = [
+    '<!-- _class: diagram -->', '', '## The real heading.', '',
+    '```mermaid', 'flowchart LR', '  A[Start] --> B[End]', '```',
+  ].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('The real heading.'));
+  assert.ok(out.includes('Start leads to End.'));
+});
+
+test('narrateChart: routes a diagram slide through narrateDiagram', () => {
+  assert.ok(narrateChart(diagramSkeleton).includes('Signal Intake leads to Scoring Model'));
+});
+
+test('narrateDiagram: does not double-punctuate a node label that already ends in ? or .', () => {
+  const md = ['<!-- _class: diagram -->', '', '## Gate.', '', '```mermaid', 'flowchart TD', '  A[New request] --> C{"Within policy?"}', '  C -->|yes| D[Approve]', '```'].join('\n');
+  const out = narrateDiagram(md);
+  assert.ok(out.includes('New request leads to Within policy?'));
+  assert.ok(!out.includes('Within policy?.')); // no doubled ?.
+});
+
+test('narrateDiagram: reads a DOT-lengthened dotted arrow with no fabricated label (never leaks the arrow dots)', () => {
+  for (const arrow of ['-.->', '-..->', '-...->', '-....->']) {
+    const md = ['<!-- _class: diagram -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
+    const out = narrateDiagram(md);
+    assert.ok(out.includes('X leads to Y.'), `${arrow} -> ${out}`);
+    assert.ok(!/,\s*\.+,\s*leads/.test(out), `${arrow} fabricated a dot label: ${out}`);
+  }
+});
+
+test('narrateDiagram: keeps the REAL label on a dotted arrow (base and dot-lengthened), not the dots', () => {
+  for (const arrow of ['-. yes .->', '-. yes ..->']) {
+    const md = ['<!-- _class: diagram -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
+    // "yes" is a branch condition, so it reads "on yes, leads to Y" — the point is the real
+    // label survives (never the arrow's dots).
+    assert.ok(narrateDiagram(md).includes('X, on yes, leads to Y.'), arrow);
+  }
+});
+
+test('narrateDiagram: inline-text solid/thick edges bail (ReDoS-safe scope) — a labeled `-- x -->` is not narrated', () => {
+  // These forms are intentionally unrecognized (their ReDoS-safe regex would bar
+  // hyphens/`=` from the label); an edge using them bails to the heading-only projection.
+  for (const edge of ['  A[X] -- go --> B[Y]', '  A[X] == go ==> B[Y]']) {
+    const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n${edge}\n\`\`\``;
+    assert.equal(narrateDiagram(md), null, edge);
+  }
+});
+
+test('narrateDiagram: returns quickly on a pathological connector line (no super-linear backtracking)', () => {
+  // A ReDoS in the connector regexes would hang for seconds+ on this; linear-time returns instantly.
+  const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n  A[X] --${' '.repeat(40000)}\n\`\`\``;
+  const t = process.hrtime.bigint();
+  narrateDiagram(md);
+  const ms = Number(process.hrtime.bigint() - t) / 1e6;
+  assert.ok(ms < 1000, `took ${ms}ms — possible ReDoS`);
+});
+
+// ── label GRAMMAR: verb vs. noun vs. condition (the trio's central inversion) ──────────────
+const diagram = (body, opts = 'flowchart LR') => `<!-- _class: diagram -->\n\n## H.\n\n\`\`\`mermaid\n${opts}\n${body}\n\`\`\``;
+
+test('narrateDiagram: a recognized VERB label reads AS the connective ("A calls B")', () => {
+  assert.ok(narrateDiagram(diagram('  A["Web App"] -->|calls| B["API"]')).includes('Web App calls API.'));
+  // a verb + preposition composes onto the target
+  assert.ok(narrateDiagram(diagram('  A["API"] -->|"reads from"| B[("Postgres")]')).includes('API reads from Postgres.'));
+  assert.ok(narrateDiagram(diagram('  A["app"] -->|"depends on"| B["core-lib"]')).includes('app depends on core-lib.'));
+});
+
+test('narrateDiagram: a NOUN / code / cadence / slashed label reads as the grammatical APPOSITIVE, never a verb', () => {
+  // The whole-trio inversion: "Producer data Consumer" is a broken non-sentence; the appositive
+  // "A, ‹label›, leads to B" is grammatical for ANY label the narrator can't confirm is a verb.
+  for (const [label, want] of [
+    ['data', 'Producer, data, leads to Consumer.'],
+    ['events', 'Producer, events, leads to Consumer.'], // a bare plural NOUN is not a verb
+    ['"HTTP 200"', 'Producer, HTTP 200, leads to Consumer.'],
+    ['v2', 'Producer, v2, leads to Consumer.'],
+    ['"decide / close"', 'Producer, decide / close, leads to Consumer.'],
+  ]) {
+    const out = narrateDiagram(diagram(`  A["Producer"] -->|${label}| B["Consumer"]`));
+    assert.ok(out.includes(want), `${label} → ${out}`);
+  }
+});
+
+test('narrateDiagram: a label on a "?"-named source is classified by the LABEL, not the source (no verb misread as a condition)', () => {
+  // Regression: the old "source ends in ?" rule turned every out-edge into a condition, so a
+  // verb-ish label on a question node read "on answers, leads to". Now classification is
+  // label-only, so a non-condition label reads faithfully (here: the safe appositive).
+  const out = narrateDiagram(diagram('  A["FAQ?"] -->|answers| B["Answer"]'));
+  assert.ok(out.includes('FAQ?, answers, leads to Answer.'), out);
+  assert.ok(!out.includes('on answers'), out);
+});
+
+test('narrateDiagram: FAN-IN coalesces same-relation sources into one sentence (unlabeled and verb)', () => {
+  const unlabeled = narrateDiagram(diagram('  A["Auth"] --> M["User DB"]\n  B["Orders"] --> M', 'flowchart TD'));
+  assert.ok(unlabeled.includes('Auth and Orders both lead to User DB.'), unlabeled);
+  // a shared VERB is depluralized for the now-plural subject ("depends on" → "depend on")
+  const verb = narrateDiagram(diagram('  A["core-lib"] -->|"depends on"| R["runtime"]\n  B["ui-kit"] -->|"depends on"| R', 'flowchart TD'));
+  assert.ok(verb.includes('core-lib and ui-kit both depend on runtime.'), verb);
+  // 3+ sources → "all", not "both"
+  const three = narrateDiagram(diagram('  A --> M["Merge"]\n  B --> M\n  C --> M', 'flowchart TD'));
+  assert.ok(three.includes('A, B, and C all lead to Merge.'), three);
+});
+
+test('narrateDiagram: pluralizeVerb conjugates sibilant / -es / -ies verbs on the merge path (no "processe"/"querie")', () => {
+  for (const [label, want] of [
+    ['processes', 'both process Queue.'],
+    ['dispatches', 'both dispatch Queue.'],
+    ['queries', 'both query Queue.'],
+    ['watches', 'both watch Queue.'],
+    ['pushes', 'both push Queue.'],
+    // silent-e -ize / -che stems: the 3rd-person adds only "s", so strip only "s"
+    // (never "processe"/"authoriz"/"cach") — a third-verifier catch.
+    ['authorizes', 'both authorize Queue.'],
+    ['normalizes', 'both normalize Queue.'],
+    ['caches', 'both cache Queue.'],
+  ]) {
+    const out = narrateDiagram(diagram(`  A["A"] -->|${label}| M["Queue"]\n  B["B"] -->|${label}| M`, 'flowchart TD'));
+    assert.ok(out.includes(want), `${label} → ${out}`);
+  }
+});
+
+test('narrateDiagram: a condition-labeled fan-IN is NOT coalesced — each guard is spoken from its source', () => {
+  // "both on yes Z" would be broken; the guards are load-bearing, so they stay separate.
+  const out = narrateDiagram(diagram('  A{"A?"} -->|yes| Z["Go"]\n  B{"B?"} -->|yes| Z', 'flowchart TD'));
+  assert.ok(!out.includes('both'), out);
+  assert.ok(out.includes('on yes, leads to Go'), out);
+});
+
+test('narrateDiagram: the topological OVERVIEW is gated — fires on a diamond, silent on a linear chain / lone fan-out', () => {
+  // Diamond (branch + reconvergence) → the shape isn't obvious from one walk sentence.
+  const diamond = narrateDiagram(diagram('  S["Req"] --> A["Validate"]\n  S --> B["Auth"]\n  A --> M["Process"]\n  B --> M\n  M --> E["Respond"]', 'flowchart TD'));
+  assert.ok(diamond.includes('It begins at Req and ends at Respond.'), diamond);
+  // A 7-node linear chain: the walk already says start→end, so an overview would be boilerplate.
+  const chain = narrateDiagram(diagram('  A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7'));
+  assert.ok(!chain.includes('It begins at'), chain);
+  // A lone fan-out: same — the fan-out sentence says it.
+  const fan = narrateDiagram(diagram('  R["Root"] --> A\n  R --> B\n  R --> C', 'flowchart TD'));
+  assert.ok(!fan.includes('It begins at'), fan);
+});
+
+test('narrateDiagram: a feedback loop reads its loop-back and ends cleanly (no doubled "?.")', () => {
+  // A pure feedback loop has no forward branch after back-edge removal, so it stays overview-free
+  // (the walk says it all); the guard here is the loop-back phrasing + no doubled terminal.
+  const out = narrateDiagram(diagram('  A["Commit"] --> B["Build"] --> C{"Tests pass?"}\n  C -->|yes| D["Deploy"]\n  C -->|no| B'));
+  assert.ok(out.includes('Tests pass?, on no, loops back to Build.'), out);
+  assert.ok(out.includes('The flow ends at Deploy.'), out);
+  assert.ok(!out.includes('?.'), out); // terminate() keeps a "?"-ending node label from doubling
+});
+
+test('narrateDiagram: a NOUN + preposition label is NOT a verb — it reads as the appositive', () => {
+  // Regression (trio re-verify): "request to"/"response to"/"part of" are noun+prep, not verbs;
+  // reading them as verbs ("Gateway response to Client") is the broken non-sentence the
+  // appositive prevents. Only a phrase whose FIRST word is a curated verb reads as a verb.
+  for (const label of ['request to', 'response to', 'path to', 'part of', 'access to']) {
+    const out = narrateDiagram(diagram(`  A["Source"] -->|"${label}"| B["Target"]`));
+    assert.ok(out.includes(`Source, ${label}, leads to Target.`), `${label} → ${out}`);
+  }
+  // a canonical request/response loop reads grammatically on both the forward and loop-back paths
+  const loop = narrateDiagram(diagram('  Client["Client"] -->|"request to"| GW["Gateway"]\n  GW -->|"response to"| Client'));
+  assert.ok(loop.includes('Client, request to, leads to Gateway.'), loop);
+  assert.ok(loop.includes('Gateway, response to, loops back to Client.'), loop);
+  // a genuine verb + preposition still reads as a verb (the gate costs nothing)
+  assert.ok(narrateDiagram(diagram('  A["API"] -->|"reads from"| B["DB"]')).includes('API reads from DB.'));
+});
+
+test('narrateDiagram: a terminal or loop target whose label ends in "?" never doubles its punctuation', () => {
+  const term = narrateDiagram(diagram('  A["Start"] --> B["Resolved?"]'));
+  assert.ok(term.includes('The flow ends at Resolved?'), term);
+  assert.ok(!term.includes('Resolved?.'), term);
+  const loop = narrateDiagram(diagram('  A["Work"] --> B["Ready?"]\n  B --> A'));
+  assert.ok(loop.includes('Ready? loops back to Work.'), loop);
+  assert.ok(!loop.includes('Ready?.'), loop);
+});
+
+test('narrateDiagram: the overview names a loop when the graph also branches and cycles', () => {
+  // branch (In stock?) + a real cycle (Pay ⇄ Backorder) → the shape earns an overview, and the
+  // loop is announced with ", with a loop back".
+  const out = narrateDiagram(diagram('  O["Order"] -->|validates| V{"In stock?"}\n  V -->|yes| P["Pay"]\n  V -->|no| Bk["Backorder"]\n  P -->|"on failure"| Bk\n  Bk -->|restocked| P\n  P --> Sh["Ship"]', 'flowchart TD'));
+  assert.ok(out.includes('with a loop back'), out);
 });
