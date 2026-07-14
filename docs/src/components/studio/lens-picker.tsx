@@ -35,13 +35,17 @@ export function lensEntriesFrom(defs: LensDef[]): LensEntry[] {
  * `count`/`total` show the reshaped slide count when a filtering lens is active.
  * `lenses` overrides the catalog (a deck's registry lenses); defaults to the legacy set.
  */
-export function LensPicker({ value, onChange, count, total, align = 'start', className, lenses = LENSES }: {
+export function LensPicker({ value, onChange, count, total, align = 'start', className, menuClassName, lenses = LENSES }: {
 	value: PresentLens;
 	onChange: (l: PresentLens) => void;
 	count?: number;
 	total?: number;
 	align?: 'start' | 'center' | 'end';
 	className?: string;
+	/** Extra classes for the portaled menu — e.g. a z-index above a full-screen overlay. The menu
+	 *  portals to `<body>`, so inside Present (a `z-[100]` takeover) the default `z-50` would render it
+	 *  BEHIND the overlay (invisible + unclickable); Present passes a higher z here. */
+	menuClassName?: string;
 	lenses?: LensEntry[];
 }) {
 	const catalog = lenses.length ? lenses : LENSES;
@@ -56,7 +60,7 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 					<ChevronDown className="size-3.5 shrink-0" />
 				</button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align={align} className="w-56">
+			<DropdownMenuContent align={align} className={cn('w-56', menuClassName)}>
 				<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">View — which slides show</DropdownMenuLabel>
 				{catalog.map((l) => (
 					<DropdownMenuItem key={l.key} onSelect={() => onChange(l.key)} className="flex-col items-start gap-0.5">

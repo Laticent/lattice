@@ -33,10 +33,17 @@ test('a reader view is offered to a reader ONLY after the author previews + appr
 	await page.getByRole('button', { name: /^Preview$/ }).click();
 	await page.getByRole('button', { name: /Approve for readers/ }).click();
 
-	// NOW a reader is offered the view.
+	// NOW a reader is offered the view — and the picker actually WORKS inside Present (the menu portals
+	// to <body>, so it must float ABOVE the z-[100] overlay; a real click hit-tests, catching occlusion
+	// that a mere toBeVisible would miss). Selecting it reshapes the presented set to the approved slides.
 	await page.getByRole('button', { name: 'Present' }).click();
+	const fullCount = await present.getByText(/^\d+ \/ \d+$/).textContent();
 	await present.getByRole('button', { name: 'Reader view' }).click();
-	await expect(page.getByRole('menuitem', { name: /Bottom line/ })).toBeVisible();
+	await page.getByRole('menuitem', { name: /Bottom line/ }).click(); // real click — fails if occluded
+	// The reshaped deck is strictly smaller than the full deck (Bottom line is a subset).
+	await expect(present.getByText(/^\d+ \/ \d+$/)).not.toHaveText(fullCount ?? '');
+	const total = (n: string | null) => Number((n ?? '0 / 0').split('/')[1]);
+	await expect.poll(async () => total(await present.getByText(/^\d+ \/ \d+$/).textContent())).toBeLessThan(total(fullCount));
 });
 
 test('Approve is withheld until the view is previewed', async ({ page }) => {

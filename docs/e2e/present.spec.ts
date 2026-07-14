@@ -29,7 +29,22 @@ test('the present reader lens trims the presented set', async ({ page }) => {
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	// The reader lens is a dropdown now (was a scrolling chip row): open it, pick Exec.
 	await dialog.getByRole('button', { name: 'Reader view' }).click();
-	await page.getByRole('menuitem', { name: 'Exec summary' }).click();
+	// The menu PORTALS to <body>, so inside Present (a z-[100] full-screen takeover) it must STACK ABOVE
+	// the overlay — else it paints BEHIND it: present in the DOM and even hit-testable (so toBeVisible
+	// AND a real click both pass), yet visually occluded and unusable. That paint-occlusion is invisible
+	// to every DOM API (elementFromPoint returns the item, the click lands), so the ONLY deterministic
+	// guard is the stacking invariant itself: the menu's z-index must exceed the overlay's. Regression
+	// guard for the "reader picker never worked in Present" bug — the menu was z-50 behind the z-[100]
+	// overlay. (Both portal to <body> / sit at the root stacking context, so the numeric compare is real.)
+	const exec = page.getByRole('menuitem', { name: 'Exec summary' });
+	await expect(exec).toBeVisible();
+	const zs = await exec.evaluate((el) => {
+		const menu = el.closest('[role="menu"]') as HTMLElement;
+		const overlay = document.querySelector('[role="dialog"][aria-label="Present"]') as HTMLElement;
+		return { menu: Number(getComputedStyle(menu).zIndex) || 0, overlay: Number(getComputedStyle(overlay).zIndex) || 0 };
+	});
+	expect(zs.menu).toBeGreaterThan(zs.overlay);
+	await exec.click();
 	// Exec keeps only headline slides → a strictly smaller denominator.
 	const counter = await dialog.getByText(/^\d+ \/ \d+$/).first().textContent();
 	const denom = Number((counter ?? '').split('/')[1]);

@@ -469,6 +469,12 @@ in patch versions.
 
 ### Fixed
 
+- **The reader-view picker now works in Present.** Its dropdown menu portals to `<body>`, so inside
+  Present (a full-screen `z-[100]` takeover) it was painting *behind* the overlay at the default `z-50` —
+  visible in the DOM and even hit-testable (so it "clicked" in tests) but visually occluded, reading as a
+  dead control. The Present picker now floats its menu above the overlay (`z-[130]`) on a distinct card
+  surface. A stacking-invariant e2e guard (menu z-index must exceed the overlay's) covers the regression,
+  since the paint occlusion is invisible to every DOM API.
 - **A nested narration key is no longer double-parsed.** The shared front-matter block reader
   (`resolve-captions.mjs` `blockLines`) matched a `key:` header at any indent, so a `acronyms:` nested
   under `lexicon:` opened a phantom acronyms block and its children were parsed twice. The header now
