@@ -151,10 +151,18 @@ pace model" implies — and it's the same reason per-voice calibration (below) i
 
 ## Known limitations (logged, not fixed here)
 
-- **Non-English digit runs over-count.** For `lang≠en`, `toSpoken` leaves numbers un-expanded and
-  `syllableCount`'s digit-run branch counts ~1 syllable/digit ("100" → 3, vs German "hundert" → 2).
-  Only affects the silent estimate on non-English decks; a language-aware number syllabifier is the
-  fix, out of scope here.
+- **Non-English digit runs over-count — WON'T FIX (2026-07-14).** For `lang≠en`, `toSpoken` leaves
+  numbers un-expanded (the `#919` "don't anglicize a non-English deck" guard, since our expander is
+  US-English only), so `syllableCount`'s digit-run branch counts ~1 syllable/digit ("100" → 3, vs
+  German "hundert" → 2). Only affects the silent estimate + `.vtt` timings on a non-English deck (the
+  clocked voice re-anchors regardless). **We are not building a per-language number syllabifier.** The
+  `lang≠en` path guards a workflow we don't have — English decks are authored and read in English,
+  where numbers expand correctly. The right home for reading numbers in another language is a future
+  **language lens** (translate the deck → a native TTS voice reads it): there the numbers are already
+  target-language words / numerals the native voice expands itself, so our English estimator was never
+  the layer estimating them. Teaching it to count German syllables now would be building the wrong
+  layer and throwaway once a lens exists. The `#919` guard stays (it's a correct, harmless default);
+  the over-count is an accepted, inert side effect. Position confirmed with the maintainer.
 - **The +40 ms lead releases the last word ~40 ms early.** At a cue's final word the biased clock
   reaches the word's end slightly before the audio does, so the highlight lets go a hair early. It's
   the deliberate asymmetric-tolerance trade (a lagging highlight is worse); revisit if on-device
