@@ -506,3 +506,62 @@ node is a leaf); only the *framing* assumes a process. Detecting "is this a proc
 this is an accepted limitation, not a fabrication. Tests cover the four fixes (decision disambiguation,
 feedback loop-back, pure-cycle flow, orphan-not-terminal + parallel-dedupe); `renderGroupedNarrative` is
 now a defensive belt-and-suspenders fallback (back-edge removal makes the flow reader always succeed).
+
+## 11. Labels read faithfully as verbs, de-repetition by STRUCTURE (2026-07-14)
+
+Maintainer feedback on the §10 flow reading: *"when I read an architecture diagram it's not 'leads to'
+but 'connects' or 'uses' or 'relies on'; avoid repetition, I switch it up; two concurrent usages want a
+'which X'."* Plus an explicit ask for **domain experts** on flowchart-reading semantics and a fresh
+**adversarial trio**. Three experts (software architect, plain-language editor, accessibility/BLV
+specialist) converged on one principle — **DECLARE, DON'T SNIFF**: contextual verbs come ONLY from the
+author's edge LABEL (ground truth), never inferred; the listener's variety and de-repetition come from
+TOPOLOGICAL STRUCTURE (chain / fan-out / fan-in / loop / overview), *not* from rotating the relation verb
+(a varied verb implies a varied relationship the diagram never stated — fabrication through the
+prose-polish door).
+
+**Two maintainer decisions (one `AskUserQuestion` round).**
+- **Q1 — where do richer verbs come from? → "From edge labels."** A labeled edge reads the author's word
+  AS the connective ("app relies on core-lib"); an UNLABELED edge stays the neutral "leads to". The
+  narrator never invents "uses/relies on" for a bare arrow — that can INVERT a dependency (on `A → B` in a
+  dependency graph, B is the prerequisite), the exact confidently-wrong this narrator exists to avoid.
+- **Q2 — which de-repetition moves? → "①②③ + ④ overview":** ① the fork is its own sentence (no ", which"
+  hinge); ② fan-IN coalesces ("Auth and Orders both lead to User DB"); ③ tighter heard-once sentences;
+  ④ a gated topological overview ("It begins at X and ends at Y").
+
+**The adversarial trio then hammered the shipping diff and found the design's own premise too broad —
+folded before merge:**
+- **Label-as-verb assumed EVERY label is a verb (all three, CRITICAL — the one inversion).** Real edge
+  labels are dominated by NOUNS, codes, cadences, versions, slashed fragments (`data`, `HTTP 200`,
+  `nightly`, `v2`, `decide / close`). Reading those as verbs ("Producer data Consumer") is a broken
+  non-sentence — *worse* than the appositive it replaced, and the demo fixture exhibited it. **Fix:** a
+  label is spoken three ways by GRAMMAR, biased to precision — a recognized VERB or verb+preposition
+  (`isVerbLabel`: a curated `EDGE_VERBS` set + a preposition-as-second-word test) → "A calls B"; a branch
+  CONDITION (`isCondition`) → "on yes, leads to B"; **anything else → the grammatical APPOSITIVE "A,
+  ‹label›, leads to B"**, valid for any noun/code label. A false "verb" is broken prose; a missed verb is
+  only the slightly-wordy-but-valid appositive — so the unknown defaults to the appositive.
+- **`pluralizeVerb` emitted non-words (all three, the worst fan-in defect).** The lazy trailing-`s` strip
+  turned `processes`→"processe", `is`→"i", `has`→"ha" — misspeaking the author's own label on the very
+  fan-in feature it powers. **Fix:** a real 3rd-person-singular→base conjugator (irregulars `is`→"are"/
+  `has`→"have"; `-sses`/`-shes`/`-ches`/`-xes`/`-zes`/`-oes`→strip `es`; `-ies`→`y`; else strip a lone
+  `-s`, keeping `-ss`).
+- **`isCondition` was source-dependent and inconsistent (red team).** The "source ends in `?`" rule turned
+  a VERB label on a question node into a false condition ("FAQ?, on answers, leads to"), and the fan-in vs
+  fan-out paths called it with different `srcLabel`s → the SAME label classified two ways. **Fix:**
+  classification is now LABEL-ONLY, so both paths agree and a verb on a `?`-named node reads faithfully.
+- **The overview restated the walk (Munger).** The `nNodes ≥ 7` trigger fired on a 7-node linear chain and
+  a lone fan-out, duplicating the very next sentence. **Fix:** the gate is now `entries > 1 || (branch &&
+  (merge || loop))` — an overview only where the shape can't be reconstructed from a single walk sentence.
+- **Doubled `?.` (red team + Munger).** The chain builder appended a bare `.`, so a node label ending in
+  `?` doubled ("Within policy?."). **Fix:** every sentence push routes through `terminate()`.
+- **Fan-in never coalesces a CONDITION or a NOUN label** ("both on yes V" / "both data V" would break) —
+  only unlabeled ("both lead to") or verb ("both depend on") relations merge; the rest read their own
+  sentence. Back-edges read the same three ways (condition / verb / appositive).
+
+*Verification:* `chart-narration.test.js` gains coverage the trio flagged as absent — verb-as-connective,
+noun→appositive, label-only condition classification, fan-in coalesce (unlabeled + verb + `all` for 3+),
+`pluralizeVerb` on sibilant/`-es`/`-ies` verbs, condition-fan-in-not-coalesced, and the gated overview
+(fires on a diamond, silent on a chain/fan-out, names a loop). The `examples/diagram-narration.md` demo is
+rebuilt to SHOWCASE the range (labeled architecture → verbs; dependency graph → fan-in merge; noun labels
+→ appositive; decision; feedback loop; overview; honest sequence fallback) with `.pdf`/`.vtt` regenerated.
+Both surfaces stay identical (the export split is fence-intact); audio remains UNVERIFIED (HARD RULE #23) —
+only the spoken STRING is asserted.

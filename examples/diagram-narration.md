@@ -16,34 +16,69 @@ footer: "read-aloud narrates the flowchart topology"
 
 `Mermaid flowchart narration`
 
-*A `diagram` slide's flowchart used to narrate its heading and go silent. Now read-aloud (and the exported captions) describe it as a flow — following the path from the entry points, grouping each fan-out, and closing at the terminal nodes.*
+*A `diagram` slide's flowchart used to narrate its heading and go silent. Now read-aloud (and the exported captions) describe it as a flow — following the path from the entry points, reading each author's edge label faithfully, merging repeated fan-ins, and closing at the terminals.*
 
 ---
 
 <!-- _class: diagram -->
 
-`01 · Labeled flow`
+`01 · Labeled architecture`
 
-## How a signal becomes a decision.
+## The arrows carry the verbs.
+
+```mermaid
+flowchart LR
+  Web["Web App"] -->|"calls"| API["API Service"]
+  API -->|"reads from"| DB[("Postgres")]
+  API -->|"writes to"| Cache[("Redis")]
+  API -->|"publishes to"| Q(["Kafka"])
+```
+
+> A recognized verb — or a verb plus a preposition — is spoken *as* the connective: "Web App calls API Service. From API Service: reads from Postgres; writes to Redis; publishes to Kafka." The author's own word carries the relationship — never an invented one.
+
+---
+
+<!-- _class: diagram -->
+
+`02 · Dependency graph`
+
+## Shared dependencies merge into one line.
 
 ```mermaid
 ---
-title: Signal pipeline
+title: Build dependencies
 ---
-flowchart LR
-  A{{"Signal Intake"}} --> B(["Scoring Model"])
-  B -->|"scored signal"| C["Decision Log"]
-  C -->|"decide / close"| D[("Outcome Store")]
-  B -.->|"recalibration"| C
+flowchart TD
+  App["app"] -->|"depends on"| Core["core-lib"]
+  App -->|"depends on"| UI["ui-kit"]
+  Core -->|"depends on"| Rt["runtime"]
+  UI -->|"depends on"| Rt
 ```
 
-> Read as a flow, not an edge dump: the pipeline coalesces into one chain — "Signal Intake leads to Scoring Model … then Decision Log … then Outcome Store. The flow ends at Outcome Store." — with edge labels folded in as clauses and the two arrows into the Decision Log merged.
+> Fan-in coalesces so a wide graph doesn't repeat itself: "app depends on core-lib and ui-kit. core-lib and ui-kit both depend on runtime." — the verb is depluralized for the joined subject, and the runtime is named once.
 
 ---
 
 <!-- _class: diagram -->
 
-`02 · Decision branch`
+`03 · Noun labels`
+
+## When a label isn't a verb, it stays honest.
+
+```mermaid
+flowchart LR
+  Producer["Producer"] -->|"the payload"| Queue(["Queue"])
+  Queue -->|"HTTP 200"| Consumer["Consumer"]
+  Consumer -->|"nightly"| Warehouse[("Warehouse")]
+```
+
+> A noun, code, or cadence is never forced into a verb ("Producer the payload Queue" would be gibberish). It reads as a grammatical appositive: "Producer, the payload, leads to Queue. Queue, HTTP 200, leads to Consumer. Consumer, nightly, leads to Warehouse."
+
+---
+
+<!-- _class: diagram -->
+
+`04 · Decision branch`
 
 ## A gate that splits the path.
 
@@ -55,13 +90,13 @@ flowchart TD
   Review --> Approve
 ```
 
-> Each branch binds to its condition unambiguously: "From Within policy?: on yes, leads to Auto-approve; on no, leads to Send to review" — a verb-bound clause per branch, not a flat comma list a listener can't parse.
+> Each branch binds to its condition unambiguously: "From Within policy?: on yes, leads to Auto-approve; on no, leads to Send to review" — a guarded clause per branch, not a flat comma list a listener can't parse.
 
 ---
 
 <!-- _class: diagram -->
 
-`03 · Chained + feedback`
+`05 · Chained + feedback`
 
 ## A pipeline with a loop back.
 
@@ -78,28 +113,26 @@ flowchart LR
 
 <!-- _class: diagram -->
 
-`04 · Grouped stages`
+`06 · Overview first`
 
-## Subgraphs still narrate their edges.
+## A tangled shape opens with its gist.
 
 ```mermaid
-flowchart LR
-  subgraph Ingest
-    A["Collect"] --> B["Normalize"]
-  end
-  subgraph Decide
-    C["Score"] --> D["Log"]
-  end
-  B --> C
+flowchart TD
+  Req["Request"] --> V["Validate"]
+  Req --> A["Authenticate"]
+  V --> P["Process"]
+  A --> P
+  P --> Res["Respond"]
 ```
 
-> A linear path that crosses two subgraph boundaries coalesces into one sentence — "Collect leads to Normalize, then Score, then Log. The flow ends at Log." — and the group boxes are never spoken as nodes.
+> When a graph both branches and reconverges, it opens with a one-line orientation: "It begins at Request and ends at Respond. Request fans out to Validate and Authenticate. Validate and Authenticate both lead to Process. Process leads to Respond."
 
 ---
 
 <!-- _class: diagram -->
 
-`05 · Honest fallback`
+`07 · Honest fallback`
 
 ## A non-flowchart type reads its heading.
 
@@ -120,4 +153,4 @@ sequenceDiagram
 
 # The arrows are spoken now.
 
-`flowchart topology · read-aloud + exported captions`
+`flowchart topology · labels read faithfully · read-aloud + exported captions`

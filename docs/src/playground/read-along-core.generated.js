@@ -1564,72 +1564,169 @@ var require_chart_narration = __commonJS({
       }
       return result.length === order.length ? result : null;
     }
+    function isCondition(label) {
+      const t = String(label || "").trim().toLowerCase();
+      if (!t) return false;
+      if (/^(on|if|when|once|unless)\b/.test(t)) return true;
+      return ["yes", "no", "true", "false", "else", "default", "otherwise"].includes(t);
+    }
+    var EDGE_VERBS = new Set(
+      "calls uses connects invokes triggers notifies reads writes sends receives feeds serves loads stores queries fetches publishes subscribes consumes produces emits routes handles processes validates authenticates authorizes updates creates deletes returns requires depends relies contains includes references extends implements imports exports wraps proxies forwards dispatches schedules monitors logs tracks controls manages owns provides exposes hosts runs executes spawns launches starts stops guards filters transforms maps joins streams pushes pulls polls watches renders generates computes scores ranks sorts caches replicates syncs mirrors restores ingests aggregates enriches normalizes parses encodes decodes encrypts signs verifies checks tests deploys builds compiles packages ships delivers powers drives orchestrates coordinates links binds mounts attaches registers resolves redirects blocks allows denies throttles balances scales replaces merges splits distributes is has needs gets holds keeps becomes".split(/\s+/)
+    );
+    var EDGE_PREPS = new Set("on to from into onto upon with via for of at by through across over against around about after before".split(" "));
+    function isVerbLabel(label) {
+      const t = String(label || "").trim();
+      if (!t || isCondition(t)) return false;
+      const words = t.split(/\s+/);
+      if (words.length === 1) return /^[a-z]+$/i.test(t) && EDGE_VERBS.has(t.toLowerCase());
+      return /^[a-z]+$/i.test(words[0]) && EDGE_PREPS.has(words[1].toLowerCase());
+    }
+    function condClause(label, toLabel) {
+      const l = String(label).trim();
+      const head = /^(on|if|when|once|unless)\b/i.test(l) ? l : `on ${l}`;
+      return `${head}, leads to ${toLabel}`;
+    }
+    function pluralizeVerb(label) {
+      const s = String(label);
+      const m = s.match(/^(\S+)([\s\S]*)$/);
+      if (!m) return s;
+      const [, w, rest] = m;
+      const irregular = { is: "are", has: "have", does: "do", was: "were", goes: "go" };
+      const key = w.toLowerCase();
+      if (Object.hasOwn(irregular, key)) return irregular[key] + rest;
+      let base = w;
+      if (/[a-z]ies$/i.test(w)) base = w.replace(/ies$/i, "y");
+      else if (/(sses|shes|ches|xes|zes|oes)$/i.test(w)) base = w.replace(/es$/i, "");
+      else if (/[^s]s$/i.test(w)) base = w.replace(/s$/i, "");
+      return base + rest;
+    }
     function renderFlowNarrative(parsed) {
       const { nodes } = parsed;
-      const g = analyzeGraph(parsed);
       const lbl = (id) => nodes.get(id) || id;
+      const g = analyzeGraph(parsed);
       const pos = new Map(g.order.map((id, i) => [id, i]));
       const back = backEdges(g);
       const dagOut = (u) => outEdges(g, u).filter(({ to }) => !back.has(`${u}${BACK_SEP}${to}`));
       const dagIn = /* @__PURE__ */ new Map();
-      for (const u of g.order) for (const { to } of dagOut(u)) dagIn.set(to, (dagIn.get(to) || 0) + 1);
+      const dagInFrom = /* @__PURE__ */ new Map();
+      for (const u of g.order) {
+        for (const { to, label } of dagOut(u)) {
+          dagIn.set(to, (dagIn.get(to) || 0) + 1);
+          if (!dagInFrom.has(to)) dagInFrom.set(to, []);
+          dagInFrom.get(to).push({ from: u, label });
+        }
+      }
       const dagOutDeg = (u) => dagOut(u).length;
       const topo = topoSortDag(g.order, dagOut, dagIn, pos);
       if (!topo) return null;
       const terminals = g.order.filter((id) => (g.outDeg.get(id) || 0) === 0 && (g.inDeg.get(id) || 0) > 0);
+      const entries = topo.filter((id) => !(dagIn.get(id) > 0) && dagOutDeg(id) > 0);
+      const both = (n) => n > 2 ? "all" : "both";
+      const coalesceOf = (V) => {
+        const byLabel = /* @__PURE__ */ new Map();
+        for (const e of dagInFrom.get(V) || []) {
+          const k = e.label || "";
+          if (!byLabel.has(k)) byLabel.set(k, []);
+          byLabel.get(k).push(e.from);
+        }
+        return [...byLabel.entries()].filter(([label, froms]) => froms.length >= 2 && (label === "" || isVerbLabel(label))).map(([label, froms]) => ({ label, froms }));
+      };
+      const deferred = (u, v, label) => coalesceOf(v).some((gr) => gr.label === (label || "") && gr.froms.includes(u));
       const consumed = /* @__PURE__ */ new Set();
       const sentences = [];
+      const say = (s) => sentences.push(terminate(s));
+      const hasBranch = g.order.some((id) => dagOutDeg(id) >= 2);
+      const hasMerge = g.order.some((id) => (dagIn.get(id) || 0) >= 2);
+      const complex = entries.length > 1 || hasBranch && (hasMerge || back.size > 0);
+      if (complex && entries.length && terminals.length) {
+        say(`It begins at ${joinWithAnd(entries.map(lbl))} and ends at ${joinWithAnd(terminals.map(lbl))}${back.size ? ", with a loop back" : ""}`);
+      }
+      const frag = (o) => {
+        const to = lbl(o.to);
+        if (!o.label) return `leads to ${to}`;
+        if (isCondition(o.label)) return condClause(o.label, to);
+        if (isVerbLabel(o.label)) return `${o.label} ${to}`;
+        return `${o.label}, leads to ${to}`;
+      };
+      const edgeClause = (head, o) => {
+        const to = lbl(o.to);
+        if (!o.label) return `${head} leads to ${to}`;
+        if (isCondition(o.label)) return `${head}, ${condClause(o.label, to)}`;
+        if (isVerbLabel(o.label)) return `${head} ${o.label} ${to}`;
+        return `${head}, ${o.label}, leads to ${to}`;
+      };
+      const describeOut = (U, lead) => {
+        const outs = dagOut(U).filter((o) => !deferred(U, o.to, o.label));
+        if (!outs.length) return null;
+        const head = lead || lbl(U);
+        if (outs.every((o) => !o.label)) {
+          if (outs.length >= 2) return `${head} fans out to ${joinWithAnd(outs.map((o) => lbl(o.to)))}`;
+          return `${head} leads to ${lbl(outs[0].to)}`;
+        }
+        const labels = new Set(outs.map((o) => o.label));
+        if (outs.length >= 2 && labels.size === 1 && isVerbLabel(outs[0].label)) {
+          return `${head} ${outs[0].label} ${joinWithAnd(outs.map((o) => lbl(o.to)))}`;
+        }
+        if (outs.length === 1) return edgeClause(head, outs[0]);
+        return `From ${lbl(U)}: ${outs.map(frag).join("; ")}`;
+      };
+      const describeMergeIn = (V) => {
+        const groups = coalesceOf(V);
+        if (!groups.length) return null;
+        return groups.map(({ label, froms }) => {
+          const names = joinWithAnd(froms.map(lbl));
+          return label ? `${names} ${both(froms.length)} ${pluralizeVerb(label)} ${lbl(V)}` : `${names} ${both(froms.length)} lead to ${lbl(V)}`;
+        }).join(". ");
+      };
       for (const start of topo) {
         if (consumed.has(start)) continue;
-        const orphan = (g.outDeg.get(start) || 0) === 0 && (g.inDeg.get(start) || 0) === 0;
-        if (orphan) {
+        if ((g.outDeg.get(start) || 0) === 0 && (g.inDeg.get(start) || 0) === 0) {
           consumed.add(start);
           continue;
         }
+        const merge = describeMergeIn(start);
+        if (merge) say(merge);
         if (dagOutDeg(start) === 0) {
           consumed.add(start);
           continue;
         }
         const chain = [start];
-        const labels = [];
         let cur = start;
         while (dagOutDeg(cur) === 1) {
           const nxt = dagOut(cur)[0];
-          if ((dagIn.get(nxt.to) || 0) !== 1) break;
-          if (consumed.has(nxt.to) || chain.includes(nxt.to)) break;
+          if (nxt.label || (dagIn.get(nxt.to) || 0) !== 1 || consumed.has(nxt.to) || chain.includes(nxt.to)) break;
           chain.push(nxt.to);
-          labels.push(nxt.label);
           cur = nxt.to;
         }
         for (const c of chain) consumed.add(c);
-        let s = lbl(chain[0]);
-        for (let i = 1; i < chain.length; i++) {
-          const l = labels[i - 1];
-          s += i === 1 ? `${l ? `, ${l},` : ""} leads to ${lbl(chain[i])}` : `,${l ? ` ${l},` : ""} then ${lbl(chain[i])}`;
-        }
         const last = chain[chain.length - 1];
-        const outs = dagOut(last);
-        const multi = chain.length > 1;
-        const hasLabeled = outs.some((o) => o.label);
-        if (outs.length === 0) {
-          sentences.push(`${s}.`);
-        } else if (!hasLabeled) {
-          if (outs.length >= 2) s += `${multi ? ", which fans out to" : " fans out to"} ${joinWithAnd(outs.map((o) => lbl(o.to)))}`;
-          else s += `${multi ? ", which leads to" : " leads to"} ${lbl(outs[0].to)}`;
-          sentences.push(`${s}.`);
+        if (chain.length > 1) {
+          let s = lbl(chain[0]);
+          for (let i = 1; i < chain.length; i++) s += i === 1 ? ` leads to ${lbl(chain[i])}` : `, then ${lbl(chain[i])}`;
+          say(s);
+          const tail = describeOut(last);
+          if (tail) say(tail);
         } else {
-          if (multi) sentences.push(`${s}.`);
-          const clauses = outs.map((o) => o.label ? `on ${o.label}, leads to ${lbl(o.to)}` : `leads to ${lbl(o.to)}`);
-          sentences.push(`From ${lbl(last)}: ${clauses.join("; ")}.`);
+          const one = describeOut(start);
+          if (one) say(one);
         }
       }
       for (const key of back) {
         const [u, v] = key.split(BACK_SEP);
         const l = g.out.get(u).get(v);
         const target = u === v ? "itself" : lbl(v);
-        sentences.push(l ? `${lbl(u)}, ${l}, loops back to ${target}.` : `${lbl(u)} loops back to ${target}.`);
+        if (l && isCondition(l)) {
+          const head = /^(on|if|when|once|unless)\b/i.test(l.trim()) ? l.trim() : `on ${l.trim()}`;
+          say(`${lbl(u)}, ${head}, loops back to ${target}`);
+        } else if (l && isVerbLabel(l)) {
+          sentences.push(`${lbl(u)} ${l}, looping back to ${target}.`);
+        } else if (l) {
+          sentences.push(`${lbl(u)}, ${l}, loops back to ${target}.`);
+        } else {
+          sentences.push(`${lbl(u)} loops back to ${target}.`);
+        }
       }
-      if (terminals.length) sentences.push(`The flow ends at ${joinWithAnd(terminals.map(lbl))}.`);
+      if (terminals.length && !complex) sentences.push(`The flow ends at ${joinWithAnd(terminals.map(lbl))}.`);
       return sentences.length ? sentences.join(" ") : null;
     }
     function renderGroupedNarrative(parsed) {

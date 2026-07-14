@@ -652,17 +652,18 @@ test('narrateDiagram: returns null for a diagram slide with no mermaid fence', (
   assert.equal(narrateDiagram('<!-- _class: diagram -->\n\n## Just a heading.\n\nSome prose.'), null);
 });
 
-test('narrateDiagram: speaks eyebrow, heading, the flowchart frame, and the FLOW (chain + fan-out + terminal)', () => {
+test('narrateDiagram: speaks eyebrow, heading, the flowchart frame, and the FLOW (chain + labeled hops + terminal)', () => {
   const out = narrateDiagram(diagramSkeleton);
   assert.ok(out.includes('01 · Flowchart.'));
   assert.ok(out.includes('How a signal becomes a decision.'));
   assert.ok(out.includes('A flowchart, Signal pipeline.'));
-  // The Scoring Model's two edges to the Decision Log (scored signal + recalibration)
-  // dedupe into one hop with merged labels, so the whole pipeline coalesces into a single
-  // chain that closes at the terminal. No per-edge "X leads to Y." enumeration.
+  // The unlabeled A→B hop reads "leads to"; the labeled hops read faithfully. The Scoring
+  // Model's two parallel edges to the Decision Log (scored signal + recalibration) dedupe
+  // into one merged label, which — being neither a recognized verb nor a condition — reads
+  // as the grammatical APPOSITIVE, never the broken "Scoring Model scored signal Decision Log".
   assert.ok(out.includes('Signal Intake leads to Scoring Model'), out);
-  assert.ok(out.includes('then Decision Log'), out);
-  assert.ok(out.includes('then Outcome Store'), out);
+  assert.ok(out.includes('Scoring Model, scored signal, recalibration, leads to Decision Log'), out);
+  assert.ok(out.includes('Decision Log, decide / close, leads to Outcome Store'), out);
   assert.ok(out.includes('The flow ends at Outcome Store.'), out);
 });
 
@@ -720,7 +721,7 @@ test('narrateDiagram: a feedback edge narrates as a loop, not a whole-graph grou
   const md = ['<!-- _class: diagram -->', '', '## Loop.', '', '```mermaid', 'flowchart LR', '  I[Ingest] --> V[Validate] --> T[Transform] --> L[Load]', '  V -->|retry| I', '```'].join('\n');
   const out = narrateDiagram(md);
   assert.ok(out.includes('Ingest leads to Validate, then Transform, then Load.'), out); // forward flow survives
-  assert.ok(out.includes('Validate, retry, loops back to Ingest.'), out); // the back-edge is a loop
+  assert.ok(out.includes('Validate, retry, loops back to Ingest.'), out); // the back-edge is a loop (appositive label)
   assert.ok(out.includes('The flow ends at Load.'), out);
 });
 
@@ -819,7 +820,9 @@ test('narrateDiagram: reads a DOT-lengthened dotted arrow with no fabricated lab
 test('narrateDiagram: keeps the REAL label on a dotted arrow (base and dot-lengthened), not the dots', () => {
   for (const arrow of ['-. yes .->', '-. yes ..->']) {
     const md = ['<!-- _class: diagram -->', '', '## D.', '', '```mermaid', 'flowchart LR', `  A[X] ${arrow} B[Y]`, '```'].join('\n');
-    assert.ok(narrateDiagram(md).includes('X, yes, leads to Y.'), arrow);
+    // "yes" is a branch condition, so it reads "on yes, leads to Y" — the point is the real
+    // label survives (never the arrow's dots).
+    assert.ok(narrateDiagram(md).includes('X, on yes, leads to Y.'), arrow);
   }
 });
 
@@ -839,4 +842,97 @@ test('narrateDiagram: returns quickly on a pathological connector line (no super
   narrateDiagram(md);
   const ms = Number(process.hrtime.bigint() - t) / 1e6;
   assert.ok(ms < 1000, `took ${ms}ms — possible ReDoS`);
+});
+
+// ── label GRAMMAR: verb vs. noun vs. condition (the trio's central inversion) ──────────────
+const diagram = (body, opts = 'flowchart LR') => `<!-- _class: diagram -->\n\n## H.\n\n\`\`\`mermaid\n${opts}\n${body}\n\`\`\``;
+
+test('narrateDiagram: a recognized VERB label reads AS the connective ("A calls B")', () => {
+  assert.ok(narrateDiagram(diagram('  A["Web App"] -->|calls| B["API"]')).includes('Web App calls API.'));
+  // a verb + preposition composes onto the target
+  assert.ok(narrateDiagram(diagram('  A["API"] -->|"reads from"| B[("Postgres")]')).includes('API reads from Postgres.'));
+  assert.ok(narrateDiagram(diagram('  A["app"] -->|"depends on"| B["core-lib"]')).includes('app depends on core-lib.'));
+});
+
+test('narrateDiagram: a NOUN / code / cadence / slashed label reads as the grammatical APPOSITIVE, never a verb', () => {
+  // The whole-trio inversion: "Producer data Consumer" is a broken non-sentence; the appositive
+  // "A, ‹label›, leads to B" is grammatical for ANY label the narrator can't confirm is a verb.
+  for (const [label, want] of [
+    ['data', 'Producer, data, leads to Consumer.'],
+    ['events', 'Producer, events, leads to Consumer.'], // a bare plural NOUN is not a verb
+    ['"HTTP 200"', 'Producer, HTTP 200, leads to Consumer.'],
+    ['v2', 'Producer, v2, leads to Consumer.'],
+    ['"decide / close"', 'Producer, decide / close, leads to Consumer.'],
+  ]) {
+    const out = narrateDiagram(diagram(`  A["Producer"] -->|${label}| B["Consumer"]`));
+    assert.ok(out.includes(want), `${label} → ${out}`);
+  }
+});
+
+test('narrateDiagram: a label on a "?"-named source is classified by the LABEL, not the source (no verb misread as a condition)', () => {
+  // Regression: the old "source ends in ?" rule turned every out-edge into a condition, so a
+  // verb-ish label on a question node read "on answers, leads to". Now classification is
+  // label-only, so a non-condition label reads faithfully (here: the safe appositive).
+  const out = narrateDiagram(diagram('  A["FAQ?"] -->|answers| B["Answer"]'));
+  assert.ok(out.includes('FAQ?, answers, leads to Answer.'), out);
+  assert.ok(!out.includes('on answers'), out);
+});
+
+test('narrateDiagram: FAN-IN coalesces same-relation sources into one sentence (unlabeled and verb)', () => {
+  const unlabeled = narrateDiagram(diagram('  A["Auth"] --> M["User DB"]\n  B["Orders"] --> M', 'flowchart TD'));
+  assert.ok(unlabeled.includes('Auth and Orders both lead to User DB.'), unlabeled);
+  // a shared VERB is depluralized for the now-plural subject ("depends on" → "depend on")
+  const verb = narrateDiagram(diagram('  A["core-lib"] -->|"depends on"| R["runtime"]\n  B["ui-kit"] -->|"depends on"| R', 'flowchart TD'));
+  assert.ok(verb.includes('core-lib and ui-kit both depend on runtime.'), verb);
+  // 3+ sources → "all", not "both"
+  const three = narrateDiagram(diagram('  A --> M["Merge"]\n  B --> M\n  C --> M', 'flowchart TD'));
+  assert.ok(three.includes('A, B, and C all lead to Merge.'), three);
+});
+
+test('narrateDiagram: pluralizeVerb conjugates sibilant / -es / -ies verbs on the merge path (no "processe"/"querie")', () => {
+  for (const [label, want] of [
+    ['processes', 'both process Queue.'],
+    ['dispatches', 'both dispatch Queue.'],
+    ['queries', 'both query Queue.'],
+    ['watches', 'both watch Queue.'],
+    ['pushes', 'both push Queue.'],
+  ]) {
+    const out = narrateDiagram(diagram(`  A["A"] -->|${label}| M["Queue"]\n  B["B"] -->|${label}| M`, 'flowchart TD'));
+    assert.ok(out.includes(want), `${label} → ${out}`);
+  }
+});
+
+test('narrateDiagram: a condition-labeled fan-IN is NOT coalesced — each guard is spoken from its source', () => {
+  // "both on yes Z" would be broken; the guards are load-bearing, so they stay separate.
+  const out = narrateDiagram(diagram('  A{"A?"} -->|yes| Z["Go"]\n  B{"B?"} -->|yes| Z', 'flowchart TD'));
+  assert.ok(!out.includes('both'), out);
+  assert.ok(out.includes('on yes, leads to Go'), out);
+});
+
+test('narrateDiagram: the topological OVERVIEW is gated — fires on a diamond, silent on a linear chain / lone fan-out', () => {
+  // Diamond (branch + reconvergence) → the shape isn't obvious from one walk sentence.
+  const diamond = narrateDiagram(diagram('  S["Req"] --> A["Validate"]\n  S --> B["Auth"]\n  A --> M["Process"]\n  B --> M\n  M --> E["Respond"]', 'flowchart TD'));
+  assert.ok(diamond.includes('It begins at Req and ends at Respond.'), diamond);
+  // A 7-node linear chain: the walk already says start→end, so an overview would be boilerplate.
+  const chain = narrateDiagram(diagram('  A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7'));
+  assert.ok(!chain.includes('It begins at'), chain);
+  // A lone fan-out: same — the fan-out sentence says it.
+  const fan = narrateDiagram(diagram('  R["Root"] --> A\n  R --> B\n  R --> C', 'flowchart TD'));
+  assert.ok(!fan.includes('It begins at'), fan);
+});
+
+test('narrateDiagram: a feedback loop reads its loop-back and ends cleanly (no doubled "?.")', () => {
+  // A pure feedback loop has no forward branch after back-edge removal, so it stays overview-free
+  // (the walk says it all); the guard here is the loop-back phrasing + no doubled terminal.
+  const out = narrateDiagram(diagram('  A["Commit"] --> B["Build"] --> C{"Tests pass?"}\n  C -->|yes| D["Deploy"]\n  C -->|no| B'));
+  assert.ok(out.includes('Tests pass?, on no, loops back to Build.'), out);
+  assert.ok(out.includes('The flow ends at Deploy.'), out);
+  assert.ok(!out.includes('?.'), out); // terminate() keeps a "?"-ending node label from doubling
+});
+
+test('narrateDiagram: the overview names a loop when the graph also branches and cycles', () => {
+  // branch (In stock?) + a real cycle (Pay ⇄ Backorder) → the shape earns an overview, and the
+  // loop is announced with ", with a loop back".
+  const out = narrateDiagram(diagram('  O["Order"] -->|validates| V{"In stock?"}\n  V -->|yes| P["Pay"]\n  V -->|no| Bk["Backorder"]\n  P -->|"on failure"| Bk\n  Bk -->|restocked| P\n  P --> Sh["Ship"]', 'flowchart TD'));
+  assert.ok(out.includes('with a loop back'), out);
 });
