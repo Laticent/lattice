@@ -18,14 +18,14 @@ import { cn } from '@/lib/utils';
 // each row show the swatch preview so the visual grammar is identical everywhere.
 
 export type CatalogSwatch = { background: string; backgroundSize?: string };
-export type CatalogOption = { value: string; label: string; swatch?: CatalogSwatch };
+export type CatalogOption = { value: string; label: string; swatch?: CatalogSwatch; title?: string };
 export type CatalogGroup = { label?: string; options: CatalogOption[] };
 
-/** Map a catalog of `{name,label,swatch}` entries (finish/spectrum/mode/…) to
- *  CatalogOptions, using the entry `name` as the value. The shared adapter so a
- *  caller never hand-rolls the mapping. */
-export function catalogOptions(entries: { name: string; label: string; swatch: CatalogSwatch }[]): CatalogOption[] {
-	return entries.map((e) => ({ value: e.name, label: e.label, swatch: e.swatch }));
+/** Map a catalog of `{name,label,swatch,blurb?}` entries (finish/spectrum/mode/…)
+ *  to CatalogOptions, using the entry `name` as the value and its `blurb` as the
+ *  row's hover title. The shared adapter so a caller never hand-rolls the mapping. */
+export function catalogOptions(entries: { name: string; label: string; swatch: CatalogSwatch; blurb?: string }[]): CatalogOption[] {
+	return entries.map((e) => ({ value: e.name, label: e.label, swatch: e.swatch, title: e.blurb }));
 }
 
 // The preview chip — a small swatch rendering the option's CSS background (a finish
@@ -70,7 +70,7 @@ export function CatalogSelect({
 		[groups, value],
 	);
 	const renderItem = (o: CatalogOption) => (
-		<SelectItem key={o.value} value={o.value} textValue={o.label}>
+		<SelectItem key={o.value} value={o.value} textValue={o.label} title={o.title}>
 			{o.swatch && <SwatchChip {...o.swatch} shape={swatchShape} />}
 			<span className="truncate">{o.label}</span>
 		</SelectItem>

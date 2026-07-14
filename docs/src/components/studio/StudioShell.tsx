@@ -1524,7 +1524,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						className="min-w-[116px]"
 						value={deckThemeBase || '__auto__'}
 						onValueChange={(v) => setDeckTheme(v === '__auto__' ? null : v)}
-						groups={[{ options: [{ value: '__auto__', label: 'Automatic — match site' }] }, ...themeSelectGroups(savedMenu)]}
+						groups={[{ options: [{ value: '__auto__', label: 'Automatic — match site', title: 'Follow the website theme; no theme: pinned to the deck.', swatch: { background: 'linear-gradient(135deg, var(--bg) 0 50%, var(--text-heading) 50% 100%)' } }] }, ...themeSelectGroups(savedMenu)]}
 					/>
 					{savedThemes.length > 0 && (
 						<div className="mt-2 space-y-0.5">

@@ -25,7 +25,7 @@ export function finishSelectGroups({
 	heads, saved = [], savedValue,
 }: { heads: CatalogOption[]; saved?: SavedFinishMenuEntry[]; savedValue: (slug: string) => string }): CatalogGroup[] {
 	const presets = FINISHES.filter((f) => f.group === 'finish').map(
-		(f): CatalogOption => ({ value: f.name, label: f.label, swatch: f.swatch }),
+		(f): CatalogOption => ({ value: f.name, label: f.label, swatch: f.swatch, title: f.blurb }),
 	);
 	const groups: CatalogGroup[] = [{ options: heads }, { label: 'Finishes', options: presets }];
 	if (saved.length > 0) {
