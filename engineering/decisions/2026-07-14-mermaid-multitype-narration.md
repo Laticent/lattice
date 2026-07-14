@@ -1,5 +1,5 @@
 ---
-status: design
+status: proposed
 summary: >
   Design for extending read-aloud narration from Mermaid FLOWCHARTS (shipped: the walk #971
   + the gist #991) to the WHOLE Mermaid family (~22 remaining types). Grounded in per-type
