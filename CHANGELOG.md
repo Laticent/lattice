@@ -164,6 +164,15 @@ in patch versions.
 
 ### Added
 
+- **Studio widgets: three more shared shadcn primitives — `ui/tooltip`, `ui/separator`, `ui/kbd`.**
+  The docs-site Studio gains styled, colour-mode-aware tooltips (a `Tip` one-line wrapper over Radix
+  Tooltip) in place of native `title=` on its toolbar icon controls, a `Separator` for the toolbar
+  dividers, and a `Kbd` chip for the `⌘K` hints — retiring copy-pasted markup in favour of one
+  primitive each (HARD RULE #15). Migrated across **StudioShell** (24 tooltips, 6 dividers, 3 keycaps)
+  and the site header's **NavActions**; the tooltip surface follows the popover/dropdown language and
+  flips light↔dark on the token bridge. No export or engine change — docs-site UI only; other live
+  surfaces still on native `title=` are a documented fast-follow. Verified on the real Studio in both
+  colour modes.
 - **`_lens` is now a recognized per-slide directive.** A `<!-- _lens: brief ask -->` comment carries a
   slide's reader-lens membership for the forthcoming lens system (`@slidewright/lente`). Like other
   directives it is **stripped from exported HTML/PDF** and is never a `<section>` attribute — so internal

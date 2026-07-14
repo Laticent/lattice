@@ -5,6 +5,7 @@ import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import PaletteControls from '@/components/site/PaletteControls';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Kbd } from '@/components/ui/kbd';
 import {
 	Sheet,
 	SheetClose,
@@ -13,6 +14,7 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from '@/components/ui/sheet';
+import { Tip } from '@/components/ui/tooltip';
 
 /**
  * The header's interactive right cluster — one island shared by every surface
@@ -81,9 +83,7 @@ export default function NavActions({
 			>
 				<Search className="size-4" />
 				<span className="text-sm">Search the docs…</span>
-				<kbd className="ml-auto inline-flex items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
-					⌘K
-				</kbd>
+				<Kbd className="ml-auto text-[10px]">⌘K</Kbd>
 			</Button>
 			<Button
 				type="button"
@@ -98,17 +98,18 @@ export default function NavActions({
 
 			<PaletteControls palettes={palettes} compact />
 
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon-sm"
-				onClick={() => setFeedbackOpen(true)}
-				aria-label="Send feedback"
-				title="Send feedback"
-				className="hidden lg:inline-flex"
-			>
-				<MessageSquareHeart className="size-4" />
-			</Button>
+			<Tip label="Send feedback">
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-sm"
+					onClick={() => setFeedbackOpen(true)}
+					aria-label="Send feedback"
+					className="hidden lg:inline-flex"
+				>
+					<MessageSquareHeart className="size-4" />
+				</Button>
+			</Tip>
 
 			<Button asChild variant="ghost" size="icon-sm" aria-label="GitHub repository" className="hidden lg:inline-flex">
 				<a href={githubUrl} target="_blank" rel="noreferrer noopener">
