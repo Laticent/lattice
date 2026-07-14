@@ -27,6 +27,7 @@ import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
+import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -1612,7 +1613,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const inspectorBody = (
 		<>
 			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's identity — language, palette, light or dark, size, and surface.">
-				<Field label="Language" desc="This deck's language — its document language (carried into every export and read-aloud) and the language the AI writes its content in. “Automatic” inherits the workspace default; pick one to pin it to the deck. English only for now.">
+				<Field label="Language" desc="This deck's language — its document language (carried into every export and read-aloud) and the language the AI writes its content in. “Auto” (the link icon) inherits the workspace default; pick one to pin it to the deck. English only for now.">
 					<LanguageSelect
 						value={deckLang || LANG_AUTO}
 						ariaLabel="Choose deck language"
@@ -1621,14 +1622,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						onValueChange={setDeckLang}
 					/>
 				</Field>
-				<Field label="Theme" desc="This deck's color palette. “Automatic” follows the website theme; pick one to pin it to the deck (saved with the deck, kept when the site theme changes).">
+				<Field label="Theme" desc="This deck's color palette. “Auto” (the link icon) follows the website theme; pick one to pin it to the deck (saved with the deck, kept when the site theme changes).">
 					<CatalogSelect
 						ariaLabel="Choose deck theme"
 						swatchShape="round"
 						className="min-w-[116px]"
 						value={deckThemeBase || '__auto__'}
 						onValueChange={(v) => setDeckTheme(v === '__auto__' ? null : v)}
-						groups={[{ options: [{ value: '__auto__', label: 'Automatic — match site', title: 'Follow the website theme; no theme: pinned to the deck.', swatch: { background: 'linear-gradient(135deg, var(--bg) 0 50%, var(--text-heading) 50% 100%)' } }] }, ...themeSelectGroups(savedMenu)]}
+						groups={[{ options: [{ value: '__auto__', label: AUTO_LABEL, icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 					/>
 					{savedThemes.length > 0 && (
 						<div className="mt-2 space-y-0.5">

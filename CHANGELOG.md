@@ -387,6 +387,11 @@ in patch versions.
 
 ### Changed
 
+- **The deck Inspector's inherit-the-default pickers read a compact “⊸ Auto” instead of a long label.**
+  The Language and Theme controls used a verbose selected-value label ("Automatic — English (United
+  States)" / "Automatic — match site") that overflowed the narrow Inspector — a shared `AutoIcon` +
+  "Auto" now signals the automatic/inherit state, with the full meaning in the control's hover tooltip
+  and field description. One `auto-mark` source so the affordance can't drift (HARD RULE #15).
 - **Studio "Output language" is now a general workspace setting, English-only.** The AI-output
   language moved from the Workspace **AI** tab to **General** — it describes the deck's language,
   which the AI inherits, not a model knob — and the offered set is pulled back to English (US + UK)

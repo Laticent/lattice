@@ -333,14 +333,15 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/theme:\s*a11y-deuteranopia/);
 	});
 
-	it('the Inspector deck-theme "Automatic" clears the deck theme (follows the site)', async () => {
+	it('the Inspector deck-theme "Auto" clears the deck theme (follows the site)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
 		await user.click(await screen.findByRole('option', { name: /^Cuoio/ }));
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/theme:\s*cuoio/);
 		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
-		await user.click(await screen.findByRole('option', { name: /Automatic/ }));
+		// The compact auto row reads "Auto" now (was "Automatic — match site").
+		await user.click(await screen.findByRole('option', { name: /Auto/ }));
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/theme:\s*cuoio/);
 	});
 

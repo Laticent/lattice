@@ -45,11 +45,15 @@ describe('LanguageSelect', () => {
 		expect((await screen.findByRole('option', { selected: true })).textContent).toBe('fr-FR (unsupported)');
 	});
 
-	it('shows the Automatic (inherit) row with its label when includeAuto is on', async () => {
+	it('shows a COMPACT "Auto" inherit row when includeAuto is on, full meaning in the title', async () => {
 		render(<LanguageSelect value={LANG_AUTO} includeAuto autoLabel="Automatic — English (United States)" onValueChange={() => {}} ariaLabel="Deck language" />);
 		await open('Deck language');
-		expect(optionLabels()).toContain('Automatic — English (United States)');
-		expect((await screen.findByRole('option', { selected: true })).textContent).toBe('Automatic — English (United States)');
+		// The visible label is the compact "Auto" (so the trigger doesn't overflow)…
+		expect(optionLabels()).toContain('Auto');
+		expect(optionLabels().some((l) => /Automatic/.test(l))).toBe(false);
+		// …while the full resolved meaning rides in the row's title (hover + a11y description).
+		expect(screen.getByRole('option', { name: 'Auto' })).toHaveAttribute('title', 'Automatic — English (United States)');
+		expect((await screen.findByRole('option', { selected: true })).textContent).toBe('Auto');
 	});
 
 	it('reports the picked code — the Automatic sentinel and a concrete language', async () => {

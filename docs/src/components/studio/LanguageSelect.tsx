@@ -2,6 +2,7 @@ import { Globe } from 'lucide-react';
 import * as React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { resolveSupported, STUDIO_LANGUAGES } from './studio-language';
 import { flagSrc } from './tts-voice-catalog';
 
@@ -63,9 +64,14 @@ export function LanguageSelect({
 			</SelectTrigger>
 			<SelectContent>
 				{includeAuto && (
-					<SelectItem value={LANG_AUTO}>
-						<Globe className="size-3.5 text-muted-foreground" />
-						<span>{autoLabel}</span>
+					// Compact "Auto" — the trigger mirrors this row, so a long "Automatic —
+					// English (United States)" label here widened the whole control. `title`
+					// carries the full resolved meaning (hover tooltip + accessible description;
+					// Radix owns the option's accessible NAME via the visible text, so aria-label
+					// on the item is inert — the title is the honest channel).
+					<SelectItem value={LANG_AUTO} title={autoLabel}>
+						<AutoIcon />
+						<span>{AUTO_LABEL}</span>
 					</SelectItem>
 				)}
 				{STUDIO_LANGUAGES.map((l) => (
