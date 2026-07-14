@@ -294,4 +294,4 @@ describe('flagEmoji / countryName — the row flag', () => {
 		expect(countryName('BR')).toBe('Brazil');
 		expect(countryName('ZZ')).toBe('ZZ');
 	});
-})
+});
