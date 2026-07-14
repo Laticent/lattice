@@ -1,4 +1,4 @@
-import { currentSlide, expect, gotoStudio, railButtons, slideCount, test, toastText } from './studio-fixture';
+import { currentSlide, expect, gotoStudio, railButtons, slideCount, test } from './studio-fixture';
 
 // Preview navigation + reader lenses. The outer "Slide N / M" label and the rail
 // count are the reliable outer-DOM oracles; the painted slide *changing* is
@@ -41,10 +41,11 @@ test('clicking a rail slide jumps to it and repaints', async ({ page }) => {
 
 test('Exec-summary lens trims the deck to headline slides, and clearing restores it', async ({ page }) => {
 	const n = await slideCount(page);
-	// The Reshape card lives in the Architect panel, which is collapsed by default.
-	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await page.getByRole('button', { name: 'Exec summary' }).first().click();
-	await expect(toastText(page)).toContainText('Exec summary');
+	// The reader-view picker lives in the preview header. A deck with no `lenses:` registry still offers
+	// the legacy exec heuristic there (the Architect's old "Exec summary" chip was replaced by the Lenses
+	// panel, whose views are author-defined + approval-gated).
+	await page.getByRole('button', { name: 'Reader view' }).click();
+	await page.getByRole('menuitem', { name: 'Exec summary' }).click();
 
 	// The lens keeps only headline slides → strictly fewer than the full deck.
 	await expect.poll(() => slideCount(page)).toBeLessThan(n);
