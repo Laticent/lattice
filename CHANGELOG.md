@@ -259,6 +259,34 @@ in patch versions.
 
 ### Changed
 
+- **The Finish selector is now ONE shared component across both Inspectors, with its swatch previews
+  everywhere.** The deck Inspector and the slide Inspector used to run *different* finish pickers — the
+  deck a DropdownMenu with finish swatches, the slide a plain text `<select>` with none. They now render
+  the same new `CatalogSelect` (a shadcn-Select-based picker that shows each option's preview swatch on
+  the trigger and every row), fed by a shared `finishSelectGroups` helper (HARD RULE #15 — no duplicate
+  picker). So the slide Inspector's Finish gains the Atrium/Meridian/Strata/… texture previews it was
+  missing, and saved (Fabricated) finishes now carry their swatches into the slide Inspector too (the
+  Studio now passes the full saved-finish menu, not bare names). The slide **Brand bar** picker gains its
+  spectrum swatches the same way. The retired duplicate (`FinishMenuItems`, `activeFinishLabel`) is
+  deleted. Verified on the real Studio: both Inspectors' Finish show swatches and apply end to end
+  (deck → `finish:` front-matter, slide → per-slide `finish-<name>`). The deck Inspector's **Mode** and
+  **Brand bar** pickers move onto the same `CatalogSelect` in the same pass (their swatches intact), and
+  the now-duplicate `SpectrumPicker`/`ModePicker` modules are deleted — so finish, brand bar, and mode
+  are one shared, swatched selector across the Studio. The deck Inspector's **Theme** picker joins them
+  on `CatalogSelect` too (round accent dots via a new `swatchShape` option, grouped Curated / your themes
+  / AA color-blind-safe / More, with the "Automatic — match site" head), sharing a `themeSelectGroups`
+  builder with the topbar theme menu — so every catalog-backed picker in the deck Inspector (finish,
+  brand bar, mode, theme) is now one component. `engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md`.
+- **Studio dropdowns now use the shared `ui/select` primitive instead of native `<select>`.** The three
+  surviving native selects on live surfaces — `SlideContext`'s `Picker` (finish / brand-bar / stamp /
+  tone, with its grouped options), `Fabricate`'s manifest-field `sel`, and `WorkspaceSheet`'s budget
+  enforcement mode — now render the shadcn Select (themed through the tailwind.css bridge, so the popover
+  and the accent-checked item track the palette). Behavior-neutral; the sentinel option values
+  (`__inherit__`/`__none__`/`__default__`) are non-empty, so Radix's no-empty-value rule holds. Verified
+  on the real Studio: opening Slide settings → Finish and picking "Meridian" updates the trigger and
+  writes `finish-meridian` into the deck source end to end. Second step of the shadcn-adoption plan
+  (`engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md`); `cadenza.astro`'s vanilla-JS
+  select is deferred (it needs a React island).
 - **Studio toggles now use one shared `ui/switch` primitive instead of six hand-rolled ones.** A new
   `docs/src/components/ui/switch.tsx` (Radix Switch, themed through the tailwind.css token bridge so the
   accent-filled track tracks the palette) replaces the copy-pasted `role="switch"` buttons in

@@ -3,6 +3,7 @@ import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 // The REAL layout gate — the deterministic core the engine uses for components
@@ -790,12 +791,17 @@ function ComponentManifestPanel({ name, description, meta, onName, onDescription
 	}
 
 	const sel = (field: string, label: string, value: string | undefined, opts: string[], onPick: (v: string) => void) => (
-		<label className="flex flex-col gap-1">
+		<div className="flex flex-col gap-1">
 			<HintLabel field={field}>{label}</HintLabel>
-			<select value={value ?? ''} onChange={(e) => onPick(e.target.value)} aria-label={label} className="rounded-md border border-border bg-background px-2 py-1 text-[12.5px] text-[var(--text-heading)] outline-none focus:border-[var(--accent)]">
-				{opts.map((o) => <option key={o} value={o}>{o}</option>)}
-			</select>
-		</label>
+			<Select value={value ?? ''} onValueChange={onPick}>
+				<SelectTrigger aria-label={label} className="h-auto gap-2 border-border bg-background px-2 py-1 text-[12.5px] text-[var(--text-heading)]">
+					<SelectValue placeholder="—" />
+				</SelectTrigger>
+				<SelectContent>
+					{opts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+				</SelectContent>
+			</Select>
+		</div>
 	);
 	const cap = meta.capacity || {};
 	const den: { axis?: string; soft?: number; hard?: number } = meta.density || {};

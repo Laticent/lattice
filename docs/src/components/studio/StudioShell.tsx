@@ -23,12 +23,14 @@ import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
+import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { Editor, type EditorHandle } from './Editor';
-import { activeFinishLabel, FinishMenuItems, type SavedFinishMenuEntry } from './FinishPicker';
+import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
+import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
@@ -39,15 +41,15 @@ import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
-import { activeModeLabel, ModeMenuItems } from './ModePicker';
+import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
-import { activeSpectrumLabel, SpectrumMenuItems } from './SpectrumPicker';
 import { importComments } from './slide-comments';
+import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
-import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
+import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
 import { useBreakpoint } from './use-breakpoint';
@@ -975,10 +977,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Saved (Fabricated) themes shaped for the grouped picker.
 	const savedMenu = React.useMemo(() => savedThemes.map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
 	// Label + dot for the deck-theme trigger — null when the deck names no theme (Automatic).
-	const deckThemeMenuLabel = React.useMemo(() => (deckThemeBase ? activePaletteLabel(deckThemeBase, savedMenu) : null), [deckThemeBase, savedMenu]);
-	const activeFin = React.useMemo(() => activeFinishLabel(finish, savedFinishMenu), [finish, savedFinishMenu]);
-	const activeMan = React.useMemo(() => activeModeLabel(renderMode), [renderMode]);
-	const activeSpec = React.useMemo(() => activeSpectrumLabel(spectrum), [spectrum]);
 	// Light/dark toggle — flips the shared `data-mode` (engine `light-dark()` resolves
 	// off it); the data-mode observer below pulls the new value into `mode` and the
 	// preview re-renders. Persisted via site-chrome so it survives a reload.
@@ -1520,16 +1518,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		<>
 			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's visual identity — palette, light or dark, size, and surface.">
 				<Field label="Theme" desc="This deck's color palette. “Automatic” follows the website theme; pick one to pin it to the deck (saved with the deck, kept when the site theme changes).">
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Control aria-label="Choose deck theme"><span className="flex min-w-0 items-center gap-2">{deckThemeMenuLabel ? <span className="size-3.5 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: deckThemeMenuLabel.color }} /> : <SunMoon className="size-3.5 text-muted-foreground" />}<span className="truncate">{deckThemeMenuLabel ? deckThemeMenuLabel.label : 'Automatic'}</span></span> <ChevronDown className="size-3.5" /></Control>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="max-h-[60vh] w-52 overflow-y-auto">
-							<DropdownMenuItem onSelect={() => setDeckTheme(null)} className="gap-2"><SunMoon className="size-3.5" />Automatic — match site{!deckThemeBase && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
-							<DropdownMenuSeparator />
-							<ThemeMenuItems palette={deckThemeBase} onPick={setDeckTheme} saved={savedMenu} />
-						</DropdownMenuContent>
-					</DropdownMenu>
+					<CatalogSelect
+						ariaLabel="Choose deck theme"
+						swatchShape="round"
+						className="min-w-[116px]"
+						value={deckThemeBase || '__auto__'}
+						onValueChange={(v) => setDeckTheme(v === '__auto__' ? null : v)}
+						groups={[{ options: [{ value: '__auto__', label: 'Automatic — match site', title: 'Follow the website theme; no theme: pinned to the deck.', swatch: { background: 'linear-gradient(135deg, var(--bg) 0 50%, var(--text-heading) 50% 100%)' } }] }, ...themeSelectGroups(savedMenu)]}
+					/>
 					{savedThemes.length > 0 && (
 						<div className="mt-2 space-y-0.5">
 							<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Manage saved</div>
@@ -1571,24 +1567,20 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
 						    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
 						    owns `style:` for inline CSS, so the axis is named "mode"). */}
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Control aria-label="Choose mode"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activeMan.swatch, backgroundSize: activeMan.backgroundSize }} /><span className="truncate">{activeMan.label}</span></span> <ChevronDown className="size-3.5" /></Control>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-56">
-								<ModeMenuItems mode={renderMode} onPick={setRenderMode} />
-							</DropdownMenuContent>
-						</DropdownMenu>
+						<CatalogSelect ariaLabel="Choose mode" value={activeMode(renderMode).name} onValueChange={setRenderMode} className="min-w-[116px]" groups={[{ options: catalogOptions(MODES) }]} />
 					</Field>
 				<Field label="Finish" desc="A backdrop texture applied to every slide — a soft gradient, wash, or grain behind the content.">
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Control aria-label="Choose finish"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activeFin.swatch, backgroundSize: activeFin.backgroundSize }} /><span className="truncate">{activeFin.label}</span></span> <ChevronDown className="size-3.5" /></Control>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="max-h-[60vh] w-56 overflow-y-auto">
-								<FinishMenuItems finish={finish} onPick={setFinish} saved={savedFinishMenu} />
-							</DropdownMenuContent>
-						</DropdownMenu>
+						<CatalogSelect
+							ariaLabel="Choose finish"
+							value={activeSavedFinish ? `finish-${activeSavedFinish.name}` : activeFinish(finish).name}
+							onValueChange={setFinish}
+							className="min-w-[116px]"
+							groups={finishSelectGroups({
+								heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }],
+								saved: savedFinishMenu,
+								savedValue: (n) => `finish-${n}`,
+							})}
+						/>
 					</Field>
 					{savedFinishes.length > 0 && (
 						<div className="mt-2 space-y-0.5">
@@ -1606,14 +1598,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							{/* The white-label spectrum — the rainbow bar on the top border / divider
 							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 							    the theme accent to a client's brand and Solid follows. */}
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Control aria-label="Choose brand bar"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activeSpec.swatch, backgroundSize: activeSpec.backgroundSize }} /><span className="truncate">{activeSpec.label}</span></span> <ChevronDown className="size-3.5" /></Control>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end" className="w-56">
-									<SpectrumMenuItems spectrum={spectrum} onPick={setSpectrum} />
-								</DropdownMenuContent>
-							</DropdownMenu>
+							<CatalogSelect ariaLabel="Choose brand bar" value={activeSpectrum(spectrum).name} onValueChange={setSpectrum} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRA) }]} />
 						</Field>
 						{/* Card lift — the opt-in "Struck" elevation. A deck-wide visual toggle
 						    alongside Finish / Brand bar; per-slide `_class: lifted`/`flat` override. */}
@@ -1707,7 +1692,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			{inspectorScope === 'deck' ? (
 				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
 			) : (
-				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinishNames={savedFinishMenu.map((f) => f.name)} onMutate={mutateSlideFromPanel} />
+				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} />
 			)}
 		</>
 	);
