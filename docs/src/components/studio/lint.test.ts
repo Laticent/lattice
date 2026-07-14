@@ -221,4 +221,28 @@ describe('presentationSet (reader lenses, fuzz)', () => {
 		// front-matter caption is keyed on 3, resolved via presentationIndices[1] + 1.
 		expect(presentationIndices(slides, 'exec')).toEqual([0, 2]);
 	});
+
+	// The adapter seam: when the deck defines a `lenses:` registry, projection flows through the
+	// tag-driven @slidewright/lente read path instead of the legacy heuristic — and the author-index
+	// contract (captions) is preserved identically.
+	it('projects a registry (tag-driven) lens via the library, preserving author indices', () => {
+		const registry = {
+			default: 'full',
+			lenses: [
+				{ id: 'full', label: 'Full deck', base: 'all' as const },
+				{ id: 'brief', label: 'Bottom line', base: 'none' as const },
+			],
+		};
+		const slides = [
+			'<!-- _class: title -->\n<!-- _lens: brief -->\n# t', // 0 — tagged into brief
+			'<!-- _class: quote -->\n# q', // 1 — not in brief
+			'<!-- _class: kpi -->\n<!-- _lens: brief -->\n# k', // 2 — tagged into brief
+		];
+		expect(presentationSet(slides, 'brief', registry)).toEqual([slides[0], slides[2]]);
+		expect(presentationIndices(slides, 'brief', registry)).toEqual([0, 2]);
+		// Without the registry, 'brief' is an unknown lens → safe fallback to the whole deck.
+		expect(presentationSet(slides, 'brief')).toEqual(slides);
+		// A registry lens with no members never projects a blank set — falls back to full.
+		expect(presentationSet(['<!-- _class: title -->\n# t'], 'brief', registry)).toHaveLength(1);
+	});
 });
