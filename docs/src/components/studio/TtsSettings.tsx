@@ -20,7 +20,7 @@ import {
 	voiceAvailability,
 } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
-import { groupVoices, KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { countryName, flagEmoji, groupVoices, KOKORO_MODEL_ID, NO_SPEED_HINT, NO_VOICES_HINT, resolveVoice, speedSupported, type Voice, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
 // generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
@@ -100,12 +100,27 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
 // A ♀/♂ adornment for a voice row whose gender we know (Kokoro from its id; the other
 // engines from the catalog's curated voiceGenders map). Absent — not a placeholder —
 // where the gender is unknown, so the row stays clean. Lucide Venus/Mars icons (not a
-// text glyph), to match the rest of the Studio's icon set.
+// text glyph), tinted to match the voice name (inherits `currentColor`), to match the
+// rest of the Studio's icon set.
 function GenderMark({ gender }: { gender?: 'F' | 'M' }) {
 	if (!gender) return null;
 	const Icon = gender === 'F' ? Venus : Mars;
 	const label = gender === 'F' ? 'Female' : 'Male';
-	return <Icon role="img" aria-label={label} className="size-3.5 shrink-0 text-muted-foreground" />;
+	return <Icon role="img" aria-label={label} className="size-3.5 shrink-0" />;
+}
+
+// A country flag for a voice row whose language maps to a country (Kokoro/Voxtral/MAI/
+// Zonos). Replaces the old "· US" text suffix — the flag sits next to the gender icon.
+// Emoji flags render on iOS/macOS; a desktop browser without flag glyphs falls back to
+// the 2-letter code, still meaningful. Absent for a language-agnostic engine (Gemini).
+function FlagMark({ country }: { country?: string }) {
+	const flag = flagEmoji(country);
+	if (!flag) return null;
+	return (
+		<span role="img" aria-label={countryName(country)} title={countryName(country)} className="shrink-0 text-[13px] leading-none">
+			{flag}
+		</span>
+	);
 }
 
 // The voice picker: an inline, expand-in-place search panel grouped as ★ Featured +
@@ -171,7 +186,7 @@ function VoicePicker({
 		setOpen(false);
 		setQuery('');
 	};
-	const Row = (row: { id: string; label: string; gender?: 'F' | 'M' }) => {
+	const Row = (row: { id: string; label: string; country?: string; gender?: 'F' | 'M' }) => {
 		const sel = row.id === value;
 		return (
 			<button
@@ -180,10 +195,12 @@ function VoicePicker({
 				aria-selected={sel}
 				key={row.id}
 				onClick={() => choose(row.id)}
-				className={cn('flex w-full items-center gap-2 rounded-md bg-transparent px-2 py-2 text-left text-[13px]', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}
+				// text-heading on the button, so the name AND the gender icon (currentColor) share one color.
+				className={cn('flex w-full items-center gap-2 rounded-md bg-transparent px-2 py-2 text-left text-[13px] text-[var(--text-heading)]', sel ? 'bg-[var(--accent-soft)]' : 'hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]')}
 			>
 				<Check className={cn('size-3.5 shrink-0', sel ? 'opacity-100 text-[var(--accent)]' : 'opacity-0')} />
-				<span className="min-w-0 flex-1 truncate text-[var(--text-heading)]">{row.label}</span>
+				<span className="min-w-0 flex-1 truncate">{row.label}</span>
+				<FlagMark country={row.country} />
 				<GenderMark gender={row.gender} />
 			</button>
 		);

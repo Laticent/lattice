@@ -190,11 +190,31 @@ export const NO_SPEED_HINT = "This voice doesn't support adjustable speed — it
 const KOKORO_LANG_FULL: Record<string, string> = { a: 'US English', b: 'UK English', e: 'Spanish', f: 'French', h: 'Hindi', i: 'Italian', j: 'Japanese', p: 'Portuguese', z: 'Chinese' };
 const VOXTRAL_LANG_FULL: Record<string, string> = { en: 'US English', gb: 'UK English', fr: 'French' };
 const LOCALE_LANG: Record<string, string> = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ja: 'Japanese', zh: 'Chinese' };
+// ISO 3166 alpha-2 country for each language key, for the row's flag. Kokoro's `e`
+// (Spanish) → Spain, `p` (Portuguese) → Brazil (its actual training locale). Voxtral
+// mirrors its lang keys. MAI carries its own locale country in the id.
+const KOKORO_COUNTRY: Record<string, string> = { a: 'US', b: 'GB', e: 'ES', f: 'FR', h: 'IN', i: 'IT', j: 'JP', p: 'BR', z: 'CN' };
+const VOXTRAL_COUNTRY: Record<string, string> = { en: 'US', gb: 'GB', fr: 'FR' };
 // Display order for language groups: Kokoro's own prefix order, then Voxtral's, then
 // anything else falls to alphabetical (locale-keyed engines like MAI).
 const LANG_ORDER = ['a', 'b', 'e', 'f', 'h', 'i', 'j', 'p', 'z', 'en', 'gb', 'fr'];
 
-export type VoiceMeta = { langKey?: string; langLabel?: string; gender?: 'F' | 'M'; name: string };
+const COUNTRY_NAME: Record<string, string> = { US: 'United States', GB: 'United Kingdom', ES: 'Spain', FR: 'France', IN: 'India', IT: 'Italy', JP: 'Japan', BR: 'Brazil', CN: 'China', DE: 'Germany', AU: 'Australia', MX: 'Mexico' };
+
+/** The flag emoji for an ISO 3166 alpha-2 country code (regional-indicator pair), or
+ *  '' for a missing/short code. Renders as a flag on iOS/macOS; some desktop browsers
+ *  fall back to the letters — graceful, and the code is still meaningful. */
+export function flagEmoji(country?: string): string {
+	if (!country || country.length !== 2) return '';
+	return country.toUpperCase().replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
+}
+
+/** A human country name for the flag's aria-label (falls back to the raw code). */
+export function countryName(country?: string): string {
+	return (country && COUNTRY_NAME[country.toUpperCase()]) || country || '';
+}
+
+export type VoiceMeta = { langKey?: string; langLabel?: string; country?: string; gender?: 'F' | 'M'; name: string };
 
 /** Structure a voice id carries, derived from its SHAPE for the picker's grouping +
  *  gender badge. `name` is the display name with any language/locale prefix stripped
@@ -212,22 +232,22 @@ export function voiceMeta(modelId: string, voiceId: string): VoiceMeta {
 
 	const k = /^([abefhijpz])([fm])_(\w+)$/.exec(id);
 	if (engine === 'kokoro' && k && KOKORO_LANG_FULL[k[1]]) {
-		return { langKey: k[1], langLabel: KOKORO_LANG_FULL[k[1]], gender: k[2] === 'f' ? 'F' : 'M', name: titleCase(k[3]) };
+		return { langKey: k[1], langLabel: KOKORO_LANG_FULL[k[1]], country: KOKORO_COUNTRY[k[1]], gender: k[2] === 'f' ? 'F' : 'M', name: titleCase(k[3]) };
 	}
-	// Zonos spells gender out in the id ("american_female" / "british_male").
-	const z = /_(female|male)$/i.exec(id);
+	// Zonos spells region + gender out in the id ("american_female" / "british_male").
+	const z = /^(american|british)_(female|male)$/i.exec(id);
 	if (z && (engine === 'zonos-transformer' || engine === 'zonos-hybrid')) {
-		return { gender: z[1].toLowerCase() === 'female' ? 'F' : 'M', name: prettyVoiceLabel(id) };
+		return { country: z[1].toLowerCase() === 'british' ? 'GB' : 'US', gender: z[2].toLowerCase() === 'female' ? 'F' : 'M', name: prettyVoiceLabel(id) };
 	}
 	const vx = /^(en|gb|fr)_(\w+?)(?:_(\w+))?$/i.exec(id);
 	if (engine === 'voxtral' && vx && VOXTRAL_LANG_FULL[vx[1].toLowerCase()]) {
 		const key = vx[1].toLowerCase();
-		return { langKey: key, langLabel: VOXTRAL_LANG_FULL[key], gender: mapped, name: titleCase(vx[2]) + (vx[3] ? ` (${vx[3]})` : '') };
+		return { langKey: key, langLabel: VOXTRAL_LANG_FULL[key], country: VOXTRAL_COUNTRY[key], gender: mapped, name: titleCase(vx[2]) + (vx[3] ? ` (${vx[3]})` : '') };
 	}
 	const loc = /^([a-z]{2})-([A-Z]{2})-([^:]+)/.exec(id);
 	if (loc) {
 		const langName = LOCALE_LANG[loc[1]] || loc[1].toUpperCase();
-		return { langKey: `${loc[1]}-${loc[2]}`, langLabel: `${langName} · ${loc[2]}`, gender: mapped, name: titleCase(loc[3]) };
+		return { langKey: `${loc[1]}-${loc[2]}`, langLabel: `${langName} · ${loc[2]}`, country: loc[2].toUpperCase(), gender: mapped, name: titleCase(loc[3]) };
 	}
 	return { gender: mapped, name: prettyVoiceLabel(id) };
 }
@@ -242,7 +262,7 @@ export function featuredVoiceIds(modelId: string): string[] {
 	return def.featuredVoices?.length ? def.featuredVoices : def.cachedVoices;
 }
 
-export type VoiceRow = { id: string; label: string; gender?: 'F' | 'M' };
+export type VoiceRow = { id: string; label: string; country?: string; gender?: 'F' | 'M' };
 export type VoiceGroup = { key: string; label: string; voices: VoiceRow[] };
 
 /** Turn a flat live roster into the picker's IA: a ★ Featured highlight (in the
@@ -254,7 +274,12 @@ export function groupVoices(modelId: string, voices: Voice[]): { featured: Voice
 	const byId = new Map(voices.map((v) => [v.id, v]));
 	const featuredIds = featuredVoiceIds(modelId).filter((id) => byId.has(id));
 	const featuredSet = new Set(featuredIds);
-	const featured: VoiceRow[] = featuredIds.map((id) => ({ id, label: (byId.get(id) as Voice).label, gender: voiceMeta(modelId, id).gender }));
+	// Featured spans languages, so each row shows the BARE name + a flag (not the
+	// "Name · US" text label) — the flag carries the country next to the gender icon.
+	const featured: VoiceRow[] = featuredIds.map((id) => {
+		const m = voiceMeta(modelId, id);
+		return { id, label: m.name || (byId.get(id) as Voice).label, country: m.country, gender: m.gender };
+	});
 
 	const rest = voices.filter((v) => !featuredSet.has(v.id));
 	const hasLang = rest.some((v) => voiceMeta(modelId, v.id).langKey);
@@ -266,7 +291,7 @@ export function groupVoices(modelId: string, voices: Voice[]): { featured: Voice
 			const key = m.langKey ?? '_other';
 			const label = m.langLabel ?? 'Other';
 			if (!byLang.has(key)) byLang.set(key, { key, label, voices: [] });
-			(byLang.get(key) as VoiceGroup).voices.push({ id: v.id, label: m.name || v.label, gender: m.gender });
+			(byLang.get(key) as VoiceGroup).voices.push({ id: v.id, label: m.name || v.label, country: m.country, gender: m.gender });
 		}
 		const ordered = [...byLang.values()].sort((a, b) => {
 			const ia = LANG_ORDER.indexOf(a.key);
@@ -281,7 +306,16 @@ export function groupVoices(modelId: string, voices: Voice[]): { featured: Voice
 			groups.push(g);
 		}
 	} else if (rest.length) {
-		groups.push({ key: 'all', label: 'All voices', voices: rest.map((v) => ({ id: v.id, label: v.label, gender: voiceMeta(modelId, v.id).gender })).sort((a, b) => a.label.localeCompare(b.label)) });
+		groups.push({
+			key: 'all',
+			label: 'All voices',
+			voices: rest
+				.map((v) => {
+					const m = voiceMeta(modelId, v.id);
+					return { id: v.id, label: v.label, country: m.country, gender: m.gender };
+				})
+				.sort((a, b) => a.label.localeCompare(b.label)),
+		});
 	}
 	return { featured, groups };
 }

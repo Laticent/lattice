@@ -51,15 +51,20 @@ search input + scrollable grouped list), single-level groups, no nesting. It mir
 2. **Language groups** — one per language, **only where the id encodes it**
    (Kokoro, Voxtral, MAI). Bare-name engines collapse to a single **"All voices"**
    alphabetical list.
-3. **Gender** — a per-row **♀/♂ badge** (lucide `Venus`/`Mars` icons, matching the
-   Studio's icon set — not a text glyph), never a nesting level. Resolved from the id
-   where it's structural (Kokoro's 2nd char, Zonos' `_female`/`_male`) and otherwise
-   from a curated, **provider-sourced** `voiceGenders` map — Gemini's is Google's own
-   official Gender column (14 F / 16 M), plus Grok / Orpheus / Voxtral / MAI from their
-   docs. A voice with no known gender (e.g. CSM's persona-less `read_speech_a`) shows
-   **no badge** — never a guess. A per-voice gender map doesn't carry the roster's
-   drift risk: a named voice's gender is stable, and an added/removed voice just gains
-   or loses a badge gracefully.
+3. **Gender + country, as icons on the right of each row** — a **♀/♂** lucide
+   `Venus`/`Mars` icon (tinted to the voice-name color via `currentColor`, not a text
+   glyph) and a **country flag** (emoji, replacing the old "· US" text suffix). Never a
+   nesting level. Gender is resolved from the id where structural (Kokoro's 2nd char,
+   Zonos' `_female`/`_male`) and otherwise from a curated, **provider-sourced**
+   `voiceGenders` map — Gemini's is Google's own official Gender column (14 F / 16 M),
+   plus Grok / Orpheus / Voxtral / MAI from their docs; a voice with no known gender
+   (CSM's persona-less `read_speech_a`) shows **no badge**, never a guess. The flag's
+   country comes from the same id/locale structure (`KOKORO_COUNTRY`, the MAI locale,
+   Zonos' `american`/`british`) and is **absent for a language-agnostic engine**
+   (Gemini's voices speak any language — no flag). Emoji flags render on iOS/macOS/most
+   desktops; a browser without flag glyphs (Windows) falls back to the 2-letter code —
+   graceful. Neither map carries the roster's drift risk: gender/country of a *named*
+   voice is stable, and an added/removed voice just gains or loses a badge.
 4. Search over the whole roster (cmdk), so 30–54 voices stay tractable.
 
 All derivation lives in `voiceMeta()` / `groupVoices()` in `tts-voice-catalog.ts`

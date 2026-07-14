@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cachedSampleUrl, engineForModel, featuredVoiceIds, groupVoices, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceMeta, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
+import { cachedSampleUrl, countryName, engineForModel, featuredVoiceIds, flagEmoji, groupVoices, KOKORO_MODEL_ID, prettyVoiceLabel, resolveVoice, speedSupported, voiceMeta, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 
 // Pure logic behind the model-specific voice dropdown — tested directly rather
 // than by driving the Radix Select through jsdom (no interaction risk either way).
@@ -187,8 +187,8 @@ describe('speedSupported — which models\' speed control actually does anything
 // ── Voice picker IA: metadata derivation + grouping (2026-07-13) ───────────────
 describe('voiceMeta — id-structure derivation (never a hand table)', () => {
 	it('decodes Kokoro <lang><gender>_name into language + gender + bare name', () => {
-		expect(voiceMeta(KOKORO_MODEL_ID, 'af_heart')).toEqual({ langKey: 'a', langLabel: 'US English', gender: 'F', name: 'Heart' });
-		expect(voiceMeta(KOKORO_MODEL_ID, 'am_adam')).toEqual({ langKey: 'a', langLabel: 'US English', gender: 'M', name: 'Adam' });
+		expect(voiceMeta(KOKORO_MODEL_ID, 'af_heart')).toEqual({ langKey: 'a', langLabel: 'US English', country: 'US', gender: 'F', name: 'Heart' });
+		expect(voiceMeta(KOKORO_MODEL_ID, 'am_adam')).toEqual({ langKey: 'a', langLabel: 'US English', country: 'US', gender: 'M', name: 'Adam' });
 		expect(voiceMeta(KOKORO_MODEL_ID, 'bf_emma')).toMatchObject({ langLabel: 'UK English', gender: 'F' });
 		expect(voiceMeta(KOKORO_MODEL_ID, 'zm_yunyang')).toMatchObject({ langLabel: 'Chinese', gender: 'M', name: 'Yunyang' });
 	});
@@ -208,8 +208,16 @@ describe('voiceMeta — id-structure derivation (never a hand table)', () => {
 	});
 
 	it('reads gender straight from the id for Zonos (american_female / british_male)', () => {
-		expect(voiceMeta('zyphra/zonos-v0.1-transformer', 'american_female')).toMatchObject({ gender: 'F' });
-		expect(voiceMeta('zyphra/zonos-v0.1-hybrid', 'british_male')).toMatchObject({ gender: 'M' });
+		expect(voiceMeta('zyphra/zonos-v0.1-transformer', 'american_female')).toMatchObject({ gender: 'F', country: 'US' });
+		expect(voiceMeta('zyphra/zonos-v0.1-hybrid', 'british_male')).toMatchObject({ gender: 'M', country: 'GB' });
+	});
+
+	it('resolves a country (for the flag) where the language maps to one — and none for a language-agnostic engine', () => {
+		expect(voiceMeta(KOKORO_MODEL_ID, 'bf_emma').country).toBe('GB'); // UK English
+		expect(voiceMeta(KOKORO_MODEL_ID, 'jf_alpha').country).toBe('JP');
+		expect(voiceMeta('mistralai/voxtral-mini-tts-2603', 'gb_oliver_neutral').country).toBe('GB');
+		expect(voiceMeta('microsoft/mai-voice-2', 'es-MX-Valeria:MAI-Voice-2').country).toBe('MX');
+		expect(voiceMeta('google/gemini-3.1-flash-tts-preview', 'Kore').country).toBeUndefined(); // multilingual — no flag
 	});
 
 	it('shows NO gender for a persona-less voice (CSM) — never a guess', () => {
@@ -270,3 +278,20 @@ describe('groupVoices — Featured highlight + language groups (or one flat list
 		expect(groups[0].voices.find((v) => v.id === 'Sulafat')?.gender).toBe('F');
 	});
 });
+
+describe('flagEmoji / countryName — the row flag', () => {
+	it('turns an ISO alpha-2 code into a regional-indicator flag emoji', () => {
+		expect(flagEmoji('US')).toBe('🇺🇸');
+		expect(flagEmoji('GB')).toBe('🇬🇧');
+		expect(flagEmoji('jp')).toBe('🇯🇵'); // case-insensitive
+	});
+	it('returns empty string for a missing or malformed code (no badge)', () => {
+		expect(flagEmoji(undefined)).toBe('');
+		expect(flagEmoji('USA')).toBe('');
+		expect(flagEmoji('')).toBe('');
+	});
+	it('names a country for the flag aria-label, falling back to the raw code', () => {
+		expect(countryName('BR')).toBe('Brazil');
+		expect(countryName('ZZ')).toBe('ZZ');
+	});
+})

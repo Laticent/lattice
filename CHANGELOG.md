@@ -177,9 +177,10 @@ in patch versions.
   encodes it* (Kokoro, Voxtral, MAI), with a gender badge (lucide Venus/Mars icons) per row. Engines whose voices
   are bare, multilingual names (Gemini, Grok, Orpheus, CSM — no language in the id) collapse to a single "All
   voices" list — a female/male-by-language tree can't be built honestly for them. Language is derived from id
-  structure; **gender is shown for every engine where it's reliably known** — from the id (Kokoro, Zonos) or a
-  curated, provider-sourced map (Gemini uses Google's official Gender column; Grok/Orpheus/Voxtral/MAI from their
-  docs), and simply absent for genuinely persona-less voices (CSM) — never guessed. New `featuredVoices` catalog
+  structure and shown as a **country flag** on each row (replacing the old "· US" text); **gender is shown for
+  every engine where it's reliably known** — from the id (Kokoro, Zonos) or a curated, provider-sourced map
+  (Gemini uses Google's official Gender column; Grok/Orpheus/Voxtral/MAI from their docs), and simply absent for
+  genuinely persona-less voices (CSM) or language-agnostic engines (Gemini has no flag) — never guessed. New `featuredVoices` catalog
   field (curated top) is now distinct from `cachedVoices` (has-a-sample). See `engineering/decisions/2026-07-13-tts-picker-ia.md`.
 - **The Studio TTS model picker ranks by price and shows a $/$$/$$$ value tier.** The Featured/Value/Free lenses
   now sort low→high by price (floating the cheapest, highest-quality engines — Kokoro then Gemini — to the top)
