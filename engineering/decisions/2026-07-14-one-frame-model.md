@@ -1,9 +1,16 @@
 ---
-status: in-progress
+status: shipped
 summary: Every component's slide root is already a Frame with a stage Cell (forms.md); the implementation drifted into three hand-maintained buckets. An adversarial trio falsified the first draft's CSS migration (mechanism + value), so it is cut to step A — declare each component's stage sizing (flow|canvas), collapse the three Sets into one drift-tested catalog-derived classifier (behavior-preserving), and route a real single-stage-cell-for-viz through the blessed .viz-frame merge.
 ---
 
-# Frame species — one composition model, no exceptions
+# One Frame model — no components outside the Frame / Cell / Tile grammar
+
+> **Vocabulary note.** This doc's canonical nouns are `forms.md`'s: **Frame ·
+> Cell · Tile · Component**. An earlier draft floated a "stage species" term (and
+> a biological analogy) as *thinking scaffolding*; it is deliberately NOT adopted —
+> coining `stage-*` / "species" would be a `design-system.md` §2.5 third-synonym
+> violation (see §3.3). The only new artifact is a Cell property: a component
+> declares how its stage Cell is sized, `stage: "flow" | "canvas"`.
 
 **Date:** 2026-07-14
 **Status:** accepted — first draft hardened by an adversarial trio; the CSS
@@ -21,9 +28,11 @@ merge — same DOM, same byte-identical constraint, already has an owner-go-ahea
 > Components differ only in WHICH Cells their Frame carries and how the stage Cell
 > is sized — never in whether they are a Frame at all.**
 
-Biological framing: one **body plan** (a Frame of Cells — masthead, stage, footer),
-many **species** (different organs present, the stage sized differently). No
-"not-an-animal" in the catalog. This is exactly `forms.md` §1 — *"A Frame divides a
+In the one grammar: every slide root is a **Frame** that carves the slide into
+**Cells** (masthead, stage, footer); each Cell holds a **Tile**; a **Component**
+binds into the stage Cell. Components differ only in WHICH Cells their Frame
+carries and how the stage Cell is sized — never in whether they are a Frame. This
+is exactly `forms.md` §1 — *"A Frame divides a
 box into Cells; each Cell holds a Tile; the slide's root is a Frame."* — and
 `forms.md` already ships the machinery: `frame.kind` (`root` keeps chrome ·
 `sovereign` claims the canvas + `suppresses` chrome cells) and a `cells` list with

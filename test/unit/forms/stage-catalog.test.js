@@ -1,6 +1,6 @@
 /**
- * Drift test for the stage-cell classification (frame-species step A,
- * engineering/decisions/2026-07-14-frame-species-one-model.md).
+ * Drift test for the stage-cell classification (step A,
+ * engineering/decisions/2026-07-14-one-frame-model.md).
  *
  * The masthead kernel used to carry three HAND-MAINTAINED Sets
  * (STAGE_MIGRATED / STAGE_DEFERRED inline, plus the sovereign FORM_TOGGLE_SKIP
@@ -42,13 +42,13 @@ const EXPECTED_SOVEREIGN = [
   'split-panel', 'title',
 ].sort();
 
-const bySpecies = (s) => Object.keys(catalog).filter((n) => catalog[n] === s).sort();
+const withStage = (s) => Object.keys(catalog).filter((n) => catalog[n] === s).sort();
 
 describe('stage-catalog — the single stage-cell classification', () => {
   test('reproduces the historical flow / canvas / sovereign partition EXACTLY', () => {
-    assert.deepEqual(bySpecies('flow'), EXPECTED_FLOW, 'flow (→ .cell-stage wrap) membership drifted');
-    assert.deepEqual(bySpecies('canvas'), EXPECTED_CANVAS, 'canvas (self-sizing body) membership drifted');
-    assert.deepEqual(bySpecies('sovereign'), EXPECTED_SOVEREIGN, 'sovereign (chrome-exempt) membership drifted');
+    assert.deepEqual(withStage('flow'), EXPECTED_FLOW, 'flow (→ .cell-stage wrap) membership drifted');
+    assert.deepEqual(withStage('canvas'), EXPECTED_CANVAS, 'canvas (self-sizing body) membership drifted');
+    assert.deepEqual(withStage('sovereign'), EXPECTED_SOVEREIGN, 'sovereign (chrome-exempt) membership drifted');
   });
 
   test('the derived kernel Sets equal the catalog partition', () => {
@@ -62,7 +62,7 @@ describe('stage-catalog — the single stage-cell classification', () => {
   test('the catalog sovereign set equals the frame-manifest-derived FORM_TOGGLE_SKIP', () => {
     // The two data sources (component `stage` field + frame `exemptFromChrome`)
     // must agree on who is sovereign — the generator composes them, this pins it.
-    assert.deepEqual(bySpecies('sovereign'), [...frameToggleSkip()].sort(),
+    assert.deepEqual(withStage('sovereign'), [...frameToggleSkip()].sort(),
       'catalog sovereign set diverged from frameToggleSkip()');
   });
 

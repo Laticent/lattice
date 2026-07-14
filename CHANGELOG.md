@@ -409,7 +409,7 @@ in patch versions.
   non-English preference falls back to English for AI prose. Supersedes
   `engineering/decisions/2026-06-30-studio-output-language.md`.
 - **The stage-cell classification is one data-derived catalog, not three hand-maintained
-  Sets (frame-species step A — behavior-preserving, zero visual/export change).** Every
+  Sets (the stage-cell classification, step A — behavior-preserving, zero visual/export change).** Every
   component now declares how its stage Cell is sized in its manifest — `stage: "flow"`
   (a flowing body the masthead kernel wraps in a bounded `.cell-stage` clip cell) or
   `stage: "canvas"` (a self-sizing body — a chart's `.chart-body`, a Mermaid SVG, a
@@ -424,7 +424,7 @@ in patch versions.
   so the wrap behavior is provably unchanged and a future reclassification is a
   deliberate, reviewed edit. Rationale + the adversarial-trio findings that cut the
   original (much larger) migration to this step:
-  `engineering/decisions/2026-07-14-frame-species-one-model.md`.
+  `engineering/decisions/2026-07-14-one-frame-model.md`.
 - **Three more shared shadcn primitives retire hand-rolled Studio controls: `ui/checkbox`,
   `ui/radio-group`, `ui/toggle-group`.** FinishStudio's two native `<input type="checkbox">` →
   `ui/checkbox` (row-label click preserved). SlideContext's segmented `Seg` (canvas / type-scale) and
