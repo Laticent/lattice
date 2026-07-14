@@ -99,7 +99,7 @@ migration work on either — their native selects/drawers/tab-strips stay.
 |---|---|---|
 | Native `<select>` | `studio/SlideContext.tsx:156`, `studio/Fabricate.tsx:795`, `studio/WorkspaceSheet.tsx:582`, `pages/cadenza.astro:140` | `ui/select` |
 | `<input type=range>` | `model/ConceptWalkthrough.astro:63`, `model/ConceptGraph.astro:39` | `ui/slider` (needs a React island; pages are vanilla) |
-| Hand-rolled model pickers | `studio/ModelPicker.tsx`, `studio/TtsModelPicker.tsx` | `ui/popover` + `ui/command` (mirror shipped `ComponentPicker.tsx`) |
+| ~~Hand-rolled model pickers~~ **WON'T DO** | `studio/ModelPicker.tsx`, `studio/TtsModelPicker.tsx` | **Keep inline — NOT a `popover`+`command` target.** They live inside the modal Workspace `Sheet`; a portaled Popover there inherits the dialog's `pointer-events:none` and dies to touch on real iOS Safari. The inline expand-in-place accordion is the iOS-safe form the `2026-07-13-tts-picker-ia.md` §"iOS fix" ADR mandates. See the batch note below. |
 | `role="tablist"` strips | `studio/WorkspaceSheet.tsx:499`, `studio/ModelPicker.tsx:96`, `studio/TtsModelPicker.tsx:85`, `playground/PlaygroundApp.tsx:1092`, `Specimen.astro:44`, `landing/RestyleShowcase.tsx:153` | `ui/pill-tabs` |
 | `<details>`-as-menu | `site/SiteHeader.astro:58` | `ui/dropdown-menu` (**preserve the no-JS/crawlable fallback**) |
 | `<details>` disclosures | `pages/cadenza.astro:146,159,164` | `ui/collapsible` |
@@ -164,11 +164,18 @@ catalog doesn't rot and nobody re-attempts a bad migration.
   (state / tone / tint / mark chips; clear-on-tap).
 
 ### Deferred, with reason (NOT to be force-migrated)
-- **Model pickers → `popover`+`command`** — the model list is OpenRouter-gated
-  (`status.openRouterReady`); with no key in CI/sandbox it never loads, so a
-  rewrite of this complex picker can't be verified end-to-end (HARD RULE #23).
-  Shipping an unverified rewrite of a working picker is settling. The catalog
-  logic (`filterModels`/`groupByVendor`) is already unit-tested separately.
+- **Model pickers → `popover`+`command`** — **WON'T DO (corrected 2026-07-14).**
+  Originally deferred as OpenRouter-gated/unverifiable; when a key later let us
+  drive it, an attempt was made — and reverted, because it's a **documented iOS
+  regression**, not just an unverified one. The pickers live inside the modal
+  Workspace `Sheet`; a Radix `Popover` there portals onto the dialog's
+  `pointer-events:none` layer, which real iOS Safari enforces against touch — the
+  search + rows go dead to tap. `2026-07-13-tts-picker-ia.md` §"iOS fix" already
+  hit this exact bug (one day earlier) and dropped the Popover for an inline
+  panel; the model pickers were never broken *precisely because* they stayed
+  inline. So the inline accordion IS the final, correct form — `popover`+`command`
+  is an anti-pattern for this surface. (Caught by an independent checker citing the
+  ADR; the desktop/jsdom gates can't see it — the HARD RULE #23 gap the ADR names.)
 - **Tab strips → `pill-tabs`** — most flagged `role="tablist"` strips are the
   WRONG primitive for pill-tabs: `RestyleShowcase` is a row of color-swatch dots;
   `WorkspaceSheet`'s tier switch is a full-width segmented switch (pills would
