@@ -1537,16 +1537,26 @@ var require_chart_narration = __commonJS({
       const back = /* @__PURE__ */ new Set();
       const entries = g.order.filter((id) => (g.inDeg.get(id) || 0) === 0);
       const starts = [.../* @__PURE__ */ new Set([...entries, ...g.order])];
-      function dfs(u) {
-        state.set(u, 1);
-        for (const { to } of outEdges(g, u)) {
-          const st = state.get(to) || 0;
-          if (st === 1) back.add(`${u}${BACK_SEP}${to}`);
-          else if (st === 0) dfs(to);
+      for (const s of starts) {
+        if (state.get(s)) continue;
+        state.set(s, 1);
+        const stack = [{ u: s, succ: outEdges(g, s), i: 0 }];
+        while (stack.length) {
+          const frame = stack[stack.length - 1];
+          if (frame.i < frame.succ.length) {
+            const to = frame.succ[frame.i++].to;
+            const st = state.get(to) || 0;
+            if (st === 1) back.add(`${frame.u}${BACK_SEP}${to}`);
+            else if (st === 0) {
+              state.set(to, 1);
+              stack.push({ u: to, succ: outEdges(g, to), i: 0 });
+            }
+          } else {
+            state.set(frame.u, 2);
+            stack.pop();
+          }
         }
-        state.set(u, 2);
       }
-      for (const s of starts) if ((state.get(s) || 0) === 0) dfs(s);
       return back;
     }
     function topoSortDag(order, dagOut, dagIn, pos) {
@@ -1642,13 +1652,8 @@ var require_chart_narration = __commonJS({
       const complex = entries.length > 1 || hasBranch && (hasMerge || back.size > 0);
       const nNodes = g.order.filter((id) => (g.outDeg.get(id) || 0) + (g.inDeg.get(id) || 0) > 0).length;
       const convergences = g.order.filter((id) => (dagIn.get(id) || 0) >= 2);
-      const loopTargets = [...new Set([...back].map((k) => k.split(BACK_SEP)[1]))];
-      let maxOut = 0;
-      let hub = null;
-      for (const id of g.order) if (dagOutDeg(id) > maxOut) {
-        maxOut = dagOutDeg(id);
-        hub = id;
-      }
+      const dagTerminals = g.order.filter((id) => dagOutDeg(id) === 0 && (dagIn.get(id) || 0) > 0);
+      const maxOut = g.order.reduce((m, id) => Math.max(m, dagOutDeg(id)), 0);
       const lp = new Map(g.order.map((id) => [id, 0]));
       for (let i = topo.length - 1; i >= 0; i--) {
         const u = topo[i];
@@ -1659,23 +1664,23 @@ var require_chart_narration = __commonJS({
       const hops = g.order.length ? Math.max(...lp.values()) : 0;
       const num = (n) => numberToWords(n);
       const renderGist = () => {
-        const gated = (hasBranch || back.size > 0 || entries.length > 1) && nNodes >= 4;
-        if (!gated || !entries.length || !terminals.length) return null;
-        const clauses = [];
-        if (entries.length === 1 && terminals.length === 1 && convergences.length === 1 && maxOut >= 2 && hops <= 3) {
-          clauses.push(`a diamond \u2014 the path splits ${maxOut === 2 ? "in two" : `${num(maxOut)} ways`} and rejoins at ${lbl(convergences[0])}`);
-        } else if (maxOut >= 2 && convergences.length) {
-          clauses.push(`${num(hops)} hops deep \u2014 it fans out to ${num(maxOut)} parallel paths, then narrows to ${num(terminals.length)} ${terminals.length > 1 ? "endpoints" : "endpoint"}`);
-          const conv = convergences.filter((c) => !(terminals.length === 1 && c === terminals[0]));
-          if (conv.length) clauses.push(`${joinWithAnd(conv.map(lbl))} ${conv.length > 1 ? "are" : "is"} shared`);
-        } else if (maxOut >= 2) {
-          clauses.push(`a ${num(maxOut)}-way fan-out from ${lbl(hub)}, with no reconvergence`);
+        if (!entries.length || nNodes < 4) return null;
+        const pureLinear = g.order.every((id) => dagOutDeg(id) <= 1 && (dagIn.get(id) || 0) <= 1);
+        const reconverges = hasBranch && convergences.length > 0;
+        const deep = hops >= 4;
+        if (pureLinear || !deep && !reconverges) return null;
+        const isDiamond = entries.length === 1 && dagTerminals.length === 1 && convergences.length === 1 && maxOut >= 2 && hops <= 3;
+        let core;
+        if (isDiamond) {
+          core = "a diamond";
         } else {
-          clauses.push(`${num(nNodes)} steps from ${joinWithAnd(entries.map(lbl))} to ${joinWithAnd(terminals.map(lbl))}`);
+          const parts = [];
+          if (deep) parts.push(`${num(hops)} hop${hops === 1 ? "" : "s"} deep`);
+          if (reconverges) parts.push("branching and reconverging");
+          core = parts.join(", ");
         }
-        if (back.size) clauses.push(`with a loop back to ${joinWithAnd(loopTargets.map(lbl))}`);
-        const s = clauses.join(", ");
-        return s.charAt(0).toUpperCase() + s.slice(1);
+        if (back.size) core = core ? `${core}, with a loop` : "with a loop";
+        return core ? core.charAt(0).toUpperCase() + core.slice(1) : null;
       };
       const gistText = renderGist();
       if (gistText) say(gistText);

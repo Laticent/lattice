@@ -914,22 +914,33 @@ test('narrateDiagram: a condition-labeled fan-IN is NOT coalesced — each guard
   assert.ok(out.includes('on yes, leads to Go'), out);
 });
 
-test('narrateDiagram: the GIST layer is gated — a shape line on a non-trivial graph, silent on a pure linear chain', () => {
-  // Diamond (branch + reconvergence) → a one-line shape characterization opens the reading.
+test('narrateDiagram: the GIST is a LEAN shape line — never re-naming a node the walk already speaks', () => {
+  // A clean small diamond → the shape gestalt only, no "splits/rejoins at X" (the walk says the merge).
   const diamond = narrateDiagram(diagram('  S["Req"] --> A["Validate"]\n  S --> B["Auth"]\n  A --> M["Process"]\n  B --> M\n  M --> E["Respond"]', 'flowchart TD'));
-  assert.ok(diamond.includes('A diamond — the path splits in two and rejoins at Process.'), diamond);
-  // A 7-node linear chain: the walk already says start→end, so the gist stays silent.
+  assert.ok(diamond.includes('A diamond.'), diamond);
+  assert.ok(!/rejoins at|splits|Process is shared/.test(diamond), diamond); // no node re-naming / pre-echo
+  // A pure linear chain → silent (the walk enumerates it).
   const chain = narrateDiagram(diagram('  A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7'));
-  assert.ok(!/diamond|hops deep|fan-out|steps from/.test(chain), chain);
-  // A lone fan-out gets a shape line naming the hub and the lack of reconvergence.
+  assert.ok(!/diamond|hops deep|reconverging|with a loop/.test(chain), chain);
+  // A lone fan-out (no reconvergence) → silent: the walk's "R fans out to A, B, and C" IS the gist.
   const fan = narrateDiagram(diagram('  R["Root"] --> A\n  R --> B\n  R --> C', 'flowchart TD'));
-  assert.ok(fan.includes('A three-way fan-out from Root, with no reconvergence.'), fan);
+  assert.ok(!/fan-out|hops deep|diamond/.test(fan), fan);
 });
 
-test('narrateDiagram: the GIST characterizes a wide graph by shape + the shared node, with numbers spoken', () => {
+test('narrateDiagram: the GIST adds DEPTH + shape on a wide graph — no fan/endpoint re-statement', () => {
   const wide = narrateDiagram(diagram('  U["Browser"] --> LB["Load Balancer"] --> GW["API Gateway"]\n  GW --> Auth["Auth"]\n  GW --> Ord["Orders"]\n  GW --> Srch["Search"]\n  Auth --> DB[("User DB")]\n  Ord --> DB\n  Srch --> Cache[("Cache")]', 'flowchart LR'));
-  assert.ok(wide.includes('fans out to three parallel paths'), wide); // numbers spelled for TTS
-  assert.ok(wide.includes('User DB is shared'), wide); // the one convergence node is flagged
+  assert.ok(wide.includes('Four hops deep, branching and reconverging.'), wide); // depth (the fact the walk omits) + shape gestalt
+  assert.ok(!/parallel paths|is shared|fans out to three/.test(wide), wide); // never restates what the walk says
+});
+
+test('narrateDiagram: the GIST flags a loop, spells depth grammatically, and fires on a loop-tail sink', () => {
+  // hops>=4 always plural ("hops"); the "one hops deep" agreement bug is structurally impossible.
+  const mixed = narrateDiagram(diagram('  O["Order"] -->|validates| V{"In stock?"}\n  V -->|yes| Pay["Charge card"]\n  V -->|no| Back["Backorder"]\n  Pay -->|"on failure"| Back\n  Back -->|restocked| Pay\n  Ship --> Done\n  Pay --> Ship["Ship"]\n  Ship --> Done["Delivered"]', 'flowchart TD'));
+  assert.ok(mixed.includes('hops deep') && mixed.includes('with a loop'), mixed);
+  assert.ok(!mixed.includes('One hops') && !mixed.includes('hops deep, with'), mixed);
+  // terminals computed on the DAG: a graph whose only sink loops back still gets a gist (was silent).
+  const loopTail = narrateDiagram(diagram('  A --> B\n  A --> C\n  B --> D\n  C --> D\n  D --> E\n  E --> A', 'flowchart TD'));
+  assert.ok(/diamond|reconverging/.test(loopTail) && loopTail.includes('with a loop'), loopTail);
 });
 
 test('narrateDiagram: a feedback loop reads its loop-back and ends cleanly (no doubled "?.")', () => {
@@ -966,9 +977,9 @@ test('narrateDiagram: a terminal or loop target whose label ends in "?" never do
   assert.ok(!loop.includes('Ready?.'), loop);
 });
 
-test('narrateDiagram: the overview names a loop when the graph also branches and cycles', () => {
-  // branch (In stock?) + a real cycle (Pay ⇄ Backorder) → the shape earns an overview, and the
-  // loop is announced with ", with a loop back".
+test('narrateDiagram: the GIST flags a loop when the graph also branches and cycles', () => {
+  // branch (In stock?) + a real cycle (Pay ⇄ Backorder) → the gist flags the loop with a bare
+  // "with a loop" (the walk names the target; the gist just orients that one exists).
   const out = narrateDiagram(diagram('  O["Order"] -->|validates| V{"In stock?"}\n  V -->|yes| P["Pay"]\n  V -->|no| Bk["Backorder"]\n  P -->|"on failure"| Bk\n  Bk -->|restocked| P\n  P --> Sh["Ship"]', 'flowchart TD'));
-  assert.ok(out.includes('with a loop back'), out);
+  assert.ok(out.includes('with a loop'), out);
 });
