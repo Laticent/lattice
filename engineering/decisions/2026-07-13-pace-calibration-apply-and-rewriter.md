@@ -189,10 +189,17 @@ not deleted — it's the record of why the rewriter was not built.
 
 **Estimator-data fixes landed (see `2026-07-13-estimator-trailing-silence-and-number-syllables.md`):**
 the Acronyms-in-Lexicon panel (#959) covered acronyms/proper nouns; the trailing-silence/cue-span
-bias and the number-syllable ("nineteen"/"ninety") miscount are now fixed at the source. The
-trailing-silence fix directly de-confounds THIS thread's residual — a cue span that covers the clip
-means the calibration residual tracks difficulty, not punctuation depth. Apply-`k`/rewriter stay
-parked pending the maintainer's direction.
+bias and the number-syllable ("nineteen"/"ninety"/"times") miscount are now fixed at the source
+(#967). The trailing-silence fix directly de-confounds THIS thread's residual — a cue span that covers
+the clip means the calibration residual tracks difficulty, not punctuation depth. Apply-`k`/rewriter
+stay parked pending the maintainer's direction.
+
+**On-device signal (2026-07-13):** after #967, the maintainer's on-device pass reported words and
+audio "on point, no noticeable gaps." That is a subjective impression, not a measured residual
+distribution — it does NOT by itself unpark either slice — but it is early evidence the corrected
+estimator may leave little residual for a rewriter to chase (the rewriter's whole premise is a
+residual that *survives* the corrected estimate). The unpark gate is unchanged: a measured residual
+surviving on real traces, per the trio's reshape.
 
 **Recommended pivot (mine, folding the trio):** (1) **Do not build the rewriter now** — fix the root
 cause via acronyms-in-Lexicon first; revisit only if a residual survives a *corrected* estimator as a
