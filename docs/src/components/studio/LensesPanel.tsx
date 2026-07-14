@@ -11,6 +11,9 @@ import {
 	suggestMembership,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
+// The reader archetypes (the "Add a reader view" menu) — the SHARED source of truth, also used by the
+// workspace default reader views (workspace-lenses.ts), so the panel and the defaults can't drift.
+import { ARCHETYPES } from './lens-archetypes';
 import { slideClass } from './lint';
 
 // The Lenses panel — the human-in-the-loop control center for reader views (design
@@ -25,16 +28,6 @@ import { slideClass } from './lint';
 
 // One tag write: put slide `index` in/out of `lensId` (the shell applies it via the library's applyTag).
 export type TagChange = { index: number; lensId: string; member: boolean; base: LensBase };
-
-// The reader archetypes we ship a built-in suggester for (suggest.ts). Each is grounded in a reader
-// TYPE, not a layout: the bottom-line reader, the narrative reader, the proof-first reader, the
-// decision-maker. The blurb is the author-facing "who is this for," in plain words.
-const ARCHETYPES: Array<{ id: string; label: string; base: LensBase; single?: boolean; blurb: string }> = [
-	{ id: 'brief', label: 'Bottom line', base: 'none', blurb: 'Headline metrics + the frame — for a reader who wants the answer, not the tour.' },
-	{ id: 'story', label: 'The story', base: 'none', blurb: 'The throughline: setup → journey → payoff, in plain language.' },
-	{ id: 'evidence', label: 'The evidence', base: 'all', blurb: 'Everything substantive; drops decoration and dividers — for the reader who wants proof.' },
-	{ id: 'ask', label: 'The ask', base: 'none', single: true, blurb: 'Exactly one slide: the decision you need.' },
-];
 
 type LensStatus = 'empty' | 'draft' | 'approved' | 'drifted' | 'hidden';
 
