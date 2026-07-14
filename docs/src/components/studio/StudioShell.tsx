@@ -23,7 +23,7 @@ import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
-import { CatalogSelect } from './CatalogSelect';
+import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
@@ -41,12 +41,12 @@ import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { LensPicker } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
-import { activeModeLabel, ModeMenuItems } from './ModePicker';
+import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
 import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
-import { activeSpectrumLabel, SpectrumMenuItems } from './SpectrumPicker';
 import { importComments } from './slide-comments';
+import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { activePaletteLabel, BUILTIN_PALETTES, ThemeMenuItems } from './ThemePicker';
@@ -978,8 +978,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const savedMenu = React.useMemo(() => savedThemes.map((t) => ({ id: t.id, name: t.name, label: t.label, accent: t.essentials?.accent })), [savedThemes]);
 	// Label + dot for the deck-theme trigger — null when the deck names no theme (Automatic).
 	const deckThemeMenuLabel = React.useMemo(() => (deckThemeBase ? activePaletteLabel(deckThemeBase, savedMenu) : null), [deckThemeBase, savedMenu]);
-	const activeMan = React.useMemo(() => activeModeLabel(renderMode), [renderMode]);
-	const activeSpec = React.useMemo(() => activeSpectrumLabel(spectrum), [spectrum]);
 	// Light/dark toggle — flips the shared `data-mode` (engine `light-dark()` resolves
 	// off it); the data-mode observer below pulls the new value into `mode` and the
 	// preview re-renders. Persisted via site-chrome so it survives a reload.
@@ -1572,14 +1570,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
 						    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
 						    owns `style:` for inline CSS, so the axis is named "mode"). */}
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Control aria-label="Choose mode"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activeMan.swatch, backgroundSize: activeMan.backgroundSize }} /><span className="truncate">{activeMan.label}</span></span> <ChevronDown className="size-3.5" /></Control>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-56">
-								<ModeMenuItems mode={renderMode} onPick={setRenderMode} />
-							</DropdownMenuContent>
-						</DropdownMenu>
+						<CatalogSelect ariaLabel="Choose mode" value={activeMode(renderMode).name} onValueChange={setRenderMode} className="min-w-[116px]" groups={[{ options: catalogOptions(MODES) }]} />
 					</Field>
 				<Field label="Finish" desc="A backdrop texture applied to every slide — a soft gradient, wash, or grain behind the content.">
 						<CatalogSelect
@@ -1610,14 +1601,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							{/* The white-label spectrum — the rainbow bar on the top border / divider
 							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 							    the theme accent to a client's brand and Solid follows. */}
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Control aria-label="Choose brand bar"><span className="flex min-w-0 items-center gap-2"><span className="size-3.5 shrink-0 rounded-[3px] border border-[color-mix(in_srgb,var(--text-heading)_18%,transparent)]" style={{ background: activeSpec.swatch, backgroundSize: activeSpec.backgroundSize }} /><span className="truncate">{activeSpec.label}</span></span> <ChevronDown className="size-3.5" /></Control>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end" className="w-56">
-									<SpectrumMenuItems spectrum={spectrum} onPick={setSpectrum} />
-								</DropdownMenuContent>
-							</DropdownMenu>
+							<CatalogSelect ariaLabel="Choose brand bar" value={activeSpectrum(spectrum).name} onValueChange={setSpectrum} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRA) }]} />
 						</Field>
 						{/* Card lift — the opt-in "Struck" elevation. A deck-wide visual toggle
 						    alongside Finish / Brand bar; per-slide `_class: lifted`/`flat` override. */}

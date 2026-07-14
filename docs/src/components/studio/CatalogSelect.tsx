@@ -21,6 +21,13 @@ export type CatalogSwatch = { background: string; backgroundSize?: string };
 export type CatalogOption = { value: string; label: string; swatch?: CatalogSwatch };
 export type CatalogGroup = { label?: string; options: CatalogOption[] };
 
+/** Map a catalog of `{name,label,swatch}` entries (finish/spectrum/mode/…) to
+ *  CatalogOptions, using the entry `name` as the value. The shared adapter so a
+ *  caller never hand-rolls the mapping. */
+export function catalogOptions(entries: { name: string; label: string; swatch: CatalogSwatch }[]): CatalogOption[] {
+	return entries.map((e) => ({ value: e.name, label: e.label, swatch: e.swatch }));
+}
+
 // The preview chip — a small rounded swatch rendering the option's CSS background
 // (a finish texture, a spectrum gradient, a palette accent). Matches the deck
 // Inspector's existing swatch so the two surfaces read as one.

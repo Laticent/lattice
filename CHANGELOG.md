@@ -269,8 +269,10 @@ in patch versions.
   Studio now passes the full saved-finish menu, not bare names). The slide **Brand bar** picker gains its
   spectrum swatches the same way. The retired duplicate (`FinishMenuItems`, `activeFinishLabel`) is
   deleted. Verified on the real Studio: both Inspectors' Finish show swatches and apply end to end
-  (deck → `finish:` front-matter, slide → per-slide `finish-<name>`). First step of unifying every
-  catalog-backed picker (finish, brand bar, mode, theme) onto `CatalogSelect`;
+  (deck → `finish:` front-matter, slide → per-slide `finish-<name>`). The deck Inspector's **Mode** and
+  **Brand bar** pickers move onto the same `CatalogSelect` in the same pass (their swatches intact), and
+  the now-duplicate `SpectrumPicker`/`ModePicker` modules are deleted — so finish, brand bar, and mode
+  are one shared, swatched selector across the Studio (theme is the remaining follow-up).
   `engineering/decisions/2026-07-13-native-widget-shadcn-ownership.md`.
 - **Studio dropdowns now use the shared `ui/select` primitive instead of native `<select>`.** The three
   surviving native selects on live surfaces — `SlideContext`'s `Picker` (finish / brand-bar / stamp /
