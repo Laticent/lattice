@@ -1,6 +1,7 @@
 ---
-status: blocked
-summary: Two coupled slices of the read-aloud calibration/rewriter thread, in one PR. (1) APPLY the per-voice scalar `k` that already accumulates measure-only — feed the voice's `rateScale` into `buildTrack` so the SILENT read-along and the pre-first-onset COLD START pace to the voice's measured rate (the clocked mid-stream path is already onset-anchored and untouched). k applies at track-BUILD time per slide (never mid-playback, which would jump the timeline), auto-applied once n≥5 with the existing [0.6,1.6] clamp + reset. (2) The hard-to-say REWRITER — once the model is voice-calibrated, a caption whose MEASURED duration still diverges from the CALIBRATED prediction is "hard to say"; flag it in Studio and offer an LLM rewrite on the USER's own OpenRouter key (opt-in, never our key, never auto-applied, never in the export path). A live authoring aid, sanitized output, human-approved. Slice 1 is the substrate; slice 2 is the payoff it de-risks.
+status: superseded
+superseded-by: 2026-07-13-estimator-trailing-silence-and-number-syllables.md
+summary: CLOSED (2026-07-14) — NOT BUILT. The read-aloud estimator was fixed at the source instead (trailing-silence/cue-span bias #967, number/times syllables #967, paragraph pauses #980, plus acronyms-in-Lexicon #959), and the reshaped narration was confirmed aligning on-device. That resolved the problem apply-k/rewriter were designed to paper over. Maintainer decision: apply-k has NO value right now (its real win is a narrow mid-stream sliver behind real reference-track surgery) — revisit only if a concrete pacing issue surfaces; the hard-to-say REWRITER stays unbuilt (its signal tracks a deck's most valuable sentences, not awkward ones; it needs an unmeasured surviving residual, an LLM+security surface, and an unsolved narration→source mapping). This doc is the record of why neither was built. Original design below. // Two coupled slices of the read-aloud calibration/rewriter thread, in one PR. (1) APPLY the per-voice scalar `k` that already accumulates measure-only — feed the voice's `rateScale` into `buildTrack` so the SILENT read-along and the pre-first-onset COLD START pace to the voice's measured rate (the clocked mid-stream path is already onset-anchored and untouched). k applies at track-BUILD time per slide (never mid-playback, which would jump the timeline), auto-applied once n≥5 with the existing [0.6,1.6] clamp + reset. (2) The hard-to-say REWRITER — once the model is voice-calibrated, a caption whose MEASURED duration still diverges from the CALIBRATED prediction is "hard to say"; flag it in Studio and offer an LLM rewrite on the USER's own OpenRouter key (opt-in, never our key, never auto-applied, never in the export path). A live authoring aid, sanitized output, human-approved. Slice 1 is the substrate; slice 2 is the payoff it de-risks.
 companion:
   - ./2026-07-12-per-voice-pace-calibration.md
   - ./2026-07-12-narration-pace-model.md
@@ -10,9 +11,32 @@ companion:
 
 # Pace calibration — apply `k`, then the hard-to-say rewriter
 
-**Status:** proposed (design → adversarial trio → build)
+**Status:** CLOSED — NOT BUILT (2026-07-14). Superseded by fixing the estimator's data.
 **Thread:** read-aloud narration quality (follows `2026-07-12-per-voice-pace-calibration.md`)
 **Branch:** `claude/read-aloud-skip-rush-regression-ha22xs`
+
+## Closing decision (2026-07-14)
+
+Neither slice is being built. The estimator was fixed **at the source** across the thread —
+acronyms-in-Lexicon (#959), the trailing-silence / cue-span de-bias and the number/`times` syllable
+counts (#967), and the paragraph-pause tier with the held highlight (#980) — and the reshaped
+narration was **confirmed aligning on-device by the maintainer.** That removed the problem apply-`k`
+and the rewriter were designed to paper over.
+
+- **apply-`k` — no value right now.** Its real win is a narrow mid-stream sliver (slide ≥2, unmuted,
+  between measured onsets) and it needs real surgery (a separate `k=1` reference track, voice·speed
+  keying) or it breaks the shipped measure-only calibration (red-team finding, below). Not worth the
+  cost against a corrected estimator. **Revisit only if a concrete, felt pacing issue surfaces** on a
+  real deck; the measure-only calibration + overlay stay as they are.
+- **Hard-to-say rewriter — stays unbuilt.** Its "takes longer than predicted" signal tracks a deck's
+  **most valuable** sentences (financials, names, "EBITDA"), not awkward ones, so it would nudge
+  authors to smooth away precision; it presumes a surviving residual we have no evidence of ("on
+  point, no noticeable gaps"); and it carries an LLM + security surface plus an unsolved
+  narration→source mapping (below). If a real "this line reads awkwardly" case appears, the fix is to
+  edit the line, not to bolt on an LLM.
+
+The rest of this doc is the preserved design + the adversarial-trio verdict — the record of **why**
+neither was built.
 
 ## Where we are
 
