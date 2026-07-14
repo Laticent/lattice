@@ -1596,6 +1596,8 @@ var require_chart_narration = __commonJS({
       if (Object.hasOwn(irregular, key)) return irregular[key] + rest;
       let base = w;
       if (/[a-z]ies$/i.test(w)) base = w.replace(/ies$/i, "y");
+      else if (/(iz|is|yz)es$/i.test(w)) base = w.replace(/es$/i, "e");
+      else if (/caches$/i.test(w)) base = w.replace(/s$/i, "");
       else if (/(sses|shes|ches|xes|zes|oes)$/i.test(w)) base = w.replace(/es$/i, "");
       else if (/[^s]s$/i.test(w)) base = w.replace(/s$/i, "");
       return base + rest;

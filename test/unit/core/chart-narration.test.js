@@ -896,6 +896,11 @@ test('narrateDiagram: pluralizeVerb conjugates sibilant / -es / -ies verbs on th
     ['queries', 'both query Queue.'],
     ['watches', 'both watch Queue.'],
     ['pushes', 'both push Queue.'],
+    // silent-e -ize / -che stems: the 3rd-person adds only "s", so strip only "s"
+    // (never "processe"/"authoriz"/"cach") — a third-verifier catch.
+    ['authorizes', 'both authorize Queue.'],
+    ['normalizes', 'both normalize Queue.'],
+    ['caches', 'both cache Queue.'],
   ]) {
     const out = narrateDiagram(diagram(`  A["A"] -->|${label}| M["Queue"]\n  B["B"] -->|${label}| M`, 'flowchart TD'));
     assert.ok(out.includes(want), `${label} → ${out}`);

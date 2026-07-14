@@ -566,9 +566,9 @@ rebuilt to SHOWCASE the range (labeled architecture → verbs; dependency graph 
 Both surfaces stay identical (the export split is fence-intact); audio remains UNVERIFIED (HARD RULE #23) —
 only the spoken STRING is asserted.
 
-**Second trio pass on the shipping diff — two fold-introduced regressions caught + fixed.** The three
+**Second trio pass on the shipping diff — three fold-introduced regressions caught + fixed.** The three
 verifiers re-ran (warm) against the folded code and confirmed all prior findings resolved with no drops /
-double-narration, bail-safe, deterministic. Two NEW defects the fold itself introduced, both found by
+double-narration, bail-safe, deterministic. Three NEW defects the fold itself introduced, each found by
 running the actual code, were fixed before push:
 - **`isVerbLabel`'s verb+preposition branch didn't gate the FIRST word on `EDGE_VERBS`** (red team +
   Munger, convergent) — so a NOUN + preposition ("request to", "response to", "part of", "access to")
@@ -580,4 +580,9 @@ running the actual code, were fixed before push:
 - **Four push sites bypassed `say()`/`terminate()`** (the three back-edge branches + the "The flow ends
   at …" terminal line) — so a terminal or loop-target label ending in `?`/`.` doubled its punctuation
   ("The flow ends at Resolved?.", "loops back to Ready?."). **Fix:** all four route through `say()` now,
-  so the doubled-terminal guard is universal. Tests cover both regressions.
+  so the doubled-terminal guard is universal.
+- **`pluralizeVerb` mis-conjugated silent-`e` / `-ize` stems** (independent checker, from a full scan of
+  all 128 `EDGE_VERBS`) — the `-sses`/`-ches`/`-zes`→strip-`es` rule over-stripped `caches`→"cach",
+  `authorizes`→"authoriz", `normalizes`→"normaliz" (their 3rd-person adds only `s`). **Fix:** an
+  `-ize`/`-ise`/`-yze`→`e` rule and a `caches`→`cache` case precede the sibilant strip; a scan of the full
+  set now conjugates every curated verb cleanly. Tests cover all three regressions.
