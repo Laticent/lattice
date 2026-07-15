@@ -184,6 +184,21 @@ in patch versions.
   now-correct dead `> .cell-stage` rule). Under the hood the `contact` transform now runs before the
   masthead lift (like the other section-rebuilding transforms) so the frame stays the sole cell-builder.
   A render gate (`test/integration/invariants/frame-conformance.test.js`) locks the stage Cell in.
+- **`wifi` is the second `conformance: "strict"` component — its QR card now lives in the frame's
+  `.cell-stage`, with a depth-aware title lift so the QR keeps its own heading.** wifi (like contact)
+  rebuilds its `<section>` into a `.qr-card` and emits its title as an in-card `.qr-head > h2`. The
+  masthead kernel's title lift is now **depth-aware** (`findTopLevelH2`, mirroring the existing
+  depth-aware eyebrow scan): it lifts ONLY a section-level `<h2>`, never one nested inside a
+  component's card — so wifi's in-card title stays put (no masthead band) instead of being yanked into
+  a band. Proven **byte-identical** on a fitting deck (pixel AE 0) and **overflow-verdict-identical**
+  (fitting → not over, overstuffed → over) vs. the pre-migration render; the depth fix is
+  **blast-radius-safe** — normal title-lifting components (content, cards-grid, kpi, checklist) are
+  pixel-unchanged (AE 0). Two wifi-specific stage guards: `flex: 0 0 auto` pins the card to self-size
+  (an overstuffed card grows past the stage, not shrunk-and-clipped), and `overflow-clip-margin: 1.5em`
+  lets the stage paint the QR's quiet-zone padding — which sits in the frame's safe margin — without
+  shearing it, while `overflow: clip` (hence the scrollHeight overflow probe) is unchanged. `video`
+  stays deferred: its compositions must be re-expressed against the stage cell first. See
+  `engineering/decisions/2026-07-15-model-driven-frame-render.md` §6.
 - **A language every deck inherits — a workspace default, a per-deck override, and a document/AI
   split under the hood.** The Studio has a single **Language** in Workspace → **General** that every
   deck inherits: it is the deck's document language (carried into every export's `<html lang>` and

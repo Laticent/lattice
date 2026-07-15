@@ -195,6 +195,66 @@ section-level grid onto `.cell-stage`. Model holds; slot map is not uniform for 
   → flow components (mostly already conform) → sovereign/multi-zone last.
 - Each: byte-identical-first, pixel-check, export sign-off on change, one component's flag.
 
+**Landed:** PR 1 = `contact` (2026-07-15). PR 2 = `wifi` (2026-07-15).
+
+**Canvas migration is per-component, not mechanical — evidenced by wifi.** The
+`contact` → `wifi` pair shares one QR-card kernel, yet the mechanical recipe that
+worked for contact (move before `mastheadLift`, flip `conformance:strict`, add
+`flex:0 0 auto`) produced pixel AE 80,641 on wifi. Two wifi-specific facts the
+recipe didn't cover:
+- **Depth-blind title lift (the kernel fix), SCOPED to wrapped components.** wifi
+  emits its title as an in-card `.qr-head > h2`; contact emits no `<h2>` at all (its
+  name is a `.qr-name` paragraph). The masthead kernel's `extractH2` was a plain
+  first-`<h2>` regex — depth-blind — so it yanked wifi's nested title into a masthead
+  band. Fixed by making the lift depth-aware (`findTopLevelH2`, mirroring the
+  pre-existing depth-aware `findTopLevelEyebrow`): lift ONLY a section-level `<h2>`.
+  **CRITICAL SCOPING (found by the PR-2 maker-checker):** applied UNCONDITIONALLY,
+  this also stops lifting the h2 that the chart family nests in `.chart-header`
+  (chartFamily runs before mastheadLift), changing every chart's masthead band —
+  pixel AE ~8966+, an unrecorded export change across ~14 chart layouts. So the
+  depth-aware lift is gated on `wrapsStageBody(cls)`: **only a WRAPPED component**
+  (strict, e.g. wifi/contact — or flow, whose h2 is already top-level so it is a
+  no-op) uses it; an UNWRAPPED canvas (charts) keeps the legacy depth-blind lift, so
+  every chart is **byte-identical to main (AE 0, verified)**. Blast-radius re-verified:
+  content, cards-grid, kpi, checklist (flow) AND progress, radar (chart) all AE 0;
+  only wifi changes. The DOM mirror (`masthead-lift.js`) already uses `:scope > h2`
+  (depth-aware for all), so wifi agrees on both paths.
+- **Deferred: the chart title-lift engine↔runtime parity gap.** Because the DOM
+  mirror uses `:scope > h2`, it has ALWAYS returned no-band for charts, while the
+  engine (depth-blind) builds one — the two render paths disagree on chart titles
+  today (a latent HARD RULE #1 gap, pre-existing, NOT introduced here). Making the
+  engine depth-aware for charts would converge them (both → title in `.chart-header`)
+  — plausibly the right fix — but it changes exported chart bytes across ~14 layouts
+  and is a genuine design call (chart title in the band vs `.chart-header`; §3 says
+  titles hoist). It is deliberately left for its own decision WITH a dark+light
+  chart-gallery export sign-off, not shipped as a wifi side-effect.
+- **QR quiet-zone in the safe margin.** wifi's QR tile is the card's LEFT column and
+  is content-box sized (12em SVG + 1em padding + 1px border), so its border-box
+  overhangs its `.qr-side` column by ~1em+1px each side; the left overhang is the
+  QR's white quiet-zone padding, which sits in the frame's left safe margin. The
+  SVG itself sits exactly at the stage's content edge. The `.cell-stage`'s
+  `overflow: clip` shears that quiet zone (AE 1525 even on a fitting deck; a QR
+  needs its quiet zone to scan). Fixed with `overflow-clip-margin: 1.5em` on
+  `section.wifi > .cell-stage` — the stage may PAINT the decoration into the safe
+  margin while keeping `overflow: clip`, so the scrollHeight overflow probe is
+  untouched. contact never hit this: its tile is on the RIGHT, fully inside the
+  content box, so nothing reaches a stage edge.
+
+Two follow-on notes for wifi:
+- The `flex: 0 0 auto` card pin is **defensive/consistency** for wifi, not
+  load-bearing as it was for contact: wifi's `.qr-card` is `overflow: visible`, so
+  an overstuffed card's excess bleeds to the stage and the probe catches it even
+  without the pin (removing the pin does NOT reproduce contact's silent clip). Kept
+  for parity with contact and to stay safe if the card ever gains `overflow:hidden`.
+- wifi's **manifest `sample`** (a long title) is ~15px taller than the frame; under
+  the old direct-child body that overflow bled silently into the frame padding, and
+  the conforming frame now (correctly) flags it. Off-path here (touches the isolated
+  galleries, HARD RULE #8); logged for a sample-tightening follow-up.
+
+**`video` remains deferred.** It is a `canvas` but NOT strict: its poster/badge/QR
+compositions must be re-expressed against the stage cell before it can wrap
+byte-identically — a larger per-component job than wifi's.
+
 ---
 
 ## 7. Decisions (owner) — resolved 2026-07-15

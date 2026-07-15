@@ -156,13 +156,16 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     }
   });
 
-  test('the strict set is exactly the migrated components — PR 1 flipped `contact` first', () => {
-    // Opt-in, one component per PR (§2). PR 1 migrated the first canvas —
-    // `contact` — with the render-side wiring proven byte-identical AND
-    // probe-verdict-identical (§5). Extend this list, with rationale, as each
-    // subsequent flag flips; a flip WITHOUT the render wiring landing in the same
-    // change would leave the render gate red.
-    const EXPECTED_STRICT = ['contact'];
+  test('the strict set is exactly the migrated components — contact + wifi', () => {
+    // Opt-in, one component (or one same-kernel family) per PR (§2). PR 1
+    // migrated the first canvas — `contact` — with the render-side wiring proven
+    // byte-identical AND probe-verdict-identical (§5). PR 2 added `wifi`, the
+    // sibling QR-card canvas: it needed the depth-aware masthead h2 extraction
+    // (findTopLevelH2) so its in-card `.qr-head > h2` is NOT lifted into a
+    // masthead band — proven byte-identical + probe-verdict-identical. Extend
+    // this list, with rationale, as each subsequent flag flips; a flip WITHOUT
+    // the render wiring landing in the same change would leave the render gate red.
+    const EXPECTED_STRICT = ['contact', 'wifi'];
     assert.deepEqual(
       strict.map((m) => m.name).sort(),
       EXPECTED_STRICT,

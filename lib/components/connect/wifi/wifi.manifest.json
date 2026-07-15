@@ -6,6 +6,7 @@
   "form": "panel",
   "substance": "structure",
   "stage": "canvas",
+  "conformance": "strict",
   "adapt": {
     "mode": "native",
     "priority": [
