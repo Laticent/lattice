@@ -605,6 +605,14 @@ in patch versions.
 
 ### Fixed
 
+- **The installed-app / home-screen icon now fills its tile instead of floating in a wide cream
+  border.** `tools/make-pwa-icons.js` composited the brand mark at a conservative fraction of each
+  canvas — `apple-touch-icon` at 0.72, the `purpose:any` icons at 0.80 — so the diamond read only
+  ~⅔ full and looked visibly smaller than neighboring app icons on an iOS home screen or Firefox
+  Shortcuts grid. Bumped to 0.92 for `apple-touch-icon` (its four points sit at the tile edge
+  MIDPOINTS, where a squircle mask has zero rounding, so full-bleed is clip-safe) and the two
+  `any` icons, and 0.66 → 0.80 for the `maskable` icon (corner nodes land at 0.371 of canvas,
+  inside the 0.40 safe-zone edge). All four PNGs in `docs/public/icons/` regenerated.
 - **Studio toggle switches now slide flush end-to-end — the knob no longer parks off-center when off or
   overhangs the track when on.** The shared `ui/switch` `<button>` kept the browser's default ~6px
   horizontal button padding (the scoped reset never zeroed it), so the thumb traveled inside a 26px-wide
