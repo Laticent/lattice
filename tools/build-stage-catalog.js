@@ -15,7 +15,7 @@
  *   · the sovereign frames, derived from lib/forms/frame/*'s
  *     `exemptFromChrome:true` (frameToggleSkip) — these omit `stage` and are
  *     chrome-exempt (their stage is their own grid).
- * See engineering/decisions/2026-07-14-frame-species-one-model.md (step A).
+ * See engineering/decisions/2026-07-14-one-frame-model.md (step A).
  *
  * A drift test (test/unit/forms/stage-catalog.test.js) asserts this map
  * reproduces the OLD three-Set partition EXACTLY, so the refactor is
@@ -54,7 +54,7 @@ function build() {
     }
     if (m.stage !== 'flow' && m.stage !== 'canvas') {
       throw new Error(
-        `[build-stage-catalog] non-sovereign component "${name}" must declare stage:"flow"|"canvas" in its manifest (got ${JSON.stringify(m.stage)}). See engineering/decisions/2026-07-14-frame-species-one-model.md.`,
+        `[build-stage-catalog] non-sovereign component "${name}" must declare stage:"flow"|"canvas" in its manifest (got ${JSON.stringify(m.stage)}). See engineering/decisions/2026-07-14-one-frame-model.md.`,
       );
     }
     catalog[name] = m.stage;

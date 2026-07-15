@@ -94,7 +94,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `runtime:watch` | Rebuild the runtime bundle on change. |
 | `snippets:build` | Generate .vscode/lattice.code-snippets from component manifests. |
 | `snippets:check` | Freshness gate for the VS Code snippets. |
-| `stage-catalog:build` | Generate lib/forms/cell/masthead/stage-catalog.generated.js — the single stage-cell classification (component name → flow | canvas | sovereign), composed from each manifest's `stage` field + the sovereign frames' exemptFromChrome, bundled into lattice-runtime.js so the masthead kernel derives its .cell-stage wrap decision without shipping the manifest catalog to the browser (frame-species step A). |
+| `stage-catalog:build` | Generate lib/forms/cell/masthead/stage-catalog.generated.js — the single stage-cell classification (component name → flow | canvas | sovereign), composed from each manifest's `stage` field + the sovereign frames' exemptFromChrome, bundled into lattice-runtime.js so the masthead kernel derives its .cell-stage wrap decision without shipping the manifest catalog to the browser (stage-cell classification, step A). |
 | `stage-catalog:check` | Freshness gate for the generated stage-cell catalog. |
 | `standalone-core:build` | Bundle the standalone chart-SVG export core for the browser (docs site). |
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
