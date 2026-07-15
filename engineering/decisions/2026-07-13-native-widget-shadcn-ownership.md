@@ -331,3 +331,12 @@ transitioning `unchecked → checked` — the primitive's signature, absent on t
 hand-rolled node), clicking flips `aria-checked`, `pointer-events:auto` inside the
 sheet, and it's visually identical to the two switches above it. Closes the
 switch-consistency gap; the native-widget → shadcn thread has no remaining holdouts.
+
+**Follow-up fix (same batch):** driving the migrated switches on the real Studio to answer a
+"the knob looks centered / bleeds" report exposed a **pre-existing bug in `ui/switch` itself**,
+not the migration: the Radix `<button>` Root kept the UA default ~6px horizontal button padding
+(the `.lx-ui` reset never zeroed it), so the 18px thumb traveled inside a 26px content box, not
+the 38px track — off it rested ~8px from the left (looked centered), on it ran 4px past the right
+cap. Measured both states on the real surface (off 8px-left/12px-right, on 24px-left/−4px-right).
+Fix: `p-0` on the Root. Re-measured: off 2/18, on 18/2 — flush both ends, matching the reference.
+One shared primitive, so all 15+ switch sites are corrected at once.
