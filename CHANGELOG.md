@@ -164,6 +164,15 @@ in patch versions.
 
 ### Added
 
+- **`design/skills/` — seven self-contained "create a killer X from scratch" skill files.** One
+  skill each for authoring a **deck**, a **theme**, a **component**, a **chart component**, a
+  **finish**, a **lens**, and **speaker notes / reviews / captions**. Each stands alone — the
+  load-bearing skeletons, token lists, capacity/density budgets, gate commands, and DO/DON'T
+  contrasts are inlined so an LLM (or human) can build the artifact and hold the boardroom 10/10 bar
+  from one file — and ends with a "Canonical sources" footer back to the owning canon (the skills
+  are a synthesized teaching layer, a fast path, not a fork; the canon stays the source of truth).
+  Indexed in `design/skills/README.md`, the `CLAUDE.md` canonical-doc table, `design/README.md`, and
+  `AGENTS.md`; shipped with the package (`package.json` `files`).
 - **Frame-conformance gate — components can opt in to having the model enforce their structure.**
   A component manifest may now set `conformance: "strict"`; a gate then renders it under the Form
   default and fails the build if its rendered cell tree drifts from its declared model (a declared

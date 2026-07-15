@@ -346,6 +346,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 
 | Working on… | Read first |
 |---|---|
+| **Creating a new deck / theme / component / chart / finish / lens / notes-reviews-captions from scratch** (self-contained skills, boardroom bar) | `design/skills/` (index → the per-artifact skill) |
 | The whole concept map — how all the concepts relate (one level up) | `design/concepts.md` |
 | What a component/modifier/token *is*, catalog shape | `design/design-system.md` |
 | Branching, feature decks, share-the-PDF, rebase, merge, two-renderer rule | `engineering/workflow.md` |

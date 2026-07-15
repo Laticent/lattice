@@ -11,6 +11,7 @@ Start with `design/concepts.md` (the concept map), then:
 | `forms.md` | The Form (Frame + Cell + Tile) composition model |
 | `editorial.md` | Prose rules for galleries and decks |
 | `skill.md` | The deck-authoring contract (ships with the package) |
+| `skills/` | Self-contained "create a killer X from scratch" skills — deck, theme, component, chart, finish, lens, notes/reviews/captions (own README) |
 | `logo/` | The wordmark + generator (own README) |
 
 The `.gallery.md` decks here render to committed PDFs like any gallery.

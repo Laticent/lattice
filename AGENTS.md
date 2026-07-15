@@ -18,6 +18,10 @@ reinvent it.
 - **`design/design-system.md`** — the Function · Form · Substance · Finish
   model (§2) and how to discover components (§7). One read explains the
   whole catalog's shape.
+- **`design/skills/`** — when the task is to *create a new* deck, theme,
+  component, chart, finish, lens, or notes/reviews/captions from scratch: one
+  self-contained skill per artifact (what good/bad looks like, the recipe, the
+  gates). `design/skills/deck.md` is the from-blank deck walkthrough.
 
 ## The catalog — pick the right component
 
