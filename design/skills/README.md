@@ -30,7 +30,7 @@ skill. The other five are authorable end-to-end from the file.
 | A **chart component** — a data visualization in the chart family | [`chart-component.md`](./chart-component.md) |
 | A **finish** — a `finish:` backdrop layer stack | [`finish.md`](./finish.md) |
 | A **lens** — a reader-side subset projection of a deck (Lente) | [`lens.md`](./lens.md) |
-| **Speaker notes, reviews, and captions** — the channels that travel with a slide | [`speaker-notes.md`](./speaker-notes.md) |
+| **Speaker notes, reviews, and captions** — the channels that travel with a slide, plus the evaluative rubric for reviewing a deck | [`speaker-notes.md`](./speaker-notes.md) |
 
 ## How these differ from the rest of `design/`
 

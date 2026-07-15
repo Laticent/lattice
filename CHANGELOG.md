@@ -172,7 +172,19 @@ in patch versions.
   from one file — and ends with a "Canonical sources" footer back to the owning canon (the skills
   are a synthesized teaching layer, a fast path, not a fork; the canon stays the source of truth).
   Indexed in `design/skills/README.md`, the `CLAUDE.md` canonical-doc table, `design/README.md`, and
-  `AGENTS.md`; shipped with the package (`package.json` `files`).
+  `AGENTS.md`; shipped with the package (`package.json` `files`). The
+  notes/reviews/captions skill also carries an evaluative **review rubric** (the `review-core.js`
+  traps + the five-category scorecard) so an LLM asked to *review* a deck has the bar, not just how
+  to author a comment. Went through an adversarial-trio review (red team + Munger inversion +
+  independent checker); the one blocker found — a fabricated chart-kernel skeleton that would never
+  render — plus several theme/deck/component defects were fixed before landing.
+- **`checkSkillFreshness` gate keeps the self-contained skills honest.** Because the skills
+  deliberately restate countable canon/code facts (a departure from `design/README.md`'s
+  "link, don't restate" law), a new gate in `tools/check-ownership.js` (via `build:check`) ties each
+  skill's inlined counts — shipped finish count, bucket count, Tier-1 universal-variant count,
+  required-core-token list — to their machine source and hard-fails on drift. Each fact pins a stable
+  marker phrase, so rewording the marker away from the checker fails too. Turns "sanctioned
+  duplication" into enforced-fresh duplication. Covered by `test/unit/cli/check-ownership.test.js`.
 - **Frame-conformance gate — components can opt in to having the model enforce their structure.**
   A component manifest may now set `conformance: "strict"`; a gate then renders it under the Form
   default and fails the build if its rendered cell tree drifts from its declared model (a declared

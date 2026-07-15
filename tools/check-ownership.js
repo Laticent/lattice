@@ -60,11 +60,13 @@ const {
 const { TRANSFORMERS } = require('../lib/transformers/registry');
 const { PAIRS: TOKEN_CROSSWALK } = require('../lib/tokens/crosswalk');
 const { findHexLiterals } = require('../lib/layout/gate'); // HARD RULE #3 hex matcher (reused, not reinvented)
+const { FINISH_REGISTER } = require('../lib/core/resolve-finish'); // skill-freshness: authoritative finish list
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
 const THEMES_DIR = path.join(ROOT, 'themes');
 const LIB_DIR = path.join(ROOT, 'lib');
+const SKILLS_DIR = path.join(ROOT, 'design', 'skills');
 // Layout-specific variants are styled in two places: a component's own
 // <name>.styles.css, AND the shared base.modifiers.css (where the cross-
 // cutting modifier block lives — e.g. obligation-matrix .pills/.lanes,
@@ -1847,6 +1849,94 @@ function checkDensityCoverage(manifests, errors) {
   }
 }
 
+// ── design/skills/ freshness ─────────────────────────────────────────────
+// The seven design/skills/*.md files deliberately RESTATE canon and code
+// specifics (design/skills/README.md explains why: an agent building an
+// artifact mid-task shouldn't chase links). That sanctioned duplication is only
+// safe if it stays TRUE — so this gate ties each skill's inlined COUNTABLE facts
+// to their machine source and hard-fails when they drift. Each numeric assertion
+// pins a stable marker phrase in the prose; if the phrase is gone the gate fails
+// too, so a fact can't silently rot by being reworded away from the checker.
+// This is the mechanism that turns "duplication debt" into "enforced-fresh fast
+// path" (2026-07 adversarial-trio review of the skills). It intentionally gates
+// only enumerable facts (counts, the required-token list) — prose, taste, and
+// recipes are not machine-checkable and stay on human review.
+function skillFreshnessAssertions() {
+  const universalCount = UNIVERSAL_VARIANTS.length;               // 35 today
+  const finishCount = Object.keys(FINISH_REGISTER).length;       // 10 today (none + 9)
+  return [
+    {
+      file: 'finish.md',
+      marker: /Ships today \((\d+) values\)/,
+      actual: finishCount,
+      what: 'shipped finish count',
+      source: 'FINISH_REGISTER (lib/core/resolve-finish.js)',
+    },
+    {
+      file: 'component.md',
+      marker: /The (\d+) buckets:/,
+      actual: BUCKETS.length,
+      what: 'bucket count',
+      source: 'BUCKETS (lib/components)',
+    },
+    {
+      file: 'component.md',
+      marker: /Tier 1 Universal \((\d+)\)/,
+      actual: universalCount,
+      what: 'Tier-1 universal-variant count',
+      source: 'UNIVERSAL_VARIANTS (lib/components)',
+    },
+    {
+      file: 'theme.md',
+      marker: /(\d+) required core tokens/,
+      actual: REQUIRED_THEME_TOKENS.length,
+      what: 'required core-token count',
+      source: 'REQUIRED_THEME_TOKENS',
+    },
+  ];
+}
+
+function checkSkillFreshness(errors) {
+  if (!fs.existsSync(SKILLS_DIR)) return; // skills not present — nothing to guard
+  for (const a of skillFreshnessAssertions()) {
+    const file = path.join(SKILLS_DIR, a.file);
+    if (!fs.existsSync(file)) {
+      errors.push(`design/skills/${a.file} is missing — the skill-freshness gate expects it.`);
+      continue;
+    }
+    const src = fs.readFileSync(file, 'utf8');
+    const m = src.match(a.marker);
+    if (!m) {
+      errors.push(
+        `design/skills/${a.file}: the skill-freshness marker for the ${a.what} is gone ` +
+        `(expected text matching ${a.marker}). Keep the marker phrasing so the gate can verify the ` +
+        `count against ${a.source}, or update the marker in tools/check-ownership.js (checkSkillFreshness).`,
+      );
+      continue;
+    }
+    const claimed = Number(m[1]);
+    if (claimed !== a.actual) {
+      errors.push(
+        `design/skills/${a.file}: states ${a.what} = ${claimed}, but ${a.source} has ${a.actual}. ` +
+        `A self-contained skill inlines this fact — update the skill's number to ${a.actual}.`,
+      );
+    }
+  }
+  // Every required core token must be NAMED in theme.md, so a token rename can't
+  // silently rot the theme skill's teaching (its skeleton + required-list teach them).
+  const themeFile = path.join(SKILLS_DIR, 'theme.md');
+  if (fs.existsSync(themeFile)) {
+    const themeSrc = fs.readFileSync(themeFile, 'utf8');
+    const missing = REQUIRED_THEME_TOKENS.filter((t) => !themeSrc.includes(t));
+    if (missing.length) {
+      errors.push(
+        `design/skills/theme.md omits ${missing.length} required core token(s): ${missing.join(', ')}. ` +
+        `The theme skill must name every REQUIRED_THEME_TOKENS entry.`,
+      );
+    }
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -1875,6 +1965,7 @@ function run() {
   checkLenteBoundary(errors);
   checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
+  checkSkillFreshness(errors);
   return {
     errors,
     counts: {
@@ -1968,6 +2059,8 @@ module.exports = {
   RAW_AUDIO_PATTERNS,
   checkSanctionedGestures,
   SANCTIONED_GESTURES,
+  checkSkillFreshness,
+  skillFreshnessAssertions,
   VETRINA_DIR,
   VETRINA_ADAPTER,
   VETRINA_IMPORT,

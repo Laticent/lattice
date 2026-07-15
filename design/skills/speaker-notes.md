@@ -6,9 +6,10 @@
 > others.
 
 **Read this when** you are asked to add presenter notes, narration/read-along text,
-or review feedback to a deck. **You'll produce** HTML-comment notes/captions in the
-`.md` source (and, for reviews, Studio-authored comments that travel in the
-`.lattice` file).
+or review feedback to a deck — or to *review* a deck. **You'll produce** HTML-comment
+notes/captions in the `.md` source (and, for reviews, Studio-authored comments that
+travel in the `.lattice` file). §4 covers the flip side: the evaluative rubric for
+reviewing a deck and producing that feedback.
 
 ---
 
@@ -145,6 +146,53 @@ register — it would reach the teleprompter); or relied on to stay private.
 
 ---
 
+## 4. Reviewing a deck — the evaluative rubric
+
+The three registers above are what you *author*. This is the flip side: how to
+**review** a deck — decide what's weak and what to flag (the content of the review
+comments in §3). Lattice ships the rubric as code, so you don't review from taste
+alone.
+
+**Where it runs.** The review heuristics are the **advisory pass of `npm run
+lint:deck`** (`reviewText` in `lib/authoring/review-core.js`) — on by default,
+`--no-review` to skip. They are the sibling of the lint footgun checks: **lint
+catches what renders *wrong*; review catches what renders fine but *communicates
+poorly*.** Review findings are `suggestion` severity — they **never fail the
+build**; they are guidance. The Studio Architect panel and the **scorecard** (five
+categories — Structure · Clarity · Data · Pacing · Contract — plus a letter grade)
+aggregate them. Crucial framing: the scorecard measures **the absence of detected
+problems, not the presence of brilliance** — a clean scorecard is *necessary, not
+sufficient* for 10/10. The last mile is still render-and-look.
+
+**The rubric — each finding names a trap and its fix:**
+
+| Finding | The trap | The fix |
+|---|---|---|
+| `label-title` | a heading that's a category (`"Overview"`, `"Results"`) | say what the slide *proves* — "Revenue grew 18%, led by APAC" |
+| `title-incomplete` | a heading that isn't a full declarative sentence | finish the claim |
+| `chart-no-takeaway` | a data slide with no "so what" headline | put the insight in the `## `, not just the chart |
+| `metric-no-referent` | a hero number with nothing to compare it to | a number alone is a boast, not a claim — add the referent |
+| `wall-of-text` | too dense to land | push the detail to speaker notes |
+| `long-heading` | a takeaway that won't fit one tight line | cut it to one line |
+| `possessive-stacking` | stacked possessives that stumble read aloud | rewrite for the speaking voice |
+| `monotone-openings` | 3+ headings opening the same way | vary the cadence — it reads as a drone |
+| `no-ask` | a deck that never states what it wants | name the one decision / ask |
+| `agenda-missing` | a long deck with no roadmap | add an agenda so the room can follow |
+| `duplicate-heading` | two slides making the same claim | merge or differentiate |
+| `stub-slide` | a near-empty placeholder shipped as content | fill it or cut it |
+| `image-no-alt` | an image carrying meaning with no alt text | add a description (the a11y channel) |
+
+Plus a **pacing verdict** from slide count vs. talk length: under ~60s/slide reads
+"fast", over ~120s "leisurely", in between "a comfortable boardroom pace." The
+prose-density budgets (verbose eyebrow/subtitle/key-insight, density-crowd /
+density-overflow) ride the same pass.
+
+**Reviewing well = running that pass, then reading the deck as the audience:** is
+every heading a claim, does each data slide say "so what", is there one clear ask,
+does the cadence vary? What you flag becomes a review comment (§3) or a direct edit.
+
+---
+
 ## The contract / skeleton (one slide, all three channels)
 
 ```markdown
@@ -218,3 +266,7 @@ Render with narration sidecars: `node lattice-emulator.js deck.md deck.pdf
   precedence, projection, the acronym registry.
 - `engineering/decisions/2026-07-04-comments-layer.md` — the review/comments layer
   (what it is, where it lives, how it exports).
+- `lib/authoring/review-core.js` — the evaluative review heuristics (§4), run as the
+  advisory pass of `npm run lint:deck`.
+- `lib/authoring/scorecard.js` — the five-category deck scorecard the review findings
+  aggregate into.
