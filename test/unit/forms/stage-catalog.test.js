@@ -21,7 +21,9 @@ const assert = require('node:assert/strict');
 
 const kernel = require('../../../lib/forms/cell/masthead/masthead.transform.js');
 const catalog = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
+const conformanceCatalog = require('../../../lib/forms/cell/masthead/conformance-catalog.generated.js');
 const { frameToggleSkip } = require('../../../lib/forms');
+const { loadAll } = require('../../../lib/components');
 
 // The classification as it stood when the three inline Sets were retired
 // (2026-07-14). A change here must be intentional and reviewed.
@@ -64,6 +66,24 @@ describe('stage-catalog — the single stage-cell classification', () => {
     // must agree on who is sovereign — the generator composes them, this pins it.
     assert.deepEqual(withStage('sovereign'), [...frameToggleSkip()].sort(),
       'catalog sovereign set diverged from frameToggleSkip()');
+  });
+
+  // The sibling conformance catalog (build-stage-catalog.js also generates it) —
+  // the sorted names of every manifest with `conformance:"strict"`, baked so the
+  // masthead kernel can wrap a strict CANVAS without fs-loading manifests. Pinned
+  // like the stage catalog so a flag flip is a deliberate, reviewed change.
+  test('conformance-catalog is the sorted set of conformance:"strict" manifests', () => {
+    // contact is the first (PR 1) strict canvas migration; the rest opt in one
+    // component per PR. Update this list — with rationale — as each flag flips.
+    const EXPECTED_STRICT = ['contact'];
+    assert.deepEqual([...conformanceCatalog].sort(), EXPECTED_STRICT, 'conformance-catalog drifted from EXPECTED_STRICT');
+    // The baked array must equal the manifest source of truth.
+    const fromManifests = loadAll().filter((m) => m.conformance === 'strict').map((m) => m.name).sort();
+    assert.deepEqual([...conformanceCatalog].sort(), fromManifests, 'conformance-catalog diverged from the manifests');
+    // A strict component wraps its stage cell even as a canvas; a non-strict
+    // canvas still does not (the wrap decision the kernel reads).
+    assert.equal(kernel.wrapsStageBody('contact form'), true, 'strict canvas contact must wrap');
+    assert.equal(kernel.wrapsStageBody('video form'), false, 'non-strict canvas video must NOT wrap');
   });
 
   test('stageSizingFor is the single classifier the wrap decision reads', () => {

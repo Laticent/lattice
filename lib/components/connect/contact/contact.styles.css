@@ -86,12 +86,22 @@ section.contact .qr-cta {
   color: var(--text-muted);
 }
 
-/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
- * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
- * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the card. */
 section.contact .qr-card {
   box-shadow: var(--elevation-card);
 }
-section.contact > .cell-stage {
-  padding-block: var(--elevation-berth);
+/* Contact is a `conformance:"strict"` CANVAS (model-driven frame render §4): the
+ * masthead kernel now wraps its self-sizing card in the declared `.cell-stage`
+ * clip cell. The base stage is a bounded flex column (flex:1; min-height:0;
+ * overflow:clip) — that clip is REQUIRED by the overflow probe: a too-tall card
+ * must reach it so `scrollHeight − clientHeight` fires the overflow ring. But a
+ * flex child defaults to shrinkable (`flex-shrink:1`), and the card's own
+ * `overflow:hidden` collapses its `min-height:auto` to 0, so an overstuffed card
+ * would be SHRUNK to fit the stage and clip its excess INVISIBLY — the probe would
+ * read it as fitting (a silent overflow, the exact regression overflow-probe.js
+ * warns about). Pin the card to self-size: a fitting card is byte-identical to its
+ * pre-wrap placement, and an overstuffed card grows PAST the stage so the clip-cell
+ * probe catches it, exactly as when the card was a direct section child. */
+section.contact > .cell-stage > .qr-card {
+  flex: 0 0 auto;
 }
