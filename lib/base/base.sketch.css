@@ -409,13 +409,10 @@ section.sketch.quote blockquote p {
   font-style: normal;
 }
 
-/* Chart-frame slides draw a straight 1px rule under the heading
- * (.chart-header::after). The sketch h2 already carries the drawn wavy
- * underline, so that rule is a redundant SECOND rule — and a machine-straight
- * one next to hand type. Suppress it (the hand underline stays). */
-section.sketch.chart-frame .chart-header::after {
-  display: none;
-}
+/* .viz-frame merge: charts no longer draw a `.chart-header::after` hairline under the
+ * heading (the header hoisted into the standard masthead band), so the sketch override
+ * that suppressed that straight rule next to the hand-drawn wavy underline is retired —
+ * the element no longer exists. */
 
 /* The full-bleed / contain image caption is clamped to ~2 lines via a tuned
  * `max-height` calibrated for the clean body face. The hand sans sets a

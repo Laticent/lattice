@@ -83,6 +83,21 @@ const OVER_TALL_LIST = `<!-- _class: progress -->
 ${OVER_ROWS}
 `;
 
+// state-chart is the trap the trio flagged: its body is `<ol class="state-nodes">`
+// content-height HTML nodes (the <svg> is a JS-sized edge overlay, NOT a scaling
+// container), so despite the SVG element it must be PINNED like a list chart. Too many
+// states must spill the stage and be caught, not silently clipped.
+const OVER_STATES = Array.from(
+  { length: 30 },
+  (_v, i) => `${i + 1}. State number ${i + 1} with a reasonably long descriptive name\n   - \`=> ${((i + 1) % 30) + 1}\``,
+).join('\n');
+const OVER_TALL_STATE = `<!-- _class: state-chart -->
+
+## An overstuffed state chart with far too many states.
+
+${OVER_STATES}
+`;
+
 describe('chart overflow detection is preserved after the .viz-frame stage wrap', () => {
   const chrome = resolveChrome();
   let browser;
@@ -136,6 +151,18 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
       'REGRESSION: an overstuffed list chart was silently clipped by the stage wrap instead of ' +
         'reporting overflow — the .cell-stage clip is swallowing rows the overflow probe should catch ' +
         '(the list chart may need a flex:0 0 auto self-size pin like the QR cards; see viz-frame §5).',
+    );
+  });
+
+  test('an overstuffed state-chart DOES overflow — content-height nodes are pinned, not swallowed', async () => {
+    const v = await probeFirstSection(OVER_TALL_STATE, 'chart-overflow-over-states');
+    assert.equal(v.hasStage, true);
+    assert.equal(
+      v.over,
+      true,
+      'REGRESSION: an overstuffed state-chart was silently clipped — its `<ol class="state-nodes">` body is ' +
+        'content-height (the <svg> is only an edge overlay), so state-chart MUST be in the flex:0 0 auto pin ' +
+        'group with the list charts, not the self-scaling SVG group (viz-frame §5).',
     );
   });
 });

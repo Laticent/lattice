@@ -149,3 +149,40 @@ into its correct final shape (title in the masthead band, body in the stage). Th
 alternative (flip strict with the title still in `.chart-header`, then hoist later)
 would move the title twice and churn every chart deck's export twice. The owner chose A
 for this reason: *"we don't settle"* — one move to the right resting state.
+
+## 8. Follow-ups (from the adversarial trio)
+
+The full trio (red team + Munger inversion + independent checker) ran on the shipping
+diff. Two findings were BLOCK/MEDIUM and are FIXED here (both independently found by the
+checker AND Munger, both verified resolved):
+
+- **HARD RULE #1 subtitle divergence (was BLOCK).** The string kernel's `extractSubtitleP`
+  hoisted a plain-text `.chart-subtitle` into the band, but the runtime DOM mirror
+  (`masthead-lift.js`) only recognized a code-only `<p>` — so a chart with a one-line
+  subtitle banded it on the PDF/engine path and stranded it in the stage on the web
+  path. Fixed by mirroring the `.chart-subtitle` branch in `masthead-lift.js`; gated by a
+  plain-text-subtitle parity case (the prior case used a code-wrapped subtitle that both
+  paths already handled, hiding the bug).
+- **state-chart mis-classified (was MEDIUM/silent-overflow).** state-chart's body is
+  `<ol class="state-nodes">` content-height HTML nodes (the `<svg>` is a JS-sized edge
+  overlay, NOT a scaling container), so it belongs in the `flex:0 0 auto` pin group, not
+  the self-scaling SVG group. At the un-pinned tip a 12-state machine silently clipped
+  ~635px with `over:false`. Fixed by adding `.state-chart` to the pin; gated by an
+  overstuffed-state-chart case (`over:false→true`).
+
+Tracked (not blocking):
+
+- **No automated classification gate (Munger #4).** The SVG-vs-list overflow split is a
+  hardcoded manual `:is(...)` list. state-chart slipped because the doc listed it but the
+  implementer dropped it and only progress was tested. A future content-height chart
+  added to the family defaults to `flex:1` and would silently clip. **Follow-up:** a
+  per-family overflow-preservation matrix over all 13 layouts (extend
+  `chart-overflow-preserved.test.js` to every pinned type + assert every SVG type is
+  genuinely self-scaling), or a build gate that fails an unclassified chart layout.
+- **state-chart export re-sign-off.** The state-chart pin changes its exported layout, so
+  its dark+light export sign-off must be taken after the fix (folded into the §6 sign-off).
+- **Titleless chart (red team, pre-existing).** A chart with an eyebrow but no `<h2>`
+  doesn't become a `chart-frame` at all (the chart builder's `extractChartBody` requires
+  an h2), so it gets no band and no stage — an inconsistency, but pre-existing (charts
+  have always needed a title) and graceful (falls back to the section-level overflow
+  probe, no silent-clip). Not actionable for this PR; noted for completeness.

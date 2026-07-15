@@ -326,17 +326,19 @@ section.chart-frame .chart-body {
   overflow: hidden;
 }
 
-/* .viz-frame §5 — the self-scaling test, per chart family. An SVG chart
- * (piechart/radar/quadrant/funnel/map/word-cloud/state-chart) self-scales inside the
- * `.cell-stage` clip: its `<svg>` is sized to the box and letterboxes, so a squeezed
- * box SCALES it — `flex:1 1 auto` (above) is right, the clip never loses content. But a
- * LIST/TABLE chart (progress/gantt/kanban/timeline-list/roadmap/journey) has
- * content-height rows: under `flex:1 1 auto` an overstuffed chart flex-SHRINKS and
- * `overflow:hidden` clips the excess rows SILENTLY — invisible to the overflow probe
- * (the QR-card silent-overflow class, 2026-07-15-viz-frame-merge.md §5). Pin those
- * bodies to natural height so an overstuffed chart SPILLS the stage clip and the probe
- * catches it (proven by chart-overflow-preserved.test.js). */
-section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap, .journey) > .cell-stage > .chart-body {
+/* .viz-frame §5 — the self-scaling test, per chart family. A truly SVG-bodied chart
+ * (piechart/radar/quadrant/funnel/map/word-cloud) self-scales inside the `.cell-stage`
+ * clip: its `<svg>` is sized to the box and letterboxes, so a squeezed box SCALES it —
+ * `flex:1 1 auto` (above) is right, the clip never loses content. But a chart with
+ * CONTENT-HEIGHT DOM has rows that genuinely exceed the stage: under `flex:1 1 auto` an
+ * overstuffed chart flex-SHRINKS and `overflow:hidden` clips the excess SILENTLY —
+ * invisible to the overflow probe (the QR-card silent-overflow class,
+ * 2026-07-15-viz-frame-merge.md §5). That set is progress/gantt/kanban/timeline-list/
+ * roadmap/journey AND state-chart (its body is `<ol class="state-nodes">` content-height
+ * HTML nodes — the `<svg>` is only a JS-sized edge overlay, NOT a scaling container).
+ * Pin those bodies to natural height so an overstuffed chart SPILLS the stage clip and
+ * the probe catches it (proven by chart-overflow-preserved.test.js). */
+section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap, .journey, .state-chart) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
@@ -666,11 +668,10 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
 }
 
 
-/* At hero/bleed the chart title lifts into the masthead Cell, vacating the
- * chart-header — but its decorative divider (`.chart-header::after`, a short
- * centered rule) and any residual eyebrow/subtitle would then float orphaned in
- * the empty band. Hide them on EVERY chart type at hero/bleed. */
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header::after,
+/* At hero/bleed the chart title lifts into the masthead Cell; the eyebrow + subtitle
+ * would then float in the band competing with the full-bleed chart, so hide them on
+ * EVERY chart type at hero/bleed. (.viz-frame: the old `.chart-header::after` divider is
+ * gone — the header hoisted, so there is no orphaned rule left to hide.) */
 section.chart-frame:is(.claim-hero, .claim-bleed) .chart-eyebrow,
 section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle {
   display: none;

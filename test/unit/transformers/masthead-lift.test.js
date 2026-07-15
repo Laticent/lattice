@@ -429,9 +429,14 @@ describe('chart .viz-frame hoist — engine↔web parity (HARD RULE #1)', () => 
   // walk (chart-family.applyToDom → masthead-lift.applyToDom) — must agree byte-for-byte
   // on the resulting cell DOM (the depth-aware lift + `:scope > h2` DOM mirror converge).
 
-  // Form-ON chart carrying an eyebrow + title + subtitle — hoisted into the band.
+  // Form-ON chart carrying an eyebrow + title + PLAIN-TEXT subtitle — hoisted into the
+  // band. The subtitle is deliberately plain text (not code-wrapped): chart-family wraps
+  // it as a plain `.chart-subtitle`, the common authoring case, which the DOM mirror only
+  // hoists via the .viz-frame `.chart-subtitle` branch — so this case gates the engine↔web
+  // parity of that branch (a code-wrapped subtitle would pass via the pre-existing
+  // code-only path and leave the plain-text branch untested).
   const CHART_INNER =
-    '<p><code>H1 2026</code></p><h2>Chart title</h2><p><code>A subtitle</code></p>' +
+    '<p><code>H1 2026</code></p><h2>Chart title</h2><p>A subtitle</p>' +
     '<ul><li>Alpha <code>92</code> <code>on-track</code></li>' +
     '<li>Beta <code>40</code> <code>at-risk</code></li></ul>';
   const SECTION = `<section id="1" class="progress form" data-lattice-slide="1">${CHART_INNER}</section>`;
