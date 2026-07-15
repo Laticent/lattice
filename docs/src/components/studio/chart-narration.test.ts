@@ -47,11 +47,13 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 		expect(narrateStateChart(md)).toContain('This flow starts at Draft.');
 	});
 
-	it('narrateDiagram speaks a flowchart topology and bails on a non-flowchart type', () => {
+	it('narrateDiagram speaks a flowchart topology and a sequence script, bails on unsupported types', () => {
 		const flow = ['<!-- _class: diagram -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A[Start] --> B[End]', '```'].join('\n');
 		expect(narrateDiagram(flow)).toContain('Start leads to End.');
-		const seq = ['<!-- _class: diagram -->', '', '## Seq.', '', '```mermaid', 'sequenceDiagram', '  A->>B: x', '```'].join('\n');
-		expect(narrateDiagram(seq)).toBeNull();
+		const seq = ['<!-- _class: diagram -->', '', '## Seq.', '', '```mermaid', 'sequenceDiagram', '  A->>B: score', '```'].join('\n');
+		expect(narrateDiagram(seq)).toContain('A sends to B: score.');
+		const cls = ['<!-- _class: diagram -->', '', '## Class.', '', '```mermaid', 'classDiagram', '  A <|-- B', '```'].join('\n');
+		expect(narrateDiagram(cls)).toBeNull();
 	});
 
 	it('narrateChart dispatches to the first matching narrator', () => {

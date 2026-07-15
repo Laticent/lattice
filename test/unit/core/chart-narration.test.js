@@ -758,8 +758,10 @@ test('narrateDiagram: narrates edges inside and across subgraphs (subgraph lines
   assert.ok(!out.includes('Ingest leads')); // the subgraph title is not spoken as a node
 });
 
-test('narrateDiagram: BAILS to null on a non-flowchart Mermaid type', () => {
-  for (const type of ['sequenceDiagram', 'classDiagram', 'stateDiagram-v2', 'erDiagram', 'gantt', 'pie', 'mindmap']) {
+test('narrateDiagram: BAILS to null on a not-yet-supported Mermaid type', () => {
+  // sequenceDiagram is now narrated (slice #1); the rest still fall back to heading+caption
+  // until their own first-wave slice lands (design 2026-07-14).
+  for (const type of ['classDiagram', 'stateDiagram-v2', 'erDiagram', 'gantt', 'pie', 'mindmap', 'C4Context']) {
     const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\n${type}\n  A->>B: x\n\`\`\``;
     assert.equal(narrateDiagram(md), null, type);
   }
@@ -982,4 +984,95 @@ test('narrateDiagram: the GIST flags a loop when the graph also branches and cyc
   // "with a loop" (the walk names the target; the gist just orients that one exists).
   const out = narrateDiagram(diagram('  O["Order"] -->|validates| V{"In stock?"}\n  V -->|yes| P["Pay"]\n  V -->|no| Bk["Backorder"]\n  P -->|"on failure"| Bk\n  Bk -->|restocked| P\n  P --> Sh["Ship"]', 'flowchart TD'));
   assert.ok(out.includes('with a loop'), out);
+});
+
+// ── narrateSequence (Mermaid sequenceDiagram — first-wave slice #1) ────────────
+const seqSlide = (body) => `<!-- _class: diagram -->\n\n## Auth handshake.\n\n\`\`\`mermaid\n${body}\n\`\`\``;
+
+test('narrateSequence: reads participants (display label), messages in order, notes, and a single-level block', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  participant A as Alice\n  participant B as Bob\n  A->>+B: Request auth token\n  Note right of B: Validates credentials\n  B-->>-A: Return signed token\n  alt Token expired\n    A->>B: Refresh token\n  end'));
+  assert.ok(out.includes('A sequence diagram.'), out);
+  assert.ok(out.includes('Alice sends to Bob: Request auth token.'), out); // display label, not id; activation "+" stripped
+  assert.ok(out.includes('Note: Validates credentials.'), out);
+  assert.ok(out.includes('Bob sends to Alice: Return signed token.'), out);
+  // A first `alt` opens with "If ‹cond›:" — NOT "Alternatively" (which would falsely imply a prior option).
+  assert.ok(out.includes('If Token expired: Alice sends to Bob: Refresh token.'), out);
+});
+
+test('narrateSequence: every arrow glyph reads as the neutral "sends to" — never voices sync/async/reply', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  Client-)Server: fire and forget\n  Server--xClient: dropped\n  A-->>B: reply'));
+  assert.ok(out.includes('Client sends to Server: fire and forget.'), out); // async `-)` → neutral
+  assert.ok(out.includes('Server sends to Client: dropped.'), out); // lost `--x` → neutral
+  assert.ok(out.includes('A sends to B: reply.'), out); // dashed reply `-->>` → neutral, never "returns"
+  assert.ok(!/asynchronous|synchronous|returns|replies with/i.test(out), out); // no fabricated glyph semantics
+});
+
+test('narrateSequence: an id used without a participant declaration reads as its own name', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  App->>SDK: score(signal)\n  SDK-->>App: a score'));
+  assert.ok(out.includes('App sends to SDK: score(signal).'), out);
+  assert.ok(out.includes('SDK sends to App: a score.'), out);
+});
+
+test('narrateSequence: past the message cap it reads the first cap messages then the remainder count, never a wall', () => {
+  // 14 messages (cap 12): the first 12 read in full, then "And two more messages." — a faithful
+  // prefix beats discarding the whole script for a bare total (an off-by-one at exactly-cap is
+  // covered separately below).
+  const out = narrateChart(seqSlide('sequenceDiagram\n  participant A as Alice\n  participant B as Bob\n' + Array.from({ length: 14 }, (_, i) => `  A->>B: message ${i + 1}`).join('\n')));
+  assert.ok(out.includes('Alice sends to Bob: message 1.'), out); // prefix reads real messages
+  assert.ok(out.includes('Alice sends to Bob: message 12.'), out); // through the cap
+  assert.ok(!out.includes('message 13') && !out.includes('message 14'), out); // remainder folded
+  assert.ok(out.includes('And two more messages.'), out); // count of the tail
+});
+
+test('narrateSequence: exactly the cap reads in full (the cap boundary is > not ≥)', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n' + Array.from({ length: 12 }, (_, i) => `  A->>B: m${i + 1}`).join('\n')));
+  assert.ok(out.includes('A sends to B: m12.'), out); // 12 ≤ cap → full read
+  assert.ok(!/more message/.test(out), out); // no tail at exactly the cap
+});
+
+// ── Regression: adversarial-trio findings on slice #1 (design 2026-07-14 §13) ──
+
+test('narrateSequence: an arrow glyph INSIDE the message text never corrupts src/tgt or leaks a raw glyph (red-team WORST)', () => {
+  // `parseSeqMessage` isolates the signature at the FIRST colon before matching an arrow, so an
+  // arrow-like token in the label can't split the wrong place or get spoken as "sends to".
+  const out = narrateChart(seqSlide('sequenceDiagram\n  A->>B: prefer -->> over ->'));
+  assert.ok(out.includes('A sends to B: prefer -->> over ->.'), out); // right participants, glyphs stay text
+  assert.ok(!/sends to over/.test(out), out); // NOT split inside the text
+  // A trailing arrow glyph in the text must not spurious-bail the whole diagram.
+  const trailing = narrateChart(seqSlide('sequenceDiagram\n  A->>B: see -->>'));
+  assert.ok(trailing?.includes('A sends to B: see -->>.'), trailing);
+  // A colon inside the label (e.g. a ratio) splits only at the FIRST colon.
+  const ratio = narrateChart(seqSlide('sequenceDiagram\n  A->>B: ratio a:b'));
+  assert.ok(ratio.includes('A sends to B: ratio a:b.'), ratio);
+});
+
+test('narrateSequence: a `%%{init}%%` directive or `%%` comment before the type token still narrates (red-team secondary)', () => {
+  const init = narrateChart(seqSlide("%%{init: {'theme':'forest'}}%%\nsequenceDiagram\n  A->>B: hi"));
+  assert.ok(init?.includes('A sends to B: hi.'), init); // dispatcher recognizes → narrator must too
+  const comment = narrateChart(seqSlide('%% a lead comment\nsequenceDiagram\n  A->>B: hi'));
+  assert.ok(comment?.includes('A sends to B: hi.'), comment);
+});
+
+test('narrateSequence: a message after a closed block reads with an "Afterwards:" resume cue, not inside the block (Munger WORST)', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  loop every 5s\n    A->>B: ping\n  end\n  A->>B: disconnect'));
+  assert.ok(out.includes('Repeatedly, every 5s: A sends to B: ping.'), out);
+  assert.ok(out.includes('Afterwards: A sends to B: disconnect.'), out); // NOT swept inside the loop
+  // A block that closes at the very end emits NO trailing cue (nothing follows).
+  const trailing = narrateChart(seqSlide('sequenceDiagram\n  A->>B: hi\n  loop retry\n    A->>B: ping\n  end'));
+  assert.ok(!/Afterwards/.test(trailing), trailing);
+});
+
+test('narrateSequence: BAILS to null on a nested block, a multiline note, or an unrecognized line', () => {
+  const nested = narrateChart(seqSlide('sequenceDiagram\n  A->>B: x\n  alt outer\n    opt inner\n      A->>B: y\n    end\n  end'));
+  assert.equal(nested, null, 'nested block');
+  const multiNote = narrateChart(seqSlide('sequenceDiagram\n  A->>B: x\n  note over A\n    a long note\n  end note'));
+  assert.equal(multiNote, null, 'multiline note');
+  const gibberish = narrateChart(seqSlide('sequenceDiagram\n  A->>B: x\n  this is not a message'));
+  assert.equal(gibberish, null, 'unrecognized line');
+});
+
+test('narrateSequence: reads the in-fence title and speaks a bare (text-less) message as just the link', () => {
+  const out = narrateChart(seqSlide('---\ntitle: Checkout flow\n---\nsequenceDiagram\n  A->>B: place order\n  B->>A'));
+  assert.ok(out.includes('A sequence diagram, Checkout flow.'), out);
+  assert.ok(out.includes('B sends to A.'), out); // no colon text → just the link, nothing invented
 });

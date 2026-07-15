@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Design for extending read-aloud narration from Mermaid FLOWCHARTS (shipped: the walk #971
   + the gist #991) to the WHOLE Mermaid family (~22 remaining types). Grounded in per-type
@@ -432,3 +432,38 @@ The reshaped first wave (sequence/state/class/ER/C4/pie, + radar fast-follow) is
 recommended scope and mine. The genuine call to confirm: **ship the tight first wave, or a
 different cut?** — e.g. include/exclude radar, or defer C4 (its own reading is more work than the
 "free reuse" implied). No code proceeds until this is confirmed.
+
+## 13. Go-ahead + rollout status (2026-07-14)
+
+Maintainer confirmed the reshaped **first wave** (§12.3): sequence · state · class · ER · C4 · pie,
+with radar as a scoped fast-follow. Implementation proceeds one narrator per PR (trio on each
+shipping diff), each held for merge sign-off.
+
+- **Slice 1 — dispatcher + `sequenceDiagram`** (SHIPPED 2026-07-14): refactored the mermaid fence
+  handler into a type dispatcher (`narrateMermaidFence` + `firstFenceKeyword`, longest-match +
+  `-beta` strip), flowchart path byte-identical (verified by both trios); added `narrateSequence` —
+  ordered "‹A› sends to ‹B›: ‹label›", single-line notes ("Note: …"), single-level blocks as
+  connectives, neutral "sends to" (never voices the arrow glyph's sync/async/reply convention),
+  message cap → prefix + remainder count; bails on nested blocks / multiline notes / unrecognized
+  lines. Demo: `examples/sequence-narration.md`.
+
+  **Slice-1 adversarial trio — findings folded before ship** (red team + independent checker, run
+  on the shipping diff; the checker's 489-case faithfulness fuzz found 0 residue / 0 arrow-semantic
+  leaks post-fix):
+  1. **WORST (red team) — arrow-glyph in message TEXT corrupted src/tgt and leaked a raw glyph into
+     speech** (`A->>B: prefer -->> over ->` → wrong participants + spoken "-->>"). Fixed: `parseSeqMessage`
+     splits the line at the FIRST `:` to isolate the signature, then matches the arrow within the
+     signature only (a participant id/signature never contains a `:`). Also removes the spurious
+     whole-diagram bail on a trailing arrow glyph in the label.
+  2. **Secondary (red team) — a `%%{init}%%` directive / `%%` comment before the type token made the
+     narrator silently bail** even though the dispatcher recognized the fence (`narrateSequence`
+     re-derived the token and skipped only frontmatter). Fixed: `narrateSequence` now applies the
+     same skip-list (blanks + `%%` + `%%{…}%%`) as `firstFenceKeyword` before the token check (§12.2).
+  3. **Block-scope leak (Munger) — a message after a closed block read as if still inside it** (a
+     "disconnect" swept into "Repeatedly, every 5s"). Fixed: `end` at the top level pushes a
+     `SEQ_CLOSE` marker rendered as an "Afterwards:" resume cue — only when more content follows.
+  4. **Cap discarded the whole script for a bare count (Munger).** Fixed: past the 12-message cap the
+     reading speaks the first twelve faithfully, then folds the remainder into "And ‹N› more messages."
+  5. **A first `alt` mis-read as "Alternatively" (Munger)**, falsely implying a prior option. Fixed:
+     the opening `alt` reads "If ‹cond›:"; `else` reads "Otherwise, if ‹cond›:".
+- Slices 2+ (state, class, ER, C4, pie, then radar) follow in order now that slice 1 has landed.
