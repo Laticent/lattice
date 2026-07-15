@@ -185,6 +185,16 @@ in patch versions.
   required-core-token list — to their machine source and hard-fails on drift. Each fact pins a stable
   marker phrase, so rewording the marker away from the checker fails too. Turns "sanctioned
   duplication" into enforced-fresh duplication. Covered by `test/unit/cli/check-ownership.test.js`.
+- **Read-aloud now narrates Mermaid `xychart-beta` bar/line charts.** A `diagram` slide's xychart is
+  spoken as its chart kind (bar / line / both), the authored axis ranges (stated only when written, by
+  orientation-neutral `x-axis`/`y-axis` role so a `horizontal` chart doesn't mislead), and each series'
+  values paired to the x category — or, past a per-series length cap, a shape summary (endpoints, high,
+  and low with their positions, naming the point count) so a long line reads its trough and trend, not
+  a lone peak. Authored series titles name the series; a quoted category with a comma stays intact.
+  Both the live Present reading and the exported WebVTT captions get it (one shared kernel). Bails to
+  the heading only when Mermaid itself wouldn't render (empty/malformed axis, no series). Audio itself
+  is unverified (no TTS in CI). First of the tier-2 Mermaid types; see
+  `engineering/decisions/2026-07-14-mermaid-multitype-narration.md` §18.
 - **Frame-conformance gate — components can opt in to having the model enforce their structure.**
   A component manifest may now set `conformance: "strict"`; a gate then renders it under the Form
   default and fails the build if its rendered cell tree drifts from its declared model (a declared

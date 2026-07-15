@@ -63,6 +63,8 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 		expect(narrateDiagram(zeroPie)).toContain('A, zero percent.');
 		const radar = ['<!-- _class: diagram -->', '', '## Radar.', '', '```mermaid', 'radar-beta', '  axis a["Speed"], b["Power"]', '  curve c["Car"]{3, 7}', '```'].join('\n');
 		expect(narrateDiagram(radar)).toContain('Car: Speed, three; Power, seven.');
+		const xy = ['<!-- _class: diagram -->', '', '## XY.', '', '```mermaid', 'xychart-beta', '  x-axis [jan, feb]', '  bar [5, 6]', '```'].join('\n');
+		expect(narrateDiagram(xy)).toContain('The bar series: jan, five; feb, six.');
 		const mind = ['<!-- _class: diagram -->', '', '## Mind.', '', '```mermaid', 'mindmap', '  root', '```'].join('\n');
 		expect(narrateDiagram(mind)).toBeNull();
 	});

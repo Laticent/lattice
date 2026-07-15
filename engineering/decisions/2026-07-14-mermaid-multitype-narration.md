@@ -686,3 +686,39 @@ title; fixed by handling the block first. Three safe-direction edge over-bails w
 present-but-empty C4 `Rel(a, b, "")` label renders (read a neutral connective, don't bail); the ER
 word forms `1+`/`0+`/`many(0)`/`many(1)` are valid and narrate; and a quoted C4 description that merely
 starts `$x=` (with a space) is no longer mistaken for a `$named` arg.
+
+## 18. xychart-beta — the first tier-2 type (2026-07-15)
+
+`xychart-beta` (and the bare `xychart` alias — both trigger the same parser, confirmed in the v11
+lexer) is the first of the tier-2 types (§12.3's mid-value tier). DATA tier, routed through the same
+dispatcher. `narrateXychart` reads:
+- **the chart kind** from the series present — "a bar chart" / "a line chart" / "a bar and line chart"
+  (Mermaid draws exactly those);
+- **an axis range ONLY when the author wrote one** (`x-axis "T" min --> max`, `y-axis min --> max`) —
+  never a computed auto-fit (Mermaid rounds it; stating a range we'd misread is the radar niceCeil
+  trap, avoided here by construction). Axes are named by their orientation-NEUTRAL role, **`x-axis` /
+  `y-axis`**, never "horizontal/vertical" — a `horizontal` chart swaps those visually, so a direction
+  word would flip and mislead;
+- **each series' values paired to the x category** (`jan, five; feb, six`), or to **`point N`** when
+  the x-axis is a numeric range or absent — a value is never read bare/un-anchored. An authored series
+  title (`bar "Revenue" [..]`) NAMES the series;
+- **past a per-series length cap, a SHAPE summary** — the endpoints, the high, and the low with their
+  positions (`starts at one hundred, ends at one hundred, with a high of one hundred at m1, m12, and
+  m13 and a low of two at m6`), NAMING the point count (§7). A flat series reads "is flat at N". This
+  replaced a first-cut peak-only summary that hid a crashing line's trough and made it sound reassuring.
+
+The bail/skip contract **matches what Mermaid renders** (verified against the v11 parser): it bails on
+no series, an empty `[]` or any empty category (a trailing/leading/double comma, or `""` — all
+parse-error), a malformed axis (`0 100`, `a --> b`, bare `x-axis`), a trailing-comma series, or any
+unrecognized line; it tolerates a trailing `;` (a valid eol) and skips `accTitle`/`accDescr`/comments.
+
+**Full adversarial trio, each against the v11 parser + source.** Red-team caught a quoted-comma
+category being split into phantom categories (`["Q1, 2024", …]`) — fixed with the quote-aware `c4Args`
+split. The independent checker (reading source) caught **series titles over-bailing** (a first-class
+feature), the **empty-`[]` over-match**, a **trailing-`;` over-bail**, and **O(n²) catastrophic
+backtracking** in the axis-range regex on a long digit/dash line — a real untrusted-deck DoS (the HARD
+RULE #22 threat class), fixed by parsing the range structurally with a literal `indexOf` (200k chars:
+87 s → 2 ms). Munger caught the peak-only summary destroying a line's story, the flat-series false
+"peaks at", tied extremes, an unanchored numeric-range reading, and the missing summarized-count —
+all folded into the shape summary above. Every finding carries a regression test. Demo
+`examples/xychart-narration.md`. Audio UNVERIFIED (no TTS in CI); only the spoken string is asserted.
