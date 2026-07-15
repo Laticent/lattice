@@ -1993,22 +1993,46 @@ var require_chart_narration = __commonJS({
       if (!typeRe.test(first)) return null;
       return { title, first, lines: raw.slice(i + 1) };
     }
+    function skipMermaidMeta(t, st) {
+      if (st.acc) {
+        if (/\}\s*$/.test(t)) st.acc = false;
+        return true;
+      }
+      if (/^accDescr\s*\{\s*$/i.test(t)) {
+        st.acc = true;
+        return true;
+      }
+      if (/^(accTitle|accDescr)\b/i.test(t)) return true;
+      if (/^direction\b/i.test(t)) return true;
+      return false;
+    }
     function narratePie(body) {
       const pre = mermaidPrelude(body, /^pie\b/i);
       if (!pre) return null;
       const head = pre.first.match(/^pie\b\s*(showData\b)?\s*(?:title\s+(.*))?$/i);
       if (!head) return null;
       const showData = !!head[1];
-      const title = pre.title || (head[2] ? scrubLabel(stripQuotes(head[2].trim())) : null);
+      let title = pre.title || (head[2] ? scrubLabel(stripQuotes(head[2].trim())) : null);
       const rows = [];
+      const seenLabel = /* @__PURE__ */ new Set();
+      const meta = { acc: false };
       for (const rawLine of pre.lines) {
         const t = rawLine.trim();
         if (!t || t.startsWith("%%")) continue;
-        const rm = t.match(/^"([^"]*)"\s*:\s*(-?\d+(?:\.\d+)?)\s*$/);
+        if (skipMermaidMeta(t, meta)) continue;
+        const tt = t.match(/^title\s+(.+)$/i);
+        if (tt) {
+          title = title || scrubLabel(stripQuotes(tt[1].trim()));
+          continue;
+        }
+        const rm = t.match(/^(?:"([^"]*)"|'([^']*)')\s*:\s*(-?(?:0|[1-9]\d*)(?:\.\d+)?)\s*$/);
         if (!rm) return null;
-        const value = Number(rm[2]);
-        if (!Number.isFinite(value) || value <= 0) return null;
-        rows.push({ label: scrubLabel(rm[1]), value, raw: rm[2] });
+        const value = Number(rm[3]);
+        if (!Number.isFinite(value) || value < 0) return null;
+        const rawLabel = rm[1] ?? rm[2];
+        if (seenLabel.has(rawLabel)) continue;
+        seenLabel.add(rawLabel);
+        rows.push({ label: scrubLabel(rawLabel), value, raw: rm[3] });
       }
       if (rows.length < 2) return null;
       const sum = rows.reduce((a, r) => a + r.value, 0);
@@ -2041,6 +2065,7 @@ var require_chart_narration = __commonJS({
     var CLASS_REL_RE = new RegExp(
       `^([\\w~]+)\\s*(?:"([^"]*)"\\s*)?(${CLASS_CONNECTORS.map(classConnRe).join("|")})\\s*(?:"([^"]*)"\\s*)?([\\w~]+)\\s*(?::\\s*(.+))?$`
     );
+    var CLASS_REL_CAP = 12;
     function classMultiplicity(m) {
       const map = { "1": "one", "*": "many", n: "many", "0..1": "zero or one", "1..1": "one", "0..*": "zero or more", "1..*": "one or more", "0..n": "zero or more", "1..n": "one or more" };
       return map[m] || scrubLabel(m);
@@ -2051,6 +2076,7 @@ var require_chart_narration = __commonJS({
     function narrateClass(body) {
       const pre = mermaidPrelude(body, /^classDiagram(-v2)?\b/i);
       if (!pre) return null;
+      let title = pre.title;
       const labelOf = /* @__PURE__ */ new Map();
       const label = (id) => labelOf.get(id) || id.replace(/~[^~]*~/g, "");
       const seen = [];
@@ -2059,6 +2085,7 @@ var require_chart_narration = __commonJS({
       };
       const members = /* @__PURE__ */ new Map();
       const rels = [];
+      const meta = { acc: false };
       let blockOf = null;
       for (const rawLine of pre.lines) {
         const t = rawLine.trim();
@@ -2075,8 +2102,14 @@ var require_chart_narration = __commonJS({
           }
           continue;
         }
+        if (skipMermaidMeta(t, meta)) continue;
+        const tt = t.match(/^title\s+(.+)$/i);
+        if (tt) {
+          title = title || scrubLabel(stripQuotes(tt[1].trim()));
+          continue;
+        }
         if (/^namespace\b/i.test(t)) return null;
-        if (/^(direction|style|cssClass|click|link|callback|note)\b/i.test(t)) continue;
+        if (/^(style|cssClass|classDef|click|link|callback|note)\b/i.test(t)) continue;
         const anno = t.match(/^<<[^>]*>>\s+([\w~]+)\s*$/);
         if (anno) {
           note(anno[1]);
@@ -2113,17 +2146,23 @@ var require_chart_narration = __commonJS({
         }
         return null;
       }
-      const sentences = rels.map((r) => {
+      const relSentences = rels.map((r) => {
         const [subj, obj] = r.def.subj === "r" ? [r.b, r.a] : [r.a, r.b];
         const verb = r.label && r.def.assoc ? r.label : r.def.verb;
         let s = `${label(subj)} ${verb} ${label(obj)}`;
-        if (r.label && !r.def.assoc) s += `, ${r.label}`;
+        if (r.label && !r.def.assoc) s += `, labeled ${r.label}`;
         if (r.multA && r.multB) {
           const [ms, mo] = r.def.subj === "r" ? [r.multB, r.multA] : [r.multA, r.multB];
           s += `, ${classMultiplicity(ms)} to ${classMultiplicity(mo)}`;
         }
         return s;
       });
+      const frameText = title ? `A class diagram, ${title}` : "A class diagram";
+      if (relSentences.length > CLASS_REL_CAP) {
+        return terminate(`${frameText}, with ${numberToWords(seen.length)} ${seen.length === 1 ? "class" : "classes"} and ${numberToWords(rels.length)} relationships: ${joinWithAnd(seen.map(label))}`);
+      }
+      const frame = terminate(frameText);
+      const sentences = relSentences;
       for (const id of seen) {
         const ms = members.get(id);
         if (ms?.length) sentences.push(`${label(id)} has ${joinWithAnd(ms)}`);
@@ -2132,22 +2171,39 @@ var require_chart_narration = __commonJS({
         if (!seen.length) return null;
         sentences.push(`${seen.length === 1 ? "The class is" : "The classes are"} ${joinWithAnd(seen.map(label))}`);
       }
-      const frame = terminate(pre.title ? `A class diagram, ${pre.title}` : "A class diagram");
       return `${frame} ${sentences.map(terminate).join(" ")}`;
     }
+    var STATE_CAP = 16;
     function narrateState(body) {
       const pre = mermaidPrelude(body, /^stateDiagram(-v2)?\b/i);
       if (!pre) return null;
+      let title = pre.title;
       const labelOf = /* @__PURE__ */ new Map();
       const label = (id) => labelOf.get(id) || id;
       const events = [];
+      const meta = { acc: false };
+      let noteBlock = false;
       for (const rawLine of pre.lines) {
         const t = rawLine.trim();
         if (!t || t.startsWith("%%")) continue;
+        if (noteBlock) {
+          if (/^end\s*note\b/i.test(t)) noteBlock = false;
+          continue;
+        }
+        if (skipMermaidMeta(t, meta)) continue;
+        const tt = t.match(/^title\s+(.+)$/i);
+        if (tt) {
+          title = title || scrubLabel(stripQuotes(tt[1].trim()));
+          continue;
+        }
         if (t === "--") return null;
         if (/\{\s*$/.test(t) || t === "}") return null;
         if (/<<(fork|join)>>/i.test(t)) return null;
-        if (!/-{2,}>/.test(t) && /^(direction|note|classDef|class|click|style)\b/i.test(t)) continue;
+        if (/^note\b/i.test(t) && !t.includes(":")) {
+          noteBlock = true;
+          continue;
+        }
+        if (!/-{2,}>/.test(t) && /^(direction|note|classDef|class|click|style|hide)\b/i.test(t)) continue;
         const sd = t.match(/^state\s+"([^"]*)"\s+as\s+([\w]+)\s*$/i);
         if (sd) {
           labelOf.set(sd[2], scrubLabel(sd[1]));
@@ -2157,8 +2213,10 @@ var require_chart_narration = __commonJS({
         const tr = t.match(/^(\[\*\]|[\w]+)\s*-{2,}>\s*(\[\*\]|[\w]+)\s*(?::\s*(.+))?$/);
         if (tr) {
           const [, from, to, ev] = tr;
-          const event = ev ? scrubLabel(ev.replace(/^\[(.*)\]$/, "$1")) : null;
-          events.push({ from, to, event });
+          const raw = ev ? ev.trim() : null;
+          const guard = !!raw && /^\[.*\]$/.test(raw);
+          const event = raw ? scrubLabel(raw.replace(/^\[(.*)\]$/, "$1")) : null;
+          events.push({ from, to, event, guard });
           continue;
         }
         const dm = t.match(/^([\w]+)\s*:\s*(.+)$/);
@@ -2169,30 +2227,65 @@ var require_chart_narration = __commonJS({
         return null;
       }
       if (!events.length) return null;
-      const sentences = events.map(({ from, to, event }) => {
+      const frameText = title ? `A state diagram, ${title}` : "A state diagram";
+      if (events.length > STATE_CAP) {
+        const states = /* @__PURE__ */ new Set();
+        for (const e of events) {
+          if (e.from !== "[*]") states.add(e.from);
+          if (e.to !== "[*]") states.add(e.to);
+        }
+        const starts = [...new Set(events.filter((e) => e.from === "[*]").map((e) => label(e.to)))];
+        return terminate(`${frameText}, with ${numberToWords(events.length)} transitions across ${numberToWords(states.size)} states${starts.length ? `, starting at ${joinWithAnd(starts)}` : ""}`);
+      }
+      const frame = terminate(frameText);
+      const trig = (e) => e.guard ? `when ${e.event}` : `on ${e.event}`;
+      const upper = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+      const sentences = events.map(({ from, to, event, guard }) => {
         const start = from === "[*]";
         const end = to === "[*]";
         if (start && end) return null;
-        if (start) return event ? `On ${event}, it starts at ${label(to)}` : `It starts at ${label(to)}`;
-        if (end) return event ? `From ${label(from)}, on ${event}, it can end` : `${label(from)} can end`;
-        return event ? `From ${label(from)}, on ${event}, goes to ${label(to)}` : `From ${label(from)}, goes to ${label(to)}`;
+        const g = event ? trig({ event, guard }) : null;
+        if (start) return g ? `${upper(g)}, it starts at ${label(to)}` : `It starts at ${label(to)}`;
+        if (end) return g ? `From ${label(from)}, ${g}, it can end` : `${label(from)} can end`;
+        return g ? `From ${label(from)}, ${g}, goes to ${label(to)}` : `From ${label(from)}, goes to ${label(to)}`;
       }).filter(Boolean);
       if (!sentences.length) return null;
-      const frame = terminate(pre.title ? `A state diagram, ${pre.title}` : "A state diagram");
       return `${frame} ${sentences.map(terminate).join(" ")}`;
     }
     var ER_CARD = { "|o": "zero or one", "o|": "zero or one", "||": "one", "}o": "zero or more", "o{": "zero or more", "}|": "one or more", "|{": "one or more" };
-    var ER_REL_RE = /^("[^"]*"|[\w-]+)\s+(\|o|\|\||\}o|\}\|)(--|\.\.)(o\||\|\||o\{|\|\{)\s+("[^"]*"|[\w-]+)\s*(?::\s*(.+))?$/;
+    var ER_ENT = '(?:"[^"]*"|(?:[\\w*-]|[^\\u0000-\\u007F])+)';
+    var ER_REL_RE = new RegExp("^(" + ER_ENT + ")\\s+(\\|o|\\|\\||\\}o|\\}\\|)(--|\\.\\.)(o\\||\\|\\||o\\{|\\|\\{)\\s+(" + ER_ENT + ")\\s*:\\s*(.+)$");
+    var ER_WORD_CARD = { "only one": "one", one: "one", "zero or one": "zero or one", "one or zero": "zero or one", "zero or more": "zero or more", "zero or many": "zero or more", "many(0)": "zero or more", "0+": "zero or more", many: "zero or more", "one or more": "one or more", "one or many": "one or more", "many(1)": "one or more", "1+": "one or more" };
+    var ER_CARD_WORDS = "(?:many\\(0\\)|many\\(1\\)|zero or one|one or zero|zero or many|zero or more|one or many|one or more|only one|one|many|1\\+|0\\+)";
+    var ER_WORD_RE = new RegExp("^(" + ER_ENT + ")\\s+(" + ER_CARD_WORDS + ")\\s+(?:optionally to|to)\\s+(" + ER_CARD_WORDS + ")\\s+(" + ER_ENT + ")\\s*:\\s*(.+)$", "i");
+    var ER_ATTR_CAP = 12;
+    var ER_BLOCK_RE = new RegExp("^(" + ER_ENT + ")\\s*(\\[[^\\]]*\\])?\\s*\\{\\s*$");
+    var ER_BARE_RE = new RegExp("^" + ER_ENT + "\\s*$");
     function narrateEr(body) {
       const pre = mermaidPrelude(body, /^erDiagram\b/i);
       if (!pre) return null;
+      let title = pre.title;
       const rels = [];
       const attrs = /* @__PURE__ */ new Map();
       const order = [];
+      const labelOf = /* @__PURE__ */ new Map();
+      const label = (e) => labelOf.get(e) || e;
       const note = (e) => {
         if (!order.includes(e)) order.push(e);
       };
+      const meta = { acc: false };
       let block = null;
+      const pushRel = (e1, c1, c2, e2, lbl) => {
+        const a = stripQuotes(e1);
+        const b = stripQuotes(e2);
+        note(a);
+        note(b);
+        rels.push({ a, b, c1, c2, label: scrubLabel(stripQuotes(lbl)) });
+      };
+      const aliasOf = (tok) => {
+        const m = tok.match(/^([^\s[]+|"[^"]*")\s*\[\s*"([^"]*)"\s*\]$/);
+        return m ? { id: stripQuotes(m[1]), label: scrubLabel(m[2]) } : null;
+      };
       for (const rawLine of pre.lines) {
         const t = rawLine.trim();
         if (!t || t.startsWith("%%")) continue;
@@ -2201,47 +2294,62 @@ var require_chart_narration = __commonJS({
             block = null;
             continue;
           }
-          const am = t.match(/^(\S+)\s+(\S+)((?:\s*,?\s*(?:PK|FK|UK)\b)*)(?:\s+"[^"]*")?\s*$/);
+          const am = t.match(/^(\S+)\s+(\S+)((?:\s+(?:PK|FK|UK)(?:\s*,\s*(?:PK|FK|UK))*)?)(?:\s+"[^"]*")?\s*$/);
           if (!am) return null;
-          const keyTag = (am[3] || "").trim().toUpperCase();
+          const keyTag = (am[3] || "").toUpperCase();
           const key = keyTag.includes("PK") ? "the primary key" : keyTag.includes("FK") ? "a foreign key" : keyTag.includes("UK") ? "a unique key" : null;
           (attrs.get(block) || attrs.set(block, []).get(block)).push({ name: scrubLabel(am[2]), key });
           continue;
         }
-        const bm = t.match(/^("[^"]*"|[\w-]+)\s*(?:\[[^\]]*\])?\s*\{\s*$/);
+        if (skipMermaidMeta(t, meta)) continue;
+        const tt = t.match(/^title\s+(.+)$/i);
+        if (tt) {
+          title = title || scrubLabel(stripQuotes(tt[1].trim()));
+          continue;
+        }
+        const bm = t.match(ER_BLOCK_RE);
         if (bm) {
-          const e = stripQuotes(bm[1]);
+          const al2 = bm[2] ? aliasOf(bm[1] + bm[2]) : null;
+          const e = al2 ? al2.id : stripQuotes(bm[1]);
           note(e);
+          if (al2) labelOf.set(e, al2.label);
           block = e;
           continue;
         }
         const rm = t.match(ER_REL_RE);
         if (rm) {
-          const [, e1, c1, , c2, e2, lbl] = rm;
-          const a = stripQuotes(e1);
-          const b = stripQuotes(e2);
-          note(a);
-          note(b);
-          rels.push({ a, b, c1: ER_CARD[c1], c2: ER_CARD[c2], label: lbl ? scrubLabel(stripQuotes(lbl)) : null });
+          pushRel(rm[1], ER_CARD[rm[2]], ER_CARD[rm[4]], rm[5], rm[6]);
           continue;
         }
-        if (/^("[^"]*"|[\w-]+)\s*$/.test(t)) {
+        const wm = t.match(ER_WORD_RE);
+        if (wm) {
+          pushRel(wm[1], ER_WORD_CARD[wm[2].toLowerCase()], ER_WORD_CARD[wm[3].toLowerCase()], wm[4], wm[5]);
+          continue;
+        }
+        const al = aliasOf(t);
+        if (al) {
+          note(al.id);
+          labelOf.set(al.id, al.label);
+          continue;
+        }
+        if (ER_BARE_RE.test(t)) {
           note(stripQuotes(t));
           continue;
         }
         return null;
       }
       const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-      const sentences = rels.map((r) => cap(`${r.c1} ${r.a} ${r.label || "is related to"} ${r.c2} ${r.b}`));
+      const sentences = rels.map((r) => cap(`${r.c1} ${label(r.a)} ${r.label} ${r.c2} ${label(r.b)}`));
       for (const e of order) {
         const list = attrs.get(e);
         if (list?.length) {
           const items = list.map((a) => a.key ? `${a.name} as ${a.key}` : a.name);
-          sentences.push(`${e} has ${list.length === 1 ? "attribute" : "attributes"} ${joinWithAnd(items)}`);
+          const body2 = list.length > ER_ATTR_CAP ? `${numberToWords(list.length)} attributes, including ${joinWithAnd(items.slice(0, 3))}` : `${list.length === 1 ? "attribute" : "attributes"} ${joinWithAnd(items)}`;
+          sentences.push(`${label(e)} has ${body2}`);
         }
       }
       if (!sentences.length) return null;
-      const frame = terminate(pre.title ? `An entity relationship diagram, ${pre.title}` : "An entity relationship diagram");
+      const frame = terminate(title ? `An entity relationship diagram, ${title}` : "An entity relationship diagram");
       return `${frame} ${sentences.map(terminate).join(" ")}`;
     }
     var C4_KIND = { person: "person", system: "system", systemdb: "database", systemqueue: "queue", container: "container", containerdb: "database", containerqueue: "queue", component: "component", componentdb: "database", componentqueue: "queue", node: "node" };
@@ -2270,13 +2378,16 @@ var require_chart_narration = __commonJS({
       const artA = (w) => `a${/^[aeiou]/i.test(w) ? "n" : ""}`;
       const elemOf = /* @__PURE__ */ new Map();
       const bLabel = /* @__PURE__ */ new Map();
-      const boundaries = [];
+      const rootBoundaries = [];
       const rels = [];
       const topLevel = [];
       const stack = [];
+      const meta = { acc: false };
+      const positional = (args) => args.filter((x) => !/^\$\w+\s*=(?:"[^"]*"|\S*)$/.test(x));
       for (const rawLine of pre.lines) {
         const t = rawLine.trim();
         if (!t || t.startsWith("%%")) continue;
+        if (skipMermaidMeta(t, meta)) continue;
         if (/^title\b/i.test(t)) {
           title = title || scrubLabel(t.replace(/^title\s+/i, ""));
           continue;
@@ -2286,28 +2397,30 @@ var require_chart_narration = __commonJS({
           stack.pop();
           continue;
         }
-        const bm = t.match(/^(?:\w*_?Boundary|Node|Deployment_Node)\s*\((.*)\)\s*\{\s*$/i);
+        const bm = t.match(/^(?:\w*_?Boundary|Node(?:_[LR])?|Deployment_Node)\s*\((.*)\)\s*\{\s*$/i);
         if (bm) {
-          const a = c4Args(bm[1]);
-          const b = { label: a[1] || a[0] || "a boundary", members: [] };
-          boundaries.push(b);
+          const a = positional(c4Args(bm[1]));
+          const b = { label: a[1] || a[0] || "a boundary", members: [], children: [] };
           if (a[0]) bLabel.set(a[0], b.label);
+          const parent = stack[stack.length - 1];
+          if (parent) parent.children.push(b);
+          else rootBoundaries.push(b);
           stack.push(b);
           continue;
         }
         const rm = t.match(/^(BiRel|Rel(?:_Back)?(?:_(?:[UDLR]|Up|Down|Left|Right|Neighbor))?)\s*\((.*)\)\s*$/i);
         if (rm) {
-          const a = c4Args(rm[2]);
-          if (a.length < 2 || !a[0] || !a[1]) return null;
+          const a = positional(c4Args(rm[2]));
+          if (a.length < 3 || !a[0] || !a[1]) return null;
           const back = /_Back/i.test(rm[1]);
           rels.push({ from: back ? a[1] : a[0], to: back ? a[0] : a[1], label: a[2] ? scrubLabel(a[2]) : null, tech: a[3] ? scrubLabel(a[3]) : null, bi: /^BiRel/i.test(rm[1]) });
           continue;
         }
-        const em = t.match(/^(Person|System(?:Db|Queue)?|Container(?:Db|Queue)?|Component(?:Db|Queue)?|Node|Deployment_Node)(_Ext)?\s*\((.*)\)\s*$/i);
+        const em = t.match(/^(Person|System(?:Db|Queue)?|Container(?:Db|Queue)?|Component(?:Db|Queue)?|Node(?:_[LR])?|Deployment_Node)(_Ext)?\s*\((.*)\)\s*$/i);
         if (em) {
-          const base = em[1].toLowerCase().replace(/^deployment_/, "");
+          const base = em[1].toLowerCase().replace(/^deployment_/, "").replace(/_[lr]$/, "");
           const kind = C4_KIND[base] || "element";
-          const a = c4Args(em[3]);
+          const a = positional(c4Args(em[3]));
           const alias = a[0];
           if (!alias) return null;
           const hasTech = C4_HAS_TECH.test(em[1]);
@@ -2328,16 +2441,17 @@ var require_chart_narration = __commonJS({
         if (e.descr) s += `: ${e.descr}`;
         return s;
       };
+      const renderBoundary = (b) => {
+        const parts = b.members.map(describe).filter(Boolean);
+        for (const c of b.children) parts.push(renderBoundary(c));
+        return parts.length ? `Within the ${b.label} boundary: ${parts.join(". ")}` : `There is ${artA(b.label)} ${b.label} boundary`;
+      };
       const sentences = [];
       for (const alias of topLevel) {
         const d = describe(alias);
         if (d) sentences.push(d);
       }
-      for (const b of boundaries) {
-        const inner = b.members.map(describe).filter(Boolean);
-        if (inner.length) sentences.push(`Within the ${b.label} boundary: ${inner.join(". ")}`);
-        else sentences.push(`There is ${artA(b.label)} ${b.label} boundary`);
-      }
+      for (const b of rootBoundaries) sentences.push(renderBoundary(b));
       for (const r of rels) {
         let s = `${label(r.from)} ${r.label || "is connected to"} ${label(r.to)}`;
         if (r.tech) s += `, over ${r.tech}`;

@@ -670,6 +670,25 @@ in patch versions.
 
 ### Fixed
 
+- **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
+  hardened — accessibility statements and common syntax no longer silently drop a diagram to its
+  heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective
+  adversarial pass on the first-wave slice-2 narrators (each re-verified against the real Mermaid v11
+  parser) found one shared root cause — the ignorable-statement skip-lists were narrower than
+  Mermaid's — plus per-type defects. Now: `accTitle:`/`accDescr:` (incl. the `accDescr { … }` block)
+  and `direction` are skipped on every type (class used to fabricate a phantom class named
+  "accTitle"). **pie** reads a zero-value slice (it renders; the previous guard wrongly required
+  `> 0`), dedupes repeated labels first-wins with recomputed percentages, accepts single-quoted
+  labels, reads a `title` on its own line, and bails on a leading-zero value (Mermaid rejects it).
+  **erDiagram** requires a relationship label (a labelless `A ||--o{ B` doesn't render), reads
+  word-form cardinality (`one to many`), requires comma-separated key tags (`PK FK` doesn't render),
+  reads a display-name alias `E["Name"]`, and reads non-ASCII entity names. **C4** requires a `Rel`
+  label, ignores `$tags`/`$link`/`$sprite` named args, reads `Node_L`/`Node_R`, and nests boundaries
+  as a hierarchy. **class** reads `classDef`/`title` and phrases a typed-relationship label as
+  "labeled …". **state** reads `hide empty description`, a `note … end note` block, and a `[guard]`
+  as "when …". Large class/state/ER diagrams now summarize past a firehose cap. Audio remains
+  unverified (no TTS in CI). See `engineering/decisions/2026-07-14-mermaid-multitype-narration.md`
+  §17.
 - **The installed-app / home-screen icon now fills its tile instead of floating in a wide cream
   border.** `tools/make-pwa-icons.js` composited the brand mark at a conservative fraction of each
   canvas — `apple-touch-icon` at 0.72, the `purpose:any` icons at 0.80 — so the diamond read only

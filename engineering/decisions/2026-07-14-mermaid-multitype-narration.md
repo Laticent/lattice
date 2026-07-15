@@ -618,3 +618,71 @@ sibling curves — and the over-matched keyword). Every finding folded with a re
 the tier-2/3 types (mindmap, gantt, timeline, journey, quadrant, xychart, gitGraph, kanban,
 requirement) and the summarize/bail tiers (sankey, treemap; block, packet, zenuml), each a later
 slice per §9. Audio UNVERIFIED (no TTS in CI); only the spoken string is asserted.
+
+## 17. Hardening the first-wave family — the retroactive trio (2026-07-15)
+
+The radar PR (§16) was the first type to get a genuine three-perspective trio; the earlier types
+(§15 slice 2: pie · class · state · ER · C4) got **one** adversarial pass each. On the maintainer's
+challenge ("we ran the trio on these?") a **retroactive trio** ran on all five merged narrators — the
+missing Munger-inversion + independent-checker-vs-the-v11-source legs. It found a consistent cluster
+of defects, all **re-verified here by driving the real Mermaid v11 parser** (a narrated input renders;
+a bailed input parse-errors).
+
+**The one root cause:** each narrator's ignorable-statement skip-list was narrower than Mermaid's, so
+a valid line either **over-bailed** (dropped the whole diagram to heading-only) or — worst — **fell
+through to a data-row regex and FABRICATED** content (class read `accTitle: X` as a phantom class
+named "accTitle"). Fixed with one shared `skipMermaidMeta(t, st)` helper covering the accessibility
+trio (`accTitle:`, `accDescr:`, and the multi-line `accDescr { … }` block) + `direction`, wired into
+all five loops so these SKIP (never bail, never fabricate). This generalizes the single-line
+`accTitle`/`accDescr` skip radar already had.
+
+**Per-type corrections (each verified against the v11 source, with a regression test):**
+
+- **pie** — the earlier pass folded a WRONG bail on a single agent's false claim ("Mermaid requires
+  value > 0"): `addSection` throws only on `value < 0`, so a **zero-value slice renders** and the old
+  `<= 0` guard wrongly dropped the whole pie. Now `< 0`. Also: **duplicate labels** are first-wins
+  deduped and the % recomputed over the deduped total (was inventing a phantom slice + wrong %);
+  **single-quoted** labels narrate; a **leading-zero** value (`05`) now bails (Mermaid parse-errors);
+  `title`/`accTitle`/`accDescr` on their own line narrate instead of bailing. *This pie miss is the
+  exact single-pass-adversarial failure mode the maintainer's challenge caught — the vindication for
+  the full trio.*
+- **ER** — a **labelless** relationship now bails (Mermaid has no labelless production — a bare
+  `A ||--o{ B` parse-errors); **word-form cardinality** (`CUSTOMER one to many ORDER : places`)
+  narrates the same counts as the crow's-foot glyphs; key tags are **comma-separated only** (`PK FK`
+  parse-errors → bail; the old regex's comment wrongly claimed it valid); a **display-name alias**
+  `E["Name"]` narrates by its label; **non-ASCII** unquoted entity names narrate; a huge attribute
+  list summarizes (§5). Identifying-vs-non-identifying (`--`/`..`) is a **deliberate omission** —
+  speaking "non-identifying" is ER jargon a listener can't decode (ETHOS: jargon-to-decode is a
+  defect); it produces no wrong output today.
+- **C4** — a **labelless `Rel(a, b)`** now bails (Mermaid requires the label; it used to invent "is
+  connected to"); **`$tags=`/`$link=`/`$sprite=`** named args are dropped, not spoken as a
+  description; **`Node_L`/`Node_R`** deployment nodes narrate; **nested boundaries** render as a
+  hierarchy (inline within their parent), not flattened to peers.
+- **class** — `classDef`/`title` narrate (were over-bailing); a label on a **typed** relationship
+  reads as ", labeled ‹x›" so a verb-shaped label ("has") is an annotation, not a dangling clause.
+- **state** — `hide empty description`, a multi-line `note … end note` block, and an `accDescr { … }`
+  block all narrate (were over-bailing); a `[guard]` transition label reads as "**when** ‹cond›" (a
+  UML guard, not a triggering "on" event).
+
+**Firehose caps (§5) added** where a large diagram was an unlistenable wall: class (> 12
+relationships), state (> 16 transitions), ER (> 12 attributes on one entity) now summarize with the
+counts + inventory, NAMING the count so nothing is silently dropped (§7).
+
+**Deferred/known trade-offs (documented, not folded):** ER identifying-vs-non-identifying (above); a
+pie slice under ~0.5% (Mermaid draws no % label but the legend lists it) narrates as "zero percent" —
+a small tail mislead, accepted.
+
+**Method note:** the load-bearing "Mermaid requires/rejects X" claims that gate a bail (pie zero, ER
+labelless, ER space-keys, C4 labelless-Rel, pie leading-zero) were each re-confirmed against the real
+v11 parser before folding — precisely because the pie miss proved a single adversarial agent's
+"requires" claim can be wrong. Audio remains UNVERIFIED (no TTS in CI, HARD RULE #23); only the spoken
+string is asserted.
+
+**Maker-checker follow-ups (2026-07-15):** an independent checker re-drove the v11 parser against the
+whole diff and caught one correctness bug the maker introduced — `narrateEr` ran the meta/title checks
+*above* its attribute-block handler (unlike `narrateClass`), so an attribute whose TYPE token was
+`title`/`direction`/`accTitle` was mis-skipped and a `title`-typed attribute fabricated a diagram
+title; fixed by handling the block first. Three safe-direction edge over-bails were also folded: a
+present-but-empty C4 `Rel(a, b, "")` label renders (read a neutral connective, don't bail); the ER
+word forms `1+`/`0+`/`many(0)`/`many(1)` are valid and narrate; and a quoted C4 description that merely
+starts `$x=` (with a space) is no longer mistaken for a `$named` arg.
