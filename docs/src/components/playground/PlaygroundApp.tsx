@@ -1,5 +1,6 @@
 import { Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
 	Select,
@@ -8,6 +9,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import { Toaster } from '@/components/ui/sonner';
 import { SplitHandle, SplitRail, useSplit } from '@/components/ui/split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import {
@@ -135,9 +137,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// parked, so a "no" never destroys the incoming content either.
 	const [pendingHandoff, setPendingHandoff] = React.useState<{ md: string; from: string; ts: number } | null>(null);
 	const [dismissedTs, setDismissedTs] = React.useState<number | null>(null);
-	// Undo toast for draft-replacing actions (backup + one-tap restore); the
-	// `reload` variant is the Explore plan-fetch 404 path ("site updated").
-	const [toast, setToast] = React.useState<{ msg: string; undo: boolean; reload?: boolean } | null>(null);
+	// Undo restorer for the draft-backup toast, held in a ref so `showToast`
+	// (defined before onUndoRestore) can wire it into Sonner's action.
+	const undoRestoreRef = React.useRef<() => void>(() => {});
 	// ── The Explore surface (decision §4, PR 6) ────────────────────────────────
 	// `view` is the mode ('read' internally; the UI says "Explore" — §0.6);
 	// `walk` is the position. Explore NEVER writes the draft: it renders
@@ -170,7 +172,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const startWalkRef = React.useRef<(name: string, step: string | null) => Promise<boolean>>(async () => false);
 	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
 	const [errorOpen, setErrorOpen] = React.useState(false);
-	const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	// The variant-sync discriminator: the last seen `_class` token line. The
 	// Variant select snaps only when this actually changes (the mid-edit
 	// "variant resets to default under me" jank, fixed at its source).
@@ -458,9 +459,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	// ── Draft protection: backup + undo toast (decision §4, invariant I2) ───────
 	const showToast = React.useCallback((msg: string, undo: boolean) => {
-		setToast({ msg, undo });
-		if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-		toastTimerRef.current = setTimeout(() => setToast(null), 6000);
+		toast(msg, { duration: 6000, action: undo ? { label: 'Undo', onClick: () => undoRestoreRef.current() } : undefined });
 	}, []);
 	const recordInsert = React.useCallback((md: string) => {
 		try {
@@ -642,12 +641,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			setSourceVersion((v) => v + 1);
 			syncPickers();
 			freshRender();
-			setToast(null);
 			setStatusLine('Draft restored.');
 		} catch {
 			/* private mode */
 		}
 	}, [setSource, saveSource, syncPickers, freshRender, setStatusLine]);
+	undoRestoreRef.current = onUndoRestore;
 
 	// ── The Explore walk machinery (decision §4, PR 6) ──────────────────────────
 	// Picker order IS the walk order (bucket, then A–Z — the same list the user
@@ -695,7 +694,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// this tab sat open — never a dead Next button. (Silent when the walk is
 				// only warming up behind the editor.)
 				if (viewRef.current === 'read') {
-					setToast({ msg: 'This page is out of date — the site was updated while it sat open.', undo: false, reload: true });
+					toast('This page is out of date — the site was updated while it sat open.', { duration: Infinity, action: { label: 'Reload', onClick: () => window.location.reload() } });
 				}
 				return false;
 			}
@@ -1263,22 +1262,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				</div>
 			)}
 
-			{/* Undo toast for draft-replacing actions (aria-live, one-tap restore). */}
-			{toast && (
-				<output className="pg-toast" aria-live="polite">
-					<span>{toast.msg}</span>
-					{toast.undo && (
-						<button type="button" onClick={onUndoRestore}>
-							Undo
-						</button>
-					)}
-					{toast.reload && (
-						<button type="button" onClick={() => window.location.reload()}>
-							Reload
-						</button>
-					)}
-				</output>
-			)}
+			<Toaster />
 
 			{/* Split: rail | editor | handle | preview | rail — five children whose
 			    grid tracks ALWAYS match (a display:none child would desync tracks
