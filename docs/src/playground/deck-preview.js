@@ -390,16 +390,36 @@ export function patchSections(frame, next, prev) {
 // forces a full write (deck swap → reset runtime/Mermaid state).
 export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, ...opts }) {
 	const st = state || { frameSig: '', lastSections: null };
-	// Sanitize ONCE here so BOTH paths below see safe HTML: the innerHTML section
-	// patch (patchSections) and the full srcdoc write (buildSrcdoc, which
-	// re-sanitizes harmlessly). #616 T-CONTENT.
-	html = sanitizeSlideHtml(html);
-	const sections = splitSections(html);
+	// INCREMENTAL SANITIZE (the typing hot path). #616 T-CONTENT still requires every
+	// section reach the frame sanitized — but DOMPurify over the WHOLE deck is ~half
+	// the per-keystroke render cost on a big deck and grows with slide count (a
+	// 50-slide edit spends ~28ms here), enough to push the render past the frame
+	// scheduler's 50ms heavy backstop into the 120ms-coalesce regime. So split the
+	// RAW engine HTML per-section and sanitize only the sections whose raw HTML
+	// changed, reusing the prior render's sanitized output for the rest (cache in
+	// `state`). Per-section sanitize is byte-identical to whole-deck sanitize —
+	// sections are independent and the allowlisted <section> boundaries are preserved
+	// — locked by deck-preview.sanitize-cache.test.ts.
+	const rawSections = splitSections(html);
+	const prevCache = st.sanitizeCache instanceof Map ? st.sanitizeCache : null;
+	const nextCache = new Map();
+	const sections = rawSections.map((raw) => {
+		let clean = prevCache ? prevCache.get(raw) : undefined;
+		if (clean === undefined) clean = sanitizeSlideHtml(raw);
+		nextCache.set(raw, clean);
+		return clean;
+	});
+	st.sanitizeCache = nextCache;
 	// Fold the asset-need flags into the signature: buildSrcdoc injects the KaTeX
 	// stylesheet / Mermaid runtime only when the deck has math / a mermaid fence, so
 	// a transition (a deck GAINS or LOSES either) must force a full srcdoc rewrite —
-	// a section-only patch would leave the newly-needed asset uninjected.
-	const contentSig = sig + (html.indexOf('katex') !== -1 ? 'K' : '') + (html.indexOf('language-mermaid') !== -1 ? 'M' : '');
+	// a section-only patch would leave the newly-needed asset uninjected. Both markers
+	// are class names DOMPurify keeps and live INSIDE sections, so the sanitized
+	// per-section array carries them identically to the old whole-sanitize check.
+	const contentSig =
+		sig +
+		(sections.some((s) => s.indexOf('katex') !== -1) ? 'K' : '') +
+		(sections.some((s) => s.indexOf('language-mermaid') !== -1) ? 'M' : '');
 	const canPatch =
 		!fresh &&
 		contentSig === st.frameSig &&
@@ -407,7 +427,10 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	let patched = false;
 	if (canPatch) patched = patchSections(frame, sections, st.lastSections);
 	if (!patched) {
-		frame.srcdoc = buildSrcdoc({ html, css, mode, geom, ...opts });
+		// WRITE path (first render / theme·mode·size change / deck swap) — NOT the hot
+		// path. Sanitize the whole document so buildSrcdoc sees any inter/trailing
+		// content splitSections drops, keeping the written srcdoc byte-identical.
+		frame.srcdoc = buildSrcdoc({ html: sanitizeSlideHtml(html), css, mode, geom, ...opts });
 		st.frameSig = contentSig;
 	}
 	st.lastSections = sections;
