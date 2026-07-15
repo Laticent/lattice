@@ -183,12 +183,20 @@ behavioral coverage is the unit tests in `DeckPreview.test.tsx` (first-paint-imm
 frame-coalescing to the latest state, backpressure never overlaps, **heavy-host timer
 coalescing**, eager default preserved).
 
-**UNVERIFIED (HARD RULE #23):** the full-write hosts' *drag* behavior (FinishStudio
-sliders / Fabricate color / LayoutStudio CSS coalescing on the 120ms timer) is covered by
-the unit test + the deterministic `writePath` mechanism, but was **not driven on the real
-Finish/Fabricate panels** in this sandbox — the strobe-fix's real-surface proof is the
-outstanding verification. The patch-path latency + burst numbers above ARE from the real
-built Studio.
+**Full-write host, real Fabricate·Finish panel (the red-team regression's own surface),
+4× CPU** — navigated the built Studio into Fabricate → Finish and arrow-keyed a real
+`Wash intensity` slider (the same `onValueChange` stream a pointer drag produces):
+
+| Host / interaction | changes | renders fired | regime |
+|---|---|---|---|
+| StudioShell — 38-key type | 38 | **38** (one per key) | patch — live |
+| FinishStudio — 24 rapid slider steps (12/s) | 24 | **1** | write — coalesced |
+
+**Same loop, opposite behavior by regime — the adaptive fix, proven on the real surface.**
+The patch host renders every keystroke (live typing); the full-write host collapses 24
+rapid changes into a single write render (no per-frame iframe strobe). A pure (non-
+adaptive) frame loop would have fired ~24 writes here — the regression the red team
+found. All numbers above are from the real built Studio (`docs/dist`).
 
 ## Adversarial trio (HARD RULE #25 — owner-requested)
 
