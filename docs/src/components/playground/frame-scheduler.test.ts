@@ -27,7 +27,9 @@ describe('createFrameScheduler', () => {
 					release = () => res({ heavy: false });
 				}),
 		);
-		const s = createFrameScheduler({ render });
+		// High heavyRenderMs so the deliberately-hung render doesn't trip the wall-clock
+		// backstop — this test is about backpressure, not the slow-render classification.
+		const s = createFrameScheduler({ render, heavyRenderMs: 100000 });
 
 		s.schedule();
 		await tick(40); // first render starts, hangs
@@ -55,6 +57,38 @@ describe('createFrameScheduler', () => {
 		expect(render).toHaveBeenCalledTimes(1); // still coalescing on the 80ms timer
 		await tick(70);
 		expect(render).toHaveBeenCalledTimes(2); // fired after the coalesce window
+	});
+
+	it('wall-clock backstop: a SLOW render (reports cheap, but over heavyRenderMs) coalesces the next', async () => {
+		// Reports heavy:false, but takes ~40ms > the 15ms backstop → treated heavy anyway.
+		const render = vi.fn(async () => {
+			await tick(40);
+			return { heavy: false };
+		});
+		const s = createFrameScheduler({ render, heavyRenderMs: 15, heavyCoalesceMs: 90 });
+		s.schedule();
+		await tick(80); // first render done (~40ms > 15 → classified heavy)
+		expect(render).toHaveBeenCalledTimes(1);
+
+		s.schedule();
+		await tick(45); // a frame has passed — a genuinely-cheap host would have re-rendered
+		expect(render).toHaveBeenCalledTimes(1); // still coalescing on the 90ms timer
+		await tick(80);
+		expect(render).toHaveBeenCalledTimes(2);
+	});
+
+	it('watchdog unwedges a never-settling render so later edits still fire', async () => {
+		let resolve: (v: { heavy: boolean }) => void = () => {};
+		const render = vi.fn(() => new Promise<{ heavy: boolean }>((r) => (resolve = r)));
+		const s = createFrameScheduler({ render, watchdogMs: 30 });
+		s.schedule();
+		await tick(20);
+		expect(render).toHaveBeenCalledTimes(1); // in-flight, hung
+
+		s.schedule(); // arrives while hung
+		await tick(70); // watchdog (30ms) clears inFlight → dirty reschedules → render 2
+		expect(render).toHaveBeenCalledTimes(2);
+		resolve({ heavy: false }); // release the first (no-op now)
 	});
 
 	it('cancel() drops a pending frame', async () => {

@@ -28,6 +28,16 @@ export type FrameSchedulerOptions = {
 	render: () => Promise<{ heavy: boolean } | undefined>;
 	/** Trailing coalesce window (ms) after a heavy render. Default 120 (~the retired debounce). */
 	heavyCoalesceMs?: number;
+	/**
+	 * Wall-clock backstop (ms): a render that TOOK longer than this is treated as heavy
+	 * even if the host reported a cheap patch — so the NEXT render coalesces instead of
+	 * firing next-frame. This is the safety valve the single-slide sibling added after its
+	 * red-team pass (`DeckPreview.tsx` HEAVY_RENDER_MS): a filmstrip patch is NOT the ~2ms
+	 * single-slide patch — `patchSections` ends every patch with an O(N-section) `__latticeFit`
+	 * reflow ("a layout storm on large decks", deck-preview.js). Without this, a 50-slide deck
+	 * would run that storm every frame while typing. Default 50 (matches the sibling).
+	 */
+	heavyRenderMs?: number;
 	/** Backstop (ms) to clear a stuck in-flight guard if a render never settles. Default 4000. */
 	watchdogMs?: number;
 };
@@ -39,7 +49,7 @@ export type FrameScheduler = {
 	cancel: () => void;
 };
 
-export function createFrameScheduler({ render, heavyCoalesceMs = 120, watchdogMs = 4000 }: FrameSchedulerOptions): FrameScheduler {
+export function createFrameScheduler({ render, heavyCoalesceMs = 120, heavyRenderMs = 50, watchdogMs = 4000 }: FrameSchedulerOptions): FrameScheduler {
 	let raf = 0;
 	let timer = 0;
 	let dirty = false; // a change is waiting for a paint
@@ -82,8 +92,12 @@ export function createFrameScheduler({ render, heavyCoalesceMs = 120, watchdogMs
 		// If the render never settles (hung engine/theme load), unwedge on the backstop
 		// keeping the prior regime as the guess for the next schedule.
 		const watchdog = window.setTimeout(() => done(lastHeavy), watchdogMs);
+		const t0 = performance.now();
 		Promise.resolve(render())
-			.then((r) => done(!!r?.heavy))
+			// Heavy if the host said so (a full write) OR the render simply TOOK too long —
+			// the wall-clock backstop that catches a slow patch (the filmstrip's O(N) FIT
+			// storm on a big deck) so the next render coalesces instead of firing next-frame.
+			.then((r) => done(!!r?.heavy || performance.now() - t0 > heavyRenderMs))
 			.catch(() => done(false));
 	};
 

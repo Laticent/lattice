@@ -1022,12 +1022,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	);
 
 	// ── Re-render when <html> data-palette / data-mode change ───────────────────
+	// Routed through the SAME scheduler as edits (not a direct render(false)) so it
+	// honors the in-flight guard: a palette/mode flip landing mid-edit-render would
+	// otherwise run a second renderInto concurrently on the one iframe, mutating the
+	// shared previewState (frameSig/lastSections) out from under the in-flight patch.
+	// The scheduler serializes them; a palette change is a sig change → a full write.
 	React.useEffect(() => {
 		const root = document.documentElement;
-		const obs = new MutationObserver(() => render(false));
+		const obs = new MutationObserver(() => scheduleRender());
 		obs.observe(root, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
 		return () => obs.disconnect();
-	}, [render]);
+	}, [scheduleRender]);
 
 	// Trigger the on-demand engine load once the chrome has mounted/painted. The
 	// preview is core to the playground, so load it promptly (on idle / next

@@ -40,6 +40,7 @@ vi.mock('@/lib/playground-engine', () => ({
 			count: 3,
 			state: { frameSig: 'sig', lastSections: null },
 			geom: { w: 1280, h: 720 },
+			patched: true,
 		}),
 	}),
 }));

@@ -119,13 +119,58 @@ should-fix and two nits:
   editing even a one-word comment trips the stale-`dist` gate and would force a full engine
   bundle regeneration into this docs PR — disproportionate (#17/#18). Left as a tracked
   follow-up; the rename is complete for every LIVE reference (imports, CSS `@import`).
-- **accepted nits.** (1) The direct `render()` calls outside the scheduler — `onExpand`,
-  `freshRender`, the palette/mode `MutationObserver` — bypass the scheduler's in-flight
-  guard. Pre-existing one-shots; traced benign here (each bakes the new `frameSig`, so the
-  next scheduled render patches correctly), so left as-is rather than rewired (that risk
-  outweighs the benign overlap). (2) The 4s watchdog could clear `inFlight` under a
-  legitimately slow cold render → a rare concurrent render; it's the documented unwedge
-  tradeoff, kept generous.
+- **accepted nits.** (1) The direct `render()` calls outside the scheduler (`onExpand`,
+  `freshRender`, the palette/mode `MutationObserver`) bypass the in-flight guard. The
+  maker-checker traced these benign; the later adversarial trio (below) sharpened the
+  `MutationObserver` one into a real should-fix and it was **routed through the scheduler**;
+  the other two are logged as pre-existing residuals there. (2) The 4s watchdog could clear
+  `inFlight` under a legitimately slow cold render → a rare concurrent render; it's the
+  documented unwedge tradeoff, kept generous (now unit-tested).
+
+## Adversarial trio (HARD RULE #25 — owner-requested)
+
+Red team + Munger inversion + a fresh independent checker, against the post-maker-checker
+diff. The checker returned "mergeable — low risk" (single-timer fix correct + complete,
+state machine wedge-free, rename clean). The red team and Munger converged on two real
+gaps, both folded:
+
+- **should-fix (fixed) — the copy dropped the sibling's wall-clock heavy backstop.** The
+  single-slide DeckPreview marks a render heavy on `writePath==='write'` **OR** `elapsed >
+  HEAVY_RENDER_MS` (50ms); the Playground copy shipped only the `!patched` half. That
+  backstop is not decorative: a filmstrip patch is **not** the ~2ms single-slide patch —
+  `patchSections` ends every patch with `__latticeFit()`, an **O(N-section)** reflow the
+  `deck-preview.js` header itself calls "a layout storm on large decks." Without the
+  backstop, a 50-slide deck would run that storm every frame while typing. Fixed: added
+  `heavyRenderMs` (default 50) to `frame-scheduler.ts` — a render that TOOK too long now
+  coalesces the next, exactly like the sibling (+ unit tests for the backstop and the
+  watchdog).
+- **should-fix (fixed) — palette/mode observer bypassed the in-flight guard.** The red team
+  showed the direct `render(false)` from the `data-palette`/`-mode` MutationObserver shares
+  the same `previewState` object as an in-flight scheduler edit render, so a palette flip
+  mid-typing could run a second `renderInto` concurrently and mutate `frameSig`/`lastSections`
+  out from under the in-flight patch (mangled filmstrip). Fixed by routing the observer
+  through `scheduleRender()` (the same fix the single-slide sibling took in #1007) — the
+  scheduler now serializes it with edits.
+- **accepted / logged (pre-existing).** The OTHER direct renders — `freshRender` (deck swap)
+  and `onExpand` — still bypass the guard, but `freshRender` reassigns `previewState` to a
+  FRESH object (so no shared-state corruption; at worst a brief self-healing wrong-frame),
+  and `onExpand` fires only on a deliberate pane expand (not mid-typing). Both pre-date this
+  change; a full render-serialization mutex would fix them but is disproportionate risk for
+  the residual. Startup timer/scheduler cross-domain overlap (red-team #2) is a narrow,
+  startup-only cosmetic flash, mitigated by the single-timer fix. Logged, not fixed.
+- **Munger — the architecture note (acknowledged, deferred).** The scheduler is
+  dependency-free, so it COULD be shared with DeckPreview (a thin `render` adapter — already
+  how both call it) without re-coupling the Playground to anything; "duplicate for
+  independence" is weaker than framed. True. But the owner directed duplication; the drift it
+  warned of (the missing backstop) is now closed, and converging the two loops is logged as a
+  follow-up (below) rather than reversed here.
+
+**UNVERIFIED (HARD RULE #23):** the big-deck (50-slide) real-surface burst — the exact case
+the backstop protects — was **not** captured from the sandbox (the Playground's seed/view
+flow and the textContent render-signal resisted headless automation). The backstop is proven
+at the **unit level** (`frame-scheduler.test.ts`) and the small-deck real-surface latency
+(below) IS measured; the big-deck main-thread/coalescing numbers on the real surface remain to
+be driven on a real device.
 
 ## Off-path, logged not done (#18)
 - The frozen Drawing Board / Workbench still carry the 220ms-style debounce in their own
