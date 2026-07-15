@@ -42,13 +42,17 @@ export type DeckPreviewProps = {
 	 */
 	active?: boolean;
 	/**
-	 * Coalesce rapid re-renders (e.g. per-keystroke source edits) to a TRAILING
-	 * debounce, so a typing burst triggers ONE engine render after the user
-	 * pauses instead of one per keystroke. The first paint is always immediate;
-	 * only subsequent changes are debounced. 0 (default) renders eagerly — the
-	 * right choice for a static-`sample` host (landing, showcases).
+	 * FRAME-ALIGNED coalescing for a live-editing host (per-keystroke source
+	 * edits). Instead of a trailing timer, a change marks the preview dirty and
+	 * schedules ONE render on the next animation frame; a burst of keystrokes
+	 * within a frame collapses into a single render of the LATEST state (the
+	 * video-game render-loop model). An in-flight guard means a slow render never
+	 * backs up — the newest state paints as soon as the previous one settles. The
+	 * first paint is always immediate. Omit (default false) for a static-`sample`
+	 * host (landing, showcases): it renders eagerly, a one-shot. See
+	 * `engineering/decisions/2026-07-15-frame-aligned-preview-render.md`.
 	 */
-	debounceMs?: number;
+	coalesce?: boolean;
 	className?: string;
 	'aria-label'?: string;
 	role?: React.AriaRole;
@@ -75,7 +79,7 @@ export function DeckPreview({
 	modeOverride,
 	extraCss,
 	active = true,
-	debounceMs = 0,
+	coalesce = false,
 	className,
 	role,
 	onFirstRender,
@@ -129,54 +133,106 @@ export function DeckPreview({
 				})
 				.catch(() => {});
 		}
+		// Return the render promise so the frame scheduler can await it for
+		// backpressure — never overlap two renders on the same host.
+		return done;
 	}, [sample, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
-	// Always hold the LATEST render closure in a ref, so the active rising-edge
-	// effect can reach the current render WITHOUT listing it as a dependency —
-	// otherwise that effect re-fires on every content change and renders eagerly,
-	// silently defeating the debounce below.
+	// Always hold the LATEST render closure in a ref, so the frame scheduler and the
+	// active rising-edge effect can reach the current render WITHOUT listing it as a
+	// dependency — otherwise those effects re-fire on every content change and render
+	// eagerly, silently defeating the frame-aligned coalescing below.
 	const renderRef = React.useRef(render);
 	renderRef.current = render;
 
-	// Render once the engine bundle has loaded, then again whenever the source
-	// (or theme) changes. The FIRST paint runs immediately; with `debounceMs` set
-	// each subsequent change is coalesced to a trailing timer, so a typing burst
-	// fires ONE engine render after the pause instead of one (~38ms) per keystroke
-	// — the per-keystroke render is what blocks the main thread (see
-	// `engineering/decisions/2026-06-29-studio-render-debounce.md`).
+	// FRAME-ALIGNED RENDER LOOP (the video-game model) — replaces the old trailing
+	// debounce (2026-06-29). A change marks the preview dirty and schedules ONE
+	// render on the next animation frame; a keystroke burst within a frame collapses
+	// into a single render of the LATEST state. An in-flight guard applies
+	// backpressure so a slow render never overlaps or backs up. The first paint is
+	// immediate. See `engineering/decisions/2026-07-15-frame-aligned-preview-render.md`.
 	const paintedRef = React.useRef(false);
-	// Changes arrived since the last committed paint — each effect run (a source
-	// edit, or a prop change like a theme audition). The debounce collapses a burst
-	// into a single paint, so this counts what that paint coalesced.
+	// Edits collapsed into the NEXT committed paint (each effect run: a source edit
+	// or a prop change like a theme audition). Stamped on the host at commit time so
+	// the perf overlay's COALESCE chip reports what one paint absorbed.
 	const coalesceRef = React.useRef(0);
-	React.useEffect(() => {
-		let cancelled = false;
-		coalesceRef.current += 1;
-		const paint = () => {
-			// Stamp the coalesce count on the host for this render (edits → 1 paint);
-			// renderInto consumes it synchronously, so it's bound to THIS render — not a
-			// shared global an overlapping render could steal. Then reset.
-			const host = stageRef.current as (HTMLElement & { __latticeCoalesce?: number }) | null;
-			if (host) host.__latticeCoalesce = coalesceRef.current;
-			coalesceRef.current = 0;
-			// Kick the theme CSS fetch off in PARALLEL with the engine-bundle load
-			// (not behind it) — whenReady()'s ensureEngine() and this are two
-			// independent network round-trips that were previously serialized.
-			engineRef.current?.prefetchTheme?.(paletteOverride, modeOverride);
-			return engineRef.current?.whenReady().then(() => { if (!cancelled) render(); });
-		};
-		if (!paintedRef.current || debounceMs <= 0) {
-			paintedRef.current = true;
-			paint();
-			return () => { cancelled = true; };
+	const dirtyRef = React.useRef(false); // a change is waiting for a paint
+	const rafRef = React.useRef(0); // pending animation-frame handle (0 = none)
+	const inFlightRef = React.useRef(false); // a render is resolving right now
+
+	// commitRef / scheduleFrameRef are mutually recursive, so declare both refs
+	// first, then assign — the closures capture the refs, never call during render.
+	const commitRef = React.useRef<() => void>(() => {});
+	const scheduleFrameRef = React.useRef<() => void>(() => {});
+
+	// Commit one paint: stamp the coalesce count, prefetch the theme in PARALLEL
+	// with the engine-bundle load (two independent round-trips, not serialized),
+	// then render the LATEST state (via renderRef). Reassigned each render so the
+	// scheduler always reaches the current palette/mode without re-subscribing.
+	// Backpressure: if a render is still resolving, mark dirty and bail — that
+	// render's `finally` reschedules, so the newest state paints once it settles.
+	commitRef.current = () => {
+		if (inFlightRef.current) {
+			dirtyRef.current = true;
+			return;
 		}
-		const id = setTimeout(paint, debounceMs);
-		return () => { cancelled = true; clearTimeout(id); };
-		// paletteOverride/modeOverride are already implicit in `render`'s own
-		// identity (its useCallback deps list them), so listing them here too is
-		// redundant in practice — but explicit, since `paint()` reads them directly
-		// for the parallel prefetch, ahead of `render()` actually running.
-	}, [render, debounceMs, paletteOverride, modeOverride]);
+		// Stamp the coalesce count on the host for THIS render; renderInto consumes
+		// it synchronously, binding it to this sample (not a shared global an
+		// overlapping render could steal). Reset for the next burst.
+		const host = stageRef.current as (HTMLElement & { __latticeCoalesce?: number }) | null;
+		if (host) host.__latticeCoalesce = coalesceRef.current || 1;
+		coalesceRef.current = 0;
+		dirtyRef.current = false;
+		inFlightRef.current = true;
+		engineRef.current?.prefetchTheme?.(paletteOverride, modeOverride);
+		Promise.resolve(engineRef.current?.whenReady())
+			.then(() => renderRef.current())
+			.finally(() => {
+				inFlightRef.current = false;
+				// A change landed mid-render → paint the newest state next frame.
+				if (dirtyRef.current) scheduleFrameRef.current();
+			});
+	};
+
+	// Schedule a commit for the next animation frame, de-duped so a burst of
+	// changes in one frame shares a SINGLE frame → one render of the latest state
+	// (the coalescing the debounce used to buy, bounded by the frame rate instead
+	// of a fixed timer).
+	scheduleFrameRef.current = () => {
+		if (rafRef.current) return;
+		rafRef.current = requestAnimationFrame(() => {
+			rafRef.current = 0;
+			commitRef.current();
+		});
+	};
+
+	// On every change the render closure's identity changes. The FIRST paint (and
+	// any static `coalesce=false` host) paints immediately; an interactive host
+	// marks dirty and schedules the next frame. `render` is the change-TRIGGER: it
+	// isn't called in the body (the scheduler reaches it via renderRef), but its
+	// identity flips whenever any render input changes, which is exactly when we
+	// want to re-run — so it stays in the deps despite not being referenced.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `render` is the intentional change-trigger; the body reads only refs + `coalesce`.
+	React.useEffect(() => {
+		coalesceRef.current += 1;
+		if (!paintedRef.current || !coalesce) {
+			paintedRef.current = true;
+			commitRef.current();
+			return;
+		}
+		dirtyRef.current = true;
+		scheduleFrameRef.current();
+	}, [render, coalesce]);
+
+	// Cancel a pending frame on unmount (mount-once). The per-change effect above
+	// deliberately does NOT cancel — a mid-burst change keeps the single scheduled
+	// frame rather than thrashing cancel/reschedule every keystroke.
+	React.useEffect(
+		() => () => {
+			if (rafRef.current) cancelAnimationFrame(rafRef.current);
+		},
+		[],
+	);
 
 	// Re-render on palette / mode change (the shared topbar writes <html> attrs).
 	React.useEffect(() => {

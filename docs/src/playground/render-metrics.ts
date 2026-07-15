@@ -14,8 +14,8 @@
 // any smoothing or fan-out. The only always-on cost is the caller's own now()
 // deltas, which are nanoseconds; this module adds one object store on top.
 //
-// SMOOTHING. A fast typist triggers a render roughly every 140ms (the
-// DeckPreview debounce), so raw per-render numbers flicker. Timing fields are
+// SMOOTHING. A fast typist triggers up to one render per animation frame (the
+// DeckPreview frame-aligned loop), so raw per-render numbers flicker. Timing fields are
 // EMA-smoothed (alpha 0.3) so the overlay reads a steady value; counts (slides,
 // srcBytes) are reported raw. The RAW sample is preserved on `.raw`.
 
@@ -61,8 +61,8 @@ export type RenderSample = {
 	slides: number;
 	/** source length in code units (the workload size). */
 	srcBytes: number;
-	/** Edits collapsed into this one render by the preview debounce (≥1). Set by
-	 * recordRenderSample from the debounce bridge, so callers omit it. */
+	/** Edits collapsed into this one render by the preview's frame-aligned loop
+	 * (≥1). Set by recordRenderSample from the render bridge, so callers omit it. */
 	coalesced?: number;
 	/** Which render regime produced this sample:
 	 *   'patch' — the resident-document fast path swapped only the `.lattice` body

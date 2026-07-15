@@ -621,7 +621,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 						<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
 							<div className="flex min-w-0 flex-col gap-1.5 xl:col-span-2">
 								<span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">Slide</span>
-								<DeckPreview options={options} sample={SPECIMEN} mermaid={false} paletteOverride={derived.name} extraTheme={derived.css ? { name: derived.name, css: derived.css } : undefined} modeOverride={specimenMode} debounceMs={140} className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]" aria-label="Theme specimen" />
+								<DeckPreview options={options} sample={SPECIMEN} mermaid={false} paletteOverride={derived.name} extraTheme={derived.css ? { name: derived.name, css: derived.css } : undefined} modeOverride={specimenMode} coalesce className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]" aria-label="Theme specimen" />
 							</div>
 							{[
 								{ label: 'Chart', sample: CHART_SPECIMEN, mermaid: false, aria: 'Chart specimen' },
@@ -629,7 +629,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 							].map((p) => (
 								<div key={p.label} className="flex min-w-0 flex-col gap-1.5">
 									<span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">{p.label}</span>
-									<DeckPreview options={options} sample={p.sample} mermaid={p.mermaid} paletteOverride={derived.name} extraTheme={derived.css ? { name: derived.name, css: derived.css } : undefined} modeOverride={specimenMode} debounceMs={140} className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]" aria-label={p.aria} />
+									<DeckPreview options={options} sample={p.sample} mermaid={p.mermaid} paletteOverride={derived.name} extraTheme={derived.css ? { name: derived.name, css: derived.css } : undefined} modeOverride={specimenMode} coalesce className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]" aria-label={p.aria} />
 								</div>
 							))}
 						</div>
