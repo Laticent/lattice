@@ -6,6 +6,13 @@ import { expect, gotoStudio, test } from './studio-fixture';
 // offered to a reader in Present. A draft view is never presentable.
 
 test.beforeEach(async ({ page }) => {
+	// These flows test the MANUAL add → suggest → approve loop from an EMPTY reader-view slate, so turn
+	// workspace inheritance OFF before the app loads (the inherited-starters behavior has its own spec,
+	// lenses-inherited.spec.ts). addInitScript runs before any app script, so the setting is in place on
+	// first render — the shell reads lensDefaults at mount.
+	await page.addInitScript(() => {
+		window.localStorage.setItem('lattice-studio-settings', JSON.stringify({ lensDefaults: false }));
+	});
 	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Toggle Architect' }).click();
 	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();

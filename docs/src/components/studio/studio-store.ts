@@ -343,8 +343,12 @@ export type HandleStyle = 'knob' | 'reticle';
 // mathematically lossless). A fidelity-vs-speed call that belongs to the USER,
 // so it lives here as a workspace preference rather than a hardcoded default.
 export type PdfPages = 'png' | 'jpeg';
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; onboarded: boolean; handleStyle: HandleStyle; pdfPages: PdfPages };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, onboarded: false, handleStyle: 'knob', pdfPages: 'png' };
+// `lensDefaults` — whether decks INHERIT the workspace default reader views (the curated two,
+// workspace-lenses.ts). ON by default: a fresh deck shows the two starter views in its Lenses panel
+// without baking anything into its source (the delta model — see workspace-lenses.ts). Turning it off
+// drops the inherited starters from every deck that never materialized (approved/edited/dropped) one.
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; onboarded: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; lensDefaults: boolean };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, onboarded: false, handleStyle: 'knob', pdfPages: 'png', lensDefaults: true };
 
 export function loadSettings(): StudioSettings {
 	const saved = read<Partial<StudioSettings>>(SETTINGS_LS) ?? {};

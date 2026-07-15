@@ -1,4 +1,4 @@
-import { Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { Cloud, Cpu, Database, Download, ExternalLink, Eye, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -179,6 +179,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
 	// Share → PDF page-image format (lossless PNG / fast JPEG).
 	const [pdfPages, setPdfPages] = React.useState<PdfPages>(() => loadSettings().pdfPages);
+	// Whether decks inherit the workspace default reader views (the curated two — Bottom line + The evidence).
+	const [lensDefaults, setLensDefaults] = React.useState(() => loadSettings().lensDefaults);
 	const [storeInCloud, setStoreInCloud] = React.useState(false);
 	const [connecting, setConnecting] = React.useState(false);
 	const [spend, setSpend] = React.useState(() => architectSpend());
@@ -367,6 +369,22 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								onValueChange={(v) => { setLanguage(v); saveSettings({ language: v }); notify(`Workspace language: ${languageFor(v).label}. Every deck inherits it unless it sets its own.`); }}
 							/>
 							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Both AI tiers — cloud and on-device — write in this language; component and theme names stay in English.</p>
+
+							<div className="mt-6">
+								<GroupLabel icon={<Eye className="size-3.5" />}>Default reader views</GroupLabel>
+								<div className="flex items-start gap-3 rounded-xl border border-border bg-background p-3">
+									<Switch
+										checked={lensDefaults}
+										onCheckedChange={(v) => { setLensDefaults(v); saveSettings({ lensDefaults: v }); notify(v ? 'Default reader views on — every deck starts with two starter views.' : 'Default reader views off — starters you haven’t approved are hidden; approved views stay.'); }}
+										aria-label="Default reader views"
+										className="mt-0.5"
+									/>
+									<span className="flex flex-col gap-0.5">
+										<span className="text-[13px] font-semibold text-[var(--text-heading)]">Start every deck with two reader views</span>
+										<span className="text-[11px] leading-snug text-muted-foreground"><strong className="font-semibold text-foreground">Bottom line</strong> (the answer) and <strong className="font-semibold text-foreground">The evidence</strong> (the proof) appear in the Lenses panel as <em>Starter</em> views you fill in and approve — nothing is written to a deck until you approve one. Turn this off and any starter you haven’t approved is hidden across your decks; views you’ve approved stay put.</span>
+									</span>
+								</div>
+							</div>
 
 							<div className="mt-6">
 							<GroupLabel icon={<MousePointer2 className="size-3.5" />}>Placement handles</GroupLabel>

@@ -12,7 +12,7 @@ export { sha256Hex } from './hash';
 // Read path — pure, deterministic, never reaches the suggester.
 export { approvalHash, lensEligibility, lensIndices, lensPairs, lensSlides, readerLenses } from './project';
 // Registry — parse / emit / upsert the front-matter `lenses:` block (Lente is its sole writer).
-export { emitRegistry, parseLensRegistry, upsertLensRegistry } from './registry';
+export { emitRegistry, emitRegistryDelta, isPristineInherited, parseLensRegistry, upsertLensRegistry } from './registry';
 // Suggest path — a SEPARATE module; pure, no AI, proposes membership, writes nothing.
 export { catalogFromComponents, suggestMembership } from './suggest';
 // Tags — the per-slide membership carrier.

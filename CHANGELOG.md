@@ -176,6 +176,19 @@ in patch versions.
   gets its source-vs-target distinction for free. An `en-GB` deck gets British-English edits on every
   AI path. English (US + UK) only for now; the picker is data-driven so more languages — and that
   lens — are rows of data, not a rebuild. See `engineering/decisions/2026-07-14-language-settings.md`.
+- **Studio: every deck inherits the workspace's default reader views — without touching its source.**
+  A new **Default reader views** workspace setting (Workspace → General, on by default) gives every deck
+  two starter reader views — **Bottom line** (the answer) and **The evidence** (the proof) — that appear
+  in the Lenses panel with a **Starter** badge (so it's clear they're workspace suggestions, not views you
+  built). Crucially the deck's *source stays clean*: nothing is written to the `lenses:` block until you
+  approve, relabel, or drop a starter — then only that change materializes into the deck (a dropped starter
+  is tombstoned so it never silently re-inherits, even across toggling the setting off and on). Turn the
+  setting off and any starter you haven't approved is hidden across your decks; approved views stay put.
+  Reader views stay human-gated end to end: the workspace supplies only the *shape* (label + scope), never
+  membership or approval, and an inherited view is never offered to a reader until you approve it. Hardened
+  by the adversarial trio — the reader gate fails closed under every attack. (`lente/registry.ts`
+  delta-emit + tombstones, `workspace-lenses.ts`, `lens-archetypes.ts`; the compose picker and Preview
+  offer a starter only once it has a slide to show.)
 - **Studio widgets: three more shared shadcn primitives — `ui/tooltip`, `ui/separator`, `ui/kbd`.**
   The docs-site Studio gains styled, colour-mode-aware tooltips (a `Tip` one-line wrapper over Radix
   Tooltip) in place of native `title=` on its toolbar icon controls, a `Separator` for the toolbar

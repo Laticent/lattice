@@ -3,14 +3,19 @@ import * as React from 'react';
 import {
 	approvalHash,
 	type ComponentCatalog,
+	isPristineInherited,
 	type LensBase,
 	type LensDef,
 	type LensRegistry,
 	lensIndices,
 	parseSlideTags,
 	suggestMembership,
+	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
+// The reader archetypes (the "Add a reader view" menu) — the SHARED source of truth, also used by the
+// workspace default reader views (workspace-lenses.ts), so the panel and the defaults can't drift.
+import { ARCHETYPES } from './lens-archetypes';
 import { slideClass } from './lint';
 
 // The Lenses panel — the human-in-the-loop control center for reader views (design
@@ -25,16 +30,6 @@ import { slideClass } from './lint';
 
 // One tag write: put slide `index` in/out of `lensId` (the shell applies it via the library's applyTag).
 export type TagChange = { index: number; lensId: string; member: boolean; base: LensBase };
-
-// The reader archetypes we ship a built-in suggester for (suggest.ts). Each is grounded in a reader
-// TYPE, not a layout: the bottom-line reader, the narrative reader, the proof-first reader, the
-// decision-maker. The blurb is the author-facing "who is this for," in plain words.
-const ARCHETYPES: Array<{ id: string; label: string; base: LensBase; single?: boolean; blurb: string }> = [
-	{ id: 'brief', label: 'Bottom line', base: 'none', blurb: 'Headline metrics + the frame — for a reader who wants the answer, not the tour.' },
-	{ id: 'story', label: 'The story', base: 'none', blurb: 'The throughline: setup → journey → payoff, in plain language.' },
-	{ id: 'evidence', label: 'The evidence', base: 'all', blurb: 'Everything substantive; drops decoration and dividers — for the reader who wants proof.' },
-	{ id: 'ask', label: 'The ask', base: 'none', single: true, blurb: 'Exactly one slide: the decision you need.' },
-];
 
 type LensStatus = 'empty' | 'draft' | 'approved' | 'drifted' | 'hidden';
 
@@ -93,6 +88,7 @@ export function LensesPanel({
 	registry,
 	catalog,
 	activeLens,
+	workspace,
 	onPreview,
 	onWriteRegistry,
 	onTag,
@@ -102,11 +98,16 @@ export function LensesPanel({
 	registry: LensRegistry;
 	catalog: ComponentCatalog;
 	activeLens: string;
+	/** The workspace default reader views in force (undefined when the setting is off) — lets the panel
+	 *  badge an untouched INHERITED starter as "Starter" so the author knows it's a workspace suggestion,
+	 *  not a view they built. The badge clears the moment they approve or edit it (no longer pristine). */
+	workspace?: WorkspaceLensConfig;
 	onPreview: (lensId: string) => void;
 	onWriteRegistry: (label: string, reg: LensRegistry) => void;
 	onTag: (label: string, changes: TagChange[]) => void;
 	onRemoveLens: (lens: LensDef) => void;
 }) {
+	const wsDefs = React.useMemo(() => new Map((workspace?.lenses ?? []).map((l) => [l.id, l])), [workspace]);
 	const lenses = registry.lenses.filter((l) => l.id !== 'full');
 	const [expanded, setExpanded] = React.useState<string | null>(null);
 	const [adding, setAdding] = React.useState(false);
@@ -152,7 +153,7 @@ export function LensesPanel({
 			<p className="text-xs leading-relaxed text-muted-foreground">A reader view is a subset of this deck for one kind of reader. You approve exactly what each reader sees — a machine only suggests.</p>
 
 			{lenses.length > 0 && (
-				<ul className="mt-2.5 space-y-2">
+				<ul className="mt-2.5 list-none space-y-2 pl-0">
 					{lenses.map((lens) => {
 						const currentHash = approvalHash(slides, registry, lens.id);
 						return (
@@ -163,6 +164,7 @@ export function LensesPanel({
 								registry={registry}
 								suggestions={suggestions.filter((s) => s.lensId === lens.id)}
 								catalogReady={catalogReady}
+								isStarter={isPristineInherited(lens, wsDefs.get(lens.id))}
 								isActive={activeLens === lens.id}
 								previewedOk={previewedHash[lens.id] === currentHash}
 								open={expanded === lens.id}
@@ -209,6 +211,7 @@ function LensRow({
 	registry,
 	suggestions,
 	catalogReady,
+	isStarter,
 	isActive,
 	previewedOk,
 	open,
@@ -224,6 +227,7 @@ function LensRow({
 	registry: LensRegistry;
 	suggestions: Array<{ index: number; lensId: string; member: boolean; reason: string }>;
 	catalogReady: boolean;
+	isStarter: boolean;
 	isActive: boolean;
 	previewedOk: boolean;
 	open: boolean;
@@ -259,9 +263,10 @@ function LensRow({
 				<Eye className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
 				<span className="min-w-0 flex-1">
 					<span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{lens.label}</span>
-					<span className="mt-1 flex items-center gap-1.5">
+					<span className="mt-1 flex flex-wrap items-center gap-1.5">
 						<span className="font-mono text-[10px] text-muted-foreground">{members} slide{members === 1 ? '' : 's'}</span>
 						<span title={copy.full} className={cn('rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide', copy.tone)}>{copy.label}</span>
+						{isStarter && <span title="Suggested by your workspace — tag slides and approve to make it yours." className="rounded-full border border-dashed border-border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-muted-foreground">Starter</span>}
 					</span>
 				</span>
 				<ChevronDown className={cn('mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
@@ -271,7 +276,9 @@ function LensRow({
 				<div className="border-t border-border px-2.5 pb-2.5 pt-2">
 					{/* Actions: preview, approve/re-approve/un-approve, remove. Approve is GATED on preview. */}
 					<div className="flex flex-wrap items-center gap-1.5">
-						<button type="button" onClick={onPreview} className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold', isActive ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Eye className="size-3" />{isActive ? 'Previewing' : 'Preview'}</button>
+						{/* Preview is disabled with 0 members: there's nothing to show, and previewing an empty view
+						    would flash a blank rail then snap back to the full deck (the compose picker also hides it). */}
+						<button type="button" onClick={onPreview} disabled={members === 0} title={members === 0 ? 'Tag at least one slide into this view to preview it.' : undefined} className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45', isActive ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Eye className="size-3" />{isActive ? 'Previewing' : 'Preview'}</button>
 						{(status === 'draft' || status === 'drifted') &&
 							(previewedOk ? (
 								<button type="button" onClick={onApprove} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] bg-[color-mix(in_srgb,var(--chart-3,#2e6f00)_10%,transparent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--chart-3,#2e6f00)]"><ShieldCheck className="size-3" />{status === 'drifted' ? 'Re-approve' : 'Approve for readers'}</button>
@@ -297,7 +304,7 @@ function LensRow({
 								<span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">{pending.length} suggestion{pending.length === 1 ? '' : 's'}</span>
 								<button type="button" onClick={() => applySuggestions(pending)} className="ml-auto rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--on-accent,#fff)]">Accept all</button>
 							</div>
-							<ul className="space-y-1">
+							<ul className="list-none space-y-1 pl-0">
 								{pending.map((s) => (
 									<li key={`${s.index}:${s.member}`} className="flex items-center gap-1.5">
 										<button type="button" onClick={() => applySuggestions([s])} aria-label={`Accept: ${s.reason}`} className="grid size-5 shrink-0 place-items-center rounded border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--on-accent,#fff)]"><Check className="size-3" /></button>
@@ -313,7 +320,7 @@ function LensRow({
 					    extra tags stay removable). Toggling flips the tag; the library resolves the projection. */}
 					<div className="mt-2.5">
 						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Slides in this view <span className="font-sans font-normal normal-case">· {baseWord(lens.base)}</span></div>
-						<ul className="max-h-[220px] space-y-0.5 overflow-y-auto">
+						<ul className="max-h-[220px] list-none space-y-0.5 overflow-y-auto pl-0">
 							{slides.map((s, i) => {
 								const inView = tagged.has(i);
 								const shownToReaders = memberSet.has(i);
