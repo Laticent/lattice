@@ -530,3 +530,57 @@ terminal-proof cap; cut C, A2, and D. Never misleads; the misfire risk of the cu
 what this narrator family exists to prevent. The gains that would have pushed toward talk-register
 (returns, shape, protocol-naming) are precisely the parts that lie, so they are deliberately *not*
 built — recorded as an honest ceiling, not a gap to close later.
+
+## 15. Slice 2 — pie · class · state · ER · C4, in one PR (SHIPPED 2026-07-14)
+
+Maintainer directive: ship the rest of the first wave in ONE PR, each narrator hardened by its own
+adversarial pass ("trio after each"). All five route through the slice-1 type dispatcher
+(`narrateMermaidFence`); each is a self-contained `narrate<Type>` sharing a `mermaidPrelude` (skip
+frontmatter/`%%{init}%%`/`%%`, confirm the type token) and the existing scaffolding
+(`scrubLabel`/`stripQuotes`/`joinWithAnd`/`numberToWords`/`terminate`). Every narrator self-bails on
+any construct a faithful reading can't support.
+
+The **authored-verb asymmetry (§2)** is the backbone here: unlike the flowchart's neutral arrow, a
+class `<|--`, an ER crow's-foot, a state `[*]`, a C4 `Rel` all have a Mermaid-DEFINED meaning, so
+speaking that meaning reads the author's choice — a small defined-symbol→English table per type,
+faithful by construction.
+
+- **pie** (DATA) — each slice with its DERIVED % the way Mermaid derives it (§3.5); `showData` adds
+  the raw value. Bails <2 slices, non-positive SUM, **or any non-positive slice** (Mermaid errors on
+  a ≤0 value — no rendered pie to narrate; a pie-check finding).
+- **classDiagram** (STRUCTURAL) — the defined-symbol→verb table (`<|--` inherits, `*--` composed of,
+  `o--` aggregates, `..>` depends on, `..|>` realizes, `-->` associated with, `--` linked to), the
+  arrowhead/diamond SIDE deciding subject/object (verified correct on every base + reversed form);
+  an association LABEL overrides the verb; `"1"--"*"` multiplicity trails "one to many". Members read
+  "‹Class› has ‹names›". Bails namespace / lollipop `()` / combined `<|--|>`. Folded: standalone
+  `<<annotation>> Name`, generic-name tildes, `n`/`0..n` multiplicity.
+- **stateDiagram** (STRUCTURAL, flat v1) — `[*]` start/end BY POSITION; `X --> Y : e` reads "From X,
+  on e, goes to Y"; BOTH label forms (`state "d" as id` AND `id : d`) resolve the display label
+  (a state-check finding). Bails composite `{…}` / concurrency `--` / `<<fork>>`/`<<join>>` — a flat
+  reading would misstate parallel/nested structure.
+- **erDiagram** (STRUCTURAL+DATA) — both crow's-foot counts read LITERALLY on each side (never a
+  gambled direction; verified correct on all 16 combos), the label as the verb; attribute blocks read
+  fields + key roles. Folded: comma-separated composite keys `PK, FK` (were bailing the whole
+  diagram), quoted-label quote-stripping.
+- **C4** (STRUCTURAL) — typed elements ("‹label›, a ‹kind›[, external]: ‹descr›"; "external" only on
+  `_Ext`; Container/Component/Node read the tech field), `Rel` honoring `Rel_Back` reversal + `BiRel`
+  and IGNORING the `_U/_D/_L/_R` layout suffixes, boundaries as authored containment (never a peer
+  relationship — §3.2). Folded: a boundary NESTING STACK (a scalar had flattened nesting and leaked a
+  sibling to the top level — a C4-check finding), boundary-alias→label registration so a `Rel` to a
+  boundary resolves, a label-less `Rel` → neutral "is connected to", and a `)` inside a quoted field
+  no longer truncates the args.
+
+**Adversarial passes (one per type, verified against the live Mermaid grammar by running the code):**
+pie — negative/zero-slice fabrication (fixed). class — direction + faithfulness + bails ALL clean;
+prose/coverage polish folded. state — structure bails all safe; the `id : description` label form
+(fixed). ER — cardinality/direction clean on all 16 combos; composite-key bail + quoted-label (fixed).
+C4 — tech/direction/layout/external/quote-comma all clean; nested-boundary + boundary-alias leaks
+(fixed). Every fix carries a regression test. Demo: `examples/typed-diagram-narration.md`.
+
+A recorded corner: a `stateDiagram` transition whose SOURCE id equals a statement keyword
+(only `end` is a plausible id) is parsed as a transition, not dropped — the keyword-skip yields to
+a `-->` line (a final-check finding).
+
+Remaining first-wave follow-on: **radar** (`radar-beta`, reuse `narrateRadar`'s scale tail) as the
+scoped fast-follow; then tier-2/3 types per §9. Audio UNVERIFIED (no TTS in CI); only the spoken
+string is asserted.
