@@ -56,7 +56,7 @@ vi.mock('@/playground/deck-config.js', () => ({
 	CONFIG_PROFILES: { noTheme: [] },
 	createConfigPanel: () => ({ render: () => {} }),
 }));
-vi.mock('@/playground/drawing-board-chart-interact.js', () => ({
+vi.mock('@/playground/chart-interact.js', () => ({
 	createChartInteract: () => ({ rebind: () => {}, destroy: () => {} }),
 }));
 

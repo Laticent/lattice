@@ -1,7 +1,12 @@
-// Present/practice CHART INTERACTION — parent-hosted, so the slide iframe stays a
-// pure paint surface (isolation + screen===PDF parity untouched). See
+// CHART INTERACTION — parent-hosted, so the slide iframe stays a pure paint surface
+// (isolation + screen===PDF parity untouched). See
 // engineering/decisions/2026-06-19-css-3d-charts-feasibility.md ›
 // "Present/practice interactive integration".
+//
+// Renamed off the `drawing-board-` prefix (2026-07-15): shared infra for the SURVIVING
+// Playground plus the frozen Drawing-Board present/practice, per the 2026-07-03
+// studio-succession code-ownership boundary. The Playground imports this (not a
+// drawing-board-* module), so removal of the frozen surfaces is a clean `git rm`.
 //
 // The slide is a same-origin `srcdoc` iframe under a full-stage pointer-capture
 // overlay. Rather than fight that overlay, the interaction lives on the PARENT

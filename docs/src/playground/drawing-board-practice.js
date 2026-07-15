@@ -18,8 +18,8 @@
 // `@import` closure so a multi-level theme (a11y-* → a11y-base → onyx → lattice)
 // registers fully — the one tested path, not a re-inlined copy.
 import { createThemeFetcher } from '../lib/theme-fetch.ts';
+import { createChartInteract } from './chart-interact.js';
 import { A11Y_DEFS, KATEX_URL, MERMAID_URL, splitSections } from './deck-preview.js';
-import { createChartInteract } from './drawing-board-chart-interact.js';
 import { isCapableTier } from './drawing-board-chat.js';
 import { initPracticeTour } from './drawing-board-practice-tour.js';
 import { createRehearsalPlanner, metasFromSections, metasFromSource, overBeat } from './drawing-board-rehearsal.js';

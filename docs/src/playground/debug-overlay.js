@@ -283,7 +283,7 @@ export function applyDebug(frame, opts = {}) {
 	// died in the small preview. We map the parent-viewport point into the iframe's own
 	// coordinates (undo the element scale) and hit-test with the IFRAME's elementsFromPoint;
 	// the chips still live inside the iframe. Same idea as the chart-interact hit-surface
-	// (drawing-board-chart-interact.js). Touch is PRESS-AND-HOLD to peek; mouse is live
+	// (chart-interact.js). Touch is PRESS-AND-HOLD to peek; mouse is live
 	// hover. `always` mode needs no input.
 	const pdoc = (() => { try { return frame?.ownerDocument || null; } catch { return null; } })();
 	if (enabled.some((s) => s.cfg.reveal === 'hover') && pdoc?.body && frame.getBoundingClientRect) {

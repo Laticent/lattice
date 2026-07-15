@@ -1,5 +1,5 @@
 /* Chart interaction popover — SHARED across every surface that mounts
-   createChartInteract (drawing-board-chart-interact.js): the Drawing Board
+   createChartInteract (chart-interact.js): the Drawing Board
    (present/practice + live preview) AND the Playground live preview. It lived in
    drawing-board.css, so the Playground rendered the popover UNSTYLED (a
    full-width block off-screen). Keep it here and import it from every page that
@@ -22,7 +22,7 @@
 	cursor: pointer;
 }
 /* The popover — floats above the chart; never traps the pointer. Position is
-   owned by Floating UI (drawing-board-chart-interact.js); this is appearance
+   owned by Floating UI (chart-interact.js); this is appearance
    only. Docs-site chrome → uses the SITE palette tokens so it flips with
    light/dark and matches the shadcn surface aesthetic, not a hardcoded dark
    glass. (`--bg` / `--text-*` / `--border` are set on html[data-palette].) */

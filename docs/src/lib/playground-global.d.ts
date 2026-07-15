@@ -27,7 +27,7 @@ export interface LatticePlaygroundEngine {
 export interface LatticeDeckPreviewController {
 	renderDeck: (
 		opts: Record<string, unknown>,
-	) => { state: { frameSig: string; lastSections: unknown }; count: number };
+	) => { state: { frameSig: string; lastSections: unknown }; count: number; patched: boolean };
 }
 
 declare global {
