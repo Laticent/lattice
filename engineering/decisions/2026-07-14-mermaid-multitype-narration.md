@@ -584,3 +584,37 @@ a `-->` line (a final-check finding).
 Remaining first-wave follow-on: **radar** (`radar-beta`, reuse `narrateRadar`'s scale tail) as the
 scoped fast-follow; then tier-2/3 types per §9. Audio UNVERIFIED (no TTS in CI); only the spoken
 string is asserted.
+
+## 16. Radar — the first-wave fast-follow (SHIPPED 2026-07-14)
+
+`radar-beta` completes the first wave. DATA tier, routed through the same dispatcher (the `-beta`
+suffix is stripped to the `radar` keyword). `narrateRadarBeta` reads the **scale** first — the `min`
+(default 0) / `max` keywords, or `0..dataMax` when `max` is omitted — Mermaid draws the outer ring at
+the RAW data maximum, NOT a `niceCeil` ceiling (exactly as the §12.2 design trio warned and an
+adversarial check re-confirmed against the v11 radar source; the initial impl wrongly reused
+`narrateRadar`'s `niceCeil` tail and was corrected) — then each curve's values, pairing **positional**
+values to axes in declaration order and
+**keyed** values (`{ axisId: value }`) to the axis named, always spoken in axis order. Handles
+multi-line `axis` declarations, multiple curves per line, id-only or labeled axes, and axes declared
+after curves. Past ~a dozen values it **summarizes** (the §5 firehose rule) — count + each curve's
+PEAK axis — instead of reading a value wall.
+
+The bail/skip contract **matches what Mermaid actually renders** (verified against the v11
+parser/db/renderer, not the docs): it SKIPS a single positional-count-mismatched curve (Mermaid draws
+the rest), IGNORES an unknown keyed axis and takes first-wins on a duplicate key (Mermaid's `find`),
+and **bails the whole slide only when Mermaid itself fails to draw** — a duplicate axis id, a keyed
+curve leaving an axis uncovered (Mermaid throws), a negative value or mis-cased/`-beta`-less keyword
+(parse error), or no axes/curves. A value is never read against the wrong axis, and it never narrates
+a chart Mermaid refuses to render.
+
+**A genuine three-perspective trio ran on radar** (the earlier types got one adversarial pass each —
+a gap owned and corrected here): an adversarial red-team pass (raw-data-max scale, keyed-coverage
+bail), a **Munger inversion** (duplicate-axis misread; the missing §5 summarize gate), and an
+**independent checker vs the v11 source** (the over-bail bias — accTitle/accDescr, unknown keys,
+sibling curves — and the over-matched keyword). Every finding folded with a regression test. Demo
+`examples/radar-narration.md`.
+
+**First wave complete:** flowchart · sequence · class · state · ER · C4 · pie · radar. Remaining are
+the tier-2/3 types (mindmap, gantt, timeline, journey, quadrant, xychart, gitGraph, kanban,
+requirement) and the summarize/bail tiers (sankey, treemap; block, packet, zenuml), each a later
+slice per §9. Audio UNVERIFIED (no TTS in CI); only the spoken string is asserted.
