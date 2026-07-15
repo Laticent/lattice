@@ -326,6 +326,24 @@ section.chart-frame .chart-body {
   overflow: hidden;
 }
 
+/* .viz-frame §5 — the self-scaling test, per chart family. An SVG chart
+ * (piechart/radar/quadrant/funnel/map/word-cloud/state-chart) self-scales inside the
+ * `.cell-stage` clip: its `<svg>` is sized to the box and letterboxes, so a squeezed
+ * box SCALES it — `flex:1 1 auto` (above) is right, the clip never loses content. But a
+ * LIST/TABLE chart (progress/gantt/kanban/timeline-list/roadmap/journey) has
+ * content-height rows: under `flex:1 1 auto` an overstuffed chart flex-SHRINKS and
+ * `overflow:hidden` clips the excess rows SILENTLY — invisible to the overflow probe
+ * (the QR-card silent-overflow class, 2026-07-15-viz-frame-merge.md §5). Pin those
+ * bodies to natural height so an overstuffed chart SPILLS the stage clip and the probe
+ * catches it (proven by chart-overflow-preserved.test.js). */
+section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap, .journey) > .cell-stage > .chart-body {
+  flex: 0 0 auto;
+}
+/* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
+ * height) would otherwise sit at the stage top; an SVG body (flex:1) already fills the
+ * stage, so this is a no-op for it. An `align-*` modifier overrides at higher specificity. */
+section.chart-frame > .cell-stage { justify-content: center; }
+
 /* ── Box-local: reclaim horizontal room for the figure on a tall/narrow box. The
  * default body reserves --sp-2xl on EACH side in both the width calc and the
  * padding (≈4× --sp-2xl total) — right for a wide slide, but in portrait that eats
