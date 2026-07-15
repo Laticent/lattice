@@ -40,16 +40,20 @@ export interface StageOptions {
 	 *  from/to a non-zero sample (the click/pop at a non-zero-crossing clip boundary). Default 8.
 	 *  0 disables it (source connects straight to the destination). Clamped to half the clip. */
 	fadeMs?: number;
-	/** Hold the OUTPUT ROUTE awake with a continuous, near-silent noise source so a Bluetooth / Apple
-	 *  CarPlay link never idles between per-sentence clips (the idle→wake transient is the "choppy +
+	/** Hold the OUTPUT ROUTE awake with a continuous, sub-audible LOW-FREQUENCY sine tone so a Bluetooth /
+	 *  Apple CarPlay link never idles between per-sentence clips (the idle→wake transient is the "choppy +
 	 *  pop between sentences" bug). Runs entirely outside the clip graph and the play-clock, so it does
 	 *  NOT affect caption sync. Harmless on wired/speaker output. Default true; false disables it. */
 	keepAlive?: boolean;
-	/** Linear gain of the keep-alive source — sub-audible but non-zero (a digital-silence stream is
-	 *  what iOS suppresses). DEVICE-TUNABLE: too low may not defeat silence-suppression, too high is
-	 *  audible hiss; the effective value depends on the route and is best confirmed on a real device.
-	 *  Default ~0.0015 (≈ -56 dBFS). */
+	/** Linear gain of the keep-alive tone — non-zero (a digital-silence stream is what iOS suppresses) but
+	 *  sub-audible in its low band. DEVICE-TUNABLE: too low may not defeat silence-suppression, too high
+	 *  becomes an audible hum; best confirmed on a real device. Default ~0.001 (≈ -60 dBFS). */
 	keepAliveGain?: number;
+	/** Frequency (Hz) of the keep-alive tone. Low by design — the ear is ~40+ dB less sensitive down here
+	 *  (equal-loudness), so the route-keeping energy is inaudible rather than the hiss a broadband source
+	 *  produces; still inside every A2DP codec's passband so the far end sees signal, not silence. Kept
+	 *  above deep sub-bass so it isn't FELT through a subwoofer. DEVICE-TUNABLE. Default 70. */
+	keepAliveHz?: number;
 	/** How long the route stays warm after the last clip before the keep-alive releases (so an idle tab
 	 *  isn't pinned holding the Bluetooth/CarPlay link + media session open). Re-armed on the next
 	 *  play()/unlock(). Must exceed the inter-clip gap + next-sentence synth time so it never fires

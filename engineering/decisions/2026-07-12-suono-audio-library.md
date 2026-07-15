@@ -199,9 +199,14 @@ Each of these is a real bug voice-model.js paid for once. In Suono they are the 
   route iOS drops the A2DP link to a low-power state when the rendered stream is digital silence for a
   beat between per-sentence clips, and the wake-up transient on the next clip is heard as choppiness +
   a pop on its first word (an on-device report; worst on many-short-fragment slides, the same shape
-  declick's worst case has). The `stage` now holds a continuous, sub-audible looping noise source on
-  the destination (`keepAlive`, default on; `keepAliveGain`, device-tunable ≈ -56 dBFS) so the route
-  never idles. It is deliberately OUTSIDE `activeSources` (a `stopAll()`/barge-in must NOT stop it —
+  declick's worst case has). The `stage` now holds a continuous, sub-audible tone on the destination
+  (`keepAlive`, default on; `keepAliveGain`/`keepAliveHz`, device-tunable) so the route never idles.
+  **Tone, not noise (device follow-up):** the first cut used white noise and it was audible HISS
+  on-device — broadband noise dumps energy into the ear's most sensitive band (2–5 kHz). The fix moves
+  the *same* route-keeping energy to a low ~70 Hz sine, where hearing is ~40+ dB less sensitive
+  (equal-loudness), so it's inaudible while still non-silent to the far end (well inside every A2DP
+  codec's passband); 70 Hz stays above deep sub-bass so it isn't felt through a subwoofer. It is
+  deliberately OUTSIDE `activeSources` (a `stopAll()`/barge-in must NOT stop it —
   keeping the route warm across a barge-in is the point) and outside the play-clock, so caption sync
   is provably unaffected — unit-covered. **Lifecycle (checker finding):** it must not run for the whole
   tab — the read-aloud stage is a singleton that's never `dispose()`d, so an only-stops-on-dispose

@@ -17,14 +17,22 @@ const DEFAULT_DECODED_LIMIT = 64;
 const DEFAULT_MAX_DECODE_BYTES = 32 * 1024 * 1024; // 32 MiB — decode-bomb guard on the ENCODED input
 const DEFAULT_MAX_DECODED_BYTES = 256 * 1024 * 1024; // 256 MiB — aggregate budget for DECODED PCM
 const DEFAULT_FADE_MS = 8; // declick ramp at each clip head/tail — inaudible as a fade, kills the click
-// Keep-alive: a continuous, near-silent noise source that holds the OUTPUT ROUTE awake between clips.
+// Keep-alive: a continuous, LOW-FREQUENCY sine tone that holds the OUTPUT ROUTE awake between clips.
 // On Bluetooth / Apple CarPlay, iOS powers the A2DP link down when the rendered stream is digital
 // silence for a beat; each new per-sentence clip then has to wake the link, clipping/popping its first
 // few ms and stuttering as the far-end buffer refills — the "choppy + pop between sentences" report.
-// A steady sub-audible signal keeps the link from ever idling, so the next clip starts warm and clean.
-// The gain is DEVICE-TUNABLE (silence-suppression thresholds vary and are UNVERIFIED from this sandbox):
-// too low may not defeat suppression, too high becomes audible hiss. ~-56 dBFS is a conservative start.
-const DEFAULT_KEEPALIVE_GAIN = 0.0015;
+// A steady non-silent signal keeps the link from ever idling, so the next clip starts warm and clean.
+//
+// WHY A LOW SINE, NOT NOISE. The first cut used white noise and it was AUDIBLE HISS on-device: broadband
+// noise puts energy across the whole spectrum, including the 2–5 kHz band where hearing is most sensitive,
+// so even a low level reads as hiss (the most attention-grabbing artifact there is). A pure tone at ~70 Hz
+// carries the same route-keeping energy in a band where the ear is ~40+ dB LESS sensitive (equal-loudness
+// contours), so it's effectively inaudible — and a low hum, not hiss, if heard at all. 70 Hz sits above
+// deep sub-bass (less likely to be FELT through a subwoofer) yet well inside every A2DP codec's passband
+// (so the far end still sees signal, not silence). Both freq and gain are DEVICE-TUNABLE (UNVERIFIED from
+// this sandbox): drop the gain if any hum is felt, raise it if choppiness returns.
+const DEFAULT_KEEPALIVE_GAIN = 0.001; // ≈ -60 dBFS; a concentrated tone reads louder to a silence detector than spread noise of equal level
+const DEFAULT_KEEPALIVE_HZ = 70;
 // How long the route stays warm after the last clip ends before the keep-alive releases. Must sit
 // comfortably above the inter-clip gap (≤ a breath, plus the next sentence's synth time — the produce
 // watchdog caps that at ~20 s) so it NEVER fires mid-read, yet short enough that an idle tab isn't
@@ -73,6 +81,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 	const fadeMs = opts.fadeMs ?? DEFAULT_FADE_MS;
 	const keepAlive = opts.keepAlive !== false; // default ON — harmless on wired/speaker output
 	const keepAliveGain = opts.keepAliveGain ?? DEFAULT_KEEPALIVE_GAIN;
+	const keepAliveHz = opts.keepAliveHz ?? DEFAULT_KEEPALIVE_HZ;
 	const keepAliveIdleMs = opts.keepAliveIdleMs ?? DEFAULT_KEEPALIVE_IDLE_MS;
 
 	// Decoded-clip cache, bounded by BOTH entry count AND aggregate decoded bytes. IMPORTANT — this is
@@ -100,7 +109,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 	}
 
 	let audioCtx: AudioContext | null = null;
-	// The keep-alive noise source (see DEFAULT_KEEPALIVE_GAIN) + its attenuating gain node. It lives
+	// The keep-alive tone oscillator (see DEFAULT_KEEPALIVE_GAIN/_HZ) + its attenuating gain node. It lives
 	// ENTIRELY outside the clip graph and the play-clock: never added to `activeSources` (so a per-clip
 	// finish, `stopAll()`, or a barge-in can't stop it — keeping the route warm ACROSS a barge-in is the
 	// point), and it never touches `currentTime`, the pause/offset bookkeeping, or onset reporting. So
@@ -116,7 +125,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 	// clips, and RELEASED by an idle timer that arms when no clip is active and is cancelled the moment the
 	// next clip does. A genuine end-of-read (no follow-up clip) lets the timer fire → the route idles ~a few
 	// seconds later; the next play re-arms it (unlock() in the tap warms it ahead of the first clip again).
-	let keepAliveSource: AudioBufferSourceNode | null = null;
+	let keepAliveSource: OscillatorNode | null = null;
 	let keepAliveGainNode: GainNode | null = null;
 	let keepAliveReleaseTimer: ReturnType<typeof setTimeout> | null = null;
 	// Play-clock pause accounting. `clockMs()` must FREEZE the instant a pause is tapped — else the
@@ -213,19 +222,14 @@ export function createStage(opts: StageOptions = {}): Stage {
 		if (!ctx) return;
 		let g: GainNode | null = null;
 		try {
-			const rate = Math.max(1, Math.floor(ctx.sampleRate || 48000));
-			const buffer = ctx.createBuffer(1, rate, rate); // ~1s mono, looped
-			const data = buffer.getChannelData(0); // throws on a minimal mock engine → keep-alive no-ops there
-			for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1; // full-scale noise; the gain node attenuates it
-			const src = ctx.createBufferSource();
-			src.buffer = buffer;
-			src.loop = true;
+			const osc = ctx.createOscillator(); // throws on a minimal mock engine → keep-alive no-ops there
+			osc.frequency.value = keepAliveHz; // low → outside the ear's sensitive band, so it's inaudible, not "hiss"
 			g = ctx.createGain();
 			g.gain.value = keepAliveGain; // attenuate to sub-audible (see DEFAULT_KEEPALIVE_GAIN)
-			src.connect(g);
+			osc.connect(g);
 			g.connect(ctx.destination);
-			src.start(0);
-			keepAliveSource = src;
+			osc.start();
+			keepAliveSource = osc;
 			keepAliveGainNode = g;
 		} catch {
 			try {
