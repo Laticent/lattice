@@ -531,10 +531,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										</label>
 									)}
 									{VIZ_OVERLAY_AVAILABLE && (
-										<label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-											<button type="button" role="switch" aria-checked={vizOverlay} aria-label="Viz diagnostics" onClick={() => { const next = !vizOverlay; setVizOverlay(next); setVizOverlayEnabled(next); notify(next ? 'Viz diagnostics on — flags chart colors that dropped to black.' : 'Viz diagnostics off.'); }} className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', vizOverlay ? 'bg-[var(--accent)]' : 'bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]')}>
-												<span className={cn('absolute top-0.5 size-4 rounded-full bg-white transition-transform', vizOverlay ? 'translate-x-[18px]' : 'translate-x-0.5')} />
-											</button>
+										<label htmlFor="ws-viz-overlay" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+											<Switch id="ws-viz-overlay" aria-label="Viz diagnostics" checked={vizOverlay} onCheckedChange={(next) => { setVizOverlay(next); setVizOverlayEnabled(next); notify(next ? 'Viz diagnostics on — flags chart colors that dropped to black.' : 'Viz diagnostics off.'); }} />
 											<span className="min-w-0">
 												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Viz diagnostics</span>
 												<span className="block text-[11px] text-muted-foreground">A live readout on the slide you're editing: SVG chart paint (map/quadrant/radar/…) that resolved to black because a themed color dropped — a scoping or token break. The on-device twin of the <code>check:render</code> CI guard; also via <code>?viz</code>.</span>

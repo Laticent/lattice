@@ -311,3 +311,23 @@ cleanly. **Modal note:** Sonner toasts are body-level exactly like the retired
 pills, so they behave identically over a modal Sheet — no NEW `pointer-events`
 regression (unlike an interactive Popover, which is why the model pickers stayed
 inline; a toast is read, its action optional).
+
+## Batch outcome — 2026-07-15 (f): last hand-rolled switch → `ui/switch`
+
+A consistency sweep for `role="switch"` turned up exactly one holdout still
+hand-rolled after the `ui/switch` primitive was already in use at 15 sites: the
+**Workspace → General → Diagnostics → "Viz diagnostics"** toggle
+(`WorkspaceSheet.tsx`), a `<button role="switch">` with a manual track + thumb
+`<span>`. It sat *directly between* the Performance-overlay and Read-aloud-diagnostics
+toggles, which already used `<Switch>` — so the three near-identical controls in one
+group were two shared + one bespoke, and the bespoke one missed the Radix
+focus-visible ring and consistent disabled semantics (HARD RULE #15 + #18).
+
+Swapped to `<Switch id="ws-viz-overlay" checked … onCheckedChange … />`, mirroring
+its two siblings verbatim (`htmlFor`/`id` pairing, `onCheckedChange` replacing the
+manual `!vizOverlay` flip). **Verified** on the real Studio (puppeteer): the toggle
+renders as the Radix Switch (`role="switch"` on a `<button>` with `data-state`
+transitioning `unchecked → checked` — the primitive's signature, absent on the old
+hand-rolled node), clicking flips `aria-checked`, `pointer-events:auto` inside the
+sheet, and it's visually identical to the two switches above it. Closes the
+switch-consistency gap; the native-widget → shadcn thread has no remaining holdouts.

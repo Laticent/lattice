@@ -419,6 +419,12 @@ in patch versions.
   reads the same. Themed to the established dark inverse-pill look in both color modes. The Undo toast
   now centers at the bottom (was bottom-left); its revert-only-if-unchanged behavior is unchanged. No
   export or engine change — docs-site Studio/Playground UI only. Verified on the real Studio.
+- **The Workspace "Viz diagnostics" toggle is now the shared `ui/switch`, matching its two neighbors.**
+  It sat in the Diagnostics group as a hand-rolled `<button role="switch">` right between the
+  Performance-overlay and Read-aloud-diagnostics switches, which already use the shadcn primitive — so
+  it missed the Radix focus-visible ring and consistent disabled semantics. Swapped to `<Switch>` (one
+  less bespoke widget, HARD RULE #15); visually and behaviorally identical to its siblings now. Verified
+  on the real Studio.
 - **The deck Inspector's inherit-the-default pickers read a compact “⊸ Auto” instead of a long label.**
   The Language and Theme controls used a verbose selected-value label ("Automatic — English (United
   States)" / "Automatic — match site") that overflowed the narrow Inspector — a shared `AutoIcon` +
