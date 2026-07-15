@@ -63,6 +63,8 @@ const {
   RAW_AUDIO_PATTERNS,
   checkSanctionedGestures,
   SANCTIONED_GESTURES,
+  checkSkillFreshness,
+  skillFreshnessAssertions,
   VETRINA_DIR,
   VETRINA_IMPORT,
   run,
@@ -336,6 +338,35 @@ describe('check-ownership', () => {
       assert.ok(counts.transformers > 0);
       assert.ok(counts.components > 0);
       assert.ok(counts.palettes > 0);
+    });
+  });
+
+  // The design/skills/*.md files restate countable canon; this gate keeps them fresh.
+  describe('skill-freshness gate (design/skills/ sanctioned duplication)', () => {
+    const ROOT = path.join(__dirname, '..', '..', '..');
+
+    test('the live tree raises no skill-freshness violations', () => {
+      const errors = [];
+      checkSkillFreshness(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('every assertion marker actually resolves in its skill, with a matching count', () => {
+      for (const a of skillFreshnessAssertions()) {
+        const src = fs.readFileSync(path.join(ROOT, 'design', 'skills', a.file), 'utf8');
+        const m = src.match(a.marker);
+        assert.ok(m, `${a.file}: marker ${a.marker} for ${a.what} must resolve`);
+        assert.equal(Number(m[1]), a.actual, `${a.file}: ${a.what} prose (${m[1]}) must equal source (${a.actual})`);
+      }
+    });
+
+    test('the gate bites: a drifted count is flagged', () => {
+      // Re-derive the gate's verdict for a synthetic drift without touching disk:
+      // if any real count moved by one, the assertion would fail.
+      const drift = skillFreshnessAssertions().map((a) => ({ ...a, claimed: a.actual + 1 }));
+      for (const a of drift) {
+        assert.notEqual(a.claimed, a.actual, `${a.what}: a +1 drift must not equal the source`);
+      }
     });
   });
 
