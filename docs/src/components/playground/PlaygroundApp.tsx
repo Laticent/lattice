@@ -272,6 +272,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const engine = engineRef.current;
 			if (!engine.ready()) {
 				setStatusLine('Loading engine…');
+				// SINGLE pending retry: clear any prior one first. The frame scheduler is a
+				// separate concurrency domain from timerRef now, so without this a keystroke
+				// during engine load would orphan the previous retry and let N timers fire
+				// concurrent renders the moment the engine readies (flash/thrash + a possible
+				// previewState mismatch). One timer, always.
+				if (timerRef.current) clearTimeout(timerRef.current);
 				timerRef.current = setTimeout(() => render(fresh), 60);
 				return;
 			}
@@ -300,6 +306,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
 			const r = await engine.renderInto(frame, src, palette, mode, previewStateRef.current, fresh);
 			if (r.status === 'pending') {
+				// Single pending retry (see the !engine.ready() note above).
+				if (timerRef.current) clearTimeout(timerRef.current);
 				timerRef.current = setTimeout(() => render(fresh), 60);
 			} else if (r.status === 'error') {
 				setStatusLine(r.message, true);

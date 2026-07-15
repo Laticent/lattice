@@ -96,6 +96,37 @@ per-render engine/FRAME cost is unchanged. The probe is a one-off (scratchpad, n
 durable coverage is `frame-scheduler.test.ts` (coalescing, backpressure, adaptive heavy-timer,
 cancel, reject-unwedge) + the existing Playground suite (27 tests, unchanged).
 
+## Maker-checker (HARD RULE — render-path change + cross-cutting rename)
+
+An independent checker traced the scheduler state machine (lost-update-free, wedge-free,
+no stale closure — all confirmed), the `patched` thread (truthful: `patched=false` ⟺ full
+`srcdoc` write ⟺ heavy), the read/Explore-mode source selection (ref-read at commit → no
+stale-source render), and the rename (every live importer updated; `deck-preview.js`
+correctly left shared; the Playground imports zero `drawing-board-*` modules). One
+should-fix and two nits:
+
+- **should-fix (fixed) — engine-not-ready retry lost its single-timer invariant.** The
+  startup retry (`timerRef = setTimeout(() => render(fresh), 60)`) re-armed without
+  clearing. Previously safe because the old `scheduleRender` shared `timerRef` and cleared
+  it; now the scheduler is a separate concurrency domain, so a keystroke during engine load
+  would orphan the prior retry and let N timers fire concurrent renders when the engine
+  readied (flash/thrash + a possible `previewState` mismatch). Fixed: `clearTimeout` before
+  each re-arm, restoring one pending retry. (Startup-only, self-healing, but a real
+  regression — closed.)
+- **off-path, logged (#18) — a stale path reference.** `lib/components/chart/_chart-family/
+  mark-detail.js` has a JSDoc comment pointing at the old `drawing-board-chart-interact.js`
+  path. It sits in `lib/` (bundled into `lattice-runtime.js` / `lattice-emulator.js`), so
+  editing even a one-word comment trips the stale-`dist` gate and would force a full engine
+  bundle regeneration into this docs PR — disproportionate (#17/#18). Left as a tracked
+  follow-up; the rename is complete for every LIVE reference (imports, CSS `@import`).
+- **accepted nits.** (1) The direct `render()` calls outside the scheduler — `onExpand`,
+  `freshRender`, the palette/mode `MutationObserver` — bypass the scheduler's in-flight
+  guard. Pre-existing one-shots; traced benign here (each bakes the new `frameSig`, so the
+  next scheduled render patches correctly), so left as-is rather than rewired (that risk
+  outweighs the benign overlap). (2) The 4s watchdog could clear `inFlight` under a
+  legitimately slow cold render → a rare concurrent render; it's the documented unwedge
+  tradeoff, kept generous.
+
 ## Off-path, logged not done (#18)
 - The frozen Drawing Board / Workbench still carry the 220ms-style debounce in their own
   controllers — untouched (frozen; awaiting the phased removal in 2026-07-03).
