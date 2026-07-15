@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { applyTag, parseSlideTags } from './tags';
+import { applyTag, parseSlideTags, taggedLensIds } from './tags';
+
+describe('taggedLensIds', () => {
+	it('collects include AND exclude ids across all slides (union)', () => {
+		const slides = ['<!-- _lens: brief -->\n# A', '<!-- _lens: +ask -evidence -->\n# B', '# C (untagged)'];
+		expect([...taggedLensIds(slides)].sort()).toEqual(['ask', 'brief', 'evidence']);
+	});
+	it('is empty when no slide carries a _lens tag', () => {
+		expect(taggedLensIds(['# A', '<!-- _class: kpi -->\n# B']).size).toBe(0);
+	});
+});
 
 describe('parseSlideTags', () => {
 	it('reads include and exclude tokens', () => {

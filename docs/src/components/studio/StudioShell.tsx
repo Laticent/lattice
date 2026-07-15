@@ -18,7 +18,7 @@ import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
-import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
+import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
@@ -570,18 +570,24 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// The component classification catalog the deterministic (no-AI) lens suggester reads — built once
 	// from the real manifest passed to the shell. `function`/`form` ride on each entry (M2 prep).
 	const lensCatalog = React.useMemo(() => catalogFromComponents(components.map((c) => ({ name: c.name, bucket: c.bucket, function: c.function ?? '', form: c.form ?? '' }))), [components]);
-	// Registry writes — Lente is the SOLE registry serializer (HARD RULE #1): extract the inner front
-	// matter, let `upsertLensRegistry` rewrite the `lenses:` block, re-wrap. Undo-funneled via settingsWrite.
+	// Re-serialize `reg` into `src`'s front matter — Lente is the SOLE registry serializer (HARD RULE #1).
+	// With inheritance on, force-materialize any inherited view the deck has TAGGED (taggedLensIds): tagging
+	// counts as "touching," so that in-progress membership is written to the deck and survives the workspace
+	// default-views setting being turned off (#993). Shared by every registry write below.
+	const rewrapRegistry = React.useCallback((src: string, reg: LensRegistry) => {
+		const materialize = wsLenses ? taggedLensIds(splitSlides(stripFrontMatter(src))) : undefined;
+		const nextInner = upsertLensRegistry(innerFrontMatter(src), reg, wsLenses, materialize);
+		const rest = stripFrontMatter(src).replace(/^(?:[ \t]*\r?\n)+/, '');
+		return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
+	}, [wsLenses]);
 	const writeRegistry = React.useCallback((label: string, next: LensRegistry) => {
-		settingsWrite(label, (s) => {
-			const nextInner = upsertLensRegistry(innerFrontMatter(s), next, wsLenses);
-			const rest = stripFrontMatter(s).replace(/^(?:[ \t]*\r?\n)+/, '');
-			return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
-		});
-	}, [settingsWrite, wsLenses]);
+		settingsWrite(label, (s) => rewrapRegistry(s, next));
+	}, [settingsWrite, rewrapRegistry]);
 	// Tag writes — put slides in/out of a lens by rewriting each affected slide with the library's
 	// applyTag (the only per-slide membership carrier). Applied sequentially so several accepts land as
 	// ONE undo step; applyTag never changes slide COUNT, so author indices stay stable across the batch.
+	// After tagging, re-emit the registry so a freshly-tagged inherited view materializes in the SAME
+	// undo step (only when inheritance is on — off, the panel only exposes already-materialized views).
 	const writeTags = React.useCallback((label: string, changes: TagChange[]) => {
 		if (!changes.length) return;
 		settingsWrite(label, (s) => {
@@ -591,9 +597,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				if (chunk == null) continue;
 				src = replaceSlide(src, c.index, applyTag(chunk, c.lensId, c.member, c.base)).source;
 			}
-			return src;
+			return wsLenses ? rewrapRegistry(src, parseLensRegistry(innerFrontMatter(src), wsLenses)) : src;
 		});
-	}, [settingsWrite]);
+	}, [settingsWrite, wsLenses, rewrapRegistry]);
 	// Remove a reader view CLEANLY, in ONE undo step: strip the lens's `_lens` tag from every slide
 	// (so a later same-id re-add can't silently resurrect the old membership), then drop it from the
 	// registry. Reparses the registry from the live source so the write is never stale. `member = base
@@ -609,11 +615,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			}
 			const cur = parseLensRegistry(frontMatterBlock(src), wsLenses);
 			const next: LensRegistry = { lenses: cur.lenses.filter((l) => l.id !== lens.id), default: cur.default === lens.id ? 'full' : cur.default };
-			const nextInner = upsertLensRegistry(innerFrontMatter(src), next, wsLenses);
-			const rest = stripFrontMatter(src).replace(/^(?:[ \t]*\r?\n)+/, '');
-			return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
+			return rewrapRegistry(src, next);
 		});
-	}, [settingsWrite, wsLenses]);
+	}, [settingsWrite, wsLenses, rewrapRegistry]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
 	const viewSlides = React.useMemo(() => (composeLens === 'full' ? slides : presentationSet(slides, composeLens, lensReg)), [slides, composeLens, lensReg]);

@@ -46,6 +46,25 @@ test('approving an inherited view materializes ONLY that view into the deck sour
 	expect(src).not.toMatch(/\bbrief:/); // Bottom line stays inherited, not materialized
 });
 
+test('tagging an inherited view materializes it — it survives turning the setting OFF (#993)', async ({ page }) => {
+	// Tag slides into the inherited Bottom line (accept the deterministic suggester's proposal).
+	await page.getByText('Bottom line').click();
+	await page.getByRole('button', { name: 'Accept all' }).click();
+	// Tagging materializes it into the deck source — written, but still UNAPPROVED (no reader sees it yet).
+	await expect.poll(() => persistedSource(page)).toMatch(/\bbrief:/);
+	// Now turn Default reader views OFF.
+	await page.getByRole('button', { name: 'Workspace settings' }).click();
+	await page.getByRole('tab', { name: 'General' }).click();
+	await page.getByRole('switch', { name: 'Default reader views' }).click();
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('switch', { name: 'Default reader views' })).toBeHidden(); // sheet closed
+	// Bottom line PERSISTS as a panel row (the deck owns it now); the untouched The evidence is gone.
+	// Scoped to the row heading button — "Bottom line"/"The evidence" also appear in the editor + the
+	// Workspace copy, so a bare getByText would be ambiguous.
+	await expect(page.getByRole('button', { name: /Bottom line/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /The evidence/ })).toHaveCount(0);
+});
+
 test('turning the setting OFF removes the inherited starters from an untouched deck', async ({ page }) => {
 	await expect(page.getByText('Bottom line')).toBeVisible();
 	// Open Workspace → General and flip Default reader views off (the sheet opens on the AI tab).

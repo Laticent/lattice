@@ -659,4 +659,15 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		await user.click(dialog.getByRole('button', { name: 'Reader view' }));
 		expect(await screen.findByRole('menuitem', { name: /The evidence/ })).toBeInTheDocument();
 	});
+
+	it('a view the deck has TAGGED sheds its Starter badge — it is being worked on (#993)', () => {
+		// Seed a deck whose source already tags a slide into the inherited "Bottom line" (stored JSON-encoded,
+		// the shape loadSource reads).
+		localStorage.setItem('lattice-studio-src-q3-board', JSON.stringify('<!-- _class: title -->\n<!-- _lens: +brief -->\n\n# Q3\n\n---\n\n## Detail'));
+		render(<StudioShell options={options} />);
+		expect(screen.getByText('Bottom line')).toBeInTheDocument();
+		expect(screen.getByText('The evidence')).toBeInTheDocument();
+		// brief is tagged → no longer an untouched Starter; only the untouched evidence keeps its badge.
+		expect(screen.getAllByText('Starter')).toHaveLength(1);
+	});
 });

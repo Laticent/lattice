@@ -10,6 +10,7 @@ import {
 	lensIndices,
 	parseSlideTags,
 	suggestMembership,
+	taggedLensIds,
 	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
@@ -108,6 +109,9 @@ export function LensesPanel({
 	onRemoveLens: (lens: LensDef) => void;
 }) {
 	const wsDefs = React.useMemo(() => new Map((workspace?.lenses ?? []).map((l) => [l.id, l])), [workspace]);
+	// Ids the deck has tagged — a view that's been tagged is no longer an untouched "Starter" (it's been
+	// worked on, and it materializes into the deck), so its badge clears even while its def stays pristine.
+	const taggedIds = React.useMemo(() => taggedLensIds(slides), [slides]);
 	const lenses = registry.lenses.filter((l) => l.id !== 'full');
 	const [expanded, setExpanded] = React.useState<string | null>(null);
 	const [adding, setAdding] = React.useState(false);
@@ -164,7 +168,7 @@ export function LensesPanel({
 								registry={registry}
 								suggestions={suggestions.filter((s) => s.lensId === lens.id)}
 								catalogReady={catalogReady}
-								isStarter={isPristineInherited(lens, wsDefs.get(lens.id))}
+								isStarter={isPristineInherited(lens, wsDefs.get(lens.id)) && !taggedIds.has(lens.id)}
 								isActive={activeLens === lens.id}
 								previewedOk={previewedHash[lens.id] === currentHash}
 								open={expanded === lens.id}
