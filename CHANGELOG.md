@@ -220,6 +220,29 @@ in patch versions.
   shearing it, while `overflow: clip` (hence the scrollHeight overflow probe) is unchanged. `video`
   stays deferred: its compositions must be re-expressed against the stage cell first. See
   `engineering/decisions/2026-07-15-model-driven-frame-render.md` §6.
+- **`diagram` is the third `conformance: "strict"` component — the first strict VIZ canvas.** Its
+  body — the pre-rendered Mermaid SVG plus an optional leading dek and a trailing Key Insight
+  `<blockquote>` — now hoists into the frame's `.cell-stage` cell instead of floating loose in the
+  `<section>`. The slide **title is untouched**: diagram emits a section-level `<h2>` that keeps
+  lifting into `masthead-lede` exactly as before. Unlike the fixed-height QR cards, diagram needs
+  **no `flex: 0 0 auto` self-size pin** — the Mermaid SVG self-scales (`height:100%` + its own
+  `preserveAspectRatio` letterbox it), so a shrinkable diagram box is scaled, never silently clipped,
+  by the stage; the **overflow-probe verdict is identical pre/post** (fitting → not over, an over-tall
+  Key Insight → over — new gate `test/integration/parity/diagram-overflow-preserved.test.js`). Every
+  diagram body selector gained a `> .cell-stage >` arm (bare arm kept for the `no-form` slide),
+  preserving the Mermaid width inset; the runtime `.mermaid`/`.mermaid-error` sibling selectors
+  (`mermaid.css`, `highlight-js.css`) gained the same arm so the DOM/runtime path renders correctly.
+  Simple diagrams (and the sample) are **pixel byte-identical**. A diagram whose stage ALSO carries
+  extra content (a dek above and/or a Key Insight below) shifts its self-scaled SVG ~2px on the
+  **CLI/committed-PDF export path** (the standalone Node exporter `dist/lattice-emulator.js` — the
+  package `main`/`lattice` bin that builds the committed PDFs — does not stamp `--_sec-1cqi`, so the
+  stage's cqi body-gap resolves ~10% smaller than the pre-wrap section gap and the self-scaling SVG
+  fills the slightly taller box). The **web/desktop runtime** (which stamps `--_sec-1cqi`) renders
+  **byte-identical**, and the exporter's new value actually matches what the runtime playground shows —
+  the shift moves the CLI export toward runtime fidelity. Empirical: plain AE 0; +dek AE 7,155; +note
+  AE 5,120; +both AE 16,098; a content/mermaid and a kpi slide are AE 0. An export delta owed a
+  dark+light sign-off before the gallery PDFs re-bless. See
+  `engineering/decisions/2026-07-15-model-driven-frame-render.md` §6.
 - **A language every deck inherits — a workspace default, a per-deck override, and a document/AI
   split under the hood.** The Studio has a single **Language** in Workspace → **General** that every
   deck inherits: it is the deck's document language (carried into every export's `<html lang>` and

@@ -115,10 +115,16 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [
   width:1152px; max-width:100%;
   box-sizing:border-box;
 }
-section.diagram > .mermaid-error {
+/* `> .cell-stage >` arm: diagram is `conformance:"strict"`, so its body — the
+ * source `<pre>`, the runtime `.mermaid` SVG target, and the `.mermaid-error`
+ * block attached after it — hoists into `.cell-stage` on the wrapped (Form) path.
+ * The bare `section.diagram >` arm keeps the `no-form` (unwrapped) slide working. */
+section.diagram > .mermaid-error,
+section.diagram > .cell-stage > .mermaid-error {
   width:calc(100cqi - 2 * var(--sp-2xl));
 }
 section.diagram > .mermaid-error-label,
+section.diagram > .cell-stage > .mermaid-error-label,
 .mermaid-error-label {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);

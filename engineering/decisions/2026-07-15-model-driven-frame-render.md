@@ -195,7 +195,101 @@ section-level grid onto `.cell-stage`. Model holds; slot map is not uniform for 
   → flow components (mostly already conform) → sovereign/multi-zone last.
 - Each: byte-identical-first, pixel-check, export sign-off on change, one component's flag.
 
-**Landed:** PR 1 = `contact` (2026-07-15). PR 2 = `wifi` (2026-07-15).
+**Landed:** PR 1 = `contact` (2026-07-15). PR 2 = `wifi` (2026-07-15). PR 3 = `diagram` (2026-07-15)
+— the **first strict VIZ canvas** and the sanctioned proof target of this record. Its body (the
+pre-rendered Mermaid SVG + optional dek + trailing Key Insight `blockquote`) now hoists into
+`.cell-stage`; the **title is untouched** — diagram's section-level `<h2>` keeps lifting into
+`masthead-lede` (the depth-aware lift, which it already used, still finds it). Two facts made this
+NOT a mechanical repeat of the QR-card recipe:
+- **No self-size flex pin — the Mermaid SVG self-scales, so the stage clip can never silently
+  swallow it.** contact/wifi needed `flex: 0 0 auto` because a fixed-height card, flex-shrunk in the
+  bounded stage, clips its excess invisibly (the silent-overflow bug). diagram is the opposite: the
+  SVG is forced to `height:100%` (mermaid.css) and letterboxes via `preserveAspectRatio`, so a
+  shrinkable diagram box is SCALED, not clipped — no content is lost. Keeping the pre-migration
+  `flex:1` (self-scaling) is what makes the **overflow-probe verdict identical pre/post**: a fitting
+  diagram → not-over, and a genuinely over-tall body (a long Key Insight) → over — proven with the
+  emulator's own detector AND `probeSectionOverflow` (before==after; the over-tall case is CAUGHT in
+  the stage, not swallowed). Applying the QR-card pin here would have been a REGRESSION — it forces
+  the SVG to its natural height and spuriously overflows an over-tall diagram that should scale to fit.
+  New gate: `test/integration/parity/diagram-overflow-preserved.test.js`.
+- **The Mermaid width inset + the runtime sibling-div both survive the wrap.** The
+  `section.diagram .mermaid-svg` width `calc()` uses a DESCENDANT combinator, so it still matches under
+  `.cell-stage`. But the RUNTIME path renders by inserting a sibling `<div class="mermaid">` (and, on
+  failure, `.mermaid-error`) next to the source `<pre>`; once the `<pre>` hoists into `.cell-stage`
+  that sibling lands INSIDE it, so the `section.diagram > .mermaid` / `> .mermaid-error` rules
+  (`mermaid.css`, `highlight-js.css`) and diagram's own `> p`/`> blockquote`/`> :is(pre)` rules each
+  gained a `> .cell-stage >` arm (the bare arm kept for the un-wrapped `no-form` slide). `applyToDom`
+  (the runtime DOM mirror) wraps the diagram body identically (verified in **jsdom**: pre + blockquote →
+  stage, the runtime `.mermaid` sibling lands in the stage, cell-footer built). The selector is
+  deterministic and the `.cell-stage` arm is styling-identical to the pre-existing `> .mermaid` rule, so
+  risk is low — but per HARD RULE #23 the runtime `.mermaid` render is **UNVERIFIED on the real web
+  surface** (no live playground render was exercised from this sandbox); a real-browser Playground diagram
+  render should confirm it when that surface is reachable.
+- **Pixel: simple diagrams byte-identical (AE 0); a diagram with extra stage content shifts ~2px on the
+  CLI/committed-PDF export path.** The sample and any diagram with NOTHING but the SVG in its stage are
+  pixel-identical. A diagram whose stage ALSO carries a dek (above) and/or a Key Insight (below) shifts
+  its self-scaled SVG ~2px — and this is the shipped **CLI/PDF export**, not a preview cosmetic:
+  `dist/lattice-emulator.js` is the package `main`, the `lattice` bin, and what `build:exemplar-pdfs` /
+  `build:gallery-*` invoke, so the committed diagram PDFs' bytes genuinely move. Root cause: the
+  standalone Node exporter does NOT stamp `--_sec-1cqi`, so the section's own gap resolves against the
+  section's ANCESTOR container (a "preview self-reference" ~16px) while the stage's body-gap resolves
+  against the section (its true own-cqi, ~14.4px), and the self-scaling SVG fills the slightly taller
+  box. Empirical (git-stash before/after, indaco): plain diagram AE 0; +dek AE 7,155; +Key Insight AE
+  5,120; +both AE 16,098 (shift scales with gap count) — a content/mermaid slide and a kpi slide are AE
+  0 (blast radius is diagram-only). The **web/desktop runtime stamps `--_sec-1cqi`**, so both gaps
+  collapse to the section's own cqi and the runtime render is **byte-identical** (proven by stamping
+  `--_sec-1cqi` on the emulator DOM — before==after, mermaid+blockquote rects identical). The exporter's
+  new gap actually MATCHES what the runtime playground shows (the old ancestor-approximation did not), so
+  the shift moves the CLI export TOWARD runtime fidelity — but "toward correct" does not waive sign-off:
+  this was an **export delta owed the §5 dark+light sign-off**. **Sign-off GIVEN by the owner
+  2026-07-15** (dark+light before/after composites, all four cases: plain AE 0, +dek, +Key Insight,
+  +both — "being larger is a good thing"). The strict-wrap affects **only** diagram: contact/wifi/charts
+  (progress/funnel) and flow (content/kpi) are all AE 0.
+- **Adversarial trio (HARD RULE #25) — the crux held under all three.** This slice touches the §5
+  PROTECTED overflow/autosplit machinery AND templates the chart family, so it earned the full trio (red
+  team + Munger inversion + independent checker), applied to the shipping diff. All three independently
+  attacked the crux — *"does `height:100%` clamp EVERY Mermaid type, or can one silently overflow the
+  `.cell-stage` clip and defeat the probe?"* — and all three confirmed it: the SVG is forced
+  `width/height:100%` with `preserveAspectRatio="xMidYMid meet"` (no Mermaid type emits `…slice`), so it
+  letterboxes to fit at any size and CANNOT overflow the stage. Munger probed 10 Mermaid types
+  (`mermaidBoxSpillPastStage:0` everywhere); the red team probed 4 hard types (wide sequence, tall gantt,
+  deep mindmap, large ER — SVG ⊂ stage) plus a 40-sentence Key Insight (`over:true` pre==post, caught via
+  the clip-cell path, NOT swallowed). `flex:1` (not the QR-card `flex:0 0 auto` pin) is VERIFIED correct,
+  because the SVG scales instead of clipping. No silent-swallow path exists.
+- **Forward-caution for the chart family (from the Munger inversion).** The `flex:1`-not-`flex:0 0 auto`
+  divergence from contact/wifi is principled — self-scaling SVG (viewBox + `preserveAspectRatio` + forced
+  `height:100%`) is *scaled* when squeezed, never clipped; a fixed-height card *loses* content, so it
+  needs the pin. **A later SVG-chart flag (pie/radar/map/quadrant/funnel/word-cloud — a DIFFERENT render
+  than diagram) MUST re-run the "self-scaling test" before copying `flex:1`:** render the body squeezed
+  and confirm it scales rather than clips. A mis-classification reintroduces silent clipping — the exact
+  §5 failure. This self-scaling test is the explicit gate for choosing `flex:1` vs the pin, per component.
+- **Follow-ups found by the trio — off-path, LOGGED not fixed here (HARD RULE #18).** None block this
+  slice; each is a pre-existing, repo-wide, or malformed-input concern that pulling into a conformance PR
+  would violate #8/#17:
+  1. **`examples/*.pdf` byte-freshness is unguarded and drifting repo-wide.** The committed
+     `examples/diagram-narration.pdf` is ~100K-AE stale vs bare `main` (61f7ae1) — from prior merged PRs
+     that reflowed diagrams but never rebuilt it; the CLI PDF export is non-deterministic (byte-level); no
+     gate asserts freshness (the `exemplar-render` gate covers `exemplars/`, structurally). None of the
+     prior conformance merges (contact/wifi/chart) rebuilt any `examples/*.pdf` — per-slice example-PDF
+     drift is the established (imperfect) norm. **Fix: a dedicated bulk re-bless of all drifted
+     `examples/*.pdf` + a byte/structural freshness gate, as its own PR** — NOT a partial 2-of-12 rebuild
+     folded into this conformance slice (which would absorb unrelated drift and leave a MORE inconsistent
+     state). My slice's own ~2px shift on the two currently-fresh diagram decks (sequence-narration,
+     typed-diagram-narration) rides into that bulk re-bless; its pixel-safety is already proven by the
+     signed-off composite, so no example PDF is the verification surface.
+  2. **The render-side conformance gate under-asserts §2.** It checks only that each declared cell's DOM
+     class EXISTS (`EXPECTED_CELLS = ['stage']`), not that every slot hoisted and nothing is loose — so a
+     conforming-looking empty stage with loose body would pass. Empirically the diagram DOM is correct
+     (both render paths verified), so no lie ships; but the gate is weaker than §2's promise. Pre-existing
+     design inherited from contact/wifi. **Fix: strengthen the gate to assert the full tree, its own issue.**
+  3. **A titleless / eyebrow-only strict diagram gets `.cell-stage` but no masthead band.** A `_class:
+     diagram` slide with no *top-level* `<h2>` (truly titleless, or the h2 buried in a blockquote) wraps
+     the body but builds no `masthead-lede` — the strict "title hoists" claim is silently unmet for
+     malformed authoring. Both render paths agree, nothing overflows/crashes, and it matches pre-migration
+     behavior (not a regression). No gate flags it. **Log only** — malformed-input territory.
+  4. **`.mermaid-fallback` (total parse failure) is unstyled.** It inherits the `pre` arm (`flex:1`);
+     a long broken source can overflow inside the stage, but the probe catches it (clip-cell path) — not
+     silently swallowed, identical pre-migration. **Log only**, tracked note.
 
 **Canvas migration is per-component, not mechanical — evidenced by wifi.** The
 `contact` → `wifi` pair shares one QR-card kernel, yet the mechanical recipe that
@@ -282,9 +376,12 @@ byte-identically — a larger per-component job than wifi's.
 5. **Overflow/measuring machinery — RESOLVED: PROTECTED, non-negotiable** (§5). Every slice
    proves the probe verdict + autosplit decisions are unchanged.
 
-**Still open — the one go-ahead the owner gates:** start the `diagram` proof slice (§6 PR 1)?
-That is the one-component test that earns (or refutes) the whole sequence at the price of one
-component. Not begun without explicit go.
+6. **`diagram` proof slice — RESOLVED 2026-07-15: SHIPPED.** The one-component test that earns the
+   sequence. Built, verified by the full adversarial trio (the crux — self-scaling SVG cannot overflow
+   the stage — held under all three; §6), export sign-off GIVEN by the owner (the ~2px CLI-export shift on
+   diagrams with extra stage content; "being larger is a good thing"). `diagram` joins the strict set
+   (contact, diagram, wifi). The sequence is earned; the SVG-chart flags follow, each re-running the
+   self-scaling test (§6 forward-caution) and owing its own export sign-off.
 
 ---
 

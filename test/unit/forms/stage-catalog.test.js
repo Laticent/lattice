@@ -73,10 +73,10 @@ describe('stage-catalog — the single stage-cell classification', () => {
   // masthead kernel can wrap a strict CANVAS without fs-loading manifests. Pinned
   // like the stage catalog so a flag flip is a deliberate, reviewed change.
   test('conformance-catalog is the sorted set of conformance:"strict" manifests', () => {
-    // contact (PR 1) then wifi (PR 2) are the strict canvas migrations; the rest
-    // opt in one component per PR. Update this list — with rationale — as each
-    // flag flips.
-    const EXPECTED_STRICT = ['contact', 'wifi'];
+    // contact (PR 1), wifi (PR 2), diagram (PR 3 — the first strict VIZ canvas)
+    // are the strict canvas migrations; the rest opt in one component per PR.
+    // Update this list — with rationale — as each flag flips.
+    const EXPECTED_STRICT = ['contact', 'diagram', 'wifi'];
     assert.deepEqual([...conformanceCatalog].sort(), EXPECTED_STRICT, 'conformance-catalog drifted from EXPECTED_STRICT');
     // The baked array must equal the manifest source of truth.
     const fromManifests = loadAll().filter((m) => m.conformance === 'strict').map((m) => m.name).sort();
@@ -85,6 +85,7 @@ describe('stage-catalog — the single stage-cell classification', () => {
     // canvas still does not (the wrap decision the kernel reads).
     assert.equal(kernel.wrapsStageBody('contact form'), true, 'strict canvas contact must wrap');
     assert.equal(kernel.wrapsStageBody('wifi form'), true, 'strict canvas wifi must wrap');
+    assert.equal(kernel.wrapsStageBody('diagram form'), true, 'strict canvas diagram must wrap');
     assert.equal(kernel.wrapsStageBody('video form'), false, 'non-strict canvas video must NOT wrap');
   });
 
