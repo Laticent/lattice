@@ -178,6 +178,37 @@ at the **unit level** (`frame-scheduler.test.ts`) and the small-deck real-surfac
 (below) IS measured; the big-deck main-thread/coalescing numbers on the real surface remain to
 be driven on a real device.
 
+## Convergence — its own adversarial trio + real-surface re-verification
+
+The convergence (extracting the shared kernel + migrating DeckPreview) got its OWN trio,
+since it rewrites the render scheduling of a **shipped** component (#1007). Verdict:
+mergeable. The red team could not break it (parity confirmed on coalesce count, backpressure,
+first-paint, unmount); the checker found it behavior-preserving (and noted the shared kernel's
+`settled` guard fixes a latent double-reschedule the old inline loop had). Both flagged one
+benign nit — the wall-clock heavy timer now spans `whenReady()` (the host folds it into the
+render thunk), which is provably inert (whenReady is ~0 once loaded; a slow one is always a
+pre-load full write, already heavy) — now called out in a `DeckPreview.tsx` comment so nobody
+"fixes" it by hoisting `t0`.
+
+The Munger inversion's one load-bearing point was a **HARD RULE #23 gap**: the shipped Studio
+single-slide path's real-surface behavior wasn't re-driven after its loop was swapped. Closed —
+measured on the **real built Studio** post-convergence (4× CPU):
+- **typing** keydown→paint ~**89ms** (within noise of the pre-convergence single-slide numbers);
+- **FinishStudio slider drag** (a full-write host through the migrated DeckPreview): 24 rapid
+  steps → **2 write-renders** (coalesced, no strobe — pre-convergence was 24→1; the drag-
+  coalescing behavior is preserved).
+
+So the migrated single-slide path types instantly AND coalesces heavy-host drags on the real
+surface, exactly as before. **One shared 50ms `heavyRenderMs`** governs both hosts — it's an
+absolute *jank threshold* (a >50ms render janks the editor regardless of host), not a per-host
+tuning; if the filmstrip and single-slide costs ever need different thresholds, the option is
+already there (pass an override) and re-forking the ~136-line dependency-free kernel is cheap.
+
+**Scope note (#17):** this PR bundles the Playground frame-loop + decouple AND the DeckPreview
+convergence (a second, shipped surface). The convergence was folded in on the owner's explicit
+"converge to shared scheduler first" call after the Munger sharing argument; it could have been
+a follow-up PR, and the honest record is that it rides here by owner direction, not by default.
+
 ## Off-path, logged not done (#18)
 - The frozen Drawing Board / Workbench still carry the 220ms-style debounce in their own
   controllers — untouched (frozen; awaiting the phased removal in 2026-07-03).

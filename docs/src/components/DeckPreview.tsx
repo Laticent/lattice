@@ -170,6 +170,13 @@ export function DeckPreview({
 		if (host) host.__latticeCoalesce = coalesceRef.current || 1;
 		coalesceRef.current = 0;
 		engineRef.current?.prefetchTheme?.(paletteOverride, modeOverride);
+		// NOTE (intentional, do NOT "fix" by hoisting whenReady out of the timed span):
+		// the scheduler's wall-clock heavy backstop times this whole thunk, so `whenReady()`
+		// is inside the measured span here — unlike the old inline loop, which timed only
+		// renderInto. It's provably inert: whenReady() resolves in ~0 once the engine bundle
+		// is loaded (steady-state typing), and the only renders where it's slow are pre-load
+		// full WRITES, already heavy via writePath. So it can't push a real ~2ms patch past
+		// the 50ms line.
 		await engineRef.current?.whenReady();
 		const status = await renderRef.current();
 		return { heavy: status?.writePath === 'write' };
