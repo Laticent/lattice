@@ -266,17 +266,29 @@ NOT a mechanical repeat of the QR-card recipe:
 - **Follow-ups found by the trio — off-path, LOGGED not fixed here (HARD RULE #18).** None block this
   slice; each is a pre-existing, repo-wide, or malformed-input concern that pulling into a conformance PR
   would violate #8/#17:
-  1. **`examples/*.pdf` byte-freshness is unguarded and drifting repo-wide.** The committed
-     `examples/diagram-narration.pdf` is ~100K-AE stale vs bare `main` (61f7ae1) — from prior merged PRs
-     that reflowed diagrams but never rebuilt it; the CLI PDF export is non-deterministic (byte-level); no
-     gate asserts freshness (the `exemplar-render` gate covers `exemplars/`, structurally). None of the
-     prior conformance merges (contact/wifi/chart) rebuilt any `examples/*.pdf` — per-slice example-PDF
-     drift is the established (imperfect) norm. **Fix: a dedicated bulk re-bless of all drifted
-     `examples/*.pdf` + a byte/structural freshness gate, as its own PR** — NOT a partial 2-of-12 rebuild
-     folded into this conformance slice (which would absorb unrelated drift and leave a MORE inconsistent
-     state). My slice's own ~2px shift on the two currently-fresh diagram decks (sequence-narration,
-     typed-diagram-narration) rides into that bulk re-bless; its pixel-safety is already proven by the
-     signed-off composite, so no example PDF is the verification surface.
+  1. **`examples/*.pdf` cosmetic drift is un-gateable; the decks are STRUCTURALLY fresh (investigated
+     2026-07-15, post-merge).** The red team flagged committed `examples/*.pdf` as "stale" — and the
+     pixels ARE stale (e.g. `diagram-narration.pdf` was ~100K-AE off bare `main`, from prior PRs that
+     reflowed diagrams without rebuilding it). BUT the follow-up investigation found this is a **cosmetic
+     ~2px positional reflow, NOT structural**: every example deck's committed PDF page count equals a fresh
+     render (spot-checked `diagram-narration` 9==9, `sequence-narration` 10==10, `focus` 14==14,
+     `auto-glossary` 7==7 — no slide dropped/merged/autosplit-changed anywhere). **This changes the
+     disposition the red team assumed:**
+     - **No bulk re-bless.** Cosmetic PDF drift here is fundamentally un-gateable and not worth chasing —
+       the CLI export is non-deterministic (byte-level churn on every rebuild) and cross-runner Skia
+       rasterization isn't bit-identical, which is exactly why the repo already RETIRED the `regress` pixel
+       gate and made `golden-diff` non-gating (2026-06-12-p4-regression-gate-retire-marp.md §0). A
+       ~90-PDF non-deterministic-byte re-bless would fix nothing structural and be un-reviewable.
+     - **The one real gap** is that `examples/` lacks the deterministic **page-count** freshness gate that
+       `exemplars/` has (`test/integration/exemplars/exemplar-render.test.js`) — which catches STRUCTURAL
+       drift (a silently dropped/merged slide) machine-independently. It would PASS on every current
+       example PDF (all structurally fresh) and only fire on a future structural regression. **Deferred,
+       not built:** it renders ~92 decks, ~tripling the integration tier's render load, to insure a drift
+       class that is not currently occurring — a poor cost/benefit to impose unilaterally. Available as
+       cheap future insurance (mirror the exemplar test) if a structural regression ever appears. The
+       diagram slice's own ~2px on `sequence-narration`/`typed-diagram-narration` is part of this accepted,
+       un-gateable cosmetic-drift class; pixel-safety was proven by the signed-off composite, so no example
+       PDF is the verification surface.
   2. **The render-side conformance gate under-asserts §2.** It checks only that each declared cell's DOM
      class EXISTS (`EXPECTED_CELLS = ['stage']`), not that every slot hoisted and nothing is loose — so a
      conforming-looking empty stage with loose body would pass. Empirically the diagram DOM is correct
