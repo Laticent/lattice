@@ -1124,3 +1124,131 @@ test('narrateSequence: reads the in-fence title and speaks a bare (text-less) me
   assert.ok(out.includes('A two-message sequence diagram, Checkout flow.'), out); // §14 count frame + authored title
   assert.ok(out.includes('B sends to A.'), out); // no colon text → just the link, nothing invented
 });
+
+// ── Slice #2 — pie · classDiagram · stateDiagram · erDiagram · C4 (design 2026-07-14 §8) ──
+// A `diagram` slide's Mermaid fence routed through the type dispatcher. Typed-relationship diagrams
+// speak the Mermaid-DEFINED symbol as a faithful verb (§2, the authored-verb asymmetry) — the
+// opposite of the flowchart's neutral arrow. Each narrator self-bails on constructs a flat reading
+// would misstate.
+const mdiag = (body) => `<!-- _class: diagram -->\n\n## Diagram.\n\n\`\`\`mermaid\n${body}\n\`\`\``;
+
+// pie — read the DERIVED % the way Mermaid derives it (§3.5).
+test('narratePie: reads each slice with its derived percent; showData adds the raw value', () => {
+  const out = narrateChart(mdiag('pie title Budget\n  "Marketing" : 40\n  "Sales" : 35\n  "R and D" : 25'));
+  assert.ok(out.includes('A pie chart, Budget.'), out);
+  assert.ok(out.includes('Marketing, forty percent.'), out);
+  assert.ok(out.includes('Sales, thirty-five percent.'), out);
+  const sd = narrateChart(mdiag('pie showData\n  "Calcium" : 30\n  "Iron" : 10'));
+  assert.ok(sd.includes('Calcium, thirty, seventy-five percent.'), sd); // raw value + derived %
+});
+test('narratePie: bails on fewer than two slices, a non-positive sum, or an unrecognized row', () => {
+  assert.equal(narrateChart(mdiag('pie\n  "Only" : 5')), null);
+  assert.equal(narrateChart(mdiag('pie\n  "A" : 0\n  "B" : 0')), null);
+  assert.equal(narrateChart(mdiag('pie\n  "A" : 5\n  not a row')), null);
+});
+
+// classDiagram — the defined-symbol→verb table; DIRECTION honored on both the base and reversed forms.
+test('narrateClass: speaks the DEFINED relationship verb with correct direction (both arrow sides)', () => {
+  const out = narrateChart(mdiag('classDiagram\n  Animal <|-- Dog\n  Car *-- Engine\n  Team o-- Player\n  Order ..> Logger\n  Bird ..|> Flyer'));
+  assert.ok(out.includes('Dog inherits from Animal.'), out); // <|-- : the RIGHT id is the child
+  assert.ok(out.includes('Car is composed of Engine.'), out);
+  assert.ok(out.includes('Team aggregates Player.'), out);
+  assert.ok(out.includes('Order depends on Logger.'), out);
+  assert.ok(out.includes('Bird realizes Flyer.'), out);
+  // reversed forms read the SAME meaning
+  const rev = narrateChart(mdiag('classDiagram\n  Dog --|> Animal\n  Engine --* Car'));
+  assert.ok(rev.includes('Dog inherits from Animal.') && rev.includes('Car is composed of Engine.'), rev);
+});
+test('narrateClass: an association LABEL overrides the verb; multiplicity trails as "one to many"', () => {
+  const out = narrateChart(mdiag('classDiagram\n  Customer "1" --> "*" Order : places'));
+  assert.ok(out.includes('Customer places Order, one to many.'), out);
+});
+test('narrateClass: reads members, and bails on a namespace (composite) or unrecognized line', () => {
+  const mem = narrateChart(mdiag('classDiagram\n  class Animal {\n    +int age\n    +makeSound()\n  }\n  Animal <|-- Dog'));
+  assert.ok(mem.includes('Animal has int age and makeSound.'), mem);
+  assert.equal(narrateChart(mdiag('classDiagram\n  namespace Net {\n    class Socket\n  }')), null);
+  assert.equal(narrateChart(mdiag('classDiagram\n  Animal <|-- Dog\n  this is not valid')), null);
+});
+
+// stateDiagram — [*] start/end by position; event labels; bail composite/concurrency/fork-join.
+test('narrateState: reads start/end by [*] position and event labels', () => {
+  const out = narrateChart(mdiag('stateDiagram-v2\n  [*] --> Idle\n  Idle --> Running : start\n  Running --> Idle : stop\n  Running --> [*]'));
+  assert.ok(out.includes('It starts at Idle.'), out);
+  assert.ok(out.includes('From Idle, on start, goes to Running.'), out);
+  assert.ok(out.includes('Running can end.'), out);
+});
+test('narrateState: resolves a "desc" as id label, and bails on composite/concurrency/fork', () => {
+  assert.ok(narrateChart(mdiag('stateDiagram-v2\n  state "Waiting for input" as w\n  [*] --> w\n  w --> [*]')).includes('It starts at Waiting for input.'));
+  assert.equal(narrateChart(mdiag('stateDiagram-v2\n  state Active {\n    [*] --> Sub\n  }')), null);
+  assert.equal(narrateChart(mdiag('stateDiagram-v2\n  [*] --> A\n  --\n  [*] --> B')), null);
+  assert.equal(narrateChart(mdiag('stateDiagram-v2\n  state fork_state <<fork>>\n  [*] --> fork_state')), null);
+});
+
+// erDiagram — read BOTH crow's-foot counts literally (never gamble a direction).
+test('narrateEr: reads both cardinality counts literally with the label as the verb', () => {
+  const out = narrateChart(mdiag('erDiagram\n  CUSTOMER ||--o{ ORDER : places\n  ORDER ||--|{ LINE-ITEM : contains'));
+  assert.ok(out.includes('One CUSTOMER places zero or more ORDER.'), out);
+  assert.ok(out.includes('One ORDER contains one or more LINE-ITEM.'), out);
+});
+test('narrateEr: reads attributes with key roles; bails on a malformed crow\'s-foot', () => {
+  const out = narrateChart(mdiag('erDiagram\n  CUSTOMER {\n    string name\n    string email PK\n  }\n  CUSTOMER ||--o{ ORDER : places'));
+  assert.ok(out.includes('CUSTOMER has attributes name and email as the primary key.'), out);
+  assert.equal(narrateChart(mdiag('erDiagram\n  A ||xx B : bad')), null);
+});
+
+// C4 — typed nodes + Rel direction (Rel_Back reversal; layout suffix ignored) + boundary containment.
+test('narrateC4: reads typed elements, honors Rel_Back, ignores layout suffixes, says external only on _Ext', () => {
+  const out = narrateChart(mdiag('C4Context\n  title Banking\n  Person(c, "Customer", "A bank customer.")\n  System(s, "Banking System", "View accounts.")\n  System_Ext(mail, "E-mail System", "Exchange.")\n  Rel(c, s, "Uses")\n  Rel(s, mail, "Sends e-mails", "SMTP")'));
+  assert.ok(out.includes('A C4 context diagram, Banking.'), out);
+  assert.ok(out.includes('Customer, a person: A bank customer.'), out);
+  assert.ok(out.includes('E-mail System, an external system: Exchange.'), out); // "external" only on _Ext
+  assert.ok(out.includes('Customer Uses Banking System.'), out);
+  assert.ok(out.includes('Banking System Sends e-mails E-mail System, over SMTP.'), out); // tech read
+  const back = narrateChart(mdiag('C4Context\n  Person(a,"A")\n  System(b,"B")\n  Rel_Back(a, b, "Notifies")\n  Rel_D(a, b, "Pings")'));
+  assert.ok(back.includes('B Notifies A.'), back); // Rel_Back reverses
+  assert.ok(back.includes('A Pings B.') && !/_D|down/i.test(back), back); // _D layout ignored, not spoken
+});
+test('narrateC4: a boundary names its members without asserting a peer relationship (§3.2)', () => {
+  const out = narrateChart(mdiag('C4Context\n  System_Boundary(bank, "Bank") {\n    System(a, "Accounts")\n    System(b, "Payments")\n  }\n  Person(c,"Customer")'));
+  assert.ok(out.includes('Within the Bank boundary: Accounts, a system. Payments, a system.'), out);
+});
+test('narrateChart: an unsupported Mermaid type still bails to the heading-only projection', () => {
+  assert.equal(narrateChart(mdiag('mindmap\n  root\n    a\n    b')), null);
+  assert.equal(narrateChart(mdiag('gantt\n  title X\n  section S\n  Task :a1, 2024-01-01, 30d')), null);
+});
+
+// ── Slice #2 regression — adversarial-check findings folded (design §8) ──────
+test('narratePie: a non-positive slice value bails (Mermaid errors on ≤ 0, so no rendered pie)', () => {
+  assert.equal(narrateChart(mdiag('pie\n  "A" : -10\n  "B" : 30')), null);
+  assert.equal(narrateChart(mdiag('pie\n  "A" : 0\n  "B" : 30')), null);
+});
+test('narrateState: the `id : description` label form narrates by display label, like `state "…" as id`', () => {
+  const out = narrateChart(mdiag('stateDiagram-v2\n  Still : The device is still\n  [*] --> Still\n  Still --> [*]'));
+  assert.ok(out.includes('It starts at The device is still.'), out);
+  assert.ok(!/\bStill\b/.test(out), out); // the raw id is never spoken
+});
+test('narrateEr: comma-separated composite keys (PK, FK) narrate, not bail; a quoted label loses its quotes', () => {
+  const out = narrateChart(mdiag('erDiagram\n  ORDER {\n    int id PK, FK\n  }\n  ORDER ||--|| CUSTOMER : belongs to'));
+  assert.ok(out.includes('ORDER has attribute id as the primary key.'), out);
+  assert.ok(narrateChart(mdiag('erDiagram\n  A ||--|| B : "makes payment"')).includes('A makes payment one B'));
+});
+test('narrateC4: a nested boundary does not leak a sibling element to the top level (boundary stack)', () => {
+  const out = narrateChart(mdiag('C4Context\n  System_Boundary(bank, "Bank") {\n    Container(web, "Web App", "React", "the app")\n    Container_Boundary(be, "Backend") {\n      Container(api, "API", "Java", "the api")\n    }\n    Container(wrk, "Worker", "Go", "jobs")\n  }'));
+  // Worker is authored inside Bank — it must read within the Bank boundary, not as a top-level element.
+  assert.ok(/Within the Bank boundary:[\s\S]*Web App[\s\S]*Worker/.test(out), out);
+  assert.ok(out.includes('Within the Backend boundary: API'), out);
+});
+test('narrateC4: a Rel to a boundary resolves the boundary label; a label-less Rel reads a neutral connective', () => {
+  const toB = narrateChart(mdiag('C4Context\n  Person(u,"User")\n  System_Boundary(bank,"Bank") {\n    System(s,"Sys")\n  }\n  Rel(u, bank, "uses")'));
+  assert.ok(toB.includes('User uses Bank.'), toB); // display label, not the raw alias "bank"
+  const bare = narrateChart(mdiag('C4Context\n  Person(a,"A")\n  System(b,"B")\n  Rel(a,b)'));
+  assert.ok(bare.includes('A is connected to B.'), bare);
+});
+test('narrateClass: a standalone `<<interface>> Name` annotation narrates (not bail); a generic name loses its tildes', () => {
+  assert.ok(narrateChart(mdiag('classDiagram\n  <<interface>> Shape\n  Shape <|.. Circle')).includes('Circle realizes Shape.'));
+  assert.ok(narrateChart(mdiag('classDiagram\n  class Box~T~\n  Box~T~ <|-- IntBox')).includes('IntBox inherits from Box.'));
+});
+test('narrateState: a transition whose source id equals a keyword (`end`) is not dropped', () => {
+  const out = narrateChart(mdiag('stateDiagram-v2\n  Start --> end\n  end --> Done'));
+  assert.ok(out.includes('From Start, goes to end.') && out.includes('From end, goes to Done.'), out);
+});

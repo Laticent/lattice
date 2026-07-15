@@ -315,6 +315,29 @@ in patch versions.
   auditions play from a committed local file through the `<audio>` fast path, no live OpenRouter round-trip.
   Raises the committed set to 125 samples across 9 engines. `tts-voice-catalog.json` + `docs/public/voice-samples/gemini/`.
 
+- **Read-aloud now narrates five more Mermaid diagram types — `classDiagram`, `stateDiagram`,
+  `erDiagram`, C4, and `pie` — the rest of the first wave.** A `diagram` slide of these types used to
+  narrate its heading and go silent; each now reads its structure faithfully through the shared type
+  dispatcher. The backbone is the **authored-verb asymmetry**: unlike a flowchart's arrow (whose
+  meaning isn't authored, so it reads a neutral "leads to"), a class `<|--`, an ER crow's-foot, a
+  state `[*]`, and a C4 `Rel` all have a Mermaid-*defined* meaning — so speaking it reads the author's
+  choice, not an invention. **classDiagram** speaks the defined relationship verb in the right
+  direction ("Dog inherits from Animal", "Car is composed of Engine", "Order depends on Logger"), an
+  association label overriding the verb and `"1"--"*"` trailing "one to many". **stateDiagram** (flat)
+  reads `[*]` as start/end by position and each transition's event ("It starts at Idle. From Idle, on
+  start, goes to Running. Running can end"), bailing on composite/concurrency/fork-join. **erDiagram**
+  transcribes *both* crow's-foot cardinalities literally, never gambling a direction ("One CUSTOMER
+  places zero or more ORDER"), and reads attribute key roles. **C4** reads each typed element
+  ("Customer, a person: …"; "external" only on an `_Ext`), honors `Rel` direction (with `Rel_Back`
+  reversal, ignoring the `_U/_D/_L/_R` layout hints), and names a boundary's members as containment —
+  never a peer relationship. **pie** reads each slice's share the way Mermaid derives it ("Marketing,
+  forty percent"), `showData` adding the raw value. Every narrator **bails to the heading-only caption**
+  on any construct it can't read faithfully — never a guessed structure. Each type was hardened by its
+  own adversarial pass against the live Mermaid grammar; the remaining types (mindmap, gantt, timeline,
+  journey, quadrant, radar, …) still fall back to the heading, each graduating in a later slice. Shared
+  kernel (HARD RULE #1): live Present read-aloud and the exported `.vtt` narrate identically. Demo:
+  `examples/typed-diagram-narration.md`. *Audio naturalness is UNVERIFIED (no TTS in CI); only the
+  spoken string is claimed.* See `engineering/decisions/2026-07-14-mermaid-multitype-narration.md`.
 - **Read-aloud now narrates a `diagram` slide's Mermaid SEQUENCE diagram — the message script, in
   order — the first type past the flowchart.** A `diagram` slide's sequence diagram used to narrate
   its heading and go silent; a new sequence narrator reads the conversation from the Mermaid source.

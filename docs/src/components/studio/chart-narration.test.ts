@@ -47,13 +47,18 @@ describe('read-along-core bundle exposes the shared narration kernel', () => {
 		expect(narrateStateChart(md)).toContain('This flow starts at Draft.');
 	});
 
-	it('narrateDiagram speaks a flowchart topology and a sequence script, bails on unsupported types', () => {
+	it('narrateDiagram speaks a flowchart, sequence, class, and pie diagram, bails on not-yet-supported types', () => {
 		const flow = ['<!-- _class: diagram -->', '', '## Flow.', '', '```mermaid', 'flowchart LR', '  A[Start] --> B[End]', '```'].join('\n');
 		expect(narrateDiagram(flow)).toContain('Start leads to End.');
 		const seq = ['<!-- _class: diagram -->', '', '## Seq.', '', '```mermaid', 'sequenceDiagram', '  A->>B: score', '```'].join('\n');
 		expect(narrateDiagram(seq)).toContain('A sends to B: score.');
-		const cls = ['<!-- _class: diagram -->', '', '## Class.', '', '```mermaid', 'classDiagram', '  A <|-- B', '```'].join('\n');
-		expect(narrateDiagram(cls)).toBeNull();
+		// slice #2: the typed-relationship diagrams speak the Mermaid-defined verb (the §2 asymmetry)
+		const cls = ['<!-- _class: diagram -->', '', '## Class.', '', '```mermaid', 'classDiagram', '  Animal <|-- Dog', '```'].join('\n');
+		expect(narrateDiagram(cls)).toContain('Dog inherits from Animal.');
+		const pie = ['<!-- _class: diagram -->', '', '## Pie.', '', '```mermaid', 'pie', '  "A" : 40', '  "B" : 60', '```'].join('\n');
+		expect(narrateDiagram(pie)).toContain('B, sixty percent.');
+		const mind = ['<!-- _class: diagram -->', '', '## Mind.', '', '```mermaid', 'mindmap', '  root', '```'].join('\n');
+		expect(narrateDiagram(mind)).toBeNull();
 	});
 
 	it('narrateChart dispatches to the first matching narrator', () => {
