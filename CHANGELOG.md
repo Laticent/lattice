@@ -164,6 +164,17 @@ in patch versions.
 
 ### Added
 
+- **Frame-conformance gate — components can opt in to having the model enforce their structure.**
+  A component manifest may now set `conformance: "strict"`; a gate then renders it under the Form
+  default and fails the build if its rendered cell tree drifts from its declared model (a declared
+  Cell not materialized, or an authored part left loose instead of hoisted into its Cell). Opt-in,
+  one component at a time — **zero components are strict yet**, so the gate is dormant and green; the
+  first real subject (`diagram`) lands next. This makes the Frame/Cell/Tile model the render's
+  contract, not just declared data. Ships with the ratified **authored-part → Cell map**
+  (`design/forms.md` §5.1, `design-system.md` §2.5): the lead statement is the existing `subtitle`
+  (no coined "heart"); key-insight + below-note are distinct co-occurring stage occupants; a
+  component's non-hoisted parts (e.g. `caption`) stay component-owned inside its stage Cell. Design
+  record: `engineering/decisions/2026-07-15-model-driven-frame-render.md`.
 - **A language every deck inherits — a workspace default, a per-deck override, and a document/AI
   split under the hood.** The Studio has a single **Language** in Workspace → **General** that every
   deck inherits: it is the deck's document language (carried into every export's `<html lang>` and

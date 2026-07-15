@@ -138,6 +138,14 @@ vocabulary; this doc owns how a *component* selects a Form. (No human word is
 coined for "Frame" — it is a structural, designer-facing system word; an author
 selects one via `form: <name>`.)
 
+The **authored-part → Cell map** — which slot (eyebrow, title, lede, content,
+key-insight, below-note, caption, footer, …) hoists into which Cell — is owned by
+`design/forms.md` §5.1, under the same no-third-synonym law. Two consequences of
+that law worth stating here: the lead statement is the existing **`subtitle`/lede**
+(there is no coined "heart" noun), and a component's non-hoisted parts (e.g. a
+`caption`) stay component-owned *inside its stage Cell* rather than becoming a new
+slot. The `conformance: "strict"` manifest opt-in makes the map machine-enforced.
+
 The human register is **generated from** the system register, never coined
 independently — so the surfaces can't drift apart.
 
