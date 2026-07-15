@@ -181,9 +181,11 @@ in patch versions.
   two starter reader views — **Bottom line** (the answer) and **The evidence** (the proof) — that appear
   in the Lenses panel with a **Starter** badge (so it's clear they're workspace suggestions, not views you
   built). Crucially the deck's *source stays clean*: nothing is written to the `lenses:` block until you
-  approve, relabel, or drop a starter — then only that change materializes into the deck (a dropped starter
-  is tombstoned so it never silently re-inherits, even across toggling the setting off and on). Turn the
-  setting off and any starter you haven't approved is hidden across your decks; approved views stay put.
+  act on a starter — **tag** slides into it, approve, relabel, or drop it — then only that change
+  materializes into the deck (a dropped starter is tombstoned so it never silently re-inherits, even across
+  toggling the setting off and on). Because tagging counts as touching, membership you've begun building
+  survives too — its Starter badge clears once you've worked on it. Turn the setting off and any starter you
+  haven't touched is hidden across your decks; views you've tagged or approved stay put.
   Reader views stay human-gated end to end: the workspace supplies only the *shape* (label + scope), never
   membership or approval, and an inherited view is never offered to a reader until you approve it. Hardened
   by the adversarial trio — the reader gate fails closed under every attack. (`lente/registry.ts`

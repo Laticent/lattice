@@ -202,15 +202,22 @@ function emitInlineDelta(d: LensDef, wsDef: LensDef | undefined): string {
  *   - a workspace default the deck REMOVED (absent from `reg`) → emitted as `{ drop: true }` so it does not
  *     silently re-inherit on the next read.
  *  This is what keeps an untouched deck's source empty while still letting the author approve, edit, or
- *  drop an inherited view. `parseLensRegistry(…, workspace)` round-trips the result back to `reg`. */
-export function emitRegistryDelta(reg: LensRegistry, workspace: WorkspaceLensConfig): string {
+ *  drop an inherited view. `parseLensRegistry(…, workspace)` round-trips the result back to `reg`.
+ *
+ *  `materialize` FORCES a pristine inherited lens to be emitted anyway when its id is in the set — used
+ *  for the "tagging counts as touching" rule: once the author tags slides into an inherited view, the
+ *  Studio passes that view's id here so its def is written to the deck (it's no longer a disposable
+ *  inherited starter, so it survives the workspace setting being turned off). See tags.ts `taggedLensIds`. */
+export function emitRegistryDelta(reg: LensRegistry, workspace: WorkspaceLensConfig, materialize?: Set<string>): string {
 	const defs = new Map(workspace.lenses.filter((l) => l.id !== FULL_LENS_ID).map((l) => [l.id, l]));
 	const lines: string[] = [];
 	const present = new Set<string>();
 	for (const lens of reg.lenses) {
 		if (lens.id === FULL_LENS_ID) continue;
 		present.add(lens.id);
-		if (isPristineInherited(lens, defs.get(lens.id))) continue; // inherited → don't materialize
+		// A pristine inherited lens is normally left out (re-inherited at read) — UNLESS the deck has tagged
+		// membership for it (`materialize`), in which case the author has acted on it and it's written out.
+		if (isPristineInherited(lens, defs.get(lens.id)) && !materialize?.has(lens.id)) continue;
 		lines.push(emitInlineDelta(lens, defs.get(lens.id)));
 	}
 	for (const id of defs.keys()) if (!present.has(id)) lines.push(`  ${id}: { drop: true }`);
@@ -243,8 +250,12 @@ function stripRegistryLines(lines: string[]): string[] {
  *  block records only the deck's DELTA from those defaults (see `emitRegistryDelta`), so an untouched
  *  deck writes NO block at all — and `lens-default:` is emitted only when the deck overrides the
  *  workspace default. Without `workspace`, the whole registry is materialized (the pre-inheritance
- *  behavior). Either way `parseLensRegistry(result, workspace)` round-trips back to `reg`. */
-export function upsertLensRegistry(frontMatter: string, reg: LensRegistry, workspace?: WorkspaceLensConfig): string {
+ *  behavior). Either way `parseLensRegistry(result, workspace)` round-trips back to `reg`.
+ *
+ *  `materialize` (workspace mode only) forces the named pristine inherited lenses to be written out —
+ *  the "tagging counts as touching" rule (see `emitRegistryDelta`). Callers pass the deck's
+ *  `taggedLensIds` so a view the author tagged into is no longer disposable. */
+export function upsertLensRegistry(frontMatter: string, reg: LensRegistry, workspace?: WorkspaceLensConfig, materialize?: Set<string>): string {
 	const srcLines = String(frontMatter ?? '').split(/\r?\n/);
 	const kept = stripRegistryLines(srcLines);
 	// drop a trailing run of blank lines so we append cleanly
@@ -257,7 +268,7 @@ export function upsertLensRegistry(frontMatter: string, reg: LensRegistry, works
 	// deviation and must be written, or the reader would open in the scoped workspace view instead of the
 	// whole deck (parse falls back to the workspace default when no scalar is present).
 	if (reg.default && reg.default !== (wsDefault ?? FULL_LENS_ID)) tail.push(`lens-default: ${reg.default}`);
-	let block = workspace ? emitRegistryDelta(reg, workspace) : emitRegistry(reg);
+	let block = workspace ? emitRegistryDelta(reg, workspace, materialize) : emitRegistry(reg);
 	// A tombstone (`id: { drop: true }`) already in the source must survive EVERY rewrite — including one
 	// made while the workspace setting is OFF (`emitRegistry` has no workspace to reconstruct drops from)
 	// or after the workspace defaults stopped including that id. Otherwise a dropped starter silently

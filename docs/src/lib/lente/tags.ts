@@ -115,6 +115,22 @@ export function parseSlideTags(slideSrc: string): SlideTags {
 	return { include, exclude };
 }
 
+/** The set of lens ids the deck has AUTHORED a membership tag for — any include (`+id`) or exclude
+ *  (`-id`) token across all slides. This is "the author has ACTED on this view," which is distinct from
+ *  a view merely HAVING members (a `base:all` view has every slide as a member with no tags at all). The
+ *  Studio uses it to MATERIALIZE an inherited view once the author tags into it — so that in-progress
+ *  membership survives the workspace default-views setting being turned off — and to clear its "Starter"
+ *  badge once it's been worked on. */
+export function taggedLensIds(slides: string[]): Set<string> {
+	const ids = new Set<string>();
+	for (const s of slides) {
+		const { include, exclude } = parseSlideTags(s);
+		for (const id of include) ids.add(id);
+		for (const id of exclude) ids.add(id);
+	}
+	return ids;
+}
+
 /** Render the two token sets to the shortest canonical, deterministically-ordered token string.
  *  Includes first (sorted), then `-`excludes (sorted). Empty => ''. */
 function emitTokens(tags: SlideTags): string {

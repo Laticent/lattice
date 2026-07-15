@@ -160,6 +160,24 @@ describe('workspace-inherited registry — upsert emits only the deck DELTA', ()
 		expect(parseLensRegistry(fm, WORKSPACE).lenses.some((l) => l.id === 'custom')).toBe(true);
 	});
 
+	it('MATERIALIZES a pristine inherited view the deck has TAGGED (tagging counts as touching, #993)', () => {
+		const reg = pristine();
+		// brief's def is untouched (pristine), but the deck tagged slides into it → force-materialize {brief}.
+		const fm = upsertLensRegistry('', reg, WORKSPACE, new Set(['brief']));
+		expect(fm).toContain('brief: { label: "Bottom line", base: none }');
+		expect(fm).not.toMatch(/\bask:/); // ask NOT tagged → stays inherited (no block)
+		expect(fm).not.toMatch(/\bevidence:/);
+		expect(parseLensRegistry(fm, WORKSPACE)).toEqual(reg); // still round-trips with the workspace
+		// The whole point: brief now persists even with the setting OFF (it's the deck's own view).
+		expect(parseLensRegistry(fm).lenses.map((l) => l.id)).toEqual(['full', 'brief']);
+	});
+
+	it('a materialize hint for an untagged view is a no-op (only tagged views are written)', () => {
+		// materialize names `ask`, but the reg for `ask` is pristine and NOT in the set actually tagged →
+		// here we pass an EMPTY set, so nothing extra is forced: a pristine deck still writes nothing.
+		expect(upsertLensRegistry('', pristine(), WORKSPACE, new Set())).toBe('');
+	});
+
 	it('with the workspace setting OFF (no config), inherited views vanish — only the deck DELTA remains', () => {
 		const reg = pristine();
 		const approved: LensRegistry = { ...reg, lenses: reg.lenses.map((l) => (l.id === 'brief' ? { ...l, approved: 'sha256:abc' } : l)) };

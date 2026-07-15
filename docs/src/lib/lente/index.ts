@@ -16,7 +16,7 @@ export { emitRegistry, emitRegistryDelta, isPristineInherited, parseLensRegistry
 // Suggest path — a SEPARATE module; pure, no AI, proposes membership, writes nothing.
 export { catalogFromComponents, suggestMembership } from './suggest';
 // Tags — the per-slide membership carrier.
-export { applyTag, parseSlideTags } from './tags';
+export { applyTag, parseSlideTags, taggedLensIds } from './tags';
 export type {
 	ComponentCatalog,
 	ComponentInfo,
