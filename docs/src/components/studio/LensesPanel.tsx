@@ -153,7 +153,7 @@ export function LensesPanel({
 			<p className="text-xs leading-relaxed text-muted-foreground">A reader view is a subset of this deck for one kind of reader. You approve exactly what each reader sees — a machine only suggests.</p>
 
 			{lenses.length > 0 && (
-				<ul className="mt-2.5 list-none space-y-2">
+				<ul className="mt-2.5 list-none space-y-2 pl-0">
 					{lenses.map((lens) => {
 						const currentHash = approvalHash(slides, registry, lens.id);
 						return (
@@ -304,7 +304,7 @@ function LensRow({
 								<span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">{pending.length} suggestion{pending.length === 1 ? '' : 's'}</span>
 								<button type="button" onClick={() => applySuggestions(pending)} className="ml-auto rounded-full bg-[var(--accent)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--on-accent,#fff)]">Accept all</button>
 							</div>
-							<ul className="list-none space-y-1">
+							<ul className="list-none space-y-1 pl-0">
 								{pending.map((s) => (
 									<li key={`${s.index}:${s.member}`} className="flex items-center gap-1.5">
 										<button type="button" onClick={() => applySuggestions([s])} aria-label={`Accept: ${s.reason}`} className="grid size-5 shrink-0 place-items-center rounded border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--on-accent,#fff)]"><Check className="size-3" /></button>
@@ -320,7 +320,7 @@ function LensRow({
 					    extra tags stay removable). Toggling flips the tag; the library resolves the projection. */}
 					<div className="mt-2.5">
 						<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Slides in this view <span className="font-sans font-normal normal-case">· {baseWord(lens.base)}</span></div>
-						<ul className="max-h-[220px] list-none space-y-0.5 overflow-y-auto">
+						<ul className="max-h-[220px] list-none space-y-0.5 overflow-y-auto pl-0">
 							{slides.map((s, i) => {
 								const inView = tagged.has(i);
 								const shownToReaders = memberSet.has(i);
