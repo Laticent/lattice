@@ -22,8 +22,9 @@ summary: >
   universally for SPACING (section.compact, claim-bleed) — only per-component font-role
   tweaks stay. (5) Vocabulary fixes: "heart" = the existing subtitle/lede (do NOT coin);
   "note" is three registers (key-insight + below-note co-occur in the stage, annotation is
-  the EXISTING overlay cell); caption is genuinely homeless and needs its own decision.
-  (6) It is a slot→cell DATA migration across 56 manifests, not a refactor. Recommended:
+  the EXISTING overlay cell); caption is component-owned inside its stage cell (owner call
+  2026-07-15 — NOT hoisted, NOT a new cell). (6) It is a slot→cell DATA migration across 56
+  manifests, not a refactor. Recommended:
   ship the conformance gate + kernel extension, migrate per-component byte-identical-first
   behind pixel-check + export sign-off, AFTER the .viz-frame merge, PROVING it on `diagram`
   first. NOT YET BUILT.
@@ -97,7 +98,7 @@ One slot set, one cell each. Names must reconcile with the SHIPPED nouns (§2.5,
 | **key-insight** (`> blockquote`) | **stage** (z2 sub-slot) | loose ❌ | hoist into stage; co-occurs with below-note |
 | **below-note** (em-dash trailing `p`) | **stage** (z2 sub-slot) | loose ❌ | **distinct from key-insight — they co-occur; NOT one "note" slot** |
 | **annotation** (review italic) | **`overlay` cell (z4)** | **already modeled** (`overlay.cell.json` + `tile/annotation`) | leave as-is — NOT a stage note |
-| **caption** (image/chart figure line) | **UNDECIDED** — polymorphic today (image safe-band, chart claim-hero band, contact `ul>li`) | homeless ❌ | **own decision (§7 Q1): its own cell vs. stage-foot vs. footer** |
+| **caption** (image/chart figure line) | **stays in the component's stage cell** — component-owned, NOT hoisted | placed by the component's own CSS | **owner decision (2026-07-15): the component owns placement of its non-hoisted parts within its stage cell. NOT a separate cell; the footer cell holds ONLY footer + progress + pagination.** |
 | footer (`_footer:`) | `footer`/`footer-left` | hoisted ✅ | — |
 | logo · meta · **status** | `masthead-bay` tiles | docked ✅ | **status was omitted from the first draft — include it** |
 | pagination · progress | `pagination-right` · `progress-centre` | docked ✅ | — |
@@ -108,6 +109,18 @@ holds the component's own self-sizing box (the box, e.g. `.chart-body`, keeps it
 `container-type:size`; the stage cell is its unstyled parent — **not** the measurement
 container; the first draft's §4.3 claim was measured false).
 
+**Two model rules the owner ratified (2026-07-15):**
+- **Not everything hoists.** Only the chrome slots (eyebrow · title · lede · footer +
+  logo/meta/status/progress/pagination tiles) hoist into named cells. A component's OWN
+  non-hoisted parts — caption, figure furniture, per-component structure — live **inside
+  its stage cell**, placed by the component's own CSS. The component owns its semantics;
+  the frame owns the cells.
+- **Universal authoring concepts are stage content.** Key Insight (`> blockquote`),
+  below-note, pills, and the lifted eyebrow/subtitle are first-class occupants of the
+  **stage cell**; universal-modifier CSS addresses them *through* the stage cell — which
+  is exactly why they must live in it consistently (the 07-14 selector bugs were these
+  floating loose as bare section children).
+
 ---
 
 ## 4. Mechanism — extend the shared kernel, gate the result
@@ -116,15 +129,19 @@ container; the first draft's §4.3 claim was measured false).
    `masthead.transform.js` (already shared across the 3 paths via the registry adapter)
    so the body wraps in `.cell-stage` for canvas/sovereign too — an unstyled, zero-inset
    wrapper (proven geometry-neutral). The stage cell's sizing class comes from `stage`.
-2. **Hoist the loose slots** (key-insight, below-note, caption-per-Q1) into the stage
-   cell, and **rewrite that component's `section.X > child` selectors to `> .cell-stage >`**
+2. **Hoist the loose slots** (key-insight, below-note; caption stays component-owned in the
+   stage cell per §3) into the stage cell, and **rewrite that component's
+   `section.X > child` selectors to `> .cell-stage >`**
    — this per-component selector rewrite is the real byte-change engine (the wrapper is
    neutral), so it is inherently N rewrites, one per component, behind pixel-check.
 3. **Conformance gate:** a test renders each `conformance:strict` component and asserts
    its cell tree == declared `{frame.cells} ∩ {slots}`.
-4. **compact / full-bleed as class-driven modifiers** on the now-uniform stage:
-   `section.compact` (spacing — already universal) + a `full-bleed` modifier that
-   toggles the sovereign chrome-suppression already data-driven via `exemptFromChrome`.
+4. **`compact` / `cover` as class-driven modifiers** on the now-uniform stage:
+   `section.compact` (spacing — already universal) + a **`cover`** modifier (the universal
+   "claim the whole canvas" — owner's name, better than "full-bleed"; mirrors
+   `background-size: cover`) that toggles the sovereign chrome-suppression already
+   data-driven via `exemptFromChrome`. So `cover` makes ANY component full-bleed by the
+   same mechanism sovereigns use.
    **Honest scope:** these unify the STRUCTURAL/spacing half; per-component font-role
    tweaks (which nested element is "the answer") stay — a frame token can't carry them.
 
@@ -136,9 +153,22 @@ section-level grid onto `.cell-stage`. Model holds; slot map is not uniform for 
 
 ---
 
-## 5. What this is NOT (guardrails the trio insisted on)
+## 5. What this is NOT (guardrails — the trio's + the owner's hard line)
 
+- **⛔ The measuring machinery is a PROTECTED surface — it will NOT be broken (owner,
+  2026-07-15).** The overflow probe (`lib/core/overflow-probe.js`), autosplit /
+  read-across carousel, the Fit Spine, virtual lists, and HARD RULE #20 margin
+  discipline must behave **identically**. The probe keys on clip cells
+  (`CLIP_CELL_SELECTOR`), so materializing `.cell-stage` for a canvas/sovereign changes
+  what it sees — every migration MUST prove the probe's overflow verdict AND autosplit's
+  page decisions are unchanged (a canvas can't overstuff; wrapping it must never induce a
+  false overflow or a spurious split). This is a named, gated verification per slice — the
+  first thing the diagram proof (§6 PR 1) checks, not an afterthought.
 - **NOT a runtime manifest interpreter** (§2). Gate + kernel extension only.
+- **NOT recursive frames.** Multi-zone components split inside their OWN body within the
+  single stage cell (component-private CSS) — categorically NOT "a Cell hosts a composed
+  Frame" (the rejected 2026-06-18 branch). Recursion stays out — too complex and unneeded;
+  revisit ONLY if a real "a cell must host a full sub-frame" case appears (we have none).
 - **NOT a global gate.** Per-component opt-in; one component per PR.
 - **NOT byte-changing by fiat.** Each canvas/sovereign migration attempts byte-identical
   first; re-bless only with a **one-deck (dark+light) export sign-off** naming why those
@@ -167,17 +197,23 @@ section-level grid onto `.cell-stage`. Model holds; slot map is not uniform for 
 
 ---
 
-## 7. Open decisions (owner)
+## 7. Decisions (owner) — resolved 2026-07-15
 
-1. **`caption`** — its own cell (new `region`), a stage-foot sub-slot, or the footer band?
-   (Today it's three different things; this is the one genuinely-unsolved slot.)
-2. **Rung confirmation** — accept the trio's cut (gate + kernel extension, NOT interpreter)?
-   The interpreter buys "violation impossible" over "violation caught"; the trio says not
-   worth a 3-path rewrite. Owner call.
-3. **Vocabulary ratification** — "heart"→`subtitle`; `note`→{key-insight, below-note}
-   (annotation stays overlay); add `status`; `watermark`→stage. Land as PR 0.
-4. **Start the proof slice on `diagram`?** — the one-component test that earns (or refutes)
-   the whole sequence, at the price of one component.
+1. **`caption` — RESOLVED: component-owned inside its stage cell.** Not hoisted, not a new
+   cell. The component owns placement of its non-hoisted parts within its stage cell; the
+   footer cell holds ONLY footer + progress + pagination (§3, §5).
+2. **Rung — RESOLVED: accept the trio's cut** (conformance gate + kernel extension, NOT a
+   runtime interpreter). "Violation caught," not "violation impossible."
+3. **Vocabulary — RESOLVED, lands as PR 0:** "heart"→`subtitle`; `note`→{key-insight,
+   below-note} (annotation stays overlay); add `status`; `watermark`→stage.
+4. **`cover`/`compact` naming — RESOLVED:** `cover` (not `full-bleed`) for the universal
+   full-bleed modifier; `compact` unchanged.
+5. **Overflow/measuring machinery — RESOLVED: PROTECTED, non-negotiable** (§5). Every slice
+   proves the probe verdict + autosplit decisions are unchanged.
+
+**Still open — the one go-ahead the owner gates:** start the `diagram` proof slice (§6 PR 1)?
+That is the one-component test that earns (or refutes) the whole sequence at the price of one
+component. Not begun without explicit go.
 
 ---
 
@@ -185,8 +221,8 @@ section-level grid onto `.cell-stage`. Model holds; slot map is not uniform for 
 
 The model stays the source of truth; a **conformance gate** makes a violating component
 **fail the build** (caught, not merely discouraged); the stage cell becomes **universal**;
-`compact`/`full-bleed` become uniform for structure/spacing. A jr engineer learns one rule
+`compact`/`cover` become uniform for structure/spacing. A jr engineer learns one rule
 — *"my parts live in my frame's cells; the frame builds them; my `stage`/`compact`/
-`full-bleed` are knobs; the gate proves I conform."* The trio's cut keeps that outcome while
+`cover` are knobs; the gate proves I conform."* The trio's cut keeps that outcome while
 removing the runtime interpreter, the monster branch, and the byte-roulette — the three
 things that would have made it a swamp.
