@@ -15487,38 +15487,14 @@ section.chart-frame,
   --chart-accent-lg: clamp(6px, 0.46cqi, 9px);   /* heavy accent stripe (roadmap milestone) */
 }
 
-section.chart-frame .chart-header {
-  /* Plain header — eyebrow + h2 + subtitle on the section background.
-   * Decoration is opt-in via the universal `tint-*` / `mark-*`
-   * treatments, not baked in here. A short hairline below the header
-   * keeps the chart body visually separated; that is the only chrome. */
-  flex: 0 0 auto;
-  /* flex column so the eyebrow/title/subtitle centre via align-items and stack via `gap`
-   * instead of each carrying its own `margin: 0 auto …` (HARD RULE #20). The ::after
-   * hairline is absolutely positioned, so it is unaffected. */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-xs);
-  position: relative;
-  box-sizing: border-box;
-  width: 100%;
-  padding: var(--sp-2xl) var(--sp-2xl) var(--sp-md);
-  text-align: center;
-  background: none;
-}
-
-section.chart-frame .chart-header::after {
-  /* Short hairline — soft frame edge between header and chart body. */
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 7.5cqi;
-  height: var(--chart-hairline);
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
-}
+/* .viz-frame merge (2026-07-15-viz-frame-merge.md): the chart chrome (eyebrow + h2 +
+ * subtitle) now HOISTS into the standard `.cell-masthead > .masthead-lede` band — charts
+ * are standard, so the masthead cell owns the header layout (flex column, centering,
+ * spacing) exactly as for every other component. The old in-flow `.chart-header`
+ * container and its decorative `::after` hairline are retired (the element no longer
+ * exists). The per-role chrome styling that remains distinct to charts (eyebrow
+ * mono/uppercase, title max-width, subtitle italic) survives via the descendant
+ * selectors below, which still match once the elements live inside `.masthead-lede`. */
 
 section.chart-frame .chart-eyebrow {
   margin: 0;
@@ -15536,12 +15512,8 @@ section.chart-frame .chart-eyebrow > code {
   text-transform: uppercase;
 }
 
-section.chart-frame .chart-header h2 {
-  margin: 0;
+section.chart-frame .masthead-lede h2 {
   max-width: 70.3125cqi;
-  font-size: var(--fs-h2);
-  line-height: var(--lh-tight);
-  text-align: center;
 }
 
 section.chart-frame .chart-subtitle {
@@ -15553,43 +15525,11 @@ section.chart-frame .chart-subtitle {
   line-height: var(--lh-relaxed);
 }
 
-/* Under the Form, a chart-frame keeps its eyebrow + title + subtitle TOGETHER in
- * the in-flow .chart-header — the masthead kernel does NOT lift them (the engine
- * converges with the runtime's `:scope > h2`, which never matched the nested chart
- * h2; model-driven-frame-render §6). No masthead band is built for charts; the full
- * hoist to a masthead-lede band is deferred to the .viz-frame/strict migration.
- * Three things follow:
- *   1. Drop the tall top padding (--sp-2xl, sized for a stand-alone centered header)
- *      that wasted ~5cqi and STARVED the chart Cell — the donut collapse on dense
- *      slides was this, not the svg sizing.
- *   2. Left-align the header to the frame's edge (drop the centered flow + the
- *      --sp-2xl horizontal inset) so the title reads flush like every other layout.
- *   3. Retire the decorative ::after hairline under the Form: the header sits
- *      directly above the chart body and the section gap is the divider, so the
- *      hairline would be a redundant rule (this also drops a stray rule when there
- *      is no subtitle).
- * Scoped to section.form; non-form chart headers keep their full centered breathing
- * room and their hairline. */
-section.form.chart-frame .chart-header {
-  padding-top: 0;
-  padding-inline: 0;
-  align-items: flex-start;
-  text-align: left;
-}
-section.form.chart-frame .chart-header::after { content: none; }
-
-/* Header→body clearance is conditional on there BEING a subtitle. The default
- * section gap gives the header↔chart-body a deliberate separation that reads right
- * when the body leads with chart content. But a subtitle belongs to the headline
- * unit and must HUG the title, not sit a full clearance from the body. When (and
- * only when) a .chart-subtitle leads, tighten the section gap so the subtitle stays
- * with the header. (The engine no longer lifts a chart title, so there is no
- * masthead band to clear — the tighten now lives entirely on the section gap.) */
-/* Guard against claim-hero/bleed: there the subtitle is display:none but stays in
- * the DOM, so :has(.chart-subtitle) still matches — the hug would tighten with no
- * visible dek. The plain :not() guards are fine (HARD RULE #12 bans only the
- * :not(:has())/:is(:has()) compound forms, and only in themes/). */
-section.form.chart-frame:has(.chart-subtitle):not(.claim-hero):not(.claim-bleed) { gap: var(--sp-xs); }
+/* .viz-frame merge: the chart chrome now hoists into the standard `.masthead-lede`
+ * band, so the old in-flow `.chart-header` Form overrides (top-padding reset,
+ * left-align, ::after retirement) and the section-gap subtitle-hug are retired — the
+ * masthead cell owns header layout + spacing for charts as for every component, and
+ * the stage cell owns the body. */
 
 section.chart-frame .chart-body {
   /* Pin to slide-internal width (1280 − 2× horizontal padding), same
