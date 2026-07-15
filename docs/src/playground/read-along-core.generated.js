@@ -1789,13 +1789,203 @@ var require_chart_narration = __commonJS({
       }
       return sentences.length ? sentences.join(" ") : null;
     }
+    function firstFenceKeyword(body) {
+      const lines = String(body).split("\n");
+      let i = 0;
+      while (i < lines.length && lines[i].trim() === "") i++;
+      if (lines[i] !== void 0 && lines[i].trim() === "---") {
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim() !== "---") j++;
+        i = j < lines.length ? j + 1 : lines.length;
+      }
+      for (; i < lines.length; i++) {
+        const t = lines[i].replace(/%%\{[\s\S]*?\}%%/g, "").trim();
+        if (!t || t.startsWith("%%")) continue;
+        return t;
+      }
+      return "";
+    }
+    var SEQ_ARROWS = ["<<-->>", "<<->>", "-->>", "--)", "--x", "->>", "-->", "-)", "-x", "->"];
+    var SEQ_MSG_CAP = 12;
+    var SEQ_BLOCK = {
+      loop: (l) => l ? `Repeatedly, ${l}:` : "Repeatedly:",
+      alt: (l) => l ? `If ${l}:` : "One case:",
+      else: (l) => l ? `Otherwise, if ${l}:` : "Otherwise:",
+      opt: (l) => l ? `Optionally, if ${l}:` : "Optionally:",
+      par: (l) => l ? `In parallel, ${l}:` : "In parallel:",
+      and: (l) => l ? `And in parallel, ${l}:` : "And in parallel:",
+      critical: (l) => l ? `Critically, ${l}:` : "Critically:",
+      option: (l) => l ? `Or, if ${l}:` : "Or:",
+      break: (l) => l ? `Breaking off, if ${l}:` : "Breaking off:"
+    };
+    function seqBlockPhrase(kw, label) {
+      return (SEQ_BLOCK[kw] || ((l) => `${l || ""}:`))(label);
+    }
+    function renderSeqMsg(m) {
+      if (m.src === m.tgt) return m.label ? `${m.src}, to itself: ${m.label}` : `${m.src}, to itself`;
+      return m.label ? `${m.src} sends to ${m.tgt}: ${m.label}` : `${m.src} sends to ${m.tgt}`;
+    }
+    function renderSeqRun(run) {
+      if (run.length === 1) return renderSeqMsg(run[0]);
+      const src = run[0].src;
+      if (run.every((m) => m.tgt === run[0].tgt)) {
+        return `${src} sends to ${run[0].tgt}: ${run.map((m) => m.label).join("; then ")}`;
+      }
+      return `From ${src}: ${run.map((m) => `to ${m.tgt}, ${m.label}`).join("; ")}`;
+    }
+    function renderSeqClauses(events) {
+      const clauses = [];
+      let run = [];
+      const flush = () => {
+        if (run.length) {
+          clauses.push(renderSeqRun(run));
+          run = [];
+        }
+      };
+      events.forEach((e, k) => {
+        if (e.k === "msg" && e.src !== e.tgt && e.label) {
+          if (run.length && run[0].src === e.src) run.push(e);
+          else {
+            flush();
+            run = [e];
+          }
+          return;
+        }
+        flush();
+        if (e.k === "msg") clauses.push(renderSeqMsg(e));
+        else if (e.k === "note") clauses.push(`Note: ${e.text}`);
+        else if (e.k === "block") clauses.push(e.phrase);
+        else if (e.k === "close" && events.slice(k + 1).some((x) => x.k !== "close")) clauses.push("Afterwards:");
+      });
+      flush();
+      return clauses;
+    }
+    function parseSeqMessage(line) {
+      const colon = line.indexOf(":");
+      const sig = colon === -1 ? line : line.slice(0, colon);
+      const text = colon === -1 ? "" : line.slice(colon + 1).trim();
+      for (const arrow of SEQ_ARROWS) {
+        const idx = sig.indexOf(arrow);
+        if (idx === -1) continue;
+        const src = sig.slice(0, idx).trim();
+        const tgt = sig.slice(idx + arrow.length).trim().replace(/^[+-]\s*/, "");
+        if (!src || !tgt) return BAIL;
+        return { src, tgt, text };
+      }
+      return null;
+    }
+    function narrateSequence(body) {
+      const lines = String(body).split("\n");
+      let i = 0;
+      while (i < lines.length && lines[i].trim() === "") i++;
+      let title = null;
+      if (lines[i] !== void 0 && lines[i].trim() === "---") {
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim() !== "---") {
+          const tm = lines[j].match(/^\s*title:\s*(.*)$/);
+          if (tm) title = scrubLabel(stripQuotes(tm[1]));
+          j++;
+        }
+        i = j < lines.length ? j + 1 : lines.length;
+      }
+      while (i < lines.length) {
+        const t = lines[i].replace(/%%\{[\s\S]*?\}%%/g, "").trim();
+        if (t === "" || t.startsWith("%%")) {
+          i++;
+          continue;
+        }
+        break;
+      }
+      if (!/^sequenceDiagram\b/.test((lines[i] || "").trim())) return null;
+      i++;
+      const labelOf = /* @__PURE__ */ new Map();
+      const register = (raw) => {
+        const id = String(raw).trim();
+        if (id && !labelOf.has(id)) labelOf.set(id, id);
+        return id;
+      };
+      const events = [];
+      let messageCount = 0;
+      let capIndex = -1;
+      let lastMsg = null;
+      let depth = 0;
+      for (; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (!t || t.startsWith("%%")) continue;
+        if (/^(autonumber|activate|deactivate|title|accTitle|accDescr|link|links|properties|rect|box)\b/i.test(t)) continue;
+        if (/^end\b/i.test(t)) {
+          if (depth > 0) {
+            depth--;
+            events.push({ k: "close" });
+          }
+          continue;
+        }
+        const pm = t.match(/^(?:create\s+|destroy\s+)?(?:participant|actor)\s+([^\s:]+?)(?:\s+as\s+(.+))?$/i);
+        if (pm) {
+          const id = register(pm[1]);
+          if (pm[2]) labelOf.set(id, scrubLabel(stripQuotes(pm[2])));
+          continue;
+        }
+        const nm = t.match(/^note\s+(?:left of|right of|over)\s+[^:]+:\s*(.+)$/i);
+        if (nm) {
+          events.push({ k: "note", text: scrubLabel(nm[1]) });
+          continue;
+        }
+        if (/^note\b/i.test(t)) return null;
+        const bm = t.match(/^(loop|alt|opt|par|critical|break)\b\s*(.*)$/i);
+        if (bm) {
+          if (++depth > 1) return null;
+          events.push({ k: "block", phrase: seqBlockPhrase(bm[1].toLowerCase(), scrubLabel(bm[2])) });
+          continue;
+        }
+        const cm = t.match(/^(else|and|option)\b\s*(.*)$/i);
+        if (cm && depth > 0) {
+          events.push({ k: "block", phrase: seqBlockPhrase(cm[1].toLowerCase(), scrubLabel(cm[2])) });
+          continue;
+        }
+        const m = parseSeqMessage(t);
+        if (m === BAIL) return null;
+        if (m) {
+          const ev = { k: "msg", src: labelOf.get(register(m.src)) || m.src, tgt: labelOf.get(register(m.tgt)) || m.tgt, label: scrubLabel(m.text) };
+          events.push(ev);
+          lastMsg = ev;
+          messageCount++;
+          if (messageCount === SEQ_MSG_CAP) capIndex = events.length;
+          continue;
+        }
+        return null;
+      }
+      if (!messageCount) return null;
+      const countWord = numberToWords(messageCount);
+      const frameBase = `${/^(eight|eleven)/i.test(countWord) ? "An" : "A"} ${countWord}-message sequence diagram`;
+      const frame = title ? `${frameBase}, ${title}` : frameBase;
+      if (messageCount <= SEQ_MSG_CAP) {
+        return [terminate(frame), ...renderSeqClauses(events).map(terminate)].join(" ");
+      }
+      const clauses = renderSeqClauses(events.slice(0, capIndex));
+      const hidden = messageCount - SEQ_MSG_CAP - 1;
+      clauses.push(hidden >= 1 ? `And ${numberToWords(hidden)} more message${hidden === 1 ? "" : "s"}, ending: ${renderSeqMsg(lastMsg)}` : renderSeqMsg(lastMsg));
+      return [terminate(frame), ...clauses.map(terminate)].join(" ");
+    }
+    function narrateMermaidFence(fenceBody) {
+      const kw = firstFenceKeyword(fenceBody).split(/\s+/)[0].replace(/-beta$/i, "");
+      if (/^(flowchart|graph)$/i.test(kw)) {
+        const parsed = parseFlowchart(fenceBody);
+        if (!parsed) return null;
+        const frame = terminate(parsed.title ? `A flowchart, ${parsed.title}` : "A flowchart");
+        const reading = renderFlowNarrative(parsed) || renderGroupedNarrative(parsed);
+        return reading ? `${frame} ${reading}` : null;
+      }
+      if (/^sequenceDiagram$/i.test(kw)) return narrateSequence(fenceBody);
+      return null;
+    }
     function narrateDiagram2(markdown) {
       const src = String(markdown || "");
       if (!hasClassToken(src, "diagram")) return null;
       const fence = src.match(/```mermaid\n([\s\S]*?)```/);
       if (!fence) return null;
-      const parsed = parseFlowchart(fence[1]);
-      if (!parsed) return null;
+      const reading = narrateMermaidFence(fence[1]);
+      if (!reading) return null;
       const blanked = withoutFences(src);
       const consumed = /* @__PURE__ */ new Set();
       const parts = [];
@@ -1806,9 +1996,7 @@ var require_chart_narration = __commonJS({
       }
       const h = heading(blanked);
       if (h) parts.push(h);
-      parts.push(terminate(parsed.title ? `A flowchart, ${parsed.title}` : "A flowchart"));
-      const body = renderFlowNarrative(parsed) || renderGroupedNarrative(parsed);
-      if (body) parts.push(body);
+      parts.push(reading);
       const extra = speakLeftover(blanked, consumed);
       if (extra) parts.push(extra);
       return parts.join(" ");
@@ -1836,6 +2024,7 @@ var require_chart_narration = __commonJS({
       narrateStateChartInference: narrateStateChartInference2,
       narrateStateChart: narrateStateChart2,
       narrateDiagram: narrateDiagram2,
+      narrateSequence,
       narrateChart: narrateChart2
     };
   }

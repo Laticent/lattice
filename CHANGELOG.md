@@ -306,6 +306,39 @@ in patch versions.
   auditions play from a committed local file through the `<audio>` fast path, no live OpenRouter round-trip.
   Raises the committed set to 125 samples across 9 engines. `tts-voice-catalog.json` + `docs/public/voice-samples/gemini/`.
 
+- **Read-aloud now narrates a `diagram` slide's Mermaid SEQUENCE diagram — the message script, in
+  order — the first type past the flowchart.** A `diagram` slide's sequence diagram used to narrate
+  its heading and go silent; a new sequence narrator reads the conversation from the Mermaid source.
+  The mermaid fence handler is now a **type dispatcher** (`narrateMermaidFence` + `firstFenceKeyword`,
+  which skips frontmatter / `%%{init}%%` / `%%` before the type token, longest-matches the keyword,
+  and strips a `-beta` suffix); the flowchart path is unchanged. `narrateSequence` walks each message
+  in source order as a neutral **"‹A› sends to ‹B›: ‹label›"** — every arrow glyph (`->`, `-->>`, `-x`,
+  `-)`, `<<->>`, …) reads the same neutral "sends to", because the glyph encodes sync/async/reply only
+  by Mermaid *convention*, not authored content, so voicing it would be fabrication; only the label
+  after the colon is the author's meaning, and an arrow-like token *inside* that label (e.g. "`prefer
+  -->> over ->`") stays in the text, never split or spoken as a connective. A `participant … as` alias
+  speaks the display label; a single-line note reads "Note: …"; `+`/`-` activation flags are silent. A
+  single-level `loop`/`alt`/`else`/`opt`/`par`/`critical`/`break` is spoken as a connective lead-in so
+  the messages read *inside* it ("If in stock: …", "Otherwise, if backordered: …"), and a message
+  after the block resumes with an "Afterwards:" cue rather than reading as still inside it. The reading
+  model is **architect-grade but faithfulness-first** (hardened by a four-pass research + adversarial
+  trio, design §14): it opens with a **message count** ("A four-message sequence diagram"); **coalesces
+  a same-sender run**, de-repeating only the narrator's own "X sends to Y" scaffolding while keeping
+  every authored label — same receiver reads "App sends to SDK: score; then refine; then commit", a
+  fan-out reads the lossless "From API: to Auth, verify; to Orders, create; to Payment, charge" (a run
+  never crosses a note or block boundary, so a conditional is never merged into an unconditional one);
+  reads a **self-message as internal work** ("Auth Server, to itself: sign the token"); and past a
+  twelve-message cap speaks the first twelve, folds the hidden middle into a count, and **always speaks
+  the final message** ("… And ‹N› more messages, ending: ‹final›") so a protocol's payoff is never
+  truncated into silence. Deliberately, and by the trio's evidence, it **invents nothing the glyph
+  encodes**: no "returns / responds / back to A" round-trip framing (a direction reversal is a reply
+  only by the banned glyph — it reads plainly as the next "B sends to A"), no relay/hub/request-response/
+  polling **shape** claim, and `-x` "lost" reads neutral like every other arrow. It **bails to the
+  heading-only caption** on a nested block, a multiline `note … end note`, an unrecognized arrow, or any
+  line it can't fully recognize — never a guessed reading. Shared kernel (HARD RULE #1): the live Studio
+  Present read-aloud and the exported `.vtt`/read-along captions narrate it identically. The demo deck is
+  `examples/sequence-narration.md`. *Audio naturalness is UNVERIFIED (no TTS in CI); only the spoken
+  string is claimed.* See `engineering/decisions/2026-07-14-mermaid-multitype-narration.md`.
 - **Read-aloud now narrates a `diagram` slide's Mermaid FLOWCHART — described as a FLOW, the way a
   person walks a diagram, not a per-edge dump.** A `diagram` slide's graph used to narrate its title
   and go silent (the speech projection skips the rendered SVG). A new flowchart narrator reads the

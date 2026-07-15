@@ -225,7 +225,7 @@ test('a ```mermaid fence does not shift the fence-intact section alignment', () 
   assert.equal(blocks.length, 4);
 });
 
-test('the diagram flowchart narrates its topology on the export split; a sequence type defers', () => {
+test('the diagram flowchart AND sequence narrate on the export split (both mermaid types)', () => {
   const blocks = splitSourceToSections(mermaidDeck);
   assert.equal(narrateChart(blocks[0]), null); // title
   const flow = narrateChart(blocks[1]);
@@ -234,6 +234,7 @@ test('the diagram flowchart narrates its topology on the export split; a sequenc
   // phrase, not a recognized verb) reads as the grammatical appositive.
   assert.ok(flow.includes('Signal Intake leads to Scoring Model'));
   assert.ok(flow.includes('Scoring Model, scored signal, leads to Decision Log'));
-  assert.equal(narrateChart(blocks[2]), null); // sequenceDiagram → heading-only projection
+  // sequenceDiagram now narrates its message script on the same fence-intact export split.
+  assert.ok(narrateChart(blocks[2]).includes('A one-message sequence diagram. App sends to SDK: score(signal).'));
   assert.ok(narrateChart(blocks[3]).includes('forty percent of the prior stage')); // funnel unaffected
 });

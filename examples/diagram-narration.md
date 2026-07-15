@@ -139,17 +139,17 @@ flowchart LR
 
 `07 · Honest fallback`
 
-## A non-flowchart type reads its heading.
+## A not-yet-narrated type reads its heading.
 
 ```mermaid
-sequenceDiagram
-  participant App
-  participant SDK
-  App->>SDK: score(signal)
-  SDK-->>App: a score
+classDiagram
+  Animal <|-- Dog
+  Animal <|-- Cat
+  Animal : +int age
+  Animal : +makeSound()
 ```
 
-> Sequence, class, state, ER, and gantt diagrams are not yet narrated — they fall back to the heading and this caption, exactly as before. No confidently-wrong reading of a graph the narrator can't yet parse.
+> Flowcharts narrate their topology and sequence diagrams narrate their message script; the remaining types — class, state, ER, and gantt — fall back to the heading and this caption for now, exactly as before. No confidently-wrong reading of a diagram the narrator can't yet parse; each type graduates in its own first-wave slice.
 
 ---
 

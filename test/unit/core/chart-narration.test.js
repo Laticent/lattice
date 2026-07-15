@@ -758,8 +758,10 @@ test('narrateDiagram: narrates edges inside and across subgraphs (subgraph lines
   assert.ok(!out.includes('Ingest leads')); // the subgraph title is not spoken as a node
 });
 
-test('narrateDiagram: BAILS to null on a non-flowchart Mermaid type', () => {
-  for (const type of ['sequenceDiagram', 'classDiagram', 'stateDiagram-v2', 'erDiagram', 'gantt', 'pie', 'mindmap']) {
+test('narrateDiagram: BAILS to null on a not-yet-supported Mermaid type', () => {
+  // sequenceDiagram is now narrated (slice #1); the rest still fall back to heading+caption
+  // until their own first-wave slice lands (design 2026-07-14).
+  for (const type of ['classDiagram', 'stateDiagram-v2', 'erDiagram', 'gantt', 'pie', 'mindmap', 'C4Context']) {
     const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\n${type}\n  A->>B: x\n\`\`\``;
     assert.equal(narrateDiagram(md), null, type);
   }
@@ -982,4 +984,143 @@ test('narrateDiagram: the GIST flags a loop when the graph also branches and cyc
   // "with a loop" (the walk names the target; the gist just orients that one exists).
   const out = narrateDiagram(diagram('  O["Order"] -->|validates| V{"In stock?"}\n  V -->|yes| P["Pay"]\n  V -->|no| Bk["Backorder"]\n  P -->|"on failure"| Bk\n  Bk -->|restocked| P\n  P --> Sh["Ship"]', 'flowchart TD'));
   assert.ok(out.includes('with a loop'), out);
+});
+
+// ── narrateSequence (Mermaid sequenceDiagram — first-wave slice #1) ────────────
+const seqSlide = (body) => `<!-- _class: diagram -->\n\n## Auth handshake.\n\n\`\`\`mermaid\n${body}\n\`\`\``;
+
+test('narrateSequence: reads participants (display label), messages in order, notes, and a single-level block', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  participant A as Alice\n  participant B as Bob\n  A->>+B: Request auth token\n  Note right of B: Validates credentials\n  B-->>-A: Return signed token\n  alt Token expired\n    A->>B: Refresh token\n  end'));
+  assert.ok(out.includes('A three-message sequence diagram.'), out); // §14 count frame (3 messages, not the note)
+  assert.ok(out.includes('Alice sends to Bob: Request auth token.'), out); // display label, not id; activation "+" stripped
+  assert.ok(out.includes('Note: Validates credentials.'), out);
+  assert.ok(out.includes('Bob sends to Alice: Return signed token.'), out); // direction reversal read plainly — never "returns/back to"
+  // A first `alt` opens with "If ‹cond›:" — NOT "Alternatively" (which would falsely imply a prior option).
+  assert.ok(out.includes('If Token expired: Alice sends to Bob: Refresh token.'), out);
+});
+
+// ── §14 reading model (the faithful architect-grade lift; multi-pass trio) ─────
+
+test('narrateSequence: §14 count frame — opens with the message count, the one faithful orientation', () => {
+  const one = narrateChart(seqSlide('sequenceDiagram\n  A->>B: hi'));
+  assert.ok(one.includes('A one-message sequence diagram.'), one);
+  const four = narrateChart(seqSlide('sequenceDiagram\n  A->>B: 1\n  B->>C: 2\n  C->>A: 3\n  A->>B: 4'));
+  assert.ok(four.includes('A four-message sequence diagram.'), four);
+  // "An" before a vowel-sound count word (a read-aloud spoken-grammar fix, checker finding).
+  const eight = narrateChart(seqSlide('sequenceDiagram\n' + Array.from({ length: 8 }, (_, i) => `  ${i % 2 ? 'B' : 'A'}->>${i % 2 ? 'A' : 'B'}: m${i}`).join('\n')));
+  assert.ok(eight.includes('An eight-message sequence diagram.'), eight);
+});
+
+test('narrateSequence: §14 same-sender coalescing de-repeats "X sends to Y" but keeps every label', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  App->>SDK: score\n  App->>SDK: refine\n  App->>SDK: commit'));
+  assert.ok(out.includes('App sends to SDK: score; then refine; then commit.'), out);
+  assert.ok(!/App sends to SDK: refine/.test(out), out); // the repeated scaffolding is gone
+});
+
+test('narrateSequence: §14 fan-out coalescing names EVERY receiver and label (lossless)', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  GW->>Auth: verify\n  GW->>Orders: create\n  GW->>Pay: charge'));
+  assert.ok(out.includes('From GW: to Auth, verify; to Orders, create; to Pay, charge.'), out);
+});
+
+test('narrateSequence: §14 a self-message reads as internal work, not a send-to-self', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  App->>SDK: score\n  SDK->>SDK: compute totals\n  SDK-->>App: result'));
+  assert.ok(out.includes('SDK, to itself: compute totals.'), out);
+  assert.ok(!/SDK sends to SDK/.test(out), out);
+});
+
+test('narrateSequence: §14 coalescing NEVER crosses a block or note boundary (a red-team guard)', () => {
+  // A conditional message inside a same-pair run must NOT be swept into an unconditional coalesced run.
+  const alt = narrateChart(seqSlide('sequenceDiagram\n  App->>SDK: score\n  alt ok\n    App->>SDK: commit\n  end\n  App->>SDK: refine'));
+  assert.ok(alt.includes('App sends to SDK: score.'), alt); // run flushed at the block
+  assert.ok(alt.includes('If ok: App sends to SDK: commit.'), alt); // commit stays conditional
+  assert.ok(!/score; then commit/.test(alt), alt); // the alt was NOT coalesced away
+  const note = narrateChart(seqSlide('sequenceDiagram\n  App->>SDK: score\n  note over App,SDK: retry\n  App->>SDK: refine'));
+  assert.ok(!/score; then refine/.test(note), note); // the note breaks the run
+});
+
+test('narrateSequence: §14 faithfulness — NO round-trip "returns/back to", NO shape gist', () => {
+  // A B→A message after A→B is NOT necessarily a reply (only the banned glyph would say so); it reads
+  // plainly as its own message. And no relay/hub/request-response/polling shape is ever asserted.
+  // Neutral heading (the shared helper's "Auth handshake" would be authored content, not invented).
+  const slide = '<!-- _class: diagram -->\n\n## The flow.\n\n```mermaid\nsequenceDiagram\n  Client->>Server: login\n  Server->>Client: promo banner\n```';
+  const out = narrateChart(slide);
+  assert.ok(out.includes('Server sends to Client: promo banner.'), out);
+  assert.ok(!/back to|returns|responds|replies|request-response|orchestrat|polling|relay|handshake/i.test(out), out);
+});
+
+test('narrateSequence: every arrow glyph reads as the neutral "sends to" — never voices sync/async/reply', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  Client-)Server: fire and forget\n  Server--xClient: dropped\n  A-->>B: reply'));
+  assert.ok(out.includes('Client sends to Server: fire and forget.'), out); // async `-)` → neutral
+  assert.ok(out.includes('Server sends to Client: dropped.'), out); // lost `--x` → neutral
+  assert.ok(out.includes('A sends to B: reply.'), out); // dashed reply `-->>` → neutral, never "returns"
+  assert.ok(!/asynchronous|synchronous|returns|replies with/i.test(out), out); // no fabricated glyph semantics
+});
+
+test('narrateSequence: an id used without a participant declaration reads as its own name', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  App->>SDK: score(signal)\n  SDK-->>App: a score'));
+  assert.ok(out.includes('App sends to SDK: score(signal).'), out);
+  assert.ok(out.includes('SDK sends to App: a score.'), out);
+});
+
+test('narrateSequence: past the cap it reads the prefix, the remainder count, AND the final message (§14 truncation-proof)', () => {
+  // 14 messages (cap 12): the first 12 (coalesced), then the remainder count, then the FINAL message —
+  // the terminal outcome is never truncated into silence (an architect-quality trio finding).
+  const out = narrateChart(seqSlide('sequenceDiagram\n  participant A as Alice\n  participant B as Bob\n' + Array.from({ length: 14 }, (_, i) => `  A->>B: message ${i + 1}`).join('\n')));
+  assert.ok(out.includes('Alice sends to Bob: message 1;'), out); // coalesced prefix opens with the first
+  assert.ok(out.includes('then message 12.'), out); // through the cap
+  assert.ok(!/message 13\b/.test(out), out); // the hidden middle (13) is folded into the count
+  assert.ok(out.includes('And one more message, ending: Alice sends to Bob: message 14.'), out); // final IS spoken
+});
+
+test('narrateSequence: exactly the cap reads in full, coalesced (the boundary is > not ≥)', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n' + Array.from({ length: 12 }, (_, i) => `  A->>B: m${i + 1}`).join('\n')));
+  assert.ok(out.includes('then m12.'), out); // 12 ≤ cap → full read (coalesced same-pair run)
+  assert.ok(!/more message/.test(out), out); // no tail at exactly the cap
+});
+
+// ── Regression: adversarial-trio findings on slice #1 (design 2026-07-14 §13) ──
+
+test('narrateSequence: an arrow glyph INSIDE the message text never corrupts src/tgt or leaks a raw glyph (red-team WORST)', () => {
+  // `parseSeqMessage` isolates the signature at the FIRST colon before matching an arrow, so an
+  // arrow-like token in the label can't split the wrong place or get spoken as "sends to".
+  const out = narrateChart(seqSlide('sequenceDiagram\n  A->>B: prefer -->> over ->'));
+  assert.ok(out.includes('A sends to B: prefer -->> over ->.'), out); // right participants, glyphs stay text
+  assert.ok(!/sends to over/.test(out), out); // NOT split inside the text
+  // A trailing arrow glyph in the text must not spurious-bail the whole diagram.
+  const trailing = narrateChart(seqSlide('sequenceDiagram\n  A->>B: see -->>'));
+  assert.ok(trailing?.includes('A sends to B: see -->>.'), trailing);
+  // A colon inside the label (e.g. a ratio) splits only at the FIRST colon.
+  const ratio = narrateChart(seqSlide('sequenceDiagram\n  A->>B: ratio a:b'));
+  assert.ok(ratio.includes('A sends to B: ratio a:b.'), ratio);
+});
+
+test('narrateSequence: a `%%{init}%%` directive or `%%` comment before the type token still narrates (red-team secondary)', () => {
+  const init = narrateChart(seqSlide("%%{init: {'theme':'forest'}}%%\nsequenceDiagram\n  A->>B: hi"));
+  assert.ok(init?.includes('A sends to B: hi.'), init); // dispatcher recognizes → narrator must too
+  const comment = narrateChart(seqSlide('%% a lead comment\nsequenceDiagram\n  A->>B: hi'));
+  assert.ok(comment?.includes('A sends to B: hi.'), comment);
+});
+
+test('narrateSequence: a message after a closed block reads with an "Afterwards:" resume cue, not inside the block (Munger WORST)', () => {
+  const out = narrateChart(seqSlide('sequenceDiagram\n  loop every 5s\n    A->>B: ping\n  end\n  A->>B: disconnect'));
+  assert.ok(out.includes('Repeatedly, every 5s: A sends to B: ping.'), out);
+  assert.ok(out.includes('Afterwards: A sends to B: disconnect.'), out); // NOT swept inside the loop
+  // A block that closes at the very end emits NO trailing cue (nothing follows).
+  const trailing = narrateChart(seqSlide('sequenceDiagram\n  A->>B: hi\n  loop retry\n    A->>B: ping\n  end'));
+  assert.ok(!/Afterwards/.test(trailing), trailing);
+});
+
+test('narrateSequence: BAILS to null on a nested block, a multiline note, or an unrecognized line', () => {
+  const nested = narrateChart(seqSlide('sequenceDiagram\n  A->>B: x\n  alt outer\n    opt inner\n      A->>B: y\n    end\n  end'));
+  assert.equal(nested, null, 'nested block');
+  const multiNote = narrateChart(seqSlide('sequenceDiagram\n  A->>B: x\n  note over A\n    a long note\n  end note'));
+  assert.equal(multiNote, null, 'multiline note');
+  const gibberish = narrateChart(seqSlide('sequenceDiagram\n  A->>B: x\n  this is not a message'));
+  assert.equal(gibberish, null, 'unrecognized line');
+});
+
+test('narrateSequence: reads the in-fence title and speaks a bare (text-less) message as just the link', () => {
+  const out = narrateChart(seqSlide('---\ntitle: Checkout flow\n---\nsequenceDiagram\n  A->>B: place order\n  B->>A'));
+  assert.ok(out.includes('A two-message sequence diagram, Checkout flow.'), out); // §14 count frame + authored title
+  assert.ok(out.includes('B sends to A.'), out); // no colon text → just the link, nothing invented
 });
