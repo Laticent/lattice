@@ -433,7 +433,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null, writePath: 'patch' };
+						return { ok: true, slides, error: null, writePath: 'patch' as const };
 					}
 					// The live document vanished between the guard and the patch — fall
 					// through to a full write below.
@@ -549,7 +549,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// fit) so frameMs isolates the browser's async parse/layout — the build
 				// and sanitize costs are still captured by totalMs and sanitizeMs.
 				tFrameStart = performance.now();
-				return { ok: true, slides, error: null, writePath: 'write' };
+				return { ok: true, slides, error: null, writePath: 'write' as const };
 			})
 			.catch((e) => {
 				// Surface failures in the console (the old landing bridge did; the
