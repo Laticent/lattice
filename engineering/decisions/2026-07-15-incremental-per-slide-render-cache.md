@@ -1,41 +1,69 @@
 ---
 status: in-progress
-summary: Make the live Playground filmstrip's per-keystroke render cost sub-linear in deck size. Today every keystroke re-transforms the WHOLE deck through markdown-it + the Lattice plugin pipeline (~227ms on a 50-slide deck at 6x CPU throttle, ~75% of the mobile keystroke->paint floor); the incremental cache models the deck as an ordered list of slide nodes, re-transforms only the edited slide, and reuses cached section HTML for the rest, guarded by a byte-for-byte incrementalRender===wholeRender property test. Pagination stays SINGLE-OWNER in the engine (the adversarial trio unanimously rejected a dual engine+CSS ownership / reconciliation canary as a retired anti-pattern and a HARD RULE #1 violation); the cache keys on slide content excluding the pagination attribute and re-stamps the number at assembly via the existing auto-split kernel. Scoped fit (re-fit only the changed section) bundled in for the remaining ~25%. Placement: shared engine kernel. Targets the Playground filmstrip only — the Studio is already single-slide/incremental.
+summary: Make the live Playground filmstrip's per-keystroke render cost sub-linear in deck size. A per-stage trace (instrumented on the real render path, 6x CPU) corrected the initial premise: the markdown TRANSFORM is NOT the bottleneck (~26ms on 50 slides, flat, under the 50ms heavy backstop) and the __latticeFit reflow is minor (~8ms). The two real costs are the transform (~26ms) and the whole-deck DOMPurify SANITIZE (~28ms), both whole-deck and growing with slide count; together they push a big-deck render past the frame scheduler's 50ms heavy backstop into the 120ms-coalesce regime. STEP 1 (SHIPPED): incremental sanitize — sanitize only changed sections, reuse cached output for the rest (byte-identical, locked by deck-preview.sanitize-cache.test.ts). Measured 50-slide/6x keystroke->paint 236ms -> 161ms (-32%), scaling with deck size; small docs-layer change. STEP 2 (DEFERRED): an incremental TRANSFORM cache in the engine kernel would cut the remaining ~26ms but is a large blast-radius change (property test + adversarial trio) — not justified by the residual at current deck sizes; revisit for 100+ slide decks / slower devices. Scoped fit DROPPED (fit is ~8ms). Pagination decision (single-owner engine, NO dual engine+CSS reconciliation) retained from the adversarial trio below. Targets the Playground filmstrip only — the Studio is already single-slide/incremental.
 ---
 
 # Incremental per-slide render cache (live preview) — design
 
-**Status:** proposed (design-before-code). **Date:** 2026-07-15.
+**Status:** step 1 shipped; step 2 deferred. **Date:** 2026-07-15.
 **Follows:** `2026-07-15-frame-aligned-preview-render.md`,
 `2026-07-15-playground-frame-loop-decouple.md` (the frame-loop work that fixed
 *when* we render; this fixes *how much each render costs*).
 
-## Problem
+## Problem — and a measurement correction
 
-The frame-loop work removed the 220 ms typing debounce, but real-surface
-measurement (`.scratch/pg-perf.mjs`, `/playground`, seeded decks, CPU throttle)
-shows mobile keystroke→paint stayed floored:
+The frame-loop work removed the 220 ms typing debounce, but big-deck
+keystroke→paint stayed high (50-slide/6× ≈ 236 ms). The **initial premise was
+wrong** and is corrected here so the record doesn't mislead. The first pass
+attributed the cost to the markdown transform ("~227 ms, 75%") — but that number
+was keystroke→paint *latency* mislabeled as compute. A per-stage trace,
+instrumented on the **real** render path at 6× CPU, gives the truth:
 
-| Surface | keystroke→paint |
+| stage (50-slide keystroke, 6×) | ms |
 |---|---|
-| Desktop 1× | 28 ms |
-| Mobile 6× · 12-slide | 190 ms |
-| Mobile 6× · 50-slide | 288 ms |
+| transform (`PG.render`, whole deck) | **26** |
+| **sanitize (DOMPurify, whole deck)** | **28** |
+| fit (`__latticeFit`) | 8 |
+| section split + DOM patch | ~1 |
+| **render sum** | **63** |
 
-The floor is per-render compute, not scheduling. On the 50-slide deck at 6× the
-302 ms render splits into **~227 ms transform (75%)** + **~75 ms `__latticeFit`
-reflow (25%)** (measured by suspending fit). The transform re-runs the **whole
-deck** through markdown-it + the full Lattice plugin pipeline on *every*
-keystroke, even though only one slide changed (`render-engine.ts:127` →
-`PG.render` → one whole-body `md.render`, `lib/engine/index.js:187`). We are NOT
-rewriting the iframe (verified: 0 iframe `load` events during a burst, section
-patch confirmed) — the cost is the upstream O(deck) transform.
+Findings: the transform is ~26 ms and **flat** across deck sizes (13 ms at 10
+slides → 26 ms at 50) — it never crosses the scheduler's 50 ms "heavy" backstop
+by itself. `__latticeFit` is minor (8 ms) — **scoped fit is a non-issue.** The
+two real costs are the **transform** and the **whole-deck DOMPurify sanitize**,
+roughly equal, *both* whole-deck, *both* growing with slide count. Their sum
+(63 ms) crosses the 50 ms backstop → the render is classified heavy → coalesced
+behind a 120 ms timer. That regime jump is the big-deck latency.
 
 ## Goal
 
-Make the per-render cost sub-linear in deck size: re-transform only the edited
-slide(s), reuse cached HTML for the rest. Target 50-slide/6× keystroke→paint
-~288 ms → ~65 ms; desktop stays instant.
+Get the per-keystroke render under the 50 ms heavy backstop so a big-deck edit
+stays in the cheap next-frame regime — by making the whole-deck work incremental
+(process only the edited section, reuse cached output for the rest).
+
+## What shipped (step 1) and what's deferred (step 2)
+
+- **Step 1 — incremental sanitize (SHIPPED).** `renderDeck` splits the raw engine
+  HTML per section and runs DOMPurify only on sections whose raw HTML changed,
+  reusing the prior render's sanitized output for the rest (cache in `state`).
+  Byte-identical to whole-deck sanitize (sections are independent; verified over
+  40 real decks and locked by `deck-preview.sanitize-cache.test.ts`). This alone
+  drops sanitize 28 → ~1 ms, taking the render to ~36 ms (< 50 ms → cheap regime).
+  **Measured 50-slide/6× keystroke→paint 236 → 161 ms (−32%)**, scaling with deck
+  size; small decks unchanged. A docs-layer change, no kernel/export impact.
+- **Step 2 — incremental transform cache (DEFERRED).** The transform (~26 ms) is
+  the remaining deck-size-dependent term. Caching it per slide (the deck-AST design
+  below) would cut it to ~5 ms — but it's a large kernel change (byte-identical
+  property test + the full adversarial trio) and the residual it buys at 50 slides
+  is ~34 ms, on top of a render already in the cheap regime after step 1. Not
+  justified at current deck sizes; revisit if 100+ slide decks or slower devices
+  push the transform alone over the backstop. The design is retained below as the
+  blueprint for when it's warranted.
+- **Scoped fit — DROPPED** (fit is ~8 ms).
+
+## [Deferred — step 2 blueprint] Make the per-render cost sub-linear in deck size
+
+Re-transform only the edited slide(s), reuse cached HTML for the rest.
 
 ## What the render pipeline actually couples across slides (investigated)
 

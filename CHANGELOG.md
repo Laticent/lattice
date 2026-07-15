@@ -559,6 +559,16 @@ in patch versions.
 
 ### Changed
 
+- **Typing in a large deck's live preview is now noticeably snappier.** Each keystroke previously
+  re-ran the HTML sanitizer (DOMPurify) over the *whole* deck — about half the per-keystroke render
+  cost on a 50-slide deck, and it grew with slide count, pushing a big-deck edit past the render
+  loop's "heavy" threshold into a coalesced (slower-feeling) regime. The filmstrip now sanitizes only
+  the `<section>`s whose HTML actually changed and reuses the previous render's sanitized output for
+  the rest (byte-identical to whole-deck sanitize — sections are independent; locked by
+  `deck-preview.sanitize-cache.test.ts`). Measured keystroke→paint on a throttled (6× CPU) low-end
+  profile: 50 slides **236 ms → 161 ms (−32%)**, 35 slides 183 → 141 ms; small decks unchanged. No
+  behavior or output change — same sanitized preview, computed incrementally. (`deck-preview.js`
+  `renderDeck`.)
 - **The Playground preview now tracks your typing within a frame too — and no longer shares preview
   code with the retired Drawing Board.** The Playground filmstrip dropped its 220 ms trailing debounce
   for the same **adaptive frame-aligned render loop** the Studio got: a keystroke schedules one render
