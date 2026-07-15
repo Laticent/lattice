@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The live preview traded its 140ms trailing debounce for an ADAPTIVE frame-aligned render loop (the video-game model) — a keystroke marks the preview dirty and schedules ONE render on the next animation frame, with an in-flight guard for backpressure. Adaptive because a cheap patch (typing) renders next-frame instant while a heavy full-write (FinishStudio/Fabricate/LayoutStudio slider-drags) coalesces on a short timer so it can't strobe (red-team fix). Measured on the real built Studio at 4× CPU: keydown→paint 204ms → ~62–88ms; a continuous fast burst renders 38× more than the debounce yet costs only ~40ms more main-thread time over 4s (no editor jank — refutes the Munger inversion). Responsiveness only; per-render engine/FRAME cost unchanged. `DeckPreview`'s `debounceMs?: number` prop became `coalesce?: boolean`. Full adversarial trio (HARD RULE #25) run.
+summary: The live preview traded its 140ms trailing debounce for an ADAPTIVE frame-aligned render loop (the video-game model) — a keystroke marks the preview dirty and schedules ONE render on the next animation frame, with an in-flight guard for backpressure. Adaptive because a cheap patch (typing) renders next-frame instant while a heavy full-write (FinishStudio/Fabricate/LayoutStudio slider-drags) coalesces on a short timer so it can't strobe (red-team fix). Measured on the real built Studio: keydown→paint drops from 149ms→12ms on desktop (~13×), 188ms→55ms on a mid phone (4×), 216ms→91ms on a slow phone (6×); a continuous fast burst renders 38× more than the debounce yet costs only ~40ms more main-thread time over 4s (no editor jank — refutes the Munger inversion). Responsiveness only; per-render engine/FRAME cost unchanged. `DeckPreview`'s `debounceMs?: number` prop became `coalesce?: boolean`. Full adversarial trio (HARD RULE #25) run.
 ---
 
 # Frame-aligned preview render — delete the debounce wall, borrow the game loop
@@ -146,21 +146,24 @@ and four nits were folded back before commit:
 
 ## Evidence (HARD RULE #19 / #23)
 
-Measured on the **real built Studio** (`docs/dist`, `astro build`), headless Chrome at
-**4× CPU throttle** (≈ a mid-tier phone), 12 isolated keystrokes each, median — a
+Measured on the **real built Studio** (`docs/dist`, `astro build`), headless Chrome, a
 keydown→paint probe that stamps `t0` at the real capture-phase `keydown` and records the
-wall to the next render sample on `window.__latticeRenderMetrics`:
+wall to the next render sample on `window.__latticeRenderMetrics` (StudioShell patch
+path, median of 15 keystrokes).
 
-**Latency (isolated keystrokes, StudioShell patch path):**
+**Latency by device — keydown→paint (median):**
 
-| Build | keydown→paint (median) | range |
-|---|---|---|
-| **Old** — 140ms trailing debounce | **204ms** | 198–226ms |
-| **New** — adaptive frame loop | **~62–88ms** | 33–118ms |
+| Device (CPU throttle) | Old — 140ms debounce | New — adaptive loop | Speedup |
+|---|---|---|---|
+| **Desktop** (1×) | **149ms** | **12ms** | **~13×** |
+| **Mid-tier mobile** (4×) | **188ms** | **55ms** | **~3.4×** |
+| **Slow mobile** (6×) | **216ms** | **91ms** | **~2.4×** |
 
-**~2.3–3× faster, ~120ms cut** per keystroke. The old samples cluster tightly at ~204ms
-(the fixed wall dominates); the new ones track the actual work (CodeMirror + React +
-engine ~9ms + patch ~2ms).
+The **desktop** row is the headline: the old debounce's 140ms wall is *device-independent*,
+so a fast machine paid ~140ms to hide ~4ms of real work — it *felt as laggy as a phone*. The
+new loop lets desktop be genuinely instant (12ms, under one 16ms frame); mobile drops from
+"clearly laggy" to "snappy." The new numbers track the actual work (CodeMirror + React +
+engine + patch), which is why they scale with the device instead of pinning to a fixed wall.
 
 **Continuous fast burst (38 keys @ 17/sec — the regime the Munger inversion flagged as
 unmeasured), main-thread cost:**
