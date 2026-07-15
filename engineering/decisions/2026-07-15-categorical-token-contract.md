@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   The categorical color cycle (`--cat-1..12-fill` / `--cat-N-mark` + `--cat-on-fill` /
   `--cat-on-mark`) is 24+ free-form color slots hand-authored per theme, with its real
@@ -23,11 +23,79 @@ companion:
 
 # The categorical token contract — semantics, not paint buckets
 
-**Date:** 2026-07-15 · **Status:** proposed (design investigation; no code) · **Owner:** Sharmarke
+**Date:** 2026-07-15 · **Status:** accepted — Seed & Roles, locked 2026-07-15 (implementation pending trio-hardening) · **Owner:** Sharmarke
 
 > Surfaced while writing `design/skills/theme.md`: the skill's advice on `--cat-on-*`
 > contradicted the shipped themes, and pulling that thread exposed a systemic issue in the
 > categorical token model. This doc is the "design before code" step for the fix.
+
+---
+
+## Decision — Seed & Roles, locked (2026-07-15)
+
+A 5-track **design-competition** (17 agents: 5 design tracks + fresh critics + a shared
+fact-checker + comparative judging) pressure-tested the model against independent
+alternatives, weighted to the human's hard constraint — override ergonomics, no "magic
+trap." **Winner: Track 5 "Seed & Roles"** (9/10; runner-up "Anchored Roles, Audited at the
+Floor", 8/10).
+
+**The model.** A theme declares **one seed hue per category** — `--cat-N-seed`, as
+`light-dark(lightHue, darkHue)`. The engine **derives** `--cat-N-fill` / `--cat-N-mark` /
+on-inks via the chart-family recipe (`color-mix(in oklab, …)` + `light-dark()`), so
+`fill==mark` and indistinct collapse are **structurally impossible**. Override is a named
+**`-set` seam** (chart-family's `var(--input, default)` idiom) that wins regardless of source
+order, specificity, or `@layer` — *set a token, it wins, no color-mix to reverse-engineer.*
+That is the anti-magic escape the human weighted highest.
+
+**The locked framing — one model, two exceptions** (the shape confirmed with the owner):
+
+- **Uniform** derive-from-seed for every theme; the **light path is fully derivable** — nothing
+  theme-specific beyond the declared hues.
+- **Dark mode** carries the per-theme tuning: the seed's **bright dark arm**, plus a few
+  **pinned dark fills via the override seam** on the good-4 themes (indaco / cuoio / carta /
+  carbone), where pure `color-mix(seed, black)` underperforms hand-tuning. Same token/form —
+  the dark side just gets the attention.
+- **AA / a11y themes** are the sanctioned **function exception**: they swap the hue axis for a
+  **luminance spread + textures** (as `a11y-achromatopsia` already does) — same "declare inputs,
+  derive roles" spirit, different distinctness axis.
+
+**Prototype validation (cuoio, rendered 2026-07-15).** Light mode reproduces cuoio faithfully —
+and cleaner, since each category becomes a *coherent single hue* instead of cuoio's mismatched
+fill/mark. Dark **node fills** are the one honest compromise (the mix-into-black desaturation),
+addressed by the seam pins above; strokes/marks are fine. Before/after mindmaps + the two jargon
+PDFs are the evidence.
+
+**Grafts folded from the runners-up (before implementation).**
+- *Track 2:* the gated invariant is **intra-cycle distinctness on the mark tier** — the **gate**,
+  not derivation, carries safety (demote "fill==mark impossible" to a bonus); keep **Model A
+  (literals + gate) as the documented cheaper fallback**; target MARK (not fill) for per-slide
+  mindmap recolor.
+- *Track 4:* factor the derivation into **one shared CSS partial** imported by both chart-family
+  and the cat block (no drift, #1/#15); the cat cycle reads its own `--cat-N-hue`
+  (default `var(--chart-catN, …)`) so recoloring a category does not move charts; calibrate the
+  distinctness gate as a **frozen, dated, raise-only ratchet** (#3/#21 idiom), not a self-lowering
+  formula.
+- *Track 1:* adopt its **Mermaid override-boundary table** — theme-level override reaches
+  everything; per-slide reaches CSS categoricals + `mermaid.css` node fills, but **NOT** the
+  JS-baked `cScale` palette without a separately-costed per-section re-theme runtime change.
+- *Track 3:* if the `oklch(from …)` mark-L pin is ever taken (deferred), it MUST be a real
+  relative-color evaluator in `resolve-token-expr`, not a shape-match (#1); set an absolute
+  perceptual floor with indaco's blue/indigo pair as a sanctioned allow-listed exception.
+
+**Blast radius — ~13 components consume the cycle.** Heavy: `mindmap`, `kanban`, `decision`,
+`actors`, `roadmap`, `journey`, `logo-wall`, `obligation-matrix`. Accent: `kpi`,
+`authority-chain`, `statute-stack`, `math`, `compare-prose`. Charts are unaffected (separate
+`--chart-*` palette, already on this model).
+
+**Next.** Harden this design with the **adversarial trio** (red team + Munger inversion +
+independent checker) applied to what ships; THEN implement — shared derivation partial +
+per-theme seeds + a distinctness gate over **every** theme + the a11y texture treatment — with
+**export sign-off (dark + light)** since diagram bytes shift (QUALITY BAR export gate).
+
+The §1–§9 investigation below is the analysis this decision rests on; where it and this Decision
+differ (e.g. §4/§9's "Model B" framing), the Decision supersedes — Seed & Roles is Model B
+sharpened by the competition (the `-set` seam is the addition that answers the anti-magic
+constraint Model B left open).
 
 ---
 
