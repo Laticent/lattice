@@ -384,6 +384,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										<span className="text-[11px] leading-snug text-muted-foreground"><strong className="font-semibold text-foreground">Bottom line</strong> (the answer) and <strong className="font-semibold text-foreground">The evidence</strong> (the proof) appear in the Lenses panel as <em>Starter</em> views you fill in and approve — nothing is written to a deck until you approve one. Turn this off and any starter you haven’t approved is hidden across your decks; views you’ve approved stay put.</span>
 									</span>
 								</div>
+							</div>
 
 							<div className="mt-6">
 							<GroupLabel icon={<MousePointer2 className="size-3.5" />}>Placement handles</GroupLabel>
