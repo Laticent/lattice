@@ -1,17 +1,32 @@
 import * as React from "react"
-import { Toaster as SonnerToaster, type ToasterProps } from "sonner"
+import {
+  CircleCheckIcon,
+  InfoIcon,
+  Loader2Icon,
+  OctagonXIcon,
+  TriangleAlertIcon,
+} from "lucide-react"
+import { Toaster as Sonner, type ToasterProps } from "sonner"
 
-// The one toast primitive. Replaces the hand-rolled `role="status"` pill state
-// machines in StudioShell (message + Undo) and PlaygroundApp (message + Undo/
-// Reload) with a single Sonner surface (HARD RULE #15) — stacking, swipe-dismiss,
-// and a11y for free, and `toast()` callable from anywhere without threading a
-// setter through props.
+// The one toast primitive. Scaffolded from the canonical shadcn CLI
+// (`shadcn add sonner`, style new-york) and adapted to this repo's stack — only
+// where the canonical base assumes Next.js. Two deliberate deviations from the
+// verbatim output, each marked below:
 //
-// Themed to the Studio's established toast look: the dark `--surface-inverse`
-// pill with white text, in BOTH color modes (a toast is deliberately inverse, so
-// it reads as a transient system message, not a panel). `lx-ui` carries the token
-// reset into Sonner's document-root portal; `theme` tracks `data-mode` only so
-// Sonner's own internals (focus ring, etc.) match. Color rides the token bridge.
+//   1. THEME — the shadcn base reads `useTheme()` from `next-themes`. This is an
+//      Astro/Starlight site with no next-themes provider (adding it would always
+//      report "system"); like every other `ui/` component here, we read the
+//      repo's own `data-mode` attribute instead. Same one-line role, no new dep.
+//   2. SURFACE — the base paints the light `--popover` panel. Studio toasts are
+//      deliberately the dark `--surface-inverse` pill in BOTH color modes, so a
+//      toast reads as a transient system message, not a panel (this preserves the
+//      look of the hand-rolled pills it replaces). To return to the canonical
+//      panel, swap the `--normal-*` block for the shadcn defaults and drop
+//      `toastOptions`.
+//
+// Everything else — the typed variant `icons`, the `ToasterProps` passthrough —
+// is the canonical base untouched. `lx-ui` carries the token reset into Sonner's
+// document-root portal.
 
 function useMode(): "light" | "dark" {
   const [mode, setMode] = React.useState<"light" | "dark">("light")
@@ -26,16 +41,24 @@ function useMode(): "light" | "dark" {
   return mode
 }
 
-function Toaster({ ...props }: ToasterProps) {
-  const mode = useMode()
+const Toaster = ({ ...props }: ToasterProps) => {
+  const mode = useMode() // (1) data-mode, not next-themes
+
   return (
-    <SonnerToaster
+    <Sonner
       theme={mode}
       className="toaster group lx-ui"
       position="bottom-center"
-      // The inverse pill, via the CSS vars Sonner reads for a default toast.
+      icons={{
+        success: <CircleCheckIcon className="size-4" />,
+        info: <InfoIcon className="size-4" />,
+        warning: <TriangleAlertIcon className="size-4" />,
+        error: <OctagonXIcon className="size-4" />,
+        loading: <Loader2Icon className="size-4 animate-spin" />,
+      }}
       style={
         {
+          // (2) the inverse pill, via the CSS vars Sonner reads for a default toast.
           "--normal-bg": "var(--surface-inverse)",
           "--normal-text": "#fff",
           "--normal-border": "color-mix(in srgb, #fff 16%, transparent)",
