@@ -259,6 +259,49 @@ authored by a *designer*; a **Tile** binds a *source*.
 - **`status`** — `shipped` · `partial` · `new` (the registry's "Today" column in
   the superseded ADR).
 
+### 5.1 The authored part → Cell map (the universal slot vocabulary)
+
+Every component is a Frame; its authored parts hoist into that Frame's Cells the
+**same way for every component**. This is the map a reader consults to answer
+"where does *this* part go?" — one authored part, one Cell, no per-component
+special cases. It reconciles with the component model's slot vocabulary
+(`design-system.md` §2.5): no third synonym, one system word per concept.
+
+| Authored part | Cell / region | How it is placed |
+|---|---|---|
+| eyebrow (`p > code` before the `h2`) | `masthead-lede` | hoisted into the masthead band |
+| title (`h2`) | `masthead-lede` | hoisted |
+| lede — the lead statement | `masthead-lede` | hoisted as the **`subtitle`**. There is **no "heart" noun** — the lead statement *is* the existing subtitle/lede; do not coin a synonym. |
+| content (the body) | `stage` | the body Cell, `.cell-stage` |
+| key-insight (`> blockquote`) | `stage` | lives *in* the stage Cell (it co-occurs with below-note) |
+| below-note (em-dash trailing `p`) | `stage` | lives *in* the stage Cell — **distinct** from key-insight; the two co-occur, they are not one "note" slot |
+| annotation (review italic) | `overlay` | the existing `overlay` Cell (`tile/annotation`) — **not** a stage note |
+| caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
+| footer (`_footer:`) | `footer` / `footer-left` | hoisted |
+| logo · meta · status | `masthead-bay` tiles | docked |
+| pagination · progress | `pagination-right` · `progress-centre` | docked |
+| watermark | `stage` | per the `watermark` Tile's `fits: ["stage"]` |
+
+**Two rules the map obeys:**
+
+1. **Not everything hoists.** Only the chrome parts (eyebrow · title · lede;
+   footer + the logo / meta / status / progress / pagination tiles) hoist into
+   named Cells. A component's OWN non-hoisted parts — caption, figure furniture,
+   any per-component structure — live *inside its stage Cell*, placed by the
+   component's own CSS. The component owns its semantics; the Frame owns the Cells.
+2. **Universal authoring concepts are stage content.** Key Insight
+   (`> blockquote`), below-note, pills, and the lifted eyebrow/subtitle are
+   first-class occupants of the **stage Cell**; universal-modifier CSS addresses
+   them *through* `> .cell-stage`, which is exactly why they must live in it
+   consistently (a part floating loose as a bare `<section>` child is the
+   selector-bug class this map closes).
+
+The **frame-conformance gate** (`conformance: "strict"` in a component manifest)
+makes this map enforceable: it renders an opted-in component and fails the build
+if a declared Cell is not materialized or an authored part sits loose instead of
+in its Cell. Opt-in, one component at a time. Full model + sequence:
+`engineering/decisions/2026-07-15-model-driven-frame-render.md`.
+
 ---
 
 ## 6. Cells are resolution-blind boxes (the non-negotiable contract)
