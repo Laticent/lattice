@@ -1403,3 +1403,65 @@ test('narrateRadarBeta: a large radar SUMMARIZES (count + each curve\'s peak), n
   assert.ok(out.includes('Beta peaks on Security, at ninety-five.'), out);
   assert.ok(!/Alpha: Speed/.test(out), out); // NOT the enumerated wall
 });
+
+// ── xychart-beta (design 2026-07-15 §18, tier-2 slice) ───────────────────────
+// DATA tier: name the chart by its series, state an authored axis range, read each series' values
+// paired to the x category (or "point N" for a numeric x-range); summarize by SHAPE past the cap.
+// Every narrate-vs-bail below was matched to the real Mermaid v11 parser.
+test('narrateXychart: names the chart by its series and pairs each value to its x category', () => {
+  const bar = narrateChart(mdiag('xychart-beta\n  x-axis [jan, feb, mar]\n  bar [5, 6, 7]'));
+  assert.ok(bar.includes('A bar chart.'), bar);
+  assert.ok(bar.includes('The bar series: jan, five; feb, six; mar, seven.'), bar);
+  const both = narrateChart(mdiag('xychart-beta\n  x-axis [a, b]\n  bar [1, 2]\n  line [2, 1]'));
+  assert.ok(both.includes('A bar and line chart.'), both);
+  assert.ok(narrateChart(mdiag('xychart\n  x-axis [a, b]\n  bar [1, 2]')).includes('A bar chart.')); // bare `xychart` renders too
+});
+test('narrateXychart: states an AUTHORED axis range with orientation-neutral role names', () => {
+  const out = narrateChart(mdiag('xychart-beta horizontal\n  title "Sales"\n  x-axis "Month" [jan, feb]\n  y-axis "Revenue" 0 --> 100\n  bar [40, 60]'));
+  assert.ok(out.includes('A bar chart, Sales.'), out);
+  assert.ok(out.includes('The x-axis is Month.'), out);
+  assert.ok(out.includes('The y-axis, Revenue, runs zero to one hundred.'), out);
+  assert.ok(!/horizontal|vertical/.test(out), out); // orientation is visual — never spoken (it would flip)
+});
+test('narrateXychart: a numeric x-range anchors each value with "point N" (never a bare list)', () => {
+  const out = narrateChart(mdiag('xychart-beta\n  x-axis "Score" 0 --> 10\n  line [3, 7, 5]'));
+  assert.ok(out.includes('The x-axis, Score, runs zero to ten.'), out);
+  assert.ok(out.includes('The line series: point one, three; point two, seven; point three, five.'), out);
+});
+test('narrateXychart: an authored series title NAMES the series', () => {
+  const out = narrateChart(mdiag('xychart-beta\n  x-axis [q1, q2]\n  bar "Revenue" [10, 20]\n  line "Target" [15, 15]'));
+  assert.ok(out.includes('The Revenue series: q1, ten; q2, twenty.'), out);
+  assert.ok(out.includes('The Target series: q1, fifteen; q2, fifteen.'), out);
+});
+test('narrateXychart: a quoted x category containing a comma stays ONE category (quote-aware split)', () => {
+  const out = narrateChart(mdiag('xychart-beta\n  x-axis ["Q1, 2024", "Q2, 2024"]\n  bar [10, 20]'));
+  assert.ok(out.includes('The bar series: Q1, 2024, ten; Q2, 2024, twenty.'), out); // value 10 → "Q1, 2024", not split
+});
+test('narrateXychart: past the per-series cap, summarizes by SHAPE — endpoints, high, low with positions', () => {
+  // a series that crashes then recovers: the TROUGH must be spoken, not hidden behind a lone peak.
+  const out = narrateChart(mdiag('xychart-beta\n  title "Runway"\n  x-axis [m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13]\n  line [100,90,70,40,10,2,5,20,50,80,95,100,100]'));
+  assert.ok(out.includes('summarizing thirteen points'), out); // the summary names itself (§7)
+  assert.ok(out.includes('a low of two at m6'), out); // the trough — the story a peak-only summary hides
+  assert.ok(out.includes('starts at one hundred, ends at one hundred'), out);
+});
+test('narrateXychart: a flat series reads "is flat at N", not a false "peaks at"', () => {
+  const out = narrateChart(mdiag('xychart-beta\n  x-axis [a,b,c,d,e,f,g,h,i,j,k,l,m]\n  bar [5,5,5,5,5,5,5,5,5,5,5,5,5]'));
+  assert.ok(out.includes('The bar series is flat at five.'), out);
+});
+test('narrateXychart: the firehose gate is per-series — several SHORT series still read in full', () => {
+  const out = narrateChart(mdiag('xychart-beta\n  x-axis [a,b,c,d,e]\n  bar [1,2,3,4,5]\n  line [5,4,3,2,1]\n  bar [2,2,2,2,2]'));
+  assert.ok(out.includes('The first bar series: a, one'), out); // enumerated, not summarized (each is 5 points)
+  assert.ok(out.includes('The line series: a, five'), out);
+});
+test('narrateXychart: bails to match a chart that does NOT render (empty/malformed), tolerates a trailing `;`', () => {
+  assert.equal(narrateChart(mdiag('xychart-beta\n  x-axis []\n  bar [1, 2]')), null); // empty [] parse-errors
+  assert.equal(narrateChart(mdiag('xychart-beta\n  x-axis [a, b,]\n  bar [1, 2]')), null); // trailing comma parse-errors
+  assert.equal(narrateChart(mdiag('xychart-beta\n  x-axis 0 100\n  bar [1, 2]')), null); // bare numbers aren't a title
+  assert.equal(narrateChart(mdiag('xychart-beta\n  x-axis a --> b\n  bar [1, 2]')), null); // non-numeric range
+  assert.equal(narrateChart(mdiag('xychart-beta\n  x-axis [a, b]')), null); // no series → nothing to narrate
+  assert.ok(narrateChart(mdiag('xychart-beta\n  x-axis [a, b];\n  bar [1, 2];')).includes('A bar chart.')); // `;` is a valid eol
+});
+test('narrateXychart: accessibility statements and comments carry nothing; negatives/decimals read', () => {
+  assert.ok(narrateChart(mdiag('xychart-beta\n  accTitle: X\n  %% note\n  x-axis [a, b]\n  bar [1, 2]')).includes('A bar chart.'));
+  assert.ok(narrateChart(mdiag('xychart-beta\n  x-axis [a, b]\n  line [-1.5, 2.5]')).includes('negative one point five'));
+});

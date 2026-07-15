@@ -2574,6 +2574,115 @@ var require_chart_narration = __commonJS({
       const sentences = curves.map((c) => `${c.label}: ${c.pairs.map((p) => `${axes[p.axisIdx].label}, ${numberToWords(p.value)}`).join("; ")}`);
       return `${terminate(frame)} ${sentences.map(terminate).join(" ")}`;
     }
+    var ORDINALS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"];
+    var ordinal = (n) => ORDINALS[n - 1] || `number ${numberToWords(n)}`;
+    function narrateXychart(body) {
+      const pre = mermaidPrelude(body, /^xychart(-beta)?\b/i);
+      if (!pre) return null;
+      let title = pre.title;
+      let xTitle = null;
+      let xCats = null;
+      let xRange = null;
+      let yTitle = null;
+      let yRange = null;
+      const series = [];
+      const meta = { acc: false };
+      const catList = (s) => c4Args(s).map((x) => scrubLabel(x));
+      const axisSpec = (rest, allowBand) => {
+        const br = rest.match(/^(.*)\[([^\]]*)\]$/);
+        if (br) {
+          if (!allowBand) return null;
+          const cats = catList(br[2]);
+          if (!cats.length || cats.some((c) => c === "")) return null;
+          return { title: br[1].trim() ? scrubLabel(stripQuotes(br[1].trim())) : null, cats, range: null };
+        }
+        const ai = rest.indexOf("-->");
+        if (ai !== -1) {
+          const before = rest.slice(0, ai).trim();
+          const lo = before.match(/(-?\d+(?:\.\d+)?)$/);
+          const hi = rest.slice(ai + 3).trim().match(/^(-?\d+(?:\.\d+)?)$/);
+          if (!lo || !hi) return null;
+          const t = before.slice(0, before.length - lo[1].length).trim();
+          return { title: t ? scrubLabel(stripQuotes(t)) : null, cats: null, range: { lo: Number(lo[1]), hi: Number(hi[1]) } };
+        }
+        if (!rest) return null;
+        if (/^[+\-\d.\s]+$/.test(rest)) return null;
+        return { title: scrubLabel(stripQuotes(rest)), cats: null, range: null };
+      };
+      for (const rawLine of pre.lines) {
+        const t = rawLine.trim().replace(/;+\s*$/, "").trim();
+        if (!t || t.startsWith("%%")) continue;
+        if (skipMermaidMeta(t, meta)) continue;
+        if (/^title\b/i.test(t)) {
+          title = title || scrubLabel(stripQuotes(t.replace(/^title\s+/i, "").trim()));
+          continue;
+        }
+        const xa = t.match(/^x-axis\b\s*(.*)$/i);
+        if (xa) {
+          const s = axisSpec(xa[1].trim(), true);
+          if (!s) return null;
+          xTitle = s.title;
+          xCats = s.cats;
+          xRange = s.range;
+          continue;
+        }
+        const ya = t.match(/^y-axis\b\s*(.*)$/i);
+        if (ya) {
+          const s = axisSpec(ya[1].trim(), false);
+          if (!s) return null;
+          yTitle = s.title;
+          yRange = s.range;
+          continue;
+        }
+        const sm = t.match(/^(bar|line)\b\s*(.*?)\s*\[([^\]]*)\]$/i);
+        if (sm) {
+          const raw = sm[3].split(",");
+          if (raw.some((x) => x.trim() === "")) return null;
+          const vals = raw.map((x) => Number(x.trim()));
+          if (!vals.length || vals.some((n) => !Number.isFinite(n))) return null;
+          series.push({ kind: sm[1].toLowerCase(), title: sm[2].trim() ? scrubLabel(stripQuotes(sm[2].trim())) : null, values: vals });
+          continue;
+        }
+        return null;
+      }
+      if (!series.length) return null;
+      const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+      const kinds = [...new Set(series.map((s) => s.kind))];
+      const kindText = kinds.length === 2 ? "bar and line" : kinds[0];
+      const seriesLabel = (s) => {
+        if (s.title) return `the ${s.title} series`;
+        const same = series.filter((x) => x.kind === s.kind && !x.title);
+        return same.length === 1 ? `the ${s.kind} series` : `the ${ordinal(same.indexOf(s) + 1)} ${s.kind} series`;
+      };
+      const anchor = (i) => xCats && xCats[i] !== void 0 ? xCats[i] : `point ${numberToWords(i + 1)}`;
+      const atList = (v, target) => joinWithAnd(v.map((val, i) => val === target ? anchor(i) : null).filter((x) => x !== null));
+      const out = [];
+      let frame = title ? `A ${kindText} chart, ${title}` : `A ${kindText} chart`;
+      const maxLen = series.reduce((m, s) => Math.max(m, s.values.length), 0);
+      const firehose = maxLen > 12;
+      if (firehose) frame += `, summarizing ${numberToWords(maxLen)} points`;
+      out.push(frame);
+      if (xRange) out.push(`The x-axis${xTitle ? `, ${xTitle},` : ""} runs ${numberToWords(xRange.lo)} to ${numberToWords(xRange.hi)}`);
+      else if (xTitle) out.push(`The x-axis is ${xTitle}`);
+      if (yRange) out.push(`The y-axis${yTitle ? `, ${yTitle},` : ""} runs ${numberToWords(yRange.lo)} to ${numberToWords(yRange.hi)}`);
+      else if (yTitle) out.push(`The y-axis is ${yTitle}`);
+      for (const s of series) {
+        const v = s.values;
+        const lbl = seriesLabel(s);
+        if (firehose) {
+          const lo = Math.min(...v);
+          const hi = Math.max(...v);
+          if (lo === hi) {
+            out.push(`${cap(lbl)} is flat at ${numberToWords(lo)}`);
+            continue;
+          }
+          out.push(cap(`${lbl} starts at ${numberToWords(v[0])}, ends at ${numberToWords(v[v.length - 1])}, with a high of ${numberToWords(hi)} at ${atList(v, hi)} and a low of ${numberToWords(lo)} at ${atList(v, lo)}`));
+        } else {
+          out.push(`${cap(lbl)}: ${v.map((val, i) => `${anchor(i)}, ${numberToWords(val)}`).join("; ")}`);
+        }
+      }
+      return out.map(terminate).join(" ");
+    }
     function narrateMermaidFence(fenceBody) {
       const kw = firstFenceKeyword(fenceBody).split(/\s+/)[0].replace(/-beta$/i, "");
       if (/^(flowchart|graph)$/i.test(kw)) {
@@ -2590,6 +2699,7 @@ var require_chart_narration = __commonJS({
       if (/^erDiagram$/i.test(kw)) return narrateEr(fenceBody);
       if (/^C4(Context|Container|Component|Dynamic|Deployment)$/i.test(kw)) return narrateC4(fenceBody);
       if (/^radar$/i.test(kw)) return narrateRadarBeta(fenceBody);
+      if (/^xychart$/i.test(kw)) return narrateXychart(fenceBody);
       return null;
     }
     function narrateDiagram2(markdown) {
@@ -2644,6 +2754,7 @@ var require_chart_narration = __commonJS({
       narrateEr,
       narrateC4,
       narrateRadarBeta,
+      narrateXychart,
       narrateChart: narrateChart2
     };
   }
