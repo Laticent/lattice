@@ -320,14 +320,25 @@ in patch versions.
   speaks the display label; a single-line note reads "Note: …"; `+`/`-` activation flags are silent. A
   single-level `loop`/`alt`/`else`/`opt`/`par`/`critical`/`break` is spoken as a connective lead-in so
   the messages read *inside* it ("If in stock: …", "Otherwise, if backordered: …"), and a message
-  after the block resumes with an "Afterwards:" cue rather than reading as still inside it. Past a
-  twelve-message cap it speaks the first twelve faithfully then folds the rest into "And ‹N› more
-  messages". It **bails to the heading-only caption** on a nested block, a multiline `note … end note`,
-  an unrecognized arrow, or any line it can't fully recognize — never a guessed reading. Shared kernel
-  (HARD RULE #1): the live Studio Present read-aloud and the exported `.vtt`/read-along captions
-  narrate it identically. The demo deck is `examples/sequence-narration.md`. *Audio naturalness is
-  UNVERIFIED (no TTS in CI); only the spoken string is claimed.* See
-  `engineering/decisions/2026-07-14-mermaid-multitype-narration.md`.
+  after the block resumes with an "Afterwards:" cue rather than reading as still inside it. The reading
+  model is **architect-grade but faithfulness-first** (hardened by a four-pass research + adversarial
+  trio, design §14): it opens with a **message count** ("A four-message sequence diagram"); **coalesces
+  a same-sender run**, de-repeating only the narrator's own "X sends to Y" scaffolding while keeping
+  every authored label — same receiver reads "App sends to SDK: score; then refine; then commit", a
+  fan-out reads the lossless "From API: to Auth, verify; to Orders, create; to Payment, charge" (a run
+  never crosses a note or block boundary, so a conditional is never merged into an unconditional one);
+  reads a **self-message as internal work** ("Auth Server, to itself: sign the token"); and past a
+  twelve-message cap speaks the first twelve, folds the hidden middle into a count, and **always speaks
+  the final message** ("… And ‹N› more messages, ending: ‹final›") so a protocol's payoff is never
+  truncated into silence. Deliberately, and by the trio's evidence, it **invents nothing the glyph
+  encodes**: no "returns / responds / back to A" round-trip framing (a direction reversal is a reply
+  only by the banned glyph — it reads plainly as the next "B sends to A"), no relay/hub/request-response/
+  polling **shape** claim, and `-x` "lost" reads neutral like every other arrow. It **bails to the
+  heading-only caption** on a nested block, a multiline `note … end note`, an unrecognized arrow, or any
+  line it can't fully recognize — never a guessed reading. Shared kernel (HARD RULE #1): the live Studio
+  Present read-aloud and the exported `.vtt`/read-along captions narrate it identically. The demo deck is
+  `examples/sequence-narration.md`. *Audio naturalness is UNVERIFIED (no TTS in CI); only the spoken
+  string is claimed.* See `engineering/decisions/2026-07-14-mermaid-multitype-narration.md`.
 - **Read-aloud now narrates a `diagram` slide's Mermaid FLOWCHART — described as a FLOW, the way a
   person walks a diagram, not a per-edge dump.** A `diagram` slide's graph used to narrate its title
   and go silent (the speech projection skips the rendered SVG). A new flowchart narrator reads the

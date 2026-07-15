@@ -467,3 +467,66 @@ shipping diff), each held for merge sign-off.
   5. **A first `alt` mis-read as "Alternatively" (Munger)**, falsely implying a prior option. Fixed:
      the opening `alt` reads "If ‹cond›:"; `else` reads "Otherwise, if ‹cond›:".
 - Slices 2+ (state, class, ER, C4, pie, then radar) follow in order now that slice 1 has landed.
+
+## 14. The architect-grade reading model — a four-pass trio hardens (and shrinks) it (2026-07-14)
+
+Slice 1 first shipped the *faithful ordered message dump* ("A sends to B: x. B sends to C: y. …").
+The maintainer's bar is **"whoever is reading it must be an expert architect"** — the same lift the
+flowchart got when it moved from an edge-dump to a flow reading (2026-07-13 §10) plus a gist (§12).
+So a reading-model design (axes A–D: orientation/gist · sender-coalescing · return framing · cast
+intro) was put through the same scientific method: one **research** pass (a11y standards + how
+engineers verbalize a sequence diagram) and an **adversarial trio** (faithfulness red-team · Munger
+inversion · architect-quality checker on 8 real diagrams). The four passes *disagreed productively*
+and converged on a smaller, honest model.
+
+### 14.1 The load-bearing finding — under faithfulness, "talk-register" prose is partly unreachable
+
+A flowchart is a graph with **no inherent linear order**, so synthesizing the flow *creates* value.
+A sequence diagram's order is **already authored** — so the extra "architect insight" it seems to
+promise (this is a request-response / fire-and-forget / OAuth flow) lives in the **arrow glyph +
+domain knowledge**, both of which faithfulness forbids us to voice. Chasing "reads like a talk"
+means inventing exactly what this narrator family exists to prevent. For an eyes-free reference
+artifact an architect *scans* (looking for one specific call), **faithful-and-locatable beats
+fluent-and-abstracted**. The honest target is a faithful walk with the stutter removed + one
+orientation clause — not a prose summary.
+
+### 14.2 Verdict per axis (research → red-team → Munger → architect-quality, then maintainer pick)
+
+- **Axis C — return / round-trip framing → CUT (C0).** The crux, and decisively cut. "returns",
+  "responds", and even the conservative **"back to A"** are all round-trip claims that are correct
+  *only* when the arrow is a dashed reply — i.e. correctness is 100% glyph-derived, the exact signal
+  we ban. Refuted with solid-arrow B→A cases that are **not** replies (an independent follow-up
+  question; an async callback/push; an unrelated message; user ping-pong clicks), all misread by C;
+  and C *misses* a genuine reply when a self-message splits the pair. The direction reversal is
+  already spoken faithfully as the next "B sends to A" — a *return* claim adds only invention.
+  **These failing inputs are recorded here so C is never re-added without re-earning it.**
+- **Axis A — orientation → A1 count only; A2 shape CUT.** A message-COUNT frame ("A seven-message
+  sequence diagram") is the one faithful orientation the walk can't self-state (the sequence analog
+  of the flowchart gist's DEPTH). The **shape names** (relay / hub / request-response / polling) are
+  all interpretation or glyph/intent-derived: a bare `loop` isn't "polling", a dominant sender is as
+  often a broadcast as an "orchestration", and a small diagram is too small to have a shape — a
+  confident wrong noun at the highest-blast-radius position (the §12 org-chart caveat, reborn). Cut.
+- **Axis B — sender coalescing → KEEP, strictly guarded.** De-repeat the narrator's *own* "X sends
+  to Y" scaffolding, never authored labels: consecutive same-sender→same-receiver → "A sends to B:
+  x; then y; then z"; same-sender fan-out → **lossless** "From A: to B, x; to C, y" (every receiver
+  AND label retained — the distinction the red-team/Munger first conflated with a lossy comma list).
+  Guard: a run flushes at **any** intervening event — a note, a self-message, a different endpoint,
+  or a block open/close/continuation — so a conditional or a note inside a same-pair run is never
+  swept into an unconditional run (the red-team's worst case).
+- **Axis D — cast intro → CUT.** Redundant with the walk (which names every acting participant) and
+  an anti-signal when the declared cast is layout-ordered or larger than the message count; "among a
+  silent participant" is a false claim. Keep only the count (A1).
+- **Free lift kept — self-message wording.** `A->>A: validate` reads "A, to itself: validate" (internal
+  work), not "A sends to A" — glyph-independent, faithful, and it excludes self-messages from a run.
+- **Terminal-proof cap (an architect-quality correctness fix).** The >12 cap used to delete the final
+  messages — but the last message is often the *payoff*. Now: first `SEQ_MSG_CAP` (coalesced), the
+  remainder count, AND the final message ("… And ‹N› more messages, ending: ‹final›").
+- **`-x` "lost message" stays neutral.** Voicing "does not arrive" would read a glyph convention
+  exactly as voicing "reply" would — barred by the same rule, applied symmetrically. "Sends to"
+  describes the authored act of sending; delivery is not claimed.
+
+**Maintainer pick:** the **faithful ceiling** — ship A1-count + guarded-B1 + self-message wording +
+terminal-proof cap; cut C, A2, and D. Never misleads; the misfire risk of the cut axes is exactly
+what this narrator family exists to prevent. The gains that would have pushed toward talk-register
+(returns, shape, protocol-naming) are precisely the parts that lie, so they are deliberately *not*
+built — recorded as an honest ceiling, not a gap to close later.

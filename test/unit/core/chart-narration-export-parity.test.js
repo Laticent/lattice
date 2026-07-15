@@ -235,6 +235,6 @@ test('the diagram flowchart AND sequence narrate on the export split (both merma
   assert.ok(flow.includes('Signal Intake leads to Scoring Model'));
   assert.ok(flow.includes('Scoring Model, scored signal, leads to Decision Log'));
   // sequenceDiagram now narrates its message script on the same fence-intact export split.
-  assert.ok(narrateChart(blocks[2]).includes('A sequence diagram. App sends to SDK: score(signal).'));
+  assert.ok(narrateChart(blocks[2]).includes('A one-message sequence diagram. App sends to SDK: score(signal).'));
   assert.ok(narrateChart(blocks[3]).includes('forty percent of the prior stage')); // funnel unaffected
 });

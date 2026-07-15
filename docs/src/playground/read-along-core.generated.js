@@ -1807,7 +1807,6 @@ var require_chart_narration = __commonJS({
     }
     var SEQ_ARROWS = ["<<-->>", "<<->>", "-->>", "--)", "--x", "->>", "-->", "-)", "-x", "->"];
     var SEQ_MSG_CAP = 12;
-    var SEQ_CLOSE = "\0seq-close";
     var SEQ_BLOCK = {
       loop: (l) => l ? `Repeatedly, ${l}:` : "Repeatedly:",
       alt: (l) => l ? `If ${l}:` : "One case:",
@@ -1822,16 +1821,44 @@ var require_chart_narration = __commonJS({
     function seqBlockPhrase(kw, label) {
       return (SEQ_BLOCK[kw] || ((l) => `${l || ""}:`))(label);
     }
-    function renderSeqEvents(frame, events) {
-      const out = [];
+    function renderSeqMsg(m) {
+      if (m.src === m.tgt) return m.label ? `${m.src}, to itself: ${m.label}` : `${m.src}, to itself`;
+      return m.label ? `${m.src} sends to ${m.tgt}: ${m.label}` : `${m.src} sends to ${m.tgt}`;
+    }
+    function renderSeqRun(run) {
+      if (run.length === 1) return renderSeqMsg(run[0]);
+      const src = run[0].src;
+      if (run.every((m) => m.tgt === run[0].tgt)) {
+        return `${src} sends to ${run[0].tgt}: ${run.map((m) => m.label).join("; then ")}`;
+      }
+      return `From ${src}: ${run.map((m) => `to ${m.tgt}, ${m.label}`).join("; ")}`;
+    }
+    function renderSeqClauses(events) {
+      const clauses = [];
+      let run = [];
+      const flush = () => {
+        if (run.length) {
+          clauses.push(renderSeqRun(run));
+          run = [];
+        }
+      };
       events.forEach((e, k) => {
-        if (e === SEQ_CLOSE) {
-          if (events.slice(k + 1).some((x) => x !== SEQ_CLOSE)) out.push("Afterwards:");
+        if (e.k === "msg" && e.src !== e.tgt && e.label) {
+          if (run.length && run[0].src === e.src) run.push(e);
+          else {
+            flush();
+            run = [e];
+          }
           return;
         }
-        out.push(e);
+        flush();
+        if (e.k === "msg") clauses.push(renderSeqMsg(e));
+        else if (e.k === "note") clauses.push(`Note: ${e.text}`);
+        else if (e.k === "block") clauses.push(e.phrase);
+        else if (e.k === "close" && events.slice(k + 1).some((x) => x.k !== "close")) clauses.push("Afterwards:");
       });
-      return [terminate(frame), ...out.map(terminate)].join(" ");
+      flush();
+      return clauses;
     }
     function parseSeqMessage(line) {
       const colon = line.indexOf(":");
@@ -1880,6 +1907,7 @@ var require_chart_narration = __commonJS({
       const events = [];
       let messageCount = 0;
       let capIndex = -1;
+      let lastMsg = null;
       let depth = 0;
       for (; i < lines.length; i++) {
         const t = lines[i].trim();
@@ -1888,7 +1916,7 @@ var require_chart_narration = __commonJS({
         if (/^end\b/i.test(t)) {
           if (depth > 0) {
             depth--;
-            events.push(SEQ_CLOSE);
+            events.push({ k: "close" });
           }
           continue;
         }
@@ -1900,28 +1928,27 @@ var require_chart_narration = __commonJS({
         }
         const nm = t.match(/^note\s+(?:left of|right of|over)\s+[^:]+:\s*(.+)$/i);
         if (nm) {
-          events.push(`Note: ${scrubLabel(nm[1])}`);
+          events.push({ k: "note", text: scrubLabel(nm[1]) });
           continue;
         }
         if (/^note\b/i.test(t)) return null;
         const bm = t.match(/^(loop|alt|opt|par|critical|break)\b\s*(.*)$/i);
         if (bm) {
           if (++depth > 1) return null;
-          events.push(seqBlockPhrase(bm[1].toLowerCase(), scrubLabel(bm[2])));
+          events.push({ k: "block", phrase: seqBlockPhrase(bm[1].toLowerCase(), scrubLabel(bm[2])) });
           continue;
         }
         const cm = t.match(/^(else|and|option)\b\s*(.*)$/i);
         if (cm && depth > 0) {
-          events.push(seqBlockPhrase(cm[1].toLowerCase(), scrubLabel(cm[2])));
+          events.push({ k: "block", phrase: seqBlockPhrase(cm[1].toLowerCase(), scrubLabel(cm[2])) });
           continue;
         }
         const m = parseSeqMessage(t);
         if (m === BAIL) return null;
         if (m) {
-          const S = labelOf.get(register(m.src)) || m.src;
-          const T = labelOf.get(register(m.tgt)) || m.tgt;
-          const txt = scrubLabel(m.text);
-          events.push(txt ? `${S} sends to ${T}: ${txt}` : `${S} sends to ${T}`);
+          const ev = { k: "msg", src: labelOf.get(register(m.src)) || m.src, tgt: labelOf.get(register(m.tgt)) || m.tgt, label: scrubLabel(m.text) };
+          events.push(ev);
+          lastMsg = ev;
           messageCount++;
           if (messageCount === SEQ_MSG_CAP) capIndex = events.length;
           continue;
@@ -1929,13 +1956,16 @@ var require_chart_narration = __commonJS({
         return null;
       }
       if (!messageCount) return null;
-      const frame = title ? `A sequence diagram, ${title}` : "A sequence diagram";
-      if (messageCount > SEQ_MSG_CAP) {
-        const more = messageCount - SEQ_MSG_CAP;
-        const tail = `And ${numberToWords(more)} more message${more === 1 ? "" : "s"}`;
-        return renderSeqEvents(frame, [...events.slice(0, capIndex), tail]);
+      const countWord = numberToWords(messageCount);
+      const frameBase = `${/^(eight|eleven)/i.test(countWord) ? "An" : "A"} ${countWord}-message sequence diagram`;
+      const frame = title ? `${frameBase}, ${title}` : frameBase;
+      if (messageCount <= SEQ_MSG_CAP) {
+        return [terminate(frame), ...renderSeqClauses(events).map(terminate)].join(" ");
       }
-      return renderSeqEvents(frame, events);
+      const clauses = renderSeqClauses(events.slice(0, capIndex));
+      const hidden = messageCount - SEQ_MSG_CAP - 1;
+      clauses.push(hidden >= 1 ? `And ${numberToWords(hidden)} more message${hidden === 1 ? "" : "s"}, ending: ${renderSeqMsg(lastMsg)}` : renderSeqMsg(lastMsg));
+      return [terminate(frame), ...clauses.map(terminate)].join(" ");
     }
     function narrateMermaidFence(fenceBody) {
       const kw = firstFenceKeyword(fenceBody).split(/\s+/)[0].replace(/-beta$/i, "");
