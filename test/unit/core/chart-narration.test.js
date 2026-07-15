@@ -1252,3 +1252,61 @@ test('narrateState: a transition whose source id equals a keyword (`end`) is not
   const out = narrateChart(mdiag('stateDiagram-v2\n  Start --> end\n  end --> Done'));
   assert.ok(out.includes('From Start, goes to end.') && out.includes('From end, goes to Done.'), out);
 });
+
+// ── radar-beta (design 2026-07-14 §8, first-wave fast-follow) ────────────────
+// DATA tier: read the scale (min/max or auto-fit niceCeil) then each curve's axis values, pairing
+// POSITIONAL values in axis order and KEYED values by axis id. Bail rather than mis-pair.
+test('narrateRadarBeta: reads the scale and pairs positional curve values to axes in order', () => {
+  const out = narrateChart(mdiag('radar-beta\n  title Grades\n  axis m["Math"], s["Science"], e["English"]\n  curve a["Alice"]{85, 90, 95}\n  curve b["Bob"]{70, 80, 90}\n  max 100'));
+  assert.ok(out.includes('A radar chart, Grades, on a scale of zero to one hundred.'), out);
+  assert.ok(out.includes('Alice: Math, eighty-five; Science, ninety; English, ninety-five.'), out);
+  assert.ok(out.includes('Bob: Math, seventy; Science, eighty; English, ninety.'), out);
+});
+test('narrateRadarBeta: keyed values pair to the correct axis by id, regardless of key order', () => {
+  const out = narrateChart(mdiag('radar-beta\n  axis a["Alpha"], b["Beta"], c["Gamma"]\n  curve x["X"]{ b: 5, a: 10, c: 15 }'));
+  // keys given b,a,c but must read in AXIS order Alpha(10), Beta(5), Gamma(15)
+  assert.ok(out.includes('X: Alpha, ten; Beta, five; Gamma, fifteen.'), out);
+});
+test('narrateRadarBeta: the auto scale is the RAW data max (what Mermaid draws), not a rounded ceiling; explicit max wins', () => {
+  // {3, 7} with no `max` → Mermaid's outer ring is the raw 7, so the spoken scale is "zero to seven".
+  assert.ok(narrateChart(mdiag('radar-beta\n  axis a["A"], b["B"]\n  curve c["C"]{3, 7}')).includes('scale of zero to seven'));
+  assert.ok(narrateChart(mdiag('radar-beta\n  axis a["A"], b["B"]\n  curve c["C"]{3, 7}\n  max 10')).includes('scale of zero to ten'));
+});
+test('narrateRadarBeta: bails on a positional count mismatch, unknown/partial keyed axes, or no axes', () => {
+  assert.equal(narrateChart(mdiag('radar-beta\n  axis a["A"], b["B"], c["C"]\n  curve x{1, 2}')), null); // 2 values, 3 axes
+  assert.equal(narrateChart(mdiag('radar-beta\n  axis a["A"]\n  curve x{ zzz: 5 }')), null); // unknown axis id
+  // a keyed curve that doesn't cover EVERY axis makes Mermaid throw — so bail, don't read a subset.
+  assert.equal(narrateChart(mdiag('radar-beta\n  axis a["A"], b["B"], c["C"]\n  curve x{ a: 5, c: 9 }')), null);
+  assert.equal(narrateChart(mdiag('radar-beta\n  curve x{1,2,3}')), null); // no axes to pair against
+  assert.equal(narrateChart(mdiag('radar-beta\n  axis a["A"]\n  not a radar line')), null); // unrecognized
+});
+
+// ── radar-beta regression — the full trio's findings (Munger + independent checker vs v11 source) ──
+test('narrateRadarBeta: matches the render on partial input — skips a mismatched curve, ignores an unknown key, first-wins a duplicate', () => {
+  // a positional count mismatch makes Mermaid skip JUST that curve and render the rest — so do we
+  const sib = narrateChart(mdiag('radar-beta\n  axis a["A"], b["B"], c["C"]\n  curve good["Good"]{1, 2, 3}\n  curve bad{1, 2}'));
+  assert.ok(sib.includes('Good: A, one; B, two; C, three.'), sib);
+  assert.ok(!/bad/.test(sib), sib);
+  // an unknown keyed axis is silently ignored by Mermaid (never an error), not a bail
+  const unk = narrateChart(mdiag('radar-beta\n  axis a["A"], b["B"]\n  curve c["C"]{ a: 1, b: 2, z: 9 }'));
+  assert.ok(unk.includes('C: A, one; B, two.') && !/nine/.test(unk), unk);
+  // a duplicate key is first-wins (Mermaid `find`)
+  assert.ok(narrateChart(mdiag('radar-beta\n  axis a["A"]\n  curve c["C"]{ a: 10, a: 20 }')).includes('C: A, ten.'));
+});
+test('narrateRadarBeta: bails to match a chart that does NOT render — duplicate axis, negative value, or the wrong keyword', () => {
+  assert.equal(narrateChart(mdiag('radar-beta\n  axis a["First"], a["Second"], b["B"]\n  curve x{10, 20, 30}')), null); // dup axis id
+  assert.equal(narrateChart(mdiag('radar-beta\n  axis a["A"], b["B"]\n  curve c{-1, 2}')), null); // Mermaid NUMBER is non-negative
+  assert.equal(narrateChart(mdiag('radar\n  axis a, b\n  curve c{1, 2}')), null); // bare `radar` doesn't render
+  assert.equal(narrateChart(mdiag('Radar-Beta\n  axis a, b\n  curve c{1, 2}')), null); // case-sensitive keyword
+});
+test('narrateRadarBeta: an accessibility statement (accTitle/accDescr) does not bail the chart', () => {
+  const out = narrateChart(mdiag('radar-beta\n  accTitle: Skill radar\n  accDescr: a chart of skills\n  axis a["A"], b["B"]\n  curve c["C"]{3, 7}'));
+  assert.ok(out.includes('C: A, three; B, seven.'), out);
+});
+test('narrateRadarBeta: a large radar SUMMARIZES (count + each curve\'s peak), never a value wall (§5 firehose)', () => {
+  const out = narrateChart(mdiag('radar-beta\n  axis a["Speed"], b["Cost"], c["Quality"], d["Support"], e["Security"]\n  curve alpha["Alpha"]{85, 40, 90, 70, 60}\n  curve beta["Beta"]{60, 80, 70, 55, 95}\n  curve gamma["Gamma"]{50, 50, 50, 50, 50}'));
+  assert.ok(out.includes('with three curves across five axes.'), out); // the count names itself — no silent truncation
+  assert.ok(out.includes('Alpha peaks on Quality, at ninety.'), out); // each curve's peak (top-N=1)
+  assert.ok(out.includes('Beta peaks on Security, at ninety-five.'), out);
+  assert.ok(!/Alpha: Speed/.test(out), out); // NOT the enumerated wall
+});

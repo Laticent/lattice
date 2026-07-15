@@ -2348,6 +2348,118 @@ var require_chart_narration = __commonJS({
       const frame = terminate(title ? `A C4 ${variant} diagram, ${title}` : `A C4 ${variant} diagram`);
       return `${frame} ${sentences.map(terminate).join(" ")}`;
     }
+    function narrateRadarBeta(body) {
+      const pre = mermaidPrelude(body, /^radar-beta\b/);
+      if (!pre) return null;
+      let title = pre.title;
+      const axes = [];
+      const axisIndex = /* @__PURE__ */ new Map();
+      const curveRaw = [];
+      let min = null;
+      let max = null;
+      for (const rawLine of pre.lines) {
+        const t = rawLine.trim();
+        if (!t || t.startsWith("%%")) continue;
+        if (/^title\b/i.test(t)) {
+          title = title || scrubLabel(t.replace(/^title\s+/i, ""));
+          continue;
+        }
+        if (/^(showLegend|graticule|ticks)\b/i.test(t)) continue;
+        if (/^acc(Title|Descr)\b/i.test(t)) continue;
+        const mn = t.match(/^min\s+(\d+(?:\.\d+)?)\s*$/i);
+        if (mn) {
+          min = Number(mn[1]);
+          continue;
+        }
+        const mx = t.match(/^max\s+(\d+(?:\.\d+)?)\s*$/i);
+        if (mx) {
+          max = Number(mx[1]);
+          continue;
+        }
+        const ax = t.match(/^axis\s+(.+)$/i);
+        if (ax) {
+          const re = /(\w+)(?:\["([^"]*)"\])?/g;
+          let m;
+          while (m = re.exec(ax[1])) {
+            if (axisIndex.has(m[1])) return null;
+            axisIndex.set(m[1], axes.length);
+            axes.push({ label: m[2] ? scrubLabel(m[2]) : m[1] });
+          }
+          continue;
+        }
+        const cv = t.match(/^curve\s+(.+)$/i);
+        if (cv) {
+          const re = /(\w+)(?:\["([^"]*)"\])?\s*\{([^}]*)\}/g;
+          let m;
+          let any = false;
+          while (m = re.exec(cv[1])) {
+            any = true;
+            curveRaw.push({ label: m[2] ? scrubLabel(m[2]) : m[1], body: m[3] });
+          }
+          if (!any) return null;
+          continue;
+        }
+        return null;
+      }
+      if (!axes.length || !curveRaw.length) return null;
+      const curves = [];
+      for (const c of curveRaw) {
+        const raw = c.body.trim();
+        let pairs = [];
+        if (raw.includes(":")) {
+          const byAxis = /* @__PURE__ */ new Map();
+          let bad = false;
+          for (const part of raw.split(",")) {
+            const km = part.trim().match(/^(\w+)\s*:\s*(\d+(?:\.\d+)?)$/);
+            if (!km) {
+              bad = true;
+              break;
+            }
+            const idx = axisIndex.get(km[1]);
+            if (idx === void 0) continue;
+            if (!byAxis.has(idx)) byAxis.set(idx, Number(km[2]));
+          }
+          if (bad) return null;
+          if (byAxis.size !== axes.length) return null;
+          pairs = [...byAxis.entries()].map(([axisIdx, value]) => ({ axisIdx, value }));
+        } else {
+          const vals = raw.split(",").map((s) => s.trim()).filter(Boolean);
+          if (vals.length !== axes.length) continue;
+          let bad = false;
+          for (let i = 0; i < vals.length; i++) {
+            const n = Number(vals[i]);
+            if (!Number.isFinite(n) || n < 0) {
+              bad = true;
+              break;
+            }
+            pairs.push({ axisIdx: i, value: n });
+          }
+          if (bad) return null;
+        }
+        pairs.sort((a, b) => a.axisIdx - b.axisIdx);
+        curves.push({ label: c.label, pairs });
+      }
+      if (!curves.length) return null;
+      let dataMax = 0;
+      for (const c of curves) for (const p of c.pairs) if (p.value > dataMax) dataMax = p.value;
+      const lo = min !== null ? min : 0;
+      const hi = max !== null ? max : dataMax;
+      if (hi <= lo) return null;
+      const scaleText = `${numberToWords(lo)} to ${numberToWords(hi)}`;
+      const named = (n, one, many) => `${numberToWords(n)} ${n === 1 ? one : many}`;
+      const totalValues = curves.reduce((n, c) => n + c.pairs.length, 0);
+      if (totalValues > 12) {
+        const peaks = curves.map((c) => {
+          const top = c.pairs.reduce((a, b) => b.value > a.value ? b : a);
+          return `${c.label} peaks on ${axes[top.axisIdx].label}, at ${numberToWords(top.value)}`;
+        });
+        const sframe = `${title ? `A radar chart, ${title}` : "A radar chart"}, on a scale of ${scaleText}, with ${named(curves.length, "curve", "curves")} across ${named(axes.length, "axis", "axes")}`;
+        return `${terminate(sframe)} ${peaks.map(terminate).join(" ")}`;
+      }
+      const frame = title ? `A radar chart, ${title}, on a scale of ${scaleText}` : `A radar chart on a scale of ${scaleText}`;
+      const sentences = curves.map((c) => `${c.label}: ${c.pairs.map((p) => `${axes[p.axisIdx].label}, ${numberToWords(p.value)}`).join("; ")}`);
+      return `${terminate(frame)} ${sentences.map(terminate).join(" ")}`;
+    }
     function narrateMermaidFence(fenceBody) {
       const kw = firstFenceKeyword(fenceBody).split(/\s+/)[0].replace(/-beta$/i, "");
       if (/^(flowchart|graph)$/i.test(kw)) {
@@ -2363,6 +2475,7 @@ var require_chart_narration = __commonJS({
       if (/^stateDiagram(-v2)?$/i.test(kw)) return narrateState(fenceBody);
       if (/^erDiagram$/i.test(kw)) return narrateEr(fenceBody);
       if (/^C4(Context|Container|Component|Dynamic|Deployment)$/i.test(kw)) return narrateC4(fenceBody);
+      if (/^radar$/i.test(kw)) return narrateRadarBeta(fenceBody);
       return null;
     }
     function narrateDiagram2(markdown) {
@@ -2416,6 +2529,7 @@ var require_chart_narration = __commonJS({
       narrateState,
       narrateEr,
       narrateC4,
+      narrateRadarBeta,
       narrateChart: narrateChart2
     };
   }

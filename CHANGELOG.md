@@ -330,6 +330,19 @@ in patch versions.
   auditions play from a committed local file through the `<audio>` fast path, no live OpenRouter round-trip.
   Raises the committed set to 125 samples across 9 engines. `tts-voice-catalog.json` + `docs/public/voice-samples/gemini/`.
 
+- **Read-aloud now narrates a Mermaid `radar-beta` chart — the last of the first-wave types.** A
+  `diagram` slide's radar chart used to narrate its heading and go silent; it now reads the **scale**
+  first (the `min`/`max` bounds, or the `0`-to-largest-value extent the chart draws when `max` is
+  omitted), then each curve's value on each axis — pairing **positional** values to axes in
+  declaration order and **keyed** values (`{ axisId: value }`) to the axis named, always spoken in
+  axis order: "A radar chart, Team skills, on a scale of zero to one hundred. Alice: Delivery,
+  eighty-five; Quality, ninety; Speed, seventy." It **bails to the heading-only caption** when a
+  positional curve's value count doesn't match the axes, a keyed value names an axis that doesn't
+  exist, or there are no axes/curves — so a value is never read against the wrong axis. With this the
+  first wave of Mermaid narration is complete (flowchart, sequence, class, state, ER, C4, pie, radar);
+  the remaining types still fall back to the heading. Shared kernel (HARD RULE #1); demo:
+  `examples/radar-narration.md`. *Audio naturalness is UNVERIFIED (no TTS in CI); only the spoken
+  string is claimed.* See `engineering/decisions/2026-07-14-mermaid-multitype-narration.md`.
 - **Read-aloud now narrates five more Mermaid diagram types — `classDiagram`, `stateDiagram`,
   `erDiagram`, C4, and `pie` — the rest of the first wave.** A `diagram` slide of these types used to
   narrate its heading and go silent; each now reads its structure faithfully through the shared type
