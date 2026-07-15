@@ -549,15 +549,18 @@ in patch versions.
 - **Read-aloud no longer turns choppy or pops between sentences over Bluetooth / Apple CarPlay.**
   On those routes iOS powers the audio link down when the rendered stream goes to digital silence
   between per-sentence clips; each new clip then had to wake the link, clipping/popping its first
-  few ms and stuttering as the far-end buffer refilled. Suono's `stage` now holds a sub-audible
-  noise source on the output *while reading* so the route never idles, and the next clip starts warm.
-  It's kept alive across barge-ins and inter-clip gaps, then released by an idle timer once a read
-  ends (so an idle tab never pins the link / iOS media session), and re-armed on the next play. It
-  lives entirely outside the clip graph and the play-clock, so caption sync (which rides `clockMs()`
-  + the measured `onStart` onset) is unaffected; it's harmless on wired/speaker output. On by
-  default (`keepAlive` / `keepAliveGain` / `keepAliveIdleMs` `StageOptions`; the gain is device-tunable). The
-  audible fix is device-only — the graph wiring and clock-independence are unit-covered; the "pop is
-  gone over real CarPlay" claim is **UNVERIFIED** from CI and needs a device sign-off (HARD RULE #23).
+  few ms and stuttering as the far-end buffer refilled. Suono's `stage` now holds a sub-audible,
+  **low-frequency (~70 Hz) tone** on the output *while reading* so the route never idles, and the next
+  clip starts warm. (A low tone, not broadband noise: the noise the first cut used dumped energy into
+  the ear's most sensitive band and was audible hiss on-device; the same route-keeping energy at ~70 Hz
+  — where hearing is ~40+ dB less sensitive — is inaudible.) It's kept alive across barge-ins and
+  inter-clip gaps, then released by an idle timer once a read ends (so an idle tab never pins the link
+  / iOS media session), and re-armed on the next play. It lives entirely outside the clip graph and the
+  play-clock, so caption sync (which rides `clockMs()` + the measured `onStart` onset) is unaffected;
+  it's harmless on wired/speaker output. On by default (`keepAlive`; `keepAliveGain` / `keepAliveHz` /
+  `keepAliveIdleMs` `StageOptions`, device-tunable). The audible fix is device-only — the graph wiring
+  and clock-independence are unit-covered; the "pop is gone / no hiss over real CarPlay" claim is
+  **UNVERIFIED** from CI and needs a device sign-off (HARD RULE #23).
 - **The Key Insight panel no longer out-shouts the content it summarizes.** The
   universal Key Insight blockquote (`> …` trailing a content-bearing layout) sized
   its paragraph and bullets at `--fs-message` — the **21pt slide-statement tier**,
