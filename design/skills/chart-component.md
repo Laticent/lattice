@@ -5,8 +5,8 @@
 > that consumes chart tokens — never hex.
 
 **Read this when** you need a new chart kind (a Cartesian plot, a new
-distribution, a new comparison encoding) that the 13 existing chart components
-don't cover. **You'll produce** a component folder under `lib/components/chart/`
+distribution, a new comparison encoding) that the existing chart components (the
+live roster is `CHART_LAYOUTS` in `chart-family.js`) don't cover. **You'll produce** a component folder under `lib/components/chart/`
 whose kernel emits SVG through the shared `.chart-frame` dispatcher.
 
 > Read the **`dataviz` skill first** for the medium-agnostic method (form
@@ -78,7 +78,8 @@ dispatcher + the categorical/semantic color token model in `chart-family.css`),
 `svg-legend.js` (SVG-native legend), `mark-detail.js` (per-mark reveal substrate),
 `transform-utils.js`.
 
-- **Register** your layout name in `CHART_LAYOUTS` in `chart-family.js`.
+- **Register** your layout in `chart-family.js` — both `CHART_LAYOUTS` (the name)
+  and `SECTION_BUILDERS` (the `build<Name>Section` wrapper). See the recipe.
 - **Validate**: `test/unit/palette/chart-contrast.test.js`, `npm run scorecard`.
 
 ---
@@ -120,13 +121,22 @@ mud and value-collapse hide there.
    matrix.
 2. **Write the manifest** (`funnel.manifest.json` is the template): `slots`,
    `skeleton`, `sample`, `stressDoc`, `whenToUse`, `antiPatterns`, `related`.
-3. **Write the kernel** `<name>.transform.js`: `parse<Name>(ulInner)` extracts
-   `{label, value}` per `<li>` (use the shared list helpers +
-   `mark-detail.splitDetail` for optional per-mark detail); `build<Name>(model,
-   orientation)` returns the SVG. Return `null` when there's nothing to draw. **No
-   hard-coded color.**
-4. **Register** the name in `CHART_LAYOUTS`; ensure the body container class your
-   kernel emits is matched by the frame `bodyRE`.
+3. **Write the kernel** `<name>.transform.js` — a **pure CommonJS module**
+   (`module.exports = { parse<Name>, build<Name> }`, the repo is CommonJS, not
+   ESM): `parse<Name>(ulInner)` extracts `{label, value}` per `<li>` (use the
+   shared list helpers + `mark-detail.splitDetail` for optional per-mark detail)
+   and returns `null` when there's nothing to draw; `build<Name>(model,
+   orientation)` returns the SVG string. **No hard-coded color.**
+4. **Wire it into the dispatcher** in `_chart-family/chart-family.js` — this is the
+   step that actually makes it render, and it's three edits, not one:
+   1. `require` the kernel at the top (`const <name> = require('../<name>/<name>.transform');`).
+   2. Write a `build<Name>Section(html, ctx)` wrapper that calls your parse+build
+      through `spliceFirstList` (see `buildFunnelSection`).
+   3. Add `<name>: build<Name>Section` to the **`SECTION_BUILDERS`** object **and**
+      `<name>` to **`CHART_LAYOUTS`**. A name in `CHART_LAYOUTS` with no
+      `SECTION_BUILDERS` entry no-ops — the shared `transformChartSection`
+      dispatcher looks your name up in `SECTION_BUILDERS`. Also ensure the body
+      container class your kernel emits is matched by the frame `bodyRE`.
 5. **Write CSS** `<name>.styles.css`: style only the interior; consume
    `--chart-cat-N-fill/-ink` or `--chart-state-*`. The `.chart-frame` chrome is
    already styled.
@@ -155,16 +165,37 @@ Authoring (what the deck author writes):
 - Paid `620`
 ```
 
-The kernel (pure, color-free):
+The kernel (pure CommonJS, color-free):
 
 ```js
-// funnel.transform.js — string in, string out; the dispatcher calls this
-export function transformChartSection(html, classTokens) {
-  const model = parseFunnel(extractUlInner(html));   // [{label, value, num}]
-  if (!model.length) return html;                    // nothing to draw
-  const svg = buildFunnel(model);                    // <svg viewBox …> with marks
-  return replaceBody(html, svg);                     // marks carry --i / --mix, NO color
+// lib/components/chart/funnel/funnel.transform.js
+function parseFunnel(ulInner) {          // the <li> HTML of the first list
+  // → [{ label, value, num }]; return null/[] when there's nothing to draw
 }
+function buildFunnel(model, orientation) {
+  // → '<svg viewBox … role="img">…</svg>'; marks carry --i / --mix, NO color
+}
+module.exports = { parseFunnel, buildFunnel };
+```
+
+The dispatcher wiring (the three edits from recipe step 4):
+
+```js
+// lib/components/chart/_chart-family/chart-family.js
+const funnel = require('../funnel/funnel.transform');            // 1. require the kernel
+
+function buildFunnelSection(html, ctx) {                          // 2. the section wrapper
+  return spliceFirstList(html, (ext) => {
+    const model = funnel.parseFunnel(ext.inner);
+    return model ? funnel.buildFunnel(model, ctx.orientation) : null;
+  });
+}
+
+const CHART_LAYOUTS = [ /* … */ 'funnel' ];                       // 3a. name in the register
+const SECTION_BUILDERS = { /* … */ funnel: buildFunnelSection };  // 3b. AND the builder map
+// transformChartSection(innerHtml, cls, orientation) — the SHARED dispatcher — then
+// finds 'funnel' in SECTION_BUILDERS and calls buildFunnelSection. No per-component
+// transformChartSection export exists; a CHART_LAYOUTS name without a builder no-ops.
 ```
 
 The CSS (consumes tokens, cycles by hue):
@@ -211,7 +242,8 @@ The CSS (consumes tokens, cycles by hue):
 - [ ] Coordinates: `evidence`/`progression` · `canvas` · `series` · `chart`.
 - [ ] Kernel is pure, returns `null` when empty, emits `viewBox` SVG with
       `--i`/`--mix` marks and **no color**.
-- [ ] Registered in `CHART_LAYOUTS`; body class matched by `bodyRE`.
+- [ ] Registered in **both** `CHART_LAYOUTS` and `SECTION_BUILDERS`; body class
+      matched by `bodyRE`.
 - [ ] CSS consumes `--chart-cat-N-*` / `--chart-state-*` only; cycles via
       `nth-of-type`.
 - [ ] Contrast green on light AND dark (`chart-contrast.test.js`); dark checked

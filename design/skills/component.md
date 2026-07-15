@@ -91,9 +91,20 @@ families; the rest are substance- or domain-defined.
 ## Recipe
 
 1. **Decide the axes.** "What does the audience leave knowing?" → **Function**.
-   "How is it laid out?" → **Form** (must be a sanctioned `function.form` in
-   design-system.md §4). "What does the author write?" → **Substance**. Pick the
-   disk **bucket**.
+   "How is it laid out?" → **Form**. "What does the author write?" → **Substance**.
+   Pick the disk **bucket**. The `function.form` coordinate must be **sanctioned** —
+   pick a form your function already uses (from design-system.md §4's "Used by"
+   column); a new combination is a design decision, not a default:
+
+   | Function | Sanctioned forms |
+   |---|---|
+   | Anchor | bookend, divider |
+   | Statement | canvas, panel |
+   | Inventory | grid, stack, ledger |
+   | Comparison | grid, ledger, matrix, split |
+   | Progression | ledger, matrix, timeline |
+   | Evidence | canvas, ledger, matrix, scatter, spatial |
+   | Imagery | canvas |
 2. **Scaffold**: `npm run new:component -- <name> --bucket <b> --function <f>
    --form <f> --substance <s>` (the `--` separator is required, or npm swallows the
    flags and the tool bails). This writes just two files — the manifest (with
@@ -131,7 +142,7 @@ The manifest is the single source of truth. Required fields: `name`, `function`,
   "substance": "structure",
   "description": "2–4 parallel items, similar weight, scannable in a grid.",
   "purpose": "Use when the audience needs to scan a small parallel set at a glance.",
-  "tags": ["two-by-two", "options", "prioritize"],   // 3–5, from the controlled
+  "tags": ["overview", "showcase", "summary"],       // 3–5, from the controlled
                                                      // vocabulary; must NOT restate
                                                      // name/function/form/substance
   "capacity": { "axis": "item", "sweet": 3, "soft": 4, "hard": 4,
@@ -193,7 +204,7 @@ The CSS anchors on the stage Cell and stays palette-blind + margin-free:
 `cards-grid`: `form: grid`, capacity sweet 3 / hard 4 escalating to `list-tabular`,
 a `stressDoc` at four dense cards, CSS anchored on `> .cell-stage`, a `@container`
 reflow rule that matches its `adapt.mode: "reflow"`, every variant documented, tags
-(`two-by-two`, `options`, `prioritize`) that the axes can't carry.
+(`overview`, `showcase`, `summary`) that the axes can't carry.
 
 ---
 

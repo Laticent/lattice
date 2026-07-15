@@ -98,9 +98,12 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
       separated from fail).
 3. **Annotate contrast ratios in comments** next to each ink token — house
    convention, and it forces you to check.
-4. **Build & verify both canvases**: render the gallery and the mermaid gallery in
-   light and dark. Register the palette name in `test/unit/palette/contrast.test.js`'s
-   loop and in `.vscode/settings.json` under `markdown.marp.themes`.
+4. **Build & verify both canvases**: render the baseline gallery and a Mermaid deck
+   in light and dark. Register the palette name in **`test/unit/palette/token-parity.test.js`'s
+   `THEMES` array** (this is what enforces the full ~72-token contract on your theme)
+   and in `.vscode/settings.json` under `markdown.marp.themes`. (`contrast.test.js`
+   is hardcoded to `['indaco','cuoio']` by design — sibling palettes ride the indaco
+   run via cascade — so adding your theme *there* does nothing.)
 5. Run `node --test test/unit/palette/*.test.js`.
 
 ---
@@ -120,9 +123,10 @@ A base palette's spine (from `themes/indaco.css`):
   --brand-canvas: #0B3A34; --brand-accent: #0E8C7A; --brand-bright: #17B89E;
 
   /* Surfaces — light-dark() pairs */
-  --bg:     light-dark(#FBFDFC, var(--scheme-dark-bg));
-  --bg-alt: light-dark(#EEF5F3, var(--scheme-dark-bg-alt));
-  --border: light-dark(#CBDBD6, var(--scheme-dark-border));
+  --bg:              light-dark(#FBFDFC, var(--scheme-dark-bg));
+  --bg-alt:          light-dark(#EEF5F3, var(--scheme-dark-bg-alt));
+  --border:          light-dark(#CBDBD6, var(--scheme-dark-border));
+  --surface-inverse: light-dark(#0A211D, #EAF3F0);   /* required core token */
 
   /* Ink ramp — every content tier clears AA (ratio in the comment) */
   --text-heading:   light-dark(#0A211D, var(--scheme-dark-text-heading));   /* 17:1 */
@@ -154,10 +158,24 @@ A base palette's spine (from `themes/indaco.css`):
 }
 ```
 
-The **required core tokens** (build fails without these, defined *directly*, not
-inherited): `--bg`, `--bg-alt`, `--border`, `--text-heading`, `--text-body`,
-`--text-secondary`, `--text-muted`, `--accent`, `--accent-soft`,
+The **10 required core tokens** — `build:check` fails without these, defined
+*directly*, not inherited: `--bg`, `--bg-alt`, `--border`, `--text-heading`,
+`--text-body`, `--text-secondary`, `--text-muted`, `--accent`, `--accent-soft`,
 `--surface-inverse`.
+
+But those 10 are the floor, not the contract. A **from-scratch theme must define
+the full ~72-token per-theme contract directly** (the `CONTRACT` list in
+`test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
+indaco's cascade values and your deck renders code, diagrams, and categoricals in
+*indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
+the 10 core tokens, define: all 12 `--hljs-*` code-syntax colors; **all 12**
+`--cat-N-fill` / `--cat-N-mark` pairs (the skeleton shows only cat-1); `--text-display`,
+`--text-label`, `--code-text`; `--pass-bg` / `--fail-bg` / `--warn-bg`; the
+`--scheme-dark-*` block; the `--diagram-*` semantic palette; `--c-container` /
+`--c-subcontainer`; and the `--chart-cat1..8` / `--chart-state-*` chart palette.
+**Note:** `token-parity` only checks the themes *listed* in its `THEMES` array — so
+until you add your theme there, a passing `npm test` does **not** prove the contract
+is complete.
 
 The **dark variant in full** — this is the whole file:
 
@@ -206,7 +224,9 @@ The **dark variant in full** — this is the whole file:
 - [ ] Fills at L≈87, marks at L≈32; `--diagram-stroke` reads on white.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
-- [ ] Palette added to `test/unit/palette/contrast.test.js` and
+- [ ] Full ~72-token contract defined directly (not just the 10 core) — all 12
+      `--cat-*` pairs, all `--hljs-*`, `--chart-*`, `--diagram-*`.
+- [ ] Palette added to `test/unit/palette/token-parity.test.js`'s `THEMES` array and
       `.vscode/settings.json`; `node --test test/unit/palette/*.test.js` green.
 - [ ] `npm run build:check` passes (no hex/typography/retired-name violations).
 

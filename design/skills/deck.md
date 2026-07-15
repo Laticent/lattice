@@ -225,7 +225,8 @@ A 12-slide board update:
 - [ ] Each slide's content counted against the component `capacity`; nothing over
       `hard`.
 - [ ] Body within budgets: title ≤ 10 words, eyebrow ≤ 5, subtitle ≤ 12,
-      key-insight ≤ 18; whole slide ≤ ~70 words / 6 bullets.
+      key-insight ≤ 18; whole slide **aim ~40 words body** / ≤ 6 bullets (70 words is
+      the hard backstop, not the target).
 - [ ] `npm run lint:deck -- deck.md` is clean (no errors).
 - [ ] Rendered to PDF and **actually looked at** — rhythm holds, no wall-of-text,
       no overflow.

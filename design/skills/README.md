@@ -1,11 +1,24 @@
 # design/skills/ — the "create a killer X from scratch" skills
 
 Seven self-contained skill files. Each teaches an LLM (or a human) how to
-create **one** kind of Lattice artifact from a blank file and hold the
-boardroom 10/10 bar the first time. Each names what good looks like, what bad
-looks like, what to do, and what not to do — with the concrete tokens, slots,
-budgets, gates, and commands inlined so you can execute the whole task from the
-one file.
+create **one** kind of Lattice artifact from a blank file — with the concrete
+tokens, slots, budgets, gates, and commands inlined so you can execute the whole
+task from the one file. Each names what good looks like, what bad looks like,
+what to do, and what not to do.
+
+**What "hold the 10/10 bar" means here.** Following a skill gets you an artifact
+that clears the gates and the *falsifiable* bar — the rules you can check (a
+heading that's a sentence, ≤ 4 cards, L≈87/L≈32 tiers, an opaque export mirror).
+The last mile to a genuine 10/10 is **taste** — rhythm, restraint, whether it
+*sings* — and prose can't fully transfer that. Every skill ends its recipe at the
+same place for exactly this reason: **render it and actually look** (the QUALITY
+BAR's visual-review loop). Treat the skill as the floor that frees you to spend
+judgment on the last mile, not a guarantee of the ceiling.
+
+**Two of the seven can't finish from the file alone**, and say so: `lens.md`'s
+normal path runs through the Studio Lenses panel (the content-hash approval can't
+be hand-forged), and `chart-component.md` defers the color method to the `dataviz`
+skill. The other five are authorable end-to-end from the file.
 
 ## Load the right skill
 

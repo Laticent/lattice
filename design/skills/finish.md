@@ -1,6 +1,6 @@
 # Skill — Create a finish
 
-> Author a new `finish:` backdrop — a z-stack of up to five palette-blind CSS
+> Author a new `finish:` backdrop — a z-stack of up to four palette-blind CSS
 > layers painted behind slide content — that reads as boardroom atmosphere, not
 > decoration, and survives PDF export clean.
 
