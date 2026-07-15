@@ -267,6 +267,28 @@ describe('masthead-lift — DOM mirror agrees with the kernel', () => {
     assert.ok(sec.querySelector(':scope > .cell-masthead') && sec.querySelector(':scope > .cell-stage'), 'masthead + stage cells');
   });
 
+  // diagram (conformance:strict VIZ canvas) — UNLIKE the QR cards, its title is a
+  // SECTION-LEVEL <h2> that DOES lift into masthead-lede, while its body (the
+  // Mermaid SVG + Key Insight blockquote) wraps into .cell-stage. Both render
+  // paths must agree: engine (transformMastheadSection) and web (applyToDom).
+  test('diagram (strict canvas): title lifts into masthead-lede, body wraps into .cell-stage — engine == web', () => {
+    const inner =
+      '<h2>How a signal moves.</h2>' +
+      '<div class="mermaid-svg"><svg></svg></div>' +
+      '<blockquote><p>Key insight.</p></blockquote>';
+    // engine (HTML-string) path
+    const engineOut = kernel.transformMastheadSection(inner, 'diagram form');
+    assert.match(engineOut, /<div class="cell-masthead"><div class="masthead-lede"><h2>How a signal moves\.<\/h2>/, 'title lifts into masthead-lede');
+    assert.match(engineOut, /<div class="cell-stage"><div class="mermaid-svg"><svg><\/svg><\/div><blockquote>/, 'SVG + Key Insight wrap into the stage cell');
+    // web (DOM) path
+    const doc = dom(`<section class="diagram form">${inner}</section>`);
+    adapter.applyToDom(doc);
+    const sec = doc.querySelector('section.diagram');
+    assert.ok(sec.querySelector(':scope > .cell-masthead .masthead-lede > h2'), 'DOM: title in masthead-lede');
+    assert.ok(sec.querySelector(':scope > .cell-stage > .mermaid-svg'), 'DOM: SVG in the stage cell');
+    assert.ok(sec.querySelector(':scope > .cell-stage > blockquote'), 'DOM: Key Insight in the stage cell');
+  });
+
   test('DOM path builds a .cell-footer with footer text + pagination span', () => {
     const doc = dom('<section class="content form" data-lattice-pagination="4"><h2>T</h2><p>Body.</p><footer>Confidential</footer></section>');
     adapter.applyToDom(doc);

@@ -156,16 +156,29 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     }
   });
 
-  test('the strict set is exactly the migrated components — contact + wifi', () => {
+  test('the strict set is exactly the migrated components — contact + diagram + wifi', () => {
     // Opt-in, one component (or one same-kernel family) per PR (§2). PR 1
     // migrated the first canvas — `contact` — with the render-side wiring proven
     // byte-identical AND probe-verdict-identical (§5). PR 2 added `wifi`, the
     // sibling QR-card canvas: it needed the depth-aware masthead h2 extraction
     // (findTopLevelH2) so its in-card `.qr-head > h2` is NOT lifted into a
-    // masthead band — proven byte-identical + probe-verdict-identical. Extend
-    // this list, with rationale, as each subsequent flag flips; a flip WITHOUT
-    // the render wiring landing in the same change would leave the render gate red.
-    const EXPECTED_STRICT = ['contact', 'wifi'];
+    // masthead band — proven byte-identical + probe-verdict-identical. PR 3 added
+    // `diagram`, the first strict VIZ canvas: its Mermaid SVG + Key Insight body
+    // hoists into `.cell-stage` (title untouched — its section-level h2 keeps
+    // lifting into masthead-lede). No self-size flex pin is needed (unlike the
+    // fixed-height QR cards): the Mermaid SVG self-scales (letterboxed to its box),
+    // so the stage clip never silently swallows it — the overflow-probe verdict is
+    // identical pre/post (fitting → not-over, over-tall Key Insight → over). Simple
+    // diagrams are pixel byte-identical; a diagram whose stage ALSO carries extra
+    // content (a dek above and/or a Key Insight below) shifts the self-scaled SVG ~2px
+    // on the CLI/committed-PDF export path (the standalone Node exporter does not stamp
+    // `--_sec-1cqi`, so the stage's cqi-gap resolves ~10% smaller than the section's
+    // did), while the web/desktop runtime (which stamps `--_sec-1cqi`) renders
+    // byte-identical and the new export value matches runtime — an export delta owed a
+    // dark+light sign-off. Extend this list, with rationale, as
+    // each subsequent flag flips; a flip WITHOUT the render wiring landing in the
+    // same change would leave the render gate red.
+    const EXPECTED_STRICT = ['contact', 'diagram', 'wifi'];
     assert.deepEqual(
       strict.map((m) => m.name).sort(),
       EXPECTED_STRICT,

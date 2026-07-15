@@ -3555,6 +3555,16 @@ section.decision > .cell-stage {
  * heading and the size of the SVG container; per-diagram theming
  * lives in the DIAGRAM OVERRIDES section near the end of the bundle.
  *
+ * diagram is a `conformance:"strict"` CANVAS (model-driven frame render §4/§6 —
+ * engineering/decisions/2026-07-15-model-driven-frame-render.md): under the Form
+ * the masthead kernel lifts the eyebrow + title into the masthead band (its h2
+ * still renders in masthead-lede) and wraps the remaining BODY — the Mermaid SVG,
+ * an optional leading dek `<p>`, and a trailing Key Insight `<blockquote>` — into
+ * the frame's declared `.cell-stage` cell. Every body selector therefore carries
+ * a `> .cell-stage >` arm beside the bare `section.diagram > …` arm: the wrapped
+ * (Form) arm styles the hoisted body; the direct-child arm preserves the `no-form`
+ * slide (no masthead lift, no wrap), so a `no-form` diagram is untouched.
+ *
  * See lib/components/diagram/diagram.manifest.json for the component contract.
  */
 
@@ -3566,38 +3576,72 @@ section.diagram { align-items:center; }
    instead of the left margin every other component uses. Stretch the band full-width
    so its title left-aligns (same override the Key Insight blockquote below needs). */
 section.diagram > .cell-masthead { align-self:stretch; }
+/* The declared stage cell (conformance:strict). The section centers its children,
+   so stretch the stage full-width (like the masthead band above) and re-seat the
+   center alignment INSIDE it so the Mermaid SVG stays centered — the dek and Key
+   Insight below each `align-self:stretch` back to full-width, exactly as they did
+   when they were direct section children under `align-items:center`. The stage owns
+   the inter-block gap the section used to (`section:has(> .cell-masthead)` sets it to
+   `--sp-sm`): re-seat that same `--sp-sm` inside the stage so the Mermaid↔Key-Insight
+   spacing is byte-identical to the pre-wrap direct-child layout. (The base
+   `.cell-stage` gap is `--sp-xs`; diagram's body rhythm was `--sp-sm`, so override it.)
+   A leading dek tightens the whole slide to `--sp-xs` below. Scoped to
+   `section.form.diagram` (not `section.diagram`) so the `gap` override OUT-specifies
+   the base `section.form > .cell-stage { gap:var(--sp-xs) }` — an equal-specificity
+   tie the base would otherwise win on source order. */
+section.form.diagram > .cell-stage { align-self:stretch; align-items:center; gap:var(--sp-sm); }
+section.form.diagram:has(> .cell-stage > p) > .cell-stage { gap:var(--sp-xs); }
 section.diagram h3 { padding-bottom:0.3125cqi; }
 section.diagram h2 { font-size:var(--fs-h3); padding-bottom:0.3125cqi; }
-section.diagram > p { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-secondary); margin-bottom:0; padding-bottom:var(--sp-sm); }
+section.diagram > p,
+section.diagram > .cell-stage > p { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-secondary); margin-bottom:0; padding-bottom:var(--sp-sm); }
 /* Under the Form the eyebrow + title lift into the left-aligned masthead band, but
-   the dek <p> is left in flow — and section.diagram { align-items:center } shrink-wraps
-   and centers it (the same trap the masthead band and the Key Insight blockquote hit),
-   so it floats center while the lifted title left-aligns. Stretch it full-width so its
-   text aligns to the title's left edge. Form-scoped: a non-Form diagram has no masthead
-   lift and keeps its centered title, so the dek must stay centered to match it. */
-section.form.diagram > p { align-self:stretch; }
+   the dek <p> stays in the body (now inside `.cell-stage`) — and the centered stage
+   (align-items:center, mirroring the pre-wrap section) shrink-centers it (the same
+   trap the masthead band and the Key Insight blockquote hit), so it floats center
+   while the lifted title left-aligns. Stretch it full-width so its text aligns to the
+   title's left edge. Form-scoped: a non-Form diagram has no masthead lift and keeps
+   its centered title, so the dek must stay centered to match it. (Under the Form the
+   dek always hoists into `.cell-stage`, so only the `> .cell-stage > p` arm is live.) */
+section.form.diagram > .cell-stage > p { align-self:stretch; }
 /* Hug the title band when a subtitle leads — mirror of the chart-frame rule: the
-   masthead clearance is right below a bare title, too loose below a leading dek. */
-section.form.diagram:has(> p) > .cell-masthead { padding-bottom:var(--sp-xs); }
-section.form.diagram:has(> p) { gap:var(--sp-xs); }
+   masthead clearance is right below a bare title, too loose below a leading dek. The
+   `:has(> .cell-stage > p)` detects the now-hoisted leading dek. */
+section.form.diagram:has(> .cell-stage > p) > .cell-masthead { padding-bottom:var(--sp-xs); }
+section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
 
 /* Explicit pixel width so Mermaid's getBoundingClientRect() always returns a concrete value.
    Most diagram types (sequence, timeline, gitgraph…) use useMaxWidth:true by default and
    query the container width before rendering. width:100% on a freshly-inserted flex child
    can resolve to 0 before the browser commits a layout pass.
-   100cqi (slide width) − 2 × var(--sp-2xl) padding = 90cqi. */
-section.diagram .mermaid-svg, section.diagram > .mermaid { flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); height:auto; max-width:100%; box-sizing:border-box; }
+   100cqi (slide width) − 2 × var(--sp-2xl) padding = 90cqi.
+   `flex:1` (the pre-migration value, kept EXACTLY): the Mermaid SVG SELF-SCALES —
+   `mermaid.css` forces `.mermaid-svg svg { height:100% !important }` and the SVG's own
+   `preserveAspectRatio` letterboxes it — so it always fits its flex box, at ANY size.
+   Under the `conformance:strict` `.cell-stage` wrap this is why NO `flex:0 0 auto` self-size
+   pin is needed (contrast contact/wifi, whose FIXED-height cards CAN be shrunk-and-clipped):
+   a shrinkable diagram box does not LOSE content when squeezed, it SCALES it — so the stage's
+   `overflow:clip` never silently swallows a diagram, and the overflow-probe verdict is
+   identical to the pre-wrap direct-child render (proven: fitting → not-over, and a genuinely
+   over-tall body — e.g. a long Key Insight — → over, pre==post). §5 PROTECTED machinery,
+   task hazard #1 ("risk is LOW … flex fix if any"). */
+section.diagram .mermaid-svg,
+section.diagram > .mermaid,
+section.diagram > .cell-stage > .mermaid { flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); height:auto; max-width:100%; box-sizing:border-box; }
 
 /* Source <pre> in pending/error states occupies the same slot as the rendered
  * diagram so the slide layout does not reflow when the diagram swaps in. */
-section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
+section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
+section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
   flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); max-width:100%; height:auto; min-height:0;
 }
 section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:center; font-style:italic; }
 /* Key Insight panel on diagram slides must stretch full-width to match every
-   other layout. section.diagram uses align-items:center which would shrink
-   the blockquote to fit-content; align-self:stretch overrides that. */
-section.diagram > blockquote { align-self:stretch; }
+   other layout. section.diagram uses align-items:center (mirrored onto the stage
+   cell) which would shrink the blockquote to fit-content; align-self:stretch
+   overrides that on both the direct-child (no-form) and wrapped (Form) arms. */
+section.diagram > blockquote,
+section.diagram > .cell-stage > blockquote { align-self:stretch; }
 
 /* === lib/components/anchor/divider/divider.styles.css === */
 /* divider — anchor.divider
@@ -15145,10 +15189,16 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [
   width:1152px; max-width:100%;
   box-sizing:border-box;
 }
-section.diagram > .mermaid-error {
+/* `> .cell-stage >` arm: diagram is `conformance:"strict"`, so its body — the
+ * source `<pre>`, the runtime `.mermaid` SVG target, and the `.mermaid-error`
+ * block attached after it — hoists into `.cell-stage` on the wrapped (Form) path.
+ * The bare `section.diagram >` arm keeps the `no-form` (unwrapped) slide working. */
+section.diagram > .mermaid-error,
+section.diagram > .cell-stage > .mermaid-error {
   width:calc(100cqi - 2 * var(--sp-2xl));
 }
 section.diagram > .mermaid-error-label,
+section.diagram > .cell-stage > .mermaid-error-label,
 .mermaid-error-label {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);
@@ -19219,9 +19269,18 @@ section.dark.form .tile-watermark { color: var(--on-dark-watermark); }
    inserts a sibling `<div class="mermaid">` (SVG target) and, on
    failure, a sibling `<div class="mermaid-error">`. */
 .mermaid-svg                             { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
-section.diagram > .mermaid               { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+/* `> .cell-stage > .mermaid`: since diagram opted into `conformance:"strict"`
+ * (model-driven frame render §4), the masthead kernel now wraps the diagram body
+ * — the source `<pre>` AND the runtime-inserted `.mermaid` sibling next to it —
+ * into the frame's `.cell-stage` cell. On the RUNTIME/DOM path the `.mermaid`
+ * SVG-target div therefore lands INSIDE `.cell-stage`, so the direct-child rule
+ * needs the wrapped arm too. The bare `section.diagram > .mermaid` arm stays for
+ * the `no-form` (unwrapped) slide. */
+section.diagram > .mermaid,
+section.diagram > .cell-stage > .mermaid { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
 .mermaid-svg svg,
-section.diagram > .mermaid svg           { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }
+section.diagram > .mermaid svg,
+section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }
 
 /* Visibility states keyed off `data-mermaid-state` on the <pre>.
  *

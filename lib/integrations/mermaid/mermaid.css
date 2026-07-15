@@ -28,9 +28,18 @@
    inserts a sibling `<div class="mermaid">` (SVG target) and, on
    failure, a sibling `<div class="mermaid-error">`. */
 .mermaid-svg                             { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
-section.diagram > .mermaid               { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+/* `> .cell-stage > .mermaid`: since diagram opted into `conformance:"strict"`
+ * (model-driven frame render §4), the masthead kernel now wraps the diagram body
+ * — the source `<pre>` AND the runtime-inserted `.mermaid` sibling next to it —
+ * into the frame's `.cell-stage` cell. On the RUNTIME/DOM path the `.mermaid`
+ * SVG-target div therefore lands INSIDE `.cell-stage`, so the direct-child rule
+ * needs the wrapped arm too. The bare `section.diagram > .mermaid` arm stays for
+ * the `no-form` (unwrapped) slide. */
+section.diagram > .mermaid,
+section.diagram > .cell-stage > .mermaid { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
 .mermaid-svg svg,
-section.diagram > .mermaid svg           { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }
+section.diagram > .mermaid svg,
+section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }
 
 /* Visibility states keyed off `data-mermaid-state` on the <pre>.
  *
