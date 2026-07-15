@@ -94,6 +94,31 @@ separate debounce in its callers and is **not** part of this change — logged a
 off-path follow-up (#18); it is a different code path with a different owner and would
 widen the blast radius past one feature (#17).
 
+**One behavior nuance:** eager (`coalesce=false`) hosts previously let concurrent
+one-shot renders overlap; the in-flight guard now serializes them and coalesces any
+intermediates during a slow render (so such a host can stamp `__latticeCoalesce > 1`).
+The final state always paints (the dirty reschedule), so this is a strict improvement,
+not a regression — but it is a change from strict one-shot-per-change.
+
+## Maker-checker (HARD RULE, shared component → 5 hosts)
+
+An independent checker traced the scheduler state machine and confirmed it is
+**lost-update-free and wedge-free** (the `dirty`/`inFlight` clears are synchronous and
+adjacent, so no edit interleaves; `commit` early-returns dirty *only* while a `finally`
+is pending to reschedule; external renders never touch `inFlightRef`). One should-fix
+and four nits were folded back before commit:
+- **should-fix — the palette-observer and active-edge renders bypassed the new
+  no-overlap contract.** Both called the render closure directly, so a palette flip or a
+  tab re-show *during* an in-flight content render started a second `renderInto` on the
+  same host — racing its `__latticePendingLoad` / `__latticeFrameSig` / `onload` state.
+  Both now route through `scheduleFrameRef` (independent of the `coalesce` prop, so
+  static hosts keep working and gain backpressure for free). This also closes the
+  cosmetic COALESCE-attribution race the checker noted.
+- **nits (folded):** cancel a queued frame when the immediate branch runs (a future
+  dynamic `coalesce` toggle can't double-fire); guard the post-unmount reschedule on the
+  host (no engine load into a dead host); `.catch` the commit chain (a `whenReady`
+  bundle-load rejection can't surface as an unhandled rejection).
+
 ## Evidence (HARD RULE #19 / #23)
 
 Measured on the **real built Studio** (`docs/dist`, `astro build`), headless Chrome at

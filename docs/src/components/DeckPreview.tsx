@@ -189,9 +189,15 @@ export function DeckPreview({
 			.then(() => renderRef.current())
 			.finally(() => {
 				inFlightRef.current = false;
-				// A change landed mid-render → paint the newest state next frame.
-				if (dirtyRef.current) scheduleFrameRef.current();
-			});
+				// A change landed mid-render → paint the newest state next frame. Guard
+				// on the host: if we unmounted while rendering, drop it (don't schedule a
+				// frame + engine load into a dead host).
+				if (dirtyRef.current && stageRef.current) scheduleFrameRef.current();
+			})
+			// whenReady() (engine-bundle load) can reject; renderInto never does. Swallow
+			// so a bundle-load failure doesn't surface as an unhandled rejection — the
+			// failure already logs through renderInto's own catch on the next attempt.
+			.catch(() => {});
 	};
 
 	// Schedule a commit for the next animation frame, de-duped so a burst of
@@ -217,6 +223,13 @@ export function DeckPreview({
 		coalesceRef.current += 1;
 		if (!paintedRef.current || !coalesce) {
 			paintedRef.current = true;
+			// Drop any frame already queued so a `coalesce` true→false flip can't fire
+			// this immediate commit AND a stale scheduled one (belt-and-braces: all
+			// current call sites pass a constant `coalesce`).
+			if (rafRef.current) {
+				cancelAnimationFrame(rafRef.current);
+				rafRef.current = 0;
+			}
 			commitRef.current();
 			return;
 		}
@@ -235,29 +248,24 @@ export function DeckPreview({
 	);
 
 	// Re-render on palette / mode change (the shared topbar writes <html> attrs).
+	// Routed through the SAME frame scheduler as edits (not a direct render) so it
+	// honors the in-flight guard — a palette flip mid-render coalesces onto the next
+	// frame instead of overlapping a second renderInto on the host (which would race
+	// the resident document's pending-load / frame-sig state). Set up once.
 	React.useEffect(() => {
-		const root = document.documentElement;
-		let t: ReturnType<typeof setTimeout>;
-		const obs = new MutationObserver(() => {
-			clearTimeout(t);
-			t = setTimeout(render, 80);
-		});
-		obs.observe(root, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
-		return () => {
-			clearTimeout(t);
-			obs.disconnect();
-		};
-	}, [render]);
+		const obs = new MutationObserver(() => scheduleFrameRef.current());
+		obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
+		return () => obs.disconnect();
+	}, []);
 
-	// Render ONLY on the rising edge of `active` (e.g. switching back to a tab) —
-	// reading the latest render via the ref so this effect does NOT re-fire (and
-	// eagerly render) on every content change. Depending on `render` here is what
-	// leaked a per-keystroke render past the debounce.
+	// Render ONLY on the rising edge of `active` (e.g. switching back to a tab).
+	// Also routed through the frame scheduler (was a bare requestAnimationFrame →
+	// direct render), so a re-show mid-render can't overlap the in-flight one either.
 	const wasActiveRef = React.useRef(active);
 	React.useEffect(() => {
 		const rising = active && !wasActiveRef.current;
 		wasActiveRef.current = active;
-		if (rising) requestAnimationFrame(() => renderRef.current());
+		if (rising) scheduleFrameRef.current();
 	}, [active]);
 
 	// `m-0` neutralizes the `<figure>` UA default margin (`0 40px`) — Tailwind
