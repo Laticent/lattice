@@ -3,6 +3,7 @@ import {
 	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
+import { toast } from 'sonner';
 import DeckPreview from '@/components/DeckPreview';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Toaster } from '@/components/ui/sonner';
 import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -268,15 +270,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [insertOpen, setInsertOpen] = React.useState(false);
 	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat'>('coach');
 	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints((loadDeckList()[0] ?? DECKS[0]).id));
-	const [toast, setToast] = React.useState<string | null>(null);
-	const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	// One-click Undo for the LAST panel settings change — a light complement to ⌘Z /
 	// Version history. Each change captures the pre-change source; Undo restores it.
 	// `prev` = source before the change (what Undo restores); `next` = source right
 	// after it, so Undo can tell whether anything was typed since (and stay out of the
 	// way if so — it must never silently swallow edits the user made afterward).
-	const [undo, setUndo] = React.useState<{ label: string; prev: string; next: string } | null>(null);
-	const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Tracks the pending Undo toast (Sonner owns its display) so the reactive effect
+	// below can dismiss it the instant the source moves on its own. `next` is the
+	// source right after the write; `id` is Sonner's handle for dismiss().
+	const [undo, setUndo] = React.useState<{ next: string; id: string | number } | null>(null);
 	const [palette, setPalette] = React.useState(() => {
 		try {
 			return localStorage.getItem('lattice-studio-palette') || 'indaco';
@@ -469,9 +471,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Undo toast. Palette / light-dark are runtime toggles that reverse instantly on
 	// their own, so they don't route here. `undoTimer` auto-dismisses the toast.
 	const showUndo = React.useCallback((label: string, prev: string, next: string) => {
-		setUndo({ label, prev, next });
-		if (undoTimer.current) clearTimeout(undoTimer.current);
-		undoTimer.current = setTimeout(() => setUndo(null), 5000);
+		// Sonner owns display + the 5s auto-dismiss. The action closes over THIS
+		// write's prev/next and reverts only if nothing has changed since — so Undo
+		// never clobbers edits made after it. Track {next,id} for the reactive dismiss.
+		const id = toast(label, {
+			duration: 5000,
+			action: { label: 'Undo', onClick: () => { if (sourceRef.current === next) setSource(prev); } },
+		});
+		setUndo({ next, id });
 	}, []);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
 		const prev = sourceRef.current;
@@ -486,16 +493,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// typed, switched decks, restored a checkpoint — so Undo only ever reverts the
 	// single last settings change, never edits made after it.
 	React.useEffect(() => {
-		if (undo && source !== undo.next) setUndo(null);
+		if (undo && source !== undo.next) { toast.dismiss(undo.id); setUndo(null); }
 	}, [source, undo]);
-	// Plain closure (not memoized) so it reads the CURRENT `undo` each render. Restore
-	// ONLY when nothing has changed since the write (belt-and-suspenders with the effect
-	// above) — otherwise just dismiss, never clobber intervening edits.
-	const applyUndo = () => {
-		if (undo && sourceRef.current === undo.next) setSource(undo.prev);
-		setUndo(null);
-		if (undoTimer.current) clearTimeout(undoTimer.current);
-	};
 
 	const bp = useBreakpoint();
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
@@ -1122,11 +1121,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Transient bottom-center confirmation, so no action in the prototype is a
 	// dead click (real ones confirm; not-yet-wired ones say so honestly).
 	const notify = React.useCallback((msg: string) => {
-		setToast(msg);
-		if (toastTimer.current) clearTimeout(toastTimer.current);
-		toastTimer.current = setTimeout(() => setToast(null), 2600);
+		toast(msg, { duration: 2600 });
 	}, []);
-	React.useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); if (undoTimer.current) clearTimeout(undoTimer.current); }, []);
 
 	// ── Self-driving demo walkthrough ───────────────────────────────────────
 	// A guided "watch it drive itself" tour: a fake cursor + captions play a
@@ -2446,20 +2442,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			{/* Hidden file input for "Import deck…" (.md upload). */}
 			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
-			{/* Transient toast — no dead clicks in the prototype */}
-			{toast && (
-				<div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-[200] flex justify-center px-4">
-					<div className="max-w-[min(92vw,440px)] rounded-full border border-border bg-[var(--surface-inverse)] px-4 py-2 text-center text-[13px] font-medium text-white shadow-[0_8px_24px_rgba(10,22,40,.22)]">{toast}</div>
-				</div>
-			)}
-			{/* Undo toast — the LAST panel settings change, one click to revert. Bottom-LEFT,
-			    off the right-hand panel + controls, so it never covers what you just changed. */}
-			{undo && (
-				<div role="status" aria-live="polite" className="fixed bottom-6 left-6 z-[200] flex items-center gap-3 rounded-full border border-border bg-[var(--surface-inverse)] px-4 py-2 text-[13px] font-medium text-white shadow-[0_8px_24px_rgba(10,22,40,.22)]">
-					<span>{undo.label}</span>
-					<button type="button" onClick={applyUndo} className="rounded-full bg-white/15 px-2.5 py-0.5 text-[12px] font-semibold text-white transition-colors hover:bg-white/25">Undo</button>
-				</div>
-			)}
+			{/* The one toast surface — messages (notify) + the Undo action below. */}
+			<Toaster />
 		</div>
 	);
 }

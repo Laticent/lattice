@@ -388,34 +388,6 @@ body[data-view='read'] .pg-pane-label {
 	color: var(--accent);
 }
 
-/* Undo toast for draft-replacing actions (backup + one-tap restore). */
-.pg-toast {
-	position: fixed;
-	bottom: 18px;
-	left: 50%;
-	translate: -50% 0;
-	z-index: 60;
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	max-width: min(92vw, 480px);
-	padding: 10px 16px;
-	border-radius: 10px;
-	background: var(--surface-inverse, #1c2230);
-	color: #fff;
-	font-size: 13.5px;
-	box-shadow: 0 8px 30px rgb(0 0 0 / 0.3);
-}
-.pg-toast button {
-	flex: none;
-	border: 0;
-	border-radius: 7px;
-	padding: 4px 10px;
-	background: rgb(255 255 255 / 0.18);
-	color: #fff;
-	font-weight: 600;
-	cursor: pointer;
-}
 
 /* ── The Explore surface (2026-07-05 Specimen Book decision §4, PR 6) ─────────
    Explore is single-pane: the walked deck fills the width and the Walk bar

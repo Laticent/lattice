@@ -85,7 +85,7 @@ card/popover foreground maps to *body* text, so titles must opt into
 
 Existing `ui/` primitives: badge, breadcrumb, button, card, checkbox, collapsible,
 command, dialog, dropdown-menu, input, kbd, pill-tabs, popover, radio-group,
-scroll-area, select, separator, sheet, slider, split, switch, table, tabs,
+scroll-area, select, separator, sheet, slider, sonner, split, switch, table, tabs,
 textarea, toggle-group, tooltip.
 
 **Excluded — FROZEN** (`2026-07-03-studio-succession.md`): the **Drawing Board**
@@ -280,3 +280,34 @@ pattern, BUT the button sits deep in the architect-chat composer and couldn't be
 driven from this sandbox to confirm the Popover still opens — so per HARD RULE #23
 it stays on native `title` (it already has an `aria-label`) rather than ship an
 unverified structural change to a working popover.
+
+## Batch outcome — 2026-07-14 (e): toasts → Sonner (`ui/sonner`)
+
+The highest-value NEW primitive: `ui/sonner` (adds the `sonner` package) retires
+TWO hand-rolled toast state machines — StudioShell (a `role="status"` message pill
++ a separate bottom-left Undo pill) and PlaygroundApp (a `.pg-toast` message with
+Undo / Reload actions) — for one Sonner surface (HARD RULE #15). `toast()` is now
+callable from anywhere; each app mounts one `<Toaster>`.
+
+- **Themed** to the established look — the dark `--surface-inverse` pill, white
+  text, in both colour modes — via the CSS vars Sonner reads (`--normal-bg/text/
+  border`); `lx-ui` carries the token reset into Sonner's document-root portal.
+- **Message toasts** (StudioShell's `notify`, used everywhere by prop-drill) → a
+  one-line `toast(msg, {duration})`.
+- **Action toasts** map to Sonner's `action`: StudioShell's **Undo** (the reactive
+  prev/next dismiss logic stays app-side — the effect calls `toast.dismiss(id)`
+  when the source moves; the action closes over that write's prev/next and reverts
+  only if nothing changed since); PlaygroundApp's **Undo** (via a ref, since the
+  handler is defined after `showToast`) and **Reload**.
+- **Verified** on the real Studio: message + Undo action toasts fire, Undo reverts
+  and dismisses, `pointer-events:auto` on desktop (the inspector is docked, not a
+  modal). Playground's `<Toaster>` confirmed mounted (its undo/reload paths are
+  unit-tested + use the identical mechanism; not driven live from here).
+
+**Position note:** the Undo toast moved bottom-left → bottom-center (Sonner's
+default stack). The old bottom-left was a hand-rolled workaround to clear the right
+panel; a centered transient toast-with-Undo is the conventional pattern and reads
+cleanly. **Modal note:** Sonner toasts are body-level exactly like the retired
+pills, so they behave identically over a modal Sheet — no NEW `pointer-events`
+regression (unlike an interactive Popover, which is why the model pickers stayed
+inline; a toast is read, its action optional).

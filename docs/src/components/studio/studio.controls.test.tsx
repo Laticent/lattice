@@ -414,7 +414,9 @@ describe('Studio — Inspector controls respond', () => {
 		// One click reverts the source to before the change and dismisses the toast.
 		await user.click(undo);
 		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/));
-		expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+		// Sonner dismisses the toast through an exit animation, so the button leaves the
+		// DOM a beat after the click (the hand-rolled pill removed it synchronously).
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument());
 	});
 
 	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
