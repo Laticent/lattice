@@ -61,7 +61,16 @@ export function suspendScaleObservers(on: boolean): void {
 }
 
 export type Geom = { width: number; height: number };
-export type RenderStatus = { ok: boolean; slides: number; error: string | null };
+export type RenderStatus = {
+	ok: boolean;
+	slides: number;
+	error: string | null;
+	/** Which regime drew this render: 'patch' swapped only the `.lattice` body (cheap,
+	 * ~2ms); 'write' rebuilt the whole srcdoc (a full iframe reparse, tens–hundreds of
+	 * ms). Lets a scheduling caller (DeckPreview's frame loop) render a patch instantly
+	 * but coalesce a heavy write. Absent on a failed render. */
+	writePath?: 'patch' | 'write';
+};
 
 export type SingleSlideOptions = {
 	/** Base URL the theme CSS is fetched from (`<themeBase><name>.css`). */
@@ -424,7 +433,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
 						}
 						scheduleVizScan(() => live.contentDocument);
-						return { ok: true, slides, error: null };
+						return { ok: true, slides, error: null, writePath: 'patch' };
 					}
 					// The live document vanished between the guard and the patch — fall
 					// through to a full write below.
@@ -540,7 +549,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// fit) so frameMs isolates the browser's async parse/layout — the build
 				// and sanitize costs are still captured by totalMs and sanitizeMs.
 				tFrameStart = performance.now();
-				return { ok: true, slides, error: null };
+				return { ok: true, slides, error: null, writePath: 'write' };
 			})
 			.catch((e) => {
 				// Surface failures in the console (the old landing bridge did; the

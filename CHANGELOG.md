@@ -493,11 +493,13 @@ in patch versions.
   on the next animation frame (~16 ms), so a fast typist's burst collapses into a single render of the
   latest text — the coalescing the debounce bought, but bounded by the frame rate rather than a fixed
   wall you feel after every pause. An in-flight guard applies backpressure so a slow render never
-  overlaps or backs up (it paints the newest state the moment the previous one settles). This is a
-  responsiveness change only — the per-render engine/FRAME cost is unchanged; what's removed is ~140 ms
-  of artificial wait guarding ~16 ms of work. `DeckPreview`'s `debounceMs?: number` prop is replaced by
-  `coalesce?: boolean` (static hosts omit it and stay eager). See
-  `engineering/decisions/2026-07-15-frame-aligned-preview-render.md`.
+  overlaps or backs up (it paints the newest state the moment the previous one settles). The loop is
+  **adaptive**: a cheap patch (typing in the Studio) renders on the next frame, while a heavy full
+  rewrite (a Finish/Fabricate/Layout slider drag or theme audition) coalesces on a short timer so it
+  can't strobe the preview. This is a responsiveness change only — the per-render engine/FRAME cost is
+  unchanged; what's removed is ~140 ms of artificial wait guarding ~16 ms of work. `DeckPreview`'s
+  `debounceMs?: number` prop is replaced by `coalesce?: boolean` (static hosts omit it and stay eager).
+  See `engineering/decisions/2026-07-15-frame-aligned-preview-render.md`.
 
 - **Studio + Playground toasts are now one shared Sonner surface, not two hand-rolled ones.** The
   transient "toast" notifications — the Studio's confirmation messages and its one-tap **Undo** for the

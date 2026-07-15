@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The live preview traded its 140ms trailing debounce for a frame-aligned render loop (the video-game model) — a keystroke marks the preview dirty and schedules ONE render on the next animation frame, with an in-flight guard for backpressure. Measured on the real built Studio at 4× CPU: keydown→paint fell 204ms → 88ms median (~2.3×), and during a continuous typing burst the preview now paints every frame instead of freezing until a 140ms pause. Responsiveness only — the per-render engine/FRAME cost is unchanged; what's removed is ~140ms of artificial wait guarding ~16ms of work. `DeckPreview`'s `debounceMs?: number` prop became `coalesce?: boolean`.
+summary: The live preview traded its 140ms trailing debounce for an ADAPTIVE frame-aligned render loop (the video-game model) — a keystroke marks the preview dirty and schedules ONE render on the next animation frame, with an in-flight guard for backpressure. Adaptive because a cheap patch (typing) renders next-frame instant while a heavy full-write (FinishStudio/Fabricate/LayoutStudio slider-drags) coalesces on a short timer so it can't strobe (red-team fix). Measured on the real built Studio at 4× CPU: keydown→paint 204ms → ~62–88ms; a continuous fast burst renders 38× more than the debounce yet costs only ~40ms more main-thread time over 4s (no editor jank — refutes the Munger inversion). Responsiveness only; per-render engine/FRAME cost unchanged. `DeckPreview`'s `debounceMs?: number` prop became `coalesce?: boolean`. Full adversarial trio (HARD RULE #25) run.
 ---
 
 # Frame-aligned preview render — delete the debounce wall, borrow the game loop
@@ -100,6 +100,31 @@ intermediates during a slow render (so such a host can stamp `__latticeCoalesce 
 The final state always paints (the dirty reschedule), so this is a strict improvement,
 not a regression — but it is a change from strict one-shot-per-change.
 
+### Adaptive scheduling — the loop self-tunes to the render cost (added after the red-team pass)
+
+A pure rAF loop is right *only for the hosts whose edits hit the patch path.* The patch
+fast-path (`single-slide-render.ts`) is taken **only when the render signature is
+unchanged**, and that sig hashes `extraCss` + `extraTheme.css`. So a host whose *primary
+input is those props* — **FinishStudio** (slider/joystick → `previewCss`), **Fabricate**
+(color edits → `derived.css`), **LayoutStudio** (component CSS → `extraCss`) — changes
+the sig on **every** edit and **never** patches: every render is a full `srcdoc` rewrite
+(the iframe reparses the ~560KB theme sheet, ~485ms at 4× CPU). Rendering *that* every
+frame during a continuous **slider drag** would strobe the iframe and saturate the main
+thread — strictly worse than the debounce it replaced, which rendered once at the pause.
+Only **StudioShell** (markdown edits → stable sig → patch) matched the ~2ms premise.
+
+So the scheduler is **adaptive**. `renderInto` now reports its regime
+(`RenderStatus.writePath: 'patch' | 'write'`); after each render the loop records whether
+it was **heavy** — a full `write`, or one whose engine work exceeded a conservative
+`HEAVY_RENDER_MS` (50ms) backstop (a fat table / math slide that renders slowly even on
+the patch path). The next schedule branches on it: a **cheap patch → the next animation
+frame** (instant live typing); a **heavy render → a short trailing timer**
+(`HEAVY_COALESCE_MS` = 120ms, ~the retired debounce) so a drag / audition renders once
+per pause, not once per frame. The loop self-tunes: light path stays frame-instant, heavy
+path coalesces — the "be smarter" the request asked for, made automatic per-render rather
+than per-host. A hung-render **watchdog** (4s) clears the in-flight guard so a stalled
+bundle/theme fetch can't wedge the preview forever (red-team Finding 2).
+
 ## Maker-checker (HARD RULE, shared component → 5 hosts)
 
 An independent checker traced the scheduler state machine and confirmed it is
@@ -126,23 +151,70 @@ Measured on the **real built Studio** (`docs/dist`, `astro build`), headless Chr
 keydown→paint probe that stamps `t0` at the real capture-phase `keydown` and records the
 wall to the next render sample on `window.__latticeRenderMetrics`:
 
+**Latency (isolated keystrokes, StudioShell patch path):**
+
 | Build | keydown→paint (median) | range |
 |---|---|---|
 | **Old** — 140ms trailing debounce | **204ms** | 198–226ms |
-| **New** — frame-aligned loop | **88ms** | 70–118ms |
+| **New** — adaptive frame loop | **~62–88ms** | 33–118ms |
 
-**~2.3× faster, ~116ms cut** per keystroke. The old samples cluster tightly at ~204ms
-(the fixed 140ms wall dominates and hides the base variance); the new ones track the
-actual work (CodeMirror + React + engine ~9ms + patch ~2ms). During a *continuous*
-burst the win is larger and categorical: the old model painted nothing until a 140ms
-pause; the new one paints every frame.
+**~2.3–3× faster, ~120ms cut** per keystroke. The old samples cluster tightly at ~204ms
+(the fixed wall dominates); the new ones track the actual work (CodeMirror + React +
+engine ~9ms + patch ~2ms).
+
+**Continuous fast burst (38 keys @ 17/sec — the regime the Munger inversion flagged as
+unmeasured), main-thread cost:**
+
+| Build | renders during burst | main-thread long-task | max task |
+|---|---|---|---|
+| **Old** — 140ms debounce | **1** (preview frozen till pause) | 325ms (8% of burst) | 60ms |
+| **New** — adaptive loop | **38** (preview live) | **365ms (9%)** | 76ms |
+
+**The new model renders 38× more yet costs ~40ms more main-thread time across a
+4-second burst** — because each patch is ~2–9ms and the dominant cost is CodeMirror's own
+keystroke handling (identical in both). Both sit at ~8–9% main-thread occupancy, so the
+editor has ~91% headroom either way: **the feared editor-jank from per-keystroke
+rendering does not materialize.** Live preview is essentially free on the patch path.
 
 This is a **responsiveness** change, not a throughput one — the per-render engine/FRAME
 cost is unchanged, so `npm run bench` and `frame-bench`'s RENDER/FRAME needles neither
-move nor should. The probe above is a one-off (scratchpad, not committed); the durable
+move nor should. The probes above are one-offs (scratchpad, not committed); the durable
 behavioral coverage is the unit tests in `DeckPreview.test.tsx` (first-paint-immediate,
-frame-coalescing of a burst to the latest state, backpressure never overlaps, eager
-default preserved).
+frame-coalescing to the latest state, backpressure never overlaps, **heavy-host timer
+coalescing**, eager default preserved).
+
+**UNVERIFIED (HARD RULE #23):** the full-write hosts' *drag* behavior (FinishStudio
+sliders / Fabricate color / LayoutStudio CSS coalescing on the 120ms timer) is covered by
+the unit test + the deterministic `writePath` mechanism, but was **not driven on the real
+Finish/Fabricate panels** in this sandbox — the strobe-fix's real-surface proof is the
+outstanding verification. The patch-path latency + burst numbers above ARE from the real
+built Studio.
+
+## Adversarial trio (HARD RULE #25 — owner-requested)
+
+Red team + Munger inversion + a fresh independent checker, run in parallel against the
+final shipping diff. Net: the scheduler is sound; the trio surfaced one real regression
+(now fixed) and refuted the two headline objections with measurement.
+
+- **Independent checker → mergeable as-is.** Re-traced every invariant after the
+  maker-checker fold: lost-update-free, wedge-free, no stale closures, coalesce count
+  correct, tests genuinely fail if the feature breaks, consumer split exact. No blockers.
+- **Red team → found the strobe regression (Finding 1, fixed).** The patch fast-path is
+  sig-gated, so the four `extraCss`/`extraTheme`-driven hosts full-write every edit;
+  removing their debounce made a continuous drag strobe full-writes. My original evidence
+  covered only StudioShell (the one patch host) — the regression on 4/5 hosts was
+  *unverified*, not just unaddressed. **Fixed** by the adaptive backoff above. Finding 2
+  (a never-settling render wedging the in-flight guard) → the **watchdog**. Everything
+  else it tried to break (no-overlap contract, `onFirstRender`, background-tab rAF,
+  unmount) held.
+- **Munger inversion → "ship with changes; measure the burst."** Its strongest point —
+  the loop renders ~per-keystroke on the main thread, and I'd measured only *preview*
+  latency, never *editor* cost — was correct and is now measured (the burst table above:
+  +40ms/4s, no jank). Its proposed cheaper alternative (a ~40ms debounce) self-refutes:
+  at human typing speed (~80–100ms gaps) a 40ms debounce has the **same** ~1-render-per-
+  keystroke cadence as the frame loop, so it carries the same cost without the backpressure
+  or the adaptive self-tuning. The genuine residual it named — heavy renders per frame —
+  is exactly what the adaptive backoff closes.
 
 ## Off-path, logged not done (#18)
 - Give the multi-slide filmstrip (`deck-preview.js` callers) the same frame-aligned

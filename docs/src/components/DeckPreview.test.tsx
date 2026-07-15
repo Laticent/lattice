@@ -30,7 +30,12 @@ vi.mock('@/lib/single-slide-render', () => ({
 
 const opts = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
-beforeEach(() => renderInto.mockClear());
+// Reset call history AND the implementation each test — the adaptive-backoff test
+// swaps in a 'write'-regime return value, so a plain mockClear would leak it forward.
+beforeEach(() => {
+	renderInto.mockReset();
+	renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
+});
 
 describe('DeckPreview — theme threading', () => {
 	it('re-renders when the extra-theme CSS changes under a STABLE name (re-saved edit)', async () => {
@@ -106,6 +111,26 @@ describe('DeckPreview — frame-aligned render (per-keystroke coalescing)', () =
 		release();
 		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2));
 		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# AB');
+	});
+
+	it('a HEAVY (full-write) host coalesces on a trailing timer, not every frame — no drag strobe', async () => {
+		// A full-write host (FinishStudio slider / Fabricate theme / LayoutStudio CSS)
+		// changes the render sig every edit → renderInto reports writePath 'write'.
+		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'write' }));
+		const { rerender } = render(<DeckPreview options={opts} sample="# A" mermaid={false} coalesce aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(1)); // first paint (a write)
+
+		// A drag-like burst of writes. After the first write the loop knows the host is
+		// heavy, so it coalesces on the ~120ms timer instead of firing next frame.
+		rerender(<DeckPreview options={opts} sample="# AB" mermaid={false} coalesce aria-label="p" />);
+		rerender(<DeckPreview options={opts} sample="# ABC" mermaid={false} coalesce aria-label="p" />);
+		// A frame has passed (~40ms) — a PATCH host would have rendered by now; the heavy
+		// host is still coalescing, so no second iframe rewrite yet (no strobe).
+		await new Promise((r) => setTimeout(r, 40));
+		expect(renderInto).toHaveBeenCalledTimes(1);
+		// After the coalesce window: exactly one more render, carrying the latest text.
+		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2));
+		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# ABC');
 	});
 
 	it('without `coalesce` (default) every change renders eagerly — static hosts keep their behavior', async () => {
