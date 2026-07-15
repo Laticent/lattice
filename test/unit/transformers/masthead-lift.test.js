@@ -49,6 +49,28 @@ describe('masthead-lift — HTML-string kernel', () => {
     assert.equal(kernel.transformMastheadSection(inner, 'content'), inner);
   });
 
+  // The depth-aware h2 lift is SCOPED to WRAPPED components (strict/flow). An
+  // UNWRAPPED canvas (a chart, whose title nests in .chart-header before
+  // mastheadLift) keeps the legacy depth-blind lift → its masthead band is
+  // byte-identical to main. Only a WRAPPED strict component leaves its own
+  // in-card h2 unlifted. (The chart engine↔runtime title-parity gap is a
+  // separate, tracked decision — see the model-driven-frame-render doc §6.)
+  test('scoping: an UNWRAPPED canvas still lifts its nested h2 (legacy); a WRAPPED strict component does not', () => {
+    const chart = kernel.transformMastheadSection(
+      '<div class="chart-header"><h2>Chart title</h2></div><div class="chart-body"></div>',
+      'progress form chart-frame', // canvas, NOT strict → unwrapped → depth-blind
+    );
+    assert.match(chart, /cell-masthead/, 'a chart keeps its main-behavior band (depth-blind lift of the nested h2)');
+    assert.doesNotMatch(chart, /cell-stage/, 'an unwrapped canvas is not stage-wrapped');
+
+    const wifi = kernel.transformMastheadSection(
+      '<div class="qr-card"><div class="qr-head"><h2>In-card title</h2></div></div>',
+      'wifi form', // strict → wrapped → depth-aware
+    );
+    assert.doesNotMatch(wifi, /cell-masthead/, 'a strict component leaves its in-card h2 unlifted');
+    assert.match(wifi, /<div class="qr-head"><h2>In-card title<\/h2>/, 'the in-card h2 stays put');
+  });
+
   test('a titleless generic slide still gets a stage cell (no band)', () => {
     const inner = '<p>Just prose, no heading.</p>';
     const out = kernel.transformMastheadSection(inner, 'form');
@@ -165,6 +187,50 @@ describe('masthead-lift — HTML-string kernel', () => {
     const out = kernel.transformMastheadSection(inner, 'content form');
     assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><\/div>/);
     assert.match(out, /<div class="cell-stage"><div class="tag">NEW<\/div><\/div>$/);
+  });
+});
+
+describe('masthead-lift — the title lift is DEPTH-AWARE (only a top-level h2)', () => {
+  // The masthead kernel must lift ONLY a section-level (direct-child) <h2> — the
+  // slide's masthead title — never one NESTED inside a component's own card/div.
+  // A canvas component that rebuilds its section before mastheadLift runs (e.g.
+  // the QR-card connect components wifi/contact) emits its own title as an
+  // in-card `.qr-head > h2`; a depth-blind first-`<h2>` regex would yank that
+  // nested title into a masthead band (the AE 80,641 wifi regression this fix
+  // closes). See lib/forms/cell/masthead/masthead.transform.js `findTopLevelH2`,
+  // mirroring the existing depth-aware `findTopLevelEyebrow`.
+
+  test('extractH2 lifts a TOP-LEVEL <h2>', () => {
+    const { el, html } = kernel.extractH2('<h2>Title</h2><p>Body.</p>');
+    assert.equal(el, '<h2>Title</h2>');
+    assert.equal(html, '<p>Body.</p>');
+  });
+
+  test('extractH2 does NOT lift an <h2> nested inside a <div>', () => {
+    const input = '<div class="qr-card"><div class="qr-head"><h2>In-card title</h2></div></div>';
+    const { el, html } = kernel.extractH2(input);
+    assert.equal(el, '', 'a nested in-card <h2> must not be extracted as the masthead title');
+    assert.equal(html, input, 'the input is returned untouched when no top-level h2 exists');
+  });
+
+  test('extractH2 lifts the top-level <h2> and SKIPS a nested one that precedes it', () => {
+    // A nested h2 appearing (in source order) before a genuine top-level h2 must
+    // not shadow it — the depth scan skips the nested one and lifts the real title.
+    const input = '<div><h2>Nested</h2></div><h2>Real title</h2><p>Body.</p>';
+    const { el, html } = kernel.extractH2(input);
+    assert.equal(el, '<h2>Real title</h2>');
+    assert.equal(html, '<div><h2>Nested</h2></div><p>Body.</p>');
+  });
+
+  test('a rebuilt QR-card section (nested title) gets NO masthead band, and its card wraps into the stage', () => {
+    // Shape mirrors wifi.transform.js renderCard output: title lives in
+    // `.qr-head > h2`, no top-level h2. As a conformance:strict canvas, the card
+    // wraps into `.cell-stage`; the nested title stays put (no band).
+    const inner = '<div class="qr-card wifi-card"><div class="qr-head"><h2>Join the room.</h2></div><div class="qr-body">fields</div></div>';
+    const out = kernel.transformMastheadSection(inner, 'wifi form');
+    assert.doesNotMatch(out, /cell-masthead/, 'no masthead band — the nested title is not a top-level h2');
+    assert.match(out, /^<div class="cell-stage"><div class="qr-card wifi-card">/, 'the card wraps into the stage cell');
+    assert.match(out, /<div class="qr-head"><h2>Join the room\.<\/h2><\/div>/, 'the title stays in-card, untouched');
   });
 });
 

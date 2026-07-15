@@ -14,6 +14,43 @@ section.wifi .qr-card {
   gap: 1.9em;
 }
 
+/* wifi is a `conformance:"strict"` CANVAS (model-driven frame render §4): the
+ * masthead kernel now wraps its self-sizing card in the declared `.cell-stage`
+ * clip cell. The base stage is a bounded flex column (flex:1; min-height:0;
+ * overflow:clip) — that clip is REQUIRED by the overflow probe: a too-tall card
+ * must reach it so `scrollHeight − clientHeight` fires the overflow ring. But a
+ * flex child defaults to shrinkable (`flex-shrink:1`), so an overstuffed card
+ * would be SHRUNK to fit the stage and clip its excess INVISIBLY — the probe
+ * would read it as fitting (a silent overflow, the exact regression
+ * overflow-probe.js warns about). Pin the card to self-size: a fitting card is
+ * byte-identical to its pre-wrap placement, and an overstuffed card grows PAST
+ * the stage so the clip-cell probe catches it, exactly as when the card was a
+ * direct section child. (Same rationale as section.contact — see
+ * contact.styles.css.) */
+section.wifi > .cell-stage > .qr-card {
+  flex: 0 0 auto;
+}
+
+/* Preserve the QR's quiet zone across the stage clip. wifi's QR tile is the
+ * LEFT column of the card, and its `.qr-tile` is content-box sized (width:12em
+ * of SVG + 1em padding + 1px border), so its border-box is ~1em+1px WIDER than
+ * its `.qr-side` column and — centered in that column — overhangs it by 1em+1px
+ * on each side. The SVG itself sits exactly at the stage's left content edge; the
+ * overhang that crosses that edge is the tile's white QUIET-ZONE padding + hairline
+ * border, which lives in the frame's left safe-margin. A QR's quiet zone is
+ * functionally required (scanners need the light border), so the stage must not
+ * shear it. `overflow-clip-margin` lets the stage PAINT that decoration out into
+ * the safe margin while keeping `overflow:clip` — so the overflow PROBE (which
+ * reads scrollHeight−clientHeight, unaffected by the paint margin) still walls a
+ * genuinely over-tall card exactly as before. 1.5em clears the 1em+1px overhang
+ * with anti-aliasing headroom; the section's own `overflow:hidden` is the outer
+ * backstop at the slide edge. This is wifi-specific: contact's tile sits on the
+ * RIGHT, fully inside the content box, so it never reaches a stage edge and needs
+ * no margin. (model-driven frame render §6 — canvas migration is per-component.) */
+section.wifi > .cell-stage {
+  overflow-clip-margin: 1.5em;
+}
+
 section.wifi .qr-eyebrow {
   font-size: var(--fs-meta);
   color: var(--accent);
