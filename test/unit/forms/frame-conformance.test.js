@@ -39,6 +39,20 @@ describe('frame-conformance · hasClass token match', () => {
     assert.ok(!hasClass('<div class="not-cell-stage">', 'cell-stage'));
     assert.ok(!hasClass('<div class="cell-masthead">', 'cell-stage'));
   });
+
+  test('a non-class attribute ending in "class" must NOT satisfy the match', () => {
+    // Guards against the unanchored `class="…"` false positive: an element that
+    // carries the token only in data-class / data-cell-class does NOT count.
+    assert.ok(!hasClass('<div data-class="cell-stage">', 'cell-stage'));
+    assert.ok(!hasClass('<figure data-cell-class="cell-stage">', 'cell-stage'));
+    // A real class attribute alongside a decoy data-* attribute still matches.
+    assert.ok(hasClass('<div data-x="cell-stage" class="cell-stage">', 'cell-stage'));
+  });
+
+  test('a regex metachar in the class name is matched literally, not as a pattern', () => {
+    assert.ok(hasClass('<div class="c.ll-stage">', 'c.ll-stage'));
+    assert.ok(!hasClass('<div class="cXll-stage">', 'c.ll-stage'));
+  });
 });
 
 describe('frame-conformance · materializingCells', () => {
@@ -89,6 +103,19 @@ describe('frame-conformance · conformanceViolations (the pure gate)', () => {
     });
     assert.equal(v.length, 1);
     assert.match(v[0], /Cell "masthead-lede"/);
+    assert.match(v[0], /no DOM-class mapping/);
+  });
+
+  test('a cell id colliding with a prototype key reads as "no mapping", not a function', () => {
+    // `constructor` is truthy on any plain object's prototype; the own-property
+    // guard must treat it as unmapped (a loud "add a mapping"), not a class.
+    const v = conformanceViolations({
+      component: 'fixture',
+      expectedCells: ['constructor'],
+      slideHtml: CONFORMING,
+      cellClassOf: {},
+    });
+    assert.equal(v.length, 1);
     assert.match(v[0], /no DOM-class mapping/);
   });
 
