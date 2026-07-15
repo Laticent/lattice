@@ -3,16 +3,16 @@
  *
  * The frame-conformance gate (2026-07-15-model-driven-frame-render.md §2) is
  * OPT-IN: a component sets `conformance: "strict"` and the render-side gate
- * asserts its rendered cell tree equals its declared model. Today ZERO
- * components opt in, so the render-side enumeration is dormant (empty → green).
- * These tests verify the PURE kernel it runs (lib/forms/frame-conformance.js) so
- * the gate's LOGIC is proven now — before the first flag flips (diagram, PR 1) —
- * rather than shipping unverified.
+ * asserts its rendered cell tree equals its declared model. PR 1 flipped the
+ * first flag — `contact`, the first canvas migration — with the render-side
+ * wiring (the masthead strict-wrap) landed in the same change. These tests verify
+ * the PURE kernel the gate runs (lib/forms/frame-conformance.js) so its LOGIC is
+ * proven independently of any render.
  *
- * They also PIN the dormant state: no manifest is `strict` yet, and any value of
- * the `conformance` field is a known enum. When PR 1 flips the first flag it
- * updates the count here deliberately, in the same change that lands the
- * render-side wiring — the field can't go live by accident.
+ * They also PIN the opt-in set: it is exactly the migrated components, and any
+ * value of the `conformance` field is a known enum. Each subsequent flag flips
+ * deliberately here, in the same change that lands its render-side wiring — the
+ * field can't go live by accident.
  */
 
 const { test, describe } = require('node:test');
@@ -156,12 +156,19 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     }
   });
 
-  test('ZERO components are strict yet — the render-side gate is dormant (PR 0). PR 1 (diagram) flips the first flag and updates this count with the render wiring.', () => {
-    assert.equal(
-      strict.length,
-      0,
-      `Unexpected conformance:strict component(s): ${strict.map((m) => m.name).join(', ')}. ` +
-        'Flipping the flag requires the render-side conformance wiring (PR 1) landed in the same change.',
+  test('the strict set is exactly the migrated components — PR 1 flipped `contact` first', () => {
+    // Opt-in, one component per PR (§2). PR 1 migrated the first canvas —
+    // `contact` — with the render-side wiring proven byte-identical AND
+    // probe-verdict-identical (§5). Extend this list, with rationale, as each
+    // subsequent flag flips; a flip WITHOUT the render wiring landing in the same
+    // change would leave the render gate red.
+    const EXPECTED_STRICT = ['contact'];
+    assert.deepEqual(
+      strict.map((m) => m.name).sort(),
+      EXPECTED_STRICT,
+      `conformance:strict set drifted from ${JSON.stringify(EXPECTED_STRICT)}. ` +
+        'Flipping a flag requires the render-side conformance wiring (the masthead strict-wrap + ' +
+        'the render gate) landed in the same change.',
     );
   });
 

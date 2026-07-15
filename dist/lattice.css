@@ -3310,14 +3310,21 @@ section.contact .qr-cta {
   color: var(--text-muted);
 }
 
-/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
- * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
- * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
+/* ── Struck elevation (base.tokens.css --elevation-card) ── lift the card. */
 section.contact .qr-card {
   box-shadow: var(--elevation-card);
 }
+/* Contact is a `conformance:"strict"` CANVAS (model-driven frame render §4): the
+ * masthead kernel now wraps its self-sizing card in the declared `.cell-stage`
+ * cell. That cell defaults to a clipping flex column (overflow:clip; gap), which is
+ * right for flow prose but wrong for a canvas card that self-sizes and casts an
+ * elevation shadow — a clip would shear the shadow. Override to overflow:visible so
+ * nothing is clipped (no clip, no shear — hence NO padding/berth is needed, and none
+ * is added, keeping the card byte-identical to its pre-wrap placement) and gap:0 so
+ * the single-child stage adds no spacing that could shift the card. */
 section.contact > .cell-stage {
-  padding-block: var(--elevation-berth);
+  overflow: visible;
+  gap: 0;
 }
 
 /* === lib/components/statement/content/content.styles.css === */

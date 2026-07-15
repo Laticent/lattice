@@ -175,6 +175,15 @@ in patch versions.
   (no coined "heart"); key-insight + below-note are distinct co-occurring stage occupants; a
   component's non-hoisted parts (e.g. `caption`) stay component-owned inside its stage Cell. Design
   record: `engineering/decisions/2026-07-15-model-driven-frame-render.md`.
+- **`contact` is the first `conformance: "strict"` component — its canvas card now lives in the
+  frame's `.cell-stage` cell.** The masthead kernel now wraps a strict CANVAS body in `.cell-stage`
+  (a strict sovereign still owns its own grid and does not wrap), so contact conforms to the declared
+  Frame/Cell model instead of floating its card loose in the `<section>`. Proven **byte-identical**:
+  the card's placement (x:40 y:57 1200×450) and the overflow-probe verdict are unchanged — the wrapper
+  is geometry-neutral (`overflow: visible; gap: 0` on `section.contact > .cell-stage`, replacing the
+  now-correct dead `> .cell-stage` rule). Under the hood the `contact` transform now runs before the
+  masthead lift (like the other section-rebuilding transforms) so the frame stays the sole cell-builder.
+  A render gate (`test/integration/invariants/frame-conformance.test.js`) locks the stage Cell in.
 - **A language every deck inherits — a workspace default, a per-deck override, and a document/AI
   split under the hood.** The Studio has a single **Language** in Workspace → **General** that every
   deck inherits: it is the deck's document language (carried into every export's `<html lang>` and
