@@ -171,12 +171,29 @@ gaps, both folded:
   the loop was **extracted to `docs/src/lib/frame-scheduler.ts` and DeckPreview migrated onto
   it** (inline copy deleted) — one kernel, both paths, no drift. See Workstream 1.
 
-**UNVERIFIED (HARD RULE #23):** the big-deck (50-slide) real-surface burst — the exact case
-the backstop protects — was **not** captured from the sandbox (the Playground's seed/view
-flow and the textContent render-signal resisted headless automation). The backstop is proven
-at the **unit level** (`frame-scheduler.test.ts`) and the small-deck real-surface latency
-(below) IS measured; the big-deck main-thread/coalescing numbers on the real surface remain to
-be driven on a real device.
+**VERIFIED (HARD RULE #23) — big-deck real surface.** The 50-slide burst — the exact case
+the backstop protects — is now captured from the real built Playground (`/playground`, headless
+Chromium over the shipped `dist/` bundle, a seeded 50-section deck, a continuous 40-key burst
+into the last slide with a `longtask` PerformanceObserver + a preview render counter). The
+render loop behaves exactly as designed across the device range:
+
+| Surface (CPU throttle) | Long-task total | Max task | Renders for 40 keys @ 10 ms |
+|---|---|---|---|
+| Desktop (1×) | **0 ms** (0 %) | 0 ms | 40 — per-key, instant, no jank |
+| Mid-tier (4×) | 771 ms (28 %) | 126 ms | **2** — coalesced |
+| Low-end mobile (6×) | 2384 ms (64 %) | 94 ms | **1** — coalesced |
+
+The predicted `__latticeFit` layout storm does **not** materialize: when the render can't keep
+up (4×/6×), a 40-key burst collapses to **1–2** renders — not 40 — and **no single long-task
+exceeds ~130 ms**, so the main thread stays interruptible instead of stacking 40 O(N-section)
+reflows. When the machine *can* keep up (desktop), every keystroke renders with **zero**
+long-tasks — the coalescer only engages under genuine backpressure, exactly the intended
+adaptive shape. This confirms the wall-clock backstop (`heavyRenderMs = 50`) reclassifies the
+50-slide write as heavy and switches to the coalesce timer on the real filmstrip, matching the
+unit-level proof in `frame-scheduler.test.ts`. (Method note: the seeded deck renders only with
+both `lattice-docs-pg-source` and `lattice-docs-pg-view=edit` seeded plus `?view=edit`, and the
+burst needs the CodeMirror `.cm-content` focused directly — a bare click can land on an
+overlapping element and drop the keys to `<body>`.)
 
 ## Convergence — its own adversarial trio + real-surface re-verification
 
