@@ -49,12 +49,18 @@ the loop). `renderDeck` already returns `patched`; threaded through `playground-
 `freshRender` (deck swaps) cancels a pending scheduled frame (as it did the debounce);
 `render()`'s collapsed-pane defer and engine-not-ready retry are unchanged.
 
-**Duplicate, not shared (owner-directed).** The scheduler is a deliberate copy of the
-DeckPreview loop, not a shared kernel. The Playground is being separated from the
-Studio/Drawing-Board preview lineage so it can evolve independently; the owner accepted
-the duplication as the price of that independence. (The two loops are ~60 lines of the
-same state machine; if they ever need to converge, a shared helper is the later move — but
-coupling them now would re-entangle exactly what this work separates.)
+**Shared, after a brief detour through duplication (owner-directed).** This started as a
+deliberate *copy* of the DeckPreview loop (to decouple the Playground from the Studio/
+Drawing-Board lineage). The adversarial trio's Munger pass then made the decisive point:
+the scheduler is **dependency-free** — a pure closure over `requestAnimationFrame`, no
+React/Studio/DB coupling — so it can be *shared* without re-entangling anything, and the
+duplication had already drifted (the copy shipped without the sibling's wall-clock heavy
+backstop). So the loop was **extracted to a shared kernel** (`docs/src/lib/frame-scheduler.ts`)
+and **both** paths now use it: the Playground filmstrip AND the single-slide DeckPreview
+(its inline copy deleted). One state machine, one place — the drift the duplication risked
+is now impossible. DeckPreview keeps its host-specific bits (coalesce-count stamping, the
+first-paint/eager `flush()`, the palette-observer/active-edge routing); the scheduler owns
+the dirty/in-flight/rAF-vs-timer/backstop/watchdog machinery for both.
 
 ## Workstream 2 — decouple from the `drawing-board-` namespace
 
@@ -158,12 +164,12 @@ gaps, both folded:
   change; a full render-serialization mutex would fix them but is disproportionate risk for
   the residual. Startup timer/scheduler cross-domain overlap (red-team #2) is a narrow,
   startup-only cosmetic flash, mitigated by the single-timer fix. Logged, not fixed.
-- **Munger — the architecture note (acknowledged, deferred).** The scheduler is
-  dependency-free, so it COULD be shared with DeckPreview (a thin `render` adapter — already
-  how both call it) without re-coupling the Playground to anything; "duplicate for
-  independence" is weaker than framed. True. But the owner directed duplication; the drift it
-  warned of (the missing backstop) is now closed, and converging the two loops is logged as a
-  follow-up (below) rather than reversed here.
+- **Munger — the architecture note (ACTED ON).** The scheduler is dependency-free, so it
+  could be shared with DeckPreview (a thin `render` adapter — already how both call it)
+  without re-coupling the Playground to anything; "duplicate for independence" was weaker
+  than framed, and the copy had already drifted (the missing backstop). On the owner's call,
+  the loop was **extracted to `docs/src/lib/frame-scheduler.ts` and DeckPreview migrated onto
+  it** (inline copy deleted) — one kernel, both paths, no drift. See Workstream 1.
 
 **UNVERIFIED (HARD RULE #23):** the big-deck (50-slide) real-surface burst — the exact case
 the backstop protects — was **not** captured from the sandbox (the Playground's seed/view
@@ -175,5 +181,6 @@ be driven on a real device.
 ## Off-path, logged not done (#18)
 - The frozen Drawing Board / Workbench still carry the 220ms-style debounce in their own
   controllers — untouched (frozen; awaiting the phased removal in 2026-07-03).
-- Converging the two frame loops (DeckPreview + Playground) into a shared helper — declined
-  now on purpose (decoupling); revisit only if they need to move together.
+- ~~Converging the two frame loops into a shared helper~~ — **DONE** (this PR, on the Munger
+  finding): `docs/src/lib/frame-scheduler.ts` is now the one kernel both the Playground and
+  DeckPreview drive.

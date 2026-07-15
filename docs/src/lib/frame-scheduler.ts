@@ -1,22 +1,26 @@
-// Adaptive frame-aligned render scheduler for the Playground live preview — the
-// "video-game render loop" applied to the filmstrip. This is a DELIBERATE, Playground
-// -owned duplicate of the single-slide DeckPreview loop, NOT a shared kernel: the
-// Playground is being decoupled from the Studio/Drawing-Board preview lineage so it can
-// evolve on its own, and the owner accepted the duplication for that independence.
+// Adaptive frame-aligned render scheduler — the "video-game render loop" shared by BOTH
+// live-preview paths: the single-slide DeckPreview (Studio / landing / showcases) and the
+// multi-slide Playground filmstrip. Extracted from the Playground copy and adopted by
+// DeckPreview too, so the one state machine lives in ONE place — no drift between two
+// copies (the risk the earlier deliberate duplication carried; the missing wall-clock
+// backstop was exactly that drift, now impossible with a single kernel).
 //
-// It replaces a fixed trailing debounce. An edit marks the preview dirty and schedules
-// ONE render on the next animation frame; a burst of keystrokes within a frame collapses
-// into a single render of the latest state (coalescing, bounded by the frame rate rather
-// than a fixed timer). ADAPTIVE: a cheap PATCH render (typing — the sig is unchanged, so
-// renderDeck swaps only the changed <section> nodes, ~2ms) reschedules on the next frame
-// for instant live feedback; a heavy WRITE render (a theme/mode/size change → a full
-// srcdoc rewrite that reparses the ~560KB sheet) coalesces on a short trailing timer so a
-// rapid sig-changing burst can't strobe the iframe. An in-flight guard applies
-// backpressure (never overlap two renders on the one persistent iframe); a watchdog clears
-// the guard if a render never settles (a hung engine/theme load) so edits can't wedge.
+// It replaces a fixed trailing debounce. A change marks the preview dirty and schedules ONE
+// render on the next animation frame; a burst within a frame collapses into a single render
+// of the latest state (coalescing, bounded by the frame rate rather than a fixed timer).
+// ADAPTIVE: a cheap render (a section/body patch, ~2ms) reschedules on the next frame for
+// instant live feedback; a heavy render — a full srcdoc rewrite (theme/mode/size reparse)
+// OR one that simply TOOK too long (a big-deck O(N) `__latticeFit` reflow, a fat/math slide)
+// — coalesces on a short trailing timer so it can't strobe / storm. An in-flight guard
+// applies backpressure (never overlap two renders on the one iframe); a watchdog clears the
+// guard if a render never settles (a hung engine/theme load) so edits can't wedge.
 //
-// See engineering/decisions/2026-07-15-playground-frame-loop-decouple.md and the
-// single-slide sibling engineering/decisions/2026-07-15-frame-aligned-preview-render.md.
+// API: schedule() (frame-aligned, coalesced — the edit path); flush() (render NOW, still
+// backpressured — a host's first paint / eager one-shot that must not wait for a frame);
+// cancel() (drop a pending frame).
+//
+// See engineering/decisions/2026-07-15-frame-aligned-preview-render.md (single-slide) and
+// 2026-07-15-playground-frame-loop-decouple.md (filmstrip + the shared-kernel convergence).
 
 export type FrameSchedulerOptions = {
 	/**
@@ -45,6 +49,12 @@ export type FrameSchedulerOptions = {
 export type FrameScheduler = {
 	/** Request a render of the latest state — call on every edit. Coalesces automatically. */
 	schedule: () => void;
+	/**
+	 * Render NOW (not next-frame), still honoring the in-flight backpressure guard — for a
+	 * host's first paint or an eager one-shot that must not wait for a frame. If a render is
+	 * already in flight it marks dirty and defers (same as schedule), so it never overlaps.
+	 */
+	flush: () => void;
 	/** Cancel a pending frame/timer (deck swap supersede, teardown). Does not abort an in-flight render. */
 	cancel: () => void;
 };
@@ -105,6 +115,11 @@ export function createFrameScheduler({ render, heavyCoalesceMs = 120, heavyRende
 		schedule() {
 			dirty = true;
 			scheduleNext();
+		},
+		flush() {
+			// Commit immediately (commit() itself is backpressured: if a render is in flight
+			// it marks dirty and bails, and that render's settle reschedules).
+			commit();
 		},
 		cancel() {
 			if (raf) {

@@ -521,7 +521,9 @@ in patch versions.
   on the next animation frame (a cheap section-patch is instant; a heavy full rewrite — theme/mode/size
   — coalesces so it can't strobe), with in-flight backpressure. Measured on the real built `/playground`:
   keydown→paint drops from ~237 ms to ~30 ms on desktop (~8×) and from ~296 ms to ~117 ms on a mid
-  phone (4× CPU). Separately,
+  phone (4× CPU). The render loop is now a **single shared kernel** (`docs/src/lib/frame-scheduler.ts`)
+  that both the Playground filmstrip AND the single-slide Studio/landing preview drive — one state
+  machine in one place, so the two can't drift (the Studio's inline copy was deleted). Separately,
   the Playground's one remaining `drawing-board-*` dependency (`chart-interact`) was renamed off that
   prefix, so it now shares no code named for the dead Drawing Board. Responsiveness only; the per-render
   engine cost is unchanged. See `engineering/decisions/2026-07-15-playground-frame-loop-decouple.md`.

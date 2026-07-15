@@ -91,6 +91,19 @@ describe('createFrameScheduler', () => {
 		resolve({ heavy: false }); // release the first (no-op now)
 	});
 
+	it('flush() renders immediately (synchronously kicked, not next-frame) and stays backpressured', async () => {
+		let release: (v: { heavy: boolean }) => void = () => {};
+		const render = vi.fn(() => new Promise<{ heavy: boolean }>((res) => (release = res)));
+		const s = createFrameScheduler({ render });
+		s.flush();
+		expect(render).toHaveBeenCalledTimes(1); // synchronous — no frame wait
+		s.flush(); // arrives mid in-flight render
+		expect(render).toHaveBeenCalledTimes(1); // backpressured — must not overlap
+		release({ heavy: false });
+		await tick(40);
+		expect(render).toHaveBeenCalledTimes(2); // the deferred flush paints after settle
+	});
+
 	it('cancel() drops a pending frame', async () => {
 		const render = vi.fn(async () => ({ heavy: false }));
 		const s = createFrameScheduler({ render });

@@ -12,6 +12,7 @@ import {
 import { Toaster } from '@/components/ui/sonner';
 import { SplitHandle, SplitRail, useSplit } from '@/components/ui/split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
+import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	adjacentComponent,
 	BACKUP_KEY,
@@ -49,7 +50,6 @@ import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
-import { createFrameScheduler } from './frame-scheduler';
 import { GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
 import { WalkBar } from './WalkBar';
 

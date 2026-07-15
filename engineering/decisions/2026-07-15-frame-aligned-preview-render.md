@@ -69,6 +69,14 @@ dirty; the loop consumes).
 
 ## Implementation
 
+> **Update (2026-07-15):** this inline loop was later **extracted to a shared kernel**,
+> `docs/src/lib/frame-scheduler.ts`, now driven by BOTH this single-slide `DeckPreview` and
+> the multi-slide Playground filmstrip — one state machine, one place. The description below
+> reflects the original inline form; the mechanics are unchanged (the scheduler owns the
+> dirty/in-flight/rAF-vs-timer/backstop/watchdog; DeckPreview keeps the coalesce stamping,
+> first-paint `flush()`, and observer/active-edge routing). See
+> `2026-07-15-playground-frame-loop-decouple.md`.
+
 `docs/src/components/DeckPreview.tsx` — the shared single-slide preview wrapper:
 - `render()` now **returns its `renderInto` promise** so the scheduler can await it for
   backpressure (never overlap two renders on one host).
