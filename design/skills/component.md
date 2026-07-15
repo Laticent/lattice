@@ -80,8 +80,9 @@ The 13 buckets: `anchor, statement, inventory, comparison, progression, evidence
 imagery, chart, diagram, math, code, legal, connect`. Seven match the function
 families; the rest are substance- or domain-defined.
 
-- **Commands**: `npm run new:component <name> --bucket <b> --function <f> --form
-  <f> --substance <s>` (scaffolds the manifest + CSS stub); `npm run build`
+- **Commands**: `npm run new:component -- <name> --bucket <b> --function <f>
+  --form <f> --substance <s>` (scaffolds the manifest + CSS stub — the `--`
+  separator is required so npm forwards the flags); `npm run build`
   (regenerates docs, galleries, `dist/docs/components.json`, snippets);
   `npm run build:check` + `npm test` (gates).
 
@@ -93,9 +94,10 @@ families; the rest are substance- or domain-defined.
    "How is it laid out?" → **Form** (must be a sanctioned `function.form` in
    design-system.md §4). "What does the author write?" → **Substance**. Pick the
    disk **bucket**.
-2. **Scaffold**: `npm run new:component <name> --bucket <b> --function <f> --form
-   <f> --substance <s>`. This writes just two files — the manifest (with TODOs) and
-   a palette-blind CSS stub.
+2. **Scaffold**: `npm run new:component -- <name> --bucket <b> --function <f>
+   --form <f> --substance <s>` (the `--` separator is required, or npm swallows the
+   flags and the tool bails). This writes just two files — the manifest (with
+   TODOs) and a palette-blind CSS stub.
 3. **Fill the manifest** (see the contract below). The empty `tags[]` and any
    declared variant without a `variantDocs` entry **hard-block the build** — fill
    them.

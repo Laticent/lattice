@@ -32,18 +32,24 @@ slide.
 
 ---
 
-## Mental model — the five-layer stack
+## Mental model — the layer stack
 
 A finish paints on a `.backdrop` wrapper that the engine injects as the first child
-of every finish section. The compositor blends up to five layers, bottom to top:
+of every finish section. The compositor blends up to **four backdrop layers**
+beneath the content, bottom to top:
 
 | z | Layer | Slot | Examples |
 |---|---|---|---|
 | z1 | **wash** — ambient color field | `--fin-wash` | corner-glow, duotone, spotlight, mesh |
 | z2 | **texture** — a pattern | `--fin-texture` | grid, dots, hatch, contour, pinstripe, lattice |
-| z3 | **mark** — a placed emblem (`::before`) | `--fin-mark` | monogram, rings, tick, ghost numeral |
-| z4 | **edge** — vignette / frame (`::after` + inset shadow) | `--fin-edge` / `--fin-frame` | vignette, fold, margin rule, keyline |
+| z3 | **mark** — a placed emblem (`.backdrop::before`) | `--fin-mark` | monogram, rings, tick, ghost numeral |
+| z4 | **edge** — vignette / frame | `--fin-edge` / `--fin-frame` | vignette, fold, margin rule, keyline |
 | z5 | content | — | painted above every layer, untouched |
+
+The wash and texture ride the `.backdrop`'s `background-image`; the mark rides
+`.backdrop::before`; the vignette rides `.backdrop::after`, but a full keyline
+**frame** must be stacked inset box-shadows via `--fin-frame` — the *section*'s
+`::after` is reserved for the pagination marker (see the skeleton).
 
 The **`finish:` value maps to CSS classes** (`finish finish-<name>`) appended to
 every `<section>`. The base `finish` class is the compositor; each `finish-<name>`

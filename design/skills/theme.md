@@ -62,10 +62,11 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
   - `npm run new:theme <name>` — copies `indaco.css`, rewrites `@theme`, stamps
     `TODO(palette):` on every author-edit value, and stamps the `<name>-dark.css`
     wrapper.
-  - `node lattice-emulator.js examples/gallery.md /tmp/x.pdf -p <name>` — render a
-    gallery in your palette.
-  - `node lattice-emulator.js examples/mermaid-gallery.md /tmp/x.pdf -p <name>` —
-    verify diagrams.
+  - `node lattice-emulator.js test/integration/baseline-decks/gallery.md /tmp/x.pdf
+    -p <name>` — render a broad component gallery in your palette (`-p`/`--palette`
+    overrides the deck's `theme:`).
+  - `node lattice-emulator.js examples/diagram-narration.md /tmp/x.pdf -p <name>` —
+    verify Mermaid diagram colors.
   - `node tools/contrast-audit.js`, `node tools/cvd-audit.js` — contrast tooling.
 
 ---
@@ -83,7 +84,14 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
    4. **Accent** — `--accent`, `--accent-soft`, `--on-accent` (must clear contrast
       vs `--bg` **and** vs `--accent-soft`).
    5. **Categorical cycle** — copy the rank-1 brand-triad proposal from
-      `themes/palette-audit.md`; you inherit the L≈87 / L≈32 tiers for free.
+      `themes/palette-audit.md`; you inherit the L≈87 / L≈32 tiers for free. Set
+      the paired ink per the contract: `--cat-on-fill` a **fixed dark hex** and
+      `--cat-on-mark` a **fixed white/cream** — both **non-flipping**, because the
+      fills and marks hold their lightness tier in both canvas modes.
+      **Caveat:** the shipped `indaco.css` currently deviates here (it sets
+      `--cat-on-fill: var(--text-heading)` and a flipping `--cat-on-mark`) — follow
+      the contract in `design/theming.md`, not those two lines, when you copy
+      indaco.
    6. **Structural** — `--diagram-stroke` / `-line` / `-accent-warm`.
    7. **Dark-variant inputs** — the `--scheme-dark-*` block feeding the pairs.
    8. **Semantic signals** — `--pass` / `--warn` / `--fail` (keep warn clearly
@@ -128,9 +136,9 @@ A base palette's spine (from `themes/indaco.css`):
   --on-accent:   #FFFFFF;          /* curated for AAA on THIS accent, both modes */
 
   /* Categorical cycle — pale fills L≈87, deep marks L≈32 (copy from palette-audit) */
-  --cat-1-fill: #DCEIE9; /* … 12 slots … */  --cat-1-mark: #0E5F53;
-  --cat-on-fill: #10221E;          /* fixed hex — does NOT flip */
-  --cat-on-mark: #FFFFFF;          /* fixed hex — does NOT flip */
+  --cat-1-fill: #DCEAE6; /* … 12 slots … */  --cat-1-mark: #0E5F53;
+  --cat-on-fill: #10221E;          /* paired ink — a FIXED dark hex, non-flipping */
+  --cat-on-mark: #FFFFFF;          /* paired ink — fixed white/cream, non-flipping */
 
   /* Structural — stroke MUST read on white */
   --diagram-stroke: #1F6E60; --diagram-line: light-dark(#0A211D, #EAF3F0);
