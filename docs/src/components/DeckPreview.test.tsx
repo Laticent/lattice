@@ -30,7 +30,12 @@ vi.mock('@/lib/single-slide-render', () => ({
 
 const opts = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
-beforeEach(() => renderInto.mockClear());
+// Reset call history AND the implementation each test — the adaptive-backoff test
+// swaps in a 'write'-regime return value, so a plain mockClear would leak it forward.
+beforeEach(() => {
+	renderInto.mockReset();
+	renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
+});
 
 describe('DeckPreview — theme threading', () => {
 	it('re-renders when the extra-theme CSS changes under a STABLE name (re-saved edit)', async () => {
@@ -64,27 +69,71 @@ describe('DeckPreview — theme threading', () => {
 	});
 });
 
-describe('DeckPreview — debounced render (per-keystroke coalescing)', () => {
-	it('paints the first sample immediately, then COALESCES a rapid burst into one trailing render', async () => {
-		const { rerender } = render(<DeckPreview options={opts} sample="# A" mermaid={false} debounceMs={120} aria-label="p" />);
+describe('DeckPreview — frame-aligned render (per-keystroke coalescing)', () => {
+	it('paints the first sample immediately, then COALESCES a rapid burst into one frame-aligned render of the LATEST state', async () => {
+		const { rerender } = render(<DeckPreview options={opts} sample="# A" mermaid={false} coalesce aria-label="p" />);
 		// First paint is always immediate — a fresh host must show something at once.
 		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(1));
 		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# A');
 
-		// A burst of edits with no pause — like typing. Each resets the trailing timer.
-		rerender(<DeckPreview options={opts} sample="# AB" mermaid={false} debounceMs={120} aria-label="p" />);
-		rerender(<DeckPreview options={opts} sample="# ABC" mermaid={false} debounceMs={120} aria-label="p" />);
-		rerender(<DeckPreview options={opts} sample="# ABCD" mermaid={false} debounceMs={120} aria-label="p" />);
-		// Still mid-burst (< debounceMs): the engine has NOT re-rendered for each keystroke.
-		await new Promise((r) => setTimeout(r, 40));
+		// A burst of edits in one frame — a fast typist. They share a SINGLE scheduled
+		// animation frame instead of one engine render each.
+		rerender(<DeckPreview options={opts} sample="# AB" mermaid={false} coalesce aria-label="p" />);
+		rerender(<DeckPreview options={opts} sample="# ABC" mermaid={false} coalesce aria-label="p" />);
+		rerender(<DeckPreview options={opts} sample="# ABCD" mermaid={false} coalesce aria-label="p" />);
+		// Synchronously after the burst, before the frame fires: no per-keystroke render.
 		expect(renderInto).toHaveBeenCalledTimes(1);
 
-		// After the pause, exactly ONE more render fires — carrying only the latest text.
-		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2), { timeout: 600 });
+		// Next frame: exactly ONE more render fires, carrying only the latest text —
+		// the intermediate keystrokes never reach the engine.
+		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2));
 		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# ABCD');
 	});
 
-	it('with debounceMs=0 (default) every change renders eagerly — static hosts keep their behavior', async () => {
+	it('applies backpressure — a change mid-render never overlaps; it paints once the in-flight render settles', async () => {
+		// Hang the first render until we release it, so a second edit lands mid-flight.
+		let release: () => void = () => {};
+		renderInto.mockImplementationOnce(
+			() =>
+				new Promise((res) => {
+					release = () => res({ ok: true, slides: 1, error: null });
+				}),
+		);
+		const { rerender } = render(<DeckPreview options={opts} sample="# A" mermaid={false} coalesce aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(1));
+
+		// Edit while the first render is still resolving → must NOT start a 2nd render.
+		rerender(<DeckPreview options={opts} sample="# AB" mermaid={false} coalesce aria-label="p" />);
+		await new Promise((r) => setTimeout(r, 40)); // give a frame a chance to fire
+		expect(renderInto).toHaveBeenCalledTimes(1);
+
+		// Release the in-flight render → the pending change now paints the latest text.
+		release();
+		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2));
+		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# AB');
+	});
+
+	it('a HEAVY (full-write) host coalesces on a trailing timer, not every frame — no drag strobe', async () => {
+		// A full-write host (FinishStudio slider / Fabricate theme / LayoutStudio CSS)
+		// changes the render sig every edit → renderInto reports writePath 'write'.
+		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'write' }));
+		const { rerender } = render(<DeckPreview options={opts} sample="# A" mermaid={false} coalesce aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(1)); // first paint (a write)
+
+		// A drag-like burst of writes. After the first write the loop knows the host is
+		// heavy, so it coalesces on the ~120ms timer instead of firing next frame.
+		rerender(<DeckPreview options={opts} sample="# AB" mermaid={false} coalesce aria-label="p" />);
+		rerender(<DeckPreview options={opts} sample="# ABC" mermaid={false} coalesce aria-label="p" />);
+		// A frame has passed (~40ms) — a PATCH host would have rendered by now; the heavy
+		// host is still coalescing, so no second iframe rewrite yet (no strobe).
+		await new Promise((r) => setTimeout(r, 40));
+		expect(renderInto).toHaveBeenCalledTimes(1);
+		// After the coalesce window: exactly one more render, carrying the latest text.
+		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2));
+		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# ABC');
+	});
+
+	it('without `coalesce` (default) every change renders eagerly — static hosts keep their behavior', async () => {
 		const { rerender } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
 		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(1));
 		rerender(<DeckPreview options={opts} sample="# B" mermaid={false} aria-label="p" />);

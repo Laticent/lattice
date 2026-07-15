@@ -292,7 +292,7 @@ export function FinishStudio({
 							mermaid={false}
 							modeOverride={mode}
 							extraCss={previewCss}
-							debounceMs={140}
+							coalesce
 							className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-background shadow-[0_6px_18px_rgba(10,22,40,.10)]"
 							aria-label="Finish specimen"
 						/>

@@ -117,7 +117,7 @@ export function LayoutStudio({
 			<div className="flex flex-col items-center gap-4 bg-card p-4 md:overflow-y-auto md:p-7">
 				<span className="self-start font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Live preview — your component, rendered</span>
 				{nameOk ? (
-					<DeckPreview options={options} sample={skeleton} mermaid={false} extraCss={css} debounceMs={140} className="relative aspect-video w-full max-w-[620px] overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]" aria-label="Component preview" />
+					<DeckPreview options={options} sample={skeleton} mermaid={false} extraCss={css} coalesce className="relative aspect-video w-full max-w-[620px] overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]" aria-label="Component preview" />
 				) : (
 					<div className="grid aspect-video w-full max-w-[620px] place-content-center rounded-xl border border-dashed border-border bg-background text-center text-[13px] text-muted-foreground">Name your component to preview it.</div>
 				)}

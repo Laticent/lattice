@@ -1920,7 +1920,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
 				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} debounceMs={140} className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
