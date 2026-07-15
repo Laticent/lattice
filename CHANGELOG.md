@@ -430,6 +430,12 @@ in patch versions.
   reads the same. Themed to the established dark inverse-pill look in both color modes. The Undo toast
   now centers at the bottom (was bottom-left); its revert-only-if-unchanged behavior is unchanged. No
   export or engine change — docs-site Studio/Playground UI only. Verified on the real Studio.
+- **The Workspace "Viz diagnostics" toggle is now the shared `ui/switch`, matching its two neighbors.**
+  It sat in the Diagnostics group as a hand-rolled `<button role="switch">` right between the
+  Performance-overlay and Read-aloud-diagnostics switches, which already use the shadcn primitive — so
+  it missed the Radix focus-visible ring and consistent disabled semantics. Swapped to `<Switch>` (one
+  less bespoke widget, HARD RULE #15); visually and behaviorally identical to its siblings now. Verified
+  on the real Studio.
 - **The deck Inspector's inherit-the-default pickers read a compact “⊸ Auto” instead of a long label.**
   The Language and Theme controls used a verbose selected-value label ("Automatic — English (United
   States)" / "Automatic — match site") that overflowed the narrow Inspector — a shared `AutoIcon` +
@@ -557,6 +563,13 @@ in patch versions.
 
 ### Fixed
 
+- **Studio toggle switches now slide flush end-to-end — the knob no longer parks off-center when off or
+  overhangs the track when on.** The shared `ui/switch` `<button>` kept the browser's default ~6px
+  horizontal button padding (the scoped reset never zeroed it), so the thumb traveled inside a 26px-wide
+  content box instead of the full 38px track: off, it sat ~8px from the left (reading as centered); on, it
+  ran 4px past the right cap. A one-class `p-0` removes the parasitic padding — the thumb now rests 2px
+  from each end in both states. Affects every switch (Inspector, Workspace, export panels — one shared
+  primitive). Verified on the real Studio.
 - **Read-aloud no longer turns choppy or pops between sentences over Bluetooth / Apple CarPlay.**
   On those routes iOS powers the audio link down when the rendered stream goes to digital silence
   between per-sentence clips; each new clip then had to wake the link, clipping/popping its first
