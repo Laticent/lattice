@@ -1218,9 +1218,12 @@ test('narrateChart: an unsupported Mermaid type still bails to the heading-only 
 });
 
 // ── Slice #2 regression — adversarial-check findings folded (design §8) ──────
-test('narratePie: a non-positive slice value bails (Mermaid errors on ≤ 0, so no rendered pie)', () => {
+test('narratePie: a NEGATIVE slice value bails, but a ZERO slice renders (Mermaid throws only on < 0)', () => {
   assert.equal(narrateChart(mdiag('pie\n  "A" : -10\n  "B" : 30')), null);
-  assert.equal(narrateChart(mdiag('pie\n  "A" : 0\n  "B" : 30')), null);
+  // Zero renders in Mermaid (empty slice) — the old `<= 0` guard wrongly dropped the whole pie (§17).
+  const zero = narrateChart(mdiag('pie\n  "A" : 0\n  "B" : 30'));
+  assert.ok(zero.includes('A, zero percent.'), zero);
+  assert.ok(zero.includes('B, one hundred percent.'), zero);
 });
 test('narrateState: the `id : description` label form narrates by display label, like `state "…" as id`', () => {
   const out = narrateChart(mdiag('stateDiagram-v2\n  Still : The device is still\n  [*] --> Still\n  Still --> [*]'));
@@ -1238,11 +1241,11 @@ test('narrateC4: a nested boundary does not leak a sibling element to the top le
   assert.ok(/Within the Bank boundary:[\s\S]*Web App[\s\S]*Worker/.test(out), out);
   assert.ok(out.includes('Within the Backend boundary: API'), out);
 });
-test('narrateC4: a Rel to a boundary resolves the boundary label; a label-less Rel reads a neutral connective', () => {
+test('narrateC4: a Rel to a boundary resolves the boundary label; a label-less Rel bails (Mermaid requires a label)', () => {
   const toB = narrateChart(mdiag('C4Context\n  Person(u,"User")\n  System_Boundary(bank,"Bank") {\n    System(s,"Sys")\n  }\n  Rel(u, bank, "uses")'));
   assert.ok(toB.includes('User uses Bank.'), toB); // display label, not the raw alias "bank"
-  const bare = narrateChart(mdiag('C4Context\n  Person(a,"A")\n  System(b,"B")\n  Rel(a,b)'));
-  assert.ok(bare.includes('A is connected to B.'), bare);
+  // A labelless `Rel(a, b)` parse-errors in Mermaid — narrating it would speak a phantom edge (§17).
+  assert.equal(narrateChart(mdiag('C4Context\n  Person(a,"A")\n  System(b,"B")\n  Rel(a,b)')), null);
 });
 test('narrateClass: a standalone `<<interface>> Name` annotation narrates (not bail); a generic name loses its tildes', () => {
   assert.ok(narrateChart(mdiag('classDiagram\n  <<interface>> Shape\n  Shape <|.. Circle')).includes('Circle realizes Shape.'));
@@ -1251,6 +1254,96 @@ test('narrateClass: a standalone `<<interface>> Name` annotation narrates (not b
 test('narrateState: a transition whose source id equals a keyword (`end`) is not dropped', () => {
   const out = narrateChart(mdiag('stateDiagram-v2\n  Start --> end\n  end --> Done'));
   assert.ok(out.includes('From Start, goes to end.') && out.includes('From end, goes to Done.'), out);
+});
+
+// ── first-wave family hardening (retro-trio; design §17) ─────────────────────
+// Every case below was checked against the REAL Mermaid v11 parser: a narrated input renders, a
+// bailed input parse-errors. The shared root cause was a too-narrow ignorable-statement skip-list.
+test('skipMermaidMeta: accTitle/accDescr/accDescr{}/direction never bail or fabricate across types', () => {
+  // class: accTitle used to be ingested as a phantom class named "accTitle" (fabrication).
+  const cls = narrateChart(mdiag('classDiagram\n  accTitle: My Title\n  accDescr: A desc\n  Animal <|-- Dog'));
+  assert.ok(cls.includes('Dog inherits from Animal.') && !/accTitle|accDescr/.test(cls), cls);
+  // state: an accDescr { … } block used to trip the composite-brace bail.
+  const st = narrateChart(mdiag('stateDiagram-v2\n  accDescr {\n    multi line\n  }\n  [*] --> A\n  A --> [*]'));
+  assert.ok(st.includes('It starts at A.'), st);
+  // ER + C4 + pie: accessibility statements are skipped, the diagram still narrates.
+  assert.ok(narrateChart(mdiag('erDiagram\n  accTitle: X\n  A ||--o{ B : has')).includes('A has zero or more B'));
+  assert.ok(narrateChart(mdiag('C4Context\n  accDescr: X\n  Person(a,"A")\n  System(b,"B")\n  Rel(a,b,"uses")')).includes('A uses B.'));
+  assert.ok(narrateChart(mdiag('pie\n  accTitle: X\n  "A" : 40\n  "B" : 60')).includes('B, sixty percent.'));
+  // direction is ignorable everywhere it appears.
+  assert.ok(narrateChart(mdiag('erDiagram\n  direction LR\n  A ||--o{ B : has')).includes('A has zero or more B'));
+});
+test('narratePie: single-quoted labels, a title line, and duplicate-label first-wins', () => {
+  assert.ok(narrateChart(mdiag("pie\n  'Dogs' : 10\n  'Cats' : 30")).includes('Cats, seventy-five percent.'));
+  assert.ok(narrateChart(mdiag('pie\n  title Pets\n  "Dogs" : 10\n  "Cats" : 30')).includes('A pie chart, Pets.'));
+  // Mermaid keeps the FIRST value for a repeated label and recomputes % over the deduped total.
+  const dup = narrateChart(mdiag('pie\n  "Dogs" : 10\n  "Dogs" : 30\n  "Cats" : 60'));
+  assert.ok(dup.includes('Dogs, fourteen percent.') && dup.includes('Cats, eighty-six percent.'), dup);
+  assert.ok(!/Dogs, thirty percent/.test(dup), dup); // the second Dogs is dropped, not spoken
+});
+test('narratePie: a leading-zero value bails (Mermaid parse-errors on `05`)', () => {
+  assert.equal(narrateChart(mdiag('pie\n  "Dogs" : 05\n  "Cats" : 20')), null);
+});
+test('narrateEr: a labelless relationship bails (Mermaid has no labelless production)', () => {
+  assert.equal(narrateChart(mdiag('erDiagram\n  CUSTOMER ||--o{ ORDER')), null);
+  assert.ok(narrateChart(mdiag('erDiagram\n  CUSTOMER ||--o{ ORDER : places')).includes('CUSTOMER places zero or more ORDER'));
+});
+test('narrateEr: word-form cardinality narrates the same counts as the crow’s-foot glyphs', () => {
+  const out = narrateChart(mdiag('erDiagram\n  CUSTOMER one to many ORDER : places'));
+  assert.ok(out.includes('One CUSTOMER places zero or more ORDER.'), out);
+});
+test('narrateEr: space-separated key tags (`PK FK`) bail; a display-name alias + non-ASCII narrate', () => {
+  assert.equal(narrateChart(mdiag('erDiagram\n  CUSTOMER {\n    int id PK FK\n  }')), null); // Mermaid requires commas
+  const alias = narrateChart(mdiag('erDiagram\n  CUSTOMER["Customer Account"]\n  CUSTOMER ||--o{ ORDER : places'));
+  assert.ok(alias.includes('Customer Account places zero or more ORDER'), alias);
+  assert.ok(narrateChart(mdiag('erDiagram\n  CAFÉ ||--o{ ORDÖR : serves')).includes('CAFÉ serves zero or more ORDÖR'));
+});
+test('narrateEr: a huge attribute list summarizes with the count, not a wall', () => {
+  const attrs = Array.from({ length: 14 }, (_, i) => `    int a${i}`).join('\n');
+  const out = narrateChart(mdiag(`erDiagram\n  E {\n${attrs}\n  }`));
+  assert.ok(out.includes('fourteen attributes, including a0, a1, and a2.'), out);
+});
+test('narrateC4: `$tags`/`$link` named args are not spoken; Node_L/Node_R narrate; nested boundaries nest', () => {
+  const tags = narrateChart(mdiag('C4Context\n  Person(a, "A", "a person", $tags="v1")\n  System(b,"B")\n  Rel(a,b,"uses")'));
+  assert.ok(tags.includes('A, a person: a person.') && !/tags|v1/.test(tags), tags);
+  assert.ok(narrateChart(mdiag('C4Deployment\n  Node_L(n,"Server") {\n    Container(c,"App","Go")\n  }')).includes('Within the Server boundary:'));
+  const nest = narrateChart(mdiag('C4Context\n  System_Boundary(o,"Outer") {\n    Container_Boundary(i,"Inner") {\n      Component(c,"C")\n    }\n  }'));
+  assert.ok(/Within the Outer boundary: Within the Inner boundary: C/.test(nest), nest);
+});
+test('narrateClass: classDef/title narrate (no over-bail); a typed-relationship label reads as "labeled"', () => {
+  assert.ok(narrateChart(mdiag('classDiagram\n  classDef important fill:red\n  Animal <|-- Dog')).includes('Dog inherits from Animal.'));
+  assert.ok(narrateChart(mdiag('classDiagram\n  title My Diagram\n  Animal <|-- Dog')).includes('A class diagram, My Diagram.'));
+  assert.ok(narrateChart(mdiag('classDiagram\n  Car *-- Engine : has')).includes('Car is composed of Engine, labeled has.'));
+});
+test('narrateState: hide/note-block narrate; a `[guard]` reads as "when", not an event', () => {
+  assert.ok(narrateChart(mdiag('stateDiagram-v2\n  hide empty description\n  [*] --> A\n  A --> [*]')).includes('It starts at A.'));
+  assert.ok(narrateChart(mdiag('stateDiagram-v2\n  [*] --> A\n  note right of A\n    hi\n  end note\n  A --> [*]')).includes('It starts at A.'));
+  assert.ok(narrateChart(mdiag('stateDiagram-v2\n  A --> B : [isValid]')).includes('From A, when isValid, goes to B.'));
+});
+test('narrateClass/State: a large diagram summarizes past the firehose cap (§5), naming the count', () => {
+  const rels = Array.from({ length: 14 }, (_, i) => `  C${i} <|-- D${i}`).join('\n');
+  assert.ok(narrateChart(mdiag(`classDiagram\n${rels}`)).includes('with twenty-eight classes and fourteen relationships:'));
+  const trs = Array.from({ length: 18 }, (_, i) => `  S${i} --> S${i + 1}`).join('\n');
+  assert.ok(narrateChart(mdiag(`stateDiagram-v2\n  [*] --> S0\n${trs}`)).includes('transitions across'));
+});
+// maker-checker follow-ups (§17): an attribute type that IS a meta keyword must be read as an
+// attribute (block handled before the meta/title checks — was fabricating a title + dropping attrs).
+test('narrateEr: an attribute whose type token is `title`/`direction` narrates, not a phantom title', () => {
+  const out = narrateChart(mdiag('erDiagram\n  E {\n    title heading\n    direction compass\n  }'));
+  assert.ok(out.includes('E has attributes heading and compass.'), out);
+  assert.ok(!/relationship diagram, heading/.test(out), out); // "heading" is an attr name, not the title
+});
+test('narrateEr: the `1+` / `0+` / `many(0)` / `many(1)` word-form cardinalities narrate', () => {
+  assert.ok(narrateChart(mdiag('erDiagram\n  A 1+ to many B : x')).includes('One or more A x zero or more B.'));
+  assert.ok(narrateChart(mdiag('erDiagram\n  A many(1) to 0+ B : x')).includes('One or more A x zero or more B.'));
+});
+test('narrateC4: a present-but-empty Rel label renders (neutral connective); a 2-arg Rel still bails', () => {
+  assert.ok(narrateChart(mdiag('C4Context\n  Person(a,"A")\n  System(b,"B")\n  Rel(a,b,"")')).includes('A is connected to B.'));
+  assert.equal(narrateChart(mdiag('C4Context\n  Person(a,"A")\n  System(b,"B")\n  Rel(a,b)')), null);
+});
+test('narrateC4: a quoted description that merely starts `$x=` (with a space) is kept, not dropped', () => {
+  const out = narrateChart(mdiag('C4Context\n  Person(a,"A","$x=5 cost")\n  System(b,"B")\n  Rel(a,b,"uses")'));
+  assert.ok(out.includes('A, a person: $x=5 cost.'), out);
 });
 
 // ── radar-beta (design 2026-07-14 §8, first-wave fast-follow) ────────────────
