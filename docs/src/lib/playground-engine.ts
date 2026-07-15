@@ -22,7 +22,11 @@ type PreviewState = { frameSig: string; lastSections: unknown };
 // playground-global.d.ts.
 
 export type RenderResult =
-	| { status: 'rendered'; count: number; state: PreviewState; geom: { w: number; h: number } }
+	// `patched` is the render REGIME: true when renderDeck swapped only the changed
+	// <section> nodes (cheap, ~2ms), false on a full srcdoc rewrite (theme/mode/size
+	// reparse). The frame scheduler reads it to render a patch next-frame-instant but
+	// coalesce a heavy write.
+	| { status: 'rendered'; count: number; state: PreviewState; geom: { w: number; h: number }; patched: boolean }
 	| { status: 'error'; message: string }
 	| { status: 'pending' }; // engine not loaded yet — caller should retry
 
@@ -138,7 +142,7 @@ export function createEngineBridge(
 				contentVisibility: true,
 				center: true,
 			});
-			return { status: 'rendered', count: r.count, state: r.state, geom };
+			return { status: 'rendered', count: r.count, state: r.state, geom, patched: r.patched };
 		} catch (e) {
 			return { status: 'error', message: String((e as Error)?.message || e) };
 		}

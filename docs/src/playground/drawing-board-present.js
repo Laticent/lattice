@@ -26,8 +26,8 @@
 // registers fully — the one tested path, not a re-inlined copy.
 import { createThemeFetcher } from '../lib/theme-fetch.ts';
 import { notesCore } from './authoring-core.generated.js';
+import { createChartInteract } from './chart-interact.js';
 import { A11Y_DEFS, KATEX_URL, MERMAID_URL, splitSections } from './deck-preview.js';
-import { createChartInteract } from './drawing-board-chart-interact.js';
 // The same authoritative section read Practice uses (pure, engine-derived): it
 // turns the rendered <section> list into per-slide metas with a `role` ('section'
 // on a divider) + a title — the basis for the per-section progress spine.

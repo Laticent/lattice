@@ -32,9 +32,9 @@
 // so either ordering is handled.
 
 import { createThemeFetcher } from '../lib/theme-fetch.ts';
+import { createChartInteract } from './chart-interact.js';
 import { applyDebug } from './debug-overlay.js';
 import { getDebugOverride } from './debug-prefs.js';
-import { createChartInteract } from './drawing-board-chart-interact.js';
 import { createPaneTabs, DB_PANE_KEY } from './drawing-board-pane.js';
 
 export function createRenderController(data) {

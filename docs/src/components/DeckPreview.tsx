@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	createSingleSlideRenderer,
 	type SingleSlideOptions,
@@ -145,133 +146,50 @@ export function DeckPreview({
 	const renderRef = React.useRef(render);
 	renderRef.current = render;
 
-	// FRAME-ALIGNED RENDER LOOP (the video-game model) — replaces the old trailing
-	// debounce (2026-06-29). A change marks the preview dirty and schedules ONE
-	// render on the next animation frame; a keystroke burst within a frame collapses
-	// into a single render of the LATEST state. An in-flight guard applies
-	// backpressure so a slow render never overlaps or backs up. The first paint is
-	// immediate. See `engineering/decisions/2026-07-15-frame-aligned-preview-render.md`.
+	// FRAME-ALIGNED RENDER LOOP — driven by the SHARED scheduler (@/lib/frame-scheduler),
+	// the same kernel the Playground filmstrip uses. A change schedules ONE render on the
+	// next frame; a burst collapses to a single render of the LATEST state; a cheap patch
+	// fires next-frame-instant while a heavy render (a full write, or one over the
+	// scheduler's wall-clock backstop) coalesces so a slider drag / theme audition on a
+	// full-write host (Finish, Fabricate, Layout) can't strobe. First paint / eager hosts
+	// flush immediately. See `engineering/decisions/2026-07-15-frame-aligned-preview-render.md`.
 	const paintedRef = React.useRef(false);
-	// Edits collapsed into the NEXT committed paint (each effect run: a source edit
-	// or a prop change like a theme audition). Stamped on the host at commit time so
+	// Edits collapsed into the NEXT committed paint — stamped on the host at render time so
 	// the perf overlay's COALESCE chip reports what one paint absorbed.
 	const coalesceRef = React.useRef(0);
-	const dirtyRef = React.useRef(false); // a change is waiting for a paint
-	const rafRef = React.useRef(0); // pending animation-frame handle (0 = none)
-	const timerRef = React.useRef(0); // pending backoff-timer handle (0 = none)
-	const inFlightRef = React.useRef(false); // a render is resolving right now
-	// Was the LAST render heavy — a full iframe rewrite ('write' regime) or one that
-	// blew the frame budget? A cheap patch (~2ms, the typing path) reschedules on the
-	// next animation frame (instant); a heavy render coalesces on a short trailing
-	// timer instead, so a slider drag / theme audition on a full-write host (Finish,
-	// Fabricate, Layout) doesn't reload the srcdoc every frame and strobe / saturate
-	// the main thread. The loop self-tunes to the render cost. Starts false so the
-	// first edit is frame-scheduled; the initial paint (always a write) flips it, and
-	// the first patch flips it back.
-	const lastHeavyRef = React.useRef(false);
-	// The PRIMARY heavy signal is the render regime (`writePath === 'write'`, a full
-	// iframe rewrite) — deterministic, and the common full-write-host case. This is a
-	// conservative wall-clock BACKSTOP for a heavy *patch* (a fat table / math slide
-	// that renders slowly even on the patch path): well above a normal patch (~2–9ms)
-	// plus event-loop noise, so it trips only on a genuinely expensive render, never a
-	// fast one. Repeating a >50ms render every frame would jank the editor.
-	const HEAVY_RENDER_MS = 50;
-	// Trailing coalesce window for heavy renders — matches the retired debounce, so a
-	// continuous drag on a full-write host keeps its old smooth one-render-per-pause feel.
-	const HEAVY_COALESCE_MS = 120;
-	// Backstop: if a render never settles (a hung engine-bundle or theme fetch — not a
-	// rejection, which `finally` handles), clear the in-flight guard so a later edit
-	// isn't wedged out forever. Long enough to never trip a real (even cold) render.
-	const RENDER_WATCHDOG_MS = 4000;
 
-	// commitRef / scheduleFrameRef are mutually recursive, so declare both refs
-	// first, then assign — the closures capture the refs, never call during render.
-	const commitRef = React.useRef<() => void>(() => {});
-	const scheduleFrameRef = React.useRef<() => void>(() => {});
-
-	// Commit one paint: stamp the coalesce count, prefetch the theme in PARALLEL
-	// with the engine-bundle load (two independent round-trips, not serialized),
-	// then render the LATEST state (via renderRef). Reassigned each render so the
-	// scheduler always reaches the current palette/mode without re-subscribing.
-	// Backpressure: if a render is still resolving, mark dirty and bail — that
-	// render's `finally` reschedules, so the newest state paints once it settles.
-	commitRef.current = () => {
-		if (inFlightRef.current) {
-			dirtyRef.current = true;
-			return;
-		}
-		// Stamp the coalesce count on the host for THIS render; renderInto consumes
-		// it synchronously, binding it to this sample (not a shared global an
-		// overlapping render could steal). Reset for the next burst.
+	// The render the scheduler drives: stamp the coalesce count, prefetch the theme in
+	// PARALLEL with the engine-bundle load, render the LATEST state (via renderRef), and
+	// report whether it was a full WRITE (the scheduler adds its own wall-clock heavy
+	// backstop on top). Held in a ref, reassigned each render, so the scheduler always
+	// reaches the current palette/mode. whenReady() may reject (bundle load) — the
+	// scheduler's own `.catch` swallows it, so no unhandled rejection.
+	const runRenderRef = React.useRef<() => Promise<{ heavy: boolean } | undefined>>(async () => undefined);
+	runRenderRef.current = async () => {
 		const host = stageRef.current as (HTMLElement & { __latticeCoalesce?: number }) | null;
 		if (host) host.__latticeCoalesce = coalesceRef.current || 1;
 		coalesceRef.current = 0;
-		dirtyRef.current = false;
-		inFlightRef.current = true;
 		engineRef.current?.prefetchTheme?.(paletteOverride, modeOverride);
-		// Watchdog: if the render never settles (a hung bundle/theme fetch), clear the
-		// in-flight guard so future edits aren't wedged out. Cleared in `finally`.
-		const watchdog = window.setTimeout(() => {
-			if (!inFlightRef.current) return;
-			inFlightRef.current = false;
-			if (dirtyRef.current && stageRef.current) scheduleFrameRef.current();
-		}, RENDER_WATCHDOG_MS);
-		Promise.resolve(engineRef.current?.whenReady())
-			.then(() => {
-				const t0 = performance.now();
-				// render() returns the renderInto promise; await it so we learn the regime
-				// (patch vs write) AND time the engine work — either one being heavy makes
-				// the NEXT schedule coalesce instead of firing on the next frame.
-				return Promise.resolve(renderRef.current()).then((status) => {
-					lastHeavyRef.current = status?.writePath === 'write' || performance.now() - t0 > HEAVY_RENDER_MS;
-				});
-			})
-			.finally(() => {
-				window.clearTimeout(watchdog);
-				inFlightRef.current = false;
-				// A change landed mid-render → paint the newest state. Guard on the host:
-				// if we unmounted while rendering, drop it (don't schedule a frame + engine
-				// load into a dead host).
-				if (dirtyRef.current && stageRef.current) scheduleFrameRef.current();
-			})
-			// whenReady() (engine-bundle load) can reject; renderInto never does. Swallow
-			// so a bundle-load failure doesn't surface as an unhandled rejection — the
-			// failure already logs through renderInto's own catch on the next attempt.
-			.catch(() => {});
+		// NOTE (intentional, do NOT "fix" by hoisting whenReady out of the timed span):
+		// the scheduler's wall-clock heavy backstop times this whole thunk, so `whenReady()`
+		// is inside the measured span here — unlike the old inline loop, which timed only
+		// renderInto. It's provably inert: whenReady() resolves in ~0 once the engine bundle
+		// is loaded (steady-state typing), and the only renders where it's slow are pre-load
+		// full WRITES, already heavy via writePath. So it can't push a real ~2ms patch past
+		// the 50ms line.
+		await engineRef.current?.whenReady();
+		const status = await renderRef.current();
+		return { heavy: status?.writePath === 'write' };
 	};
 
-	// Schedule the next commit, de-duped so a burst of changes shares ONE render of
-	// the latest state. ADAPTIVE: after a cheap patch, fire on the next animation
-	// frame (instant live typing); after a heavy render (a full write, or one that
-	// blew the frame budget), coalesce on a short trailing timer so a drag / audition
-	// on a full-write host renders once per pause instead of reloading every frame.
-	scheduleFrameRef.current = () => {
-		if (rafRef.current || timerRef.current) return;
-		if (lastHeavyRef.current) {
-			timerRef.current = window.setTimeout(() => {
-				timerRef.current = 0;
-				commitRef.current();
-			}, HEAVY_COALESCE_MS);
-		} else {
-			rafRef.current = requestAnimationFrame(() => {
-				rafRef.current = 0;
-				commitRef.current();
-			});
-		}
-	};
-
-	// Cancel whichever schedule (frame or backoff timer) is pending.
-	const cancelPendingRef = React.useRef<() => void>(() => {});
-	cancelPendingRef.current = () => {
-		if (rafRef.current) {
-			cancelAnimationFrame(rafRef.current);
-			rafRef.current = 0;
-		}
-		if (timerRef.current) {
-			clearTimeout(timerRef.current);
-			timerRef.current = 0;
-		}
-	};
+	// One scheduler instance per host (created once; drives runRenderRef via a stable thunk
+	// so it always calls the latest closure). The heavy/coalesce/watchdog DEFAULTS (50 /
+	// 120 / 4000ms) match the values this component used inline before the shared-kernel
+	// convergence.
+	const schedulerRef = React.useRef<ReturnType<typeof createFrameScheduler> | null>(null);
+	if (!schedulerRef.current) {
+		schedulerRef.current = createFrameScheduler({ render: () => runRenderRef.current() });
+	}
 
 	// On every change the render closure's identity changes. The FIRST paint (and
 	// any static `coalesce=false` host) paints immediately; an interactive host
@@ -284,21 +202,20 @@ export function DeckPreview({
 		coalesceRef.current += 1;
 		if (!paintedRef.current || !coalesce) {
 			paintedRef.current = true;
-			// Drop any schedule already queued so a `coalesce` true→false flip can't fire
-			// this immediate commit AND a stale scheduled one (belt-and-braces: all
-			// current call sites pass a constant `coalesce`).
-			cancelPendingRef.current();
-			commitRef.current();
+			// First paint (SSG-shell dismissal depends on it) / eager static host: render
+			// NOW via flush() — still backpressured — dropping any queued frame first so a
+			// `coalesce` true→false flip can't fire both.
+			schedulerRef.current?.cancel();
+			schedulerRef.current?.flush();
 			return;
 		}
-		dirtyRef.current = true;
-		scheduleFrameRef.current();
+		schedulerRef.current?.schedule();
 	}, [render, coalesce]);
 
 	// Cancel a pending frame/timer on unmount (mount-once). The per-change effect
 	// above deliberately does NOT cancel — a mid-burst change keeps the single
 	// scheduled frame rather than thrashing cancel/reschedule every keystroke.
-	React.useEffect(() => () => cancelPendingRef.current(), []);
+	React.useEffect(() => () => schedulerRef.current?.cancel(), []);
 
 	// Re-render on palette / mode change (the shared topbar writes <html> attrs).
 	// Routed through the SAME frame scheduler as edits (not a direct render) so it
@@ -306,7 +223,7 @@ export function DeckPreview({
 	// frame instead of overlapping a second renderInto on the host (which would race
 	// the resident document's pending-load / frame-sig state). Set up once.
 	React.useEffect(() => {
-		const obs = new MutationObserver(() => scheduleFrameRef.current());
+		const obs = new MutationObserver(() => schedulerRef.current?.schedule());
 		obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
 		return () => obs.disconnect();
 	}, []);
@@ -318,7 +235,7 @@ export function DeckPreview({
 	React.useEffect(() => {
 		const rising = active && !wasActiveRef.current;
 		wasActiveRef.current = active;
-		if (rising) scheduleFrameRef.current();
+		if (rising) schedulerRef.current?.schedule();
 	}, [active]);
 
 	// `m-0` neutralizes the `<figure>` UA default margin (`0 40px`) — Tailwind

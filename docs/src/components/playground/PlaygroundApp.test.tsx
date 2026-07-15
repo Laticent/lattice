@@ -40,6 +40,7 @@ vi.mock('@/lib/playground-engine', () => ({
 			count: 3,
 			state: { frameSig: 'sig', lastSections: null },
 			geom: { w: 1280, h: 720 },
+			patched: true,
 		}),
 	}),
 }));
@@ -56,7 +57,7 @@ vi.mock('@/playground/deck-config.js', () => ({
 	CONFIG_PROFILES: { noTheme: [] },
 	createConfigPanel: () => ({ render: () => {} }),
 }));
-vi.mock('@/playground/drawing-board-chart-interact.js', () => ({
+vi.mock('@/playground/chart-interact.js', () => ({
 	createChartInteract: () => ({ rebind: () => {}, destroy: () => {} }),
 }));
 

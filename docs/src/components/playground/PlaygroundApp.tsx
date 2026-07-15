@@ -12,6 +12,7 @@ import {
 import { Toaster } from '@/components/ui/sonner';
 import { SplitHandle, SplitRail, useSplit } from '@/components/ui/split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
+import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	adjacentComponent,
 	BACKUP_KEY,
@@ -41,18 +42,16 @@ import {
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
+import { createChartInteract } from '@/playground/chart-interact.js';
 import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
-import { createChartInteract } from '@/playground/drawing-board-chart-interact.js';
 import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
 import { GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
 import { WalkBar } from './WalkBar';
-
-const DEBOUNCE_MS = 220;
 
 export type PlaygroundData = {
 	catalog: Catalog;
@@ -89,7 +88,7 @@ type Walk =
 /**
  * The playground controller — the React port of the old inline IIFE
  * (playground.astro:407-714). React owns the chrome (pickers, tabs, sheets,
- * status) and the orchestration (debounced render, fresh-vs-patch, variant
+ * status) and the orchestration (frame-scheduled render, fresh-vs-patch, variant
  * population, component detection, source persistence, palette/mode reaction).
  * The irreducible engine pieces are WRAPPED: the CodeMirror editor (EditorHost),
  * the marp render + filmstrip iframe (playground-engine → window globals), and
@@ -273,6 +272,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const engine = engineRef.current;
 			if (!engine.ready()) {
 				setStatusLine('Loading engine…');
+				// SINGLE pending retry: clear any prior one first. The frame scheduler is a
+				// separate concurrency domain from timerRef now, so without this a keystroke
+				// during engine load would orphan the previous retry and let N timers fire
+				// concurrent renders the moment the engine readies (flash/thrash + a possible
+				// previewState mismatch). One timer, always.
+				if (timerRef.current) clearTimeout(timerRef.current);
 				timerRef.current = setTimeout(() => render(fresh), 60);
 				return;
 			}
@@ -301,6 +306,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
 			const r = await engine.renderInto(frame, src, palette, mode, previewStateRef.current, fresh);
 			if (r.status === 'pending') {
+				// Single pending retry (see the !engine.ready() note above).
+				if (timerRef.current) clearTimeout(timerRef.current);
 				timerRef.current = setTimeout(() => render(fresh), 60);
 			} else if (r.status === 'error') {
 				setStatusLine(r.message, true);
@@ -327,26 +334,44 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// (A full srcdoc write reloads → onFrameLoad handles that; this no-ops
 				// until the fresh doc is ready.)
 				applyDebug(frame, { force: forceRef.current });
+				// Report the regime to the frame scheduler: a full srcdoc write (!patched)
+				// is HEAVY → the next edit coalesces; a section patch is cheap → next-frame.
+				return { heavy: !r.patched };
 			}
 		},
 		[getSource, setStatusLine, palettes],
 	);
 
+	// Latest render closure — the frame scheduler reaches it via this ref so it always
+	// renders CURRENT state without re-creating the scheduler on every edit.
+	const renderRef = React.useRef(render);
+	renderRef.current = render;
+
+	// Adaptive frame-aligned scheduler (Playground-owned) — replaces the fixed 220ms
+	// trailing debounce with a render loop that fires a cheap patch on the next frame
+	// (instant live typing) and coalesces a heavy full write on a short timer. Created
+	// once; drives render(false), the edit/patch path.
+	const schedulerRef = React.useRef<ReturnType<typeof createFrameScheduler> | null>(null);
+	if (!schedulerRef.current) {
+		schedulerRef.current = createFrameScheduler({ render: () => renderRef.current(false) });
+	}
+	React.useEffect(() => () => schedulerRef.current?.cancel(), []);
+
 	const scheduleRender = React.useCallback(() => {
-		if (timerRef.current) clearTimeout(timerRef.current);
-		timerRef.current = setTimeout(() => render(false), DEBOUNCE_MS);
-	}, [render]);
+		schedulerRef.current?.schedule();
+	}, []);
 
 	// freshRender resets the iframe (explicit deck swaps); render(false) patches.
 	const freshRender = React.useCallback(() => {
 		// A deck swap sets the editor source programmatically, and CodeMirror's
 		// setValue dispatches synchronously — firing onChange → onEdit →
-		// scheduleRender, which queues a DEBOUNCED patch render. That pending render
-		// races THIS authoritative fresh render: on a slow connection (or a large
-		// deck) the fresh srcdoc has not finished loading when the debounced render
-		// fires ~220ms later, so it re-writes the iframe — a second full srcdoc write
-		// that reloads the preview and flashes. Cancel it; the fresh render supersedes
-		// any queued patch. (Cheap insurance: with fast loads it would merely patch.)
+		// scheduleRender, which queues a frame-scheduled patch render. That pending
+		// render races THIS authoritative fresh render: on a slow connection (or a large
+		// deck) the fresh srcdoc has not finished loading when the scheduled render
+		// fires, so it re-writes the iframe — a second full srcdoc write that reloads
+		// the preview and flashes. Cancel it; the fresh render supersedes any queued
+		// patch. (Also clear a pending engine-not-ready retry on timerRef.)
+		schedulerRef.current?.cancel();
 		if (timerRef.current) clearTimeout(timerRef.current);
 		previewStateRef.current = { ...previewStateRef.current, frameSig: '' };
 		render(true);
@@ -997,12 +1022,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	);
 
 	// ── Re-render when <html> data-palette / data-mode change ───────────────────
+	// Routed through the SAME scheduler as edits (not a direct render(false)) so it
+	// honors the in-flight guard: a palette/mode flip landing mid-edit-render would
+	// otherwise run a second renderInto concurrently on the one iframe, mutating the
+	// shared previewState (frameSig/lastSections) out from under the in-flight patch.
+	// The scheduler serializes them; a palette change is a sig change → a full write.
 	React.useEffect(() => {
 		const root = document.documentElement;
-		const obs = new MutationObserver(() => render(false));
+		const obs = new MutationObserver(() => scheduleRender());
 		obs.observe(root, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
 		return () => obs.disconnect();
-	}, [render]);
+	}, [scheduleRender]);
 
 	// Trigger the on-demand engine load once the chrome has mounted/painted. The
 	// preview is core to the playground, so load it promptly (on idle / next

@@ -2043,7 +2043,7 @@ html.db-js #db-editor-ta {
 /* Chart-interaction popover styles (.db-pp-chart*) moved to the SHARED
    ../styles/chart-interact.css so the Playground (which doesn't load this file)
    styles the popover too. Imported by both drawing-board.astro and
-   playground.astro. See drawing-board-chart-interact.js. */
+   playground.astro. See chart-interact.js. */
 
 /* Speaker-notes slide-up sheet — universal across every tier. */
 .db-pp-sheet {
