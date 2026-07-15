@@ -124,6 +124,14 @@
 		font: inherit;
 		color: inherit;
 		letter-spacing: inherit;
+		/* Preflight parity: zero the UA control padding/margin shadcn assumes is
+		 * already gone. Omitting this let the browser's default button padding
+		 * (~1px 6px) survive on the Radix Switch <button>, shoving the thumb's
+		 * travel frame 6px right (it parked off-center off / overhung the cap on).
+		 * Controls that set explicit padding (Button, Input, …) override this;
+		 * this only bites controls whose geometry assumes a zero baseline. */
+		margin: 0;
+		padding: 0;
 	}
 	.lx-ui button {
 		background: none;

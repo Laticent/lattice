@@ -567,9 +567,12 @@ in patch versions.
   overhangs the track when on.** The shared `ui/switch` `<button>` kept the browser's default ~6px
   horizontal button padding (the scoped reset never zeroed it), so the thumb traveled inside a 26px-wide
   content box instead of the full 38px track: off, it sat ~8px from the left (reading as centered); on, it
-  ran 4px past the right cap. A one-class `p-0` removes the parasitic padding — the thumb now rests 2px
-  from each end in both states. Affects every switch (Inspector, Workspace, export panels — one shared
-  primitive). Verified on the real Studio.
+  ran 4px past the right cap. Root cause: the site runs Tailwind Preflight OFF (so it can't repaint the
+  Starlight docs) and replaces it with a scoped `.lx-ui` reset that omitted the `padding: 0` / `margin: 0`
+  Preflight zeroes on controls — so the UA default survived. The `.lx-ui` control reset now zeroes both
+  (Preflight parity), closing the whole class: the thumb rests 2px from each end in both states, and any
+  future shadcn control that assumes a zero baseline is covered. Affects every switch (Inspector,
+  Workspace, export panels — one shared primitive). Verified on the real Studio.
 - **Read-aloud no longer turns choppy or pops between sentences over Bluetooth / Apple CarPlay.**
   On those routes iOS powers the audio link down when the rendered stream goes to digital silence
   between per-sentence clips; each new clip then had to wake the link, clipping/popping its first

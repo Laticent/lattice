@@ -340,3 +340,18 @@ the 38px track — off it rested ~8px from the left (looked centered), on it ran
 cap. Measured both states on the real surface (off 8px-left/12px-right, on 24px-left/−4px-right).
 Fix: `p-0` on the Root. Re-measured: off 2/18, on 18/2 — flush both ends, matching the reference.
 One shared primitive, so all 15+ switch sites are corrected at once.
+
+**Root-cause hardening (follow-up PR).** "Why did the switch have UA padding at all, and are other
+controls exposed?" traced to the reset architecture: the docs site runs Tailwind Preflight OFF (a
+guard test enforces it — Preflight would repaint Starlight's ~7k lines of hand-written CSS) and
+replaces it with a *scoped* reset under `.lx-ui` (`docs/src/styles/tailwind.css`). That scoped reset
+was a hand-maintained SUBSET of Preflight — it covered box-sizing, borders, and font inheritance but
+omitted the `padding: 0` / `margin: 0` Preflight zeroes on `button/input/select/textarea`. So the UA
+default button padding (~1px 6px) survived; the Switch was the only control whose geometry depended on
+it (absolute thumb translate from the padded edge — checkbox/radio/icon-buttons *center* their content
+so symmetric padding doesn't shift it; Button/Toggle/Select-trigger set explicit padding; the Slider
+self-resets `appearance` + thumb pseudo-elements). Fix: add `margin: 0; padding: 0` to the `.lx-ui`
+control reset (Preflight parity) and drop the `p-0` band-aid from `ui/switch`. Verified on the real
+Studio: switch flush off 2/18 & on 18/2 with `rootPad: 0` and no `p-0`; text inputs keep 12px, buttons
+10px (utilities beat `@layer base`); Workbench's native `<select>` keeps its unlayered `padding: 6px 8px`.
+Closes the class so the next shadcn control added can't hit the same silent break.
