@@ -202,32 +202,43 @@ section-level grid onto `.cell-stage`. Model holds; slot map is not uniform for 
 worked for contact (move before `mastheadLift`, flip `conformance:strict`, add
 `flex:0 0 auto`) produced pixel AE 80,641 on wifi. Two wifi-specific facts the
 recipe didn't cover:
-- **Depth-blind title lift (the kernel fix), SCOPED to wrapped components.** wifi
+- **Depth-blind title lift (the kernel fix).** wifi
   emits its title as an in-card `.qr-head > h2`; contact emits no `<h2>` at all (its
   name is a `.qr-name` paragraph). The masthead kernel's `extractH2` was a plain
   first-`<h2>` regex — depth-blind — so it yanked wifi's nested title into a masthead
   band. Fixed by making the lift depth-aware (`findTopLevelH2`, mirroring the
   pre-existing depth-aware `findTopLevelEyebrow`): lift ONLY a section-level `<h2>`.
-  **CRITICAL SCOPING (found by the PR-2 maker-checker):** applied UNCONDITIONALLY,
-  this also stops lifting the h2 that the chart family nests in `.chart-header`
-  (chartFamily runs before mastheadLift), changing every chart's masthead band —
-  pixel AE ~8966+, an unrecorded export change across ~14 chart layouts. So the
-  depth-aware lift is gated on `wrapsStageBody(cls)`: **only a WRAPPED component**
-  (strict, e.g. wifi/contact — or flow, whose h2 is already top-level so it is a
-  no-op) uses it; an UNWRAPPED canvas (charts) keeps the legacy depth-blind lift, so
-  every chart is **byte-identical to main (AE 0, verified)**. Blast-radius re-verified:
-  content, cards-grid, kpi, checklist (flow) AND progress, radar (chart) all AE 0;
-  only wifi changes. The DOM mirror (`masthead-lift.js`) already uses `:scope > h2`
-  (depth-aware for all), so wifi agrees on both paths.
-- **Deferred: the chart title-lift engine↔runtime parity gap.** Because the DOM
-  mirror uses `:scope > h2`, it has ALWAYS returned no-band for charts, while the
-  engine (depth-blind) builds one — the two render paths disagree on chart titles
-  today (a latent HARD RULE #1 gap, pre-existing, NOT introduced here). Making the
-  engine depth-aware for charts would converge them (both → title in `.chart-header`)
-  — plausibly the right fix — but it changes exported chart bytes across ~14 layouts
-  and is a genuine design call (chart title in the band vs `.chart-header`; §3 says
-  titles hoist). It is deliberately left for its own decision WITH a dark+light
-  chart-gallery export sign-off, not shipped as a wifi side-effect.
+  For the wifi PR this was gated on `wrapsStageBody(cls)` — a WRAPPED component only —
+  precisely to KEEP the chart family (whose h2 nests in `.chart-header`, chartFamily
+  runs before mastheadLift) on the legacy depth-blind lift, since converging the
+  charts was a separate export change owed its own sign-off. **That convergence is
+  now shipped (see the chart title-placement resolution below); the depth-aware gate
+  is `wraps || chart-frame`.** The DOM mirror (`masthead-lift.js`) already uses
+  `:scope > h2` (depth-aware for all), so wifi agreed on both paths from the start.
+- **Chart title placement — RESOLVED (2026-07-15): converge in `.chart-header` now
+  (Option 1); hoist to the masthead band later with the strict migration.** Because
+  the DOM mirror uses `:scope > h2`, it had ALWAYS returned no-band for charts, while
+  the engine (depth-blind) built one — the two render paths disagreed on chart titles
+  (a latent HARD RULE #1 gap, pre-existing). **The wifi note above framed this as
+  "plausibly the right fix, deferred"; the owner has now chosen it after an
+  adversarial trio.** The engine masthead lift is depth-aware for `chart-frame`
+  components too (`depthAware = wraps || chartFrame`), so it stops lifting the nested
+  `.chart-header > h2`. Both paths now keep eyebrow + title + subtitle **together in
+  `.chart-header`**, in correct order, with NO masthead band — converged. This also
+  **revives** the pie/radar `claim-hero`/`claim-bleed` bottom-shelf title treatment
+  (built on `.chart-header h2`, dead on the engine while the h2 was lifted). Scope
+  verified: **exactly the 13 `chart-frame` layouts change** (progress, gantt, radar,
+  piechart, funnel, kanban, quadrant, timeline-list, journey, roadmap, state-chart,
+  word-cloud, map — each now renders title in `.chart-header`, no band); `diagram`
+  (still on the legacy lift, the `.viz-frame` proof target), `video`, `contact`,
+  `wifi`, and the flow components (content, cards-grid, kpi, checklist) are all
+  **AE 0** (150-DPI pdftoppm + ImageMagick `compare`). The overflow-probe verdict is
+  unchanged pre/post (charts are not `.cell-stage`-wrapped — the eyebrow moving
+  between direct children doesn't flip it). This is Option 1: the **converge-now**
+  half. The full model-conformant **hoist of the chart title INTO the masthead band**
+  (per §3, where titles hoist) is still **deferred** to the `.viz-frame`-coordinated
+  chart `conformance:strict` migration, WITH the dark+light chart-gallery export
+  sign-off that owes.
 - **QR quiet-zone in the safe margin.** wifi's QR tile is the card's LEFT column and
   is content-box sized (12em SVG + 1em padding + 1px border), so its border-box
   overhangs its `.qr-side` column by ~1em+1px each side; the left overhang is the

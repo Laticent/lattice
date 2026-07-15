@@ -326,17 +326,21 @@ section.chart-frame .chart-subtitle {
   line-height: var(--lh-relaxed);
 }
 
-/* Under the Form, the chart-frame's eyebrow + h2 are lifted into the masthead
- * Cell, so the in-flow .chart-header holds only the subtitle. Three things follow:
- *   1. Its tall top padding (--sp-2xl, sized for the full eyebrow+h2+subtitle
- *      header) wastes ~5cqi directly below the masthead band and STARVES the chart
- *      Cell — the donut collapse on dense slides was this, not the svg sizing.
- *   2. Align the lone subtitle to the SAME left edge as the masthead title: drop
- *      the centered flow and the --sp-2xl horizontal inset the full centered header
- *      carried. A left-aligned title with a centered/inset dek reads as a mistake.
- *   3. The masthead's own border-bottom is now the header↔body divider, so the
- *      decorative ::after hairline would be a redundant second rule — retire it
- *      under the Form (this also removes a stray rule when there is no subtitle).
+/* Under the Form, a chart-frame keeps its eyebrow + title + subtitle TOGETHER in
+ * the in-flow .chart-header — the masthead kernel does NOT lift them (the engine
+ * converges with the runtime's `:scope > h2`, which never matched the nested chart
+ * h2; model-driven-frame-render §6). No masthead band is built for charts; the full
+ * hoist to a masthead-lede band is deferred to the .viz-frame/strict migration.
+ * Three things follow:
+ *   1. Drop the tall top padding (--sp-2xl, sized for a stand-alone centered header)
+ *      that wasted ~5cqi and STARVED the chart Cell — the donut collapse on dense
+ *      slides was this, not the svg sizing.
+ *   2. Left-align the header to the frame's edge (drop the centered flow + the
+ *      --sp-2xl horizontal inset) so the title reads flush like every other layout.
+ *   3. Retire the decorative ::after hairline under the Form: the header sits
+ *      directly above the chart body and the section gap is the divider, so the
+ *      hairline would be a redundant rule (this also drops a stray rule when there
+ *      is no subtitle).
  * Scoped to section.form; non-form chart headers keep their full centered breathing
  * room and their hairline. */
 section.form.chart-frame .chart-header {
@@ -347,17 +351,17 @@ section.form.chart-frame .chart-header {
 }
 section.form.chart-frame .chart-header::after { content: none; }
 
-/* Title→subtitle clearance is conditional on there BEING a subtitle. The masthead
- * band's clearance (padding-bottom → hairline, then the section gap → body) is the
- * deliberate title-band↔content separation and is right when the body leads with
- * chart content. But a subtitle belongs to the headline unit and must HUG the title
- * band, not sit a full clearance away. When (and only when) a .chart-subtitle leads,
- * pull the hairline up under the title and the subtitle up under the hairline. */
+/* Header→body clearance is conditional on there BEING a subtitle. The default
+ * section gap gives the header↔chart-body a deliberate separation that reads right
+ * when the body leads with chart content. But a subtitle belongs to the headline
+ * unit and must HUG the title, not sit a full clearance from the body. When (and
+ * only when) a .chart-subtitle leads, tighten the section gap so the subtitle stays
+ * with the header. (The engine no longer lifts a chart title, so there is no
+ * masthead band to clear — the tighten now lives entirely on the section gap.) */
 /* Guard against claim-hero/bleed: there the subtitle is display:none but stays in
- * the DOM, so :has(.chart-subtitle) still matches — the hug would tighten the band
- * with no visible dek. The plain :not() guards are fine (HARD RULE #12 bans only the
+ * the DOM, so :has(.chart-subtitle) still matches — the hug would tighten with no
+ * visible dek. The plain :not() guards are fine (HARD RULE #12 bans only the
  * :not(:has())/:is(:has()) compound forms, and only in themes/). */
-section.form.chart-frame:has(.chart-subtitle):not(.claim-hero):not(.claim-bleed) > .cell-masthead { padding-bottom: var(--sp-xs); }
 section.form.chart-frame:has(.chart-subtitle):not(.claim-hero):not(.claim-bleed) { gap: var(--sp-xs); }
 
 section.chart-frame .chart-body {

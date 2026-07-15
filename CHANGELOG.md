@@ -689,6 +689,21 @@ in patch versions.
   as "when …". Large class/state/ER diagrams now summarize past a firehose cap. Audio remains
   unverified (no TTS in CI). See `engineering/decisions/2026-07-14-mermaid-multitype-narration.md`
   §17.
+- **Chart titles now stay in `.chart-header` on both render paths — the engine no longer lifts them
+  into a masthead band, closing an engine↔web parity gap (HARD RULE #1) and reviving `claim-hero`.**
+  A chart's eyebrow + title + subtitle are built by the chart-family transform into one
+  `.chart-header`; the engine's masthead lift then yanked the nested `<h2>` up into a `.cell-masthead`
+  band, stranding the eyebrow + subtitle below it (wrong order) — while the web/runtime DOM mirror
+  (`:scope > h2`) never lifted the nested title, so it built no band. The two paths **disagreed**.
+  The masthead lift is now **depth-aware for `chart-frame` components** (as it already was for wrapped
+  strict/flow components): a title nested in `.chart-header` is left in place, so **both paths keep
+  eyebrow + title + subtitle together in `.chart-header`**, in the correct order, with no band. This
+  also **revives the `claim-hero`/`claim-bleed` pie + radar bottom-shelf title treatment**, which is
+  built on `.chart-header h2` and had gone dead on the engine while the `h2` was lifted away. Scoped
+  to the 13 `chart-frame` layouts only; `diagram`, `video`, and every non-chart component are
+  byte-identical (AE 0). The full model-conformant hoist of the chart title into the masthead band is
+  **deferred** to the `.viz-frame`-coordinated chart `conformance:strict` migration
+  (`engineering/decisions/2026-07-15-model-driven-frame-render.md` §6).
 - **The installed-app / home-screen icon now fills its tile instead of floating in a wide cream
   border.** `tools/make-pwa-icons.js` composited the brand mark at a conservative fraction of each
   canvas — `apple-touch-icon` at 0.72, the `purpose:any` icons at 0.80 — so the diamond read only
