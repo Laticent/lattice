@@ -956,7 +956,7 @@ section :is(pre, marp-pre) code { background:none; border:none; padding:0; borde
  * column), NOT `margin:auto` (HARD RULE #20); vertical space comes from the stage
  * gap like any other block. In a non-flex context it falls back to left-aligned —
  * acceptable for the rare raw-block-flow `hr`. */
-section hr { border:none; height:0.15625cqi; background:var(--spectrum); border-radius:0.15625cqi; width:5.625cqi; margin:0; align-self:center; }
+section hr { border:none; height:0.15625cqi; background:var(--spectrum-structure); border-radius:0.15625cqi; width:5.625cqi; margin:0; align-self:center; }
 section ul { list-style:none; padding:0; margin:0; }
 section ol { padding:0; margin:0; }
 section blockquote { margin:0; padding:0; border:none; }
@@ -2656,7 +2656,7 @@ section.code > .cell-stage { display:flex; flex-direction:column; }
 section.code h3 { padding-bottom:0.3125cqi; }
 section.code h2 { padding-bottom:var(--sp-xs); }
 section.code > .cell-stage > em { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-label); padding-bottom:var(--sp-sm); font-style:normal; display:block; }
-section.code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
+section.code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
 section.code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 
 /* At claim-hero/bleed the stage grows tall; a short snippet in a `flex:1` panel
@@ -2694,7 +2694,7 @@ section.compare-code h2 ~ p:has(> code:only-child) > code {
   color:var(--accent);
   background:none; border:none; padding:0; border-radius:0;
 }
-section.compare-code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
+section.compare-code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
 section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 
 /* ── COMPARE-CODE fallback ───────────────────────────────────────────────────
@@ -2780,7 +2780,7 @@ section.compare-code-block .split-runhead {
 section.compare-code-block pre {
   margin: 0; max-width: 100%; box-sizing: border-box;
   border-radius: var(--radius-md); overflow: hidden;
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--code-bg);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg);
   padding: var(--sp-md) var(--sp-lg);
   padding-bottom: calc(var(--sp-md) + 0.234375cqi);
 }
@@ -3200,7 +3200,7 @@ section.compare-prose > .cell-stage {
  */
 section.compare-table h2 { font-size:var(--fs-emphasis); }
 section.compare-table table { width:100%; table-layout:auto; border-collapse:collapse; font-size:var(--fs-meta); flex:1; }
-section.compare-table thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.compare-table thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.compare-table thead th { font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); padding:0.625cqi var(--sp-xs) 0.78125cqi; text-align:left; word-wrap:break-word; overflow-wrap:break-word; }
 section.compare-table td { padding:0.625cqi var(--sp-xs); border-bottom:1px solid var(--border); color:var(--text-body); vertical-align:top; font-size:var(--fs-body-compact); word-wrap:break-word; overflow-wrap:break-word; }
 section.compare-table td:first-child { font-weight:600; color:var(--text-heading); white-space:nowrap; }
@@ -3214,7 +3214,7 @@ section.compare-table td:first-child { font-weight:600; color:var(--text-heading
  * See engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md. */
 section.compare-table.lat-split-cards .ct-cards { display:flex; flex-direction:column; gap:var(--sp-sm); flex:1; justify-content:center; }
 section.compare-table.lat-split-cards .ct-card { border:1px solid var(--border); border-radius:var(--radius-sm); padding:var(--sp-sm) var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); }
-section.compare-table.lat-split-cards .ct-card-title { font-size:var(--fs-emphasis); font-weight:600; color:var(--text-heading); padding-bottom:var(--sp-xs); background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.compare-table.lat-split-cards .ct-card-title { font-size:var(--fs-emphasis); font-weight:600; color:var(--text-heading); padding-bottom:var(--sp-xs); background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.compare-table.lat-split-cards .ct-card-fields { display:grid; grid-template-columns:max-content 1fr; gap:0.4em var(--sp-md); margin:0; }
 section.compare-table.lat-split-cards .ct-field { display:contents; }
 section.compare-table.lat-split-cards .ct-field dt { font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); }
@@ -4176,7 +4176,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
  * for line-break safety.
  */
 section.glossary table { width:100%; border-collapse:collapse; table-layout:auto; font-feature-settings:'tnum' 1; }
-section.glossary thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.glossary thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.glossary thead th { padding:0.46875cqi var(--sp-sm) 0.78125cqi; text-align:left; font-weight:700; color:var(--text-secondary); font-size:var(--fs-meta); letter-spacing:0.08em; text-transform:uppercase; }
 section.glossary td { padding:0.46875cqi var(--sp-sm); color:var(--text-body); vertical-align:top; font-size:var(--fs-body-compact); word-wrap:break-word; overflow-wrap:break-word; border-bottom:none; }
 section.glossary tbody tr:nth-child(odd) { background:var(--bg-alt); }
@@ -6831,7 +6831,7 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) {
 section.list-steps.timeline > .cell-stage > :is(ol,ul)::before {
   content:''; position:absolute; top:1.015625cqi;
   left:calc(var(--sp-xl) + 7.03125cqi); right:calc(var(--sp-xl) + 7.03125cqi);
-  height:3px; background:var(--spectrum); border-radius:2px;
+  height:3px; background:var(--spectrum-structure); border-radius:2px;
 }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li {
   flex:0 0 auto;
@@ -8556,7 +8556,7 @@ section.obligation-matrix table {
   flex:1;
   table-layout:auto;
 }
-section.obligation-matrix thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.obligation-matrix thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.obligation-matrix thead th {
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -10963,7 +10963,7 @@ section.regulatory-update > .cell-stage {
    * chart-body's overflow:hidden clipping the last row. */
   font-size:var(--fs-body-compact); flex:1;
 }
-:is(section.roadmap, figure.roadmap) thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+:is(section.roadmap, figure.roadmap) thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 :is(section.roadmap, figure.roadmap) thead th {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);
@@ -12589,7 +12589,7 @@ section.statute-stack.lane table {
   flex:1; font-size:var(--fs-body);
   table-layout:auto;
 }
-section.statute-stack.lane thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.statute-stack.lane thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.statute-stack.lane thead th {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);
@@ -15039,7 +15039,7 @@ section.lat-split-cover.split-cover-compare-table .split-feat-h {
 }
 section.lat-split-cover.split-cover-compare-table .split-feat-h::after {
   content: ""; display: block; height: 2px; width: 42%; min-width: 7em;
-  background: var(--spectrum);
+  background: var(--spectrum-structure);
 }
 
 /* === lib/integrations/highlight-js/highlight-js.css === */
@@ -15058,7 +15058,7 @@ section.lat-split-cover.split-cover-compare-table .split-feat-h::after {
 
 /* ── Syntax highlight (highlight.js) ──────────────────────────────────────
  * Palette-blind rule structure — tokens are theme-defined, defaults above. */
-section pre.hljs { background:var(--spectrum) bottom / 100% 3px no-repeat, var(--surface-inverse); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 3px); box-sizing:border-box; border-radius:var(--radius-md); overflow-x:auto; margin:0; }
+section pre.hljs { background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--surface-inverse); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 3px); box-sizing:border-box; border-radius:var(--radius-md); overflow-x:auto; margin:0; }
 section code.hljs { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 /* Diagram source <pre> — override Marp's bundled section pre/code defaults */
 section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
@@ -18335,6 +18335,21 @@ section {
   --sp-fill-mono-h: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
   --sp-fill-mono-v: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
 }
+
+/* The STRUCTURE accent token — read by the in-content accent lines (table-header rails, the
+   list-steps timeline spine, code-panel strips, the `hr` rule, split-card underlines), as
+   opposed to the brand BAR (section edge / dark line / divider rail, which read --spectrum
+   directly). Defaults to a QUIET neutral hairline so a default deck stays elegant — the
+   spectrum lives on the brand bar alone, not repeated on every rule. The opt-in
+   `spectrum-trim: on` register (→ section.spectrum-trim) points this at --spectrum to flow the
+   deck's gradient onto the structure too. See 2026-07-16-spectrum-structure-default.md. */
+section { --spectrum-structure: linear-gradient(var(--border), var(--border)); }
+
+/* TRIM — the opt-in that flows the deck's spectrum STYLE onto the structural accents. Reads
+   --spectrum, so it follows whatever the `spectrum:` STYLE resolved to (rainbow / solid / duo /
+   mono). A per-slide `spectrum-trim-off` needs no rule: dropping the `spectrum-trim` class
+   leaves the neutral default above. */
+section.spectrum-trim { --spectrum-structure: var(--spectrum); }
 
 /* STYLE — redefine the shared token from the matching fill; every accent follows. */
 section.spectrum-solid { --spectrum: var(--sp-fill-solid-h); --spectrum-vertical: var(--sp-fill-solid-v); }

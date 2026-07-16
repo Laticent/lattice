@@ -70,7 +70,7 @@ section :is(pre, marp-pre) code { background:none; border:none; padding:0; borde
  * column), NOT `margin:auto` (HARD RULE #20); vertical space comes from the stage
  * gap like any other block. In a non-flex context it falls back to left-aligned —
  * acceptable for the rare raw-block-flow `hr`. */
-section hr { border:none; height:0.15625cqi; background:var(--spectrum); border-radius:0.15625cqi; width:5.625cqi; margin:0; align-self:center; }
+section hr { border:none; height:0.15625cqi; background:var(--spectrum-structure); border-radius:0.15625cqi; width:5.625cqi; margin:0; align-self:center; }
 section ul { list-style:none; padding:0; margin:0; }
 section ol { padding:0; margin:0; }
 section blockquote { margin:0; padding:0; border:none; }

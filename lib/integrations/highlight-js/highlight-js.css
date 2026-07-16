@@ -13,7 +13,7 @@
 
 /* ── Syntax highlight (highlight.js) ──────────────────────────────────────
  * Palette-blind rule structure — tokens are theme-defined, defaults above. */
-section pre.hljs { background:var(--spectrum) bottom / 100% 3px no-repeat, var(--surface-inverse); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 3px); box-sizing:border-box; border-radius:var(--radius-md); overflow-x:auto; margin:0; }
+section pre.hljs { background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--surface-inverse); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 3px); box-sizing:border-box; border-radius:var(--radius-md); overflow-x:auto; margin:0; }
 section code.hljs { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 /* Diagram source <pre> — override Marp's bundled section pre/code defaults */
 section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]),

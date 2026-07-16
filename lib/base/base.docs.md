@@ -677,16 +677,19 @@ one slide's "Confidential" marker as a notch while the rest of the deck seals.
 
 #### The `spectrum:` / `spectrum-edge:` registers (the spectrum accent finish)
 
-The SPECTRUM is the accent gradient painted on the section edge AND on every accent that
-reads the shared `--spectrum` token — table-header rails, the `list-steps` timeline spine,
-code-panel strips, an author's `---` rule. Two orthogonal keys control it, both siblings of
-the registers above (`lib/core/resolve-spectrum.js`), propagated to every section and
-overridable per slide; a typo is caught as `unknown-spectrum` / `unknown-spectrum-edge`.
+The SPECTRUM is the accent gradient. **By default it paints the brand BAR only** — the section
+edge, the `section.dark` top line, and the divider left rail. The in-content structural accents
+(table-header rails, the `list-steps` timeline spine, code-panel strips, an author's `---` rule,
+split-card underlines) render a **quiet neutral hairline** by default, so a no-config deck stays
+elegant and low-noise. `spectrum-trim: on` flows the spectrum onto that structure too. The keys
+are siblings of the registers above (`lib/core/resolve-spectrum.js`), propagated to every section
+and overridable per slide; a typo is caught as `unknown-spectrum` / `unknown-spectrum-edge` /
+`unknown-spectrum-trim`.
 
 **`spectrum:` — the STYLE (the gradient identity).** Redefines the `--spectrum` token at the
-section level, so **every** accent — bar and structure — follows as one system (the
-consolidation). White-label lives here: pick a client's single color with `solid` and set
-the theme's `--accent` to their brand.
+section level. It always drives the brand bar; with `spectrum-trim: on` it drives the structural
+accents too. White-label lives here: pick a client's single color with `solid` and set the
+theme's `--accent` to their brand.
 
 | `spectrum:` value | Token | Effect |
 |---|---|---|
@@ -738,15 +741,28 @@ caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
 it on where it earns its place.
 
-The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left with
-the duo gradient flowing to every accent, and `spectrum-card: auto` extends that same duo into a
-rail on each card — or `spectrum-card: rainbow` overrides the cards to the full ribbon while the
-bar stays duo. `spectrum:` also composes with `accent` /
+**`spectrum-trim:` — flow the spectrum onto the STRUCTURAL accents.** Off by default — the
+in-content accents (table-header rails, the `list-steps` timeline spine, code-panel strips, the
+`hr` rule, split-card underlines) render a quiet neutral hairline, so the spectrum stays on the
+brand bar alone (elegant, low-noise). `on` points those accents at `--spectrum`, so they follow
+the deck's STYLE. Per-slide `_class: spectrum-trim` opts one slide in, `spectrum-trim-off` out.
+
+| `spectrum-trim:` value | Token | Effect |
+|---|---|---|
+| `off` | *(none)* | Structural accents stay a quiet `--border` hairline. **The default** (omit the key). |
+| `on` | `spectrum-trim` | The deck's spectrum flows onto the table rails, timeline spine, code strips, and `hr`. |
+
+The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add
+`spectrum-trim: on` to flow that duo onto the table rails and rules too, and `spectrum-card: auto`
+to extend it into a rail on each card — or `spectrum-card: rainbow` to override the cards to the
+full ribbon while the bar stays duo. `spectrum:` also composes with `accent` /
 `tone: edge` (per-slide bar recolors), which win over the deck register where they apply. On
 a dark bookend a dark client accent reads faint — pick a theme accent that reads on dark, or
-`spectrum: off` there. *(The old narrow `spectrum: on/off/solid` register — bar-only — is
-superseded: `solid` now flows to every accent (but `off` stays bar-only). See
-`engineering/decisions/2026-07-15-accent-finish-consolidation.md`.)*
+`spectrum: off` there. *(History: `spectrum:` started as a narrow bar-only white-label toggle,
+then `solid`/`duo`/`mono` were consolidated to drive every accent
+(`2026-07-15-accent-finish-consolidation.md`); the default was then pulled back to the brand bar
+alone, with `spectrum-trim:` as the structure opt-in
+(`2026-07-16-spectrum-structure-default.md`).)*
 
 #### The `rule:` front-matter register (heading underline)
 

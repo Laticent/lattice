@@ -314,3 +314,29 @@ export function spectrumCardEdgeProvenance(chunk: string, source: string): Prove
 export function setSpectrumCardEdge(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'spectrum-card-edge-', CARD_EDGE_VALUES, name);
 }
+
+// ── spectrum-trim (structural accents) ──────────────────────────────────────────────────────
+// On/off with an explicit opt-out token, mirroring `lift:`: deck `spectrum-trim: on` appends
+// `spectrum-trim` to every slide; a per-slide `spectrum-trim` opts one IN, `spectrum-trim-off`
+// opts one OUT of a deck-wide on. Provenance: inherited (deck on) / on / off.
+const isSpectrumTrimToken = (t: string) => t === 'spectrum-trim' || t === 'spectrum-trim-off';
+
+export function spectrumTrimProvenance(chunk: string, source: string): Provenance {
+	const tokens = getClassTokens(chunk);
+	const deckOn = (getFrontMatter(source, 'spectrum-trim') || '').trim().toLowerCase() === 'on';
+	const deckValue = deckOn ? 'on' : undefined;
+	const inheritable = deckOn;
+	if (tokens.includes('spectrum-trim-off')) return { state: 'off', deckValue, inheritable };
+	if (tokens.includes('spectrum-trim')) return { state: 'on', value: 'on', deckValue, inheritable };
+	if (deckOn) return { state: 'inherited', value: 'on', deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
+}
+
+/** Set the slide's structural trim. `'on'` → opt in; `'off'` → the `spectrum-trim-off` opt-out;
+ *  `null` → inherit (clear both). */
+export function setSpectrumTrim(chunk: string, value: 'on' | 'off' | null): string {
+	const kept = getClassTokens(chunk).filter((t) => !isSpectrumTrimToken(t));
+	if (value === 'on') kept.push('spectrum-trim');
+	else if (value === 'off') kept.push('spectrum-trim-off');
+	return setClassTokens(chunk, kept);
+}

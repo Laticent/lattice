@@ -476,6 +476,17 @@ describe('markdown-it-plugins', () => {
     assert.ok(s[3].includes('spectrum-duo'), `slide 4 lost deck STYLE 'spectrum-duo'; got [${s[3].join(', ')}]`);
   });
 
+  test('deckClassPropagate: spectrum-trim propagates + a per-slide token overrides the deck', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const md = ['---', 'spectrum-trim: on', '---', '',
+      '# Slide 1 (deck trim on)', '', '---', '',
+      '<!-- _class: content spectrum-trim-off -->', '# Slide 2 (opt out)'].join('\n');
+    const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.ok(s[0].includes('spectrum-trim'), `slide 1 missing deck trim; got [${s[0].join(', ')}]`);
+    assert.ok(s[1].includes('spectrum-trim-off') && !s[1].includes('spectrum-trim '), `slide 2 should opt out; got [${s[1].join(', ')}]`);
+    assert.ok(!s[1].some((c) => c === 'spectrum-trim'), `slide 2 deck trim should be suppressed; got [${s[1].join(', ')}]`);
+  });
+
   test('deckClassPropagate: a per-slide rule/eyebrow token overrides the deck register', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---', 'rule: accent', 'eyebrow: dot', '---', '',

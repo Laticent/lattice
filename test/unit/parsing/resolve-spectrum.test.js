@@ -44,6 +44,13 @@ const {
   spectrumCardEdgeClass,
   spectrumCardEdgeClassFromSource,
   isSpectrumCardEdgeToken,
+  SPECTRUM_TRIM_NAMES,
+  SPECTRUM_TRIM_TOKENS,
+  readFrontMatterSpectrumTrim,
+  isKnownSpectrumTrim,
+  spectrumTrimClass,
+  spectrumTrimClassFromSource,
+  isSpectrumTrimToken,
 } = require('../../../lib/core/resolve-spectrum');
 
 describe('resolve-spectrum — STYLE (`spectrum:`)', () => {
@@ -227,19 +234,72 @@ describe('resolve-spectrum — CARD EDGE (`spectrum-card-edge:`)', () => {
   });
 });
 
-describe('resolve-spectrum — the four sub-registers partition cleanly', () => {
+describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
+  test('on → spectrum-trim token; off/empty/unknown → no token (the quiet default)', () => {
+    assert.equal(spectrumTrimClass('on'), 'spectrum-trim');
+    assert.equal(spectrumTrimClass('off'), '');
+    assert.equal(spectrumTrimClass(''), '');
+    assert.equal(spectrumTrimClass('yes'), '');
+    assert.equal(spectrumTrimClass(undefined), '');
+    assert.equal(spectrumTrimClass('  ON '), 'spectrum-trim');
+  });
+
+  test('isKnownSpectrumTrim recognizes on / off only', () => {
+    assert.ok(isKnownSpectrumTrim('on'));
+    assert.ok(isKnownSpectrumTrim('off'));
+    assert.ok(!isKnownSpectrumTrim('yes'));
+    assert.ok(!isKnownSpectrumTrim(''));
+  });
+
+  test('SPECTRUM_TRIM_NAMES / TOKENS list the recognized set + per-slide override tokens', () => {
+    assert.deepEqual([...SPECTRUM_TRIM_NAMES], ['off', 'on']);
+    assert.deepEqual([...SPECTRUM_TRIM_TOKENS], ['spectrum-trim', 'spectrum-trim-off']);
+  });
+
+  test('isSpectrumTrimToken matches trim tokens but NOT the other spectrum axes', () => {
+    assert.ok(isSpectrumTrimToken('spectrum-trim'));
+    assert.ok(isSpectrumTrimToken('spectrum-trim-off'));
+    assert.ok(!isSpectrumTrimToken('spectrum-off'));
+    assert.ok(!isSpectrumTrimToken('spectrum-card'));
+    assert.ok(!isSpectrumTrimToken('spectrum-edge-off'));
+  });
+
+  test('readFrontMatterSpectrumTrim extracts the value; quotes + absence', () => {
+    assert.equal(readFrontMatterSpectrumTrim('---\nspectrum-trim: on\n---\n'), 'on');
+    assert.equal(readFrontMatterSpectrumTrim('---\nspectrum-trim: "off"\n---\n'), 'off');
+    assert.equal(spectrumTrimClassFromSource('---\nspectrum-trim: on\n---\n'), 'spectrum-trim');
+    assert.equal(readFrontMatterSpectrumTrim('---\nspectrum: solid\n---\n'), null);
+  });
+
+  test('CSS contract — structural accents read --spectrum-structure; the opt-in flows --spectrum', () => {
+    const variants = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
+    // The token defaults to a quiet neutral hairline, and the opt-in points it at --spectrum.
+    assert.match(variants, /--spectrum-structure:\s*linear-gradient\(var\(--border\), var\(--border\)\)/);
+    assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum\)/);
+    // A representative structural site now reads the STRUCTURE token, not --spectrum directly.
+    const elements = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.elements.css'), 'utf8');
+    assert.match(elements, /section hr \{[^}]*background:var\(--spectrum-structure\)/);
+    // …while the section-edge BAR still reads --spectrum directly (unchanged).
+    assert.match(elements, /border-image-source:\s*var\(--spectrum\)/);
+  });
+});
+
+describe('resolve-spectrum — the sub-registers partition cleanly', () => {
   test('no token is claimed by two guards', () => {
     for (const t of ['spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'spectrum-off']) {
-      assert.ok(isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t), t);
+      assert.ok(isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t) && !isSpectrumTrimToken(t), t);
     }
     for (const t of ['spectrum-edge-left', 'spectrum-edge-off']) {
-      assert.ok(!isSpectrumStyleToken(t) && isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t), t);
+      assert.ok(!isSpectrumStyleToken(t) && isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t) && !isSpectrumTrimToken(t), t);
     }
     for (const t of SPECTRUM_CARD_TOKENS) {
-      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t), t);
+      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t) && !isSpectrumTrimToken(t), t);
     }
     for (const t of SPECTRUM_CARD_EDGE_TOKENS) {
-      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && isSpectrumCardEdgeToken(t), t);
+      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && isSpectrumCardEdgeToken(t) && !isSpectrumTrimToken(t), t);
+    }
+    for (const t of SPECTRUM_TRIM_TOKENS) {
+      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t) && isSpectrumTrimToken(t), t);
     }
   });
 });

@@ -61,6 +61,7 @@ import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
+import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, SETTINGS_EVENT, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
@@ -836,6 +837,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => setFrontMatter(s, 'rule', value === 'auto' ? null : value));
 	const eyebrow = getFrontMatter(source, 'eyebrow') || 'plain';
 	const setEyebrow = (value: string) => settingsWrite(`Eyebrow → ${value}`, (s) => setFrontMatter(s, 'eyebrow', value === 'plain' ? null : value));
+	// Structural trim (`spectrum-trim:`) — off by default (quiet); `on` flows the spectrum onto
+	// the in-content accents. On writes the key; off clears it.
+	const spectrumTrim = getFrontMatter(source, 'spectrum-trim') || 'off';
+	const setSpectrumTrim = (value: string) => settingsWrite(`Structural trim → ${value}`, (s) => setFrontMatter(s, 'spectrum-trim', value === 'off' ? null : value));
 	// The layout DEBUG overlay — a real deck setting (`debug:` front matter), so it
 	// rides in previewFm to the render and is stripped from every export. Off is the
 	// default; the reveal modes are on-hover / on-always, each with an optional
@@ -1762,6 +1767,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
 							</Field>
 						)}
+						<Field label="Structural trim" desc="Whether the spectrum flows onto the in-content accents — table rails, the timeline spine, code strips, hr. Quiet by default (a neutral hairline); the spectrum stays on the brand bar.">
+							<CatalogSelect ariaLabel="Choose structural trim" value={activeSpectrumTrim(spectrumTrim).name} onValueChange={setSpectrumTrim} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_TRIMS) }]} />
+						</Field>
 						<Field label="Heading rule" desc="The underline beneath a slide's heading — a full hairline, a short rule, an accent segment, or none.">
 							<CatalogSelect ariaLabel="Choose heading rule" value={activeRule(headingRule).name} onValueChange={setHeadingRule} className="min-w-[116px]" groups={[{ options: catalogOptions(RULES) }]} />
 						</Field>

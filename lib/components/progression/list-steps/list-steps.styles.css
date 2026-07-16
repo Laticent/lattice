@@ -108,7 +108,7 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) {
 section.list-steps.timeline > .cell-stage > :is(ol,ul)::before {
   content:''; position:absolute; top:1.015625cqi;
   left:calc(var(--sp-xl) + 7.03125cqi); right:calc(var(--sp-xl) + 7.03125cqi);
-  height:3px; background:var(--spectrum); border-radius:2px;
+  height:3px; background:var(--spectrum-structure); border-radius:2px;
 }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li {
   flex:0 0 auto;

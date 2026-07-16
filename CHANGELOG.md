@@ -187,12 +187,28 @@ in patch versions.
     controlling the masthead / split-panel heading rule.
   - **`eyebrow:` — the mono-caps kicker decoration.** `plain` (default) / `dot` / `bar` / `arrow`
     / `underline` — a leading accent mark or a hairline, one treatment deck-wide.
+  - **`spectrum-trim:` — flow the spectrum onto the structural accents.** `off` (default) / `on`;
+    per-slide `_class: spectrum-trim` / `spectrum-trim-off`. By default the spectrum lives on the
+    brand bar alone and the in-content accents (table-header rails, the `list-steps` timeline
+    spine, code-panel strips, the `hr` rule, split-card underlines) render a quiet neutral
+    hairline — elegant, low-noise. `spectrum-trim: on` flows the deck's spectrum STYLE back onto
+    that structure. See the Breaking note below.
 
   Demo deck `examples/accent-finishes.md` (+ committed PDF); author reference in
   `lib/base/base.docs.md`; design in
   `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
 
 ### Changed
+
+- **Breaking: the spectrum paints the brand BAR only by default — structural accents go quiet.**
+  The in-content accents that read the spectrum (table-header rails, the `list-steps` timeline
+  spine, code-panel strips, the `hr` rule, split-card underlines) now render a quiet neutral
+  `--border` hairline by default instead of the spectrum gradient; the spectrum lives on the
+  brand bar (section edge / dark line / divider rail) alone. This keeps a default deck elegant
+  and low-noise (no rainbow repeated on every rule). Decks that want the prior look — the
+  spectrum on every accent — add **`spectrum-trim: on`** (deck-wide or per slide). Mechanically,
+  the structural sites now read a new `--spectrum-structure` token (neutral default; the opt-in
+  points it at `--spectrum`). See `engineering/decisions/2026-07-16-spectrum-structure-default.md`.
 
 - **`spectrum: solid` now flows to every accent, not just the brand bar.** The register's
   `solid` value was bar-only (the three brand-bar paint sites); it now sets the shared

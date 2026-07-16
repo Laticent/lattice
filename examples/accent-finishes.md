@@ -21,31 +21,31 @@ Three baked-in details — the **spectrum** ribbon, the heading **rule**, and th
 
 `Spectrum · style`
 
-## One selection, every accent
+## One selection sets the gradient
 
-The `spectrum:` key sets the gradient identity — and because every accent reads the same `--spectrum` token, the whole system follows at once.
+The `spectrum:` key picks the gradient identity — the ribbon on the **brand bar**. Elegant by default: the bar carries the spectrum, the in-content accents stay quiet.
 
 - `on`
   - The default 3-stop rainbow ribbon (omit the key).
 - `solid` / `duo` / `mono`
   - A single accent, a two-tone pair, or a quiet tint — this deck runs `duo`.
 - `off`
-  - Drops the section-edge bar; structural accents keep the style.
+  - Drops the section-edge bar entirely.
 
 ---
 
-<!-- _class: code spectrum-mono -->
+<!-- _class: code spectrum-trim -->
 
-`Spectrum · consolidation`
+`Spectrum · trim`
 
-## The structural accents follow too
+## Flow it onto the structure — when you want to
 
-Set `spectrum: mono` on this slide and the code panel's accent strip recolors with the bar — no per-site edit.
+By default the code strip, table rails, and rules stay a quiet neutral hairline — no rainbow repeated on every line. `spectrum-trim: on` flows the deck's spectrum onto them; this slide opts in, so the panel strip below runs `duo`.
 
 ```js
-// the panel strip below reads var(--spectrum); the style flows to it
-const accents = ['edge bar', 'table rails', 'timeline spine', 'code strip'];
-accents.forEach((a) => paint(a, 'var(--spectrum)'));
+// spectrum-trim: on → the structural accents read var(--spectrum)
+const structure = ['table rails', 'timeline spine', 'code strip', 'hr'];
+structure.forEach((a) => paint(a, 'var(--spectrum)'));
 ```
 
 ---

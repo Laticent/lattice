@@ -30,11 +30,12 @@ import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
+import { activeSpectrumTrim } from './spectrum-trim-catalog';
 import { deckOutputLang } from './studio-language';
 
 type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
@@ -350,6 +351,17 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const cardEdge = overrideAxis(cardEdgeProv, SPECTRUM_CARD_EDGES, 'left', activeSpectrumCardEdge);
 	const onCardEdge = (v: string) => onMutate((c) => setSpectrumCardEdge(c, v === '__inherit__' ? null : v));
 	const cardRailOn = cardProv.state === 'on' || cardProv.state === 'inherited';
+	// Structural trim — on/off with an explicit opt-out (mirrors lift). Inherit follows the deck.
+	const trimProv = React.useMemo(() => spectrumTrimProvenance(chunk, source), [chunk, source]);
+	const trimValue: string = has('spectrum-trim') ? 'on' : has('spectrum-trim-off') ? 'off' : '__inherit__';
+	const trimOptions: CatalogOption[] = [
+		trimProv.inheritable
+			? { label: 'Inherit — Spectrum', value: '__inherit__', swatch: activeSpectrumTrim('on').swatch }
+			: { label: 'Inherit — Quiet', value: '__inherit__', swatch: activeSpectrumTrim('off').swatch },
+		{ label: 'Spectrum', value: 'on', swatch: activeSpectrumTrim('on').swatch },
+		{ label: 'Quiet', value: 'off', swatch: activeSpectrumTrim('off').swatch },
+	];
+	const onTrim = (v: string) => onMutate((c) => setSpectrumTrim(c, v === '__inherit__' ? null : (v as 'on' | 'off')));
 
 	// Decoration — the featured tint / mark phrases from the generated group. Each is a
 	// single-select; applying one clears the other members of its kind (tints also clear
@@ -585,6 +597,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 									<Picker ariaLabel="Card rail placement" value={cardEdge.value} onChange={onCardEdge} options={cardEdge.options} />
 								</Row>
 							)}
+							<Row label="Structural trim" hint={trimProv.state === 'inherited' ? 'from deck' : undefined} desc="Whether the spectrum flows onto this slide's structural accents — table rails, timeline spine, code strips, hr. Quiet follows the elegant default.">
+								<Picker ariaLabel="Structural trim" value={trimValue} onChange={onTrim} options={trimOptions} />
+							</Row>
 							<Row label="Heading rule" hint={ruleProv.state === 'inherited' ? 'from deck' : undefined} desc="The underline beneath this slide's heading — full, short, an accent segment, or none.">
 								<Picker ariaLabel="Heading rule" value={ruleOpt.value} onChange={onRule} options={ruleOpt.options} />
 							</Row>
