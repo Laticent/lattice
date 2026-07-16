@@ -108,6 +108,7 @@
   /* ── Spectrum — deep-teal → lagoon → coral pop ─────────────────────── */
   --spectrum: linear-gradient(90deg, #04181B 0%, #006D77 55%, var(--brand-alt) 100%);
   --spectrum-vertical: linear-gradient(180deg, #04181B 0%, #006D77 55%, var(--brand-alt) 100%);
+  --spectrum-end: var(--brand-alt); /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens ──────────────────────────────────────────── */
   --scheme-dark-bg:           #04181B;

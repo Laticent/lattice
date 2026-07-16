@@ -108,6 +108,7 @@
   /* ── Spectrum — black → graphite → silver ──────────────────────────── */
   --spectrum: linear-gradient(90deg, #0A0A0A 0%, #555555 55%, #B5B5B3 100%);
   --spectrum-vertical: linear-gradient(180deg, #0A0A0A 0%, #555555 55%, #B5B5B3 100%);
+  --spectrum-end: #B5B5B3; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens (referenced by light-dark() above) ───────── */
   --scheme-dark-bg:           #0F0F0F;

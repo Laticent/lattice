@@ -153,9 +153,12 @@ section.spectrum-solid {
   --spectrum-vertical: linear-gradient(180deg, var(--accent), var(--accent));
 }
 section.spectrum-duo {
-  /* accent → the theme's duotone partner (--tag-bg, universally set in base.tokens.css). */
-  --spectrum: linear-gradient(90deg, var(--accent) 0%, var(--tag-bg) 100%);
-  --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, var(--tag-bg) 100%);
+  /* accent → the theme's own curated spectrum ENDPOINT (--spectrum-end, its distinctive hue:
+     indaco green, onyx red, cuoio gold, laguna coral). Derived from what each theme already
+     curated in --spectrum — never a categorical color. Falls back to --accent (a quiet mono)
+     for any theme that hasn't named an endpoint. */
+  --spectrum: linear-gradient(90deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
+  --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
 }
 section.spectrum-mono {
   --spectrum: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);

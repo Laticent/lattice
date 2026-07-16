@@ -118,6 +118,7 @@
   /* ── Spectrum — wine deep → wine mid → champagne pop ────────────────── */
   --spectrum: linear-gradient(90deg, #180609 0%, #742532 55%, var(--brand-alt) 100%);
   --spectrum-vertical: linear-gradient(180deg, #180609 0%, #742532 55%, var(--brand-alt) 100%);
+  --spectrum-end: var(--brand-alt); /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens ──────────────────────────────────────────── */
   --scheme-dark-bg:           #180609;

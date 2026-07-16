@@ -91,6 +91,7 @@
     var(--brand-bright)      55%,
     var(--brand-alt)     100%
   );
+  --spectrum-end: var(--brand-alt); /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 }
 
 /* ── Dark-variant tokens — warm dark canvas ──────────────────────────── */

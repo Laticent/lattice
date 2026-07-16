@@ -112,6 +112,7 @@
   /* ── Spectrum — sepia → mustard → oxblood pop ──────────────────────── */
   --spectrum: linear-gradient(90deg, #0F0A03 0%, #8C6A18 55%, var(--brand-alt) 100%);
   --spectrum-vertical: linear-gradient(180deg, #0F0A03 0%, #8C6A18 55%, var(--brand-alt) 100%);
+  --spectrum-end: var(--brand-alt); /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens ──────────────────────────────────────────── */
   --scheme-dark-bg:           #0F0A03;

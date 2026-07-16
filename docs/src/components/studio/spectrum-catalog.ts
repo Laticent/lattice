@@ -37,8 +37,8 @@ export const SPECTRA: SpectrumEntry[] = [
 	},
 	{
 		name: 'duo', label: 'Duo',
-		blurb: "A two-tone gradient — the theme's accent into its duotone partner. Quieter than the rainbow.",
-		swatch: { background: 'linear-gradient(90deg, var(--accent), var(--tag-bg))' },
+		blurb: "A two-tone gradient — the theme's accent into its own spectrum endpoint. Quieter than the rainbow.",
+		swatch: { background: 'linear-gradient(90deg, var(--accent), var(--spectrum-end, var(--accent)))' },
 	},
 	{
 		name: 'mono', label: 'Mono',

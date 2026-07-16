@@ -115,6 +115,7 @@
   /* ── Spectrum — deep-plum → mid-violet → mauve ─────────────────────── */
   --spectrum: linear-gradient(90deg, #2A1B45 0%, #5B3D8C 55%, #B07FB5 100%);
   --spectrum-vertical: linear-gradient(180deg, #2A1B45 0%, #5B3D8C 55%, #B07FB5 100%);
+  --spectrum-end: #B07FB5; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens (referenced by light-dark() above) ───────── */
   --scheme-dark-bg:           #1A0F2D;

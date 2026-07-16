@@ -111,6 +111,7 @@
   /* ── Spectrum — garnet → coral → peach ─────────────────────────────── */
   --spectrum: linear-gradient(90deg, #1F0A0F 0%, #A04A55 55%, #E8B5A0 100%);
   --spectrum-vertical: linear-gradient(180deg, #1F0A0F 0%, #A04A55 55%, #E8B5A0 100%);
+  --spectrum-end: #E8B5A0; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens (referenced by light-dark() above) ───────── */
   --scheme-dark-bg:           #14060A;
