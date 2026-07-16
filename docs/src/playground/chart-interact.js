@@ -45,6 +45,11 @@ function el(cls) { const d = document.createElement('div'); if (cls) d.className
  * @param {() => HTMLIFrameElement} o.getFrame  the live slide iframe
  * @param {boolean} [o.tilt=true]  interaction-coupled tilt (lifts/tips toward the open slice, settles flat)
  * @param {() => void} [o.onReveal]  fired when a slice opens (practice uses it to pause autoplay)
+ * @param {(detail: object|null) => void} [o.onDetail]  RENDER HOOK. When provided, the
+ *   host owns the popover UI (e.g. the Playground renders the shadcn Popover): this is
+ *   called with `{ label, value, dot, body, meta, lean, x, y }` on reveal (x/y = the
+ *   cursor point in parent-viewport coords) and `null` on clear, and the built-in vanilla
+ *   popover is suppressed. Omit it (the frozen Drawing Board) to keep the vanilla popover.
  * @param {boolean} [o.hoverAny=false]  PREVIEW mode — instead of a parent hit-surface
  *   pinned over one onSlide()-designated chart (Present/Practice), listen on the
  *   same-origin iframe document and reveal whichever chart is under the pointer, so
@@ -52,7 +57,7 @@ function el(cls) { const d = document.createElement('div'); if (cls) d.className
  *   No hit-surface is pinned (it would eat the iframe's own pointer events); the
  *   popover stays a parent overlay. Re-bind to the doc on every srcdoc rewrite.
  */
-export function createChartInteract({ stage, getFrame, tilt = true, onReveal, hoverAny = false }) {
+export function createChartInteract({ stage, getFrame, tilt = true, onReveal, onDetail, hoverAny = false }) {
   const useTilt = tilt && !REDUCED;
 
   // Chart-family vocabulary. Every SVG chart — pie included, now that it rides
@@ -261,7 +266,18 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, ho
     // intentional tooltip and the richer card stays the signal of authored
     // detail. CSS keys off the --lean modifier. See
     // engineering/decisions/2026-06-21-chart-reveal-lean-tooltip.md.
-    pop.classList.toggle('db-pp-chartpop--lean', !body && !meta);
+    const lean = !body && !meta;
+    // Freeze the anchor at the cursor point that opened THIS mark, so the card holds
+    // its spot instead of sliding as the cursor drifts within the mark.
+    anchorPt = ptr ? { x: ptr.x, y: ptr.y } : null;
+    liftAndTilt(i);
+    if (onDetail) {
+      // The host owns the popover UI (Playground → shadcn Popover). Hand it the
+      // content + the cursor anchor; the vanilla popover stays dormant.
+      try { onDetail({ label, value, dot, body, meta, lean, x: anchorPt?.x, y: anchorPt?.y }); } catch { /* host hook */ }
+      return;
+    }
+    pop.classList.toggle('db-pp-chartpop--lean', lean);
     pop.innerHTML =
       `<div class="db-pp-chartpop-h">` +
       (dot ? `<span class="db-pp-chartpop-dot" style="background:${dot}"></span>` : '') +
@@ -269,7 +285,6 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, ho
       (value ? `<span class="db-pp-chartpop-v">${value}</span>` : '') + `</div>` +
       (body ? `<p>${body}</p>` : '') + (meta ? `<div class="db-pp-chartpop-m">${meta}</div>` : '');
     pop.classList.add('show');
-    liftAndTilt(i);
     reflow();   // re-pin the Present hit-surface
     startPop(); // Floating UI owns the popover position from here
   }
@@ -306,19 +321,32 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, ho
     });
     return { x: minX, y: minY, left: minX, top: minY, right: maxX, bottom: maxY, width: maxX - minX, height: maxY - minY };
   };
-  const virtualRef = { getBoundingClientRect: discRect };
+  // Pointer anchor — the popover sits next to the CURSOR (touch/mouse point) that
+  // revealed the mark, in parent-viewport coords. `ptr` is refreshed on every
+  // pointer move (Present hit-surface = parent coords; Preview iframe = mapped
+  // through the frame offset), and the autoUpdate loop below re-places each frame,
+  // so the card follows the cursor. A zero-size rect at the point is Floating UI's
+  // idiom for a cursor anchor. Falls back to the disc when there's no live pointer
+  // (keyboard reveal / presenter window).
+  let ptr = null;      // live cursor { x, y } in parent-viewport coords, updated on move
+  let anchorPt = null; // the point FROZEN at reveal — the popover holds here (calm), not sliding as the cursor drifts within a mark
+  const pointerRect = () => (anchorPt
+    ? { x: anchorPt.x, y: anchorPt.y, left: anchorPt.x, top: anchorPt.y, right: anchorPt.x, bottom: anchorPt.y, width: 0, height: 0 }
+    : null);
+  const anchorRect = () => pointerRect() || discRect();
+  const virtualRef = { getBoundingClientRect: anchorRect };
 
   function placePop() {
-    // Skip a frame where the disc reports a degenerate box (mid-patch, detached,
-    // or scrolled off): the continuous autoUpdate loop would otherwise anchor to
-    // EMPTY_RECT at (0,0) and flash the popover to the corner. reflow()/scroll
-    // clear() the stale popover shortly after; until then, just hold position.
-    const r = discRect();
-    if (!r.width || !r.height) return;
+    // Hold the frame if there's no usable anchor (mid-patch/detached with no live
+    // pointer): the autoUpdate loop would otherwise flash the popover to (0,0).
+    const r = anchorRect();
+    if (!ptr && (!r.width || !r.height)) return;
     computePosition(virtualRef, pop, {
-      placement: 'bottom',
+      // Off the cursor's lower-right so it never sits under the pointer; flip/shift
+      // keep it on-screen. Disc fallback keeps the calm centred-below placement.
+      placement: ptr ? 'bottom-start' : 'bottom',
       strategy: 'absolute',
-      middleware: [offset(12), flip({ padding: 8 }), shift({ padding: 8 })],
+      middleware: [offset(ptr ? 14 : 12), flip({ padding: 8 }), shift({ padding: 8 })],
     }).then(({ x, y }) => {
       pop.style.left = `${Math.round(x)}px`;
       pop.style.top = `${Math.round(y)}px`;
@@ -399,7 +427,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, ho
 
   function clear() {
     openSlice = -1;
+    ptr = null;       // next reveal (e.g. keyboard) falls back to the disc until a pointer moves
+    anchorPt = null;
     stopPop();
+    if (onDetail) { try { onDetail(null); } catch { /* host hook */ } }
     pop.classList.remove('show');
     markEls().forEach((w) => { w.style.opacity = ''; w.style.transform = ''; w.classList?.remove('chart-mark-active'); });
     if (chartEl) chartEl.style.transform = '';
@@ -421,11 +452,14 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, ho
   // Fine pointer (mouse): hover-follow. Coarse (touch): tap a slice to reveal,
   // tap again / off-slice to clear.
   if (!hoverAny) {
+    // Present hit-surface lives in the PARENT, so its event coords are already
+    // parent-viewport — use them directly as the popover's cursor anchor.
     if (!COARSE) {
-      hit.addEventListener('pointermove', (e) => { const s = sliceAt(e.clientX, e.clientY); if (s >= 0) reveal(s); });
+      hit.addEventListener('pointermove', (e) => { ptr = { x: e.clientX, y: e.clientY }; const s = sliceAt(e.clientX, e.clientY); if (s >= 0) reveal(s); });
       hit.addEventListener('pointerleave', () => clear());
     } else {
       hit.addEventListener('pointerdown', (e) => {
+        ptr = { x: e.clientX, y: e.clientY };
         const s = sliceAt(e.clientX, e.clientY);
         if (s < 0 || s === openSlice) clear(); else reveal(s);
         e.stopPropagation(); // don't let the tap fall through to the capture layer
@@ -441,12 +475,22 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, ho
     setChart(w.closest('.lattice > section') || w.closest('section'));
     return interactive() ? markIndex(w) : -1;
   }
+  // Preview events fire on the IFRAME document, so map their iframe-local coords
+  // into parent-viewport coords (through the frame's offset) for the cursor anchor.
+  function ptrFromFrame(e) {
+    try { const fr = getFrame().getBoundingClientRect(); ptr = { x: fr.left + e.clientX, y: fr.top + e.clientY }; }
+    catch { /* frame gone */ }
+  }
   function onDocMove(e) {
+    // resolveAt → setChart may clear() (which nulls ptr) when the hovered chart
+    // changes, so capture the cursor AFTER it, right before reveal snapshots it.
     const s = resolveAt(e.target);
+    ptrFromFrame(e);
     if (s >= 0) reveal(s); else if (openSlice >= 0) clear();
   }
   function onDocTap(e) {
     const s = resolveAt(e.target);
+    ptrFromFrame(e);
     if (s < 0 || s === openSlice) clear(); else reveal(s);
   }
   const onDocLeave = () => clear();

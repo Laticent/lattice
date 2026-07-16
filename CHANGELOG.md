@@ -17,6 +17,14 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **The chart detail reveal is now the real shadcn Popover, and it appears at the cursor.** Hovering
+  or tapping a chart mark (pie wedge, funnel band, state node, …) previously popped a hand-rolled card
+  anchored under the chart's centre. It now (a) renders as the actual shadcn `Popover` in the Playground
+  — Radix positioning, the site's popover tokens, dark/light aware — and (b) anchors to the **cursor
+  point** that opened it, so the detail sits right where you're looking. The parent-hosted
+  `chart-interact` layer stays the geometry/data engine but hands the reveal (content + cursor point) to
+  the React host via a new `onDetail` hook; the frozen Drawing Board keeps its vanilla card (now also
+  cursor-anchored). (`chart-interact.js`, `PlaygroundApp.tsx`.)
 - **State-chart is now a self-scaling chart, like the pie — it always fits, and never clips its
   caption.** After the `.viz-frame` merge a normal state-chart (even 4 states) with a `_Source: …_`
   caption overflowed: the pinned node column — tall from its bow-gutter padding — couldn't shrink
